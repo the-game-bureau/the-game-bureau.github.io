@@ -6,6 +6,8 @@
   var DEFAULT_STORAGE_KEY = 'tgb-photo-review-auth-session';
   var STYLE_ID = 'mc-admin-auth-style';
   var ROOT_ID = 'mcAdminAuthRoot';
+  var REMEMBER_SUFFIX = ':remember';
+  var REMEMBERED_EMAIL_SUFFIX = ':email';
 
   function hasConfig(config) {
     return !!(config && config.url && config.publishableKey);
@@ -34,9 +36,12 @@
       '.mc-auth-title{margin:0;color:#2d4880;font-size:clamp(2rem,4vw,3rem);line-height:.95;}',
       '.mc-auth-copy{margin:0;color:#5c6472;line-height:1.6;}',
       '.mc-auth-form{display:grid;gap:14px;}',
+      '.mc-auth-form[hidden]{display:none;}',
       '.mc-auth-field{display:grid;gap:6px;font-size:.9rem;font-weight:700;color:#2d4880;}',
       '.mc-auth-field input{height:46px;padding:0 12px;border:1px solid rgba(45,72,128,.18);border-radius:10px;background:rgba(255,255,255,.92);color:#1f2937;font:inherit;}',
       '.mc-auth-field input:focus{outline:2px solid rgba(45,72,128,.24);outline-offset:2px;}',
+      '.mc-auth-check{display:inline-flex;align-items:center;gap:8px;margin-top:-2px;color:#2d4880;font-size:.86rem;font-weight:800;line-height:1.3;}',
+      '.mc-auth-check input{width:16px;height:16px;margin:0;accent-color:#2d4880;}',
       '.mc-auth-actions{display:flex;gap:10px;flex-wrap:wrap;}',
       '.mc-auth-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid rgba(45,72,128,.18);border-radius:8px;background:rgba(255,255,255,.92);color:#1f2937;font:inherit;font-size:.85rem;font-weight:800;letter-spacing:.06em;text-decoration:none;cursor:pointer;}',
       '.mc-auth-btn:hover{background:#fff;}',
@@ -64,18 +69,37 @@
       '    <p class="mc-auth-kicker">The Game Bureau</p>',
       '    <h1 class="mc-auth-title" id="mcAuthTitle">Mission Control</h1>',
       '    <p class="mc-auth-copy" id="mcAuthCopy"></p>',
-      '    <form class="mc-auth-form" id="mcAuthForm">',
+      '    <form class="mc-auth-form" id="mcAuthForm" autocomplete="off">',
       '      <label class="mc-auth-field" for="mcAuthEmail">',
       '        <span>Email</span>',
       '        <input id="mcAuthEmail" name="email" type="email" autocomplete="username" required>',
       '      </label>',
       '      <label class="mc-auth-field" for="mcAuthPassword">',
       '        <span>Password</span>',
-      '        <input id="mcAuthPassword" name="password" type="password" autocomplete="current-password" required>',
+      '        <input id="mcAuthPassword" name="mc_admin_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore readonly required>',
+      '      </label>',
+      '      <label class="mc-auth-check" for="mcAuthRemember">',
+      '        <input id="mcAuthRemember" name="remember" type="checkbox">',
+      '        <span>Remember Me</span>',
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
+      '        <button class="mc-auth-btn" id="mcAuthResetBtn" type="button">Reset Password</button>',
       '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
+      '      </div>',
+      '    </form>',
+      '    <form class="mc-auth-form" id="mcAuthPasswordResetForm" autocomplete="off" hidden>',
+      '      <label class="mc-auth-field" for="mcAuthNewPassword">',
+      '        <span>New Password</span>',
+      '        <input id="mcAuthNewPassword" name="mc_admin_new_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" data-lpignore="true" data-1p-ignore required>',
+      '      </label>',
+      '      <label class="mc-auth-field" for="mcAuthConfirmPassword">',
+      '        <span>Confirm Password</span>',
+      '        <input id="mcAuthConfirmPassword" name="mc_admin_confirm_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" data-lpignore="true" data-1p-ignore required>',
+      '      </label>',
+      '      <div class="mc-auth-actions">',
+      '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
+      '        <button class="mc-auth-btn" id="mcAuthBackBtn" type="button">Back to Sign In</button>',
       '      </div>',
       '    </form>',
       '    <p class="mc-auth-status" id="mcAuthStatus" aria-live="polite"></p>',
@@ -103,8 +127,13 @@
       signedOutMessage: 'Sign in with an admin account.',
       modalCopy: 'Sign in to Mission Control with an admin account.',
       homeHref: '../',
-      configMissingMessage: 'Admin auth is unavailable because Supabase is not configured.'
+      configMissingMessage: 'Admin auth is unavailable because Supabase is not configured.',
+      resetCopy: 'Set a new Mission Control password from the reset link.',
+      passwordResetRedirectHref: ''
     }, options || {});
+
+    settings.rememberStorageKey = settings.rememberStorageKey || (settings.storageKey + REMEMBER_SUFFIX);
+    settings.rememberedEmailStorageKey = settings.rememberedEmailStorageKey || (settings.storageKey + REMEMBERED_EMAIL_SUFFIX);
 
     var document = global.document;
     var pageProtected = isMissionControlPath()
@@ -116,17 +145,43 @@
     var closeBtn = root.querySelector('#mcAuthCloseBtn');
     var copyEl = root.querySelector('#mcAuthCopy');
     var form = root.querySelector('#mcAuthForm');
+    var resetForm = root.querySelector('#mcAuthPasswordResetForm');
     var emailInput = root.querySelector('#mcAuthEmail');
     var passwordInput = root.querySelector('#mcAuthPassword');
+    var rememberInput = root.querySelector('#mcAuthRemember');
+    var resetBtn = root.querySelector('#mcAuthResetBtn');
+    var newPasswordInput = root.querySelector('#mcAuthNewPassword');
+    var confirmPasswordInput = root.querySelector('#mcAuthConfirmPassword');
+    var savePasswordBtn = root.querySelector('#mcAuthSavePasswordBtn');
+    var backBtn = root.querySelector('#mcAuthBackBtn');
     var submitBtn = root.querySelector('#mcAuthSubmitBtn');
     var statusEl = root.querySelector('#mcAuthStatus');
     var homeBtn = root.querySelector('#mcAuthHomeBtn');
     var currentSession = null;
+    var pendingRecoverySession = null;
+    var rememberSession = false;
+    var mode = 'signin';
     var listenersBound = false;
     var refreshTimer = null;
 
     copyEl.textContent = settings.modalCopy;
     homeBtn.href = settings.homeHref;
+
+    function setFreshPasswordInput(input) {
+      if (!input) return;
+      input.value = '';
+      input.defaultValue = '';
+      input.setAttribute('autocomplete', 'new-password');
+      input.setAttribute('autocapitalize', 'none');
+      input.setAttribute('spellcheck', 'false');
+      if (input === passwordInput && document.activeElement !== input) input.readOnly = true;
+    }
+
+    function resetPasswordInputs() {
+      setFreshPasswordInput(passwordInput);
+      setFreshPasswordInput(newPasswordInput);
+      setFreshPasswordInput(confirmPasswordInput);
+    }
 
     function setPageAuthorized(signedIn) {
       if (!pageProtected || !document.body) return;
@@ -137,6 +192,14 @@
       statusEl.textContent = message || '';
       statusEl.classList.toggle('is-error', state === 'error');
       statusEl.classList.toggle('is-success', state === 'success');
+    }
+
+    function setMode(nextMode) {
+      mode = nextMode === 'reset' ? 'reset' : 'signin';
+      if (form) form.hidden = mode !== 'signin';
+      if (resetForm) resetForm.hidden = mode !== 'reset';
+      copyEl.textContent = mode === 'reset' ? settings.resetCopy : settings.modalCopy;
+      resetPasswordInputs();
     }
 
     function setSignOutState(signedIn) {
@@ -177,11 +240,17 @@
     }
 
     function openModal(message, state) {
+      if (mode !== 'reset') setMode('signin');
       modal.hidden = false;
       modal.classList.add('is-open');
       setStatus(message || settings.initialMessage, state || '');
       notifyModalShow();
       global.setTimeout(function () {
+        resetPasswordInputs();
+        if (mode === 'reset' && newPasswordInput) {
+          newPasswordInput.focus();
+          return;
+        }
         if (!(currentSession && currentSession.access_token) && emailInput) emailInput.focus();
       }, 0);
     }
@@ -203,22 +272,70 @@
       });
     }
 
-    function readStorageKey(key) {
+    function readStorageKey(key, storage) {
       if (!key) return null;
+      var store = storage || global.localStorage;
       try {
-        return JSON.parse(global.localStorage.getItem(key) || 'null');
+        return JSON.parse(store.getItem(key) || 'null');
       } catch (error) {
         return null;
       }
     }
 
+    function readStoredText(key) {
+      try {
+        return String(global.localStorage.getItem(key) || '');
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function writeStoredText(key, value) {
+      try {
+        if (value) global.localStorage.setItem(key, String(value));
+        else global.localStorage.removeItem(key);
+      } catch (error) {
+      }
+    }
+
+    function readRememberPreference() {
+      return readStoredText(settings.rememberStorageKey) === '1';
+    }
+
+    function setRememberPreference(remember) {
+      writeStoredText(settings.rememberStorageKey, remember ? '1' : '');
+    }
+
+    function setRememberUi(remember) {
+      rememberSession = !!remember;
+      if (rememberInput) rememberInput.checked = rememberSession;
+      if (rememberSession && emailInput && !emailInput.value) {
+        emailInput.value = readStoredText(settings.rememberedEmailStorageKey);
+      }
+    }
+
+    function clearStoredSessions() {
+      try { global.localStorage.removeItem(settings.storageKey); } catch (error) {}
+      try { global.sessionStorage.removeItem(settings.storageKey); } catch (error) {}
+      removeLegacySessions();
+    }
+
     function readStoredSession() {
-      var stored = readStorageKey(settings.storageKey);
-      if (stored && stored.access_token) return stored;
+      var tabSession = readStorageKey(settings.storageKey, global.sessionStorage);
+      if (tabSession && tabSession.access_token) {
+        setRememberUi(false);
+        return tabSession;
+      }
+
+      var stored = readStorageKey(settings.storageKey, global.localStorage);
+      if (stored && stored.access_token) {
+        setRememberUi(true);
+        return stored;
+      }
 
       var migrated = null;
       settings.legacyStorageKeys.some(function (key) {
-        var legacy = readStorageKey(key);
+        var legacy = readStorageKey(key, global.localStorage);
         if (legacy && legacy.access_token) {
           migrated = legacy;
           return true;
@@ -226,17 +343,30 @@
         return false;
       });
 
-      if (migrated) storeSession(migrated);
+      if (migrated) storeSession(migrated, true);
       return migrated;
     }
 
-    function storeSession(session) {
+    function storeSession(session, remember) {
       try {
-        if (session) global.localStorage.setItem(settings.storageKey, JSON.stringify(session));
-        else global.localStorage.removeItem(settings.storageKey);
+        global.localStorage.removeItem(settings.storageKey);
+        global.sessionStorage.removeItem(settings.storageKey);
+        if (session) {
+          // Remember Me persists the Supabase session only, never the password.
+          if (remember) global.localStorage.setItem(settings.storageKey, JSON.stringify(session));
+          else global.sessionStorage.setItem(settings.storageKey, JSON.stringify(session));
+        }
       } catch (error) {
       }
       removeLegacySessions();
+      if (session) {
+        setRememberUi(!!remember);
+        setRememberPreference(!!remember);
+        var rememberedEmail = String(
+          (session.user && session.user.email) || (emailInput && emailInput.value) || ''
+        ).trim();
+        writeStoredText(settings.rememberedEmailStorageKey, remember ? rememberedEmail : '');
+      }
     }
 
     function authUrl(path) {
@@ -310,6 +440,52 @@
       });
       if (!response.ok) throw new Error(await readError(response, 'Sign in failed.'));
       return normalizeSession(await response.json());
+    }
+
+    function resetRedirectHref() {
+      if (settings.passwordResetRedirectHref) {
+        return new URL(settings.passwordResetRedirectHref, global.location.href).toString();
+      }
+      if (isMissionControlPath()) {
+        return new URL('/mc/', global.location.href).toString();
+      }
+      var url = new URL(global.location.href);
+      url.hash = '';
+      return url.toString();
+    }
+
+    async function recoverPassword(email) {
+      var redirectTo = resetRedirectHref();
+      var url = authUrl('recover');
+      if (redirectTo) url += '?redirect_to=' + encodeURIComponent(redirectTo);
+      var request = {
+        method: 'POST',
+        headers: {
+          apikey: settings.supabaseConfig.publishableKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email })
+      };
+      var response = await fetch(url, request);
+      if (!response.ok) throw new Error(await readError(response, 'Could not send reset email.'));
+      return true;
+    }
+
+    async function updatePassword(session, password) {
+      if (!session || !session.access_token) throw new Error('Password reset session is missing.');
+      var response = await fetch(authUrl('user'), {
+        method: 'PUT',
+        headers: {
+          apikey: settings.supabaseConfig.publishableKey,
+          Authorization: 'Bearer ' + session.access_token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password: password })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not update password.'));
+      var payload = await response.json();
+      session.user = (payload && payload.user) || payload || session.user || null;
+      return session;
     }
 
     async function refreshSession(session) {
@@ -426,7 +602,7 @@
       var refreshed = await refreshSession(currentSession);
       if (refreshed && refreshed.access_token) {
         currentSession = refreshed;
-        storeSession(refreshed);
+        storeSession(refreshed, rememberSession);
         scheduleRefresh(refreshed);
         setPageAuthorized(true);
         notifyAuthChange(true, refreshed);
@@ -454,11 +630,12 @@
       return renewSession();
     }
 
-    async function activateSession(session) {
+    async function activateSession(session, remember) {
       currentSession = session;
-      storeSession(session);
+      storeSession(session, !!remember);
       scheduleRefresh(session);
-      if (passwordInput) passwordInput.value = '';
+      resetPasswordInputs();
+      setMode('signin');
       setSignOutState(true);
       setPageAuthorized(true);
       closeModal();
@@ -479,6 +656,7 @@
       var email = String(emailInput.value || '').trim();
       var password = String(passwordInput.value || '');
       if (!email || !password) return;
+      var remember = !!(rememberInput && rememberInput.checked);
 
       submitBtn.disabled = true;
       setStatus('Signing in...');
@@ -488,7 +666,7 @@
         if (!isAllowed) {
           throw new Error(settings.unauthorizedMessage);
         }
-        await activateSession(session);
+        await activateSession(session, remember);
       } catch (error) {
         currentSession = null;
         storeSession(null);
@@ -501,11 +679,73 @@
       }
     }
 
+    async function handleRecoverClick() {
+      if (!hasConfig(settings.supabaseConfig)) {
+        setStatus(settings.configMissingMessage, 'error');
+        return;
+      }
+      var email = String(emailInput.value || '').trim();
+      if (!email) {
+        setStatus('Enter your email first.', 'error');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+      if (resetBtn) resetBtn.disabled = true;
+      setStatus('Sending reset email...');
+      try {
+        await recoverPassword(email);
+        setStatus('If that admin account exists, a reset link is on the way.', 'success');
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        if (resetBtn) resetBtn.disabled = false;
+      }
+    }
+
+    async function handleResetSubmit(event) {
+      event.preventDefault();
+      if (!pendingRecoverySession) {
+        setStatus('Open the latest password reset email and use its link first.', 'error');
+        return;
+      }
+      var nextPassword = String(newPasswordInput.value || '');
+      var confirmPassword = String(confirmPasswordInput.value || '');
+      if (nextPassword.length < 6) {
+        setStatus('Use at least 6 characters.', 'error');
+        return;
+      }
+      if (nextPassword !== confirmPassword) {
+        setStatus('The passwords do not match.', 'error');
+        return;
+      }
+      if (savePasswordBtn) savePasswordBtn.disabled = true;
+      setStatus('Saving password...');
+      try {
+        var session = await updatePassword(pendingRecoverySession, nextPassword);
+        var isAllowed = await verifySession(session);
+        if (!isAllowed) throw new Error(settings.unauthorizedMessage);
+        pendingRecoverySession = null;
+        await activateSession(session, false);
+        setStatus('Password updated.', 'success');
+      } catch (error) {
+        currentSession = null;
+        storeSession(null);
+        setPageAuthorized(false);
+        setStatus(error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        resetPasswordInputs();
+        if (savePasswordBtn) savePasswordBtn.disabled = false;
+      }
+    }
+
     async function signOut(options) {
       var previousSession = currentSession || readStoredSession();
       clearRefreshTimer();
       currentSession = null;
-      storeSession(null);
+      clearStoredSessions();
+      setRememberUi(false);
+      setRememberPreference(false);
+      writeStoredText(settings.rememberedEmailStorageKey, '');
       setSignOutState(false);
       setPageAuthorized(false);
       notifyAuthChange(false, previousSession);
@@ -521,7 +761,45 @@
 
     function showAuth(message, state) {
       setSignOutState(false);
+      pendingRecoverySession = null;
+      setMode('signin');
       openModal(message || settings.initialMessage, state || '');
+    }
+
+    function parseRecoveryParams() {
+      var raw = '';
+      try {
+        raw = String(global.location.hash || '').replace(/^#/, '');
+      } catch (error) {
+        raw = '';
+      }
+      if (!raw) return null;
+      var params = new URLSearchParams(raw);
+      if (params.get('type') !== 'recovery' || !params.get('access_token')) return null;
+      return {
+        access_token: params.get('access_token') || '',
+        refresh_token: params.get('refresh_token') || '',
+        expires_in: Number(params.get('expires_in') || 3600),
+        expires_at: Number(params.get('expires_at') || 0) || undefined,
+        token_type: params.get('token_type') || 'bearer'
+      };
+    }
+
+    function clearRecoveryParams() {
+      try {
+        if (!global.history || !global.history.replaceState) return;
+        var url = new URL(global.location.href);
+        if (!url.hash) return;
+        url.hash = '';
+        global.history.replaceState(null, document.title, url.toString());
+      } catch (error) {
+      }
+    }
+
+    function showPasswordReset(message, state) {
+      setSignOutState(false);
+      setMode('reset');
+      openModal(message || 'Enter a new password.', state || '');
     }
 
     function bindListeners() {
@@ -529,6 +807,19 @@
       listenersBound = true;
 
       form.addEventListener('submit', handleSubmit);
+      passwordInput.addEventListener('focus', function () {
+        passwordInput.readOnly = false;
+        passwordInput.value = '';
+      });
+      passwordInput.addEventListener('pointerdown', function () {
+        passwordInput.readOnly = false;
+      });
+      resetForm.addEventListener('submit', handleResetSubmit);
+      resetBtn.addEventListener('click', handleRecoverClick);
+      backBtn.addEventListener('click', function () {
+        pendingRecoverySession = null;
+        showAuth(settings.initialMessage);
+      });
       closeBtn.addEventListener('click', closeModal);
 
       // Laptop sleep / long-backgrounded tabs can pause the refresh timer past
@@ -551,12 +842,17 @@
     async function init() {
       bindListeners();
       setPageAuthorized(false);
+      setRememberUi(readRememberPreference());
+      resetPasswordInputs();
 
       if (!hasConfig(settings.supabaseConfig)) {
         setSignOutState(false);
         submitBtn.disabled = true;
         emailInput.disabled = true;
         passwordInput.disabled = true;
+        if (rememberInput) rememberInput.disabled = true;
+        if (resetBtn) resetBtn.disabled = true;
+        if (savePasswordBtn) savePasswordBtn.disabled = true;
         showAuth(settings.configMissingMessage, 'error');
         return false;
       }
@@ -564,6 +860,24 @@
       submitBtn.disabled = false;
       emailInput.disabled = false;
       passwordInput.disabled = false;
+      if (rememberInput) rememberInput.disabled = false;
+      if (resetBtn) resetBtn.disabled = false;
+      if (savePasswordBtn) savePasswordBtn.disabled = false;
+
+      var recoveryPayload = parseRecoveryParams();
+      if (recoveryPayload) {
+        try {
+          pendingRecoverySession = await normalizeSession(recoveryPayload);
+          clearRecoveryParams();
+          showPasswordReset('Enter a new password for this admin account.', 'success');
+          return false;
+        } catch (error) {
+          pendingRecoverySession = null;
+          clearRecoveryParams();
+          showAuth(error instanceof Error ? error.message : String(error), 'error');
+          return false;
+        }
+      }
 
       var session = await getUsableSession();
       if (!session) {
@@ -577,7 +891,7 @@
       try {
         var isAllowed = await verifySession(session);
         if (!isAllowed) throw new Error(settings.unauthorizedMessage);
-        await activateSession(session);
+        await activateSession(session, rememberSession);
         return true;
       } catch (error) {
         currentSession = null;
@@ -601,6 +915,7 @@
       restUrl: restUrl,
       authUrl: authUrl,
       readError: readError,
+      recoverPassword: recoverPassword,
       verifyAdminTable: verifyAdminTable,
       readStoredSession: readStoredSession,
       storeSession: storeSession,

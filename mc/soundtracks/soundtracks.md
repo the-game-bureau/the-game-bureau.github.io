@@ -1,5 +1,13 @@
 # City Soundtracks
 
+> **Prompts and routines:** this room has two, and they are not the same text.
+> The **TGB SOUNDTRACK BOT** routine (`trig_014sqaUyU7557svq9mGA1E4a`, cron `30 11`)
+> holds the publishable key and calls the RPCs itself. The **PROMPT dialog** in
+> [the Tape Room](/mc/soundtracks/admin/index.html) is for pasting into a chat AI
+> that has no key, so its deliverable is SQL. Editorial rules must be kept in step
+> across both by hand. The full map is
+> [mc/_dev/prompt-tools/PROMPTS.md](/mc/_dev/prompt-tools/PROMPTS.md).
+
 **If you are an AI agent working on soundtracks, read this first.** It is also
 the plain-English explanation for anyone else. The dashboard at
 [`/mc/soundtracks/admin/`](/mc/soundtracks/admin/index.html) is the human view of the same system; this
@@ -102,11 +110,20 @@ A tape and its songs:
   Room's **Copy** relies on it, inserting the copy with `archived = false`.
   **Move** is the one action that does carry the tombstone across, because it
   takes the row itself rather than making a new one.
-- **The Tape Room says HIDE and HIDDEN for this, not archive.** The column keeps
-  the name `archived` and so does the code; only the words a person reads changed
-  (2026-07-30). "Archive" implied the track was filed away or deleted, when all
-  that happens is it comes off `/soundtracks/` and stops counting. If you add UI here,
-  match the visible vocabulary: **Hide / Show**, **Hidden / Active**.
+- **The Tape Room says KEEP and SKIP for this, not archive.** The column keeps
+  the name `archived`, the code keeps its `LIVE` / `SHELVED` / `REVIEW` status
+  strings, and only the words a person reads have ever changed — four times now:
+  ARCHIVE → HIDE (2026-07-30) → SHELVE (2026-08-01) → **SKIP** (2026-08-14).
+  Each rename fixed the same complaint, that the word implied more than the
+  effect: nothing is filed away or deleted, the track simply comes off
+  `/soundtracks/` and stops counting. If you add UI here, match the visible
+  vocabulary: buttons **Keep / Skip / Review**, chips **Kept / Skipped /
+  Review**. A **TAPE is SHELVED, a TRACK is SKIPPED** — different columns doing
+  different jobs (`soundtracks.archived` takes a whole city off the site,
+  `soundtrack_songs.rejected_at` turns down one song), and you skip a track on a
+  player but a whole tape goes on a shelf. So the tape level is **Shelve tape /
+  Restore tape**. *Restore*, not *Keep tape* — restoring brings back only the
+  tracks the tape took down with it, never one skipped on its own.
 - A **unique index on `(city_slug, lower(title), lower(artist))`** enforces the
   no-duplicates rule in the database. This is what makes tombstones work: an
   INSERT of a retired song hits the index and does nothing.
@@ -182,7 +199,7 @@ Writes split by who is doing them:
 These must hold. The daily agent follows them; so should you.
 
 1. **Exactly 15 active songs** per city. Active means `archived` is not true.
-   A tape **over** 15 is corrected by hiding, not deleting, and the ones to hide
+   A tape **over** 15 is corrected by skipping, not deleting, and the ones to skip
    are the **most recently added** — highest `created_at` first, ties broken by
    highest `id` — until 15 active remain. Newest-first is the rule because the
    earlier fifteen were the considered set; anything past them arrived from a
@@ -192,18 +209,20 @@ These must hold. The daily agent follows them; so should you.
 2. **Max 2 active songs per artist** within a city.
 3. **No duplicate title + artist** pair within a city, including archived songs.
 4. Every active song has a **title, an artist, and a blurb** of **10 words or
-   fewer**. There is **no minimum** — four words that say something true are
-   better than eight padded out to reach a count, and shortness alone is never
-   worth reporting.
+   fewer**. The blurb is **required** — a missing one is a `facts` finding —
+   but there is **no minimum LENGTH** once it exists. Four words that say
+   something true are better than eight padded out to reach a count, and **no
+   blurb is ever too short**: shortness alone is never worth reporting, at any
+   length above nothing.
 5. `spotify_id`, when present, is **exactly 22 alphanumeric characters**, verified
    against a real `open.spotify.com/track` page. **Never invent one** — a
    fabricated ID is 22 characters like any other, passes every format check, and
    silently plays nothing. IDs are **case-sensitive** and search snippets
    sometimes disagree on capitalisation, so copy the ID off the page you opened.
 6. `explicit = true` only when Spotify marks the track explicit.
-7. `archived = true` only for a retired song that should be hidden and excluded
-   from active counts while blocking reuse in that same city. **Only a human sets
-   it** — the agent write path cannot archive or un-archive anything.
+7. `archived = true` only for a retired song that should be off the site and
+   excluded from active counts while blocking reuse in that same city. **Only a
+   human sets it** — the agent write path cannot keep or skip anything.
 8. `position` runs 0-upward within a tape and carries play order.
 9. **No tapes for venue-only cities** — rows in `public.cities` with
    `hide_from_soundtracks = true` (Orchard Park, Santa Clara) are stadium towns,
@@ -325,7 +344,7 @@ what advances the rotation, and a tape you never stamp is re-audited forever.
 | `spotify` | The id resolves to nothing, or to a **different recording** than title+artist claims. Check it first and report it `high` — it is the only failure a visitor actually hits. A *wrong* id is far worse than a *missing* one: missing falls back to a search and still works. |
 | `spelling` | Misspelled title or artist, typos in a blurb, a mis-capitalised proper noun. Check against the real release, not against your expectation — stylised titles are often correct as written. |
 | `relevance` | No genuine tie to the city, including a sports track the team does not actually use. The failure the whole editorial rule exists to prevent, so be specific about why. |
-| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb over 10 words, an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to hide — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
+| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb over 10 words (never a blurb merely judged *short* — there is no minimum length), an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to skip — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
 
 **Severity.** `high` = a visitor sees or hears something broken. `warn` = wrong
 but not visibly broken. `info` = a nitpick. Use `high` sparingly; if everything
@@ -341,7 +360,8 @@ is high, nothing is.
   allows, and a second one is dropped.
 - Put the problem in `detail`, in one sentence someone can act on. Put a concrete
   fix in `suggestion` **only when you have verified it**.
-- Say nothing about **archived** songs. They are already off `/soundtracks/`.
+- Say nothing about **skipped** songs. They are already off `/soundtracks/` and
+  can never be re-picked for that city, so there is nothing left to ask.
 - **Do not fix what you find.** Noticing is automatable; deciding is not. The one
   exception is a song you added yourself this run — fix that before you report it.
 - At most 40 findings a call. If a sweep produces more, report the most severe and
@@ -360,7 +380,8 @@ The checks themselves, unchanged since 2026-07-28:
 3. Active songs with a missing `spotify_id` (the column's CHECK constraint means
    a malformed one can no longer be stored at all).
 4. Active songs with missing titles, artists, or blurbs; blurbs longer than 10
-   words or ending in a period.
+   words or ending in a period. **A blurb is never reported for being short** —
+   only for being absent, over the ten, or punctuated.
 5. Tapes with no songs, and tapes for cities that have since been hidden from
    `/soundtracks/`.
 6. Tapes short of 15 active songs, shortest first — the backlog, expected to be

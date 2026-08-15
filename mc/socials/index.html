@@ -854,20 +854,20 @@
       color: rgba(var(--bic-blue-rgb), 0.9);
       text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
     }
-    /* Title and scribble on one line, the scribble riding the baseline of the
-       name and wrapping under it when there is no room. */
-    .room-titleline {
-      display: flex;
-      align-items: baseline;
-      flex-wrap: wrap;
-      gap: 12px;
-      min-width: 0;
-    }
+    /* TITLE, THEN TAGLINE, THEN THE NOTE. The scribble used to ride the title's
+       baseline on a shared .room-titleline row; it sits under the standing
+       description now, so the header reads top to bottom as name → what this
+       room is → what just happened. A note written in the margin of a printed
+       page belongs beside the text it is about, not beside the masthead.
+       Matches the Tape Room and the Stock Room, which moved first. */
     /* RED BIC INK. Handwriting, because it is a note ON the page rather than
        part of it, and the tilt is what stops it reading as another label. The
        paper glow behind it is the same trick .stockroom-eyebrow uses to stay
        legible over the gear watermark. */
     .room-scribble {
+      /* Its own line under the tagline, not an inline tail on the title. */
+      display: block;
+      margin-top: 3px;
       font-family: "Shadows Into Light", "Segoe Script", cursive;
       /* Scaled against the title, which is itself a clamp up to 5.8rem — a
          fixed 1.1rem note beside a display-sized word reads as a footnote that
@@ -1062,6 +1062,83 @@
       justify-content: flex-start;
       gap: 8px;
     }
+    /* The image field: thumbnail left, address right. The picture comes first
+       because you judge it first; the URL is only evidence for what it shows. */
+    .image-row {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .image-row input { flex: 1 1 auto; min-width: 0; }
+
+    .image-thumb {
+      flex: 0 0 auto;
+      width: 74px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      cursor: zoom-in;
+    }
+
+    .image-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+    /* EMPTY AND BROKEN ARE DIFFERENT AND MUST LOOK IT. Empty is the ordinary
+       state of an optional field. Broken means the URL is there and the picture
+       is not, which is the one case worth acting on: a candidate with no working
+       image cannot reach Instagram at all. */
+    .image-thumb.is-empty,
+    .image-thumb.is-broken { cursor: default; }
+
+    .image-thumb.is-empty::after,
+    .image-thumb.is-broken::after {
+      content: 'no image';
+      display: block;
+      padding: 6px 4px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.55rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .image-thumb.is-broken {
+      border-color: rgba(194, 55, 55, 0.42);
+      background: rgba(194, 55, 55, 0.07);
+    }
+
+    .image-thumb.is-broken::after { content: 'broken'; color: var(--bic-red); }
+    .image-thumb.is-empty img,
+    .image-thumb.is-broken img { display: none; }
+
+    /* Above the dialog, which sits at z-index 100. A photograph, not a panel:
+       black ground, no chrome, click anywhere to close. */
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(8, 12, 20, 0.88);
+      cursor: zoom-out;
+    }
+
+    .image-lightbox[hidden] { display: none; }
+
+    .image-lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 6px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+
     .modal-actions {
       display: flex;
       align-items: center;
@@ -1198,18 +1275,16 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <!-- THE SCRIBBLE IS WHERE NOTIFICATIONS GO — in red pen, beside the
-               room's name, the way you would write on a page that is already
-               printed. Empty almost always, and it collapses when it is.
-               The TAGLINE BELOW IS NOT A STATUS LINE and must never be borrowed
-               for one: it is the standing description of the room, and a
-               message that overwrote it took the explanation away exactly when
+          <!-- THE SCRIBBLE IS WHERE NOTIFICATIONS GO — in red pen, UNDER the
+               tagline, the way you would write in the margin of a page that is
+               already printed. Empty almost always, and it collapses when it is.
+               The TAGLINE ABOVE IT IS NOT A STATUS LINE and must never be
+               borrowed for one: it is the standing description of the room, and
+               a message that overwrote it took the explanation away exactly when
                something had gone wrong and left nothing behind to restore. -->
-          <div class="room-titleline">
-            <h1 class="room-title" id="pageTitle">SOCIALIZER</h1>
-            <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
-          </div>
+          <h1 class="room-title" id="pageTitle">SOCIALIZER</h1>
           <p class="status room-substat" id="pageStatus">Social media posts are added here manually or through ai. Skip or post each one.</p>
+          <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
         </div>
       </div>
       <div class="stockroom-head-status" hidden>
@@ -1237,9 +1312,9 @@
           <button class="btn" id="promptBtn" type="button"
                   title="Use any ai to get 5 post candidates and add them to this page.">PROMPT</button>
           <!-- The tooltip says what the thing IS, not what the click does. A
-               button labelled with a name needs the former; "open the TGB SOCIAL
-               BOT routine" only restated the label. -->
-          <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="A Claude routine that runs twice daily and adds post candidates to this page.">TGB SOCIAL BOT</a>
+               button labelled with a name needs the former; "open the SOCIALIZER BOT
+               routine" only restated the label. -->
+          <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="A Claude routine that runs twice daily and adds post candidates to this page.">SOCIALIZER BOT</a>
         </div>
       </fieldset>
 
@@ -1294,12 +1369,12 @@
         <!-- Same lockup as the prompt dialog: a mono eyebrow saying how the
              candidates arrive, then a short name saying how many. The two are
              the room's two ways in, so they are built to be read as a pair —
-             ADDED BY HAND / One Post Candidate against PASTE-READY PROMPT /
+             MANUAL ADD / Post Candidate against PASTE-READY PROMPT /
              Five Post Candidates. -->
         <div class="panel-head prompt-head">
           <div class="prompt-headline">
-            <span class="prompt-eyebrow">Added by hand</span>
-            <h2 class="panel-title" id="manualTitle">One Post Candidate</h2>
+            <span class="prompt-eyebrow">Manual add</span>
+            <h2 class="panel-title" id="manualTitle">Post Candidate</h2>
           </div>
           <!-- Cancel and Add, repeated from the footer, the same way the Edit
                dialog carries them — on a phone the caption box can still push
@@ -1345,11 +1420,11 @@
               <!-- Open rides the label and starts DISABLED: there is nothing to
                    open until the box holds a URL that will resolve. It used to
                    sit beside the input and answer a press with "add a
-                   destination web page", which is an error message for a state
-                   the button could simply have shown. syncManualUrlButtons
+                   website", which is an error message for a state the button
+                   could simply have shown. syncManualUrlButtons
                    keeps it in step. -->
               <div class="field-label field-line">
-                <label for="manualUrl">Destination Web Page</label>
+                <label for="manualUrl">Website</label>
                 <button class="btn small" id="manualOpenUrlBtn" type="button" disabled
                         title="Add a link to open it">Open</button>
               </div>
@@ -1429,7 +1504,15 @@
         </div>
       </section>
 
-      <div class="tool-backdrop" id="promptBackdrop" hidden></div>
+      <!-- PAIRED WITH A ROUTINE. This dialog and the stored prompt of
+         SOCIALIZER BOT (trig_01KDYndJhZ9ymgUgX5Xx6LsL, cron 14 8,20 UTC) are near-copies
+         with one difference: that routine holds the key and calls
+         tgb_pull_socials_candidates itself, while this text is pasted into a
+         chat AI that has neither, so its deliverable is SQL.
+         EDIT ONE, OPEN THE OTHER. The editorial rules have to be kept in step
+         by hand. Map: mc/_dev/prompt-tools/PROMPTS.md
+         Edit the routine from here with /schedule or the RemoteTrigger tool. -->
+    <div class="tool-backdrop" id="promptBackdrop" hidden></div>
       <!-- Built to the Green Room's prompt dialog, which is the house shape for
            this: eyebrow + title, a note, the ruled sheet, and a foot that is the
            JOB IN ORDER left to right -- copy it, paste it into an AI, run what
@@ -1439,7 +1522,7 @@
         <div class="panel-head prompt-head">
           <div class="prompt-headline">
             <span class="prompt-eyebrow">Paste-ready prompt</span>
-            <!-- NOT "TGB Social Bot". That is the scheduled routine, and it has
+            <!-- NOT "SOCIALIZER BOT". That is the scheduled routine, and it has
                  its own button in the Add bar three feet up the page — two
                  different things wearing one name, with only one of them able
                  to write to the table. This dialog is the errand, so it is
@@ -1452,11 +1535,11 @@
         </div>
 
         <div class="prompt-body">
-          <textarea class="prompt" id="promptText" readonly spellcheck="false">You are the socials scout for The Game Bureau. Find five things worth sharing — one gift from our own shop, then four stories — write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review.
+          <textarea class="prompt" id="promptText" readonly spellcheck="false">You are the socials scout for The Game Bureau. Find five things worth sharing (one gift from our own shop, then four stories), write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review.
 
 You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socials/ and decides what goes out.
 
-HOW TO RUN — READ THIS FIRST
+HOW TO RUN: READ THIS FIRST
 
 Work start to finish without stopping. Nobody is watching this run, so there is
 no one to answer a question: never ask for confirmation, never present options,
@@ -1465,11 +1548,11 @@ summary.
 
 A failure in one step is not a reason to end the run. Recover and carry on:
 
-- A link will not open, 404s, or has gone paywalled — drop that story, find
+- A link will not open, 404s, or has gone paywalled: drop that story, find
   another, keep going. Never include a URL you could not open.
-- A search returns nothing useful — change the search, not the goal. Move down
+- A search returns nothing useful: change the search, not the goal. Move down
   the beat list in step 2 rather than abandoning the run.
-- Anything throws — retry once, then work around it. Nothing here can block the
+- Anything throws: retry once, then work around it. Nothing here can block the
   SQL: you are writing text, not calling an API.
 
 Budget your effort so you always reach the SQL. A run that never prints it is a
@@ -1481,8 +1564,8 @@ This used to say a short honest run beats a padded one, and you were told to
 hand back four or three when five would not clear the bar. That is no longer the
 instruction. Come back with FIVE.
 
-Every editorial rule below — the freshness window, the topic mix, five separate
-sources, the beat order — bends before the count does. Reach for a story eight
+Every editorial rule below (the freshness window, the topic mix, five separate
+sources, the beat order) bends before the count does. Reach for a story eight
 days old, a second one on a topic you have already used, a beat further down the
 list, before you reach for four.
 
@@ -1496,13 +1579,13 @@ never file a URL you could not open, and never inflate a score to make a thin ru
 look good. A 25 you were straight about costs a human three seconds to skip. A 75
 that should have been a 25 costs them the trust to skim any of it.
 
-The Game Bureau makes real-world scavenger-hunt games — you walk somewhere and play the place you are standing in. Our audience is people who like games and puzzles, people who like going places, and the large overlap between the two.
+The Game Bureau makes real-world scavenger-hunt games: you walk somewhere and play the place you are standing in. Our audience is people who like games and puzzles, people who like going places, and the large overlap between the two.
 
 So the feed is games and travel first. A story does not have to be about a city we sell into, and it does not have to be about a city at all. Place is the flavour, not the filter. Our voice is a well-travelled friend pointing at something interesting, never a brand doing engagement.
 
 1. KNOW WHAT IS ALREADY THERE
 
-You cannot read the candidates table — it is admin-only, and you hold no admin
+You cannot read the candidates table: it is admin-only, and you hold no admin
 session. You do not need to: the database refuses a duplicate url for you.
 
 A unique index on lower(url) means a story already filed is silently skipped by
@@ -1512,22 +1595,22 @@ person running this tells you the statement inserted fewer rows than you sent,
 that is the signal you re-found yesterday's stories and should look somewhere
 else next time.
 
-YOU CAN NOW SEE WHAT HAS ALREADY BEEN FILED. This returns the story urls already in the table — url and date, nothing else — so you can stop re-pitching them:
+YOU CAN NOW SEE WHAT HAS ALREADY BEEN FILED. This returns the story urls already in the table (url and date, nothing else), so you can stop re-pitching them:
 
     curl -s -H "apikey: sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3" \
       "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/rpc/tgb_socials_filed_urls"
 
-It answers a plain GET. Read it before you search, not after: a candidate already on that list is a wasted pick. Gift urls are deliberately absent from it — they are allowed to repeat, and 2b has its own reader for those.
+It answers a plain GET. Read it before you search, not after: a candidate already on that list is a wasted pick. Gift urls are deliberately absent from it: they are allowed to repeat, and 2b has its own reader for those.
 
 OPTIONAL CONTEXT, NOT A FILTER: public.soundtracks lists cities we have made playlists for. A story landing in one is a small bonus, because we can point at the tape. Do not hunt to fit that list, and never reject a good story because its place is not on it.
 
 2. WHAT TO HUNT FOR
 
-Web search, things published in the last 7 days (14 for a genuinely great one, and further back if that is what it takes to reach five — score it down and say so). The beat, roughly in order of how much we want it:
+Web search, things published in the last 7 days (14 for a genuinely great one, and further back if that is what it takes to reach five, score it down and say so). The beat, roughly in order of how much we want it:
 
-- GAMES, PUZZLES AND HUNTS. Scavenger hunts, puzzle hunts, ARGs, geocaching, escape rooms, orienteering, letterboxing, treasure hunts real and rumoured, board games, trivia culture, game design. Our own genre — lead with it.
+- GAMES, PUZZLES AND HUNTS. Scavenger hunts, puzzle hunts, ARGs, geocaching, escape rooms, orienteering, letterboxing, treasure hunts real and rumoured, board games, trivia culture, game design. Our own genre; lead with it.
 - COMPETITION. Races, contests, championships, world records, eating contests, cardboard boat regattas, wife-carrying, conker championships. People competing at something strange, seriously.
-- TRAVEL STORIES. First-person writing about going somewhere and doing something — walking a whole city, riding every subway line, hiking a long trail, eating one dish across twenty places. Closest to what our players do; lean in hard.
+- TRAVEL STORIES. First-person writing about going somewhere and doing something: walking a whole city, riding every subway line, hiking a long trail, eating one dish across twenty places. Closest to what our players do; lean in hard.
 - TRAVEL AND TOURISM. New routes and trails, reopened landmarks, a tourism board doing something odd, underrated-place pieces, a hotel or diner or bar with a story.
 - WEIRD STUFF. Roadside attractions, local legends, unexplained traditions, the world's largest something. Weird travels well and it is the most on-brand thing we post.
 - SPORTS. Stadium and fan culture, rituals, a venue reopening, the story behind a fight song, minor-league promotions. Culture and spectacle, not scores and transfers.
@@ -1537,11 +1620,11 @@ Web search, things published in the last 7 days (14 for a genuinely great one, a
 Tag each with one or more topics from exactly this list, lowercase:
 games, competition, travel, tourism, weird, sports, tv, music, food, history
 
-MIX RULES — these govern the FOUR STORIES; the gift in slot one is judged on its own terms in 2b. Aim for all of them, and break any of them before you hand back fewer than five:
+MIX RULES: these govern the FOUR STORIES; the gift in slot one is judged on its own terms in 2b. Aim for all of them, and break any of them before you hand back fewer than five:
 - The four cover at least three different topics; no topic on more than two.
 - At least two of the four tagged games, competition, or travel. That is the centre of the feed; everything else is seasoning.
 - If a topic has not appeared in the last three runs, go looking for one.
-- Four different subjects and four different sources. Do not file four stories about one place or one sport — but do not force geographic variety either. Two great puzzle-hunt stories from the same country beat one good one and a filler.
+- Four different subjects and four different sources. Do not file four stories about one place or one sport, but do not force geographic variety either. Two great puzzle-hunt stories from the same country beat one good one and a filler.
 
 A broken mix rule is a reason to lower a score, not a reason to drop the story.
 
@@ -1549,11 +1632,11 @@ A broken mix rule is a reason to lower a score, not a reason to drop the story.
 
 One of your five is not a news story at all: it is a gift from our own shop.
 
-EVERY RUN, AND IT GOES FIRST. Slot one is the gift; slots two to five are stories. No clock rule, no "first run of the day", no conditions — if you are running this, you are filing a gift. Never file it as a sixth candidate: five is five, and four of them are stories.
+EVERY RUN, AND IT GOES FIRST. Slot one is the gift; slots two to five are stories. No clock rule, no "first run of the day", no conditions. If you are running this, you are filing a gift. Never file it as a sixth candidate: five is five, and four of them are stories.
 
 FIRST is deliberate. It is the row a human reads before their attention goes, it is the only candidate in the run that points at our own site, and being first means it never quietly becomes the one that got dropped when a story ran long. Give it id ...-1.
 
-YOU CANNOT READ https://thegamebureau.com/gifts/ AND MUST NOT TRY. That page is empty HTML that fills itself in from the database after it loads, so fetching it gets you a shell with no gifts in it. Read the database instead, with the ordinary public key — the same one everything else here uses:
+YOU CANNOT READ https://thegamebureau.com/gifts/ AND MUST NOT TRY. That page is empty HTML that fills itself in from the database after it loads, so fetching it gets you a shell with no gifts in it. Read the database instead, with the ordinary public key, the same one everything else here uses:
 
     curl -s -H "apikey: sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3" \
       "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/gift_shop_listings?select=city,item:gift_shop_items!inner(id,title,description,image_url,url,price_display,archived,certified_at)&amp;archived=is.false&amp;item.archived=is.false&amp;item.certified_at=not.is.null&amp;limit=400"
@@ -1562,16 +1645,16 @@ The item filters are load-bearing: `certified_at=not.is.null` with `item.archive
 
 DO NOT ADD `live=is.true`. It was in this query until 2026-08-13 and it was wrong: `gift_shop_listings.live` is a column the public shop does not read, and filtering on it cut the pickable catalogue from 611 gifts to 79. Match what a buyer sees, which is every unarchived listing of a live item.
 
-PICK ONE, AND PICK IT WELL. You get roughly six hundred back. Do not take the first, do not take at random, and do not always take a book — the shop is mostly books and a run of book posts reads like an affiliate feed. Look for the one a stranger would enjoy seeing: a strong photograph in image_url, an odd or specific object, something that belongs to its city. A gift whose description says something is worth more than a title alone.
+PICK ONE, AND PICK IT WELL. You get roughly six hundred back. Do not take the first, do not take at random, and do not always take a book: the shop is mostly books and a run of book posts reads like an affiliate feed. Look for the one a stranger would enjoy seeing: a strong photograph in image_url, an odd or specific object, something that belongs to its city. A gift whose description says something is worth more than a title alone.
 
-THE URL IS OURS AND IT IS PER-GIFT: https://thegamebureau.com/gifts/?item=&lt;the item id&gt; — that opens the shop showing that one gift. Use exactly that shape. Never link the raw Bookshop or Amazon URL from the row (it is an affiliate link and it is not our page), and never link bare /gifts/ — one gift, one link.
+THE URL IS OURS AND IT IS PER-GIFT: https://thegamebureau.com/gifts/?item=&lt;the item id&gt;, which opens the shop showing that one gift. Use exactly that shape. Never link the raw Bookshop or Amazon URL from the row (it is an affiliate link and it is not our page), and never link bare /gifts/. One gift, one link.
 
 A GIFT MAY BE POSTED AGAIN; A STORY MAY NOT. The unique index on url deliberately skips /gifts/?item= urls, because the shop is a fixed catalogue we post from twice a day and repeating is the point. So there is nothing stopping you re-filing a gift, which means the judgement is yours. Read what has already gone out and pick the one filed longest ago:
 
     curl -s -H "apikey: sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3" \
       "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/rpc/tgb_socials_used_gift_urls"
 
-It answers a plain GET and returns one row per item already filed — item_id, url, times_filed, last_filed_at — oldest use first. Anything in the shop list that is NOT in that reply has never been posted: prefer those. When they run out, work down from the top of this reply, which is already sorted least-recently-filed first. Never post the same item twice in a week.
+It answers a plain GET and returns one row per item already filed (item_id, url, times_filed, last_filed_at), oldest use first. Anything in the shop list that is NOT in that reply has never been posted: prefer those. When they run out, work down from the top of this reply, which is already sorted least-recently-filed first. Never post the same item twice in a week.
 
 FILL THE ROW LIKE THIS:
 
@@ -1579,29 +1662,29 @@ FILL THE ROW LIKE THIS:
 - url: https://thegamebureau.com/gifts/?item=&lt;id&gt;
 - source: The Game Bureau Gift Shop
 - published: today's date. It is our shelf, not a publication date.
-- blurb: the caption, written to the same rules as step 4 — curious, specific, dry, no hashtags, no exclamation marks. Say what the thing IS and why it is worth a look. Name the city when the gift belongs to one. Never write "buy", "shop now", "available now" or a price: it is a thing worth seeing that happens to be for sale.
+- blurb: the caption, written to the same rules as step 4: curious, specific, dry, no hashtags, no exclamation marks. Say what the thing IS and why it is worth a look. Name the city when the gift belongs to one. Never write "buy", "shop now", "available now" or a price: it is a thing worth seeing that happens to be for sale.
 - why: one line, and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out.
 - topics: the tags that fit the object, from the same list. A city guide is travel; a team scarf is sports; a cookbook is food.
 - media: 'photo' when image_url is set, otherwise 'text'.
-- image: image_url exactly as stored. It is already absolute. If it is empty, leave image out — but prefer a gift that has one, since a shop post with no picture is a weak post.
+- image: image_url exactly as stored. It is already absolute. If it is empty, leave image out, but prefer a gift that has one, since a shop post with no picture is a weak post.
 - platforms: judge it like any other candidate. A gift with a real product photograph is the strongest Instagram case in the run.
-- confidence: score the GIFT, on the same 1-100 scale, and do not flatter it for being ours. A striking object with a good photo is a 70; a plain paperback cover is a 30. Score a repeat on what it is, not on the fact that it has been out before — that belongs in why.
+- confidence: score the GIFT, on the same 1-100 scale, and do not flatter it for being ours. A striking object with a good photo is a 70; a plain paperback cover is a 30. Score a repeat on what it is, not on the fact that it has been out before; that belongs in why.
 
-CHECK IT IS REAL BEFORE YOU FILE IT. Open https://thegamebureau.com/gifts/?item=&lt;id&gt; and confirm the page loads. You will not see the gift render (same reason as above), so also confirm the row came back from the query in this run — that pair is the verification. Never post an id you did not read out of the database yourself.
+CHECK IT IS REAL BEFORE YOU FILE IT. Open https://thegamebureau.com/gifts/?item=&lt;id&gt; and confirm the page loads. You will not see the gift render (same reason as above), so also confirm the row came back from the query in this run. That pair is the verification. Never post an id you did not read out of the database yourself.
 
 NEVER HAND BACK A RUN WITH NO GIFT. It is the only row that points at our own site, so a run without one has advertised nothing. If the shop query itself fails, say so at the top of the summary in plain words rather than quietly filing five stories.
 
-STILL SKIP, whatever it costs the count: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test — if it would make someone ask "why is a game company posting this", it is not a fit. These are the one place the five gives way: hand back four rather than post something that embarrasses us, and say in the summary that you did.
+STILL SKIP, whatever it costs the count: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test: if it would make someone ask "why is a game company posting this", it is not a fit. These are the one place the five gives way: hand back four rather than post something that embarrasses us, and say in the summary that you did.
 
 3. VERIFY EVERY LINK
 
-Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened — a dead link is worse than four good ones. Record the real publication name and date. (The gift, if this run has one, is verified its own way — see 2b.)
+Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened. A dead link is worse than four good ones. Record the real publication name and date. (The gift, if this run has one, is verified its own way; see 2b.)
 
 While the page is open, note two things.
 
 MEDIA: photo, gallery, video, or text. You need that for step 5.
 
-IMAGE: the story's own share image — the `og:image` (or `twitter:image`) meta
+IMAGE: the story's own share image: the `og:image` (or `twitter:image`) meta
 tag in the page head. Record its absolute URL as `image`. That is the thumbnail
 the admin page shows, and it is the only way it can get one: the admin is static
 HTML and cannot read another site's markup itself. Rules:
@@ -1617,9 +1700,17 @@ HTML and cannot read another site's markup itself. Rules:
 
 4. WRITE THE CAPTION
 
-One or two sentences: curious, specific, dry. Lead with the interesting thing, not "Check out this article about". Anchor it — name the place, event, game, or person, whatever the concrete hook is; a city name is one way, not a requirement. No hashtags, no emoji, no "link in bio", no exclamation marks. Do not reuse the outlet's headline. 200 characters max.
+One or two sentences: curious, specific, dry. Lead with the interesting thing, not "Check out this article about". Anchor it: name the place, event, game, or person, whatever the concrete hook is; a city name is one way, not a requirement. No hashtags, no emoji, no "link in bio", no exclamation marks. Do not reuse the outlet's headline. 200 characters max.
 
-Also write a one-line "why" — internal note for the human, never posted.
+NO EM DASHES ANYWHERE IN WHAT YOU HAND BACK. Not in a caption, not in a
+headline, not in a why, not in the closing summary, not in the email in step
+7. Use a comma, a colon, a semicolon, a full stop or brackets; every one of
+them is available and one of them always fits. An em dash is the single
+clearest tell that a machine wrote the line, and these go out under our name
+on our own accounts. This prompt does not use one either, deliberately: if
+the instructions were littered with them you would copy the habit.
+
+Also write a one-line "why": an internal note for the human, never posted.
 
 5. SCORE YOUR CONFIDENCE
 
@@ -1644,15 +1735,15 @@ spread them honestly, and let the weakest one be weak.
 
 6. TAG THE PLATFORMS
 
-We have exactly three accounts: FACEBOOK, INSTAGRAM and THREADS. Never suggest one we do not have — X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
+We have exactly three accounts: FACEBOOK, INSTAGRAM and THREADS. Never suggest one we do not have. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
 
 THIS TAG IS ADVICE, NOT ROUTING. Since 2026-08-09 one click posts a candidate to every account that can take it, so what you write here does not decide where anything goes. It is read by a human deciding whether to post at all. Say which account you think carries the story and why, in one short phrase:
 
-  FACEBOOK — the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
-  INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
-  THREADS — text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
+  FACEBOOK: the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
+  INSTAGRAM: anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
+  THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
 
-Judge from the media you saw in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook — do not tag everything on everything, a tag that always fires tells the human nothing.
+Judge from the media you saw in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook. Do not tag everything on everything; a tag that always fires tells the human nothing.
 
 7. WRITE THE SQL
 
@@ -1661,7 +1752,7 @@ paste into the Supabase SQL editor. Nothing else writes to the database: you
 hold no key and no session, and you must not try to call an API or curl an
 endpoint.
 
-Use exactly this shape — one row per candidate, in this column order:
+Use exactly this shape, one row per candidate, in this column order:
 
 ```sql
 insert into public.socials
@@ -1688,7 +1779,7 @@ returning id;
 
 RULES THE STATEMENT MUST FOLLOW:
 
-- status is ALWAYS the literal 'review'. Never 'posted' or 'skipped' — a human
+- status is ALWAYS the literal 'review'. Never 'posted' or 'skipped'. A human
   makes that call in /mc/socials/. Never set posted_at or posted_platforms.
 - id is stamped with the run's UTC time, &lt;YYYY-MM-DD&gt;-&lt;HHMM-UTC&gt;-&lt;n&gt;
   (e.g. 2026-08-05-1500-1), so two runs in a day cannot collide.
@@ -1696,13 +1787,13 @@ RULES THE STATEMENT MUST FOLLOW:
   `'Chess.com''s'`. This is the single most likely way to break the paste, and
   headlines and captions are full of them. Re-read your own strings for it
   before you print.
-- topics is `array['a', 'b']::text[]` — lowercase, from the list in step 2.
+- topics is `array['a', 'b']::text[]`, lowercase, from the list in step 2.
 - platforms is a JSON array of {name, why} objects, cast `::jsonb`. Use double
   quotes inside it, single quotes around it.
 - image: the absolute og:image URL, or the bare keyword `null` if there is
   none. Never quote the word null, never invent a URL.
 - media is one of 'photo', 'gallery', 'video', 'text'.
-- confidence is a BARE INTEGER 1-100 — 72, not '72'. The column is a smallint
+- confidence is a BARE INTEGER 1-100: 72, not '72'. The column is a smallint
   with a check constraint, so a value outside that range rejects the whole
   statement and you lose all five rows, not the one that was wrong.
 - Keep `on conflict do nothing` and `returning id`. The conflict clause is what
@@ -1717,7 +1808,7 @@ An INSERT is the only statement you are allowed to write.
 Nothing to commit. `git status` should be clean when you finish; if it is not,
 you have written a file you were not asked to write.
 
-Finish with the SQL block, then a short summary below it: the five candidates in confidence order, highest first, with their scores, sources and topics; which rules you bent to reach five and for which picks; what you rejected and why; and anything dropped because the link would not resolve. The SQL is the deliverable — never end a run with the summary alone.</textarea>
+Finish with the SQL block, then a short summary below it: the five candidates in confidence order, highest first, with their scores, sources and topics; which rules you bent to reach five and for which picks; what you rejected and why; and anything dropped because the link would not resolve. The SQL is the deliverable; never end a run with the summary alone.</textarea>
         </div>
 
         <!-- THE FOOT IS THE JOB IN ORDER: copy it, paste it into an AI, run what
@@ -1788,7 +1879,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     at http://127.0.0.1:5500/mc/socials/ under Live Server. There is no other
     page it could mean.
 
-    Do not confuse it with TGB SOCIAL BOT, the scheduled routine that files
+    Do not confuse it with SOCIALIZER BOT, the scheduled routine that files
     candidates INTO it. The bot is a trigger at claude.ai, not a page; it can
     only insert. The Socializer is where a human decides.
 
@@ -1797,7 +1888,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     is no JSON file any more and no localStorage — mc/socials/socials.json and
     the socials_post_state overlay were both retired on 2026-08-05.
 
-    TGB SOCIAL BOT does not commit anything. It inserts through
+    SOCIALIZER BOT does not commit anything. It inserts through
     tgb_pull_socials_candidates(), a SECURITY DEFINER function callable with the
     publishable key, which can only INSERT and only at status 'review'.
 
@@ -1811,10 +1902,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     "url": "https://thegamebureau.com/mc/socials/",
     "localUrl": "http://127.0.0.1:5500/mc/socials/",
     "access": "public HTML on GitHub Pages, gated by the admin sign-in; the data is admin-only (RLS authenticated both ways)",
-    "notToBeConfusedWith": "TGB SOCIAL BOT — the scheduled routine that files candidates into this page, trigger trig_01KDYndJhZ9ymgUgX5Xx6LsL",
+    "notToBeConfusedWith": "SOCIALIZER BOT: the scheduled routine that files candidates into this page, trigger trig_01KDYndJhZ9ymgUgX5Xx6LsL",
     "purpose": "Shortlist of candidates The Game Bureau socials might post. An agent finds stories and writes a caption for each; a human posts or skips them.",
     "table": "public.socials",
-    "writtenBy": "scheduled Claude Code routine TGB SOCIAL BOT, trig_01KDYndJhZ9ymgUgX5Xx6LsL, twice daily at 08:00 and 20:00 UTC, via tgb_pull_socials_candidates()",
+    "writtenBy": "scheduled Claude Code routine SOCIALIZER BOT, trig_01KDYndJhZ9ymgUgX5Xx6LsL, twice daily at 08:00 and 20:00 UTC, via tgb_pull_socials_candidates()",
     "pageWrites": "the admin page reads and writes public.socials directly under an admin session: status, edits, and hand-added candidates",
     "status": "review (start) | posted | skipped",
     "postCount": 5,
@@ -1824,7 +1915,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     "voice": "curious, specific, dry; anchor it concretely; no hashtags, emoji, or exclamation marks",
     "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
     "rotationRule": "aim for four distinct topics across the five, no topic on more than two, at least two tagged games/competition/travel -- all soft, and broken rather than filing fewer than five. A broken rule lowers that pick's confidence.",
-    "tilt": "games and travel first; place is flavour, not a filter — a story need not be about a city we sell into",
+    "tilt": "games and travel first; place is flavour, not a filter; a story need not be about a city we sell into",
     "accounts": ["Facebook", "Instagram"],
     "platformTagging": "each candidate is tagged with which of the two accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Instagram only when an image was captured -- its API refuses a text-only post. Never suggest a platform we do not have; X and YouTube were removed on 2026-08-07 and render as nothing.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
@@ -2006,7 +2097,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         onAuthorized: function () {
           setAdminAuthToggleState(true);
           document.body.classList.add('is-admin');
-          loadQueue();
+          // #edit=<id> has to wait for the rows, so it is chained onto the
+          // load rather than fired beside it like #manual, which needs nothing.
+          loadQueue().then(openEditFromHash, openEditFromHash);
           // Deep link, opened here rather than on DOMContentLoaded: until this
           // fires the whole page is display:none behind the sign-in gate, so a
           // dialog opened earlier would be invisible and would stay that way.
@@ -2092,7 +2185,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function normalizeManualUrl(value) {
         var raw = cleanText(value);
-        if (!raw) throw new Error('Add a destination web page.');
+        if (!raw) throw new Error('Add a website or some text.');
         if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = 'https://' + raw;
         var url;
         // new URL throws a TypeError whose message is "Failed to construct
@@ -2384,13 +2477,24 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function scheduleHeadlineRead() {
         window.clearTimeout(manualReadTimer);
-        if (!manualUrlIsUsable()) return;
+        if (!manualUrlIsUsable()) { showManualTextNote(); return; }
         manualReadTimer = window.setTimeout(readHeadlineFromUrl, MANUAL_READ_IDLE_MS);
+      }
+
+      // The box takes text as well as a link, and this line is the only place
+      // that says so before you press Add. Without it a typed sentence looks
+      // exactly like a URL the page has not got round to reading yet, and the
+      // fallback would come as a surprise at the moment it is least welcome.
+      function showManualTextNote() {
+        var el = document.getElementById('manualUrl');
+        var raw = cleanText(el && el.value);
+        if (!raw) { clearHeadlineLine(); return; }
+        showHeadlineLine('Not a website. This will be saved as the caption.', 'missing');
       }
 
       function readHeadlineFromUrl() {
         window.clearTimeout(manualReadTimer);
-        if (!manualUrlIsUsable()) { clearHeadlineLine(); return Promise.resolve(); }
+        if (!manualUrlIsUsable()) { showManualTextNote(); return Promise.resolve(); }
         var url = normalizeManualUrl(document.getElementById('manualUrl').value);
         var token = ++manualReadToken;
 
@@ -2525,6 +2629,91 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // and it scrolls to any element that happens to carry that id.
       var MANUAL_HASH = '#manual';
 
+      // FULL SIZE, on its own layer above the Edit dialog. Built on first use
+      // rather than sitting in the markup: most sessions never open it, and an
+      // <img> in the page is a request whether or not anyone looks.
+      //
+      // It is NOT a .tool-modal-panel. Those are working surfaces with a header
+      // and a padded body; this is a photograph, so it gets a black ground and
+      // nothing else, and a click anywhere closes it. Same call the highlights
+      // lightbox makes, which is why that one was left out of the shared dialog
+      // sweep.
+      var imageLightbox = null;
+
+      function openLightbox(src) {
+        if (!src) return;
+        if (!imageLightbox) {
+          imageLightbox = document.createElement('div');
+          imageLightbox.className = 'image-lightbox';
+          imageLightbox.hidden = true;
+          var big = document.createElement('img');
+          big.alt = '';
+          imageLightbox.appendChild(big);
+          imageLightbox.addEventListener('click', closeLightbox);
+          document.body.appendChild(imageLightbox);
+        }
+        imageLightbox.querySelector('img').src = src;
+        imageLightbox.hidden = false;
+      }
+
+      function closeLightbox() {
+        if (!imageLightbox) return;
+        imageLightbox.hidden = true;
+        // Drop the src so a large image is not held behind a hidden element for
+        // the rest of the session.
+        imageLightbox.querySelector('img').removeAttribute('src');
+      }
+
+      // ── ONE CANDIDATE HAS ITS OWN URL TOO ────────────────────────────────
+      //   https://thegamebureau.com/mc/socials/#edit=2026-08-15-2014-1
+      //
+      // Opens that candidate's Edit dialog. It exists for the routine's email:
+      // every run mails five candidates, and the only thing you can do about
+      // one from a phone is open THAT one. Without this the email could only
+      // ever say "go and look at the queue", and you would then hunt for the
+      // row you had just read about.
+      //
+      // Same replaceState reasoning as MANUAL_HASH: assigning location.hash
+      // pushes a history entry per open and close, so Back would walk you
+      // through every dialog you opened rather than leaving the page.
+      var EDIT_HASH = '#edit=';
+
+      function editHashId() {
+        var h = window.location.hash || '';
+        if (h.indexOf(EDIT_HASH) !== 0) return '';
+        try { return decodeURIComponent(h.slice(EDIT_HASH.length)); }
+        catch (error) { return h.slice(EDIT_HASH.length); }
+      }
+
+      function setEditHash(id) {
+        if (!window.history || !window.history.replaceState) return;
+        var want = id ? EDIT_HASH + encodeURIComponent(id) : '';
+        if (window.location.hash === want) return;
+        window.history.replaceState(null, '',
+          window.location.pathname + window.location.search + want);
+      }
+
+      // CALLED AFTER THE QUEUE HAS LOADED, never before: the id has to be
+      // resolved against posts that are actually in memory, and loadCandidates
+      // is async. Guarded on the admin class for the same reason
+      // openManualFromHash is, since the whole page sits behind the sign-in
+      // gate until then and a dialog opened early would be invisible.
+      function openEditFromHash() {
+        var id = editHashId();
+        if (!id) return;
+        if (!document.body.classList.contains('is-admin')) return;
+        if (editCard && !editCard.hidden) return;
+        var post = posts.filter(function (row) { return String(row.id) === id; })[0];
+        if (!post) {
+          // Skipped, deleted, or a link from an older run. Say which id, so the
+          // answer is not "nothing happened".
+          setPageStatus('no candidate ' + id);
+          setEditHash('');
+          return;
+        }
+        openEditDialog(post, id);
+      }
+
       // The tab wears the box's own name and glyph while it is open, so a window
       // parked on #manual is tellable from the Socializer itself in a strip of
       // pinned tabs -- and a bookmark taken there is captioned ADD POST rather
@@ -2644,31 +2833,43 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         manualStatusText('', false);
         clearManualFieldMarks();
 
-        // A LINK IS THE WHOLE INPUT. The headline is not a field -- it is read
-        // off the destination -- so there is nothing you could offer instead of
-        // a link. One box, one rule.
+        // ONE BOX, TWO MEANINGS. It is labelled Website and a link is what it
+        // is for, but what you actually have in hand when you reach for this
+        // dialog is sometimes a line of text and no link at all: an idea, a
+        // thing somebody said, a note to write up later.
+        //
+        // So a value that will not parse as a web address is NOT an error. It
+        // becomes the CAPTION of a candidate with no url. Refusing it made you
+        // add a candidate you did not want just to get somewhere you could type
+        // the sentence, and there is nowhere else on this dialog to put it.
         if (!rawUrl) {
-          return failManualFields(['manualUrl'], 'Add a link.');
+          return failManualFields(['manualUrl'], 'Add a website or some text.');
         }
 
-        // It has to be a real one, or Post opens a composer pointing at nothing.
-        var url;
+        var url = '';
+        var blurb = '';
         try {
           url = normalizeManualUrl(rawUrl);
           var urlInput = document.getElementById('manualUrl');
           if (urlInput) urlInput.value = url;
         } catch (error) {
-          return failManualFields(['manualUrl'], error && error.message ? error.message : 'That is not a URL we can open.');
+          // Not a web address. Keep it verbatim as the caption, url stays ''.
+          url = '';
+          blurb = rawUrl;
         }
-        if (posts.some(function (post) {
+
+        // Only a real url can collide. Two text candidates are two notes, not a
+        // duplicate of anything, so the check is skipped when there is no url.
+        if (url && posts.some(function (post) {
           return post && post.url === url;
         })) {
-          return failManualFields(['manualUrl'], 'That URL is already a candidate.');
+          return failManualFields(['manualUrl'], 'That website is already a candidate.');
         }
 
         return {
           id: manualPostId(),
-          url: url
+          url: url,
+          blurb: blurb
         };
       }
 
@@ -2683,7 +2884,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function resolveManualHeadline(url) {
         if (manualPageTitle) return manualPageTitle;
         var host = hostnameLabel(url);
-        return host ? host + ' link' : 'Captured link';
+        if (host) return host + ' link';
+        // No url at all: the card still needs a line to be findable by, and the
+        // only thing we were given is the caption. Trimmed to a headline length
+        // rather than shown whole, since the caption is on the card already.
+        var note = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
+        if (note) return note.length > 90 ? note.slice(0, 89).replace(/\s+\S*$/, '') + '…' : note;
+        return 'Captured link';
       }
 
       // MANUAL adds a candidate by hand. It INSERTs a real row, so a
@@ -2692,9 +2899,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // button on the card; this modal only adds.)
       //
       // url and blurb are NOT NULL in the table, so both are sent as '' when
-      // empty rather than null — and blurb is ALWAYS empty from here, since this
-      // box no longer asks for a caption. The row exists, the caption is simply
-      // unwritten, and Edit is where it gets written. Everything else the form
+      // empty rather than null. Normally the blurb is the empty one: the row
+      // exists, the caption is unwritten, and Edit is where it gets written.
+      // A box holding text rather than a link inverts that — the caption is
+      // what you typed and the url is the empty one. Everything else the form
       // does not ask for is left unsent, which lets the column default rather
       // than writing our guess at it.
       async function submitManualPost(event) {
@@ -2707,7 +2915,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // On a phone, tapping Add is what blurred the URL box a moment earlier,
         // so the read is usually still in the air when the click lands. Waiting
         // for it is the whole of what Add has to do about the headline.
-        if (manualReadPending) {
+        if (post.url && manualReadPending) {
           if (manualStatus) manualStatus.textContent = 'Reading the page…';
           try { await manualReadPending; } catch (error) { /* it never rejects */ }
         }
@@ -2722,7 +2930,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // screen; going again behind the button would make Add sit through two
         // more network attempts to contradict, or confirm, something the human
         // has already read and accepted by pressing it.
-        if (!manualPageTitle && !manualReadDone) {
+        if (post.url && !manualPageTitle && !manualReadDone) {
           if (manualStatus) manualStatus.textContent = 'Reading the page…';
           try {
             manualPageTitle = headlineFromMeta(await fetchPageMetadata(post.url));
@@ -2737,14 +2945,29 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             id: post.id,
             headline: resolveManualHeadline(post.url),
             url: post.url || '',
-            blurb: ''
+            blurb: post.blurb || ''
           });
           closeManualPost();
           await loadQueue();
           flash(queueStatus, 'Added');
         } catch (err) {
-          if (manualStatus) manualStatus.textContent = err.message;
+          if (manualStatus) manualStatus.textContent = manualAddError(err, post);
         }
+      }
+
+      // A unique-index violation on a row with NO url means one thing only:
+      // socials_url_idx is still the pre-2026-08-15 shape, which treats every
+      // text-only candidate as a duplicate of every other one because they all
+      // carry url = ''. The fix is the migration
+      // 2026081501_socials_url_index_allow_blank.sql; until it is applied, say
+      // which one it is rather than showing a 23505 naming a column the human
+      // never filled in.
+      function manualAddError(err, post) {
+        var text = (err && err.message) || 'Add failed.';
+        if (!post.url && /23505|duplicate key/i.test(text)) {
+          return 'The database still requires a link on every candidate. Apply 2026081501_socials_url_index_allow_blank.sql, or give this one a website.';
+        }
+        return text;
       }
 
       // ── Load + render ────────────────────────────────────────────────────
@@ -3322,21 +3545,96 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var row = rawPost(id) || post || {};
         editForm.textContent = '';
         editForm.dataset.postId = id;
+        // The address bar now names the open candidate, so the link in the
+        // routine's email and the link you copy off the page are the same thing.
+        setEditHash(id);
 
         EDIT_FIELDS.forEach(function (f) {
           var wrap = document.createElement('label');
           wrap.className = 'full';
           wrap.textContent = f.label;
 
+          // NEVER type="url". The Save button is a real form submit, so the
+          // browser runs its own constraint validation first — and type="url"
+          // demands a scheme, which means a perfectly good address pasted
+          // without one is refused before submitEdit ever runs. You get the
+          // engine's "Please enter a URL" bubble and no way past it.
+          //
+          // Reported 2026-08-15 with
+          // paywallskip.com/article?url=https%3A%2F%2Fwww.newyorker.com%2F…
+          // which is exactly the shape that fails: a bare host, and a query
+          // string carrying a whole percent-encoded URL of its own.
+          //
+          // text + inputmode="url" is what the ADD box has always used, for the
+          // same reason. normalizeManualUrl adds the scheme on save.
           var input = document.createElement(f.type === 'textarea' ? 'textarea' : 'input');
-          if (f.type !== 'textarea') input.type = f.type === 'url' ? 'url' : 'text';
+          if (f.type !== 'textarea') {
+            input.type = 'text';
+            if (f.type === 'url') {
+              input.inputMode = 'url';
+              input.autocomplete = 'off';
+              input.spellcheck = false;
+            }
+          }
           if (f.max) input.maxLength = f.max;
           input.dataset.field = f.key;
+
+          // A red field mark describes the box as it is now, so the next
+          // keystroke in it clears the mark. (The form is rebuilt on every open,
+          // so nothing survives a close.)
+          input.addEventListener('input', function () { this.classList.remove('is-invalid'); });
 
           var current = row[f.key];
           input.value = f.list
             ? (Array.isArray(current) ? current.join(', ') : '')
             : (current == null ? '' : String(current));
+
+          // THE IMAGE FIELD GETS A THUMBNAIL BESIDE IT. An image URL is the one
+          // field on this form you cannot check by reading: og:image scraping
+          // goes wrong quietly, and a masthead, a tracking pixel or a 404 all
+          // look like a perfectly good URL in a text box. The picture is the
+          // only honest answer, and it decides whether the candidate can reach
+          // Instagram at all.
+          //
+          // It sits LEFT of the box because you look at it first and then judge
+          // the address, not the other way round. Click it for full size.
+          if (f.key === 'image') {
+            wrap.classList.add('image-field');
+            var shot = document.createElement('button');
+            shot.type = 'button';           // never submit: this form's Save is a real submit
+            shot.className = 'image-thumb';
+            shot.title = 'Show the full-size image';
+            var img = document.createElement('img');
+            img.alt = '';
+            img.loading = 'lazy';
+            // A broken or hotlink-blocked image is a RESULT, not a rendering
+            // fault, so the tile says so rather than showing a torn-page icon.
+            img.addEventListener('error', function () { shot.classList.add('is-broken'); });
+            img.addEventListener('load', function () { shot.classList.remove('is-broken'); });
+            shot.appendChild(img);
+
+            var paintThumb = function () {
+              var v = cleanText(input.value);
+              shot.classList.remove('is-broken');
+              shot.classList.toggle('is-empty', !v);
+              shot.disabled = !v;
+              // Only assign when it changed: re-setting the same src restarts
+              // the download on every keystroke.
+              if (v && img.getAttribute('src') !== v) img.setAttribute('src', v);
+              if (!v) { img.removeAttribute('src'); }
+            };
+            input.addEventListener('input', paintThumb);
+            input.addEventListener('change', paintThumb);
+            shot.addEventListener('click', function () { openLightbox(cleanText(input.value)); });
+
+            var row2 = document.createElement('span');
+            row2.className = 'image-row';
+            row2.append(shot, input);
+            wrap.appendChild(row2);
+            editForm.appendChild(wrap);
+            paintThumb();
+            return;
+          }
 
           wrap.appendChild(input);
           editForm.appendChild(wrap);
@@ -3346,7 +3644,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         openTool(editCard, editBackdrop, editForm.querySelector('textarea, input'));
       }
 
-      function closeEditDialog() { closeTool(editCard, editBackdrop); }
+      // Clearing the hash on the way out matters: left in place, a reload would
+      // reopen the dialog you had just closed, and the URL would keep claiming
+      // a candidate was open when none is.
+      function closeEditDialog() {
+        closeTool(editCard, editBackdrop);
+        setEditHash('');
+      }
 
       async function submitEdit(event) {
         if (event) event.preventDefault();
@@ -3371,6 +3675,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             patch[f.key] = raw || null;
           }
         });
+
+        // THE SAME NORMALISER THE ADD BOX USES. Edit wrote whatever was typed
+        // straight through, so a scheme-less "paywallskip.com/article?…" was
+        // stored as-is and every link built from it resolved against this page
+        // instead of the internet. Blank stays blank — the url is optional and
+        // an emptied one is a deliberate act, not an address to repair.
+        var urlFields = [
+          { key: 'url', label: 'Destination Web Page' },
+          { key: 'image', label: 'Image URL' }
+        ];
+        for (var i = 0; i < urlFields.length; i++) {
+          var f2 = urlFields[i];
+          if (!patch[f2.key]) continue;
+          try {
+            patch[f2.key] = normalizeManualUrl(patch[f2.key]);
+          } catch (err) {
+            var box = editForm.querySelector('[data-field="' + f2.key + '"]');
+            if (box) { box.classList.add('is-invalid'); box.focus(); }
+            if (editStatus) editStatus.textContent = f2.label + ': ' + err.message;
+            return;
+          }
+        }
 
         // The headline is the only thing a candidate cannot be without — it is
         // what the card is, and a row with a blank one is unfindable in the
@@ -4027,6 +4353,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       window.addEventListener('hashchange', function () {
         if (window.location.hash === MANUAL_HASH) openManualFromHash();
         else if (manualCard && !manualCard.hidden) closeManualPost();
+        if (editHashId()) openEditFromHash();
+        else if (editCard && !editCard.hidden) closeEditDialog();
       });
       // https:// IN THE BOX, not just in what gets saved. normalizeManualUrl has
       // always added it on Fill, Open and save, but the field went on showing
@@ -4042,10 +4370,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // with a sentence rather than quietly turning it into something else.
       var manualUrlInput = document.getElementById('manualUrl');
       if (manualUrlInput) manualUrlInput.addEventListener('blur', function () {
-        // The SAME scheme test normalizeManualUrl uses, deliberately: if the two
-        // disagree the box shows one thing and saves another.
+        // ONLY IF IT COMES OUT A URL. The test used to be the bare scheme
+        // regex, which prefixes anything -- and once the box started accepting
+        // plain text that turned a typed sentence into
+        // "https://Ran into a guy at the bar", which is then what got saved as
+        // the caption. So the prefixed value has to survive normalizeManualUrl
+        // before it is allowed back into the box.
         var raw = cleanText(manualUrlInput.value);
-        if (raw && !/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) manualUrlInput.value = 'https://' + raw;
+        if (raw && !/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
+          try { normalizeManualUrl(raw); manualUrlInput.value = 'https://' + raw; }
+          catch (error) { /* it is text, and text is kept exactly as typed */ }
+        }
         // Adding the scheme can turn an unusable box into a usable one, and the
         // input event has already been and gone by the time it happens.
         syncManualUrlButtons();
@@ -4088,7 +4423,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
-        closeTool(editCard, editBackdrop);
+        // The lightbox sits ON TOP of the Edit dialog, so it takes Escape first
+        // and stops there. Closing both would dismiss a form you were part way
+        // through filling in just to put a photo away.
+        if (imageLightbox && !imageLightbox.hidden) { closeLightbox(); return; }
+        // closeEditDialog, not closeTool: it also clears #edit=<id>, and a
+        // stale hash would reopen the dialog on the next reload.
+        closeEditDialog();
         closeManualPost();
         closeTool(promptCard, promptBackdrop);
       });
@@ -4161,7 +4502,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // mc/socials/socials.json, on the principle that a run which errored
       // pushes nothing, so a stale commit timestamp IS the failure signal. The
       // bot does not commit any more — it inserts rows — so that signal no
-      // longer exists, and its DOM (the "About the TGB SOCIAL BOT" side card)
+      // longer exists, and its DOM (the "About the SOCIALIZER BOT" side card)
       // had already been removed from the page, leaving the function dead.
       //
       // If a last-run indicator comes back, read it the way the Tape Room does:

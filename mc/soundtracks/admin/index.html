@@ -8,7 +8,9 @@
   <link rel="icon" href="/mc/soundtracks/soundtracks.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Shadows Into Light is the red-pen scribble beside the room name, the same
+       hand the Socializer writes its notices in. -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -73,12 +75,6 @@
       width: 100%;
       max-width: var(--mc-shell-width);
       margin: 0 auto;
-    }
-
-    .prompt-main {
-      display: grid;
-      gap: 16px;
-      min-width: 0;
     }
 
     .prompt-panel {
@@ -147,6 +143,11 @@
       text-transform: uppercase;
     }
 
+    /* display:inline-flex below is an AUTHOR rule and beats the browser's own
+       [hidden] { display: none }, so hiding a button by attribute would silently
+       do nothing. Any element given a display here needs this line beside it. */
+    .btn[hidden] { display: none; }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -186,7 +187,9 @@
     @media (prefers-reduced-motion: reduce) {
       .btn,
       .tape-summary,
-      .issue-group-head,
+      .tape-group,
+      .track-row,
+      .queue-tab,
       .tape-summary::before { transition: none; }
     }
 
@@ -226,12 +229,37 @@
       box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
+    /* FOLDER TABS, borrowed from the Socializer. The legend cuts the panel's top
+       border, and the line used to just stop either side of it — a gap. It now
+       wears a tab: the border runs into the label and back out again, so the
+       cut-out reads as a tag clipped onto the frame.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is where the browser puts a legend.
+       But the tab's sides must stop AT that line rather than carrying on into
+       the panel, and a bordered box whose bottom edge is the line cannot also
+       have its text centred on the line: the text centre is always the better
+       part of half a box above the bottom edge.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line — `inset: 0 0 50%`, since the legend's midpoint IS the line. The
+       word's lower half hangs into the panel, which is invisible because the tab
+       fill and the panel are the same colour with no bottom edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 would
+       drop it behind the fieldset's own background and it would vanish. */
+    /* The command bars are the only fieldsets left — the work panel's two
+       legends became the folder tabs above. */
     .command-bar > legend {
       float: none;
       width: auto;
-      padding: 0 7px;
+      padding: 3px 10px;
       margin: 0 0 0 10px;
-      background: var(--cut-panel-bg);
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
       color: var(--ink);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.92rem;
@@ -240,18 +268,18 @@
       text-transform: uppercase;
     }
 
-    .work-panel > legend {
-      float: none;
-      width: auto;
-      padding: 0 7px;
-      margin: 0 0 0 10px;
+    .command-bar > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
       background: var(--cut-panel-bg);
-      color: var(--ink);
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.92rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
     }
 
     .command-bar-inner {
@@ -271,37 +299,219 @@
       white-space: nowrap;
     }
 
-    .panel-tools {
+    /* ADD and VIEW share a line. ADD takes the space; VIEW is only as wide as
+       its links. .command-bar centres itself and caps at the shell width, which
+       is right for a room with one bar sitting alone — so both are cleared HERE
+       rather than in that rule. Left in place, width:100% makes both panels
+       demand the full row and they overlap. */
+    .bar-row {
       display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 0 0 12px;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto var(--stack-gap);
     }
 
-    .panel-tools:empty { display: none; }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
+    .command-bar--view { flex: 0 0 auto; }
 
-    .panel-head-actions select,
-    .panel-tools select {
+    @media (max-width: 720px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar:first-child { flex: 1 1 100%; }
+      .bar-row .command-bar--view { flex: 1 1 100%; }
+    }
+
+    /* ── The room's two views, as real folder tabs ────────────────────────────
+       The strip sits ON the panel's top border rather than above it: every tab
+       carries margin-bottom:-1px, so its own bottom edge lands exactly on the
+       panel's. The ACTIVE tab then draws that edge in the panel's fill colour
+       and the two become one sheet; an inactive tab draws it in the panel line
+       and stays a separate card behind. z-index keeps the strip in front of the
+       panel it overlaps.
+
+       This is the same idea as the .command-bar legend arch below, done as an
+       ordinary element because a <legend> can hold only one label and there are
+       two views here. */
+    .room-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      /* 12px in, so the panel's own top-left corner still curves in the open. */
+      padding-left: 12px;
+      margin: 0 auto;
+    }
+
+    .room-tab {
       display: inline-flex;
       align-items: center;
-      min-height: 34px;
-      padding: 0 28px 0 11px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--ink);
+      gap: 9px;
+      min-height: 38px;
+      margin-bottom: -1px;
+      padding: 0 17px;
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 1px solid var(--cut-panel-line);
+      border-radius: 9px 9px 0 0;
+      /* Recessed: an unselected tab is behind the panel, not on it. */
+      background: rgba(var(--bic-blue-rgb), 0.09);
+      color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.66rem;
+      font-size: 0.8rem;
       font-weight: 800;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    .room-tab:hover { background: rgba(var(--bic-blue-rgb), 0.14); color: var(--ink); }
+
+    .room-tab.is-active {
+      background: var(--cut-panel-bg);
+      border-bottom-color: var(--cut-panel-bg);
+      color: var(--ink);
+      cursor: default;
+    }
+
+    .room-tab-count {
+      /* inline-block, not the flex-item default: a pill nested inside
+         .room-tab-label is an inline box, and min-width is ignored on those. */
+      display: inline-block;
+      min-width: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.14);
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .room-tab.is-active .room-tab-count { background: var(--accent); color: #fff; }
+
+    /* An open finding is the one thing in this room that is genuinely wrong, so
+       the count wears the red pen whether or not you are looking at that view.
+       This REPLACED the old collapse-when-clear rule on the Issues panel: the
+       panel used to shrink to its title line on a quiet day, which meant the
+       page changed shape depending on the data. A number on a tab says the same
+       thing without moving anything. */
+    .room-tab[data-view="issues"].has-work .room-tab-count {
+      background: var(--bic-red);
+      color: #fff;
+    }
+
+    /* Square top-left, because the first tab is welded to that corner. The other
+       three stay round. */
+    .work-panel--tabbed {
+      margin: 0;
+      border-radius: 0 10px 10px 10px;
+    }
+
+    @media (max-width: 620px) {
+      /* Tabs take the full row rather than wrapping to a ragged second line
+         that no longer reads as a strip. */
+      .room-tabs { padding-left: 0; }
+      .room-tab { flex: 1 1 auto; justify-content: center; padding: 0 11px; }
+      .work-panel--tabbed { border-radius: 0 0 10px 10px; }
+    }
+
+    /* ── The filter strip ─────────────────────────────────────────────────────
+       Tabs left, the expand switch hard right. Both panels wear it, so the two
+       lists are filtered the same way. This replaced a pair of <select>s: a
+       dropdown hides its options, and the whole reason to look at this row is to
+       find out HOW MANY tracks are waiting on you — which a closed select can
+       never say. The 14px side margin is the panel's own gutter. */
+    .queue-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 8px 0 12px;
+    }
+
+    /* Segmented control, not a row of buttons: one inset track with the active
+       segment raised out of it. Reads as "four views of one list" rather than
+       four independent controls. */
+    .queue-tabs {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: #f8fbff;
+      box-shadow: inset 0 1px 1px rgba(var(--bic-blue-rgb), 0.06);
+    }
+
+    .queue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 0 13px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: none;
+      cursor: pointer;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.86);
+      transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    }
+
+    .queue-tab:hover { color: var(--ink); }
+
+    .queue-tab.is-active {
+      color: var(--ink);
+      border-color: var(--control-line);
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(var(--bic-blue-rgb), 0.1);
+    }
+
+    .queue-tab-count {
+      min-width: 21px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.14);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .queue-tab.is-active .queue-tab-count { background: var(--accent); color: #fff; }
+
+    /* A tab with nothing behind it is still worth showing — "0 in review" is the
+       answer you came for — but it should not compete with one that has work in
+       it. Not disabled: pressing it and seeing the empty well is a legitimate
+       way to confirm the queue is clear. */
+    .queue-tab.is-empty { color: rgba(var(--bic-blue-rgb), 0.5); }
+    .queue-tab.is-empty .queue-tab-count { background: rgba(var(--bic-blue-rgb), 0.08); }
+
+    /* REVIEW is the only tab that is ever asking for something. When it holds
+       anything its count goes red-pen, the same ink the header notice uses, so
+       the queue announces itself from across the page. */
+    .queue-tab[data-tab="REVIEW"].has-work .queue-tab-count {
+      background: var(--bic-red);
+      color: #fff;
+    }
+    .queue-tab[data-tab="REVIEW"].has-work.is-active .queue-tab-count {
+      background: var(--bic-red);
     }
 
     .panel-head-actions select:focus-visible,
-    .panel-tools select:focus-visible,
+    .queue-tab:focus-visible,
     .btn:focus-visible,
     .tape-summary:focus-visible,
     .editor-field input:focus-visible,
@@ -315,72 +525,95 @@
 
     
 
-    /* A caption line in the panel head, under the counts — not a card. The dot
-       is the whole signal: green when the routine ran, red past 26 hours. */
-    .run-status {
-      display: flex;
-      align-items: baseline;
-      gap: 7px;
+    /* ── The room head, to the Socializer's pattern ───────────────────────────
+       Title, then blurb, then the note. The scribble used to ride the title's
+       baseline on a shared row; it sits under the standing description now, so
+       the header reads top to bottom as name → what this room is → what just
+       happened. A note written in the margin of a printed page belongs beside
+       the text it is about, not beside the masthead. */
+
+    /* RED BIC INK, AND THIS IS WHERE NOTICES GO. Handwriting, because it is a
+       note ON the page rather than part of it, and the tilt is what stops it
+       reading as another label. Empty almost always, and it collapses when it
+       is.
+
+       THE TAGLINE BELOW IT IS NOT A STATUS LINE and must never be borrowed for
+       one. That is exactly what this room used to do — "Saved…", "Could not
+       load the soundtrack tables." and the standing counts all fought over
+       #trackArchiveStatus — so a write error took the explanation of the room
+       away at the moment something had gone wrong, and left nothing behind to
+       restore it. */
+    .room-scribble {
+      /* Its own line under the blurb, not an inline tail on the title. */
+      display: block;
+      margin-top: 3px;
+      font-family: "Shadows Into Light", "Segoe Script", cursive;
+      /* Scaled against the title rather than fixed: a 1.1rem note beside a
+         display-sized word reads as a footnote that missed its page. */
+      font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+      font-weight: 400;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+      color: var(--bic-red);
+      transform: rotate(-2.2deg);
+      transform-origin: left bottom;
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
     }
 
-    /* Green by default. Red is the only state worth interrupting for: past 26
-       hours with no new song row, which means a run failed or is paused. */
-    .run-dot {
-      flex: 0 0 auto;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #1e7a4b;
+    .room-scribble:empty { display: none; }
+
+    @media (prefers-reduced-motion: reduce) { .room-scribble { transform: none; } }
+
+    /* The tagline uses the shared .room-blurb from admin-shell.css, which exists
+       for exactly this — prose under the title, body face, quieter than the
+       numbers. There was a local .room-tagline doing the same job by hand.
+       It is NOT a status line and must never be borrowed for one; that is what
+       the red-pen scribble above is for.
+
+       ONE LINE. The shared rule clamps to 62ch, which is a sensible measure for
+       a paragraph and wraps this room's 100-character sentence in half. Cleared
+       so it runs the full width of the header.
+
+       Deliberately NOT white-space: nowrap — that would hold the line on a
+       phone too, where it cannot fit and would push the page sideways. With the
+       clamp simply gone it sits on one line at any normal width and still wraps
+       when the window is genuinely too narrow, which is the wrap you want.
+
+       Two classes deep because admin-shell.css loads AFTER this sheet, so a bare
+       .room-blurb here would lose on order. */
+    .room-head .room-blurb { max-width: none; }
+
+    /* The totals, inside the Tapes & Tracks view. Mono, because these are counts
+       and read as instrumentation — the same treatment .room-substat gives them
+       in every other room, kept here so moving the line out of the header did
+       not change how it reads. */
+    .view-totals {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 0.92rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.35;
     }
 
-    .run-status[data-state="stale"] .run-dot {
-      background: var(--bic-red);
+    .view-totals:empty { display: none; }
+    .view-totals.is-error { color: var(--bic-red); font-weight: 800; }
+
+    /* THE STALE EDGE. All that survives of the last-run line: the routine has
+       not written a track in over REVIEW_HOURS, which means a run failed or is
+       paused. The line itself is now this button's tooltip — but a tooltip
+       nobody hovers is not a signal, so the state stays visible on the control.
+       Same red as the header notice, and the same treatment the sign-out
+       padlock uses, so a red-edged button reads consistently as "look here". */
+    .btn.is-stale {
+      border-color: rgba(194, 55, 55, 0.5);
+      color: var(--bic-red);
     }
 
-    /* Always one line now that this sits under the room title: it wraps only by
-       losing the tail to an ellipsis, so the header never grows a second row. */
-    .run-body {
-      display: flex;
-      flex-wrap: nowrap;
-      align-items: baseline;
-      gap: 8px;
-      min-width: 0;
-      overflow: hidden;
-    }
-
-    .run-body .run-sub {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* Counts, then the run signal, on a single line under the title. Everything
-       else about this element comes from .room-substat in admin-shell.css; only
-       the row behaviour is local. The middle dot is drawn by CSS so neither half
-       has to know about the other. */
-    .room-substat--row {
-      /* Two lines, not one: counts above, last-run below. They were a single
-         nowrap row with a middle dot between them, which truncated as soon as
-         the counts line grew -- and it just grew by "SOUNDTRACKS ADMIN: ". They
-         answer different questions anyway (what is in here / did the routine
-         run), so stacking is not only a width fix. */
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-      min-width: 0;
-    }
-
-    .room-substat--row > * { flex: 0 0 auto; }
-    .room-substat--row .run-status { min-width: 0; overflow: hidden; }
-
-    /* Plain text, same weight and colour as the counts line above it. The dot
-       carries the state on its own, so the words do not need to shout. */
-    .run-line,
-    .run-sub {
-      color: inherit;
-      font: inherit;
+    .btn.is-stale:hover {
+      border-color: var(--bic-red);
+      background: rgba(194, 55, 55, 0.07);
     }
 
     .panel-status {
@@ -419,13 +652,18 @@
     .panel-status.is-success { color: var(--success); font-weight: 800; }
     .panel-status.is-warn { color: #9a4a18; font-weight: 800; }
 
+    /* An empty tab is a NORMAL state here — Review is empty most days and that
+       is the good outcome — so it gets a dashed well rather than a bare line of
+       grey text floating in the panel. */
     .empty {
-      padding: 16px;
-      border: 1px dashed rgba(var(--bic-blue-rgb), 0.24);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.64);
-      color: var(--muted);
-      line-height: 1.55;
+      padding: 34px 18px;
+      border: 1px dashed var(--cut-panel-line);
+      border-radius: 12px;
+      background: #f8fbff;
+      color: var(--ink);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      text-align: center;
     }
 
     
@@ -479,14 +717,30 @@
       padding: 0;
     }
 
-    /* Shared by the Track Archive and the Fresh Review list: both are lists of
-       collapsible cities. */
+    /* Cards with air between them, not rows divided by hairlines — a tape is a
+       discrete thing you act on. Radius one step tighter than the panel's 10px:
+       a card nested inside a container should not share its corner, or the two
+       read as one surface. */
     .tape-group {
       border: 1px solid var(--control-line);
-      border-radius: 8px;
+      border-radius: 6px;
       background: #fff;
       overflow: hidden;
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.05);
+      transition: box-shadow 120ms ease, border-color 120ms ease;
     }
+
+    /* Hover sharpens the edge rather than lifting the card. A translate plus a
+       wide blur reads soft and makes the whole list feel like it is floating; a
+       darker border and a tight shadow keep the edges crisp. */
+    .tape-group:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      box-shadow: 0 1px 5px rgba(17, 24, 32, 0.09);
+    }
+
+    /* A tape with candidates waiting carries the red pen down its edge. It is
+       the only thing in this list that is asking for something. */
+    .tape-group.has-review { border-left: 3px solid var(--bic-red); }
 
     .tape-summary {
       display: flex;
@@ -589,39 +843,57 @@
       align-items: start;
       padding: 12px;
       border: 1px solid var(--control-line);
-      border-radius: 8px;
+      border-radius: 6px;
       background: #fff;
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.05);
+      transition: box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease;
     }
 
-    .track-row.is-archived {
+    .track-row:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      box-shadow: 0 1px 5px rgba(17, 24, 32, 0.09);
+    }
+
+    /* STATUS READS OFF THE CARD, not only off the chip. The Socializer's
+       vocabulary, mapped onto this room's three states: a decided track is
+       legible but visibly out of the running, and LIVE sits at a lighter touch
+       than SHELVED — it is kept, not turned down.
+
+       THE CLASS NAMES ARE THE INTERNAL STATUS, not the visible word: .is-live is
+       the card you see labelled KEPT, .is-shelved the one labelled SHELVED. Same
+       split as the `archived` column and the STATUS_LABEL map in the script —
+       identifiers hold still, copy moves. Renaming these would leave them
+       agreeing with the buttons and disagreeing with everything they are
+       actually driven by.
+
+       This replaced a single dashed .is-archived treatment, which said only
+       "off the site" and so drew a shelved track and a fresh review candidate
+       exactly the same way. Those are the two states it matters most to tell
+       apart: one is finished with, the other is the whole reason to be here. */
+    .track-row.is-live {
+      opacity: 0.85;
+      border-left: 3px solid var(--success);
+    }
+
+    .track-row.is-live:hover { opacity: 1; }
+
+    .track-row.is-shelved {
+      opacity: 0.6;
       border-style: dashed;
       background: rgba(var(--bic-blue-rgb), 0.045);
     }
 
-    .issue-count {
-      margin-left: 8px;
-      color: var(--muted);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-    }
+    .track-row.is-shelved:hover { opacity: 1; }
 
-    .issue-count.has-open { color: var(--bic-red); }
+    /* REVIEW keeps full contrast and takes the red edge. Nothing is dimmed,
+       because this is the row asking you for a decision. */
+    .track-row.is-review { border-left: 3px solid var(--bic-red); }
 
-    /* Nothing flagged is the normal state, and a full panel saying so every day
-       is noise. When it is clear the card collapses to its title line; the
-       accent bar going grey is the at-a-glance signal. */
-    #issuesCard.is-clear {
-      border-top-color: var(--line);
-      box-shadow: none;
-    }
-
-    #issuesCard.is-clear .panel-status,
-    #issuesCard.is-clear .issue-list,
-    #issuesCard.is-clear .panel-tools { display: none; }
-
-    #issuesCard.is-clear > legend { color: var(--muted); }
-
+    /* There was an `.is-clear` state here that collapsed the whole Issues panel
+       to its title line on a quiet day — nothing flagged is the normal state and
+       a full panel saying so every morning is noise. It is gone: the panel is a
+       VIEW now, so a quiet day costs nothing but a tab you do not press, and the
+       count on that tab carries the signal the collapse used to. */
     .issue-list {
       display: grid;
       gap: 10px;
@@ -664,29 +936,24 @@
 
     .issue-suggestion b { color: var(--ink); }
 
-    /* Rolled-up issues: one collapsible block per tape. */
-    .issue-group {
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: #fff;
-      overflow: hidden;
+    /* The city, on the row itself. The findings were grouped into collapsible
+       blocks per tape until 2026-08-14 and the city lived on the block's header;
+       flat and always open, every row has to name its own or the list is a
+       column of unattributed complaints. Bolder than the other chips because it
+       is the one you scan down. */
+    .issue-tape-chip {
+      border-color: rgba(var(--bic-blue-rgb), 0.34);
+      background: rgba(var(--bic-blue-rgb), 0.07);
+      font-weight: 800;
     }
-    .issue-group + .issue-group { margin-top: 8px; }
-    .issue-group > .issue-row { border-radius: 0; border-left-width: 4px; }
-    .issue-group[open] > .issue-group-head { border-bottom: 1px solid var(--line); }
-    .issue-group-head {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      padding: 8px 12px; cursor: pointer; list-style: none; background: rgba(255, 255, 255, 0.72);
-    }
-    .issue-group-head::-webkit-details-marker { display: none; }
-    .issue-group-head::before { content: '▸'; color: var(--muted); }
-    .issue-group[open] > .issue-group-head::before { content: '▾'; }
-    .issue-group-city { font-weight: 700; }
 
-    /* The row you were sent to by Edit on an issue. */
-    .track-row.is-flagged-focus {
-      border-color: var(--bic-red);
-      box-shadow: 0 0 0 2px rgba(194, 55, 55, 0.18);
+    /* TAPE or TRACK — the word, not the thing. It leads the row because it is
+       the widest fact about the finding, and it is filled rather than outlined
+       so the two shapes of row separate before you read a word of either. */
+    .issue-scope-chip {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
     }
 
     /* One row, wrapping. This was a stacked column back when a finding had two
@@ -830,6 +1097,255 @@
       flex-wrap: wrap;
     }
 
+    /* ── The prompt dialog, to the Socializer's pattern ───────────────────── */
+    .tool-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(17, 24, 32, 0.36);
+    }
+
+    .tool-backdrop[hidden],
+    .tool-modal-panel[hidden] { display: none; }
+
+    .tool-modal-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 100;
+      width: min(820px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      /* dvh, so the footer buttons are not parked underneath a phone browser's
+         address bar. 100vh on mobile is the LARGE viewport — the height the page
+         has once the chrome has scrolled away — so a panel sized to it is taller
+         than what you can actually see, and the row you are reaching for is the
+         one that gets cut. The vh line above stays as the fallback. */
+      max-height: calc(100dvh - 48px);
+      transform: translate(-50%, -50%);
+      overflow: auto;
+    }
+
+    /* The shared admin-shell.css re-clamps every dialog to overflow:hidden for
+       its rounded corners, and it loads AFTER this sheet — so the overflow:auto
+       above silently does nothing. Rather than fight that rule, the panel becomes
+       a column: the header and the action row pin, and the body between them
+       scrolls. The :not([hidden]) is load-bearing — display:flex would otherwise
+       beat the display:none in the [hidden] rule above and the dialog would be
+       open on load. */
+    section.tool-modal-panel:not([hidden]) {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    section.tool-modal-panel > .prompt-body { flex: 1 1 auto; min-height: 0; }
+
+    section.tool-modal-panel > .panel-head,
+    section.tool-modal-panel > .prompt-foot { flex: 0 0 auto; }
+
+    /* The dialog is a .prompt-panel, which in this room carries an 8px accent
+       rule across the top. On a floating panel that reads as a title bar with no
+       title in it. */
+    .tool-modal-panel.prompt-panel { border-top-width: 1px; border-top-color: var(--line); }
+
+    .prompt-head { align-items: flex-start; }
+    .prompt-headline { display: grid; gap: 4px; min-width: 0; }
+
+    .prompt-eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .prompt-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+      padding: 14px 16px 16px;
+      overflow: hidden;
+    }
+
+    /* The city row above the sheet. Flat on the dialog rather than in a box —
+       it is one control, and fencing a single select makes it look like a
+       toolbar. */
+    .prompt-city {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+    }
+
+    .prompt-city-select {
+      flex: 1 1 260px;
+      min-width: 0;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: 600 0.88rem/1.3 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      cursor: pointer;
+    }
+
+    .prompt-city-select:disabled { color: var(--muted); cursor: default; }
+    .prompt-city-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .prompt-city-note {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .prompt-city-note:empty { display: none; }
+    .prompt-city-note.is-warn { color: var(--bic-red); }
+
+    /* THE RULED SHEET. Rules every 28px with a red margin at 56px, so the type
+       is locked to a 28px leading and starts to the right of the margin — set at
+       anything else, no line sits on a rule and every line crosses it. */
+    .prompt {
+      display: block;
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 260px;
+      padding: 13px 18px 18px 72px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: none;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
+        #fffefa;
+      background-position: 0 0, 56px 0, 0 0;
+      background-size: 100% 28px, 100% 100%, 100% 100%;
+      color: #17253c;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.88rem;
+      line-height: 28px;
+      outline: none;
+      white-space: pre-wrap;
+      box-shadow: inset 0 1px 2px rgba(var(--bic-blue-rgb), 0.06);
+    }
+
+    .prompt:focus { border-color: rgba(var(--bic-blue-rgb), 0.45); }
+
+    .prompt-foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      flex: 0 0 auto;
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .tool-modal-panel--wide { width: min(980px, calc(100vw - 32px)); }
+
+    /* One control with three doors, fenced off so they do not read as three
+       more buttons standing equal to COPY. */
+    .prompt-ai {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 10px 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+
+    .prompt-ai-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .prompt-ai .btn { background: #fff; }
+
+    .prompt-ctl-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+
+    /* An <a> wearing .btn — it navigates, so it stays an anchor and keeps
+       middle-click and open-in-new-tab. Secondary weight beside COPY: it is
+       where you go after copying, not the thing you came to do. */
+    .prompt-sql-btn { gap: 8px; }
+    .prompt-sql-btn svg { width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.75; }
+
+    .prompt-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 20px;
+    }
+
+    .prompt-copy svg { width: 15px; height: 15px; flex: 0 0 auto; }
+
+    /* Green only while the confirmation is on screen; the button goes back to
+       being the ordinary primary a moment later, so it never reads as a state
+       the dialog is stuck in. */
+    .prompt-copy.is-done,
+    .prompt-copy.is-done:hover {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .copy-status {
+      margin-right: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    @media (max-width: 840px) {
+      /* A dialog on a phone is the screen, so it uses it: full width and pinned
+         rather than centred by transform. */
+      .tool-modal-panel {
+        top: 8px;
+        left: 8px;
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
+        transform: none;
+      }
+
+      /* The head keeps its buttons in a ROW. Stacking them under the title (the
+         .panel-head rule below) turns a two-button header into stacked lines and
+         eats the top of the dialog. */
+      .tool-modal-panel > .panel-head {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .tool-modal-panel > .panel-head .panel-title { flex: 1 1 100%; }
+
+      /* The left padding stays at the red margin — it is what keeps the type off
+         the rule, and a narrow screen does not move the rule. */
+      .prompt { min-height: 200px; padding: 13px 12px 16px 68px; font-size: 0.8rem; }
+      .prompt-copy { flex: 1 1 auto; justify-content: center; }
+      /* The three steps stack rather than half-wrapping into two ragged rows,
+         and each one still spans the foot so the order stays readable. */
+      .prompt-ai { width: 100%; }
+      .prompt-ai-row { flex: 1 1 auto; }
+      .prompt-ai-row .btn { flex: 1 1 auto; }
+      .prompt-sql-btn { flex: 1 1 auto; }
+      .copy-status { width: 100%; margin-right: 0; text-align: left; }
+    }
+
     @media (max-width: 840px) {
 
       /* The page is one column at every width now, so the old ordering rules
@@ -841,31 +1357,22 @@
       }
 
       .panel-head-actions,
-      .panel-tools {
+      .queue-bar {
         width: 100%;
       }
 
       .panel-head-actions .btn,
       .panel-head-actions select,
-      .panel-tools .btn,
-      .panel-tools select,
       .command-bar .btn {
         flex: 1 1 auto;
       }
 
-      .panel-tools {
-        justify-content: stretch;
-      }
-
-      .room-substat--row {
-        align-items: flex-start;
-        flex-wrap: wrap;
-        white-space: normal;
-      }
-
-      .run-body {
-        flex-wrap: wrap;
-      }
+      /* Tabs take the row and the expand switch drops under them, rather than
+         four segments and a button fighting over one line. */
+      .queue-bar { justify-content: stretch; }
+      .queue-tabs { flex: 1 1 100%; }
+      .queue-tab { flex: 1 1 auto; justify-content: center; padding: 0 9px; }
+      .queue-bar > .btn { flex: 1 1 auto; }
 
       .track-row {
         grid-template-columns: 1fr;
@@ -911,81 +1418,391 @@
       <div class="room-titlecol">
           <!-- No eyebrow: the shared admin nav directly above already says
                THE GAME BUREAU. -->
+          <!-- THE SCRIBBLE IS WHERE NOTICES GO — in red pen, beside the room's
+               name, the way you would write on a page that is already printed.
+               Empty almost always, and it collapses when it is. Saves, write
+               failures and load errors all land here.
+               THE TAGLINE BELOW IS NOT A STATUS LINE and must never be borrowed
+               for one: it is the standing description of the room. It used to be
+               #trackArchiveStatus doing both jobs, so an error took the
+               explanation away exactly when something had gone wrong. -->
         <h1 class="room-title" id="pageTitle">TAPE ROOM</h1>
-          <!-- Counts and last-run moved up here from the Tapes & Tracks panel
-               head, on one line. Same element ids, so every writer of them is
-               unchanged: #trackArchiveStatus is also the panel's status channel,
-               so "Saved ..." and write errors still land here. -->
-        <div class="room-substat room-substat--row">
-          <span id="trackArchiveStatus">Waiting for sign-in.</span>
-            <!-- The one live signal on the page, and the reason it is a signal:
-                 a run that errored writes nothing, so a stale last-run IS the
-                 failure notice. TGB SOUNDTRACK BOT, in the command bar below, is where
-                 you go to fix it. -->
-          <span class="run-status" id="runStatus" data-state="loading">
-            <span class="run-dot" aria-hidden="true"></span>
-            <span class="run-body">
-              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
-              <span class="run-sub" id="runWhat"></span>
-            </span>
-          </span>
-        </div>
+          <!-- The last clause names the room's OWN two verbs. It arrived as
+               "Skip or post each one", which is the Socializer's pair — this
+               room has no Skip and no Post, and a standing description that
+               names buttons the page does not have is worse than none. -->
+        <p class="room-blurb" id="pageTagline">Each city we play in has a soundtrack. Tracks are added here through ai. Keep or shelve each one.</p>
+        <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
+          <!-- The header is the room's NAME and what it is for, and nothing
+               else now. The counts moved into the Tapes & Tracks view, which is
+               what they describe (see #trackArchiveStatus); the last-run line
+               became the TGB SOUNDTRACK BOT button's tooltip, on the control you
+               press to go and do something about it. Its at-a-glance half — a
+               coloured dot that went red on a stale run — survives as a red edge
+               on that button, because a stale last-run IS the failure notice (a
+               run that errored writes nothing) and a signal nobody can see
+               without hovering is not a signal. -->
       </div>
       <!-- Cross-page buttons (gift shop admin / this room / Soundtracks) all moved
            out: the first two are the shared admin nav at the top of the page,
            and sign-in is the padlock at the end of it. -->
     </div>
 
-    <fieldset class="command-bar">
-      <legend>Open</legend>
-      <div class="command-bar-inner">
-        <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer" title="Track ideas emailed to soundtrack@thegamebureau.com — leads worth checking, never verified facts">Emailed suggestions</a>
-        <a class="btn" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Runs twice a day, 3 AM and 3 PM Central: starts one new city tape, tops up the emptiest one, and audits a few for problems. Songs arrive as Review candidates — it can never publish. Opens the routine to watch a run, trigger one early, or pause it.">TGB Soundtrack Bot</a>
-        <!-- Cloudflare publishes no URL-filter format, so this lands on Web
-             Analytics and you add the /soundtracks/ path filter there. If you ever
-             copy a working filtered URL out of the address bar, paste it here.
-             NB: this is page views, not plays — see the title. -->
-        <a class="btn" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Cloudflare Web Analytics. Add a filter on path = /soundtracks/ to see this page. Counts arrivals, not plays — a page view cannot tell you whether anyone pressed play.">Listeners</a>
-        <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">About</a>
-      </div>
-    </fieldset>
+    <!-- Two bars, the Socializer's split: where tracks COME FROM on the left,
+         where they END UP (and what you consult) on the right. -->
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <!-- Names the whole errand, not the dialog: one city tape out of any
+               AI and into the review queue, NOW — as against the routine, which
+               does the same thing on a schedule whether you are here or not.
+               This is the path for a chat AI with no key and no session, which
+               is why its deliverable is a SQL statement you paste into Supabase
+               rather than an RPC call it makes itself. -->
+          <button class="btn" id="promptBtn" type="button"
+                  title="Use any ai to research a city tape and add its tracks to the review queue.">PROMPT</button>
+          <!-- ITS TOOLTIP IS THE LAST-RUN LINE, written by loadLastRun — the
+               same words as the header, on the button you press to go and do
+               something about them. The placeholder below is only what shows
+               before that read returns. -->
+          <a class="btn" id="soundtrackBotBtn" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Checking last run…">TGB SOUNDTRACK BOT</a>
+          <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer" title="Track ideas emailed to soundtrack@thegamebureau.com">EMAILED SUGGESTIONS</a>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--view">
+        <legend>View</legend>
+        <div class="command-bar-inner">
+          <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only kept tracks appear there.">SOUNDTRACKS</a>
+          <!-- Cloudflare publishes no URL-filter format, so this lands on Web
+               Analytics and you add the /soundtracks/ path filter there. If you ever
+               copy a working filtered URL out of the address bar, paste it here.
+               NB: this is page views, not plays — see the title. -->
+          <a class="btn" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Cloudflare Web Analytics. Add a filter on path = /soundtracks/ to see this page. Counts arrivals, not plays — a page view cannot tell you whether anyone pressed play.">LISTENERS</a>
+          <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">ABOUT</a>
+        </div>
+      </fieldset>
+    </div>
 
     <div class="prompt-layout">
-      <div class="prompt-main">
+      <!-- ── ONE PANEL, TWO VIEWS ────────────────────────────────────────────
+           Tapes & Tracks and Issues were two stacked panels, which meant the
+           catalogue always sat below a findings box that is empty most days —
+           and the old fix for that was a collapse-when-clear rule that made the
+           panel change shape depending on the data. They are now two views of
+           one panel, and the count on the tab is the at-a-glance signal the
+           collapse used to be.
 
-      <fieldset class="prompt-panel work-panel" id="issuesCard" aria-labelledby="issuesTitle">
-        <legend id="issuesTitle" title="public.soundtrack_issues — open findings from the daily audit">Issues <span class="issue-count" id="issueCount"></span></legend>
-        <div class="panel-tools">
-          <button class="btn small" id="issueExpandBtn" type="button" disabled>Expand all</button>
-          <select id="issueKindSelect" aria-label="Filter issues by kind" disabled>
-            <option value="">All kinds</option>
-            <option value="spotify">Spotify ID</option>
-            <option value="spelling">Spelling</option>
-            <option value="relevance">Relevance</option>
-            <option value="facts">Facts</option>
-          </select>
-        </div>
-        <div class="panel-status" id="issuesStatus">Waiting for sign-in.</div>
-        <div class="issue-list" id="issuesList"></div>
-      </fieldset>
+           REAL FOLDER TABS, cut into the panel's top edge: they replace the two
+           <legend>s rather than sitting above them, which is why the panel is a
+           <div> now and not a <fieldset>. The strip and the panel overlap by
+           1px — see .room-tab — so the active tab's bottom edge is drawn in the
+           panel's own colour and the two read as one sheet of card. -->
+      <div class="room-tabs" id="roomTabs" role="tablist" aria-label="Room view">
+        <!-- TWO COUNTS, one per noun in the name: cities with a cassette, then
+             tracks across all of them. The tab carried a single number for a
+             while and it was ambiguous either way round — labelled "Tapes &
+             Tracks" and showing one figure, you cannot tell which it is.
+             The whole label is one span so the pills sit inline on normal word
+             spacing; leave them as bare flex children of .room-tab and the 9px
+             gap lands either side of the ampersand too. -->
+        <button class="room-tab is-active" id="viewTabTracks" type="button" role="tab" aria-selected="true" aria-controls="tracksView" data-view="tracks"
+                title="Cities with a tape, and tracks across all of them. public.soundtracks + public.soundtrack_songs"><span class="room-tab-label">Tapes <span class="room-tab-count">0</span> &amp; Tracks <span class="room-tab-count">0</span></span></button>
+        <button class="room-tab" id="viewTabIssues" type="button" role="tab" aria-selected="false" aria-controls="issuesView" data-view="issues"
+                title="public.soundtrack_issues — open findings from the daily audit">Issues <span class="room-tab-count">0</span></button>
+      </div>
 
-      <fieldset class="prompt-panel work-panel" id="archiveCard" aria-labelledby="archiveTitle">
-        <legend id="archiveTitle" title="public.soundtracks + public.soundtrack_songs">Tapes &amp; Tracks</legend>
-        <div class="panel-tools">
-          <button class="btn small" id="archiveExpandBtn" type="button" disabled>Expand all</button>
-          <select id="trackStatusSelect" aria-label="Filter tracks by status" disabled>
-            <option value="">All tracks</option>
-            <option value="REVIEW">Review only</option>
-            <option value="LIVE">Live only</option>
-            <option value="SHELVED">Shelved only</option>
-          </select>
-        </div>
-        <div class="track-list" id="trackArchiveList"></div>
-      </fieldset>
+      <div class="work-panel work-panel--tabbed">
+        <section id="tracksView" role="tabpanel" aria-labelledby="viewTabTracks">
+          <!-- REVIEW leads because it is the only one of the three that is ever
+               asking for something, and its count goes red the moment it holds
+               anything. ALL is last and is the default, which is what this panel
+               has always opened on — the catalogue, not the queue. -->
+          <div class="queue-bar">
+            <div class="queue-tabs" id="trackStatusTabs" role="tablist" aria-label="Filter tracks by status">
+              <button class="queue-tab" type="button" role="tab" aria-selected="false" aria-controls="trackArchiveList" data-tab="REVIEW" title="Filed by the routine and waiting on you. Not on /soundtracks/ yet.">Review <span class="queue-tab-count">0</span></button>
+              <button class="queue-tab" type="button" role="tab" aria-selected="false" aria-controls="trackArchiveList" data-tab="LIVE" title="Kept, and on /soundtracks/.">Kept <span class="queue-tab-count">0</span></button>
+              <button class="queue-tab" type="button" role="tab" aria-selected="false" aria-controls="trackArchiveList" data-tab="SHELVED" title="Shelved. The row stays on the city so the routine never picks the track again.">Shelved <span class="queue-tab-count">0</span></button>
+              <button class="queue-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="trackArchiveList" data-tab="" title="Every track on every tape, whatever its state.">All <span class="queue-tab-count">0</span></button>
+            </div>
+            <button class="btn small" id="archiveExpandBtn" type="button" disabled>Expand all</button>
+          </div>
+          <!-- THE TOTALS, and they live in THIS view because this is what they
+               are about. They sat in the room header until 2026-08-14, where
+               they also hung over the Issues view and said nothing about it.
+               COUNTS ONLY — never written to with a message; that is the red-pen
+               scribble's job. -->
+          <p class="view-totals" id="trackArchiveStatus">Waiting for sign-in.</p>
+          <div class="track-list" id="trackArchiveList"></div>
+        </section>
 
+        <section id="issuesView" role="tabpanel" aria-labelledby="viewTabIssues" hidden>
+          <!-- TWO TOGGLES, and the axis is whether the track is still in play.
+               NEW is every finding you can still act on. SHELVED is findings
+               against a track that has already been shelved — they were simply
+               invisible before, counted in a footnote and reachable nowhere, so
+               un-shelving a track brought back findings nobody had ever seen.
+               The kind filter that used to sit here (All / Spotify / Spelling /
+               Relevance / Facts) is gone: the kind is a chip on every row, four
+               kinds across a handful of findings is not a haystack, and it was
+               five controls for a list you can read. -->
+          <div class="queue-bar">
+            <div class="queue-tabs" id="issueScopeTabs" role="tablist" aria-label="Which findings">
+              <button class="queue-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="issuesList" data-tab="new" title="Findings you can still act on.">New <span class="queue-tab-count">0</span></button>
+              <button class="queue-tab" type="button" role="tab" aria-selected="false" aria-controls="issuesList" data-tab="shelved" title="Findings against a track that has already been shelved. Nothing left to fix — the track is off /soundtracks/ and can never be re-picked for that city.">Shelved <span class="queue-tab-count">0</span></button>
+            </div>
+          </div>
+          <div class="panel-status" id="issuesStatus">Waiting for sign-in.</div>
+          <div class="issue-list" id="issuesList"></div>
+        </section>
       </div>
 
     </div>
+
+    <!-- ── PROMPT ─────────────────────────────────────────────────────────────
+         For pasting into ANY chat AI — ChatGPT, Gemini, whatever is open. That
+         AI has no key and no session, so unlike the routine it cannot call the
+         RPC itself; its deliverable is one SQL statement a human runs in the
+         Supabase SQL editor.
+
+         THE STATEMENT CALLS tgb_pull_soundtrack_songs, it is NOT a raw INSERT,
+         and that is the whole point. The RPC is what guarantees every candidate
+         lands as archived = true / certified_at = null / rejected_at = null,
+         refuses a hidden city, caps the call, and drops a malformed spotify_id.
+         A hand-written INSERT bypasses every one of those and could publish
+         straight to /soundtracks/. Don't "simplify" this to an INSERT.
+
+         Editorial rules here and in the routine's stored prompt have to be kept
+         in step by hand; only the last step differs. -->
+    <!-- PAIRED WITH A ROUTINE. This dialog and the stored prompt of TGB
+         SOUNDTRACK BOT (trig_014sqaUyU7557svq9mGA1E4a, cron 30 11 UTC) are
+         near-copies with one difference: that routine holds the key and calls
+         tgb_pull_soundtrack_songs itself, while this text is pasted into a chat
+         AI that has neither, so its deliverable is SQL.
+         EDIT ONE, OPEN THE OTHER. Map: mc/_dev/prompt-tools/PROMPTS.md
+         Edit the routine from here with /schedule or the RemoteTrigger tool. -->
+    <div class="tool-backdrop" id="promptBackdrop" hidden></div>
+    <!-- Same classes and the same foot as the Socializer's prompt dialog, so
+         the two rooms cannot drift apart by somebody restyling one of them. -->
+    <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard" role="dialog" aria-modal="true" aria-labelledby="promptTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <span class="prompt-eyebrow">Paste-ready prompt</span>
+          <!-- NOT "TGB Soundtrack Bot". That is the scheduled routine, and it
+               has its own button in the Add bar a few inches up the page — two
+               different things wearing one name, with only one of them able to
+               write to the tables. This dialog is the errand, so it is named
+               after the errand. -->
+          <h2 class="panel-title" id="promptTitle">One City Tape</h2>
+        </div>
+        <span class="panel-head-actions">
+          <button class="btn small" data-prompt-close type="button">Close</button>
+        </span>
+      </div>
+      <div class="prompt-body">
+        <!-- CHOOSING A CITY IS OPTIONAL, and blank is a real answer rather than
+             an unset one: it means "work the tier ladder", which is what the
+             prompt does on its own. Picking one prepends a directive instead of
+             rewriting the body — the ladder section already opens with "If I
+             have already named a city, use it", so a named city is the path the
+             text supports, not a special case bolted onto it. -->
+        <div class="prompt-city">
+          <label class="prompt-ctl-label" for="promptCity">City</label>
+          <select class="prompt-city-select" id="promptCity" disabled>
+            <option value="">Let the AI choose — US first, down the tiers</option>
+          </select>
+          <span class="prompt-city-note" id="promptCityNote"></span>
+        </div>
+        <textarea class="prompt" id="promptText" spellcheck="false" readonly aria-label="Paste-ready prompt">You are researching one city soundtrack for The Game Bureau.
+
+WHAT A TAPE IS
+A city soundtrack is a free, non-commercial gift for our players: 15 songs
+chosen to make somebody curious about visiting that city. Curiosity about the
+city is what sells the game; the tape is what starts it.
+
+PICK THE CITY: US FIRST, AND IN THIS ORDER
+If I have already named a city, use it. Otherwise pick one yourself, working
+DOWN this ladder and stopping at the first tier that still has a city wanting a
+tape. Do not skip a tier because a lower one looks more interesting.
+
+  TIER 1  A fanbase city of an NFL, NBA, MLB or NHL club.
+  TIER 2  A college football town, where an NCAAF program actually plays.
+  TIER 3  Any other US city in public.cities.
+  TIER 4  Non-US cities. ONLY once tiers 1-3 are exhausted.
+
+Within a tier, take a city with NO TAPE AT ALL before one that merely needs
+topping up, and break ties alphabetically so two runs never fight over the same
+city. Say which tier you picked from and why, in one line, before the SQL.
+
+READ THESE FIRST. They are public and need no login
+  US cities     https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/cities?select=slug,city&amp;country_code=eq.USA&amp;hide_from_soundtracks=is.false&amp;order=city.asc&amp;apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
+  how full      https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_stats?select=city_slug,active_songs&amp;order=city_slug.asc&amp;apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
+  teams         https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/teams?select=league,code,fanbase,mascot&amp;order=league.asc&amp;apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
+
+The cities list is FILTERED TO THE US and to cities that are allowed a tape,
+which is tiers 1-3 and about 490 rows. That filter is not just convenience: the
+catalogue is over 1300 cities, the API silently stops at 1000 and tells you
+nothing, so an unfiltered read would hand you the alphabet up to roughly M and
+look complete. Only if you genuinely reach TIER 4 should you drop
+country_code=eq.USA, and then read it in two halves with &amp;limit=1000 and
+&amp;offset=1000, or you will hit the same cliff.
+
+If you cannot open URLs, ask me to paste those lists in and wait. Do not guess
+at the catalogue: a city_slug that is not in public.cities is refused by the
+function and the whole run is wasted.
+
+FOUR THINGS THAT WILL TRIP YOU UP HERE
+  - THE FANBASE CITY, NEVER THE VENUE TOWN. Boston not Foxborough, Buffalo not
+    Orchard Park, Dallas not Arlington, Miami not Miami Gardens, New York not
+    East Rutherford, San Francisco not Santa Clara, Phoenix not Glendale, Las
+    Vegas not Paradise, Los Angeles not Inglewood. Nobody makes a mixtape of
+    Orchard Park. Those towns are in public.cities carrying
+    hide_from_soundtracks, so the flag stops you anyway, but pick by fanbase
+    and you will never meet it.
+  - COLLEGE ROWS NAME A SCHOOL, NOT A CITY. teams.fanbase reads "Alabama" or
+    "Ohio State" for NCAAF, so YOU have to resolve the town: Alabama is
+    Tuscaloosa, Ohio State is Columbus, Ole Miss is Oxford. Resolve it, then
+    check that town is in public.cities.
+  - THE TWO TABLES SPELL A CITY DIFFERENTLY. teams say "Buffalo, NY"; cities say
+    "Buffalo, New York". Match on the city name, not on the whole string.
+  - A city with hide_from_soundtracks set is OFF LIMITS at every tier.
+
+Use the exact slug from public.cities as city_slug.
+
+FIND UP TO 15 SONGS
+Draw from all four of these, in roughly this order of preference:
+  - songs that name the city, its streets, its neighbourhoods
+  - hometown artists and records actually made there
+  - sports and game-day music: fight songs, victory anthems, stadium walk-up
+    and goal songs, what fans sing outside the ground. Aim for 2 or 3 of the 15
+    where the city has a real sports identity, and confirm the team actually
+    plays the song
+  - local scenes and labels the city is known for
+
+RULES, ALL OF WHICH ARE ENFORCED SOMEWHERE
+  - Real commercial recordings only. No karaoke, tribute, sped-up, slowed or
+    re-recorded versions.
+  - At most 2 songs per artist on one city.
+  - No duplicate title plus artist pair on one city. A unique index enforces
+    this, so a duplicate is silently dropped and the tape ends up short.
+  - Every song needs a title, an artist, and a city-specific blurb. The blurb
+    runs to ten words at most and does not end in a period. There is NO MINIMUM
+    LENGTH beyond having one at all: four words that say something true beat
+    eight padded out to hit a count, and no blurb is ever too short.
+  - spotify_id is 22 characters and must be VERIFIED against a real
+    open.spotify.com/track page you actually opened. OMIT IT rather than guess.
+    A fabricated id passes every format check and then silently plays nothing.
+  - explicit is true only if Spotify itself says so.
+
+NO EM DASHES ANYWHERE IN WHAT YOU HAND BACK. Not in a blurb, not in a spine
+phrase, not in the summary you write around the SQL. Not as the character and
+not as the `&mdash;` entity. Use a comma, a colon, a semicolon, a full stop or
+brackets; every one of them is available and one of them always fits. An em dash
+is the single clearest tell that a machine wrote the line, and a blurb is read
+aloud off a cassette. This prompt does not use one either, deliberately: if the
+instructions were littered with them you would copy the habit.
+
+WHAT HAPPENS TO YOUR WORK
+Nothing you file is published. Every track lands in a review queue as a
+candidate and stays invisible on /soundtracks/ until a human presses Keep on
+it, or Shelve, which takes it off the tape for good. Write the tape as though it
+were publishing tomorrow anyway: a candidate you would not defend is not worth
+filing.
+
+DELIVERABLE
+Reply with ONE sql code block and nothing else around it: a single call to the
+pull function, with your songs as the jsonb argument.
+
+  select public.tgb_pull_soundtrack_songs('
+  {
+    "tapes": [
+      {
+        "city_slug": "denver",
+        "spine_tag": "Soul Mix",
+        "songs": [
+          {
+            "title": "",
+            "artist": "",
+            "spotify_id": "",
+            "blurb": "",
+            "explicit": false
+          }
+        ]
+      }
+    ]
+  }
+  '::jsonb);
+
+Notes on that shape:
+  - spine_tag is the short phrase printed down the side of the cassette. It is
+    applied ONLY when the tape row is created, and ignored on a tape that
+    already exists.
+  - Leave spotify_id out entirely rather than sending an empty string or a
+    guess.
+  - One tape per call is plenty. The function accepts at most 4 tapes and 60
+    songs in one go.
+  - Escape any apostrophe in a title, artist or blurb by doubling it, or the
+    statement will not parse.
+
+Then stop. Do not explain the SQL, do not summarise the tape, and do not add
+prose before or after the code block.</textarea>
+      </div>
+      <!-- Copy, then a door into an AI, then where the answer goes: the errand
+           in the order you do it. The status span is first and carries the auto
+           margin, so it holds the left end and pushes the three steps into a
+           block. -->
+      <div class="prompt-foot">
+        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+
+        <button class="btn primary prompt-copy" id="copyPromptTop" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copyPromptLabel">Copy prompt</span>
+        </button>
+
+        <!-- THREE DOORS THAT DO BOTH: each one copies the prompt AND opens a
+             blank chat, so Copy above is the manual version of a step these take
+             for you. They still open BLANK — none of these takes a prompt this
+             long through a query string reliably, and a half-truncated pre-fill
+             is worse than an empty box with the whole thing on the clipboard.
+
+             Fenced as one control so the three do not read as three peers of
+             COPY, and left as ANCHORS: the new tab has to come from your own
+             click on a link, or the popup blocker eats it. The copy is fired
+             from the same click WITHOUT preventDefault, so the navigation is
+             still the browser's own. -->
+        <div class="prompt-ai" role="group" aria-label="Copy the prompt and open an AI">
+          <span class="prompt-ctl-label">COPY &amp; OPEN</span>
+          <span class="prompt-ai-row" id="promptAiRow">
+            <a class="btn small" target="_blank" rel="noopener" href="https://chatgpt.com/"
+               title="Copy the prompt and open ChatGPT">ChatGPT</a>
+            <a class="btn small" target="_blank" rel="noopener" href="https://grok.com/"
+               title="Copy the prompt and open Grok">Grok</a>
+            <a class="btn small" target="_blank" rel="noopener" href="https://claude.ai/new"
+               title="Copy the prompt and open Claude">Claude</a>
+          </span>
+        </div>
+
+        <!-- Where the answer goes. An <a>, not a fetch: this page holds only the
+             publishable key, and running the statement needs an account with
+             rights on the project, which cannot live in a public HTML file. -->
+        <a class="btn prompt-sql-btn" id="sqlEditorBtn" target="_blank" rel="noopener noreferrer"
+           href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/"
+           title="Open the Supabase SQL editor and run the statement the AI gave you">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3h7v7"></path>
+            <path d="M21 3l-9 9"></path>
+            <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+          </svg>
+          <span>Insert results</span>
+        </a>
+      </div>
+    </section>
   </main>
 
   <!--
@@ -1012,7 +1829,7 @@
   },
   "writePath": {
     "rpc": "public.tgb_pull_soundtrack_songs(tapes jsonb)",
-    "auth": "the public publishable key — the routine has no secret store",
+    "auth": "the public publishable key; the routine has no secret store",
     "shape": {
       "tapes": [
         {
@@ -1023,7 +1840,7 @@
               "title": "",
               "artist": "",
               "spotify_id": "22 chars, optional",
-              "blurb": "short and city-specific, 10 words at most, no minimum",
+              "blurb": "required, short and city-specific, 10 words at most, no minimum length",
               "explicit": "true only if Spotify says so"
             }
           ]
@@ -1031,22 +1848,22 @@
       ]
     },
     "limits": "insert-only, max 4 tapes and 60 songs per call, cannot publish, archive, un-archive, or reject anything, cannot touch a hidden city",
-    "goesLive": "NO. Since 2026-08-01 every song the RPC writes lands as a REVIEW candidate (archived = true, certified_at and rejected_at null) and is invisible on /soundtracks/ until a human presses Live in the Tape Room. Same review queue the gift-shop book pull has always used. Write the tape as if it were going live — a candidate you would not defend is not worth filing."
+    "goesLive": "NO. Since 2026-08-01 every song the RPC writes lands as a REVIEW candidate (archived = true, certified_at and rejected_at null) and is invisible on /soundtracks/ until a human presses Keep in the Tape Room. Same review queue the gift-shop book pull has always used. Write the tape as if it were going live: a candidate you would not defend is not worth filing."
   },
   "cityCatalog": {
     "table": "public.cities",
     "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)"
   },
   "rules": [
-    "Exactly 15 LIVE songs per city — certified_at set, not archived. Songs still in review do not count toward the 15, so a tape can look short until its candidates are approved; propose enough to fill it, not enough to fill it twice.",
-    "A tape over 15 live songs is trimmed by SHELVING the most recently added tracks — newest created_at first, ties broken by highest id — until 15 remain. Never shelve an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot shelve, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Shelve.",
+    "Exactly 15 LIVE songs per city: certified_at set, not archived. Songs still in review do not count toward the 15, so a tape can look short until its candidates are approved; propose enough to fill it, not enough to fill it twice.",
+    "A tape over 15 kept songs is trimmed by SHELVING the most recently added tracks (newest created_at first, ties broken by highest id) until 15 remain. Never shelve an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot shelve, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Shelve.",
     "Max 2 active songs per artist per city.",
-    "No duplicate title+artist pair in a city, archived rows included — a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
-    "Every song needs a title, an artist, and a city-specific blurb with no trailing period. Keep it to 10 words or fewer; there is NO minimum. Four words that say something true beat eight padded out to hit a count, and a blurb is never short enough on its own to be an issue.",
-    "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess — a fabricated id passes every format check and silently plays nothing.",
-    "Three states, derived from two timestamps exactly as the gift shop does it: REVIEW (both null) is the default and what this routine writes; LIVE (certified_at set) is on /soundtracks/; SHELVED (rejected_at set) was turned down. Only a human moves a song between them.",
-    "A shelved or hidden song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
-    "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and go live there. Being wrong for one city is not evidence about another.",
+    "No duplicate title+artist pair in a city, archived rows included: a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
+    "Every song needs a title, an artist, and a city-specific blurb with no trailing period. A blurb is REQUIRED and a missing one is a facts issue; what has NO MINIMUM is its LENGTH. Keep it to 10 words or fewer, and four words that say something true beat eight padded out to hit a count. No blurb is ever too short to pass; shortness alone is never worth reporting.",
+    "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess: a fabricated id passes every format check and silently plays nothing.",
+    "Three states, derived from two timestamps exactly as the gift shop does it: REVIEW (both null) is the default and what this routine writes; LIVE (certified_at set) is on /soundtracks/; SHELVED (rejected_at set) was turned down. Only a human moves a song between them. THESE ARE THE INTERNAL NAMES, and the Tape Room happens to show them almost verbatim: LIVE reads KEPT, SHELVED reads SHELVED, REVIEW keeps its name, and the buttons read Keep and Shelve. SKIP in that room means only one thing (taking a FINDING off the Issues list), so never use it for a song. Write any suggestion a human will read in those words.",
+    "A shelved song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
+    "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and kept there. Being wrong for one city is not evidence about another.",
     "NEVER report an issue against a SHELVED track (rejected_at set). It is already off /soundtracks/ and can never be re-picked for that city, so there is nothing left to fix. A trigger drops such a report anyway, and it would count against the 40-finding cap for nothing. Audit LIVE tracks, and REVIEW candidates you are asking a human to judge.",
     "No tapes for cities where public.cities.hide_from_soundtracks is true.",
     "Real commercial recordings only: no karaoke, tribute, sped-up, slowed, or re-recorded versions."
@@ -1061,10 +1878,10 @@
     "type": "Claude Code scheduled cloud routine",
     "id": "trig_014sqaUyU7557svq9mGA1E4a",
     "cron": "30 11 * * * UTC (once daily)",
-    "localTime": "6:30 AM Central in summer, 5:30 AM in winter (cloud cron has no DST shift). NOTE: CLAUDE.md still describes this routine as twice daily on 0 8,20 — the trigger says otherwise and the trigger is what runs.",
+    "localTime": "6:30 AM Central in summer, 5:30 AM in winter (cloud cron has no DST shift). NOTE: CLAUDE.md still describes this routine as twice daily on 0 8,20, but the trigger says otherwise and the trigger is what runs.",
     "model": "claude-opus-5",
     "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 live songs. Everything it writes is a Review candidate awaiting a human.",
-    "runReceipt": "the newest public.soundtrack_songs row — the routine commits nothing, so a stale timestamp is the failure signal",
+    "runReceipt": "the newest public.soundtrack_songs row; the routine commits nothing, so a stale timestamp is the failure signal",
     "manage": "https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
   },
   "doNotCreate": [
@@ -1081,7 +1898,7 @@
     "wrapper": "the parameter is named payload, so the body is {\"payload\": {\"audited\": [...], \"issues\": [...]}}. Sending {\"issues\": [...]} unwrapped returns PGRST202, which reads like a missing migration but is a malformed call.",
     "scope": "the tapes written this run plus the 3 with the oldest soundtracks.last_audit_at (null first)",
     "kinds": "spotify | spelling | relevance | facts, at severity high | warn | info",
-    "audited": "every tape looked at, including clean ones — it is what advances the rotation, and an unstamped tape is re-audited forever",
+    "audited": "every tape looked at, including clean ones: it is what advances the rotation, and an unstamped tape is re-audited forever",
     "limits": "insert-only, always status = open, max 40 findings per call; a song_id not on the named tape is dropped",
     "cannotFix": "the agent reports and never edits. Hiding, editing and clearing are human actions in this room."
   }
@@ -1102,20 +1919,19 @@
       var trackArchiveStatus = document.getElementById('trackArchiveStatus');
       var trackArchiveList = document.getElementById('trackArchiveList');
       var archiveExpandBtn = document.getElementById('archiveExpandBtn');
-      var trackStatusSelect = document.getElementById('trackStatusSelect');
+      var trackStatusTabs = document.getElementById('trackStatusTabs');
       // '' = every track. Otherwise one of REVIEW / LIVE / SHELVED; a tape with
       // no matching track drops out of the list entirely.
       var trackStatusFilter = '';
       var issuesList = document.getElementById('issuesList');
       var issuesStatus = document.getElementById('issuesStatus');
-      var issueCountEl = document.getElementById('issueCount');
-      var issueKindSelect = document.getElementById('issueKindSelect');
-      var issueExpandBtn = document.getElementById('issueExpandBtn');
-      // One switch for the whole panel, not one per city. Null means "nobody has
-      // pressed it", which is when the per-tape default below applies; once it is
-      // true or false every group follows it, including groups that appear on a
-      // later refresh.
-      var issuesAllExpanded = null;
+      var issueScopeTabs = document.getElementById('issueScopeTabs');
+      // 'new' = findings you can act on; 'shelved' = findings against a track
+      // that is already off the site.
+      var issueScope = 'new';
+      // The red-pen line beside the room name. Every transient message on this
+      // page goes here; see the note on the markup.
+      var pageNotice = document.getElementById('pageNotice');
       var soundtrackIssues = [];
       // Staleness threshold for the routine card's last-run line. The bot runs
       // twice a day, ~12 hours apart, so 14 hours means one missed run shows up
@@ -1278,11 +2094,99 @@
         });
         syncArchiveExpandBtn();
       });
-      if (trackStatusSelect) trackStatusSelect.addEventListener('change', function () {
-        trackStatusFilter = trackStatusSelect.value || '';
-        // Opening every tape when filtering is the point: with "Shelved only" on,
-        // a collapsed list of city names says nothing. Clearing the filter puts
-        // the list back to collapsed rather than leaving 60 tapes open.
+      // ── Segmented tabs ──────────────────────────────────────────────────────
+      // A strip is four buttons behaving as one control, so selecting is a single
+      // helper rather than four listeners: it marks one tab active, keeps
+      // aria-selected honest for a screen reader, and hands the value back.
+      function tabsOf(strip) {
+        return strip ? Array.prototype.slice.call(strip.querySelectorAll('.queue-tab')) : [];
+      }
+
+      function selectTab(strip, value) {
+        tabsOf(strip).forEach(function (tab) {
+          var on = (tab.dataset.tab || '') === value;
+          tab.classList.toggle('is-active', on);
+          tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+
+      // Counts live on the tab, which is the whole reason these stopped being
+      // <select>s: a closed dropdown cannot tell you six tracks are waiting.
+      // `counts` is keyed by the tab's data-tab, '' being the total.
+      function setTabCounts(strip, counts) {
+        tabsOf(strip).forEach(function (tab) {
+          var key = tab.dataset.tab || '';
+          var n = Number(counts[key] || 0);
+          var el = tab.querySelector('.queue-tab-count');
+          if (el) el.textContent = String(n);
+          tab.classList.toggle('is-empty', n === 0);
+          tab.classList.toggle('has-work', n > 0);
+        });
+      }
+
+      function bindTabs(strip, onPick) {
+        if (!strip) return;
+        strip.addEventListener('click', function (event) {
+          var tab = event.target.closest ? event.target.closest('.queue-tab') : null;
+          if (!tab || !strip.contains(tab)) return;
+          onPick(tab.dataset.tab || '');
+        });
+      }
+
+      // ── The room's two views ────────────────────────────────────────────────
+      // Tapes & Tracks is always the one you land on, whatever the data says.
+      // Opening on Issues when there happen to be findings would mean the room
+      // greets you differently on different mornings; the red count on the tab
+      // announces them without moving anything.
+      var roomTabs = document.getElementById('roomTabs');
+      var roomViews = {
+        tracks: document.getElementById('tracksView'),
+        issues: document.getElementById('issuesView')
+      };
+
+      function showView(name) {
+        if (!roomViews[name]) return;
+        Object.keys(roomViews).forEach(function (key) {
+          roomViews[key].hidden = key !== name;
+        });
+        if (!roomTabs) return;
+        Array.prototype.forEach.call(roomTabs.querySelectorAll('.room-tab'), function (tab) {
+          var on = tab.dataset.view === name;
+          tab.classList.toggle('is-active', on);
+          tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+
+      if (roomTabs) roomTabs.addEventListener('click', function (event) {
+        var tab = event.target.closest ? event.target.closest('.room-tab') : null;
+        if (tab && roomTabs.contains(tab)) showView(tab.dataset.view);
+      });
+
+      // The headline counts. Takes a number or a list of them, filling the tab's
+      // pills in document order — Tapes & Tracks carries two, Issues one — so a
+      // tab can grow another number without a second setter. `has-work` is what
+      // turns the Issues pill red.
+      function setRoomTabCount(view, counts) {
+        if (!roomTabs) return;
+        var tab = roomTabs.querySelector('.room-tab[data-view="' + view + '"]');
+        if (!tab) return;
+        var list = [].concat(counts);
+        var total = 0;
+        Array.prototype.forEach.call(tab.querySelectorAll('.room-tab-count'), function (el, i) {
+          var n = Number(list[i]) || 0;
+          el.textContent = String(n);
+          total += n;
+        });
+        tab.classList.toggle('has-work', total > 0);
+      }
+
+      bindTabs(trackStatusTabs, function (value) {
+        if (value === trackStatusFilter) return;
+        trackStatusFilter = value;
+        selectTab(trackStatusTabs, trackStatusFilter);
+        // Opening every tape when filtering is the point: with Shelved on, a
+        // collapsed list of city names says nothing. Clearing the filter puts the
+        // list back to collapsed rather than leaving 60 tapes open.
         if (trackStatusFilter) {
           Object.keys(expandedTapes).forEach(function (k) { delete expandedTapes[k]; });
           renderTrackArchive();
@@ -1298,6 +2202,13 @@
         }
       });
 
+      bindTabs(issueScopeTabs, function (value) {
+        if (!value || value === issueScope) return;
+        issueScope = value;
+        selectTab(issueScopeTabs, issueScope);
+        renderIssues();
+      });
+
       // The button names what pressing it will do, same as the Issues one.
       function syncArchiveExpandBtn() {
         if (!archiveExpandBtn) return;
@@ -1307,8 +2218,6 @@
         archiveExpandBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
         archiveExpandBtn.title = allOpen ? 'Close every tape' : 'Open every tape';
       }
-      if (issueKindSelect) issueKindSelect.addEventListener('change', function () { renderIssues(); });
-
       function text(value) {
         return String(value == null ? '' : value).trim();
       }
@@ -1341,6 +2250,31 @@
         return isArchivedSong(song) ? 'REVIEW' : 'LIVE';
       }
       function isReviewSong(song) { return songStatus(song) === 'REVIEW'; }
+
+      // THE VOCABULARY LIVES HERE, and only here. The three status strings are
+      // internal identifiers tied to the two timestamps and to what
+      // /soundtracks/ filters on — they are never shown. Visible copy is KEEP /
+      // SHELVE / REVIEW, the same bargain struck when the column stayed
+      // `archived` while the buttons went ARCHIVE → HIDE → SHELVE → SKIP → SHELVE.
+      //
+      // Renaming the identifiers instead would mean touching setTrackStatus, the
+      // data-tab attributes, tapeCounts and every caller, to change words nobody
+      // reads. Put any further rename in these two maps.
+      var STATUS_LABEL = { REVIEW: 'Review', LIVE: 'Kept', SHELVED: 'Shelved' };
+      // The verb that MOVES a track into that state, for a button face.
+      var STATUS_VERB = { REVIEW: 'Review', LIVE: 'Keep', SHELVED: 'Shelve' };
+
+      // SHELVE MEANS OFF THE SITE, AT EITHER SCOPE. A track is shelved, a whole
+      // tape is shelved, and the word is the same because the effect is: the
+      // thing leaves /soundtracks/ and stops counting, its row kept as a
+      // do-not-rescrape tombstone. SKIP is reserved for one thing only — taking
+      // a FINDING off the Issues list — so the two verbs never answer the same
+      // question. Tracks briefly used SKIP too, which put "Skip" and "Skip
+      // issue" side by side on one row meaning quite different things.
+      //
+      // Restore is the inverse at tape scope, and it is NOT "keep tape":
+      // restoring brings back only the tracks the tape took down with it.
+      function statusLabel(status) { return STATUS_LABEL[status] || 'Review'; }
 
       function formatDate(date) {
         if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return '';
@@ -1379,6 +2313,11 @@
         return a;
       }
 
+      // THE COUNTS LINE. Standing fact about what is loaded, nothing else — it
+      // is never handed a message. Before the Socializer pass this element was
+      // doing three jobs at once (counts, "Saved…", write errors), so every
+      // failure erased the only description of the room and left nothing behind
+      // to restore it.
       function setArchiveStatus(message, tone) {
         if (!trackArchiveStatus) return;
         trackArchiveStatus.textContent = message || '';
@@ -1387,10 +2326,38 @@
         trackArchiveStatus.classList.toggle('is-warn', tone === 'warn');
       }
 
+      // THE RED-PEN NOTICE, beside the room name. Everything transient lands
+      // here: saves, renames, write failures, load failures.
+      //
+      // A success clears itself after a few seconds — you did the thing, you saw
+      // it land, and a stale "Saved Denver" hanging over the page an hour later
+      // is a lie about what is currently true. An ERROR STAYS until the next
+      // action, because it is the answer to "why did nothing happen?" and that
+      // question can be asked long after the click.
+      var noticeTimer = 0;
+      function setNotice(message, tone) {
+        if (!pageNotice) return;
+        window.clearTimeout(noticeTimer);
+        pageNotice.textContent = message || '';
+        // 'hold' is a SUCCESS that still has to be read: the one on this page is
+        // a move that carried a track's do-not-rescrape tombstone to another
+        // city, which frees the routine to re-pick that song for the old one.
+        // That is a consequence you have to know about and would not think to
+        // ask, so it must not vanish six seconds after you looked away.
+        if (message && tone !== 'error' && tone !== 'hold') {
+          noticeTimer = window.setTimeout(function () {
+            // Only clear what we set. A newer message that arrived in the
+            // meantime is not ours to wipe.
+            if (pageNotice.textContent === message) pageNotice.textContent = '';
+          }, 6000);
+        }
+      }
+
       function resetSoundtrackArchive() {
         soundtrackArchiveData = null;
         trackStatusFilter = '';
-        if (trackStatusSelect) { trackStatusSelect.value = ''; trackStatusSelect.disabled = true; }
+        selectTab(trackStatusTabs, '');
+        setTabCounts(trackStatusTabs, {});
         if (archiveExpandBtn) { archiveExpandBtn.disabled = true; archiveExpandBtn.textContent = 'Expand all'; }
         expandedTapes = Object.create(null);
         if (trackArchiveList) {
@@ -1398,15 +2365,15 @@
           trackArchiveList.appendChild(emptyNode('Sign in to manage tapes and tracks.'));
         }
         setArchiveStatus('Waiting for sign-in.', '');
+        setNotice('', '');
         soundtrackIssues = [];
-        if (issueKindSelect) { issueKindSelect.value = ''; issueKindSelect.disabled = true; }
-        issuesAllExpanded = null;
-        if (issueExpandBtn) { issueExpandBtn.disabled = true; issueExpandBtn.textContent = 'Expand all'; }
+        issueScope = 'new';
+        selectTab(issueScopeTabs, 'new');
+        setTabCounts(issueScopeTabs, {});
         if (issuesList) issuesList.innerHTML = '';
-        if (issueCountEl) { issueCountEl.textContent = ''; issueCountEl.classList.remove('has-open'); }
-        // Signed out is not "clear" — show the head and the reason.
-        var signedOutIssuesCard = document.getElementById('issuesCard');
-        if (signedOutIssuesCard) signedOutIssuesCard.classList.remove('is-clear');
+        setRoomTabCount('tracks', [0, 0]);
+        setRoomTabCount('issues', 0);
+        showView('tracks');
         setIssuesStatus('Waiting for sign-in.', '');
       }
 
@@ -1445,9 +2412,11 @@
         return all.filter(function (issue) { return !isSuppressedIssue(issue); });
       }
 
-      function suppressedIssueCount() {
+      // The SHELVED toggle's list. These were counted in a footnote and shown
+      // nowhere, so un-shelving a track brought back findings nobody had seen.
+      function suppressedIssues() {
         var all = Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
-        return all.filter(isSuppressedIssue).length;
+        return all.filter(isSuppressedIssue);
       }
 
       // songId -> its open findings, for the warning chip on a track row. Rebuilt
@@ -1465,22 +2434,25 @@
         issueSongMap = map;
       }
 
+      // ONE FLAT LIST, ALWAYS OPEN. The findings were rolled up into collapsible
+      // blocks per tape, which is the right shape for a long list and the wrong
+      // one for this: a run files a handful, and a disclosure triangle in front
+      // of each meant the panel opened showing city names and no problems. The
+      // tape name is now a chip on the row, which costs one repeated word and
+      // buys a list you can read without pressing anything.
       function renderIssues(message, tone) {
         if (!issuesList) return;
         if (message) setIssuesStatus(message, tone);
-        var all = openIssues();
-        var kind = issueKindSelect ? issueKindSelect.value : '';
-        var rows = kind ? all.filter(function (issue) { return issue.kind === kind; }) : all.slice();
 
-        if (issueKindSelect) issueKindSelect.disabled = !all.length;
-        if (issueCountEl) {
-          issueCountEl.textContent = all.length ? (all.length + ' open') : 'nothing flagged';
-          issueCountEl.classList.toggle('has-open', all.length > 0);
-        }
-        // Collapse the whole card to its title line when there is nothing to
-        // clear -- the normal state, and a full empty panel every day is noise.
-        var issuesCard = document.getElementById('issuesCard');
-        if (issuesCard) issuesCard.classList.toggle('is-clear', all.length === 0);
+        var live = openIssues();
+        var shelved = suppressedIssues();
+        setTabCounts(issueScopeTabs, { 'new': live.length, shelved: shelved.length });
+        // The room tab counts what is actionable. A finding against a shelved
+        // track is not work, so it must not colour that badge red.
+        setRoomTabCount('issues', live.length);
+
+        var showingShelved = issueScope === 'shelved';
+        var rows = (showingShelved ? shelved : live).slice();
 
         // high first, then warn, then info; newest first inside a severity.
         var rank = { high: 0, warn: 1, info: 2 };
@@ -1492,109 +2464,34 @@
 
         issuesList.innerHTML = '';
         if (!rows.length) {
-          issuesList.appendChild(emptyNode(all.length
-            ? 'No open issues of that kind.'
+          issuesList.appendChild(emptyNode(showingShelved
+            ? 'Nothing here. Findings land in this list when the track they name is shelved.'
             : 'Nothing flagged. The daily audit reports here when it finds something.'));
-          if (!message) setIssuesStatus(all.length ? '' : 'The last audit found nothing to report.', '');
-          syncIssueExpandBtn();
+          // No status line. The well below already says it, in more words and
+          // in the place you are looking; "The last audit found nothing to
+          // report." above it was the same sentence twice.
+          if (!message) setIssuesStatus('', '');
           return;
         }
 
-        // Rolled up by tape. Flat, the panel was a list of findings that happened
-        // to be about tapes; grouped, it is a list of tapes that need work, which
-        // is the unit you actually act on — you open one city, fix what is wrong
-        // there, and move on. A tape with five findings was also five rows of
-        // repeated city name.
-        var order = [];
-        var byTape = Object.create(null);
-        rows.forEach(function (issue) {
-          var slug = text(issue.city_slug) || '(no city)';
-          if (!byTape[slug]) { byTape[slug] = []; order.push(slug); }
-          byTape[slug].push(issue);
-        });
+        rows.forEach(function (issue) { issuesList.appendChild(renderIssueRow(issue)); });
 
-        order.forEach(function (slug) {
-          var group = byTape[slug];
-          var box = document.createElement('details');
-          box.className = 'issue-group';
-          // Expand all / Collapse all wins once pressed. Until then: open when
-          // there is one tape to look at, or when this tape has something
-          // high-severity in it, so a long list stays scannable.
-          box.open = issuesAllExpanded === null
-            ? (order.length === 1 || group.some(function (i) { return i.severity === 'high'; }))
-            : issuesAllExpanded;
-          // Opening or closing one group by hand drops the panel back to
-          // per-group control rather than silently fighting the button.
-          box.addEventListener('toggle', function () {
-            if (issuesAllExpanded !== null && box.open !== issuesAllExpanded) {
-              issuesAllExpanded = null;
-              syncIssueExpandBtn();
-            }
-          });
-
-          var head = document.createElement('summary');
-          head.className = 'issue-group-head';
-          var label = document.createElement('span');
-          label.className = 'issue-group-city';
-          label.textContent = soundCityLabel(slug);
-          var tally = document.createElement('span');
-          tally.className = 'item-meta';
-          tally.appendChild(chip(group.length + (group.length === 1 ? ' finding' : ' findings'),
-            group.some(function (i) { return i.severity === 'high'; }) ? 'warn' : ''));
-          var kinds = Object.create(null);
-          group.forEach(function (i) { kinds[i.kind] = (kinds[i.kind] || 0) + 1; });
-          Object.keys(kinds).sort().forEach(function (k) {
-            tally.appendChild(chip((ISSUE_KIND_LABEL[k] || k) + ' ' + kinds[k]));
-          });
-          head.append(label, tally);
-          box.appendChild(head);
-
-          group.forEach(function (issue) { box.appendChild(renderIssueRow(issue)); });
-          issuesList.appendChild(box);
-        });
-        syncIssueExpandBtn();
-
-        if (!message) {
-          var hidden = suppressedIssueCount();
-          setIssuesStatus(all.length + ' open ' + (all.length === 1 ? 'finding' : 'findings')
-            + ' across ' + countIssueTapes(all) + ' '
-            + (countIssueTapes(all) === 1 ? 'tape' : 'tapes') + '.'
-            + (hidden ? ' ' + hidden + ' more ' + (hidden === 1 ? 'is' : 'are')
-                + ' against shelved tracks and not shown.' : ''), 'warn');
-        }
+        // NO TALLY LINE. "13 open findings across 7 tapes" restated in a sentence
+        // what the toggle's own count already says and what the list itself
+        // shows, and it sat between you and the findings on every load. The
+        // status channel is kept for the empty state and for write failures —
+        // the two things the list cannot say on its own.
+        if (!message) setIssuesStatus('', '');
       }
 
-      // The button says what pressing it will do. With nothing pressed yet the
-      // panel is a mix of open and closed groups, and "Expand all" is the more
-      // useful of the two from there.
-      function syncIssueExpandBtn() {
-        if (!issueExpandBtn) return;
-        var groups = issuesList ? issuesList.querySelectorAll('.issue-group') : [];
-        issueExpandBtn.disabled = !groups.length;
-        var allOpen = groups.length > 0 && Array.prototype.every.call(groups, function (g) { return g.open; });
-        issueExpandBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
-        issueExpandBtn.title = allOpen
-          ? 'Close every tape in this panel'
-          : 'Open every tape in this panel';
-      }
-
-      if (issueExpandBtn) {
-        issueExpandBtn.addEventListener('click', function () {
-          var groups = issuesList ? issuesList.querySelectorAll('.issue-group') : [];
-          if (!groups.length) return;
-          var allOpen = Array.prototype.every.call(groups, function (g) { return g.open; });
-          issuesAllExpanded = !allOpen;
-          Array.prototype.forEach.call(groups, function (g) { g.open = issuesAllExpanded; });
-          syncIssueExpandBtn();
-        });
-      }
-
-      function countIssueTapes(rows) {
-        var seen = Object.create(null);
-        rows.forEach(function (issue) { seen[text(issue.city_slug)] = true; });
-        return Object.keys(seen).length;
-      }
-
+      // ONE ROW PER FINDING, and it says all three things: which tape, which
+      // track, what is wrong. The tape name used to live on a group header and
+      // the row inherited it; flat, every row has to name its own city or the
+      // list is a column of unattributed complaints.
+      //
+      // Three buttons, always in this order — go look at the tape, go look at
+      // the track, or say you have dealt with it. A whole-tape finding (no
+      // song_id) has no track to open, so it gets two.
       function renderIssueRow(issue) {
         var row = document.createElement('article');
         row.className = 'issue-row';
@@ -1603,26 +2500,45 @@
         var main = document.createElement('div');
         main.className = 'issue-main';
 
+        var song = songById(issue.song_id);
+        var slug = text(issue.city_slug);
+
+        // FOUR CHIPS, WIDEST SCOPE FIRST: what kind of thing this is about, then
+        // which one, then — for a track — which track, then what is wrong.
+        // The first is the WORD, not the thing: "TAPE" or "TRACK", so the two
+        // shapes of row are separable before you read anything.
         var meta = document.createElement('div');
         meta.className = 'item-meta';
-        meta.appendChild(chip(ISSUE_KIND_LABEL[issue.kind] || issue.kind, issue.severity === 'high' ? 'warn' : ''));
-        // The city is on the group header now — repeating it on every row was
-        // most of what made the flat list hard to read.
-        var song = songById(issue.song_id);
-        if (song) meta.appendChild(chip(songDisplay(song)));
-        else if (issue.song_id != null) {
-          // Named a track we cannot find: it was deleted, or moved to a city
-          // whose tape row is missing. Say so, since Shelve is unavailable and
-          // the reason is not otherwise visible.
+
+        var isTapeLevel = issue.song_id == null;
+        var scopeChip = chip(isTapeLevel ? 'Tape' : 'Track');
+        scopeChip.classList.add('issue-scope-chip');
+        scopeChip.title = isTapeLevel
+          ? 'A finding about the tape as a whole, not about one track.'
+          : 'A finding about one track on this tape.';
+        meta.appendChild(scopeChip);
+
+        var tapeChip = chip(soundCityLabel(slug));
+        tapeChip.classList.add('issue-tape-chip');
+        meta.appendChild(tapeChip);
+
+        if (song) {
+          meta.appendChild(chip(songDisplay(song)));
+        } else if (!isTapeLevel) {
+          // Names a track we cannot find: deleted, or moved to a city whose tape
+          // row is missing. Say so — the row cannot offer Open track, and the
+          // reason is not otherwise visible.
           var gone = chip('track ' + issue.song_id + ' not found', 'warn');
-          gone.title = 'The finding names a track that is no longer in the loaded tapes — deleted, or moved. Clear it.';
+          gone.title = 'The finding names a track that is no longer in the loaded tapes — deleted, or moved. Skip the finding.';
           meta.appendChild(gone);
-        } else meta.appendChild(chip('whole tape'));
+        }
+
+        meta.appendChild(chip(ISSUE_KIND_LABEL[issue.kind] || issue.kind,
+          issue.severity === 'high' ? 'warn' : ''));
 
         var detail = document.createElement('p');
         detail.className = 'issue-detail';
         detail.textContent = text(issue.detail);
-
         main.append(meta, detail);
 
         if (text(issue.suggestion)) {
@@ -1637,48 +2553,124 @@
         var actions = document.createElement('div');
         actions.className = 'issue-actions';
 
-        // Shelve first, because for most findings it is the answer: a track with
-        // a wrong Spotify ID, a bad fact, or no real tie to the city usually
-        // should not be on the tape at all. It also clears the finding on its
-        // own — a shelved track's issues are suppressed — so this is one press
-        // instead of Edit, judge, come back, Clear.
-        if (song) {
-          var shelveBtn = document.createElement('button');
-          shelveBtn.type = 'button';
-          shelveBtn.className = 'btn small';
-          shelveBtn.textContent = 'Shelve';
-          shelveBtn.title = 'Take this track off /soundtracks/ and drop the finding with it. The row stays on the city, so the bot never picks it again.';
-          shelveBtn.addEventListener('click', async function () {
+        // A FINDING AGAINST A SHELVED TRACK GETS ONE BUTTON, and it is the only
+        // one that means anything here. The track is already off /soundtracks/
+        // and can never be re-picked for that city, so there is nothing to fix,
+        // nothing to look at and nothing to clear — shelving is the strongest
+        // answer available and it has already been given. The single question
+        // left is whether that was right, and RENEW is how you say it was not.
+        //
+        // Keyed off the finding, not off which toggle is showing: a row can only
+        // be in this state for one reason, and reading the view would make the
+        // buttons a fact about where you are standing rather than about the row.
+        if (isSuppressedIssue(issue)) {
+          var renewBtn = document.createElement('button');
+          renewBtn.type = 'button';
+          renewBtn.className = 'btn small primary';
+          renewBtn.textContent = 'Renew';
+          // REVIEW, not LIVE. Un-shelving is a change of mind about the
+          // judgement, not a judgement of its own — putting the track straight
+          // on the site would decide the thing you have just reopened.
+          renewBtn.title = 'Put this track back in the review queue, undecided. The finding comes back with it.';
+          renewBtn.addEventListener('click', async function () {
             var at = locateSong(issue.song_id);
-            if (!at) { setIssuesStatus('That track is no longer loaded. Refresh and try again.', 'error'); return; }
-            shelveBtn.disabled = true;
-            var ok = await setTrackStatus(at.tapeIndex, at.songIndex, 'SHELVED');
-            if (!ok) shelveBtn.disabled = false;
+            if (!at) {
+              setIssuesStatus('That track is no longer loaded. Refresh and try again.', 'error');
+              return;
+            }
+            renewBtn.disabled = true;
+            var ok = await setTrackStatus(at.tapeIndex, at.songIndex, 'REVIEW');
+            if (!ok) renewBtn.disabled = false;
           });
-          actions.appendChild(shelveBtn);
+          actions.appendChild(renewBtn);
+          row.append(main, actions);
+          return row;
         }
 
-        // Edit is always offered, because there is always somewhere to go.
-        // With a track it opens that row's editor; a whole-tape finding (song_id
-        // null — how the audit files things like "this tape has 17 live tracks")
-        // has no row to edit, so it opens the tape instead. Hiding the button
-        // there just left the finding with nowhere to act on it.
-        var editIssueBtn = document.createElement('button');
-        editIssueBtn.type = 'button';
-        editIssueBtn.className = 'btn small';
-        editIssueBtn.textContent = song ? 'Edit' : 'Open tape';
-        editIssueBtn.title = song
-          ? 'Open this track below with its editor already open'
-          : 'Open this tape below. This finding is about the tape as a whole, not one track.';
-        editIssueBtn.addEventListener('click', function () { focusTrackForIssue(issue); });
-        actions.appendChild(editIssueBtn);
+        if (isTapeLevel) {
+          // A TAPE FINDING GETS THE ACTION, NOT A VIEWER. Every one of these
+          // says something about the tape as a whole — short of 15, over 15, a
+          // city that should not be published — and the answer is almost always
+          // to take the tape off the site or to accept it. Opening an editor
+          // whose only fields are the spine phrase and which side it reads on
+          // answered neither, so that popup is not offered here.
+          var tapeIndex = tapeIndexBySlug(slug);
+          var tape = tapeIndex < 0 ? null : soundtracks()[tapeIndex];
+          var tapeArchived = truthyFlag(tape && tape.archived);
+          var tapeBtn = document.createElement('button');
+          tapeBtn.type = 'button';
+          tapeBtn.className = 'btn small';
+          tapeBtn.textContent = tapeArchived ? 'Restore tape' : 'Shelve tape';
+          tapeBtn.title = tapeArchived
+            ? 'Put this tape back on /soundtracks/, restoring the tracks it took with it (a track shelved on its own stays shelved)'
+            : 'Take this whole city tape off /soundtracks/, hiding every track on it';
+          if (!tape) {
+            // The finding names a city we do not hold a tape row for. Say so
+            // rather than offering a button that cannot fire.
+            tapeBtn.disabled = true;
+            tapeBtn.title = 'That tape is no longer loaded. Sign in and reload.';
+          }
+          tapeBtn.addEventListener('click', async function () {
+            tapeBtn.disabled = true;
+            var ok = await setTapeArchived(tapeIndex, !tapeArchived);
+            if (!ok) { tapeBtn.disabled = false; return; }
+            // SHELVING ANSWERS THE FINDING, so it takes it off the list in the
+            // same press — leaving it there would ask you to act on something
+            // you just acted on. Quiet, because setTapeArchived has already put
+            // the outcome in the red pen.
+            //
+            // RESTORING DOES NOT. It is the opposite move: whatever the finding
+            // says about this tape, putting the tape back on the site does not
+            // address it — usually it is the thing the finding was complaining
+            // about. So a restore leaves the finding standing.
+            //
+            // Only on success. A shelve that failed has answered nothing.
+            if (!tapeArchived) await resolveIssue(issue, 'fixed', true);
+          });
+          actions.appendChild(tapeBtn);
+        } else {
+          if (song) {
+            // The track's own answer, mirroring Shelve tape on a tape finding:
+            // for most findings — a wrong Spotify ID, a bad fact, no real tie to
+            // the city — the track should not be on the tape at all, and that is
+            // one press rather than Open track, judge, come back, Skip issue.
+            var shelveTrackBtn = document.createElement('button');
+            shelveTrackBtn.type = 'button';
+            shelveTrackBtn.className = 'btn small';
+            shelveTrackBtn.textContent = 'Shelve track';
+            shelveTrackBtn.title = 'Take this track off /soundtracks/ and drop the finding with it. The row stays on the city, so the routine never picks it again.';
+            shelveTrackBtn.addEventListener('click', async function () {
+              var at = locateSong(issue.song_id);
+              if (!at) {
+                setIssuesStatus('That track is no longer loaded. Refresh and try again.', 'error');
+                return;
+              }
+              shelveTrackBtn.disabled = true;
+              var ok = await setTrackStatus(at.tapeIndex, at.songIndex, 'SHELVED');
+              if (!ok) { shelveTrackBtn.disabled = false; return; }
+              // Shelving answers the finding, so it goes in the same press —
+              // quietly, since setTrackStatus has already put the outcome in the
+              // red pen. Without this the finding would not vanish, it would
+              // merely move to the SHELVED toggle, which is not what a decision
+              // taken here should feel like.
+              await resolveIssue(issue, 'fixed', true);
+            });
+            actions.appendChild(shelveTrackBtn);
+          }
+        }
 
         var fixedBtn = document.createElement('button');
         fixedBtn.type = 'button';
         fixedBtn.className = 'btn small primary';
-        fixedBtn.textContent = 'Clear issue';
-        fixedBtn.title = 'You dealt with it. If tomorrow’s audit still sees it, it comes back — which is how you know the fix landed.';
-
+        fixedBtn.textContent = 'Skip issue';
+        // SKIP, in this room's one sense of the word: set aside, not silenced.
+        // It writes status = 'fixed', exactly as before — the partial unique
+        // index only blocks a re-report while a finding is open, so a shelved
+        // finding comes straight back on the next audit if the problem is still
+        // there, and that recurrence is the only check a fix landed. It is NOT
+        // 'dismissed'; that status is the one this page stopped writing, because
+        // a permanent silence was a decision nobody could see afterwards.
+        fixedBtn.title = 'Take it off the list. If tomorrow’s audit still sees it, it comes back — which is how you know the fix landed.';
         // There is no "Not an issue" any more. Clearing only takes the finding
         // out of the queue; it never silences it. If the problem is still there
         // tomorrow the audit raises it again, which is the only honest way to
@@ -1689,8 +2681,8 @@
           var ok = await resolveIssue(issue, 'fixed');
           if (!ok) fixedBtn.disabled = false;
         });
+        actions.appendChild(fixedBtn);
 
-        actions.append(fixedBtn);
         row.append(main, actions);
         return row;
       }
@@ -1727,16 +2719,24 @@
       // finding is `open` or `dismissed`, so a cleared one is free to come back
       // on the next audit if the problem is still there. That recurrence IS the
       // check that the fix landed. The page no longer writes 'dismissed' at all.
-      async function resolveIssue(issue, status) {
+      // quiet is for a caller that has already said what happened — Shelve tape
+      // reports the shelving, and "Skipped." underneath it would be a second
+      // notice for one press.
+      async function resolveIssue(issue, status, quiet) {
         try {
           await patchRow('soundtrack_issues?id=eq.' + encodeURIComponent(issue.id), { status: status || 'fixed' });
         } catch (error) {
           console.error(error);
-          setIssuesStatus('Could not clear that finding. ' + error.message, 'error');
+          setIssuesStatus('Could not skip that finding. ' + error.message, 'error');
           return false;
         }
-        soundtrackIssues = openIssues().filter(function (row) { return row.id !== issue.id; });
-        renderIssues('Cleared. If it is still a problem, the next audit reports it again.', 'success');
+        // Filter the WHOLE loaded set, not openIssues(): that returns only the
+        // actionable ones, so clearing a finding used to discard every
+        // shelved-track finding along with it — invisible while they had nowhere
+        // to be seen, wrong now the Shelved toggle shows them.
+        soundtrackIssues = (Array.isArray(soundtrackIssues) ? soundtrackIssues : [])
+          .filter(function (row) { return row.id !== issue.id; });
+        renderIssues(quiet ? '' : 'Skipped. If it is still a problem, the next audit reports it again.', 'success');
         // The chip on the affected track row has to go too.
         renderTrackArchive();
         return true;
@@ -1748,7 +2748,7 @@
           resetSoundtrackArchive();
           return;
         }
-        setArchiveStatus('Loading soundtrack tracks...', '');
+        setArchiveStatus('Loading tapes and tracks…', '');
         setIssuesStatus('Loading findings...', '');
         if (trackArchiveList) {
           trackArchiveList.innerHTML = '';
@@ -1761,7 +2761,8 @@
         } catch (error) {
           console.error(error);
           soundtrackArchiveData = null;
-          setArchiveStatus('Could not load the soundtrack tables.', 'error');
+          setArchiveStatus('Nothing loaded.', '');
+          setNotice('could not load the tables', 'error');
           if (trackArchiveList) {
             trackArchiveList.innerHTML = '';
             trackArchiveList.appendChild(emptyNode('public.soundtracks / public.soundtrack_songs did not load. Check the Supabase project.'));
@@ -1848,24 +2849,10 @@
         return Number.isFinite(date.getTime()) ? date : null;
       }
 
-      function tapeDate(tape) {
-        var raw = tape && tape.created_at;
-        if (!raw) return null;
-        var date = new Date(raw);
-        return Number.isFinite(date.getTime()) ? date : null;
-      }
-
-      // Newest track on a tape -- what "Track added" sorts tapes by, and what the
-      // old Fresh Review panel keyed its 26-hour window off before the two panels
-      // became one.
-      function newestSongDate(tape) {
-        var newest = null;
-        ((tape && tape.songs) || []).forEach(function (song) {
-          var date = songDate(song);
-          if (date && (!newest || date > newest)) newest = date;
-        });
-        return newest;
-      }
+      // tapeDate and newestSongDate lived here and are gone with the sort they
+      // fed. newestSongDate also once keyed the Fresh Review panel's 26-hour
+      // window; that panel was folded into Tapes & Tracks long ago, so it had
+      // been reading nothing for two changes running.
 
       function songDisplay(song) {
         return [text(song && song.title) || '(untitled song)', text(song && song.artist) || '(unknown artist)'].join(' - ');
@@ -1875,33 +2862,39 @@
         return soundCityLabel(tape && tape.city_slug);
       }
 
+      // active / archived are the `archived` column, which is what /soundtracks/
+      // filters on and what setTapeArchived reports in. review / live / shelved
+      // are the three review states, which is the vocabulary the tab strip and
+      // every button on a row now speak.
+      //
+      // They are NOT two views of the same split: a REVIEW candidate is
+      // archived = true, so it lands in `archived` alongside a shelved track.
+      // Showing only that number on a tape said "3 shelved tracks" about three
+      // songs waiting on a decision, which is the one thing this room exists to
+      // surface.
       function tapeCounts(tape) {
-        var active = 0;
-        var archived = 0;
+        var counts = { active: 0, archived: 0, REVIEW: 0, LIVE: 0, SHELVED: 0 };
         allSongs(tape).forEach(function (song) {
-          if (isArchivedSong(song)) archived += 1;
-          else active += 1;
+          if (isArchivedSong(song)) counts.archived += 1;
+          else counts.active += 1;
+          counts[songStatus(song)] += 1;
         });
-        return { active: active, archived: archived };
+        return counts;
       }
 
       function archiveSummary() {
         var tapes = soundtracks();
-        var active = 0;
-        var archived = 0;
-        var hiddenTapes = 0;
+        var out = { tapes: tapes.length, hiddenTapes: 0, active: 0, archived: 0, REVIEW: 0, LIVE: 0, SHELVED: 0 };
         tapes.forEach(function (tape) {
           var counts = tapeCounts(tape);
-          active += counts.active;
-          archived += counts.archived;
-          if (truthyFlag(tape && tape.archived)) hiddenTapes += 1;
+          out.active += counts.active;
+          out.archived += counts.archived;
+          out.REVIEW += counts.REVIEW;
+          out.LIVE += counts.LIVE;
+          out.SHELVED += counts.SHELVED;
+          if (truthyFlag(tape && tape.archived)) out.hiddenTapes += 1;
         });
-        return {
-          tapes: tapes.length,
-          hiddenTapes: hiddenTapes,
-          active: active,
-          archived: archived
-        };
+        return out;
       }
 
       function renderTrackArchive(message, tone) {
@@ -1934,23 +2927,47 @@
         });
 
         groups.forEach(function (group) {
-          trackArchiveList.appendChild(renderTapeGroup(group, false, 'city'));
+          trackArchiveList.appendChild(renderTapeGroup(group, false));
         });
         if (!groups.length) {
           trackArchiveList.appendChild(emptyNode(trackStatusFilter
-            ? 'No ' + trackStatusFilter.toLowerCase() + ' tracks on any tape.'
+            ? 'No ' + statusLabel(trackStatusFilter).toLowerCase() + ' tracks on any tape.'
             : 'No tapes yet.'));
         }
-        if (trackStatusSelect) trackStatusSelect.disabled = !soundtracks().length;
         syncArchiveExpandBtn();
+        syncTrackTabCounts();
 
+        // The counts line is written on EVERY render and is never displaced by
+        // a message; the message goes to the red pen beside the title.
         var summary = archiveSummary();
-        setArchiveStatus(
-          message || ('SOUNDTRACKS ADMIN: ' + summary.tapes + ' tapes'
-            + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' shelved)' : '')
-            + ' - ' + summary.active + ' live tracks - ' + summary.archived + ' shelved'),
-          tone || ''
-        );
+        setArchiveStatus(summary.tapes + ' tapes'
+          // The three states, in the tab strip's own words and its own numbers.
+          // This used to read "39 live tracks · 13 shelved" off the `archived`
+          // column, which counts a review candidate as shelved — so the header
+          // said 13 while the Shelved tab said 8, from the same data.
+          + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' shelved)' : '')
+          + ' · ' + summary.LIVE + ' kept'
+          + (summary.REVIEW ? ' · ' + summary.REVIEW + ' in review' : '')
+          + ' · ' + summary.SHELVED + ' shelved', '');
+        if (message) setNotice(message, tone);
+      }
+
+      // Every track in the catalogue, tallied by state, for the tab strip. The
+      // total on ALL counts every track once — a tape's rows are not double
+      // counted just because they are also LIVE.
+      function syncTrackTabCounts() {
+        var counts = { '': 0, REVIEW: 0, LIVE: 0, SHELVED: 0 };
+        soundtracks().forEach(function (tape) {
+          allSongs(tape).forEach(function (song) {
+            var status = songStatus(song);
+            if (counts[status] == null) counts[status] = 0;
+            counts[status] += 1;
+            counts[''] += 1;
+          });
+        });
+        setTabCounts(trackStatusTabs, counts);
+        // One number per noun in the tab's name: tapes, then tracks.
+        setRoomTabCount('tracks', [soundtracks().length, counts['']]);
       }
 
       // One collapsible city. Rows are built on first open, not up front — 69
@@ -2051,11 +3068,17 @@
         tape.spine_tag = fields.spine_tag || '';
         if (fields.spine_tag_position) tape.spine_tag_position = fields.spine_tag_position;
         else delete tape.spine_tag_position;
-        renderTrackArchive('Renamed the ' + trackCityLabel(tape) + ' tape.', 'success');
+        renderTrackArchive('renamed — ' + trackCityLabel(tape), 'success');
         return { ok: true };
       }
 
-      function renderTapeGroup(group, autoOpen, sortBy) {
+      // No sortBy. It took one and could stamp a "tape added" / "track added"
+      // chip on the header, but renderTrackArchive has only ever passed 'city',
+      // so that branch and its two date helpers could not run — the sort control
+      // was removed at some point and its plumbing was left behind. Deleted
+      // rather than kept warm: a parameter nothing varies is a parameter that
+      // answers "is this wired?" with a convincing yes.
+      function renderTapeGroup(group, autoOpen) {
         var details = document.createElement('details');
         details.className = 'tape-group';
         if (group && group.slug) details.dataset.slug = group.slug;
@@ -2091,11 +3114,20 @@
         var tally = tapeCounts(group.tape);
         var tapeArchived = truthyFlag(group.tape && group.tape.archived);
         details.classList.toggle('is-archived', tapeArchived);
+        // The red edge, same ink as the REVIEW tab and the header notice: this
+        // tape is asking for something.
+        details.classList.toggle('has-review', tally.REVIEW > 0);
         var tallyEl = document.createElement('span');
         tallyEl.className = 'tape-tally';
         if (tapeArchived) tallyEl.appendChild(chip('Tape shelved', 'warn'));
-        tallyEl.appendChild(chip(tally.active + ' live tracks'));
-        if (tally.archived) tallyEl.appendChild(chip(tally.archived + ' shelved tracks', 'warn'));
+        // Review leads when there is one — it is the only count you can act on.
+        if (tally.REVIEW) {
+          var reviewChip = chip(tally.REVIEW + ' in review', 'warn');
+          reviewChip.title = 'Filed by the routine and waiting on you. Not on /soundtracks/ yet.';
+          tallyEl.appendChild(reviewChip);
+        }
+        tallyEl.appendChild(chip(tally.LIVE + ' kept'));
+        if (tally.SHELVED) tallyEl.appendChild(chip(tally.SHELVED + ' shelved'));
         if (group.rows.length !== tally.active + tally.archived) {
           tallyEl.appendChild(chip(group.rows.length + ' shown',
             trackStatusFilter ? 'warn' : ''));
@@ -2103,17 +3135,6 @@
 
         var counts = document.createElement('span');
         counts.className = 'tape-counts';
-        // Show the stamp the current sort is ordering on, so the order explains
-        // itself instead of looking arbitrary.
-        var stampDate = sortBy === 'tape_added' ? tapeDate(group.tape)
-          : sortBy === 'track_added' ? newestSongDate(group.tape)
-          : null;
-        if (stampDate) {
-          var stampChip = chip(relativeTime(stampDate, new Date()));
-          stampChip.title = (sortBy === 'tape_added' ? 'Tape created ' : 'Newest track added ')
-            + formatDate(stampDate);
-          counts.appendChild(stampChip);
-        }
 
         // Archiving the whole tape pulls the city off /soundtracks/ in one move,
         // without touching a single song: soundtracks.archived, which the public
@@ -2122,9 +3143,13 @@
         var tapeToggle = document.createElement('button');
         tapeToggle.type = 'button';
         tapeToggle.className = 'btn small tape-archive-btn';
+        // RESTORE, not "Keep tape", and that asymmetry is deliberate: restoring
+        // brings back only the tracks the tape took down with it. A track
+        // shelved on its own stays shelved, because that row is a
+        // do-not-rescrape tombstone. "Keep tape" would promise otherwise.
         tapeToggle.textContent = tapeArchived ? 'Restore tape' : 'Shelve tape';
         tapeToggle.title = tapeArchived
-          ? 'Put this tape back on /soundtracks/, restoring the tracks it took with it (tracks shelved on their own stay shelved)'
+          ? 'Put this tape back on /soundtracks/, restoring the tracks it took with it (a track shelved on its own stays shelved)'
           : 'Take this whole city tape off /soundtracks/, hiding every track on it';
         tapeToggle.addEventListener('click', async function (event) {
           // Inside a <summary>, so stop the click from opening/closing the city.
@@ -2194,7 +3219,13 @@
         row.className = 'track-row';
         if (song && song.id != null) row.dataset.songId = String(song.id);
         var archived = isArchivedSong(song);
-        row.classList.toggle('is-archived', archived);
+        // The card carries its own state — see the .track-row rules. Computed
+        // once here and read again below for the buttons, so the look and the
+        // verbs can never disagree.
+        var status = songStatus(song);
+        row.classList.toggle('is-review', status === 'REVIEW');
+        row.classList.toggle('is-live', status === 'LIVE');
+        row.classList.toggle('is-shelved', status === 'SHELVED');
 
         var main = document.createElement('div');
         main.className = 'track-main';
@@ -2207,19 +3238,18 @@
         copy.className = 'track-copy';
         copy.textContent = text(song && song.blurb) || text(song && song.spotifyId) || 'No blurb.';
 
+        // NO CITY CHIP. Every track row sits inside its own city's group, whose
+        // header says the city — so this repeated it fifteen times a tape, in
+        // the one place it could not possibly be in doubt. (The Issues list is
+        // flat and has no header, which is why the city IS a chip there.)
         var meta = document.createElement('div');
         meta.className = 'item-meta';
-        meta.appendChild(chip(trackCityLabel(tape)));
         // Status first, because it is what decides whether this row needs you.
-        var status = songStatus(song);
-        var statusChip = chip(
-          status === 'LIVE' ? 'Live' : status === 'SHELVED' ? 'Shelved' : 'Review',
-          status === 'LIVE' ? 'success' : 'warn'
-        );
+        var statusChip = chip(statusLabel(status), status === 'LIVE' ? 'success' : 'warn');
         statusChip.title = status === 'LIVE'
-          ? 'Approved and on /soundtracks/.'
+          ? 'Kept, and on /soundtracks/.'
           : status === 'SHELVED'
-            ? 'Rejected. The row stays on this city so the daily routine never picks the track again.'
+            ? 'Shelved. The row stays on this city so the daily routine never picks the track again.'
             : 'Waiting on you. The daily routine filed this; it is not on /soundtracks/ yet.';
         meta.appendChild(statusChip);
         if (archived && song && song.archivedWithTape) {
@@ -2228,26 +3258,31 @@
           meta.appendChild(withTape);
         }
         if (text(song && song.spotifyId)) meta.appendChild(chip('Spotify ID'));
-        // Open findings against this exact track, so an issue is visible while
-        // browsing the tapes and not only in the panel above.
+        // Open findings against this exact track, so a problem is visible while
+        // browsing the tapes and not only in the other view.
+        //
+        // IT COUNTS, IT DOES NOT NAME THE KIND. A single Spotify finding used to
+        // render as "⚠ Spotify ID" directly beside the plain "Spotify ID" chip
+        // that means the track HAS one — the same two words on one row, once as
+        // a fact and once as a complaint. The kinds are all in the tooltip.
         var flags = (song && song.id != null) ? (issueSongMap[String(song.id)] || []) : [];
         if (flags.length) {
-          var flag = chip('⚠ ' + (flags.length === 1
-            ? (ISSUE_KIND_LABEL[flags[0].kind] || flags[0].kind)
-            : flags.length + ' issues'));
+          var flag = chip('⚠ ' + flags.length + (flags.length === 1 ? ' finding' : ' findings'));
           flag.classList.add('track-flag');
           flag.title = flags.map(function (issue) {
             return (ISSUE_KIND_LABEL[issue.kind] || issue.kind) + ': ' + text(issue.detail);
-          }).join('\n\n') + '\n\nClear it in the Issues panel above.';
+          }).join('\n\n') + '\n\nOpen the Issues view to act on it.';
           meta.appendChild(flag);
         }
-        // When the track landed. Absolute date and time, relative form on hover:
-        // "3 hours ago" answers "did the last run write this?", the timestamp
-        // answers "which run was that?".
+        // When the track landed. RELATIVE on the chip, absolute on hover — the
+        // reverse of what it was. "3 hours ago" is the question anyone actually
+        // has of this row (did the last run write it?), it is a third the width,
+        // and "Added Wed, Jul 29, 6:05 AM" repeated down fifteen rows was the
+        // longest thing on most of them.
         var added = songDate(song);
         if (added) {
-          var addedChip = chip('Added ' + formatDate(added));
-          addedChip.title = relativeTime(added, new Date());
+          var addedChip = chip('added ' + relativeTime(added, new Date()));
+          addedChip.title = formatDate(added);
           meta.appendChild(addedChip);
         }
 
@@ -2272,22 +3307,22 @@
           return b;
         }
 
-        // Two verbs, one axis: Live or Shelved. There is no separate Hide any
-        // more — "hidden" and "shelved" were the same effect described two ways
-        // (off /soundtracks/, kept on the city as a tombstone), and having both
-        // meant every track offered three buttons for two outcomes.
+        // TWO VERBS, ONE AXIS: Keep or Skip. There is no separate Hide or Shelve
+        // any more — every one of those named the same effect (off
+        // /soundtracks/, row kept on the city as a tombstone), and having more
+        // than one meant a track offered three buttons for two outcomes.
         if (status === 'LIVE') {
-          actions.appendChild(statusBtn('Shelve', 'SHELVED', false,
+          actions.appendChild(statusBtn(STATUS_VERB.SHELVED, 'SHELVED', false,
             'Take this track off /soundtracks/. The row stays on the city, so the routine never picks it again.'));
         } else {
-          actions.appendChild(statusBtn('Live', 'LIVE', true,
+          actions.appendChild(statusBtn(STATUS_VERB.LIVE, 'LIVE', true,
             status === 'REVIEW'
-              ? 'Approve this track and put it on /soundtracks/'
+              ? 'Keep this track and put it on /soundtracks/'
               : 'Change your mind: put this track back on /soundtracks/'));
           actions.appendChild(status === 'REVIEW'
-            ? statusBtn('Shelve', 'SHELVED', false,
+            ? statusBtn(STATUS_VERB.SHELVED, 'SHELVED', false,
                 'Turn this track down. The row stays on the city, so the routine never picks it again.')
-            : statusBtn('Review', 'REVIEW', false,
+            : statusBtn(STATUS_VERB.REVIEW, 'REVIEW', false,
                 'Put this track back in the review queue, undecided'));
         }
 
@@ -2320,17 +3355,9 @@
           openEditor();
         });
 
-        // Arrived here from Edit on an issue: open the editor and bring the row
-        // into view. Cleared immediately so an unrelated later re-render does not
-        // pop the editor open again.
-        if (pendingFocusSongId && song && String(song.id) === pendingFocusSongId) {
-          pendingFocusSongId = '';
-          openEditor();
-          row.classList.add('is-flagged-focus');
-          window.setTimeout(function () {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 0);
-        }
+        // The Issues view used to steer this row — set a pending id, switch
+        // view, auto-open the editor and scroll. It opens the track in a dialog
+        // instead now, so nothing reaches in here from outside.
 
         return row;
       }
@@ -2338,22 +3365,6 @@
       // Jump from an issue to the track it is about. The tape group is opened
       // first, because rows are built lazily when a group expands — without this
       // the row does not exist to scroll to.
-      var pendingFocusSongId = '';
-      function focusTrackForIssue(issue) {
-        var song = songById(issue && issue.song_id);
-        var slug = text(issue && issue.city_slug);
-        if (!slug) return;
-        expandedTapes[slug] = true;
-        pendingFocusSongId = song && song.id != null ? String(song.id) : '';
-        renderTrackArchive();
-        if (!song) {
-          // A whole-tape finding, or a track that has since been deleted: open
-          // the tape and say so rather than silently doing nothing.
-          var group = document.querySelector('.tape-group[data-slug="' + slug + '"]');
-          if (group && group.scrollIntoView) group.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-
       // Inline field editor + move/copy, built per row on demand. Everything here
       // writes straight to public.soundtrack_songs under the admin session, so a
       // save is live on /soundtracks/ the moment it resolves — same as Hide/Show.
@@ -2556,7 +3567,7 @@
       }
 
       // setTrackArchived was removed on 2026-08-01 when Hide/Show merged into
-      // Shelve. Every track write now goes through setTrackStatus, so `archived`
+      // Skip. Every track write now goes through setTrackStatus, so `archived`
       // can never drift out of step with the two review stamps.
 
       // Move a track between the three review states. One PATCH: the two stamps
@@ -2585,7 +3596,7 @@
           await patchRow('soundtrack_songs?id=eq.' + encodeURIComponent(song.id), patch);
         } catch (error) {
           console.error(error);
-          setArchiveStatus('Could not update ' + songDisplay(song) + '. ' + error.message, 'error');
+          setNotice('could not update ' + songDisplay(song), 'error');
           return false;
         }
 
@@ -2593,15 +3604,15 @@
         if (patch.rejected_at) song.rejectedAt = patch.rejected_at; else delete song.rejectedAt;
         if (patch.archived) song.archived = true; else { delete song.archived; delete song.archivedWithTape; }
 
-        var said = {
-          LIVE: ' is live on /soundtracks/ now.',
-          SHELVED: ' is shelved — it stays on the city so the routine never picks it again.',
-          REVIEW: ' is back in the review queue.'
-        };
-        renderTrackArchive(songDisplay(song) + (said[status] || ' updated.'), 'success');
-        // Findings against a shelved track are suppressed, so the Issues panel
+        // Short, because this lands in the red-pen scribble beside the room
+        // name rather than in a status bar. The full consequence of each verb is
+        // on the button's own tooltip and on the status chip; a note written in
+        // the margin only has to say WHICH track and WHAT happened to it.
+        var said = { LIVE: 'kept', SHELVED: 'shelved', REVIEW: 'back in review' };
+        renderTrackArchive((said[status] || 'updated') + ' — ' + songDisplay(song), 'success');
+        // Findings against a skipped track are suppressed, so the Issues panel
         // has to be rebuilt on every status change — both directions. Shelving
-        // drops this track's findings out of the queue; un-shelving brings them
+        // drops this track's findings out of the queue; un-skipping brings them
         // back, which is the point of filtering rather than resolving them.
         renderIssues();
         return true;
@@ -2626,7 +3637,7 @@
         if (fields.blurb) song.blurb = fields.blurb; else delete song.blurb;
         if (fields.spotify_id) song.spotifyId = fields.spotify_id; else delete song.spotifyId;
         if (fields.explicit) song.explicit = true; else delete song.explicit;
-        renderTrackArchive('Saved ' + songDisplay(song) + '.', 'success');
+        renderTrackArchive('saved — ' + songDisplay(song), 'success');
         return { ok: true };
       }
 
@@ -2682,10 +3693,12 @@
         await loadSoundtrackArchive();
         renderTrackArchive(
           asCopy
-            ? (label + ' is now on the ' + targetLabel + ' tape as well.')
-            : (label + ' moved to the ' + targetLabel + ' tape.'
-                + (wasHidden ? ' Its do-not-reuse marker moved with it, so tomorrow’s run can pick that song for ' + trackCityLabel(tape) + ' again.' : '')),
-          'success'
+            ? ('copied to ' + targetLabel + ' — ' + label)
+            : ('moved to ' + targetLabel + ' — ' + label
+                + (wasHidden ? '; its do-not-reuse marker went too, so ' + trackCityLabel(tape) + ' can be given that song again' : '')),
+          // A move that carried the tombstone stays on screen until the next
+          // action; everything else here clears itself.
+          (!asCopy && wasHidden) ? 'hold' : 'success'
         );
         return { ok: true };
       }
@@ -2708,18 +3721,17 @@
           await loadSoundtrackArchive();
         } catch (error) {
           console.error(error);
-          setArchiveStatus((archived ? 'Could not hide the ' : 'Could not show the ')
-            + label + ' tape. ' + error.message, 'error');
+          setNotice((archived ? 'could not shelve the ' : 'could not restore the ')
+            + label + ' tape', 'error');
           return false;
         }
         var counts = tapeCounts(tapeBySlug(slug));
         renderTrackArchive(
           archived
-            ? ('The whole ' + label + ' tape is off /soundtracks/ now, with its '
-              + counts.archived + ' track' + (counts.archived === 1 ? '' : 's') + ' hidden.')
-            : ('The ' + label + ' tape is back on /soundtracks/ with ' + counts.active
-              + ' active track' + (counts.active === 1 ? '' : 's')
-              + (counts.archived ? ' — ' + counts.archived + ' stayed hidden.' : '.')),
+            ? ('shelved the whole ' + label + ' tape — ' + counts.archived
+              + ' track' + (counts.archived === 1 ? '' : 's') + ' off the site')
+            : ('restored ' + label + ' — ' + counts.LIVE + ' kept'
+              + (counts.SHELVED ? ', ' + counts.SHELVED + ' stayed shelved' : '')),
           'success'
         );
         return true;
@@ -2731,6 +3743,17 @@
           if (text(tape && tape.city_slug) === slug) found = tape;
         });
         return found;
+      }
+
+      // Everything that writes a tape addresses it by position in the loaded
+      // data — setTapeArchived, saveTapeName — so a slug has to come back as an
+      // index. -1 means the tape is not loaded.
+      function tapeIndexBySlug(slug) {
+        var hit = -1;
+        soundtracks().forEach(function (tape, i) {
+          if (text(tape && tape.city_slug) === text(slug)) hit = i;
+        });
+        return hit;
       }
 
       function soundCityLabel(slug) {
@@ -2759,11 +3782,18 @@
         return days + (days === 1 ? ' day ago' : ' days ago');
       }
 
+      // THE LAST-RUN LINE IS THE BOT BUTTON'S TOOLTIP, and nothing else. It had
+      // its own line under the room title until 2026-08-14; the words now live
+      // on the control you press to act on them, and the button takes a red edge
+      // when the run is stale so the state is still readable without hovering.
       async function loadLastRun() {
-        var wrap = document.getElementById('runStatus');
-        var when = document.getElementById('runWhen');
-        var what = document.getElementById('runWhat');
-        if (!wrap || !when || !what) return;
+        var botBtn = document.getElementById('soundtrackBotBtn');
+        if (!botBtn) return;
+
+        function say(when, what, stale) {
+          botBtn.title = [text(when), text(what)].filter(Boolean).join(' — ');
+          botBtn.classList.toggle('is-stale', !!stale);
+        }
 
         try {
           // One row: the newest song on any tape, plus the city it landed on.
@@ -2781,9 +3811,6 @@
           var now = new Date();
           var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
 
-          wrap.dataset.state = stale ? 'stale' : 'ok';
-          when.textContent = 'Last run ' + relativeTime(stamp, now);
-
           // The newest row IS the run receipt, so name what it actually wrote.
           // A run touches more than one tape — a new city AND a top-up of the
           // emptiest existing one — so this breaks the count down per city
@@ -2793,24 +3820,213 @@
           var since = new Date(stamp.getTime() - 3600000).toISOString();
           var wrote = await runTally(since);
 
-          what.textContent = stamp.toLocaleString([], {
+          var detail = stamp.toLocaleString([], {
             weekday: 'short', month: 'short', day: 'numeric',
             hour: 'numeric', minute: '2-digit'
-          }) + (wrote ? ' · ' + wrote : ' · ' + soundCityLabel(row.city_slug));
+          }) + (wrote ? ' · ' + wrote : ' · ' + soundCityLabel(row.city_slug))
+            + (stale ? ' · no new track in over a day — check the routine.' : '');
 
-          if (stale) {
-            what.appendChild(document.createTextNode(
-              ' · no new track in over a day — check the routine.'
-            ));
-          }
+          say('Last run ' + relativeTime(stamp, now), detail, stale);
         } catch (error) {
-          wrap.dataset.state = 'error';
-          when.textContent = 'Last run unavailable';
-          what.textContent = 'Could not read public.soundtrack_songs. Open the routine to check directly.';
+          // A read that failed is treated as stale: it is not proof the routine
+          // is broken, but it is proof nobody can tell, which is the same
+          // prompt to go and look.
+          say('Last run unavailable',
+            'Could not read public.soundtrack_songs. Open the routine to check directly.', true);
         }
       }
 
       loadLastRun();
+
+      // ── The prompt dialog ───────────────────────────────────────────────────
+      // The Socializer's, wired the same way — openTool / closeTool, the copy
+      // button as its own confirmation, and a delegated COPY & OPEN row. Keep
+      // the two in step; only the prompt text differs.
+      //
+      // Not gated on sign-in, deliberately: the prompt is public text and the
+      // human runs the SQL it produces in Supabase, under their own account.
+      // There is nothing here for a session to protect.
+      (function () {
+        var promptBtn = document.getElementById('promptBtn');
+        var promptBackdrop = document.getElementById('promptBackdrop');
+        var promptCard = document.getElementById('promptCard');
+        var promptEl = document.getElementById('promptText');
+        var copyStatus = document.getElementById('copyStatus');
+        var copyBtn = document.getElementById('copyPromptTop');
+        var copyPromptLabel = document.getElementById('copyPromptLabel');
+        var promptAiRow = document.getElementById('promptAiRow');
+        var citySelect = document.getElementById('promptCity');
+        var cityNote = document.getElementById('promptCityNote');
+        if (!promptBtn || !promptCard || !promptBackdrop) return;
+        var copyResetTimer = 0;
+
+        // The authored prompt, captured once. Every rebuild starts from this, so
+        // choosing a city and then clearing it puts the text back exactly —
+        // rather than leaving a directive from two selections ago on top.
+        var BASE_PROMPT = promptEl ? promptEl.value : '';
+        var citiesLoaded = false;
+
+        // ── The city picker ──────────────────────────────────────────────────
+        // Loaded on FIRST OPEN, not on page load: most visits to this room never
+        // touch the dialog, and public.cities is 1300-odd rows.
+        async function loadPromptCities() {
+          if (citiesLoaded || !citySelect) return;
+          citiesLoaded = true;
+          citySelect.disabled = true;
+          if (cityNote) { cityNote.classList.remove('is-warn'); cityNote.textContent = 'loading…'; }
+          try {
+            // select=*, never a column list naming a hide flag: PostgREST 400s on
+            // a column it does not have, so an explicit list breaks against a
+            // database that has not run the migration. Filtered below instead.
+            // Paged, because the catalogue is past the 1000-row cap.
+            var rows = await fetchAllRows('cities?select=*&order=city.asc');
+            // Tapes we already hold, so a city can say how full it is. Only
+            // available when signed in; without it the list is still complete.
+            var have = Object.create(null);
+            soundtracks().forEach(function (tape) {
+              have[text(tape && tape.city_slug)] = tapeCounts(tape);
+            });
+            var added = 0;
+            rows.forEach(function (row) {
+              var hidden = row.hide_from_soundtracks != null
+                ? truthyFlag(row.hide_from_soundtracks)
+                : truthyFlag(row.ignored);
+              if (hidden) return;
+              var slug = text(row.slug);
+              if (!slug) return;
+              var opt = document.createElement('option');
+              opt.value = slug;
+              var counts = have[slug];
+              opt.textContent = text(row.city) || slug;
+              if (counts) opt.textContent += '  — ' + counts.LIVE + ' kept'
+                + (counts.REVIEW ? ', ' + counts.REVIEW + ' in review' : '');
+              citySelect.appendChild(opt);
+              added += 1;
+            });
+            citySelect.disabled = false;
+            if (cityNote) cityNote.textContent = added + ' cities';
+          } catch (error) {
+            console.error(error);
+            // A failed list is not a dead dialog: blank is a valid choice and the
+            // prompt works the ladder on its own, so say so and carry on.
+            citiesLoaded = false;
+            if (cityNote) {
+              cityNote.classList.add('is-warn');
+              cityNote.textContent = 'city list unavailable — leave blank';
+            }
+          }
+        }
+
+        // Blank restores the authored text; a city prepends a directive. The
+        // ladder section is never edited — it opens with "If I have already
+        // named a city, use it", which is exactly what this is.
+        function applyPromptCity() {
+          if (!promptEl) return;
+          var slug = citySelect ? text(citySelect.value) : '';
+          if (!slug) { promptEl.value = BASE_PROMPT; return; }
+          var label = citySelect.options[citySelect.selectedIndex].textContent.split('  — ')[0];
+          promptEl.value =
+            'CITY FOR THIS RUN — ALREADY CHOSEN\n'
+            + 'Build the tape for ' + label + '. Its city_slug is exactly "' + slug + '";\n'
+            + 'use that string verbatim and do not look it up or reshape it.\n'
+            + 'Skip the tier ladder below — it only applies when I have not named\n'
+            + 'a city. Everything else in this prompt still holds.\n\n'
+            + BASE_PROMPT;
+        }
+
+        if (citySelect) citySelect.addEventListener('change', applyPromptCity);
+
+        // Locks the page behind the dialog and puts the caret somewhere useful.
+        function openTool(card, backdrop, focusEl) {
+          if (!card) return;
+          if (backdrop) backdrop.hidden = false;
+          card.hidden = false;
+          document.body.style.overflow = 'hidden';
+          window.setTimeout(function () {
+            var target = focusEl || card.querySelector('input, textarea, select, button, a');
+            if (target && typeof target.focus === 'function') target.focus();
+          }, 0);
+        }
+
+        // Only releases the scroll lock once nothing is left open. This room has
+        // one dialog today; the check is here so adding a second cannot leave
+        // the page frozen behind it.
+        function closeTool(card, backdrop) {
+          if (backdrop) backdrop.hidden = true;
+          if (card) card.hidden = true;
+          if (promptCard && !promptCard.hidden) return;
+          document.body.style.overflow = '';
+        }
+
+        // Puts the copy button back to its resting state. Called on the timer
+        // after a copy, on a failure, and whenever the dialog opens — otherwise
+        // a dialog closed mid-flash reopens still green and still saying Copied.
+        function resetCopyButton() {
+          window.clearTimeout(copyResetTimer);
+          if (copyBtn) copyBtn.classList.remove('is-done');
+          if (copyPromptLabel) copyPromptLabel.textContent = 'Copy prompt';
+        }
+
+        function openPrompt() {
+          resetCopyButton();
+          if (copyStatus) copyStatus.textContent = '';
+          openTool(promptCard, promptBackdrop, copyBtn);
+          // Not awaited: the dialog opens now and the list fills when it fills.
+          // The prompt is already complete and copyable with the picker blank.
+          loadPromptCities();
+        }
+
+        function closePrompt() { closeTool(promptCard, promptBackdrop); }
+
+        // THE BUTTON IS THE CONFIRMATION — it goes green and reads Copied for a
+        // moment. A word appearing beside a control you have just clicked is
+        // easy to miss, and the status line is kept for the FAILURE, which is
+        // the case that actually needs words because it has to say what to do
+        // instead.
+        async function copyPromptText() {
+          if (!promptEl) return false;
+          window.clearTimeout(copyResetTimer);
+          try {
+            await navigator.clipboard.writeText(promptEl.value || '');
+            if (copyBtn) copyBtn.classList.add('is-done');
+            if (copyPromptLabel) copyPromptLabel.textContent = 'Copied';
+            if (copyStatus) copyStatus.textContent = '';
+            copyResetTimer = window.setTimeout(resetCopyButton, 1800);
+            return true;
+          } catch (error) {
+            resetCopyButton();
+            if (copyStatus) copyStatus.textContent = 'Select the text and copy it by hand';
+            return false;
+          }
+        }
+
+        promptBtn.addEventListener('click', openPrompt);
+        promptBackdrop.addEventListener('click', closePrompt);
+        Array.prototype.forEach.call(document.querySelectorAll('[data-prompt-close]'), function (button) {
+          button.addEventListener('click', closePrompt);
+        });
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape' && !promptCard.hidden) closePrompt();
+        });
+        if (copyBtn) copyBtn.addEventListener('click', copyPromptText);
+
+        // Copy AND open. Delegated on the row so the links carry no handler of
+        // their own and adding or dropping a door needs no wiring.
+        //
+        // NO preventDefault, and the copy is deliberately NOT awaited: the tab
+        // has to be opened by the browser's own handling of a click on a link,
+        // or the popup blocker stops it. Awaiting first would put the navigation
+        // in a later task, which is exactly what "not user-initiated" means.
+        //
+        // The write is still made inside the gesture, so the clipboard
+        // permission holds. If it fails, the status line says so and the chat is
+        // open anyway — with the prompt one Ctrl+A away in the box behind it.
+        if (promptAiRow) promptAiRow.addEventListener('click', function (event) {
+          var link = event.target && event.target.closest ? event.target.closest('a') : null;
+          if (!link || !promptAiRow.contains(link)) return;
+          copyPromptText();
+        });
+      }());
 
       // Sign in / sign out is the padlock in the shared admin nav. Deliberately
       // NOT TgbMcAdminNav.init, which injects TGB HOME / MISSION CONTROL buttons

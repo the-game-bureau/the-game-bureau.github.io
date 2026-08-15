@@ -7,7 +7,9 @@
   <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Shadows Into Light is the red-pen scribble beside the room name, the same
+       hand the Socializer and the Tape Room write their notices in. -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <script>
     (function () {
       try {
@@ -33,9 +35,13 @@
       --line: rgba(var(--bic-blue-rgb), 0.18);
       --paper: rgba(255,255,255,0.92);
       --accent: var(--bic-blue);
-      --cut-panel-bg: #eef0f4;
-      --cut-panel-line: var(--line);
-      --control-line: var(--line);
+      /* Matched to /mc/socials/ so the admin rooms read as one place. These
+         were a neutral grey with hairline edges; the Socializer tints the panel
+         blue and draws the edges roughly twice as strong, which is what makes
+         its controls look like a defined panel rather than a faint box. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
       --danger: #a03f2d;
       --success: #2f6b3d;
       /* Layout rhythm: one vertical gap between every top-level group on the page,
@@ -178,18 +184,7 @@
       border-radius: 10px;
       background: var(--cut-panel-bg);
     }
-    .btn-fieldset > legend {
-      float: none;
-      width: auto;
-      padding: 0 7px;
-      margin: 0 0 0 2px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.82rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink);
-    }
+    /* .btn-fieldset > legend is styled with the other two, below. */
     .btn-fieldset-inner {
       display: flex;
       align-items: center;
@@ -207,25 +202,59 @@
       display: block;
       width: 100%;
       min-inline-size: 0;
-      padding: 6px 14px 13px;
+      padding: 4px 12px 12px;
       margin: 0 0 var(--stack-gap);
       background: var(--cut-panel-bg);
       border: 1px solid var(--cut-panel-line);
       border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
+    /* FOLDER TABS, the Socializer's. The legend cuts the panel's top border and
+       the line used to just stop either side of it — a gap. It now wears a tab:
+       the border runs into the label and back out again.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is where the browser puts a legend.
+       But the tab's sides must stop AT that line rather than carrying on into
+       the panel, and a bordered box whose bottom edge is the line cannot also
+       have its text centred on it. So the box stays put and the outline is drawn
+       only over the half above the line — `inset: 0 0 50%`, since the legend's
+       midpoint IS the line. isolation: isolate is load-bearing: the arch sits at
+       z-index -1 to stay behind the text, and without a stacking context of its
+       own it would drop behind the fieldset's background and vanish. */
     .command-bar > legend,
-    .toolbar > legend {
+    .toolbar > legend,
+    .btn-fieldset > legend {
       float: none;
       width: auto;
-      padding: 0 7px;
-      margin: 0 0 0 2px;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
       color: var(--ink);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.82rem;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
+    }
+
+    .command-bar > legend::before,
+    .toolbar > legend::before,
+    .btn-fieldset > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
     }
 
     .command-bar-inner {
@@ -717,43 +746,58 @@
       min-height: 36px;
     }
 
-    /* Counts on the first line, the routine's last run on the second. Copied
-       from the tape room so the two admin headers read identically; the dot is
-       the whole state, green when the bot ran and red once it is overdue. */
-    .room-substat--row {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-      min-width: 0;
-    }
-    .run-status { display: flex; align-items: baseline; gap: 7px; }
-    .run-dot {
-      flex: 0 0 auto;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #1e7a4b;
-    }
-    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
-    .run-status[data-state="error"] .run-dot { background: var(--muted); }
-    .run-body {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 8px;
-      min-width: 0;
-    }
-    .run-line,
-    .run-sub { color: inherit; font: inherit; }
+    /* Title, then blurb, then the note. The scribble used to ride the title's
+       baseline on a shared row; it sits under the standing description now, so
+       the header reads top to bottom as name → what this room is → what just
+       happened. A note written in the margin of a printed page belongs beside
+       the text it is about, not beside the masthead. */
 
-    /* Specific enough to beat the tone classes setStatus adds: this line is a
-       running count, not a success message, so it must not go green. Colour and
-       weight otherwise match .room-substat in admin-shell.css. */
-    #shopStatus,
-    #shopStatus.success {
-      color: var(--muted);
-      font-weight: 600;
+    /* RED BIC INK, AND THIS IS WHERE NOTICES GO — #shopStatus itself, so every
+       existing setStatus(shopStatus, …) call lands here with no JS change.
+       Handwriting, because it is a note ON the page rather than part of it, and
+       the tilt is what stops it reading as another label. Empty almost always,
+       and it collapses when it is.
+
+       THE TAGLINE BELOW IS NOT A STATUS LINE and must never be borrowed for one:
+       it is the standing description of the room. */
+    .room-scribble {
+      /* Its own line under the blurb, not an inline tail on the title. */
+      display: block;
+      margin-top: 3px;
+      font-family: "Shadows Into Light", "Segoe Script", cursive;
+      font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+      font-weight: 400;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+      color: var(--bic-red);
+      transform: rotate(-2.2deg);
+      transform-origin: left bottom;
+      text-shadow: 0 0 3px var(--paper-base, #fefef9), 0 0 3px var(--paper-base, #fefef9), 0 0 5px var(--paper-base, #fefef9);
+    }
+
+    .room-scribble:empty { display: none; }
+
+    @media (prefers-reduced-motion: reduce) { .room-scribble { transform: none; } }
+
+    /* The tone classes setStatus adds must not repaint the pen. */
+    #shopStatus.success,
+    #shopStatus.error { color: var(--bic-red); font-weight: 400; }
+
+    .room-head .room-blurb { max-width: none; }
+
+    /* THE STALE EDGE. All that survives of the last-run line, which is now the
+       TGB GIFT SHOP BOT button's tooltip: the routine has not filed a candidate
+       in over BOOK_PULL_STALE_HOURS, which means a run failed or is paused. A
+       tooltip nobody hovers is not a signal, so the state stays on the control
+       you press to go and fix it. */
+    .btn.is-stale {
+      border-color: rgba(194, 55, 55, 0.5);
+      color: var(--bic-red);
+    }
+
+    .btn.is-stale:hover {
+      border-color: var(--bic-red);
+      background: rgba(194, 55, 55, 0.07);
     }
 
     .items {
@@ -2962,22 +3006,21 @@
             <!-- No eyebrow: the shared admin nav directly above already says
                  THE GAME BUREAU, so repeating it here was two brand lines in a
                  row before the room name. -->
+            <!-- THE SCRIBBLE IS WHERE NOTICES GO — in red pen, beside the room's
+                 name, the way you would write on a page that is already printed.
+                 It IS #shopStatus, so every setStatus call already aimed here.
+                 Empty almost always, and it collapses when it is.
+                 THE TAGLINE BELOW IS NOT A STATUS LINE and must never be
+                 borrowed for one: it is the standing description of the room. -->
           <h1 class="room-title">STOCK ROOM</h1>
-          <div class="room-substat room-substat--row">
-            <span id="shopStatus" aria-live="polite"></span>
-            <!-- The same signal the tape room carries, for this room's routine.
-                 The TGB Gift Shop Bot commits nothing, so the freshest Review
-                 candidate IS the run receipt and a stale timestamp is the
-                 failure notice. It was already computed for the bot modal;
-                 this surfaces it without having to open anything. -->
-            <span class="run-status" id="shopRunStatus" data-state="loading">
-              <span class="run-dot" aria-hidden="true"></span>
-              <span class="run-body">
-                <span class="run-line" id="shopRunWhen">Checking last run&hellip;</span>
-                <span class="run-sub" id="shopRunWhat"></span>
-              </span>
-            </span>
-          </div>
+            <!-- The last-run line used to sit here as a dot and two lines of
+                 text. It is now the TGB GIFT SHOP BOT button's tooltip, on the
+                 control you press to go and do something about it, and its
+                 at-a-glance half survives as a red edge on that button — the
+                 routine commits nothing, so a stale receipt IS the failure
+                 notice. See paintShopRunHeader. -->
+          <p class="room-blurb">Gifts for every city we play in. Books and objects are added here by hand or through ai; certify or shelve each one.</p>
+          <span class="room-scribble" id="shopStatus" role="status" aria-live="polite"></span>
         </div>
         <div class="room-head-actions">
           <div class="save-needed" id="saveNeededBanner" aria-live="polite" hidden>
@@ -3480,13 +3523,16 @@
     // signed in, and bookPullLoaded then stops the modal re-requesting the same
     // rows. One fetch feeds both.
     function paintShopRunHeader(state, line, sub) {
-      var wrap = document.getElementById('shopRunStatus');
-      if (!wrap) return;
-      wrap.dataset.state = state;
-      var when = document.getElementById('shopRunWhen');
-      var what = document.getElementById('shopRunWhat');
-      if (when) when.textContent = line || '';
-      if (what) what.textContent = sub || '';
+      var btn = document.getElementById('nightlyBtn');
+      if (!btn) return;
+      // The last-run line IS the bot button's tooltip. It had its own dot and
+      // two lines under the room title; the words now sit on the control you
+      // press to act on them, and the button takes a red edge when the run is
+      // stale so the state is still readable without hovering. A failed read
+      // counts as stale: not proof the routine is broken, but proof nobody can
+      // tell, which prompts the same look.
+      btn.title = [line, sub].filter(Boolean).join(' — ');
+      btn.classList.toggle('is-stale', state === 'stale' || state === 'error');
     }
     if (itemSearchInput) {
       itemSearchInput.addEventListener('input', resetItemsPaging);
@@ -6352,10 +6398,10 @@
         + (leanest.length > shown.length ? ', and ' + (leanest.length - shown.length) + ' more' : '');
       if (leanest.length === 1) {
         return 'Coverage priority: ' + list + ' currently has the FEWEST gifts (' + min
-          + '). Favor items that fit this city where a natural, honest tie exists — never force an unrelated item onto it.';
+          + '). Favor items that fit this city where a natural, honest tie exists; never force an unrelated item onto it.';
       }
       return 'Coverage priority: these cities are tied for the FEWEST gifts (' + min + ' each): ' + list
-        + '. Favor items that fit one of them where a natural, honest tie exists — never force an unrelated item onto a city.';
+        + '. Favor items that fit one of them where a natural, honest tie exists; never force an unrelated item onto a city.';
     }
 
     // Understocked-cities (< 3 gifts) are handled by the gift-pull prompt logic
@@ -6773,11 +6819,11 @@ $$;`.trim();
         'Hard requirements:',
         '- Use Bookshop.org product pages only. Do not use Amazon or non-book retailers.',
         '- Every item must be a real book currently findable on Bookshop.org.',
-        '- title is the SINGLE MOST IMPORTANT field: use the book\'s exact full title followed by " by " and the author name(s) — e.g. "The Great Gatsby by F. Scott Fitzgerald". Match the title and author exactly as shown on the Bookshop.org product page; do not abbreviate, reorder, drop a subtitle, or omit the author.',
-        '- Provide the exact ISBN-13 from the Bookshop.org product page (strip hyphens/spaces). We build the Bookshop affiliate link AND the cover image from this ISBN ourselves, so a wrong ISBN breaks BOTH — verify it against the product page.',
+        '- title is the SINGLE MOST IMPORTANT field: use the book\'s exact full title followed by " by " and the author name(s), e.g. "The Great Gatsby by F. Scott Fitzgerald". Match the title and author exactly as shown on the Bookshop.org product page; do not abbreviate, reorder, drop a subtitle, or omit the author.',
+        '- Provide the exact ISBN-13 from the Bookshop.org product page (strip hyphens/spaces). We build the Bookshop affiliate link AND the cover image from this ISBN ourselves, so a wrong ISBN breaks BOTH; verify it against the product page.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ISBNs, and duplicate URLs.',
         '- The JSON array must contain exactly ' + count + ' objects.',
-        '- Each JSON object needs exactly these four fields: title, isbn, description, cities. Do NOT include url or image_url — both are derived from the ISBN on our end (the same way our Auto Fill does), so any you provide are ignored.',
+        '- Each JSON object needs exactly these four fields: title, isbn, description, cities. Do NOT include url or image_url; both are derived from the ISBN on our end (the same way our Auto Fill does), so any you provide are ignored.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         (leanestCityLine ? '- ' + leanestCityLine : ''),
@@ -6785,9 +6831,10 @@ $$;`.trim();
         '- Description must be original, concise, and shopper-facing. Do not paste long publisher jacket copy.',
         '- Do not set certified_at or archived in the JSON. Imported items start in Review automatically (the import helper sets certified_at to null). An admin then moves them to Live or Shelves them in the gift-shop tool.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
-        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button — whichever your tool supports. Do NOT split it across multiple blocks.',
+        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button, whichever your tool supports. Do NOT split it across multiple blocks.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Use the straight apostrophe for SQL string quotes and the straight double-quote character where needed; never smart/curly quotes, never en/em dashes, never non-breaking spaces, never any other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON and the string literals) when pasted into the editor.',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it.',
         '',
         'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the ' + count + '-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
@@ -6870,9 +6917,10 @@ $$;`.trim();
         '- Description must be original, concise, and shopper-facing. Do not paste long manufacturer copy.',
         '- Do not set certified_at or archived in the JSON. Imported items start in Review automatically (the import helper sets certified_at to null). An admin then moves them to Live or Shelves them in the gift-shop tool.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
-        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button — whichever your tool supports. Do NOT split it across multiple blocks.',
+        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button, whichever your tool supports. Do NOT split it across multiple blocks.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Use the straight apostrophe for SQL string quotes and the straight double-quote character where needed; never smart/curly quotes, never en/em dashes, never non-breaking spaces, never any other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON and the string literals) when pasted into the editor.',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it.',
         '',
         'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
@@ -7040,11 +7088,11 @@ $$;`.trim();
       return [
         'You are helping The Game Bureau build gift-shop inventory.',
         '',
-        'Task: research OFFICIAL destination resources and return a Supabase SQL import for up to ' + count + ' NEW "destination" items tied to the cities listed below. These are NOT products for sale by us — they are links out to a city\'s own tourism/authority pages. Each may be free or paid; that is handled entirely on the destination\'s page. We only link out.' + promptKeywordLine(),
+        'Task: research OFFICIAL destination resources and return a Supabase SQL import for up to ' + count + ' NEW "destination" items tied to the cities listed below. These are NOT products for sale by us; they are links out to a city\'s own tourism/authority pages. Each may be free or paid; that is handled entirely on the destination\'s page. We only link out.' + promptKeywordLine(),
         '',
-        'What counts as a destination item (mix these across the cities — do not just do visitor guides):',
+        'What counts as a destination item (mix these across the cities, not just visitor guides):',
         '- Official city/regional VISITOR GUIDES: prioritize a DIRECT LINK TO THE DOWNLOADABLE PDF of the official visitor guide when one exists (a URL ending in .pdf, hosted on the tourism board / CVB / official domain). If there is no public PDF, use the "request a guide" / "order a free guide" / digital-flipbook page instead (e.g. https://www.neworleans.com/plan/request-a-guide/).',
-        '- FREE walking tours — official self-guided walking-tour pages/maps from the tourism board or park service, OR reputable tip-based free walking-tour operators for that city.',
+        '- FREE walking tours: official self-guided walking-tour pages/maps from the tourism board or park service, OR reputable tip-based free walking-tour operators for that city.',
         '- Free or low-cost local experiences: public art / mural trails, historic-district heritage walks, riverwalks, scenic overlooks, botanical gardens or parks with free entry, free-museum days, official event/festival calendars, farmers markets, official "things to do" pages.',
         '- Park, landmark, or monument pages on official (.gov / national or state park / official attraction) sites.',
         '',
@@ -7053,7 +7101,7 @@ $$;`.trim();
         '- Goal: ' + count + ' verified items, but a smaller verified batch is fine. Never fabricate a URL, page, or organization to hit the count.',
         '- Only use a URL you can verify resolves to the OFFICIAL page for that resource. Strongly prefer the destination\'s own domain, the local Convention & Visitors Bureau / tourism board (DMO), or a .gov / park-service site.',
         '- Do NOT use online-travel-agency or reseller/aggregator pages (Viator, GetYourGuide, Expedia, Booking.com, TripAdvisor, Groupon, Airbnb Experiences, etc.). A free-walking-tour operator\'s OWN official site is allowed.',
-        '- No affiliate tags or tracking parameters — return the clean canonical URL.',
+        '- No affiliate tags or tracking parameters; return the clean canonical URL.',
         '- Visitor guides specifically: actively hunt for the official DOWNLOADABLE PDF (search terms like "<city> official visitor guide filetype:pdf" or "<city> visitor guide pdf download"). Verify the .pdf URL actually loads and is the current official guide before using it. A direct .pdf is preferred; when one exists, set cta_label to "Download Guide" (or "Download Guide (PDF)") and note in the description that it is a free downloadable PDF.',
         '',
         'Hard requirements:',
@@ -7061,7 +7109,7 @@ $$;`.trim();
         '- title: a clear, specific name for the resource (e.g. "French Quarter Self-Guided Walking Tour", "Visit Denver Official Visitor Guide").',
         '- url: the clean https link to the official page. Raw URL string only, never a Markdown link.',
         '- cta_label: 2-4 word button text describing the action, e.g. "Request Guide", "Free Walking Tour", "Plan Your Visit", "See Events", "Explore Trail". Keep it under 40 characters.',
-        '- image_url: a stable, public image URL for the resource if you can confidently find one (e.g. the page\'s Open Graph image); otherwise set it to null. Do not guess or fabricate image URLs — null is fine, an admin adds images after import.',
+        '- image_url: a stable, public image URL for the resource if you can confidently find one (e.g. the page\'s Open Graph image); otherwise set it to null. Do not guess or fabricate image URLs; null is fine, an admin adds images after import.',
         '- description: one original, concise, shopper-facing sentence. If it is free or tip-based, say so plainly. Do not paste marketing copy.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city (or cities) it actually serves. A resource for a specific city maps to that city; a state/region resource maps to every listed city it covers. Leave "cities" empty (omit it) if it fits no listed city.',
         (leanestCityLine ? '- ' + leanestCityLine : ''),
@@ -7071,7 +7119,8 @@ $$;`.trim();
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it.',
         '',
         'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
@@ -7384,6 +7433,14 @@ $$;`.trim();
 
   <!-- TGB GIFT SHOP BOT: what the scheduled book pull and the link check do.
        Read-only reference. -->
+  <!-- PAIRED WITH A ROUTINE. This modal is about TGB GIFT SHOP BOT
+       (trig_01H7cKJ4fk5bA1NWSqPZi4ah, cron 0 8,20 UTC), and the PROMPT button in
+       the ADD bar is its page-side twin: near-identical editorial rules, one
+       difference, which is that the routine holds the publishable key and calls
+       tgb_pull_book_candidates itself while the PROMPT text is pasted into a
+       chat AI with neither, so its deliverable is SQL.
+       EDIT ONE, OPEN THE OTHER. Map: mc/_dev/prompt-tools/PROMPTS.md
+       Edit the routine from Claude Code with /schedule or RemoteTrigger. -->
   <div class="nightly-modal" id="nightlyModal" role="dialog" aria-modal="true" aria-labelledby="nightlyTitle" hidden>
     <div class="nightly-backdrop" data-nightly-close></div>
     <section class="nightly-panel">

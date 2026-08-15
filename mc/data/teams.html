@@ -729,20 +729,20 @@
       const maxTgbid = state.rows.reduce((m, r) => Math.max(m, Number(r.tgbid) || 0), 0);
 
       return [
-        'You are maintaining The Game Bureau\'s Supabase "teams" table — every team in the major North American pro sports leagues. CORE leagues: NFL, NBA, NHL, MLB. Others (e.g. MLS) may be added using the SAME columns. Verify against authoritative, current sources before changing anything.',
+        'You are maintaining The Game Bureau\'s Supabase "teams" table: every team in the major North American pro sports leagues. CORE leagues: NFL, NBA, NHL, MLB. Others (e.g. MLS) may be added using the SAME columns. Verify against authoritative, current sources before changing anything.',
         hint ? 'SCOPE: ' + hint : '',
         '',
         'Columns per team (the table\'s real column names):',
         '- league: NFL | NBA | NHL | MLB (or another league code, e.g. MLS).',
         '- conference: conference/group name, or "" if none. Part of the primary key.',
-        '- division: the sub-group within the conference — just the division name, NOT prefixed with the conference ("North"/"South"/"East"/"West" for NFL & MLB; "Atlantic"/"Central"/"Southeast"/"Northwest"/"Pacific"/"Southwest" for NBA; "Atlantic"/"Metropolitan"/"Central"/"Pacific" for NHL), or "" if none.',
+        '- division: the sub-group within the conference: just the division name, NOT prefixed with the conference ("North"/"South"/"East"/"West" for NFL & MLB; "Atlantic"/"Central"/"Southeast"/"Northwest"/"Pacific"/"Southwest" for NBA; "Atlantic"/"Metropolitan"/"Central"/"Pacific" for NHL), or "" if none.',
         '- code: short team code, uppercase (e.g. "NO", "CHC", "ARI"). With league it forms the stable team_key = LEAGUE:CODE that games reference. NEVER change an existing team\'s code; keep it unique within the league.',
         '- full_name: full team name (e.g. "New Orleans Saints").',
         '- first_name: geographic descriptor in the official name (e.g. "New England", "Golden State"). "" for the Athletics.',
-        '- fanbase: the nearest BIG city to the venue, as "City, ST" with a 2-letter state/province. MUST be a real city — never a region or state (use "Phoenix, AZ" not "Arizona, AZ"; "Charlotte, NC" not "Carolina, NC"). When the team\'s name contains a real city, prefer it (49ers -> "San Francisco, CA", Clippers -> "Los Angeles, CA").',
+        '- fanbase: the nearest BIG city to the venue, as "City, ST" with a 2-letter state/province. MUST be a real city, never a region or state (use "Phoenix, AZ" not "Arizona, AZ"; "Charlotte, NC" not "Carolina, NC"). When the team\'s name contains a real city, prefer it (49ers -> "San Francisco, CA", Clippers -> "Los Angeles, CA").',
         '- mascot: the nickname (e.g. "Saints").',
         '- sport: football | basketball | hockey | baseball (or the league\'s sport).',
-        '- shell / stripe / mask: primary / secondary / tertiary palette colors as #RRGGBB hex. THESE PAINT A LIVE GAME — the engines derive a fandom game\'s brand palette from the AWAY team\'s three. Take them from the club\'s own brand page, and do not guess.',
+        '- shell / stripe / mask: primary / secondary / tertiary palette colors as #RRGGBB hex. THESE PAINT A LIVE GAME: the engines derive a fandom game\'s brand palette from the AWAY team\'s three. Take them from the club\'s own brand page, and do not guess.',
         '- text_color: the team\'s fourth/brand text color as #RRGGBB (default "#FFFFFF").',
         '- game_city: nearest big/anchor city, "City, ST". Editorial judgment. PRESERVE existing values; only set for a brand-new team.',
         '- venue_city: the municipality the home venue physically sits in, "City, ST" (e.g. "Foxborough, MA", not "Boston, MA"). PRESERVE unless the team actually moved.',
@@ -753,16 +753,17 @@
         '',
         'Rules:',
         '1. ADD a missing team with all columns. Assign a code (short, uppercase, unique in the league), the next tgbid, espn_id from ESPN, an editorial game_city, and the venue\'s real municipality for venue_city.',
-        '2. NEVER change an existing team\'s league or code — team_key is foreign-keyed by games. A rebrand (Indians -> Guardians) EDITS full_name/first_name/mascot but keeps league, code, tgbid and espn_id.',
-        '3. Do NOT overwrite game_city / venue_city / timezone for teams that have not moved — those are curated by hand.',
+        '2. NEVER change an existing team\'s league or code; team_key is foreign-keyed by games. A rebrand (Indians -> Guardians) EDITS full_name/first_name/mascot but keeps league, code, tgbid and espn_id.',
+        '3. Do NOT overwrite game_city / venue_city / timezone for teams that have not moved; those are curated by hand.',
         '4. Keep the Athletics\' first_name as "".',
         '5. Do NOT output team_key or updated_at: team_key is a generated column (league + code) and the database rejects any write to it; updated_at is automatic.',
         '6. Expected core counts: NFL 32, NBA 30, NHL 32, MLB 30 (124 total). Say so if your result differs. Added leagues (e.g. MLS) are extra.',
         '7. Source: ESPN\'s public team lists at https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/teams (football/nfl, basketball/nba, hockey/nhl, baseball/mlb; soccer/usa.1 for MLS) give league, first_name (location), mascot (name) and espn_id (id).',
         '',
-        'OUTPUT — one team per line as a JSON object, no surrounding brackets, no commas between lines, no prose, no markdown.',
+        'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
+        'OUTPUT: one team per line as a JSON object, no surrounding brackets, no commas between lines, no prose, no markdown.',
         '',
-        'YOUR REPLY IS UPSERTED BY team_key: existing teams are updated in place, new teams are inserted, and NOTHING IS DELETED. A human reviews a row-by-row diff of your reply before anything is written, so a dropped team shows up as "missing from your reply" rather than as data loss — but it still wastes the run.',
+        'YOUR REPLY IS UPSERTED BY team_key: existing teams are updated in place, new teams are inserted, and NOTHING IS DELETED. A human reviews a row-by-row diff of your reply before anything is written, so a dropped team shows up as "missing from your reply" rather than as data loss, but it still wastes the run.',
         '',
         'Hard rules:',
         '1. Return EVERY existing team listed below, even ones you did not change. Never drop a team.',
@@ -770,8 +771,8 @@
         '3. You MAY edit any other field: full_name, first_name, fanbase, mascot, sport, conference, division, shell, stripe, mask, text_color, game_city, venue_city, timezone, league_sort, team_sort.',
         '4. You MAY add brand-new teams, each with a code unique within its league and the next free tgbid.',
         '',
-        'CURRENT TABLE — ' + current.length + ' teams. This is the complete current state; your reply replaces it.',
-        current.length ? current.join('\n') : '(empty — bootstrap the table from scratch)'
+        'CURRENT TABLE: ' + current.length + ' teams. This is the complete current state; your reply replaces it.',
+        current.length ? current.join('\n') : '(empty; bootstrap the table from scratch)'
       ].filter(Boolean).join('\n');
     }
 

@@ -1,3 +1,22 @@
+/* PAIRED WITH TWO ROUTINES, and one of them reads this file as its live spec.
+ *
+ *   TGB WAYPOINTS BOT           trig_01Q5uCittJ3dT3M2xj8sKD3j  cron 45 11 UTC
+ *     uses buildWaypointAiPrompt; commits mc/stops/nightly.json.
+ *   TGB NFL Anchor Route Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
+ *     STEP 1 OF ITS STORED PROMPT IS "open this file and find
+ *     buildTourPlacesWaypointPrompt; that function is the specification".
+ *
+ * So editing this file changes that routine on its next run, with nothing to
+ * sync. The cost is the matching failure: RENAME OR MOVE
+ * buildTourPlacesWaypointPrompt AND THE ROUTINE BREAKS SILENTLY, because an
+ * agent that cannot find its spec will happily write a route from memory. Its
+ * stored prompt now says to stop and report instead. If this file moves again,
+ * update the trigger in the same commit.
+ *
+ * Map of every prompt and its routine: mc/_dev/prompt-tools/PROMPTS.md
+ * Edit a routine from Claude Code with /schedule or the RemoteTrigger tool.
+ */
+
 /* waypoint-prompts.js — the AI pulls that fill public.waypoints.
  *
  * Five prompts and the SQL they lean on, lifted verbatim out of
@@ -175,6 +194,16 @@ create index if not exists waypoints_tour_idx
     const AI_MODEL_RULE = '- ai_model: the make and model of the AI writing this, exactly as you would name yourself - '
       + '"Anthropic Claude Opus 5", "OpenAI GPT-5", "Google Gemini 3 Pro", "xAI Grok 4". Same value on every row. '
       + 'Give the specific model, not the family, and not "AI" or "assistant". If you genuinely do not know which model you are, leave it out rather than guessing.';
+
+    // NO EM DASHES, shared for the same reason as the two rules below it: five
+    // prompts, one wording, no drift. A description written here is read aloud
+    // at a stop and shown on a public page, so a machine tell in it is a machine
+    // tell in the product. Note this file's own prompt STRINGS carry none
+    // either; the comments around them are for humans and are exempt.
+    const NO_EM_DASH_RULE = 'NO EM DASHES anywhere in what you return: not in a description, not in a name, '
+      + 'not in any note you write around the SQL, and not as the `&mdash;` entity. Use a comma, a colon, a '
+      + 'semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell '
+      + 'that a machine wrote the line, and these descriptions are read aloud at the stop.';
 
     const WALK_ORDER_RULE = '- walk_order: 1, 2, 3 ... over the stops YOU are returning in this city, '
       + 'in the order a person would actually walk them. Sequence them so the walk flows: nearest neighbour, '
@@ -365,7 +394,7 @@ $$;`.trim();
       // of WHICH stops, never of the facts about them).
       const taskLine = url
         ? 'Task: read ' + url + ' and extract the real, publicly accessible walking-tour stops it names in or immediately around ' + area + ', then return a Supabase SQL import for up to ' + n + ' of them.' + (kw ? ' Bias toward: ' + kw + '.' : '')
-        : 'Task: find real, publicly accessible walking-tour stops in or immediately around ' + area + ' on Wikipedia and Wikimedia — places with coordinates or a street address — and return a Supabase SQL import for up to ' + n + ' NEW stops.' + (kw ? ' Bias toward: ' + kw + '.' : '');
+        : 'Task: find real, publicly accessible walking-tour stops in or immediately around ' + area + ' on Wikipedia and Wikimedia: places with coordinates or a street address, and return a Supabase SQL import for up to ' + n + ' NEW stops.' + (kw ? ' Bias toward: ' + kw + '.' : '');
       const researchLines = url
         ? [
             'Source page instructions:',
@@ -414,7 +443,7 @@ $$;`.trim();
         taskLine,
         '',
         'What makes a good stop (best-known, most-visited first, then strong additional candidates):',
-        '- Places notable enough to be documented and pinned to a spot — the kind that carry a Wikipedia article with coordinates, a historical marker, or a place on a published tour.',
+        '- Places notable enough to be documented and pinned to a spot, the kind that carry a Wikipedia article with coordinates, a historical marker, or a place on a published tour.',
         '- Within a comfortable ~1-mile loop of one another; interesting and photogenic (historic sites and markers, landmarks, monuments/memorials, public art and murals, notable architecture, parks and plazas, museums, iconic local businesses).',
         '- Publicly accessible and safe to stand in front of.',
         '',
@@ -426,21 +455,22 @@ $$;`.trim();
         '- name: the place name (e.g. "Cafe du Monde"). Required.',
         '- city: the city as a plain string (e.g. "' + (p.city || 'New Orleans') + '").',
         '- state: the 2-letter code for US places (e.g. "' + (region || 'LA') + '"), otherwise the country name.',
-        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
-        '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address. A ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
+        '- address: the STREET ONLY: house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). No marketing copy.',
         (url
-          ? '- source_url: "' + url + '" on EVERY object — the page you took the stop from. Copy it exactly, the same value on each one.'
-          : '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"), or the list article it is a row in when it has no article of its own. A Wikimedia Commons category URL only when there is no Wikipedia page at all. Never a search-results page, never the place\'s own website.'),
+          ? '- source_url: "' + url + '" on EVERY object: the page you took the stop from. Copy it exactly, the same value on each one.'
+          : '- source_url: REQUIRED on every object: the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"), or the list article it is a row in when it has no article of its own. A Wikimedia Commons category URL only when there is no Wikipedia page at all. Never a search-results page, never the place\'s own website.'),
         WALK_ORDER_RULE,
         AI_MODEL_RULE,
-        '- Do NOT include a wpid or id — the database assigns it.',
+        NO_EM_DASH_RULE,
+        '- Do NOT include a wpid or id; the database assigns it.',
         '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it.',
         '',
         'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-stop JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
@@ -455,17 +485,17 @@ $$;`.trim();
 
 /* ==== wikiLines+counts+nflPrompt ==== */
     const WIKI_SOURCE_LINES = [
-      'Where the stops come from — Wikipedia and Wikimedia, not general web search:',
+      'Where the stops come from, Wikipedia and Wikimedia rather than general web search:',
       '- Every stop must have an English Wikipedia article (or, failing that, a Wikimedia Commons category) AND either coordinates on that page or a street address. No coordinates and no address means it is not a candidate, however famous it is.',
       '- The richest sources are the list articles, because they carry an address AND coordinates for every row:',
-      '  * "National Register of Historic Places listings in <county> County, <State>" — address column, coordinates, and a photo per row.',
+      '  * "National Register of Historic Places listings in <county> County, <State>": address column, coordinates, and a photo per row.',
       '  * "List of National Historic Landmarks in <State>".',
       '  * "List of public art in <city>", "List of tallest buildings in <city>", "List of parks in <city>", "List of museums in <city>".',
       '  * The city article\'s own Landmarks / Architecture / Culture sections, and "Category:Buildings and structures in <city>", "Category:Monuments and memorials in <city>", "Category:Tourist attractions in <city>".',
       '- Wikipedia GeoSearch enumerates everything geotagged near a point and is the fastest way to sweep a downtown core (swap in the city\'s coordinates):',
       '  https://en.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=LAT%7CLON&ggsradius=10000&ggslimit=200&prop=coordinates%7Cdescription&format=json',
       '- Wikimedia Commons is the photo check: a geocoded Commons category or image confirms the thing is still standing and visible from the street.',
-      '- NOT candidates: a disambiguation page, a list or category page itself, an article about an event/person/company rather than a place, a demolished or destroyed structure (read the article — it will say), or anything whose article has neither coordinates nor an address.',
+      '- NOT candidates: a disambiguation page, a list or category page itself, an article about an event/person/company rather than a place, a demolished or destroyed structure (read the article; it will say), or anything whose article has neither coordinates nor an address.',
       '- Wikipedia decides WHICH stops. It does not decide the street address: articles are often missing one or list a mailing address. Get the street address from the NRHP row or another independent source, and leave address null rather than guessing. Never convert coordinates into a made-up street address.',
       '- ZIP is the one field you are expected to go and fetch. Wikipedia and NRHP rows carry the street address but almost never the postal code, so a stop with an address and a null zip means the lookup was skipped, not that the ZIP is unknowable. Look it up from the verified street address; a ZIP derived from a real address is a lookup, not an invention.'
     ];
@@ -537,7 +567,7 @@ $$;`.trim();
         '',
         'What makes a good stop, among the geotagged candidates:',
         '- Interesting and photogenic: historic sites and markers, landmarks, monuments and memorials, public art and murals, notable architecture, parks and plazas, museums, iconic local businesses.',
-        '- Publicly accessible and safe to stand in front of — a player will physically stand there.',
+        '- Publicly accessible and safe to stand in front of: a player will physically stand there.',
         '- Stops within a city should form a walkable cluster (roughly a 1-mile loop) in or near the downtown/historic core, not scatter across the metro. A visiting fan on foot is the player.',
         '',
         'Research instructions:',
@@ -553,18 +583,19 @@ $$;`.trim();
         '- name: the place name (e.g. "Cafe du Monde"). Required.',
         '- city: the city as a plain string, exactly as spelled in the list above but WITHOUT the state/country (e.g. "New Orleans", not "New Orleans, LA").',
         '- state: the 2-letter code for US places (e.g. "LA"), otherwise the country name (e.g. "England").',
-        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
-        '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
-        '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). Your own words — do not paste a sentence out of the article.',
-        '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"). If the place has no article of its own but appears as a row in a list article with an address and coordinates, use that list article\'s URL. A Wikimedia Commons category URL is acceptable only when there is no Wikipedia page at all. Never a search-results page, never a link to the place\'s own website.',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address. A ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
+        '- address: the STREET ONLY: house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
+        '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). Your own words; do not paste a sentence out of the article.',
+        '- source_url: REQUIRED on every object: the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"). If the place has no article of its own but appears as a row in a list article with an address and coordinates, use that list article\'s URL. A Wikimedia Commons category URL is acceptable only when there is no Wikipedia page at all. Never a search-results page, never a link to the place\'s own website.',
         WALK_ORDER_RULE,
         AI_MODEL_RULE,
-        '- Do NOT include a wpid or id — the database assigns it.',
+        NO_EM_DASH_RULE,
+        '- Do NOT include a wpid or id; the database assigns it.',
         '- Do not include any stop already in the "existing" list below for that city. Avoid duplicate names.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks or one block per city.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it. Put your notes about skipped cities after the block.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it. Put your notes about skipped cities after the block.',
         '',
         'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper once with every verified stop from every city in a single JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
@@ -589,7 +620,7 @@ $$;`.trim();
         const key = (n + '|' + c).toLowerCase();
         if (seen.has(key)) return;
         seen.add(key);
-        out.push(n + (c ? ' — ' + c : ''));
+        out.push(n + (c ? ', ' + c : ''));
       });
       out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       return out.slice(0, cap);
@@ -651,6 +682,7 @@ $$;`.trim();
         '- source_url: REQUIRED. Use the best source proving the oldest-bar claim or the venue history page. Never a search-results page.',
         WALK_ORDER_RULE,
         AI_MODEL_RULE,
+        NO_EM_DASH_RULE,
         '- Do NOT include a wpid or id. The database assigns it.',
         '- Do not include any place already in the existing-waypoints list below when it is the same name + city.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -682,7 +714,7 @@ $$;`.trim();
         // or a list of cities, and a row only has to be plausibly in one of them.
         if (hint && hint.indexOf(city.toLowerCase()) === -1) return;
         const where = [cleanText(r.address), city, cleanText(r.state)].filter(Boolean).join(', ');
-        out.push(name + (where ? ' — ' + where : ''));
+        out.push(name + (where ? ', ' + where : ''));
       });
       out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       return out.slice(0, cap);
@@ -1047,6 +1079,7 @@ $$;`.trim();
         '',
         'ON THE TOUR OBJECT, not on a stop:',
         AI_MODEL_RULE,
+        NO_EM_DASH_RULE,
         '',
         existing.length
           ? [
@@ -1106,21 +1139,21 @@ $$;`.trim();
       return [
         'You are a football historian helping The Game Bureau build a catalog of real, standable places for a location-based game played in NFL cities.',
         '',
-        'Task: find up to ' + n + ' places in North America (United States, Canada, or Mexico) that carry a real, documented connection to American football — the NFL, its teams, players, coaches, owners, broadcasters, or league history.',
+        'Task: find up to ' + n + ' places in North America (United States, Canada, or Mexico) that carry a real, documented connection to American football: the NFL, its teams, players, coaches, owners, broadcasters, or league history.',
         '',
         'THE CATCH, and it is the entire point of this request:',
         '- The place must be in a city that is NOT the home city of the NFL team it connects to. A Steelers site in Pittsburgh is worthless here; a Steelers site in Mobile, Alabama is exactly what I want.',
         '- Example of a good find: a famous player who spent his career with the Seattle Seahawks got married in a particular church in New York City. The church is in New York; the football is Seattle\'s. That is the shape.',
         '- Other shapes that work: the hometown, birthplace, childhood home, high school, or college field of a player who went on to play elsewhere; the cemetery or grave of a coach or owner; the hotel, hospital, or courthouse where a famous trade, signing, draft, lawsuit, injury, or franchise move happened; the site of a barnstorming or exhibition game; a birthplace-of-the-league or rule-change marker; a bar, diner, or statue that a team\'s fan diaspora adopted far from home.',
-        '- If the connection is to a team in that same city, DROP IT, however good the place is. There is no partial credit and no "well, he also played for..." — if a plausible reading puts the team in that town, leave the stop out.',
-        '- The 30 NFL home cities, for the avoidance of doubt: ' + teamCities.join(', ') + '. (Arizona = Phoenix, Carolina = Charlotte, New England = Boston, and both New York teams play in East Rutherford, NJ — treat New York and East Rutherford as the same market.)',
+        '- If the connection is to a team in that same city, DROP IT, however good the place is. There is no partial credit and no "well, he also played for...". If a plausible reading puts the team in that town, leave the stop out.',
+        '- The 30 NFL home cities, for the avoidance of doubt: ' + teamCities.join(', ') + '. (Arizona = Phoenix, Carolina = Charlotte, New England = Boston, and both New York teams play in East Rutherford, NJ, so treat New York and East Rutherford as the same market.)',
         '',
         ...WIKI_SOURCE_LINES,
         '',
         'How the sourcing rules bend for this job, and how they do not:',
-        '- The PERSON\'s or EVENT\'s Wikipedia article is where the football connection gets established. That is allowed and expected — an article about a person is not a candidate stop, but it is a fine source for the claim.',
+        '- The PERSON\'s or EVENT\'s Wikipedia article is where the football connection gets established. That is allowed and expected: an article about a person is not a candidate stop, but it is a fine source for the claim.',
         '- The PLACE still has to be a place: something a person can walk up to and stand in front of, with a street address or coordinates you verified. A house someone was born in that has been demolished is not a stop. Say so and move on.',
-        '- Where a place has no Wikipedia article of its own, the Historical Marker Database (hmdb.org), the Pro Football Hall of Fame, a college or diocese site, or a local newspaper archive is an acceptable source_url — but the football claim must be sourced, not remembered.',
+        '- Where a place has no Wikipedia article of its own, the Historical Marker Database (hmdb.org), the Pro Football Hall of Fame, a college or diocese site, or a local newspaper archive is an acceptable source_url, but the football claim must be sourced, not remembered.',
         '- Do not use a private residence that is still lived in. A birthplace museum is fine; a stranger\'s current home is not.',
         '',
         'Research instructions:',
@@ -1135,27 +1168,28 @@ $$;`.trim();
         '- name: the place name. Required.',
         '- city: the city the PLACE is in, as a plain string without the state (e.g. "Charleston"). This is the place\'s city, never the team\'s.',
         '- state: the 2-letter code for US places, otherwise the country name (e.g. "Canada").',
-        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess. Use null only when the stop genuinely has no street address.',
-        '- address: the STREET ONLY — house number and street name, e.g. "100 Example St". Never repeat the city, state, ZIP, or country here. Null if you do not know the street.',
-        '- description: ONE original sentence that states the football connection plainly and NAMES THE TEAM, so a reader can see at a glance why a place in this city is on that team\'s map. This sentence is the entire value of the row — write it as though the place itself is already known and only the football is news.',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address. A ZIP is a lookup from a known street address, not a guess. Use null only when the stop genuinely has no street address.',
+        '- address: the STREET ONLY: house number and street name, e.g. "100 Example St". Never repeat the city, state, ZIP, or country here. Null if you do not know the street.',
+        '- description: ONE original sentence that states the football connection plainly and NAMES THE TEAM, so a reader can see at a glance why a place in this city is on that team\'s map. This sentence is the entire value of the row, so write it as though the place itself is already known and only the football is news.',
         '- source_url: REQUIRED on every object - the page that establishes the connection or the place.',
         AI_MODEL_RULE,
-        '- Do NOT include a wpid or id — the database assigns it.',
+        NO_EM_DASH_RULE,
+        '- Do NOT include a wpid or id; the database assigns it.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
         '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
-        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it. Put any notes after the block.',
+        '- The block must contain ONLY SQL: no prose, headings, or commentary before, after, or inside it. Put any notes after the block.',
         '',
-        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with your verified stops. Note this is tgb_import_waypoints_sports_items, NOT the plain waypoints importer — do not substitute the other one. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with your verified stops. Note this is tgb_import_waypoints_sports_items, NOT the plain waypoints importer; do not substitute the other one. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
         '',
         'About places we already have (the list below):',
         '- Prefer places that are NOT on it. A new stop is worth more than a new sentence.',
-        '- But do NOT discard a great football connection just because the place is already in the list. Return it with its football sentence anyway: the importer matches on name + city and APPENDS your sentence to the existing description rather than skipping the row. That is deliberate — the place was already known, the football fact was not.',
+        '- But do NOT discard a great football connection just because the place is already in the list. Return it with its football sentence anyway: the importer matches on name + city and APPENDS your sentence to the existing description rather than skipping the row. That is deliberate: the place was already known, the football fact was not.',
         '- Match the spelling of the name and city exactly as they appear below when you are returning an existing place, or the append will not find it.',
         '',
-        'Places already in the catalog (name — city; a sample, not necessarily complete):',
+        'Places already in the catalog (name, city; a sample, not necessarily complete):',
         JSON.stringify(existing, null, 2)
       ].join('\n');
     }
@@ -1218,6 +1252,7 @@ $$;`.trim();
     NFL_INTL_CITIES: NFL_INTL_CITIES,
     WIKI_SOURCE_LINES: WIKI_SOURCE_LINES,
     WALK_ORDER_RULE: WALK_ORDER_RULE,
+    NO_EM_DASH_RULE: NO_EM_DASH_RULE,
     waypointCountForCity: waypointCountForCity,
     nflCitiesByNeed: nflCitiesByNeed,
     buildWaypointsSchemaSql: buildWaypointsSchemaSql,
