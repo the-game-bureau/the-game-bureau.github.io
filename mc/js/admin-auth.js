@@ -78,8 +78,17 @@
       '        <span>Password</span>',
       '        <input id="mcAuthPassword" name="mc_admin_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore readonly required>',
       '      </label>',
+      // REMEMBER ME IS OUT OF THE TAB ORDER, deliberately. Tab from the
+      // password field lands on Sign In, which is what all but one sign-in in a
+      // hundred wants; the checkbox sat between them and swallowed a keystroke
+      // every time. It is still clickable, still has its label, and still holds
+      // its state.
+      //
+      // The cost is real and worth stating: a keyboard-only user cannot reach
+      // it. If that ever matters, put it AFTER the buttons in the DOM and drop
+      // the tabindex, rather than restoring it here.
       '      <label class="mc-auth-check" for="mcAuthRemember">',
-      '        <input id="mcAuthRemember" name="remember" type="checkbox">',
+      '        <input id="mcAuthRemember" name="remember" type="checkbox" tabindex="-1">',
       '        <span>Remember Me</span>',
       '      </label>',
       '      <div class="mc-auth-actions">',

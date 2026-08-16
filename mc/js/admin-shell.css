@@ -870,6 +870,74 @@ body.builder-page--editor .builder-nav-row {
 }
 .room-blurb:empty { display: none; }
 
+/* THE RED-PEN SCRIBBLE. The margin note beside a room's name: a save landed, a
+   write failed, a move carried a tombstone. Empty almost always, and it
+   collapses when it is.
+
+   WHY IT IS HERE. It was defined three times, once each in the Socializer, the
+   Stock Room and the Tape Room, with identical declarations in all three. The
+   header block above (.room-head / .room-title / .room-blurb) was centralised
+   precisely because four inline copies is how those rooms drifted into four
+   different sizes; the scribble was simply missed at the time. Moved
+   2026-08-16.
+
+   IT IS NOT A STATUS BAR AND .room-blurb IS NOT A SCRIBBLE. The blurb is the
+   standing description of the room and must never be borrowed for a message:
+   in the Tape Room one element used to be the counts line, the save
+   confirmation and the error channel at once, so every write failure erased
+   the only description of the room and left nothing to restore it.
+
+   A room that repaints this element from its own status classes must make sure
+   those classes cannot recolour the pen -- see #shopStatus.success/.error in
+   the Stock Room. */
+.room-scribble {
+  /* AN OVERLAY, NOT A LINE IN THE PAGE. It used to sit in flow under the blurb,
+     so every notice pushed the toolbars and the whole list down a line and
+     pulled them back up six seconds later: the page twitched every time
+     anything was saved, which is the opposite of what a note in the margin
+     should do.
+
+     Absolute, in the empty space up and to the right of the room title, on top
+     of everything, and taking part in no layout at all. The room head is
+     position:relative, which is what it is anchored to.
+
+     pointer-events:none because it is now floating over live controls: a notice
+     must never be a thing that can be clicked, or that swallows a click meant
+     for the button underneath it. */
+  position: absolute;
+  top: 2px;
+  right: 0;
+  z-index: 30;
+  max-width: min(46ch, 60%);
+  pointer-events: none;
+  text-align: right;
+  transform-origin: right bottom;
+
+  display: block;
+  font-family: "Shadows Into Light", "Segoe Script", cursive;
+  /* Scaled against the title, which is itself a clamp up to 5.8rem: a fixed
+     1.1rem note beside a display-sized word reads as a footnote that missed its
+     page. Roughly a third of it at every width. */
+  font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--bic-red, #c23737);
+  transform: rotate(-2.2deg);
+  /* Halo in the page ground so the tilted tail stays legible over the grid
+     paper. Falls back to the paper colour when a room has no token. */
+  text-shadow:
+    0 0 3px var(--paper-base, #fefef9),
+    0 0 3px var(--paper-base, #fefef9),
+    0 0 5px var(--paper-base, #fefef9);
+}
+
+.room-scribble:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .room-scribble { transform: none; }
+}
+
 /* The one line under the title. Mono, so it still reads as instrumentation --
    these are counts and run status, not prose -- but sized to the hub's intro
    line (mc/index.html `.mc-hub-intro`, 1rem) as of 2026-08-06, so a room's

@@ -168,12 +168,18 @@ Writes split by who is doing them:
   issue" can never come back. Do not treat the RPC's `skipped` count as a failure.
   Because the fingerprint is `md5(city_slug:song_id:kind)` and ignores your
   wording, rephrasing a finding does not sneak it past the dedupe.
-- **A human clears a finding**, in the Issues panel, and the two buttons mean
-  different things. **Fixed** = dealt with; the row leaves `open` and the same
-  finding *may be raised again tomorrow*, which is the only real check that the
-  fix landed. **Not an issue** = the agent was wrong; that exact finding is
-  silenced permanently. Neither is available to the agent — `status` is not a
+- **A human skips a finding**, and there is only one way to do it. **Skip issue**
+  writes `status = 'fixed'`: the row leaves `open` and the same finding *may be
+  raised again on the next audit*, which is the only real check that the fix
+  landed. There is no permanent silence. A **Not an issue** button wrote
+  `dismissed` until 2026-08-01 and was removed, because a permanent silence is a
+  decision nobody can see afterwards and a wrong one was unrecoverable without
+  SQL. Skipping is not available to the agent either way — `status` is not a
   parameter of the reporting RPC.
+- **Findings are drawn on the track they name**, in the Tape Room, not in a list
+  of their own; a finding with no `song_id` is drawn on the tape. There was an
+  Issues view until 2026-08-16. The **FLAGGED** filter in the catalogue is how you
+  find them all.
 - **A human edits a song's fields** there too — title, artist, blurb,
   `spotify_id`, `explicit`, `position` — and can **Move** a track to another tape
   (PATCH of `city_slug`) or **Copy** it onto one (INSERT with `archived = false`).
@@ -227,9 +233,33 @@ These must hold. The daily agent follows them; so should you.
 9. **No tapes for venue-only cities** — rows in `public.cities` with
    `hide_from_soundtracks = true` (Orchard Park, Santa Clara) are stadium towns,
    not places we sell into. The write RPC refuses them outright.
-10. Real, commercially available recordings only. No karaoke, tribute, sped-up,
-   slowed, or re-recorded versions. A **remaster** of the original master is
-   fine; a **re-recording** is not.
+0. **PICK FOR THE TAPE'S NAME, NOT JUST THE CITY.** A tape has a spine phrase as
+   well as a city and the phrase is a brief: "Denver Late Night" is not the same
+   tape as "Denver Rumba Mix". Let it narrow the pick, but the city still has to
+   be true, so a genre tape is that genre **for that city** rather than a genre
+   playlist wearing a city label. A phrase that says nothing (Soundtrack, Mix
+   Tape, Jams) leaves the city as the whole brief; do not invent a theme it does
+   not have. On a new tape, choose the phrase first and find songs that answer
+   it. Added 2026-08-16.
+0. **AN EMPTY CITY GETS EXACTLY 5 SONGS, AND THIS OVERRIDES EVERY OTHER RULE
+   HERE.** A city with no tape, or a tape with no live songs, gets 5 proposed
+   and no more. Wherever this file says 15, or says to fill a tape, that applies
+   only to a city which already has live songs; a top-up still goes to 15.
+   An empty city is a guess about a place nobody has looked at yet, and five
+   songs is enough to judge the guess. Fifteen wrong ones is a human reading
+   fifteen wrong blurbs. Added 2026-08-16.
+10. Real, commercially available recordings only. No tribute, sped-up, slowed,
+   or re-recorded versions. A **remaster** of the original master is fine; a
+   **re-recording** is not.
+    - **The word KARAOKE is an outright veto, anywhere in the row OR anywhere
+      on the Spotify page** (2026-08-15, widened 2026-08-16). Title, blurb,
+      artist, album, and any field Spotify shows. The verification step already
+      opens that page to check the id, so the check costs nothing extra.
+      Not the title, not the artist, not the album, not the blurb, in any casing
+      and in any language. It is deliberately a string test rather than a
+      judgement call: "no karaoke versions" left an agent deciding whether a
+      thing called *Karaoke Hits* counted, and the answer is that the word alone
+      settles it.
 11. Blurbs carry **no trailing period**.
 
 ### What belongs on a tape
@@ -518,7 +548,7 @@ After any edit, load `/soundtracks/` and play the tape you touched.
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | A finding you cleared as **Fixed** is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Only **Not an issue** silences a finding permanently. |
 | A finding you dismissed never comes back even though it is real | Also by design. `dismissed` is caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` back to `open` in the Supabase table editor to un-silence it. |
-| The Issues panel is empty and stays empty | Either nothing is wrong, or the migration is not applied — the page tolerates a missing `soundtrack_issues` table by showing no findings. Check the browser console. |
+| FLAGGED is empty and stays empty | Either nothing is wrong, or the migration is not applied — the page tolerates a missing `soundtrack_issues` table by showing no findings. Check the browser console. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
 ---

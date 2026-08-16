@@ -2603,7 +2603,9 @@
           .map(function (tracklist, index) {
             var label = displayNameFromSlug(tracklist.city_slug);
             return {
-              slug: tracklist.city_slug,
+              // The TAPE key, so a city's second tape is a second lifeboat row
+              // rather than a duplicate of the first.
+              slug: tapeKey(tracklist),
               city: label,
               label: label,
               city_name: label,
@@ -2612,14 +2614,27 @@
           });
       }
 
+      // KEYED BY TAPE, NOT BY CITY (2026-08-16). A city may hold several tapes,
+      // so the key is the tape's own: the city's FIRST tape keeps the bare city
+      // slug and every later one takes "<slug>--<tape id>".
+      //
+      // The first tape keeping the plain slug is the load-bearing half. Every
+      // #city= deep link ever shared, and every carried-over cassette session,
+      // is a city slug, and they all still resolve to the tape they always
+      // meant. A scheme that keyed all of them by tape id would break the lot.
       function indexSoundtracks(data) {
         var soundtracks = Array.isArray(data && data.soundtracks) ? data.soundtracks : [];
         soundtracksBySlug = {};
         soundtracks.forEach(function (tracklist) {
-          var slug = slugify(tracklist && tracklist.city_slug);
-          if (slug) soundtracksBySlug[slug] = tracklist;
+          var key = tapeKey(tracklist);
+          if (key) soundtracksBySlug[key] = tracklist;
         });
         return soundtracks;
+      }
+
+      function tapeKey(tracklist) {
+        if (!tracklist) return '';
+        return slugify(tracklist.key || tracklist.city_slug);
       }
 
       // ── Tapes come from Supabase; the JSON file is only a lifeboat ──────────
@@ -2659,19 +2674,34 @@
       function soundtracksFromRows(tapeRows, songRows) {
         var byTape = {};
         var order = [];
+        var seenCity = {};
         (Array.isArray(tapeRows) ? tapeRows : []).forEach(function (row) {
           var slug = slugify(row && row.city_slug);
-          if (!slug || byTape[slug] || truthyFlag(row && row.archived)) return;
-          byTape[slug] = {
+          if (!slug || truthyFlag(row && row.archived)) return;
+          // The first live tape in a city answers to the city slug; the rest get
+          // their own key. Rows arrive ordered by city then id, so "first" is
+          // stable across loads rather than whichever one the database returned
+          // first, which would move a shared link from one tape to another.
+          var key = seenCity[slug] ? (slug + '--' + row.id) : slug;
+          seenCity[slug] = true;
+          if (byTape[key]) return;
+          byTape[key] = {
+            key: key,
+            tape_id: row.id,
             city_slug: row.city_slug,
             spine_tag: row.spine_tag || '',
             spine_tag_position: row.spine_tag_position || '',
             songs: []
           };
-          order.push(slug);
+          order.push(key);
         });
+        // Songs join on tape_id now. Joining on city_slug would put every Denver
+        // song on whichever Denver tape came first, which is exactly the bug
+        // this whole change exists to remove.
+        var byTapeId = {};
+        order.forEach(function (key) { byTapeId[byTape[key].tape_id] = byTape[key]; });
         (Array.isArray(songRows) ? songRows : []).forEach(function (row) {
-          var tape = byTape[slugify(row && row.city_slug)];
+          var tape = byTapeId[row && row.tape_id];
           if (!tape) return;
           tape.songs.push({
             position: Number(row.position) || 0,
@@ -2696,10 +2726,12 @@
 
       function fetchSoundtracks() {
         return Promise.all([
-          fetchAllRows(buildSupabaseUrl('soundtracks', { select: '*', order: 'city_slug.asc' })),
+          // Ordered by city then id so "the city's first tape" is the same tape
+          // on every load. See tapeKey.
+          fetchAllRows(buildSupabaseUrl('soundtracks', { select: '*', order: 'city_slug.asc,id.asc' })),
           fetchAllRows(buildSupabaseUrl('soundtrack_songs', {
             select: '*',
-            order: 'city_slug.asc,position.asc,id.asc'
+            order: 'tape_id.asc,position.asc,id.asc'
           }))
         ]).then(function (results) {
           var data = soundtracksFromRows(results[0], results[1]);
@@ -2721,21 +2753,43 @@
         soundHeroTitleEl.textContent = n ? (n + ' Soundtrack' + (n === 1 ? '' : 's')) : 'Soundtracks';
       }
 
+      // Every tape key belonging to a city, in load order, so a city's cards sit
+      // together and in the same sequence on every visit.
+      function tapeKeysForCity(slug) {
+        var keys = [];
+        Object.keys(soundtracksBySlug).forEach(function (key) {
+          if (slugify(soundtracksBySlug[key].city_slug) === slug) keys.push(key);
+        });
+        return keys;
+      }
+
       function setCityEntries(rows, allowSoundtrackSlugFallback) {
         var seen = {};
         var rowsList = Array.isArray(rows) ? rows : [];
-        var rowsWithSoundtracks = rowsList
-          .filter(function (row) {
-            // Prefers the per-surface hide_from_soundtracks column, falling back
-            // to the retired `ignored` flag only when that column is absent, so
-            // this works before and after 2026072901_cities_hide_flags.sql.
-            if (row && row.hide_from_soundtracks === true) return false;
-            if (row && row.hide_from_soundtracks === undefined && row.ignored === true) return false;
-            var slug = citySlug(row);
-            if (!slug || seen[slug] || soundtrackTrackCount(soundtracksBySlug[slug]) <= 0) return false;
-            seen[slug] = true;
-            return true;
+        // ONE CARD PER TAPE. A city row can now produce several: it is expanded
+        // into one entry per tape it holds, each carrying that tape's key as its
+        // slug, which is what the grid, the rail and the deep links look tapes up
+        // by. A city with one tape produces exactly the entry it always did.
+        var rowsWithSoundtracks = [];
+        rowsList.forEach(function (row) {
+          // Prefers the per-surface hide_from_soundtracks column, falling back
+          // to the retired `ignored` flag only when that column is absent, so
+          // this works before and after 2026072901_cities_hide_flags.sql.
+          if (row && row.hide_from_soundtracks === true) return;
+          if (row && row.hide_from_soundtracks === undefined && row.ignored === true) return;
+          var slug = citySlug(row);
+          if (!slug || seen[slug]) return;
+          seen[slug] = true;
+          tapeKeysForCity(slug).forEach(function (key) {
+            if (soundtrackTrackCount(soundtracksBySlug[key]) <= 0) return;
+            // A COPY carrying the tape's key as its slug. The city row itself is
+            // shared by every tape in the city and must not be mutated, or the
+            // second tape would rename the first.
+            var entry = Object.assign({}, row, { slug: key });
+            seen[key] = true;
+            rowsWithSoundtracks.push(entry);
           });
+        });
         if (allowSoundtrackSlugFallback) {
           Object.keys(soundtracksBySlug).forEach(function (slug) {
             var tracklist = soundtracksBySlug[slug];
@@ -2771,7 +2825,14 @@
             var soundtracks = indexSoundtracks(data || {});
             // soundtracksBySlug is filled by indexSoundtracks above, so the tape
             // slugs are known here and the city fetch can ask for just those.
-            return fetchCities(Object.keys(soundtracksBySlug))
+            // CITY slugs, not tape keys: a key can be "denver--204", which is
+            // not a row in public.cities and would narrow the fetch to nothing.
+            var citySlugs = {};
+            soundtracks.forEach(function (tape) {
+              var slug = slugify(tape && tape.city_slug);
+              if (slug) citySlugs[slug] = true;
+            });
+            return fetchCities(Object.keys(citySlugs))
               .catch(function (error) {
                 console.warn('City catalog unavailable; rendering soundtrack slug fallback.', error);
                 return fallbackCityRowsFromSoundtracks(soundtracks);
