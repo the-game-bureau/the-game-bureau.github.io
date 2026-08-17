@@ -69,14 +69,25 @@
       '    <p class="mc-auth-kicker">The Game Bureau</p>',
       '    <h1 class="mc-auth-title" id="mcAuthTitle">Mission Control</h1>',
       '    <p class="mc-auth-copy" id="mcAuthCopy"></p>',
-      '    <form class="mc-auth-form" id="mcAuthForm" autocomplete="off">',
+      // autocomplete="on": this is the SIGN-IN form and a password manager is
+      // the right place for this credential to live. Every field below is
+      // labelled with the role the manager looks for.
+      '    <form class="mc-auth-form" id="mcAuthForm" autocomplete="on">',
       '      <label class="mc-auth-field" for="mcAuthEmail">',
       '        <span>Email</span>',
       '        <input id="mcAuthEmail" name="email" type="email" autocomplete="username" required>',
       '      </label>',
       '      <label class="mc-auth-field" for="mcAuthPassword">',
       '        <span>Password</span>',
-      '        <input id="mcAuthPassword" name="mc_admin_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore readonly required>',
+      // CURRENT-PASSWORD, and nothing telling a manager to keep out.
+      //
+      // This field carried autocomplete="new-password", readonly,
+      // data-lpignore and data-1p-ignore: four separate ways of saying "do not
+      // offer to fill or save this", which between them defeated Chrome, Safari,
+      // iCloud Keychain, 1Password and LastPass. The name is `password` because
+      // managers match on it; `mc_admin_passcode` was another way of looking
+      // like something other than a password field.
+      '        <input id="mcAuthPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>',
       '      </label>',
       // REMEMBER ME IS OUT OF THE TAB ORDER, deliberately. Tab from the
       // password field lands on Sign In, which is what all but one sign-in in a
@@ -88,6 +99,9 @@
       // it. If that ever matters, put it AFTER the buttons in the DOM and drop
       // the tabindex, rather than restoring it here.
       '      <label class="mc-auth-check" for="mcAuthRemember">',
+      // tabindex=-1 keeps it out of the tab order between the password and the
+      // Sign In button, which is a deliberate call recorded elsewhere: it costs
+      // keyboard reachability and buys a straight run from password to submit.
       '        <input id="mcAuthRemember" name="remember" type="checkbox" tabindex="-1">',
       '        <span>Remember Me</span>',
       '      </label>',
@@ -97,14 +111,20 @@
       '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
       '      </div>',
       '    </form>',
-      '    <form class="mc-auth-form" id="mcAuthPasswordResetForm" autocomplete="off" hidden>',
+      // autocomplete="on" here too. Changing a password is the moment a manager
+      // has to be watching: if it cannot see this form it keeps the OLD
+      // credential and the next sign-in fills something that no longer works.
+      '    <form class="mc-auth-form" id="mcAuthPasswordResetForm" autocomplete="on" hidden>',
       '      <label class="mc-auth-field" for="mcAuthNewPassword">',
       '        <span>New Password</span>',
-      '        <input id="mcAuthNewPassword" name="mc_admin_new_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" data-lpignore="true" data-1p-ignore required>',
+      // new-password is correct HERE and is what makes a manager offer to
+      // generate one and then save it. The ignore attributes are gone: they were
+      // stopping the save, which is the whole point of this form.
+      '        <input id="mcAuthNewPassword" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
       '      </label>',
       '      <label class="mc-auth-field" for="mcAuthConfirmPassword">',
       '        <span>Confirm Password</span>',
-      '        <input id="mcAuthConfirmPassword" name="mc_admin_confirm_passcode" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" data-lpignore="true" data-1p-ignore required>',
+      '        <input id="mcAuthConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
@@ -176,14 +196,22 @@
     copyEl.textContent = settings.modalCopy;
     homeBtn.href = settings.homeHref;
 
+    // Clears the box between uses. It used to also stamp new-password on it and
+    // flip it readonly, which put the markup back to fighting the manager
+    // however the HTML was written; the sign-in field keeps current-password and
+    // stays writable.
+    //
+    // THE TWO RESET FIELDS KEEP new-password, which is correct and is what makes
+    // a manager offer to GENERATE and then SAVE a new one rather than filling
+    // the old.
     function setFreshPasswordInput(input) {
       if (!input) return;
       input.value = '';
       input.defaultValue = '';
-      input.setAttribute('autocomplete', 'new-password');
+      if (input !== passwordInput) input.setAttribute('autocomplete', 'new-password');
       input.setAttribute('autocapitalize', 'none');
       input.setAttribute('spellcheck', 'false');
-      if (input === passwordInput && document.activeElement !== input) input.readOnly = true;
+      input.readOnly = false;
     }
 
     function resetPasswordInputs() {
@@ -643,7 +671,14 @@
       currentSession = session;
       storeSession(session, !!remember);
       scheduleRefresh(session);
-      resetPasswordInputs();
+      // NOT CLEARED SYNCHRONOUSLY. A browser decides whether to offer "save this
+      // password?" by looking at the form just after it is submitted; emptying
+      // the field in the same tick reads as "there was no password here" and the
+      // prompt never appears. One frame is enough for it to have looked.
+      //
+      // The field is still cleared, so a signed-out page never holds a
+      // credential in the DOM; it just happens a moment later.
+      window.setTimeout(resetPasswordInputs, 400);
       setMode('signin');
       setSignOutState(true);
       setPageAuthorized(true);

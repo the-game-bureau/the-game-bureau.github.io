@@ -440,35 +440,324 @@
       flex: 0 0 auto;
       gap: 8px;
     }
-    /* Rail chips reuse the shared hero-meta-list-item look from site-shell.css
-       (state / country geo badges), re-tinted for the dark cassette page. */
-    body.home-page .lc-list .hero-meta-list-item {
+    /* THE HEADER IS AS TALL AS ITS CONTENTS.
+       site-shell.css gives every home-page hero a min-height of clamp(620px..)
+       and its grid another clamp(520px..). Those exist for the landing pages,
+       where the hero is a full-bleed picture with copy floating in it. Here the
+       header holds a headline and a cassette, and the two clamps between them
+       pushed the tape's transport below the fold on a laptop.
+       Scoped to .sound-header so the shared rule is untouched everywhere else. */
+    body.home-page .hero.sound-header {
+      min-height: 0;
+      /* Tighter than the shared clamp(36px, 5vw, 64px). The header is a
+         headline and a tape: the padding was adding 80px of nothing above and
+         below a 300px cassette. */
+      padding: clamp(16px, 1.6vw, 24px) clamp(20px, 2.4vw, 32px);
+    }
+
+    /* TWO EQUAL HALVES. Words left, tape right, and the split is even rather
+       than content-sized: 1fr auto let the cassette set the divide, so the
+       headline's column changed width whenever the tape did. Neither half is
+       drawn; they only decide where the middle is. */
+    /* main.sound-page IS LOAD-BEARING IN THIS SELECTOR. site-shell.css carries
+       `body.home-page main.sound-page .hero-grid { grid-template-columns:
+       minmax(0,1fr) }` -- a single column, aimed at this page specifically, from
+       when the header was words only with the rail beneath. It outranks a
+       selector without main.sound-page, so `1fr 1fr` was being ignored and the
+       two halves came out 760 and 1128. */
+    body.home-page main.sound-page .sound-header .hero-grid {
+      min-height: 0;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: clamp(16px, 2vw, 28px);
+    }
+
+    /* ── THE DECK ─────────────────────────────────────────────────────────
+       The player sits in the header, to the RIGHT of the title and centred
+       against it. The hero was one column of words with an overlay waiting
+       behind it; it is two columns now, and the second one is always playing.
+
+       minmax(0, 1fr) on the words so a long title cannot shove the deck off
+       the end, and auto on the deck so it takes exactly the cassette's width. */
+    body.home-page .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 24px;
+    }
+
+    /* THE WORDS, CENTRED IN THEIR HALF, both ways. site-shell.css already
+       centres this cell vertically (a flex column with justify-content: center);
+       what it does not do is centre the text horizontally, because on the
+       landing pages the copy is a left-aligned column against a picture.
+       align-items centres the LINES within the column, text-align centres the
+       words within each line: both are needed, and neither does the other's job.
+       max-width: none clears the shared 700px clamp, which in a 551px half was
+       doing nothing except keeping the block left of centre. */
+    /* THE ATTRIBUTE IS PART OF THE SELECTOR ON PURPOSE.
+       civic-modernist-pages.css carries
+       body[data-admin-page="sound"].home-page main.sound-page .sound-header ...
+       for both the grid and this cell, setting align-items: start and a 760px
+       max-width. An attribute selector outranks any number of the classes I had,
+       so the plain version of this rule was ignored: the words stayed at the top
+       of the cell and left of its centre.
+       AND .hero IS ADDED ON TOP OF MATCHING IT, because civic-modernist-pages.css
+       is linked at the BOTTOM of this document, after this <style> block. Equal
+       specificity therefore loses on order alone: the selector has to be one
+       class heavier, not merely equal. */
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-grid {
+      align-items: center;
+      padding-top: 0;
+    }
+
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-grid > div:first-child {
+      align-items: center;
+      justify-content: center;
+      max-width: none;
+      text-align: center;
+    }
+
+    /* THE TITLE IS THE OTHER HALF OF THE HEADER, so it is sized like it.
+       civic-modernist-pages.css caps it at clamp(1.7rem, 2.8vw, 2.2rem), which
+       is a subheading: it was set when this hero was a wide band of copy over a
+       photo, with the title one line among several. The header is now two
+       halves, a cassette on the right and this on the left, and at 2.2rem the
+       left half read as a caption for the tape.
+       .hero is in the selector to outrank that sheet, which is linked at the
+       BOTTOM of this document and therefore wins any tie on order alone. */
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-headline {
+      max-width: none;
+      /* Sized off the WIDER LINE, which is always the word rather than the
+         count. The ceiling is what "Soundtracks" fits on one line at in the
+         left half of the header; going past it is what made it wrap, and a
+         wrapped headline here reads as three lines of nothing in particular. */
+      font-size: clamp(1.9rem, 3.4vw, 3.1rem);
+      /* Under 1 so the two lines sit as one block rather than as two lines that
+         happen to be near each other. */
+      line-height: 0.94;
+      letter-spacing: -0.01em;
+    }
+
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-headline-line {
+      display: block;
+      /* NEVER BREAK A LINE. The break between them is authored in the markup;
+         any other break is the cell being too narrow, which the clamp answers
+         by shrinking the type. */
+      white-space: nowrap;
+    }
+
+    /* THE COUNT IS THE BIGGER OF THE TWO LINES. It is the only part of this
+       header that changes, and the number is the news: how many tapes are on
+       the shelf. "Soundtracks" underneath is the label telling you what the
+       number counts.
+       Sized in em so it stays in proportion as the clamp on the parent shrinks
+       the block at narrower viewports, rather than needing a clamp of its own
+       that would have to be kept in step with it. */
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-headline-line:first-child {
+      font-size: 1.55em;
+      line-height: 0.9;
+    }
+
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-sub {
+      /* One line as well, for the same reason: it is a caption under a
+         two-line title, and a third and fourth row of small text turns the
+         left half into a paragraph. */
+      max-width: none;
+      margin-top: 12px;
+      white-space: nowrap;
+      font-size: clamp(0.72rem, 1.05vw, 0.95rem);
+    }
+
+    /* DEAD CENTRE OF THE RIGHT HALF, both ways. The hero no longer carries a
+       520px min-height (see above), so the cell is the height of its contents
+       and centring means what it says. */
+    body.home-page .hero-deck {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      min-width: 0;
+      /* NO POP. The tape is built in JS after the tables load, so the header
+         was one height for the first second and another once the cassette
+         appeared, shoving the whole grid down as it arrived.
+         332px is the panel's MEASURED height once the tape is in it, not the
+         sum of its parts: 296 was the stage plus padding on paper and left the
+         header 36px short, so it still jumped. Measure, do not derive. */
+      min-height: 332px;
+    }
+
+    /* INLINE, not an overlay. The same node the modal always was, with the
+       fixed positioning, the scrim and the full-viewport box taken off it. */
+    /* TWO classes on .sx-modal, deliberately. The base .sx-modal rule paints
+       the scrim and is declared LATER in this same sheet, so at equal
+       specificity it won and the inline deck kept a dark box behind it. */
+    body.home-page .sx-modal.sx-modal--inline {
+      position: static;
+      display: block;
+      /* THE FLEX ITEM IS THIS, not the panel inside it. Without a width here it
+         shrank to its content at 336px, and the panel's width:100% then
+         resolved against that 336 rather than against the half it sits in. */
+      width: 100%;
+      inset: auto;
+      height: auto;
+      padding: 0;
+      background: none;
+      backdrop-filter: none;
+      z-index: auto;
+    }
+
+    /* BIGGER. The cassette is the point of this header, and at 420 it read as
+       a thumbnail beside a 74-point headline. */
+    body.home-page .sx-modal.sx-modal--inline .sx-panel {
+      /* An explicit WIDTH, not a max-width. The deck is a flex row and the panel
+         is a flex item, so it sizes to its content and settles small however
+         high a cap goes. 100% of the half, capped so it stays a cassette rather
+         than a billboard on a wide screen. */
+      width: 100%;
+      /* The full half, capped only by the stage's own 600px. It was 560, which
+         left the tape smaller than the column it sits in for no reason. */
+      max-width: none;
+      margin: 0;
+    }
+
+    /* One column under the fold: the cassette is wide, and squeezing it beside
+       a headline on a phone leaves neither readable. */
+    @media (max-width: 860px) {
+      body.home-page main.sound-page .sound-header .hero-grid { grid-template-columns: minmax(0, 1fr); }
+      body.home-page .hero-deck { justify-content: center; }
+      body.home-page .sx-modal.sx-modal--inline .sx-panel { max-width: 100%; }
+    }
+
+    /* ── THE SHELF ────────────────────────────────────────────────────────
+       A row of cassettes seen edge on. The rail used to be pills carrying a
+       geo badge and a track count, which was an alphabetical index sitting
+       directly above an alphabetical index. A shelf says the one thing the
+       grid cannot: these are tapes, and there are a lot of them.
+
+       Everything below is the SPINE. The scroll, the drag and the three-chunk
+       loop are unchanged and still live on .lc-list / .lc-track / .lc-chunk. */
+    body.home-page .lc-track,
+    body.home-page .lc-chunk { gap: 5px; align-items: flex-end; }
+
+    body.home-page .tape-spine {
+      position: relative;
       flex: 0 0 auto;
-      width: auto;
-      grid-template-columns: 44px auto auto;
-      color: #f7f0dc;
-      border-color: #28344a;
-      border-radius: 6px;
-      background: rgba(13, 20, 34, 0.6);
+      display: block;
+      /* Wide enough for a label to WRAP TO TWO LINES rather than tall enough
+         for one. The longest name in the catalogue, "Indianapolis Songs from
+         the Heartland", wants 225px on a single line: a header that tall is a
+         wall, and shrinking the type to fit it is unreadable. Two columns of
+         ~115px each carry every name we hold. */
+      width: 44px;
+      height: 150px;
+      padding: 0;
+      border: 1px solid rgba(0, 0, 0, 0.55);
+      border-radius: 2px;
+      /* The shell: a dark plastic with a highlight down its left edge, which is
+         what stops 74 rectangles reading as a bar chart. */
+      background:
+        linear-gradient(90deg,
+          rgba(255, 255, 255, 0.18) 0 1px,
+          rgba(255, 255, 255, 0.05) 1px 3px,
+          rgba(0, 0, 0, 0.16) 3px 100%),
+        var(--spine-ink, #2b3550);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 -10px 14px rgba(0, 0, 0, 0.28);
+      text-decoration: none;
+      overflow: hidden;
+      transition: transform 140ms ease, box-shadow 140ms ease;
     }
-    body.home-page .lc-list .hero-meta-list-item.lc-chip--no-geo {
-      grid-template-columns: auto auto;
-      padding-left: 18px;
+
+    /* SIX INKS, cycled by position. Real shelves are not one colour, and a
+       repeating six is enough to break the run without looking like a system
+       the reader has to decode. */
+    body.home-page .tape-spine--0 { --spine-ink: #2b3550; }
+    body.home-page .tape-spine--1 { --spine-ink: #7a2f35; }
+    body.home-page .tape-spine--2 { --spine-ink: #1f4f45; }
+    body.home-page .tape-spine--3 { --spine-ink: #6b4a1e; }
+    body.home-page .tape-spine--4 { --spine-ink: #3d2f5c; }
+    body.home-page .tape-spine--5 { --spine-ink: #244a63; }
+
+    /* The paper label, set INTO the shell rather than printed on it: inset a
+       couple of pixels, cream, with its own thin edge. */
+    body.home-page .tape-spine-label {
+      position: absolute;
+      inset: 14px 3px 3px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 6px 2px;
+      border-radius: 1px;
+      background: linear-gradient(180deg, #f7f0dc 0%, #ece3c9 100%);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+      color: #1b2438;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+      text-align: left;
+      /* BOTTOM TO TOP, which is how a cassette on a shelf is actually read and
+         the only orientation where the title starts at the spine's foot. */
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      /* Wraps into a second column. overflow stays hidden as the backstop for
+         a name longer than two columns hold, which nothing currently is. */
+      white-space: normal;
+      overflow-wrap: anywhere;
+      overflow: hidden;
     }
-    body.home-page .lc-list .hero-meta-list-name {
-      overflow: visible;
-      text-overflow: clip;
+
+    /* The two hubs, in the strip above the label. They are what make a
+       rectangle read as a cassette before you have read a word of it. */
+    body.home-page .tape-spine-hubs {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
     }
-    /* Theme var, not a literal: this used to be cream-at-50%, which vanished
-       against the light chip once the skin changed and hid the song count. */
-    body.home-page .lc-list .hero-meta-list-count { color: var(--muted); }
-    body.home-page .lc-list .hero-meta-list-item:hover {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-      color: var(--ink);
-      box-shadow: 0 0 0 2px var(--accent);
+
+    body.home-page .tape-spine-hubs::before,
+    body.home-page .tape-spine-hubs::after {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.55);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
     }
-    body.home-page .lc-list .hero-meta-list-item.lc-chip--empty .hero-meta-list-name { opacity: 0.72; }
+
+    /* Pulled half out of the shelf. The lift is the whole interaction: you are
+       picking a tape up, not highlighting a link. */
+    body.home-page .tape-spine:hover,
+    body.home-page .tape-spine:focus-visible {
+      transform: translateY(-10px);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 -10px 14px rgba(0, 0, 0, 0.28);
+      outline: none;
+    }
+
+    body.home-page .tape-spine:focus-visible { box-shadow: 0 0 0 2px var(--accent), 0 10px 18px rgba(0, 0, 0, 0.5); }
+
+    /* A city with no tape yet: an empty case, no label paper. */
+    body.home-page .tape-spine--empty { opacity: 0.45; }
+    body.home-page .tape-spine--empty .tape-spine-label { background: rgba(247, 240, 220, 0.35); }
+
+    /* The shelf itself: a lip under the tapes so they are standing on
+       something rather than floating in the header. */
+    body.home-page .lc-list {
+      padding-bottom: 10px;
+      border-bottom: 3px solid rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 10px -6px rgba(0, 0, 0, 0.6);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.home-page .tape-spine { transition: none; }
+      body.home-page .tape-spine:hover { transform: none; }
+    }
 
     /* No-soundtrack cassette state: dim the tape + arrows, spotlight Suggest. */
     body.home-page .sx-panel.sx-empty .tgb-cass-mount { opacity: 0.5; }
@@ -884,6 +1173,12 @@
             <h1 class="hero-headline" id="soundHeroTitle">Soundtracks</h1>
           <p class="hero-sub">Pop in a tape for a city you know well or one you'll visit soon.</p>
           </div>
+          <!-- THE PLAYER LIVES HERE NOW, not in an overlay. It used to be a
+               modal you had to open before anything played; a tape is already
+               spinning in the header when the page loads, so the page has a
+               sound rather than an invitation to find one. Right of the words,
+               centred against them. -->
+          <div class="hero-deck" id="heroDeck"></div>
         </div>
 
         <section class="listen-city-panel" id="listenCityPanel" aria-labelledby="listenCityTitle">
@@ -905,7 +1200,12 @@
             <div class="lc-search-results" id="lcSearchResults" role="listbox" aria-label="Matching cities" hidden></div>
           </div>
         </header>
-          <div class="lc-list" id="lcList" aria-label="Listen to a soundtrack by city"></div>
+          <!-- THE SHELF IS GONE. It was 74 cassette spines scrolling forever,
+               which is an index of the grid directly beneath an index of the
+               same grid, and the movement fought the player now sitting beside
+               it. Nothing in this header moves any more.
+               The SEARCH stays: it is how you reach one named tape out of 74,
+               which the grid alone makes you scroll for. -->
         </section>
       </section>
 
@@ -1138,7 +1438,12 @@
         }
         // Close: Philips head in the top-right corner. The head (r 1.6) reaches
         // x 95.6 here, still inside the shell's painted edge at 97.5.
-        svg.appendChild(chromeKey(94, 'philips', 'Close', function () { closeModal(); }));
+        // STOP, not close. The deck lives in the header now and is always
+        // there, so there is nothing to dismiss: pressing this ejects the tape
+        // and the player goes quiet, exactly as the button always looked like it
+        // would. It keeps its name for a screen reader because "stop" is what it
+        // does to the sound, which is the only thing it now affects.
+        svg.appendChild(chromeKey(94, 'philips', 'Stop', function () { stopPlayback(); }));
         // Minimize: flathead in the opposite corner (x 6 mirrors x 94 about the
         // tape's centre). Its single horizontal groove is exactly the minimize
         // dash, so the tape needs no separate dash key.
@@ -1523,6 +1828,23 @@
         return 0;
       }
 
+      // NOTHING EXPLICIT STARTS BY ITSELF. A tape opened by a person is a tape
+      // they asked for, and every track on it is fair game once they are
+      // driving; a tape that starts on its own the instant the page paints is
+      // not, because nobody chose it and it can be playing out loud before the
+      // reader knows the page has sound. So the load-time pick skips the tracks
+      // marked explicit and starts on the first clean one instead.
+      //
+      // It is a STARTING POINT, not a filter: the explicit tracks stay in the
+      // running order and Next reaches them normally. Only the first track the
+      // page chooses for you is constrained.
+      function firstCleanPlayableIndex(songs) {
+        for (var i = 0; i < songs.length; i += 1) {
+          if (!songs[i].explicit && spotifyUriFromHref(songs[i].href)) return i;
+        }
+        return -1;
+      }
+
       function trackIdFromHref(href) {
         var match = String(href || '').match(new RegExp('open\\.spotify\\.com/track/([A-Za-z0-9]+)'));
         return match ? match[1] : '';
@@ -1901,7 +2223,16 @@
               '<div class="sx-player-host sx-player-host--pre" aria-hidden="true"></div>' +
             '</div>' +
           '</div>';
-        document.body.appendChild(node);
+        // INTO THE HEADER when there is a deck to sit in, onto the body only as
+        // a fallback. Same node, same panel, same player: what changed is where
+        // it hangs, so nothing that reads or drives it had to change with it.
+        var deck = document.getElementById('heroDeck');
+        if (deck) {
+          node.classList.add('sx-modal--inline');
+          deck.appendChild(node);
+        } else {
+          document.body.appendChild(node);
+        }
 
         // Build + mount the SVG cassette.
         var mount = node.querySelector('.tgb-cass-mount');
@@ -2052,14 +2383,18 @@
         saveCassetteSession(true);
       }
 
-      function openCard(card) {
+      // opts.clean asks for a non-explicit opening track, which the unattended
+      // load-time pick sets and nothing a human presses does. See
+      // firstCleanPlayableIndex for why the distinction is on who chose the tape.
+      function openCard(card, opts) {
         modal = modal || buildModal();
         modal.querySelector('.sx-panel').classList.remove('sx-empty');
         state.pendingCity = '';
         state.card = card;
         // Fresh running order every time a tape is opened.
         state.songs = shuffled(songsFor(card));
-        state.index = firstPlayableIndex(state.songs);
+        var cleanAt = (opts && opts.clean) ? firstCleanPlayableIndex(state.songs) : -1;
+        state.index = cleanAt >= 0 ? cleanAt : firstPlayableIndex(state.songs);
         // Attempt autoplay, but let the ACTUAL Spotify events set state.playing —
         // browsers block autoplay-with-sound, so the tape shows "play" until the
         // controller confirms playback, keeping the first click a real Play.
@@ -2071,7 +2406,12 @@
         // case steps aside (its audio stops; this card's is about to start).
         if (window.TgbCassette) window.TgbCassette.handoff();
         minimized = false;
-        document.body.style.overflow = 'hidden';
+        // The player is part of the page now, so it does not take the page
+        // hostage: locking the scroll behind an element that is always on
+        // screen would make the grid unreachable.
+        if (!modal.classList.contains('sx-modal--inline')) {
+          document.body.style.overflow = 'hidden';
+        }
         renderModal();
       }
 
@@ -2092,6 +2432,24 @@
         if (window.TgbCassette) window.TgbCassette.clear();
       }
 
+      // STOP: silence the deck and leave it standing.
+      //
+      // closeModal is still here and still used by the overlay path (a page
+      // without a #heroDeck falls back to it) and by the roaming case. What this
+      // does NOT do is hide the player or clear the roaming session: the tape
+      // stays loaded, the transport shows Play, and pressing Play starts it
+      // again. Hiding a permanent fixture would leave a hole in the header.
+      function stopPlayback() {
+        if (!modal) return;
+        if (!modal.classList.contains('sx-modal--inline')) { closeModal(); return; }
+        closeArtLightbox();
+        clearPreload();          // the preloaded next-track controller
+        destroyActivePlayer();   // the active one, so the audio really stops
+        state.playing = false;
+        state.wantAutoplay = false;
+        updatePlaybackUi();
+      }
+
       // ── Minimize + the roaming session ────────────────────────────────────
       // Minimizing hands playback to the SAME floating case the other pages
       // use, so the minimized player looks identical everywhere. The cost is a
@@ -2101,6 +2459,14 @@
       function setMinimized(on) {
         if (!on) { expandFromCase(); return; }
         if (!modal || modal.hidden) return;
+        // MINIMIZE PAUSES. The session is written BEFORE the state is changed,
+        // and playing is forced false in it, so the case picks the tape up
+        // stopped rather than carrying the sound on into the corner.
+        //
+        // The order matters: cassetteSessionPayload reads state.playing, so
+        // clearing it after the write would save the old value and the case
+        // would start playing anyway.
+        state.playing = false;
         saveCassetteSession(true);
         modal.hidden = true;
         minimized = true;
@@ -2171,25 +2537,21 @@
       // Arriving with a session in flight (from another page, or a reload):
       // show the floating case, exactly as any other page would. Expanding it
       // opens the full cassette at the same spot.
-      function restoreCassetteSession() {
-        if (!window.TgbCassette) return;
-        var session = window.TgbCassette.read();
-        if (!session) return;
-        var wantsFull = false;
-        try { wantsFull = new URLSearchParams(window.location.search).get('expand') === '1'; } catch (e) {}
-        if (wantsFull) {
-          // Arrived via the case's maximize button: open the cassette itself and
-          // drop the flag so a reload doesn't keep forcing it open.
-          try {
-            var url = window.location.pathname + window.location.hash;
-            window.history.replaceState(null, '', url);
-          } catch (e) {}
-          expandFromCase();
-          return;
-        }
-        minimized = true;
-        mountMiniCase();
-      }
+      // Returns TRUE when it restored something, so the caller knows not to
+      // open a random tape over the top of it. It used to return undefined on
+      // every path, which made the random pick unconditional and would have
+      // thrown away a session carried in from another page.
+      // THIS PAGE ALWAYS SHOWS THE FULL DECK. The little floating case is for
+      // everywhere ELSE: it exists so a tape keeps playing while you walk over
+      // to the games or the shop, and it is the only player those pages have.
+      // Here there is a deck in the header, permanently, so arriving with a
+      // session in progress and getting a thumbnail in the corner meant the page
+      // about cassettes was the one page not showing you one.
+      //
+      // The ?expand=1 branch went with it. It existed to force the full player
+      // when arriving from the case's maximize button, which is now what every
+      // arrival does, so the flag had nothing left to switch. The URL is still
+      // tidied if it turns up on an old link.
 
       // A track finished on its own → roll on to the next (looping the playlist),
       // keeping playback going and using the preloaded controller when ready.
@@ -2388,9 +2750,22 @@
         });
       }
 
+      // BY TAPE KEY FIRST, then by the old city keys as a fallback.
+      //
+      // A city can hold several tapes now, so a city string no longer names one
+      // card: New Orleans has three, and every one of them was landing on the
+      // same entry in this map, so all three rail chips opened the first card.
+      // The tape key (the card's own id) is unique by construction.
+      //
+      // The city keys are kept because they are what a shared #city= link and a
+      // carried-over session speak, and for a one-tape city they still name the
+      // right card. First writer wins, so a city with several tapes resolves to
+      // its first, which is what those links always meant.
       function indexCards() {
         cardByCity = {};
         cards.forEach(function (card) {
+          var byKey = String(card.id || '').toLowerCase();
+          if (byKey && !cardByCity[byKey]) cardByCity[byKey] = card;
           var title = card.querySelector('.playlist-title');
           var byTitle = normCityKey(title ? title.textContent : '');
           var byLocation = normCityKey(card.getAttribute('data-location') || '');
@@ -2399,6 +2774,12 @@
           if (byLocation && !cardByCity[byLocation]) cardByCity[byLocation] = card;
           if (bySlug && !cardByCity[bySlug]) cardByCity[bySlug] = card;
         });
+      }
+
+      // A card by the tape key alone. Used by the rail, which knows exactly
+      // which tape each chip stands for.
+      function cardForTapeKey(key) {
+        return cardByCity[String(key || '').toLowerCase()] || null;
       }
 
       function renderSoundGrid(cities) {
@@ -2478,6 +2859,14 @@
       }
 
       // Entry point for the search + rail: jump straight to the cassette.
+      // Open the card a rail chip or a search result stands for. By KEY, so a
+      // city's second and third tapes open themselves rather than the first.
+      function openTapeEntry(entry) {
+        var card = entry && entry.key ? cardForTapeKey(entry.key) : null;
+        if (card) openCard(card);
+        else openCityByName(entry && entry.city, entry && (entry.label || entry.city));
+      }
+
       function openCityByName(cityStr, displayLabel) {
         var card = cardForCity(cityStr);
         if (card) openCard(card);
@@ -2750,7 +3139,21 @@
       function setSoundHeroTitle(count) {
         if (!soundHeroTitleEl) return;
         var n = Math.max(0, Math.round(Number(count) || 0));
-        soundHeroTitleEl.textContent = n ? (n + ' Soundtrack' + (n === 1 ? '' : 's')) : 'Soundtracks';
+        // TWO DELIBERATE LINES, not a wrap: the count on its own, the word
+        // under it. Left to wrap naturally the break lands wherever the cell
+        // happens to end, which on this two-column header moves with the
+        // viewport. Explicit spans put it in the same place every time, and the
+        // CSS keeps each line unbreakable so a narrow cell shrinks the type
+        // rather than splitting "SOUNDTRACKS" across two rows.
+        soundHeroTitleEl.textContent = '';
+        var line = function (value) {
+          var span = document.createElement('span');
+          span.className = 'hero-headline-line';
+          span.textContent = value;
+          soundHeroTitleEl.appendChild(span);
+        };
+        if (n) line(String(n));
+        line(n === 1 ? 'Soundtrack' : 'Soundtracks');
       }
 
       // Every tape key belonging to a city, in load order, so a city's cards sit
@@ -2816,7 +3219,18 @@
         // Cards exist now, so a session carried in from another page can be
         // reopened against the right city. An explicit #city deep link wins over
         // reopening a carried-over session.
-        if (!openCardFromHash()) restoreCassetteSession();
+        // A NEW TAPE EVERY TIME YOU ARRIVE.
+        //
+        // Only a link outranks it: #tape= or #track= names something specific
+        // and must never be overwritten by a random pick. Everything else gets
+        // a fresh tape.
+        //
+        // A CARRIED SESSION NO LONGER WINS HERE, deliberately. Restoring it
+        // meant a reload played the same tape again and again, which is the
+        // opposite of what this deck is for; the session still exists and the
+        // roaming case still picks it up on the OTHER pages, which is the only
+        // place it was ever doing real work.
+        if (!openCardFromHash()) openRandomCard();
       }
 
       function loadSoundPageData() {
@@ -2851,8 +3265,7 @@
 
       function setupListenCityPanel() {
         var panel = document.getElementById('listenCityPanel');
-        var listEl = document.getElementById('lcList');
-        if (!panel || !listEl) return;
+        if (!panel) return;
 
         var searchEntries = [];
 
@@ -2860,154 +3273,15 @@
           return entry.hasTape ? (entry.count + ' track' + (entry.count === 1 ? '' : 's')) : 'Add one';
         }
 
-        function createChip(entry) {
-          var item = document.createElement('a');
-          item.className = 'hero-meta-list-item' + (entry.hasTape ? '' : ' lc-chip--empty');
-          item.href = '#';
-          item.setAttribute('role', 'button');
-          item.dataset.city = entry.city;
-          var badge = cityGeoBadge(entry.row || entry.city || entry.label);
-          if (badge) item.appendChild(buildGeoBadge(badge));
-          else item.classList.add('lc-chip--no-geo');
-          var copy = document.createElement('span');
-          copy.className = 'hero-meta-list-copy';
-          var name = document.createElement('span');
-          name.className = 'hero-meta-list-name';
-          name.textContent = entry.label;
-          copy.appendChild(name);
-          var count = document.createElement('span');
-          count.className = 'hero-meta-list-count';
-          count.textContent = chipCount(entry);
-          item.append(copy, count);
-          item.addEventListener('click', function (e) {
-            e.preventDefault();
-            openCityByName(entry.city, entry.city);
-          });
-          return item;
-        }
+        // ── The rail is gone ────────────────────────────────────────────
+        // Deleted with the shelf: PX_PER_SEC, the rAF loop, the drag handlers,
+        // the three-chunk clone trick and renderRail. All of it existed to move
+        // a row of chips that no longer exists.
+        //
+        // createChip and the spine CSS went too. If a shelf ever comes back it
+        // is a new thing, not this one revived: it belongs somewhere that is not
+        // the header, because the header now holds the player.
 
-        // ── Rail: infinite horizontal scroll + click-drag ──
-        var PX_PER_SEC = 22;
-        var raf = null, lastTs = 0, pos = 0;
-        var dragActive = false, pauseUntil = 0, inited = false;
-        var reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
-        function loopWidth() {
-          var chunk = listEl.querySelector('.lc-chunk');
-          var track = listEl.querySelector('.lc-track');
-          if (!chunk || !track) return 0;
-          var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
-          return Math.max(0, Math.round(chunk.getBoundingClientRect().width + gap));
-        }
-        function setScroll(next, loopW) {
-          var v = Number.isFinite(next) ? next : 0;
-          if (loopW > 0 && loopW > listEl.clientWidth) {
-            while (v >= 2 * loopW) v -= loopW;
-            while (v < loopW) v += loopW;
-          } else {
-            var max = Math.max(0, listEl.scrollWidth - listEl.clientWidth);
-            if (v < 0) v = 0;
-            if (v > max) v = max;
-          }
-          pos = v;
-          listEl.scrollLeft = v;
-        }
-        function shouldPause(ts) {
-          if (dragActive) return true;
-          if (listEl.contains(document.activeElement)) return true;
-          return ts < pauseUntil;
-        }
-        function startAutoScroll() {
-          if (raf || reducedMotion) return;
-          lastTs = 0;
-          var tick = function (ts) {
-            if (!lastTs) lastTs = ts;
-            var dt = Math.min(40, ts - lastTs);
-            lastTs = ts;
-            var loopW = loopWidth();
-            if (!shouldPause(ts) && loopW > listEl.clientWidth) {
-              setScroll(pos + PX_PER_SEC * (dt / 1000), loopW);
-            }
-            raf = requestAnimationFrame(tick);
-          };
-          raf = requestAnimationFrame(tick);
-        }
-        function wrapScroll() {
-          var loopW = loopWidth();
-          if (loopW <= 0) { pos = listEl.scrollLeft; return; }
-          setScroll(listEl.scrollLeft, loopW);
-        }
-        function initInteractions() {
-          var dragStartX = 0, dragStartScroll = 0, suppressClick = false, downId = null;
-          var THRESH = 4;
-          listEl.addEventListener('pointerdown', function (e) {
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            dragActive = false;
-            downId = e.pointerId;
-            dragStartX = e.clientX;
-            pos = listEl.scrollLeft;
-            dragStartScroll = listEl.scrollLeft;
-            pauseUntil = performance.now() + 600;
-          });
-          listEl.addEventListener('pointermove', function (e) {
-            if (e.pointerId !== downId) return;
-            var dx = e.clientX - dragStartX;
-            if (!dragActive && Math.abs(dx) > THRESH) {
-              dragActive = true;
-              listEl.classList.add('is-dragging');
-              try { listEl.setPointerCapture(e.pointerId); } catch (err) {}
-            }
-            if (dragActive) {
-              listEl.scrollLeft = dragStartScroll - dx;
-              wrapScroll();
-              var consumed = (dragStartScroll - dx) - listEl.scrollLeft;
-              if (consumed !== 0) dragStartScroll -= consumed;
-              e.preventDefault();
-            }
-          });
-          var endDrag = function (e) {
-            if (e.pointerId === downId) downId = null;
-            if (listEl.hasPointerCapture && listEl.hasPointerCapture(e.pointerId)) {
-              try { listEl.releasePointerCapture(e.pointerId); } catch (err) {}
-            }
-            if (dragActive) {
-              suppressClick = true;
-              setTimeout(function () { suppressClick = false; }, 0);
-            }
-            dragActive = false;
-            listEl.classList.remove('is-dragging');
-            pauseUntil = performance.now() + 350;
-          };
-          listEl.addEventListener('pointerup', endDrag);
-          listEl.addEventListener('pointercancel', endDrag);
-          listEl.addEventListener('click', function (e) {
-            if (suppressClick) { e.preventDefault(); e.stopPropagation(); }
-          }, true);
-          listEl.addEventListener('wheel', function () { pauseUntil = performance.now() + 800; }, { passive: true });
-          listEl.addEventListener('scroll', wrapScroll, { passive: true });
-        }
-
-        function renderRail(entries) {
-          listEl.innerHTML = '';
-          var track = document.createElement('div');
-          track.className = 'lc-track';
-          var makeChunk = function (hidden) {
-            var chunk = document.createElement('div');
-            chunk.className = 'lc-chunk';
-            if (hidden) chunk.setAttribute('aria-hidden', 'true');
-            entries.forEach(function (entry) { chunk.appendChild(createChip(entry)); });
-            return chunk;
-          };
-          track.append(makeChunk(true), makeChunk(false), makeChunk(true));
-          listEl.appendChild(track);
-          var loopW = loopWidth();
-          pos = loopW;
-          listEl.scrollLeft = loopW;
-          if (!inited) { initInteractions(); inited = true; }
-          startAutoScroll();
-        }
-
-        // ── Spyglass search: expands into a field with a live dropdown ──
         function setupSearch() {
           var wrap = document.getElementById('lcSearch');
           var input = document.getElementById('lcSearchInput');
@@ -3054,7 +3328,8 @@
           function go(entry) {
             if (!entry) return;
             closeSearch();
-            openCityByName(entry.city, entry.city);
+            // The same tape the result names, not its city's first tape.
+            openTapeEntry(entry);
           }
           function setActive(i) {
             activeIndex = i;
@@ -3120,16 +3395,32 @@
           });
         }
 
+        // ONE ENTRY PER TAPE, labelled with the tape's own name.
+        //
+        // The rail used to be one chip per city carrying the city's name, which
+        // read as three identical New Orleans chips the day a city could hold
+        // three tapes, all of them opening the same card. The label is now the
+        // name as it reads down the spine, so the chips are told apart by what
+        // they actually are.
         function buildEntry(row) {
           var city = cityLabel(row);
-          var label = cityShortLabel(row) || city;
-          var card = cardForCity(city) || cardForCity(citySlug(row));
-          var soundtrack = soundtracksBySlug[citySlug(row)] || null;
+          var key = citySlug(row);
+          var soundtrack = soundtracksBySlug[key] || null;
+          var shortLabel = cityShortLabel(row) || city;
+          // trim() rather than text(): that helper belongs to the admin page,
+          // and calling it here threw a ReferenceError inside buildEntry, which
+          // emptied the entry list and left the whole rail unbuilt.
+          var spine = String((soundtrack && soundtrack.spine_tag) || '').trim();
+          var pos = String((soundtrack && soundtrack.spine_tag_position) || '').trim();
+          // Same order the cassette spine uses, so the chip and the card agree.
+          var label = !spine ? shortLabel
+            : (pos === 'before' ? (spine + ' ' + shortLabel) : (shortLabel + ' ' + spine));
           return {
             city: city,
+            key: key,
             label: label,
             row: row,
-            hasTape: !!card,
+            hasTape: !!cardForTapeKey(key),
             count: soundtrackTrackCount(soundtrack)
           };
         }
@@ -3138,7 +3429,35 @@
         var entries = cityEntries.map(buildEntry).filter(function (e) { return e.city; });
         if (!entries.length) return; // keep the reserved panel; no pop
         searchEntries = entries;
-        renderRail(entries);
+      }
+
+      // ONE TAPE, AT RANDOM, for a page that has just loaded and been asked for
+      // nothing in particular. Only from tapes that actually have tracks: an
+      // empty case in the deck is a worse first impression than silence.
+      //
+      // Autoplay is REQUESTED, not assumed. openCard sets wantAutoplay and lets
+      // the real Spotify events decide: browsers block sound without a gesture,
+      // so the tape sits showing Play until playback is genuinely confirmed.
+      // That is the existing behaviour and the reason this is safe to do on
+      // load rather than obnoxious.
+      function openRandomCard() {
+        var playable = cards.filter(function (card) {
+          return songsFor(card).length > 0;
+        });
+        if (!playable.length) return false;
+        // Prefer a tape that HAS a clean track to open on. Constraining the
+        // starting track is not enough on its own: a tape whose tracks are all
+        // explicit would fall back to its first one and play it, which is the
+        // thing being avoided. Only if no tape on the shelf has a clean track
+        // does the whole shelf come back into play, since silence on load is a
+        // worse answer than the last resort.
+        var clean = playable.filter(function (card) {
+          return firstCleanPlayableIndex(songsFor(card)) >= 0;
+        });
+        var pool = clean.length ? clean : playable;
+        var pick = pool[Math.floor(Math.random() * pool.length)];
+        openCard(pick, { clean: true });
+        return true;
       }
 
       // Deep link: /soundtracks/#milwaukee opens that city's cassette. The Tape Room's

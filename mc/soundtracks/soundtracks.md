@@ -177,7 +177,12 @@ Writes split by who is doing them:
   SQL. Skipping is not available to the agent either way — `status` is not a
   parameter of the reporting RPC.
 - **Findings are drawn on the track they name**, in the Tape Room, not in a list
-  of their own; a finding with no `song_id` is drawn on the tape. There was an
+  of their own; a finding with no `song_id` is drawn on the tape. **WRITE NAMES, NOT IDS, in detail and suggestion. A person reading a finding in the Tape Room does not know a track by its song_id or a tape by its primary key, so "song 177" tells them nothing they can act on: write the title and the artist ("Down in Mississippi (Up to No Good) by Sugarland") and name a tape by its city and spine phrase. The ids still go in the song_id field, which is where a machine reads them; the prose is for a human. This applies to any SQL you suggest as well: say which track it is before you give the statement.** 
+  detail names a track MUST carry that track's `song_id`**: without it the
+  finding is filed against the tape, renders away from the row anybody would act
+  on, and takes the tape's one fingerprint slot for that kind, silently blocking
+  the next real finding of the same kind. Omit it only when there is genuinely no
+  single track: short of 15, over 15, a hidden city. There was an
   Issues view until 2026-08-16. The **FLAGGED** filter in the catalogue is how you
   find them all.
 - **A human edits a song's fields** there too — title, artist, blurb,
@@ -374,7 +379,7 @@ what advances the rotation, and a tape you never stamp is re-audited forever.
 | `spotify` | The id resolves to nothing, or to a **different recording** than title+artist claims. Check it first and report it `high` — it is the only failure a visitor actually hits. A *wrong* id is far worse than a *missing* one: missing falls back to a search and still works. |
 | `spelling` | Misspelled title or artist, typos in a blurb, a mis-capitalised proper noun. Check against the real release, not against your expectation — stylised titles are often correct as written. |
 | `relevance` | No genuine tie to the city, including a sports track the team does not actually use. The failure the whole editorial rule exists to prevent, so be specific about why. |
-| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb over 10 words (never a blurb merely judged *short* — there is no minimum length), an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to skip — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
+| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb over 10 words (never a blurb merely judged *short* — there is no minimum length), an `explicit` flag that disagrees with Spotify, or a tape **over 15**. NEVER report a tape for being SHORT of fifteen, and never report an empty tape. A short tape is a job, not a defect: the Tape Room carries a FILL PROMPT button on every tape under fifteen live tracks, which is the answer to it. Filing it as a finding put a permanent entry against every unfinished tape, refiled on every audit, describing a state a human can already see in the count. An OVER-FULL tape is still worth reporting, because that one needs a decision about which tracks to shelve. NEVER report a city for having more than one tape, and never suggest restoring a unique index on city_slug. Since 2026-08-16 a city is allowed several tapes on purpose: the spine phrase is part of a tape's address, so "Denver Late Night" and "Denver Rumba Mix" are two different products that happen to share a city. Two tapes is a fact about the catalogue, not a defect in it. For an over-full tape, name the surplus tracks to skip — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
 
 **Severity.** `high` = a visitor sees or hears something broken. `warn` = wrong
 but not visibly broken. `info` = a nitpick. Use `high` sparingly; if everything
