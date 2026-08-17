@@ -571,6 +571,20 @@
     /* DEAD CENTRE OF THE RIGHT HALF, both ways. The hero no longer carries a
        520px min-height (see above), so the cell is the height of its contents
        and centring means what it says. */
+    /* AN EQUAL MARGIN ON ALL FOUR SIDES OF THE TAPE. The hero-grid carried
+       `0 26px`, so the cassette had 26px of air either side of it and none
+       above: it sat hard against the hero's 6px top rule, which read as the
+       tape being cropped by the header rather than placed in it.
+       One padding, one number, and the header's height follows from it rather
+       than being a figure to keep in step by hand. */
+    body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-grid {
+      /* 26 on three sides and 14 at the foot, which is the SAME 26: the search
+         panel below carries a 12px margin of its own, so a flat 26 here puts 38
+         under the tape against 26 beside it. Compensating in the padding keeps
+         the number that matters in one place. */
+      padding: 26px 26px 14px;
+    }
+
     body.home-page .hero-deck {
       display: flex;
       align-items: center;
@@ -630,12 +644,42 @@
       margin: 0;
     }
 
-    /* One column under the fold: the cassette is wide, and squeezing it beside
-       a headline on a phone leaves neither readable. */
+    /* ── PHONE ────────────────────────────────────────────────────────────
+       One column: the cassette is a wide landscape object and squeezing it
+       beside a headline leaves neither readable. Words first, tape under them,
+       both centred, because a single column with two different alignments in
+       it reads as a mistake. */
     @media (max-width: 860px) {
-      body.home-page main.sound-page .sound-header .hero-grid { grid-template-columns: minmax(0, 1fr); }
-      body.home-page .hero-deck { justify-content: center; }
+      body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-grid {
+        grid-template-columns: minmax(0, 1fr);
+        /* 20 all round, less the search panel's own 12px margin at the foot. */
+        padding: 20px 20px 8px;
+        gap: 18px;
+        text-align: center;
+      }
+      body.home-page .hero-deck {
+        justify-content: center;
+        /* THE DESKTOP RESERVE MUST NOT SURVIVE THE BREAKPOINT. 332px is the
+           height of a 551px-wide tape; at phone width the tape is half that
+           tall, so the reserve would hold open ~160px of empty header under it.
+           The tape is narrower here, so it also arrives sooner and the pop it
+           was guarding against is a much smaller one. */
+        min-height: 0;
+      }
       body.home-page .sx-modal.sx-modal--inline .sx-panel { max-width: 100%; }
+      /* Centred, and the sub is allowed to break again. A 63-character line
+         cannot hold at 340px of usable width at any size worth reading, so
+         nowrap there would either overflow the page or shrink the type to
+         nothing. The TITLE keeps its nowrap: its longest line is one word. */
+      body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-sub {
+        margin: 10px auto 0;
+        max-width: 30ch;
+        white-space: normal;
+        font-size: 0.85rem;
+      }
+      body[data-admin-page="sound"].home-page main.sound-page .hero.sound-header .hero-headline {
+        font-size: clamp(1.7rem, 7.4vw, 2.6rem);
+      }
     }
 
     /* ── THE SHELF ────────────────────────────────────────────────────────
@@ -2469,13 +2513,32 @@
       function setMinimized(on) {
         if (!on) { expandFromCase(); return; }
         if (!modal || modal.hidden) return;
-        // MINIMIZE PAUSES. The session is written BEFORE the state is changed,
-        // and playing is forced false in it, so the case picks the tape up
-        // stopped rather than carrying the sound on into the corner.
+
+        // ON THIS PAGE MINIMIZE IS A PAUSE, FULL STOP.
         //
-        // The order matters: cassetteSessionPayload reads state.playing, so
-        // clearing it after the write would save the old value and the case
-        // would start playing anyway.
+        // The corner case exists to carry a tape you started here onto ANOTHER
+        // page. There is nothing for it to do while you are standing on the one
+        // page that has a permanent deck in its header: it took the cassette out
+        // of the header, put a smaller copy of the same cassette in the corner,
+        // and left a hole where the tape had been. Two players for one tape, and
+        // the shrunken one is the worse of them.
+        //
+        // So the key pauses the track and changes nothing else: the tape stays in
+        // the deck, the transport shows Play, and pressing Play picks it up.
+        // destroyActivePlayer is deliberately NOT called (that is Stop's job, and
+        // it drops the position); this asks the controller to pause and leaves the
+        // embed alone.
+        if (modal.classList.contains('sx-modal--inline')) {
+          pauseSpotifyPlayer();
+          state.playing = false;
+          state.wantAutoplay = false;
+          updatePlaybackUi();
+          saveCassetteSession(true);
+          return;
+        }
+
+        // The overlay path, still used by any page without a #heroDeck: there
+        // the modal really is in the way, so it stands down to the corner case.
         state.playing = false;
         saveCassetteSession(true);
         modal.hidden = true;
@@ -2484,7 +2547,6 @@
         closeArtLightbox();
         clearPreload();
         destroyActivePlayer();
-        state.playing = false;
         updatePlaybackUi();
         mountMiniCase();
       }
