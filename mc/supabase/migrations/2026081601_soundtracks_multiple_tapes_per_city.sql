@@ -101,6 +101,9 @@ alter table public.soundtracks
   foreign key (city_slug) references public.cities (slug) on update cascade;
 
 alter table public.soundtrack_songs
+  drop constraint if exists soundtrack_songs_tape_id_fkey;
+
+alter table public.soundtrack_songs
   add constraint soundtrack_songs_tape_id_fkey
   foreign key (tape_id) references public.soundtracks (id) on delete cascade;
 
@@ -112,9 +115,18 @@ create index if not exists soundtracks_city_slug_idx
 -- soundtracks: city_slug is no longer unique there, so "denver" no longer names
 -- one row. Each keeps ON UPDATE CASCADE so a renamed city slug still carries
 -- its songs and its findings, exactly as before.
+-- Dropped first so this file can be run twice. `add constraint` has no IF NOT
+-- EXISTS, so a re-run of an applied migration failed with 42710 rather than
+-- doing nothing, which reads like a broken migration instead of a finished one.
+alter table public.soundtrack_songs
+  drop constraint if exists soundtrack_songs_city_slug_fkey;
+
 alter table public.soundtrack_songs
   add constraint soundtrack_songs_city_slug_fkey
   foreign key (city_slug) references public.cities (slug) on update cascade;
+
+alter table public.soundtrack_issues
+  drop constraint if exists soundtrack_issues_city_slug_fkey;
 
 alter table public.soundtrack_issues
   add constraint soundtrack_issues_city_slug_fkey
@@ -262,6 +274,7 @@ commit;
 --   * the Tape Room  keys every row, every write and the city picker on
 --     city_slug being unique.
 --
--- Written 2026-08-16. NOT APPLIED: remote migration history in this project has
+-- Written and APPLIED 2026-08-16. Remote migration history in this project has
 -- drifted (the CLI refuses db push, and nothing since 2026-05 is recorded), so
--- this goes in by hand in the SQL editor like the rest.
+-- this went in by hand in the SQL editor like the rest. It is now safe to run
+-- again: every statement in it is idempotent.

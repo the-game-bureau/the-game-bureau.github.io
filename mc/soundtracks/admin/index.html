@@ -1120,18 +1120,17 @@
     }
 
     /* The total wears the same bubble as a row's, one shade heavier. */
-    /* Not pressable, so it must not answer hover like the issues total does,
-       and it carries the badge's own colour rather than the blue of a count you
-       can open. cursor: help because the tooltip is the whole of what it adds. */
-    .tape-new-total {
-      border-color: rgba(194, 55, 55, 0.4);
-      background: rgba(194, 55, 55, 0.1);
-      color: var(--bic-red, #c23737);
-      cursor: help;
-    }
+    /* THE SAME OBJECT AS THE BADGE IT COUNTS: solid red, white text. It carried
+       red text on a red tint, which read as a third thing next to the NEW pills
+       it is the total of, and made the header count quieter than the rows.
+       Not pressable, so it must not answer hover the way the issues total does;
+       cursor: help because the tooltip is the whole of what it adds. */
+    .tape-new-total,
     .tape-new-total:hover {
-      border-color: rgba(194, 55, 55, 0.4);
-      background: rgba(194, 55, 55, 0.1);
+      border-color: var(--bic-red, #c23737);
+      background: var(--bic-red, #c23737);
+      color: #fff;
+      cursor: help;
     }
 
     .tape-issues--all { font-size: 0.7rem; }
@@ -1139,6 +1138,10 @@
 
     /* == THE FINDINGS DIALOG ============================================== */
     .manual-fields { display: grid; gap: 12px; }
+
+    /* Left, under its own label, like every other field on this form rather
+       than centred the way it sits in a table row. */
+    .manual-air { justify-self: start; margin-top: 2px; }
 
     .manual-field { display: grid; gap: 4px; }
 
@@ -1218,6 +1221,30 @@
 
     .manual-note.is-error { color: var(--bic-red); font-weight: 700; }
     .manual-note.is-ready { color: var(--success); font-weight: 700; }
+
+    /* SCROLLS, like the tracks popup and for the same reason: a tape can carry
+       a dozen findings and the audit files up to 40 in a run, so the panel grew
+       past the viewport and took the per-issue buttons with it.
+       min-height: 0 is the load-bearing half: a flex child will not shrink below
+       its content without it, so the panel would simply keep growing and
+       overflow-y would never have anything to do. */
+    section.tool-modal-panel#issueCard:not([hidden]) {
+      display: flex;
+      flex-direction: column;
+      max-height: min(88vh, 900px);
+    }
+
+    #issueCard .panel-head,
+    #issueCard .prompt-foot { flex: 0 0 auto; }
+
+    /* #issueCard, not .issues-body alone: this is also a .prompt-body, and
+       admin-shell.css is linked AFTER this <style>, so it wins on equal
+       specificity. The same thing put a 14px band above the tracks header. */
+    #issueCard .issues-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
 
     .issue-box { display: grid; gap: 10px; }
 
@@ -2261,6 +2288,21 @@
             <input class="manual-input" id="manualSpine" type="text" autocomplete="off"
                    placeholder="Soul Mix, Street Sounds, Jams…">
           </label>
+          <!-- STATUS. The fourth and last field on public.soundtracks that a
+               human sets; everything else on the row is a timestamp the database
+               writes. It defaults to SHELVED, but it is a field rather than a
+               rule now: a tape you are adding by hand because you already know
+               what belongs on it should not need a second trip to the row. -->
+          <div class="manual-field">
+            <span>Status <em>defaults to shelved</em></span>
+            <label class="tape-air manual-air" id="manualAir">
+              <span class="tape-air-word tape-air-word--off">Shelved</span>
+              <input class="tape-air-input" id="manualAirInput" type="checkbox"
+                     aria-label="Status of the new tape">
+              <span class="tape-air-track" aria-hidden="true"></span>
+              <span class="tape-air-word tape-air-word--on">Live</span>
+            </label>
+          </div>
         </div>
         <!-- THE SAME TREATMENT A TAPE ROW GETS. A phrase can read in front of
              the city ("Sounds of" Denver) or behind it (Denver "Late Night"),
@@ -2274,7 +2316,7 @@
         <p class="manual-note" id="manualNote"></p>
       </div>
       <div class="prompt-foot">
-        <span class="issue-foot-note">The tape starts shelved and empty, so nothing reaches /soundtracks/ until you say so. Tracks come from the PROMPT, from TGB SOUNDTRACK BOT, or from a paste into Supabase.</span>
+        <span class="issue-foot-note" id="manualFootNote"></span>
         <button class="btn primary" id="manualAddBtn" type="button">Add tape</button>
       </div>
     </section>
@@ -2300,22 +2342,16 @@
           <button class="btn small" type="button" data-issue-close>Cancel</button>
         </div>
       </div>
-      <div class="prompt-body">
+      <div class="prompt-body issues-body">
         <div class="issue-box" id="issueList"></div>
       </div>
+      <!-- THE FOOT IS A CAPTION, NOT A CONTROL. The delete-all button that sat
+           here is gone: an issue is a statement about one track, so deciding a
+           dozen of them in one press is deciding about work you have not read,
+           and the confirm it needed was the tell. Every issue carries its own
+           Delete and Keep; the dialog itself only cancels, from the header. -->
       <div class="prompt-foot">
-        <!-- The per-issue buttons are the decision; this is the shortcut for a
-             tape whose issues you have read and want rid of in one press. The
-             note above captions both it and the pair on each issue.
-
-             THE ROW IS NOT DESTROYED. Delete is the button face; underneath it
-             still writes status = 'fixed', which is what takes the issue off
-             this list and lets the next audit raise it again. See the handler.
-
-             No KEEP here any more: Cancel in the header is the way out, and a
-             per-issue Keep is what leaves one standing. -->
         <span class="issue-foot-note" id="issueFootNote"></span>
-        <button class="btn" id="issueClearBtn" type="button">Delete</button>
       </div>
     </section>
 
@@ -5827,6 +5863,7 @@ prose before or after the code block.</textarea>
       var manualBackdrop = document.getElementById('manualBackdrop');
       var manualCityInput = document.getElementById('manualCity');
       var manualSpineInput = document.getElementById('manualSpine');
+      var manualAirInput = document.getElementById('manualAirInput');
       var manualAddBtn = document.getElementById('manualAddBtn');
       var manualNote = document.getElementById('manualNote');
       var manualPreview = document.getElementById('manualPreview');
@@ -5927,6 +5964,15 @@ prose before or after the code block.</textarea>
 
       function paintManual() {
         paintManualPreview();
+        // The foot says what Add will actually do, which the Status switch can
+        // change. A caption contradicting the control above it is worse than no
+        // caption at all.
+        var foot = document.getElementById('manualFootNote');
+        if (foot) {
+          foot.textContent = (manualAirInput && manualAirInput.checked)
+            ? 'The tape starts LIVE and empty, so it appears on /soundtracks/ as soon as a track on it is live. Tracks come from the PROMPT, from TGB SOUNDTRACK BOT, or from a paste into Supabase.'
+            : 'The tape starts SHELVED and empty, so nothing reaches /soundtracks/ until you say so. Tracks come from the PROMPT, from TGB SOUNDTRACK BOT, or from a paste into Supabase.';
+        }
         var t = manualTarget();
         if (manualAddBtn) manualAddBtn.disabled = !t.ok;
         if (!manualNote) return;
@@ -5943,6 +5989,9 @@ prose before or after the code block.</textarea>
       function openManual() {
         if (manualCityInput) manualCityInput.value = '';
         if (manualSpineInput) manualSpineInput.value = '';
+        // SHELVED every time this opens. The last tape you made says nothing
+        // about this one, and the safe end is the one to return to.
+        if (manualAirInput) manualAirInput.checked = false;
         manualLeads = false;
         paintManual();
         if (manualBackdrop) manualBackdrop.hidden = false;
@@ -5971,6 +6020,7 @@ prose before or after the code block.</textarea>
         });
       }
       if (manualCityInput) manualCityInput.addEventListener('input', paintManual);
+      if (manualAirInput) manualAirInput.addEventListener('change', paintManual);
       // paintManual, not just the preview: the spine phrase is now part of what
       // decides whether this tape can be created at all.
       if (manualSpineInput) manualSpineInput.addEventListener('input', paintManual);
@@ -5982,17 +6032,13 @@ prose before or after the code block.</textarea>
         var t = manualTarget();
         if (!t.ok) return;
         manualAddBtn.disabled = true;
-        // SHELVED, not live. Nothing reaches /soundtracks/ because somebody
-        // pressed Add: a tape arrives the same way a track does, off the public
-        // page until a human puts it there. Its tracks arrive shelved
-        // anyway, so a live-but-empty tape was only ever a promise to publish
-        // whatever landed on it next.
-        //
-        // This does not cascade. soundtracks_cascade_archive fires on UPDATE of
-        // archived, so a tape born shelved never stamps anything
+        // Shelved unless you said otherwise on the Status switch. Either way
+        // this does not cascade: soundtracks_cascade_archive fires on UPDATE of
+        // archived, so a tape born at either setting never stamps anything
         // archived_with_tape, and restoring it later brings back only what it
         // genuinely took down.
-        var body = { city_slug: t.row.slug, archived: true };
+        var goLive = !!(manualAirInput && manualAirInput.checked);
+        var body = { city_slug: t.row.slug, archived: !goLive };
         var spine = text(manualSpineInput && manualSpineInput.value);
         if (spine) body.spine_tag = spine;
         // null rather than '': the column is nullable and its default is the
@@ -6015,7 +6061,7 @@ prose before or after the code block.</textarea>
             city_slug: made.city_slug,
             spine_tag: made.spine_tag || '',
             spine_tag_position: made.spine_tag_position || '',
-            archived: made.archived === undefined ? true : made.archived,
+            archived: made.archived === undefined ? !goLive : made.archived,
             created_at: made.created_at || '',
             songs: []
           });
@@ -6026,7 +6072,9 @@ prose before or after the code block.</textarea>
         // 'hold' rather than a success that clears itself: the tape is shelved
         // and empty, so there are two more things to do before anyone sees it.
         renderTrackArchive('started a tape for ' + cityFullLabel(made.city_slug)
-          + ', shelved and empty until you add tracks and restore it', 'hold');
+          + (goLive
+              ? ', live but empty until you add tracks'
+              : ', shelved and empty until you add tracks and put it live'), 'hold');
       });
 
       // == THE ISSUES DIALOG ================================================
@@ -6044,7 +6092,6 @@ prose before or after the code block.</textarea>
       var issueBackdrop = document.getElementById('issueBackdrop');
       var issueList = document.getElementById('issueList');
       var issueTitle = document.getElementById('issueTitle');
-      var issueClearBtn = document.getElementById('issueClearBtn');
       var issueFootNote = document.getElementById('issueFootNote');
       var issueBoxSlug = '';
 
@@ -6059,7 +6106,6 @@ prose before or after the code block.</textarea>
           issueList.appendChild(emptyNode(issueBoxSlug
             ? 'No open issues on this tape.'
             : 'No open issues on any tape.'));
-          if (issueClearBtn) issueClearBtn.disabled = true;
           if (issueFootNote) issueFootNote.textContent = '';
           return;
         }
@@ -6170,18 +6216,13 @@ prose before or after the code block.</textarea>
           issueList.appendChild(item);
         });
 
-        if (issueClearBtn) {
-          issueClearBtn.disabled = false;
-          issueClearBtn.textContent = flags.length === 1
-            ? 'Delete the issue'
-            : 'Delete all ' + flags.length + ' issues';
-        }
-        // WHAT CLEAR ACTUALLY MEANS, on the dialog rather than in a tooltip,
+        // WHAT DELETE ACTUALLY MEANS, on the dialog rather than in a tooltip,
         // because it is the half of the choice people get wrong: it is not a
         // claim that anything was fixed.
         if (issueFootNote) {
           issueFootNote.textContent = 'Delete takes an issue off the list without fixing anything.'
-            + ' The next audit reports it again if it is still true. Keep leaves it open.';
+            + ' The next audit reports it again if it is still true. Keep leaves it open.'
+            + ' Cancel closes without changing anything you have not already pressed.';
         }
         if (issueTitle) {
           issueTitle.textContent = issueBoxSlug ? cityFullLabel(issueBoxSlug) : 'Every tape';
@@ -6226,34 +6267,6 @@ prose before or after the code block.</textarea>
       // still there, and that recurrence is the only check a fix ever landed.
       // 'dismissed' would silence it permanently, which is a decision nobody can
       // see afterwards; this page refuses to write it.
-      if (issueClearBtn) issueClearBtn.addEventListener('click', async function () {
-        var flags = issuesFor(issueBoxSlug);
-        if (!flags.length) return;
-        // ONE TAPE CLEARS WITHOUT ASKING; EVERY TAPE ASKS. Clearing one city's
-        // issues is a decision about a thing you are looking at; clearing the
-        // catalogue's is a decision about work you have not read.
-        if (!issueBoxSlug && !window.confirm(
-            'Delete every open issue?\n\n' + flags.length
-            + ' issue' + (flags.length === 1 ? '' : 's') + ' across the whole catalogue will come off the list.'
-            + ' Nothing is fixed by this, and the next audit reports each one again if it is still true.')) {
-          return;
-        }
-        issueClearBtn.disabled = true;
-        var cleared = 0;
-        for (var i = 0; i < flags.length; i++) {
-          // Quiet: one notice for the press, not one per finding.
-          var ok = await resolveIssue(flags[i], 'fixed', true);
-          if (ok) cleared += 1;
-        }
-        renderIssueBox();
-        setNotice(cleared
-          ? ('deleted ' + cleared + (cleared === 1 ? ' issue on ' : ' issues on ')
-            + (issueBoxSlug ? cityFullLabel(issueBoxSlug) : 'every tape')
-            + ', they return if the next audit still sees them')
-          : 'could not delete those issues', cleared ? 'success' : 'error');
-        if (cleared) closeIssueBox();
-      });
-
       // THE COLUMN TOTAL, in the header, and a button like the counts under it.
       // Same rule as those: drawn only when there is something to count, because
       // a zero in a header is a fact nobody needs stated.
