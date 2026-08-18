@@ -27,6 +27,17 @@
       --line: rgba(var(--bic-blue-rgb), 0.18);
       --paper: rgba(255, 255, 255, 0.92);
       --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socials/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. These three are what make a bar read as a
+         defined panel rather than a faint box -- the state the Tape Room and the
+         Stock Room were both in before their own passes. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
     }
 
     body {
@@ -39,18 +50,93 @@
 
     .app { max-width: 1180px; margin: 0 auto; padding: 0 18px 80px; }
 
-    .page-head { padding: 26px 0 8px; }
-    .page-title {
-      margin: 0;
-      font-size: clamp(1.5rem, 3.5vw, 2.1rem);
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
+    /* .page-head / .page-title / .page-sub are GONE. The header is the shared
+       one from admin-shell.css -- .room-head, .room-title, .room-blurb,
+       .room-scribble -- which is where four rooms' worth of drift was fixed.
+       The one local rule is the tone override below: .status carries .error and
+       .success classes from setStatus(), and the scribble is a red pen whatever
+       the news is. */
+    .status.error,
+    .status.success { color: inherit; }
+
+    /* ── THE COMMAND BARS, copied from the Socializer ─────────────────────
+       OPEN and THIS PATH share a line: what you are working on, and what you
+       can do to it. .command-bar centres itself and caps at the shell width,
+       which is right for a room with one bar alone, so both are cleared here. */
+    .bar-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      margin: 16px 0;
     }
-    .page-sub { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; max-width: 70ch; }
-    .status { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); min-height: 1.4em; }
-    .status.error { color: var(--warn); font-weight: 700; }
-    .status.success { color: var(--ink); font-weight: 700; }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
+    .command-bar--view { flex: 0 0 auto; }
+    @media (max-width: 760px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar:first-child { flex: 1 1 100%; }
+    }
+
+    .command-bar {
+      width: 100%;
+      min-inline-size: 0;
+      padding: 4px 12px 12px;
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+
+    /* THE FOLDER TAB. The legend cuts the panel's top border and the line used
+       to just stop either side of it; the arch runs the border into the label
+       and back out, so the cut-out reads as a tag clipped onto the frame rather
+       than a gap in it.
+
+       It is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box: the word must sit centred
+       ON the line (the legend's default position), and the tab's sides must
+       stop AT that line. A bordered box whose bottom edge is the line cannot
+       also have its text centred on it. So the outline is drawn over the half
+       above the line only -- `inset: 0 0 50%`, since the legend's midpoint IS
+       the line -- and the word's lower half hangs invisibly into the panel,
+       which works because the tab fill and the panel are the same colour.
+
+       isolation: isolate is load-bearing: the arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own it would drop
+       behind the fieldset's background and vanish. Copied verbatim from the
+       Socializer, including this. */
+    .command-bar > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .command-bar > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar-inner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .command-bar select,
+    .command-bar .btn { border-color: var(--control-line); }
 
     .btn {
       appearance: none;
@@ -72,11 +158,18 @@
     .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
     .btn.warn { color: var(--warn); }
 
+    /* Still used by the smaller in-panel rows; the page's TOP bar is now a
+       pair of .command-bar fieldsets above. */
     .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
 
     /* Two columns: the path on the left, the city's unused waypoints on the
        right. Side by side because the whole job is moving rows between them. */
-    .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+    /* WAYPOINTS LEFT, PATH RIGHT. You are moving places out of a catalogue and
+       into a walk, so the source sits where reading starts and the destination
+       where it ends; dragging then runs left to right like everything else that
+       means "put this there". The path keeps the wider column because its rows
+       carry an ordinal, a handle and three buttons. */
+    .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
     @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 
     .panel {
@@ -126,6 +219,11 @@
     .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
     .stop.is-dragging { opacity: 0.4; }
+    /* Only while something is actually in the air: an outline drawn all the
+       time is chrome, drawn during a drag it is an answer to "can I let go
+       here?". min-height so an empty path is a target you can hit. */
+    body.is-dragging-wp #pathStops { min-height: 96px; outline: 2px dashed var(--line); outline-offset: -6px; border-radius: 8px; }
+    body.is-dragging-wp #pathStops.is-drop-zone { outline-color: var(--ink); background: rgba(45, 72, 128, 0.04); }
     /* A line where the row will land, rather than moving everything as you go.
        Reordering ten rows live is hard to aim at. */
     .stop.drop-before { box-shadow: 0 -3px 0 -1px var(--ink); }
@@ -293,31 +391,52 @@
   <main class="app">
     <header class="admin-site-nav" data-admin-site-nav></header>
 
-    <div class="page-head">
-      <h1 class="page-title">Path Builder</h1>
-      <p class="page-sub">
-        A path is an ordered set of waypoints. Drag to reorder, add from the city's
-        unused waypoints on the right, remove to send one back. Every place lives once
-        in <code>public.waypoints</code> and can be on any number of paths - edit one
-        by clicking it in either list or on the map.
-      </p>
-      <p class="status" id="pageStatus" aria-live="polite"></p>
+    <!-- THE SHARED HEADER, from mc/js/admin-shell.css. .room-head, .room-title
+         and .room-blurb are defined there, not here, which is the whole point:
+         they were written out separately in four rooms once and drifted into
+         four different title sizes. -->
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title">PATH BUILDER</h1>
+        <!-- THE TAGLINE IS NOT A STATUS LINE. It is the standing description of
+             the room, and a message that overwrote it would take the
+             explanation away exactly when something had gone wrong. Notices go
+             in the scribble beside it. -->
+        <p class="room-blurb">Drag places out of the city's catalogue on the left and into the walk on the right. A place lives once and can be on any number of paths.</p>
+        <!-- #pageStatus KEEPS ITS ID, so every setStatus() call in this file
+             still lands. What changed is where it sits and what it looks like:
+             the red-pen margin note beside the room's name. -->
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
     </div>
 
-    <div class="bar">
-      <!-- City first, because it is how you find a path: the catalogue is one
-           list of every walk in every city, and the name alone does not say
-           where it is. -->
-      <label class="inline" for="cityFilter">City</label>
-      <select id="cityFilter"></select>
-      <label class="inline" for="pathSelect">Path</label>
-      <select id="pathSelect"></select>
-      <!-- The bar sits under a picker that already says "Path", so the noun was
-           being read three more times. The title says what each one acts on. -->
-      <button class="btn" id="newPathBtn" type="button" title="Start a new path">New</button>
-      <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
-      <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
-      <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
+    <!-- TWO BARS ON ONE ROW, the Socializer's own shape: what you are working
+         on, and what you can do to it. OPEN takes the space because its two
+         pickers grow; THIS PATH is only as wide as its four buttons. -->
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>OPEN</legend>
+        <div class="command-bar-inner">
+          <!-- City first, because it is how you find a path: the catalogue is
+               one list of every walk in every city, and the name alone does not
+               say where it is. -->
+          <label class="inline" for="cityFilter">City</label>
+          <select id="cityFilter"></select>
+          <label class="inline" for="pathSelect">Path</label>
+          <select id="pathSelect"></select>
+          <button class="btn" id="newPathBtn" type="button" title="Start a new path">New</button>
+        </div>
+      </fieldset>
+      <fieldset class="command-bar command-bar--view">
+        <legend>THIS PATH</legend>
+        <div class="command-bar-inner">
+          <!-- The legend already says "path", so the noun is not repeated on
+               every button. The title says what each one acts on. -->
+          <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
+          <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
+          <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
+        </div>
+      </fieldset>
     </div>
 
     <section class="panel map-panel">
@@ -333,17 +452,7 @@
     </section>
 
     <div class="cols">
-      <section class="panel" id="pathPanel">
-        <div class="panel-head">
-          <span class="panel-title" id="pathPanelTitle">Waypoints on this path</span>
-          <span class="panel-count" id="pathCount"></span>
-        </div>
-        <div class="meta-grid" id="pathMeta"></div>
-        <div class="panel-body" id="pathStops"></div>
-        <p class="hint">First stop is the start (&#9654;), last is the end (&#9632;).</p>
-      </section>
-
-      <section class="panel">
+      <section class="panel" id="poolPanel">
         <div class="panel-head">
           <span class="panel-title" id="poolTitle">Waypoints not on this path</span>
           <span class="panel-count" id="poolCount"></span>
@@ -362,6 +471,16 @@
         <datalist id="pathCityList"></datalist>
         <div class="panel-body" id="poolList"></div>
       </section>
+      <section class="panel" id="pathPanel">
+        <div class="panel-head">
+          <span class="panel-title" id="pathPanelTitle">Waypoints on this path</span>
+          <span class="panel-count" id="pathCount"></span>
+        </div>
+        <div class="meta-grid" id="pathMeta"></div>
+        <div class="panel-body" id="pathStops"></div>
+        <p class="hint">First stop is the start (&#9654;), last is the end (&#9632;).</p>
+      </section>
+
     </div>
   </main>
 
@@ -840,7 +959,7 @@
         return;
       }
       if (!state.stops.length) {
-        box.innerHTML = '<p class="empty">Nothing on this path yet. Add waypoints from the right.</p>';
+        box.innerHTML = '<p class="empty">Nothing on this path yet. Drag a waypoint over from the left, or press Add on one.</p>';
         return;
       }
       state.stops.forEach((wpid, i) => {
@@ -941,6 +1060,20 @@
       rows.slice(0, 60).forEach((w) => {
         const row = document.createElement('div');
         row.className = 'stop';
+        // The pool row carries the wpid for the same reason a path row does:
+        // the drag handlers read it off the element rather than closing over it.
+        row.dataset.wpid = w.wpid;
+
+        // DRAG FROM HERE ONTO THE PATH. Handle only, the same rule the path
+        // rows follow: a fully draggable row cannot have its address selected,
+        // which is the other thing people do to these rows.
+        const handle = document.createElement('span');
+        handle.className = 'stop-handle';
+        handle.textContent = '≡';
+        handle.title = state.pathId ? 'Drag onto the path' : 'Open a path first';
+        handle.draggable = !!state.pathId;
+        if (state.pathId) wireDrag(handle, row, 'pool');
+
         const main = document.createElement('div');
         main.className = 'stop-main';
         const name = document.createElement('div');
@@ -954,7 +1087,7 @@
         actions.className = 'stop-actions';
         actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
         actions.appendChild(mkBtn('Add', 'Put this on the end of the path', () => addStop(w.wpid), !state.pathId));
-        row.append(main, actions);
+        row.append(handle, main, actions);
         box.appendChild(row);
       });
       if (rows.length > 60) {
@@ -2045,22 +2178,76 @@
       markDirty();
     }
 
-    let dragFrom = null;
+    // The list BODY is a drop target, not only its rows. Two cases need it and
+    // both are common: a path with no stops yet has no row to aim at, and the
+    // gap under the last row is where people naturally drop something meant to
+    // go on the end. Bound once at startup; the rows are rebuilt every render
+    // and this element is not.
+    function wirePathDropZone() {
+      const box = el('pathStops');
+      if (!box) return;
+      box.addEventListener('dragover', (e) => {
+        if (!dragFrom || !state.pathId) return;
+        // A row under the cursor is a more precise target and owns the drop.
+        if (e.target.closest && e.target.closest('.stop')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        box.classList.add('is-drop-zone');
+      });
+      box.addEventListener('dragleave', (e) => {
+        if (e.target === box) box.classList.remove('is-drop-zone');
+      });
+      box.addEventListener('drop', (e) => {
+        if (!dragFrom || !state.pathId) return;
+        if (e.target.closest && e.target.closest('.stop')) return;
+        e.preventDefault();
+        box.classList.remove('is-drop-zone');
+        const changed = placeStop(dragFrom, state.stops.length);
+        dragFrom = null;
+        dragKind = null;
+        if (changed) markDirty();
+      });
+    }
 
-    function wireDrag(handle, row) {
+    let dragFrom = null;
+    // 'stop' = already on the path, so the drop is a REORDER. 'pool' = coming
+    // from the catalogue, so the drop is an INSERT. Without this the two look
+    // identical at the drop target: both are a wpid and a position.
+    let dragKind = null;
+
+    function wireDrag(handle, row, kind) {
       handle.addEventListener('dragstart', (e) => {
         dragFrom = row.dataset.wpid;
+        dragKind = kind || 'stop';
         row.classList.add('is-dragging');
+        document.body.classList.add('is-dragging-wp');
         e.dataTransfer.effectAllowed = 'move';
         // Firefox refuses to start a drag unless something is set.
         try { e.dataTransfer.setData('text/plain', dragFrom); } catch (_) {}
       });
       handle.addEventListener('dragend', () => {
         dragFrom = null;
+        dragKind = null;
+        document.body.classList.remove('is-dragging-wp');
+        el('pathStops').classList.remove('is-drop-zone');
         document.querySelectorAll('.stop').forEach((n) => {
           n.classList.remove('is-dragging', 'drop-before', 'drop-after');
         });
       });
+    }
+
+    // Puts wpid at `at`, whether it is arriving from the pool or moving within
+    // the path. Returns false when there is nothing to do, so the caller can
+    // leave the list alone rather than marking it dirty for no change.
+    function placeStop(wpid, at) {
+      const from = state.stops.indexOf(wpid);
+      if (from >= 0) {
+        if (from === at || from + 1 === at) return false;
+        state.stops.splice(from, 1);
+        if (from < at) at -= 1;
+      }
+      state.stops.splice(Math.max(0, Math.min(at, state.stops.length)), 0, wpid);
+      return true;
     }
 
     function wireDropTarget(row) {
@@ -2080,17 +2267,15 @@
         e.preventDefault();
         const after = row.classList.contains('drop-after');
         row.classList.remove('drop-before', 'drop-after');
-        const from = state.stops.indexOf(dragFrom);
-        if (from < 0) return;
         const target = state.stops.indexOf(row.dataset.wpid);
         if (target < 0) return;
-        const [moved] = state.stops.splice(from, 1);
-        // The target index shifts when the row came from above it.
-        let at = state.stops.indexOf(row.dataset.wpid);
-        at = after ? at + 1 : at;
-        state.stops.splice(at, 0, moved);
+        // A place appears at most once per path -- that is the (tour_id, wpid)
+        // primary key -- so a pool row dropped onto a path it is already on is
+        // a move, which placeStop handles, not a second copy.
+        const changed = placeStop(dragFrom, after ? target + 1 : target);
         dragFrom = null;
-        markDirty();
+        dragKind = null;
+        if (changed) markDirty();
       });
     }
 
@@ -2415,6 +2600,10 @@
       e.preventDefault();
       e.returnValue = '';
     });
+
+    // The path list is a drop target for the whole of its area, not only its
+    // rows. Bound once, before anything renders into it.
+    wirePathDropZone();
 
     // Nothing paints until this runs: the body is mc-auth-protected, and
     // admin-shell.css hides every child except the sign-in root that init()
