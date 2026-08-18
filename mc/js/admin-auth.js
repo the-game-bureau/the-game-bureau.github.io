@@ -53,7 +53,14 @@
       '.mc-auth-btn:disabled{opacity:.5;cursor:default;}',
       '.mc-auth-btn--primary{background:#2d4880;border-color:#2d4880;color:#fff;}',
       '.mc-auth-btn--primary:hover{background:#365694;}',
-      '.mc-auth-btn--google{flex:1 0 100%;border-color:rgba(45,72,128,.35);}',
+      '.mc-auth-btn--google{width:100%;border-color:rgba(45,72,128,.35);}',
+      /* Collapse rather than sit there as a blank line's worth of margin. */
+      '.mc-auth-copy:empty{display:none;}',
+      /* A rule through the middle with the word sitting in it. The lines are the
+         pseudo-elements so the word keeps the panel background behind it and the
+         rule appears to pass under it. */
+      '.mc-auth-or{display:flex;align-items:center;gap:10px;margin:0;color:#6b7280;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;}',
+      '.mc-auth-or::before,.mc-auth-or::after{content:"";flex:1;height:1px;background:rgba(45,72,128,.22);}',
       '.mc-auth-status{min-height:1.4em;margin:0;color:#5c6472;font-size:.92rem;line-height:1.5;}',
       '.mc-auth-status.is-error{color:#a03f2d;font-weight:700;}',
       '.mc-auth-status.is-success{color:#2f6b3d;font-weight:700;}',
@@ -79,6 +86,16 @@
       // the right place for this credential to live. Every field below is
       // labelled with the role the manager looks for.
       '    <form class="mc-auth-form" id="mcAuthForm" autocomplete="on">',
+      // GOOGLE FIRST, ABOVE THE FIELDS. It is one press against four, so it is
+      // the answer for most people most of the time, and a button buried under
+      // a form reads as the fallback rather than the fast path.
+      //
+      // GOOGLE IS ON THE SIGN-IN FORM AT ALL because an account created through
+      // Google has no password: the fields below can never sign it in, so
+      // offering Google only as a way to join would lock out every approved
+      // Google admin.
+      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthGoogleBtn" type="button">Continue with Google</button>',
+      '      <p class="mc-auth-or"><span>or</span></p>',
       '      <label class="mc-auth-field" for="mcAuthEmail">',
       '        <span>Email</span>',
       '        <input id="mcAuthEmail" name="email" type="email" autocomplete="username" required>',
@@ -128,8 +145,6 @@
       // Its own full-width line, directly under Sign In, because it is the
       // OTHER way to do the same thing. Sharing a line with Request Access read
       // as a pair of alternatives to signing in, which is half wrong.
-      '        <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthGoogleBtn" type="button">Continue with Google</button>',
-      '        <span class="mc-auth-break" aria-hidden="true"></span>',
       '        <button class="mc-auth-btn" id="mcAuthJoinBtn" type="button">Request Access</button>',
       '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
       '      </div>',
@@ -168,6 +183,8 @@
       // is signed in, but it is not on the admin list", which is the message
       // that already existed for exactly this state.
       '    <form class="mc-auth-form" id="mcAuthJoinForm" autocomplete="on" hidden>',
+      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Continue with Google</button>',
+      '      <p class="mc-auth-or"><span>or</span></p>',
       '      <label class="mc-auth-field" for="mcAuthJoinName">',
       '        <span>Name</span>',
       '        <input id="mcAuthJoinName" name="name" type="text" autocomplete="name" maxlength="120">',
@@ -190,12 +207,7 @@
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
       '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Back to Sign In</button>',
-      '        <span class="mc-auth-break" aria-hidden="true"></span>',
-      // The whole form above in one press: Google supplies the identity and the
-      // password never exists, and the request is filed automatically the
-      // moment we are handed an email address. The name and note are lost, which
-      // is the trade -- they are courtesy fields and an admin can ask.
-      '        <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Continue with Google</button>',
+
       '      </div>',
       '    </form>',
       '    <p class="mc-auth-status" id="mcAuthStatus" aria-live="polite"></p>',
@@ -221,7 +233,12 @@
       initialMessage: 'Sign in with an admin account.',
       unauthorizedMessage: 'This account is signed in, but it is not on the admin list.',
       signedOutMessage: 'Sign in with an admin account.',
-      modalCopy: 'Sign in to Mission Control with an admin account.',
+      // EMPTY. It read "Sign in to Mission Control with an admin account."
+      // directly above a status line reading "Sign in with an admin account." --
+      // the same sentence twice, once at each end of the panel. The status line
+      // is the one that survives, because it is also where errors land.
+      // Reset and JOIN keep their copy: those two modes need explaining.
+      modalCopy: '',
       homeHref: '../',
       configMissingMessage: 'Admin auth is unavailable because Supabase is not configured.',
       resetCopy: 'Set a new Mission Control password from the reset link.',
