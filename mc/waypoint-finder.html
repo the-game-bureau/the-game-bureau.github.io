@@ -268,7 +268,7 @@
       <label class="dlg-field">Source URL
         <input type="url" id="newSource" maxlength="500" autocomplete="off" placeholder="https://en.wikipedia.org/...">
       </label>
-      <p class="dlg-note" id="newNote">Name and city are required. Everything else can be filled in later from the Path Builder.</p>
+      <p class="dlg-note" id="newNote">Name and city are required; the state comes from the city. Everything else can be filled in later from the Path Builder.</p>
       <div class="dlg-actions">
         <button class="btn" id="newCancel" type="button">Cancel</button>
         <button class="btn primary" id="newSave" type="button">Add waypoint</button>
@@ -280,6 +280,9 @@
   <script src="/mc/js/admin-shell.js"></script>
   <script src="/mc/js/admin-site-nav.js"></script>
   <script src="/mc/js/supabase-rest.js"></script>
+  <!-- For the state code alone: a waypoint's state is derived from its city
+       rather than typed, so this room never asks for one. -->
+  <script src="/mc/assets/geo.js"></script>
   <script>
     (function () {
       'use strict';
@@ -305,6 +308,20 @@
 
       const el = (id) => document.getElementById(id);
       const text = (v) => String(v == null ? '' : v).trim();
+
+      // THE STATE COMES FROM THE CITY and is never asked for. TgbGeo turns
+      // "Denver, Colorado" into the two-letter CODE the other 280 rows hold --
+      // typing it by hand is how a catalogue ends up with both "CO" and
+      // "Colorado" in the same column. Returns '' for a city it cannot parse,
+      // which is a real case: city is free text here.
+      function stateFromCity(city) {
+        const name = text(city);
+        if (!name || !window.TgbGeo || typeof window.TgbGeo.parseGeo !== 'function') return '';
+        try {
+          const geo = window.TgbGeo.parseGeo(name) || {};
+          return text(geo.stateCode || geo.state_code || '');
+        } catch (err) { return ''; }
+      }
 
       function setStatus(msg, tone) {
         const n = el('pageStatus');
@@ -653,6 +670,10 @@
             body: JSON.stringify({
               name: name,
               city: city,
+              // Derived, not typed. Omitted rather than sent empty when the city
+              // will not parse, so the column keeps its default instead of a
+              // blank that looks like an answer.
+              state: stateFromCity(city) || undefined,
               address: text(el('newAddress').value),
               description: text(el('newDescription').value),
               source_url: text(el('newSource').value),

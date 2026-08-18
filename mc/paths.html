@@ -492,6 +492,11 @@
                wrong since the scout went twice daily. -->
           <button class="btn" id="nightlyBtn" type="button" title="What the scout routine found on its last run">Waypoint Bot</button>
           <button class="btn" id="addPathBtn" type="button">Path</button>
+          <!-- PATH BOT. A placeholder like the Path button beside it: there is
+               no routine writing paths yet. The NFL Tour Builder commits SQL to
+               mc/supabase/tours/ for a human to run, which is the closest thing
+               and is not this. Wired to say so rather than swallow the click. -->
+          <button class="btn" id="pathBotBtn" type="button" title="Not wired yet">Path Bot</button>
         </div>
       </fieldset>
       <!-- ONE CONTROL, AND IT SETS THE WHOLE ROOM. The city decides which
@@ -1532,6 +1537,19 @@
     // rejects the WHOLE write, so the three that arrived in later migrations are
     // probed from the shape of a real row rather than assumed.
     const WP_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
+
+    // The two-letter code for a city string, via the shared geo module -- the
+    // same one that turns "Denver, Colorado" into CO everywhere else. Returns
+    // '' when the city is not one it can parse, which is a real case: a
+    // waypoint's city is free text and may be somewhere not in the catalogue.
+    function stateFromCity(city) {
+      const name = cleanText(city);
+      if (!name || !window.TgbGeo || typeof window.TgbGeo.parseGeo !== 'function') return '';
+      try {
+        const geo = window.TgbGeo.parseGeo(name) || {};
+        return cleanText(geo.stateCode || geo.state_code || '');
+      } catch (err) { return ''; }
+    }
     const wpCols = { source_url: false, archived: false, latlon: false, walk_order: false };
     // A field a walking tour actually needs. Same list the Waypoints page paints
     // red, so the two cannot disagree about what "incomplete" means.
@@ -1656,7 +1674,13 @@
           placeholder: '200 E Colfax Ave',
           hint: 'Street only - city, state and ZIP have their own fields. A Plus Code is allowed where there is no street.' }),
         wpField('City', 'city', { list: 'pathCityList' }),
-        wpField('State', 'state', { placeholder: 'CO' }),
+        // NO STATE BOX. The city carries it: public.cities holds the canonical
+        // string, TgbGeo parses "Denver, Colorado" into a state, and stateFromCity
+        // below writes the two-letter CODE the other 280 rows use. A field that
+        // can only be filled in one correct way is a field that can be got
+        // wrong, and this one was: Nominatim answers "Florida" where every
+        // stored row says "FL".
+        // The COLUMN is untouched and still written on save.
         wpField('ZIP', 'zip'),
         wpField('Source URL', 'source_url', { placeholder: 'https://en.wikipedia.org/...' })
       );
@@ -1719,6 +1743,13 @@
     function wpPayload(row) {
       const payload = {};
       WP_FIELDS.forEach((f) => { payload[f] = cleanText(row[f]) || null; });
+      // STATE COMES FROM THE CITY. It has no box any more, so a row edited here
+      // would otherwise write back whatever it happened to arrive with -- and a
+      // row whose city was just corrected would keep the old state.
+      // The derived value only overwrites when it resolves: a city TgbGeo cannot
+      // parse leaves whatever was already stored alone rather than nulling it.
+      const derived = stateFromCity(row.city);
+      if (derived) payload.state = derived;
       if (wpCols.source_url) payload.source_url = cleanText(row.source_url) || null;
       if (wpCols.archived) payload.archived = !!row.archived;
       if (wpCols.latlon && row.lat != null && row.lon != null) {
@@ -2876,6 +2907,7 @@
     // all: a button that swallows a click with no response is indistinguishable
     // from one that is broken. Replace when the action is decided.
     el('addPathBtn').addEventListener('click', () => setStatus('not wired yet'));
+    el('pathBotBtn').addEventListener('click', () => setStatus('not wired yet'));
 
     // The path list is a drop target for the whole of its area, not only its
     // rows. Bound once, before anything renders into it.
