@@ -618,14 +618,14 @@
           <span class="panel-title" id="pathPanelTitle">PATH</span>
           <span class="panel-count" id="pathCount"></span>
           <span class="panel-acts">
-            <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
+            <button class="btn primary" id="saveBtn" type="button" disabled title="Save the order of this path">Save</button>
             <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
             <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
           </span>
         </div>
         <div class="meta-grid" id="pathMeta"></div>
         <div class="panel-body" id="pathStops"></div>
-        <p class="hint">First stop is the start (&#9654;), last is the end (&#9632;).</p>
+        <p class="hint">First waypoint is the start (&#9654;), last is the end (&#9632;).</p>
       </section>
 
     </div>
@@ -643,7 +643,7 @@
       </div>
       <div class="dlg-field">
         <label class="inline" for="newPathName">Path name</label>
-        <input type="text" id="newPathName" placeholder="What this walk is called">
+        <input type="text" id="newPathName" placeholder="What this path is called">
       </div>
       <div class="dlg-field">
         <label class="inline" for="newPathShape">Shape</label>
@@ -676,7 +676,7 @@
       <div class="dlg-actions">
         <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in any blank fields">Fill</button>
         <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box">Find online</button>
-        <button class="btn small" id="wpLocateBtn" type="button" title="Find this place's coordinates and store them">Locate</button>
+        <button class="btn small" id="wpLocateBtn" type="button" title="Find this waypoint's coordinates and store them">Locate</button>
         <button class="btn small" id="wpMapsBtn" type="button" title="Open this address in Google Maps">Maps</button>
         <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>
         <button class="btn small" id="wpArchiveBtn" type="button"></button>
@@ -695,7 +695,7 @@
   <div class="dlg" id="findDlg" role="dialog" aria-modal="true" aria-labelledby="findDlgTitle">
     <div class="dlg-panel dlg-panel--wide">
       <div class="dlg-head">
-        <h2 class="dlg-title" id="findDlgTitle">Find a place</h2>
+        <h2 class="dlg-title" id="findDlgTitle">Find a waypoint</h2>
         <span class="dlg-id" id="findCount"></span>
       </div>
       <div class="find-bar">
@@ -791,7 +791,7 @@
       { key: 'figure_eight', label: 'Figure eight',
         blurb: 'Two loops crossing at one central point - walkable as half the distance or the whole shape, with no repeated steps.' },
       { key: 'horseshoe', label: 'Horseshoe (open loop)',
-        blurb: 'A wide U. The ends differ but sit close enough together to walk or ride between.' },
+        blurb: 'A wide U. The ends differ but sit close enough together to walk or ride between them.' },
       { key: 'network', label: 'Network / grid',
         blurb: 'Interconnected segments walkers mix and match into their own distance on the fly.' }
     ];
@@ -1114,7 +1114,7 @@
       const title = document.createElement('input');
       title.type = 'text';
       title.value = cleanText(path.title);
-      title.placeholder = 'What this walk is called';
+      title.placeholder = 'What this path is called';
       title.addEventListener('change', () => savePathField('title', title.value));
 
       const shape = document.createElement('select');
@@ -1149,7 +1149,7 @@
       // The id is referenced by every path_stops row. Renaming it here would
       // orphan them all, so it is shown and not editable - the same bargain
       // anchor_events makes with its client-supplied primary key.
-      id.title = 'The path id. Not editable - every stop points at it.';
+      id.title = 'The path id. Not editable - every waypoint on the path points at it.';
 
       box.append(
         field('Title', title),
@@ -1490,14 +1490,18 @@
         // Never downloads Leaflet for a path it cannot draw.
         if (mapState.map) { mapState.map.remove(); mapState.map = null; mapState.fitKey = ''; }
         box.classList.add('is-empty');
+        // THREE EMPTY STATES, NOT ONE. "Add stops to see the walk" was shown
+        // for all of them, including the one where you have not chosen a path
+        // -- telling somebody to fill a thing they have not opened.
         box.innerHTML = '<span class="empty">'
-          + (stops.length
-              ? 'None of these ' + stops.length + ' stops has coordinates yet.'
-              : 'Add stops to see the walk.')
+          + (!state.pathId
+              ? 'Choose a path.'
+              : (stops.length
+                  ? 'None of these ' + stops.length + ' waypoints has coordinates yet.'
+                  : 'Drag a waypoint over from the left.'))
           + '</span>';
         note.textContent = stops.length
-          // Same dead end as the note above: "Waypoints" is this page.
-          ? 'Press Edit on a stop and then Locate - the point is saved on the waypoint and drawn here.'
+          ? 'Press Edit on a waypoint and then Locate - the point is saved on it and drawn here.'
           : '';
         note.classList.toggle('warn', stops.length > 0);
         return;
@@ -1758,7 +1762,7 @@
       el('wpDlgId').textContent = isNew ? 'not saved yet' : ('WPID ' + wpEdit.wpid);
 
       box.append(
-        wpField('Name', 'name', { full: true, placeholder: 'What the place is called' }),
+        wpField('Name', 'name', { full: true, placeholder: 'What the waypoint is called' }),
         wpField('Description', 'description', { full: true, multiline: true,
           placeholder: 'What a visitor standing here is told' }),
         wpField('Address', 'address', { full: true,
@@ -2138,7 +2142,7 @@
         wpNote(match
           ? 'Careful: this looks like WPID ' + match.row.wpid + ' ('
             + (cleanText(match.row.name) || 'unnamed') + ') by ' + match.reason
-            + '. Create it anyway only if it is genuinely a different place.'
+            + '. Create it anyway only if it is genuinely a different waypoint.'
           : 'Draft from OpenStreetMap - check it, then press Create.',
           match ? 'error' : 'busy');
       } catch (err) {
@@ -2254,7 +2258,7 @@
           number: true, value: '5',
           hint: 'The least-covered NFL cities, counted from what we already hold.'
         }));
-        if (f === 'perCity') box.appendChild(aiInput('perCity', 'Stops per city', { number: true, value: '5' }));
+        if (f === 'perCity') box.appendChild(aiInput('perCity', 'Waypoints per city', { number: true, value: '5' }));
         if (f === 'keywords') box.appendChild(aiInput('keywords', 'Keywords (optional)', {
           placeholder: 'murals, speakeasies', full: true
         }));
@@ -2470,7 +2474,7 @@
         else unplaced.push(String(id));
       });
       if (located.length < 3) {
-        setStatus('Needs at least three located stops to be worth reordering.', 'error');
+        setStatus('Needs at least three located waypoints to be worth reordering.', 'error');
         return;
       }
       const result = geo.suggestWalk(located);
@@ -2478,7 +2482,7 @@
       // never part of the walk being solved, and dropping them would lose them.
       state.stops = result.order.map((i) => located[i].id).concat(unplaced);
       markDirty();
-      setStatus('Reordered ' + located.length + ' stops - ' + geo.formatWalkDistance(result.metres)
+      setStatus('Reordered ' + located.length + ' waypoints - ' + geo.formatWalkDistance(result.metres)
         + (unplaced.length ? ' · ' + unplaced.length + ' unlocated stop(s) left at the end' : '')
         + '. Press Save to keep it.', 'success');
     }
