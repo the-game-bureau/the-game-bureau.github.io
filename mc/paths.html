@@ -454,6 +454,10 @@
     /* THE WALKING TIME ON A LEG. A pill, not bare text: it sits on satellite
        imagery, and unbacked type over a roof is unreadable at any weight. No
        pointer events -- it must never swallow a click meant for a pin under it. */
+    /* A draggable pin says so before you try it. */
+    .leaflet-marker-draggable .rb-pin-dot { cursor: grab; }
+    .leaflet-marker-draggable:active .rb-pin-dot { cursor: grabbing; }
+
     .rb-leg { pointer-events: none; }
     .rb-leg-time {
       display: inline-block;
@@ -724,7 +728,6 @@
                  the same questions would be the same form twice. -->
             <button class="btn" id="editPathBtn" type="button" disabled title="Rename this path or change its shape">Edit</button>
             <button class="btn" id="clonePathBtn" type="button" disabled title="Copy this path and its waypoints to a new one">Clone</button>
-            <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder this path by geometry - the shortest sensible walk">Suggest order</button>
             <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
           </span>
         </div>
@@ -1119,7 +1122,6 @@
       // reasonable thing to want.
       el('clonePathBtn').disabled = !state.pathId;
       el('editPathBtn').disabled = !state.pathId;
-      el('suggestOrderBtn').disabled = state.stops.length < 3;
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
       // server, and every call is guarded by mapState.token.
@@ -1797,8 +1799,15 @@
       pool.forEach(({ w, at }, i) => {
         const marker = L.marker([at.lat, at.lon], {
           icon: mkPin(String(i + 1), 'rb-pin--pool'),
-          title: cleanText(w.name)
+          title: cleanText(w.name),
+          // A library pin is as likely to be misplaced as one on the path, and
+          // correcting it before it goes on a walk is the better moment.
+          draggable: true
         }).addTo(mapState.layer);
+        marker.on('dragend', (e) => {
+          const at2 = e.target.getLatLng();
+          openWaypointEditor(w.wpid, { point: { lat: at2.lat, lon: at2.lng } });
+        });
         marker.bindTooltip((i + 1) + '. ' + (cleanText(w.name) || ('WPID ' + w.wpid)),
           { direction: 'top', offset: [0, -8] });
         // Clicking a candidate adds it, which is the one thing a map can do
@@ -1825,7 +1834,12 @@
         const isEnd = idx === state.stops.length - 1 && state.stops.length > 1;
         const marker = L.marker([at.lat, at.lon], {
           icon: mkPin(String(idx + 1), isStart ? 'rb-pin--start' : (isEnd ? 'rb-pin--end' : '')),
-          riseOnHover: true
+          riseOnHover: true,
+          // DRAG TO CORRECT A POINT. A pin in the wrong place is the commonest
+          // fault in this table -- a geocoder puts a museum in its car park --
+          // and dragging it is the one correction a map can make better than a
+          // pair of number fields.
+          draggable: true
         }).addTo(mapState.layer);
         marker.bindTooltip((idx + 1) + '. ' + (cleanText(w.name) || ('WPID ' + w.wpid)),
           { direction: 'top', offset: [0, -10] });
@@ -1833,6 +1847,12 @@
         // Scrolling to the row was the old behaviour and is now what the tooltip
         // is for - you can see which row it is without leaving the map.
         marker.on('click', () => openWaypointEditor(w.wpid));
+        // The drop opens the editor holding the new point, UNSAVED. Nothing is
+        // written by the gesture itself; see openWaypointEditor.
+        marker.on('dragend', (e) => {
+          const at2 = e.target.getLatLng();
+          openWaypointEditor(w.wpid, { point: { lat: at2.lat, lon: at2.lng } });
+        });
       });
 
       // THE WALK, FOLLOWING STREETS. The line was point-to-point straight, which
@@ -1986,7 +2006,11 @@
       });
     }
 
-    function openWaypointEditor(wpid) {
+    // opts.point moves the waypoint to a new coordinate and opens DIRTY, so the
+    // dialog is a confirmation rather than a write: dragging a pin is easy to do
+    // by accident on a trackpad, and a drag that saved itself would move a place
+    // in the database with nothing to press to undo it. Close discards it.
+    function openWaypointEditor(wpid, opts) {
       const source = wpid == null ? null : wpById(wpid);
       if (wpid != null && !source) return;
       // A working COPY. Everything up to Save happens here, so Close can throw
@@ -1998,10 +2022,26 @@
       wpEdit.wpid = source ? String(source.wpid) : '';
       wpEdit.dirty = false;
       wpEdit.busy = false;
+
+      const movedTo = opts && opts.point;
+      if (movedTo) {
+        const geo = window.TgbWaypointGeo;
+        const r6 = (n) => (geo && geo.round6 ? geo.round6(n) : Math.round(n * 1e6) / 1e6);
+        wpEdit.row.lat = r6(Number(movedTo.lat));
+        wpEdit.row.lon = r6(Number(movedTo.lon));
+        // The ADDRESS IS NOT TOUCHED and must not be. Moving a pin says where the
+        // place is, not what its street line is, and reverse-geocoding a point
+        // into an address produces a plausible, wrong, uncheckable line - the
+        // rule this project has held since the nightly scout was written.
+        wpEdit.dirty = true;
+      }
       // A waypoint made while a path is open is almost always for that path.
       wpEdit.addToPath = !source && !!state.pathId;
       el('wpDlg').classList.add('is-open');
       renderWaypointForm();
+      if (movedTo) {
+        wpNote('Moved on the map. Save to store the new point, or Close to leave it where it was.', 'busy');
+      }
       const first = el('wpForm').querySelector('input, textarea');
       if (first) first.focus();
     }
@@ -2763,31 +2803,21 @@
     // per-city hint that predates paths and is not a path's order. The path's
     // order is path_stops.ord, and it is what this rewrites (and leaves unsaved
     // so you can look at it first).
-    function suggestPathOrder() {
-      const geo = window.TgbWaypointGeo;
-      if (!geo || !state.pathId) return;
-      const located = [];
-      const unplaced = [];
-      state.stops.forEach((id) => {
-        const w = wpById(id);
-        const at = w && pointOf(w);
-        if (at) located.push({ id: String(id), lat: at.lat, lon: at.lon });
-        else unplaced.push(String(id));
-      });
-      if (located.length < 3) {
-        setStatus('Needs at least three located waypoints to be worth reordering.', 'error');
-        return;
-      }
-      const result = geo.suggestWalk(located);
-      // Unplaced stops keep their relative order and sink to the end: they were
-      // never part of the walk being solved, and dropping them would lose them.
-      state.stops = result.order.map((i) => located[i].id).concat(unplaced);
-      markDirty();
-      setStatus('Reordered ' + located.length + ' waypoints - ' + geo.formatWalkDistance(result.metres)
-        + (unplaced.length ? ' · ' + unplaced.length + ' unlocated waypoint'
-            + (unplaced.length === 1 ? '' : 's') + ' left at the end' : '')
-        + '. Press Save to keep it.', 'success');
-    }
+    // SUGGEST ORDER IS GONE (2026-08-18), and suggestPathOrder with it.
+    //
+    // The SOLVER is untouched and still exported from waypoint-geo.js: nearest
+    // neighbour then 2-opt over the stored points, which turned a 9.4 km Denver
+    // wander into 3.9 km. WALK_ORDER_RULE in the AI prompts still describes the
+    // same job in words, and nothing there changes.
+    //
+    // What went is the button, for two reasons. The order of a walk is an
+    // editorial judgement -- which two places share a block, where a visitor
+    // plausibly starts -- and the solver knows only metres. And it now fought the
+    // routed line: the shortest path between stored POINTS is not the shortest
+    // walk along pavement, so its answer and the map's disagreed by design.
+    //
+    // If it returns, it belongs on the geometry the ROUTER gives back, not on
+    // straight-line distance.
 
     // --- editing the order ----------------------------------------------------
 
@@ -3400,7 +3430,6 @@
     el('findDlg').addEventListener('click', (e) => {
       if (e.target === el('findDlg') && !findState.busy) closeFindDialog();
     });
-    el('suggestOrderBtn').addEventListener('click', suggestPathOrder);
     el('wpSaveBtn').addEventListener('click', saveWaypoint);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
     el('wpLocateBtn').addEventListener('click', locateWaypoint);
