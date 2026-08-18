@@ -1,6 +1,6 @@
 /* PAIRED WITH TWO ROUTINES, and one of them reads this file as its live spec.
  *
- *   TGB WAYPOINTS BOT           trig_01Q5uCittJ3dT3M2xj8sKD3j  cron 45 11 UTC
+ *   WAYPOINT BOT               trig_01Q5uCittJ3dT3M2xj8sKD3j  cron 8 8,20 UTC
  *     uses buildWaypointAiPrompt; commits mc/stops/nightly.json.
  *   TGB NFL Anchor Path Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
  *     STEP 1 OF ITS STORED PROMPT IS "open this file and find

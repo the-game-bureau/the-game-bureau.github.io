@@ -156,7 +156,7 @@ Set 2026-08-15. One schedule, staggered three minutes apart so five cloud sessio
 |---|---|---|
 | TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20 * * *` |
 | TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20 * * *` |
-| TGB Waypoints Bot | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `8 8,20 * * *` |
+| Waypoint Bot | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `8 8,20 * * *` |
 | TGB NFL Anchor Route Builder | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
 | SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 
@@ -321,7 +321,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 
 ## Nightly waypoints run — a fourth Claude Code routine
 
-Walking-tour candidates are found each morning by a **scheduled Claude Code cloud agent** ("TGB Waypoints Bot", `trig_01Q5uCittJ3dT3M2xj8sKD3j`, cron `8 8,20 * * *` UTC = 3 AM and 3 PM Central. It ran `45 11` once daily until 2026-08-15, when every TGB routine was put on one schedule). Each run picks the **NFL host city that has gone longest without a run**, sweeps **Wikipedia and Wikimedia** for places there, verifies each stop, and commits [mc/stops/nightly.json](mc/stops/nightly.json) to `main`.
+Walking-tour candidates are found each morning by a **scheduled Claude Code cloud agent** ("Waypoint Bot", `trig_01Q5uCittJ3dT3M2xj8sKD3j`, cron `8 8,20 * * *` UTC = 3 AM and 3 PM Central. It ran `45 11` once daily until 2026-08-15, when every TGB routine was put on one schedule). Each run picks the **NFL host city that has gone longest without a run**, sweeps **Wikipedia and Wikimedia** for places there, verifies each stop, and commits [mc/stops/nightly.json](mc/stops/nightly.json) to `main`.
 
 - **A stop must have a Wikipedia article (or Commons category) carrying coordinates or a street address.** That single constraint does most of the quality filtering: a place notable enough for an article and pinned precisely enough to geotag is a place worth standing in front of, and the article URL still resolves years later — a visitor-bureau tour PDF will not. NRHP county listings and National Historic Landmark lists are the richest vein (address *and* coordinates per row); Wikipedia GeoSearch sweeps a downtown core; Commons is the still-standing photo check. Switched from published-walking-tour sourcing on 2026-07-29 — the same rules live in `WIKI_SOURCE_LINES` in [mc/assets/waypoint-prompts.js](mc/assets/waypoint-prompts.js), shared by both AI prompts, so page and routine can't drift.
 - **Wikipedia decides which stops, never the facts.** Articles routinely lack a street address or give a mailing one, so the address comes from the NRHP row or an independent source and stays `null` otherwise — **coordinates are never turned into a street address**, even though the table has `lat`/`lon` again (see below). A point is not an address; reverse-geocoding one produces a plausible, wrong, uncheckable street line.
