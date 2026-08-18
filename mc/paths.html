@@ -310,6 +310,7 @@
     .meta-field { display: grid; gap: 4px; }
     .meta-field input, .meta-field select { width: 100%; }
 
+    /* One control now the three buttons beside it are gone. */
     .pool-filter { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
     .pool-filter input { flex: 1; }
 
@@ -554,9 +555,6 @@
              places you can add and never should. -->
         <div class="pool-filter">
           <input type="search" id="poolSearch" placeholder="Search waypoints">
-          <button class="btn small" id="findWaypointBtn" type="button" title="Search OpenStreetMap for a place and open it as a draft">Find online</button>
-          <button class="btn small" id="aiWaypointBtn" type="button" title="Get an AI prompt that returns import SQL for this city">With AI</button>
-          <button class="btn small" id="newWaypointBtn" type="button" title="Type a place in by hand">+ Waypoint</button>
         </div>
         <datalist id="pathCityList"></datalist>
         <div class="panel-body" id="poolList"></div>
@@ -2865,8 +2863,18 @@
     el('saveBtn').addEventListener('click', saveOrder);
     el('deletePathBtn').addEventListener('click', deletePath);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
-    el('newWaypointBtn').addEventListener('click', () => openWaypointEditor(null));
-    el('findWaypointBtn').addEventListener('click', () => openFindDialog(''));
+    // FIND ONLINE, WITH AI AND + WAYPOINT LOST THEIR BUTTONS (2026-08-18).
+    // The manual add survives as the ADD bar's Waypoint Manual, which calls the
+    // same openWaypointEditor(null).
+    //
+    // openFindDialog and openAiDialog and their dialogs are LEFT IN PLACE and
+    // are now unreachable from this page. They are not dead by accident: the
+    // world search is the only thing here that can pull a place out of
+    // OpenStreetMap, and the AI dialog is how a human gets the import SQL
+    // prompts for a city. Both are worth a button somewhere. If they are not
+    // coming back, delete openFindDialog, openAiDialog, #findDlg, #aiDlg and
+    // the search half of waypoint-geo.js together rather than leaving a room
+    // full of code nothing can call.
     el('wpFindBtn').addEventListener('click', () => {
       // Seeded with the name AND the city: "Freedom Tower" alone matches one in
       // Manhattan, and the geocoder has no idea which town you are working in.
@@ -2874,7 +2882,6 @@
         .filter(Boolean).join(' ');
       openFindDialog(seed);
     });
-    el('aiWaypointBtn').addEventListener('click', openAiDialog);
     el('aiPull').addEventListener('change', (e) => { aiState.pull = e.target.value; renderAiInputs(); });
     el('aiBuildBtn').addEventListener('click', buildAiPrompt);
     el('aiCopyBtn').addEventListener('click', copyAiPrompt);
