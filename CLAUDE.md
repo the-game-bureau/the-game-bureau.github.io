@@ -387,6 +387,8 @@ Migration: [2026080804_paths_and_path_stops.sql](mc/supabase/migrations/20260808
 
 ### The Waypoints page was folded into the Path Builder (2026-08-09)
 
+**AND THE DOORWAYS FINALLY AGREED ON A NAME (2026-08-17).** The merge was done in 2026-08, but for nine days the page was still reached under two names — *Waypoints* from the Data Warehouse card and Daily Review's button, *Path Builder* from the nav menu — so it read as two rooms that happened to share a URL, which is exactly the confusion the merge existed to end. Every doorway now names the room and says it does both jobs. The Data Warehouse card **stays**, because that list is indexed by TABLE and `public.waypoints` needs an entry; it is titled *Waypoints & Paths* and its note says it opens the Path Builder.
+
 `mc/data/waypoints.html` — 7,608 lines — **is deleted**. Everything it did is in [mc/paths.html](mc/paths.html), reached by popup off whichever list or pin you found the place in. The reasoning was that the catalogue and the walk built out of it are one job, and two rooms meant two copies of the same city, two maps, and a tab-switch in the middle of every edit.
 
 **It is a hard break with no redirect** (GitHub Pages serves no 301), the same as the `/gifts/` and `/highlights/admin/` moves. Every in-repo link was repointed: the nav menu, the Data Warehouse card, `mc/review/index.html`, and Stop Builder's "new waypoint" button.

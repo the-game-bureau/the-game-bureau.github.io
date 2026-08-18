@@ -95,7 +95,12 @@
           // is reusable across games in the same way a Guide, a City and a Team
           // are.
           label: 'Path Builder',
-          description: 'Order the waypoints of a walking path by dragging them. No challenges, no map.'
+          // ONE ROOM, ONE NAME. The waypoint catalogue and the paths built from
+          // it were folded into this page on 2026-08-09, but the doorways kept
+          // calling it two things -- "Waypoints" from the Data Warehouse and
+          // Daily Review, "Path Builder" here -- so it read as two rooms that
+          // happened to share a URL. The description now says both jobs.
+          description: 'The catalog of real places, the nightly scout, and the walking paths built from them.'
         }
       ]
     },
