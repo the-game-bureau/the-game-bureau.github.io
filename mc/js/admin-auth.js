@@ -1169,19 +1169,32 @@
           var oauthSession = await normalizeSession(oauthPayload);
           clearRecoveryParams();
           var oauthEmail = (oauthSession.user && oauthSession.user.email) || '';
-          if (wantsJoin && oauthEmail) {
-            // Best effort. A filing that fails must not cost them the sign-in
-            // they just completed; the message below covers both outcomes.
-            try { await fileAccessRequest(oauthEmail, '', 'Signed up with Google'); } catch (error) {}
-          }
           var oauthAllowed = await verifySession(oauthSession);
           if (oauthAllowed) {
             await activateSession(oauthSession, rememberSession);
             return true;
           }
-          showAuth(wantsJoin
+
+          // NOT ON THE LIST? FILE THE REQUEST, whichever Google button they
+          // pressed. This used to depend on `wantsJoin`, an intent set by the
+          // JOIN form's button and not by the identical-looking one on the
+          // sign-in form -- so somebody who reasonably pressed the first Google
+          // button they saw was told they were not an admin and nothing was
+          // filed, leaving them stuck and the admin with an empty queue.
+          //
+          // Signing in to Mission Control IS the request. There is nothing else
+          // to want here, the RPC dedupes, and a filed request grants nothing
+          // on its own. wantsJoin now only chooses the wording.
+          var filedOk = false;
+          if (oauthEmail) {
+            try {
+              await fileAccessRequest(oauthEmail, '', 'Signed in with Google');
+              filedOk = true;
+            } catch (error) { filedOk = false; }
+          }
+          showAuth(filedOk
             ? 'Request sent. An admin has to approve it before you can get in.'
-            : settings.unauthorizedMessage, wantsJoin ? 'success' : 'error');
+            : settings.unauthorizedMessage, filedOk ? 'success' : 'error');
           return false;
         } catch (error) {
           clearRecoveryParams();
