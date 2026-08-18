@@ -232,7 +232,16 @@
        carries at the top of the other column. So the two columns start on the
        same line in the same colour, and the tinted band reads as "this is a
        control surface" wherever it appears in the room. */
-    #poolPanel > .panel-head {
+    /* BOTH COLUMN HEADERS ARE THE SAME BAR. The library's head and the path's
+       carry the same thing -- a title and a count -- and were reading as two
+       different kinds of row only because one had the blue ground and the other
+       did not. Same ground, same rule, and the two columns line up across the
+       gap between them.
+       The path panel's PICKER strip above it keeps the ground too, so that
+       column has a blue band of controls and then this; the library has the
+       band and its search box under it. Same idea, one row apart. */
+    #poolPanel > .panel-head,
+    #pathPanel > .panel-head {
       background: var(--cut-panel-bg);
       border-bottom-color: var(--cut-panel-line);
     }
@@ -1477,14 +1486,19 @@
       // adding a black one on top would put two markers on one building and
       // read as two places. `includes` is the right test even now a path may
       // visit somewhere twice: once is enough to be already drawn.
-      const pool = mapState.showPool
+      // Split rather than filtered in one pass, because the ones WITHOUT a
+      // point are the answer to "I ticked the box and nothing happened".
+      const poolCity = state.cityFilter || pathCity();
+      const poolAll = mapState.showPool
         ? state.waypoints
             .filter((w) => !state.stops.includes(String(w.wpid)))
-            .filter((w) => pathCity() && cleanText(w.city).toLowerCase() === pathCity().toLowerCase())
-            .map((w) => ({ w, at: pointOf(w) }))
-            .filter((e) => e.at)
-            .slice(0, 250)
+            .filter((w) => poolCity && cleanText(w.city).toLowerCase() === poolCity.toLowerCase())
         : [];
+      const poolFull = poolAll.map((w) => ({ w, at: pointOf(w) })).filter((e) => e.at);
+      // The cap is real and was silent. Anything dropped is named below.
+      const pool = poolFull.slice(0, 250);
+      const poolUnlocated = poolAll.length - poolFull.length;
+      const poolCapped = poolFull.length - pool.length;
 
       // WHAT IS DRAWN, in one number. "1 of 1 stops on the map" spent most of
       // its words on a comparison that is equal almost always -- and when it is
@@ -1622,7 +1636,19 @@
             // coloured pins, so drawing them a second time in black would put
             // two markers on one building and imply two places.
             ? pool.length + ' more in black and white, numbered separately - click one to add it.'
-            : '');
+              + (poolCapped ? ' ' + poolCapped + ' beyond the first 250 are not drawn.' : '')
+              + (poolUnlocated ? ' ' + poolUnlocated + ' more '
+                  + (poolUnlocated === 1 ? 'has' : 'have') + ' no coordinates.' : '')
+            // TICKED AND NOTHING APPEARED is a state this said nothing about,
+            // and there are three ways to reach it. Each one names itself.
+            : (mapState.showPool
+                ? (!poolCity
+                    ? 'Choose a city to see its other waypoints.'
+                    : (!poolAll.length
+                        ? 'Every ' + poolCity + ' waypoint is already on this path.'
+                        : poolUnlocated + ' other ' + poolCity + ' waypoint'
+                          + (poolUnlocated === 1 ? ' has' : 's have') + ' no coordinates, so none can be drawn.'))
+                : ''));
     }
 
     // --- the waypoint editor --------------------------------------------------
@@ -2998,7 +3024,21 @@
       // would leave the request going with nothing to receive it.
       if (e.target === el('wpDlg') && !wpEdit.busy) closeWaypointEditor();
     });
-    el('mapShowPool').addEventListener('change', (e) => { mapState.showPool = e.target.checked; renderMap(); });
+    // SAY SOMETHING WHILE IT WORKS. Ticking this can mean downloading Leaflet
+    // (144 KB, the first time a map is drawn at all) and then placing up to 250
+    // markers, and until it finishes the box looks like a checkbox that did
+    // nothing. renderMap is async and awaited here for exactly that reason.
+    el('mapShowPool').addEventListener('change', async (e) => {
+      mapState.showPool = e.target.checked;
+      if (mapState.showPool) setStatus('Loading waypoints...');
+      try {
+        await renderMap();
+      } finally {
+        // Cleared unconditionally: the map's own note says what was drawn, and
+        // a "loading" left behind by a failure is worse than no message.
+        setStatus('');
+      }
+    });
 
     // An unsaved order is a few minutes of dragging. Losing it to a stray tab
     // close is the one mistake this page can make on your behalf.
