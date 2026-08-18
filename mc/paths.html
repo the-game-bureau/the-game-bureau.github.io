@@ -323,8 +323,25 @@
     .stop-handle { color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; }
     /* Spent, not gone. Quiet enough to read as done and solid enough to still
        be draggable -- a row at 0.4 looks disabled, and this one is not. */
+    /* USED-GREY: done. Dimmed, because the place is already on the walk and the
+       row is there to be recognised rather than acted on. */
     .stop--used { opacity: 0.62; }
     .stop--used .stop-name { font-weight: 500; }
+
+    /* SHELVED-GREY: not approved. A DIFFERENT grey on purpose -- this one keeps
+       its contrast and goes colourless, because the row is perfectly actionable
+       and the news is what it IS, not that you have finished with it. Dimming
+       both states the same way would say "already handled" about a waypoint
+       nobody has looked at.
+       A hairline down the left edge carries it at a glance, so a scan does not
+       depend on reading the tag. */
+    .stop--shelved {
+      border-left: 3px solid rgba(var(--bic-blue-rgb), 0.28);
+      background: rgba(var(--bic-blue-rgb), 0.035);
+    }
+    .stop--shelved .stop-name,
+    .stop--shelved .stop-meta { color: rgba(var(--bic-blue-rgb), 0.55); }
+    .stop-shelved-tag { color: rgba(var(--bic-blue-rgb), 0.6); }
     .stop-used-tag {
       margin-top: 2px;
       font-family: 'IBM Plex Mono', monospace;
@@ -364,6 +381,9 @@
     .hint-end { color: var(--warn); }
 
     .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    /* Square-ish, like the up/down arrows on a path row, so the two arrow
+       buttons in this room are the same object at different jobs. */
+    .stop-add { min-width: 30px; font-size: 0.95rem; line-height: 1; }
 
     .stop.is-dragging { opacity: 0.4; }
     /* Only while something is actually in the air: an outline drawn all the
@@ -1109,7 +1129,12 @@
       state.paths = Array.isArray(paths) ? paths : [];
       state.pathStops = Array.isArray(allStops) ? allStops : [];
       probeWaypointColumns(waypoints);
-      state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
+      // SHELVED WAYPOINTS ARE KEPT, not filtered out. They used to be dropped
+      // here, so a place a human had shelved simply vanished from this room --
+      // and since arrivals now land shelved, that would have hidden every new
+      // waypoint from the page where paths are built. They are drawn grey
+      // instead, which says "not approved yet" rather than saying nothing.
+      state.waypoints = Array.isArray(waypoints) ? waypoints : [];
       // NOTHING IS OPENED BY DEFAULT. It used to fall back to state.paths[0],
       // which is alphabetically-first-by-id and has nothing to do with you: the
       // room came up mid-edit on somebody else's walk, and Delete was two
@@ -1519,7 +1544,14 @@
         // list before and after you build a walk out of it.
         const times = stopsCount(w.wpid);
         const used = times > 0;
+        const shelved = w.archived === true || w.archived === 'true';
         if (used) row.classList.add('stop--used');
+        // TWO GREYS, AND THEY MEAN OPPOSITE THINGS. Used-grey is "done, it is
+        // already on the walk"; shelved-grey is "not approved, decide in the
+        // Waypoint Finder before you build with it". One grey for both would
+        // make the two states of the library indistinguishable at a glance,
+        // which is the only thing the colour is for.
+        if (shelved) row.classList.add('stop--shelved');
 
         const handle = document.createElement('span');
         handle.className = 'stop-handle';
@@ -1537,6 +1569,13 @@
         meta.className = 'stop-meta';
         meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ') || 'no address';
         main.append(name, meta);
+        if (shelved) {
+          const tag = document.createElement('div');
+          tag.className = 'stop-used-tag stop-shelved-tag';
+          tag.textContent = 'shelved';
+          tag.title = 'Not in the live library. Take it live in the Waypoint Finder.';
+          main.appendChild(tag);
+        }
         if (used) {
           const tag = document.createElement('div');
           tag.className = 'stop-used-tag';
@@ -1559,9 +1598,17 @@
         //
         // It also has to exist: dragging is otherwise the only route, which
         // leaves no keyboard and no single-tap way to build a path at all.
-        actions.appendChild(mkBtn('Add to path',
-          used ? 'Put it on the end again' : 'Put this on the end of the path',
-          () => addStop(w.wpid), !state.pathId));
+        // AN ARROW, NOT A SENTENCE. The button duplicates a drag that runs left
+        // to right across this room, so the arrow says the same thing in the
+        // width of one glyph -- and three words on every row of a list this long
+        // were three words repeated fifty times.
+        // The full phrase survives on the TITLE, where it costs nothing.
+        const addBtn = mkBtn('→',
+          used ? 'Put it on the path again' : 'Add to path',
+          () => addStop(w.wpid), !state.pathId);
+        addBtn.classList.add('stop-add');
+        addBtn.setAttribute('aria-label', used ? 'Put it on the path again' : 'Add to path');
+        actions.appendChild(addBtn);
         row.append(handle, main, actions);
         box.appendChild(row);
       });
@@ -2110,7 +2157,14 @@
       wpEdit.row = source
         ? Object.assign({}, source)
         : { wpid: '', name: '', city: pathCity(), state: '', zip: '', address: '',
-            description: '', source_url: '', archived: false, lat: null, lon: null };
+            // ARRIVES SHELVED, matching public.waypoints.archived's default since
+            // 2026-08-18. Everything new waits for a human in the Waypoint
+            // Finder, whoever typed it: a place from Waypoint Bot, one found
+            // online, one typed by hand. Same rule the Tape Room settled on,
+            // where a manually added tape arrives shelved too - one arrival
+            // state is a thing you can hold in your head, two is a rule you have
+            // to look up.
+            description: '', source_url: '', archived: true, lat: null, lon: null };
       wpEdit.wpid = source ? String(source.wpid) : '';
       wpEdit.dirty = false;
       wpEdit.busy = false;

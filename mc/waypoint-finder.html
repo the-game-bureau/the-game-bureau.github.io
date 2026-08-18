@@ -147,7 +147,38 @@
       border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px;
     }
     .wp-tag--new { color: var(--bic-red); border-color: var(--bic-red); }
-    .wp-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+    .wp-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; align-items: center; }
+
+    /* A SWITCH, drawn as one. The knob sits left for shelved and right for live,
+       and the word beside it says which -- a switch with no label is a control
+       you have to press to learn the state of. */
+    .wp-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      appearance: none; border: 0; background: none; padding: 4px 2px; margin: 0;
+      font: inherit; cursor: pointer; color: var(--muted);
+    }
+    .wp-toggle[disabled] { opacity: 0.5; cursor: default; }
+    .wp-toggle-track {
+      position: relative; width: 38px; height: 20px; flex: 0 0 38px;
+      border-radius: 999px; background: rgba(var(--bic-blue-rgb), 0.22);
+      transition: background 120ms ease;
+    }
+    .wp-toggle-knob {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      transition: transform 120ms ease;
+    }
+    .wp-toggle.is-live .wp-toggle-track { background: var(--success); }
+    .wp-toggle.is-live .wp-toggle-knob { transform: translateX(18px); }
+    .wp-toggle.is-live { color: var(--success); }
+    .wp-toggle-word {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; min-width: 4.6em;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wp-toggle-track, .wp-toggle-knob { transition: none; }
+    }
     .empty { color: var(--muted); font-size: 0.88rem; padding: 18px 12px; margin: 0; }
 
     /* THE DIALOG IS THE SHARED ONE. .dlg / .dlg-panel are what every admin
@@ -521,15 +552,34 @@
         const acts = document.createElement('div');
         acts.className = 'wp-actions';
         const busy = state.busy.has(String(row.wpid));
-        acts.appendChild(mkBtn('Live',
-          shelved ? 'Put it back in the library' : 'Already live',
-          function () { setArchived(row, false); }, busy || !shelved, 'primary'));
-        acts.appendChild(mkBtn('Shelve',
-          shelved ? 'Already shelved' : 'Take it out of the library; the row stays',
-          function () { setArchived(row, true); }, busy || shelved));
-        acts.appendChild(mkBtn('Delete',
-          'Remove the row entirely. Cannot be undone.',
-          function () { removeRow(row); }, busy, 'warn'));
+        // ONE CONTROL, TWO STATES. It was three buttons -- Live, Shelve, Delete --
+        // of which two were always the same pair with one greyed, which is a
+        // switch drawn as two buttons. A switch says what the row IS as well as
+        // what pressing it does.
+        //
+        // DELETE WENT WITH THEM. Shelving is the stronger answer anyway: the row
+        // stays as a do-not-rescrape tombstone the importers match on, so a
+        // DELETED place comes back on the next sweep and a shelved one does not.
+        // Deleting is a DELETE in the SQL editor now.
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'wp-toggle' + (shelved ? '' : ' is-live');
+        toggle.disabled = busy;
+        toggle.setAttribute('role', 'switch');
+        toggle.setAttribute('aria-checked', String(!shelved));
+        toggle.title = shelved
+          ? 'Shelved. Press to take it live.'
+          : 'Live. Press to shelve it; the row stays as a do-not-rescrape tombstone.';
+        const track = document.createElement('span');
+        track.className = 'wp-toggle-track';
+        track.appendChild(document.createElement('span')).className = 'wp-toggle-knob';
+        const word = document.createElement('span');
+        word.className = 'wp-toggle-word';
+        word.textContent = shelved ? 'Shelved' : 'Live';
+        toggle.appendChild(track);
+        toggle.appendChild(word);
+        if (!busy) toggle.addEventListener('click', function () { setArchived(row, !shelved); });
+        acts.appendChild(toggle);
 
         card.appendChild(main);
         card.appendChild(acts);
@@ -596,33 +646,11 @@
       // DELETE IS THE ONLY IRREVERSIBLE THING IN THIS ROOM, so it asks, the
       // question names the place rather than saying "this item", and it points
       // at the thing you probably meant instead.
-      async function removeRow(row) {
-        const label = text(row.name) || ('WPID ' + row.wpid);
-        const ok = window.confirm('Delete ' + label + '?\n\nThis cannot be undone. Shelve it instead if you only want it out of the library: a shelved row still stops an importer re-adding the place.');
-        if (!ok) return;
-        const id = String(row.wpid);
-        state.busy.add(id);
-        render();
-        setStatus('Deleting...');
-        try {
-          const res = await fetch(restUrl('waypoints', { wpid: 'eq.' + row.wpid }), {
-            method: 'DELETE',
-            headers: authHeaders({ Prefer: 'return=representation' })
-          });
-          if (!res.ok) throw new Error(await readError(res, 'Could not delete.'));
-          const back = await res.json().catch(function () { return []; });
-          if (!Array.isArray(back) || !back.length) {
-            throw new Error('The database refused that delete. The place may be on a path - take it off there first.');
-          }
-          state.rows = state.rows.filter(function (r) { return String(r.wpid) !== id; });
-          setStatus(label + ' deleted', 'success');
-        } catch (err) {
-          setStatus(err.message || String(err), 'error');
-        } finally {
-          state.busy.delete(id);
-          render();
-        }
-      }
+      // removeRow is GONE with the Delete button. Shelving covers the case it
+      // was for and covers it better, since a deleted place is one an importer
+      // puts straight back. If a genuine delete is ever needed it is a DELETE in
+      // the SQL editor, where the confirmation is that you typed it.
+
 
       // ── adding one by hand ───────────────────────────────────────────────
       function openNew() {
@@ -677,7 +705,11 @@
               address: text(el('newAddress').value),
               description: text(el('newDescription').value),
               source_url: text(el('newSource').value),
-              archived: false
+              // SHELVED, like every other arrival. A place typed in here is one
+              // somebody has just decided is worth recording, which is not the
+              // same as deciding it belongs in the live library -- and this is
+              // the room where that second decision gets made, one row below.
+              archived: true
             })
           });
           if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
