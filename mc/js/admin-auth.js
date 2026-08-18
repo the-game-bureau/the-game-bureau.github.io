@@ -55,6 +55,13 @@
       '.mc-auth-btn--primary:hover{background:#365694;}',
       '.mc-auth-btn--google{width:100%;height:auto;min-height:42px;padding:8px 14px;border-color:rgba(45,72,128,.35);text-align:center;white-space:normal;line-height:1.3;}',
       '.mc-auth-btn--wide{flex:1 0 100%;}',
+      /* HALF EACH, whatever the words are. They were sized to their own labels,
+         so "Reset Password" ran wider than "Request Access" and the pair sat
+         ragged under a full-width Sign In. flex-basis 0 rather than auto: with
+         auto the content still gets a say and the halves come out uneven again.
+         min-width 0 lets them shrink under their label so a phone keeps two
+         columns instead of stacking. */
+      '.mc-auth-actions .mc-auth-btn--half{flex:1 1 0;min-width:0;}',
       /* Collapse rather than sit there as a blank line's worth of margin. */
       '.mc-auth-copy:empty{display:none;}',
       /* A rule through the middle with the word sitting in it. The lines are the
@@ -134,14 +141,14 @@
       // and the pair below them are plainly the smaller, other things.
       '        <button class="mc-auth-btn mc-auth-btn--wide mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
       '        <span class="mc-auth-break" aria-hidden="true"></span>',
-      '        <button class="mc-auth-btn" id="mcAuthResetBtn" type="button">Reset Password</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half" id="mcAuthResetBtn" type="button">Reset Password</button>',
       // THE TWO SMALL THINGS SHARE THE LAST LINE. Neither signs you in: they
       // are what you press when the two full-width buttons above have not
       // worked for you. JOIN answers the third thing somebody standing here can
       // want -- not "let me in" and not "I forgot", but "I have no account at
       // all", which before this had no answer on screen and meant knowing to
       // ask a human with Supabase dashboard access.
-      '        <button class="mc-auth-btn" id="mcAuthJoinBtn" type="button">Request Access</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half" id="mcAuthJoinBtn" type="button">Request Access</button>',
       '      </div>',
       '    </form>',
       // autocomplete="on" here too. Changing a password is the moment a manager
