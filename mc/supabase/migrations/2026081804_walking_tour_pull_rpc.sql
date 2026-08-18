@@ -20,9 +20,16 @@
 --   * Every waypoint it creates arrives SHELVED (archived = true). That is the
 --     library's arrival state since 2026081803, and it is what puts a machine's
 --     find in front of a human in the Waypoint Finder before it can be used.
---   * The city must be the CITY_NAME OF AN NFL TEAM. Not decoration -- it is the
---     whole scope of the routine's brief, and it is the one check that stops an
---     anon caller writing an arbitrary path into this table.
+--   * The city must be the CITY_NAME OF A MAJOR-LEAGUE CLUB -- NFL, NBA, MLB or
+--     NHL. Not decoration: it is the whole scope of the routine's brief, and it
+--     is the one check that stops an anon caller writing an arbitrary path into
+--     this table. FOUR LEAGUES RATHER THAN ONE because PATH BOT works the NFL
+--     first and then moves on to the other three, and a guard that only knew
+--     about the NFL would refuse every tour it filed after the eighth division.
+--     `public.teams` holds all four (32 + 30 + 30 + 32) plus 515 NCAAF
+--     programs; college is deliberately NOT in this list, because an NCAAF
+--     `fanbase` is a SCHOOL rather than a city and `city_name` on those rows is
+--     not the same kind of answer.
 --   * At most 4 tours a call, 4..15 stops each. The routine is asked for four.
 --   * It never UPDATEs a description and never un-shelves a row.
 --
@@ -134,17 +141,17 @@ begin
       continue;
     end if;
 
-    -- THE NFL GUARD. teams.city_name is the bare city ("New Orleans"), which is
-    -- what paths.city and waypoints.city both hold; teams.fanbase is the legacy
-    -- "New Orleans, LA" and must not be matched against.
+    -- THE MAJOR-LEAGUE GUARD. teams.city_name is the bare city ("New Orleans"),
+    -- which is what paths.city and waypoints.city both hold; teams.fanbase is
+    -- the legacy "New Orleans, LA" and must not be matched against.
     if not exists (
       select 1 from public.teams t
-       where t.league = 'NFL'
+       where t.league in ('NFL', 'NBA', 'MLB', 'NHL')
          and lower(btrim(coalesce(t.city_name, ''))) = lower(v_city)
     ) then
       v_results := v_results || jsonb_build_array(jsonb_build_object(
         'city', v_city, 'title', v_title, 'outcome', 'invalid',
-        'reason', 'not the home city of an NFL club; this function files NFL-city walks only'));
+        'reason', 'not the home city of an NFL, NBA, MLB or NHL club; this function files major-league-city walks only'));
       continue;
     end if;
 
@@ -280,7 +287,7 @@ end;
 $$;
 
 comment on function public.tgb_pull_walking_tours(jsonb) is
-  'PATH BOT''s write path. SECURITY DEFINER, insert-only, callable with the publishable key. Files up to 4 published walking tours a call into paths / path_stops / waypoints. Every waypoint it creates arrives SHELVED, and the city must be the city_name of an NFL club: those two constants are what make it safe to expose to anon, so do not add parameters for them.';
+  'PATH BOT''s write path. SECURITY DEFINER, insert-only, callable with the publishable key. Files up to 4 published walking tours a call into paths / path_stops / waypoints. Every waypoint it creates arrives SHELVED, and the city must be the city_name of an NFL, NBA, MLB or NHL club: those two constants are what make it safe to expose to anon, so do not add parameters for them.';
 
 revoke all on function public.tgb_pull_walking_tours(jsonb) from public;
 grant execute on function public.tgb_pull_walking_tours(jsonb) to anon, authenticated;
