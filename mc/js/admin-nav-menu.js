@@ -87,6 +87,16 @@
           action: 'GO TO TEAMS'
         },
         {
+          href: '/mc/waypoint-finder.html',
+          // Beside the Path Builder, because the two are the two halves of one
+          // job: this one decides whether a place belongs in the catalogue, that
+          // one puts the kept places in an order. Reviewing is listed first for
+          // the same reason the Stock Room is: you look at what arrived before
+          // you build anything out of it.
+          label: 'Waypoint Finder',
+          description: 'Review places that have turned up lately: take them live, shelve them, or delete them.'
+        },
+        {
           href: '/mc/paths.html',
           // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
           // waypoints and nothing else -- no game, no challenges, no pricing --

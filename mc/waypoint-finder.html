@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>WAYPOINT FINDER | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      --success: #276740;
+      /* The Socializer's three, so this room reads as one of the set rather
+         than a fourth palette. When that room's chrome changes, change this. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app { max-width: 1180px; margin: 0 auto; padding: 0 18px 80px; }
+
+    /* The scribble is a red pen whatever the news is; weight carries the
+       difference. Without this the tone classes repaint it, since they are one
+       class heavier than .room-scribble in admin-shell.css. */
+    .status.error, .status.success { color: var(--bic-red); }
+    .status.error { font-weight: 700; }
+
+    .inline { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* THE COMMAND BAR, copied from mc/socials/index.html rather than
+       reconstructed, which is the standing rule for this vocabulary. */
+    .bar-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin: 0 0 16px; }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; flex: 0 0 auto; }
+
+    .command-bar {
+      min-inline-size: 0;
+      padding: 4px 12px 12px;
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+    /* The folder tab. A PSEUDO-ELEMENT, not a border on the legend: the word
+       must sit centred ON the line and the tab's sides must stop AT it, which
+       one box cannot do. inset 0 0 50% draws only the half above the line, and
+       the word's lower half hangs invisibly into the panel because the fill
+       matches. isolation:isolate keeps the z-index:-1 arch from dropping behind
+       the fieldset's own background. */
+    .command-bar > legend {
+      float: none; width: auto; padding: 3px 10px; margin: 0 0 0 10px;
+      position: relative; isolation: isolate; line-height: 1;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.92rem; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
+    }
+    .command-bar > legend::before {
+      content: ""; position: absolute; z-index: -1; inset: 0 0 50%;
+      border: 1px solid var(--cut-panel-line); border-bottom: 0;
+      border-radius: 5px 5px 0 0; background: var(--cut-panel-bg);
+    }
+    .command-bar-inner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+    .btn {
+      appearance: none; border: 1px solid var(--control-line); background: var(--paper);
+      color: var(--ink); font: inherit; font-size: 0.8rem; font-weight: 600;
+      padding: 7px 12px; border-radius: 6px; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center;
+    }
+    .btn:hover:not([disabled]) { background: #fff; }
+    .btn[disabled] { opacity: 0.45; cursor: default; }
+    .btn.primary { background: var(--bic-blue); border-color: var(--bic-blue); color: #fff; }
+    .btn.warn { border-color: var(--warn); color: var(--warn); }
+    select, input[type="search"] {
+      font: inherit; font-size: 0.82rem; color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 6px; padding: 6px 8px;
+    }
+
+    /* THE FILTER STRIP IS TABS, NOT A DROPDOWN, and the counts are the whole
+       reason: a closed select cannot say how many places are waiting on you. */
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+    .tab {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 12px; border: 1px solid var(--control-line); border-radius: 999px;
+      background: var(--paper); color: var(--ink);
+      font: inherit; font-size: 0.76rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
+    }
+    .tab[aria-pressed="true"] { background: var(--bic-blue); border-color: var(--bic-blue); color: #fff; }
+    .tab-count {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 600;
+      padding: 1px 6px; border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.12); color: inherit;
+    }
+    .tab[aria-pressed="true"] .tab-count { background: rgba(255, 255, 255, 0.22); }
+    /* NEW goes red the moment it holds anything: it is the only tab that is a
+       question rather than a view. */
+    .tab--new .tab-count.has-any { background: var(--bic-red); color: #fff; }
+
+    .panel { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 11px 14px; border-bottom: 1px solid var(--line);
+    }
+    .panel-title { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .panel-count { font-size: 0.78rem; color: var(--muted); margin-right: auto; }
+    .panel-body { padding: 8px; min-height: 120px; }
+
+    .wp {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 10px 12px; margin-bottom: 6px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      /* The state reads off the card's left edge as well as its chip, so a scan
+         down the list does not depend on reading every word. */
+      border-left-width: 3px;
+    }
+    .wp:last-child { margin-bottom: 0; }
+    .wp--live { border-left-color: var(--success); }
+    .wp--shelved { border-left-color: var(--muted); opacity: 0.62; border-style: dashed; }
+    .wp--new { border-left-color: var(--bic-red); }
+    .wp-main { flex: 1; min-width: 0; }
+    .wp-name { font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
+    .wp-meta { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; margin-top: 2px; }
+    .wp-desc { font-size: 0.84rem; margin: 6px 0 0; overflow-wrap: anywhere; }
+    .wp-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .wp-tag {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); text-decoration: none;
+      border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px;
+    }
+    .wp-tag--new { color: var(--bic-red); border-color: var(--bic-red); }
+    .wp-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+    .empty { color: var(--muted); font-size: 0.88rem; padding: 18px 12px; margin: 0; }
+
+    @media (max-width: 720px) {
+      .wp { flex-direction: column; }
+      .wp-actions { width: 100%; }
+      .wp-actions .btn { flex: 1 1 0; justify-content: center; }
+    }
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title">WAYPOINT FINDER</h1>
+        <p class="room-blurb">Every place that has turned up lately. Take it LIVE, SHELVE it, or DELETE it outright.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>OPEN</legend>
+        <div class="command-bar-inner">
+          <label class="inline" for="cityFilter">City</label>
+          <select id="cityFilter"></select>
+          <label class="inline" for="windowSelect">Arrived</label>
+          <select id="windowSelect">
+            <option value="7">last 7 days</option>
+            <option value="30" selected>last 30 days</option>
+            <option value="90">last 90 days</option>
+          </select>
+        </div>
+      </fieldset>
+      <fieldset class="command-bar">
+        <legend>FIND</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="search" placeholder="Name or address">
+          <a class="btn" href="/mc/paths.html" title="Where waypoints are added and put on a walk">Path Builder</a>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title" id="listTitle">Waypoints</span>
+        <span class="panel-count" id="listCount"></span>
+      </div>
+      <div class="panel-body" id="list"><p class="empty">Loading...</p></div>
+    </section>
+  </main>
+
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      // NEW IS A LENGTH OF TIME, NOT A STATE, which is the lesson the Tape Room
+      // paid for: a state-based queue accumulates until somebody clears it by
+      // hand, and had reached 246 candidates. A time-based one empties itself.
+      const NEW_FOR_HOURS = 72;
+
+      const state = {
+        rows: [],
+        tab: 'new',
+        city: '',
+        days: 30,
+        query: '',
+        busy: new Set()
+      };
+
+      const el = (id) => document.getElementById(id);
+      const text = (v) => String(v == null ? '' : v).trim();
+
+      function setStatus(msg, tone) {
+        const n = el('pageStatus');
+        n.textContent = msg || '';
+        n.classList.toggle('error', tone === 'error');
+        n.classList.toggle('success', tone === 'success');
+        // A success clears itself: a stale "shelved" an hour later is a lie
+        // about what is currently true. An error stays until the next action.
+        window.clearTimeout(setStatus.timer);
+        if (msg && tone === 'success') {
+          setStatus.timer = window.setTimeout(() => { n.textContent = ''; }, 6000);
+        }
+      }
+
+      function restUrl(table, params) {
+        const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+        Object.entries(params || {}).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+        });
+        return url.toString();
+      }
+
+      function authHeaders(extra) {
+        if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+        const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+        const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+        return Object.assign({
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/json'
+        }, extra || {});
+      }
+
+      async function readError(res, fallback) {
+        const body = await res.text().catch(() => '');
+        try {
+          const j = JSON.parse(body);
+          return j.message || j.hint || body || fallback;
+        } catch (err) { return body || fallback; }
+      }
+
+      // select=* and never a column list: created_at does not exist until
+      // 2026081802 is applied, and naming a column PostgREST does not have 400s
+      // the whole page load. A missing one reads as undefined, which ageHours
+      // already treats as "not new".
+      //
+      // fetchAll, not a bare fetch: PostgREST stops at 1000 rows and says
+      // nothing, and this table is the one that taught the project that.
+      async function loadRows() {
+        const url = restUrl('waypoints', { select: '*', order: 'wpid.desc' });
+        state.rows = await window.TgbRest.fetchAll(url, authHeaders());
+      }
+
+      function ageHours(row) {
+        if (!row.created_at) return Infinity;   // arrived before we started counting
+        const t = Date.parse(row.created_at);
+        return isFinite(t) ? (Date.now() - t) / 36e5 : Infinity;
+      }
+
+      const isNew = (row) => ageHours(row) <= NEW_FOR_HOURS;
+      const isShelved = (row) => row.archived === true || row.archived === 'true';
+
+      function inWindow(row) {
+        // ALL is the one view that ignores the window: it is the escape hatch
+        // for "where did that place go", and a date filter on an escape hatch is
+        // another way of not finding it.
+        if (state.tab === 'all') return true;
+        return ageHours(row) <= state.days * 24;
+      }
+
+      function matches(row) {
+        if (state.city && text(row.city) !== state.city) return false;
+        if (!inWindow(row)) return false;
+        if (state.query) {
+          const hay = (text(row.name) + ' ' + text(row.address)).toLowerCase();
+          if (!hay.includes(state.query)) return false;
+        }
+        if (state.tab === 'new') return isNew(row) && !isShelved(row);
+        if (state.tab === 'live') return !isShelved(row);
+        if (state.tab === 'shelved') return isShelved(row);
+        return true;
+      }
+
+      // Counts every tab through the SAME predicate the list uses, by borrowing
+      // state.tab for the length of the call. Two implementations of "what is in
+      // this tab" is how a strip ends up disagreeing with the list under it.
+      function countFor(tab) {
+        const was = state.tab;
+        state.tab = tab;
+        const n = state.rows.filter(matches).length;
+        state.tab = was;
+        return n;
+      }
+
+      const TABS = [['new', 'New'], ['live', 'Live'], ['shelved', 'Shelved'], ['all', 'All']];
+
+      function renderTabs() {
+        const box = el('tabs');
+        box.textContent = '';
+        TABS.forEach(function (entry) {
+          const key = entry[0];
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'tab' + (key === 'new' ? ' tab--new' : '');
+          b.setAttribute('aria-pressed', String(state.tab === key));
+          b.appendChild(document.createTextNode(entry[1]));
+          const c = document.createElement('span');
+          const n = countFor(key);
+          c.className = 'tab-count' + (key === 'new' && n ? ' has-any' : '');
+          c.textContent = String(n);
+          b.appendChild(c);
+          b.addEventListener('click', function () { state.tab = key; render(); });
+          box.appendChild(b);
+        });
+      }
+
+      function renderCities() {
+        const sel = el('cityFilter');
+        const chosen = state.city;
+        sel.textContent = '';
+        const all = document.createElement('option');
+        all.value = '';
+        all.textContent = 'Every city';
+        sel.appendChild(all);
+        Array.from(new Set(state.rows.map(function (r) { return text(r.city); }).filter(Boolean)))
+          .sort(function (a, b) { return a.localeCompare(b); })
+          .forEach(function (c) {
+            const o = document.createElement('option');
+            o.value = c;
+            o.textContent = c;
+            sel.appendChild(o);
+          });
+        sel.value = chosen;
+      }
+
+      function mkBtn(label, title, onClick, disabled, cls) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn' + (cls ? ' ' + cls : '');
+        b.textContent = label;
+        b.title = title;
+        b.disabled = !!disabled;
+        if (!disabled) b.addEventListener('click', onClick);
+        return b;
+      }
+
+      function tag(label, cls, href) {
+        const n = document.createElement(href ? 'a' : 'span');
+        n.className = 'wp-tag' + (cls ? ' ' + cls : '');
+        n.textContent = label;
+        if (href) {
+          n.href = href;
+          n.target = '_blank';
+          n.rel = 'noopener noreferrer';
+        }
+        return n;
+      }
+
+      function renderRow(row) {
+        const card = document.createElement('div');
+        const shelved = isShelved(row);
+        card.className = 'wp ' + (shelved ? 'wp--shelved' : (isNew(row) ? 'wp--new' : 'wp--live'));
+
+        const main = document.createElement('div');
+        main.className = 'wp-main';
+
+        const name = document.createElement('div');
+        name.className = 'wp-name';
+        name.textContent = text(row.name) || ('WPID ' + row.wpid);
+
+        const meta = document.createElement('div');
+        meta.className = 'wp-meta';
+        meta.textContent = [text(row.address), text(row.city), text(row.state)]
+          .filter(Boolean).join(' - ') || 'no address';
+
+        main.appendChild(name);
+        main.appendChild(meta);
+
+        if (text(row.description)) {
+          const d = document.createElement('p');
+          d.className = 'wp-desc';
+          d.textContent = text(row.description);
+          main.appendChild(d);
+        }
+
+        const tags = document.createElement('div');
+        tags.className = 'wp-tags';
+        if (isNew(row) && !shelved) tags.appendChild(tag('new', 'wp-tag--new'));
+        // THE ABSENCE IS THE NEWS. A source url is on almost every row and says
+        // nothing about those; a missing one is what is worth acting on, since
+        // it is what makes the claim checkable years later. Same for a point.
+        if (!text(row.source_url)) tags.appendChild(tag('no source'));
+        if (row.lat == null || row.lon == null) tags.appendChild(tag('not located'));
+        if (text(row.source_url)) tags.appendChild(tag('source', '', row.source_url));
+        if (tags.children.length) main.appendChild(tags);
+
+        const acts = document.createElement('div');
+        acts.className = 'wp-actions';
+        const busy = state.busy.has(String(row.wpid));
+        acts.appendChild(mkBtn('Live',
+          shelved ? 'Put it back in the catalogue' : 'Already live',
+          function () { setArchived(row, false); }, busy || !shelved, 'primary'));
+        acts.appendChild(mkBtn('Shelve',
+          shelved ? 'Already shelved' : 'Take it out of the catalogue; the row stays',
+          function () { setArchived(row, true); }, busy || shelved));
+        acts.appendChild(mkBtn('Delete',
+          'Remove the row entirely. Cannot be undone.',
+          function () { removeRow(row); }, busy, 'warn'));
+
+        card.appendChild(main);
+        card.appendChild(acts);
+        return card;
+      }
+
+      function render() {
+        renderTabs();
+        const rows = state.rows.filter(matches);
+        el('listTitle').textContent = state.city
+          ? 'WAYPOINTS: ' + state.city.toUpperCase()
+          : 'WAYPOINTS';
+        el('listCount').textContent = rows.length + (rows.length === 1 ? ' place' : ' places');
+        const box = el('list');
+        box.textContent = '';
+        if (!rows.length) {
+          const p = document.createElement('p');
+          p.className = 'empty';
+          p.textContent = state.tab === 'new'
+            ? 'Nothing new in the last ' + NEW_FOR_HOURS + ' hours. Places arrive from the Path Builder, an import, or the scout routine.'
+            : 'No waypoint matches this filter.';
+          box.appendChild(p);
+          return;
+        }
+        rows.forEach(function (r) { box.appendChild(renderRow(r)); });
+      }
+
+      // ── writes ───────────────────────────────────────────────────────────
+      // ARCHIVED IS THE ONLY STATE, exactly as it is for a soundtrack: LIVE is
+      // archived=false, SHELVED is archived=true, and NEW is a length of time
+      // over the top of them. On a waypoint archived is ALSO a do-not-rescrape
+      // tombstone, which is why shelving keeps the row rather than deleting it:
+      // the importers match on name and skip a place that is already here, and
+      // a deleted row lets the next run put it straight back.
+      async function setArchived(row, archived) {
+        const id = String(row.wpid);
+        state.busy.add(id);
+        render();
+        setStatus(archived ? 'Shelving...' : 'Restoring...');
+        try {
+          const res = await fetch(restUrl('waypoints', { wpid: 'eq.' + row.wpid }), {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify({ archived: archived })
+          });
+          if (!res.ok) throw new Error(await readError(res, 'Could not save.'));
+          const back = await res.json().catch(function () { return []; });
+          // PostgREST answers 200 WITH AN EMPTY ARRAY when RLS refuses a write:
+          // no error, no rows, nothing changed. Without this check the card
+          // repaints as though it had saved and quietly reverts on next load.
+          if (!Array.isArray(back) || !back.length) {
+            throw new Error('The database refused that write. Are you still signed in?');
+          }
+          row.archived = archived;
+          setStatus((text(row.name) || 'Waypoint') + (archived ? ' shelved' : ' is live'), 'success');
+        } catch (err) {
+          setStatus(err.message || String(err), 'error');
+        } finally {
+          state.busy.delete(id);
+          render();
+        }
+      }
+
+      // DELETE IS THE ONLY IRREVERSIBLE THING IN THIS ROOM, so it asks, the
+      // question names the place rather than saying "this item", and it points
+      // at the thing you probably meant instead.
+      async function removeRow(row) {
+        const label = text(row.name) || ('WPID ' + row.wpid);
+        const ok = window.confirm('Delete ' + label + '?\n\nThis cannot be undone. Shelve it instead if you only want it out of the catalogue: a shelved row still stops an importer re-adding the place.');
+        if (!ok) return;
+        const id = String(row.wpid);
+        state.busy.add(id);
+        render();
+        setStatus('Deleting...');
+        try {
+          const res = await fetch(restUrl('waypoints', { wpid: 'eq.' + row.wpid }), {
+            method: 'DELETE',
+            headers: authHeaders({ Prefer: 'return=representation' })
+          });
+          if (!res.ok) throw new Error(await readError(res, 'Could not delete.'));
+          const back = await res.json().catch(function () { return []; });
+          if (!Array.isArray(back) || !back.length) {
+            throw new Error('The database refused that delete. The place may be on a path - take it off there first.');
+          }
+          state.rows = state.rows.filter(function (r) { return String(r.wpid) !== id; });
+          setStatus(label + ' deleted', 'success');
+        } catch (err) {
+          setStatus(err.message || String(err), 'error');
+        } finally {
+          state.busy.delete(id);
+          render();
+        }
+      }
+
+      // ── wiring ───────────────────────────────────────────────────────────
+      el('cityFilter').addEventListener('change', function (e) { state.city = e.target.value; render(); });
+      el('windowSelect').addEventListener('change', function (e) { state.days = Number(e.target.value) || 30; render(); });
+      el('search').addEventListener('input', function (e) { state.query = e.target.value.trim().toLowerCase(); render(); });
+
+      const adminAuth = window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: async function () {
+          setStatus('Loading waypoints...');
+          try {
+            await loadRows();
+            renderCities();
+            render();
+            setStatus('');
+          } catch (err) {
+            setStatus(err.message || 'Could not load waypoints.', 'error');
+          }
+        },
+        onSignedOut: function () {
+          state.rows = [];
+          render();
+        }
+      });
+
+      // Nothing paints until this runs: the body is mc-auth-protected, and
+      // admin-shell.css hides every child except the sign-in root init() creates.
+      adminAuth.init();
+    }());
+  </script>
+</body>
+</html>
