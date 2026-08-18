@@ -269,13 +269,24 @@
        margin-left:auto on the count instead: the title and its pencil group at
        the left, the count goes right, and Save follows it when there is one. */
     .panel-head--path { align-items: center; justify-content: flex-start; }
-    .panel-head--path .panel-count { margin-left: auto; }
-    /* .small is the row buttons' size, so Edit and Save match Remove and the
-       arrows rather than being a third scale on one panel. The pair sits at the
-       gap the row's own buttons use: at the header's 10px plus a margin they
-       read as two separate controls that happen to be near each other. */
+    /* The count never wraps: it is four words and wrapping them turned a header
+       into two ragged lines. The TITLE may wrap - it is a name and a truncated
+       one is worse than a tall header - so it takes the slack instead. */
+    .panel-head--path .panel-count { margin-left: auto; white-space: nowrap; padding-left: 10px; }
+    .panel-head--path .panel-title { min-width: 0; }
+    /* TWO SIZES IN THIS ROOM, AND THE RULE IS WHERE A BUTTON SITS, NOT WHICH
+       PANEL IT IS IN. Full size in a header or a bar; .small inside a row.
+       Edit and Save wore .small, which is the ROW size, so they sat 26px tall in
+       a 49px header and read as undersized rather than quiet.
+    */
     .panel-head--path { gap: 6px; }
     .panel-head--path .panel-title { margin-right: 4px; }
+    /* Both column headers hold the same height whether or not one of them has
+       buttons in it. They sit side by side at the top of .cols, so a header that
+       grows when Save appears would step the two columns out of line every time
+       you drag a row. */
+    #poolPanel > .panel-head,
+    #pathPanel > .panel-head { min-height: 57px; }
     /* Save is hidden when clean, so it must not hold a gap when it is. */
     .panel-head--path .btn[hidden] { display: none; }
 
@@ -765,7 +776,7 @@
                out of it is asking to be overlooked.
                It sits with the title rather than by the count, because it acts on
                the NAME beside it - Save, further right, acts on the list below. -->
-          <button class="btn small" id="editPathBtn" type="button" disabled
+          <button class="btn" id="editPathBtn" type="button" disabled
                   title="Rename this path or change its shape">Edit</button>
           <!-- SAVE APPEARS ONLY WHEN THERE IS SOMETHING TO SAVE. It was disabled
                almost always, which makes a control furniture: you stop reading
@@ -776,7 +787,7 @@
                different class of control. It is still the PRIMARY one -- filled,
                where Edit is outlined -- which is what says which of the two the
                room wants you to press. -->
-          <button class="btn small primary" id="saveBtn" type="button" hidden
+          <button class="btn primary" id="saveBtn" type="button" hidden
                   title="Save the order of this path">Save</button>
           <span class="panel-count" id="pathCount"></span>
         </div>
@@ -1215,7 +1226,7 @@
 
     function renderCounts() {
       el('pathCount').textContent = state.stops.length
-        ? state.stops.length + ' waypoint' + (state.stops.length === 1 ? '' : 's') + (state.dirty ? ' - unsaved' : '')
+        ? state.stops.length + ' waypoint' + (state.stops.length === 1 ? '' : 's')
         : '';
     }
 
