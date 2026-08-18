@@ -295,6 +295,21 @@
     .stop-main { flex: 1; min-width: 0; }
     .stop-name { font-weight: 600; font-size: 0.94rem; overflow-wrap: anywhere; }
     .stop-meta { font-size: 0.76rem; color: var(--muted); overflow-wrap: anywhere; }
+    /* Between the words and the buttons, right-aligned against them, and quiet:
+       it is a measurement, not a control. Collapses when empty so a row without
+       a routed leg -- the last one, or any while the router is thinking -- looks
+       no different from before. */
+    .stop-leg {
+      flex: 0 0 auto;
+      margin-left: auto;
+      padding-right: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .stop-leg:empty { display: none; }
+
     .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
     .stop.is-dragging { opacity: 0.4; }
@@ -1275,6 +1290,14 @@
           || 'no address';
         main.append(name, meta);
 
+        // THE HOP TO THE NEXT WAYPOINT, filled in once the router answers. An
+        // empty slot on every row but the last, rather than one created later:
+        // the row is built before the route is known, and inserting an element
+        // afterwards would shift the actions sideways as the times arrive.
+        const leg = document.createElement('span');
+        leg.className = 'stop-leg';
+        leg.dataset.legFrom = String(i);
+
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
         const up = mkBtn('↑', 'Move up', () => moveStop(i, i - 1), i === 0);
@@ -1284,7 +1307,7 @@
         off.classList.add('warn');
         actions.append(up, down, edit, off);
 
-        row.append(handle, ord, main, actions);
+        row.append(handle, ord, main, leg, actions);
         wireDropTarget(row);
         box.appendChild(row);
       });
@@ -1553,6 +1576,31 @@
       }
     }
 
+    // Fills the per-row slots from the legs the router returned. Writes into the
+    // rows that already exist rather than re-rendering: renderStops is what would
+    // be re-run, and renderMap is called from renderAll, so a re-render here
+    // would route again, and again.
+    function paintLegDistances(located, legs) {
+      const box = el('pathStops');
+      if (!box) return;
+      box.querySelectorAll('.stop-leg').forEach((n) => { n.textContent = ''; n.title = ''; });
+      if (!legs) return;
+      const geo = window.TgbWaypointGeo;
+      legs.forEach((lg, i) => {
+        const from = located[i];
+        if (!from) return;
+        const slot = box.querySelector('.stop-leg[data-leg-from="' + from.row + '"]');
+        if (!slot) return;
+        const dist = geo && geo.formatSpanBothUnits
+          ? geo.formatSpanBothUnits(lg.metres)
+          : Math.round(lg.metres) + ' m';
+        // The arrow says which way it is measured. Without it a number on a row
+        // reads as a property of that waypoint rather than of the gap after it.
+        slot.textContent = '↓ ' + dist + ' · ' + walkMinutes(lg.seconds);
+        slot.title = 'To the next waypoint: ' + dist + ', about ' + walkMinutes(lg.seconds) + ' walking';
+      });
+    }
+
     function walkMinutes(seconds) {
       const mins = Math.round((Number(seconds) || 0) / 60);
       if (mins < 1) return 'under a minute';
@@ -1602,7 +1650,12 @@
       if (!box) return;
 
       const stops = state.stops.map(wpById).filter(Boolean);
-      const located = stops.map((w) => ({ w, at: pointOf(w) })).filter((e) => e.at);
+      // `at` for the map, `row` for the list: a leg runs between two LOCATED
+      // waypoints, and its distance is written onto the row of the first of them
+      // - which is not the leg's own index once anything unlocated sits between.
+      const located = stops
+        .map((w, i) => ({ w, at: pointOf(w), row: i }))
+        .filter((e) => e.at);
       const unlocated = stops.length - located.length;
 
       // The same set the pool panel lists, minus the typed filter - the map is
@@ -1792,6 +1845,8 @@
       if (walkPoints.length > 1) {
         const legs = await fetchWalkLegs(walkPoints);
         if (token !== mapState.token) return;   // a newer render started while we waited
+
+        paintLegDistances(located, legs);
 
         if (legs) {
           legs.forEach((leg, i) => {
