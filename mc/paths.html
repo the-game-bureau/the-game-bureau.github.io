@@ -409,6 +409,15 @@
       width: 30px; min-width: 30px; padding-left: 0; padding-right: 0;
       justify-content: center; line-height: 1;
     }
+    /* EDIT IS A WORD, NOT AN ARROW, so it opts out of the square above and
+       keeps a little air after it: the three arrows are one set about the walk
+       and this is about the place, so it reads as sitting beside them rather
+       than as a fourth arrow. Same face and size as the library's Edit, since
+       they open the same editor on the same row. */
+    .stop-actions .btn.stop-edit {
+      width: auto; min-width: 0; padding-left: 9px; padding-right: 9px;
+      margin-right: 4px; font-size: 0.72rem;
+    }
     /* ONE DRAWING, FOUR ROTATIONS. See arrowGlyph: these were Unicode arrows
        until 2026-08-18, and neither face this page loads carries the horizontal
        pair, so left and right fell back to a system font and sat visibly lighter
@@ -1426,16 +1435,26 @@
         actions.className = 'stop-actions';
         const up = arrowBtn('up', 'Move up', () => moveStop(i, i - 1), i === 0);
         const down = arrowBtn('down', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
-        // NO EDIT HERE. A waypoint LIVES in the library - one row, edited once,
-        // shared by every path that uses it. This panel shows the same waypoint
-        // as a POSITION IN A WALK, and every other button on the row is about the
-        // walk: up, down, and Remove which takes it off and keeps the place.
-        // An Edit among them invited the reading that you were editing this
-        // path's copy of the place, which is the exact misunderstanding the two
-        // tables exist to prevent.
+        // EDIT IS BACK ON THIS ROW (2026-08-18), first, left of the arrows.
+        // It was taken off deliberately and the reasoning still stands, so it is
+        // worth writing down rather than quietly reversing: a waypoint LIVES in
+        // the library, one row edited once and shared by every path that uses
+        // it, and this panel shows that waypoint as a POSITION IN A WALK. An
+        // Edit among the walk's own controls invites the reading that you are
+        // editing THIS PATH'S COPY of the place, which is the exact
+        // misunderstanding the two tables exist to prevent.
         //
-        // Nothing is lost: the library row has Edit, its map pin opens the editor
-        // on click, and dragging a pin opens it holding the new point.
+        // What outweighed it: this is the panel you are actually looking at
+        // while building, a typo or a wrong address is noticed HERE, and the fix
+        // was over in the other column behind a search. It opens the SAME editor
+        // on the SAME row as the library's Edit, so a change made here changes
+        // the place everywhere, which is the thing to keep saying out loud.
+        //
+        // LEFT OF THE ARROWS, and separated by the gap in .stop-actions: the
+        // three arrows are one set about the walk, Edit is about the place, so
+        // it sits outside that set rather than becoming a fourth member of it.
+        const edit = mkBtn('Edit', 'Edit this waypoint. It is one row shared by every path, so this changes the place everywhere.', () => openWaypointEditor(wpid));
+        edit.classList.add('stop-edit');
         // A LEFT ARROW, AND IT POINTS AT THE LIBRARY. The three controls on this
         // row are now one shape: arrows that say where the stop goes. Up and
         // down move it within the walk; this one sends it back across the gap to
@@ -1452,7 +1471,7 @@
         // in a room built for rearranging is a warning about nothing, and it
         // broke the set: three arrows doing one kind of job, one of them
         // coloured as though it were a different kind.
-        actions.append(off, up, down);
+        actions.append(edit, off, up, down);
 
         row.append(handle, ord, main, leg, actions);
         wireDropTarget(row);
