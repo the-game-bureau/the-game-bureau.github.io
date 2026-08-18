@@ -807,12 +807,28 @@
     return { order: tour, metres: Math.round(legs(tour)) };
   }
 
-  // Miles, because every city in this table is in the US and a walk is
-  // something a person estimates in blocks and minutes, not kilometres.
+  // BOTH UNITS. Every city in this table is in the US, where a walk is judged
+  // in miles - but metres are what the router returns, what the solver works in
+  // and what gets pasted into a message, so printing one and leaving the reader
+  // to convert is how a figure gets misread. One formatter, so the page and the
+  // solver can never disagree about the same number.
+  //
+  // Under 400 m it switches to feet and metres: "0.2 mi" hides the difference
+  // between a doorway and two blocks.
+  // NOT called formatDistance: that name is taken further down by the search
+  // results' "N steps" nearness reading, and a later function declaration wins -
+  // so a second one of that name is silently dead code. Named for its job.
+  function formatSpanBothUnits(metres) {
+    var m = Number(metres) || 0;
+    if (m < 400) return Math.round(m * 3.28084) + ' ft (' + Math.round(m) + ' m)';
+    var miles = m / 1609.344;
+    var km = m / 1000;
+    return miles.toFixed(miles < 10 ? 1 : 0) + ' mi (' + km.toFixed(km < 10 ? 1 : 0) + ' km)';
+  }
+
   function formatWalkDistance(metres) {
-    var miles = metres / 1609.344;
-    var mins = Math.round(metres / 80);   // ~3 mph, the usual walking figure
-    return (miles < 0.1 ? '<0.1' : miles.toFixed(1)) + ' mi · about ' + mins + ' min walking';
+    var mins = Math.round((Number(metres) || 0) / 80);   // ~3 mph, the usual figure
+    return formatSpanBothUnits(metres) + ' · about ' + mins + ' min walking';
   }
 
   // Google Maps for a waypoint, asked BY ADDRESS - the official Maps URL search
@@ -1234,6 +1250,7 @@
     // Geometry
     haversineMeters: haversineMeters,
     suggestWalk: suggestWalk,
-    formatWalkDistance: formatWalkDistance
+    formatWalkDistance: formatWalkDistance,
+    formatSpanBothUnits: formatSpanBothUnits
   };
 }(window));

@@ -219,7 +219,6 @@
       gap: 8px;
       padding: 10px 14px;
       border-bottom: 1px solid var(--cut-panel-line);
-      border-radius: 8px 8px 0 0;
       background: var(--cut-panel-bg);
     }
     .panel-open select { min-width: 0; }
@@ -659,17 +658,23 @@
         <div class="panel-body" id="poolList"></div>
       </section>
       <section class="panel" id="pathPanel">
-        <!-- WHICH PATH, AND WHAT TO DO WITH IT, both on the panel that IS the
-             path: the thing you choose sits with the thing that changes when
-             you choose it. The CITY is not here -- it governs the library as
-             well, so it sits in OPEN at the top of the room. -->
+        <!-- THE HEADING FIRST. It names the panel, and the picker under it is a
+             control inside it: with the control on top the column had no title
+             until you had already read past its most complicated row.
+             It matches the library's header opposite, which is the point. -->
+        <div class="panel-head">
+          <span class="panel-title" id="pathPanelTitle">PATH</span>
+          <span class="panel-count" id="pathCount"></span>
+        </div>
         <!-- WHICH PATH, AND WHAT TO DO WITH IT, on one line. All three buttons
              act on whatever the picker beside them is showing and on nothing
              else, so they belong next to it rather than a row below, where the
              title in between made them look like they acted on the LIST. -->
         <div class="panel-open">
-          <!-- PATHS, plural: it labels a LIST of them. The panel heading under it
-               is the singular one, because that is about the path you opened. -->
+          <!-- PATHS, plural: it labels a LIST of them. The heading ABOVE is the
+               singular one, being about the path you opened. The CITY is not
+               here -- it governs the library too, so it sits in OPEN at the top
+               of the room. -->
           <label class="inline" for="pathSelect">Paths</label>
           <select id="pathSelect"></select>
           <span class="panel-acts">
@@ -682,10 +687,6 @@
             <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder this path by geometry - the shortest sensible walk">Suggest order</button>
             <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
           </span>
-        </div>
-        <div class="panel-head">
-          <span class="panel-title" id="pathPanelTitle">PATH</span>
-          <span class="panel-count" id="pathCount"></span>
         </div>
         <div class="meta-grid" id="pathMeta"></div>
         <div class="panel-body" id="pathStops"></div>
@@ -1659,8 +1660,14 @@
         if (!legs) return 'The walking router did not answer, so the line is straight point to point and the times are missing.';
         const secs = legs.reduce((n, l) => n + l.seconds, 0);
         const metres = legs.reduce((n, l) => n + l.metres, 0);
-        return 'The whole path is a ' + walkMinutes(secs) + ' walk, '
-          + (metres >= 1000 ? (metres / 1000).toFixed(1) + ' km' : Math.round(metres) + ' m') + '.';
+        // formatDistance from the shared module, not a local copy: the solver's
+        // "Reordered N waypoints" line prints the same kind of number, and two
+        // formatters for one figure is how they end up disagreeing.
+        const geo = window.TgbWaypointGeo;
+        const dist = geo && geo.formatSpanBothUnits
+          ? geo.formatSpanBothUnits(metres)
+          : Math.round(metres) + ' m';
+        return 'The whole path is a ' + walkMinutes(secs) + ' walk, ' + dist + '.';
       }
 
       function poolNote() {
@@ -2721,7 +2728,8 @@
       state.stops = result.order.map((i) => located[i].id).concat(unplaced);
       markDirty();
       setStatus('Reordered ' + located.length + ' waypoints - ' + geo.formatWalkDistance(result.metres)
-        + (unplaced.length ? ' · ' + unplaced.length + ' unlocated stop(s) left at the end' : '')
+        + (unplaced.length ? ' · ' + unplaced.length + ' unlocated waypoint'
+            + (unplaced.length === 1 ? '' : 's') + ' left at the end' : '')
         + '. Press Save to keep it.', 'success');
     }
 
