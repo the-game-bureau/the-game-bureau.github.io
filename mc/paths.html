@@ -477,7 +477,10 @@
       <fieldset class="command-bar">
         <legend>ADD</legend>
         <div class="command-bar-inner">
-          <button class="btn" id="addWaypointBtn" type="button">Waypoint</button>
+          <!-- MANUAL, because the three buttons in this bar are three SOURCES
+               of a waypoint and the difference between them is where the place
+               comes from: typed in by hand, or found by the routine. -->
+          <button class="btn" id="addWaypointBtn" type="button" title="Type a place in by hand">Waypoint Manual</button>
           <button class="btn" id="addPathBtn" type="button">Path</button>
           <!-- WAYPOINT BOT, out of the library's filter row. It is a SOURCE of
                waypoints, like the two buttons beside it, and the filter row is
@@ -2783,14 +2786,16 @@
       e.returnValue = '';
     });
 
-    // WIREFRAME PLACEHOLDERS. They say so in the scribble rather than doing
-    // nothing at all: a button that swallows a click with no response is
-    // indistinguishable from one that is broken, and this room has spent a day
-    // on exactly that confusion. Replace the handler when the action is decided.
-    ['addWaypointBtn', 'addPathBtn'].forEach((id) => {
-      const b = el(id);
-      if (b) b.addEventListener('click', () => setStatus('not wired yet'));
-    });
+    // The new-waypoint editor, opened as an unsaved draft. Same call the
+    // library's own + Waypoint makes -- the two are the same action from two
+    // places, and when the ADD bar takes over that button goes rather than the
+    // handler being written twice.
+    el('addWaypointBtn').addEventListener('click', () => openWaypointEditor(null));
+
+    // STILL A WIREFRAME PLACEHOLDER. It says so rather than doing nothing at
+    // all: a button that swallows a click with no response is indistinguishable
+    // from one that is broken. Replace when the action is decided.
+    el('addPathBtn').addEventListener('click', () => setStatus('not wired yet'));
 
     // The path list is a drop target for the whole of its area, not only its
     // rows. Bound once, before anything renders into it.
