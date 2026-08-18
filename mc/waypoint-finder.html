@@ -221,6 +221,18 @@
       border-top: 1px solid rgba(var(--bic-blue-rgb), 0.22);
       background: #f8fbff;
     }
+    /* THE SWITCH LEFT, MAINTENANCE RIGHT. Live/shelved is the decision this
+       room exists for, so it keeps the reading edge; Edit and Delete are things
+       you do TO a row rather than judgements about it, so they go to the far
+       end and out of the way of the one control you press over and over. The
+       Socializer parks its own Edit the same way, for the same reason. */
+    .post-tools { display: flex; gap: 8px; margin-left: auto; }
+    .post-tools .btn { font-size: 0.74rem; padding: 5px 10px; }
+    /* Delete is the only irreversible thing in the room and is drawn as the
+       only one: red on white, never a filled red button, which reads as the
+       primary action on the card. */
+    .btn.danger { border-color: var(--bic-red); color: var(--bic-red); }
+    .btn.danger:hover:not([disabled]) { background: var(--bic-red); color: #fff; }
 
     /* A SWITCH, drawn as one. The knob sits left for shelved and right for
        live, and the word beside it says which -- a switch with no label is a
@@ -323,7 +335,23 @@
       <fieldset class="command-bar">
         <legend>ADD</legend>
         <div class="command-bar-inner">
-          <button class="btn primary" id="newWaypointBtn" type="button" title="Type a place in by hand">Waypoint</button>
+          <!-- THE PATH BUILDER'S ADD BAR, waypoint half, copied rather than
+               reinvented. The two rooms are halves of one job (this one decides
+               whether a place belongs in the library at all, that one puts the
+               kept ones in an order), so the control that makes a waypoint has
+               to look and read the same in both or they become two products.
+               The PATH half of that bar is deliberately NOT here: there is no
+               path in this room to make one from.
+               MANUAL, because these are two SOURCES of a waypoint and the
+               difference between them is where the place comes from: typed in
+               by hand, or found by the routine. -->
+          <button class="btn" id="newWaypointBtn" type="button" title="Type a place in by hand">Waypoint Manual</button>
+          <!-- A DOOR to the routine at claude.ai, and no arrow on its face: it
+               wears the same chrome as the button beside it, and marking one
+               control as a door while the rest are not reads as a difference in
+               kind rather than in destination. -->
+          <a class="btn" href="https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j" target="_blank" rel="noopener"
+             title="Open WAYPOINT BOT at claude.ai">Waypoint Bot</a>
         </div>
       </fieldset>
       <fieldset class="command-bar">
@@ -414,7 +442,15 @@
         city: '',
         days: 30,
         query: '',
-        busy: new Set()
+        busy: new Set(),
+        // ONE FORM, TWO MODES. The add dialog and the edit dialog want exactly
+        // the same five fields, so they are the same dialog: this holds the
+        // wpid being edited, or null when the form is adding.
+        editing: null,
+        // wpid -> how many path stops point at it. Read once alongside the
+        // waypoints, and used by ONE thing: the delete confirmation, which has
+        // to be able to say that removing this place takes it off a walk.
+        onPaths: new Map()
       };
 
       const el = (id) => document.getElementById(id);
@@ -484,6 +520,27 @@
       async function loadRows() {
         const url = restUrl('waypoints', { select: '*', order: 'wpid.desc' });
         state.rows = await window.TgbRest.fetchAll(url, authHeaders());
+      }
+
+      // WHICH PLACES ARE ON A WALK. path_stops has `on delete cascade` on wpid,
+      // so deleting a waypoint silently shortens every path it was on. That is
+      // the one fact the delete confirmation has to be able to state, and it is
+      // not on the waypoint row, so it is read separately.
+      //
+      // FAILS SOFT, deliberately: a room that will not open because a secondary
+      // count would not load is worse than a confirmation that has to say it
+      // could not check. The catch leaves the map empty and confirmDelete says
+      // so in as many words.
+      async function loadPathStops() {
+        state.onPaths = new Map();
+        try {
+          const url = restUrl('path_stops', { select: 'wpid' });
+          const rows = await window.TgbRest.fetchAll(url, authHeaders());
+          rows.forEach(function (r) {
+            const k = String(r.wpid);
+            state.onPaths.set(k, (state.onPaths.get(k) || 0) + 1);
+          });
+        } catch (err) { state.onPaths = null; }
       }
 
       function ageHours(row) {
@@ -568,6 +625,17 @@
             sel.appendChild(o);
           });
         sel.value = chosen;
+      }
+
+      function mkBtn(label, title, onClick, disabled, cls) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn' + (cls ? ' ' + cls : '');
+        b.textContent = label;
+        b.title = title;
+        b.disabled = !!disabled;
+        if (!disabled) b.addEventListener('click', onClick);
+        return b;
       }
 
       function tag(label, cls, href) {
@@ -675,6 +743,16 @@
         if (!busy) toggle.addEventListener('click', function () { setArchived(row, !shelved); });
         acts.appendChild(toggle);
 
+        const tools = document.createElement('div');
+        tools.className = 'post-tools';
+        tools.appendChild(mkBtn('Edit', 'Correct this place: its name, city, address, description or source', function () {
+          openEditor(row);
+        }, busy));
+        tools.appendChild(mkBtn('Delete', 'Remove this row for good. Shelving is usually what you want instead.', function () {
+          removeRow(row);
+        }, busy, 'danger'));
+        acts.appendChild(tools);
+
         card.appendChild(kicker);
         card.appendChild(body);
         card.appendChild(acts);
@@ -748,23 +826,58 @@
       // the SQL editor, where the confirmation is that you typed it.
 
 
-      // ── adding one by hand ───────────────────────────────────────────────
-      function openNew() {
-        el('newName').value = '';
-        // Prefilled from the city you are already looking at: adding a place is
-        // nearly always a thing you do while reviewing that city's list.
-        el('newCity').value = state.city || '';
-        el('newAddress').value = '';
-        el('newDescription').value = '';
-        el('newSource').value = '';
-        el('newNote').textContent = 'Name and city are required. Everything else can be filled in later from the Path Builder.';
-        el('newDlg').classList.add('is-open');
-        el('newName').focus();
+      // ── adding and editing, in ONE dialog ────────────────────────────────
+      // The add form and the edit form want exactly the same five fields, so
+      // they are the same form. state.editing holds the wpid being edited, or
+      // null when it is adding, and every difference between the two modes is
+      // decided from that one value: the heading, the button face, the note,
+      // and which request saveNew sends.
+      function fillForm(row) {
+        el('newName').value = text(row && row.name);
+        // Prefilled from the city you are already looking at when adding: it is
+        // nearly always a place in the list you are reviewing.
+        el('newCity').value = row ? text(row.city) : (state.city || '');
+        el('newAddress').value = text(row && row.address);
+        el('newDescription').value = text(row && row.description);
+        el('newSource').value = text(row && row.source_url);
       }
 
-      function closeNew() { el('newDlg').classList.remove('is-open'); }
+      function openDialog() {
+        const editing = state.editing != null;
+        el('newDlgTitle').textContent = editing ? 'Edit waypoint' : 'New waypoint';
+        el('newSave').textContent = editing ? 'Save changes' : 'Add waypoint';
+        el('newNote').textContent = editing
+          // SAYS WHAT IT WILL NOT TOUCH. The form carries five fields and the row
+          // carries a dozen; somebody editing an address needs to know the point
+          // that address described is about to stop matching it.
+          ? 'Name and city are required. Editing the address CLEARS the stored coordinates, since they describe where the old address was; relocate it from the Path Builder. Live or shelved is the switch on the card, not this form.'
+          : 'Name and city are required; the state comes from the city. It arrives shelved, like every other new place.';
+        el('newDlg').classList.add('is-open');
+        el('newName').focus();
+        el('newName').select();
+      }
+
+      function openNew() {
+        state.editing = null;
+        fillForm(null);
+        openDialog();
+      }
+
+      function openEditor(row) {
+        state.editing = row.wpid;
+        fillForm(row);
+        openDialog();
+      }
+
+      function closeNew() {
+        el('newDlg').classList.remove('is-open');
+        // Cleared on the way out, or the next press of the ADD button would
+        // reopen the form still pointed at the last row it edited.
+        state.editing = null;
+      }
 
       async function saveNew() {
+        const editing = state.editing != null;
         const name = text(el('newName').value);
         const city = text(el('newCity').value);
         if (!name || !city) {
@@ -774,58 +887,139 @@
         }
         // A WARNING, NOT A BLOCK. One address is routinely several places -- a
         // museum and the sculpture outside it -- so a name that already exists
-        // in this city is worth saying and not worth refusing.
+        // in this city is worth saying and not worth refusing. The row being
+        // edited is never its own clash.
         const clash = state.rows.find(function (r) {
-          return text(r.city).toLowerCase() === city.toLowerCase()
+          return r.wpid !== state.editing
+            && text(r.city).toLowerCase() === city.toLowerCase()
             && text(r.name).toLowerCase() === name.toLowerCase();
         });
         const BREAK = String.fromCharCode(10) + String.fromCharCode(10);
-        if (clash && !window.confirm(city + ' already has a waypoint called ' + name + '.' + BREAK + 'Add it anyway?')) return;
+        if (clash && !window.confirm(city + ' already has a waypoint called ' + name + '.' + BREAK
+          + (editing ? 'Rename it anyway?' : 'Add it anyway?'))) return;
+
+        const address = text(el('newAddress').value);
+        const body = {
+          name: name,
+          city: city,
+          // Derived, not typed. Omitted rather than sent empty when the city
+          // will not parse, so the column keeps what it had instead of a blank
+          // that looks like an answer.
+          state: stateFromCity(city) || undefined,
+          address: address,
+          description: text(el('newDescription').value),
+          source_url: text(el('newSource').value)
+        };
 
         el('newSave').disabled = true;
-        setStatus('Adding ' + name + '...');
+        setStatus((editing ? 'Saving ' : 'Adding ') + name + '...');
         try {
-          const res = await fetch(restUrl('waypoints'), {
-            method: 'POST',
-            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-            // archived FALSE explicitly: a place typed in here is one somebody
-            // has just decided is worth recording, so it arrives live. It is
-            // still NEW for 72 hours, which is what puts it in the queue.
-            body: JSON.stringify({
-              name: name,
-              city: city,
-              // Derived, not typed. Omitted rather than sent empty when the city
-              // will not parse, so the column keeps its default instead of a
-              // blank that looks like an answer.
-              state: stateFromCity(city) || undefined,
-              address: text(el('newAddress').value),
-              description: text(el('newDescription').value),
-              source_url: text(el('newSource').value),
-              // SHELVED, like every other arrival. A place typed in here is one
-              // somebody has just decided is worth recording, which is not the
-              // same as deciding it belongs in the live library -- and this is
-              // the room where that second decision gets made, one row below.
-              archived: true
-            })
-          });
-          if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
+          let res;
+          if (editing) {
+            const before = state.rows.find(function (r) { return r.wpid === state.editing; });
+            // EDITING THE ADDRESS CLEARS THE POINT, the same rule the Path
+            // Builder's editor holds: those coordinates describe where the OLD
+            // address was, and a point left pinned to a corrected address is a
+            // pin in the wrong place that nothing will ever flag. Cleared only
+            // when the address actually changed, so re-saving a description
+            // does not throw away a located row.
+            if (before && text(before.address) !== address) { body.lat = null; body.lon = null; }
+            res = await fetch(restUrl('waypoints', { wpid: 'eq.' + state.editing }), {
+              method: 'PATCH',
+              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+              body: JSON.stringify(body)
+            });
+          } else {
+            // SHELVED, like every other arrival. A place typed in here is one
+            // somebody has just decided is worth recording, which is not the
+            // same as deciding it belongs in the live library -- and this is
+            // the room where that second decision gets made, one row below.
+            body.archived = true;
+            res = await fetch(restUrl('waypoints'), {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+              body: JSON.stringify(body)
+            });
+          }
+          if (!res.ok) throw new Error(await readError(res, editing ? 'Could not save it.' : 'Could not add it.'));
           const back = await res.json().catch(function () { return []; });
+          // PostgREST answers 200 WITH AN EMPTY ARRAY when RLS refuses a write:
+          // no error, no rows, nothing changed.
           if (!Array.isArray(back) || !back.length) {
-            throw new Error('The database refused that insert. Are you still signed in?');
+            throw new Error('The database refused that write. Are you still signed in?');
           }
           // Straight onto the list rather than reloading the table: the row the
-          // database just handed back is the row, and 280 places is a wasteful
+          // database just handed back is the row, and 300 places is a wasteful
           // way to learn one thing.
-          state.rows.unshift(back[0]);
+          if (editing) {
+            const i = state.rows.findIndex(function (r) { return r.wpid === state.editing; });
+            if (i >= 0) state.rows[i] = back[0];
+          } else {
+            state.rows.unshift(back[0]);
+          }
           closeNew();
           renderCities();
+          fillCityList();
           render();
-          setStatus(name + ' added', 'success');
+          setStatus(name + (editing ? ' saved' : ' added'), 'success');
         } catch (err) {
           el('newNote').textContent = err.message || String(err);
           setStatus(err.message || String(err), 'error');
         } finally {
           el('newSave').disabled = false;
+        }
+      }
+
+      // ── deleting ─────────────────────────────────────────────────────────
+      // THE ONLY IRREVERSIBLE THING IN THIS ROOM, so it is the only one that
+      // asks. It was removed entirely for a while on the argument that shelving
+      // is stronger, which is still true and is what the confirmation says:
+      // a SHELVED row stays as a do-not-rescrape tombstone the importers match
+      // on, so shelving keeps a place from coming back and DELETING invites the
+      // next sweep to file it again. Delete is for a row that should never have
+      // existed, not for a place you have decided against.
+      async function removeRow(row) {
+        const id = String(row.wpid);
+        const name = text(row.name) || ('WPID ' + row.wpid);
+        const BREAK = String.fromCharCode(10) + String.fromCharCode(10);
+        const stops = state.onPaths ? (state.onPaths.get(id) || 0) : null;
+        let onPaths = '';
+        if (stops === null) {
+          onPaths = 'Could not check whether it is on any path, so it may be.' + BREAK;
+        } else if (stops > 0) {
+          // path_stops cascades on delete, so this is not a warning about tidy
+          // data, it is a warning that a walk is about to get shorter.
+          onPaths = 'It is a stop on ' + stops + ' path' + (stops === 1 ? '' : 's')
+            + ', and deleting it removes it from ' + (stops === 1 ? 'that walk' : 'those walks') + '.' + BREAK;
+        }
+        if (!window.confirm('Delete ' + name + ' for good?' + BREAK
+          + onPaths
+          + 'Shelving is usually the better answer: a shelved row stays as a tombstone, '
+          + 'so an importer will not add the place again. A deleted one can come straight back on the next sweep.')) return;
+
+        state.busy.add(id);
+        render();
+        setStatus('Deleting ' + name + '...');
+        try {
+          const res = await fetch(restUrl('waypoints', { wpid: 'eq.' + row.wpid }), {
+            method: 'DELETE',
+            headers: authHeaders({ Prefer: 'return=representation' })
+          });
+          if (!res.ok) throw new Error(await readError(res, 'Could not delete it.'));
+          const back = await res.json().catch(function () { return []; });
+          if (!Array.isArray(back) || !back.length) {
+            throw new Error('The database refused that delete. Are you still signed in?');
+          }
+          state.rows = state.rows.filter(function (r) { return r.wpid !== row.wpid; });
+          state.onPaths && state.onPaths.delete(id);
+          renderCities();
+          fillCityList();
+          setStatus(name + ' deleted', 'success');
+        } catch (err) {
+          setStatus(err.message || String(err), 'error');
+        } finally {
+          state.busy.delete(id);
+          render();
         }
       }
 
@@ -862,6 +1056,7 @@
           setStatus('Loading waypoints...');
           try {
             await loadRows();
+            await loadPathStops();
             renderCities();
             fillCityList();
             render();
