@@ -1500,6 +1500,24 @@
       const poolUnlocated = poolAll.length - poolFull.length;
       const poolCapped = poolFull.length - pool.length;
 
+      // WHAT THE TOGGLE DID, decided ONCE. It used to be written inside the
+      // branch that draws a map, so ticking the box on a path with nothing
+      // drawable took the other branch and the explanation was replaced by
+      // "Nothing to draw yet" -- the exact case the explanation exists for.
+      function poolNote() {
+        if (!mapState.showPool) return '';
+        if (pool.length) {
+          return pool.length + ' more in black and white, numbered separately - click one to add it.'
+            + (poolCapped ? ' ' + poolCapped + ' beyond the first 250 are not drawn.' : '')
+            + (poolUnlocated ? ' ' + poolUnlocated + ' more '
+                + (poolUnlocated === 1 ? 'has' : 'have') + ' no coordinates.' : '');
+        }
+        if (!poolCity) return 'Choose a city to see its other waypoints.';
+        if (!poolAll.length) return 'Every ' + poolCity + ' waypoint is already on this path.';
+        return poolUnlocated + ' other ' + poolCity + ' waypoint'
+          + (poolUnlocated === 1 ? ' has' : 's have') + ' no coordinates, so none can be drawn.';
+      }
+
       // WHAT IS DRAWN, in one number. "1 of 1 stops on the map" spent most of
       // its words on a comparison that is equal almost always -- and when it is
       // NOT equal, the unlocated ones are already named in the note under the
@@ -1522,9 +1540,12 @@
                   ? 'None of these ' + stops.length + ' waypoints has coordinates yet.'
                   : 'Drag a waypoint over from the left.'))
           + '</span>';
-        note.textContent = stops.length
-          ? 'Press Edit on a waypoint and then Locate - the point is saved on it and drawn here.'
-          : '';
+        // Both, when both apply: why the path cannot be drawn, and what the
+        // toggle found. Either alone leaves half the question answered.
+        note.textContent = [
+          stops.length ? 'Press Edit on a waypoint and then Locate - the point is saved on it and drawn here.' : '',
+          poolNote()
+        ].filter(Boolean).join(' ');
         note.classList.toggle('warn', stops.length > 0);
         return;
       }
@@ -1623,32 +1644,19 @@
       }
 
       note.classList.toggle('warn', unlocated > 0);
-      note.textContent = unlocated
-        // The instruction used to be "open the city in Waypoints", a room that
-        // was folded into this one in 2026-08 and has not existed since. From
-        // inside the page that replaced it, that is a dead end pointing at
-        // itself. Edit is on the row, a few pixels away.
-        ? unlocated + ' stop' + (unlocated === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
-          + ' - press Edit on it and Locate, which finds the point and saves it.'
-        : (mapState.showPool && pool.length
-            // NAMES WHAT IS AND IS NOT DRAWN. The toggle says "all", and the
-            // set really is all of them: the ones already on the path are the
-            // coloured pins, so drawing them a second time in black would put
-            // two markers on one building and imply two places.
-            ? pool.length + ' more in black and white, numbered separately - click one to add it.'
-              + (poolCapped ? ' ' + poolCapped + ' beyond the first 250 are not drawn.' : '')
-              + (poolUnlocated ? ' ' + poolUnlocated + ' more '
-                  + (poolUnlocated === 1 ? 'has' : 'have') + ' no coordinates.' : '')
-            // TICKED AND NOTHING APPEARED is a state this said nothing about,
-            // and there are three ways to reach it. Each one names itself.
-            : (mapState.showPool
-                ? (!poolCity
-                    ? 'Choose a city to see its other waypoints.'
-                    : (!poolAll.length
-                        ? 'Every ' + poolCity + ' waypoint is already on this path.'
-                        : poolUnlocated + ' other ' + poolCity + ' waypoint'
-                          + (poolUnlocated === 1 ? ' has' : 's have') + ' no coordinates, so none can be drawn.'))
-                : ''));
+      // BOTH FACTS, NOT ONE OR THE OTHER. An unlocated stop and a pool of
+      // candidates are unrelated pieces of news, and the ternary that used to
+      // sit here let the first silence the second: tick the box on a path with
+      // one unplaced waypoint and the toggle's answer never appeared.
+      // The instruction used to say "open the city in Waypoints", a room folded
+      // into this one in 2026-08. Edit is on the row, a few pixels away.
+      note.textContent = [
+        unlocated
+          ? unlocated + ' waypoint' + (unlocated === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
+            + ' - press Edit on it and Locate, which finds the point and saves it.'
+          : '',
+        poolNote()
+      ].filter(Boolean).join(' ');
     }
 
     // --- the waypoint editor --------------------------------------------------
