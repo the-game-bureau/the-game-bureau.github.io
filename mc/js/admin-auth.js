@@ -53,7 +53,7 @@
       '.mc-auth-btn:disabled{opacity:.5;cursor:default;}',
       '.mc-auth-btn--primary{background:#2d4880;border-color:#2d4880;color:#fff;}',
       '.mc-auth-btn--primary:hover{background:#365694;}',
-      '.mc-auth-btn--google{width:100%;border-color:rgba(45,72,128,.35);}',
+      '.mc-auth-btn--google{width:100%;height:auto;min-height:42px;padding:8px 14px;border-color:rgba(45,72,128,.35);text-align:center;white-space:normal;line-height:1.3;}',
       '.mc-auth-btn--wide{flex:1 0 100%;}',
       /* Collapse rather than sit there as a blank line's worth of margin. */
       '.mc-auth-copy:empty{display:none;}',
@@ -99,7 +99,7 @@
       // Google has no password: the fields below can never sign it in, so
       // offering Google only as a way to join would lock out every approved
       // Google admin.
-      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthGoogleBtn" type="button">Continue with Google</button>',
+      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthGoogleBtn" type="button">Request Access or Login with Google</button>',
       '      <p class="mc-auth-or"><span>or</span></p>',
       '      <label class="mc-auth-field" for="mcAuthEmail">',
       '        <span>Email</span>',
@@ -178,7 +178,7 @@
       // is signed in, but it is not on the admin list", which is the message
       // that already existed for exactly this state.
       '    <form class="mc-auth-form" id="mcAuthJoinForm" autocomplete="on" hidden>',
-      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Continue with Google</button>',
+      '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Request Access or Login with Google</button>',
       '      <p class="mc-auth-or"><span>or</span></p>',
       '      <label class="mc-auth-field" for="mcAuthJoinName">',
       '        <span>Name</span>',
