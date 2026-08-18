@@ -259,6 +259,33 @@
       border-bottom-color: var(--cut-panel-line);
     }
 
+    /* The path's header is a control row now: a title, a pencil, the count, and
+       Save when there is something to save. Centred rather than on a baseline,
+       which a row holding buttons has nothing sensible to sit on. */
+    .panel-head--path { align-items: center; }
+    .panel-head--path .panel-count { margin-right: auto; }
+    /* A glyph, not a button face: it sits inside the title's line and a bordered
+       box there would read as a second heading. */
+    .panel-pencil {
+      appearance: none;
+      border: 0;
+      background: none;
+      padding: 0 2px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .panel-pencil:hover:not([disabled]) { color: var(--ink); }
+    .panel-pencil[disabled] { opacity: 0.35; cursor: default; }
+    /* Save is hidden when clean, so it must not hold a gap when it is. */
+    .panel-head--path .btn[hidden] { display: none; }
+
+    /* Destructive on the left, the pair that finish the form on the right. */
+    .dlg-actions--split { justify-content: flex-start; }
+    .dlg-actions--split .dlg-spacer { flex: 1 1 auto; }
+
     .panel-head--acts { align-items: center; flex-wrap: wrap; }
     .panel-head--acts .panel-count { margin-right: auto; }
     .panel-acts { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -362,6 +389,12 @@
     label.inline { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
     .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    /* Nothing is rendered into it since the fields moved to the Edit dialog, and
+       an empty grid still drew its padding and its rule -- a blank band between
+       the header and the first row. Kept as an element rather than deleted
+       because renderMeta still clears it and the panel may want a row there
+       again; collapsed so it costs nothing while it holds nothing. */
+    .meta-grid:empty { display: none; }
     .meta-field { display: grid; gap: 4px; }
     .meta-field input, .meta-field select { width: 100%; }
 
@@ -635,6 +668,10 @@
                mc/supabase/tours/ for a human to run, which is the closest thing
                and is not this. Wired to say so rather than swallow the click. -->
           <button class="btn" id="pathBotBtn" type="button" title="Not wired yet">Path Bot</button>
+          <!-- THE THIRD SOURCE OF A PATH: by hand, by a routine, or by copying
+               the one that is open. It makes a path, and this is the bar that
+               makes things - and it is no longer one pixel from Delete. -->
+          <button class="btn" id="clonePathBtn" type="button" disabled title="Copy the open path and its waypoints to a new one">Path Clone</button>
         </div>
       </fieldset>
       <!-- ONE CONTROL, AND IT SETS THE WHOLE ROOM. The city decides which
@@ -709,28 +746,29 @@
              control inside it: with the control on top the column had no title
              until you had already read past its most complicated row.
              It matches the library's header opposite, which is the point. -->
-        <div class="panel-head">
+        <div class="panel-head panel-head--path">
           <span class="panel-title" id="pathPanelTitle">PATH</span>
+          <!-- RENAME IS A PENCIL ON THE TITLE, not a button in a row. Setting a
+               path's name and shape is a once-per-path job, and a full-size
+               control for it sat permanently beside the one you press every
+               time you drag a row. -->
+          <button class="panel-pencil" id="editPathBtn" type="button" disabled
+                  title="Rename this path or change its shape" aria-label="Edit path">&#9998;</button>
           <span class="panel-count" id="pathCount"></span>
+          <!-- SAVE APPEARS ONLY WHEN THERE IS SOMETHING TO SAVE. It was disabled
+               almost always, which makes a control furniture: you stop reading
+               it. Present-when-dirty means its presence IS the notice that the
+               order has changed, and beforeunload stops being the only warning. -->
+          <button class="btn primary" id="saveBtn" type="button" hidden
+                  title="Save the order of this path">Save</button>
         </div>
-        <!-- WHICH PATH, AND WHAT TO DO WITH IT, on one line. All three buttons
-             act on whatever the picker beside them is showing and on nothing
-             else, so they belong next to it rather than a row below, where the
-             title in between made them look like they acted on the LIST. -->
-        <!-- The picker moved to OPEN at the top of the room; what is left is
-             what you do TO the path that is open. -->
-        <div class="panel-open">
-          <span class="panel-acts">
-            <button class="btn primary" id="saveBtn" type="button" disabled title="Save the order of this path">Save</button>
-            <!-- CLONE reuses the New path dialog, which is where the city, the
-                 shape and the permanent id are decided - a clone needs all three
-                 answered exactly as a new path does, and a second dialog asking
-                 the same questions would be the same form twice. -->
-            <button class="btn" id="editPathBtn" type="button" disabled title="Rename this path or change its shape">Edit</button>
-            <button class="btn" id="clonePathBtn" type="button" disabled title="Copy this path and its waypoints to a new one">Clone</button>
-            <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
-          </span>
-        </div>
+        <!-- THE BLUE CONTROL STRIP IS GONE. It held four buttons of four
+             different kinds: one that commits unsaved state, one that creates a
+             path, one that sets its identity, one that destroys it. Each has gone
+             where its kind already lives - Save and the pencil into the header
+             above, Clone into ADD at the top of the room, Delete into the Edit
+             dialog - and the panel is now header, rows, legend, which is the same
+             shape as the library opposite. -->
         <div class="meta-grid" id="pathMeta"></div>
         <div class="panel-body" id="pathStops"></div>
         <!-- The two marks are coloured, so the legend is too, or it explains a
@@ -769,7 +807,13 @@
         <input type="text" id="editPathId" readonly>
       </div>
       <p class="dlg-note">The id is permanent: every waypoint on this path points at it.</p>
-      <div class="dlg-actions">
+      <div class="dlg-actions dlg-actions--split">
+        <!-- DELETE LIVES HERE, not next to the button you press every time you
+             drag a row. You are already deliberately in this path's identity, it
+             is two clicks from anywhere, and it is now the only destructive
+             control in the room that cannot be reached by accident. -->
+        <button class="btn warn" id="deletePathBtn" type="button" title="Delete this path (its waypoints are kept)">Delete path</button>
+        <span class="dlg-spacer"></span>
         <button class="btn" id="editPathCancel" type="button">Cancel</button>
         <button class="btn primary" id="editPathSave" type="button">Save</button>
       </div>
@@ -1115,7 +1159,14 @@
       renderMeta();
       renderStops();
       renderPool();
-      el('saveBtn').disabled = !state.dirty || !state.pathId;
+      // PRESENT means "unsaved", so there is nothing to disable: a Save you can
+      // see is one you can press.
+      const canSave = state.dirty && !!state.pathId;
+      el('saveBtn').hidden = !canSave;
+      el('saveBtn').disabled = !canSave;
+      // Delete lives in the Edit dialog, which only opens on an open path, so it
+      // needs no disabled state of its own - but it is set anyway, since the
+      // dialog's markup is static and a stale disabled would be worse.
       el('deletePathBtn').disabled = !state.pathId;
       // Nothing to clone until something is open. Enabled on an EMPTY path too:
       // copying the city, shape and name of one you are about to fill is a
@@ -3294,12 +3345,21 @@
       }
     }
 
+    // A blank line inside a confirm(), built rather than written: a literal
+    // escape in this file has been mangled by tooling more than once.
+    const BREAK2 = String.fromCharCode(10) + String.fromCharCode(10);
+
     async function deletePath() {
+      // Runs from inside the Edit dialog now. Closed first, or a successful delete
+      // leaves a form open over a path that no longer exists.
+      closeEditPathDialog();
       const path = currentPath();
       if (!path) return;
       const name = cleanText(path.title) || path.tour_id;
-      if (!window.confirm('Delete the path "' + name + '"?\n\nIts ' + state.stops.length
-        + ' waypoint(s) are NOT deleted - they stay in the library and on any other path.')) return;
+      const n = state.stops.length;
+      if (!window.confirm('Delete the path "' + name + '"?' + BREAK2
+        + 'Its ' + n + ' waypoint' + (n === 1 ? ' is' : 's are')
+        + ' NOT deleted - they stay in the library and on any other path.')) return;
       try {
         await ensureFreshSession();
         // path_stops has on delete cascade, so the membership goes with it.
