@@ -203,8 +203,14 @@
     .stop:last-child { margin-bottom: 0; }
     /* Only the handle starts a drag. Making the whole row draggable makes the
        text impossible to select, which you want when copying an address. */
-    .stop-handle { cursor: grab; color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; }
-    .stop-handle:active { cursor: grabbing; }
+    /* The grab cursor is on the ROW, since the whole row is the grip. The handle
+       is the visual affordance -- what tells you a row can be picked up -- so it
+       is a little bolder than the text beside it. The address line keeps a text
+       cursor, because pressing there selects rather than drags. */
+    #poolList .stop, #pathStops .stop { cursor: grab; }
+    #poolList .stop:active, #pathStops .stop:active { cursor: grabbing; }
+    #poolList .stop .stop-meta, #pathStops .stop .stop-meta { cursor: text; }
+    .stop-handle { color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; }
     .stop-ord {
       min-width: 1.9em;
       text-align: right;
@@ -975,7 +981,6 @@
         handle.className = 'stop-handle';
         handle.textContent = '≡';
         handle.title = 'Drag to reorder';
-        handle.draggable = true;
         wireDrag(handle, row);
 
         const ord = document.createElement('span');
@@ -1071,7 +1076,6 @@
         handle.className = 'stop-handle';
         handle.textContent = '≡';
         handle.title = state.pathId ? 'Drag onto the path' : 'Open a path first';
-        handle.draggable = !!state.pathId;
         if (state.pathId) wireDrag(handle, row, 'pool');
 
         const main = document.createElement('div');
@@ -2215,8 +2219,33 @@
     // identical at the drop target: both are a wpid and a position.
     let dragKind = null;
 
+    // THE WHOLE ROW IS THE GRIP NOW, not only the handle.
+    //
+    // Handle-only was a deliberate call and it protected one real thing: a
+    // draggable element cannot have its text selected in Chrome, and copying a
+    // stop's ADDRESS is something people do to these rows. But a 12px glyph is
+    // not a discoverable target -- reaching for the row and getting nothing is
+    // the same as the feature not existing, which is exactly how it read.
+    //
+    // Both, then: the row drags, and pressing on the address line turns
+    // dragging off for the duration of that press so the text stays selectable.
+    // The handle stays as the visual affordance -- it is what tells you the row
+    // can be picked up at all.
     function wireDrag(handle, row, kind) {
-      handle.addEventListener('dragstart', (e) => {
+      row.draggable = true;
+
+      // Buttons must not start a drag: a press on Edit or Add that turns into a
+      // two-pixel wobble becomes a drag instead of a click.
+      row.addEventListener("pointerdown", (e) => {
+        const onControl = e.target.closest && e.target.closest('button, a, input, select, textarea');
+        const onText = e.target.closest && e.target.closest('.stop-meta');
+        row.draggable = !(onControl || onText);
+      });
+      // Restore, or the row stays undraggable after one address selection.
+      row.addEventListener('pointerup', () => { row.draggable = true; });
+      row.addEventListener('mouseleave', () => { row.draggable = true; });
+
+      row.addEventListener('dragstart', (e) => {
         dragFrom = row.dataset.wpid;
         dragKind = kind || 'stop';
         row.classList.add('is-dragging');
@@ -2225,7 +2254,8 @@
         // Firefox refuses to start a drag unless something is set.
         try { e.dataTransfer.setData('text/plain', dragFrom); } catch (_) {}
       });
-      handle.addEventListener('dragend', () => {
+      row.addEventListener('dragend', () => {
+        row.draggable = true;
         dragFrom = null;
         dragKind = null;
         document.body.classList.remove('is-dragging-wp');
