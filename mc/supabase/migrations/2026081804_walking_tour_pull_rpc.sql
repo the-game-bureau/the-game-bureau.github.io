@@ -31,6 +31,8 @@
 --     `fanbase` is a SCHOOL rather than a city and `city_name` on those rows is
 --     not the same kind of answer.
 --   * At most 4 tours a call, 4..15 stops each. The routine is asked for four.
+--   * A COORDINATE PAIR IS KEPT ONLY AS A PAIR, and a nonsense one is dropped
+--     rather than raised. See the stop loop.
 --   * It never UPDATEs a description and never un-shelves a row.
 --
 -- WHAT IT IS NOT. It is not tgb_import_walking_tour, which stays exactly as it
@@ -75,6 +77,8 @@ declare
   v_stop_city text;
   v_stop_state text;
   v_zip text;
+  v_lat double precision;
+  v_lon double precision;
   v_address text;
   v_description text;
   v_stop_source text;
@@ -83,6 +87,8 @@ declare
   v_created integer;
   v_reused integer;
   v_skipped integer;
+  v_located integer;
+  v_zipped integer;
   v_results jsonb := '[]'::jsonb;
   v_filed integer := 0;
 begin
@@ -203,6 +209,8 @@ begin
     v_created := 0;
     v_reused := 0;
     v_skipped := 0;
+    v_located := 0;
+    v_zipped := 0;
 
     -- Stops are taken IN ARRAY ORDER. Any walk_order on a stop is ignored: the
     -- array is the sequence, and trusting one over the other when they disagree
@@ -217,12 +225,35 @@ begin
       v_stop_city   := coalesce(nullif(btrim(v_entry->>'city'), ''), v_city);
       v_stop_state  := coalesce(nullif(btrim(v_entry->>'state'), ''), v_state);
       v_zip         := nullif(btrim(v_entry->>'zip'), '');
+      -- COORDINATES ARE READ AS A PAIR AND KEPT AS A PAIR. A lat with no lon is
+      -- not half a point, it is no point, and a row carrying one of the two
+      -- would read as located everywhere the map looks at it. Out-of-range or
+      -- unparseable values are DISCARDED rather than raised, the same way the
+      -- soundtrack pull drops a malformed spotify_id: a plausible-but-wrong
+      -- point is worse than a null, which the Path Builder already draws as
+      -- "not located yet" and the Waypoints page geocodes on demand.
+      begin
+        v_lat := nullif(btrim(v_entry->>'lat'), '')::double precision;
+        v_lon := nullif(btrim(v_entry->>'lon'), '')::double precision;
+      exception when others then
+        v_lat := null; v_lon := null;
+      end;
+      if v_lat is null or v_lon is null
+         or v_lat < -90 or v_lat > 90 or v_lon < -180 or v_lon > 180
+         -- 0,0 is Null Island, which is in the Gulf of Guinea and is never a
+         -- walking-tour stop. It is what a failed parse looks like when it
+         -- comes back as a number rather than as an error.
+         or (v_lat = 0 and v_lon = 0) then
+        v_lat := null; v_lon := null;
+      end if;
       v_address     := nullif(btrim(v_entry->>'address'), '');
       v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
       v_stop_source := coalesce(nullif(btrim(v_entry->>'source_url'), ''), v_source_url);
 
       v_ord := v_ord + 1;
       v_existing := null;
+      if v_lat is not null then v_located := v_located + 1; end if;
+      if v_zip is not null then v_zipped := v_zipped + 1; end if;
 
       if v_address is not null then
         select w.wpid into v_existing
@@ -245,16 +276,22 @@ begin
           state      = coalesce(w.state, v_stop_state),
           zip        = coalesce(w.zip, v_zip),
           source_url = coalesce(w.source_url, v_stop_source),
-          ai_model   = coalesce(w.ai_model, v_ai_model)
+          ai_model   = coalesce(w.ai_model, v_ai_model),
+          -- BOTH OR NEITHER, and only into a row that has neither. A held place
+          -- whose point somebody has already corrected by dragging its pin must
+          -- not be moved by an incoming guess, and writing one column of the
+          -- pair would split a stored point across two sources.
+          lat        = case when w.lat is null and w.lon is null then v_lat else w.lat end,
+          lon        = case when w.lat is null and w.lon is null then v_lon else w.lon end
         where w.wpid = v_wpid;
       else
         -- archived = true, WRITTEN OUT rather than left to the column default.
         -- The default is what 2026081803 set, and this is the line that has to
         -- keep being true if somebody ever changes it back.
         insert into public.waypoints as w
-          (name, city, state, zip, address, description, source_url, ai_model, archived)
+          (name, city, state, zip, address, description, source_url, ai_model, archived, lat, lon)
         values
-          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, true)
+          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, true, v_lat, v_lon)
         returning w.wpid into v_wpid;
         v_created := v_created + 1;
       end if;
@@ -279,7 +316,14 @@ begin
       'stops', v_ord,
       'waypoints_created', v_created,
       'waypoints_reused', v_reused,
-      'stops_skipped', v_skipped));
+      'stops_skipped', v_skipped,
+      -- REPORTED BACK so the run can see whether it actually did the geocoding
+      -- half of its job. These count what ARRIVED on the payload, not what was
+      -- stored: a reused place keeps the point it already had, so a low
+      -- stops_located against a high waypoints_reused is fine and a low one
+      -- against a high waypoints_created is the routine skipping the work.
+      'stops_located', v_located,
+      'stops_with_zip', v_zipped));
   end loop;
 
   return jsonb_build_object('filed', v_filed, 'results', v_results);
