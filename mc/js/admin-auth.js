@@ -193,10 +193,6 @@
       '    <form class="mc-auth-form" id="mcAuthJoinForm" autocomplete="on" hidden>',
       '      <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Request Access or Login with Google</button>',
       '      <p class="mc-auth-or"><span>or</span></p>',
-      '      <label class="mc-auth-field" for="mcAuthJoinName">',
-      '        <span>Name</span>',
-      '        <input id="mcAuthJoinName" name="name" type="text" autocomplete="name" maxlength="120">',
-      '      </label>',
       '      <label class="mc-auth-field" for="mcAuthJoinEmail">',
       '        <span>Email</span>',
       '        <input id="mcAuthJoinEmail" name="email" type="email" autocomplete="username" required>',
@@ -277,6 +273,10 @@
     var joinBtn = root.querySelector('#mcAuthJoinBtn');
     var joinBackBtn = root.querySelector('#mcAuthJoinBackBtn');
     var joinSubmitBtn = root.querySelector('#mcAuthJoinSubmitBtn');
+    // Gone from the form along with the note box. The COLUMN stays, and so
+    // does the RPC parameter: an admin deciding a request now has the email
+    // address and nothing else, which is the same thing they would have had
+    // from the Google path anyway.
     var joinNameInput = root.querySelector('#mcAuthJoinName');
     var joinEmailInput = root.querySelector('#mcAuthJoinEmail');
     var joinPasswordInput = root.querySelector('#mcAuthJoinPassword');
@@ -957,7 +957,7 @@
 
         await fileAccessRequest(
           email,
-          String(joinNameInput.value || '').trim(),
+          joinNameInput ? String(joinNameInput.value || '').trim() : '',
           joinNoteInput ? String(joinNoteInput.value || '').trim() : ''
         );
 
