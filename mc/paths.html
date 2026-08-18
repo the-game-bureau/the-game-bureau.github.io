@@ -270,9 +270,12 @@
        the left, the count goes right, and Save follows it when there is one. */
     .panel-head--path { align-items: center; justify-content: flex-start; }
     .panel-head--path .panel-count { margin-left: auto; }
-    /* .small is the row buttons' size, so Edit matches Remove and the arrows
-       rather than being a third scale on one panel. */
-    .panel-head--path .btn.small { margin-left: 4px; }
+    /* .small is the row buttons' size, so Edit and Save match Remove and the
+       arrows rather than being a third scale on one panel. The pair sits at the
+       gap the row's own buttons use: at the header's 10px plus a margin they
+       read as two separate controls that happen to be near each other. */
+    .panel-head--path { gap: 6px; }
+    .panel-head--path .panel-title { margin-right: 4px; }
     /* Save is hidden when clean, so it must not hold a gap when it is. */
     .panel-head--path .btn[hidden] { display: none; }
 
@@ -346,7 +349,7 @@
     .stop-leg:empty { display: none; }
 
     .hint-start { color: #2f6b3d; }
-    .hint-mid { color: var(--ink); }
+    .hint-mid { color: var(--ink); font-size: 1.3em; line-height: 0; }
     .hint-end { color: var(--warn); }
 
     .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
@@ -371,9 +374,16 @@
        next to two rows that carry a shape.
        The circle is the path's own blue, matching the numbered blue pins on the
        map, exactly as the green and red match the start and end pins. */
-    #pathStops .stop-ord::after { content: ' ●'; color: var(--ink); }
-    #pathStops .stop--start .stop-ord::after { content: ' ▶'; color: #2f6b3d; }
-    #pathStops .stop--end .stop-ord::after { content: ' ■'; color: var(--warn); }
+    /* BIGGER THAN THE OTHER TWO, ON PURPOSE. U+25CF is drawn small inside its
+       em box while the triangle and the square nearly fill theirs, so three
+       marks at one font-size come out three different weights. Matching them
+       optically means not matching them numerically. */
+    #pathStops .stop-ord::after { content: ' ●'; color: var(--ink); font-size: 1.3em; }
+    /* 1em explicitly: the base rule above sets 1.3em for the circle, and these
+       two override only content and colour, so without this they inherit the
+       circle's size and all three grow together. */
+    #pathStops .stop--start .stop-ord::after { content: ' ▶'; color: #2f6b3d; font-size: 1em; }
+    #pathStops .stop--end .stop-ord::after { content: ' ■'; color: var(--warn); font-size: 1em; }
 
     .empty { padding: 16px 10px; color: var(--muted); font-size: 0.88rem; }
 
@@ -757,13 +767,18 @@
                the NAME beside it - Save, further right, acts on the list below. -->
           <button class="btn small" id="editPathBtn" type="button" disabled
                   title="Rename this path or change its shape">Edit</button>
-          <span class="panel-count" id="pathCount"></span>
           <!-- SAVE APPEARS ONLY WHEN THERE IS SOMETHING TO SAVE. It was disabled
                almost always, which makes a control furniture: you stop reading
                it. Present-when-dirty means its presence IS the notice that the
-               order has changed, and beforeunload stops being the only warning. -->
-          <button class="btn primary" id="saveBtn" type="button" hidden
+               order has changed, and beforeunload stops being the only warning.
+               Beside Edit and the same size: the two things you can press on this
+               line are one pair, and a lone button at the far end read as a
+               different class of control. It is still the PRIMARY one -- filled,
+               where Edit is outlined -- which is what says which of the two the
+               room wants you to press. -->
+          <button class="btn small primary" id="saveBtn" type="button" hidden
                   title="Save the order of this path">Save</button>
+          <span class="panel-count" id="pathCount"></span>
         </div>
         <!-- THE BLUE CONTROL STRIP IS GONE. It held four buttons of four
              different kinds: one that commits unsaved state, one that creates a
