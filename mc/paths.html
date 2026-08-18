@@ -395,9 +395,21 @@
     .hint-end { color: var(--warn); }
 
     .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
-    /* Square-ish, like the up/down arrows on a path row, so the two arrow
-       buttons in this room are the same object at different jobs. */
-    .stop-add { min-width: 30px; font-size: 0.95rem; line-height: 1; }
+    /* ALL THREE ARE ONE OBJECT AT THREE JOBS, so they are one size. The row is
+       now three arrows saying where the stop goes -- back to the library, up the
+       walk, down the walk -- and they were 30 / 28 / 28 with the left arrow's
+       glyph rendering smaller than the vertical pair, which made the triplet
+       read as a button and then two smaller ones. .stop-add out in the library
+       is the same square for the same reason: it is the return trip. */
+    /* A FIXED WIDTH, NOT A MINIMUM. The left arrow's glyph is wider than the
+       vertical pair's in this face, so min-width did not bind on it and the
+       triplet came out 34 / 30 / 30. Padding is zeroed and the glyph centred,
+       which is what makes 30px hold for all three. */
+    .stop-actions .btn,
+    .stop-add {
+      width: 30px; min-width: 30px; padding-left: 0; padding-right: 0;
+      justify-content: center; font-size: 0.95rem; line-height: 1;
+    }
 
     .stop.is-dragging { opacity: 0.4; }
     /* Only while something is actually in the air: an outline drawn all the
@@ -1415,9 +1427,17 @@
         //
         // Nothing is lost: the library row has Edit, its map pin opens the editor
         // on click, and dragging a pin opens it holding the new point.
-        const off = mkBtn('Remove', 'Take off this path (the waypoint is kept)', () => removeStop(i));
+        // A LEFT ARROW, AND IT POINTS AT THE LIBRARY. The three controls on this
+        // row are now one shape: arrows that say where the stop goes. Up and
+        // down move it within the walk; this one sends it back across the gap to
+        // the panel on the left, which is exactly what removing it does. The
+        // place is KEPT - that is the whole reason waypoints and path_stops are
+        // two tables - so an X or a bin would be a lie about what happens.
+        // FIRST, LEFT OF THE UP ARROW, so the row reads in the direction each
+        // arrow travels: out of the path, then up, then down.
+        const off = mkBtn('←', 'Take it off this path and back to the library (the waypoint is kept)', () => removeStop(i));
         off.classList.add('warn');
-        actions.append(up, down, off);
+        actions.append(off, up, down);
 
         row.append(handle, ord, main, leg, actions);
         wireDropTarget(row);
