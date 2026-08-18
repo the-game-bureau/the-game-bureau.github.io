@@ -443,7 +443,11 @@
     box.innerHTML = '';
     const isNew = !wpEdit.wpid;
 
-    el('wpDlgTitle').textContent = isNew ? 'New waypoint' : (cleanText(row.name) || 'Waypoint');
+    // THE TITLE NAMES THE ROOM, NOT THE ROW. It printed the waypoint's own
+    // name, which the Name field directly beneath it already carries in an
+    // editable box: the heading was the same word twice, and it changed as you
+    // typed. A dialog's heading should say what you are doing.
+    el('wpDlgTitle').textContent = isNew ? 'New waypoint' : 'Waypoint edit';
     el('wpDlgId').textContent = isNew ? 'not saved yet' : ('WPID ' + wpEdit.wpid);
 
     box.append(
