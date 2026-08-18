@@ -654,6 +654,11 @@
           <select id="pathSelect"></select>
           <span class="panel-acts">
             <button class="btn primary" id="saveBtn" type="button" disabled title="Save the order of this path">Save</button>
+            <!-- CLONE reuses the New path dialog, which is where the city, the
+                 shape and the permanent id are decided - a clone needs all three
+                 answered exactly as a new path does, and a second dialog asking
+                 the same questions would be the same form twice. -->
+            <button class="btn" id="clonePathBtn" type="button" disabled title="Copy this path and its waypoints to a new one">Clone</button>
             <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder this path by geometry - the shortest sensible walk">Suggest order</button>
             <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
           </span>
@@ -690,6 +695,7 @@
       </div>
       <!-- Seven shapes is more than anyone holds in their head, so the chosen
            one explains itself here rather than in a longer option label. -->
+      <p class="dlg-note" id="newPathCloneNote"></p>
       <p class="dlg-note" id="newPathShapeNote"></p>
       <p class="dlg-note" id="newPathIdNote"></p>
       <div class="dlg-actions">
@@ -991,6 +997,7 @@
 
     const wpById = (id) => state.waypoints.find((w) => String(w.wpid) === String(id));
     const currentPath = () => state.paths.find((r) => r.tour_id === state.pathId) || null;
+    const pathById = (id) => state.paths.find((r) => String(r.tour_id) === cleanText(id)) || null;
 
     // The single source of the pool's city. Derived, never stored: there is one
     // city on this screen and it belongs to the path.
@@ -1010,6 +1017,10 @@
       renderPool();
       el('saveBtn').disabled = !state.dirty || !state.pathId;
       el('deletePathBtn').disabled = !state.pathId;
+      // Nothing to clone until something is open. Enabled on an EMPTY path too:
+      // copying the city, shape and name of one you are about to fill is a
+      // reasonable thing to want.
+      el('clonePathBtn').disabled = !state.pathId;
       el('suggestOrderBtn').disabled = state.stops.length < 3;
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
@@ -2816,7 +2827,26 @@
     // lives for the page - attach() keeps its controller forever, which is
     // right for a form and wrong for a list that rerenders.
     let newPathCityCtl = null;
-    function openNewPathDialog() {
+    // '' = a new empty path, or a tour_id to copy. The dialog is the same form
+    // either way; only its title, its button and what happens after differ.
+    let pathDialogCloneOf = '';
+
+    function openNewPathDialog(cloneOf) {
+      pathDialogCloneOf = cleanText(cloneOf);
+      const source = pathDialogCloneOf ? pathById(pathDialogCloneOf) : null;
+      el('newPathTitle').textContent = source ? 'Clone path' : 'New path';
+      el('newPathCreate').textContent = source ? 'Clone' : 'Create';
+      const cloneNote = el('newPathCloneNote');
+      if (cloneNote) {
+        // Says exactly what will be copied and what will not, because "clone" on
+        // its own does not say whether the WAYPOINTS come too - which is the
+        // only question worth asking about this button.
+        cloneNote.textContent = source
+          ? 'Copies the ' + state.stops.length + ' waypoint'
+            + (state.stops.length === 1 ? '' : 's') + ' of "'
+            + (cleanText(source.title) || source.tour_id) + '" in order. The waypoints themselves are not duplicated: both paths point at the same places.'
+          : '';
+      }
       const dlg = el('newPathDlg');
       const shape = el('newPathShape');
       if (!shape.options.length) {
@@ -2837,15 +2867,20 @@
           onChange: previewPathId
         });
       }
-      el('newPathName').value = '';
-      shape.value = 'loop';
+      // A clone opens on its source's own name and shape - the usual reason to
+      // clone is a variant of the same walk, so those are the answers to start
+      // from. " copy" rather than a silent duplicate title, since two paths with
+      // one name in one city is the thing you cannot tell apart in the picker.
+      const src = pathDialogCloneOf ? pathById(pathDialogCloneOf) : null;
+      el('newPathName').value = src ? ((cleanText(src.title) || src.tour_id) + ' copy') : '';
+      shape.value = (src && cleanText(src.shape)) || 'loop';
       // NEW takes the city from the picker in the bar - that is the city you
       // are looking at, and on "Every city" it falls back to the open path's.
       // The option values are the CANONICAL strings ("Miami, Florida"), so the
       // bare name has to be matched back through cityNameOf rather than
       // compared directly - and only after load() resolves, or the value is set
       // against a select with no options yet and silently stays blank.
-      const open = (state.cityFilter || pathCity()).toLowerCase();
+      const open = (src ? cityNameOf(src.city) : (state.cityFilter || pathCity())).toLowerCase();
       const preselect = () => {
         const rows = (window.TgbCities && window.TgbCities.all()) || [];
         const guess = open
@@ -2878,6 +2913,12 @@
       const title = cleanText(el('newPathName').value);
       const shape = el('newPathShape').value || 'loop';
       const tourId = makePathId(city, shape);
+      // Read BEFORE the dialog closes, since closing clears which job it was.
+      const cloneOf = pathDialogCloneOf;
+      // The source's order as it is ON SCREEN, not as stored: cloning a path you
+      // have just reordered and not saved should copy what you can see, or the
+      // clone silently disagrees with the list you cloned it from.
+      const cloneStops = cloneOf === state.pathId ? state.stops.slice() : [];
       closeNewPathDialog();
       try {
         await ensureFreshSession();
@@ -2888,16 +2929,34 @@
         });
         if (!res.ok) throw new Error(await readError(res));
         const [row] = await res.json();
+
+        // THE PATH ROW FIRST, THE WAYPOINTS SECOND. A failure between the two
+        // leaves an empty path rather than nothing -- visible, and fixable by
+        // dragging. The reverse order is impossible anyway: path_stops has a
+        // foreign key to paths.
+        if (cloneOf && cloneStops.length) {
+          const put = await fetch(restUrl('path_stops', {}), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(cloneStops.map((wpid, i) => ({ tour_id: tourId, wpid: wpid, ord: i + 1 })))
+          });
+          if (!put.ok) throw new Error(await readError(put));
+        }
+
         state.paths.push(row);
         state.paths.sort((a, b) => a.tour_id.localeCompare(b.tour_id));
         state.pathId = row.tour_id;
-        state.stops = [];
+        state.stops = cloneOf ? cloneStops : [];
         state.dirty = false;
+        syncPathStopsForOpenPath();
         // Follow the new path rather than hiding it behind the old filter.
         state.cityFilter = cityNameOf(row.city);
         syncUrl();
         renderAll();
-        setStatus('New path ' + row.tour_id + '.', 'success');
+        setStatus(cloneOf
+          ? ('Cloned to ' + row.tour_id + ' with ' + state.stops.length + ' waypoint'
+             + (state.stops.length === 1 ? '' : 's') + '.')
+          : ('New path ' + row.tour_id + '.'), 'success');
       } catch (err) {
         setStatus(err.message || 'Could not create the path.', 'error');
       }
@@ -3117,7 +3176,8 @@
     // STILL A WIREFRAME PLACEHOLDER. It says so rather than doing nothing at
     // all: a button that swallows a click with no response is indistinguishable
     // from one that is broken. Replace when the action is decided.
-    el('addPathBtn').addEventListener('click', openNewPathDialog);
+    el('addPathBtn').addEventListener('click', () => openNewPathDialog(''));
+    el('clonePathBtn').addEventListener('click', () => openNewPathDialog(state.pathId));
     el('pathBotBtn').addEventListener('click', () => setStatus('not wired yet'));
 
     // The path list is a drop target for the whole of its area, not only its
