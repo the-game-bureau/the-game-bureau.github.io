@@ -155,13 +155,15 @@ begin
       returning w.wpid into v_wpid;
     end if;
 
-    -- A place appears at most once per path. A loop FINISHES NEAR its first
-    -- stop, it does not list it again, so a repeat is a mistake in the payload
-    -- rather than something to store - and the primary key would reject it.
-    -- on conflict ON CONSTRAINT, not on (tour_id, wpid): this function's
+    -- A PLACE MAY APPEAR TWICE; a POSITION may not. The key was (tour_id, wpid)
+    -- until 2026-08-18 and is now (tour_id, ord), so a loop can name the square
+    -- it started from as its last stop. The conflict this clause now absorbs is
+    -- a payload that assigned the same ord twice, which is a mistake -- v_ord is
+    -- assigned sequentially by this loop, so it cannot arise from here.
+    -- on conflict ON CONSTRAINT, not on (tour_id, ord): this function's
     -- RETURNS TABLE declares output columns called wpid and ord, and inside an
     -- index-inference clause plpgsql cannot tell those from the table's own
-    -- columns - it raises "column reference wpid is ambiguous". Naming the
+    -- columns - it raises "column reference ord is ambiguous". Naming the
     -- primary key sidesteps the resolution entirely.
     insert into public.path_stops (tour_id, wpid, ord)
     values (v_tour_id, v_wpid, v_ord)

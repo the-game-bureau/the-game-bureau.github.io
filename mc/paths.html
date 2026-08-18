@@ -65,13 +65,85 @@
     .status.success { color: var(--bic-red); }
     .status.error { font-weight: 700; }
 
-    /* The Socializer's folder-tab .command-bar was here and is GONE with the
-       last fieldset that used it: both bars moved onto the path panel itself
-       (2026-08-18), so the page has no top strip left to draw. The cut-panel
-       TOKENS stay and are what .panel-open is painted with, which is the part
-       of that look worth keeping here.
-       If a page-level bar ever returns, copy the bar back out of
-       mc/socials/index.html rather than reviving a half-remembered version. */
+    /* ── THE COMMAND BAR, copied from mc/socials/index.html ────────────────
+       Removed earlier the same day when the last page-level bar moved onto the
+       path panel, and brought straight back for the ADD bar -- copied out of
+       the Socializer again rather than reconstructed, which is the standing
+       rule for this vocabulary. When either room's chrome changes, change both.
+
+       .command-bar centres itself and caps at the shell width, which is right
+       for a room with one bar sitting alone; .bar-row is here so a second bar
+       can share the line later without that rule fighting it. */
+    .bar-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      margin: 0 0 16px;
+    }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .bar-row .command-bar:first-child { flex: 0 0 auto; }
+    @media (max-width: 760px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar:first-child { flex: 1 1 100%; }
+    }
+
+    .command-bar {
+      width: 100%;
+      min-inline-size: 0;
+      padding: 4px 12px 12px;
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+
+    /* THE FOLDER TAB. The legend cuts the panel's top border, and the arch runs
+       that border into the label and back out, so the cut-out reads as a tag
+       clipped onto the frame rather than a gap in it.
+
+       It is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box: the word must sit centred
+       ON the line (the legend's default position), and the tab's sides must
+       stop AT that line. A bordered box whose bottom edge is the line cannot
+       also have its text centred on it. So the outline is drawn over the half
+       above the line only -- `inset: 0 0 50%`, since the legend's midpoint IS
+       the line -- and the word's lower half hangs invisibly into the panel,
+       which works because the tab fill and the panel are the same colour.
+
+       isolation: isolate is load-bearing: the arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own it would drop
+       behind the fieldset's background and vanish. */
+    .command-bar > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .command-bar > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar-inner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .command-bar .btn { border-color: var(--control-line); }
 
     .btn {
       appearance: none;
@@ -392,6 +464,33 @@
     <!-- TWO BARS ON ONE ROW, the Socializer's own shape: what you are working
          on, and what you can do to it. OPEN takes the space because its two
          pickers grow; THIS PATH is only as wide as its four buttons. -->
+    <!-- WIREFRAME. Both buttons are placeholders: they are wired to say so
+         rather than left inert, because an enabled button that does nothing
+         reads as broken. What they will do is not decided yet.
+
+         WORTH KNOWING BEFORE THEY ARE: this room already has both actions.
+         "+ Waypoint" sits in the library's filter row and opens the waypoint
+         editor as an unsaved draft; "New" sits in the path panel's own strip.
+         If these two take over, those two go in the same commit -- two ways to
+         make the same thing is how a room grows a second vocabulary. -->
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>ADD</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="addWaypointBtn" type="button">Waypoint</button>
+          <button class="btn" id="addPathBtn" type="button">Path</button>
+          <!-- WAYPOINT BOT, out of the library's filter row. It is a SOURCE of
+               waypoints, like the two buttons beside it, and the filter row is
+               for narrowing a list rather than growing it.
+               Named for the routine that fills it, the way TGB GIFT SHOP BOT and
+               TGB SOUNDTRACK BOT are named in their rooms: "Nightly" said when
+               it runs, which is the least useful thing about it and has been
+               wrong since the scout went twice daily. -->
+          <button class="btn" id="nightlyBtn" type="button" title="What the scout routine found on its last run">Waypoint Bot</button>
+        </div>
+      </fieldset>
+    </div>
+
     <section class="panel map-panel">
       <div class="panel-head">
         <span class="panel-title" id="mapTitle">The walk</span>
@@ -423,7 +522,6 @@
           <input type="search" id="poolSearch" placeholder="Filter by name or address">
           <button class="btn small" id="findWaypointBtn" type="button" title="Search OpenStreetMap for a place and open it as a draft">Find online</button>
           <button class="btn small" id="aiWaypointBtn" type="button" title="Get an AI prompt that returns import SQL for this city">With AI</button>
-          <button class="btn small" id="nightlyBtn" type="button" title="What the scout routine found this morning">Nightly</button>
           <button class="btn small" id="newWaypointBtn" type="button" title="Type a place in by hand">+ Waypoint</button>
         </div>
         <datalist id="pathCityList"></datalist>
@@ -955,6 +1053,10 @@
           + (i === 0 ? ' stop--start' : '')
           + (i === state.stops.length - 1 && state.stops.length > 1 ? ' stop--end' : '');
         row.dataset.wpid = wpid;
+        // THE INDEX, because a wpid is no longer unique on a path: a loop may
+        // list the same square first and last, and indexOf would find whichever
+        // copy came first and move the wrong one.
+        row.dataset.idx = String(i);
 
         const handle = document.createElement('span');
         handle.className = 'stop-handle';
@@ -1016,10 +1118,13 @@
     //
     // Rows already on the path stay, marked and with Add spent. What used to be
     // a filter is now a STATE on the row: see .stop--used and stopsHas below.
+    // HOW MANY TIMES this place is on the open path, not whether. A path may
+    // visit the same square twice -- a loop that starts and finishes there is
+    // the ordinary case -- so the answer worth showing is a count.
     // wpid comes back from PostgREST as a number and is held as a string in
     // state.stops, so this compares the two the only way that is safe.
-    function stopsHas(wpid) {
-      return state.stops.some((id) => String(id) === String(wpid));
+    function stopsCount(wpid) {
+      return state.stops.filter((id) => String(id) === String(wpid)).length;
     }
 
     function poolRows() {
@@ -1052,7 +1157,7 @@
       el('poolTitle').textContent = city
         ? 'WAYPOINT LIBRARY: ' + city.toUpperCase()
         : 'WAYPOINT LIBRARY';
-      const used = rows.filter((w) => stopsHas(w.wpid)).length;
+      const used = rows.filter((w) => stopsCount(w.wpid) > 0).length;
       el('poolCount').textContent = used
         ? rows.length + ' places, ' + used + ' on this path'
         : rows.length + ' places';
@@ -1079,14 +1184,15 @@
         // ALREADY ON THE PATH is a state of the row, not a reason to remove it.
         // Dimmed and captioned rather than hidden, so the library is the same
         // list before and after you build a walk out of it.
-        const used = stopsHas(w.wpid);
+        const times = stopsCount(w.wpid);
+        const used = times > 0;
         if (used) row.classList.add('stop--used');
 
         const handle = document.createElement('span');
         handle.className = 'stop-handle';
         handle.textContent = '≡';
         handle.title = !state.pathId ? 'Open a path first'
-          : used ? 'Already on this path - drag to move it' : 'Drag onto the path';
+          : used ? 'Drag on again to visit it a second time' : 'Drag onto the path';
         if (state.pathId) wireDrag(handle, row, 'pool');
 
         const main = document.createElement('div');
@@ -1101,18 +1207,21 @@
         if (used) {
           const tag = document.createElement('div');
           tag.className = 'stop-used-tag';
-          tag.textContent = 'on this path';
+          // The count only earns its place past one: "on this path x1" is the
+          // same news as "on this path", said less clearly.
+          tag.textContent = times > 1 ? ('on this path x' + times) : 'on this path';
           main.appendChild(tag);
         }
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
         actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
-        // Add is spent once the place is on the path: a second copy is refused
-        // by the (tour_id, wpid) primary key, so offering it would be a button
-        // whose only outcome is an error.
-        actions.appendChild(mkBtn(used ? 'Added' : 'Add',
-          used ? 'Already on this path' : 'Put this on the end of the path',
-          () => addStop(w.wpid), !state.pathId || used));
+        // ADD STAYS LIVE once the place is on the path. It was spent, because
+        // the (tour_id, wpid) primary key refused a second copy; that key is
+        // gone (2026-08-18) and a loop that finishes where it started needs
+        // exactly this button pressed twice.
+        actions.appendChild(mkBtn('Add',
+          used ? 'Put it on the end again' : 'Put this on the end of the path',
+          () => addStop(w.wpid), !state.pathId));
         row.append(handle, main, actions);
         box.appendChild(row);
       });
@@ -2189,10 +2298,11 @@
       markDirty();
     }
 
+    // A REPEAT IS ALLOWED. This used to return early when the place was already
+    // on the path, matching the (tour_id, wpid) primary key that refused it; the
+    // key is now (tour_id, ord), so a loop can end where it began.
     function addStop(wpid) {
-      const id = String(wpid);
-      if (state.stops.includes(id)) return;
-      state.stops.push(id);
+      state.stops.push(String(wpid));
       markDirty();
     }
 
@@ -2228,9 +2338,12 @@
         if (e.target.closest && e.target.closest('.stop')) return;
         e.preventDefault();
         box.classList.remove('is-drop-zone');
-        const changed = placeStop(dragFrom, state.stops.length);
+        const changed = dragKind === 'pool'
+          ? insertStop(dragFrom, state.stops.length)
+          : moveStop(dragIdx, state.stops.length);
         dragFrom = null;
         dragKind = null;
+        dragIdx = -1;
         if (changed) markDirty();
       });
     }
@@ -2240,6 +2353,9 @@
     // from the catalogue, so the drop is an INSERT. Without this the two look
     // identical at the drop target: both are a wpid and a position.
     let dragKind = null;
+    // Which POSITION on the path is being dragged, for a 'stop' drag. -1 for a
+    // library row, which has no position yet.
+    let dragIdx = -1;
 
     // THE WHOLE ROW IS THE GRIP NOW, not only the handle.
     //
@@ -2270,6 +2386,9 @@
       row.addEventListener('dragstart', (e) => {
         dragFrom = row.dataset.wpid;
         dragKind = kind || 'stop';
+        // Only meaningful for a row already on the path; the library has no
+        // position to move from.
+        dragIdx = row.dataset.idx === undefined ? -1 : Number(row.dataset.idx);
         row.classList.add('is-dragging');
         document.body.classList.add('is-dragging-wp');
         e.dataTransfer.effectAllowed = 'move';
@@ -2280,6 +2399,7 @@
         row.draggable = true;
         dragFrom = null;
         dragKind = null;
+        dragIdx = -1;
         document.body.classList.remove('is-dragging-wp');
         el('pathStops').classList.remove('is-drop-zone');
         document.querySelectorAll('.stop').forEach((n) => {
@@ -2288,23 +2408,32 @@
       });
     }
 
-    // Puts wpid at `at`, whether it is arriving from the pool or moving within
-    // the path. Returns false when there is nothing to do, so the caller can
-    // leave the list alone rather than marking it dirty for no change.
-    function placeStop(wpid, at) {
-      const from = state.stops.indexOf(wpid);
-      if (from >= 0) {
-        if (from === at || from + 1 === at) return false;
-        state.stops.splice(from, 1);
-        if (from < at) at -= 1;
-      }
-      state.stops.splice(Math.max(0, Math.min(at, state.stops.length)), 0, wpid);
+    // TWO OPERATIONS, NOT ONE, and which you get depends on where the row came
+    // from. A place may now appear more than once on a path, so "is it already
+    // on the list" can no longer decide: dragging from the LIBRARY always adds a
+    // copy, dragging a row already ON the path always moves that row.
+    // Both return false when nothing would change, so the caller can leave the
+    // list alone rather than marking it dirty for no reason.
+    function insertStop(wpid, at) {
+      state.stops.splice(Math.max(0, Math.min(at, state.stops.length)), 0, String(wpid));
+      return true;
+    }
+
+    function moveStop(from, at) {
+      if (!(from >= 0 && from < state.stops.length)) return false;
+      if (from === at || from + 1 === at) return false;
+      const [moved] = state.stops.splice(from, 1);
+      if (from < at) at -= 1;
+      state.stops.splice(Math.max(0, Math.min(at, state.stops.length)), 0, moved);
       return true;
     }
 
     function wireDropTarget(row) {
       row.addEventListener('dragover', (e) => {
-        if (!dragFrom || row.dataset.wpid === dragFrom) return;
+        // The test is the ROW, not the wpid: with repeats allowed, the other
+        // copy of the same place is a legitimate target to drop beside.
+        if (!dragFrom) return;
+        if (dragKind === 'stop' && Number(row.dataset.idx) === dragIdx) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         // Above or below the midpoint decides which side of this row it lands.
@@ -2319,14 +2448,15 @@
         e.preventDefault();
         const after = row.classList.contains('drop-after');
         row.classList.remove('drop-before', 'drop-after');
-        const target = state.stops.indexOf(row.dataset.wpid);
-        if (target < 0) return;
-        // A place appears at most once per path -- that is the (tour_id, wpid)
-        // primary key -- so a pool row dropped onto a path it is already on is
-        // a move, which placeStop handles, not a second copy.
-        const changed = placeStop(dragFrom, after ? target + 1 : target);
+        // Read the target off the ROW's position, never indexOf: with repeats
+        // allowed, indexOf finds the first copy and would aim at the wrong one.
+        const target = Number(row.dataset.idx) + (after ? 1 : 0);
+        const changed = dragKind === 'pool'
+          ? insertStop(dragFrom, target)
+          : moveStop(dragIdx, target);
         dragFrom = null;
         dragKind = null;
+        dragIdx = -1;
         if (changed) markDirty();
       });
     }
@@ -2651,6 +2781,15 @@
       if (!state.dirty && !wpEdit.dirty) return;
       e.preventDefault();
       e.returnValue = '';
+    });
+
+    // WIREFRAME PLACEHOLDERS. They say so in the scribble rather than doing
+    // nothing at all: a button that swallows a click with no response is
+    // indistinguishable from one that is broken, and this room has spent a day
+    // on exactly that confusion. Replace the handler when the action is decided.
+    ['addWaypointBtn', 'addPathBtn'].forEach((id) => {
+      const b = el(id);
+      if (b) b.addEventListener('click', () => setStatus('not wired yet'));
     });
 
     // The path list is a drop target for the whole of its area, not only its
