@@ -416,6 +416,24 @@
       font-size: 0.6rem;
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.35);
     }
+    /* THE WALKING TIME ON A LEG. A pill, not bare text: it sits on satellite
+       imagery, and unbacked type over a roof is unreadable at any weight. No
+       pointer events -- it must never swallow a click meant for a pin under it. */
+    .rb-leg { pointer-events: none; }
+    .rb-leg-time {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.35);
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--bic-blue);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    }
+
     .rb-pop-name { font-weight: 700; margin-bottom: 4px; }
     .rb-pop-meta { color: var(--muted); margin-bottom: 6px; }
 
@@ -650,7 +668,9 @@
              else, so they belong next to it rather than a row below, where the
              title in between made them look like they acted on the LIST. -->
         <div class="panel-open">
-          <label class="inline" for="pathSelect">Path</label>
+          <!-- PATHS, plural: it labels a LIST of them. The panel heading under it
+               is the singular one, because that is about the path you opened. -->
+          <label class="inline" for="pathSelect">Paths</label>
           <select id="pathSelect"></select>
           <span class="panel-acts">
             <button class="btn primary" id="saveBtn" type="button" disabled title="Save the order of this path">Save</button>
@@ -1468,6 +1488,78 @@
       return { lat, lon };
     }
 
+    // ── THE WALKING ROUTER ────────────────────────────────────────────────
+    // FOSSGIS's keyless OSRM foot profile, the same endpoint mc/game/run/
+    // navigator.html uses for a player's turn-by-turn directions. Reused rather
+    // than chosen again: one router means one thing to replace if it goes away,
+    // and it has no SLA -- it is rate-limited and free, which is why a failure
+    // here has to be survivable rather than fatal.
+    //
+    // ONE REQUEST FOR THE WHOLE PATH, not one per leg. steps=true is what makes
+    // that work: it returns each leg's geometry separately, so the line can be
+    // drawn leg by leg and each leg can carry its own walking time.
+    const WALK_ROUTER = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+    // Keyed by the exact ordered list of points, so a reorder re-routes and a
+    // repaint (toggling the pool, opening a popup) does not. Cleared with the
+    // path, never grown without bound.
+    let walkCache = { key: '', legs: null };
+
+    function walkKey(points) {
+      return points.map((p) => p.lat.toFixed(5) + ',' + p.lon.toFixed(5)).join(';');
+    }
+
+    // Returns one entry per LEG - [{ coords, seconds, metres }] - or null when
+    // the router cannot be reached or will not route. Null is a real answer and
+    // the caller draws straight lines instead.
+    async function fetchWalkLegs(points) {
+      if (points.length < 2) return null;
+      const key = walkKey(points);
+      if (walkCache.key === key) return walkCache.legs;
+      // 25 points is well inside what the public endpoint will answer; past that
+      // the URL and the work both get unreasonable for a free service, and a
+      // path that long is not a walk anyway.
+      if (points.length > 25) return null;
+      try {
+        const url = WALK_ROUTER
+          + points.map((p) => p.lon + ',' + p.lat).join(';')
+          + '?overview=false&geometries=geojson&steps=true';
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const route = data && Array.isArray(data.routes) ? data.routes[0] : null;
+        if (!route || !Array.isArray(route.legs)) throw new Error('no route');
+        const legs = route.legs.map((leg) => {
+          const coords = [];
+          (Array.isArray(leg.steps) ? leg.steps : []).forEach((step) => {
+            const g = step.geometry;
+            if (!g || !Array.isArray(g.coordinates)) return;
+            g.coordinates.forEach((c) => {
+              const pt = [Number(c[1]), Number(c[0])];
+              // OSRM repeats the joining node between consecutive steps.
+              const last = coords[coords.length - 1];
+              if (!last || last[0] !== pt[0] || last[1] !== pt[1]) coords.push(pt);
+            });
+          });
+          return { coords: coords, seconds: Number(leg.duration) || 0, metres: Number(leg.distance) || 0 };
+        });
+        walkCache = { key: key, legs: legs };
+        return legs;
+      } catch (err) {
+        // Cached as a failure too, or every repaint re-asks a router that has
+        // already said no and the map stutters on a rate limit.
+        walkCache = { key: key, legs: null };
+        return null;
+      }
+    }
+
+    function walkMinutes(seconds) {
+      const mins = Math.round((Number(seconds) || 0) / 60);
+      if (mins < 1) return 'under a minute';
+      if (mins < 60) return mins + ' min';
+      const h = Math.floor(mins / 60);
+      return h + ' hr' + (mins % 60 ? ' ' + (mins % 60) + ' min' : '');
+    }
+
     let leafletPromise = null;
     function ensureLeaflet() {
       if (typeof L !== 'undefined') return Promise.resolve(true);
@@ -1533,6 +1625,11 @@
       const poolUnlocated = poolAll.length - poolFull.length;
       const poolCapped = poolFull.length - pool.length;
 
+      // The path's located points in order - what gets routed, and what walkNote
+      // reports on. Declared here rather than beside the drawing, because both
+      // the drawing and the note need it and the note is defined above.
+      const walkPoints = located.map((e) => e.at);
+
       // WHAT THE TOGGLE DID, decided ONCE. It used to be written inside the
       // branch that draws a map, so ticking the box on a path with nothing
       // drawable took the other branch and the explanation was replaced by
@@ -1549,6 +1646,21 @@
         if (!n) return '';
         return n + ' waypoint' + (n === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
           + ' - press Edit on ' + (n === 1 ? 'it' : 'one') + ' and then Locate, which finds the point and saves it.';
+      }
+
+      // THE WHOLE WALK IN ONE FIGURE, from the legs the router returned. It reads
+      // the cache rather than asking again, because this runs on every repaint --
+      // and it compares the cache's key to the points currently drawn, so a
+      // stale answer for a different order can never be reported as this one's.
+      function walkNote() {
+        if (walkPoints.length < 2) return '';
+        if (walkCache.key !== walkKey(walkPoints)) return '';
+        const legs = walkCache.legs;
+        if (!legs) return 'The walking router did not answer, so the line is straight point to point and the times are missing.';
+        const secs = legs.reduce((n, l) => n + l.seconds, 0);
+        const metres = legs.reduce((n, l) => n + l.metres, 0);
+        return 'The whole path is a ' + walkMinutes(secs) + ' walk, '
+          + (metres >= 1000 ? (metres / 1000).toFixed(1) + ' km' : Math.round(metres) + ' m') + '.';
       }
 
       function poolNote() {
@@ -1662,19 +1774,58 @@
         marker.on('click', () => openWaypointEditor(w.wpid));
       });
 
-      // The walk itself, in path order, under the numbers.
-      const line = state.stops
-        .map((id) => pointOf(wpById(id)))
-        .filter(Boolean)
-        .map((p) => [p.lat, p.lon]);
-      if (line.length > 1) {
-        // A white casing under the blue. The tiles are satellite imagery, and a
-        // 2px dark-blue dash over a city block is invisible on its own - drawn
-        // once without this and the walk simply could not be seen.
-        L.polyline(line, { color: '#fff', weight: 5, opacity: 0.85, interactive: false })
-          .addTo(mapState.layer).bringToBack();
-        L.polyline(line, { color: '#2d4880', weight: 2.5, opacity: 0.95, dashArray: '5 6', interactive: false })
-          .addTo(mapState.layer);
+      // THE WALK, FOLLOWING STREETS. The line was point-to-point straight, which
+      // draws a walk through buildings and across a freeway and makes the map lie
+      // about the distance: two pins a block apart on opposite sides of a rail
+      // cut are a ten-minute walk, and a straight line called it fifty metres.
+      //
+      // Each leg is drawn on its own so it can carry its own walking time, and
+      // the router is awaited BEFORE anything is drawn -- drawing straight first
+      // and replacing it makes the map jump.
+      if (walkPoints.length > 1) {
+        const legs = await fetchWalkLegs(walkPoints);
+        if (token !== mapState.token) return;   // a newer render started while we waited
+
+        if (legs) {
+          legs.forEach((leg, i) => {
+            const coords = leg.coords.length > 1
+              ? leg.coords
+              // A leg the router could not shape still has to appear, or the walk
+              // looks like it teleports between two of its stops.
+              : [[walkPoints[i].lat, walkPoints[i].lon], [walkPoints[i + 1].lat, walkPoints[i + 1].lon]];
+            // A white casing under the blue: the tiles are satellite imagery and
+            // a thin dark line over a city block is invisible on its own.
+            L.polyline(coords, { color: '#fff', weight: 6, opacity: 0.85, interactive: false })
+              .addTo(mapState.layer).bringToBack();
+            // SOLID, not dashed. A dash said "roughly this way"; a routed line is
+            // the actual pavement, and drawing it as a guess understates it.
+            L.polyline(coords, { color: '#2d4880', weight: 3, opacity: 0.95, interactive: false })
+              .addTo(mapState.layer);
+
+            // The time, at the middle of the leg's OWN geometry rather than the
+            // midpoint between its ends: on a dogleg those are nowhere near each
+            // other, and a label sitting in a car park belongs to no leg.
+            const mid = coords[Math.floor(coords.length / 2)];
+            L.marker(mid, {
+              interactive: false,
+              icon: L.divIcon({
+                className: 'rb-leg',
+                html: '<span class="rb-leg-time">' + walkMinutes(leg.seconds) + '</span>',
+                iconSize: [66, 18],
+                iconAnchor: [33, 9]
+              })
+            }).addTo(mapState.layer);
+          });
+        } else {
+          // THE ROUTER IS FREE AND HAS NO SLA, so this path stays open: straight
+          // dashed lines exactly as before, and walkNote says the times are
+          // missing rather than letting the line pass for a route.
+          const line = walkPoints.map((pt) => [pt.lat, pt.lon]);
+          L.polyline(line, { color: '#fff', weight: 5, opacity: 0.85, interactive: false })
+            .addTo(mapState.layer).bringToBack();
+          L.polyline(line, { color: '#2d4880', weight: 2.5, opacity: 0.95, dashArray: '5 6', interactive: false })
+            .addTo(mapState.layer);
+        }
       }
 
       // Refit only when the SET of drawn points changes, never on a reorder.
@@ -1701,7 +1852,7 @@
       // The instruction used to say "open the city in Waypoints", a room folded
       // into this one in 2026-08. Edit is on the row, a few pixels away.
       setPoolNotice(unplacedNote(unlocated));
-      note.textContent = poolNote();
+      note.textContent = [walkNote(), poolNote()].filter(Boolean).join(' ');
     }
 
     // --- the waypoint editor --------------------------------------------------
