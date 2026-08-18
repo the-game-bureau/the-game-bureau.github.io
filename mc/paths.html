@@ -184,6 +184,13 @@
       padding: 7px 13px;
       border-radius: 3px;
       cursor: pointer;
+      /* An <a class="btn"> has to sit level with a <button class="btn"> beside
+         it, and by default it does neither: it keeps the UA underline and
+         baseline-aligns as inline text. Waypoint Bot is one, and any other door
+         added to these bars will be. */
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
     }
     .btn:hover:not(:disabled) { border-color: var(--ink); }
     .btn:disabled { opacity: 0.45; cursor: default; }
@@ -644,14 +651,6 @@
       padding: 8px;
       resize: vertical;
     }
-    .nightly-note { font-size: 0.78rem; color: var(--muted); }
-    .nightly-note > summary {
-      cursor: pointer; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      font-size: 0.7rem;
-    }
-    .nightly-note > p { margin: 6px 0 0; line-height: 1.5; }
-    .nightly-src { font-size: 0.76rem; color: var(--muted); }
-    .nightly-src a { color: var(--ink); }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
@@ -706,7 +705,15 @@
                it runs, which is the least useful thing about it and has been
                wrong since the scout went twice daily. The ROUTINE was renamed to
                match on 2026-08-18: it was TGB WAYPOINTS BOT. -->
-          <button class="btn" id="nightlyBtn" type="button" title="What the scout routine found on its last run">Waypoint Bot</button>
+          <!-- A DOOR, NOT A DIALOG (2026-08-18). It used to open a popup listing
+               what the routine had committed to mc/stops/nightly.json, with an
+               Open button per candidate that loaded it into the waypoint editor
+               as an unsaved draft. That whole review step is gone from this
+               room; the button goes straight to the routine at claude.ai.
+               NOTE FOR WHOEVER READS THIS NEXT: nightly.json now has no reader
+               in this repo. The scout still commits it twice a day. -->
+          <a class="btn" id="nightlyBtn" href="https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j" target="_blank" rel="noopener"
+             title="Open WAYPOINT BOT at claude.ai">Waypoint Bot &#8599;</a>
           <!-- The bar holds two nouns. The rule says where one ends and the
                other begins, which four buttons in a row of identical chrome
                otherwise leave you to work out from the words. -->
@@ -985,39 +992,6 @@
         <button class="btn small" id="aiCloseBtn" type="button">Close</button>
       </div>
       <textarea id="aiPromptText" class="ai-prompt" readonly hidden></textarea>
-    </div>
-  </div>
-
-  <!-- WAYPOINT BOT: what the routine committed on its last run. Read-only about
-       the automation; a human decides which stops are worth keeping.
-       The ids stay nightly* -- they are identifiers, and the routine ran nightly
-       for the first fortnight of its life. -->
-  <div class="dlg" id="nightlyDlg" role="dialog" aria-modal="true" aria-labelledby="nightlyDlgTitle">
-    <div class="dlg-panel dlg-panel--wide">
-      <div class="dlg-head">
-        <h2 class="dlg-title" id="nightlyDlgTitle">Waypoint Bot candidates</h2>
-        <span class="dlg-id" id="nightlyWhen"></span>
-      </div>
-      <p class="dlg-note" id="nightlyHead"></p>
-      <div class="find-list" id="nightlyList"></div>
-      <!-- THE RUN NOTE COMES AFTER THE CANDIDATES, and it has to. It used to be
-           glued onto the end of the head line, which is one sentence long about
-           twice a week and two hundred words the rest of the time -- the
-           Cleveland run wrote 200. At that length it filled the dialog on a
-           laptop, pushed all fifteen candidates below the fold, and left OPEN
-           ROUTINE and CLOSE as the only controls you could see: the dialog read
-           as a link to the routine and nothing else.
-           Same order rule the cards in every other room follow: what it is,
-           then what you can do about it, then the small print. -->
-      <details class="nightly-note" id="nightlyNoteBox" hidden>
-        <summary>Run notes</summary>
-        <p id="nightlyNote"></p>
-      </details>
-      <div class="dlg-actions">
-        <a class="btn small" href="https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j" target="_blank" rel="noopener">Open routine &#8599;</a>
-        <span class="dlg-spacer"></span>
-        <button class="btn small" id="nightlyCloseBtn" type="button">Close</button>
-      </div>
     </div>
   </div>
 
@@ -2855,137 +2829,6 @@
       setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
     }
 
-    // --- NIGHTLY --------------------------------------------------------------
-
-    const NIGHTLY_FILE = '/mc/stops/nightly.json';
-    // A run that errors pushes nothing, so a stale commit IS the failure signal -
-    // there is no other receipt, the scout writes one file and no database.
-    const NIGHTLY_RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
-      + '?path=mc/stops/nightly.json&per_page=1';
-    // 14, not 30: WAYPOINT BOT has run TWICE A DAY since 2026-08-15, when every
-    // TGB routine was put on one schedule. At 30 a missed run stayed invisible
-    // for more than a day, which is the same mistake REVIEW_HOURS and
-    // BOOK_PULL_STALE_HOURS were both corrected for.
-    const NIGHTLY_STALE_HOURS = 14;
-
-    function nightlyRelative(then, now) {
-      const mins = Math.round((now - then) / 60000);
-      if (mins < 60) return mins + ' min ago';
-      const hours = Math.round(mins / 60);
-      if (hours < 36) return hours + ' hour' + (hours === 1 ? '' : 's') + ' ago';
-      return Math.round(hours / 24) + ' days ago';
-    }
-
-    function openNightlyDialog() {
-      el('nightlyDlg').classList.add('is-open');
-      el('nightlyList').innerHTML = '';
-      el('nightlyNoteBox').hidden = true;
-      el('nightlyNote').textContent = '';
-      el('nightlyHead').textContent = 'Reading this morning\'s file...';
-      el('nightlyWhen').textContent = '';
-      loadNightlyRun();
-      loadNightlyPicks();
-    }
-
-    function closeNightlyDialog() { el('nightlyDlg').classList.remove('is-open'); }
-
-    async function loadNightlyRun() {
-      const when = el('nightlyWhen');
-      try {
-        const res = await fetch(NIGHTLY_RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
-        if (!res.ok) throw new Error('GitHub ' + res.status);
-        const commits = await res.json();
-        if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
-        const stamp = new Date(commits[0].commit.committer.date);
-        const now = new Date();
-        const stale = (now - stamp) / 3600000 > NIGHTLY_STALE_HOURS;
-        when.textContent = 'Last run ' + nightlyRelative(stamp, now) + (stale ? ' - overdue' : '');
-      } catch (err) {
-        when.textContent = 'Last run unknown';
-      }
-    }
-
-    async function loadNightlyPicks() {
-      const list = el('nightlyList');
-      let data = null;
-      try {
-        const res = await fetch(NIGHTLY_FILE + '?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
-      } catch (err) {
-        el('nightlyHead').textContent = 'Could not read nightly.json.';
-        return;
-      }
-      const stops = Array.isArray(data && data.stops) ? data.stops : [];
-      const city = cleanText(data && data.city);
-      const sources = Array.isArray(data && data.sources) ? data.sources
-        : (Array.isArray(data && data.tours) ? data.tours : []);
-      el('nightlyHead').textContent = (city || 'No city yet') + ' · '
-        + stops.length + ' candidate' + (stops.length === 1 ? '' : 's')
-        + (sources.length ? ' from ' + sources.length + ' source' + (sources.length === 1 ? '' : 's') : '');
-      const note = cleanText(data && data.note);
-      el('nightlyNote').textContent = note;
-      el('nightlyNoteBox').hidden = !note;
-      list.innerHTML = '';
-      if (!stops.length) {
-        el('nightlyHead').textContent += ' - nothing queued.';
-        return;
-      }
-      stops.forEach((stop) => list.appendChild(renderNightlyStop(stop)));
-    }
-
-    function renderNightlyStop(stop) {
-      const row = document.createElement('div');
-      row.className = 'find-row';
-      const main = document.createElement('div');
-      main.className = 'find-row-main';
-      const name = document.createElement('div');
-      name.className = 'find-row-name';
-      name.textContent = cleanText(stop.name) || 'Unnamed';
-      const sub = document.createElement('div');
-      sub.className = 'find-row-sub';
-      sub.textContent = [cleanText(stop.address), cleanText(stop.city), cleanText(stop.state)]
-        .filter(Boolean).join(' · ') || 'no address';
-      main.append(name, sub);
-      if (cleanText(stop.source_url)) {
-        const src = document.createElement('div');
-        src.className = 'nightly-src';
-        const a = document.createElement('a');
-        a.href = stop.source_url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = 'source';
-        src.appendChild(a);
-        main.appendChild(src);
-      }
-      // The scout can offer the same stop two mornings running - its rotation is
-      // read from git history, not from the table - so an already-added stop is
-      // marked rather than offered again.
-      const dupe = state.waypoints.find((w) =>
-        cleanText(w.name).toLowerCase() === cleanText(stop.name).toLowerCase()
-        && cleanText(w.city).toLowerCase() === cleanText(stop.city).toLowerCase());
-      if (dupe) {
-        row.classList.add('is-dupe');
-        const flag = document.createElement('div');
-        flag.className = 'find-row-dupe';
-        flag.textContent = 'Already in the table as WPID ' + dupe.wpid;
-        main.appendChild(flag);
-      }
-      row.append(main, mkBtn('Open', 'Open this candidate as an unsaved draft', () => {
-        closeNightlyDialog();
-        openWaypointEditor(null);
-        Object.assign(wpEdit.row, {
-          name: cleanText(stop.name), city: cleanText(stop.city), state: cleanText(stop.state),
-          zip: cleanText(stop.zip), address: cleanText(stop.address),
-          description: cleanText(stop.description), source_url: cleanText(stop.source_url)
-        });
-        wpEdit.dirty = true;
-        renderWaypointForm();
-        wpNote('From this morning\'s scout run - check it, then press Create.', 'busy');
-      }));
-      return row;
-    }
-
     // --- suggest an order -----------------------------------------------------
 
     // Geometry, applied to THE PATH - not to waypoints.walk_order, which is a
@@ -3587,7 +3430,6 @@
       if (e.key !== 'Escape') return;
       if (el('newPathDlg').classList.contains('is-open')) closeNewPathDialog();
       else if (el('aiDlg').classList.contains('is-open')) closeAiDialog();
-      else if (el('nightlyDlg').classList.contains('is-open')) closeNightlyDialog();
       else if (el('findDlg').classList.contains('is-open') && !findState.busy) closeFindDialog();
       else if (wpDlgOpen() && !wpEdit.busy) closeWaypointEditor();
     });
@@ -3618,9 +3460,6 @@
     el('aiCopyBtn').addEventListener('click', copyAiPrompt);
     el('aiCloseBtn').addEventListener('click', closeAiDialog);
     el('aiDlg').addEventListener('click', (e) => { if (e.target === el('aiDlg')) closeAiDialog(); });
-    el('nightlyBtn').addEventListener('click', openNightlyDialog);
-    el('nightlyCloseBtn').addEventListener('click', closeNightlyDialog);
-    el('nightlyDlg').addEventListener('click', (e) => { if (e.target === el('nightlyDlg')) closeNightlyDialog(); });
     el('findGoBtn').addEventListener('click', runFind);
     el('findCloseBtn').addEventListener('click', closeFindDialog);
     el('findBlankBtn').addEventListener('click', () => { closeFindDialog(); openWaypointEditor(null); });
