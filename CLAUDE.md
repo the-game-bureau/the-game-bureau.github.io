@@ -354,7 +354,7 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 | `public.paths` | `tour_id` (PK), `title`, `shape`, `city`. One row per path. |
 | `public.path_stops` | `tour_id`, `wpid`, `ord`. **Nothing but ids and a position.** |
 
-Migration: [2026080804_paths_and_path_stops.sql](mc/supabase/migrations/2026080804_paths_and_path_stops.sql). Editor: **[mc/paths.html](mc/paths.html) — "Path Builder"**, under GAME BUILDER in the nav.
+Migration: [2026080804_paths_and_path_stops.sql](mc/supabase/migrations/2026080804_paths_and_path_stops.sql). Editor: **[mc/paths.html](mc/paths.html) — "Path Builder"**, under **GAME ELEMENTS** in the nav (moved there from Game Builder on 2026-08-17: a Path is a reusable part a game is assembled from, like a Guide or a City, not one of the tools that does the assembling).
 
 **This REVERSES the columns-on-waypoints design from earlier the same day**, which gave a place on two walks two rows so each could carry its own sentence and its own order. The argument was real; the cost was worse. The duplicate rows were not marked as being the same place, so the catalogue grew a second Freedom Tower every time somebody built another downtown Miami walk, the map drew two pins on one building, the importers' name+city dedupe fought the design that required the duplicate, and **"what paths is this place on" could not be asked at all**. One place, one row, is the shape a catalogue wants.
 

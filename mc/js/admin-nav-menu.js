@@ -85,6 +85,17 @@
           label: 'Teams',
           description: 'The teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.',
           action: 'GO TO TEAMS'
+        },
+        {
+          href: '/mc/paths.html',
+          // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
+          // waypoints and nothing else -- no game, no challenges, no pricing --
+          // so it is a part a game is assembled FROM, which is what this group
+          // holds. Next door is where those parts get put together, and a Path
+          // is reusable across games in the same way a Guide, a City and a Team
+          // are.
+          label: 'Path Builder',
+          description: 'Order the waypoints of a walking path by dragging them. No challenges, no map.'
         }
       ]
     },
@@ -129,14 +140,6 @@
           label: 'Flow Builder',
           description: 'Build the playable conversation flow: messages, prompts, replies, and branches.',
           appendOpenGameId: true
-        },
-        {
-          href: '/mc/paths.html',
-          // A PATH is an ordered set of waypoints and nothing else. It sits
-          // above Game Stops on purpose: you lay out where the walk goes, then
-          // pair each of those places with a challenge to make it playable.
-          label: 'Path Builder',
-          description: 'Order the waypoints of a walking path by dragging them. No challenges, no map.'
         },
         // GAME STOPS IS OFF THE MENU (2026-08-09) and its page renamed
         // mc/_stops.html — the underscore marks a room that is still live but is
