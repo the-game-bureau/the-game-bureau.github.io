@@ -3097,7 +3097,25 @@
       const p = (n, w) => String(n).padStart(w || 2, '0');
       const stamp = d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate())
         + '-' + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds());
-      return slug + '-' + (cleanText(shape) || 'loop') + '-' + stamp;
+      const base = slug + '-' + (cleanText(shape) || 'loop') + '-' + stamp;
+
+      // A SECOND IS NOT ENOUGH ON ITS OWN. City, shape and the UTC second are all
+      // this id is made of, so cloning a path twice in a row - same city, same
+      // shape, one second - mints the same string twice. tour_id is the primary
+      // key, so the second write came back as a raw 23505 with the dialog already
+      // closed and its answers gone.
+      //
+      // Suffixed rather than refused, the same way the ESPN importer handles a
+      // doubleheader that collides. Checked against the paths already loaded,
+      // which catches the case that actually happens: the same person, twice.
+      // A genuine race with another browser still returns 23505, which is the
+      // correct answer to two clients minting one id at the same instant.
+      if (!state.paths.some((r) => String(r.tour_id) === base)) return base;
+      for (let n = 2; n < 50; n += 1) {
+        const tryId = base + '-' + n;
+        if (!state.paths.some((r) => String(r.tour_id) === tryId)) return tryId;
+      }
+      return base + '-' + Date.now();
     }
 
     // The dialog is static markup, so the city control is attached once and
