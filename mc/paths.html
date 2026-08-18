@@ -1228,15 +1228,6 @@
       shape.title = shapeBlurb(shape.value);
       shape.addEventListener('change', () => savePathField('shape', shape.value));
 
-      // This field decides what the pool and the map's candidates show, so it is
-      // backed by the shared catalogue. Stored bare ("Miami"), see cityNameOf.
-      const city = document.createElement('input');
-      city.type = 'text';
-      city.value = cleanText(path.city);
-      city.placeholder = 'City';
-      city.setAttribute('list', 'pathCityList');
-      city.addEventListener('change', () => savePathField('city', cityNameOf(city.value)));
-
       const id = document.createElement('input');
       id.type = 'text';
       id.value = path.tour_id;
@@ -1246,10 +1237,19 @@
       // anchor_events makes with its client-supplied primary key.
       id.title = 'The path id. Not editable - every waypoint on the path points at it.';
 
+      // NO CITY FIELD. The city is chosen once, in OPEN at the top of the room,
+      // and it is named twice more in the two panel headings - a fourth control
+      // for it invited you to set it here and disagree with the picker you are
+      // filtered by. The COLUMN is untouched and still written: the New path
+      // dialog sets it, and Clone carries it over.
+      //
+      // WHAT THIS COSTS, stated so it is a decision and not a gap: a path filed
+      // under the wrong city can no longer be corrected from this page. That is
+      // an UPDATE in the SQL editor now, or a clone into the right city followed
+      // by deleting the original.
       box.append(
         field('Title', title),
         field('Shape', shape),
-        field('City', city),
         field('Path id', id)
       );
     }
@@ -1479,11 +1479,18 @@
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
         actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
-        // ADD STAYS LIVE once the place is on the path. It was spent, because
-        // the (tour_id, wpid) primary key refused a second copy; that key is
-        // gone (2026-08-18) and a loop that finishes where it started needs
-        // exactly this button pressed twice.
-        actions.appendChild(mkBtn('Add',
+        // "ADD TO PATH", not "Add". Plain Add was the problem: this bar sits under
+        // a room whose top strip is called ADD, where the buttons CREATE a
+        // waypoint rather than place one, so one word was doing two jobs a few
+        // inches apart. The full phrase names the destination, which is the only
+        // thing worth saying here.
+        //
+        // The same words the MAP's popup already uses for the same action, so a
+        // waypoint gets onto a path by one named thing wherever you meet it.
+        //
+        // It also has to exist: dragging is otherwise the only route, which
+        // leaves no keyboard and no single-tap way to build a path at all.
+        actions.appendChild(mkBtn('Add to path',
           used ? 'Put it on the end again' : 'Put this on the end of the path',
           () => addStop(w.wpid), !state.pathId));
         row.append(handle, main, actions);
