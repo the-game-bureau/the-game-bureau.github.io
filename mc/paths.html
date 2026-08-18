@@ -639,6 +639,12 @@
       padding: 8px;
       resize: vertical;
     }
+    .nightly-note { font-size: 0.78rem; color: var(--muted); }
+    .nightly-note > summary {
+      cursor: pointer; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+    .nightly-note > p { margin: 6px 0 0; line-height: 1.5; }
     .nightly-src { font-size: 0.76rem; color: var(--muted); }
     .nightly-src a { color: var(--ink); }
   </style>
@@ -989,6 +995,19 @@
       </div>
       <p class="dlg-note" id="nightlyHead"></p>
       <div class="find-list" id="nightlyList"></div>
+      <!-- THE RUN NOTE COMES AFTER THE CANDIDATES, and it has to. It used to be
+           glued onto the end of the head line, which is one sentence long about
+           twice a week and two hundred words the rest of the time -- the
+           Cleveland run wrote 200. At that length it filled the dialog on a
+           laptop, pushed all fifteen candidates below the fold, and left OPEN
+           ROUTINE and CLOSE as the only controls you could see: the dialog read
+           as a link to the routine and nothing else.
+           Same order rule the cards in every other room follow: what it is,
+           then what you can do about it, then the small print. -->
+      <details class="nightly-note" id="nightlyNoteBox" hidden>
+        <summary>Run notes</summary>
+        <p id="nightlyNote"></p>
+      </details>
       <div class="dlg-actions">
         <a class="btn small" href="https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j" target="_blank" rel="noopener">Open routine &#8599;</a>
         <span class="dlg-spacer"></span>
@@ -2844,6 +2863,8 @@
     function openNightlyDialog() {
       el('nightlyDlg').classList.add('is-open');
       el('nightlyList').innerHTML = '';
+      el('nightlyNoteBox').hidden = true;
+      el('nightlyNote').textContent = '';
       el('nightlyHead').textContent = 'Reading this morning\'s file...';
       el('nightlyWhen').textContent = '';
       loadNightlyRun();
@@ -2885,8 +2906,10 @@
         : (Array.isArray(data && data.tours) ? data.tours : []);
       el('nightlyHead').textContent = (city || 'No city yet') + ' · '
         + stops.length + ' candidate' + (stops.length === 1 ? '' : 's')
-        + (sources.length ? ' from ' + sources.length + ' source' + (sources.length === 1 ? '' : 's') : '')
-        + (cleanText(data && data.note) ? ' · ' + cleanText(data.note) : '');
+        + (sources.length ? ' from ' + sources.length + ' source' + (sources.length === 1 ? '' : 's') : '');
+      const note = cleanText(data && data.note);
+      el('nightlyNote').textContent = note;
+      el('nightlyNoteBox').hidden = !note;
       list.innerHTML = '';
       if (!stops.length) {
         el('nightlyHead').textContent += ' - nothing queued.';
