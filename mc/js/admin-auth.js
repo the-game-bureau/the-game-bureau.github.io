@@ -54,6 +54,7 @@
       '.mc-auth-btn--primary{background:#2d4880;border-color:#2d4880;color:#fff;}',
       '.mc-auth-btn--primary:hover{background:#365694;}',
       '.mc-auth-btn--google{width:100%;border-color:rgba(45,72,128,.35);}',
+      '.mc-auth-btn--wide{flex:1 0 100%;}',
       /* Collapse rather than sit there as a blank line's worth of margin. */
       '.mc-auth-copy:empty{display:none;}',
       /* A rule through the middle with the word sitting in it. The lines are the
@@ -116,39 +117,30 @@
       // like something other than a password field.
       '        <input id="mcAuthPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>',
       '      </label>',
-      // REMEMBER ME IS OUT OF THE TAB ORDER, deliberately. Tab from the
-      // password field lands on Sign In, which is what all but one sign-in in a
-      // hundred wants; the checkbox sat between them and swallowed a keystroke
-      // every time. It is still clickable, still has its label, and still holds
-      // its state.
+      // REMEMBER ME IS GONE, AND IT IS NOW ALWAYS ON. The checkbox chose
+      // between localStorage (survives closing the browser) and sessionStorage
+      // (dies with the tab), and it defaulted to OFF -- so the common case was
+      // signing in again every morning to a box asking a question with one
+      // sensible answer. Removing the control without pinning `remember` true
+      // would have made that the ONLY behaviour, which is the opposite of what
+      // taking it away is meant to achieve.
       //
-      // The cost is real and worth stating: a keyboard-only user cannot reach
-      // it. If that ever matters, put it AFTER the buttons in the DOM and drop
-      // the tabindex, rather than restoring it here.
-      '      <label class="mc-auth-check" for="mcAuthRemember">',
-      // tabindex=-1 keeps it out of the tab order between the password and the
-      // Sign In button, which is a deliberate call recorded elsewhere: it costs
-      // keyboard reachability and buys a straight run from password to submit.
-      '        <input id="mcAuthRemember" name="remember" type="checkbox" tabindex="-1">',
-      '        <span>Remember Me</span>',
-      '      </label>',
+      // Sign Out still clears everything, which is the real control and always
+      // was. rememberStorageKey / rememberedEmailStorageKey are still written
+      // and read, so a session stored before this change keeps working.
       '      <div class="mc-auth-actions">',
-      '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
-      '        <button class="mc-auth-btn" id="mcAuthResetBtn" type="button">Reset Password</button>',
-      // JOIN sits with the other two because it answers the third thing
-      // somebody standing at this modal can want: not "let me in" and not "I
-      // forgot", but "I do not have an account at all". Before this there was
-      // no answer to that on screen, and the person had to know to ask a human
-      // who had Supabase dashboard access.
+      // FULL WIDTH, ON ITS OWN, so it mirrors Continue with Google at the top
+      // of the panel: the two ways of signing in are the same size and shape,
+      // and the pair below them are plainly the smaller, other things.
+      '        <button class="mc-auth-btn mc-auth-btn--wide mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
       '        <span class="mc-auth-break" aria-hidden="true"></span>',
-      // GOOGLE IS ON THE SIGN-IN FORM TOO, not only on JOIN, and it has to be:
-      // an account created through Google has no password, so the form above
-      // can never sign it in. Offering Google only as a way to join would make
-      // every approved Google admin permanently locked out.
-      //
-      // Its own full-width line, directly under Sign In, because it is the
-      // OTHER way to do the same thing. Sharing a line with Request Access read
-      // as a pair of alternatives to signing in, which is half wrong.
+      '        <button class="mc-auth-btn" id="mcAuthResetBtn" type="button">Reset Password</button>',
+      // THE TWO SMALL THINGS SHARE THE LAST LINE. Neither signs you in: they
+      // are what you press when the two full-width buttons above have not
+      // worked for you. JOIN answers the third thing somebody standing here can
+      // want -- not "let me in" and not "I forgot", but "I have no account at
+      // all", which before this had no answer on screen and meant knowing to
+      // ask a human with Supabase dashboard access.
       '        <button class="mc-auth-btn" id="mcAuthJoinBtn" type="button">Request Access</button>',
       '      </div>',
       '    </form>',
@@ -280,6 +272,9 @@
     var joinGoogleBtn = root.querySelector('#mcAuthJoinGoogleBtn');
     var emailInput = root.querySelector('#mcAuthEmail');
     var passwordInput = root.querySelector('#mcAuthPassword');
+    // Absent since the checkbox was removed. Kept as a lookup rather than
+    // deleted so a page that supplies its own markup with the old field still
+    // has it driven correctly.
     var rememberInput = root.querySelector('#mcAuthRemember');
     var resetBtn = root.querySelector('#mcAuthResetBtn');
     var newPasswordInput = root.querySelector('#mcAuthNewPassword');
@@ -811,7 +806,7 @@
       var email = String(emailInput.value || '').trim();
       var password = String(passwordInput.value || '');
       if (!email || !password) return;
-      var remember = !!(rememberInput && rememberInput.checked);
+      var remember = true;
 
       submitBtn.disabled = true;
       setStatus('Signing in...');
@@ -1160,7 +1155,10 @@
     async function init() {
       bindListeners();
       setPageAuthorized(false);
-      setRememberUi(readRememberPreference());
+      // TRUE, not the stored preference: an admin who signed in before this
+      // change has '' stored, and reading it would put them back on tab-only
+      // sessions for good with no control left to fix it.
+      setRememberUi(true);
       resetPasswordInputs();
 
       if (!hasConfig(settings.supabaseConfig)) {
