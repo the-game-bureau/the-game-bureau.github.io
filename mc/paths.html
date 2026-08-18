@@ -83,6 +83,8 @@
     }
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 0 0 auto; }
+    .command-bar--open { flex: 0 0 auto; }
+    .command-bar--open select { min-width: 12rem; }
     @media (max-width: 760px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
@@ -492,6 +494,19 @@
           <button class="btn" id="nightlyBtn" type="button" title="What the scout routine found on its last run">Waypoint Bot</button>
         </div>
       </fieldset>
+      <!-- ONE CONTROL, AND IT SETS THE WHOLE ROOM. The city decides which
+           waypoints the library holds and which paths the picker offers, so it
+           belongs at the top of the page rather than inside one of the two
+           panels it governs. The path picker stays down on the path panel: that
+           one chooses which of this city's paths you are editing, which is a
+           smaller question and answered where the answer shows. -->
+      <fieldset class="command-bar command-bar--open">
+        <legend>OPEN</legend>
+        <div class="command-bar-inner">
+          <label class="inline" for="cityFilter">City</label>
+          <select id="cityFilter"></select>
+        </div>
+      </fieldset>
     </div>
 
     <section class="panel map-panel">
@@ -532,16 +547,10 @@
       </section>
       <section class="panel" id="pathPanel">
         <!-- WHICH PATH, AND WHAT TO DO WITH IT, both on the panel that IS the
-             path. The pickers were a bar across the top of the page, which put
-             the thing you choose a long way from the thing that changes when
-             you choose it, and made the top of the room a strip of controls
-             belonging to a panel further down.
-             City comes first because it is how you FIND a path: the catalogue
-             is one list of every walk in every city, and a path's name does not
-             say where it is. -->
+             path: the thing you choose sits with the thing that changes when
+             you choose it. The CITY is not here -- it governs the library as
+             well, so it sits in OPEN at the top of the room. -->
         <div class="panel-open">
-          <label class="inline" for="cityFilter">City</label>
-          <select id="cityFilter"></select>
           <label class="inline" for="pathSelect">Path</label>
           <select id="pathSelect"></select>
           <button class="btn" id="newPathBtn" type="button" title="Start a new path">New</button>
@@ -915,9 +924,15 @@
     // The cities that actually have paths - the picker's job is narrowing what
     // is there, so a city with nothing in it would be a dead end. A city with
     // no path yet is reached through NEW, which offers the whole catalogue.
+    // EVERY CITY EITHER PANEL COULD SHOW SOMETHING FOR, which since this picker
+    // started filling the library means cities with WAYPOINTS as well as cities
+    // with paths. Listing only the latter made the first path in a city
+    // impossible to start from here: the city was absent from the one control
+    // that opens it, so its library could never be put on screen.
     function pathCities() {
-      return [...new Set(state.paths.map((r) => cityNameOf(r.city)).filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b));
+      const cities = state.paths.map((r) => cityNameOf(r.city))
+        .concat(state.waypoints.map((w) => cityNameOf(w.city)));
+      return [...new Set(cities.filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
 
     function pathsInCity(city) {
@@ -940,7 +955,10 @@
         sel.appendChild(o);
       });
       sel.value = state.cityFilter;
-      sel.disabled = !state.paths.length;
+      // Disabled only when there is genuinely nothing to pick. It used to key
+      // on paths alone, so a catalogue full of waypoints and no path yet left
+      // the one control that would show them greyed out.
+      sel.disabled = sel.options.length < 2;
     }
 
     function renderPathSelect() {
@@ -1131,7 +1149,12 @@
     }
 
     function poolRows() {
-      const city = pathCity().toLowerCase();
+      // THE CHOSEN CITY, falling back to the open path's. Choosing a city is
+      // now what fills this library, so a city with no path yet still shows its
+      // waypoints -- which is exactly the state you are in when you are about
+      // to build the first path there. Reading pathCity() alone left the
+      // library empty until a path existed to give it a city.
+      const city = (state.cityFilter || pathCity()).toLowerCase();
       const q = state.poolQuery.toLowerCase();
       return state.waypoints.filter((w) => {
         if (!city || cleanText(w.city).toLowerCase() !== city) return false;
@@ -1153,12 +1176,17 @@
       // The city goes AFTER the colon so the two titles start with the noun
       // and line up down the page, rather than each beginning with whatever
       // city happens to be open.
+      // Each panel is titled for the city it is actually showing: the library
+      // follows the chosen city, the path follows the path that is open. They
+      // are the same city almost always, and differ for the moment between
+      // choosing a city and its first path opening.
+      const libraryCity = state.cityFilter || pathCity();
       const city = pathCity();
       el('pathPanelTitle').textContent = city
         ? 'PATH: ' + city.toUpperCase()
         : 'PATH';
-      el('poolTitle').textContent = city
-        ? 'WAYPOINT LIBRARY: ' + city.toUpperCase()
+      el('poolTitle').textContent = libraryCity
+        ? 'WAYPOINT LIBRARY: ' + libraryCity.toUpperCase()
         : 'WAYPOINT LIBRARY';
       const used = rows.filter((w) => stopsCount(w.wpid) > 0).length;
       el('poolCount').textContent = used
@@ -1167,7 +1195,7 @@
       if (!rows.length) {
         box.innerHTML = '<p class="empty">'
           + (city
-              ? 'No waypoint in ' + city + ' yet. Add one with + Waypoint, or clear the filter box.'
+              ? 'No waypoint in ' + libraryCity + ' yet. Add one with Waypoint Manual, or clear the filter box.'
               : 'This path has no city yet - set one above and its waypoints appear here.')
           + '</p>';
         return;
@@ -2676,13 +2704,22 @@
     // Picking a city narrows the path picker. If the open path is not in that
     // city, the first one there is opened - a picker that filters a list but
     // leaves a hidden row selected shows a path the list denies having.
+    // Picking a city fills the library and narrows the path picker. If the open
+    // path is not in that city, the first one there is opened - a picker that
+    // filters a list but leaves a hidden row selected shows a path the list
+    // denies having.
+    //
+    // A CITY WITH NO PATHS IS A VALID CHOICE and no longer snaps back to the
+    // previous one. It used to, because the city existed only to find a path;
+    // it now fills the library too, and "show me this city's waypoints so I can
+    // build its first path" is the whole point of choosing an empty one.
     async function pickCity(city) {
       const previous = state.cityFilter;
       state.cityFilter = cleanText(city);
       const rows = pathsInCity(state.cityFilter);
       if (!rows.some((r) => r.tour_id === state.pathId)) {
         const moved = await openPath(rows[0] ? rows[0].tour_id : '');
-        if (!moved) { state.cityFilter = previous; renderAll(); return; }
+        if (!moved && rows.length) { state.cityFilter = previous; renderAll(); return; }
       }
       renderAll();
     }
