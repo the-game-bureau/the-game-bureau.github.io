@@ -1509,6 +1509,15 @@
       // branch that draws a map, so ticking the box on a path with nothing
       // drawable took the other branch and the explanation was replaced by
       // "Nothing to draw yet" -- the exact case the explanation exists for.
+      // The unplaced-waypoint sentence, in one place. Both branches say it and
+      // they were disagreeing about the verb: "2 waypoints have no coordinates
+      // ... press Edit on IT".
+      function unplacedNote(n) {
+        if (!n) return '';
+        return n + ' waypoint' + (n === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
+          + ' - press Edit on ' + (n === 1 ? 'it' : 'one') + ' and then Locate, which finds the point and saves it.';
+      }
+
       function poolNote() {
         if (!mapState.showPool) return '';
         if (pool.length) {
@@ -1535,22 +1544,24 @@
         // Never downloads Leaflet for a path it cannot draw.
         if (mapState.map) { mapState.map.remove(); mapState.map = null; mapState.fitKey = ''; }
         box.classList.add('is-empty');
-        // THREE EMPTY STATES, NOT ONE. "Add stops to see the walk" was shown
-        // for all of them, including the one where you have not chosen a path
-        // -- telling somebody to fill a thing they have not opened.
+        // THE BOX ASKS FOR THE NEXT CHOICE; the note carries everything else.
+        // It used to hold the diagnosis too ("None of these 10 waypoints has
+        // coordinates yet"), which put a notification in the middle of an empty
+        // map while the notification line under it sat blank.
+        //
+        // The ask narrows as you choose: with no city, either would do; with a
+        // city and no path, only a path is left to pick.
         box.innerHTML = '<span class="empty">'
           + (!state.pathId
-              ? 'Choose a path.'
-              : (stops.length
-                  ? 'None of these ' + stops.length + ' waypoints has coordinates yet.'
-                  : 'Drag a waypoint over from the left.'))
+              ? (state.cityFilter ? 'Choose a path.' : 'Choose a city or path.')
+              // A path WITH waypoints that cannot be drawn is not an empty path,
+              // and telling you to drag another one over is the wrong
+              // instruction entirely. The note underneath says what is wrong.
+              : (stops.length ? 'Nothing to draw yet.' : 'Drag a waypoint over from the left.'))
           + '</span>';
-        // Both, when both apply: why the path cannot be drawn, and what the
-        // toggle found. Either alone leaves half the question answered.
-        note.textContent = [
-          stops.length ? 'Press Edit on a waypoint and then Locate - the point is saved on it and drawn here.' : '',
-          poolNote()
-        ].filter(Boolean).join(' ');
+        // Why nothing is drawn, and what the toggle found. Either alone leaves
+        // half the question answered.
+        note.textContent = [unplacedNote(stops.length), poolNote()].filter(Boolean).join(' ');
         note.classList.toggle('warn', stops.length > 0);
         return;
       }
@@ -1655,13 +1666,7 @@
       // one unplaced waypoint and the toggle's answer never appeared.
       // The instruction used to say "open the city in Waypoints", a room folded
       // into this one in 2026-08. Edit is on the row, a few pixels away.
-      note.textContent = [
-        unlocated
-          ? unlocated + ' waypoint' + (unlocated === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
-            + ' - press Edit on it and Locate, which finds the point and saves it.'
-          : '',
-        poolNote()
-      ].filter(Boolean).join(' ');
+      note.textContent = [unplacedNote(unlocated), poolNote()].filter(Boolean).join(' ');
     }
 
     // --- the waypoint editor --------------------------------------------------
@@ -2929,13 +2934,24 @@
     // previous one. It used to, because the city existed only to find a path;
     // it now fills the library too, and "show me this city's waypoints so I can
     // build its first path" is the whole point of choosing an empty one.
+    // CHOOSING A CITY OPENS NO PATH. Same objection as opening paths[0] on
+    // load: the room lands you mid-edit on a walk you did not pick, with Delete
+    // beside it. You came to see the city's library; the path is the next
+    // deliberate choice.
+    //
+    // What it DOES close is a path in a different city, or the picker below
+    // would be filtered to a list that does not contain the row it is showing.
+    // A path already in the chosen city stays open, which is the case when you
+    // pick a city while working on one of its paths.
     async function pickCity(city) {
-      const previous = state.cityFilter;
       state.cityFilter = cleanText(city);
       const rows = pathsInCity(state.cityFilter);
-      if (!rows.some((r) => r.tour_id === state.pathId)) {
-        const moved = await openPath(rows[0] ? rows[0].tour_id : '');
-        if (!moved && rows.length) { state.cityFilter = previous; renderAll(); return; }
+      if (state.pathId && !rows.some((r) => r.tour_id === state.pathId)) {
+        // openPath can refuse - an unsaved order it wants confirmed - and then
+        // the city goes back, or the room shows one city's library beside
+        // another city's path.
+        const moved = await openPath('');
+        if (!moved) { state.cityFilter = pathCity(); renderAll(); return; }
       }
       renderAll();
     }
