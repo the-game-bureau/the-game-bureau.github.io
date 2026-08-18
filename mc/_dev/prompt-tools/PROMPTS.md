@@ -28,7 +28,9 @@ worth the complexity for a job whose exact minute nobody depends on.
 
 The stagger exists so five cloud sessions do not provision at the same instant.
 The order is deliberate: the gift shop files books first, and SOCIALIZER BOT goes last so the
-gift catalogue it reads is the freshest it can be.
+gift catalogue it reads is the freshest it can be. PATH BOT was added on 2026-08-18 at `:17`,
+after the five, and is the only one with NO page prompt in this repo: nothing on a page pastes
+walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
@@ -37,9 +39,10 @@ gift catalogue it reads is the freshest it can be.
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **WAYPOINT BOT** | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `8 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildWaypointAiPrompt` | commits `mc/stops/nightly.json` |
 | **TGB NFL Anchor Route Builder** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
+| **PATH BOT** | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20` | none: its prompt is self-contained on the trigger | `tgb_pull_walking_tours` |
 
-**All five carry the no-em-dash rule and none contains an em dash** (swept
-2026-08-15). Verify with `RemoteTrigger {action: "list"}` and count U+2014 in
+**All six carry the no-em-dash rule and none contains an em dash** (five swept
+2026-08-15, PATH BOT written clean on 2026-08-18). Verify with `RemoteTrigger {action: "list"}` and count U+2014 in
 each `job_config.ccr.events[0].data.message.content`.
 
 Six further routines (GTD briefs, inbox blitzes, the nightly Supabase backup)
