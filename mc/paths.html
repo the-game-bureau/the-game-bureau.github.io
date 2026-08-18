@@ -183,7 +183,7 @@
 
     /* Two columns: the path on the left, the city's unused waypoints on the
        right. Side by side because the whole job is moving rows between them. */
-    /* WAYPOINTS LEFT, PATH RIGHT. You are moving places out of a catalogue and
+    /* WAYPOINTS LEFT, PATH RIGHT. You are moving places out of a library and
        into a walk, so the source sits where reading starts and the destination
        where it ends; dragging then runs left to right like everything else that
        means "put this there". The path keeps the wider column because its rows
@@ -628,8 +628,15 @@
       <fieldset class="command-bar command-bar--open">
         <legend>OPEN</legend>
         <div class="command-bar-inner">
-          <label class="inline" for="cityFilter">City</label>
-          <select id="cityFilter"></select>
+          <!-- THE PATHS PICKER IS THE WAY IN, and it is the only control here.
+               The city picker it replaced was a second way to narrow the same
+               list: every option already reads "City | Path" and the list is
+               sorted by city, so a filter above it was choosing a subset of a
+               list that already grouped itself.
+               The city now follows the path you open -- which is what the two
+               panel headings and the library both read from. -->
+          <label class="inline" for="pathSelect">Paths</label>
+          <select id="pathSelect"></select>
           <!-- BACK TO THE BARE PAGE. A full navigation, not a state reset:
                ?path= is in the URL, so the only way to be certain nothing is
                carried over -- an open path, a half-dragged order, a stale
@@ -692,13 +699,9 @@
              act on whatever the picker beside them is showing and on nothing
              else, so they belong next to it rather than a row below, where the
              title in between made them look like they acted on the LIST. -->
+        <!-- The picker moved to OPEN at the top of the room; what is left is
+             what you do TO the path that is open. -->
         <div class="panel-open">
-          <!-- PATHS, plural: it labels a LIST of them. The heading ABOVE is the
-               singular one, being about the path you opened. The CITY is not
-               here -- it governs the library too, so it sits in OPEN at the top
-               of the room. -->
-          <label class="inline" for="pathSelect">Paths</label>
-          <select id="pathSelect"></select>
           <span class="panel-acts">
             <button class="btn primary" id="saveBtn" type="button" disabled title="Save the order of this path">Save</button>
             <!-- CLONE reuses the New path dialog, which is where the city, the
@@ -722,7 +725,7 @@
 
   <!-- New path. The city comes from public.cities, never free text: a path
        whose city is "miami " or "Miami, FL" filters against no waypoint and
-       matches no other path in the catalogue. -->
+       matches no other path in the library. -->
   <div class="dlg" id="newPathDlg" role="dialog" aria-modal="true" aria-labelledby="newPathTitle">
     <div class="dlg-panel">
       <h2 class="dlg-title" id="newPathTitle">New path</h2>
@@ -894,7 +897,13 @@
       pathStops: [],     // every path_stops row, tour_id only - for the picker
       waypoints: [],     // public.waypoints, every one
       pathId: '',
-      cityFilter: '',    // '' = every city. Narrows the path picker only.
+      // NOT A FILTER ANY MORE. There is no city control: this is simply the city
+      // of the path that is open, and it is what the library, both headings and
+      // the map's candidate set all read. Kept under its old name because a
+      // dozen readers use it and renaming them buys nothing.
+      // NO cityFilter. With no city control it could only hold what pathCity()
+      // already returns, and a stored copy of a derived value is a thing that
+      // can quietly disagree with the path it came from. Readers call pathCity().
       dirty: false,      // the ORDER/membership differs from what is stored
       poolQuery: ''
     };
@@ -983,9 +992,6 @@
       if (!state.pathId || !state.paths.some((r) => r.tour_id === state.pathId)) {
         state.pathId = pathFromUrl();
       }
-      // The city follows the open path when there is one, and stays empty when
-      // there is not: an unchosen city is the honest state of an unchosen path.
-      state.cityFilter = pathCity();
       await loadStops();
     }
 
@@ -1024,10 +1030,10 @@
       history.replaceState(null, '', url);
     }
 
-    // THE TWO CATALOGUES DISAGREE, and this is the whole reason for this helper.
+    // THE TWO LISTS DISAGREE, and this is the whole reason for this helper.
     // public.cities holds the canonical string, "Miami, Florida"; waypoints.city
     // holds the bare name, "Miami" - as do both paths already in the table. So
-    // the city is PICKED from the catalogue (real, spelled right, one of ours)
+    // the city is PICKED from the library (real, spelled right, one of ours)
     // and STORED bare, or the pool filter matches no waypoint and the path
     // reads differently from every other path in the table.
     function cityNameOf(value) {
@@ -1054,7 +1060,6 @@
     // --- rendering ------------------------------------------------------------
 
     function renderAll() {
-      renderCityFilter();
       renderPathSelect();
       renderMapTitle();
       renderMeta();
@@ -1097,83 +1102,38 @@
 
     // The cities that actually have paths - the picker's job is narrowing what
     // is there, so a city with nothing in it would be a dead end. A city with
-    // no path yet is reached through NEW, which offers the whole catalogue.
-    // EVERY CITY EITHER PANEL COULD SHOW SOMETHING FOR, which since this picker
-    // started filling the library means cities with WAYPOINTS as well as cities
-    // with paths. Listing only the latter made the first path in a city
-    // impossible to start from here: the city was absent from the one control
-    // that opens it, so its library could never be put on screen.
-    function pathCities() {
-      const cities = state.paths.map((r) => cityNameOf(r.city))
-        .concat(state.waypoints.map((w) => cityNameOf(w.city)));
-      return [...new Set(cities.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    }
-
-    // Cities holding a path that actually has a stop on it. A path with no
-    // stops is a title and a shape, not a walk, so it does not count as having
-    // been built -- which is the whole distinction the bold is drawing.
-    //
-    // state.stops is only ever the OPEN path's list, so this reads the loaded
-    // path_stops rather than that: the answer has to cover every city in the
-    // picker, not the one already on screen.
-    function citiesWithPathStops() {
-      const withStops = new Set(state.pathStops.map((r) => String(r.tour_id)));
-      return new Set(state.paths
-        .filter((r) => withStops.has(String(r.tour_id)))
-        .map((r) => cityNameOf(r.city))
-        .filter(Boolean));
-    }
-
+    // no path yet is reached through NEW, which offers the whole library.
     function pathsInCity(city) {
       const want = cleanText(city).toLowerCase();
       if (!want) return state.paths.slice();
       return state.paths.filter((r) => cityNameOf(r.city).toLowerCase() === want);
     }
 
-    function renderCityFilter() {
-      const sel = el('cityFilter');
-      sel.innerHTML = '';
-      const all = document.createElement('option');
-      all.value = '';
-      all.textContent = 'Every city';
-      sel.appendChild(all);
-      // BOLD MEANS SOMEBODY HAS ALREADY BUILT HERE. The list is now every city
-      // with a path OR a waypoint, so most entries are places with a catalogue
-      // and no walk yet -- and the useful thing to see at a glance is which few
-      // have a walk with real stops on it. Plain means "a library, nothing built
-      // from it".
-      const started = citiesWithPathStops();
-      pathCities().forEach((c) => {
-        const o = document.createElement('option');
-        o.value = c;
-        o.textContent = c;
-        // An option cannot be styled by class in every browser -- Safari and
-        // iOS render the native picker and ignore it -- so the weight goes on
-        // the element itself, which they do honour.
-        if (started.has(c)) o.style.fontWeight = '700';
-        sel.appendChild(o);
-      });
-      sel.value = state.cityFilter;
-      // Disabled only when there is genuinely nothing to pick. It used to key
-      // on paths alone, so a catalogue full of waypoints and no path yet left
-      // the one control that would show them greyed out.
-      sel.disabled = sel.options.length < 2;
-    }
-
+    // renderCityFilter is GONE with the city <select> it filled. The city is
+    // derived from the open path now; pathCities() went with it, and pickCity is
+    // no longer reachable from a control.
     function renderPathSelect() {
       const sel = el('pathSelect');
       sel.innerHTML = '';
-      const rows = pathsInCity(state.cityFilter);
+      // EVERY PATH, not the chosen city's. There is no city control any more, so
+      // a filter here would be one nothing could clear. The options are grouped
+      // by city and say which, which is what the filter was for.
+      const rows = state.paths.slice();
       if (!rows.length) {
         const o = document.createElement('option');
         o.value = '';
-        o.textContent = state.paths.length
-          ? 'No paths in ' + state.cityFilter
-          : 'No paths yet';
+        o.textContent = 'No paths yet';
         sel.appendChild(o);
         sel.disabled = true;
         return;
       }
+      // A blank first option, so "nothing open" is a state the picker can show
+      // and return to. Without it the select displays the first path while
+      // state.pathId is empty, and says the room is somewhere it is not.
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'Choose a path';
+      sel.appendChild(none);
       sel.disabled = false;
       // CITY FIRST, THEN THE PATH'S NAME, both alphabetical. The order was
       // whatever tour_id sorted to - which starts with the city but then runs on
@@ -1356,7 +1316,7 @@
     // THE LIBRARY KEEPS EVERY PLACE, WHETHER IT IS ON THE PATH OR NOT.
     //
     // It used to drop a waypoint the moment it landed on a path, which made
-    // adding a stop read as MOVING the place out of the catalogue -- and the
+    // adding a stop read as MOVING the place out of the library -- and the
     // catalogue is the permanent thing here. A place lives once in
     // public.waypoints and can be on any number of paths, which is the entire
     // reason waypoints and path_stops are two tables; a library that empties as
@@ -1379,7 +1339,7 @@
       // waypoints -- which is exactly the state you are in when you are about
       // to build the first path there. Reading pathCity() alone left the
       // library empty until a path existed to give it a city.
-      const city = (state.cityFilter || pathCity()).toLowerCase();
+      const city = pathCity().toLowerCase();
       const q = state.poolQuery.toLowerCase();
       return state.waypoints.filter((w) => {
         if (!city || cleanText(w.city).toLowerCase() !== city) return false;
@@ -1393,7 +1353,7 @@
       box.innerHTML = '';
       const rows = poolRows();
       // THE LEFT PANEL IS A LIBRARY, NOT A LEFTOVER. Titling it "not on this
-      // path" defined a standing catalogue of places by what it is currently
+      // path" defined a standing library of places by what it is currently
       // missing, which changes every time you drag a row: the same shelf was
       // called something different a second later. It is the city's waypoint
       // library, and the path is what you build out of it.
@@ -1405,7 +1365,7 @@
       // follows the chosen city, the path follows the path that is open. They
       // are the same city almost always, and differ for the moment between
       // choosing a city and its first path opening.
-      const libraryCity = state.cityFilter || pathCity();
+      const libraryCity = pathCity();
       // The toggle names the city it will draw, for the same reason the search
       // box does: it never reaches past the open one.
       const poolLabel = el('mapPoolLabel');
@@ -1711,7 +1671,7 @@
       // visit somewhere twice: once is enough to be already drawn.
       // Split rather than filtered in one pass, because the ones WITHOUT a
       // point are the answer to "I ticked the box and nothing happened".
-      const poolCity = state.cityFilter || pathCity();
+      const poolCity = pathCity();
       const poolAll = mapState.showPool
         ? state.waypoints
             .filter((w) => !state.stops.includes(String(w.wpid)))
@@ -1802,7 +1762,7 @@
         // city and no path, only a path is left to pick.
         box.innerHTML = '<span class="empty">'
           + (!state.pathId
-              ? (state.cityFilter ? 'Choose a path.' : 'Choose a city or path.')
+              ? 'Choose a path.'
               // A path WITH waypoints that cannot be drawn is not an empty path,
               // and telling you to drag another one over is the wrong
               // instruction entirely. The note underneath says what is wrong.
@@ -1965,7 +1925,7 @@
     //
     // Phase one of folding mc/data/waypoints.html into this page. A waypoint is
     // edited in a popup off whichever list or pin you found it in, rather than
-    // on a card in a separate room - the catalogue and the walk you are building
+    // on a card in a separate room - the library and the walk you are building
     // out of it are the same job.
     //
     // ONE waypoint is open at a time, so there is no dirty SET to track and no
@@ -1980,7 +1940,7 @@
     // The two-letter code for a city string, via the shared geo module -- the
     // same one that turns "Denver, Colorado" into CO everywhere else. Returns
     // '' when the city is not one it can parse, which is a real case: a
-    // waypoint's city is free text and may be somewhere not in the catalogue.
+    // waypoint's city is free text and may be somewhere not in the library.
     function stateFromCity(city) {
       const name = cleanText(city);
       if (!name || !window.TgbGeo || typeof window.TgbGeo.parseGeo !== 'function') return '';
@@ -2198,7 +2158,7 @@
       return payload;
     }
 
-    // Put a freshly written row back into the catalogue in place, rather than
+    // Put a freshly written row back into the library in place, rather than
     // reloading every waypoint to see one change.
     function absorbWaypoint(fresh) {
       if (!fresh) return null;
@@ -2216,7 +2176,7 @@
         return;
       }
       const isNew = !wpEdit.wpid;
-      // The last gate before a duplicate enters the catalogue. Two rows for one
+      // The last gate before a duplicate enters the library. Two rows for one
       // place are very hard to spot later - both look correct - and the importers
       // dedupe on name + address, so a near-miss defeats them too.
       if (isNew && window.TgbWaypointGeo) {
@@ -2294,7 +2254,7 @@
       wpEdit.row.archived = !wpEdit.row.archived;
       wpEdit.dirty = true;
       await saveWaypoint();
-      // An archived waypoint leaves the working catalogue, so the lists behind
+      // An archived waypoint leaves the working library, so the lists behind
       // the dialog change - state.waypoints filters it out on the next load.
       renderAll();
     }
@@ -2376,7 +2336,7 @@
     // online". The old flow inserted a chosen result straight into the table and
     // then took you to its card to correct it. This one opens the result in the
     // editor as an unsaved DRAFT, because the geocoder is usually nearly right,
-    // and nearly right inserted unreviewed is what fills a catalogue with
+    // and nearly right inserted unreviewed is what fills a library with
     // rubbish nobody can tell from real rows afterwards.
 
     const findState = { busy: false, items: [] };
@@ -2458,7 +2418,7 @@
           row.classList.add('is-dupe');
           const flag = document.createElement('div');
           flag.className = 'find-row-dupe';
-          flag.textContent = 'Already in the catalogue as WPID ' + dupe.row.wpid;
+          flag.textContent = 'Already in the library as WPID ' + dupe.row.wpid;
           main.appendChild(flag);
         }
         row.append(main, mkBtn('Open', 'Open this as an unsaved draft', () => openDraftFrom(item)));
@@ -2895,7 +2855,7 @@
 
     let dragFrom = null;
     // 'stop' = already on the path, so the drop is a REORDER. 'pool' = coming
-    // from the catalogue, so the drop is an INSERT. Without this the two look
+    // from the library, so the drop is an INSERT. Without this the two look
     // identical at the drop target: both are a wpid and a position.
     let dragKind = null;
     // Which POSITION on the path is being dragged, for a 'stop' drag. -1 for a
@@ -3138,7 +3098,7 @@
       // bare name has to be matched back through cityNameOf rather than
       // compared directly - and only after load() resolves, or the value is set
       // against a select with no options yet and silently stays blank.
-      const open = (src ? cityNameOf(src.city) : (state.cityFilter || pathCity())).toLowerCase();
+      const open = (src ? cityNameOf(src.city) : pathCity()).toLowerCase();
       const preselect = () => {
         const rows = (window.TgbCities && window.TgbCities.all()) || [];
         const guess = open
@@ -3207,8 +3167,6 @@
         state.stops = cloneOf ? cloneStops : [];
         state.dirty = false;
         syncPathStopsForOpenPath();
-        // Follow the new path rather than hiding it behind the old filter.
-        state.cityFilter = cityNameOf(row.city);
         syncUrl();
         renderAll();
         setStatus(cloneOf
@@ -3225,7 +3183,7 @@
       if (!path) return;
       const name = cleanText(path.title) || path.tour_id;
       if (!window.confirm('Delete the path "' + name + '"?\n\nIts ' + state.stops.length
-        + ' waypoint(s) are NOT deleted - they stay in the catalogue and on any other path.')) return;
+        + ' waypoint(s) are NOT deleted - they stay in the library and on any other path.')) return;
       try {
         await ensureFreshSession();
         // path_stops has on delete cascade, so the membership goes with it.
@@ -3236,10 +3194,11 @@
         state.paths = state.paths.filter((r) => r.tour_id !== path.tour_id);
         // Stay in the city if it still has a path; otherwise the filter would
         // name a city with nothing in it while another city's path is open.
-        const sameCity = pathsInCity(state.cityFilter);
+        // The deleted path's city, so its neighbour opens rather than whatever
+        // sorts first overall. Read from the row we still hold, not from state.
+        const sameCity = pathsInCity(cityNameOf(path.city));
         const next = sameCity[0] || state.paths[0] || null;
         state.pathId = next ? next.tour_id : '';
-        state.cityFilter = next ? cityNameOf(next.city) : '';
         syncUrl();
         await loadStops();
         setStatus('Deleted ' + name + '.', 'success');
@@ -3275,28 +3234,6 @@
     // previous one. It used to, because the city existed only to find a path;
     // it now fills the library too, and "show me this city's waypoints so I can
     // build its first path" is the whole point of choosing an empty one.
-    // CHOOSING A CITY OPENS NO PATH. Same objection as opening paths[0] on
-    // load: the room lands you mid-edit on a walk you did not pick, with Delete
-    // beside it. You came to see the city's library; the path is the next
-    // deliberate choice.
-    //
-    // What it DOES close is a path in a different city, or the picker below
-    // would be filtered to a list that does not contain the row it is showing.
-    // A path already in the chosen city stays open, which is the case when you
-    // pick a city while working on one of its paths.
-    async function pickCity(city) {
-      state.cityFilter = cleanText(city);
-      const rows = pathsInCity(state.cityFilter);
-      if (state.pathId && !rows.some((r) => r.tour_id === state.pathId)) {
-        // openPath can refuse - an unsaved order it wants confirmed - and then
-        // the city goes back, or the room shows one city's library beside
-        // another city's path.
-        const moved = await openPath('');
-        if (!moved) { state.cityFilter = pathCity(); renderAll(); return; }
-      }
-      renderAll();
-    }
-
     // --- wiring ---------------------------------------------------------------
 
     const adminAuth = window.TgbMcAdminAuth.create({
@@ -3325,7 +3262,6 @@
     });
     if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
-    el('cityFilter').addEventListener('change', (e) => pickCity(e.target.value));
     // location.assign, not history + re-render: this is the button you press
     // when you want a clean slate, and re-rendering in place leaves whatever
     // was already in memory. The beforeunload guard still fires, so an unsaved

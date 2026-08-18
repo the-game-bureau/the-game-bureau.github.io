@@ -438,7 +438,7 @@ $$;`.trim();
       ].join('\n');
 
       return [
-        'You are a local walking-tour expert helping The Game Bureau build a catalog of real walking-tour stops for a location-based game.',
+        'You are a local walking-tour expert helping The Game Bureau build a library of real walking-tour stops for a location-based game.',
         '',
         taskLine,
         '',
@@ -555,7 +555,7 @@ $$;`.trim();
       ].join('\n');
 
       return [
-        'You are a researcher helping The Game Bureau build a catalog of real walking-tour stops for a location-based game played in NFL host cities. You work from Wikipedia and Wikimedia.',
+        'You are a researcher helping The Game Bureau build a library of real walking-tour stops for a location-based game played in NFL host cities. You work from Wikipedia and Wikimedia.',
         '',
         'Task: for EACH city listed below, find geotagged or street-addressed places on Wikipedia and Wikimedia, then return them as ONE Supabase SQL import covering every city. Up to ' + n + ' NEW stops per city.'
           + (kw ? ' Bias toward: ' + kw + '.' : ''),
@@ -950,7 +950,7 @@ $$;`.trim();
     //
     // The choice is made HERE rather than left to the model, because a model
     // asked to "pick a shape" picks the loop nearly every time — it is the safer
-    // answer — and the catalogue would fill with one shape.
+    // answer — and the library would fill with one shape.
     const TOUR_SHAPES = [
       {
         shape: 'loop',
@@ -1083,10 +1083,10 @@ $$;`.trim();
         '',
         existing.length
           ? [
-              'ALREADY IN OUR WAYPOINT CATALOG FOR THIS CITY:',
+              'ALREADY IN OUR WAYPOINT LIBRARY FOR THIS CITY:',
               JSON.stringify(existing, null, 2),
               '',
-              'You MAY reuse any of these - the importer links an existing place to this tour rather than duplicating it, and a good place belongs on more than one walk. Do not treat them as anchors, do not path the walk to pass them, and do not assume any of them is good: this catalog was accumulated from sources of uneven quality and is not trusted stop by stop. If the best stops in this city are none of them, that is the correct answer.'
+              'You MAY reuse any of these - the importer links an existing place to this tour rather than duplicating it, and a good place belongs on more than one walk. Do not treat them as anchors, do not path the walk to pass them, and do not assume any of them is good: this library was accumulated from sources of uneven quality and is not trusted stop by stop. If the best stops in this city are none of them, that is the correct answer.'
             ].join('\n')
           : 'We hold nothing in this city yet. Design the walk from scratch.',
         '',
@@ -1137,7 +1137,7 @@ $$;`.trim();
       ].join('\n');
 
       return [
-        'You are a football historian helping The Game Bureau build a catalog of real, standable places for a location-based game played in NFL cities.',
+        'You are a football historian helping The Game Bureau build a library of real, standable places for a location-based game played in NFL cities.',
         '',
         'Task: find up to ' + n + ' places in North America (United States, Canada, or Mexico) that carry a real, documented connection to American football: the NFL, its teams, players, coaches, owners, broadcasters, or league history.',
         '',
@@ -1189,7 +1189,7 @@ $$;`.trim();
         '- But do NOT discard a great football connection just because the place is already in the list. Return it with its football sentence anyway: the importer matches on name + city and APPENDS your sentence to the existing description rather than skipping the row. That is deliberate: the place was already known, the football fact was not.',
         '- Match the spelling of the name and city exactly as they appear below when you are returning an existing place, or the append will not find it.',
         '',
-        'Places already in the catalog (name, city; a sample, not necessarily complete):',
+        'Places already in the library (name, city; a sample, not necessarily complete):',
         JSON.stringify(existing, null, 2)
       ].join('\n');
     }
