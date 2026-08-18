@@ -337,7 +337,14 @@
       font-size: 0.78rem; color: var(--muted); cursor: pointer;
     }
     #pathMap { height: 380px; border-radius: 0 0 4px 4px; background: rgba(var(--bic-blue-rgb), 0.06); }
-    #pathMap.is-empty { display: grid; place-items: center; height: 130px; }
+    /* THE SAME HEIGHT WHETHER OR NOT THERE IS A MAP IN IT. It used to collapse
+       to 130px, so choosing a path pushed everything below it down 250 pixels
+       -- the two panels you were reading, mid-scroll. The empty state is the
+       reserve: the panel is the size of the thing it is about to hold, which is
+       also what tells you a map belongs there before one exists.
+       display:grid + place-items keeps the message centred in the space rather
+       than sitting at the top of a tall empty box. */
+    #pathMap.is-empty { display: grid; place-items: center; }
     .map-note { padding: 8px 14px; font-size: 0.78rem; color: var(--muted); }
     .map-note:empty { padding: 0; }
     .map-foot { border-top: 1px solid var(--line); }
@@ -878,11 +885,16 @@
       state.pathStops = Array.isArray(allStops) ? allStops : [];
       probeWaypointColumns(waypoints);
       state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
+      // NOTHING IS OPENED BY DEFAULT. It used to fall back to state.paths[0],
+      // which is alphabetically-first-by-id and has nothing to do with you: the
+      // room came up mid-edit on somebody else's walk, and Delete was two
+      // pixels from a path you had not chosen.
+      // A ?tour= link is still honoured, because that IS a choice.
       if (!state.pathId || !state.paths.some((r) => r.tour_id === state.pathId)) {
-        state.pathId = pathFromUrl() || (state.paths[0] ? state.paths[0].tour_id : '');
+        state.pathId = pathFromUrl();
       }
-      // Open on the city of the path being shown, not on "every city" - the
-      // picker should describe what is on screen the moment it appears.
+      // The city follows the open path when there is one, and stays empty when
+      // there is not: an unchosen city is the honest state of an unchosen path.
       state.cityFilter = pathCity();
       await loadStops();
     }
