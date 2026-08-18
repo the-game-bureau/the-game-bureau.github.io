@@ -320,10 +320,27 @@
        city's width is not enough to see one. */
     .map-panel { margin-bottom: 18px; }
     .map-head-tools { display: flex; align-items: center; gap: 12px; font-size: 0.78rem; color: var(--muted); }
-    .map-head-tools label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+    /* The note takes the space and the toggle is pushed to the right end. When
+       the note is empty -- the ordinary case -- the toggle is still hard right
+       rather than sliding across, because an empty <p> keeps its box. */
+    .map-foot {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .map-foot .map-note { flex: 1 1 auto; min-width: 0; }
+    .map-toggle {
+      display: flex; align-items: center; gap: 5px; flex: 0 0 auto;
+      padding: 0 14px 12px;
+      font-size: 0.78rem; color: var(--muted); cursor: pointer;
+    }
     #pathMap { height: 380px; border-radius: 0 0 4px 4px; background: rgba(var(--bic-blue-rgb), 0.06); }
     #pathMap.is-empty { display: grid; place-items: center; height: 130px; }
-    .map-note { padding: 8px 14px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); }
+    .map-note { padding: 8px 14px; font-size: 0.78rem; color: var(--muted); }
+    .map-note:empty { padding: 0; }
+    .map-foot { border-top: 1px solid var(--line); }
     .map-note.warn { color: var(--warn); }
 
     /* Numbered in PATH order, so the map reads the same as the list beside it. */
@@ -533,14 +550,20 @@
 
     <section class="panel map-panel">
       <div class="panel-head">
-        <span class="panel-title" id="mapTitle">The walk</span>
+        <span class="panel-title" id="mapTitle">Path Map</span>
         <span class="map-head-tools">
-          <label><input type="checkbox" id="mapShowPool"> Show unused waypoints</label>
           <span class="panel-count" id="mapCount"></span>
         </span>
       </div>
       <div id="pathMap" class="is-empty"><span class="empty">Nothing to draw yet.</span></div>
-      <p class="map-note" id="mapNote"></p>
+      <!-- THE TOGGLE SITS UNDER THE MAP IT CHANGES, on the right, sharing the
+           line with the note. In the panel head it was a control above a title,
+           read before you had seen the thing it acts on; here it is beside the
+           sentence that says how many hollow dots it just drew. -->
+      <div class="map-foot">
+        <p class="map-note" id="mapNote"></p>
+        <label class="map-toggle"><input type="checkbox" id="mapShowPool"> Show unused waypoints</label>
+      </div>
     </section>
 
     <div class="cols">
@@ -1426,7 +1449,7 @@
       // NOT equal, the unlocated ones are already named in the note under the
       // map, which is the place that can say WHICH.
       count.textContent = located.length
-        ? located.length + (located.length === 1 ? ' waypoint showing' : ' waypoints showing')
+        ? located.length + (located.length === 1 ? ' waypoint' : ' waypoints')
         : '';
 
       if (!located.length && !pool.length) {
