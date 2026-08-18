@@ -51,6 +51,12 @@
       '.mc-auth-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid rgba(45,72,128,.18);border-radius:8px;background:rgba(255,255,255,.92);color:#1f2937;font:inherit;font-size:.85rem;font-weight:800;letter-spacing:.06em;text-decoration:none;cursor:pointer;}',
       '.mc-auth-btn:hover{background:#fff;}',
       '.mc-auth-btn:disabled{opacity:.5;cursor:default;}',
+      /* HIDDEN HAS TO WIN. .mc-auth-field and .mc-auth-btn both set a display,
+         which is an author rule, and [hidden] is only a UA-sheet display:none --
+         so setting .hidden on the password field or a button did nothing at all
+         and the reset state looked identical to the normal one. Attribute
+         selector to outrank them on specificity rather than !important. */
+      '.mc-auth-field[hidden],.mc-auth-btn[hidden],.mc-auth-form[hidden]{display:none;}',
       '.mc-auth-btn--primary{background:#2d4880;border-color:#2d4880;color:#fff;}',
       '.mc-auth-btn--primary:hover{background:#365694;}',
       '.mc-auth-btn--google{width:100%;height:auto;min-height:42px;padding:8px 14px;border-color:rgba(45,72,128,.35);text-align:center;white-space:normal;line-height:1.3;}',
@@ -112,7 +118,7 @@
       '        <span>Email</span>',
       '        <input id="mcAuthEmail" name="email" type="email" autocomplete="username" required>',
       '      </label>',
-      '      <label class="mc-auth-field" for="mcAuthPassword">',
+      '      <label class="mc-auth-field" id="mcAuthPasswordField" for="mcAuthPassword">',
       '        <span>Password</span>',
       // CURRENT-PASSWORD, and nothing telling a manager to keep out.
       //
@@ -284,6 +290,7 @@
     // has it driven correctly.
     var rememberInput = root.querySelector('#mcAuthRemember');
     var resetBtn = root.querySelector('#mcAuthResetBtn');
+    var passwordField = root.querySelector('#mcAuthPasswordField');
     var newPasswordInput = root.querySelector('#mcAuthNewPassword');
     var confirmPasswordInput = root.querySelector('#mcAuthConfirmPassword');
     var savePasswordBtn = root.querySelector('#mcAuthSavePasswordBtn');
@@ -300,6 +307,11 @@
     var pendingRecoverySession = null;
     var rememberSession = false;
     var mode = 'signin';
+    // A STATE OF THE SIGN-IN FORM, not a fourth mode. Reset asks for the same
+    // one thing sign-in does -- an email address -- so it reuses the same field
+    // rather than showing a second copy of it in a different form. The password
+    // box is the only part that does not apply, so that is the only part hidden.
+    var askingReset = false;
     var listenersBound = false;
     var refreshTimer = null;
 
@@ -350,6 +362,23 @@
         : mode === 'join' ? settings.joinCopy
         : settings.modalCopy;
       resetPasswordInputs();
+    }
+
+    function setResetAsk(on) {
+      askingReset = !!on;
+      if (passwordField) passwordField.hidden = askingReset;
+      // REQUIRED HAS TO COME OFF WITH IT. A hidden input that is still required
+      // blocks submit, and the browser refuses to focus it to explain why, so
+      // the button would simply do nothing with no message anywhere.
+      if (passwordInput) {
+        passwordInput.required = !askingReset;
+        if (askingReset) passwordInput.value = '';
+      }
+      // The primary button IS the action in both states, so it carries the verb.
+      if (submitBtn) submitBtn.textContent = askingReset ? 'Send Reset Link' : 'Login';
+      if (resetBtn) resetBtn.textContent = askingReset ? 'Cancel' : 'Reset Password';
+      if (joinBtn) joinBtn.hidden = askingReset;
+      if (askingReset && emailInput) emailInput.focus();
     }
 
     function setSignOutState(signedIn) {
@@ -805,6 +834,7 @@
 
     async function handleSubmit(event) {
       event.preventDefault();
+      if (askingReset) { await sendResetEmail(); return; }
       if (!hasConfig(settings.supabaseConfig)) {
         setStatus(settings.configMissingMessage, 'error');
         return;
@@ -836,7 +866,20 @@
       }
     }
 
-    async function handleRecoverClick() {
+    // The button under the form now TOGGLES the state; sending is the primary
+    // button's job, so that the thing you press to act is the same one in both
+    // states rather than moving to a smaller button when the form changes.
+    function handleRecoverClick() {
+      if (askingReset) {
+        setResetAsk(false);
+        setStatus('');
+        return;
+      }
+      setResetAsk(true);
+      setStatus('Enter your email and we will send a reset link.');
+    }
+
+    async function sendResetEmail() {
       if (!hasConfig(settings.supabaseConfig)) {
         setStatus(settings.configMissingMessage, 'error');
         return;
@@ -847,15 +890,18 @@
         if (emailInput) emailInput.focus();
         return;
       }
-      if (resetBtn) resetBtn.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
       setStatus('Sending reset email...');
       try {
         await recoverPassword(email);
+        // Stays in the reset state on purpose: the next thing they do is leave
+        // for their inbox, and dropping them back on a password box implies the
+        // password they do not have is now the way in.
         setStatus('If that admin account exists, a reset link is on the way.', 'success');
       } catch (error) {
         setStatus(error instanceof Error ? error.message : String(error), 'error');
       } finally {
-        if (resetBtn) resetBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
@@ -984,6 +1030,10 @@
     function showAuth(message, state) {
       setSignOutState(false);
       pendingRecoverySession = null;
+      // Back to the plain form. showAuth is what a sign-out and a failed
+      // restore both land on, and either arriving on a panel still stuck
+      // mid-reset would be a password box that is not there.
+      setResetAsk(false);
       setMode('signin');
       openModal(message || settings.initialMessage, state || '');
     }
@@ -1116,6 +1166,7 @@
       resetForm.addEventListener('submit', handleResetSubmit);
       if (joinForm) joinForm.addEventListener('submit', handleJoinSubmit);
       if (joinBtn) joinBtn.addEventListener('click', function () {
+        setResetAsk(false);
         setStatus('');
         setMode('join');
         // Carry whatever they already typed on the sign-in form across, so
@@ -1132,6 +1183,7 @@
         startOAuth('google', true);
       });
       if (joinBackBtn) joinBackBtn.addEventListener('click', function () {
+        setResetAsk(false);
         setStatus(settings.initialMessage);
         setMode('signin');
       });
