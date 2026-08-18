@@ -61,7 +61,11 @@
          rule appears to pass under it. */
       '.mc-auth-or{display:flex;align-items:center;gap:10px;margin:0;color:#6b7280;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;}',
       '.mc-auth-or::before,.mc-auth-or::after{content:"";flex:1;height:1px;background:rgba(45,72,128,.22);}',
+      /* No reserved line when there is nothing to say. The height is kept for
+         when there IS -- a message appearing without shifting the buttons under
+         it is worth more than the panel being a few pixels shorter at rest. */
       '.mc-auth-status{min-height:1.4em;margin:0;color:#5c6472;font-size:.92rem;line-height:1.5;}',
+      '.mc-auth-status:empty{min-height:0;}',
       '.mc-auth-status.is-error{color:#a03f2d;font-weight:700;}',
       '.mc-auth-status.is-success{color:#2f6b3d;font-weight:700;}',
       '@media (max-width:700px){.mc-auth-panel{padding:24px 20px 20px;}.mc-auth-actions>*{flex:1;}}'
@@ -146,7 +150,6 @@
       // OTHER way to do the same thing. Sharing a line with Request Access read
       // as a pair of alternatives to signing in, which is half wrong.
       '        <button class="mc-auth-btn" id="mcAuthJoinBtn" type="button">Request Access</button>',
-      '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
       '      </div>',
       '    </form>',
       // autocomplete="on" here too. Changing a password is the moment a manager
@@ -230,9 +233,14 @@
     var settings = Object.assign({
       storageKey: DEFAULT_STORAGE_KEY,
       legacyStorageKeys: [],
-      initialMessage: 'Sign in with an admin account.',
+      // EMPTY, like modalCopy above it. The panel is titled Mission Control and
+      // carries an email box, a password box and a Sign In button; a sentence
+      // saying to sign in was telling somebody what they could already see.
+      // The element stays -- it is the ERROR channel, and a failure needs
+      // somewhere to land.
+      initialMessage: '',
       unauthorizedMessage: 'This account is signed in, but it is not on the admin list.',
-      signedOutMessage: 'Sign in with an admin account.',
+      signedOutMessage: '',
       // EMPTY. It read "Sign in to Mission Control with an admin account."
       // directly above a status line reading "Sign in with an admin account." --
       // the same sentence twice, once at each end of the panel. The status line
@@ -280,6 +288,11 @@
     var backBtn = root.querySelector('#mcAuthBackBtn');
     var submitBtn = root.querySelector('#mcAuthSubmitBtn');
     var statusEl = root.querySelector('#mcAuthStatus');
+    // TGB HOME IS GONE from the panel. It was a way out of a sign-in box to the
+    // public site, which the browser's own Back button already is, and it sat
+    // beside Request Access looking like a third thing you might be here to do.
+    // The homeHref SETTING stays: three pages pass one, and quietly ignoring a
+    // supplied option is worse than a guarded assignment that does nothing.
     var homeBtn = root.querySelector('#mcAuthHomeBtn');
     var currentSession = null;
     var pendingRecoverySession = null;
@@ -289,7 +302,7 @@
     var refreshTimer = null;
 
     copyEl.textContent = settings.modalCopy;
-    homeBtn.href = settings.homeHref;
+    if (homeBtn) homeBtn.href = settings.homeHref;
 
     // Clears the box between uses. It used to also stamp new-password on it and
     // flip it readonly, which put the markup back to fighting the manager
