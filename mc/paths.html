@@ -81,10 +81,24 @@
       width: 100%;
       margin: 0 0 16px;
     }
+    /* THE TWO BARS SHARE THE ROW. Both were flex: 0 0 auto, so each was exactly
+       as wide as its own contents and the row ended wherever ADD's four buttons
+       happened to finish - leaving a ragged gap to the right of OPEN that moved
+       every time a label changed.
+       ADD holds four fixed buttons and takes what it needs; OPEN grows into the
+       rest, which is also what its picker wants, since a path's name is the
+       longest string in the room. */
+    .bar-row { align-items: stretch; }
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 0 0 auto; }
-    .command-bar--open { flex: 0 0 auto; }
-    .command-bar--open select { min-width: 12rem; }
+    .command-bar--open { flex: 1 1 auto; min-width: 0; }
+    /* The picker takes the bar's spare width rather than sitting at its label's
+       size with the Clear button adrift on the right. */
+    .command-bar--open .command-bar-inner { flex-wrap: nowrap; }
+    .command-bar--open select { flex: 1 1 auto; min-width: 8rem; }
+    @media (max-width: 900px) {
+      .command-bar--open .command-bar-inner { flex-wrap: wrap; }
+    }
     @media (max-width: 760px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
@@ -708,6 +722,7 @@
                  shape and the permanent id are decided - a clone needs all three
                  answered exactly as a new path does, and a second dialog asking
                  the same questions would be the same form twice. -->
+            <button class="btn" id="editPathBtn" type="button" disabled title="Rename this path or change its shape">Edit</button>
             <button class="btn" id="clonePathBtn" type="button" disabled title="Copy this path and its waypoints to a new one">Clone</button>
             <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder this path by geometry - the shortest sensible walk">Suggest order</button>
             <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
@@ -726,6 +741,38 @@
   <!-- New path. The city comes from public.cities, never free text: a path
        whose city is "miami " or "Miami, FL" filters against no waypoint and
        matches no other path in the library. -->
+  <!-- EDIT PATH. Its own dialog rather than a third mode of the New path one:
+       the questions genuinely differ. There is no city to choose - the city is
+       fixed at creation and named in the heading - and the id is not a preview of
+       something about to be minted but a value that can never change. Bending the
+       creation form to hide two of its three fields would leave a form whose
+       shape depends on why it opened. -->
+  <div class="dlg" id="editPathDlg" role="dialog" aria-modal="true" aria-labelledby="editPathTitle">
+    <div class="dlg-panel">
+      <h2 class="dlg-title" id="editPathTitle">Edit path</h2>
+      <div class="dlg-field">
+        <label class="inline" for="editPathName">Title</label>
+        <input type="text" id="editPathName" placeholder="What this path is called">
+      </div>
+      <div class="dlg-field">
+        <label class="inline" for="editPathShape">Shape</label>
+        <select id="editPathShape"></select>
+      </div>
+      <!-- Seven shapes is more than anyone holds in their head, so the chosen
+           one explains itself rather than needing a longer option label. -->
+      <p class="dlg-note" id="editPathShapeNote"></p>
+      <div class="dlg-field">
+        <label class="inline" for="editPathId">Path id</label>
+        <input type="text" id="editPathId" readonly>
+      </div>
+      <p class="dlg-note">The id is permanent: every waypoint on this path points at it.</p>
+      <div class="dlg-actions">
+        <button class="btn" id="editPathCancel" type="button">Cancel</button>
+        <button class="btn primary" id="editPathSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div class="dlg" id="newPathDlg" role="dialog" aria-modal="true" aria-labelledby="newPathTitle">
     <div class="dlg-panel">
       <h2 class="dlg-title" id="newPathTitle">New path</h2>
@@ -1071,6 +1118,7 @@
       // copying the city, shape and name of one you are about to fill is a
       // reasonable thing to want.
       el('clonePathBtn').disabled = !state.pathId;
+      el('editPathBtn').disabled = !state.pathId;
       el('suggestOrderBtn').disabled = state.stops.length < 3;
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
@@ -1168,68 +1216,17 @@
     // row; a Save button for them as well as for the order would be two kinds of
     // save on one screen, and the order is the one that needs deliberate saving
     // because it is what you spend the time on.
+    // THE META GRID IS GONE. Title, Shape and Path id were three permanently
+    // open fields for things you set once and then read: a title typed at
+    // creation, a shape chosen from seven, and an id that was never editable at
+    // all. Three rows of form on top of the list you actually work in.
+    //
+    // They live in the Edit path dialog now, behind a button. The element stays
+    // in the markup because the panel's layout counts on the gap; it is simply
+    // never filled.
     function renderMeta() {
       const box = el('pathMeta');
-      box.innerHTML = '';
-      const path = currentPath();
-      if (!path) return;
-
-      const field = (label, node) => {
-        const wrap = document.createElement('div');
-        wrap.className = 'meta-field';
-        const l = document.createElement('label');
-        l.className = 'inline';
-        l.textContent = label;
-        wrap.append(l, node);
-        return wrap;
-      };
-
-      const title = document.createElement('input');
-      title.type = 'text';
-      title.value = cleanText(path.title);
-      title.placeholder = 'What this path is called';
-      title.addEventListener('change', () => savePathField('title', title.value));
-
-      const shape = document.createElement('select');
-      const blank = document.createElement('option');
-      blank.value = '';
-      blank.textContent = '(not set)';
-      shape.appendChild(blank);
-      SHAPES.forEach((s) => {
-        const o = document.createElement('option');
-        o.value = s.key;
-        o.textContent = s.label;
-        o.title = s.blurb;   // the full description, on hover
-        shape.appendChild(o);
-      });
-      shape.value = cleanText(path.shape);
-      shape.title = shapeBlurb(shape.value);
-      shape.addEventListener('change', () => savePathField('shape', shape.value));
-
-      const id = document.createElement('input');
-      id.type = 'text';
-      id.value = path.tour_id;
-      id.readOnly = true;
-      // The id is referenced by every path_stops row. Renaming it here would
-      // orphan them all, so it is shown and not editable - the same bargain
-      // anchor_events makes with its client-supplied primary key.
-      id.title = 'The path id. Not editable - every waypoint on the path points at it.';
-
-      // NO CITY FIELD. The city is chosen once, in OPEN at the top of the room,
-      // and it is named twice more in the two panel headings - a fourth control
-      // for it invited you to set it here and disagree with the picker you are
-      // filtered by. The COLUMN is untouched and still written: the New path
-      // dialog sets it, and Clone carries it over.
-      //
-      // WHAT THIS COSTS, stated so it is a decision and not a gap: a path filed
-      // under the wrong city can no longer be corrected from this page. That is
-      // an UPDATE in the SQL editor now, or a clone into the right city followed
-      // by deleting the original.
-      box.append(
-        field('Title', title),
-        field('Shape', shape),
-        field('Path id', id)
-      );
+      if (box) box.innerHTML = '';
     }
 
     function renderStops() {
@@ -3005,6 +3002,68 @@
       }
     }
 
+    function openEditPathDialog() {
+      const path = currentPath();
+      if (!path) return;
+      const shape = el('editPathShape');
+      if (!shape.options.length) {
+        const blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = '(not set)';
+        shape.appendChild(blank);
+        SHAPES.forEach((sh) => {
+          const o = document.createElement('option');
+          o.value = sh.key;
+          o.textContent = sh.label;
+          o.title = sh.blurb;
+          shape.appendChild(o);
+        });
+      }
+      el('editPathName').value = cleanText(path.title);
+      shape.value = cleanText(path.shape);
+      el('editPathShapeNote').textContent = shapeBlurb(shape.value);
+      el('editPathId').value = path.tour_id;
+      el('editPathDlg').classList.add('is-open');
+      el('editPathName').focus();
+    }
+
+    function closeEditPathDialog() { el('editPathDlg').classList.remove('is-open'); }
+
+    // ONE PATCH FOR BOTH FIELDS, not two calls to savePathField: they are saved
+    // together by one press, and two requests can half-succeed and leave the row
+    // in a state nobody chose.
+    async function saveEditPath() {
+      const path = currentPath();
+      if (!path) return;
+      const title = cleanText(el('editPathName').value);
+      const shape = el('editPathShape').value;
+      el('editPathSave').disabled = true;
+      setStatus('Saving...');
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('paths', { tour_id: 'eq.' + state.pathId }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ title: title || null, shape: shape || null })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const back = await res.json().catch(() => []);
+        // PostgREST answers 200 with an empty array when RLS refuses the write:
+        // no error, no rows, nothing changed.
+        if (!Array.isArray(back) || !back.length) {
+          throw new Error('The database refused that write. Are you still signed in?');
+        }
+        Object.assign(path, back[0]);
+        closeEditPathDialog();
+        renderAll();
+        setStatus('Saved.', 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not save the path.', 'error');
+      } finally {
+        el('editPathSave').disabled = false;
+      }
+    }
+
     async function savePathField(field, value) {
       const path = currentPath();
       if (!path) return;
@@ -3371,7 +3430,18 @@
     // all: a button that swallows a click with no response is indistinguishable
     // from one that is broken. Replace when the action is decided.
     el('addPathBtn').addEventListener('click', () => openNewPathDialog(''));
+    el('editPathBtn').addEventListener('click', openEditPathDialog);
     el('clonePathBtn').addEventListener('click', () => openNewPathDialog(state.pathId));
+    el('editPathCancel').addEventListener('click', closeEditPathDialog);
+    el('editPathSave').addEventListener('click', saveEditPath);
+    el('editPathShape').addEventListener('change', () => {
+      el('editPathShapeNote').textContent = shapeBlurb(el('editPathShape').value);
+    });
+    // Backdrop only: a click that began inside the panel and finished outside it
+    // must not close a half-typed title.
+    el('editPathDlg').addEventListener('click', (e) => {
+      if (e.target === el('editPathDlg')) closeEditPathDialog();
+    });
     el('pathBotBtn').addEventListener('click', () => setStatus('not wired yet'));
 
     // The path list is a drop target for the whole of its area, not only its
