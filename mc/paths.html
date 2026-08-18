@@ -483,7 +483,6 @@
                of a waypoint and the difference between them is where the place
                comes from: typed in by hand, or found by the routine. -->
           <button class="btn" id="addWaypointBtn" type="button" title="Type a place in by hand">Waypoint Manual</button>
-          <button class="btn" id="addPathBtn" type="button">Path</button>
           <!-- WAYPOINT BOT, out of the library's filter row. It is a SOURCE of
                waypoints, like the two buttons beside it, and the filter row is
                for narrowing a list rather than growing it.
@@ -492,6 +491,7 @@
                it runs, which is the least useful thing about it and has been
                wrong since the scout went twice daily. -->
           <button class="btn" id="nightlyBtn" type="button" title="What the scout routine found on its last run">Waypoint Bot</button>
+          <button class="btn" id="addPathBtn" type="button">Path</button>
         </div>
       </fieldset>
       <!-- ONE CONTROL, AND IT SETS THE WHOLE ROOM. The city decides which
@@ -749,6 +749,7 @@
       authed: false,
       paths: [],        // public.paths
       stops: [],         // public.path_stops for the open path, in order
+      pathStops: [],     // every path_stops row, tour_id only - for the picker
       waypoints: [],     // public.waypoints, every one
       pathId: '',
       cityFilter: '',    // '' = every city. Narrows the path picker only.
@@ -818,11 +819,18 @@
     async function loadAll() {
       // select=* on both, never a column list - naming a column PostgREST does
       // not have rejects the whole page load, the standing rule in this codebase.
-      const [paths, waypoints] = await Promise.all([
+      // path_stops WHOLE, not just the open path's. The city picker bolds the
+      // cities that have a walk with real stops on it, which is a question about
+      // every city rather than the one on screen. The table is a few dozen rows
+      // of two ids and a number; loadStops still fetches the open path's own
+      // list separately, because that one is edited and this one is only read.
+      const [paths, waypoints, allStops] = await Promise.all([
         fetchAll('paths', { select: '*', order: 'tour_id.asc' }),
-        fetchAll('waypoints', { select: '*', order: 'wpid.asc' })
+        fetchAll('waypoints', { select: '*', order: 'wpid.asc' }),
+        fetchAll('path_stops', { select: 'tour_id', order: 'tour_id.asc' })
       ]);
       state.paths = Array.isArray(paths) ? paths : [];
+      state.pathStops = Array.isArray(allStops) ? allStops : [];
       probeWaypointColumns(waypoints);
       state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
       if (!state.pathId || !state.paths.some((r) => r.tour_id === state.pathId)) {
@@ -834,6 +842,15 @@
       await loadStops();
     }
 
+    // Keeps the bolding honest after a save without another round trip: the
+    // open path's stops are authoritative for its own tour_id. Called after a
+    // save and after the open path's list loads.
+    function syncPathStopsForOpenPath() {
+      if (!state.pathId) return;
+      state.pathStops = state.pathStops.filter((r) => String(r.tour_id) !== String(state.pathId));
+      state.stops.forEach(() => state.pathStops.push({ tour_id: state.pathId }));
+    }
+
     async function loadStops() {
       if (!state.pathId) { state.stops = []; state.dirty = false; renderAll(); return; }
       const rows = await fetchAll('path_stops', {
@@ -843,6 +860,7 @@
         .map((r) => String(r.wpid))
         .filter((id) => state.waypoints.some((w) => String(w.wpid) === id));
       state.dirty = false;
+      syncPathStopsForOpenPath();
       renderAll();
     }
 
@@ -935,6 +953,21 @@
       return [...new Set(cities.filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
 
+    // Cities holding a path that actually has a stop on it. A path with no
+    // stops is a title and a shape, not a walk, so it does not count as having
+    // been built -- which is the whole distinction the bold is drawing.
+    //
+    // state.stops is only ever the OPEN path's list, so this reads the loaded
+    // path_stops rather than that: the answer has to cover every city in the
+    // picker, not the one already on screen.
+    function citiesWithPathStops() {
+      const withStops = new Set(state.pathStops.map((r) => String(r.tour_id)));
+      return new Set(state.paths
+        .filter((r) => withStops.has(String(r.tour_id)))
+        .map((r) => cityNameOf(r.city))
+        .filter(Boolean));
+    }
+
     function pathsInCity(city) {
       const want = cleanText(city).toLowerCase();
       if (!want) return state.paths.slice();
@@ -948,10 +981,20 @@
       all.value = '';
       all.textContent = 'Every city';
       sel.appendChild(all);
+      // BOLD MEANS SOMEBODY HAS ALREADY BUILT HERE. The list is now every city
+      // with a path OR a waypoint, so most entries are places with a catalogue
+      // and no walk yet -- and the useful thing to see at a glance is which few
+      // have a walk with real stops on it. Plain means "a library, nothing built
+      // from it".
+      const started = citiesWithPathStops();
       pathCities().forEach((c) => {
         const o = document.createElement('option');
         o.value = c;
         o.textContent = c;
+        // An option cannot be styled by class in every browser -- Safari and
+        // iOS render the native picker and ignore it -- so the weight goes on
+        // the element itself, which they do honour.
+        if (started.has(c)) o.style.fontWeight = '700';
         sel.appendChild(o);
       });
       sel.value = state.cityFilter;
@@ -2320,7 +2363,7 @@
 
     // --- editing the order ----------------------------------------------------
 
-    function markDirty() { state.dirty = true; renderAll(); }
+    function markDirty() { state.dirty = true; syncPathStopsForOpenPath(); renderAll(); }
 
     function moveStop(from, to) {
       if (to < 0 || to >= state.stops.length) return;
