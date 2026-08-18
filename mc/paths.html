@@ -72,7 +72,6 @@
     }
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
-    .command-bar--view { flex: 0 0 auto; }
     @media (max-width: 760px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
@@ -188,6 +187,13 @@
     }
     .panel-title { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
     .panel-count { font-size: 0.78rem; color: var(--muted); }
+    /* align-items:center, not the baseline the plain head uses: a row holding
+       buttons has nothing sensible to sit them on a baseline with. The count is
+       pushed off the title and the buttons take the right end. */
+    .panel-head--acts { align-items: center; flex-wrap: wrap; }
+    .panel-head--acts .panel-count { margin-right: auto; }
+    .panel-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .panel-acts .btn { padding: 5px 10px; font-size: 0.76rem; }
     .panel-body { padding: 8px; min-height: 90px; }
 
     .stop {
@@ -436,16 +442,6 @@
           <button class="btn" id="newPathBtn" type="button" title="Start a new path">New</button>
         </div>
       </fieldset>
-      <fieldset class="command-bar command-bar--view">
-        <legend>THIS PATH</legend>
-        <div class="command-bar-inner">
-          <!-- The legend already says "path", so the noun is not repeated on
-               every button. The title says what each one acts on. -->
-          <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
-          <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
-          <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
-        </div>
-      </fieldset>
     </div>
 
     <section class="panel map-panel">
@@ -486,9 +482,21 @@
         <div class="panel-body" id="poolList"></div>
       </section>
       <section class="panel" id="pathPanel">
-        <div class="panel-head">
+        <!-- SAVE, SUGGEST ORDER AND DELETE LIVE ON THE PATH, not in the page's
+             top bar. All three act on the list directly underneath them and on
+             nothing else, and from the top of the page they read as page
+             chrome - Delete especially, which sat a few pixels from New and
+             deleted a different kind of thing.
+             The count moves out with them: what a path's header has room to say
+             is its name and what you can do to it. -->
+        <div class="panel-head panel-head--acts">
           <span class="panel-title" id="pathPanelTitle">Waypoints on this path</span>
           <span class="panel-count" id="pathCount"></span>
+          <span class="panel-acts">
+            <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
+            <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
+            <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
+          </span>
         </div>
         <div class="meta-grid" id="pathMeta"></div>
         <div class="panel-body" id="pathStops"></div>
