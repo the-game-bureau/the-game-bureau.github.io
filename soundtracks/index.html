@@ -2437,8 +2437,9 @@
         saveCassetteSession(true);
       }
 
-      // opts.clean asks for a non-explicit opening track, which the unattended
-      // load-time pick sets and nothing a human presses does. See
+      // opts.clean asks for a non-explicit opening track and opts.silent loads
+      // the tape without asking for autoplay. Both are set by the unattended
+      // load-time pick and by nothing a human presses; see
       // firstCleanPlayableIndex for why the distinction is on who chose the tape.
       function openCard(card, opts) {
         modal = modal || buildModal();
@@ -2452,8 +2453,13 @@
         // Attempt autoplay, but let the ACTUAL Spotify events set state.playing —
         // browsers block autoplay-with-sound, so the tape shows "play" until the
         // controller confirms playback, keeping the first click a real Play.
+        //
+        // NOT ON LOAD. A tape you picked is a request to hear it; a tape the page
+        // picked for you is not, and a page that makes a noise on arrival is one
+        // people close. The cassette is loaded, labelled and ready, and pressing
+        // Play is the reader's first move rather than their first correction.
         state.playing = false;
-        state.wantAutoplay = true;
+        state.wantAutoplay = !(opts && opts.silent);
         cards.forEach(function (item) { item.classList.toggle('is-playing', item === card); });
         modal.hidden = false;
         // Picking a city is a request for the full cassette, so any floating
@@ -3507,11 +3513,10 @@
       // nothing in particular. Only from tapes that actually have tracks: an
       // empty case in the deck is a worse first impression than silence.
       //
-      // Autoplay is REQUESTED, not assumed. openCard sets wantAutoplay and lets
-      // the real Spotify events decide: browsers block sound without a gesture,
-      // so the tape sits showing Play until playback is genuinely confirmed.
-      // That is the existing behaviour and the reason this is safe to do on
-      // load rather than obnoxious.
+      // IT LOADS THE TAPE, IT DOES NOT START IT. The deck arrives with a real
+      // cassette in it -- a city, a track, a blurb, the artwork -- and the
+      // transport showing Play, which is the invitation. Nothing plays until
+      // somebody presses it.
       function openRandomCard() {
         var playable = cards.filter(function (card) {
           return songsFor(card).length > 0;
@@ -3528,7 +3533,7 @@
         });
         var pool = clean.length ? clean : playable;
         var pick = pool[Math.floor(Math.random() * pool.length)];
-        openCard(pick, { clean: true });
+        openCard(pick, { clean: true, silent: true });
         return true;
       }
 

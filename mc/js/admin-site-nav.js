@@ -352,7 +352,8 @@
     '}',
     /* currentColor + mask, so the glyph flips to white with the button when it
        fills in — one icon asset instead of a light and a dark copy. */
-    '.admin-site-nav .asn-link::before {',
+    '.admin-site-nav .asn-link::before,',
+    '.admin-site-nav .asn-public::before {',
     '  content: "";',
     '  display: inline-block;',
     '  width: 17px;',
@@ -363,6 +364,11 @@
     '  mask: var(--asn-icon) center / contain no-repeat;',
     '  -webkit-mask: var(--asn-icon) center / contain no-repeat;',
     '}',
+    /* OFF on the desktop bar. There the public link is a small caption under a
+       button that already carries the glyph, and a second copy of it beside the
+       caption reads as a second button. The phone panel turns it back on,
+       because there the public row IS the row. */
+    '.admin-site-nav .asn-public::before { display: none; }',
     /* The label block: section word, ADMIN centred beneath it. A column so the
        two lines centre on each other rather than on the button, which keeps
        ADMIN under the word and clear of the icon beside it. */
@@ -424,19 +430,41 @@
        screen. Under it the rooms collapse into a panel behind the burger, and the
        top row keeps only the two things worth a permanent tap target -- the menu,
        and the padlock, which is also the sign-in indicator. */
-    /* TWO TRIGGERS, and the second is not redundant. Width alone failed on a real
-       iPhone: Safari's "Request Desktop Website" -- which is a per-site toggle a
-       phone keeps forever once you have tapped it, and which a home-screen app
-       inherits at install -- reports a ~980px layout viewport and ignores
-       width=device-width entirely. The page was then over the breakpoint, so the
-       burger stayed hidden and the five-button row came back on a 390px screen,
-       which is the exact case this menu exists for.
+    /* WIDTH ONLY. THE TOUCH TRIGGER IS GONE, and it is worth saying why rather
+       than leaving it to be helpfully re-added.
 
-       (hover: none) and (pointer: coarse) is a fact about the input device that
-       no viewport setting can misreport. A touch laptop with a mouse reports
-       pointer: fine and is unaffected; a tablet gets the burger at any width,
-       which is the right answer for a thumb regardless of how much room it has. */
-    '@media (max-width: 900px), (hover: none) and (pointer: coarse) {',
+       It used to also fire on `(hover: none) and (pointer: coarse)`, on the
+       reasoning that the input device is a fact no viewport setting can
+       misreport, and that a touch laptop with a mouse would report
+       `pointer: fine` and be unaffected. That last part is simply not true of
+       Windows touchscreens, which report coarse and no-hover whether or not a
+       mouse is attached. So a maximised browser on a touch laptop matched, and
+       the phone panel appeared on a full-size desktop window.
+
+       WHAT THIS COSTS: Safari's "Request Desktop Website" is a per-site toggle
+       an iPhone keeps forever once tapped, and which a home-screen app inherits
+       at install. It reports a ~980px layout viewport and ignores
+       width=device-width, so such a phone now sails over this breakpoint and
+       gets the five-button row on a 390px screen. That was the case the touch
+       trigger was added for.
+       It cannot be fixed by moving the number: the affected iPhone reports ~980
+       and an affected laptop reports ~970, ten pixels apart. If it becomes a
+       real problem, separate them on the PHYSICAL screen rather than the layout
+       viewport -- `(max-device-width: 500px)` -- not by bringing the bare
+       pointer test back. */
+    /* THE TOUCH TRIGGER IS NOW WIDTH-CAPPED, and the cap is the whole point.
+       `(hover: none) and (pointer: coarse)` on its own is a fact about the
+       INPUT DEVICE with nothing said about the screen, so a desktop or laptop
+       with a touchscreen -- which is most Windows machines now -- matched it at
+       any width and got the phone menu on a 1280px browser window. That is the
+       burger appearing on the web version.
+       1100px keeps the case the trigger was added for: Safari's "Request
+       Desktop Website", a per-site toggle an iPhone keeps forever and a
+       home-screen app inherits at install, reports a ~980px layout viewport and
+       ignores width=device-width, so a real phone sails over the 900px test and
+       used to get the five-button row on a 390px screen. 980 is under 1100, so
+       it still collapses; a touch laptop at 1280 no longer does. */
+    '@media (max-width: 900px) {',
     '  .admin-site-nav {',
     '    grid-template-columns: minmax(0, 1fr) auto;',
     '    align-items: center;',
@@ -545,8 +573,45 @@
     '    color: rgba(var(--asn-blue-rgb), 0.7);',
     '    font-size: 0.6rem;',
     '  }',
-    '  .admin-site-nav .asn-public-word { display: none; }',
-    '  .admin-site-nav .asn-public-tag { display: inline; }',
+    /* THE ROW GOES WHERE ITS WORD SAYS. On a desktop the big button is the
+       ADMIN room and a small PUBLIC link sits under it, which is right: the bar
+       is five buttons wide, both destinations are visible at once, and an admin
+       crossing between rooms wants the room.
+       Stacked in a phone panel that stops being true. The row is one line
+       reading `SOUNDTRACKS  ADMIN ......... PUBLIC`, the whole line except the
+       last 40px is the admin link, and PUBLIC is a 0.6rem tag at the far right.
+       So the obvious target -- the section word -- was the only one you could
+       hit, and it was the one nobody meant to hit: tapping SOUNDTRACKS on a
+       phone landed you in the Tape Room.
+       Inverted here, and here only. The full-width row with the glyph is the
+       PUBLIC page; ADMIN becomes the trailing tag, still a 48px target, still
+       one tap away. Nothing about the desktop bar moves. */
+    '  .admin-site-nav .asn-item { flex-direction: row-reverse; }',
+    '  .admin-site-nav .asn-links .asn-public {',
+    '    flex: 1 1 auto;',
+    '    min-width: 0;',
+    '    justify-content: flex-start;',
+    '    gap: 12px;',
+    '    padding: 0;',
+    '    color: var(--asn-ink);',
+    '    font-size: 0.82rem;',
+    '    letter-spacing: 0.06em;',
+    '  }',
+    '  .admin-site-nav .asn-public::before { display: inline-block; }',
+    '  .admin-site-nav .asn-public-word { display: inline; }',
+    '  .admin-site-nav .asn-public-tag { display: none; }',
+    /* The admin link keeps its 48px height but shrinks to its ADMIN tag: same
+       treatment PUBLIC used to get, swapped over. The section word and the icon
+       are hidden on it because the row already carries both. */
+    '  .admin-site-nav .asn-links .asn-link {',
+    '    flex: 0 0 auto;',
+    '    padding: 0 2px 0 12px;',
+    '    color: rgba(var(--asn-blue-rgb), 0.7);',
+    '    font-size: 0.6rem;',
+    '  }',
+    '  .admin-site-nav .asn-links .asn-link::before { content: none; }',
+    '  .admin-site-nav .asn-links .asn-word { display: none; }',
+    '  .admin-site-nav .asn-admin { opacity: 1; }',
     '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
     '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
@@ -608,7 +673,10 @@
     a.className = 'asn-link';
     a.href = room.href;
     openInNewTab(a);
-    a.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + room.icon + '")');
+    // ON THE COLUMN, not on the link. Both anchors inherit it, which is what
+    // lets the phone panel draw the section glyph beside the PUBLIC row instead
+    // of the admin one. The link keeps working unchanged: it inherits it too.
+    column.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + room.icon + '")');
     a.title = room.title;
     // Just the title: "GAMES — Admin games" reads as a stutter to a screen
     // reader, and the title already contains the label.
