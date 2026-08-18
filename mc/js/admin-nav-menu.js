@@ -51,7 +51,7 @@
         {
           // This card was WAYPOINTS until 2026-08-09 — it pointed at
           // mc/data/waypoints.html, and once that page was folded into the
-          // Route Builder it became a second door to a room the Game Builder
+          // Path Builder it became a second door to a room the Game Builder
           // group below already lists. Guides took the slot, then became the
           // Green Room the same day when mc/guides.html was rebuilt as
           // mc/greenroom.html against public.guides.
@@ -131,12 +131,12 @@
           appendOpenGameId: true
         },
         {
-          href: '/mc/routes.html',
-          // A ROUTE is an ordered set of waypoints and nothing else. It sits
+          href: '/mc/paths.html',
+          // A PATH is an ordered set of waypoints and nothing else. It sits
           // above Game Stops on purpose: you lay out where the walk goes, then
           // pair each of those places with a challenge to make it playable.
-          label: 'Route Builder',
-          description: 'Order the waypoints of a walking route by dragging them. No challenges, no map.'
+          label: 'Path Builder',
+          description: 'Order the waypoints of a walking path by dragging them. No challenges, no map.'
         },
         // GAME STOPS IS OFF THE MENU (2026-08-09) and its page renamed
         // mc/_stops.html — the underscore marks a room that is still live but is
@@ -146,9 +146,9 @@
         //
         // Why it was parked: public.stops is keyed by CITY, so every game in a
         // city shares one list and a city cannot have two different walks. That
-        // is exactly what public.routes + public.route_stops were built to fix,
+        // is exactly what public.paths + public.path_stops were built to fix,
         // and having both means two systems ordering the same waypoints. The
-        // end state is a route carrying its own challenges; until then, reach
+        // end state is a path carrying its own challenges; until then, reach
         // the old page by typing /mc/_stops.html.
         {
           href: '/mc/game-plays.html',

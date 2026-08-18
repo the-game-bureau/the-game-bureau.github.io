@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>ROUTE BUILDER | THE GAME BUREAU</title>
+  <title>PATH BUILDER | THE GAME BUREAU</title>
   <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- No Leaflet TAG. There is a map, but 144 KB in the head to draw nothing is
        most of what made the Waypoints page slow to first paint, so ensureLeaflet()
-       below injects it the first time a route actually has a point to show. A
-       route of unlocated waypoints never downloads it at all. -->
+       below injects it the first time a path actually has a point to show. A
+       path of unlocated waypoints never downloads it at all. -->
   <style>
     * { box-sizing: border-box; }
 
@@ -74,7 +74,7 @@
 
     .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
 
-    /* Two columns: the route on the left, the city's unused waypoints on the
+    /* Two columns: the path on the left, the city's unused waypoints on the
        right. Side by side because the whole job is moving rows between them. */
     .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
     @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
@@ -162,12 +162,12 @@
     .map-panel { margin-bottom: 18px; }
     .map-head-tools { display: flex; align-items: center; gap: 12px; font-size: 0.78rem; color: var(--muted); }
     .map-head-tools label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-    #routeMap { height: 380px; border-radius: 0 0 4px 4px; background: rgba(var(--bic-blue-rgb), 0.06); }
-    #routeMap.is-empty { display: grid; place-items: center; height: 130px; }
+    #pathMap { height: 380px; border-radius: 0 0 4px 4px; background: rgba(var(--bic-blue-rgb), 0.06); }
+    #pathMap.is-empty { display: grid; place-items: center; height: 130px; }
     .map-note { padding: 8px 14px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); }
     .map-note.warn { color: var(--warn); }
 
-    /* Numbered in ROUTE order, so the map reads the same as the list beside it. */
+    /* Numbered in PATH order, so the map reads the same as the list beside it. */
     .rb-pin-dot {
       display: grid;
       place-items: center;
@@ -238,7 +238,7 @@
       padding: 6px 8px;
     }
     /* The same red the Waypoints page paints: a field a walking tour actually
-       needs, left blank. You cannot route to a waypoint with no address, and
+       needs, left blank. You cannot path to a waypoint with no address, and
        one with no description gives a challenge writer nothing to build on. */
     .wp-form .is-error input, .wp-form .is-error textarea { border-color: var(--warn); }
     .wp-readonly {
@@ -294,30 +294,30 @@
     <header class="admin-site-nav" data-admin-site-nav></header>
 
     <div class="page-head">
-      <h1 class="page-title">Route Builder</h1>
+      <h1 class="page-title">Path Builder</h1>
       <p class="page-sub">
-        A route is an ordered set of waypoints. Drag to reorder, add from the city's
+        A path is an ordered set of waypoints. Drag to reorder, add from the city's
         unused waypoints on the right, remove to send one back. Every place lives once
-        in <code>public.waypoints</code> and can be on any number of routes - edit one
+        in <code>public.waypoints</code> and can be on any number of paths - edit one
         by clicking it in either list or on the map.
       </p>
       <p class="status" id="pageStatus" aria-live="polite"></p>
     </div>
 
     <div class="bar">
-      <!-- City first, because it is how you find a route: the catalogue is one
+      <!-- City first, because it is how you find a path: the catalogue is one
            list of every walk in every city, and the name alone does not say
            where it is. -->
       <label class="inline" for="cityFilter">City</label>
       <select id="cityFilter"></select>
-      <label class="inline" for="routeSelect">Route</label>
-      <select id="routeSelect"></select>
-      <!-- The bar sits under a picker that already says "Route", so the noun was
+      <label class="inline" for="pathSelect">Path</label>
+      <select id="pathSelect"></select>
+      <!-- The bar sits under a picker that already says "Path", so the noun was
            being read three more times. The title says what each one acts on. -->
-      <button class="btn" id="newRouteBtn" type="button" title="Start a new route">New</button>
+      <button class="btn" id="newPathBtn" type="button" title="Start a new path">New</button>
       <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
       <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
-      <button class="btn warn" id="deleteRouteBtn" type="button" disabled title="Delete this route (its waypoints are kept)">Delete</button>
+      <button class="btn warn" id="deletePathBtn" type="button" disabled title="Delete this path (its waypoints are kept)">Delete</button>
     </div>
 
     <section class="panel map-panel">
@@ -328,29 +328,29 @@
           <span class="panel-count" id="mapCount"></span>
         </span>
       </div>
-      <div id="routeMap" class="is-empty"><span class="empty">Nothing to draw yet.</span></div>
+      <div id="pathMap" class="is-empty"><span class="empty">Nothing to draw yet.</span></div>
       <p class="map-note" id="mapNote"></p>
     </section>
 
     <div class="cols">
-      <section class="panel" id="routePanel">
+      <section class="panel" id="pathPanel">
         <div class="panel-head">
-          <span class="panel-title" id="routePanelTitle">Waypoints on this route</span>
-          <span class="panel-count" id="routeCount"></span>
+          <span class="panel-title" id="pathPanelTitle">Waypoints on this path</span>
+          <span class="panel-count" id="pathCount"></span>
         </div>
-        <div class="meta-grid" id="routeMeta"></div>
-        <div class="panel-body" id="routeStops"></div>
+        <div class="meta-grid" id="pathMeta"></div>
+        <div class="panel-body" id="pathStops"></div>
         <p class="hint">First stop is the start (&#9654;), last is the end (&#9632;).</p>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <span class="panel-title" id="poolTitle">Waypoints not on this route</span>
+          <span class="panel-title" id="poolTitle">Waypoints not on this path</span>
           <span class="panel-count" id="poolCount"></span>
         </div>
-        <!-- No city control here. The route has a city; the pool is simply that
+        <!-- No city control here. The path has a city; the pool is simply that
              city's other waypoints. Two city pickers on one screen let them
-             disagree, and a pool showing Denver for a Miami route is a list of
+             disagree, and a pool showing Denver for a Miami path is a list of
              places you can add and never should. -->
         <div class="pool-filter">
           <input type="search" id="poolSearch" placeholder="Filter by name or address">
@@ -359,37 +359,37 @@
           <button class="btn small" id="nightlyBtn" type="button" title="What the scout routine found this morning">Nightly</button>
           <button class="btn small" id="newWaypointBtn" type="button" title="Type a place in by hand">+ Waypoint</button>
         </div>
-        <datalist id="routeCityList"></datalist>
+        <datalist id="pathCityList"></datalist>
         <div class="panel-body" id="poolList"></div>
       </section>
     </div>
   </main>
 
-  <!-- New route. The city comes from public.cities, never free text: a route
+  <!-- New path. The city comes from public.cities, never free text: a path
        whose city is "miami " or "Miami, FL" filters against no waypoint and
-       matches no other route in the catalogue. -->
-  <div class="dlg" id="newRouteDlg" role="dialog" aria-modal="true" aria-labelledby="newRouteTitle">
+       matches no other path in the catalogue. -->
+  <div class="dlg" id="newPathDlg" role="dialog" aria-modal="true" aria-labelledby="newPathTitle">
     <div class="dlg-panel">
-      <h2 class="dlg-title" id="newRouteTitle">New route</h2>
+      <h2 class="dlg-title" id="newPathTitle">New path</h2>
       <div class="dlg-field">
-        <label class="inline" for="newRouteCity">City</label>
-        <select id="newRouteCity"></select>
+        <label class="inline" for="newPathCity">City</label>
+        <select id="newPathCity"></select>
       </div>
       <div class="dlg-field">
-        <label class="inline" for="newRouteName">Route name</label>
-        <input type="text" id="newRouteName" placeholder="What this walk is called">
+        <label class="inline" for="newPathName">Path name</label>
+        <input type="text" id="newPathName" placeholder="What this walk is called">
       </div>
       <div class="dlg-field">
-        <label class="inline" for="newRouteShape">Shape</label>
-        <select id="newRouteShape"></select>
+        <label class="inline" for="newPathShape">Shape</label>
+        <select id="newPathShape"></select>
       </div>
       <!-- Seven shapes is more than anyone holds in their head, so the chosen
            one explains itself here rather than in a longer option label. -->
-      <p class="dlg-note" id="newRouteShapeNote"></p>
-      <p class="dlg-note" id="newRouteIdNote"></p>
+      <p class="dlg-note" id="newPathShapeNote"></p>
+      <p class="dlg-note" id="newPathIdNote"></p>
       <div class="dlg-actions">
-        <button class="btn" id="newRouteCancel" type="button">Cancel</button>
-        <button class="btn primary" id="newRouteCreate" type="button">Create</button>
+        <button class="btn" id="newPathCancel" type="button">Cancel</button>
+        <button class="btn primary" id="newPathCreate" type="button">Create</button>
       </div>
     </div>
   </div>
@@ -511,7 +511,7 @@
     };
 
     // Trail vocabulary. The keys are constrained in the database by
-    // routes_shape_known, so adding one here needs a migration - the five below
+    // paths_shape_known, so adding one here needs a migration - the five below
     // loop / out_and_back / point_to_point arrived with 2026080805.
     const SHAPES = [
       { key: 'loop', label: 'Loop',
@@ -533,11 +533,11 @@
 
     const state = {
       authed: false,
-      routes: [],        // public.routes
-      stops: [],         // public.route_stops for the open route, in order
+      paths: [],        // public.paths
+      stops: [],         // public.path_stops for the open path, in order
       waypoints: [],     // public.waypoints, every one
-      routeId: '',
-      cityFilter: '',    // '' = every city. Narrows the route picker only.
+      pathId: '',
+      cityFilter: '',    // '' = every city. Narrows the path picker only.
       dirty: false,      // the ORDER/membership differs from what is stored
       poolQuery: ''
     };
@@ -604,26 +604,26 @@
     async function loadAll() {
       // select=* on both, never a column list - naming a column PostgREST does
       // not have rejects the whole page load, the standing rule in this codebase.
-      const [routes, waypoints] = await Promise.all([
-        fetchAll('routes', { select: '*', order: 'tour_id.asc' }),
+      const [paths, waypoints] = await Promise.all([
+        fetchAll('paths', { select: '*', order: 'tour_id.asc' }),
         fetchAll('waypoints', { select: '*', order: 'wpid.asc' })
       ]);
-      state.routes = Array.isArray(routes) ? routes : [];
+      state.paths = Array.isArray(paths) ? paths : [];
       probeWaypointColumns(waypoints);
       state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
-      if (!state.routeId || !state.routes.some((r) => r.tour_id === state.routeId)) {
-        state.routeId = routeFromUrl() || (state.routes[0] ? state.routes[0].tour_id : '');
+      if (!state.pathId || !state.paths.some((r) => r.tour_id === state.pathId)) {
+        state.pathId = pathFromUrl() || (state.paths[0] ? state.paths[0].tour_id : '');
       }
-      // Open on the city of the route being shown, not on "every city" - the
+      // Open on the city of the path being shown, not on "every city" - the
       // picker should describe what is on screen the moment it appears.
-      state.cityFilter = routeCity();
+      state.cityFilter = pathCity();
       await loadStops();
     }
 
     async function loadStops() {
-      if (!state.routeId) { state.stops = []; state.dirty = false; renderAll(); return; }
-      const rows = await fetchAll('route_stops', {
-        select: '*', tour_id: 'eq.' + state.routeId, order: 'ord.asc'
+      if (!state.pathId) { state.stops = []; state.dirty = false; renderAll(); return; }
+      const rows = await fetchAll('path_stops', {
+        select: '*', tour_id: 'eq.' + state.pathId, order: 'ord.asc'
       });
       state.stops = (Array.isArray(rows) ? rows : [])
         .map((r) => String(r.wpid))
@@ -632,25 +632,25 @@
       renderAll();
     }
 
-    function routeFromUrl() {
-      return cleanText(new URLSearchParams(location.search).get('route'));
+    function pathFromUrl() {
+      return cleanText(new URLSearchParams(location.search).get('path'));
     }
 
     function syncUrl() {
       const url = new URL(location.href);
-      if (state.routeId) url.searchParams.set('route', state.routeId);
-      else url.searchParams.delete('route');
-      // replaceState: picking a route is a filter, not navigation. Stacking a
-      // history entry per route would make Back useless for leaving the page.
+      if (state.pathId) url.searchParams.set('path', state.pathId);
+      else url.searchParams.delete('path');
+      // replaceState: picking a path is a filter, not navigation. Stacking a
+      // history entry per path would make Back useless for leaving the page.
       history.replaceState(null, '', url);
     }
 
     // THE TWO CATALOGUES DISAGREE, and this is the whole reason for this helper.
     // public.cities holds the canonical string, "Miami, Florida"; waypoints.city
-    // holds the bare name, "Miami" - as do both routes already in the table. So
+    // holds the bare name, "Miami" - as do both paths already in the table. So
     // the city is PICKED from the catalogue (real, spelled right, one of ours)
-    // and STORED bare, or the pool filter matches no waypoint and the route
-    // reads differently from every other route in the table.
+    // and STORED bare, or the pool filter matches no waypoint and the path
+    // reads differently from every other path in the table.
     function cityNameOf(value) {
       const raw = cleanText(value);
       if (!raw) return '';
@@ -662,26 +662,26 @@
     }
 
     const wpById = (id) => state.waypoints.find((w) => String(w.wpid) === String(id));
-    const currentRoute = () => state.routes.find((r) => r.tour_id === state.routeId) || null;
+    const currentPath = () => state.paths.find((r) => r.tour_id === state.pathId) || null;
 
     // The single source of the pool's city. Derived, never stored: there is one
-    // city on this screen and it belongs to the route.
-    function routeCity() {
-      const route = currentRoute();
-      return route ? cityNameOf(route.city) : '';
+    // city on this screen and it belongs to the path.
+    function pathCity() {
+      const path = currentPath();
+      return path ? cityNameOf(path.city) : '';
     }
 
     // --- rendering ------------------------------------------------------------
 
     function renderAll() {
       renderCityFilter();
-      renderRouteSelect();
+      renderPathSelect();
       renderMapTitle();
       renderMeta();
       renderStops();
       renderPool();
-      el('saveBtn').disabled = !state.dirty || !state.routeId;
-      el('deleteRouteBtn').disabled = !state.routeId;
+      el('saveBtn').disabled = !state.dirty || !state.pathId;
+      el('deletePathBtn').disabled = !state.pathId;
       el('suggestOrderBtn').disabled = state.stops.length < 3;
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
@@ -689,36 +689,36 @@
       renderMap();
     }
 
-    // The map heads the page, so it carries the route's name rather than a
+    // The map heads the page, so it carries the path's name rather than a
     // generic label - it is the one place the title is read rather than edited.
-    // An untitled route falls back to its city, then to the id, which is never
+    // An untitled path falls back to its city, then to the id, which is never
     // blank: a nameless header reads as a broken panel.
     function renderMapTitle() {
-      const route = currentRoute();
-      const name = route
-        ? (cleanText(route.title) || cleanText(route.city) || route.tour_id)
+      const path = currentPath();
+      const name = path
+        ? (cleanText(path.title) || cleanText(path.city) || path.tour_id)
         : 'The walk';
       el('mapTitle').textContent = name;
     }
 
     function renderCounts() {
-      el('routeCount').textContent = state.stops.length
+      el('pathCount').textContent = state.stops.length
         ? state.stops.length + ' stop' + (state.stops.length === 1 ? '' : 's') + (state.dirty ? ' - unsaved' : '')
         : '';
     }
 
-    // The cities that actually have routes - the picker's job is narrowing what
+    // The cities that actually have paths - the picker's job is narrowing what
     // is there, so a city with nothing in it would be a dead end. A city with
-    // no route yet is reached through NEW, which offers the whole catalogue.
-    function routeCities() {
-      return [...new Set(state.routes.map((r) => cityNameOf(r.city)).filter(Boolean))]
+    // no path yet is reached through NEW, which offers the whole catalogue.
+    function pathCities() {
+      return [...new Set(state.paths.map((r) => cityNameOf(r.city)).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b));
     }
 
-    function routesInCity(city) {
+    function pathsInCity(city) {
       const want = cleanText(city).toLowerCase();
-      if (!want) return state.routes.slice();
-      return state.routes.filter((r) => cityNameOf(r.city).toLowerCase() === want);
+      if (!want) return state.paths.slice();
+      return state.paths.filter((r) => cityNameOf(r.city).toLowerCase() === want);
     }
 
     function renderCityFilter() {
@@ -728,26 +728,26 @@
       all.value = '';
       all.textContent = 'Every city';
       sel.appendChild(all);
-      routeCities().forEach((c) => {
+      pathCities().forEach((c) => {
         const o = document.createElement('option');
         o.value = c;
         o.textContent = c;
         sel.appendChild(o);
       });
       sel.value = state.cityFilter;
-      sel.disabled = !state.routes.length;
+      sel.disabled = !state.paths.length;
     }
 
-    function renderRouteSelect() {
-      const sel = el('routeSelect');
+    function renderPathSelect() {
+      const sel = el('pathSelect');
       sel.innerHTML = '';
-      const rows = routesInCity(state.cityFilter);
+      const rows = pathsInCity(state.cityFilter);
       if (!rows.length) {
         const o = document.createElement('option');
         o.value = '';
-        o.textContent = state.routes.length
-          ? 'No routes in ' + state.cityFilter
-          : 'No routes yet';
+        o.textContent = state.paths.length
+          ? 'No paths in ' + state.cityFilter
+          : 'No paths yet';
         sel.appendChild(o);
         sel.disabled = true;
         return;
@@ -761,18 +761,18 @@
           + (cleanText(r.title) || r.tour_id);
         sel.appendChild(o);
       });
-      sel.value = state.routeId;
+      sel.value = state.pathId;
     }
 
-    // Route title / shape / city, saved on change. These are three fields on one
+    // Path title / shape / city, saved on change. These are three fields on one
     // row; a Save button for them as well as for the order would be two kinds of
     // save on one screen, and the order is the one that needs deliberate saving
     // because it is what you spend the time on.
     function renderMeta() {
-      const box = el('routeMeta');
+      const box = el('pathMeta');
       box.innerHTML = '';
-      const route = currentRoute();
-      if (!route) return;
+      const path = currentPath();
+      if (!path) return;
 
       const field = (label, node) => {
         const wrap = document.createElement('div');
@@ -786,9 +786,9 @@
 
       const title = document.createElement('input');
       title.type = 'text';
-      title.value = cleanText(route.title);
+      title.value = cleanText(path.title);
       title.placeholder = 'What this walk is called';
-      title.addEventListener('change', () => saveRouteField('title', title.value));
+      title.addEventListener('change', () => savePathField('title', title.value));
 
       const shape = document.createElement('select');
       const blank = document.createElement('option');
@@ -802,45 +802,45 @@
         o.title = s.blurb;   // the full description, on hover
         shape.appendChild(o);
       });
-      shape.value = cleanText(route.shape);
+      shape.value = cleanText(path.shape);
       shape.title = shapeBlurb(shape.value);
-      shape.addEventListener('change', () => saveRouteField('shape', shape.value));
+      shape.addEventListener('change', () => savePathField('shape', shape.value));
 
       // This field decides what the pool and the map's candidates show, so it is
       // backed by the shared catalogue. Stored bare ("Miami"), see cityNameOf.
       const city = document.createElement('input');
       city.type = 'text';
-      city.value = cleanText(route.city);
+      city.value = cleanText(path.city);
       city.placeholder = 'City';
-      city.setAttribute('list', 'routeCityList');
-      city.addEventListener('change', () => saveRouteField('city', cityNameOf(city.value)));
+      city.setAttribute('list', 'pathCityList');
+      city.addEventListener('change', () => savePathField('city', cityNameOf(city.value)));
 
       const id = document.createElement('input');
       id.type = 'text';
-      id.value = route.tour_id;
+      id.value = path.tour_id;
       id.readOnly = true;
-      // The id is referenced by every route_stops row. Renaming it here would
+      // The id is referenced by every path_stops row. Renaming it here would
       // orphan them all, so it is shown and not editable - the same bargain
       // anchor_events makes with its client-supplied primary key.
-      id.title = 'The route id. Not editable - every stop points at it.';
+      id.title = 'The path id. Not editable - every stop points at it.';
 
       box.append(
         field('Title', title),
         field('Shape', shape),
         field('City', city),
-        field('Route id', id)
+        field('Path id', id)
       );
     }
 
     function renderStops() {
-      const box = el('routeStops');
+      const box = el('pathStops');
       box.innerHTML = '';
-      if (!state.routeId) {
-        box.innerHTML = '<p class="empty">No route selected. Make one with New route.</p>';
+      if (!state.pathId) {
+        box.innerHTML = '<p class="empty">No path selected. Make one with New path.</p>';
         return;
       }
       if (!state.stops.length) {
-        box.innerHTML = '<p class="empty">Nothing on this route yet. Add waypoints from the right.</p>';
+        box.innerHTML = '<p class="empty">Nothing on this path yet. Add waypoints from the right.</p>';
         return;
       }
       state.stops.forEach((wpid, i) => {
@@ -879,7 +879,7 @@
         const up = mkBtn('↑', 'Move up', () => moveStop(i, i - 1), i === 0);
         const down = mkBtn('↓', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
         const edit = mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid));
-        const off = mkBtn('Remove', 'Take off this route (the waypoint is kept)', () => removeStop(i));
+        const off = mkBtn('Remove', 'Take off this path (the waypoint is kept)', () => removeStop(i));
         off.classList.add('warn');
         actions.append(up, down, edit, off);
 
@@ -900,14 +900,14 @@
       return b;
     }
 
-    // Every waypoint in the ROUTE'S city that is not already a stop. The typed
+    // Every waypoint in the PATH'S city that is not already a stop. The typed
     // filter narrows that set; it never widens it past the city.
     function poolRows() {
-      const onRoute = new Set(state.stops.map(String));
-      const city = routeCity().toLowerCase();
+      const onPath = new Set(state.stops.map(String));
+      const city = pathCity().toLowerCase();
       const q = state.poolQuery.toLowerCase();
       return state.waypoints.filter((w) => {
-        if (onRoute.has(String(w.wpid))) return false;
+        if (onPath.has(String(w.wpid))) return false;
         if (!city || cleanText(w.city).toLowerCase() !== city) return false;
         if (!q) return true;
         return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
@@ -918,21 +918,21 @@
       const box = el('poolList');
       box.innerHTML = '';
       const rows = poolRows();
-      // The two panels are one sentence apart - "on this route" and "not on
-      // this route" - so they are titled the same way, with the city in front.
-      const city = routeCity();
-      el('routePanelTitle').textContent = city
-        ? city + ' waypoints on this route'
-        : 'Waypoints on this route';
+      // The two panels are one sentence apart - "on this path" and "not on
+      // this path" - so they are titled the same way, with the city in front.
+      const city = pathCity();
+      el('pathPanelTitle').textContent = city
+        ? city + ' waypoints on this path'
+        : 'Waypoints on this path';
       el('poolTitle').textContent = city
-        ? city + ' waypoints not on this route'
-        : 'Waypoints not on this route';
+        ? city + ' waypoints not on this path'
+        : 'Waypoints not on this path';
       el('poolCount').textContent = rows.length + ' available';
       if (!rows.length) {
         box.innerHTML = '<p class="empty">'
           + (city
               ? 'No other waypoint in ' + city + '. Add the place in Waypoints first, or clear the filter box.'
-              : 'This route has no city yet - set one above and its waypoints appear here.')
+              : 'This path has no city yet - set one above and its waypoints appear here.')
           + '</p>';
         return;
       }
@@ -953,7 +953,7 @@
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
         actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
-        actions.appendChild(mkBtn('Add', 'Put this on the end of the route', () => addStop(w.wpid), !state.routeId));
+        actions.appendChild(mkBtn('Add', 'Put this on the end of the path', () => addStop(w.wpid), !state.pathId));
         row.append(main, actions);
         box.appendChild(row);
       });
@@ -965,12 +965,12 @@
       }
     }
 
-    // The route's City field offers the shared catalogue through ONE datalist
+    // The path's City field offers the shared catalogue through ONE datalist
     // built once, not TgbCities.attach: renderMeta rebuilds its inputs on every
     // render, and attach keeps a controller for every element it is given - a
     // few minutes of editing would leak hundreds. Same call events.html makes.
     function fillCityList() {
-      const list = el('routeCityList');
+      const list = el('pathCityList');
       if (!list || !window.TgbCities) return;
       window.TgbCities.load().then(() => {
         list.innerHTML = '';
@@ -1031,10 +1031,10 @@
       });
     }
 
-    // Redrawn wholesale on every render - a route is a dozen markers, and a diff
+    // Redrawn wholesale on every render - a path is a dozen markers, and a diff
     // of a layer group is more code than it saves.
     async function renderMap() {
-      const box = el('routeMap');
+      const box = el('pathMap');
       const note = el('mapNote');
       const count = el('mapCount');
       if (!box) return;
@@ -1048,7 +1048,7 @@
       const pool = mapState.showPool
         ? state.waypoints
             .filter((w) => !state.stops.includes(String(w.wpid)))
-            .filter((w) => routeCity() && cleanText(w.city).toLowerCase() === routeCity().toLowerCase())
+            .filter((w) => pathCity() && cleanText(w.city).toLowerCase() === pathCity().toLowerCase())
             .map((w) => ({ w, at: pointOf(w) }))
             .filter((e) => e.at)
             .slice(0, 250)
@@ -1059,7 +1059,7 @@
         : '';
 
       if (!located.length && !pool.length) {
-        // Never downloads Leaflet for a route it cannot draw.
+        // Never downloads Leaflet for a path it cannot draw.
         if (mapState.map) { mapState.map.remove(); mapState.map = null; mapState.fitKey = ''; }
         box.classList.add('is-empty');
         box.innerHTML = '<span class="empty">'
@@ -1107,10 +1107,10 @@
         pop.innerHTML = '<div class="rb-pop-name"></div><div class="rb-pop-meta"></div>';
         pop.querySelector('.rb-pop-name').textContent = cleanText(w.name) || ('WPID ' + w.wpid);
         pop.querySelector('.rb-pop-meta').textContent = cleanText(w.address) || 'no address';
-        pop.appendChild(mkBtn('Add to route', 'Put this on the end of the route', () => {
+        pop.appendChild(mkBtn('Add to path', 'Put this on the end of the path', () => {
           map.closePopup();
           addStop(w.wpid);
-        }, !state.routeId));
+        }, !state.pathId));
         pop.appendChild(mkBtn('Edit', 'Edit this waypoint', () => {
           map.closePopup();
           openWaypointEditor(w.wpid);
@@ -1118,7 +1118,7 @@
         marker.bindPopup(pop);
       });
 
-      // Route pins last so they sit above the candidates.
+      // Path pins last so they sit above the candidates.
       located.forEach(({ w, at }, i) => {
         const idx = state.stops.indexOf(String(w.wpid));
         const isStart = idx === 0;
@@ -1135,7 +1135,7 @@
         marker.on('click', () => openWaypointEditor(w.wpid));
       });
 
-      // The walk itself, in route order, under the numbers.
+      // The walk itself, in path order, under the numbers.
       const line = state.stops
         .map((id) => pointOf(wpById(id)))
         .filter(Boolean)
@@ -1156,7 +1156,7 @@
       const key = [
         located.map((e) => e.w.wpid).sort((a, b) => a - b).join(','),
         pool.length,
-        mapState.showPool ? routeCity() : ''
+        mapState.showPool ? pathCity() : ''
       ].join('|');
       if (key !== mapState.fitKey) {
         mapState.fitKey = key;
@@ -1204,7 +1204,7 @@
       wpCols.walk_order = has('walk_order');
     }
 
-    const wpEdit = { row: null, wpid: '', dirty: false, busy: false, addToRoute: false };
+    const wpEdit = { row: null, wpid: '', dirty: false, busy: false, addToPath: false };
 
     function wpDlgOpen() { return el('wpDlg').classList.contains('is-open'); }
 
@@ -1237,13 +1237,13 @@
       // the edit away without the list having been changed underneath.
       wpEdit.row = source
         ? Object.assign({}, source)
-        : { wpid: '', name: '', city: routeCity(), state: '', zip: '', address: '',
+        : { wpid: '', name: '', city: pathCity(), state: '', zip: '', address: '',
             description: '', source_url: '', archived: false, lat: null, lon: null };
       wpEdit.wpid = source ? String(source.wpid) : '';
       wpEdit.dirty = false;
       wpEdit.busy = false;
-      // A waypoint made while a route is open is almost always for that route.
-      wpEdit.addToRoute = !source && !!state.routeId;
+      // A waypoint made while a path is open is almost always for that path.
+      wpEdit.addToPath = !source && !!state.pathId;
       el('wpDlg').classList.add('is-open');
       renderWaypointForm();
       const first = el('wpForm').querySelector('input, textarea');
@@ -1313,7 +1313,7 @@
         wpField('Address', 'address', { full: true,
           placeholder: '200 E Colfax Ave',
           hint: 'Street only - city, state and ZIP have their own fields. A Plus Code is allowed where there is no street.' }),
-        wpField('City', 'city', { list: 'routeCityList' }),
+        wpField('City', 'city', { list: 'pathCityList' }),
         wpField('State', 'state', { placeholder: 'CO' }),
         wpField('ZIP', 'zip'),
         wpField('Source URL', 'source_url', { placeholder: 'https://en.wikipedia.org/...' })
@@ -1333,7 +1333,7 @@
       point.append(pl, pv);
       box.appendChild(point);
 
-      if (wpEdit.addToRoute !== null && !wpEdit.wpid && state.routeId) {
+      if (wpEdit.addToPath !== null && !wpEdit.wpid && state.pathId) {
         const add = document.createElement('div');
         add.className = 'wp-field wp-field--full';
         const lab = document.createElement('label');
@@ -1343,9 +1343,9 @@
         lab.style.fontSize = '0.85rem';
         const box2 = document.createElement('input');
         box2.type = 'checkbox';
-        box2.checked = wpEdit.addToRoute;
-        box2.addEventListener('change', () => { wpEdit.addToRoute = box2.checked; });
-        lab.append(box2, document.createTextNode('Put this on the open route when it saves'));
+        box2.checked = wpEdit.addToPath;
+        box2.addEventListener('change', () => { wpEdit.addToPath = box2.checked; });
+        lab.append(box2, document.createTextNode('Put this on the open path when it saves'));
         add.appendChild(lab);
         box.appendChild(add);
       }
@@ -1432,12 +1432,12 @@
         wpEdit.row = Object.assign({}, fresh);
         wpEdit.dirty = false;
         wpBusy(false);
-        // Creating a waypoint for the open route and then having to find it in
+        // Creating a waypoint for the open path and then having to find it in
         // the pool to add it is two steps for one intention.
-        if (wasNew && wpEdit.addToRoute && state.routeId) {
+        if (wasNew && wpEdit.addToPath && state.pathId) {
           addStop(fresh.wpid);
           setStatus('Created ' + (cleanText(fresh.name) || ('WPID ' + fresh.wpid))
-            + ' and put it on the route - press Save to keep the order.', 'success');
+            + ' and put it on the path - press Save to keep the order.', 'success');
         } else {
           setStatus('Saved ' + (cleanText(fresh.name) || ('WPID ' + fresh.wpid)) + '.', 'success');
         }
@@ -1453,8 +1453,8 @@
       const wpid = wpEdit.wpid;
       if (!wpid || wpEdit.busy) return;
       const name = cleanText(wpEdit.row.name) || ('WPID ' + wpid);
-      const onRoutes = state.stops.includes(String(wpid)) ? ' It is on the open route.' : '';
-      if (!window.confirm('Delete ' + name + '?' + onRoutes
+      const onPaths = state.stops.includes(String(wpid)) ? ' It is on the open path.' : '';
+      if (!window.confirm('Delete ' + name + '?' + onPaths
         + '\n\nThis cannot be undone. Archive instead if you only want it out of the way.')) return;
       wpBusy(true, 'Deleting...');
       try {
@@ -1464,8 +1464,8 @@
         });
         if (!res.ok) throw new Error(await readError(res));
         state.waypoints = state.waypoints.filter((w) => String(w.wpid) !== String(wpid));
-        // route_stops cascades on the database side; drop it here too so the
-        // open route does not show a stop whose place no longer exists.
+        // path_stops cascades on the database side; drop it here too so the
+        // open path does not show a stop whose place no longer exists.
         state.stops = state.stops.filter((id) => id !== String(wpid));
         wpBusy(false);
         closeWaypointEditor(true);
@@ -1489,7 +1489,7 @@
 
     async function duplicateWaypointRow() {
       if (!wpEdit.wpid || wpEdit.busy) return;
-      // A copy is a LOOSE waypoint: it belongs to no route, and it is never born
+      // A copy is a LOOSE waypoint: it belongs to no path, and it is never born
       // archived - a tombstone is somebody's decision about the original.
       const copy = Object.assign({}, wpEdit.row);
       copy.wpid = '';
@@ -1498,7 +1498,7 @@
       wpEdit.row = copy;
       wpEdit.wpid = '';
       wpEdit.dirty = true;
-      wpEdit.addToRoute = false;
+      wpEdit.addToPath = false;
       renderWaypointForm();
       wpNote('A copy of the original, not saved yet. Press Create.', 'busy');
     }
@@ -1661,10 +1661,10 @@
       findNote('Building the draft...', 'busy');
       try {
         const draft = await geo.draftFromResult(item);
-        // The route's city is the one you are working in; a geocoder that
+        // The path's city is the one you are working in; a geocoder that
         // returns "Miami Beach" for a Miami place would otherwise quietly file
         // the waypoint where the pool cannot see it.
-        if (!cleanText(draft.city)) draft.city = routeCity();
+        if (!cleanText(draft.city)) draft.city = pathCity();
         closeFindDialog();
         openWaypointEditor(null);
         Object.assign(wpEdit.row, draft);
@@ -1776,7 +1776,7 @@
       el('aiDlgCount').textContent = '';
 
       const P = window.TgbWaypointPrompts;
-      const here = routeCity();
+      const here = pathCity();
       pull.fields.forEach((f) => {
         if (f === 'area') box.appendChild(aiInput('area', 'City', {
           value: here ? here : '', placeholder: 'Denver, CO', full: true,
@@ -1990,13 +1990,13 @@
 
     // --- suggest an order -----------------------------------------------------
 
-    // Geometry, applied to THE ROUTE - not to waypoints.walk_order, which is a
-    // per-city hint that predates routes and is not a route's order. The route's
-    // order is route_stops.ord, and it is what this rewrites (and leaves unsaved
+    // Geometry, applied to THE PATH - not to waypoints.walk_order, which is a
+    // per-city hint that predates paths and is not a path's order. The path's
+    // order is path_stops.ord, and it is what this rewrites (and leaves unsaved
     // so you can look at it first).
-    function suggestRouteOrder() {
+    function suggestPathOrder() {
       const geo = window.TgbWaypointGeo;
-      if (!geo || !state.routeId) return;
+      if (!geo || !state.pathId) return;
       const located = [];
       const unplaced = [];
       state.stops.forEach((id) => {
@@ -2037,7 +2037,7 @@
       markDirty();
     }
 
-    // Removing a stop takes it OFF THE ROUTE and leaves the waypoint alone. That
+    // Removing a stop takes it OFF THE PATH and leaves the waypoint alone. That
     // is the whole reason these are two tables: a place is not deleted because
     // one walk stopped visiting it.
     function removeStop(i) {
@@ -2096,27 +2096,27 @@
 
     // --- writing --------------------------------------------------------------
 
-    // Delete-then-insert for the whole route, not a diff. The route is at most a
+    // Delete-then-insert for the whole path, not a diff. The path is at most a
     // dozen rows, positions shift wholesale when you move one, and a partial
     // failure that leaves two stop 3s is worse than redoing the lot. The delete
     // and the insert are separate requests, so a crash between them empties the
-    // route - which is visible and fixable, unlike a silently wrong order.
+    // path - which is visible and fixable, unlike a silently wrong order.
     async function saveOrder() {
-      if (!state.routeId) return;
+      if (!state.pathId) return;
       const btn = el('saveBtn');
       btn.disabled = true;
       setStatus('Saving order...');
       try {
         await ensureFreshSession();
-        const del = await fetch(restUrl('route_stops', { tour_id: 'eq.' + state.routeId }), {
+        const del = await fetch(restUrl('path_stops', { tour_id: 'eq.' + state.pathId }), {
           method: 'DELETE', headers: authHeaders()
         });
         if (!del.ok) throw new Error(await readError(del));
         if (state.stops.length) {
           const body = state.stops.map((wpid, i) => ({
-            tour_id: state.routeId, wpid: Number(wpid), ord: i + 1
+            tour_id: state.pathId, wpid: Number(wpid), ord: i + 1
           }));
-          const ins = await fetch(restUrl('route_stops', {}), {
+          const ins = await fetch(restUrl('path_stops', {}), {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(body)
@@ -2133,20 +2133,20 @@
       }
     }
 
-    async function saveRouteField(field, value) {
-      const route = currentRoute();
-      if (!route) return;
+    async function savePathField(field, value) {
+      const path = currentPath();
+      if (!path) return;
       const patch = {};
       patch[field] = cleanText(value) || null;
       try {
         await ensureFreshSession();
-        const res = await fetch(restUrl('routes', { tour_id: 'eq.' + state.routeId }), {
+        const res = await fetch(restUrl('paths', { tour_id: 'eq.' + state.pathId }), {
           method: 'PATCH',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(patch)
         });
         if (!res.ok) throw new Error(await readError(res));
-        route[field] = patch[field];
+        path[field] = patch[field];
         // Changing the city changes the pool and the map's candidates with it,
         // so this is a full render, not just the picker's label.
         renderAll();
@@ -2157,11 +2157,11 @@
     }
 
     // Same readable shape the importer builds, and to the SECOND: to the minute,
-    // two routes made for one city in the same minute collide on the id and the
+    // two paths made for one city in the same minute collide on the id and the
     // second silently merges into the first. That has already happened once in
     // this table - it produced a twenty-stop "loop".
-    function makeRouteId(city, shape) {
-      const slug = cleanText(city).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'route';
+    function makePathId(city, shape) {
+      const slug = cleanText(city).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'path';
       const d = new Date();
       const p = (n, w) => String(n).padStart(w || 2, '0');
       const stamp = d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate())
@@ -2172,10 +2172,10 @@
     // The dialog is static markup, so the city control is attached once and
     // lives for the page - attach() keeps its controller forever, which is
     // right for a form and wrong for a list that rerenders.
-    let newRouteCityCtl = null;
-    function openNewRouteDialog() {
-      const dlg = el('newRouteDlg');
-      const shape = el('newRouteShape');
+    let newPathCityCtl = null;
+    function openNewPathDialog() {
+      const dlg = el('newPathDlg');
+      const shape = el('newPathShape');
       if (!shape.options.length) {
         SHAPES.forEach((s) => {
           const o = document.createElement('option');
@@ -2184,134 +2184,134 @@
           shape.appendChild(o);
         });
       }
-      if (!newRouteCityCtl && window.TgbCities) {
-        newRouteCityCtl = window.TgbCities.attach(el('newRouteCity'), {
+      if (!newPathCityCtl && window.TgbCities) {
+        newPathCityCtl = window.TgbCities.attach(el('newPathCity'), {
           // Admin surface: a venue-only city is hidden from the public rails but
-          // is exactly where a route might be built, so show it (grey).
+          // is exactly where a path might be built, so show it (grey).
           includeIgnored: true,
           authHeaders: authHeaders,
           allOption: 'Pick a city',
-          onChange: previewRouteId
+          onChange: previewPathId
         });
       }
-      el('newRouteName').value = '';
+      el('newPathName').value = '';
       shape.value = 'loop';
       // NEW takes the city from the picker in the bar - that is the city you
-      // are looking at, and on "Every city" it falls back to the open route's.
+      // are looking at, and on "Every city" it falls back to the open path's.
       // The option values are the CANONICAL strings ("Miami, Florida"), so the
       // bare name has to be matched back through cityNameOf rather than
       // compared directly - and only after load() resolves, or the value is set
       // against a select with no options yet and silently stays blank.
-      const open = (state.cityFilter || routeCity()).toLowerCase();
+      const open = (state.cityFilter || pathCity()).toLowerCase();
       const preselect = () => {
         const rows = (window.TgbCities && window.TgbCities.all()) || [];
         const guess = open
           ? (rows.find((r) => cityNameOf(r.city).toLowerCase() === open) || {}).city
           : '';
-        el('newRouteCity').value = guess || '';
-        previewRouteId();
+        el('newPathCity').value = guess || '';
+        previewPathId();
       };
       dlg.classList.add('is-open');
-      el('newRouteName').focus();
+      el('newPathName').focus();
       if (window.TgbCities) window.TgbCities.load().then(preselect).catch(preselect);
       else preselect();
     }
 
-    function closeNewRouteDialog() { el('newRouteDlg').classList.remove('is-open'); }
+    function closeNewPathDialog() { el('newPathDlg').classList.remove('is-open'); }
 
     // Show the id before it is committed. It is the one field on this page that
     // can never be edited afterwards, so it should not be a surprise.
-    function previewRouteId() {
-      const city = cityNameOf(el('newRouteCity').value);
-      el('newRouteShapeNote').textContent = shapeBlurb(el('newRouteShape').value);
-      el('newRouteIdNote').textContent = city
-        ? 'Route id: ' + makeRouteId(city, el('newRouteShape').value) + ' (permanent)'
-        : 'Pick a city to see the route id.';
+    function previewPathId() {
+      const city = cityNameOf(el('newPathCity').value);
+      el('newPathShapeNote').textContent = shapeBlurb(el('newPathShape').value);
+      el('newPathIdNote').textContent = city
+        ? 'Path id: ' + makePathId(city, el('newPathShape').value) + ' (permanent)'
+        : 'Pick a city to see the path id.';
     }
 
-    async function newRoute() {
-      const city = cityNameOf(el('newRouteCity').value);
-      if (!city) { el('newRouteCity').focus(); return; }
-      const title = cleanText(el('newRouteName').value);
-      const shape = el('newRouteShape').value || 'loop';
-      const tourId = makeRouteId(city, shape);
-      closeNewRouteDialog();
+    async function newPath() {
+      const city = cityNameOf(el('newPathCity').value);
+      if (!city) { el('newPathCity').focus(); return; }
+      const title = cleanText(el('newPathName').value);
+      const shape = el('newPathShape').value || 'loop';
+      const tourId = makePathId(city, shape);
+      closeNewPathDialog();
       try {
         await ensureFreshSession();
-        const res = await fetch(restUrl('routes', {}), {
+        const res = await fetch(restUrl('paths', {}), {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
           body: JSON.stringify({ tour_id: tourId, city: city, shape: shape, title: title || null })
         });
         if (!res.ok) throw new Error(await readError(res));
         const [row] = await res.json();
-        state.routes.push(row);
-        state.routes.sort((a, b) => a.tour_id.localeCompare(b.tour_id));
-        state.routeId = row.tour_id;
+        state.paths.push(row);
+        state.paths.sort((a, b) => a.tour_id.localeCompare(b.tour_id));
+        state.pathId = row.tour_id;
         state.stops = [];
         state.dirty = false;
-        // Follow the new route rather than hiding it behind the old filter.
+        // Follow the new path rather than hiding it behind the old filter.
         state.cityFilter = cityNameOf(row.city);
         syncUrl();
         renderAll();
-        setStatus('New route ' + row.tour_id + '.', 'success');
+        setStatus('New path ' + row.tour_id + '.', 'success');
       } catch (err) {
-        setStatus(err.message || 'Could not create the route.', 'error');
+        setStatus(err.message || 'Could not create the path.', 'error');
       }
     }
 
-    async function deleteRoute() {
-      const route = currentRoute();
-      if (!route) return;
-      const name = cleanText(route.title) || route.tour_id;
-      if (!window.confirm('Delete the route "' + name + '"?\n\nIts ' + state.stops.length
-        + ' waypoint(s) are NOT deleted - they stay in the catalogue and on any other route.')) return;
+    async function deletePath() {
+      const path = currentPath();
+      if (!path) return;
+      const name = cleanText(path.title) || path.tour_id;
+      if (!window.confirm('Delete the path "' + name + '"?\n\nIts ' + state.stops.length
+        + ' waypoint(s) are NOT deleted - they stay in the catalogue and on any other path.')) return;
       try {
         await ensureFreshSession();
-        // route_stops has on delete cascade, so the membership goes with it.
-        const res = await fetch(restUrl('routes', { tour_id: 'eq.' + route.tour_id }), {
+        // path_stops has on delete cascade, so the membership goes with it.
+        const res = await fetch(restUrl('paths', { tour_id: 'eq.' + path.tour_id }), {
           method: 'DELETE', headers: authHeaders()
         });
         if (!res.ok) throw new Error(await readError(res));
-        state.routes = state.routes.filter((r) => r.tour_id !== route.tour_id);
-        // Stay in the city if it still has a route; otherwise the filter would
-        // name a city with nothing in it while another city's route is open.
-        const sameCity = routesInCity(state.cityFilter);
-        const next = sameCity[0] || state.routes[0] || null;
-        state.routeId = next ? next.tour_id : '';
+        state.paths = state.paths.filter((r) => r.tour_id !== path.tour_id);
+        // Stay in the city if it still has a path; otherwise the filter would
+        // name a city with nothing in it while another city's path is open.
+        const sameCity = pathsInCity(state.cityFilter);
+        const next = sameCity[0] || state.paths[0] || null;
+        state.pathId = next ? next.tour_id : '';
         state.cityFilter = next ? cityNameOf(next.city) : '';
         syncUrl();
         await loadStops();
         setStatus('Deleted ' + name + '.', 'success');
       } catch (err) {
-        setStatus(err.message || 'Could not delete the route.', 'error');
+        setStatus(err.message || 'Could not delete the path.', 'error');
       }
     }
 
     // Returns false when the unsaved-order guard turned the move down, so a
     // caller that changed something else first (the city picker) can put its
     // own control back rather than leaving the two disagreeing.
-    async function openRoute(tourId) {
-      if (state.dirty && !window.confirm('This route has unsaved order changes. Leave them?')) {
-        el('routeSelect').value = state.routeId;
+    async function openPath(tourId) {
+      if (state.dirty && !window.confirm('This path has unsaved order changes. Leave them?')) {
+        el('pathSelect').value = state.pathId;
         return false;
       }
-      state.routeId = tourId;
-      // The pool follows the route's own city, so there is nothing to sync here.
+      state.pathId = tourId;
+      // The pool follows the path's own city, so there is nothing to sync here.
       syncUrl();
       await loadStops();
       return true;
     }
 
-    // Picking a city narrows the route picker. If the open route is not in that
+    // Picking a city narrows the path picker. If the open path is not in that
     // city, the first one there is opened - a picker that filters a list but
-    // leaves a hidden row selected shows a route the list denies having.
+    // leaves a hidden row selected shows a path the list denies having.
     async function pickCity(city) {
       const previous = state.cityFilter;
       state.cityFilter = cleanText(city);
-      const rows = routesInCity(state.cityFilter);
-      if (!rows.some((r) => r.tour_id === state.routeId)) {
-        const moved = await openRoute(rows[0] ? rows[0].tour_id : '');
+      const rows = pathsInCity(state.cityFilter);
+      if (!rows.some((r) => r.tour_id === state.pathId)) {
+        const moved = await openPath(rows[0] ? rows[0].tour_id : '');
         if (!moved) { state.cityFilter = previous; renderAll(); return; }
       }
       renderAll();
@@ -2323,7 +2323,7 @@
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
         state.authed = true;
-        setStatus('Loading routes...');
+        setStatus('Loading paths...');
         try {
           await loadAll();
           fillCityList();
@@ -2331,12 +2331,12 @@
           setStatus('');
         } catch (err) {
           console.error(err);
-          setStatus(err.message || 'Could not load routes.', 'error');
+          setStatus(err.message || 'Could not load paths.', 'error');
         }
       },
       onSignedOut: () => {
         state.authed = false;
-        state.routes = [];
+        state.paths = [];
         state.stops = [];
         state.waypoints = [];
         renderAll();
@@ -2346,26 +2346,26 @@
     if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
     el('cityFilter').addEventListener('change', (e) => pickCity(e.target.value));
-    el('routeSelect').addEventListener('change', (e) => openRoute(e.target.value));
-    el('newRouteBtn').addEventListener('click', openNewRouteDialog);
-    el('newRouteCreate').addEventListener('click', newRoute);
-    el('newRouteCancel').addEventListener('click', closeNewRouteDialog);
-    el('newRouteShape').addEventListener('change', previewRouteId);
-    el('newRouteCity').addEventListener('change', previewRouteId);
-    el('newRouteDlg').addEventListener('click', (e) => {
-      if (e.target === el('newRouteDlg')) closeNewRouteDialog();
+    el('pathSelect').addEventListener('change', (e) => openPath(e.target.value));
+    el('newPathBtn').addEventListener('click', openNewPathDialog);
+    el('newPathCreate').addEventListener('click', newPath);
+    el('newPathCancel').addEventListener('click', closeNewPathDialog);
+    el('newPathShape').addEventListener('change', previewPathId);
+    el('newPathCity').addEventListener('change', previewPathId);
+    el('newPathDlg').addEventListener('click', (e) => {
+      if (e.target === el('newPathDlg')) closeNewPathDialog();
     });
-    el('newRouteName').addEventListener('keydown', (e) => { if (e.key === 'Enter') newRoute(); });
+    el('newPathName').addEventListener('keydown', (e) => { if (e.key === 'Enter') newPath(); });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      if (el('newRouteDlg').classList.contains('is-open')) closeNewRouteDialog();
+      if (el('newPathDlg').classList.contains('is-open')) closeNewPathDialog();
       else if (el('aiDlg').classList.contains('is-open')) closeAiDialog();
       else if (el('nightlyDlg').classList.contains('is-open')) closeNightlyDialog();
       else if (el('findDlg').classList.contains('is-open') && !findState.busy) closeFindDialog();
       else if (wpDlgOpen() && !wpEdit.busy) closeWaypointEditor();
     });
     el('saveBtn').addEventListener('click', saveOrder);
-    el('deleteRouteBtn').addEventListener('click', deleteRoute);
+    el('deletePathBtn').addEventListener('click', deletePath);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
     el('newWaypointBtn').addEventListener('click', () => openWaypointEditor(null));
     el('findWaypointBtn').addEventListener('click', () => openFindDialog(''));
@@ -2392,7 +2392,7 @@
     el('findDlg').addEventListener('click', (e) => {
       if (e.target === el('findDlg') && !findState.busy) closeFindDialog();
     });
-    el('suggestOrderBtn').addEventListener('click', suggestRouteOrder);
+    el('suggestOrderBtn').addEventListener('click', suggestPathOrder);
     el('wpSaveBtn').addEventListener('click', saveWaypoint);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
     el('wpLocateBtn').addEventListener('click', locateWaypoint);

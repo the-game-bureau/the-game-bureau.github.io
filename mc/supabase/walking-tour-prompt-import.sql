@@ -1,20 +1,20 @@
 -- walking-tour-prompt-import.sql
 --
--- Imports a WHOLE WALKING ROUTE into three tables:
+-- Imports a WHOLE WALKING PATH into three tables:
 --
 --   public.waypoints    the places. ONE ROW PER PLACE, reused if already held.
---   public.routes       the route: its id, title, shape, city.
---   public.route_stops  nothing but ids and a position.
+--   public.paths       the path: its id, title, shape, city.
+--   public.path_stops  nothing but ids and a position.
 --
 -- (No backticks in this file. mc/data/waypoints.html pastes it verbatim into a
 --  String.raw template literal, and one backtick ends the template.)
 --
 -- IT REUSES A PLACE IT ALREADY HAS, and that is the important difference from
--- the version this replaces. Until 2026-08-08 a route lived in columns ON the
+-- the version this replaces. Until 2026-08-08 a path lived in columns ON the
 -- waypoint, so importing a second downtown Miami walk inserted a SECOND Freedom
 -- Tower - unlinked to the first, a second pin on one building, and no way to ask
--- what routes a place was on. Now the place is looked up by name + address and
--- the new route simply points at it.
+-- what paths a place was on. Now the place is looked up by name + address and
+-- the new path simply points at it.
 --
 -- MATCHING IS ON NAME + ADDRESS, NEVER ADDRESS ALONE. One address is routinely
 -- several stops: 100 W 14th Ave Pkwy in Denver is the Denver Art Museum and the
@@ -24,15 +24,15 @@
 --
 -- The description of a REUSED place is left exactly as it was. The incoming
 -- sentence is discarded, and the returned note says so. That is the accepted
--- cost of one row per place: a stop reads the same on every route it is on, and
--- a route cannot quietly rewrite a sentence another route depends on.
+-- cost of one row per place: a stop reads the same on every path it is on, and
+-- a path cannot quietly rewrite a sentence another path depends on.
 --
 -- SECURITY INVOKER: a human runs it under their own admin session. Writes to all
 -- three tables are gated behind the authenticated role, so nothing here is
 -- callable by anon and no cloud routine can invoke it - the routines commit SQL
 -- for a human to run.
 --
--- Re-running creates a SECOND route with a new id, which is visible and easy to
+-- Re-running creates a SECOND path with a new id, which is visible and easy to
 -- delete, rather than half-merging into the first.
 
 create or replace function public.tgb_import_walking_tour(payload jsonb)
@@ -72,12 +72,12 @@ begin
   v_state := nullif(btrim(payload->>'state'), '');
   v_title := nullif(btrim(payload->>'title'), '');
   v_shape := nullif(btrim(lower(payload->>'shape')), '');
-  -- One route is the work of ONE model, so this belongs to the route, not a stop.
+  -- One path is the work of ONE model, so this belongs to the path, not a stop.
   v_ai_model := nullif(left(btrim(coalesce(payload->>'ai_model', '')), 120), '');
 
-  if v_city is null then raise exception 'The route needs a city.'; end if;
-  if v_title is null then raise exception 'The route needs a title.'; end if;
-  -- The seven of routes_shape_known (2026080805). Checked here so a bad shape
+  if v_city is null then raise exception 'The path needs a city.'; end if;
+  if v_title is null then raise exception 'The path needs a title.'; end if;
+  -- The seven of paths_shape_known (2026080805). Checked here so a bad shape
   -- comes back as a sentence rather than as a constraint name.
   if v_shape is null or v_shape not in (
     'loop', 'out_and_back', 'point_to_point',
@@ -86,26 +86,26 @@ begin
     raise exception 'shape must be one of loop, out_and_back, point_to_point, lollipop, figure_eight, horseshoe, network (got %).', coalesce(v_shape, 'null');
   end if;
   if jsonb_typeof(payload->'stops') <> 'array' or jsonb_array_length(payload->'stops') = 0 then
-    raise exception 'The route needs a non-empty stops array.';
+    raise exception 'The path needs a non-empty stops array.';
   end if;
 
   -- Readable and unique without a sequence: the city, the shape and the second.
   -- SECONDS, not minutes. To the minute, two imports of the same city and shape
-  -- inside one minute produce the SAME id - so the second route does not fail,
+  -- inside one minute produce the SAME id - so the second path does not fail,
   -- it silently merges into the first and you get one twenty-stop walk. That has
   -- already happened once in this table.
   v_tour_id := lower(regexp_replace(v_city, '[^a-zA-Z0-9]+', '-', 'g'))
                || '-' || v_shape
                || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MISS');
 
-  insert into public.routes (tour_id, title, shape, city)
+  insert into public.paths (tour_id, title, shape, city)
   values (v_tour_id, v_title, v_shape, v_city);
 
-  return query select 'route'::text, null::integer, v_title, v_tour_id, v_shape;
+  return query select 'path'::text, null::integer, v_title, v_tour_id, v_shape;
 
   -- Stops are taken IN ARRAY ORDER. Any walk_order supplied on a stop is
   -- ignored: the array is the sequence, and trusting one over the other when
-  -- they disagree is how a route ends up with two stop 4s.
+  -- they disagree is how a path ends up with two stop 4s.
   for v_entry in select value from jsonb_array_elements(payload->'stops')
   loop
     v_name        := nullif(btrim(v_entry->>'name'), '');
@@ -155,7 +155,7 @@ begin
       returning w.wpid into v_wpid;
     end if;
 
-    -- A place appears at most once per route. A loop FINISHES NEAR its first
+    -- A place appears at most once per path. A loop FINISHES NEAR its first
     -- stop, it does not list it again, so a repeat is a mistake in the payload
     -- rather than something to store - and the primary key would reject it.
     -- on conflict ON CONSTRAINT, not on (tour_id, wpid): this function's
@@ -163,9 +163,9 @@ begin
     -- index-inference clause plpgsql cannot tell those from the table's own
     -- columns - it raises "column reference wpid is ambiguous". Naming the
     -- primary key sidesteps the resolution entirely.
-    insert into public.route_stops (tour_id, wpid, ord)
+    insert into public.path_stops (tour_id, wpid, ord)
     values (v_tour_id, v_wpid, v_ord)
-    on conflict on constraint route_stops_pkey do nothing;
+    on conflict on constraint path_stops_pkey do nothing;
 
     return query select 'waypoint'::text, v_ord, v_name, v_wpid::text,
       case when v_existing is not null

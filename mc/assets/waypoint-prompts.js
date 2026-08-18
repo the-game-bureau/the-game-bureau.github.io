@@ -2,14 +2,14 @@
  *
  *   TGB WAYPOINTS BOT           trig_01Q5uCittJ3dT3M2xj8sKD3j  cron 45 11 UTC
  *     uses buildWaypointAiPrompt; commits mc/stops/nightly.json.
- *   TGB NFL Anchor Route Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
+ *   TGB NFL Anchor Path Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
  *     STEP 1 OF ITS STORED PROMPT IS "open this file and find
  *     buildTourPlacesWaypointPrompt; that function is the specification".
  *
  * So editing this file changes that routine on its next run, with nothing to
  * sync. The cost is the matching failure: RENAME OR MOVE
  * buildTourPlacesWaypointPrompt AND THE ROUTINE BREAKS SILENTLY, because an
- * agent that cannot find its spec will happily write a route from memory. Its
+ * agent that cannot find its spec will happily write a path from memory. Its
  * stored prompt now says to stop and report instead. If this file moves again,
  * update the trigger in the same commit.
  *
@@ -21,7 +21,7 @@
  *
  * Five prompts and the SQL they lean on, lifted verbatim out of
  * mc/data/waypoints.html on 2026-08-09 when that page was folded into the
- * Route Builder. THE TEXT IS THE PRODUCT here: every clause in these prompts
+ * Path Builder. THE TEXT IS THE PRODUCT here: every clause in these prompts
  * was paid for by a bad run - the address rule, the do-not-repeat list, the
  * loop's five-minute finish, the commercial start and end, the description
  * voice. It is moved, not rewritten, and it should keep being moved rather
@@ -97,17 +97,17 @@
       '  source_url  text     The page you verified this from. Never a search-results page.',
       '  lat, lon    float8   Coordinates. LEAVE THEM NULL - the page geocodes the address itself and writes them back. Never guess a coordinate.',
       '  archived    boolean  A do-not-rescrape tombstone. LEAVE IT ALONE. Never write true.',
-      '  walk_order  integer  An advisory per-CITY order, not a route position. LEAVE IT NULL - a route orders its stops in public.route_stops.ord.',
+      '  walk_order  integer  An advisory per-CITY order, not a path position. LEAVE IT NULL - a path orders its stops in public.path_stops.ord.',
       '',
-      'A ROUTE IS NOT ON THIS TABLE. Two more tables hold it, and the helper below writes all three:',
+      'A PATH IS NOT ON THIS TABLE. Two more tables hold it, and the helper below writes all three:',
       '',
-      '  public.routes       tour_id (PK), title, shape, city. One row per route.',
-      '  public.route_stops  tour_id, wpid, ord. NOTHING BUT IDS AND A POSITION.',
+      '  public.paths       tour_id (PK), title, shape, city. One row per path.',
+      '  public.path_stops  tour_id, wpid, ord. NOTHING BUT IDS AND A POSITION.',
       '',
-      'So a place that is on two routes is ONE waypoint row with TWO route_stops rows. Do not repeat a place to put it on a second route, and do not invent tour_id / tour_title / tour_shape columns on waypoints - they were retired on 2026-08-08.',
+      'So a place that is on two paths is ONE waypoint row with TWO path_stops rows. Do not repeat a place to put it on a second path, and do not invent tour_id / tour_title / tour_shape columns on waypoints - they were retired on 2026-08-08.',
       '  ai_model    text     WHICH AI YOU ARE. Your make and model, as you would say it: "Anthropic Claude Opus 5", "OpenAI GPT-5", "Google Gemini 3 Pro". Max 120 characters. Do not write "AI", "assistant", or the name of this prompt.',
       '',
-      'The order of a route is route_stops.ord: 1 is the START, the highest is the END. Most waypoints are on no route at all - a waypoint is a place first.'
+      'The order of a path is path_stops.ord: 1 is the START, the highest is the END. Most waypoints are on no path at all - a waypoint is a place first.'
     ].join('\n');
 
 
@@ -210,7 +210,7 @@ create index if not exists waypoints_tour_idx
       + 'no doubling back, no crossing the city and coming back for one thing. Start where a visitor plausibly '
       + 'starts (a transit stop, a main square, the biggest landmark) and end somewhere worth ending. '
       + 'Numbers are scoped to the CITY and restart at 1 for each city you return. It is a SUGGESTION, not a '
-      + 'route - a human re-orders it in the Stop Builder - so a sensible order is useful and a wrong one is '
+      + 'path - a human re-orders it in the Stop Builder - so a sensible order is useful and a wrong one is '
       + 'cheap. Omit it only if you genuinely cannot tell where the places sit relative to each other.';
 
 
@@ -744,7 +744,7 @@ $$;`.trim();
     // costs nothing.
     function buildWalkingTourSchemaSql() {
       return String.raw`
-create table if not exists public.routes (
+create table if not exists public.paths (
   tour_id    text primary key,
   title      text,
   shape      text,
@@ -755,40 +755,40 @@ create table if not exists public.routes (
 -- Seven shapes since 2026080805. This block DROPS and re-adds the constraint,
 -- so a stale copy here would quietly narrow it again the next time somebody
 -- pastes this helper - keep it in step with the migration.
-alter table public.routes drop constraint if exists routes_shape_known;
-alter table public.routes add constraint routes_shape_known
+alter table public.paths drop constraint if exists paths_shape_known;
+alter table public.paths add constraint paths_shape_known
   check (shape is null or shape in (
     'loop', 'out_and_back', 'point_to_point',
     'lollipop', 'figure_eight', 'horseshoe', 'network'
   )) not valid;
 
-create table if not exists public.route_stops (
-  tour_id text   not null references public.routes(tour_id) on delete cascade,
+create table if not exists public.path_stops (
+  tour_id text   not null references public.paths(tour_id) on delete cascade,
   wpid    bigint not null references public.waypoints(wpid) on delete cascade,
   ord     integer not null,
   primary key (tour_id, wpid)
 );
 
-create index if not exists route_stops_order_idx on public.route_stops (tour_id, ord);
-create index if not exists route_stops_wpid_idx  on public.route_stops (wpid);
+create index if not exists path_stops_order_idx on public.path_stops (tour_id, ord);
+create index if not exists path_stops_wpid_idx  on public.path_stops (wpid);
 
-alter table public.routes      enable row level security;
-alter table public.route_stops enable row level security;
+alter table public.paths      enable row level security;
+alter table public.path_stops enable row level security;
 
-drop policy if exists "routes readable by anyone" on public.routes;
-create policy "routes readable by anyone" on public.routes for select using (true);
-drop policy if exists "routes write by authenticated" on public.routes;
-create policy "routes write by authenticated" on public.routes for all
+drop policy if exists "paths readable by anyone" on public.paths;
+create policy "paths readable by anyone" on public.paths for select using (true);
+drop policy if exists "paths write by authenticated" on public.paths;
+create policy "paths write by authenticated" on public.paths for all
   to authenticated using (true) with check (true);
 
-drop policy if exists "route_stops readable by anyone" on public.route_stops;
-create policy "route_stops readable by anyone" on public.route_stops for select using (true);
-drop policy if exists "route_stops write by authenticated" on public.route_stops;
-create policy "route_stops write by authenticated" on public.route_stops for all
+drop policy if exists "path_stops readable by anyone" on public.path_stops;
+create policy "path_stops readable by anyone" on public.path_stops for select using (true);
+drop policy if exists "path_stops write by authenticated" on public.path_stops;
+create policy "path_stops write by authenticated" on public.path_stops for all
   to authenticated using (true) with check (true);
 
-grant select on public.routes, public.route_stops to anon, authenticated;
-grant insert, update, delete on public.routes, public.route_stops to authenticated;`.trim();
+grant select on public.paths, public.path_stops to anon, authenticated;
+grant insert, update, delete on public.paths, public.path_stops to authenticated;`.trim();
     }
 
     function buildWalkingTourImportHelperSql() {
@@ -830,12 +830,12 @@ begin
   v_state := nullif(btrim(payload->>'state'), '');
   v_title := nullif(btrim(payload->>'title'), '');
   v_shape := nullif(btrim(lower(payload->>'shape')), '');
-  -- One route is the work of ONE model, so this belongs to the route, not a stop.
+  -- One path is the work of ONE model, so this belongs to the path, not a stop.
   v_ai_model := nullif(left(btrim(coalesce(payload->>'ai_model', '')), 120), '');
 
-  if v_city is null then raise exception 'The route needs a city.'; end if;
-  if v_title is null then raise exception 'The route needs a title.'; end if;
-  -- The seven of routes_shape_known (2026080805). Checked here so a bad shape
+  if v_city is null then raise exception 'The path needs a city.'; end if;
+  if v_title is null then raise exception 'The path needs a title.'; end if;
+  -- The seven of paths_shape_known (2026080805). Checked here so a bad shape
   -- comes back as a sentence rather than as a constraint name.
   if v_shape is null or v_shape not in (
     'loop', 'out_and_back', 'point_to_point',
@@ -844,26 +844,26 @@ begin
     raise exception 'shape must be one of loop, out_and_back, point_to_point, lollipop, figure_eight, horseshoe, network (got %).', coalesce(v_shape, 'null');
   end if;
   if jsonb_typeof(payload->'stops') <> 'array' or jsonb_array_length(payload->'stops') = 0 then
-    raise exception 'The route needs a non-empty stops array.';
+    raise exception 'The path needs a non-empty stops array.';
   end if;
 
   -- Readable and unique without a sequence: the city, the shape and the second.
   -- SECONDS, not minutes. To the minute, two imports of the same city and shape
-  -- inside one minute produce the SAME id - so the second route does not fail,
+  -- inside one minute produce the SAME id - so the second path does not fail,
   -- it silently merges into the first and you get one twenty-stop walk. That has
   -- already happened once in this table.
   v_tour_id := lower(regexp_replace(v_city, '[^a-zA-Z0-9]+', '-', 'g'))
                || '-' || v_shape
                || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MISS');
 
-  insert into public.routes (tour_id, title, shape, city)
+  insert into public.paths (tour_id, title, shape, city)
   values (v_tour_id, v_title, v_shape, v_city);
 
-  return query select 'route'::text, null::integer, v_title, v_tour_id, v_shape;
+  return query select 'path'::text, null::integer, v_title, v_tour_id, v_shape;
 
   -- Stops are taken IN ARRAY ORDER. Any walk_order supplied on a stop is
   -- ignored: the array is the sequence, and trusting one over the other when
-  -- they disagree is how a route ends up with two stop 4s.
+  -- they disagree is how a path ends up with two stop 4s.
   for v_entry in select value from jsonb_array_elements(payload->'stops')
   loop
     v_name        := nullif(btrim(v_entry->>'name'), '');
@@ -913,7 +913,7 @@ begin
       returning w.wpid into v_wpid;
     end if;
 
-    -- A place appears at most once per route. A loop FINISHES NEAR its first
+    -- A place appears at most once per path. A loop FINISHES NEAR its first
     -- stop, it does not list it again, so a repeat is a mistake in the payload
     -- rather than something to store - and the primary key would reject it.
     -- on conflict ON CONSTRAINT, not on (tour_id, wpid): this function's
@@ -921,9 +921,9 @@ begin
     -- index-inference clause plpgsql cannot tell those from the table's own
     -- columns - it raises "column reference wpid is ambiguous". Naming the
     -- primary key sidesteps the resolution entirely.
-    insert into public.route_stops (tour_id, wpid, ord)
+    insert into public.path_stops (tour_id, wpid, ord)
     values (v_tour_id, v_wpid, v_ord)
-    on conflict on constraint route_stops_pkey do nothing;
+    on conflict on constraint path_stops_pkey do nothing;
 
     return query select 'waypoint'::text, v_ord, v_name, v_wpid::text,
       case when v_existing is not null
@@ -980,7 +980,7 @@ $$;`.trim();
         stops: 6,
         label: 'six-stop POINT TO POINT',
         rules: [
-          'SHAPE: POINT TO POINT, 6 stops. The walk STARTS ONE PLACE AND FINISHES ANOTHER - what a trail map would call a one-way or thru route. It does NOT come back.',
+          'SHAPE: POINT TO POINT, 6 stops. The walk STARTS ONE PLACE AND FINISHES ANOTHER - what a trail map would call a one-way or thru path. It does NOT come back.',
           '- The two ends must be genuinely different places, and the last stop must NOT be within walking distance of the first - if it is, you have built a loop and should say so and set shape to loop.',
           '- Because nobody returns to the start, BOTH ends have to work on their own: the first stop needs transit or parking nearby, and the LAST stop needs a way to leave - a station, a stop, a rank, a busy street where a car can be called.',
           '- Six stops is a shorter, denser walk: aim for well under two hours and no more than a mile, and make every stop earn its place.'
@@ -1060,7 +1060,7 @@ $$;`.trim();
         '',
         'ALL STOPS IN THIS TOUR MUST BE DISTINCT PLACES: different addresses, different names, different things to look at. Not two entrances to one building, not "Union Station" and "the Union Station clock". A place may appear on OTHER tours we hold - that is allowed and expected - but never twice in this one.',
         '',
-        'WHERE THE STOPS COME FROM. Start from walking tours that ALREADY EXIST for this city - published self-guided routes, guided-tour itineraries, visitor-bureau walks, historical-society trails, museum walking guides, audio tours. Somebody has already decided these places are worth stopping at and written it down, and that published decision is the evidence you are borrowing. Do not invent a route off a map. If a place appears on no published tour but is genuinely unmissable and sits on the line of the walk, you may include it - name which ones in the notes after the SQL.',
+        'WHERE THE STOPS COME FROM. Start from walking tours that ALREADY EXIST for this city - published self-guided paths, guided-tour itineraries, visitor-bureau walks, historical-society trails, museum walking guides, audio tours. Somebody has already decided these places are worth stopping at and written it down, and that published decision is the evidence you are borrowing. Do not invent a path off a map. If a place appears on no published tour but is genuinely unmissable and sits on the line of the walk, you may include it - name which ones in the notes after the SQL.',
         '',
         'FIELDS on the tour object:',
         '- city: "' + cityOnly + '", spelled exactly like that. state: the 2-letter code.',
@@ -1086,7 +1086,7 @@ $$;`.trim();
               'ALREADY IN OUR WAYPOINT CATALOG FOR THIS CITY:',
               JSON.stringify(existing, null, 2),
               '',
-              'You MAY reuse any of these - the importer links an existing place to this tour rather than duplicating it, and a good place belongs on more than one walk. Do not treat them as anchors, do not route the walk to pass them, and do not assume any of them is good: this catalog was accumulated from sources of uneven quality and is not trusted stop by stop. If the best stops in this city are none of them, that is the correct answer.'
+              'You MAY reuse any of these - the importer links an existing place to this tour rather than duplicating it, and a good place belongs on more than one walk. Do not treat them as anchors, do not path the walk to pass them, and do not assume any of them is good: this catalog was accumulated from sources of uneven quality and is not trusted stop by stop. If the best stops in this city are none of them, that is the correct answer.'
             ].join('\n')
           : 'We hold nothing in this city yet. Design the walk from scratch.',
         '',

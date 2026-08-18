@@ -1,7 +1,7 @@
 /* waypoint-geo.js — locating a waypoint, and filling in what it is.
  *
  * Everything here is the geocoding half of the Waypoints page, lifted out of
- * mc/data/waypoints.html on 2026-08-08 so the Route Builder can do the same
+ * mc/data/waypoints.html on 2026-08-08 so the Path Builder can do the same
  * work while that page is folded into it. It is PURE LOGIC: no DOM, no page
  * state, no Supabase. A caller hands it a waypoint-shaped object
  *
