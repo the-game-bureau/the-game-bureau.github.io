@@ -4,7 +4,7 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
-## Sound / city playlists
+## SOUNDTRACKS — sound / city playlists
 
 > **"TAPE ROOM" means [mc/soundtracks/admin/index.html](mc/soundtracks/admin/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the TAPE ROOM"*, *"the TAPE ROOM is showing the wrong counts"* — is an instruction about that one file, with no other page to check first.
 >
@@ -169,6 +169,93 @@ Set 2026-08-15. One schedule, staggered three minutes apart so five cloud sessio
 **REVIEW_HOURS / BOOK_PULL_STALE_HOURS = 14 is correct again.** Both staleness thresholds assume a 12-hour cadence, and the soundtrack bot had silently drifted to `30 11` once daily, which would have painted its button red after every healthy run.
 
 ---
+### BOTH SOUNDTRACK PAGES CARRY NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-17)
+
+`soundtracks/index.html` (3,575 → 2,953 lines) and `mc/soundtracks/admin/index.html` (7,530 → 5,308 lines) were stripped of **every** comment — 550 and 1,550 of them, CSS `/* */`, JS `//` and `/* */`, and HTML `<!-- -->` alike. The rationale that lived in them lives here now, in this section and the ones above it.
+
+**So the usual bargain is inverted for these two files.** Everywhere else in this repo a load-bearing reason sits beside the code it explains and this file carries the summary. Here there is nothing beside the code at all: a rule that is not written down in this section is a rule the next person will delete by accident, because the file gives them no reason not to. **When you change either page, update this section in the same commit** — and when you add code to them, resist adding the comment back; put the sentence here instead.
+
+The prompt `<textarea>` and the `tgb-agent-context` JSON block were deliberately untouched, being content rather than code. Worth knowing while you are in there: **that JSON block does not parse** — an unescaped `"` around line 89 (`... so "song 177" tells them ...`) — and it was already broken before the strip. Nothing in the page reads it, so nothing failed; an agent that tries to will.
+
+---
+
+### /soundtracks/ — the public page
+
+`soundtracks/index.html`. Cassette grid, a search, and one working tape player in the header.
+
+**CARDS ARE KEYED BY TAPE, NOT BY CITY (2026-08-16).** A city may hold several tapes, so the key is the tape's own: a city's **first** tape keeps the bare city slug (`denver`) and later ones take `denver--204`, the surrogate id from `public.soundtracks`. One `cities` row therefore expands to several cards. `cardForTapeKey` is the primary lookup and `cardForCity` is the fallback that keeps `/soundtracks/#denver` deep links working, so the two must both stay. The search and the city rail build **one entry per tape**, labelled with the tape's own name, but they navigate by **city** slug, because a key like `denver--204` is not a city and the hash contract is a city.
+
+**THE HEADER IS TWO EQUAL HALVES.** Words left, tape right, split evenly rather than sized to content, and each half centres its own contents both ways. The whole thing is a `.hero-grid` of `minmax(0, 1fr) auto`.
+
+- **`main.sound-page` is load-bearing in these selectors, and so is `.hero`.** `shell/civic-modernist-pages.css` is linked at the BOTTOM of the document, after the inline `<style>`, so at equal specificity it wins on source order. Anything overriding it needs to be at least one class heavier. This is the single most common way an edit to this page silently does nothing.
+- **The title is two authored lines, not a wrap.** `paintHeroTitle` builds two `.hero-headline-line` spans, the count and the word, each `white-space: nowrap`. Left to wrap, the break lands wherever the cell happens to end, which moves with the viewport. The block is sized off the **wider** line, which is always the word; the count is `1.55em` of that, in `em` so it stays in proportion as the parent clamp shrinks, rather than needing a second clamp kept in step by hand.
+- **The subtitle is `nowrap` on desktop and wraps on a phone.** A 63-character line cannot hold at ~340px of usable width at any readable size, so `nowrap` there would either overflow the page or shrink the type to nothing.
+- **Padding around the tape is `26px 26px 14px`, and 14 IS 26.** The search panel below carries a 12px margin of its own, so a flat 26 puts 38 under the tape against 26 beside it. Phone is `20px 20px 8px` for the same reason. The 6px top rule on `.hero` sits outside the padding box, so it does not count.
+
+**`min-height: 332px` ON `.hero-deck` IS A MEASURED NUMBER, NOT A DERIVED ONE.** The tape is built in JS after the tables resolve, so without a reserve the header is one height for the first second and another once the cassette lands, shoving the grid down as it arrives. The first attempt derived 296 from the stage's min-height plus padding and was **36px short**, so it still jumped. Measure the panel, do not add up its parts. **The reserve must be `0` under the 860px breakpoint** — 332 is the height of a 551px-wide tape, and on a phone it would hold open ~160px of empty header.
+
+**THE PLAYER IS INLINE IN THE HEADER, NOT AN OVERLAY.** Same node the modal always was, mounted into `#heroDeck` with `.sx-modal--inline` when that element exists and onto `<body>` otherwise, so pages without a deck keep the old behaviour untouched. The inline class takes off the fixed positioning, the scrim, the full-viewport box and the scroll lock — locking the page behind an element that is always on screen would make the grid unreachable.
+
+- **`.sx-modal.sx-modal--inline`, two classes, deliberately.** The base `.sx-modal` rule paints the scrim and is declared later in the same sheet, so at equal specificity it won and the deck kept a dark box behind it.
+- **`[hidden]` HAS TO BE RE-ASSERTED.** `display: block` on the inline modal is an ordinary declaration and `[hidden]` is only a UA-sheet `display: none`, so the author rule wins and `modal.hidden = true` silently does nothing. `body.home-page .sx-modal.sx-modal--inline[hidden] { display: none }` is what makes hiding work. Same trap the admin dialogs hit with `section.tool-modal-panel:not([hidden])`.
+- The width goes on the **modal**, not the panel inside it: without it the modal shrank to its content at 336px and the panel's `width: 100%` then resolved against that instead of against the half it sits in.
+
+**A NEW TAPE EVERY TIME YOU ARRIVE, AND IT DOES NOT PLAY ITSELF.**
+
+- `openRandomCard` picks from tapes that have tracks. `restoreCassetteSession` was **deleted**: a session carried in from another page no longer wins here, because a permanent deck that reopens yesterday's tape is not a page you arrive at, it is a page you resume. The roaming case still picks a tape up on the **other** pages, which is the only place it has a job.
+- **`openCard(card, opts)` takes `opts.silent` and `opts.clean`, and only the load-time pick sets either.** A tape you clicked is a request to hear it; a tape the page chose for you is not, and a page that makes a noise on arrival is one people close. So on load the cassette is loaded, labelled, artworked and sitting on Play, and nothing happens until somebody presses it.
+- **`opts.clean` skips explicit tracks for the opening track only.** `firstCleanPlayableIndex` finds the first non-explicit playable one; `openRandomCard` also **prefers tapes that have one**, because constraining the index alone would still open an all-explicit tape on its first track. It falls back to the whole shelf if no tape qualifies, since silence is the worse answer. It is a **starting point, not a filter**: explicit tracks stay in the running order and Next reaches them normally.
+
+**MINIMIZE PAUSES AND NOTHING ELSE; STOP EJECTS.** Two keys, two jobs, and both were once Close.
+
+- **Minimize**, on the inline deck, calls `pauseSpotifyPlayer()`, clears `playing`/`wantAutoplay`, repaints the transport and returns. It deliberately does **not** call `destroyActivePlayer` (that drops the position) and does **not** mount the corner case. The corner case exists to carry a tape onto *another* page; on the one page with a permanent deck it took the cassette out of the header, put a smaller copy of it in the corner and left a hole — two players for one tape, and the shrunken one is the worse of them. The overlay path below that branch is unchanged and still stands down to the case, for pages with no `#heroDeck`.
+- **Stop** clears the preload, destroys the active player and goes quiet, leaving the tape in the deck. It does not close anything, because there is nothing to dismiss.
+
+**THE SCROLLING SHELF IS GONE.** 74 cassette spines looping horizontally was an index of the grid directly above the same grid, and the movement fought the player now sitting beside it. `PX_PER_SEC`, the rAF loop, the drag handlers, the three-chunk clone trick, `renderRail` and `createChip` all went with it. **Nothing in this header moves.** The **search stays** — it is how you reach one named tape out of 74 without scrolling. If a shelf ever comes back it is a new thing, not this one revived, and it does not belong in the header.
+
+**`mini-cassette.js` is loaded here only as the roaming session store**, for `read` / `write` / `clear` / `handoff` / `setApi`. This page always shows the full deck; the floating case is for the other pages.
+
+**Supabase is the only source.** The JSON lifeboat is long gone (see the top of this section); a failed fetch shows "Could not load soundtracks."
+
+---
+
+### A CITY MAY HOLD MORE THAN ONE TAPE (2026-08-16)
+
+Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migrations/2026081601_soundtracks_multiple_tapes_per_city.sql), [2026081602_soundtrack_pull_rpc_per_tape.sql](mc/supabase/migrations/2026081602_soundtrack_pull_rpc_per_tape.sql) and [2026081605_soundtrack_pull_addresses_existing_tape.sql](mc/supabase/migrations/2026081605_soundtrack_pull_addresses_existing_tape.sql). All applied by hand — remote migration history in this project has drifted and the CLI refuses `db push`.
+
+- **`public.soundtracks` is keyed by a surrogate `id`, not by `city_slug`.** `city_slug` is now an ordinary indexed column. Every write from the Tape Room is `soundtracks?id=eq.<id>`; a PATCH filtered on `city_slug` would hit every tape in the city.
+- **`soundtrack_songs.tape_id`** says which tape a track is on, kept in step with `city_slug` by two triggers so nothing that reads the old column broke.
+- **The do-not-rescrape tombstone index moved to `(tape_id, lower(title), lower(artist))`.** It was `(city_slug, …)`, which would have made a city's second tape unable to hold a track its first tape had retired. The scoping argument is unchanged and still the reason it is not global: a song can genuinely belong to two cities, and now to two tapes of one city.
+- **An absent `spine_tag` in the pull RPC means "this city's existing tape"**, not "make a new one" — that was 1605, after a routine run split Jacksonville across two rows. A new tape is created only when the call names one.
+- **The Tape Room keys on tape id throughout**: `tapeById`, `tapeIndexById`, `tapesInCity`. The symptom of getting this wrong is not an error — it is tracks appearing to move between a city's tapes, because the room was reading the city and finding the wrong row.
+- **MANUAL ADD allows a second tape for a city but not a second tape with an identical name.** Two tapes called "Denver Mix" are two things nobody can tell apart in a list that shows the name.
+
+### The Tape Room's tape row and tracks popup
+
+- **The TRACKS button reads `{live}/{total}`, live in bold.** Two numbers in one control: how much of the tape is published, and how much of it exists.
+- **A tape under 15 tracks gets a FILL PROMPT, not a finding.** A short tape is a job, not a fault, and the audit is explicitly forbidden to report one. The prompt asks for exactly the shortfall.
+- **The NEW column is its own column and its own filter**, with a red badge carrying white text, over the 72-hour `NEW_FOR_HOURS` window. It is the queue; see the two-state note above for why the queue is time and not state.
+- **A finding names TRACK TITLES, never ids.** `humaniseIssueText` exists for this: nobody reviewing a tape knows what "song 177" is, and an id is not something a human can act on.
+- **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
+- **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
+
+## Getting onto the admin list — JOIN, approved at /mc/ (2026-08-17)
+
+Sign-in is two gates, and they are separate: **Supabase Auth** proves who you are, then `verifyAdminTable` in [mc/js/admin-auth.js](mc/js/admin-auth.js) checks your email against **`public.admin_users`**. An auth user who is not on that list signs in successfully and is told *"This account is signed in, but it is not on the admin list."* That message predates all of this and is exactly the state a pending applicant sits in.
+
+Until now the only way onto the list was a row typed into `admin_users` in the SQL editor, so somebody with dashboard access had to be in the room. **Request Access** is the asking half. Migration: [2026081701_admin_access_requests.sql](mc/supabase/migrations/2026081701_admin_access_requests.sql) — **apply by hand**, like everything else here.
+
+- **THE APPLICANT CREATES THEIR OWN AUTH USER, and that is a constraint, not a preference.** Making a Supabase Auth user for somebody else needs the service role key and this project has none. So JOIN signs them up with the publishable key and then files a request; **approval only ever adds an email to `admin_users`** — the same single row a human would have typed. It follows that the Supabase project must have **self-signup enabled**, and that if email confirmation is on they must confirm before they can sign in.
+- **`public.admin_access_requests`** holds the queue. `status` ∈ pending | approved | denied. **SELECT is `is_photo_admin()` only** — a list of people who want in is not public — and there is **no anon policy at all**; both writes go through functions.
+- **`tgb_request_admin_access(jsonb)`** is `SECURITY DEFINER`, anon-callable, insert-only, and **always writes `status = 'pending'`**. Don't add a `status` parameter, for the same reason the four pull RPCs don't have one: that constant is what makes it safe to expose.
+  - **It gives the same answer every time**, and the form's message matches. Replying "you already asked" or "you are already an admin" to an unauthenticated caller turns the form into an oracle for which addresses are on the admin list. The `on conflict do nothing` is what keeps it quiet.
+  - A **partial** unique index on `email where status = 'pending'` means one open request per address, while a denied one does not lock the address out forever — the usual reason for a second ask is that the first was a mistake.
+  - An existing-account error from signup is **not** treated as a failure: somebody who signed up, was never approved, and has come back to ask again would otherwise be stopped by their own earlier attempt, with an error they cannot act on.
+- **`tgb_decide_admin_access(uuid, boolean)`** is `SECURITY DEFINER` because approving writes `admin_users`, which no client may write directly. **Its first line is `is_photo_admin()`** — without that it hands the admin list to anybody — and it is granted to `authenticated` only, so there are two gates rather than one. It locks the row `for update`, so two admins pressing Approve at once cannot both act.
+- **The panel is at the top of [mc/index.html](mc/index.html)**, above Daily Chores, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
+- **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
+- **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
+
 ## THE SOCIALIZER — the social post admin page
 
 > **"SOCIALIZER" means [mc/socials/index.html](mc/socials/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the SOCIALIZER"*, *"the SOCIALIZER is showing the wrong order"* — is an instruction about that one file, with no other page to check first.

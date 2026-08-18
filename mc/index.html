@@ -407,6 +407,16 @@
       <p class="mc-hub-intro">Build games, manage the website, batch-edit content, and open the reference tools used to keep everything moving.</p>
     </header>
 
+    <!-- ACCESS REQUESTS. Hidden until there is at least one pending, so the hub
+         is not carrying an empty box on the 364 days a year nobody is asking to
+         join. It sits ABOVE Daily Chores because somebody waiting on a decision
+         is waiting on a person, and a chore is not. -->
+    <fieldset class="mc-chores mc-access" id="mcAccessPanel" hidden>
+      <legend>Access Requests</legend>
+      <div class="mc-access-inner" id="mcAccessList"></div>
+      <p class="mc-access-note" id="mcAccessNote"></p>
+    </fieldset>
+
     <fieldset class="mc-chores">
       <legend>Daily Chores</legend>
       <div class="mc-chores-inner">
@@ -430,6 +440,44 @@
 
     <div class="mc-hub-directory" id="mcHubDirectory"></div>
   </main>
+
+  <style>
+    /* Rows, not cards. A request is a name and two decisions; the card shape
+       next door is for destinations you travel to. */
+    .mc-access-inner { display: grid; gap: 8px; }
+    .mc-access-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid rgba(45, 72, 128, 0.28);
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    .mc-access-who { flex: 1 1 260px; min-width: 0; }
+    .mc-access-name { font-weight: 700; }
+    .mc-access-email { font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; color: #4a5772; }
+    .mc-access-note-text { margin: 4px 0 0; font-size: 0.85rem; color: #4a5772; }
+    .mc-access-when { font-size: 0.72rem; color: #6b7280; letter-spacing: 0.04em; }
+    .mc-access-acts { display: flex; gap: 8px; }
+    .mc-access-btn {
+      min-height: 34px;
+      padding: 0 14px;
+      border: 1px solid rgba(45, 72, 128, 0.4);
+      border-radius: 5px;
+      background: #ffffff;
+      color: #2d4880;
+      font: inherit;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+    }
+    .mc-access-btn--approve { background: #2d4880; border-color: #2d4880; color: #ffffff; }
+    .mc-access-btn[disabled] { opacity: 0.5; cursor: default; }
+    .mc-access-note { margin: 10px 0 0; font-size: 0.85rem; color: #b3261e; }
+    .mc-access-note:empty { display: none; }
+  </style>
 
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
@@ -460,10 +508,132 @@
         if (target && target.scrollIntoView) target.scrollIntoView({ block: 'start' });
       }
 
+      // ── ACCESS REQUESTS ────────────────────────────────────────────────
+      // Reads public.admin_access_requests under the signed-in admin's own
+      // session; RLS on that table is is_photo_admin(), so a signed-in
+      // non-admin gets an empty list rather than a refusal, and the panel stays
+      // hidden. Deciding goes through tgb_decide_admin_access, which re-checks
+      // the caller inside the function -- the grant alone would let any
+      // authenticated Supabase user call it.
+      const accessPanel = document.getElementById('mcAccessPanel');
+      const accessList = document.getElementById('mcAccessList');
+      const accessNote = document.getElementById('mcAccessNote');
+
+      function accessHeaders(session) {
+        return {
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + session.access_token,
+          'Content-Type': 'application/json'
+        };
+      }
+
+      function ago(iso) {
+        const ms = Date.now() - new Date(iso).getTime();
+        if (!isFinite(ms)) return '';
+        const h = Math.floor(ms / 3600000);
+        if (h < 1) return 'just now';
+        if (h < 24) return h + 'h ago';
+        return Math.floor(h / 24) + 'd ago';
+      }
+
+      async function decideAccess(session, id, approve, row) {
+        accessNote.textContent = '';
+        [...row.querySelectorAll('button')].forEach(function (b) { b.disabled = true; });
+        try {
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/rpc/tgb_decide_admin_access', {
+            method: 'POST',
+            headers: accessHeaders(session),
+            body: JSON.stringify({ request_id: id, approve: approve })
+          });
+          if (!res.ok) throw new Error((await res.text()) || 'Could not save that decision.');
+          // Reload rather than removing the row by hand: a second admin may
+          // have decided something else while this list was on screen, and the
+          // table is the only thing that knows.
+          await loadAccessRequests(session);
+        } catch (error) {
+          accessNote.textContent = String(error.message || error).slice(0, 300);
+          [...row.querySelectorAll('button')].forEach(function (b) { b.disabled = false; });
+        }
+      }
+
+      async function loadAccessRequests(session) {
+        if (!session || !session.access_token || !accessPanel) return;
+        let rows = [];
+        try {
+          const url = SUPABASE_CONFIG.url
+            + '/rest/v1/admin_access_requests?select=*&status=eq.pending&order=created_at.desc';
+          const res = await fetch(url, { headers: accessHeaders(session), cache: 'no-store' });
+          // A database that has not run 2026081701 yet answers 404/400 here.
+          // Treat that as "nothing to show" rather than an error on the hub, the
+          // same tolerance the Tape Room extends to a missing issues table.
+          if (!res.ok) { accessPanel.hidden = true; return; }
+          rows = await res.json();
+        } catch (error) { accessPanel.hidden = true; return; }
+
+        accessList.textContent = '';
+        accessNote.textContent = '';
+        accessPanel.hidden = !Array.isArray(rows) || rows.length === 0;
+        if (accessPanel.hidden) return;
+
+        rows.forEach(function (req) {
+          const row = document.createElement('div');
+          row.className = 'mc-access-row';
+
+          const who = document.createElement('div');
+          who.className = 'mc-access-who';
+          const name = document.createElement('div');
+          name.className = 'mc-access-name';
+          name.textContent = req.name || '(no name given)';
+          const mail = document.createElement('div');
+          mail.className = 'mc-access-email';
+          mail.textContent = req.email;
+          who.appendChild(name);
+          who.appendChild(mail);
+          if (req.note) {
+            const note = document.createElement('p');
+            note.className = 'mc-access-note-text';
+            note.textContent = req.note;
+            who.appendChild(note);
+          }
+
+          const when = document.createElement('span');
+          when.className = 'mc-access-when';
+          when.textContent = ago(req.created_at);
+
+          const acts = document.createElement('div');
+          acts.className = 'mc-access-acts';
+          const approve = document.createElement('button');
+          approve.type = 'button';
+          approve.className = 'mc-access-btn mc-access-btn--approve';
+          approve.textContent = 'Approve';
+          approve.title = 'Add ' + req.email + ' to the admin list';
+          approve.addEventListener('click', function () { decideAccess(session, req.id, true, row); });
+          const deny = document.createElement('button');
+          deny.type = 'button';
+          deny.className = 'mc-access-btn';
+          deny.textContent = 'Deny';
+          // Says what it does NOT do, because the obvious reading is wrong: the
+          // person keeps the Supabase account they made for themselves, they
+          // simply never reach Mission Control with it.
+          deny.title = 'Refuse the request. The account stays, it just gets no admin access.';
+          deny.addEventListener('click', function () { decideAccess(session, req.id, false, row); });
+          acts.appendChild(approve);
+          acts.appendChild(deny);
+
+          row.appendChild(who);
+          row.appendChild(when);
+          row.appendChild(acts);
+          accessList.appendChild(row);
+        });
+      }
+
       const adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         // Fires after .mc-auth-authorized lands, so the sections have layout.
-        onAuthorized: function () { requestAnimationFrame(applyHash); }
+        onAuthorized: function (session) {
+          requestAnimationFrame(applyHash);
+          loadAccessRequests(session);
+        }
       });
 
       // Arriving at /mc/#game-builder from the nav while already on /mc/ changes

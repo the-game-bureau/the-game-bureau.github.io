@@ -43,11 +43,17 @@
       '.mc-auth-check{display:inline-flex;align-items:center;gap:8px;margin-top:-2px;color:#2d4880;font-size:.86rem;font-weight:800;line-height:1.3;}',
       '.mc-auth-check input{width:16px;height:16px;margin:0;accent-color:#2d4880;}',
       '.mc-auth-actions{display:flex;gap:10px;flex-wrap:wrap;}',
+      /* TWO LINES, ALWAYS. Line one is what you do with an account you have;
+         line two is everything else. Left to wrap on its own the four buttons
+         broke wherever the panel width put them, so Request Access sometimes
+         sat beside Sign In and read as an equal choice. */
+      '.mc-auth-actions .mc-auth-break{flex:1 0 100%;height:0;margin:-10px 0 0;}',
       '.mc-auth-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid rgba(45,72,128,.18);border-radius:8px;background:rgba(255,255,255,.92);color:#1f2937;font:inherit;font-size:.85rem;font-weight:800;letter-spacing:.06em;text-decoration:none;cursor:pointer;}',
       '.mc-auth-btn:hover{background:#fff;}',
       '.mc-auth-btn:disabled{opacity:.5;cursor:default;}',
       '.mc-auth-btn--primary{background:#2d4880;border-color:#2d4880;color:#fff;}',
       '.mc-auth-btn--primary:hover{background:#365694;}',
+      '.mc-auth-btn--google{flex:1 0 100%;border-color:rgba(45,72,128,.35);}',
       '.mc-auth-status{min-height:1.4em;margin:0;color:#5c6472;font-size:.92rem;line-height:1.5;}',
       '.mc-auth-status.is-error{color:#a03f2d;font-weight:700;}',
       '.mc-auth-status.is-success{color:#2f6b3d;font-weight:700;}',
@@ -108,6 +114,23 @@
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
       '        <button class="mc-auth-btn" id="mcAuthResetBtn" type="button">Reset Password</button>',
+      // JOIN sits with the other two because it answers the third thing
+      // somebody standing at this modal can want: not "let me in" and not "I
+      // forgot", but "I do not have an account at all". Before this there was
+      // no answer to that on screen, and the person had to know to ask a human
+      // who had Supabase dashboard access.
+      '        <span class="mc-auth-break" aria-hidden="true"></span>',
+      // GOOGLE IS ON THE SIGN-IN FORM TOO, not only on JOIN, and it has to be:
+      // an account created through Google has no password, so the form above
+      // can never sign it in. Offering Google only as a way to join would make
+      // every approved Google admin permanently locked out.
+      //
+      // Its own full-width line, directly under Sign In, because it is the
+      // OTHER way to do the same thing. Sharing a line with Request Access read
+      // as a pair of alternatives to signing in, which is half wrong.
+      '        <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthGoogleBtn" type="button">Continue with Google</button>',
+      '        <span class="mc-auth-break" aria-hidden="true"></span>',
+      '        <button class="mc-auth-btn" id="mcAuthJoinBtn" type="button">Request Access</button>',
       '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
       '      </div>',
       '    </form>',
@@ -129,6 +152,50 @@
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
       '        <button class="mc-auth-btn" id="mcAuthBackBtn" type="button">Back to Sign In</button>',
+      '      </div>',
+      '    </form>',
+      // JOIN. Two steps behind one button: it signs the person up with
+      // Supabase Auth, then files a request for an existing admin to approve.
+      //
+      // THE SIGNUP IS THEIRS TO DO, and that is not a design preference. Making
+      // a Supabase Auth user for somebody else needs the service role key, and
+      // this project has none (see Environment variables in CLAUDE.md). So the
+      // account is created here by the person who will use it, and approval only
+      // ever adds their email to public.admin_users -- the same one row a human
+      // would otherwise have typed into the SQL editor.
+      //
+      // Until they are approved they can sign in and will be told "This account
+      // is signed in, but it is not on the admin list", which is the message
+      // that already existed for exactly this state.
+      '    <form class="mc-auth-form" id="mcAuthJoinForm" autocomplete="on" hidden>',
+      '      <label class="mc-auth-field" for="mcAuthJoinName">',
+      '        <span>Name</span>',
+      '        <input id="mcAuthJoinName" name="name" type="text" autocomplete="name" maxlength="120">',
+      '      </label>',
+      '      <label class="mc-auth-field" for="mcAuthJoinEmail">',
+      '        <span>Email</span>',
+      '        <input id="mcAuthJoinEmail" name="email" type="email" autocomplete="username" required>',
+      '      </label>',
+      '      <label class="mc-auth-field" for="mcAuthJoinPassword">',
+      '        <span>Password</span>',
+      // new-password, so a manager offers to generate one and then saves it.
+      // minlength matches Supabase's own floor; letting the form submit a
+      // 5-character password just moves the rejection to the server.
+      '        <input id="mcAuthJoinPassword" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
+      '      </label>',
+      '      <label class="mc-auth-field" for="mcAuthJoinNote">',
+      '        <span>Who are you? (optional)</span>',
+      '        <input id="mcAuthJoinNote" name="note" type="text" maxlength="600">',
+      '      </label>',
+      '      <div class="mc-auth-actions">',
+      '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
+      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Back to Sign In</button>',
+      '        <span class="mc-auth-break" aria-hidden="true"></span>',
+      // The whole form above in one press: Google supplies the identity and the
+      // password never exists, and the request is filed automatically the
+      // moment we are handed an email address. The name and note are lost, which
+      // is the trade -- they are courtesy fields and an admin can ask.
+      '        <button class="mc-auth-btn mc-auth-btn--google" id="mcAuthJoinGoogleBtn" type="button">Continue with Google</button>',
       '      </div>',
       '    </form>',
       '    <p class="mc-auth-status" id="mcAuthStatus" aria-live="polite"></p>',
@@ -158,6 +225,7 @@
       homeHref: '../',
       configMissingMessage: 'Admin auth is unavailable because Supabase is not configured.',
       resetCopy: 'Set a new Mission Control password from the reset link.',
+      joinCopy: 'Ask for a Mission Control account. An admin approves it before you get in.',
       passwordResetRedirectHref: ''
     }, options || {});
 
@@ -175,6 +243,16 @@
     var copyEl = root.querySelector('#mcAuthCopy');
     var form = root.querySelector('#mcAuthForm');
     var resetForm = root.querySelector('#mcAuthPasswordResetForm');
+    var joinForm = root.querySelector('#mcAuthJoinForm');
+    var joinBtn = root.querySelector('#mcAuthJoinBtn');
+    var joinBackBtn = root.querySelector('#mcAuthJoinBackBtn');
+    var joinSubmitBtn = root.querySelector('#mcAuthJoinSubmitBtn');
+    var joinNameInput = root.querySelector('#mcAuthJoinName');
+    var joinEmailInput = root.querySelector('#mcAuthJoinEmail');
+    var joinPasswordInput = root.querySelector('#mcAuthJoinPassword');
+    var joinNoteInput = root.querySelector('#mcAuthJoinNote');
+    var googleBtn = root.querySelector('#mcAuthGoogleBtn');
+    var joinGoogleBtn = root.querySelector('#mcAuthJoinGoogleBtn');
     var emailInput = root.querySelector('#mcAuthEmail');
     var passwordInput = root.querySelector('#mcAuthPassword');
     var rememberInput = root.querySelector('#mcAuthRemember');
@@ -232,10 +310,13 @@
     }
 
     function setMode(nextMode) {
-      mode = nextMode === 'reset' ? 'reset' : 'signin';
+      mode = (nextMode === 'reset' || nextMode === 'join') ? nextMode : 'signin';
       if (form) form.hidden = mode !== 'signin';
       if (resetForm) resetForm.hidden = mode !== 'reset';
-      copyEl.textContent = mode === 'reset' ? settings.resetCopy : settings.modalCopy;
+      if (joinForm) joinForm.hidden = mode !== 'join';
+      copyEl.textContent = mode === 'reset' ? settings.resetCopy
+        : mode === 'join' ? settings.joinCopy
+        : settings.modalCopy;
       resetPasswordInputs();
     }
 
@@ -746,6 +827,71 @@
       }
     }
 
+    // JOIN: sign up, then file the request. Two calls, and the order matters --
+    // the account has to exist before an approval is worth anything, and a
+    // request filed for an address that never completes signup is a row an admin
+    // approves into an admin_users entry nobody can sign in as.
+    async function handleJoinSubmit(event) {
+      event.preventDefault();
+      if (!hasConfig(settings.supabaseConfig)) {
+        setStatus(settings.configMissingMessage, 'error');
+        return;
+      }
+      var email = String(joinEmailInput.value || '').trim().toLowerCase();
+      var password = String(joinPasswordInput.value || '');
+      if (password.length < 6) {
+        setStatus('Use at least 6 characters.', 'error');
+        return;
+      }
+      if (joinSubmitBtn) joinSubmitBtn.disabled = true;
+      setStatus('Sending your request...');
+      try {
+        var signup = await fetch(authUrl('signup'), {
+          method: 'POST',
+          headers: {
+            apikey: settings.supabaseConfig.publishableKey,
+            'Content-Type': 'application/json'
+          },
+          // WHERE THE CONFIRMATION EMAIL LANDS, if the project has Confirm
+          // Email on. Without it Supabase falls back to the Site URL, which is
+          // the root of thegamebureau.com -- an iframe wrapper around /games/,
+          // with no sign-in form on it. Somebody who has just confirmed their
+          // address would arrive at the storefront with nothing to do.
+          // /mc/ has to be on the Redirect URLs allow list or this is ignored.
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            options: { email_redirect_to: new URL('/mc/', global.location.href).toString() }
+          })
+        });
+        if (!signup.ok) {
+          var detail = await readError(signup, 'Could not create the account.');
+          // AN EXISTING ACCOUNT IS NOT A FAILURE HERE. Somebody who signed up,
+          // was never approved and has come back to ask again would otherwise
+          // be stopped by their own earlier attempt, with an error naming a
+          // problem they cannot fix. Carry on and file the request.
+          if (!/already|registered|exists/i.test(detail)) throw new Error(detail);
+        }
+
+        await fileAccessRequest(
+          email,
+          String(joinNameInput.value || '').trim(),
+          String(joinNoteInput.value || '').trim()
+        );
+
+        joinPasswordInput.value = '';
+        // DELIBERATELY SAYS NOTHING ABOUT WHAT WAS ALREADY THERE. The RPC gives
+        // the same answer whether this is a new request, a repeat, or an address
+        // that is already an admin, so that an unauthenticated caller cannot use
+        // this form to test who is on the list. The message matches.
+        setStatus('Request sent. An admin has to approve it before you can get in.', 'success');
+      } catch (error) {
+        setStatus(error && error.message ? error.message : 'Could not send the request.', 'error');
+      } finally {
+        if (joinSubmitBtn) joinSubmitBtn.disabled = false;
+      }
+    }
+
     async function handleResetSubmit(event) {
       event.preventDefault();
       if (!pendingRecoverySession) {
@@ -810,6 +956,74 @@
       openModal(message || settings.initialMessage, state || '');
     }
 
+    // GOOGLE. Two halves that happen in different page loads: startOAuth sends
+    // the browser to Supabase, and parseOAuthParams picks the tokens back out of
+    // the URL when it returns.
+    //
+    // The INTENT has to survive that round trip, and it cannot ride in the URL:
+    // Supabase replaces the whole hash with its own tokens, so anything parked
+    // there is gone by the time we read it. sessionStorage instead, cleared the
+    // moment it is used so a later plain sign-in cannot file a stray request.
+    var JOIN_INTENT_KEY = 'tgb_mc_join_intent';
+
+    function startOAuth(provider, wantsJoin) {
+      if (!hasConfig(settings.supabaseConfig)) {
+        setStatus(settings.configMissingMessage, 'error');
+        return;
+      }
+      try {
+        if (wantsJoin) global.sessionStorage.setItem(JOIN_INTENT_KEY, '1');
+        else global.sessionStorage.removeItem(JOIN_INTENT_KEY);
+      } catch (error) { /* private mode: the sign-in still works, the auto-file does not */ }
+      // Back to THIS page, hash stripped. On /mc/ that is Mission Control; on a
+      // public page it is the page the admin was reading.
+      var back = new URL(global.location.href);
+      back.hash = '';
+      var url = authUrl('authorize')
+        + '?provider=' + encodeURIComponent(provider)
+        + '&redirect_to=' + encodeURIComponent(back.toString());
+      global.location.assign(url);
+    }
+
+    function takeJoinIntent() {
+      var wanted = false;
+      try {
+        wanted = global.sessionStorage.getItem(JOIN_INTENT_KEY) === '1';
+        global.sessionStorage.removeItem(JOIN_INTENT_KEY);
+      } catch (error) { wanted = false; }
+      return wanted;
+    }
+
+    // Same hash shape as a recovery link minus `type=recovery`, which is what
+    // separates the two and why parseRecoveryParams keeps its own check.
+    function parseOAuthParams() {
+      var raw = '';
+      try { raw = String(global.location.hash || '').replace(/^#/, ''); } catch (error) { raw = ''; }
+      if (!raw) return null;
+      var params = new URLSearchParams(raw);
+      if (params.get('type') === 'recovery') return null;
+      if (!params.get('access_token')) return null;
+      return {
+        access_token: params.get('access_token') || '',
+        refresh_token: params.get('refresh_token') || '',
+        expires_in: Number(params.get('expires_in') || 3600),
+        expires_at: Number(params.get('expires_at') || 0) || undefined,
+        token_type: params.get('token_type') || 'bearer'
+      };
+    }
+
+    async function fileAccessRequest(email, name, note) {
+      var response = await fetch(restUrl('rpc/tgb_request_admin_access'), {
+        method: 'POST',
+        headers: {
+          apikey: settings.supabaseConfig.publishableKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ payload: { email: email, name: name || '', note: note || '' } })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not file the request.'));
+    }
+
     function parseRecoveryParams() {
       var raw = '';
       try {
@@ -859,6 +1073,27 @@
         passwordInput.readOnly = false;
       });
       resetForm.addEventListener('submit', handleResetSubmit);
+      if (joinForm) joinForm.addEventListener('submit', handleJoinSubmit);
+      if (joinBtn) joinBtn.addEventListener('click', function () {
+        setStatus('');
+        setMode('join');
+        // Carry whatever they already typed on the sign-in form across, so
+        // reaching for JOIN after a failed sign-in does not mean retyping it.
+        if (joinEmailInput && !joinEmailInput.value) joinEmailInput.value = emailInput.value || '';
+        if (joinEmailInput) joinEmailInput.focus();
+      });
+      if (googleBtn) googleBtn.addEventListener('click', function () {
+        setStatus('Opening Google...');
+        startOAuth('google', false);
+      });
+      if (joinGoogleBtn) joinGoogleBtn.addEventListener('click', function () {
+        setStatus('Opening Google...');
+        startOAuth('google', true);
+      });
+      if (joinBackBtn) joinBackBtn.addEventListener('click', function () {
+        setStatus(settings.initialMessage);
+        setMode('signin');
+      });
       resetBtn.addEventListener('click', handleRecoverClick);
       backBtn.addEventListener('click', function () {
         pendingRecoverySession = null;
@@ -917,6 +1152,38 @@
           return false;
         } catch (error) {
           pendingRecoverySession = null;
+          clearRecoveryParams();
+          showAuth(error instanceof Error ? error.message : String(error), 'error');
+          return false;
+        }
+      }
+
+      // BACK FROM GOOGLE. Handled here rather than in getUsableSession because
+      // the tokens are in the URL, not in storage, and because the answer for a
+      // signed-in-but-not-approved person is a message and a button rather than
+      // a failure.
+      var oauthPayload = parseOAuthParams();
+      if (oauthPayload) {
+        var wantsJoin = takeJoinIntent();
+        try {
+          var oauthSession = await normalizeSession(oauthPayload);
+          clearRecoveryParams();
+          var oauthEmail = (oauthSession.user && oauthSession.user.email) || '';
+          if (wantsJoin && oauthEmail) {
+            // Best effort. A filing that fails must not cost them the sign-in
+            // they just completed; the message below covers both outcomes.
+            try { await fileAccessRequest(oauthEmail, '', 'Signed up with Google'); } catch (error) {}
+          }
+          var oauthAllowed = await verifySession(oauthSession);
+          if (oauthAllowed) {
+            await activateSession(oauthSession, rememberSession);
+            return true;
+          }
+          showAuth(wantsJoin
+            ? 'Request sent. An admin has to approve it before you can get in.'
+            : settings.unauthorizedMessage, wantsJoin ? 'success' : 'error');
+          return false;
+        } catch (error) {
           clearRecoveryParams();
           showAuth(error instanceof Error ? error.message : String(error), 'error');
           return false;
