@@ -139,7 +139,7 @@
       // FULL WIDTH, ON ITS OWN, so it mirrors Continue with Google at the top
       // of the panel: the two ways of signing in are the same size and shape,
       // and the pair below them are plainly the smaller, other things.
-      '        <button class="mc-auth-btn mc-auth-btn--wide mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--wide mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Login</button>',
       '        <span class="mc-auth-break" aria-hidden="true"></span>',
       '        <button class="mc-auth-btn mc-auth-btn--half" id="mcAuthResetBtn" type="button">Reset Password</button>',
       // THE TWO SMALL THINGS SHARE THE LAST LINE. Neither signs you in: they
@@ -168,7 +168,7 @@
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
-      '        <button class="mc-auth-btn" id="mcAuthBackBtn" type="button">Back to Sign In</button>',
+      '        <button class="mc-auth-btn" id="mcAuthBackBtn" type="button">Back to Login</button>',
       '      </div>',
       '    </form>',
       // JOIN. Two steps behind one button: it signs the person up with
@@ -208,7 +208,7 @@
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
-      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Back to Sign In</button>',
+      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Back to Login</button>',
 
       '      </div>',
       '    </form>',
@@ -816,7 +816,7 @@
       var remember = true;
 
       submitBtn.disabled = true;
-      setStatus('Signing in...');
+      setStatus('Logging in...');
       try {
         var session = await signIn(email, password);
         var isAllowed = await verifySession(session);
