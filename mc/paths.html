@@ -358,6 +358,46 @@
     /* OUTLINED PILLS ON ONE LINE, the Waypoint Finder's .post-tag in this
        room's sizes, so a place wears the same marks in both rooms. They replaced
        two stacked caption lines that made a one-line row three lines tall. */
+    /* THE WAYPOINT FINDER'S SWITCH, copied from mc/waypoint-finder.html rather
+       than reconstructed, which is the standing rule for a shared control: the
+       two rooms write the same `archived` column, so they carry the same object.
+       Renamed .post-toggle -> .wp-toggle there being no .post in this room; the
+       geometry, the timings and the two words are identical. When one changes,
+       change both. */
+    .wp-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      appearance: none; border: 0; background: none; padding: 4px 2px; margin: 0;
+      font: inherit; cursor: pointer; color: var(--muted);
+    }
+    .wp-toggle[disabled] { opacity: 0.5; cursor: default; }
+    .wp-toggle-track {
+      position: relative; width: 38px; height: 20px; flex: 0 0 38px;
+      border-radius: 999px; background: rgba(var(--bic-blue-rgb), 0.22);
+      transition: background 120ms ease;
+    }
+    .wp-toggle-knob {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      transition: transform 120ms ease;
+    }
+    .wp-toggle.is-live .wp-toggle-track { background: var(--success, #276740); }
+    .wp-toggle.is-live .wp-toggle-knob { transform: translateX(18px); }
+    .wp-toggle.is-live { color: var(--success, #276740); }
+    .wp-toggle-word {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; min-width: 4.6em;
+    }
+    /* STATE FIRST, THEN ACTIONS. The switch is what the waypoint IS; everything
+       after it is something you can do. margin-right:auto only means "hold the
+       left end" because the switch is the FIRST child -- parked mid-row, as it
+       was at first, an auto margin on a wrapping flex line does nothing you can
+       predict, and it sat stranded between Duplicate and Delete. */
+    .dlg-actions .wp-toggle { margin-right: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      .wp-toggle-track, .wp-toggle-knob { transition: none; }
+    }
+
     .stop-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
     .stop-tag {
       font-family: 'IBM Plex Mono', monospace;
@@ -973,12 +1013,27 @@
       <div class="wp-form" id="wpForm"></div>
       <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>
       <div class="dlg-actions">
+        <!-- A SWITCH, NOT A BUTTON, and the Waypoint Finder's own switch part
+             for part. It was a button whose face read the state it was about to
+             PRODUCE ("Archive" when live, "Restore" when shelved), so it told
+             you what pressing it does and never what the waypoint IS. That is
+             exactly the reasoning that put a switch on every card in the Finder,
+             and the two rooms decide the same column, so they carry the same
+             control and the same two words: LIVE and SHELVED, never Archive or
+             Restore.
+             It stays in the button row rather than moving into the form,
+             because it WRITES IMMEDIATELY and the form's fields do not, and it
+             sits FIRST because it is the one thing here that states what the
+             waypoint currently is: state, then the things you can do. -->
+        <button class="wp-toggle" id="wpArchiveBtn" type="button" role="switch" aria-checked="false">
+          <span class="wp-toggle-track"><span class="wp-toggle-knob"></span></span>
+          <span class="wp-toggle-word" id="wpArchiveWord">Live</span>
+        </button>
         <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in any blank fields">Fill</button>
         <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box">Find online</button>
         <button class="btn small" id="wpLocateBtn" type="button" title="Find this waypoint's coordinates and store them">Locate</button>
         <button class="btn small" id="wpMapsBtn" type="button" title="Open this address in Google Maps">Maps</button>
         <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>
-        <button class="btn small" id="wpArchiveBtn" type="button"></button>
         <button class="btn small warn" id="wpDeleteBtn" type="button">Delete</button>
         <span class="dlg-spacer"></span>
         <button class="btn small" id="wpCloseBtn" type="button">Close</button>
@@ -2477,10 +2532,12 @@
 
       const archived = !!row.archived;
       const archiveBtn = el('wpArchiveBtn');
-      archiveBtn.textContent = archived ? 'Restore' : 'Archive';
+      archiveBtn.classList.toggle('is-live', !archived);
+      archiveBtn.setAttribute('aria-checked', String(!archived));
+      el('wpArchiveWord').textContent = archived ? 'Shelved' : 'Live';
       archiveBtn.title = archived
-        ? 'Return this waypoint to the working list'
-        : 'Archive it so future AI and nightly runs do not suggest it again';
+        ? 'Shelved. Press to take it live and back into the working library.'
+        : 'Live. Press to shelve it: it leaves the working library and future AI runs will not suggest it again.';
       archiveBtn.hidden = isNew || !wpCols.archived;
       el('wpDupeBtn').hidden = isNew;
       el('wpDeleteBtn').hidden = isNew;
