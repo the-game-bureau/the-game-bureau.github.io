@@ -580,6 +580,11 @@
         <div class="command-bar-inner">
           <label class="inline" for="cityFilter">City</label>
           <select id="cityFilter"></select>
+          <!-- BACK TO THE BARE PAGE. A full navigation, not a state reset:
+               ?path= is in the URL, so the only way to be certain nothing is
+               carried over -- an open path, a half-dragged order, a stale
+               filter -- is to load the address with nothing on it. -->
+          <button class="btn" id="clearBtn" type="button" title="Start over: no city, no path, nothing open">Clear</button>
         </div>
       </fieldset>
     </div>
@@ -2964,6 +2969,13 @@
     if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
     el('cityFilter').addEventListener('change', (e) => pickCity(e.target.value));
+    // location.assign, not history + re-render: this is the button you press
+    // when you want a clean slate, and re-rendering in place leaves whatever
+    // was already in memory. The beforeunload guard still fires, so an unsaved
+    // order is not lost silently.
+    el('clearBtn').addEventListener('click', () => {
+      location.assign(location.pathname);
+    });
     el('pathSelect').addEventListener('change', (e) => openPath(e.target.value));
     el('newPathCreate').addEventListener('click', newPath);
     el('newPathCancel').addEventListener('click', closeNewPathDialog);
