@@ -361,13 +361,22 @@
     }
     .rb-pin--start .rb-pin-dot { background: #2f6b3d; }
     .rb-pin--end .rb-pin-dot { background: var(--warn); }
-    /* An unused waypoint is a candidate, not a stop: hollow, small, unnumbered. */
+    /* A CANDIDATE IS NUMBERED TOO, BUT IN BLACK AND WHITE, and its numbers are
+       its own 1..n rather than a continuation of the path's. Two sequences on
+       one map only work if the colour tells them apart at a glance: coloured
+       means "this is stop N of the walk", monochrome means "this is the Nth
+       place in the city that is not on it".
+       Slightly smaller, because the walk is the subject and these are the
+       shelf it was picked from. */
     .rb-pin--pool .rb-pin-dot {
-      width: 12px;
-      height: 12px;
-      margin: 6px;
+      width: 18px;
+      height: 18px;
+      margin: 3px;
       background: #fff;
-      border: 2px solid rgba(var(--bic-blue-rgb), 0.75);
+      border: 2px solid #111;
+      color: #111;
+      font-size: 0.6rem;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.35);
     }
     .rb-pop-name { font-weight: 700; margin-bottom: 4px; }
     .rb-pop-meta { color: var(--muted); margin-bottom: 6px; }
@@ -562,7 +571,7 @@
            sentence that says how many hollow dots it just drew. -->
       <div class="map-foot">
         <p class="map-note" id="mapNote"></p>
-        <label class="map-toggle"><input type="checkbox" id="mapShowPool"> Show unused waypoints</label>
+        <label class="map-toggle"><input type="checkbox" id="mapShowPool"> <span id="mapPoolLabel">Show all waypoints</span></label>
       </div>
     </section>
 
@@ -1264,6 +1273,14 @@
       // are the same city almost always, and differ for the moment between
       // choosing a city and its first path opening.
       const libraryCity = state.cityFilter || pathCity();
+      // The toggle names the city it will draw, for the same reason the search
+      // box does: it never reaches past the open one.
+      const poolLabel = el('mapPoolLabel');
+      if (poolLabel) {
+        poolLabel.textContent = libraryCity
+          ? 'Show all ' + libraryCity + ' waypoints'
+          : 'Show all waypoints';
+      }
       // NAMES THE CITY IT WILL ACTUALLY SEARCH. "Filter by name or address"
       // described the mechanism; the useful thing to say is the SCOPE, because
       // this box never reaches past the open city and a search that silently
@@ -1435,6 +1452,11 @@
 
       // The same set the pool panel lists, minus the typed filter - the map is
       // showing you where the candidates are, not what you searched for.
+      // ALL OF THE CITY'S WAYPOINTS, MINUS THE ONES ALREADY DRAWN. A place on
+      // the path is on this map already as a coloured, path-numbered pin, and
+      // adding a black one on top would put two markers on one building and
+      // read as two places. `includes` is the right test even now a path may
+      // visit somewhere twice: once is enough to be already drawn.
       const pool = mapState.showPool
         ? state.waypoints
             .filter((w) => !state.stops.includes(String(w.wpid)))
@@ -1490,12 +1512,13 @@
       if (mapState.layer) map.removeLayer(mapState.layer);
       mapState.layer = L.layerGroup().addTo(map);
 
-      pool.forEach(({ w, at }) => {
+      pool.forEach(({ w, at }, i) => {
         const marker = L.marker([at.lat, at.lon], {
-          icon: mkPin('', 'rb-pin--pool'),
+          icon: mkPin(String(i + 1), 'rb-pin--pool'),
           title: cleanText(w.name)
         }).addTo(mapState.layer);
-        marker.bindTooltip(cleanText(w.name) || ('WPID ' + w.wpid), { direction: 'top', offset: [0, -8] });
+        marker.bindTooltip((i + 1) + '. ' + (cleanText(w.name) || ('WPID ' + w.wpid)),
+          { direction: 'top', offset: [0, -8] });
         // Clicking a candidate adds it, which is the one thing a map can do
         // better than the list: you pick the next stop by where it is.
         const pop = document.createElement('div');
@@ -1570,7 +1593,11 @@
         ? unlocated + ' stop' + (unlocated === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
           + ' - press Edit on it and Locate, which finds the point and saves it.'
         : (mapState.showPool && pool.length
-            ? pool.length + ' unused waypoint' + (pool.length === 1 ? '' : 's') + ' shown hollow - click one to add it.'
+            // NAMES WHAT IS AND IS NOT DRAWN. The toggle says "all", and the
+            // set really is all of them: the ones already on the path are the
+            // coloured pins, so drawing them a second time in black would put
+            // two markers on one building and imply two places.
+            ? pool.length + ' more in black and white, numbered separately - click one to add it.'
             : '');
     }
 
