@@ -1012,8 +1012,17 @@
       };
     }
 
+    // NOT restUrl(). That helper runs its argument through encodeURIComponent,
+    // which is right for a table name and fatal for an RPC path: the slash in
+    // "rpc/tgb_request_admin_access" came back as %2F, so every call 404'd and
+    // the catch around it swallowed the failure silently. The request looked
+    // sent and nothing was ever filed.
+    function rpcUrl(name) {
+      return new URL('/rest/v1/rpc/' + name, settings.supabaseConfig.url + '/').toString();
+    }
+
     async function fileAccessRequest(email, name, note) {
-      var response = await fetch(restUrl('rpc/tgb_request_admin_access'), {
+      var response = await fetch(rpcUrl('tgb_request_admin_access'), {
         method: 'POST',
         headers: {
           apikey: settings.supabaseConfig.publishableKey,
@@ -1186,15 +1195,25 @@
           // to want here, the RPC dedupes, and a filed request grants nothing
           // on its own. wantsJoin now only chooses the wording.
           var filedOk = false;
+          var filedError = '';
           if (oauthEmail) {
             try {
               await fileAccessRequest(oauthEmail, '', 'Signed in with Google');
               filedOk = true;
-            } catch (error) { filedOk = false; }
+            } catch (error) {
+              // SAY SO. This was a bare catch that fell back to "you are not an
+              // admin", which is a true sentence describing the wrong problem:
+              // it sent the person away thinking they had been refused when the
+              // request had never been filed, and left no trace anywhere.
+              filedError = error && error.message ? error.message : String(error);
+            }
           }
           showAuth(filedOk
             ? 'Request sent. An admin has to approve it before you can get in.'
-            : settings.unauthorizedMessage, filedOk ? 'success' : 'error');
+            : filedError
+              ? 'Signed in, but the access request could not be filed: ' + filedError
+              : settings.unauthorizedMessage,
+            filedOk ? 'success' : 'error');
           return false;
         } catch (error) {
           clearRecoveryParams();
