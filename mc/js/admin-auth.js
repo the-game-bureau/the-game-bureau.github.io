@@ -208,10 +208,6 @@
       // 5-character password just moves the rejection to the server.
       '        <input id="mcAuthJoinPassword" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
       '      </label>',
-      '      <label class="mc-auth-field" for="mcAuthJoinNote">',
-      '        <span>Who are you? (optional)</span>',
-      '        <input id="mcAuthJoinNote" name="note" type="text" maxlength="600">',
-      '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
       // CANCEL, matching the sign-in form's reset state. Both are the same
@@ -284,6 +280,10 @@
     var joinNameInput = root.querySelector('#mcAuthJoinName');
     var joinEmailInput = root.querySelector('#mcAuthJoinEmail');
     var joinPasswordInput = root.querySelector('#mcAuthJoinPassword');
+    // The note box is gone from the form. The COLUMN stays on
+    // admin_access_requests and the RPC still accepts a note, because the
+    // Google path already files one ("Signed in with Google") and that is how
+    // an admin tells the two routes apart in the queue.
     var joinNoteInput = root.querySelector('#mcAuthJoinNote');
     var googleBtn = root.querySelector('#mcAuthGoogleBtn');
     var joinGoogleBtn = root.querySelector('#mcAuthJoinGoogleBtn');
@@ -958,7 +958,7 @@
         await fileAccessRequest(
           email,
           String(joinNameInput.value || '').trim(),
-          String(joinNoteInput.value || '').trim()
+          joinNoteInput ? String(joinNoteInput.value || '').trim() : ''
         );
 
         joinPasswordInput.value = '';
