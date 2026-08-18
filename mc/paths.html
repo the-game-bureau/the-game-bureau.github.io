@@ -1175,12 +1175,30 @@
         return;
       }
       sel.disabled = false;
-      rows.forEach((r) => {
+      // CITY FIRST, THEN THE PATH'S NAME, both alphabetical. The order was
+      // whatever tour_id sorted to - which starts with the city but then runs on
+      // a timestamp, so two Baltimore paths came out in the order they were
+      // created and a list of thirty was unsearchable by eye.
+      //
+      // localeCompare, not <: path names carry apostrophes and accents, and a
+      // byte comparison files "Oswald's" away from "Oswalds".
+      const sorted = rows.slice().sort((a, b) => {
+        const byCity = cityNameOf(a.city).localeCompare(cityNameOf(b.city));
+        if (byCity) return byCity;
+        return (cleanText(a.title) || a.tour_id).localeCompare(cleanText(b.title) || b.tour_id);
+      });
+      sorted.forEach((r) => {
         const o = document.createElement('option');
         o.value = r.tour_id;
-        // The city is only worth repeating when the list spans several.
-        o.textContent = (!state.cityFilter && cleanText(r.city) ? cleanText(r.city) + ' - ' : '')
-          + (cleanText(r.title) || r.tour_id);
+        // ALWAYS "City | Path", even when the list is one city. It was only
+        // prefixed on "Every city", so the same row read two different ways
+        // depending on a filter above it - and the heading beside the picker
+        // already names the city, so seeing it here is confirmation rather than
+        // repetition. The pipe rather than a dash: a dash is already inside
+        // several path names.
+        const city = cityNameOf(r.city);
+        const name = cleanText(r.title) || r.tour_id;
+        o.textContent = city ? city + ' | ' + name : name;
         sel.appendChild(o);
       });
       sel.value = state.pathId;
