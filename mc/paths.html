@@ -355,15 +355,26 @@
     }
     .stop--shelved .stop-name,
     .stop--shelved .stop-meta { color: rgba(var(--bic-blue-rgb), 0.55); }
-    .stop-shelved-tag { color: rgba(var(--bic-blue-rgb), 0.6); }
-    .stop-used-tag {
-      margin-top: 2px;
+    /* OUTLINED PILLS ON ONE LINE, the Waypoint Finder's .post-tag in this
+       room's sizes, so a place wears the same marks in both rooms. They replaced
+       two stacked caption lines that made a one-line row three lines tall. */
+    .stop-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+    .stop-tag {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.66rem;
+      font-size: 0.62rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 7px;
+      line-height: 1.5;
     }
+    /* MISSING IS THE ONE THAT ASKS FOR WORK, so it is the only one in the red
+       pen. Shelved is a state somebody chose; missing is a hole nobody has
+       filled, and it is the reason a pin will not draw. */
+    .stop-tag--missing { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.5); }
+    .stop-tag--shelved { color: rgba(var(--bic-blue-rgb), 0.6); }
     .stop-ord {
       min-width: 1.9em;
       text-align: right;
@@ -1523,6 +1534,14 @@
       return b;
     }
 
+    function poolTag(label, cls, title) {
+      const n = document.createElement('span');
+      n.className = 'stop-tag' + (cls ? ' ' + cls : '');
+      n.textContent = label;
+      if (title) n.title = title;
+      return n;
+    }
+
     function mkBtn(text, title, onClick, disabled) {
       const b = document.createElement('button');
       b.type = 'button';
@@ -1564,11 +1583,40 @@
       // library empty until a path existed to give it a city.
       const city = pathCity().toLowerCase();
       const q = state.poolQuery.toLowerCase();
-      return state.waypoints.filter((w) => {
+      const rows = state.waypoints.filter((w) => {
         if (!city || cleanText(w.city).toLowerCase() !== city) return false;
         if (!q) return true;
         return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
       });
+      // SHELVED SINKS TO THE BOTTOM. The two greys said which was which, but
+      // they were interleaved, so a library with a run of new arrivals in it
+      // made you read past places you cannot build with yet to reach the ones
+      // you can. Grouping puts the usable list first and turns the shelved rows
+      // into a tail you can stop at, which is also roughly the order you would
+      // work them in: build with what is approved, then go and approve more.
+      //
+      // Array.prototype.sort is stable in every engine this runs on, so the
+      // order inside each group is exactly the order it was in before.
+      return rows.sort((a, b) => (isShelved(a) ? 1 : 0) - (isShelved(b) ? 1 : 0));
+    }
+
+    const isShelved = (w) => w.archived === true || w.archived === 'true';
+
+    // WHAT A ROW IS MISSING, and nothing about what it has. Every one of these
+    // is a thing somebody has to go and find later, and three of them stop the
+    // place working: no point means it cannot be drawn on the map, no address
+    // means it cannot be geocoded into one, and no source means the claim is
+    // not checkable. Named in the tooltip rather than as five separate chips,
+    // because the row is one line tall and the useful signal at a glance is
+    // that SOMETHING is missing.
+    function missingBits(w) {
+      const out = [];
+      if (!cleanText(w.address)) out.push('address');
+      if (w.lat == null || w.lon == null) out.push('coordinates');
+      if (!cleanText(w.zip)) out.push('zip');
+      if (!cleanText(w.description)) out.push('description');
+      if (!cleanText(w.source_url)) out.push('source');
+      return out;
     }
 
     function renderPool() {
@@ -1651,7 +1699,7 @@
         // list before and after you build a walk out of it.
         const times = stopsCount(w.wpid);
         const used = times > 0;
-        const shelved = w.archived === true || w.archived === 'true';
+        const shelved = isShelved(w);
         if (used) row.classList.add('stop--used');
         // TWO GREYS, AND THEY MEAN OPPOSITE THINGS. Used-grey is "done, it is
         // already on the walk"; shelved-grey is "not approved, decide in the
@@ -1676,21 +1724,33 @@
         meta.className = 'stop-meta';
         meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ') || 'no address';
         main.append(name, meta);
+
+        // TAGS, NOT CAPTIONS. These were two stacked lines of text reading
+        // "shelved" and "on this path", which made a one-line row three lines
+        // tall and stated one thing the row already says: a used row is DIMMED
+        // and a shelved one is drawn in its own grey with a rule down its edge,
+        // so the words were a caption on a picture that was already clear.
+        //
+        // "on this path" is gone entirely for that reason. The REPEAT COUNT
+        // survives as a chip, because it is the one fact the dimming cannot
+        // carry: a loop may list the same square twice, and nothing else on the
+        // row would tell you.
+        const tags = document.createElement('div');
+        tags.className = 'stop-tags';
         if (shelved) {
-          const tag = document.createElement('div');
-          tag.className = 'stop-used-tag stop-shelved-tag';
-          tag.textContent = 'shelved';
-          tag.title = 'Not in the live library. Take it live in the Waypoint Finder.';
-          main.appendChild(tag);
+          tags.appendChild(poolTag('shelved', 'stop-tag--shelved',
+            'Not in the live library. Take it live in the Waypoint Finder.'));
         }
-        if (used) {
-          const tag = document.createElement('div');
-          tag.className = 'stop-used-tag';
-          // The count only earns its place past one: "on this path x1" is the
-          // same news as "on this path", said less clearly.
-          tag.textContent = times > 1 ? ('on this path x' + times) : 'on this path';
-          main.appendChild(tag);
+        const gaps = missingBits(w);
+        if (gaps.length) {
+          tags.appendChild(poolTag('missing', 'stop-tag--missing',
+            'No ' + gaps.join(', no ') + '. Press Edit to fill it in, or Locate for a point.'));
         }
+        if (times > 1) {
+          tags.appendChild(poolTag('x' + times, '',
+            'On this path ' + times + ' times. A place may be visited more than once.'));
+        }
+        if (tags.children.length) main.appendChild(tags);
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
         actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
