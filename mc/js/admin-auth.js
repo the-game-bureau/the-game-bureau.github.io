@@ -214,7 +214,11 @@
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
-      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Back to Login</button>',
+      // CANCEL, matching the sign-in form's reset state. Both are the same
+      // move -- back out of a detour to the plain login form -- and naming one
+      // of them after its destination and the other after the act made them
+      // look like two different things.
+      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Cancel</button>',
 
       '      </div>',
       '    </form>',
