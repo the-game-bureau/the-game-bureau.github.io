@@ -401,14 +401,23 @@
        glyph rendering smaller than the vertical pair, which made the triplet
        read as a button and then two smaller ones. .stop-add out in the library
        is the same square for the same reason: it is the return trip. */
-    /* A FIXED WIDTH, NOT A MINIMUM. The left arrow's glyph is wider than the
-       vertical pair's in this face, so min-width did not bind on it and the
-       triplet came out 34 / 30 / 30. Padding is zeroed and the glyph centred,
-       which is what makes 30px hold for all three. */
+    /* A FIXED WIDTH, NOT A MINIMUM, and the same square in both panels: the
+       library's add arrow is the return trip of the path's remove arrow, so the
+       two have to be one object seen twice. */
     .stop-actions .btn,
     .stop-add {
       width: 30px; min-width: 30px; padding-left: 0; padding-right: 0;
-      justify-content: center; font-size: 0.95rem; line-height: 1;
+      justify-content: center; line-height: 1;
+    }
+    /* ONE DRAWING, FOUR ROTATIONS. See arrowGlyph: these were Unicode arrows
+       until 2026-08-18, and neither face this page loads carries the horizontal
+       pair, so left and right fell back to a system font and sat visibly lighter
+       and larger than up and down. currentColor so a .warn button paints its
+       arrow red and a disabled one dims with the rest of the button. */
+    .arrow-glyph {
+      width: 15px; height: 15px; display: block;
+      fill: none; stroke: currentColor;
+      stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
     }
 
     .stop.is-dragging { opacity: 0.4; }
@@ -1415,8 +1424,8 @@
 
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
-        const up = mkBtn('↑', 'Move up', () => moveStop(i, i - 1), i === 0);
-        const down = mkBtn('↓', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
+        const up = arrowBtn('up', 'Move up', () => moveStop(i, i - 1), i === 0);
+        const down = arrowBtn('down', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
         // NO EDIT HERE. A waypoint LIVES in the library - one row, edited once,
         // shared by every path that uses it. This panel shows the same waypoint
         // as a POSITION IN A WALK, and every other button on the row is about the
@@ -1435,7 +1444,7 @@
         // two tables - so an X or a bin would be a lie about what happens.
         // FIRST, LEFT OF THE UP ARROW, so the row reads in the direction each
         // arrow travels: out of the path, then up, then down.
-        const off = mkBtn('←', 'Take it off this path and back to the library (the waypoint is kept)', () => removeStop(i));
+        const off = arrowBtn('left', 'Take it off this path and back to the library (the waypoint is kept)', () => removeStop(i));
         off.classList.add('warn');
         actions.append(off, up, down);
 
@@ -1443,6 +1452,50 @@
         wireDropTarget(row);
         box.appendChild(row);
       });
+    }
+
+    // FOUR ARROWS FROM ONE DRAWING, ROTATED. They were the Unicode characters
+    // U+2190..U+2193, which are one family on paper and are not one family on
+    // screen: NEITHER face this page loads carries the horizontal pair. Measured
+    // at 16px, Space Grotesk gives 9.92 for the vertical arrows and a flat 16.00
+    // for the horizontal ones, and IBM Plex Mono gives 9.60 against the same
+    // 16.00. A round 1em advance is the signature of a FALLBACK glyph, so the
+    // left and right arrows were being drawn by whatever system font happened to
+    // answer, at a different weight and size from the up and down arrows beside
+    // them. No available font fixes this, because no available font has all four.
+    //
+    // Drawn instead: one shaft, one head, one stroke width, rotated 0/90/180/270.
+    // They are identical BY CONSTRUCTION, they take their colour from the button
+    // through currentColor, and they cannot drift when a font changes.
+    const ARROW_DEG = { up: 0, right: 90, down: 180, left: 270 };
+
+    function arrowGlyph(dir) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'arrow-glyph');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true');
+      // rotate() on the group, not on the element: rotating the <svg> box would
+      // also rotate the button's own layout box in some engines.
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', 'rotate(' + (ARROW_DEG[dir] || 0) + ' 12 12)');
+      const shaft = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      shaft.setAttribute('x1', '12'); shaft.setAttribute('y1', '20');
+      shaft.setAttribute('x2', '12'); shaft.setAttribute('y2', '5');
+      const head = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      head.setAttribute('points', '5,12 12,5 19,12');
+      g.append(shaft, head);
+      svg.appendChild(g);
+      return svg;
+    }
+
+    // Same button as mkBtn, with a drawn arrow in place of the label. The title
+    // still carries the words, and aria-label is set from it because the button
+    // now has no text for a screen reader to read.
+    function arrowBtn(dir, title, onClick, disabled) {
+      const b = mkBtn('', title, onClick, disabled);
+      b.appendChild(arrowGlyph(dir));
+      b.setAttribute('aria-label', title);
+      return b;
     }
 
     function mkBtn(text, title, onClick, disabled) {
@@ -1632,11 +1685,10 @@
         // width of one glyph -- and three words on every row of a list this long
         // were three words repeated fifty times.
         // The full phrase survives on the TITLE, where it costs nothing.
-        const addBtn = mkBtn('→',
+        const addBtn = arrowBtn('right',
           used ? 'Put it on the path again' : 'Add to path',
           () => addStop(w.wpid), !state.pathId);
         addBtn.classList.add('stop-add');
-        addBtn.setAttribute('aria-label', used ? 'Put it on the path again' : 'Add to path');
         actions.appendChild(addBtn);
         row.append(handle, main, actions);
         box.appendChild(row);
