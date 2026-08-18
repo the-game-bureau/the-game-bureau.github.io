@@ -27,9 +27,16 @@
     var style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
-      '.mc-auth-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.7);backdrop-filter:blur(8px);}',
+      /* margin:auto ON THE PANEL rather than align-items:center HERE, and it
+         is the difference between a usable panel and an unreachable one. A
+         centred flex item that is taller than its container overflows EQUALLY
+         at both ends, and the top overflow is unscrollable -- on a landscape
+         phone (360px tall) the panel ran from -72 to 432 and the Login button
+         could not be reached at all. With overflow-y:auto and auto margins it
+         centres when there is room and scrolls when there is not. */
+      '.mc-auth-modal{position:fixed;inset:0;z-index:1200;display:none;justify-content:center;overflow-y:auto;overscroll-behavior:contain;padding:24px;background:rgba(2,6,23,.7);backdrop-filter:blur(8px);}',
       '.mc-auth-modal.is-open{display:flex;}',
-      '.mc-auth-panel{width:min(100%,460px);display:grid;gap:16px;padding:28px 26px 24px;border:1px solid rgba(45,72,128,.18);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.97) 0%,rgba(245,247,251,.94) 100%);box-shadow:0 26px 64px rgba(15,23,42,.28);color:#1f2937;position:relative;}',
+      '.mc-auth-panel{width:min(100%,460px);margin:auto;display:grid;gap:16px;padding:28px 26px 24px;border:1px solid rgba(45,72,128,.18);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.97) 0%,rgba(245,247,251,.94) 100%);box-shadow:0 26px 64px rgba(15,23,42,.28);color:#1f2937;position:relative;}',
       '.mc-auth-close{position:absolute;top:14px;right:14px;width:38px;height:38px;border:1px solid rgba(45,72,128,.18);border-radius:10px;background:rgba(255,255,255,.84);color:#2d4880;font-size:1.1rem;font-weight:800;cursor:pointer;}',
       '.mc-auth-close:hover{background:#fff;}',
       '.mc-auth-kicker{margin:0;color:rgba(45,72,128,.74);font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;}',
@@ -40,8 +47,6 @@
       '.mc-auth-field{display:grid;gap:6px;font-size:.9rem;font-weight:700;color:#2d4880;}',
       '.mc-auth-field input{height:46px;padding:0 12px;border:1px solid rgba(45,72,128,.18);border-radius:10px;background:rgba(255,255,255,.92);color:#1f2937;font:inherit;}',
       '.mc-auth-field input:focus{outline:2px solid rgba(45,72,128,.24);outline-offset:2px;}',
-      '.mc-auth-check{display:inline-flex;align-items:center;gap:8px;margin-top:-2px;color:#2d4880;font-size:.86rem;font-weight:800;line-height:1.3;}',
-      '.mc-auth-check input{width:16px;height:16px;margin:0;accent-color:#2d4880;}',
       '.mc-auth-actions{display:flex;gap:10px;flex-wrap:wrap;}',
       /* TWO LINES, ALWAYS. Line one is what you do with an account you have;
          line two is everything else. Left to wrap on its own the four buttons
@@ -173,8 +178,8 @@
       '        <input id="mcAuthConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
       '      </label>',
       '      <div class="mc-auth-actions">',
-      '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
-      '        <button class="mc-auth-btn" id="mcAuthBackBtn" type="button">Back to Login</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half mc-auth-btn--primary" id="mcAuthSavePasswordBtn" type="submit">Save Password</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half" id="mcAuthBackBtn" type="button">Back to Login</button>',
       '      </div>',
       '    </form>',
       // JOIN. Two steps behind one button: it signs the person up with
@@ -205,12 +210,12 @@
       '        <input id="mcAuthJoinPassword" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="6" required>',
       '      </label>',
       '      <div class="mc-auth-actions">',
-      '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half mc-auth-btn--primary" id="mcAuthJoinSubmitBtn" type="submit">Request Access</button>',
       // CANCEL, matching the sign-in form's reset state. Both are the same
       // move -- back out of a detour to the plain login form -- and naming one
       // of them after its destination and the other after the act made them
       // look like two different things.
-      '        <button class="mc-auth-btn" id="mcAuthJoinBackBtn" type="button">Cancel</button>',
+      '        <button class="mc-auth-btn mc-auth-btn--half" id="mcAuthJoinBackBtn" type="button">Cancel</button>',
 
       '      </div>',
       '    </form>',
