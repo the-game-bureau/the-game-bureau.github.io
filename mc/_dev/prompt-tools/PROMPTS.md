@@ -33,7 +33,7 @@ gift catalogue it reads is the freshest it can be.
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
 | **SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socials/index.html](../../socials/index.html), PROMPT dialog | `tgb_pull_socials_candidates` |
-| **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20` | [mc/soundtracks/admin/index.html](../../soundtracks/admin/index.html), PROMPT dialog | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
+| **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20` | [mc/soundtracks/index.html](../../soundtracks/index.html), PROMPT dialog | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB WAYPOINTS BOT** | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `8 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildWaypointAiPrompt` | commits `mc/stops/nightly.json` |
 | **TGB NFL Anchor Route Builder** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |

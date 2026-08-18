@@ -3,14 +3,14 @@
 > **Prompts and routines:** this room has two, and they are not the same text.
 > The **TGB SOUNDTRACK BOT** routine (`trig_014sqaUyU7557svq9mGA1E4a`, cron `30 11`)
 > holds the publishable key and calls the RPCs itself. The **PROMPT dialog** in
-> [the Tape Room](/mc/soundtracks/admin/index.html) is for pasting into a chat AI
+> [the Tape Room](/mc/soundtracks/index.html) is for pasting into a chat AI
 > that has no key, so its deliverable is SQL. Editorial rules must be kept in step
 > across both by hand. The full map is
 > [mc/_dev/prompt-tools/PROMPTS.md](/mc/_dev/prompt-tools/PROMPTS.md).
 
 **If you are an AI agent working on soundtracks, read this first.** It is also
 the plain-English explanation for anyone else. The dashboard at
-[`/mc/soundtracks/admin/`](/mc/soundtracks/admin/index.html) is the human view of the same system; this
+[`/mc/soundtracks/`](/mc/soundtracks/index.html) is the human view of the same system; this
 file is the source of truth.
 
 ---
@@ -65,7 +65,7 @@ The file is still committed and still read — but only as a lifeboat.
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
 | The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows). Supabase is the only source; a failed fetch shows "Could not load soundtracks." |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
-| The dashboard | `mc/soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
+| The dashboard | `mc/soundtracks/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 

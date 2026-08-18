@@ -8,7 +8,7 @@
    marks the current room with aria-current so it fills in like the public one.
 
    THE TWIST: the buttons look public and go somewhere else. Each one lands on
-   the ADMIN version of that section (/mc/gifts/, /mc/soundtracks/admin/, and so on),
+   the ADMIN version of that section (/mc/gifts/, /mc/soundtracks/, and so on),
    not the public page. That is deliberate — an admin moving between rooms wants
    the other room, not the storefront — and it is why every link carries a title
    that says so plainly ("Admin gifts"), so a hover resolves the destination even
@@ -28,7 +28,7 @@
   if (!header || header.dataset.tgbAdminNavReady === 'true') return;
 
   // The admin rooms. `match` is what makes a button read as current: the admin
-  // pages sit at different depths (/mc/gifts/ vs /mc/soundtracks/admin/), so this
+  // pages sit at different depths (/mc/gifts/ vs /mc/soundtracks/), so this
   // tests the section rather than comparing the whole path.
   var ROOMS = [
     {
@@ -69,11 +69,14 @@
     {
       key: 'soundtracks',
       label: 'SOUNDTRACKS',
-      href: '/mc/soundtracks/admin/',
+      href: '/mc/soundtracks/',
       title: 'Admin soundtracks',
       publicHref: '/soundtracks/',
       publicTitle: 'Public soundtracks page',
-      match: /^\/mc\/soundtracks\/admin\//,
+      // The room moved out of /admin/ on 2026-08-17. This is what lights the
+      // button up when you are standing in it, so it has to move with the href
+      // or SOUNDTRACKS never shows as current again.
+      match: /^\/mc\/soundtracks\//,
       // Double note.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E"
     },
@@ -643,7 +646,7 @@
 
   // TWO BUTTONS CANNOT BOTH BE THE CURRENT PAGE. Every room moved under /mc/
   // during the 2026-08-07 consolidation — /mc/gifts/, /mc/highlights/,
-  // /mc/soundtracks/admin/, and the game editors at /mc/*.html — but MISSION
+  // /mc/soundtracks/, and the game editors at /mc/*.html — but MISSION
   // CONTROL still matches the whole of /^\/mc\//, so on any of those pages the
   // room button AND the mast button both filled in. The rooms are the more
   // specific answer, so Mission Control only claims the page when none of them
