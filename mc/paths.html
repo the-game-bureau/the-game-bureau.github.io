@@ -330,6 +330,17 @@
     .meta-field { display: grid; gap: 4px; }
     .meta-field input, .meta-field select { width: 100%; }
 
+    /* Sits between the header and the search box, and collapses when empty so
+       the panel does not carry a blank line most of the time. */
+    .pool-notice {
+      margin: 0;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.78rem;
+      color: var(--warn);
+    }
+    .pool-notice:empty { display: none; }
+
     /* One control now the three buttons beside it are gone. */
     .pool-filter { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
     .pool-filter input { flex: 1; }
@@ -613,6 +624,12 @@
           <span class="panel-title" id="poolTitle">WAYPOINT LIBRARY</span>
           <span class="panel-count" id="poolCount"></span>
         </div>
+        <!-- WHAT NEEDS DOING TO A WAYPOINT goes here, not under the map. The
+             unplaced-coordinates notice is an instruction about a ROW - press
+             Edit on one - and the rows are in this column; under the map it was
+             a call to action a long way from the thing it acts on. The map's own
+             footer keeps what is true of the MAP: how many pins it drew. -->
+        <p class="pool-notice" id="poolNotice"></p>
         <!-- No city control here. The path has a city; the pool is simply that
              city's other waypoints. Two city pickers on one screen let them
              disagree, and a pool showing Denver for a Miami path is a list of
@@ -1512,6 +1529,11 @@
       // The unplaced-waypoint sentence, in one place. Both branches say it and
       // they were disagreeing about the verb: "2 waypoints have no coordinates
       // ... press Edit on IT".
+      function setPoolNotice(msg) {
+        const n = el('poolNotice');
+        if (n) n.textContent = msg || '';
+      }
+
       function unplacedNote(n) {
         if (!n) return '';
         return n + ' waypoint' + (n === 1 ? ' has' : 's have') + ' no coordinates and cannot be drawn'
@@ -1561,8 +1583,9 @@
           + '</span>';
         // Why nothing is drawn, and what the toggle found. Either alone leaves
         // half the question answered.
-        note.textContent = [unplacedNote(stops.length), poolNote()].filter(Boolean).join(' ');
-        note.classList.toggle('warn', stops.length > 0);
+        setPoolNotice(unplacedNote(stops.length));
+        note.textContent = poolNote();
+        note.classList.remove('warn');
         return;
       }
 
@@ -1659,14 +1682,15 @@
         else if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
       }
 
-      note.classList.toggle('warn', unlocated > 0);
+
       // BOTH FACTS, NOT ONE OR THE OTHER. An unlocated stop and a pool of
       // candidates are unrelated pieces of news, and the ternary that used to
       // sit here let the first silence the second: tick the box on a path with
       // one unplaced waypoint and the toggle's answer never appeared.
       // The instruction used to say "open the city in Waypoints", a room folded
       // into this one in 2026-08. Edit is on the row, a few pixels away.
-      note.textContent = [unplacedNote(unlocated), poolNote()].filter(Boolean).join(' ');
+      setPoolNotice(unplacedNote(unlocated));
+      note.textContent = poolNote();
     }
 
     // --- the waypoint editor --------------------------------------------------
