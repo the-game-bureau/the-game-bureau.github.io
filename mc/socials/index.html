@@ -531,9 +531,34 @@
     /* The reasoning band, under the kicker. Same fill and rule as the kicker so
        the two read as one header; see the note beside reasonBand. */
     .post-reasonband {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
       padding: 9px 14px 10px;
       border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.22);
       background: #f8fbff;
+    }
+    .post-reasonband .post-why { flex: 1 1 auto; min-width: 0; }
+    .post-topicpills {
+      display: flex;
+      flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 5px;
+      margin-left: auto;
+    }
+    .post-topicpill {
+      padding: 1px 7px 2px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.34);
+      border-radius: 999px;
+      color: rgba(var(--bic-blue-rgb), 0.72);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 1.5;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
     .post-ephemera {
       display: grid;
@@ -3327,7 +3352,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             month: 'short',
             day: 'numeric'
           });
-          return day + ' #' + match[5];
+          // "Found Wed Aug 19 #3". The weekday is worth the four characters: a
+          // bare date makes you count back to work out whether this is from
+          // this morning's run or last Thursday's, which is the first thing you
+          // want to know about a candidate. FOUND, because that is what the
+          // date is -- when the bot filed it, not when the story was published,
+          // which is on the preview card below.
+          var stamp = isNaN(date) ? day : date.toLocaleDateString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+          });
+          return 'Found ' + stamp + ' #' + match[5];
         }
         if (/^manual-/i.test(id)) return 'Manual';
         return id ? 'Candidate ' + id : 'Candidate';
@@ -3370,6 +3406,31 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         kickerId.className = 'post-kicker-id';
         kickerId.textContent = candidateLabel(post);
         kicker.appendChild(kickerId);
+
+        // TOPIC PILLS, FAR RIGHT OF THE KICKER (2026-08-19). They were words in
+        // the middle of the reasoning line -- "Travel. History." sitting between
+        // the REASONING label and the note, so the sentence had to be read past
+        // them to reach the thing it is for -- and they are not reasoning, they
+        // are tags. Up here, opposite the found-date, they line up down a column
+        // of cards, which is the one thing a tag is good for.
+        //
+        // The kicker is already justify-content: space-between, so nothing has
+        // to push them over. Not editable: the strip below shows the real column.
+        var tags = (Array.isArray(post.topics) ? post.topics : [])
+          .map(function (t) { return String(t || '').trim(); })
+          .filter(Boolean);
+        if (tags.length) {
+          var tagWrap = document.createElement('span');
+          tagWrap.className = 'post-topicpills';
+          tagWrap.title = 'The tags the bot filed this under. Part of the candidate as recorded.';
+          tags.forEach(function (t) {
+            var pill = document.createElement('span');
+            pill.className = 'post-topicpill';
+            pill.textContent = t;
+            tagWrap.appendChild(pill);
+          });
+          kicker.appendChild(tagWrap);
+        }
 
 
         // The corner is now the candidate id and nothing else. It carried the
@@ -3539,7 +3600,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // missing -- older rows have no topics, and `why` has always been
         // optional -- so the line renders whichever it has and is skipped only
         // when it would be empty.
-        var topicLine = topicSentence(post);
         var score = confidenceOf(post);
         // score !== null joins the condition: a candidate can carry a number and
         // no topics, and dropping the line would take the score with it.
@@ -3588,10 +3648,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
           why.appendChild(whyLabel);
-          // TOPICS STAY PLAIN TEXT HERE. They are a sentence built from the
-          // array, not the array, so a box holding "Cities. Walking." would have
-          // to be parsed back into one; the strip above edits the real field.
-          if (topicLine) why.appendChild(document.createTextNode(topicLine + ' '));
+          // TOPICS ARE PILLS ON THE FAR RIGHT OF THIS BAND, not words in the
+          // middle of the sentence. As "Travel. History." they sat between the
+          // REASONING label and the note, so the one line had to be read past
+          // them to reach the thing it is actually for; and they are not
+          // reasoning, they are tags. Out on the right they are scannable down
+          // a column of cards, which is what a tag is good for.
+          //
+          // Still plain text and still not editable here: the sentence is built
+          // FROM the array, so a box would have to be parsed back into one, and
+          // the strip below edits the real column.
 
           // THE NOTE IS THE EDITABLE PART, and it is its own span so the score,
           // the label and the topic sentence beside it are not swallowed by the
@@ -3618,6 +3684,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           var reasonBand = document.createElement('div');
           reasonBand.className = 'post-reasonband';
           reasonBand.appendChild(why);
+
           article.insertBefore(reasonBand, kicker.nextSibling);
         }
 
@@ -4064,13 +4131,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return Number.isFinite(n) && n >= 1 && n <= 100 ? Math.round(n) : null;
       }
 
-      function topicSentence(post) {
-        return (Array.isArray(post.topics) ? post.topics : [])
-          .map(function (t) { return String(t || '').trim().toLowerCase(); })
-          .filter(Boolean)
-          .map(function (t) { return t.charAt(0).toUpperCase() + t.slice(1) + '.'; })
-          .join(' ');
-      }
+      // topicSentence() was deleted on 2026-08-19 with its one caller. It built
+      // "Travel. History." for the middle of the reasoning line; the topics are
+      // pills on the right of that band now and carry their own text.
 
 
       // What lands on the clipboard: caption, blank line, link. Deliberately NOT
