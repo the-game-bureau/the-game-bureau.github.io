@@ -493,23 +493,6 @@
     /* Wide ones get the whole row so a long image url does not squash the rest. */
     .post-field--wide { flex-basis: 100%; }
 
-    /* THE CARD IS NO LONGER ONE BIG LINK, because its text is editable now and a
-       click has to mean edit. The domain line carries the link instead: it is
-       the part that names the destination, so it is the honest place for it. */
-    .post-card-open {
-      margin-left: auto;
-      flex: 0 0 auto;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.62rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: rgba(var(--bic-blue-rgb), 0.84);
-      text-decoration: none;
-    }
-    .post-card-open:hover { color: var(--ink); text-decoration: underline; }
-    .post-card-domain-row { display: flex; align-items: baseline; gap: 10px; }
-
     /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
     .post-ephemera {
       display: grid;
@@ -3372,13 +3355,25 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // A candidate captured with no link yet gets NO href. An <a href="">
         // points at this page, so the preview would have opened Mission Control
         // in a new tab and looked, for that second, like a working link.
-        // A DIV, NOT AN ANCHOR, since 2026-08-18. Every line on this card is
-        // editable now and a click has to mean edit, which it cannot while the
-        // whole thing is a link. The destination moved to an OPEN control on the
-        // domain row, which is the part that names it anyway.
-        var card = document.createElement('div');
+        // AN ANCHOR AGAIN (2026-08-19). It became a <div> the day the card's text
+        // was made editable, because a click had to mean edit and could not also
+        // mean open. Nothing inside it is editable any more except the picture,
+        // which stops its own click, so the whole card goes back to being one
+        // link and the OPEN control it needed in the meantime is gone.
+        //
+        // A candidate with no link yet gets NO href. An <a href=""> points at
+        // this page, so the preview would open Mission Control in a new tab and
+        // look, for that second, like a working link.
+        var card = document.createElement('a');
         card.className = 'post-card';
-        if (!post.url) card.classList.add('is-linkless');
+        if (post.url) {
+          card.href = post.url;
+          card.target = '_blank';
+          card.rel = 'noopener noreferrer';
+          card.title = 'Open ' + linkDomain(post.url) + ' in a new tab';
+        } else {
+          card.classList.add('is-linkless');
+        }
 
         // The thumbnail is whatever og:image the story carries, recorded by the
         // agent while it had the page open in step 3 — the page cannot read it
@@ -3401,11 +3396,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             card.classList.remove('has-shot');
           });
           shot.appendChild(img);
-          // CLICKING THE PICTURE EDITS THE PICTURE. An image url is the one
-          // field you cannot check by reading it, so the thing you are looking
-          // at is the right place to fix it: og:image scraping fails quietly,
-          // and a masthead, a tracking pixel and a 404 all look like a fine URL
-          // in a text box.
+          // CLICKING THE PICTURE EDITS THE PICTURE, and it is the ONE THING
+          // INSIDE THIS ANCHOR THAT DOES NOT FOLLOW THE LINK. An image url is
+          // the one field you cannot check by reading it, so the thing you are
+          // looking at is the right place to fix it: og:image scraping fails
+          // quietly, and a masthead, a tracking pixel and a 404 all look like a
+          // fine URL in a text box.
+          //
+          // preventDefault AND stopPropagation, both needed: the first stops the
+          // anchor navigating, the second stops the click reaching anything
+          // listening above it.
           shot.style.cursor = 'pointer';
           shot.title = 'Click to edit the image URL';
           shot.addEventListener('click', function (event) {
@@ -3421,9 +3421,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var body = document.createElement('span');
         body.className = 'post-card-body';
 
-        var domainRow = document.createElement('span');
-        domainRow.className = 'post-card-domain-row';
-
         var cardDomain = document.createElement('span');
         cardDomain.className = 'post-card-domain';
         cardDomain.textContent = post.url ? linkDomain(post.url) : 'no link yet';
@@ -3434,23 +3431,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         makeStatic(cardDomain, 'Where this candidate points, as recorded. Not editable here: '
           + 'changing it does not fix a story, it makes the row a different one. '
           + 'The Edit dialog can still change it.');
-        domainRow.appendChild(cardDomain);
-
-        // THE ONLY THING ON THIS CARD THAT STILL NAVIGATES. It has to exist:
-        // the card stopped being an anchor so its text could be edited, and
-        // without this there would be no way to open the story at all.
-        if (post.url) {
-          var open = document.createElement('a');
-          open.className = 'post-card-open';
-          open.href = post.url;
-          open.target = '_blank';
-          open.rel = 'noopener noreferrer';
-          open.textContent = 'Open \u2197';
-          open.title = 'Open the story in a new tab';
-          open.addEventListener('click', function (e) { e.stopPropagation(); });
-          domainRow.appendChild(open);
-        }
-        body.appendChild(domainRow);
+        body.appendChild(cardDomain);
 
         var cardHeadline = document.createElement('span');
         cardHeadline.className = 'post-card-headline';
