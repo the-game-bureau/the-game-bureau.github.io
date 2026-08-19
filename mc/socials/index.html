@@ -292,7 +292,6 @@
     .post-kicker {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 10px;
       padding: 8px 12px;
       border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.24);
@@ -305,7 +304,18 @@
       line-height: 1.2;
       text-transform: uppercase;
     }
+    /* margin-right:auto, NOT justify-content: space-between on the row. With
+       space-between a card whose candidate has no topics had nothing on the
+       right, so the found-date itself was flung to the far edge, away from the
+       bubble it belongs beside. The gap has to be owned by the element before
+       it, not distributed between whatever happens to be present. */
     .post-kicker-id {
+      margin-right: auto;
+      /* Larger than the kicker's own 0.62rem, and close to the bubble beside
+         it: this is the line that says which candidate you are looking at and
+         when it was found, so it should be readable at a glance rather than
+         sized like the tags at the other end of the row. */
+      font-size: 0.72rem;
       color: var(--ink);
     }
     /* Sits in front of REASONING and wears the label's own type, so the line
@@ -313,23 +323,42 @@
        parked beside a heading. Tinted red under 40 only: that is the band the
        bot files to reach its five with a rule bent, and the one worth catching
        on the way past. */
-    .post-why-score {
-      margin-right: 7px;
+    /* The confidence bubble, first thing on the kicker. Set larger than the
+       line it sits on, deliberately: it is a measurement among labels, and the
+       kicker's own 0.62rem would have hidden it in the mono row. The kicker is
+       align-items: center, so the bubble centres itself against the found-date
+       whatever it grows to.
+       tabular-nums keeps 7% and 72% the same width down a column of cards. */
+    .post-score-bubble {
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      padding: 3px 10px 4px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.34);
+      border-radius: 999px;
+      background: #fff;
       color: rgba(var(--bic-blue-rgb), 0.9);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.62rem;
+      font-size: 0.78rem;
       font-weight: 800;
       font-style: normal;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.06em;
+      line-height: 1.15;
       font-variant-numeric: tabular-nums;
+      cursor: help;
     }
-    .post-why-score.is-low { color: var(--bic-red); }
+    .post-score-bubble.is-low {
+      border-color: rgba(200, 42, 42, 0.5);
+      color: var(--bic-red);
+    }
     /* Quieter than any real score: it is the absence of a judgement, not a low
-       one, and it must not read as though the bot thought little of the pick. */
-    .post-why-score.is-unscored {
+       one, and it must not read as though the bot thought little of the pick.
+       Smaller too, since the word is far longer than the number it replaces. */
+    .post-score-bubble.is-unscored {
+      border-color: rgba(var(--bic-blue-rgb), 0.22);
       color: rgba(var(--bic-blue-rgb), 0.42);
+      font-size: 0.6rem;
       font-weight: 600;
-      text-transform: uppercase;
       letter-spacing: 0.08em;
     }
 
@@ -3402,6 +3431,45 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var kicker = document.createElement('div');
         kicker.className = 'post-kicker';
 
+        // THE CONFIDENCE SCORE, IN A BUBBLE AT THE HEAD OF THE LINE
+        // (2026-08-19). It sat small in front of the REASONING label, which put
+        // the one number on the card you cannot work out by reading it inside
+        // the sentence it is least like: everything else on that line is prose
+        // and this is a measurement. Out front and set larger it is the first
+        // thing the card says, which is right -- the bot files five every run
+        // and bends its own rules to get there, so this is what separates a
+        // find from the pick it stretched to reach five.
+        //
+        // The tooltip opens with CONFIDENCE SCORE because the bubble shows a
+        // bare percentage and a percentage of what is a fair question.
+        //
+        // READ-ONLY, and the only field on the card that is by nature rather
+        // than by policy: it is the bot's own answer to "how sure am I", so a
+        // human typing over it does not correct the number, it destroys the
+        // only thing it measured.
+        var score = confidenceOf(post);
+        var scoreEl = document.createElement('span');
+        if (score !== null) {
+          scoreEl.className = 'post-score-bubble' + (score < 40 ? ' is-low' : '');
+          scoreEl.textContent = score + '%';
+          scoreEl.title = 'CONFIDENCE SCORE. The bot rated its own confidence in this pick '
+            + score + ' out of 100'
+            + (score < 40 ? ', filed to reach five and likely with a rule bent' : '')
+            + '. Its own judgement, so it is not editable.';
+        } else {
+          // NULL IS NOT ZERO, and it says so in words. Rendering nothing at all
+          // is honest and invisible: the absence of a number and the absence of
+          // the whole feature look identical, which is exactly how
+          // tgb_pull_socials_candidates silently dropping the column went
+          // unnoticed for five days.
+          scoreEl.className = 'post-score-bubble is-unscored';
+          scoreEl.textContent = 'unscored';
+          scoreEl.title = 'CONFIDENCE SCORE. None on this candidate. Every row filed before '
+            + '2026-08-07, anything added by hand, and everything filed between 2026-08-13 and '
+            + '2026-08-18 (while the insert function was dropping the column) has none.';
+        }
+        kicker.appendChild(scoreEl);
+
         var kickerId = document.createElement('span');
         kickerId.className = 'post-kicker-id';
         kickerId.textContent = candidateLabel(post);
@@ -3600,7 +3668,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // missing -- older rows have no topics, and `why` has always been
         // optional -- so the line renders whichever it has and is skipped only
         // when it would be empty.
-        var score = confidenceOf(post);
         // score !== null joins the condition: a candidate can carry a number and
         // no topics, and dropping the line would take the score with it.
         // ALWAYS DRAWN NOW. It was skipped when it would have been empty, which
@@ -3629,21 +3696,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // the bot's own answer to "how sure am I about this pick", so a human
           // typing over it does not correct the number, it destroys the only
           // thing it measured.
-          var scoreEl = document.createElement('span');
-          if (score !== null) {
-            scoreEl.className = 'post-why-score' + (score < 40 ? ' is-low' : '');
-            scoreEl.textContent = score + '%';
-            scoreEl.title = 'The bot rated its own confidence in this pick ' + score + ' out of 100'
-              + (score < 40 ? ', filed to reach five and likely with a rule bent' : '')
-              + '. Its own judgement, so it is not editable.';
-          } else {
-            scoreEl.className = 'post-why-score is-unscored';
-            scoreEl.textContent = 'unscored';
-            scoreEl.title = 'No confidence score on this candidate. Every row filed before 2026-08-07, '
-              + 'anything added by hand, and everything filed between 2026-08-13 and 2026-08-18 '
-              + '(while the insert function was dropping the column) has none.';
-          }
-          why.appendChild(scoreEl);
+          // THE SCORE IS NOT HERE ANY MORE. It is the bubble at the head of the
+          // kicker; see the note beside it.
           var whyLabel = document.createElement('span');
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
