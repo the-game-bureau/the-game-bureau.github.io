@@ -268,6 +268,14 @@ Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migr
 - **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
 - **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
 
+## Mission Control's Daily Chores cards say what the ROOMS say (2026-08-19)
+
+All three headings are the room's own name — **STOCK ROOM**, **TAPE ROOM**, **SOCIALIZER** — and all three paragraphs are that room's own `.room-blurb`, copied **verbatim**. They had been verbs with hand-written descriptions (*STOCK GIFTS*, *MAKE SOME MIX TAPES*), and those descriptions had gone quietly stale: the socials one still promised a per-account composer picker that was deleted when one click started reaching every account it can.
+
+**A door that describes a room in its own words drifts the moment the room changes**, and nothing makes it obvious — the card still reads perfectly. One sentence per room, living on the room, is one thing to keep current instead of two. **When you change a room's blurb, copy it here**; the pair has no automation and no check.
+
+The `GO TO …` buttons repeat the heading now, which is what keeps them reading as a door rather than a second title.
+
 ## Getting onto the admin list — JOIN, approved at /mc/ (2026-08-17)
 
 Sign-in is two gates, and they are separate: **Supabase Auth** proves who you are, then `verifyAdminTable` in [mc/js/admin-auth.js](mc/js/admin-auth.js) checks your email against **`public.admin_users`**. An auth user who is not on that list signs in successfully and is told *"This account is signed in, but it is not on the admin list."* That message predates all of this and is exactly the state a pending applicant sits in.
