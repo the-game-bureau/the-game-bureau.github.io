@@ -172,6 +172,16 @@ Set 2026-08-15, and a sixth was added on 2026-08-18. One schedule, staggered thr
 **REVIEW_HOURS / BOOK_PULL_STALE_HOURS = 14 is correct again.** Both staleness thresholds assume a 12-hour cadence, and the soundtrack bot had silently drifted to `30 11` once daily, which would have painted its button red after every healthy run.
 
 ---
+### THREE SILENT FAILURES IN THE TAPE ROOM, ALL GIVEN A VOICE (2026-08-18)
+
+Reported as "when I try to change the title it doesn't work", with **nothing on screen at all**: no error, no save. Three places could produce exactly that, and all three now say something. **A write that fails without saying so is a bug in itself**, whichever one was firing.
+
+- **`commit()` in `renderTrackLine` returned silently when `indexOf(song)` came back -1.** That happens when the row on screen holds a song object the loaded tape no longer contains, which any reload between render and blur will do. It now says *"that track is out of step with the list, so nothing was saved - press Reload and try again"* and puts the box back to what it held.
+- **The LIVE / SHELVED switch had the same early return** and the same silence.
+- **`loadSoundtrackArchive().catch(function () { })` was an EMPTY CATCH**, so a failed load left the room blank with no explanation and no way to tell it apart from a room with nothing in it. It reports to the scribble now.
+
+**Do not add a bare `return` to a write path here.** The room's whole error channel is `setNotice`, and a path that skips it is indistinguishable from success.
+
 ### BOTH SOUNDTRACK PAGES CARRY NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-17)
 
 `soundtracks/index.html` (3,575 → 2,953 lines) and `mc/soundtracks/index.html` (7,530 → 5,308 lines) were stripped of **every** comment — 550 and 1,550 of them, CSS `/* */`, JS `//` and `/* */`, and HTML `<!-- -->` alike. The rationale that lived in them lives here now, in this section and the ones above it.

@@ -2324,7 +2324,10 @@ prose before or after the code block.</textarea>
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
-          loadSoundtrackArchive().catch(function () {  });
+          loadSoundtrackArchive().catch(function (error) {
+            console.error(error);
+            setNotice((error && error.message) || 'could not load the tapes', 'error');
+          });
         },
         onSignedOut: function () {
           resetSoundtrackArchive();
@@ -4312,7 +4315,11 @@ prose before or after the code block.</textarea>
 
         function commit(input, original, apply) {
           var songIndex = (tape.songs || []).indexOf(song);
-          if (songIndex < 0) return;
+          if (songIndex < 0) {
+            setNotice('that track is out of step with the list, so nothing was saved - press Reload and try again', 'error');
+            if (input && 'value' in input) input.value = original;
+            return;
+          }
           var fields = {
             title: text(titleEl.value),
             artist: text(artistEl.value),
@@ -4482,7 +4489,10 @@ prose before or after the code block.</textarea>
         on.textContent = 'Live';
         box.addEventListener('change', function () {
           var songIndex = (tape.songs || []).indexOf(song);
-          if (songIndex < 0) return;
+          if (songIndex < 0) {
+            setNotice('that track is out of step with the list - press Reload and try again', 'error');
+            return;
+          }
           trackPendingDelete = null;
           box.disabled = true;
           setTrackStatus(tapeIndex, songIndex, box.checked ? 'LIVE' : 'SHELVED').then(function (ok) {
