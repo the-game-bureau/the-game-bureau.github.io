@@ -309,6 +309,18 @@
        right, so the found-date itself was flung to the far edge, away from the
        bubble it belongs beside. The gap has to be owned by the element before
        it, not distributed between whatever happens to be present. */
+    /* Quieter than the date it follows, and separated by a rule rather than a
+       middot: the two are different kinds of fact about the row, and a middot
+       would read as one continuing phrase. */
+    .post-kicker-origin {
+      margin-left: 9px;
+      padding-left: 9px;
+      border-left: 1px solid rgba(var(--bic-blue-rgb), 0.24);
+      color: rgba(var(--bic-blue-rgb), 0.55);
+      font-weight: 700;
+      cursor: help;
+    }
+
     .post-kicker-id {
       margin-right: auto;
       /* Larger than the kicker's own 0.62rem, and close to the bubble beside
@@ -2209,7 +2221,7 @@ Use exactly this shape, one row per candidate, in this column order:
 
 ```sql
 insert into public.socials
-  (id, headline, url, source, published, blurb, why, topics, image, platforms, confidence, status)
+  (id, headline, url, source, published, blurb, why, topics, image, platforms, confidence, status, origin)
 values
   ('2026-08-05-1500-1',
    'The real headline',
@@ -2223,7 +2235,8 @@ values
    '[{"name": "Facebook", "why": "link preview does the work"},
      {"name": "Instagram", "why": "lead photo of the mural carries it"}]'::jsonb,
    72,
-   'review')
+   'review',
+   'prompt')
   -- , ( ... four more ... )
 on conflict do nothing
 returning id;
@@ -2233,6 +2246,14 @@ RULES THE STATEMENT MUST FOLLOW:
 
 - status is ALWAYS the literal 'review'. Never 'posted' or 'skipped'. A human
   makes that call in /mc/socials/. Never set posted_at or posted_platforms.
+- origin is ALWAYS the literal 'prompt'. It records that these rows came through
+  this prompt and a chat AI rather than from the scheduled routine ('bot') or
+  from somebody typing into the page ('manual'), which is how a reviewer knows
+  which standard to read the caption by. The column defaults to 'prompt' anyway,
+  so a statement that omits it still lands correctly; write it in regardless, so
+  the statement says what it is rather than relying on a default. Never write
+  'bot': that is reserved for the routine, and claiming it would hide a row that
+  wants a second look.
 - id is stamped with the run's UTC time, &lt;YYYY-MM-DD&gt;-&lt;HHMM-UTC&gt;-&lt;n&gt;
   (e.g. 2026-08-05-1500-1), so two runs in a day cannot collide.
 - ESCAPE EVERY APOSTROPHE by doubling it. `Chess.com's` becomes
@@ -3524,7 +3545,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             id: post.id,
             headline: resolveManualHeadline(post.url),
             url: post.url || '',
-            blurb: post.blurb || ''
+            blurb: post.blurb || '',
+            // Stamped rather than left to the column default, which is
+            // 'prompt': the default exists to catch hand-pasted SQL, and every
+            // writer that CAN say what it is should say so.
+            origin: 'manual'
           });
           closeManualPost();
           await loadQueue();
@@ -3813,6 +3838,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           + '-' + pad(d.getUTCSeconds());
       }
 
+      // Defaults to 'bot' rather than to the column's own 'prompt' default: on a
+      // page reading rows that predate the column, or one served by a database
+      // that has not run 2026081902, the honest guess is the writer that files
+      // ten a day rather than the one used occasionally by hand.
+      function originOf(post) {
+        var v = String((post && post.origin) || '').trim().toLowerCase();
+        return (v === 'manual' || v === 'prompt' || v === 'bot') ? v : 'bot';
+      }
+
+      var ORIGIN_LABELS = { manual: 'Manual', prompt: 'Prompt', bot: 'Bot' };
+      var ORIGIN_NOTES = {
+        manual: 'Typed in by hand through MANUAL ADD.',
+        prompt: 'Pasted in as SQL from a chat AI, using the PROMPT text. It followed our '
+              + 'instructions through somebody else\'s session, so read the caption twice.',
+        bot: 'Filed by SOCIALIZER BOT on its own schedule, following the prompt stored on '
+           + 'the routine.'
+      };
+
+      function originLabel(post) {
+        return ORIGIN_LABELS[originOf(post)] || 'Bot';
+      }
+
       function candidateLabel(post) {
         var id = String(post && post.id || '');
         var match = id.match(/^(\d{4})-(\d{2})-(\d{2})(?:-(\d{4}))?-(\d+)$/);
@@ -3911,9 +3958,35 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
         kicker.appendChild(scoreEl);
 
+        // The id line and the origin travel together, in one wrapper, because
+        // .post-kicker-id carries the margin-right:auto that pushes the topic
+        // pills to the far end. Appended as a sibling, the origin would land on
+        // the wrong side of that gap.
         var kickerId = document.createElement('span');
         kickerId.className = 'post-kicker-id';
-        kickerId.textContent = candidateLabel(post);
+        kickerId.appendChild(document.createTextNode(candidateLabel(post)));
+
+        // HOW IT ARRIVED. Three writers reach this table and they are not the
+        // same thing to read: the bot follows a prompt we control and can fix,
+        // a PROMPT row followed that same text through somebody else's chat
+        // session, and a MANUAL row is a person's own note. Judging all three
+        // by one standard is what the column exists to stop.
+        //
+        // Quiet, and after the date rather than before it, because it is
+        // context for the candidate rather than a heading over it.
+        //
+        // NOT DRAWN WHEN THE ID LABEL ALREADY SAYS IT. A hand-added row has a
+        // `manual-` id, so candidateLabel() returns "Manual" and the chip beside
+        // it said "Manual" a second time. The rule everywhere on this card is
+        // that nothing repeats what something else already says.
+        if (candidateLabel(post) !== originLabel(post)) {
+          var originEl = document.createElement('span');
+          originEl.className = 'post-kicker-origin';
+          originEl.textContent = originLabel(post);
+          originEl.title = ORIGIN_NOTES[originOf(post)] || '';
+          kickerId.appendChild(originEl);
+        }
+
         kicker.appendChild(kickerId);
 
         // TOPIC PILLS, FAR RIGHT OF THE KICKER (2026-08-19). They were words in
@@ -4442,7 +4515,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               image: post.image || null,
               platforms: Array.isArray(post.platforms) ? post.platforms : null,
               confidence: typeof post.confidence === 'number' ? post.confidence : null,
-              status: 'review'
+              status: 'review',
+              // THE ORIGINAL'S ORIGIN, not 'manual'. The column answers where
+              // the CANDIDATE came from, not who pressed the button: a repost of
+              // something the bot found is still a thing the bot found, and
+              // relabelling it would lose the only record of that.
+              origin: post.origin || 'bot'
             };
             return insertPost(copy)
               .then(function () {
