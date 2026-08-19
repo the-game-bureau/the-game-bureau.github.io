@@ -406,6 +406,8 @@
       line-height: 1.35;
       color: rgba(var(--bic-blue-rgb), 0.84);
     }
+    /* Quieter than either half it divides. */
+    .post-card-meta-dot { color: rgba(var(--bic-blue-rgb), 0.4); }
 
     /* ── Click to edit ────────────────────────────────────────────────────
        THE FIELD KEEPS ITS LOOK. Every editable thing on a card is the same
@@ -3440,12 +3442,41 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
         body.appendChild(cardHeadline);
 
-        // ALWAYS DRAWN NOW, even when both halves are empty. It used to appear
-        // only when there was something in it, so a candidate with no source and
-        // no date had nowhere to put one.
+        // ALWAYS DRAWN, even when both halves are empty, so a candidate with no
+        // source and no date has somewhere to put one.
+        //
+        // TWO SPANS, NOT ONE STRING. They were joined with a middot and shown as
+        // a single line, which is right to read and impossible to edit: a click
+        // cannot know whether you meant the outlet or the date. Each half is its
+        // own editable field now and the separator sits between them.
+        //
+        // THIS IS THE ONLY PLACE EITHER ONE APPEARS. They were briefly in the
+        // fields strip as well, which showed every candidate its source and its
+        // date twice.
         var cardMeta = document.createElement('span');
         cardMeta.className = 'post-card-meta';
-        cardMeta.textContent = [post.source, post.published].filter(Boolean).join(' \u00b7 ') || '';
+
+        var srcEl = document.createElement('span');
+        srcEl.textContent = cleanText(post.source || '');
+        makeEditable(srcEl, post, 'source', {
+          placeholder: 'no source',
+          title: 'The outlet this came from. Click to edit.'
+        });
+        cardMeta.appendChild(srcEl);
+
+        var dot = document.createElement('span');
+        dot.className = 'post-card-meta-dot';
+        dot.textContent = ' \u00b7 ';
+        cardMeta.appendChild(dot);
+
+        var pubEl = document.createElement('span');
+        pubEl.textContent = cleanText(post.published || '');
+        makeEditable(pubEl, post, 'published', {
+          placeholder: 'no date',
+          title: 'When the story ran. Free text on purpose: an approximate date must not cost us the candidate.'
+        });
+        cardMeta.appendChild(pubEl);
+
         body.appendChild(cardMeta);
 
         card.appendChild(body);
@@ -3783,9 +3814,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // The columns the post itself has no room for, plus the ones it only shows
       // when they are filled: without this an empty source or published date is
       // invisible AND unreachable, which is how a field quietly stops existing.
+      // SOURCE AND PUBLISHED ARE NOT HERE. They already sit on the preview card,
+      // where a link preview naturally shows them, and having them in both
+      // places showed every candidate its outlet and its date twice.
       var CARD_FIELDS = [
-        { key: 'source',    label: 'Source',    placeholder: 'no source' },
-        { key: 'published', label: 'Published', placeholder: 'no date' },
         { key: 'topics',    label: 'Topics',    placeholder: 'none' },
         { key: 'media',     label: 'Media',     placeholder: 'none' },
         { key: 'platforms', label: 'Platforms', placeholder: 'none',
