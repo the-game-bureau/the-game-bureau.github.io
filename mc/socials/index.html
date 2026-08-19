@@ -268,6 +268,17 @@
     .post.is-skipped:hover { opacity: 1; }
     .post.is-posted { opacity: 0.85; border-left: 3px solid var(--success, #2f7d4f); }
     .post.is-posted:hover { opacity: 1; }
+    /* Where a link out of SOCIALIZER BOT's email lands. It replaced a dialog
+       opening, so it has to be unmissable for a second and then get out of the
+       way: a ring rather than a colour change, since the card already uses
+       colour to say posted, skipped and flagged. */
+    .post.is-hash-focused {
+      box-shadow: 0 0 0 3px var(--accent), 0 1px 5px rgba(17, 24, 32, 0.09);
+      border-color: var(--accent);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .post.is-hash-focused { transition: box-shadow 200ms ease, border-color 200ms ease; }
+    }
     .post-receipt {
       margin: 0;
       font-family: "IBM Plex Mono", monospace;
@@ -1532,28 +1543,7 @@
            thing, and the picker has state (ticks, run cursor) that must not
            survive from one candidate to the next. -->
       <!-- Edit dialog. Updates the candidate's row in public.socials. -->
-      <div class="tool-backdrop" id="editBackdrop" hidden></div>
-      <section class="prompt-panel tool-modal-panel" id="editCard" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle" hidden>
-        <div class="panel-head">
-          <h2 class="panel-title" id="editDialogTitle">Edit Candidate</h2>
-          <!-- Cancel and Save, repeated from the footer. The form is long enough
-               that the footer pair can be below the fold on a short window, and
-               Close was a third word for what Cancel already does. Neither of
-               these carries an id: the pair at the bottom keeps #editSaveBtn,
-               and both submit via form="editForm", so there is nothing to keep
-               in step and no duplicate id. -->
-          <span class="panel-head-actions">
-            <button class="btn small" data-edit-close type="button">Cancel</button>
-            <button class="btn small primary" type="submit" form="editForm">Save</button>
-          </span>
-        </div>
-        <form class="modal-form" id="editForm"></form>
-        <div class="modal-actions">
-          <span class="modal-status" id="editStatus" aria-live="polite"></span>
-          <button class="btn" data-edit-close type="button">Cancel</button>
-          <button class="btn primary" id="editSaveBtn" type="submit" form="editForm">Save</button>
-        </div>
-      </section>
+      <!-- The Edit dialog stood here until 2026-08-19; see the script. -->
 
       <div class="tool-backdrop" id="confirmBackdrop" hidden></div>
       <!-- A yes/no question, asked where every other question on this page is
@@ -2039,10 +2029,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var manualForm = document.getElementById('manualPostForm');
       var manualStatus = document.getElementById('manualStatus');
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
-      var editBackdrop = document.getElementById('editBackdrop');
-      var editCard = document.getElementById('editCard');
-      var editForm = document.getElementById('editForm');
-      var editStatus = document.getElementById('editStatus');
       var confirmCard = document.getElementById('confirmCard');
       var confirmBackdrop = document.getElementById('confirmBackdrop');
       var postCloseBtn = document.querySelector('[data-post-close]');
@@ -2168,7 +2154,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           document.body.classList.add('is-admin');
           // #edit=<id> has to wait for the rows, so it is chained onto the
           // load rather than fired beside it like #manual, which needs nothing.
-          loadQueue().then(openEditFromHash, openEditFromHash);
+          loadQueue().then(focusPostFromHash, focusPostFromHash);
           // Deep link, opened here rather than on DOMContentLoaded: until this
           // fires the whole page is display:none behind the sign-in gate, so a
           // dialog opened earlier would be invisible and would stay that way.
@@ -2679,7 +2665,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (editCard && !editCard.hidden) || (confirmCard && !confirmCard.hidden)) return;
+            (confirmCard && !confirmCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
@@ -2767,11 +2753,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // is async. Guarded on the admin class for the same reason
       // openManualFromHash is, since the whole page sits behind the sign-in
       // gate until then and a dialog opened early would be invisible.
-      function openEditFromHash() {
+      // THE CANDIDATE'S OWN URL, and the reason it still exists after the Edit
+      // dialog it used to open was deleted: SOCIALIZER BOT mails five of these
+      // twice a day, one per candidate, so somebody reading the email on a
+      // phone can tap the third story and land on it rather than hunting the
+      // queue for a row they have just read about.
+      //
+      // It scrolls and flashes now instead of opening a form. The card is where
+      // the editing happens, so landing ON it is landing in the right place.
+      function focusPostFromHash() {
         var id = editHashId();
         if (!id) return;
         if (!document.body.classList.contains('is-admin')) return;
-        if (editCard && !editCard.hidden) return;
         var post = posts.filter(function (row) { return String(row.id) === id; })[0];
         if (!post) {
           // Skipped, deleted, or a link from an older run. Say which id, so the
@@ -2780,7 +2773,25 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           setEditHash('');
           return;
         }
-        openEditDialog(post, id);
+        // The row may be in a view that is not showing: a candidate posted or
+        // skipped since the email went out is still a real row and the link
+        // still has to reach it.
+        var card = queueList && queueList.querySelector('[data-post-id="' + cssEscape(id) + '"]');
+        if (!card) {
+          setPageStatus('candidate ' + id + ' is not in this view');
+          return;
+        }
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        card.classList.add('is-hash-focused');
+        window.setTimeout(function () { card.classList.remove('is-hash-focused'); }, 2400);
+        setEditHash('');
+      }
+
+      // CSS.escape is not in every browser this page has to run in, and the ids
+      // are date-stamped (2026-08-19-0817-3) so they are safe characters
+      // anyway; this only has to not throw.
+      function cssEscape(value) {
+        return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
       }
 
       // The tab wears the box's own name and glyph while it is open, so a window
@@ -3317,6 +3328,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var posted = mode === 'posted';
         var article = document.createElement('article');
         article.className = 'post' + (skipped ? ' is-skipped' : '') + (posted ? ' is-posted' : '');
+        // What #edit=<id> finds. SOCIALIZER BOT mails one of those links per
+        // candidate twice a day, so this attribute is the only thing standing
+        // between that email and a dead link.
+        article.dataset.postId = post.id;
 
         var kicker = document.createElement('div');
         kicker.className = 'post-kicker';
@@ -3597,7 +3612,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               });
           });
           actions.appendChild(unpostBtn);
-          actions.appendChild(makeEditBtn(post, id));
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
           article.appendChild(ephemera);
@@ -3620,7 +3634,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               });
           });
           actions.appendChild(unskipBtn);
-          actions.appendChild(makeEditBtn(post, id));
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
           article.appendChild(ephemera);
@@ -3652,18 +3665,14 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             });
         });
 
-        // One Edit, not two. There were previously both makeEditBtn() and a
-        // local editBtn appended to the same row, opening two different editors
-        // -- openEditDialog and openEditPost. makeEditBtn is the one the Posted
-        // and Skipped cards already use, so it is the one that stays.
+        // NO EDIT BUTTON since 2026-08-19. Every field it could reach is now
+        // either editable on the card itself or deliberately read-only, so the
+        // button opened a form to change things we had just decided should not
+        // be changed here.
         actions.appendChild(controls.postBtn);
         actions.appendChild(controls.copyBtn);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
-        // Last, and pushed to the far right by .post-edit-btn's margin-left.
-        var editBtn = makeEditBtn(post, id);
-        editBtn.classList.add('small', 'post-edit-btn');
-        actions.appendChild(editBtn);
         ephemera.appendChild(actions);
         article.appendChild(ephemera);
 
@@ -3907,225 +3916,26 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return row;
       }
 
-      var EDIT_FIELDS = [
-        // DESTINATION WEB PAGE, the same words the Add box uses — one field,
-        // one name, wherever it is shown. "URL" named the format; this names
-        // what the thing is, which is what somebody deciding whether to post a
-        // story actually wants to know.
-        //
-        // FIRST, matching the Add box too. The link is what a candidate IS —
-        // everything else describes it, and the headline is read off it — so it
-        // is the field you check first and the one you fix when a candidate
-        // looks wrong.
-        { key: 'url',      label: 'Destination Web Page', type: 'url' },
-        // OUR CAPTION, not "Caption" — the field under it is the outlet's
-        // headline, and on a card carrying somebody else's words the one line
-        // that is ours has to say so. It is what actually gets published.
-        { key: 'blurb',    label: 'Our Caption', type: 'textarea', max: 200 },
-        { key: 'headline', label: 'Headline', type: 'text' },
-        // Still "Image URL": this one really is a URL and nothing else — the
-        // address of a picture, not a page anybody visits.
-        { key: 'image',    label: 'Image URL', type: 'url' },
-        { key: 'source',   label: 'Source', type: 'text' },
-        { key: 'published', label: 'Published', type: 'text' },
-        { key: 'topics',   label: 'Topics (comma separated)', type: 'text', list: true },
-        { key: 'why',      label: 'Why (internal)', type: 'textarea' }
-      ];
-
-      function makeEditBtn(post, id) {
-        var btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.type = 'button';
-        btn.textContent = 'Edit';
-        btn.title = 'Edit this candidate';
-        btn.addEventListener('click', function () { openEditDialog(post, id); });
-        return btn;
-      }
-
-      function rawPost(id) {
-        for (var i = 0; i < posts.length; i++) if (String(posts[i].id) === String(id)) return posts[i];
-        return null;
-      }
-
-      // The row IS the candidate now, so editing is an ordinary UPDATE — no
-      // overrides, no fallback to a file, and nothing to revert to. Whatever is
-      // in these boxes is what the candidate becomes.
-      function openEditDialog(post, id) {
-        if (!editCard || !editForm) return;
-        var row = rawPost(id) || post || {};
-        editForm.textContent = '';
-        editForm.dataset.postId = id;
-        // The address bar now names the open candidate, so the link in the
-        // routine's email and the link you copy off the page are the same thing.
-        setEditHash(id);
-
-        EDIT_FIELDS.forEach(function (f) {
-          var wrap = document.createElement('label');
-          wrap.className = 'full';
-          wrap.textContent = f.label;
-
-          // NEVER type="url". The Save button is a real form submit, so the
-          // browser runs its own constraint validation first — and type="url"
-          // demands a scheme, which means a perfectly good address pasted
-          // without one is refused before submitEdit ever runs. You get the
-          // engine's "Please enter a URL" bubble and no way past it.
-          //
-          // Reported 2026-08-15 with
-          // paywallskip.com/article?url=https%3A%2F%2Fwww.newyorker.com%2F…
-          // which is exactly the shape that fails: a bare host, and a query
-          // string carrying a whole percent-encoded URL of its own.
-          //
-          // text + inputmode="url" is what the ADD box has always used, for the
-          // same reason. normalizeManualUrl adds the scheme on save.
-          var input = document.createElement(f.type === 'textarea' ? 'textarea' : 'input');
-          if (f.type !== 'textarea') {
-            input.type = 'text';
-            if (f.type === 'url') {
-              input.inputMode = 'url';
-              input.autocomplete = 'off';
-              input.spellcheck = false;
-            }
-          }
-          if (f.max) input.maxLength = f.max;
-          input.dataset.field = f.key;
-
-          // A red field mark describes the box as it is now, so the next
-          // keystroke in it clears the mark. (The form is rebuilt on every open,
-          // so nothing survives a close.)
-          input.addEventListener('input', function () { this.classList.remove('is-invalid'); });
-
-          var current = row[f.key];
-          input.value = f.list
-            ? (Array.isArray(current) ? current.join(', ') : '')
-            : (current == null ? '' : String(current));
-
-          // THE IMAGE FIELD GETS A THUMBNAIL BESIDE IT. An image URL is the one
-          // field on this form you cannot check by reading: og:image scraping
-          // goes wrong quietly, and a masthead, a tracking pixel or a 404 all
-          // look like a perfectly good URL in a text box. The picture is the
-          // only honest answer, and it decides whether the candidate can reach
-          // Instagram at all.
-          //
-          // It sits LEFT of the box because you look at it first and then judge
-          // the address, not the other way round. Click it for full size.
-          if (f.key === 'image') {
-            wrap.classList.add('image-field');
-            var shot = document.createElement('button');
-            shot.type = 'button';           // never submit: this form's Save is a real submit
-            shot.className = 'image-thumb';
-            shot.title = 'Show the full-size image';
-            var img = document.createElement('img');
-            img.alt = '';
-            img.loading = 'lazy';
-            // A broken or hotlink-blocked image is a RESULT, not a rendering
-            // fault, so the tile says so rather than showing a torn-page icon.
-            img.addEventListener('error', function () { shot.classList.add('is-broken'); });
-            img.addEventListener('load', function () { shot.classList.remove('is-broken'); });
-            shot.appendChild(img);
-
-            var paintThumb = function () {
-              var v = cleanText(input.value);
-              shot.classList.remove('is-broken');
-              shot.classList.toggle('is-empty', !v);
-              shot.disabled = !v;
-              // Only assign when it changed: re-setting the same src restarts
-              // the download on every keystroke.
-              if (v && img.getAttribute('src') !== v) img.setAttribute('src', v);
-              if (!v) { img.removeAttribute('src'); }
-            };
-            input.addEventListener('input', paintThumb);
-            input.addEventListener('change', paintThumb);
-            shot.addEventListener('click', function () { openLightbox(cleanText(input.value)); });
-
-            var row2 = document.createElement('span');
-            row2.className = 'image-row';
-            row2.append(shot, input);
-            wrap.appendChild(row2);
-            editForm.appendChild(wrap);
-            paintThumb();
-            return;
-          }
-
-          wrap.appendChild(input);
-          editForm.appendChild(wrap);
-        });
-
-        if (editStatus) editStatus.textContent = '';
-        openTool(editCard, editBackdrop, editForm.querySelector('textarea, input'));
-      }
-
-      // Clearing the hash on the way out matters: left in place, a reload would
-      // reopen the dialog you had just closed, and the URL would keep claiming
-      // a candidate was open when none is.
-      function closeEditDialog() {
-        closeTool(editCard, editBackdrop);
-        setEditHash('');
-      }
-
-      async function submitEdit(event) {
-        if (event) event.preventDefault();
-        var id = editForm && editForm.dataset.postId;
-        if (!id) return;
-        var patch = {};
-
-        EDIT_FIELDS.forEach(function (f) {
-          var input = editForm.querySelector('[data-field="' + f.key + '"]');
-          if (!input) return;
-          var raw = cleanText(input.value);
-          if (f.list) {
-            var list = raw ? raw.split(',').map(function (t) { return t.trim().toLowerCase(); }).filter(Boolean) : [];
-            patch[f.key] = list.length ? list : null;
-          } else if (f.key === 'url' || f.key === 'blurb') {
-            // NOT NULL in the table, and both are optional in the Add box — so
-            // an emptied one is written as '' rather than refused. Refusing here
-            // meant a link captured with no caption could not be edited at all
-            // until a caption was invented, which is the opposite of the point.
-            patch[f.key] = raw;
-          } else {
-            patch[f.key] = raw || null;
-          }
-        });
-
-        // THE SAME NORMALISER THE ADD BOX USES. Edit wrote whatever was typed
-        // straight through, so a scheme-less "paywallskip.com/article?…" was
-        // stored as-is and every link built from it resolved against this page
-        // instead of the internet. Blank stays blank — the url is optional and
-        // an emptied one is a deliberate act, not an address to repair.
-        var urlFields = [
-          { key: 'url', label: 'Destination Web Page' },
-          { key: 'image', label: 'Image URL' }
-        ];
-        for (var i = 0; i < urlFields.length; i++) {
-          var f2 = urlFields[i];
-          if (!patch[f2.key]) continue;
-          try {
-            patch[f2.key] = normalizeManualUrl(patch[f2.key]);
-          } catch (err) {
-            var box = editForm.querySelector('[data-field="' + f2.key + '"]');
-            if (box) { box.classList.add('is-invalid'); box.focus(); }
-            if (editStatus) editStatus.textContent = f2.label + ': ' + err.message;
-            return;
-          }
-        }
-
-        // The headline is the only thing a candidate cannot be without — it is
-        // what the card is, and a row with a blank one is unfindable in the
-        // queue. Same single rule as the Add box.
-        if (!patch.headline) {
-          if (editStatus) editStatus.textContent = 'Add a headline.';
-          return;
-        }
-
-        if (editStatus) editStatus.textContent = 'Saving…';
-        try {
-          await savePost(id, patch);
-          closeEditDialog();
-          renderQueue();
-          flash(queueStatus, 'Saved');
-        } catch (err) {
-          if (editStatus) editStatus.textContent = err.message;
-        }
-      }
+      // THE EDIT DIALOG IS GONE (2026-08-19), and with it EDIT_FIELDS,
+      // makeEditBtn, openEditDialog, closeEditDialog and submitEdit.
+      //
+      // WHY. Every field it could reach is now either editable on the card
+      // itself (the caption, the image, the reasoning) or deliberately
+      // read-only (the url, the headline, the source, the published date, the
+      // topics, because they are the candidate AS RECORDED and typing over them
+      // makes our copy disagree with the original). The dialog was a form for
+      // changing the things we had just decided should not be changed.
+      //
+      // WHAT THAT COSTS, stated plainly because it is a real loss: those five
+      // fields are now editable NOWHERE in this page. A genuinely bad capture, a
+      // headline scraped as "403 Forbidden", a url pointing at the wrong story,
+      // is repaired with SQL or by skipping the candidate and letting the bot
+      // find it again.
+      //
+      // #edit=<id> STILL WORKS AND MUST. SOCIALIZER BOT mails five of those
+      // links twice a day, one per candidate, and they are what let somebody
+      // tap a candidate on a phone and land on it. It scrolls to the card and
+      // flashes it now rather than opening a form; see focusPostFromHash.
 
       // ── Post dialog ──────────────────────────────────────────────────────
       // The picker lives in a lightbox rather than under the card. It has a
@@ -4763,8 +4573,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       window.addEventListener('hashchange', function () {
         if (window.location.hash === MANUAL_HASH) openManualFromHash();
         else if (manualCard && !manualCard.hidden) closeManualPost();
-        if (editHashId()) openEditFromHash();
-        else if (editCard && !editCard.hidden) closeEditDialog();
+        if (editHashId()) focusPostFromHash();
       });
       // https:// IN THE BOX, not just in what gets saved. normalizeManualUrl has
       // always added it on Fill, Open and save, but the field went on showing
@@ -4817,11 +4626,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         button.addEventListener('click', closeManualPost);
       });
 
-      if (editBackdrop) editBackdrop.addEventListener('click', closeEditDialog);
-      Array.prototype.forEach.call(document.querySelectorAll('[data-edit-close]'), function (button) {
-        button.addEventListener('click', closeEditDialog);
-      });
-      if (editForm) editForm.addEventListener('submit', submitEdit);
 
       if (promptBtn) promptBtn.addEventListener('click', openPrompt);
       if (promptBackdrop) promptBackdrop.addEventListener('click', function () {
@@ -4837,9 +4641,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // and stops there. Closing both would dismiss a form you were part way
         // through filling in just to put a photo away.
         if (imageLightbox && !imageLightbox.hidden) { closeLightbox(); return; }
-        // closeEditDialog, not closeTool: it also clears #edit=<id>, and a
-        // stale hash would reopen the dialog on the next reload.
-        closeEditDialog();
         closeManualPost();
         closeTool(promptCard, promptBackdrop);
       });
