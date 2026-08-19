@@ -447,6 +447,28 @@
       font-size: 0.72rem;
       line-height: 1.2;
     }
+    /* The domain and the way out, on one line. OPEN is the ONLY navigating
+       control on the card now, so it has to look like one rather than hide in
+       the mono row beside it. */
+    .post-card-domain-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .post-card-open {
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .post-card-open:hover { text-decoration: underline; }
+
     /* The link bar UNDER the picture, which is where a platform puts it. */
     .post-card-body {
       display: grid;
@@ -3842,16 +3864,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // A candidate with no link yet gets NO href. An <a href=""> points at
         // this page, so the preview would open Mission Control in a new tab and
         // look, for that second, like a working link.
-        var card = document.createElement('a');
+        // A DIV, NOT AN ANCHOR (2026-08-19, again). The link bar's headline,
+        // source and date are editable, and a click cannot mean both "edit this
+        // line" and "leave for the story". This is the third time the card has
+        // swapped between the two, and the rule underneath has never changed:
+        // THE CARD IS AN ANCHOR ONLY WHILE NOTHING INSIDE IT IS EDITABLE.
+        //
+        // Going somewhere is a deliberate act now, on the OPEN control in the
+        // domain row, which is the line that names the destination anyway.
+        var card = document.createElement('div');
         card.className = 'post-card';
-        if (post.url) {
-          card.href = post.url;
-          card.target = '_blank';
-          card.rel = 'noopener noreferrer';
-          card.title = 'Open ' + linkDomain(post.url) + ' in a new tab';
-        } else {
-          card.classList.add('is-linkless');
-        }
+        if (!post.url) card.classList.add('is-linkless');
 
         // -- THE ACCOUNT HEADER --------------------------------------------
         // What makes this read as a POST rather than as a link preview: our
@@ -3972,24 +3995,53 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var body = document.createElement('span');
         body.className = 'post-card-body';
 
+        var domainRow = document.createElement('span');
+        domainRow.className = 'post-card-domain-row';
+
         var cardDomain = document.createElement('span');
         cardDomain.className = 'post-card-domain';
         cardDomain.textContent = post.url ? linkDomain(post.url) : 'no link yet';
-        // The domain shows the host and nothing more. It named the destination
-        // AND edited the whole address until 2026-08-19; it is read-only now,
-        // like everything else the bot recorded.
         cardDomain.dataset.placeholder = 'no link yet';
+        // STILL READ-ONLY, and this is the one in the bar that stays that way.
+        // Changing a url does not fix a story, it makes the row a DIFFERENT
+        // story while keeping the caption, the score and the note somebody
+        // wrote about the first one.
         makeStatic(cardDomain, 'Where this candidate points, as recorded. Not editable here: '
-          + 'changing it does not fix a story, it makes the row a different one. '
-          + 'The Edit dialog can still change it.');
-        body.appendChild(cardDomain);
+          + 'changing it would make this a different story while keeping the caption, '
+          + 'the score and the note written about the old one.');
+        domainRow.appendChild(cardDomain);
 
+        // THE ONLY THING ON THIS CARD THAT NAVIGATES, and it has to exist: the
+        // card stopped being an anchor so the link bar could be edited, and
+        // without this there is no way to open the story at all. It sits on the
+        // domain row because that line already names the destination.
+        if (post.url) {
+          var openLink = document.createElement('a');
+          openLink.className = 'post-card-open';
+          openLink.href = post.url;
+          openLink.target = '_blank';
+          openLink.rel = 'noopener noreferrer';
+          openLink.textContent = 'Open ↗';
+          openLink.title = 'Open ' + linkDomain(post.url) + ' in a new tab';
+          domainRow.appendChild(openLink);
+        }
+        body.appendChild(domainRow);
+
+        // EDITABLE AGAIN. It was read-only on the argument that a headline is
+        // the outlet's words and not ours, which is true and was not the whole
+        // story: the bot SCRAPES it, and a scrape fails in ways only a human
+        // reading the card can see, a paywall interstitial, a 403 page, a site
+        // tagline picked up in place of a headline. Leaving the field most
+        // likely to be captured WRONG as the one field nobody could correct
+        // meant repairing it in SQL.
         var cardHeadline = document.createElement('span');
         cardHeadline.className = 'post-card-headline';
         cardHeadline.textContent = post.headline || post.url;
-        cardHeadline.dataset.placeholder = 'no headline';
-        makeStatic(cardHeadline, 'The outlet\'s headline as the bot recorded it. Not editable here: '
-          + 'it is their line, not ours, and the caption is the part we write.');
+        makeEditable(cardHeadline, post, 'headline', {
+          placeholder: 'no headline',
+          title: 'The outlet\'s headline, as recorded. Never published, but it is what '
+            + 'the queue lists this candidate by. Click to edit.'
+        });
         body.appendChild(cardHeadline);
 
         // ALWAYS DRAWN, even when both halves are empty, so a candidate with no
@@ -4008,8 +4060,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         var srcEl = document.createElement('span');
         srcEl.textContent = cleanText(post.source || '');
-        srcEl.dataset.placeholder = 'no source';
-        makeStatic(srcEl, 'The publication this came from, as recorded. Not editable here.');
+        makeEditable(srcEl, post, 'source', {
+          placeholder: 'no source',
+          title: 'The publication this came from. Click to edit.'
+        });
         cardMeta.appendChild(srcEl);
 
         var dot = document.createElement('span');
@@ -4019,8 +4073,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         var pubEl = document.createElement('span');
         pubEl.textContent = cleanText(post.published || '');
-        pubEl.dataset.placeholder = 'no date';
-        makeStatic(pubEl, 'When the story ran, as recorded. Not editable here.');
+        makeEditable(pubEl, post, 'published', {
+          placeholder: 'no date',
+          title: 'When the story ran. Click to edit.'
+        });
         cardMeta.appendChild(pubEl);
 
         body.appendChild(cardMeta);
