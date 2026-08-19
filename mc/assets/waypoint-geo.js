@@ -391,6 +391,35 @@
     return queries;
   }
 
+  // AN ADMINISTRATIVE AREA IS NOT A WAYPOINT.
+  //
+  // fillQueries degrades: address, then name + city, then CITY ALONE, then the
+  // ZIP. That ladder is right for filling a city or a state into a row that has
+  // an address, and it is a trap for a POINT. A named place Nominatim has never
+  // heard of ("Beneath the Surface Marker") returns nothing at every specific
+  // rung, the ladder reaches "Minneapolis, MN", and Nominatim answers with the
+  // city's administrative boundary. Take its lat/lon and the waypoint is pinned
+  // to the middle of downtown.
+  //
+  // It is not hypothetical: a bulk fill on 2026-08-18 put FOURTEEN Minneapolis
+  // riverfront markers on 44.9773, -93.2655, four Denver rows on one corner and
+  // four Charlotte markers on one point. Every one of them looked like a
+  // success. This is exactly the "never approximate a coordinate" rule the
+  // routine prompts carry, broken by our own code.
+  //
+  // So a result that IS a city, a county, a state or a postcode contributes its
+  // ADDRESS FIELDS and never its coordinates.
+  var AREA_TYPES = ['city', 'town', 'village', 'hamlet', 'municipality', 'suburb',
+    'borough', 'county', 'state', 'state_district', 'region', 'province',
+    'postcode', 'country'];
+
+  function isAdministrativeArea(place) {
+    if (!place) return false;
+    if (cleanText(place.type).toLowerCase() === 'administrative') return true;
+    if (cleanText(place.class).toLowerCase() === 'boundary') return true;
+    return AREA_TYPES.indexOf(cleanText(place.addresstype).toLowerCase()) !== -1;
+  }
+
   async function geocodeFirst(queries) {
     for (var i = 0; i < queries.length; i += 1) {
       if (i > 0) await pause();
@@ -795,6 +824,16 @@
       var found = await geocodeFirst(queries);
       if (!found) return { filled: [], zipApprox: false, error: 'No match found for this waypoint.' };
       place = found.place;
+      // AN AREA MATCH CONTRIBUTES NOTHING, not even a ZIP. Refusing only its
+      // coordinates was the first cut of this guard and it was half a fix: the
+      // ZIP came off the same reply, so a marker Nominatim had never heard of
+      // still collected the city-centre postcode, which is the "never guess a
+      // ZIP from the city" rule broken by the same fallback in the same call.
+      // Nothing about a city tells you anything specific about a place in it.
+      if (isAdministrativeArea(place)) {
+        return { filled: [], zipApprox: false, error:
+          'Only found the city, not this place. Add a street address and try again.' };
+      }
     }
     var filled = await fillFieldsFromPlace(row, place, point, !!options.overwrite);
     // A match with no postcode is the common case, not a dead end - chase the
