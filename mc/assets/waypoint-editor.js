@@ -284,6 +284,10 @@
     //
     // THE RIGHT IS HOW YOU LEAVE. Close discards, Save commits, and Save is the
     // only filled button in the room.
+    //
+    // SAVE FIRST, THEN CLOSE. The opposite of the usual, and asked for: SAVE
+    // stays the last thing before the panel's right edge nowhere in this file,
+    // so if that reads wrong later, THIS is the line to change back.
     '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
     '      <span class="dlg-rule" role="separator" aria-orientation="vertical"></span>',
     '      <span class="dlg-group">',
@@ -292,8 +296,8 @@
     '        <button class="btn small ghost" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
     '      </span>',
     '      <span class="dlg-spacer"></span>',
-    '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '      <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>',
+    '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '    </div>',
     '  </div>',
     '</div>',
