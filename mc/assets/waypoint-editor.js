@@ -213,13 +213,6 @@
     /* A BAND, not a row. The gap INSIDE a group is tighter than the gap between
        groups, which is the whole mechanism: two buttons that belong together
        read as a pair without a rule, a box or a label. */
-    /* THE HELPERS ARE QUIETER THAN THE DECISIONS. Look up, Find online and
-       Duplicate only act on the form in front of you; Close and Save end the
-       dialog and Delete destroys the row. Six buttons at one weight made those
-       look like six equal choices. No border and no ground until you go near
-       them, so they read as available rather than as offered. */
-    '#wpDlg .btn.ghost, #findDlg .btn.ghost { border-color: transparent; background: none; color: rgba(var(--bic-blue-rgb), 0.86); }',
-    '#wpDlg .btn.ghost:hover:not(:disabled), #findDlg .btn.ghost:hover:not(:disabled) { border-color: var(--line); background: var(--paper, #fff); color: var(--ink); }',
     '.dlg-spacer { flex: 1 1 auto; }',
     /* THE EDITOR'S BUTTONS ARE THE EDITOR'S, and they are ID-SCOPED so they
        win. Every room defines .btn its own way: the Path Builder uppercases at
@@ -296,16 +289,16 @@
     // so if that reads wrong later, THIS is the line to change back.
     '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
     '      <span class="dlg-spacer"></span>',
-    // FILL SITS WITH THE RIGHT-HAND GROUP now, immediately left of Save. It is
-    // still the odd one out in kind, since it only writes the form while the two
-    // beside it end the dialog, but it is the last thing you press before Save
-    // and it belongs where your hand already is. It keeps .ghost, which is what
-    // says it is not a decision.
+    // FILL SITS WITH THE RIGHT-HAND GROUP now, immediately left of Save, and it
+    // is BORDERED like the buttons beside it. It wore .ghost while it stood in a
+    // band of helpers on the left, where borderless read as quiet; alone among
+    // Save and Close it read as a word that had lost its button. A control that
+    // sits with buttons is drawn as one.
     //
     // DUPLICATE WENT (2026-08-18), and duplicateWaypointRow with it. The rule
     // between the bands went too: with one button on the left there is nothing
     // left to separate.
-    '      <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
+    '      <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
     '      <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>',
     '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '    </div>',
