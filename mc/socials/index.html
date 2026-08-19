@@ -1159,23 +1159,7 @@
        where you go after copying, not the thing you came to do. */
     .prompt-sql-btn { gap: 8px; }
     .prompt-sql-btn svg { width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.75; }
-    .prompt-copy {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      min-height: 42px;
-      padding: 0 20px;
-    }
-    .prompt-copy svg { width: 15px; height: 15px; flex: 0 0 auto; }
-    /* Green only while the confirmation is on screen; the button goes back to
-       being the ordinary primary a moment later, so it never reads as a state
-       the dialog is stuck in. */
-    .prompt-copy.is-done,
-    .prompt-copy.is-done:hover {
-      background: var(--success);
-      border-color: var(--success);
-      color: #fff;
-    }
+    /* .prompt-copy went with the Copy button on 2026-08-19. */
     .copy-status {
       margin-right: auto;
       font-family: "IBM Plex Mono", monospace;
@@ -1526,7 +1510,6 @@
       /* The left padding stays at the red margin — it is what keeps the type
          off the rule, and a narrow screen does not move the rule. */
       .prompt { min-height: 180px; padding: 13px 12px 16px 68px; font-size: 0.8rem; }
-      .prompt-copy { flex: 1 1 auto; justify-content: center; }
       /* The three steps stack rather than half-wrapping into two ragged rows,
          and each one still spans the foot so the order stays readable. */
       .prompt-ai { width: 100%; }
@@ -2296,15 +2279,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         <div class="prompt-foot">
           <span class="copy-status" id="copyStatus" aria-live="polite"></span>
 
-          <button class="btn primary prompt-copy" id="copyPromptTop" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="9" y="9" width="12" height="12" rx="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            <span id="copyPromptLabel">Copy prompt</span>
-          </button>
+          <!-- THE STANDALONE COPY BUTTON IS GONE (2026-08-19). Every one of the
+               three doors below already copies before it opens, so Copy was the
+               same action minus the useful half, sitting first and styled as the
+               primary. The one thing lost is copying WITHOUT opening anything,
+               which the textarea still allows by hand and which the failure
+               message names.
 
+               Its confirmation moved to the status line, which used to be kept
+               for failures alone: with no button left to turn green, that line
+               is the only place a success can be reported. -->
           <!-- THREE DOORS THAT DO BOTH: each one copies the prompt AND opens a
                blank chat, so Copy above is the manual version of a step these
                take for you. They still open BLANK -- none of these takes a
@@ -2318,7 +2302,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
                from the same click WITHOUT preventDefault, so the navigation is
                still the browser's own. -->
           <div class="prompt-ai" role="group" aria-label="Copy the prompt and open an AI">
-            <span class="prompt-ctl-label">COPY &amp; OPEN</span>
+            <span class="prompt-ctl-label">COPY TO CLIPBOARD &amp; OPEN</span>
             <span class="prompt-ai-row" id="promptAiRow">
               <a class="btn small" target="_blank" rel="noopener" href="https://chatgpt.com/"
                  title="Copy the prompt and open ChatGPT">ChatGPT</a>
@@ -2456,17 +2440,14 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var promptCard = document.getElementById('promptCard');
       var promptEl = document.getElementById('promptText');
       var copyStatus = document.getElementById('copyStatus');
-      var copyBtn = document.getElementById('copyPromptTop');
-      var copyPromptLabel = document.getElementById('copyPromptLabel');
       var copyResetTimer = 0;
 
-      // Puts the copy button back to its resting state. Called on the timer
-      // after a copy, on a failure, and whenever the dialog opens -- otherwise a
-      // dialog closed mid-flash reopens still green and still saying Copied.
-      function resetCopyButton() {
+      // Clears the line. On the timer after a copy, and whenever the dialog
+      // opens: a dialog closed mid-flash would otherwise reopen still saying
+      // Copied about a clipboard somebody has used three times since.
+      function resetCopyStatus() {
         window.clearTimeout(copyResetTimer);
-        if (copyBtn) copyBtn.classList.remove('is-done');
-        if (copyPromptLabel) copyPromptLabel.textContent = 'Copy prompt';
+        if (copyStatus) copyStatus.textContent = '';
       }
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
       // Head elements, swapped while the Add box is open. See setManualChrome.
@@ -3381,9 +3362,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
 
       function openPrompt() {
-        resetCopyButton();
-        if (copyStatus) copyStatus.textContent = '';
-        openTool(promptCard, promptBackdrop, copyBtn);
+        resetCopyStatus();
+        // The first door, rather than a Copy button that no longer exists.
+        // openTool falls back to the panel's first focusable element when this
+        // is null, so nothing is stranded either way.
+        openTool(promptCard, promptBackdrop, promptCard && promptCard.querySelector('#promptAiRow a'));
       }
 
       function manualPostId() {
@@ -5676,12 +5659,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
       }
 
-      // ── Paste-ready prompt ───────────────────────────────────────────────
-      if (copyBtn) {
-        copyBtn.addEventListener('click', function () { copyPromptText(); });
-      }
-
-      // ONE COPY, TWO CALLERS: the Copy button, and each of the AI links,
+      // ── The AI prompt ────────────────────────────────────────────────────
+      // ONE COPY, ONE CALLER since the Copy button went: each of the AI links,
       // which copy and then open their chat in the same click.
       //
       // THE BUTTON IS THE CONFIRMATION -- it goes green and reads Copied for a
@@ -5693,14 +5672,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         window.clearTimeout(copyResetTimer);
         try {
           await navigator.clipboard.writeText(promptEl.value || '');
-          if (copyBtn) copyBtn.classList.add('is-done');
-          if (copyPromptLabel) copyPromptLabel.textContent = 'Copied';
-          if (copyStatus) copyStatus.textContent = '';
-          copyResetTimer = window.setTimeout(resetCopyButton, 1800);
+          // THE LINE IS THE CONFIRMATION NOW. It was kept for failures alone
+          // while a button could go green and say Copied; with that button gone
+          // there is nowhere else a success can be reported, and a copy that
+          // says nothing is one you do twice.
+          if (copyStatus) copyStatus.textContent = 'Copied to clipboard';
+          copyResetTimer = window.setTimeout(resetCopyStatus, 2600);
           return true;
         } catch (error) {
-          resetCopyButton();
-          if (copyStatus) copyStatus.textContent = 'Select the text and copy it by hand';
+          window.clearTimeout(copyResetTimer);
+          if (copyStatus) copyStatus.textContent = 'Select the prompt and copy it by hand';
           return false;
         }
       }
