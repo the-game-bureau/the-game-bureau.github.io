@@ -4068,21 +4068,26 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         body.appendChild(domainRow);
 
-        // EDITABLE AGAIN. It was read-only on the argument that a headline is
-        // the outlet's words and not ours, which is true and was not the whole
-        // story: the bot SCRAPES it, and a scrape fails in ways only a human
-        // reading the card can see, a paywall interstitial, a 403 page, a site
-        // tagline picked up in place of a headline. Leaving the field most
-        // likely to be captured WRONG as the one field nobody could correct
-        // meant repairing it in SQL.
+        // READ-ONLY, and this is the second time it has settled here. It was
+        // made editable on 2026-08-19 on the argument that the bot SCRAPES this
+        // line, so a bad capture (a paywall interstitial, a 403 page, a site
+        // tagline picked up in place of a headline) had nowhere to be fixed.
+        // That is true and it lost anyway: the headline is the OUTLET'S line,
+        // not ours, and a box you can type in invites rewriting it into
+        // something we would rather it said. A genuinely broken capture is
+        // repaired in SQL, or the candidate is skipped and the bot finds it
+        // again, which is the same bargain the url makes.
+        //
+        // THE CARD STAYS A <div> WITH ITS OWN OPEN CONTROL, because source and
+        // published beside it are still editable. Only when NOTHING in the link
+        // bar is editable may the card go back to being an anchor, and the OPEN
+        // control has to go in the same commit if it does.
         var cardHeadline = document.createElement('span');
         cardHeadline.className = 'post-card-headline';
         cardHeadline.textContent = post.headline || post.url;
-        makeEditable(cardHeadline, post, 'headline', {
-          placeholder: 'no headline',
-          title: 'The outlet\'s headline, as recorded. Never published, but it is what '
-            + 'the queue lists this candidate by. Click to edit.'
-        });
+        cardHeadline.dataset.placeholder = 'no headline';
+        makeStatic(cardHeadline, 'The outlet\'s headline, as the bot recorded it. Not editable here: '
+          + 'it is their line rather than ours, and the caption is the part we write.');
         body.appendChild(cardHeadline);
 
         // ALWAYS DRAWN, even when both halves are empty, so a candidate with no
