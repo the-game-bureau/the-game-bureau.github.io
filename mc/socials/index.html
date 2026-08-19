@@ -1839,6 +1839,12 @@
           <p class="confirm-text" id="confirmText"></p>
           <div class="modal-actions">
             <button class="btn" id="confirmNo" type="button">No</button>
+            <!-- A THIRD ANSWER, used only when a caller passes opts.altLabel. It
+                 is hidden otherwise, so every existing two-way question is
+                 untouched. Dismissing the dialog, by Escape or the backdrop,
+                 still means CANCEL and never one of the actions: a way out must
+                 not quietly do something. -->
+            <button class="btn" id="confirmAlt" type="button" hidden>Alt</button>
             <button class="btn primary" id="confirmYes" type="button">Yes</button>
           </div>
         </div>
@@ -2956,6 +2962,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           var card = confirmCard;
           var yes = document.getElementById('confirmYes');
           var no = document.getElementById('confirmNo');
+          var alt = document.getElementById('confirmAlt');
           // No dialog, or one already open: answer no rather than hanging on a
           // promise that can never settle.
           if (!card || !yes || !no || askConfirmBusy) { resolve(false); return; }
@@ -2966,11 +2973,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           if (titleEl) titleEl.textContent = title || 'Are you sure?';
           if (textEl) textEl.textContent = text || '';
           yes.textContent = yesLabel || 'Yes';
+          no.textContent = (opts && opts.noLabel) || 'No';
           no.hidden = !!(opts && opts.hideNo);
+          // The third answer resolves the string 'alt', not a boolean, so a
+          // caller that only knows about true/false cannot mistake it for yes.
+          if (alt) {
+            alt.hidden = !(opts && opts.altLabel);
+            alt.textContent = (opts && opts.altLabel) || '';
+          }
 
           function settle(answer) {
             yes.removeEventListener('click', onYes);
             no.removeEventListener('click', onNo);
+            if (alt) alt.removeEventListener('click', onAlt);
             document.removeEventListener('keydown', onKey, true);
             if (confirmBackdrop) confirmBackdrop.removeEventListener('click', onNo);
             askConfirmBusy = false;
@@ -2979,12 +2994,14 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           }
           function onYes() { settle(true); }
           function onNo() { settle(false); }
+          function onAlt() { settle('alt'); }
           function onKey(e) {
             if (e.key === 'Escape') { e.stopPropagation(); settle(false); }
           }
 
           yes.addEventListener('click', onYes);
           no.addEventListener('click', onNo);
+          if (alt) alt.addEventListener('click', onAlt);
           // Capture, so Escape closes this and not whatever is behind it.
           document.addEventListener('keydown', onKey, true);
           if (confirmBackdrop) confirmBackdrop.addEventListener('click', onNo);
@@ -3206,6 +3223,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function openImageDialog(post, stableId) {
         if (!imageCard) return;
+        // Same rule as makeEditable: a decided candidate is a record, not a
+        // draft. The picture and the IMAGE URL cell are the one write path on a
+        // card that does not go through makeEditable, so the gate is repeated
+        // here rather than assumed.
+        var decided = statusOf(post);
+        if (decided === 'posted' || decided === 'skipped') {
+          flash(queueStatus, decided === 'posted'
+            ? 'That candidate has been posted; its card is the record of what went out. '
+              + 'Move it back to Review to change anything.'
+            : 'That candidate was skipped. Move it back to Review to change anything.');
+          return;
+        }
         imageEditing = { post: post, stableId: stableId || postId(post) };
         imageUrlBox.value = String(post.image || '');
         imageStatusText('');
@@ -3710,6 +3739,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (hours < 24) return hours === 1 ? 'an hour ago' : hours + ' hours ago';
         var days = Math.round(hours / 24);
         return days === 1 ? 'yesterday' : days + ' days ago';
+      }
+
+      // The routine's own id shape, <YYYY-MM-DD>-<HHMM UTC>-<n>, so a row made
+      // here sorts and labels like every other one and its #edit= link works.
+      // The counter is seconds-of-minute, which is enough to keep two copies
+      // made in the same minute apart without inventing a sequence.
+      function stampedCandidateId() {
+        var d = new Date();
+        function pad(n) { return String(n).padStart(2, '0'); }
+        return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate())
+          + '-' + pad(d.getUTCHours()) + pad(d.getUTCMinutes())
+          + '-' + pad(d.getUTCSeconds());
       }
 
       function candidateLabel(post) {
@@ -4264,15 +4305,79 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           unpostBtn.type = 'button';
           unpostBtn.textContent = 'Move to Review';
           unpostBtn.title = 'Not actually posted — put it back in Review';
+          // MOVE OR COPY, because they answer two different situations and the
+          // old single button only served one of them.
+          //
+          //   MOVE  this was never really posted, or it went out wrong. The
+          //         receipt is a mistake, so it goes and the row returns to the
+          //         queue. One row throughout.
+          //   COPY  it WAS posted and we want to post it again. The receipt is
+          //         true and must survive, so a second row is filed alongside
+          //         it and the posted one is left exactly as it is.
+          //
+          // COPY IS REALLY ONLY AVAILABLE TO GIFTS, and that is the database
+          // talking rather than a rule of ours: socials_url_idx is unique on
+          // lower(url) and skips only /gifts/?item= urls and blanks. So a second
+          // row carrying a story's url is refused, which is correct, since a
+          // story may not be posted twice; a gift may, and is exactly the thing
+          // anybody would want to re-post. The 23505 is caught and said in
+          // English rather than shown raw.
           unpostBtn.addEventListener('click', function () {
+            askConfirm('Back to Review',
+              'MOVE takes this row back to the queue and drops the posted receipt, for '
+              + 'something that never really went out. COPY leaves this row posted and '
+              + 'files a second one to post again, which only works for a gift: a story '
+              + 'url can be filed once.',
+              'Copy to Review', { noLabel: 'Cancel', altLabel: 'Move to Review' })
+              .then(function (answer) {
+                if (answer === 'alt') return moveBackToReview();
+                if (answer === true) return copyToReview();
+              });
+          });
+
+          function moveBackToReview() {
             unpostBtn.disabled = true;
-            savePost(id, { status: 'review' })   // trigger clears posted_at too
+            return savePost(id, { status: 'review' })   // trigger clears posted_at too
               .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
               .catch(function (err) {
                 unpostBtn.disabled = false;
                 flash(queueStatus, 'Could not save: ' + err.message);
               });
-          });
+          }
+
+          function copyToReview() {
+            unpostBtn.disabled = true;
+            var copy = {
+              // A fresh id off the clock, in the shape the routine files, so a
+              // copy sorts with everything else and its #edit= link works.
+              id: stampedCandidateId(),
+              headline: post.headline || '',
+              url: post.url || '',
+              source: post.source || null,
+              published: post.published || null,
+              blurb: post.blurb || '',
+              why: post.why || null,
+              topics: Array.isArray(post.topics) ? post.topics : null,
+              image: post.image || null,
+              platforms: Array.isArray(post.platforms) ? post.platforms : null,
+              confidence: typeof post.confidence === 'number' ? post.confidence : null,
+              status: 'review'
+            };
+            return insertPost(copy)
+              .then(function () {
+                return loadQueue().then(function () {
+                  flash(queueStatus, 'Copied to Review');
+                });
+              })
+              .catch(function (err) {
+                unpostBtn.disabled = false;
+                var raw = String(err && err.message || '');
+                flash(queueStatus, /23505|duplicate key/i.test(raw)
+                  ? 'That url is already filed, so it cannot be copied. Only a gift url may '
+                    + 'repeat. Use Move to Review instead.'
+                  : 'Could not copy: ' + raw);
+              });
+          }
           actions.appendChild(unpostBtn);
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
@@ -4438,8 +4543,31 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
 
       // el keeps its own classes and type; this only swaps its contents.
+      // NOTHING IS EDITABLE ON A DECIDED CANDIDATE (2026-08-19). A posted row is
+      // a RECEIPT: its caption is the text that actually went out, and letting
+      // somebody retype it makes the record disagree with the post. A skipped
+      // row is a decision already taken, so editing it is work spent on a thing
+      // nobody is going to publish; the way to act on one is to move it back to
+      // Review, which every skipped card already offers.
+      //
+      // THE GATE IS INSIDE makeEditable, not at its four call sites. Put it at
+      // the callers and the fifth field somebody adds will be editable in the
+      // Posted tab and nobody will notice for a month. Here it cannot be
+      // forgotten, and the field still renders exactly as it does anywhere
+      // else, minus the affordance: makeStatic keeps the look and adds a title
+      // saying why, because a field that quietly ignores a click is
+      // indistinguishable from one that is broken.
       function makeEditable(el, post, key, opts) {
         var options = opts || {};
+        var decided = statusOf(post);
+        if (decided === 'posted' || decided === 'skipped') {
+          el.dataset.placeholder = options.placeholder || ('add ' + key);
+          return makeStatic(el, decided === 'posted'
+            ? 'This candidate has been posted, so its card is the record of what went out. '
+              + 'Not editable. Use Move to Review to put it back in the queue.'
+            : 'This candidate was skipped, so nothing here is going to be published. '
+              + 'Not editable. Use Move to Review to put it back in the queue.');
+        }
         el.classList.add('ed');
         el.tabIndex = 0;
         el.dataset.placeholder = options.placeholder || ('add ' + key);
