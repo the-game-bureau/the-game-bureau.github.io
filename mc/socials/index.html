@@ -3427,12 +3427,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var cardDomain = document.createElement('span');
         cardDomain.className = 'post-card-domain';
         cardDomain.textContent = post.url ? linkDomain(post.url) : 'no link yet';
-        // The domain shows the host and edits the whole address, which is the
-        // pair a person actually wants: read where it goes, fix what it is.
-        makeEditable(cardDomain, post, 'url', {
-          placeholder: 'no link yet',
-          title: 'The destination web page. Click to edit; a missing https:// is added.'
-        });
+        // The domain shows the host and nothing more. It named the destination
+        // AND edited the whole address until 2026-08-19; it is read-only now,
+        // like everything else the bot recorded.
+        cardDomain.dataset.placeholder = 'no link yet';
+        makeStatic(cardDomain, 'Where this candidate points, as recorded. Not editable here: '
+          + 'changing it does not fix a story, it makes the row a different one. '
+          + 'The Edit dialog can still change it.');
         domainRow.appendChild(cardDomain);
 
         // THE ONLY THING ON THIS CARD THAT STILL NAVIGATES. It has to exist:
@@ -3752,25 +3753,31 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // is broken.
       //
       // WHAT IS OFF AND WHY (2026-08-19):
-      //   headline, source,          part of the candidate AS RECORDED. They
+      //   url, headline, source,     part of the candidate AS RECORDED. They
       //   published, topics          describe somebody else's page, so typing
       //                              over them does not correct anything, it
       //                              makes our copy disagree with the original.
+      //                              The url is the strongest case of all:
+      //                              changing it does not fix a story, it makes
+      //                              the row a DIFFERENT story while keeping
+      //                              the caption, the score and the reasoning
+      //                              somebody wrote about the first one.
       //   media, platforms           nothing in this page reads either one.
       //                              `media` has no references at all and
       //                              postTargets() decides from `image` alone,
       //                              so editing them accomplished nothing.
       //   confidence                 the bot's own judgement of its own pick.
       //
-      // STILL EDITABLE, and it is now exactly the three things that ARE the post
-      // plus the one note that is ours: the caption and the url (which are
-      // literally what goes out), the image (the one field you cannot check by
-      // reading, and the difference between two destinations and three), and the
-      // reasoning, which is internal and never published.
+      // STILL EDITABLE: the caption, the image, and the reasoning. WHAT WE WROTE,
+      // not what we found. The caption is the copy that gets published, the
+      // reasoning is the internal note, and the image is the one exception on
+      // grounds of use rather than authorship: it is the field you cannot check
+      // by reading, it fails quietly, and it is the difference between reaching
+      // two accounts and three.
       //
-      // NOTHING THE BOT RECORDED ABOUT SOMEBODY ELSE'S PAGE IS EDITABLE ANY
-      // MORE. That is the whole rule now, and it is a cleaner one than the list
-      // it replaced.
+      // NOTHING THE BOT RECORDED ABOUT SOMEBODY ELSE'S PAGE IS EDITABLE HERE.
+      // The Edit dialog still changes all of it, which is the escape hatch for a
+      // genuinely bad capture; the card is for the pass you make before posting.
       function makeStatic(el, why) {
         el.classList.add('ed-off');
         if (!cleanText(el.textContent)) el.classList.add('is-blank');
