@@ -598,6 +598,19 @@
     }
 
     /* The label sits inline so a one-line note stays one line. */
+    /* The caption's own label, matching .post-why-label so TGB SAYS: and
+       BOT SAYS: read as one pair. It sits on a 1.01rem line rather than a
+       0.82rem one, so it needs its own vertical alignment to sit on the same
+       baseline as the sentence beside it. */
+    .post-caption-label {
+      margin-right: 8px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
     .post-why-label {
       margin-right: 7px;
       font-family: "IBM Plex Mono", monospace;
@@ -1806,7 +1819,7 @@ FILL THE ROW LIKE THIS:
 - source: The Game Bureau Gift Shop
 - published: today's date. It is our shelf, not a publication date.
 - blurb: the caption, written to the same rules as step 4: curious, specific, dry, no hashtags, no exclamation marks. Say what the thing IS and why it is worth a look. Name the city when the gift belongs to one. Never write "buy", "shop now", "available now" or a price: it is a thing worth seeing that happens to be for sale.
-- why: one line, and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out.
+- why: one line in the first person, as you talking to us, and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out. "I picked this for the gift slot; it last went out on 12 August."
 - topics: the tags that fit the object, from the same list. A city guide is travel; a team scarf is sports; a cookbook is food.
 - media: 'photo' when image_url is set, otherwise 'text'.
 - image: image_url exactly as stored. It is already absolute. If it is empty, leave image out, but prefer a gift that has one, since a shop post with no picture is a weak post.
@@ -1853,7 +1866,27 @@ clearest tell that a machine wrote the line, and these go out under our name
 on our own accounts. This prompt does not use one either, deliberately: if
 the instructions were littered with them you would copy the habit.
 
-Also write a one-line "why": an internal note for the human, never posted.
+Also write a one-line "why". It is your note to the human reading the queue,
+and it is never posted.
+
+WRITE IT IN THE FIRST PERSON, as yourself talking to us. The queue labels this
+line "BOT SAYS:", so it is read as you speaking. Say I.
+
+  yes  I picked this for the tie to our Denver tape.
+  yes  I liked the photo more than the story, so score it low.
+  yes  I could not find a second source for the closure date.
+  no   Picked for the tie to the Denver tape.
+  no   This story ties to our Denver tape.
+  no   The candidate was selected due to its relevance.
+
+Say what you did, what you noticed, and what you were unsure about, and name
+the doubt out loud when there is one. An honest hesitation is worth more to the
+human than a confident sentence, because it is the thing they would otherwise
+have to find out for themselves.
+
+Still one line, still no em dash, and still not a pitch: this is read by
+somebody deciding whether to post, not by an audience. The nested "why" inside
+the platforms array is a different field and stays a short fragment.
 
 5. SCORE YOUR CONFIDENCE
 
@@ -1907,7 +1940,7 @@ values
    'Publication Name',
    '2026-08-04',
    'The caption we would post.',
-   'One line, internal note for the human.',
+   'I picked this for the walking-path tie in; I could not confirm the opening date.',
    array['travel', 'weird']::text[],
    'photo',
    'https://example.com/media/og.jpg',
@@ -1930,6 +1963,9 @@ RULES THE STATEMENT MUST FOLLOW:
   `'Chess.com''s'`. This is the single most likely way to break the paste, and
   headlines and captions are full of them. Re-read your own strings for it
   before you print.
+- why is one line in the FIRST PERSON, as you talking to the human. See step 4.
+  The queue labels it "BOT SAYS:", so a note written about the story instead of
+  by you reads as though somebody else wrote it.
 - topics is `array['a', 'b']::text[]`, lowercase, from the list in step 2.
 - platforms is a JSON array of {name, why} objects, cast `::jsonb`. Use double
   quotes inside it, single quotes around it.
@@ -3513,14 +3549,33 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var preview = document.createElement('div');
         preview.className = 'post-preview';
 
+        // TGB SAYS: on the caption, to pair with BOT SAYS: on the note above
+        // (2026-08-19). The two lines are the only sentences on the card either
+        // of us wrote, and until now nothing said which was which: the caption
+        // is OURS and goes out under our name, the note is the bot's and never
+        // leaves this page. Labelling one and not the other left the louder of
+        // the two unattributed.
+        //
+        // The label is a SIBLING of the editable span, not inside it, or the
+        // box would open holding "TGB says: A mile of new boardwalk..." and the
+        // label would be saved into the caption.
         var caption = document.createElement('p');
         caption.className = 'post-caption';
-        caption.textContent = post.blurb || '';
-        makeEditable(caption, post, 'blurb', {
+
+        var captionLabel = document.createElement('span');
+        captionLabel.className = 'post-caption-label';
+        captionLabel.textContent = 'TGB says:';
+        caption.appendChild(captionLabel);
+
+        var captionText = document.createElement('span');
+        captionText.className = 'post-caption-text';
+        captionText.textContent = post.blurb || '';
+        makeEditable(captionText, post, 'blurb', {
           multiline: true,
           placeholder: 'no caption yet',
           title: 'Our caption, the line that actually gets published. Click to edit; Ctrl+Enter saves.'
         });
+        caption.appendChild(captionText);
         preview.appendChild(caption);
 
         // One anchor wrapping the whole preview card — the same target shape a
@@ -4046,15 +4101,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // SOURCE AND PUBLISHED ARE NOT HERE. They already sit on the preview card,
       // where a link preview naturally shows them, and having them in both
       // places showed every candidate its outlet and its date twice.
-      // IMAGE URL LEADS, and the three read-only tags follow it. It is the only
+      // TOPICS ARE NOT HERE. They are the pills at the right of the kicker, and
+      // a cell repeating them four inches lower said the same two words twice
+      // on every card. The strip carries what nothing else on the card shows.
+      //
+      // IMAGE URL LEADS, and the two read-only tags follow it. It is the only
       // one of the four you can change and the only one that decides anything
       // (postTargets() drops Instagram without it), so it takes the first line;
       // topics, media and platforms are a footnote about the candidate and read
       // as one underneath it.
       var CARD_FIELDS = [
         { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true },
-        { key: 'topics',    label: 'Topics',    placeholder: 'none', readOnly:
-          'The tags the bot filed it under. Not editable here: they are part of the candidate as recorded.' },
         { key: 'media',     label: 'Media',     placeholder: 'none', readOnly:
           'What kind of media the article carries. Nothing on this page reads it, so there is nothing an edit could change.' },
         { key: 'platforms', label: 'Platforms', placeholder: 'none', readOnly:
