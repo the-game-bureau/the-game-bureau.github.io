@@ -1356,7 +1356,8 @@
     .item-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 
     .queue-player { width: 100%; height: 80px; border: 0; }
-    .queue-noplayer { display: flex; flex-wrap: wrap; gap: 8px; }
+    .queue-noplayer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .queue-noplayer-how { flex-basis: 100%; font-size: 0.78rem; color: var(--muted); }
 
     .track-findings { margin: 6px 0; }
     .issue-actions { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -3033,6 +3034,16 @@ prose before or after the code block.</textarea>
         if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
       }
 
+      function spotifyIdFrom(value) {
+        var raw = text(value);
+        if (!raw) return '';
+        var base22 = /^[A-Za-z0-9]{22}$/;
+        if (base22.test(raw)) return raw;
+        var m = raw.match(/(?:open\.spotify\.com\/(?:intl-[a-z-]+\/)?track\/|spotify:track:)([A-Za-z0-9]{22})/);
+        if (m) return m[1];
+        return '';
+      }
+
       function trackPlayer(song) {
         var id = text(song && song.spotify_id) || text(song && song.spotifyId);
         if (id) {
@@ -3052,6 +3063,10 @@ prose before or after the code block.</textarea>
         box.appendChild(actionLink(
           'https://open.spotify.com/search/' + encodeURIComponent([text(song.title), text(song.artist)].join(' ')),
           'Search Spotify', true));
+        var how = document.createElement('span');
+        how.className = 'queue-noplayer-how';
+        how.textContent = 'Find it, press Share, then paste the link into the Spotify box on the row.';
+        box.appendChild(how);
         return box;
       }
 
@@ -4325,12 +4340,17 @@ prose before or after the code block.</textarea>
             artist: text(artistEl.value),
             position: Number(posEl.value) || 0,
             blurb: text(blurbEl.value) || null,
-            spotify_id: text(idEl.value) || null,
+            spotify_id: spotifyIdFrom(idEl.value) || null,
             explicit: !!explicitEl.checked
           };
           if (apply) apply(fields);
           if (!fields.title || !fields.artist) {
             setNotice('a track needs a title and an artist', 'error');
+            if (input && 'value' in input) input.value = original;
+            return;
+          }
+          if (text(idEl.value) && !fields.spotify_id) {
+            setNotice('that is not a Spotify track id. Paste the whole share link, or the 22-character id out of it', 'error');
             if (input && 'value' in input) input.value = original;
             return;
           }
@@ -4455,6 +4475,9 @@ prose before or after the code block.</textarea>
         var blurbEl = blurbField(text(song.blurb));
 
         var idEl = field('track-input--id', text(song.spotifyId), 'none', 'Spotify id');
+        idEl.title = 'Paste the Spotify share link straight in and the 22-character id is taken out of it.'
+          + ' A raw id or a spotify:track: URI works too. Blank is always allowed and is better than a guess:'
+          + ' a made-up id passes every check and silently plays nothing.';
 
         var explicitWrap = document.createElement('span');
         explicitWrap.className = 'track-explicit';

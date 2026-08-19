@@ -172,6 +172,15 @@ Set 2026-08-15, and a sixth was added on 2026-08-18. One schedule, staggered thr
 **REVIEW_HOURS / BOOK_PULL_STALE_HOURS = 14 is correct again.** Both staleness thresholds assume a 12-hour cadence, and the soundtrack bot had silently drifted to `30 11` once daily, which would have painted its button red after every healthy run.
 
 ---
+### THE SPOTIFY BOX TAKES A SHARE LINK (2026-08-18)
+
+208 of 1,536 tracks have no `spotify_id`, and the room's only help was a **Search Spotify** link: you found the track, then had to dig the 22-character id out of the URL yourself and paste just that. The box now takes **whatever Spotify hands you** and pulls the id out of it: a share link, a localised one (`/intl-de/track/...`), a `spotify:track:` URI, or the bare id.
+
+- **`spotifyIdFrom(value)` is the one parser** and `commit` runs the box through it before saving. **An ALBUM or PLAYLIST link is refused**, which matters because it is the easy mistake and its id is the same shape as a track's: stored, it would pass the CHECK constraint and silently play nothing, which is the exact failure the whole verify-or-omit rule exists to prevent.
+- **Something unparseable is refused with a sentence** rather than sent on to fail against `soundtrack_songs_spotify_id_check`, which reported as a raw constraint name.
+- **Blank is still always allowed and still better than a guess.** The tooltip says so, because that is the rule the routine prompts carry and the box is where a human is most tempted to break it.
+- The no-player box now says what to actually do: *"Find it, press Share, then paste the link into the Spotify box on the row."*
+
 ### THREE SILENT FAILURES IN THE TAPE ROOM, ALL GIVEN A VOICE (2026-08-18)
 
 Reported as "when I try to change the title it doesn't work", with **nothing on screen at all**: no error, no save. Three places could produce exactly that, and all three now say something. **A write that fails without saying so is a bug in itself**, whichever one was firing.
