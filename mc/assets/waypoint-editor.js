@@ -205,6 +205,16 @@
        groups, which is the whole mechanism: two buttons that belong together
        read as a pair without a rule, a box or a label. */
     '.dlg-group { display: inline-flex; align-items: center; gap: 6px; }',
+    /* A REAL RULE, not a wider gap. The bands were separated by 14px against
+       6px inside, which is a difference you have to measure rather than see. */
+    '.dlg-rule { align-self: stretch; width: 1px; min-height: 22px; background: var(--line); flex: 0 0 auto; }',
+    /* THE HELPERS ARE QUIETER THAN THE DECISIONS. Look up, Find online and
+       Duplicate only act on the form in front of you; Close and Save end the
+       dialog and Delete destroys the row. Six buttons at one weight made those
+       look like six equal choices. No border and no ground until you go near
+       them, so they read as available rather than as offered. */
+    '#wpDlg .btn.ghost, #findDlg .btn.ghost { border-color: transparent; background: none; color: rgba(var(--bic-blue-rgb), 0.86); }',
+    '#wpDlg .btn.ghost:hover:not(:disabled), #findDlg .btn.ghost:hover:not(:disabled) { border-color: var(--line); background: var(--paper, #fff); color: var(--ink); }',
     /* MAPS AND LOCATE SIT ON THE COORDINATES FIELD, because both are about that
        one value and neither is about the row. Small, quiet, and beside the thing
        they act on. */
@@ -260,17 +270,26 @@
     // because it is the one control here stating what the row currently is:
     // state, then the things you can do. It stays in this row rather than in the
     // form because it WRITES IMMEDIATELY and the fields do not.
-    // THREE BANDS, IN THE ORDER YOU WORK: go and get the facts, then act on
-    // this row, then leave. They were eight identical buttons in one line, so
-    // nothing said that Delete is irreversible and Fill is free, or that Maps
-    // opened a tab while Save wrote the database.
+    // ORDERED BY CONSEQUENCE, and the two ends are the two ends on purpose.
+    //
+    // DELETE IS ALONE ON THE FAR LEFT, as far from SAVE as the row goes. It is
+    // the only irreversible control here and it used to sit fourth of six, one
+    // button from Close, coloured red in the middle of the line where it pulled
+    // the eye to the least likely thing you came to do. Destructive-hard-left,
+    // primary-hard-right is the arrangement most dialogs settle on, and the
+    // reason is the gap between them.
+    //
+    // THE MIDDLE IS HELP: two that only fill the form in front of you, and one
+    // that copies it. None of them ends the dialog.
+    //
+    // THE RIGHT IS HOW YOU LEAVE. Close discards, Save commits, and Save is the
+    // only filled button in the room.
+    '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
+    '      <span class="dlg-rule" role="separator" aria-orientation="vertical"></span>',
     '      <span class="dlg-group">',
-    '        <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in every blank field, coordinates included">Look up</button>',
-    '        <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box and open a result as a draft">Find online</button>',
-    '      </span>',
-    '      <span class="dlg-group">',
-    '        <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
-    '        <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. Shelving is usually what you want instead.">Delete</button>',
+    '        <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set and fill in every blank field, coordinates included">Look up</button>',
+    '        <button class="btn small ghost" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box and open a result as a draft">Find online</button>',
+    '        <button class="btn small ghost" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
     '      </span>',
     '      <span class="dlg-spacer"></span>',
     '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
