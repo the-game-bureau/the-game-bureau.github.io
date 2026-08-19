@@ -720,6 +720,9 @@
     .tool-modal-panel--ask { width: min(430px, calc(100vw - 32px)); }
 
     .image-body { display: grid; gap: 12px; }
+    .image-url-row { display: flex; align-items: stretch; gap: 8px; }
+    .image-url-row input { flex: 1 1 auto; min-width: 0; }
+    .image-url-row .btn { flex: 0 0 auto; white-space: nowrap; }
     /* Big enough to judge. The whole reason this dialog exists is that a
        one-line cell of text cannot tell you the url points at a masthead. */
     .image-shot {
@@ -1719,7 +1722,14 @@
           <div class="image-shot" id="imageShot"></div>
           <label class="field">
             <span class="field-label">Image URL</span>
-            <input type="text" id="imageUrlBox" placeholder="https://example.com/media/og.jpg" spellcheck="false">
+            <span class="image-url-row">
+              <input type="text" id="imageUrlBox" placeholder="https://example.com/media/og.jpg" spellcheck="false">
+              <!-- Beside the box rather than in the foot, because it acts on
+                   this one value while the foot acts on the whole candidate.
+                   Same reasoning as OPEN beside the waypoint editor's Source. -->
+              <button class="btn small" id="imageFetchBtn" type="button"
+                      title="Read the share image off the story's own page">Fetch from page</button>
+            </span>
           </label>
           <p class="image-note">
             Blank is always allowed and is better than a guess. Without one the
@@ -3418,6 +3428,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
         imageEditing = { post: post, stableId: stableId || postId(post) };
         imageUrlBox.value = String(post.image || '');
+        // Greyed rather than removed: its absence would be indistinguishable
+        // from the feature not existing, and the tooltip says why it is off.
+        var fetchBtn = document.getElementById('imageFetchBtn');
+        if (fetchBtn) {
+          var hasUrl = !!String(post.url || '').trim();
+          fetchBtn.disabled = !hasUrl;
+          fetchBtn.title = hasUrl
+            ? 'Read the share image off the story\'s own page'
+            : 'This candidate has no link, so there is no page to read';
+        }
         imageStatusText('');
         paintImageShot();
         openTool(imageCard, imageBackdrop, imageUrlBox);
@@ -3455,6 +3475,55 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
         img.src = value;
         imageShot.appendChild(img);
+      }
+
+      // ── FETCH THE SHARE IMAGE OFF THE STORY'S OWN PAGE ───────────────────
+      // The durable answer to `image` arriving empty. It was the AI's job while
+      // it had the article open, and whether that worked depended entirely on
+      // whether its browsing tool handed back the page SOURCE or a cleaned
+      // summary with the head stripped out. This page cannot do it either: it is
+      // static HTML and CORS forbids reading another origin's markup. So it is a
+      // function, and the answer is the same whichever AI filed the candidate.
+      //
+      // IT FILLS THE BOX, IT DOES NOT SAVE. You look at the picture and then
+      // decide, which is the entire reason this dialog shows one.
+      var OG_ENDPOINT = 'scrape-og-image';
+
+      async function fetchImageFromPage() {
+        if (!imageEditing) return;
+        var url = String((imageEditing.post && imageEditing.post.url) || '').trim();
+        if (!url) {
+          imageStatusText('This candidate has no link, so there is no page to read.');
+          return;
+        }
+        var btn = document.getElementById('imageFetchBtn');
+        if (btn) btn.disabled = true;
+        imageStatusText('Reading the page...');
+        try {
+          var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + OG_ENDPOINT, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ url: url })
+          });
+          var body = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(body.error || ('HTTP ' + res.status));
+          if (!body.image) {
+            // A REASON, NOT A SHRUG. The function distinguishes "this page
+            // publishes no share image" from "the page would not answer", and
+            // those want different next moves.
+            imageStatusText(body.reason || 'No share image found on that page.');
+            return;
+          }
+          imageUrlBox.value = body.image;
+          paintImageShot();
+          imageStatusText(body.suspect
+            ? body.suspect + ' Look at it before saving.'
+            : 'Found the page\'s ' + (body.from || 'share image') + '. Look at it, then Save.');
+        } catch (err) {
+          imageStatusText('Could not read that page: ' + (err.message || err));
+        } finally {
+          if (btn) btn.disabled = false;
+        }
       }
 
       function saveImageDialog() {
@@ -5733,6 +5802,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           b.addEventListener('click', saveImageDialog);
         });
       }
+      var imageFetchBtn = document.getElementById('imageFetchBtn');
+      if (imageFetchBtn) imageFetchBtn.addEventListener('click', fetchImageFromPage);
       if (imageUrlBox) {
         imageUrlBox.addEventListener('input', paintImageShot);
         imageUrlBox.addEventListener('keydown', function (e) {
