@@ -178,6 +178,11 @@
     '.wp-form .wp-field-act { flex: 0 0 auto; align-self: stretch; padding: 0 11px; }',
     '.wp-form label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }',
     '.wp-form input, .wp-form textarea { width: 100%; font: inherit; font-size: 0.9rem; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; }',
+    /* LIGHTER THAN THE TEXT, and clearly so. A placeholder inherits near enough
+       the input's own colour by default in some engines, which makes an empty
+       box look like a filled one at a glance -- the exact misreading that made
+       the address example look like a stored value. */
+    '.wp-form input::placeholder, .wp-form textarea::placeholder { color: rgba(var(--bic-blue-rgb), 0.38); opacity: 1; }',
     '.wp-form textarea { min-height: 92px; resize: vertical; }',
     /* The red a walking tour actually needs: a field left blank that a path
        cannot do without. You cannot walk to a waypoint with no address, and one
@@ -226,6 +231,14 @@
        `#wpDlg .btn` carries an id and beats a class outright whatever the
        order. The rest of each room's buttons are untouched. */
     '#wpDlg .btn, #findDlg .btn { appearance: none; display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--paper, #fff); color: var(--ink); font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 9px; cursor: pointer; text-decoration: none; }',
+    /* [hidden] HAS TO BE RE-ASSERTED, and this is the third time this project
+       has been bitten by it. `display: inline-flex` above is an author rule and
+       `[hidden]` is only a UA-sheet `display: none`, so the author rule wins and
+       `btn.hidden = true` silently does nothing. It showed up as DELETE offered
+       on a waypoint that has not been created yet. Same trap the public
+       soundtracks deck hit with .sx-modal--inline and the admin dialogs hit with
+       section.tool-modal-panel:not([hidden]). */
+    '#wpDlg .btn[hidden], #findDlg .btn[hidden] { display: none; }',
     '#wpDlg .btn:hover:not(:disabled), #findDlg .btn:hover:not(:disabled) { border-color: var(--ink); }',
     '#wpDlg .btn:disabled, #findDlg .btn:disabled { opacity: 0.45; cursor: default; }',
     '#wpDlg .btn.primary, #findDlg .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }',
@@ -517,7 +530,11 @@
       wpField('Description', 'description', { full: true, multiline: true,
         placeholder: 'What a visitor standing here is told' }),
       wpField('Address', 'address', { full: true,
-        placeholder: '200 E Colfax Ave',
+        // A PLAINLY FAKE ADDRESS. It was "200 E Colfax Ave", which is the real
+        // Colorado State Capitol and is a real row in this library, so the hint
+        // read as a value somebody had typed rather than as an example of the
+        // shape wanted.
+        placeholder: '123 Main St',
         hint: 'Street only - city, state and ZIP have their own fields. A Plus Code is allowed where there is no street.' }),
       wpField('City', 'city', { list: 'pathCityList' }),
       // NO STATE BOX. The city carries it: public.cities holds the canonical
