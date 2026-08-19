@@ -433,19 +433,39 @@
        element it always was, painted the same way; the only standing hint is a
        dotted underline that appears on hover, so a card at rest still reads as
        a post rather than as a form. */
-    .ed { cursor: text; border-radius: 3px; }
-    .ed:hover {
+    /* AN EDITABLE FIELD IS BLACK AND BOLD, and that is the whole standing signal
+       for which three things on a card you can change. It was a dotted underline
+       on hover, which is invisible until you go looking and told you nothing at
+       rest: with eight of the eleven fields now read-only, "what can I touch"
+       is a question the card should answer before you ask it.
+       Black rather than the room's blue: everything else here is some weight of
+       --ink, so the one colour nothing else uses is the one that reads as a
+       different KIND of thing rather than as emphasis. */
+    /* `.post .ed`, not `.ed`: several of the things this lands on set their own
+       colour (.post-field-val is var(--ink)) at the same one-class weight, and
+       those rules come later in this sheet, so a bare `.ed` lost the tie and the
+       image url stayed blue while the caption went black. */
+    .post .ed {
+      cursor: text;
+      border-radius: 3px;
+      color: #000;
+      font-weight: 700;
+    }
+    .post .ed:hover {
       box-shadow: inset 0 -1px 0 0 rgba(var(--bic-blue-rgb), 0.35);
       background: rgba(var(--bic-blue-rgb), 0.04);
     }
-    .ed:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .post .ed:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     /* An empty one still has to be clickable, so it keeps a placeholder rather
        than collapsing to nothing. */
-    .ed:empty::before,
-    .ed.is-blank::before {
+    .post .ed:empty::before,
+    .post .ed.is-blank::before {
       content: attr(data-placeholder);
       color: rgba(var(--bic-blue-rgb), 0.45);
       font-style: italic;
+      /* An empty field's placeholder is an absence, not a value: bolding "no
+         caption yet" would shout about nothing. */
+      font-weight: 400;
     }
     /* The box that replaces it inherits the type it is standing in for, so the
        line does not jump when you click it. */
@@ -461,6 +481,9 @@
       box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), 0.1);
     }
     textarea.ed-input { resize: vertical; min-height: 3.2em; display: block; }
+    /* Same weight and colour as the text it replaces, so the line does not jump
+       when the box opens. */
+    .ed-input { color: #000; font-weight: 700; }
     .ed-saving { opacity: 0.55; }
     /* A read-only field keeps its look and loses the affordance: no pointer, no
        hover hint. It still shows its placeholder when empty, so "nothing here"
@@ -3878,14 +3901,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // SOURCE AND PUBLISHED ARE NOT HERE. They already sit on the preview card,
       // where a link preview naturally shows them, and having them in both
       // places showed every candidate its outlet and its date twice.
+      // IMAGE URL LEADS, and the three read-only tags follow it. It is the only
+      // one of the four you can change and the only one that decides anything
+      // (postTargets() drops Instagram without it), so it takes the first line;
+      // topics, media and platforms are a footnote about the candidate and read
+      // as one underneath it.
       var CARD_FIELDS = [
+        { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true },
         { key: 'topics',    label: 'Topics',    placeholder: 'none', readOnly:
           'The tags the bot filed it under. Not editable here: they are part of the candidate as recorded.' },
         { key: 'media',     label: 'Media',     placeholder: 'none', readOnly:
           'What kind of media the article carries. Nothing on this page reads it, so there is nothing an edit could change.' },
         { key: 'platforms', label: 'Platforms', placeholder: 'none', readOnly:
-          'Advice, not routing: the Post button decides for itself from whether there is an image. Nothing reads this, so there is nothing an edit could change.' },
-        { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true }
+          'Advice, not routing: the Post button decides for itself from whether there is an image. Nothing reads this, so there is nothing an edit could change.' }
       ];
 
       function buildFieldsRow(post) {
