@@ -215,7 +215,19 @@
     '.dlg-id { font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--muted); }',
     '.dlg-note { margin: 0; font-size: 0.78rem; color: var(--muted); }',
     '.dlg-note.error { color: var(--warn); }',
-    '.dlg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }',
+    '.dlg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }',
+    /* A BAND, not a row. The gap INSIDE a group is tighter than the gap between
+       groups, which is the whole mechanism: two buttons that belong together
+       read as a pair without a rule, a box or a label. */
+    '.dlg-group { display: inline-flex; align-items: center; gap: 6px; }',
+    '.dlg-head-state { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }',
+    /* MAPS AND LOCATE SIT ON THE COORDINATES FIELD, because both are about that
+       one value and neither is about the row. Small, quiet, and beside the thing
+       they act on. */
+    '.wp-readonly-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }',
+    '.wp-inline-act { appearance: none; border: 0; background: none; padding: 0; margin: 0; font: inherit; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bic-blue, #2d4880); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }',
+    '.wp-inline-act:hover { color: var(--ink); }',
+    '.wp-inline-act[disabled] { opacity: 0.45; cursor: default; text-decoration: none; }',
     '.dlg-spacer { flex: 1 1 auto; }',
     /* THE EDITOR'S BUTTONS ARE THE EDITOR'S, and they are ID-SCOPED so they
        win. Every room defines .btn its own way: the Path Builder uppercases at
@@ -246,7 +258,17 @@
     '  <div class="dlg-panel dlg-panel--wide">',
     '    <div class="dlg-head">',
     '      <h2 class="dlg-title" id="wpDlgTitle">Waypoint</h2>',
-    '      <span class="dlg-id" id="wpDlgId"></span>',
+    // THE SWITCH LIVES IN THE HEADER, not in the button row. It is a STATE, and
+    // it WRITES IMMEDIATELY; every other control in that row waits for Save, so
+    // sitting among them it read as one more pending change. Up here beside the
+    // WPID it reads as what this row currently is, which is what it is.
+    '      <div class="dlg-head-state">',
+    '        <button class="wp-toggle" id="wpArchiveBtn" type="button" role="switch" aria-checked="false">',
+    '          <span class="wp-toggle-track"><span class="wp-toggle-knob"></span></span>',
+    '          <span class="wp-toggle-word" id="wpArchiveWord">Live</span>',
+    '        </button>',
+    '        <span class="dlg-id" id="wpDlgId"></span>',
+    '      </div>',
     '    </div>',
     '    <div class="wp-form" id="wpForm"></div>',
     '    <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>',
@@ -257,16 +279,18 @@
     // because it is the one control here stating what the row currently is:
     // state, then the things you can do. It stays in this row rather than in the
     // form because it WRITES IMMEDIATELY and the fields do not.
-    '      <button class="wp-toggle" id="wpArchiveBtn" type="button" role="switch" aria-checked="false">',
-    '        <span class="wp-toggle-track"><span class="wp-toggle-knob"></span></span>',
-    '        <span class="wp-toggle-word" id="wpArchiveWord">Live</span>',
-    '      </button>',
-    '      <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in any blank fields">Fill</button>',
-    '      <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box">Find online</button>',
-    '      <button class="btn small" id="wpLocateBtn" type="button" title="Find this waypoint\'s coordinates and store them">Locate</button>',
-    '      <button class="btn small" id="wpMapsBtn" type="button" title="Open this address in Google Maps">Maps</button>',
-    '      <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
-    '      <button class="btn small warn" id="wpDeleteBtn" type="button">Delete</button>',
+    // THREE BANDS, IN THE ORDER YOU WORK: go and get the facts, then act on
+    // this row, then leave. They were eight identical buttons in one line, so
+    // nothing said that Delete is irreversible and Fill is free, or that Maps
+    // opened a tab while Save wrote the database.
+    '      <span class="dlg-group">',
+    '        <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in every blank field, coordinates included">Look up</button>',
+    '        <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box and open a result as a draft">Find online</button>',
+    '      </span>',
+    '      <span class="dlg-group">',
+    '        <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
+    '        <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. Shelving is usually what you want instead.">Delete</button>',
+    '      </span>',
     '      <span class="dlg-spacer"></span>',
     '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '      <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>',
@@ -475,11 +499,47 @@
     const pl = document.createElement('label');
     pl.className = 'inline';
     pl.textContent = 'Coordinates';
+    const located = row.lat != null && row.lon != null;
     const pv = document.createElement('div');
-    pv.className = 'wp-readonly';
-    pv.textContent = (row.lat != null && row.lon != null)
+    pv.className = 'wp-readonly-row';
+    const pt = document.createElement('span');
+    pt.className = 'wp-readonly';
+    pt.textContent = located
       ? (Number(row.lat).toFixed(6) + ', ' + Number(row.lon).toFixed(6))
-      : (wpCols.latlon ? 'not located - press Locate' : 'no column');
+      : (wpCols.latlon ? 'not located' : 'no column');
+    pv.appendChild(pt);
+
+    // LOCATE AND MAPS BELONG TO THIS FIELD. They were buttons in the action row
+    // among Fill, Duplicate and Delete, which made four different kinds of thing
+    // look alike. Both are only ever about the coordinate pair, so they sit on
+    // it.
+    //
+    // LOCATE SURVIVES THE MERGE for one job: RE-locating a row that already has
+    // a point. Look up fills BLANKS only and will not move a stored pair, which
+    // is correct -- a point somebody dragged into place must not be overwritten
+    // by a guess -- so without this there would be no way to say "that pin is
+    // wrong, go again" short of clearing the address.
+    if (wpCols.latlon) {
+      const loc = document.createElement('button');
+      loc.type = 'button';
+      loc.className = 'wp-inline-act';
+      loc.textContent = located ? 'Re-locate' : 'Locate';
+      loc.title = located
+        ? 'Geocode the address again and REPLACE the stored point.'
+        : 'Find this waypoint\'s coordinates from its address and store them.';
+      loc.addEventListener('click', locateWaypoint);
+      pv.appendChild(loc);
+    }
+    // A DOOR, so it is drawn as a link rather than a button: it opens a tab and
+    // changes nothing here.
+    const maps = document.createElement('button');
+    maps.type = 'button';
+    maps.className = 'wp-inline-act';
+    maps.textContent = 'Maps';
+    maps.title = 'Open this place in Google Maps';
+    maps.addEventListener('click', openWaypointInMaps);
+    pv.appendChild(maps);
+
     point.append(pl, pv);
     box.appendChild(point);
 
@@ -511,7 +571,7 @@
     archiveBtn.hidden = isNew || !wpCols.archived;
     el('wpDupeBtn').hidden = isNew;
     el('wpDeleteBtn').hidden = isNew;
-    el('wpLocateBtn').hidden = !wpCols.latlon;
+
     el('wpSaveBtn').textContent = isNew ? 'Create' : 'Save';
     paintWpErrors();
     const bad = wpErrors(row);
@@ -520,7 +580,7 @@
 
   function wpBusy(on, text) {
     wpEdit.busy = !!on;
-    ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpLocateBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
+    ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
       .forEach((id) => { el(id).disabled = !!on; });
     if (text) wpNote(text, 'busy');
   }
@@ -876,7 +936,6 @@
     el('wpArchiveBtn').addEventListener('click', toggleWaypointArchived);
     el('wpDupeBtn').addEventListener('click', duplicateWaypointRow);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
-    el('wpLocateBtn').addEventListener('click', locateWaypoint);
     // Seeded with the name AND the city: "Freedom Tower" alone matches one in
     // Manhattan, and the geocoder has no idea which town you are working in.
     el('wpFindBtn').addEventListener('click', function () {
@@ -884,7 +943,6 @@
         .filter(Boolean).join(' ');
       openFindDialog(seed);
     });
-    el('wpMapsBtn').addEventListener('click', openWaypointInMaps);
     el('wpDlg').addEventListener('click', function (e) { if (e.target === el('wpDlg') && !wpEdit.busy) closeWaypointEditor(); });
 
     el('findGoBtn').addEventListener('click', runFind);

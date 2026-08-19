@@ -679,9 +679,15 @@
       var desc = await resolveDescription(place, addr, row);
       if (desc) { row.description = desc; filled.push('description'); }
     }
+    // COORDINATES COUNT AS A FILLED FIELD, and they are reported like one. They
+    // were written silently, so a row whose only gap was its point came back
+    // saying nothing had been filled while a point had in fact just landed. The
+    // editor prints this list back to the human, so a write it does not name is
+    // a write nobody sees.
     if (hasCoords && !(isFinite(Number(row.lat)) && isFinite(Number(row.lon)))) {
       row.lat = round6(lat);
       row.lon = round6(lon);
+      filled.push('coordinates');
     }
     return filled;
   }
@@ -697,7 +703,14 @@
     var options = opts || {};
     var geoFields = ['name', 'city', 'state', 'zip', 'address', 'description'];
     var blanks = geoFields.filter(function (f) { return !cleanText(row[f]); });
-    if (!blanks.length && !options.overwrite) {
+    // A MISSING POINT IS A BLANK. This checked the six text fields only, so a
+    // row with every word filled in and no coordinates answered "nothing blank
+    // to fill" and went home -- which is the single most common state a place
+    // arrives in, since an importer can copy an address and cannot geocode it.
+    // Locating is the expensive half of this function and was the half it
+    // refused to reach.
+    var noPoint = !(isFinite(Number(row.lat)) && isFinite(Number(row.lon)));
+    if (!blanks.length && !noPoint && !options.overwrite) {
       return { filled: [], zipApprox: false, error: '', complete: true };
     }
     var point = pointFor(row, options);
