@@ -451,6 +451,16 @@
     }
     textarea.ed-input { resize: vertical; min-height: 3.2em; display: block; }
     .ed-saving { opacity: 0.55; }
+    /* A read-only field keeps its look and loses the affordance: no pointer, no
+       hover hint. It still shows its placeholder when empty, so "nothing here"
+       is visible even though it cannot be filled from this page. */
+    .ed-off { cursor: default; }
+    .ed-off:empty::before,
+    .ed-off.is-blank::before {
+      content: attr(data-placeholder);
+      color: rgba(var(--bic-blue-rgb), 0.45);
+      font-style: italic;
+    }
     /* The reasoning line is italic, which is right for a quoted aside and wrong
        for something you are typing into. */
     .post-why .ed-input { font-style: normal; }
@@ -3444,10 +3454,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var cardHeadline = document.createElement('span');
         cardHeadline.className = 'post-card-headline';
         cardHeadline.textContent = post.headline || post.url;
-        makeEditable(cardHeadline, post, 'headline', {
-          placeholder: 'no headline',
-          title: 'The outlet\'s headline, read off the page. Click to edit.'
-        });
+        cardHeadline.dataset.placeholder = 'no headline';
+        makeStatic(cardHeadline, 'The outlet\'s headline as the bot recorded it. Not editable here: '
+          + 'it is their line, not ours, and the caption is the part we write.');
         body.appendChild(cardHeadline);
 
         // ALWAYS DRAWN, even when both halves are empty, so a candidate with no
@@ -3466,10 +3475,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         var srcEl = document.createElement('span');
         srcEl.textContent = cleanText(post.source || '');
-        makeEditable(srcEl, post, 'source', {
-          placeholder: 'no source',
-          title: 'The outlet this came from. Click to edit.'
-        });
+        srcEl.dataset.placeholder = 'no source';
+        makeStatic(srcEl, 'The publication this came from, as recorded. Not editable here.');
         cardMeta.appendChild(srcEl);
 
         var dot = document.createElement('span');
@@ -3740,6 +3747,34 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return patch;
       }
 
+      // READ-ONLY, AND IT STILL LOOKS LIKE THE FIELD IT IS. Same element, same
+      // type, same placeholder when it is empty; what it loses is the hover
+      // hint, the pointer and the click. It carries a title saying WHY, because
+      // a field that quietly ignores a click is indistinguishable from one that
+      // is broken.
+      //
+      // WHAT IS OFF AND WHY (2026-08-19):
+      //   headline, source, topics   part of the candidate AS RECORDED. They
+      //                              describe somebody else's page, so typing
+      //                              over them does not correct anything, it
+      //                              makes our copy disagree with the original.
+      //   media, platforms           nothing in this page reads either one.
+      //                              `media` has no references at all and
+      //                              postTargets() decides from `image` alone,
+      //                              so editing them accomplished nothing.
+      //   confidence                 the bot's own judgement of its own pick.
+      //
+      // STILL EDITABLE, deliberately: the caption and the url (they ARE the
+      // post), the image (the one field you cannot check by reading, and the
+      // difference between two destinations and three), `published`, and the
+      // reasoning note, which is ours and is never published.
+      function makeStatic(el, why) {
+        el.classList.add('ed-off');
+        if (!cleanText(el.textContent)) el.classList.add('is-blank');
+        el.title = why;
+        return el;
+      }
+
       // el keeps its own classes and type; this only swaps its contents.
       function makeEditable(el, post, key, opts) {
         var options = opts || {};
@@ -3844,10 +3879,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // where a link preview naturally shows them, and having them in both
       // places showed every candidate its outlet and its date twice.
       var CARD_FIELDS = [
-        { key: 'topics',    label: 'Topics',    placeholder: 'none' },
-        { key: 'media',     label: 'Media',     placeholder: 'none' },
-        { key: 'platforms', label: 'Platforms', placeholder: 'none',
-          title: 'Advice, not routing. Which accounts this suits; the Post button decides for itself.' },
+        { key: 'topics',    label: 'Topics',    placeholder: 'none', readOnly:
+          'The tags the bot filed it under. Not editable here: they are part of the candidate as recorded.' },
+        { key: 'media',     label: 'Media',     placeholder: 'none', readOnly:
+          'What kind of media the article carries. Nothing on this page reads it, so there is nothing an edit could change.' },
+        { key: 'platforms', label: 'Platforms', placeholder: 'none', readOnly:
+          'Advice, not routing: the Post button decides for itself from whether there is an image. Nothing reads this, so there is nothing an edit could change.' },
         { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true }
       ];
 
@@ -3864,10 +3901,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           v.className = 'post-field-val';
           v.dataset.fieldKey = f.key;
           v.textContent = fieldToText(post, f.key);
-          makeEditable(v, post, f.key, {
-            placeholder: f.placeholder,
-            title: f.title || ('Click to edit ' + f.label.toLowerCase())
-          });
+          v.dataset.placeholder = f.placeholder;
+          if (f.readOnly) {
+            makeStatic(v, f.readOnly);
+          } else {
+            makeEditable(v, post, f.key, {
+              placeholder: f.placeholder,
+              title: f.title || ('Click to edit ' + f.label.toLowerCase())
+            });
+          }
           cell.append(k, v);
           row.appendChild(cell);
         });
