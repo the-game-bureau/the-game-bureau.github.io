@@ -3256,7 +3256,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (decided === 'posted' || decided === 'skipped') {
           flash(queueStatus, decided === 'posted'
             ? 'That candidate has been posted; its card is the record of what went out. '
-              + 'Move it back to Review to change anything.'
+              + 'Use Move/Copy to Review to change anything.'
             : 'That candidate was skipped. Move it back to Review to change anything.');
           return;
         }
@@ -3819,7 +3819,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // is a glance at the post.
       //
       // `mode` is the tab being rendered: 'active' gets the Post picker and
-      // Skip; 'skipped' and 'posted' each get one Move to Review button, and
+      // Skip; 'skipped' gets Move to Review, 'posted' gets Move/Copy to Review, and
       // 'posted' also gets a receipt line saying where and when it went.
       // The card itself is identical in all three — only the action row differs,
       // so a decided candidate still shows exactly what it did say.
@@ -4328,8 +4328,14 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           var unpostBtn = document.createElement('button');
           unpostBtn.className = 'btn';
           unpostBtn.type = 'button';
-          unpostBtn.textContent = 'Move to Review';
-          unpostBtn.title = 'Not actually posted — put it back in Review';
+          // THE FACE NAMES BOTH ANSWERS, since 2026-08-19. It read "Move to
+          // Review" while it was one action and kept that name for an hour
+          // after it started asking a question, which made the dialog a
+          // surprise: you press a button that says Move and are asked something
+          // else. A control that opens a choice should say what the choice is.
+          unpostBtn.textContent = 'Move/Copy to Review';
+          unpostBtn.title = 'MOVE puts it back in the queue and drops the posted receipt; '
+            + 'COPY leaves this one posted and files a fresh copy to run again';
           // MOVE OR COPY, because they answer two different situations and the
           // old single button only served one of them.
           //
@@ -4594,7 +4600,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           el.dataset.placeholder = options.placeholder || ('add ' + key);
           return makeStatic(el, decided === 'posted'
             ? 'This candidate has been posted, so its card is the record of what went out. '
-              + 'Not editable. Use Move to Review to put it back in the queue.'
+              + 'Not editable. Use Move/Copy to Review to put it back in the queue, or to '
+              + 'file a fresh copy and leave this receipt alone.'
             : 'This candidate was skipped, so nothing here is going to be published. '
               + 'Not editable. Use Move to Review to put it back in the queue.');
         }
@@ -5314,7 +5321,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             // know whether you actually posted. The rule is to ask only when the
             // answer is genuinely unknowable from here.
             //
-            // To undo, the Posted tab carries Move to Review on every card -- a
+            // To undo, the Posted tab carries Move/Copy to Review on every card -- a
             // way back rather than a way to decline, so the record cannot drift.
             var lines = ['Posted to ' + labels.join(' and ') + '.'];
             if (failed.length) lines.push('Not posted: ' + describeFailures(reply.results));
