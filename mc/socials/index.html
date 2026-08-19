@@ -4340,19 +4340,21 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           //         true and must survive, so a second row is filed alongside
           //         it and the posted one is left exactly as it is.
           //
-          // COPY IS REALLY ONLY AVAILABLE TO GIFTS, and that is the database
-          // talking rather than a rule of ours: socials_url_idx is unique on
-          // lower(url) and skips only /gifts/?item= urls and blanks. So a second
-          // row carrying a story's url is refused, which is correct, since a
-          // story may not be posted twice; a gift may, and is exactly the thing
-          // anybody would want to re-post. The 23505 is caught and said in
-          // English rather than shown raw.
+          // COPY WORKS ON ANYTHING, since 2026-08-19. It was gifts-only for about
+          // an hour, because socials_url_idx was UNIQUE on lower(url) and a
+          // second row carrying a story's url was refused with a 23505. That
+          // index could not tell the routine rediscovering last week's article,
+          // which is a wasted pick, from a person deciding on purpose to run a
+          // post again, which is not; it only ever needed to stop the first.
+          //
+          // So the de-duplication moved into tgb_pull_socials_candidates, the
+          // bot's only write path (2026081901). The bot still cannot file a
+          // story twice; anything a human copies from here goes through.
           unpostBtn.addEventListener('click', function () {
             askConfirm('Back to Review',
               'MOVE takes this row back to the queue and drops the posted receipt, for '
-              + 'something that never really went out. COPY leaves this row posted and '
-              + 'files a second one to post again, which only works for a gift: a story '
-              + 'url can be filed once.',
+              + 'something that never really went out. COPY leaves this row posted, '
+              + 'receipt and all, and files a fresh copy in Review to run again.',
               'Copy to Review', { noLabel: 'Cancel', altLabel: 'Move to Review' })
               .then(function (answer) {
                 if (answer === 'alt') return moveBackToReview();
@@ -4397,9 +4399,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               .catch(function (err) {
                 unpostBtn.disabled = false;
                 var raw = String(err && err.message || '');
+                // Only reachable against a database that has not run
+                // 2026081901, where the unique index is still in place. Say
+                // which migration rather than showing a raw 23505.
                 flash(queueStatus, /23505|duplicate key/i.test(raw)
-                  ? 'That url is already filed, so it cannot be copied. Only a gift url may '
-                    + 'repeat. Use Move to Review instead.'
+                  ? 'The database still refuses a second row with this url. Apply '
+                    + '2026081901_socials_allow_reposts.sql, or use Move to Review.'
                   : 'Could not copy: ' + raw);
               });
           }
