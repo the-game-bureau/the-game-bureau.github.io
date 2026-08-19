@@ -1821,7 +1821,6 @@ FILL THE ROW LIKE THIS:
 - blurb: the caption, written to the same rules as step 4: curious, specific, dry, no hashtags, no exclamation marks. Say what the thing IS and why it is worth a look. Name the city when the gift belongs to one. Never write "buy", "shop now", "available now" or a price: it is a thing worth seeing that happens to be for sale.
 - why: one line in the first person, as you talking to us, and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out. "I picked this for the gift slot; it last went out on 12 August."
 - topics: the tags that fit the object, from the same list. A city guide is travel; a team scarf is sports; a cookbook is food.
-- media: 'photo' when image_url is set, otherwise 'text'.
 - image: image_url exactly as stored. It is already absolute. If it is empty, leave image out, but prefer a gift that has one, since a shop post with no picture is a weak post.
 - platforms: judge it like any other candidate. A gift with a real product photograph is the strongest Instagram case in the run.
 - confidence: score the GIFT, on the same 1-100 scale, and do not flatter it for being ours. A striking object with a good photo is a 70; a plain paperback cover is a 30. Score a repeat on what it is, not on the fact that it has been out before; that belongs in why.
@@ -1836,9 +1835,7 @@ STILL SKIP, whatever it costs the count: politics, tragedy and crime, culture-wa
 
 Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened. A dead link is worse than four good ones. Record the real publication name and date. (The gift, if this run has one, is verified its own way; see 2b.)
 
-While the page is open, note two things.
-
-MEDIA: photo, gallery, video, or text. You need that for step 5.
+While the page is open, note one thing.
 
 IMAGE: the story's own share image: the `og:image` (or `twitter:image`) meta
 tag in the page head. Record its absolute URL as `image`. That is the thumbnail
@@ -1919,7 +1916,7 @@ THIS TAG IS ADVICE, NOT ROUTING. Since 2026-08-09 one click posts a candidate to
   INSTAGRAM: anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
   THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
 
-Judge from the media you saw in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook. Do not tag everything on everything; a tag that always fires tells the human nothing.
+Judge from the image you captured in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook. Do not tag everything on everything; a tag that always fires tells the human nothing.
 
 7. WRITE THE SQL
 
@@ -1932,7 +1929,7 @@ Use exactly this shape, one row per candidate, in this column order:
 
 ```sql
 insert into public.socials
-  (id, headline, url, source, published, blurb, why, topics, media, image, platforms, confidence, status)
+  (id, headline, url, source, published, blurb, why, topics, image, platforms, confidence, status)
 values
   ('2026-08-05-1500-1',
    'The real headline',
@@ -1942,7 +1939,6 @@ values
    'The caption we would post.',
    'I picked this for the walking-path tie in; I could not confirm the opening date.',
    array['travel', 'weird']::text[],
-   'photo',
    'https://example.com/media/og.jpg',
    '[{"name": "Facebook", "why": "link preview does the work"},
      {"name": "Instagram", "why": "lead photo of the mural carries it"}]'::jsonb,
@@ -1971,7 +1967,9 @@ RULES THE STATEMENT MUST FOLLOW:
   quotes inside it, single quotes around it.
 - image: the absolute og:image URL, or the bare keyword `null` if there is
   none. Never quote the word null, never invent a URL.
-- media is one of 'photo', 'gallery', 'video', 'text'.
+- Do NOT write `media`. The column still exists and nothing reads it: the
+  admin decides Instagram from `image` alone, so it was inert, and it was
+  'photo' on nearly every row besides. Leave it out of the column list.
 - confidence is a BARE INTEGER 1-100: 72, not '72'. The column is a smallint
   with a check constraint, so a value outside that range rejects the whole
   statement and you lose all five rows, not the one that was wrong.
@@ -2096,7 +2094,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     "rotationRule": "aim for four distinct topics across the five, no topic on more than two, at least two tagged games/competition/travel -- all soft, and broken rather than filing fewer than five. A broken rule lowers that pick's confidence.",
     "tilt": "games and travel first; place is flavour, not a filter; a story need not be about a city we sell into",
     "accounts": ["Facebook", "Instagram"],
-    "platformTagging": "each candidate is tagged with which of the two accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Instagram only when an image was captured -- its API refuses a text-only post. Never suggest a platform we do not have; X and YouTube were removed on 2026-08-07 and render as nothing.",
+    "platformTagging": "each candidate is tagged with which of the two accounts it suits and why, judged from the image the story actually has. Instagram only when an image was captured -- its API refuses a text-only post. Never suggest a platform we do not have; X and YouTube were removed on 2026-08-07 and render as nothing.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
     "doNotCreate": [
       "a second table or a JSON file for the queue",
@@ -4105,15 +4103,27 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // a cell repeating them four inches lower said the same two words twice
       // on every card. The strip carries what nothing else on the card shows.
       //
-      // IMAGE URL LEADS, and the two read-only tags follow it. It is the only
+      // NEITHER IS MEDIA, deleted 2026-08-19. It was photo / gallery / video /
+      // text and NOTHING read it: postTargets() decides Instagram from `image`
+      // alone. It was also very nearly a constant, since the bot writes 'photo'
+      // whenever it found an og:image and almost every article has one; its one
+      // interesting value, 'text', means the image capture failed, which the
+      // IMAGE URL cell beside it already reported. A column that is inert, near
+      // constant AND duplicated is three reasons to stop drawing it.
+      //
+      // The COLUMN is retired in place, not dropped, the way waypoints.tour_id
+      // and the two soundtrack timestamps were: nothing reads it, dropping is
+      // the one irreversible move, and an unread column costs nothing.
+      //
+      // IMAGE URL LEADS, and PLATFORMS follows it. Platforms is inert too, but
+      // it is READ BY A HUMAN deciding whether to post at all, which is what
+      // media never was. It is the only
       // one of the four you can change and the only one that decides anything
       // (postTargets() drops Instagram without it), so it takes the first line;
       // topics, media and platforms are a footnote about the candidate and read
       // as one underneath it.
       var CARD_FIELDS = [
         { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true },
-        { key: 'media',     label: 'Media',     placeholder: 'none', readOnly:
-          'What kind of media the article carries. Nothing on this page reads it, so there is nothing an edit could change.' },
         { key: 'platforms', label: 'Platforms', placeholder: 'none', readOnly:
           'Advice, not routing: the Post button decides for itself from whether there is an image. Nothing reads this, so there is nothing an edit could change.' }
       ];
