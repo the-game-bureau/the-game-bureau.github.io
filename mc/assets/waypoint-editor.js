@@ -167,6 +167,15 @@
     '.wp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }',
     '.wp-form .wp-field { display: grid; gap: 4px; min-width: 0; }',
     '.wp-form .wp-field--full { grid-column: 1 / -1; }',
+    /* The box takes the slack so the button keeps its width. align-items:start
+       keeps them level when the field carries a hint underneath. */
+    '.wp-form .wp-field-line { display: flex; align-items: stretch; gap: 6px; min-width: 0; }',
+    '.wp-form .wp-field-line input { flex: 1 1 auto; min-width: 0; }',
+    /* Matches the box it sits against rather than the buttons at the foot: a
+       control on a field should look like part of the field. */
+    /* Matches the height of the box it sits against, so the two read as one
+       control rather than a button parked beside a field. */
+    '.wp-form .wp-field-act { flex: 0 0 auto; align-self: stretch; padding: 0 11px; }',
     '.wp-form label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }',
     '.wp-form input, .wp-form textarea { width: 100%; font: inherit; font-size: 0.9rem; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; }',
     '.wp-form textarea { min-height: 92px; resize: vertical; }',
@@ -432,7 +441,36 @@
       wpEdit.dirty = true;
       paintWpErrors();
     });
-    wrap.append(lab, input);
+    // AN ACTION ON THE FIELD, sat beside the box rather than in the button row
+    // at the foot: it is about this one value, and the row at the foot is about
+    // the whole waypoint. The input and the button share a line, the input
+    // taking the slack, so the button stays the same width whatever the box is.
+    if (options.action) {
+      const line = document.createElement('div');
+      line.className = 'wp-field-line';
+      const act = document.createElement('button');
+      act.type = 'button';
+      // NOT .ghost. The borderless treatment is right in the action row, where
+      // the buttons sit among other buttons and the quiet ones read as quiet;
+      // beside a text box it read as a stray word floating between two fields.
+      // A control next to an input has to look like a control.
+      act.className = 'btn small wp-field-act';
+      act.textContent = options.action.label;
+      act.title = options.action.title || '';
+      act.addEventListener('click', () => options.action.run(input.value));
+      // Nothing to open until there is something in the box. Repainted on every
+      // keystroke, so it comes alive as you paste a url in.
+      const sync = () => {
+        const ok = options.action.enabled ? options.action.enabled(input.value) : !!cleanText(input.value);
+        act.disabled = !ok;
+      };
+      input.addEventListener('input', sync);
+      sync();
+      line.append(input, act);
+      wrap.append(lab, line);
+    } else {
+      wrap.append(lab, input);
+    }
     if (options.hint) {
       const hint = document.createElement('p');
       hint.className = 'wp-hint';
@@ -480,7 +518,24 @@
       // stored row says "FL".
       // The COLUMN is untouched and still written on save.
       wpField('ZIP', 'zip'),
-      wpField('Source URL', 'source_url', { placeholder: 'https://en.wikipedia.org/...' })
+      // "SOURCE", not "Source URL". The box holds a url and looks like one, so
+      // the label was naming the format rather than the thing: what it is FOR
+      // is the place the claim came from.
+      wpField('Source', 'source_url', {
+        placeholder: 'https://en.wikipedia.org/...',
+        action: {
+          label: 'Open',
+          title: 'Open the source in a new tab',
+          // A url, not any old text. A source that will not parse is a source
+          // nobody can check, and opening it would put the browser somewhere
+          // strange rather than saying so.
+          enabled: (v) => /^https?:\/\/\S+$/i.test(cleanText(v)),
+          run: (v) => {
+            const url = cleanText(v);
+            if (url) window.open(url, '_blank', 'noopener');
+          }
+        }
+      })
     );
 
     // Read-only, one writer each. See the dialog's markup comment.
