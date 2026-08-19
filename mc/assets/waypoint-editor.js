@@ -923,8 +923,82 @@
     });
   }
 
+  // WHAT A ROW IS STILL MISSING. Exported because a bulk run has to ask the
+  // question the same way the tag on a library row asks it: two answers to
+  // "is this row complete" is how a list and a counter start disagreeing.
+  //
+  // `description` is not on this list, and that is not an oversight: every row
+  // has one, and fill() writes one from Wikipedia or from the address, so a
+  // "missing description" is a state the library does not actually reach.
+  function missingFields(row) {
+    var out = [];
+    if (!cleanText(row && row.address)) out.push('address');
+    if (wpCols.latlon && !hasStoredPoint(row)) out.push('coordinates');
+    if (!cleanText(row && row.zip)) out.push('zip');
+    if (wpCols.source_url && !cleanText(row && row.source_url)) out.push('source');
+    return out;
+  }
+
+  // The same null-is-not-zero trap waypoint-geo.js documents: Number(null) is 0
+  // and isFinite(0) is true, so the short test calls an unlocated row located.
+  function hasStoredPoint(row) {
+    if (!row) return false;
+    if (row.lat === null || row.lat === undefined || row.lat === '') return false;
+    if (row.lon === null || row.lon === undefined || row.lon === '') return false;
+    var la = Number(row.lat), lo = Number(row.lon);
+    return isFinite(la) && isFinite(lo) && !(la === 0 && lo === 0);
+  }
+
+  // FILL ONE ROW AND WRITE IT, with no dialog involved. This is what a bulk run
+  // calls; the Fill button calls fillWaypoint(), which does the same work
+  // against the open form and leaves the writing to Save.
+  //
+  // IT GOES THROUGH wpPayload, deliberately. A second idea of what to write is
+  // how a bulk job and a hand edit start producing different rows, and this
+  // project has paid for that twice already with duplicated helpers.
+  //
+  // NOTHING CHANGED MEANS NOTHING WRITTEN. A row fill() could not improve is not
+  // PATCHed at all, so a run over hundreds of rows touches only the ones it
+  // actually helped.
+  async function fillAndSaveRow(row) {
+    var geo = window.TgbWaypointGeo;
+    if (!geo) return { filled: [], error: 'The geocoder module is not loaded.' };
+    var working = Object.assign({}, row);
+    var result;
+    try {
+      result = await geo.fill(working, {});
+    } catch (err) {
+      return { filled: [], error: err.message || String(err) };
+    }
+    if (result.error) return { filled: [], error: result.error };
+    if (!result.filled || !result.filled.length) return { filled: [], error: '' };
+
+    try {
+      await ensureFreshSession();
+      var res = await fetch(restUrl('waypoints', { wpid: 'eq.' + row.wpid }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(wpPayload(working))
+      });
+      if (!res.ok) return { filled: [], error: await readError(res) };
+      var back = await res.json();
+      // PostgREST answers 200 with an EMPTY ARRAY when RLS refuses a write: no
+      // error, no rows, nothing changed. Without this a bulk run reports
+      // hundreds of successes and writes none of them.
+      if (!Array.isArray(back) || !back.length) {
+        return { filled: [], error: 'The database refused that write. Are you still signed in?' };
+      }
+      absorbWaypoint(back[0]);
+      return { filled: result.filled, error: '', row: back[0] };
+    } catch (err) {
+      return { filled: [], error: err.message || String(err) };
+    }
+  }
+
   var api = {
     mount: mount,
+    missingFields: missingFields,
+    fillAndSaveRow: fillAndSaveRow,
     open: function (wpid, opts) { return openWaypointEditor(wpid, opts); },
     openFind: function (seed) { return openFindDialog(seed); },
     close: function (force) { return closeWaypointEditor(force); },

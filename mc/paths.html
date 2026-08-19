@@ -228,6 +228,9 @@
     }
     .panel-title { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
     .panel-count { font-size: 0.78rem; color: var(--muted); }
+    /* Pushed hard right, away from the count it is not part of. */
+    #poolPanel > .panel-head #poolFillBtn { margin-left: auto; }
+    #poolPanel > .panel-head #poolFillBtn.is-running { border-color: var(--warn); color: var(--warn); }
     /* align-items:center, not the baseline the plain head uses: a row holding
        buttons has nothing sensible to sit them on a baseline with. The count is
        pushed off the title and the buttons take the right end. */
@@ -790,6 +793,12 @@
         <div class="panel-head">
           <span class="panel-title" id="poolTitle">WAYPOINT LIBRARY</span>
           <span class="panel-count" id="poolCount"></span>
+          <!-- FILL EVERY GAP IN THIS LIST, one row at a time. It sits in the
+               library's own header because the list under it is its scope: the
+               city you are filtered to, or the whole library when you are not.
+               Hidden when there is nothing missing, so a tidy city shows no
+               button rather than a button that would do nothing. -->
+          <button class="btn small" id="poolFillBtn" type="button" hidden></button>
         </div>
         <!-- WHAT NEEDS DOING TO A WAYPOINT goes here, not under the map. The
              unplaced-coordinates notice is an instruction about a ROW - press
@@ -1537,6 +1546,96 @@
       return out;
     }
 
+    // --- filling every gap in the library ------------------------------------
+    //
+    // ONE ROW AT A TIME, AND SLOWLY. Each fill() is several Nominatim calls a
+    // second apart, because that is Nominatim's usage policy and not a tuning
+    // knob: a parallel version of this would get the project blocked. 139 rows
+    // is a few minutes, which is why it reports progress and can be stopped.
+    //
+    // SCOPE FOLLOWS THE CITY PICKER: the open city, or every city when none is
+    // chosen. The confirmation says which before anything runs.
+    const bulkFill = { running: false, stop: false };
+
+    // THE LIST WHEN THERE IS ONE, THE WHOLE LIBRARY WHEN THERE IS NOT.
+    // poolRows() is always a single city, and returns NOTHING when no city is
+    // chosen -- so scoping to it alone would have made this button useless in
+    // the one state where you want it most, which is "go and fix everything".
+    // Choosing a city narrows it; choosing none means all 463 rows.
+    function poolGaps() {
+      const api = window.TgbWaypointEditor;
+      if (!api || typeof api.missingFields !== 'function') return [];
+      const rows = pathCity() ? poolRows() : state.waypoints;
+      return rows.filter((w) => api.missingFields(w).length);
+    }
+
+    function renderPoolFill() {
+      const btn = el('poolFillBtn');
+      if (!btn) return;
+      if (bulkFill.running) {
+        btn.hidden = false;
+        btn.disabled = false;
+        btn.classList.add('is-running');
+        btn.textContent = 'Stop';
+        btn.title = 'Stop after the row it is on. Everything already written stays written.';
+        return;
+      }
+      btn.classList.remove('is-running');
+      const gaps = poolGaps().length;
+      const scoped = !!pathCity();
+      btn.hidden = !gaps;
+      btn.disabled = false;
+      // THE LABEL CARRIES THE SCOPE when it is not this city's, because the
+      // count beside it is the LIST's and the two disagree on purpose: with no
+      // path open the panel reads "0 waypoints" while this offers 135, and a
+      // bare number there is the header contradicting itself.
+      btn.textContent = scoped ? ('Fill ' + gaps) : ('Fill ' + gaps + ' · all cities');
+      // The count is the honest one: rows, not fields. A row missing three
+      // things is still one trip to the geocoder.
+      btn.title = gaps + (gaps === 1 ? ' waypoint is' : ' waypoints are')
+        + ' missing an address, a point, a ZIP or a source'
+        + (scoped ? ' in ' + cityNameOf(pathCity()) : ', across every city')
+        + '. Fill looks each one up and saves it.'
+        + ' Roughly ' + Math.max(1, Math.round(gaps * 2.5 / 60)) + ' min at one geocoder call a second.';
+    }
+
+    async function runPoolFill() {
+      if (bulkFill.running) { bulkFill.stop = true; return; }
+      const api = window.TgbWaypointEditor;
+      const rows = poolGaps();
+      if (!rows.length || !api) return;
+      const where = pathCity() ? cityNameOf(pathCity()) : 'the whole library, every city';
+      if (!window.confirm(
+        'Look up and save ' + rows.length + ' waypoint' + (rows.length === 1 ? '' : 's')
+        + ' in ' + where + '?\n\n'
+        + 'This makes several geocoder calls per waypoint, one second apart, so it takes a few minutes.'
+        + ' You can stop it at any point and whatever it has already written stays written.')) return;
+
+      bulkFill.running = true;
+      bulkFill.stop = false;
+      renderPoolFill();
+      let done = 0, changed = 0, failed = 0;
+      const errors = [];
+      for (const w of rows) {
+        if (bulkFill.stop) break;
+        setStatus('Filling ' + (done + 1) + ' of ' + rows.length + ': '
+          + (cleanText(w.name) || ('WPID ' + w.wpid)) + '...');
+        const out = await api.fillAndSaveRow(w);
+        done += 1;
+        if (out.error) { failed += 1; if (errors.length < 3) errors.push(cleanText(w.name) + ': ' + out.error); }
+        else if (out.filled.length) { changed += 1; }
+        // Repaint as it goes: the tags on the rows behind the button are the
+        // real progress bar, and watching them clear is the point.
+        renderPool();
+        renderPoolFill();
+      }
+      bulkFill.running = false;
+      renderAll();
+      const tail = failed ? ' ' + failed + ' failed' + (errors.length ? ' (' + errors[0] + ')' : '') + '.' : '';
+      setStatus((bulkFill.stop ? 'Stopped after ' : 'Filled ') + done + ' of ' + rows.length
+        + '. ' + changed + ' updated.' + tail, failed ? 'error' : 'success');
+    }
+
     function renderPool() {
       const box = el('poolList');
       box.innerHTML = '';
@@ -1592,6 +1691,7 @@
       // one of those rows is dimmed and captioned "on this path", so the count
       // was a tally of something visible from where you are standing.
       el('poolCount').textContent = rows.length + (rows.length === 1 ? ' waypoint' : ' waypoints');
+      renderPoolFill();
       if (!rows.length) {
         box.innerHTML = '<p class="empty">'
           + (city
@@ -2992,6 +3092,7 @@
       // The editor and Find online handle their own Escape, inside the module.
     });
     el('addWaypointBtn').addEventListener('click', () => TgbWaypointEditor.open(null));
+    el('poolFillBtn').addEventListener('click', runPoolFill);
     el('saveBtn').addEventListener('click', saveOrder);
     el('deletePathBtn').addEventListener('click', deletePath);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
@@ -3019,7 +3120,7 @@
     // An unsaved order is a few minutes of dragging. Losing it to a stray tab
     // close is the one mistake this page can make on your behalf.
     window.addEventListener('beforeunload', (e) => {
-      if (!state.dirty && !TgbWaypointEditor.isDirty()) return;
+      if (!state.dirty && !TgbWaypointEditor.isDirty() && !bulkFill.running) return;
       e.preventDefault();
       e.returnValue = '';
     });
