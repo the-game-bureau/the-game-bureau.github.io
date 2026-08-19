@@ -215,13 +215,6 @@
        them, so they read as available rather than as offered. */
     '#wpDlg .btn.ghost, #findDlg .btn.ghost { border-color: transparent; background: none; color: rgba(var(--bic-blue-rgb), 0.86); }',
     '#wpDlg .btn.ghost:hover:not(:disabled), #findDlg .btn.ghost:hover:not(:disabled) { border-color: var(--line); background: var(--paper, #fff); color: var(--ink); }',
-    /* MAPS AND LOCATE SIT ON THE COORDINATES FIELD, because both are about that
-       one value and neither is about the row. Small, quiet, and beside the thing
-       they act on. */
-    '.wp-readonly-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }',
-    '.wp-inline-act { appearance: none; border: 0; background: none; padding: 0; margin: 0; font: inherit; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bic-blue, #2d4880); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }',
-    '.wp-inline-act:hover { color: var(--ink); }',
-    '.wp-inline-act[disabled] { opacity: 0.45; cursor: default; text-decoration: none; }',
     '.dlg-spacer { flex: 1 1 auto; }',
     /* THE EDITOR'S BUTTONS ARE THE EDITOR'S, and they are ID-SCOPED so they
        win. Every room defines .btn its own way: the Path Builder uppercases at
@@ -498,32 +491,21 @@
     pl.textContent = 'Coordinates';
     const located = row.lat != null && row.lon != null;
     const pv = document.createElement('div');
-    pv.className = 'wp-readonly-row';
-    const pt = document.createElement('span');
-    pt.className = 'wp-readonly';
-    pt.textContent = located
+    pv.className = 'wp-readonly';
+    pv.textContent = located
       ? (Number(row.lat).toFixed(6) + ', ' + Number(row.lon).toFixed(6))
       : (wpCols.latlon ? 'not located - press Fill' : 'no column');
-    pv.appendChild(pt);
 
-    // NO LOCATE HERE. FILL does it: it fills every blank field including the
-    // point, so a row with no coordinates gets them from the one button.
+    // NOTHING SITS BESIDE THE READING. Locate and Maps were both here for an
+    // afternoon and both went: FILL writes the point along with every other
+    // blank, so Locate was a second button for one of the fields it does, and
+    // Maps was a door out of a dialog you came here to type in.
     //
     // TO MOVE A POINT THAT IS ALREADY STORED, drag its pin on the map, or edit
     // the address, which clears the stored pair on save because those
     // coordinates described where the OLD address was. Fill will not overwrite
     // a point that is there, and that is deliberate: a pin somebody dragged into
     // place must not be replaced by a guess.
-    //
-    // MAPS IS A DOOR, so it is drawn as a link rather than a button: it opens a
-    // tab and changes nothing here.
-    const maps = document.createElement('button');
-    maps.type = 'button';
-    maps.className = 'wp-inline-act';
-    maps.textContent = 'Maps';
-    maps.title = 'Open this place in Google Maps';
-    maps.addEventListener('click', openWaypointInMaps);
-    pv.appendChild(maps);
 
     point.append(pl, pv);
     box.appendChild(point);
@@ -715,15 +697,6 @@
       wpBusy(false);
       wpNote(err.message || 'Lookup failed.', 'error');
     }
-  }
-
-  function openWaypointInMaps() {
-    const geo = window.TgbWaypointGeo;
-    const url = geo && geo.googleMapsUrl(wpEdit.row, {
-      lat: Number(wpEdit.row.lat), lon: Number(wpEdit.row.lon)
-    });
-    if (url) window.open(url, '_blank', 'noopener');
-    else wpNote('Nothing to search for yet - add a name or an address.', 'error');
   }
 
   // --- find a place online --------------------------------------------------
