@@ -291,7 +291,7 @@
     '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
     '      <span class="dlg-rule" role="separator" aria-orientation="vertical"></span>',
     '      <span class="dlg-group">',
-    '        <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set and fill in every blank field, coordinates included">Look up</button>',
+    '        <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
     '        <button class="btn small ghost" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box and open a result as a draft">Find online</button>',
     '        <button class="btn small ghost" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
     '      </span>',
@@ -503,32 +503,20 @@
     pt.className = 'wp-readonly';
     pt.textContent = located
       ? (Number(row.lat).toFixed(6) + ', ' + Number(row.lon).toFixed(6))
-      : (wpCols.latlon ? 'not located' : 'no column');
+      : (wpCols.latlon ? 'not located - press Fill' : 'no column');
     pv.appendChild(pt);
 
-    // LOCATE AND MAPS BELONG TO THIS FIELD. They were buttons in the action row
-    // among Fill, Duplicate and Delete, which made four different kinds of thing
-    // look alike. Both are only ever about the coordinate pair, so they sit on
-    // it.
+    // NO LOCATE HERE. FILL does it: it fills every blank field including the
+    // point, so a row with no coordinates gets them from the one button.
     //
-    // LOCATE SURVIVES THE MERGE for one job: RE-locating a row that already has
-    // a point. Look up fills BLANKS only and will not move a stored pair, which
-    // is correct -- a point somebody dragged into place must not be overwritten
-    // by a guess -- so without this there would be no way to say "that pin is
-    // wrong, go again" short of clearing the address.
-    if (wpCols.latlon) {
-      const loc = document.createElement('button');
-      loc.type = 'button';
-      loc.className = 'wp-inline-act';
-      loc.textContent = located ? 'Re-locate' : 'Locate';
-      loc.title = located
-        ? 'Geocode the address again and REPLACE the stored point.'
-        : 'Find this waypoint\'s coordinates from its address and store them.';
-      loc.addEventListener('click', locateWaypoint);
-      pv.appendChild(loc);
-    }
-    // A DOOR, so it is drawn as a link rather than a button: it opens a tab and
-    // changes nothing here.
+    // TO MOVE A POINT THAT IS ALREADY STORED, drag its pin on the map, or edit
+    // the address, which clears the stored pair on save because those
+    // coordinates described where the OLD address was. Fill will not overwrite
+    // a point that is there, and that is deliberate: a pin somebody dragged into
+    // place must not be replaced by a guess.
+    //
+    // MAPS IS A DOOR, so it is drawn as a link rather than a button: it opens a
+    // tab and changes nothing here.
     const maps = document.createElement('button');
     maps.type = 'button';
     maps.className = 'wp-inline-act';
@@ -697,29 +685,15 @@
     wpNote('A copy of the original, not saved yet. Press Create.', 'busy');
   }
 
-  // Coordinates only - no fields touched. This is the one the map wants: it
-  // is what turns an unplaced row into a pin.
-  async function locateWaypoint() {
-    const geo = window.TgbWaypointGeo;
-    if (!geo || wpEdit.busy) return;
-    wpBusy(true, 'Locating... (one request a second, Nominatim\'s rule)');
-    try {
-      const point = geo.pointFor(wpEdit.row) || await geo.locate(wpEdit.row);
-      if (!point) { wpBusy(false); wpNote('Could not locate that address.', 'error'); return; }
-      wpEdit.row.lat = geo.round6(point.lat);
-      wpEdit.row.lon = geo.round6(point.lon);
-      wpEdit.dirty = true;
-      wpBusy(false);
-      renderWaypointForm();
-      wpNote('Located. Save to store the point.', 'busy');
-    } catch (err) {
-      wpBusy(false);
-      wpNote(err.message || 'Locate failed.', 'error');
-    }
-  }
+  // locateWaypoint IS GONE (2026-08-18). It filled the coordinate pair and
+  // nothing else, behind a Locate link on the Coordinates field. Fill does the
+  // whole job now, the point included, so a second button for one field of the
+  // several it fills was a choice nobody needed to make.
+  // geo.locate() itself is untouched and still exported; fill() calls it.
 
-  // Fill BLANK fields only, from whatever the row already says. Everything
-  // typed is kept - see waypoint-geo.js.
+  // FILL EVERY BLANK FIELD from whatever the row already says: ZIP,
+  // coordinates, description, source url, the lot. Everything already typed is
+  // kept - see waypoint-geo.js, which does the work.
   async function fillWaypoint() {
     const geo = window.TgbWaypointGeo;
     if (!geo || wpEdit.busy) return;

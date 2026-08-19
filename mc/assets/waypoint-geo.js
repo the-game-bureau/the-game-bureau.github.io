@@ -599,19 +599,39 @@
   // waypoint (its name matches the geocoded place, or it has no name yet).
   // Otherwise a geocoded address drags in the article for a containing building
   // or a nearby landmark - the wrong place.
-  async function resolveDescription(place, addr, row) {
+  // THE ARTICLE THIS PLACE IS, resolved once and used twice: the description
+  // comes out of it and so does the source url. They were resolved separately
+  // for a while, which is one way to end up citing a different article from the
+  // one the sentence was taken out of.
+  //
+  // ONLY WHEN THE NAMES AGREE. Nominatim answers with whatever is nearest, so a
+  // geocode of "130 E Walnut St" may come back as the cafe next door; taking
+  // that article's URL as this waypoint's source would be a citation for the
+  // wrong building.
+  async function resolveWikiTitle(place, row) {
     var extratags = (place && place.extratags) || {};
     var rowName = cleanText(row && row.name);
     var samePlace = !rowName || namesSimilar(rowName, cleanText(place && place.name));
-    if (samePlace) {
-      var title = wikipediaTitle(extratags);
-      if (!title && /^Q\d+$/.test(cleanText(extratags.wikidata))) {
-        title = await wikidataEnTitle(cleanText(extratags.wikidata));
-      }
-      if (title) {
-        var summary = await fetchWikiSummary(title);
-        if (summary) return summary;
-      }
+    if (!samePlace) return '';
+    var title = wikipediaTitle(extratags);
+    if (!title && /^Q\d+$/.test(cleanText(extratags.wikidata))) {
+      title = await wikidataEnTitle(cleanText(extratags.wikidata));
+    }
+    return cleanText(title);
+  }
+
+  function wikipediaUrlFor(title) {
+    var t = cleanText(title);
+    if (!t) return '';
+    // Wikipedia's own form: underscores for spaces, and the rest percent-encoded.
+    return 'https://en.wikipedia.org/wiki/' + encodeURIComponent(t.replace(/ /g, '_'));
+  }
+
+  async function resolveDescription(place, addr, row, knownTitle) {
+    var title = knownTitle === undefined ? await resolveWikiTitle(place, row) : knownTitle;
+    if (title) {
+      var summary = await fetchWikiSummary(title);
+      if (summary) return summary;
     }
     return buildLocalDescription(place, addr, row);
   }
@@ -628,6 +648,28 @@
     if (town) return town;
     var dn = cleanText(place && place.display_name);
     return dn ? dn.split(',')[0].trim() : '';
+  }
+
+  // DOES THIS ROW ACTUALLY HAVE A POINT?
+  //
+  // isFinite(Number(row.lat)) is the obvious test and it is WRONG, which cost a
+  // working feature: Number(null) is 0 and Number('') is 0, and isFinite(0) is
+  // true, so an unlocated row read as a row located at latitude zero. Every
+  // guard written that way silently skipped the geocoding it was guarding, and
+  // fill() never wrote a coordinate to a row that had none, which is the one
+  // case it exists for.
+  //
+  // Null Island is also refused outright. 0,0 is in the Gulf of Guinea and is
+  // never a walking-tour stop; it is what a failed parse looks like when it
+  // comes back as a number rather than as an error.
+  function hasPoint(row) {
+    if (!row) return false;
+    if (row.lat === null || row.lat === undefined || row.lat === '') return false;
+    if (row.lon === null || row.lon === undefined || row.lon === '') return false;
+    var la = Number(row.lat), lo = Number(row.lon);
+    if (!isFinite(la) || !isFinite(lo)) return false;
+    if (la === 0 && lo === 0) return false;
+    return true;
   }
 
   // Fill `row` from a geocoded `place` (+ optional precise `point`). With
@@ -654,7 +696,8 @@
     var address = [cleanText(addr.house_number), cleanText(addr.road)].filter(Boolean).join(' ');
 
     if (overwrite) {
-      var description = cleanText(await resolveDescription(place, addr, { name: name }));
+      var wikiTitle = await resolveWikiTitle(place, { name: name });
+      var description = cleanText(await resolveDescription(place, addr, { name: name }, wikiTitle));
       row.name = name;
       row.city = city;
       row.state = state;
@@ -662,7 +705,10 @@
       row.address = address;
       row.description = description;
       if (hasCoords) { row.lat = round6(lat); row.lon = round6(lon); }
-      return ['name', 'city', 'state', 'zip', 'address', 'description'];
+      var overwritten = ['name', 'city', 'state', 'zip', 'address', 'description'];
+      var srcAll = wikipediaUrlFor(wikiTitle);
+      if (srcAll) { row.source_url = srcAll; overwritten.push('source url'); }
+      return overwritten;
     }
 
     var filled = [];
@@ -675,16 +721,30 @@
     setIfBlank('state', state);
     setIfBlank('zip', zip);
     setIfBlank('address', address);
+    // ONE TITLE, TWO FIELDS. Resolved even when the description is already
+    // written, because the source url may still be blank and the article is
+    // what would fill it.
+    var wikiTitle = (!cleanText(row.description) || !cleanText(row.source_url))
+      ? await resolveWikiTitle(place, row)
+      : '';
     if (!cleanText(row.description)) {
-      var desc = await resolveDescription(place, addr, row);
+      var desc = await resolveDescription(place, addr, row, wikiTitle);
       if (desc) { row.description = desc; filled.push('description'); }
+    }
+    // THE SOURCE URL IS THE ARTICLE, or nothing. A geocoder result is not a
+    // source: linking openstreetmap.org would cite the thing that found the
+    // place rather than the thing that says anything about it, and this field
+    // exists so a claim stays checkable years later.
+    if (!cleanText(row.source_url)) {
+      var src = wikipediaUrlFor(wikiTitle);
+      if (src) { row.source_url = src; filled.push('source url'); }
     }
     // COORDINATES COUNT AS A FILLED FIELD, and they are reported like one. They
     // were written silently, so a row whose only gap was its point came back
     // saying nothing had been filled while a point had in fact just landed. The
     // editor prints this list back to the human, so a write it does not name is
     // a write nobody sees.
-    if (hasCoords && !(isFinite(Number(row.lat)) && isFinite(Number(row.lon)))) {
+    if (hasCoords && !hasPoint(row)) {
       row.lat = round6(lat);
       row.lon = round6(lon);
       filled.push('coordinates');
@@ -701,7 +761,10 @@
   // values are kept unless opts.overwrite.
   async function fill(row, opts) {
     var options = opts || {};
-    var geoFields = ['name', 'city', 'state', 'zip', 'address', 'description'];
+    // source_url is on this list so a row missing ONLY a source still gets a
+    // lookup. Same reasoning as the missing-point check below: the short-circuit
+    // must know about every field fill can actually write.
+    var geoFields = ['name', 'city', 'state', 'zip', 'address', 'description', 'source_url'];
     var blanks = geoFields.filter(function (f) { return !cleanText(row[f]); });
     // A MISSING POINT IS A BLANK. This checked the six text fields only, so a
     // row with every word filled in and no coordinates answered "nothing blank
@@ -709,7 +772,7 @@
     // arrives in, since an importer can copy an address and cannot geocode it.
     // Locating is the expensive half of this function and was the half it
     // refused to reach.
-    var noPoint = !(isFinite(Number(row.lat)) && isFinite(Number(row.lon)));
+    var noPoint = !hasPoint(row);
     if (!blanks.length && !noPoint && !options.overwrite) {
       return { filled: [], zipApprox: false, error: '', complete: true };
     }
