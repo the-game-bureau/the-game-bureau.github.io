@@ -447,17 +447,20 @@
       font-size: 0.72rem;
       line-height: 1.2;
     }
-    /* The domain and the way out, on one line. OPEN is the ONLY navigating
-       control on the card now, so it has to look like one rather than hide in
-       the mono row beside it. */
-    .post-card-domain-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-    }
+    /* OPEN used to sit on the right of this line and moved to the account row;
+       the wrapper stays, because the domain is still its own row. */
+    .post-card-domain-row { display: block; }
+    /* Top right of the account row, where a post keeps its own menu. A BUTTON,
+       because it is the single pressable control on a card that is otherwise
+       all editable text, and it must not read as one more line of the post. */
     .post-card-open {
       flex: 0 0 auto;
+      margin-left: auto;
+      align-self: center;
+      padding: 4px 11px 5px;
+      border: 1px solid var(--control-line);
+      border-radius: 5px;
+      background: #fff;
       color: var(--accent);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.72rem;
@@ -466,8 +469,12 @@
       text-transform: uppercase;
       text-decoration: none;
       white-space: nowrap;
+      transition: border-color 120ms ease, background 120ms ease;
     }
-    .post-card-open:hover { text-decoration: underline; }
+    .post-card-open:hover {
+      border-color: var(--accent);
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
 
     /* The link bar UNDER the picture, which is where a platform puts it. */
     .post-card-body {
@@ -3909,6 +3916,29 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         accountMeta.textContent = agoText(post.created_at) + ' · Public';
         accountText.append(accountName, accountMeta);
         account.appendChild(accountText);
+
+        // THE ONLY THING ON THIS CARD THAT NAVIGATES, and it has to exist: the
+        // card stopped being an anchor so the link bar could be edited, and
+        // without this there is no way to open the story at all.
+        //
+        // TOP RIGHT, where a post puts its own menu, and A BUTTON rather than a
+        // link: it is the one control on a card full of editable text, so it
+        // has to look like something you press rather than like another line of
+        // the post. No arrow either. The arrow was there to say "leaves the
+        // page" back when this sat inline among the domain text and needed to
+        // be told apart from it; a button in the corner already reads as an
+        // action, and the glyph was the only ornament on the card.
+        if (post.url) {
+          var openLink = document.createElement('a');
+          openLink.className = 'post-card-open';
+          openLink.href = post.url;
+          openLink.target = '_blank';
+          openLink.rel = 'noopener noreferrer';
+          openLink.textContent = 'Open';
+          openLink.title = 'Open ' + linkDomain(post.url) + ' in a new tab';
+          account.appendChild(openLink);
+        }
+
         card.appendChild(account);
 
         // OUR WORDS, WHERE THEY WILL ACTUALLY SIT. Editable in place, so it has
@@ -4011,20 +4041,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           + 'the score and the note written about the old one.');
         domainRow.appendChild(cardDomain);
 
-        // THE ONLY THING ON THIS CARD THAT NAVIGATES, and it has to exist: the
-        // card stopped being an anchor so the link bar could be edited, and
-        // without this there is no way to open the story at all. It sits on the
-        // domain row because that line already names the destination.
-        if (post.url) {
-          var openLink = document.createElement('a');
-          openLink.className = 'post-card-open';
-          openLink.href = post.url;
-          openLink.target = '_blank';
-          openLink.rel = 'noopener noreferrer';
-          openLink.textContent = 'Open ↗';
-          openLink.title = 'Open ' + linkDomain(post.url) + ' in a new tab';
-          domainRow.appendChild(openLink);
-        }
         body.appendChild(domainRow);
 
         // EDITABLE AGAIN. It was read-only on the argument that a headline is
