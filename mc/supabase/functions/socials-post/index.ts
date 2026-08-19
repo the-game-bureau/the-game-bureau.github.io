@@ -351,6 +351,38 @@ function captionFor(row: { blurb?: string; url?: string }): string {
     .join('\n\n');
 }
 
+// ── AMAZON SERVES 1500px AND META TAKES 1440 ────────────────────────────────
+// Every image on an Amazon-sourced gift is 1500px on its longest side. That is
+// not a coincidence, it is Amazon's own CDN token: `_SL1500_` means "scaled
+// longest side 1500", and it is in the filename of all 109 of them. Meta's
+// published cap for the Instagram and Threads publishing endpoints is 1440px,
+// so those are the only images in the catalogue that sit over the line.
+// Bookshop (498 gifts) tops out at 1200 and OpenLibrary at 500.
+//
+// The token is also the fix: Amazon will serve any size from the same path, so
+// asking for _SL1200_ gets the same photograph inside the limit. `_AC_SL1500_`
+// and the bare `_SL1500_` both appear, and both are handled.
+//
+// APPLIED AT THE POINT OF USE, NOT STORED. gift_shop_items.image_url is the
+// address the shop shows and the address a human pasted; rewriting the column
+// would edit the catalogue to work around one API's limit. This only touches
+// the value on its way to Meta.
+//
+// SCOPED TO m.media-amazon.com. A width token is Amazon's convention and means
+// nothing anywhere else, and a blind regex would mangle a url that happened to
+// contain the same characters.
+//
+// If Threads or Instagram ever raises the cap this becomes harmless rather than
+// wrong: a 1200px product photo is still a good product photo.
+const META_MAX_EDGE = 1440;
+
+function metaSafeImage(url: string): string {
+  if (!/(^|\.)media-amazon\.com\//i.test(url)) return url;
+  return url.replace(/_SL(\d{3,5})_/i, (whole, size) =>
+    Number(size) > META_MAX_EDGE ? '_SL1200_' : whole
+  );
+}
+
 // ── OUR OWN LINKS PREVIEW WRONG, AND ONLY OURS ──────────────────────────────
 // A Facebook link post carries no image of its own: Meta scrapes the target
 // page and uses its og:image. For a news story that is exactly right — the
@@ -449,7 +481,7 @@ async function postFacebook(row: any): Promise<Outcome> {
   try {
     const { pageId } = await metaIds();
     const url   = String(row.url ?? '').trim();
-    const image = String(row.image ?? '').trim();
+    const image = metaSafeImage(String(row.image ?? '').trim());
 
     // A gift (or anything else pointing at our own site) posts as a PHOTO, so
     // the picture is the one we chose rather than the one /gifts/ hands the
@@ -480,7 +512,7 @@ async function postFacebook(row: any): Promise<Outcome> {
 }
 
 async function postInstagram(row: any): Promise<Outcome> {
-  const image = String(row.image ?? '').trim();
+  const image = metaSafeImage(String(row.image ?? '').trim());
   if (!image) {
     // Not a failure — a fact about the candidate. IG cannot take a text-only
     // post, so this one has to go out by hand or not at all.
@@ -574,7 +606,7 @@ async function postThreads(row: any): Promise<Outcome> {
       );
     }
 
-    const image = String(row.image ?? '').trim();
+    const image = metaSafeImage(String(row.image ?? '').trim());
     const create: Record<string, string> = {
       // Text-only is legal here, which is the difference from Instagram.
       media_type: image ? 'IMAGE' : 'TEXT',
