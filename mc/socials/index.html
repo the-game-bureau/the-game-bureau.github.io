@@ -407,6 +407,86 @@
       color: rgba(var(--bic-blue-rgb), 0.84);
     }
 
+    /* ── Click to edit ────────────────────────────────────────────────────
+       THE FIELD KEEPS ITS LOOK. Every editable thing on a card is the same
+       element it always was, painted the same way; the only standing hint is a
+       dotted underline that appears on hover, so a card at rest still reads as
+       a post rather than as a form. */
+    .ed { cursor: text; border-radius: 3px; }
+    .ed:hover {
+      box-shadow: inset 0 -1px 0 0 rgba(var(--bic-blue-rgb), 0.35);
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .ed:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    /* An empty one still has to be clickable, so it keeps a placeholder rather
+       than collapsing to nothing. */
+    .ed:empty::before,
+    .ed.is-blank::before {
+      content: attr(data-placeholder);
+      color: rgba(var(--bic-blue-rgb), 0.45);
+      font-style: italic;
+    }
+    /* The box that replaces it inherits the type it is standing in for, so the
+       line does not jump when you click it. */
+    .ed-input {
+      width: 100%;
+      margin: 0;
+      padding: 1px 3px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--accent);
+      border-radius: 3px;
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), 0.1);
+    }
+    textarea.ed-input { resize: vertical; min-height: 3.2em; display: block; }
+    .ed-saving { opacity: 0.55; }
+
+    /* ── The fields the post itself does not show ─────────────────────────
+       A candidate has columns the card has no room for, and until now the only
+       way to see or set them was the Edit dialog. They sit in one quiet strip
+       ABOVE the reasoning, in the same mono the kicker uses, each one editable
+       in place like everything else. */
+    .post-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      padding: 9px 14px;
+      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      background: #fbfdff;
+      font-size: 0.72rem;
+    }
+    .post-field { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+    .post-field-key {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.7);
+      flex: 0 0 auto;
+    }
+    .post-field-val { color: var(--ink); overflow-wrap: anywhere; min-width: 3em; }
+    /* Wide ones get the whole row so a long image url does not squash the rest. */
+    .post-field--wide { flex-basis: 100%; }
+
+    /* THE CARD IS NO LONGER ONE BIG LINK, because its text is editable now and a
+       click has to mean edit. The domain line carries the link instead: it is
+       the part that names the destination, so it is the honest place for it. */
+    .post-card-open {
+      margin-left: auto;
+      flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.84);
+      text-decoration: none;
+    }
+    .post-card-open:hover { color: var(--ink); text-decoration: underline; }
+    .post-card-domain-row { display: flex; align-items: baseline; gap: 10px; }
+
     /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
     .post-ephemera {
       display: grid;
@@ -3256,6 +3336,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var caption = document.createElement('p');
         caption.className = 'post-caption';
         caption.textContent = post.blurb || '';
+        makeEditable(caption, post, 'blurb', {
+          multiline: true,
+          placeholder: 'no caption yet',
+          title: 'Our caption, the line that actually gets published. Click to edit; Ctrl+Enter saves.'
+        });
         preview.appendChild(caption);
 
         // One anchor wrapping the whole preview card — the same target shape a
@@ -3264,15 +3349,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // A candidate captured with no link yet gets NO href. An <a href="">
         // points at this page, so the preview would have opened Mission Control
         // in a new tab and looked, for that second, like a working link.
-        var card = document.createElement('a');
+        // A DIV, NOT AN ANCHOR, since 2026-08-18. Every line on this card is
+        // editable now and a click has to mean edit, which it cannot while the
+        // whole thing is a link. The destination moved to an OPEN control on the
+        // domain row, which is the part that names it anyway.
+        var card = document.createElement('div');
         card.className = 'post-card';
-        if (post.url) {
-          card.href = post.url;
-          card.target = '_blank';
-          card.rel = 'noopener noreferrer';
-        } else {
-          card.classList.add('is-linkless');
-        }
+        if (!post.url) card.classList.add('is-linkless');
 
         // The thumbnail is whatever og:image the story carries, recorded by the
         // agent while it had the page open in step 3 — the page cannot read it
@@ -3295,6 +3378,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             card.classList.remove('has-shot');
           });
           shot.appendChild(img);
+          // CLICKING THE PICTURE EDITS THE PICTURE. An image url is the one
+          // field you cannot check by reading it, so the thing you are looking
+          // at is the right place to fix it: og:image scraping fails quietly,
+          // and a masthead, a tracking pixel and a 404 all look like a fine URL
+          // in a text box.
+          shot.style.cursor = 'pointer';
+          shot.title = 'Click to edit the image URL';
+          shot.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var box = article.querySelector('.post-field-val[data-field-key="image"]');
+            if (box) { box.scrollIntoView({ block: 'nearest' }); box.click(); }
+          });
           card.appendChild(shot);
           card.classList.add('has-shot');
         }
@@ -3302,27 +3398,61 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var body = document.createElement('span');
         body.className = 'post-card-body';
 
+        var domainRow = document.createElement('span');
+        domainRow.className = 'post-card-domain-row';
+
         var cardDomain = document.createElement('span');
         cardDomain.className = 'post-card-domain';
         cardDomain.textContent = post.url ? linkDomain(post.url) : 'no link yet';
-        body.appendChild(cardDomain);
+        // The domain shows the host and edits the whole address, which is the
+        // pair a person actually wants: read where it goes, fix what it is.
+        makeEditable(cardDomain, post, 'url', {
+          placeholder: 'no link yet',
+          title: 'The destination web page. Click to edit; a missing https:// is added.'
+        });
+        domainRow.appendChild(cardDomain);
+
+        // THE ONLY THING ON THIS CARD THAT STILL NAVIGATES. It has to exist:
+        // the card stopped being an anchor so its text could be edited, and
+        // without this there would be no way to open the story at all.
+        if (post.url) {
+          var open = document.createElement('a');
+          open.className = 'post-card-open';
+          open.href = post.url;
+          open.target = '_blank';
+          open.rel = 'noopener noreferrer';
+          open.textContent = 'Open \u2197';
+          open.title = 'Open the story in a new tab';
+          open.addEventListener('click', function (e) { e.stopPropagation(); });
+          domainRow.appendChild(open);
+        }
+        body.appendChild(domainRow);
 
         var cardHeadline = document.createElement('span');
         cardHeadline.className = 'post-card-headline';
         cardHeadline.textContent = post.headline || post.url;
+        makeEditable(cardHeadline, post, 'headline', {
+          placeholder: 'no headline',
+          title: 'The outlet\'s headline, read off the page. Click to edit.'
+        });
         body.appendChild(cardHeadline);
 
-        var meta = [post.source, post.published].filter(Boolean).join(' · ');
-        if (meta) {
-          var cardMeta = document.createElement('span');
-          cardMeta.className = 'post-card-meta';
-          cardMeta.textContent = meta;
-          body.appendChild(cardMeta);
-        }
+        // ALWAYS DRAWN NOW, even when both halves are empty. It used to appear
+        // only when there was something in it, so a candidate with no source and
+        // no date had nowhere to put one.
+        var cardMeta = document.createElement('span');
+        cardMeta.className = 'post-card-meta';
+        cardMeta.textContent = [post.source, post.published].filter(Boolean).join(' \u00b7 ') || '';
+        body.appendChild(cardMeta);
 
         card.appendChild(body);
         preview.appendChild(card);
         article.appendChild(preview);
+
+        // ABOVE THE REASONING, below the post. The post is what goes out; these
+        // are the columns describing it that the post has no room for; the
+        // reasoning is why it is here at all.
+        article.appendChild(buildFieldsRow(post));
 
         var ephemera = document.createElement('div');
         ephemera.className = 'post-ephemera';
@@ -3480,6 +3610,181 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // these are ordinary UPDATEs. url and blurb are NOT NULL in the table but
       // may be blank — emptying one writes '', matching the Add box, where both
       // are optional. Only the headline is refused.
+      // ── Click to edit, in place ──────────────────────────────────────────
+      //
+      // Every field on a card is the field it looks like, and clicking it turns
+      // it into a box holding the same value. The alternative was the Edit
+      // dialog for every one-word fix, which is a modal, a form and a Save for
+      // a typo in a headline.
+      //
+      // WHAT IT WRITES IS WHAT THE DIALOG WRITES. Same savePost, same
+      // normalizeManualUrl on the two url fields, same "a headline is the one
+      // thing a candidate cannot be without" rule. Two ideas of what a valid
+      // candidate is would be two ways to end up with a broken one.
+      var EDITING_KEY = null;
+
+      function fieldToText(post, key) {
+        if (key === 'topics') return (post.topics || []).join(', ');
+        if (key === 'platforms') {
+          var ps = post.platforms;
+          if (!ps) return '';
+          if (typeof ps === 'string') return ps;
+          if (Array.isArray(ps)) {
+            return ps.map(function (x) { return x && (x.name || x.platform) || String(x); }).join(', ');
+          }
+          return '';
+        }
+        return cleanText(post[key] || '');
+      }
+
+      function patchFor(key, raw) {
+        var patch = {};
+        if (key === 'topics') {
+          var list = raw ? raw.split(',').map(function (t) { return t.trim().toLowerCase(); }).filter(Boolean) : [];
+          patch.topics = list.length ? list : null;
+        } else if (key === 'platforms') {
+          // Stored as jsonb, and the agent writes [{name, why}]. Typed here it is
+          // a plain list of names, so it is rebuilt in that shape rather than as
+          // bare strings, or the Edit dialog and the Post button would meet an
+          // array they cannot read.
+          var names = raw ? raw.split(',').map(function (t) { return t.trim(); }).filter(Boolean) : [];
+          patch.platforms = names.length ? names.map(function (n) { return { name: n }; }) : null;
+        } else if (key === 'url' || key === 'blurb') {
+          // NOT NULL in the table and optional in the Add box, so an emptied one
+          // is written as '' rather than refused.
+          patch[key] = raw;
+        } else {
+          patch[key] = raw || null;
+        }
+        if ((key === 'url' || key === 'image') && patch[key]) {
+          patch[key] = normalizeManualUrl(patch[key]);
+        }
+        return patch;
+      }
+
+      // el keeps its own classes and type; this only swaps its contents.
+      function makeEditable(el, post, key, opts) {
+        var options = opts || {};
+        el.classList.add('ed');
+        el.tabIndex = 0;
+        el.dataset.placeholder = options.placeholder || ('add ' + key);
+        el.title = options.title || ('Click to edit ' + key);
+        if (!cleanText(el.textContent)) el.classList.add('is-blank');
+
+        function open() {
+          if (el.dataset.editing === '1') return;
+          el.dataset.editing = '1';
+          EDITING_KEY = String(post.id) + ':' + key;
+          var current = fieldToText(post, key);
+          var box = document.createElement(options.multiline ? 'textarea' : 'input');
+          if (!options.multiline) box.type = 'text';
+          box.className = 'ed-input';
+          box.value = current;
+          box.setAttribute('aria-label', options.title || key);
+          var held = el.innerHTML;
+          el.textContent = '';
+          el.classList.remove('is-blank');
+          el.appendChild(box);
+          box.focus();
+          box.select();
+
+          var done = false;
+          function restore() { el.dataset.editing = ''; EDITING_KEY = null; el.innerHTML = held; }
+
+          async function commit() {
+            if (done) return;
+            done = true;
+            var raw = cleanText(box.value);
+            if (raw === current) { restore(); return; }
+            if (key === 'headline' && !raw) {
+              setPageStatus('a candidate needs a headline');
+              restore();
+              return;
+            }
+            var patch;
+            try {
+              patch = patchFor(key, raw);
+            } catch (err) {
+              setPageStatus(err.message || 'that value was not accepted');
+              restore();
+              return;
+            }
+            el.classList.add('ed-saving');
+            try {
+              await savePost(post.id, patch);
+              // RE-RENDER RATHER THAN PATCH THE NODE. The value can come back
+              // changed -- a url gains its scheme, topics are lowercased -- and
+              // a card showing what you typed while the row holds something else
+              // is the kind of disagreement nobody notices until later.
+              renderQueue();
+              flash(queueStatus, 'Saved');
+            } catch (err) {
+              el.classList.remove('ed-saving');
+              setPageStatus(err.message || 'could not save that');
+              restore();
+            }
+          }
+
+          box.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); done = true; restore(); return; }
+            if (event.key === 'Enter' && !options.multiline) { event.preventDefault(); box.blur(); }
+            // A textarea keeps Enter for a new line; Ctrl/Cmd+Enter commits it.
+            if (event.key === 'Enter' && options.multiline && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault(); box.blur();
+            }
+          });
+          box.addEventListener('blur', commit);
+          // A click inside the box must not reach the card behind it.
+          box.addEventListener('click', function (e) { e.stopPropagation(); });
+        }
+
+        el.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          open();
+        });
+        el.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+        });
+        return el;
+      }
+
+      // The columns the post itself has no room for, plus the ones it only shows
+      // when they are filled: without this an empty source or published date is
+      // invisible AND unreachable, which is how a field quietly stops existing.
+      var CARD_FIELDS = [
+        { key: 'source',    label: 'Source',    placeholder: 'no source' },
+        { key: 'published', label: 'Published', placeholder: 'no date' },
+        { key: 'topics',    label: 'Topics',    placeholder: 'none' },
+        { key: 'media',     label: 'Media',     placeholder: 'none' },
+        { key: 'platforms', label: 'Platforms', placeholder: 'none',
+          title: 'Advice, not routing. Which accounts this suits; the Post button decides for itself.' },
+        { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true }
+      ];
+
+      function buildFieldsRow(post) {
+        var row = document.createElement('div');
+        row.className = 'post-fields';
+        CARD_FIELDS.forEach(function (f) {
+          var cell = document.createElement('div');
+          cell.className = 'post-field' + (f.wide ? ' post-field--wide' : '');
+          var k = document.createElement('span');
+          k.className = 'post-field-key';
+          k.textContent = f.label;
+          var v = document.createElement('span');
+          v.className = 'post-field-val';
+          v.dataset.fieldKey = f.key;
+          v.textContent = fieldToText(post, f.key);
+          makeEditable(v, post, f.key, {
+            placeholder: f.placeholder,
+            title: f.title || ('Click to edit ' + f.label.toLowerCase())
+          });
+          cell.append(k, v);
+          row.appendChild(cell);
+        });
+        return row;
+      }
+
       var EDIT_FIELDS = [
         // DESTINATION WEB PAGE, the same words the Add box uses — one field,
         // one name, wherever it is shown. "URL" named the format; this names
