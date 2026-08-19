@@ -313,6 +313,14 @@
       font-variant-numeric: tabular-nums;
     }
     .post-why-score.is-low { color: var(--bic-red); }
+    /* Quieter than any real score: it is the absence of a judgement, not a low
+       one, and it must not read as though the bot thought little of the pick. */
+    .post-why-score.is-unscored {
+      color: rgba(var(--bic-blue-rgb), 0.42);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
     /* ── The post as it will look ─────────────────────────────────────────── */
     .post-preview { display: grid; gap: 10px; padding: 14px 14px 13px; }
@@ -3518,14 +3526,32 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // Null on every row written before 2026-08-07 and on anything added by
           // hand -- a human typing a story in has already made the judgement the
           // number carries -- and null renders nothing at all, never 0%.
+          // ALWAYS DRAWN, INCLUDING WHEN THERE IS NO SCORE. It used to render
+          // nothing at all on an unscored row, which is honest and invisible:
+          // the absence of a number and the absence of the whole feature look
+          // identical, and that is how tgb_pull_socials_candidates silently
+          // dropping the column went unnoticed for five days. An explicit
+          // "unscored" says which.
+          //
+          // READ-ONLY on purpose, and the only field on the card that is. It is
+          // the bot's own answer to "how sure am I about this pick", so a human
+          // typing over it does not correct the number, it destroys the only
+          // thing it measured.
+          var scoreEl = document.createElement('span');
           if (score !== null) {
-            var scoreEl = document.createElement('span');
             scoreEl.className = 'post-why-score' + (score < 40 ? ' is-low' : '');
             scoreEl.textContent = score + '%';
             scoreEl.title = 'The bot rated its own confidence in this pick ' + score + ' out of 100'
-              + (score < 40 ? ' — filed to reach five, likely with a rule bent' : '');
-            why.appendChild(scoreEl);
+              + (score < 40 ? ', filed to reach five and likely with a rule bent' : '')
+              + '. Its own judgement, so it is not editable.';
+          } else {
+            scoreEl.className = 'post-why-score is-unscored';
+            scoreEl.textContent = 'unscored';
+            scoreEl.title = 'No confidence score on this candidate. Every row filed before 2026-08-07, '
+              + 'anything added by hand, and everything filed between 2026-08-13 and 2026-08-18 '
+              + '(while the insert function was dropping the column) has none.';
           }
+          why.appendChild(scoreEl);
           var whyLabel = document.createElement('span');
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
