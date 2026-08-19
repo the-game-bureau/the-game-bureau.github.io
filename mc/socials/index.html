@@ -3760,11 +3760,21 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
 
         el.addEventListener('click', function (event) {
+          if (el.dataset.editing === '1') return;
           event.preventDefault();
           event.stopPropagation();
           open();
         });
+        // THE BOX LIVES INSIDE THIS ELEMENT, so every keystroke in it BUBBLES UP
+        // to here. Without the guard, Enter and SPACE were caught on the way out
+        // and preventDefault'd: typing a space into any of these fields did
+        // nothing at all, and "The Local Herald" could only be entered as
+        // "TheLocalHerald". Both conditions are needed and neither is redundant:
+        // `editing` covers the open box, and the target check covers anything
+        // else that ever ends up nested in one of these.
         el.addEventListener('keydown', function (event) {
+          if (el.dataset.editing === '1') return;
+          if (event.target !== el) return;
           if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
         });
         return el;
