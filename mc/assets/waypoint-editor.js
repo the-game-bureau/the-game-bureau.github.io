@@ -204,7 +204,10 @@
     '.dlg.is-open { display: grid; }',
     '.dlg-panel { width: min(100%, 460px); display: grid; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper-base, #fff); box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3); max-height: calc(100vh - 48px); overflow: auto; }',
     '.dlg-panel--wide { width: min(100%, 760px); }',
-    '.dlg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }',
+    '.dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }',
+    /* The id reads as a label on the button rather than a stray number, so they
+       share a group and the button leads: it is the thing you press. */
+    '.dlg-head-tools { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }',
     '.dlg-title { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }',
     '.dlg-id { font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--muted); }',
     '.dlg-note { margin: 0; font-size: 0.78rem; color: var(--muted); }',
@@ -250,7 +253,12 @@
     // NO LIVE / SHELVED SWITCH. It sat here for about an hour. Every waypoint
     // is live as of 2026-08-18: the library holds all of them and every one is
     // eligible for a path, so there is no second state for a switch to show.
-    '      <span class="dlg-id" id="wpDlgId"></span>',
+    // FILL LIVES ON THE HEAD, beside the WPID: "fill this form in", said at the
+    // top of the form it fills. See the foot for why it is not down there.
+    '      <span class="dlg-head-tools">',
+    '        <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
+    '        <span class="dlg-id" id="wpDlgId"></span>',
+    '      </span>',
     '    </div>',
     '    <div class="wp-form" id="wpForm"></div>',
     '    <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>',
@@ -289,16 +297,17 @@
     // so if that reads wrong later, THIS is the line to change back.
     '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
     '      <span class="dlg-spacer"></span>',
-    // FILL SITS WITH THE RIGHT-HAND GROUP now, immediately left of Save, and it
-    // is BORDERED like the buttons beside it. It wore .ghost while it stood in a
-    // band of helpers on the left, where borderless read as quiet; alone among
-    // Save and Close it read as a word that had lost its button. A control that
-    // sits with buttons is drawn as one.
+    // THREE BUTTONS OF ONE KIND. Delete destroys the record, Save commits it,
+    // Close discards: every one of them ENDS this dialog and you press each at
+    // most once a visit.
     //
-    // DUPLICATE WENT (2026-08-18), and duplicateWaypointRow with it. The rule
-    // between the bands went too: with one button on the left there is nothing
-    // left to separate.
-    '      <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
+    // FILL IS NOT ONE OF THOSE and used to sit here anyway, which is why it got
+    // moved three times in an afternoon before it went up to the form. It is a
+    // tool you press repeatedly WHILE editing and it acts on the form rather
+    // than on the record, which makes it the same kind of thing as Open beside
+    // the Source box. A row of endings was never going to hold it.
+    //
+    // DUPLICATE WENT (2026-08-18), and duplicateWaypointRow with it.
     '      <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>',
     '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '    </div>',
