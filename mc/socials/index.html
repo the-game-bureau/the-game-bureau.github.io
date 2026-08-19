@@ -365,15 +365,7 @@
     /* ── The post as it will look ─────────────────────────────────────────── */
     .post-preview { display: grid; gap: 10px; padding: 14px 14px 13px; }
 
-    /* The caption's own cell. Same geometry and rule as .post-reasonband above
-       it, so the card is a stack of bands rather than one band and a box that
-       happens to contain two unrelated things. White ground: this is the post,
-       and the tinted bands are the notes around it. */
-    .post-captionband {
-      padding: 11px 14px 12px;
-      border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      background: #fff;
-    }
+
 
     /* The caption IS the post, so it is the largest thing on the card and wears
        no quote-block chrome — chrome would imply it is being cited rather than
@@ -391,7 +383,7 @@
        an older row, or an image that failed to load — the grid collapses to a
        single column and it looks exactly as it did before thumbnails existed. */
     .post-card {
-      display: grid;
+      display: block;
       /* 90% of the column and CENTRED. The preview is a MOCKUP of what the
          platform will unfurl, not a full-width panel of ours, and at the same
          width as everything else on the card it read as another band of the
@@ -400,7 +392,8 @@
       width: 90%;
       margin-inline: auto;
       gap: 2px;
-      padding: 9px 11px;
+      padding: 0;
+      overflow: hidden;
       border: 1px solid var(--control-line);
       border-radius: 6px;
       background: #f7faff;
@@ -420,28 +413,66 @@
       background: #f7faff;
       cursor: default;
     }
-    .post-card.has-shot {
-      grid-template-columns: 116px minmax(0, 1fr);
+    /* NO SIDE-BY-SIDE THUMBNAIL ANY MORE (2026-08-19). The card was a 116px
+       tile on the left with the link text beside it, which is what a link
+       PREVIEW looks like. A POST is stacked: who wrote it, what they said, the
+       picture, then the link bar. Same content, in the order the platform
+       actually renders it. */
+    .post-card.has-shot { padding: 0; }
+    /* The account row. Avatar, name, meta: the platform's own chrome, quoted
+       so the mockup is recognisably one of ours rather than a generic box. */
+    .post-card-account {
+      display: flex;
       align-items: center;
-      gap: 13px;
-      padding: 10px;
+      gap: 9px;
+      padding: 10px 12px 8px;
     }
-    .post-card-body { display: grid; gap: 3px; min-width: 0; }
+    .post-card-avatar {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      object-fit: cover;
+      background: rgba(17, 24, 32, 0.06);
+    }
+    .post-card-account-text { display: grid; gap: 1px; min-width: 0; }
+    .post-card-account-name {
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .post-card-account-meta {
+      color: rgba(var(--bic-blue-rgb), 0.6);
+      font-size: 0.72rem;
+      line-height: 1.2;
+    }
+    /* The link bar UNDER the picture, which is where a platform puts it. */
+    .post-card-body {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 9px 12px 10px;
+      border-top: 1px solid var(--control-line);
+      background: rgba(var(--bic-blue-rgb), 0.035);
+    }
+    /* The caption sits inside the card now, so it carries the card's own
+       padding rather than the band's. */
+    .post-card .post-caption { padding: 0 12px 10px; }
+    /* FULL WIDTH AND EDGE TO EDGE, the way a post shows a picture. It keeps a
+       fixed aspect so a column of cards reads at one height rather than jumping
+       about with whatever shape each outlet's og:image happens to be. */
     .post-card-shot {
       display: block;
       overflow: hidden;
-      border-radius: 5px;
       background: rgba(17, 24, 32, 0.06);
-      /* Inset hairline so a pale image still has a defined edge. */
-      box-shadow: inset 0 0 0 1px rgba(17, 24, 32, 0.08);
-      aspect-ratio: 16 / 10;
+      border-top: 1px solid var(--control-line);
+      aspect-ratio: 1.91 / 1;
     }
     .post-card-shot img {
       display: block;
       width: 100%;
       height: 100%;
-      /* cover, so a tall or panoramic og:image still fills the tile instead of
-         letterboxing — every card in the list then reads at the same size. */
       object-fit: cover;
     }
     @media (max-width: 560px) {
@@ -591,32 +622,12 @@
     }
 
     /* The label sits inline so a one-line note stays one line. */
-    /* NOTHING ON A CARD IS SMALLER THAN THE `TGB SAYS:` LABEL (2026-08-19).
-       The mono labels sat at 0.62rem with the topic pills at 0.58 and the
-       photo's EDIT badge at 0.55, which is under 9px on a default root: legible
-       in a screenshot, a squint on a laptop. They are all 0.72rem now, the same
-       size as the found-date, and that is the floor for this card. A label
-       being quiet is a matter of weight, colour and letter-spacing, all of
-       which these still have; it is not a reason to set it too small to read.
-
-       IF YOU ADD A LABEL HERE, START AT 0.72rem. */
-    /* The caption's own label, matching .post-why-label so TGB SAYS: and
-       BOT SAYS: read as one pair. It sits on a 1.01rem line rather than a
-       0.82rem one, so it needs its own vertical alignment to sit on the same
-       baseline as the sentence beside it. */
-    .post-caption-label {
-      /* Inline, like BOT SAYS: above it. It was given its own line while the
-         caption still shared a box with the story preview and needed the extra
-         separation; the caption has its own cell now, so the two labels can sit
-         the same way and the band is one line shorter. */
-      margin-right: 8px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      opacity: 0.7;
-    }
+    /* NOTHING ON A CARD IS SMALLER THAN 0.72rem (2026-08-19). The mono labels
+       sat at 0.62rem with the topic pills at 0.58 and the photo's EDIT badge at
+       0.55, which is under 9px on a default root: legible in a screenshot, a
+       squint on a laptop. A label being quiet is a matter of weight, colour and
+       letter-spacing, all of which these still have; it is not a reason to set
+       it too small to read. IF YOU ADD A LABEL HERE, START AT 0.72rem. */
     .post-why-label {
       margin-right: 7px;
       font-family: "IBM Plex Mono", monospace;
@@ -685,6 +696,11 @@
        an address that is there and does not resolve is worth acting on, where
        an absent one is just an optional field nobody has filled. */
     .post-card-shot.is-empty {
+      /* A real picture gets the post's own 1.91:1 letterbox; an ABSENCE must
+         not, or a candidate with no image opens a 400px hole in the list. The
+         frame only has to be big enough to press and to read. */
+      aspect-ratio: auto;
+      min-height: 96px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3623,6 +3639,20 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         catch (error) { return String(url || '').replace(/^https?:\/\//, '').split('/')[0]; }
       }
 
+      // "3 hours ago" for the mockup's meta line. Deliberately coarse: the
+      // mockup is chrome, and a to-the-minute figure invites reading it as data.
+      function agoText(stamp) {
+        var then = stamp ? new Date(stamp).getTime() : NaN;
+        if (isNaN(then)) return 'just now';
+        var mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+        if (mins < 2) return 'just now';
+        if (mins < 60) return mins + ' minutes ago';
+        var hours = Math.round(mins / 60);
+        if (hours < 24) return hours === 1 ? 'an hour ago' : hours + ' hours ago';
+        var days = Math.round(hours / 24);
+        return days === 1 ? 'yesterday' : days + ' days ago';
+      }
+
       function candidateLabel(post) {
         var id = String(post && post.id || '');
         var match = id.match(/^(\d{4})-(\d{2})-(\d{2})(?:-(\d{4}))?-(\d+)$/);
@@ -3777,11 +3807,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var caption = document.createElement('p');
         caption.className = 'post-caption';
 
-        var captionLabel = document.createElement('span');
-        captionLabel.className = 'post-caption-label';
-        captionLabel.textContent = 'TGB says:';
-        caption.appendChild(captionLabel);
-
         var captionText = document.createElement('span');
         captionText.className = 'post-caption-text';
         captionText.textContent = post.blurb || '';
@@ -3791,16 +3816,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           title: 'Our caption, the line that actually gets published. Click to edit; Ctrl+Enter saves.'
         });
         caption.appendChild(captionText);
-        // ITS OWN CELL (2026-08-19), a band between the reasoning and the story
-        // preview rather than the first thing inside the preview's own box. The
-        // three bands then say three separate things in three separate places:
-        // why the bot picked it, what WE would say about it, and what the story
-        // itself is. Sharing a box with the preview made our caption read as
-        // part of the unfurled link rather than as the post it will actually be.
-        var captionBand = document.createElement('div');
-        captionBand.className = 'post-captionband';
-        captionBand.appendChild(caption);
-        article.appendChild(captionBand);
+        // THE CAPTION LIVES INSIDE THE MOCKUP (2026-08-19), because the mockup
+        // is a POST now rather than a link preview: account header, our words,
+        // the picture. That is where the caption sits when it goes out, and
+        // seeing it there is the whole point of showing a mockup at all. It is
+        // appended further down, once the account row exists.
+        //
+        // THE `TGB SAYS:` LABEL WENT WITH THE MOVE: the account row says The
+        // Game Bureau in bold directly above the sentence, which is the same
+        // statement made the way the platform makes it. `BOT SAYS:` survives on
+        // its own band, being the one line that never leaves this page.
 
         // One anchor wrapping the whole preview card — the same target shape a
         // real unfurled link has, rather than a separate raw-URL line.
@@ -3827,6 +3852,50 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         } else {
           card.classList.add('is-linkless');
         }
+
+        // -- THE ACCOUNT HEADER --------------------------------------------
+        // What makes this read as a POST rather than as a link preview: our
+        // avatar, our name in bold, and the platform's own meta line under it.
+        // A mockup that does not say whose post it is leaves out the first
+        // thing a reader checks.
+        var account = document.createElement('span');
+        account.className = 'post-card-account';
+
+        var avatar = document.createElement('img');
+        avatar.className = 'post-card-avatar';
+        avatar.src = '/mc/assets/brand/the-game-bureau-avatar-paper.png';
+        avatar.alt = '';
+        // The header collapses to the name alone rather than showing a broken
+        // image well. This is chrome, and chrome must never be the thing that
+        // looks wrong on the card.
+        avatar.addEventListener('error', function () {
+          if (avatar.parentNode) avatar.parentNode.removeChild(avatar);
+        });
+        account.appendChild(avatar);
+
+        var accountText = document.createElement('span');
+        accountText.className = 'post-card-account-text';
+        var accountName = document.createElement('span');
+        accountName.className = 'post-card-account-name';
+        accountName.textContent = 'The Game Bureau';
+        var accountMeta = document.createElement('span');
+        accountMeta.className = 'post-card-account-meta';
+        // The CANDIDATE'S OWN AGE, not an invented posting time. A mockup
+        // saying "3 hours ago" about a post that does not exist would be pure
+        // decoration; this says how long the thing has sat in the queue.
+        accountMeta.textContent = agoText(post.created_at) + ' · Public';
+        accountText.append(accountName, accountMeta);
+        account.appendChild(accountText);
+        card.appendChild(account);
+
+        // OUR WORDS, WHERE THEY WILL ACTUALLY SIT. Editable in place, so it has
+        // to stop the anchor exactly as the picture does: preventDefault kills
+        // the navigation, stopPropagation keeps the click off anything above.
+        caption.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        card.appendChild(caption);
 
         // The thumbnail is whatever og:image the story carries, recorded by the
         // agent while it had the page open in step 3 — the page cannot read it
