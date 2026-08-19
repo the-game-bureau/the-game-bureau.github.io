@@ -342,24 +342,13 @@
     #poolList .stop:active, #pathStops .stop:active { cursor: grabbing; }
     #poolList .stop .stop-meta, #pathStops .stop .stop-meta { cursor: text; }
     .stop-handle { color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; }
-    /* NOTHING IN THIS LIST IS GREYED OUT (2026-08-18). Used rows sat at 0.62
-       and shelved rows went colourless at 0.55, which was two greys carrying
-       two meanings and needing a legend to tell them apart -- and a THIRD state,
-       a row missing data, had no grey at all, so the scheme was already
-       incomplete on the day the tags arrived.
-       THE TAGS SAY IT NOW, in words, on the row: `shelved`, `missing`, `x2`.
-       A word is unambiguous, it survives a screenshot and a colourblind reader,
-       and it does not make a place you can perfectly well drag onto a path look
-       disabled. Every row is at full contrast because every row is equally
-       usable: a shelved place still drags, a used one can be added again, and a
-       row with holes in it is often the one you most want to open.
-       The shelved row keeps its LEFT RULE and its faint ground -- those are a
-       marker you can spot while scrolling, not a dimming -- and the two classes
-       stay for it. Don't reintroduce opacity or a muted text colour here. */
-    .stop--shelved {
-      border-left: 3px solid rgba(var(--bic-blue-rgb), 0.28);
-      background: rgba(var(--bic-blue-rgb), 0.035);
-    }
+    /* NOTHING IN THIS LIST IS GREYED OUT AND NOTHING IS MARKED SHELVED
+       (2026-08-18). Two passes on the same afternoon: first the greys came off
+       in favour of tags, then SHELVED ITSELF WENT. Every waypoint is live, the
+       library holds all of them, and every one is eligible for a path, so there
+       is no second state left for a row to be in. `.stop--shelved` and
+       `.stop-tag--shelved` are gone with it. */
+
     /* OUTLINED PILLS ON ONE LINE, the Waypoint Finder's .post-tag in this
        room's sizes, so a place wears the same marks in both rooms. They replaced
        two stacked caption lines that made a one-line row three lines tall. */
@@ -375,11 +364,10 @@
       padding: 1px 7px;
       line-height: 1.5;
     }
-    /* MISSING IS THE ONE THAT ASKS FOR WORK, so it is the only one in the red
-       pen. Shelved is a state somebody chose; missing is a hole nobody has
-       filled, and it is the reason a pin will not draw. */
+    /* MISSING IS THE ONLY TAG IN THE RED PEN, and now the only tag with a
+       colour at all: it is a hole nobody has filled and the reason a pin will
+       not draw. */
     .stop-tag--missing { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.5); }
-    .stop-tag--shelved { color: rgba(var(--bic-blue-rgb), 0.6); }
     .stop-ord {
       min-width: 1.9em;
       text-align: right;
@@ -1105,11 +1093,9 @@
       state.paths = Array.isArray(paths) ? paths : [];
       state.pathStops = Array.isArray(allStops) ? allStops : [];
       TgbWaypointEditor.probe(waypoints);
-      // SHELVED WAYPOINTS ARE KEPT, not filtered out. They used to be dropped
-      // here, so a place a human had shelved simply vanished from this room --
-      // and since arrivals now land shelved, that would have hidden every new
-      // waypoint from the page where paths are built. They are drawn grey
-      // instead, which says "not approved yet" rather than saying nothing.
+      // EVERY WAYPOINT, AND THERE IS NOTHING TO FILTER. This once dropped
+      // archived rows, then kept them and marked them; as of 2026-08-18 the
+      // distinction is gone entirely and the library holds the lot.
       state.waypoints = Array.isArray(waypoints) ? waypoints : [];
       // NOTHING IS OPENED BY DEFAULT. It used to fall back to state.paths[0],
       // which is alphabetically-first-by-id and has nothing to do with you: the
@@ -1525,21 +1511,14 @@
         if (!q) return true;
         return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
       });
-      // ALPHABETICAL BY NAME, AND NOTHING ELSE. It grouped shelved rows into a
-      // tail for a few hours, on the reasoning that you build with approved
-      // places first. That reasoning came from the day this room had a separate
-      // review queue next door; with the reviewing done HERE, sorting by state
-      // means a row MOVES when you flip its switch, so the place you were
-      // looking at leaves the spot you were looking at.
-      //
-      // A name is the one key that does not move under you, and it is how you
-      // look for a place you already have in mind. localeCompare so a leading
-      // accent or a lowercase name lands where a reader expects it, not where
-      // its code point falls.
+      // ALPHABETICAL BY NAME. It briefly grouped by state, which stopped
+      // meaning anything when the shelved state was removed. A name is the one
+      // key that does not move under you, and it is how you look for a place you
+      // already have in mind. localeCompare so a leading accent or a lowercase
+      // name lands where a reader expects it, not where its code point falls.
       return rows.sort((a, b) => cleanText(a.name).localeCompare(cleanText(b.name)));
     }
 
-    const isShelved = (w) => w.archived === true || w.archived === 'true';
 
     // WHAT A ROW IS MISSING, and nothing about what it has. Every one of these
     // is a thing somebody has to go and find later, and three of them stop the
@@ -1638,19 +1617,13 @@
         // list before and after you build a walk out of it.
         const times = stopsCount(w.wpid);
         const used = times > 0;
-        const shelved = isShelved(w);
+
         // A HOOK WITH NO STYLE. .stop--used no longer paints anything: the row
         // used to dim and does not, since the `x2` tag and the path opposite
         // both say it better. Kept as a marker on the element for anything that
         // wants to find used rows, and so the class does not have to be
         // reintroduced by whoever needs it next.
         if (used) row.classList.add('stop--used');
-        // TWO GREYS, AND THEY MEAN OPPOSITE THINGS. Used-grey is "done, it is
-        // already on the walk"; shelved-grey is "not approved, decide in the
-        // Waypoint Finder before you build with it". One grey for both would
-        // make the two states of the library indistinguishable at a glance,
-        // which is the only thing the colour is for.
-        if (shelved) row.classList.add('stop--shelved');
 
         const handle = document.createElement('span');
         handle.className = 'stop-handle';
@@ -1671,9 +1644,8 @@
 
         // TAGS, NOT CAPTIONS. These were two stacked lines of text reading
         // "shelved" and "on this path", which made a one-line row three lines
-        // tall and stated one thing the row already says: a used row is DIMMED
-        // and a shelved one is drawn in its own grey with a rule down its edge,
-        // so the words were a caption on a picture that was already clear.
+        // tall and stated what the row already showed. Both are gone now: the
+        // shelved state does not exist, and a used row says so with its count.
         //
         // "on this path" is gone entirely for that reason. The REPEAT COUNT
         // survives as a chip, because it is the one fact the dimming cannot
@@ -1681,14 +1653,10 @@
         // row would tell you.
         const tags = document.createElement('div');
         tags.className = 'stop-tags';
-        if (shelved) {
-          tags.appendChild(poolTag('shelved', 'stop-tag--shelved',
-            'Not in the live library. Take it live in the Waypoint Finder.'));
-        }
         const gaps = missingBits(w);
         if (gaps.length) {
           tags.appendChild(poolTag('missing', 'stop-tag--missing',
-            'No ' + gaps.join(', no ') + '. Press Edit to fill it in, or Locate for a point.'));
+            'No ' + gaps.join(', no ') + '. Press Edit, then Look up.'));
         }
         if (times > 1) {
           tags.appendChild(poolTag('x' + times, '',

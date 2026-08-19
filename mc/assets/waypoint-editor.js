@@ -189,20 +189,6 @@
        routinely several stops, but never silently offered as if it were new. */
     '.find-row.is-dupe { border-color: var(--warn); }',
     '.find-row-dupe { font-size: 0.72rem; color: var(--warn); font-weight: 700; }',
-    /* The LIVE / SHELVED switch. The Waypoint Finder's card switch, same
-       geometry and same two words, because both write the same column. */
-    '.wp-toggle { display: inline-flex; align-items: center; gap: 8px; appearance: none; border: 0; background: none; padding: 4px 2px; margin: 0; font: inherit; cursor: pointer; color: var(--muted); }',
-    '.wp-toggle[disabled] { opacity: 0.5; cursor: default; }',
-    '.wp-toggle-track { position: relative; width: 38px; height: 20px; flex: 0 0 38px; border-radius: 999px; background: rgba(var(--bic-blue-rgb), 0.22); transition: background 120ms ease; }',
-    '.wp-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 120ms ease; }',
-    '.wp-toggle.is-live .wp-toggle-track { background: var(--success, #276740); }',
-    '.wp-toggle.is-live .wp-toggle-knob { transform: translateX(18px); }',
-    '.wp-toggle.is-live { color: var(--success, #276740); }',
-    '.wp-toggle-word { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; min-width: 4.6em; }',
-    /* State first, then actions. margin-right:auto only holds the left end
-       because the switch is the first child of the row. */
-    '.dlg-actions .wp-toggle { margin-right: auto; }',
-    '@media (prefers-reduced-motion: reduce) { .wp-toggle-track, .wp-toggle-knob { transition: none; } }',
     /* The dialog shell, for a room that has no .dlg of its own. A host that
        already styles .dlg (the Path Builder does) overrides these from its own
        sheet, which loads later. */
@@ -220,7 +206,6 @@
        groups, which is the whole mechanism: two buttons that belong together
        read as a pair without a rule, a box or a label. */
     '.dlg-group { display: inline-flex; align-items: center; gap: 6px; }',
-    '.dlg-head-state { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }',
     /* MAPS AND LOCATE SIT ON THE COORDINATES FIELD, because both are about that
        one value and neither is about the row. Small, quiet, and beside the thing
        they act on. */
@@ -262,13 +247,10 @@
     // it WRITES IMMEDIATELY; every other control in that row waits for Save, so
     // sitting among them it read as one more pending change. Up here beside the
     // WPID it reads as what this row currently is, which is what it is.
-    '      <div class="dlg-head-state">',
-    '        <button class="wp-toggle" id="wpArchiveBtn" type="button" role="switch" aria-checked="false">',
-    '          <span class="wp-toggle-track"><span class="wp-toggle-knob"></span></span>',
-    '          <span class="wp-toggle-word" id="wpArchiveWord">Live</span>',
-    '        </button>',
-    '        <span class="dlg-id" id="wpDlgId"></span>',
-    '      </div>',
+    // NO LIVE / SHELVED SWITCH. It sat here for about an hour. Every waypoint
+    // is live as of 2026-08-18: the library holds all of them and every one is
+    // eligible for a path, so there is no second state for a switch to show.
+    '      <span class="dlg-id" id="wpDlgId"></span>',
     '    </div>',
     '    <div class="wp-form" id="wpForm"></div>',
     '    <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>',
@@ -358,7 +340,7 @@
   // back to when a street will not geocode.
   function wpErrors(row) {
     const geo = window.TgbWaypointGeo;
-    if (!row || row.archived) return [];
+    if (!row) return [];
     const plusCoded = geo && geo.looksLikePlusCode(row.address)
       && !geo.isShortPlusCode(row.address) && !!geo.decodePlusCode(row.address);
     return WP_ERROR_FIELDS.filter((f) => {
@@ -379,14 +361,7 @@
     wpEdit.row = source
       ? Object.assign({}, source)
       : { wpid: '', name: '', city: pathCity(), state: '', zip: '', address: '',
-          // ARRIVES SHELVED, matching public.waypoints.archived's default since
-          // 2026-08-18. Everything new waits for a human in the Waypoint
-          // Finder, whoever typed it: a place from Waypoint Bot, one found
-          // online, one typed by hand. Same rule the Tape Room settled on,
-          // where a manually added tape arrives shelved too - one arrival
-          // state is a thing you can hold in your head, two is a rule you have
-          // to look up.
-          description: '', source_url: '', archived: true, lat: null, lon: null };
+          description: '', source_url: '', archived: false, lat: null, lon: null };
     wpEdit.wpid = source ? String(source.wpid) : '';
     wpEdit.dirty = false;
     wpEdit.busy = false;
@@ -560,15 +535,6 @@
       box.appendChild(add);
     }
 
-    const archived = !!row.archived;
-    const archiveBtn = el('wpArchiveBtn');
-    archiveBtn.classList.toggle('is-live', !archived);
-    archiveBtn.setAttribute('aria-checked', String(!archived));
-    el('wpArchiveWord').textContent = archived ? 'Shelved' : 'Live';
-    archiveBtn.title = archived
-      ? 'Shelved. Press to take it live and back into the working library.'
-      : 'Live. Press to shelve it: it leaves the working library and future AI runs will not suggest it again.';
-    archiveBtn.hidden = isNew || !wpCols.archived;
     el('wpDupeBtn').hidden = isNew;
     el('wpDeleteBtn').hidden = isNew;
 
@@ -580,7 +546,7 @@
 
   function wpBusy(on, text) {
     wpEdit.busy = !!on;
-    ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
+    ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpDupeBtn', 'wpDeleteBtn']
       .forEach((id) => { el(id).disabled = !!on; });
     if (text) wpNote(text, 'busy');
   }
@@ -597,7 +563,11 @@
     const derived = stateFromCity(row.city);
     if (derived) payload.state = derived;
     if (wpCols.source_url) payload.source_url = cleanText(row.source_url) || null;
-    if (wpCols.archived) payload.archived = !!row.archived;
+    // ALWAYS FALSE, never the row's own value. Every waypoint is live; the
+    // column survives only because dropping one is the irreversible act and
+    // nothing needs it dropped. Writing it explicitly means a row saved through
+    // this editor is corrected on the way past, whatever it held before.
+    if (wpCols.archived) payload.archived = false;
     if (wpCols.latlon && row.lat != null && row.lon != null) {
       payload.lat = Number(row.lat);
       payload.lon = Number(row.lon);
@@ -696,20 +666,10 @@
     }
   }
 
-  async function toggleWaypointArchived() {
-    if (!wpEdit.wpid || wpEdit.busy) return;
-    wpEdit.row.archived = !wpEdit.row.archived;
-    wpEdit.dirty = true;
-    await saveWaypoint();
-    // An archived waypoint leaves the working library, so the lists behind
-    // the dialog change - state.waypoints filters it out on the next load.
-    host.onChanged();
-  }
-
   async function duplicateWaypointRow() {
     if (!wpEdit.wpid || wpEdit.busy) return;
     // A copy is a LOOSE waypoint: it belongs to no path, and it is never born
-    // archived - a tombstone is somebody's decision about the original.
+    // archived: every waypoint is live.
     const copy = Object.assign({}, wpEdit.row);
     copy.wpid = '';
     copy.name = cleanText(copy.name) ? cleanText(copy.name) + ' (copy)' : '';
@@ -933,7 +893,6 @@
     el('wpCloseBtn').addEventListener('click', function () { closeWaypointEditor(); });
     el('wpSaveBtn').addEventListener('click', saveWaypoint);
     el('wpDeleteBtn').addEventListener('click', deleteWaypointRow);
-    el('wpArchiveBtn').addEventListener('click', toggleWaypointArchived);
     el('wpDupeBtn').addEventListener('click', duplicateWaypointRow);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
     // Seeded with the name AND the city: "Freedom Tower" alone matches one in

@@ -17,9 +17,11 @@
 -- THE CONSTANTS. These are what make it safe to expose to anon. Do not add
 -- parameters for any of them.
 --
---   * Every waypoint it creates arrives SHELVED (archived = true). That is the
---     library's arrival state since 2026081803, and it is what puts a machine's
---     find in front of a human in the Waypoint Finder before it can be used.
+--   * Every waypoint it creates arrives LIVE (archived = false). It arrived
+--     SHELVED for a day, when a review room existed to approve it; that room was
+--     deleted and 2026081805 made every waypoint live, so a shelved arrival
+--     would now be a row nothing could turn on. See that migration for what is
+--     lost with it.
 --   * The city must be the CITY_NAME OF A MAJOR-LEAGUE CLUB -- NFL, NBA, MLB or
 --     NHL. Not decoration: it is the whole scope of the routine's brief, and it
 --     is the one check that stops an anon caller writing an arbitrary path into
@@ -267,10 +269,8 @@ begin
       if v_existing is not null then
         v_wpid := v_existing;
         v_reused := v_reused + 1;
-        -- BLANKS ONLY, and never the description or archived. Filling a blank is
-        -- a gift; overwriting a value a human entered is not, and un-shelving a
-        -- row a human shelved would undo the one decision this whole pipeline
-        -- exists to put in front of them.
+        -- BLANKS ONLY, and never the description. Filling a blank is a gift;
+        -- overwriting a value a human entered is not.
         update public.waypoints w set
           city       = coalesce(w.city, v_stop_city),
           state      = coalesce(w.state, v_stop_state),
@@ -285,13 +285,12 @@ begin
           lon        = case when w.lat is null and w.lon is null then v_lon else w.lon end
         where w.wpid = v_wpid;
       else
-        -- archived = true, WRITTEN OUT rather than left to the column default.
-        -- The default is what 2026081803 set, and this is the line that has to
-        -- keep being true if somebody ever changes it back.
+        -- archived = false, WRITTEN OUT rather than left to the column default,
+        -- so this function's behaviour does not move when that default does.
         insert into public.waypoints as w
           (name, city, state, zip, address, description, source_url, ai_model, archived, lat, lon)
         values
-          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, true, v_lat, v_lon)
+          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, false, v_lat, v_lon)
         returning w.wpid into v_wpid;
         v_created := v_created + 1;
       end if;
