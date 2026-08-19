@@ -4062,9 +4062,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // thing itself would be.
         var image = String(post.image || '').trim();
         var hasShot = /^https?:\/\//i.test(image);
+        // Declared here because the empty frame's own wording depends on it: a
+        // decided candidate cannot be given an image, so inviting one would be
+        // the same false door as the EDIT badge.
+        var canEditImage = !(mode === 'posted' || mode === 'skipped');
         var hint = document.createElement('span');
         hint.className = 'post-card-shot-hint';
-        hint.textContent = 'add image';
+        hint.textContent = canEditImage ? 'add image' : 'no image';
         {
           var shot = document.createElement('span');
           shot.className = 'post-card-shot' + (hasShot ? '' : ' is-empty');
@@ -4096,24 +4100,33 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // preventDefault AND stopPropagation, both needed: the first stops the
           // anchor navigating, the second stops the click reaching anything
           // listening above it.
-          shot.style.cursor = 'pointer';
-          shot.title = 'Click to edit the image URL';
-          shot.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            openImageDialog(post, id);
-          });
+          // NOT ON A DECIDED CANDIDATE. The dialog refuses a posted or skipped
+          // row (see openImageDialog), so the pointer, the tooltip and the EDIT
+          // badge below were all advertising a door that does not open. OPEN is
+          // untouched: reading the story is not editing it, and a posted card
+          // is the one you most want to follow through to.
+          if (canEditImage) {
+            shot.style.cursor = 'pointer';
+            shot.title = 'Click to edit the image URL';
+            shot.addEventListener('click', function (event) {
+              event.preventDefault();
+              event.stopPropagation();
+              openImageDialog(post, id);
+            });
+          }
 
           // A BADGE SAYING SO. The whole picture is the target and always was,
           // but a photograph does not look clickable, so the affordance had to
           // be drawn. Upper right, small, and it shares the picture's handler
           // rather than carrying its own: two paths to one dialog is two things
           // to keep in step.
-          var shotEdit = document.createElement('span');
-          shotEdit.className = 'post-card-shot-edit';
-          shotEdit.textContent = 'Edit';
-          shotEdit.title = 'Edit the image URL';
-          shot.appendChild(shotEdit);
+          if (canEditImage) {
+            var shotEdit = document.createElement('span');
+            shotEdit.className = 'post-card-shot-edit';
+            shotEdit.textContent = 'Edit';
+            shotEdit.title = 'Edit the image URL';
+            shot.appendChild(shotEdit);
+          }
           card.appendChild(shot);
           card.classList.add('has-shot');
         }
