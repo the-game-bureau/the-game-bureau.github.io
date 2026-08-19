@@ -1170,6 +1170,11 @@
 
     const wpById = (id) => state.waypoints.find((w) => String(w.wpid) === String(id));
     const currentPath = () => state.paths.find((r) => r.tour_id === state.pathId) || null;
+    // A REAL PATH IS OPEN, which is not the same as "the picker has a value":
+    // ALL_WAYPOINTS is a value and is not a path. Everything that would WRITE to
+    // a path, or offer to, asks this rather than testing state.pathId, or the
+    // library's arrows offer to add a stop to a walk that does not exist.
+    const hasOpenPath = () => !!currentPath();
     const pathById = (id) => state.paths.find((r) => String(r.tour_id) === cleanText(id)) || null;
 
     // The single source of the pool's city. Derived, never stored: there is one
@@ -1178,6 +1183,16 @@
       const path = currentPath();
       return path ? cityNameOf(path.city) : '';
     }
+
+    // THE LIBRARY'S OWN ENTRY IN THE PATH PICKER. Not a path: a sentinel value
+    // that means "no path open, show me everything". It sits first because the
+    // library is the thing every path is built out of, and because "I want to
+    // look at the places, not a walk" is a real reason to come to this room.
+    //
+    // A SENTINEL, NOT AN EMPTY STRING. Blank already means "choose a path", the
+    // state the picker returns to; a third meaning on the same value would make
+    // "nothing open" and "everything shown" indistinguishable.
+    const ALL_WAYPOINTS = '__all__';
 
     // --- rendering ------------------------------------------------------------
 
@@ -1189,18 +1204,18 @@
       renderPool();
       // PRESENT means "unsaved", so there is nothing to disable: a Save you can
       // see is one you can press.
-      const canSave = state.dirty && !!state.pathId;
+      const canSave = state.dirty && hasOpenPath();
       el('saveBtn').hidden = !canSave;
       el('saveBtn').disabled = !canSave;
       // Delete lives in the Edit dialog, which only opens on an open path, so it
       // needs no disabled state of its own - but it is set anyway, since the
       // dialog's markup is static and a stale disabled would be worse.
-      el('deletePathBtn').disabled = !state.pathId;
+      el('deletePathBtn').disabled = !hasOpenPath();
       // Nothing to clone until something is open. Enabled on an EMPTY path too:
       // copying the city, shape and name of one you are about to fill is a
       // reasonable thing to want.
-      el('clonePathBtn').disabled = !state.pathId;
-      el('editPathBtn').disabled = !state.pathId;
+      el('clonePathBtn').disabled = !hasOpenPath();
+      el('editPathBtn').disabled = !hasOpenPath();
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
       // server, and every call is guarded by mapState.token.
@@ -1264,7 +1279,16 @@
         o.value = '';
         o.textContent = 'No paths yet';
         sel.appendChild(o);
-        sel.disabled = true;
+        // STILL OFFERED WITH NO PATHS AT ALL, and the picker stays enabled for
+        // it: the one view that does not depend on a path must not be
+        // unreachable in a database that has none. That is also the state you
+        // are in when you are about to build the first one.
+        const allNone = document.createElement('option');
+        allNone.value = ALL_WAYPOINTS;
+        allNone.textContent = 'All waypoints';
+        sel.appendChild(allNone);
+        sel.disabled = false;
+        sel.value = state.pathId;
         return;
       }
       // A blank first option, so "nothing open" is a state the picker can show
@@ -1274,6 +1298,11 @@
       none.value = '';
       none.textContent = 'Choose a path';
       sel.appendChild(none);
+      // FIRST, above every city. See ALL_WAYPOINTS.
+      const all = document.createElement('option');
+      all.value = ALL_WAYPOINTS;
+      all.textContent = 'All waypoints';
+      sel.appendChild(all);
       sel.disabled = false;
       // CITY FIRST, THEN THE PATH'S NAME, both alphabetical. The order was
       // whatever tour_id sorted to - which starts with the city but then runs on
@@ -1324,8 +1353,12 @@
     function renderStops() {
       const box = el('pathStops');
       box.innerHTML = '';
-      if (!state.pathId) {
-        box.innerHTML = '<p class="empty">No path selected. Make one with New path.</p>';
+      if (!hasOpenPath()) {
+        box.innerHTML = '<p class="empty">'
+          + (state.pathId === ALL_WAYPOINTS
+              ? 'Looking at the whole library. Choose a path above to build one.'
+              : 'No path selected. Make one with Path, or pick All waypoints to browse the library.')
+          + '</p>';
         return;
       }
       if (!state.stops.length) {
@@ -1515,8 +1548,12 @@
       // library empty until a path existed to give it a city.
       const city = pathCity().toLowerCase();
       const q = state.poolQuery.toLowerCase();
+      const showAll = state.pathId === ALL_WAYPOINTS;
       const rows = state.waypoints.filter((w) => {
-        if (!city || cleanText(w.city).toLowerCase() !== city) return false;
+        // On ALL WAYPOINTS the city test is skipped entirely rather than made to
+        // pass: `!city` already means "no path open", which must keep returning
+        // nothing, or the empty state would silently become the whole library.
+        if (!showAll && (!city || cleanText(w.city).toLowerCase() !== city)) return false;
         if (!q) return true;
         return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
       });
@@ -1666,9 +1703,9 @@
       // described the mechanism; the useful thing to say is the SCOPE, because
       // this box never reaches past the open city and a search that silently
       // does not cover everything is the one worth labelling.
-      el('poolSearch').placeholder = libraryCity
-        ? 'Search ' + libraryCity + ' waypoints'
-        : 'Search waypoints';
+      el('poolSearch').placeholder = state.pathId === ALL_WAYPOINTS
+        ? 'Search every waypoint'
+        : (libraryCity ? 'Search ' + libraryCity + ' waypoints' : 'Search waypoints');
       // THE PATH'S NAME, AND NOT ITS CITY. It carried the city in brackets
       // until 2026-08-18, from the days when the heading was the city alone and
       // the name was added to tell two paths in one city apart. The city half
@@ -1683,9 +1720,9 @@
         ? (cleanText(path.title) || path.tour_id)
         : '';
       el('pathPanelTitle').textContent = pathName ? 'PATH: ' + pathName : 'PATH';
-      el('poolTitle').textContent = libraryCity
-        ? 'WAYPOINT LIBRARY: ' + libraryCity.toUpperCase()
-        : 'WAYPOINT LIBRARY';
+      el('poolTitle').textContent = state.pathId === ALL_WAYPOINTS
+        ? 'WAYPOINT LIBRARY: EVERY CITY'
+        : (libraryCity ? 'WAYPOINT LIBRARY: ' + libraryCity.toUpperCase() : 'WAYPOINT LIBRARY');
       // ONE NUMBER: how many waypoints this city has. The "N on this path" half
       // was the same fact the rows already carry, said again in a corner -- every
       // one of those rows is dimmed and captioned "on this path", so the count
@@ -1695,8 +1732,10 @@
       if (!rows.length) {
         box.innerHTML = '<p class="empty">'
           + (city
-              ? 'No waypoint in ' + libraryCity + ' yet. Add one with Waypoint Manual, or clear the filter box.'
-              : 'This path has no city yet - set one above and its waypoints appear here.')
+              ? 'No waypoint in ' + libraryCity + ' yet. Add one with Waypoint, or clear the search box.'
+              : (state.pathId === ALL_WAYPOINTS
+                  ? 'No waypoint matches that search.'
+                  : 'No path open. Choose one above, or All waypoints to see the whole library.'))
           + '</p>';
         return;
       }
@@ -1728,9 +1767,9 @@
         const handle = document.createElement('span');
         handle.className = 'stop-handle';
         handle.textContent = '≡';
-        handle.title = !state.pathId ? 'Open a path first'
+        handle.title = !hasOpenPath() ? 'Open a path first'
           : used ? 'Drag on again to visit it a second time' : 'Drag onto the path';
-        if (state.pathId) wireDrag(handle, row, 'pool');
+        if (hasOpenPath()) wireDrag(handle, row, 'pool');
 
         const main = document.createElement('div');
         main.className = 'stop-main';
@@ -1792,7 +1831,7 @@
         // The full phrase survives on the TITLE, where it costs nothing.
         const addBtn = arrowBtn('right',
           used ? 'Put it on the path again' : 'Add to path',
-          () => addStop(w.wpid), !state.pathId);
+          () => addStop(w.wpid), !hasOpenPath());
         addBtn.classList.add('stop-add');
         actions.appendChild(addBtn);
         row.append(handle, main, actions);
@@ -2995,8 +3034,17 @@
         return false;
       }
       state.pathId = tourId;
-      // The pool follows the path's own city, so there is nothing to sync here.
       syncUrl();
+      // ALL WAYPOINTS OPENS NO PATH, so there are no stops to load and nothing
+      // for loadStops to fetch. Clearing them here is what empties the right
+      // column and the map, which is correct: there is no walk on screen.
+      if (tourId === ALL_WAYPOINTS) {
+        state.stops = [];
+        state.dirty = false;
+        renderAll();
+        return true;
+      }
+      // The pool follows the path's own city, so there is nothing to sync here.
       await loadStops();
       return true;
     }
