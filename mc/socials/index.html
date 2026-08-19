@@ -441,6 +441,9 @@
     }
     textarea.ed-input { resize: vertical; min-height: 3.2em; display: block; }
     .ed-saving { opacity: 0.55; }
+    /* The reasoning line is italic, which is right for a quoted aside and wrong
+       for something you are typing into. */
+    .post-why .ed-input { font-style: normal; }
 
     /* ── The fields the post itself does not show ─────────────────────────
        A candidate has columns the card has no room for, and until now the only
@@ -3469,7 +3472,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var score = confidenceOf(post);
         // score !== null joins the condition: a candidate can carry a number and
         // no topics, and dropping the line would take the score with it.
-        if (topicLine || post.why || score !== null) {
+        // ALWAYS DRAWN NOW. It was skipped when it would have been empty, which
+        // was right while it was read-only and wrong the moment the note became
+        // editable: a candidate with no `why` had nowhere to type one. The note
+        // itself shows a placeholder rather than collapsing.
+        if (true) {
           var why = document.createElement('p');
           why.className = 'post-why';
           // The agent's own certainty, ahead of the label. It is the one thing on
@@ -3492,9 +3499,23 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
           why.appendChild(whyLabel);
-          why.appendChild(document.createTextNode(
-            [topicLine, post.why].filter(Boolean).join(' ')
-          ));
+          // TOPICS STAY PLAIN TEXT HERE. They are a sentence built from the
+          // array, not the array, so a box holding "Cities. Walking." would have
+          // to be parsed back into one; the strip above edits the real field.
+          if (topicLine) why.appendChild(document.createTextNode(topicLine + ' '));
+
+          // THE NOTE IS THE EDITABLE PART, and it is its own span so the score,
+          // the label and the topic sentence beside it are not swallowed by the
+          // box when it opens.
+          var whyText = document.createElement('span');
+          whyText.className = 'post-why-note';
+          whyText.textContent = cleanText(post.why || '');
+          makeEditable(whyText, post, 'why', {
+            multiline: true,
+            placeholder: 'no note',
+            title: 'Why this is worth posting. Internal only, never published. Click to edit; Ctrl+Enter saves.'
+          });
+          why.appendChild(whyText);
           ephemera.appendChild(why);
         }
 
