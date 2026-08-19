@@ -213,10 +213,6 @@
     /* A BAND, not a row. The gap INSIDE a group is tighter than the gap between
        groups, which is the whole mechanism: two buttons that belong together
        read as a pair without a rule, a box or a label. */
-    '.dlg-group { display: inline-flex; align-items: center; gap: 6px; }',
-    /* A REAL RULE, not a wider gap. The bands were separated by 14px against
-       6px inside, which is a difference you have to measure rather than see. */
-    '.dlg-rule { align-self: stretch; width: 1px; min-height: 22px; background: var(--line); flex: 0 0 auto; }',
     /* THE HELPERS ARE QUIETER THAN THE DECISIONS. Look up, Find online and
        Duplicate only act on the form in front of you; Close and Save end the
        dialog and Delete destroys the row. Six buttons at one weight made those
@@ -299,12 +295,17 @@
     // stays the last thing before the panel's right edge nowhere in this file,
     // so if that reads wrong later, THIS is the line to change back.
     '      <button class="btn small warn" id="wpDeleteBtn" type="button" title="Remove this row for good. There is no undo.">Delete</button>',
-    '      <span class="dlg-rule" role="separator" aria-orientation="vertical"></span>',
-    '      <span class="dlg-group">',
-    '        <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
-    '        <button class="btn small ghost" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
-    '      </span>',
     '      <span class="dlg-spacer"></span>',
+    // FILL SITS WITH THE RIGHT-HAND GROUP now, immediately left of Save. It is
+    // still the odd one out in kind, since it only writes the form while the two
+    // beside it end the dialog, but it is the last thing you press before Save
+    // and it belongs where your hand already is. It keeps .ghost, which is what
+    // says it is not a decision.
+    //
+    // DUPLICATE WENT (2026-08-18), and duplicateWaypointRow with it. The rule
+    // between the bands went too: with one button on the left there is nothing
+    // left to separate.
+    '      <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
     '      <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>',
     '      <button class="btn small" id="wpCloseBtn" type="button">Close</button>',
     '    </div>',
@@ -589,7 +590,6 @@
       box.appendChild(add);
     }
 
-    el('wpDupeBtn').hidden = isNew;
     el('wpDeleteBtn').hidden = isNew;
 
     el('wpSaveBtn').textContent = isNew ? 'Create' : 'Save';
@@ -600,7 +600,7 @@
 
   function wpBusy(on, text) {
     wpEdit.busy = !!on;
-    ['wpSaveBtn', 'wpFillBtn', 'wpDupeBtn', 'wpDeleteBtn']
+    ['wpSaveBtn', 'wpFillBtn', 'wpDeleteBtn']
       .forEach((id) => { el(id).disabled = !!on; });
     if (text) wpNote(text, 'busy');
   }
@@ -713,20 +713,6 @@
       wpBusy(false);
       wpNote(err.message || 'Could not delete this waypoint.', 'error');
     }
-  }
-
-  async function duplicateWaypointRow() {
-    if (!wpEdit.wpid || wpEdit.busy) return;
-    // A copy is a LOOSE waypoint: it belongs to no path, and it is never born
-    const copy = Object.assign({}, wpEdit.row);
-    copy.wpid = '';
-    copy.name = cleanText(copy.name) ? cleanText(copy.name) + ' (copy)' : '';
-    wpEdit.row = copy;
-    wpEdit.wpid = '';
-    wpEdit.dirty = true;
-    wpEdit.addToPath = false;
-    renderWaypointForm();
-    wpNote('A copy of the original, not saved yet. Press Create.', 'busy');
   }
 
   // locateWaypoint IS GONE (2026-08-18). It filled the coordinate pair and
@@ -917,7 +903,6 @@
     el('wpCloseBtn').addEventListener('click', function () { closeWaypointEditor(); });
     el('wpSaveBtn').addEventListener('click', saveWaypoint);
     el('wpDeleteBtn').addEventListener('click', deleteWaypointRow);
-    el('wpDupeBtn').addEventListener('click', duplicateWaypointRow);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
     el('wpDlg').addEventListener('click', function (e) { if (e.target === el('wpDlg') && !wpEdit.busy) closeWaypointEditor(); });
 
