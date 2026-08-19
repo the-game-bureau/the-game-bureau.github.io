@@ -535,34 +535,6 @@
        for something you are typing into. */
     .post-why .ed-input { font-style: normal; }
 
-    /* ── The fields the post itself does not show ─────────────────────────
-       A candidate has columns the card has no room for, and until now the only
-       way to see or set them was the Edit dialog. They sit in one quiet strip
-       ABOVE the reasoning, in the same mono the kicker uses, each one editable
-       in place like everything else. */
-    .post-fields {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 18px;
-      padding: 9px 14px;
-      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.14);
-      background: #fbfdff;
-      font-size: 0.72rem;
-    }
-    .post-field { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-    .post-field-key {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: rgba(var(--bic-blue-rgb), 0.7);
-      flex: 0 0 auto;
-    }
-    .post-field-val { color: var(--ink); overflow-wrap: anywhere; min-width: 3em; }
-    /* Wide ones get the whole row so a long image url does not squash the rest. */
-    .post-field--wide { flex-basis: 100%; }
-
     /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
     /* The reasoning band, under the kicker. Same fill and rule as the kicker so
        the two read as one header; see the note beside reasonBand. */
@@ -623,7 +595,13 @@
        0.82rem one, so it needs its own vertical alignment to sit on the same
        baseline as the sentence beside it. */
     .post-caption-label {
-      margin-right: 8px;
+      /* ITS OWN ROW (2026-08-19). Inline it competed with the caption for the
+         first line, and the caption is the biggest text on the card, so the
+         label was a small thing wedged in front of a large one. Above it, the
+         label reads as a heading for the sentence under it, which is what it
+         is, and both get their full width. */
+      display: block;
+      margin-bottom: 3px;
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.72rem;
       font-weight: 800;
@@ -688,6 +666,34 @@
     /* The badge on the photo. The whole picture is the target; this only says
        so, because a photograph does not look clickable on its own. */
     .post-card-shot { position: relative; }
+    /* THE EMPTY SLOT. Dashed rather than filled, so it reads as a frame waiting
+       for something rather than as a picture that failed to paint, and it says
+       what pressing it does. `is-broken` is the same frame with the red pen:
+       an address that is there and does not resolve is worth acting on, where
+       an absent one is just an optional field nobody has filled. */
+    .post-card-shot.is-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed rgba(var(--bic-blue-rgb), 0.34);
+      box-shadow: none;
+      background: #fbfdff;
+    }
+    .post-card-shot.is-broken { border-color: rgba(200, 42, 42, 0.5); }
+    .post-card-shot-hint {
+      display: none;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.52);
+    }
+    .post-card-shot.is-empty .post-card-shot-hint { display: block; }
+    .post-card-shot.is-broken .post-card-shot-hint { color: var(--bic-red); }
+    /* The EDIT badge is redundant on the empty slot, which already says what it
+       is for in the middle of itself. */
+    .post-card-shot.is-empty .post-card-shot-edit { display: none; }
     .post-card-shot-edit {
       position: absolute;
       top: 5px;
@@ -3807,20 +3813,39 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // any error the whole figure is removed and the card falls back to the
         // text-only layout. Older rows have no `image` at all and behave the
         // same way, which is why nothing here is required.
+        // THE SLOT IS ALWAYS DRAWN, since 2026-08-19, and that is what let the
+        // IMAGE URL row be deleted. That row was the only way to reach the image
+        // dialog on a candidate with no photo to click, so removing it without
+        // this would have made an unillustrated candidate one you could never
+        // illustrate. A missing picture is a labelled empty frame you press,
+        // which is the better answer anyway: the absence is drawn where the
+        // thing itself would be.
         var image = String(post.image || '').trim();
-        if (/^https?:\/\//i.test(image)) {
+        var hasShot = /^https?:\/\//i.test(image);
+        var hint = document.createElement('span');
+        hint.className = 'post-card-shot-hint';
+        hint.textContent = 'add image';
+        {
           var shot = document.createElement('span');
-          shot.className = 'post-card-shot';
-          var img = document.createElement('img');
-          img.src = image;
-          img.alt = '';
-          img.loading = 'lazy';
-          img.referrerPolicy = 'no-referrer';
-          img.addEventListener('error', function () {
-            if (shot.parentNode) shot.parentNode.removeChild(shot);
-            card.classList.remove('has-shot');
-          });
-          shot.appendChild(img);
+          shot.className = 'post-card-shot' + (hasShot ? '' : ' is-empty');
+          if (hasShot) {
+            var img = document.createElement('img');
+            img.src = image;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.referrerPolicy = 'no-referrer';
+            // A HOTLINKED IMAGE CAN 403 OR SIMPLY ROT. The frame now STAYS when
+            // that happens, rather than the figure being torn out of the card:
+            // an address that is there and does not resolve is the case most
+            // worth acting on, and it needs somewhere to be pressed.
+            img.addEventListener('error', function () {
+              shot.classList.add('is-empty', 'is-broken');
+              if (img.parentNode) img.parentNode.removeChild(img);
+              hint.textContent = 'image failed';
+            });
+            shot.appendChild(img);
+          }
+          shot.appendChild(hint);
           // CLICKING THE PICTURE EDITS THE PICTURE, and it is the ONE THING
           // INSIDE THIS ANCHOR THAT DOES NOT FOLLOW THE LINK. An image url is
           // the one field you cannot check by reading it, so the thing you are
@@ -3916,7 +3941,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // ABOVE THE REASONING, below the post. The post is what goes out; these
         // are the columns describing it that the post has no room for; the
         // reasoning is why it is here at all.
-        article.appendChild(buildFieldsRow(post, id));
 
         var ephemera = document.createElement('div');
         ephemera.className = 'post-ephemera';
@@ -4307,85 +4331,20 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // SOURCE AND PUBLISHED ARE NOT HERE. They already sit on the preview card,
       // where a link preview naturally shows them, and having them in both
       // places showed every candidate its outlet and its date twice.
-      // TOPICS ARE NOT HERE. They are the pills at the right of the kicker, and
-      // a cell repeating them four inches lower said the same two words twice
-      // on every card. The strip carries what nothing else on the card shows.
+      // THE FIELDS STRIP IS DELETED (2026-08-19), and with it CARD_FIELDS and
+      // buildFieldsRow. It carried four columns the post had no room for, and
+      // they left one at a time for the same reason each time: something else
+      // on the card already said the same thing, better.
       //
-      // NEITHER IS MEDIA, deleted 2026-08-19. It was photo / gallery / video /
-      // text and NOTHING read it: postTargets() decides Instagram from `image`
-      // alone. It was also very nearly a constant, since the bot writes 'photo'
-      // whenever it found an og:image and almost every article has one; its one
-      // interesting value, 'text', means the image capture failed, which the
-      // IMAGE URL cell beside it already reported. A column that is inert, near
-      // constant AND duplicated is three reasons to stop drawing it.
+      //   topics      the pills at the right of the kicker
+      //   media       nothing read it and it was 'photo' on nearly every row
+      //   platforms   the Post button names the real destinations
+      //   image url   the picture itself, always drawn now, which opens the
+      //               image dialog whether or not there is a photo in it
       //
-      // The COLUMN is retired in place, not dropped, the way waypoints.tour_id
-      // and the two soundtrack timestamps were: nothing reads it, dropping is
-      // the one irreversible move, and an unread column costs nothing.
-      //
-      // NOR IS PLATFORMS, deleted 2026-08-19. It was the bot's advice about
-      // which accounts suit the story, and the POST BUTTON ALREADY NAMES THE
-      // ACCOUNTS: postTargets() builds "Post to Facebook + Instagram + Threads"
-      // and drops Instagram when there is no image, so the button states the
-      // real destinations while the cell stated a suggestion nothing acts on.
-      // Two answers to "where does this go", one of them true.
-      //
-      // The COLUMN is retired in place, like media. The bot still writes it and
-      // the routing note in postTargets() still explains why nothing reads it.
-      //
-      // SO THE STRIP IS ONE FIELD: the image URL. That is correct rather than
-      // sad. It is the only column the post itself has no room for that is both
-      // editable and load-bearing. It is the only
-      // one of the four you can change and the only one that decides anything
-      // (postTargets() drops Instagram without it), so it takes the first line;
-      // topics, media and platforms are a footnote about the candidate and read
-      // as one underneath it.
-      var CARD_FIELDS = [
-        { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true }
-      ];
-
-      // Takes the STABLE id as well as the row: `id` is buildPost's local and is
-      // not in scope here, and reaching for it silently threw "id is not
-      // defined" the moment anybody clicked the IMAGE URL cell.
-      function buildFieldsRow(post, id) {
-        var row = document.createElement('div');
-        row.className = 'post-fields';
-        CARD_FIELDS.forEach(function (f) {
-          var cell = document.createElement('div');
-          cell.className = 'post-field' + (f.wide ? ' post-field--wide' : '');
-          var k = document.createElement('span');
-          k.className = 'post-field-key';
-          k.textContent = f.label;
-          var v = document.createElement('span');
-          v.className = 'post-field-val';
-          v.dataset.fieldKey = f.key;
-          v.textContent = fieldToText(post, f.key);
-          v.dataset.placeholder = f.placeholder;
-          if (f.key === 'image') {
-            // THE ONLY WAY IN WHEN THERE IS NO PHOTO TO CLICK, and the same
-            // dialog either way. It keeps the .ed look because it IS editable;
-            // what changed is where the editing happens.
-            v.classList.add('ed');
-            v.tabIndex = 0;
-            if (!cleanText(v.textContent)) v.classList.add('is-blank');
-            v.title = 'Click to edit the image URL, with the picture beside it';
-            v.addEventListener('click', function () { openImageDialog(post, id); });
-            v.addEventListener('keydown', function (e) {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageDialog(post, id); }
-            });
-          } else if (f.readOnly) {
-            makeStatic(v, f.readOnly);
-          } else {
-            makeEditable(v, post, f.key, {
-              placeholder: f.placeholder,
-              title: f.title || ('Click to edit ' + f.label.toLowerCase())
-            });
-          }
-          cell.append(k, v);
-          row.appendChild(cell);
-        });
-        return row;
-      }
+      // That last one is why the empty slot in buildPost exists. Deleting this
+      // row without it would have left an unillustrated candidate impossible to
+      // illustrate, there being nothing to click.
 
       // THE EDIT DIALOG IS GONE (2026-08-19), and with it EDIT_FIELDS,
       // makeEditBtn, openEditDialog, closeEditDialog and submitEdit.
