@@ -7,8 +7,7 @@
 -- pastes that block into the Supabase SQL editor and runs it.
 --
 -- The helper is idempotent to re-run (create or replace) and skips waypoints
--- that already exist (same name + city), including archived tombstone rows, so
--- a re-paste never duplicates rows and archived stops are not rescraped.
+-- that already exist (same name + city), so a re-paste never duplicates rows.
 -- wpid is the table's own identity/default — never supplied by the JSON.
 --
 -- Mirrors the gift shop's supabase/gs-destination-prompt-import.sql pattern.
@@ -77,7 +76,7 @@ begin
      limit 1;
 
     if v_existing is not null then
-      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text;
+      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text;
       continue;
     end if;
 
@@ -108,13 +107,10 @@ $$;
 -- Rules that keep a re-paste safe:
 --   * the append is skipped when the sentence is already present, so running
 --     the same SQL twice does not stutter;
---   * archived rows are appended to but NEVER un-archived — archived is a
---     do-not-rescrape tombstone and this must not resurrect one. The returned
---     note says when that happened;
 --   * null state / zip / address / source_url are backfilled, but a value that
 --     is already there is left alone. The AI does not overwrite a human.
 --
--- Keep in sync with buildWaypointSportsImportHelperSql() in mc/data/waypoints.html,
+-- Keep in sync with buildWaypointSportsImportHelperSql() in mc/assets/waypoint-prompts.js,
 -- which inlines this function into the generated prompt.
 
 create or replace function public.tgb_import_waypoints_sports_items(items jsonb)
@@ -210,8 +206,7 @@ begin
            ai_model    = coalesce(w.ai_model, v_ai_model)
      where w.wpid = v_row.wpid;
 
-    return query select 'appended'::text, v_name, v_row.wpid::text,
-      case when v_row.archived then 'appended to an ARCHIVED row; still archived' else null end;
+    return query select 'appended'::text, v_name, v_row.wpid::text, null::text;
   end loop;
 end;
 $$;

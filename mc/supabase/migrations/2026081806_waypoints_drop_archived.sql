@@ -1,0 +1,37 @@
+-- DROP public.waypoints.archived.
+--
+-- Apply by hand in the SQL editor. Remote migration history in this project has
+-- drifted and the CLI refuses `db push`.
+--
+-- THIS IS IRREVERSIBLE and is the one thing this project normally refuses to do:
+-- `public.maps`, `waypoints.tour_id`, `soundtracks.certified_at` and
+-- `soundtracks.rejected_at` are all retired-in-place for exactly this reason. It
+-- goes here because the column has no information left in it. 2026081805 set
+-- every row to `false` an hour earlier, so there is nothing to lose by dropping
+-- it and something to gain: a boolean that every row shares is a column the next
+-- reader has to work out the meaning of, and this one has meant four different
+-- things in three weeks.
+--
+-- WHAT IT MEANT, in order, so nobody reconstructs it by accident:
+--
+--   1. hidden from the working list (2026072903);
+--   2. a DO-NOT-RESCRAPE TOMBSTONE: an importer skips a place it already holds,
+--      so an archived row stopped the next sweep filing it again;
+--   3. the arrival state of everything a routine found (2026081803), pending
+--      review in a room that lasted an afternoon;
+--   4. nothing at all (2026081805).
+--
+-- THE TOMBSTONE IS REPLACED, NOT ABANDONED. Job 2 was the only one still doing
+-- work, and it is now done by telling the scouts what we already hold: PATH BOT
+-- reads `public.waypoints` before it searches and is forbidden to file a place
+-- already in the library. That is better than the tombstone was, because it
+-- stops the duplicate being FOUND rather than catching it at the door, and
+-- because `waypoints` is anon-readable so a routine can actually do it.
+--
+-- BEFORE YOU RUN THIS, deploy the two importer functions in the same commit:
+-- tgb_import_waypoints_prompt_items and tgb_import_waypoints_sports_items both
+-- read this column today and will raise `column "archived" does not exist` the
+-- moment it goes. tgb_pull_walking_tours and tgb_import_walking_tour are updated
+-- in the same commit too.
+
+alter table public.waypoints drop column if exists archived;

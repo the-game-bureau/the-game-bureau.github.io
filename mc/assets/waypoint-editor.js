@@ -88,7 +88,7 @@
   // the whole request, so the editor learns which optional columns exist by
   // looking at rows it has actually been given, and a database that has not run
   // a migration still works: the field is simply hidden.
-  var wpCols = { source_url: false, archived: false, latlon: false, walk_order: false };
+  var wpCols = { source_url: false, latlon: false, walk_order: false };
 
   function probeWaypointColumns(rows) {
     var has = function (key) {
@@ -97,7 +97,6 @@
       });
     };
     wpCols.source_url = has('source_url');
-    wpCols.archived = has('archived');
     wpCols.latlon = has('lat');
     wpCols.walk_order = has('walk_order');
   }
@@ -361,7 +360,7 @@
     wpEdit.row = source
       ? Object.assign({}, source)
       : { wpid: '', name: '', city: pathCity(), state: '', zip: '', address: '',
-          description: '', source_url: '', archived: false, lat: null, lon: null };
+          description: '', source_url: '', lat: null, lon: null };
     wpEdit.wpid = source ? String(source.wpid) : '';
     wpEdit.dirty = false;
     wpEdit.busy = false;
@@ -563,11 +562,6 @@
     const derived = stateFromCity(row.city);
     if (derived) payload.state = derived;
     if (wpCols.source_url) payload.source_url = cleanText(row.source_url) || null;
-    // ALWAYS FALSE, never the row's own value. Every waypoint is live; the
-    // column survives only because dropping one is the irreversible act and
-    // nothing needs it dropped. Writing it explicitly means a row saved through
-    // this editor is corrected on the way past, whatever it held before.
-    if (wpCols.archived) payload.archived = false;
     if (wpCols.latlon && row.lat != null && row.lon != null) {
       payload.lat = Number(row.lat);
       payload.lon = Number(row.lon);
@@ -669,11 +663,9 @@
   async function duplicateWaypointRow() {
     if (!wpEdit.wpid || wpEdit.busy) return;
     // A copy is a LOOSE waypoint: it belongs to no path, and it is never born
-    // archived: every waypoint is live.
     const copy = Object.assign({}, wpEdit.row);
     copy.wpid = '';
     copy.name = cleanText(copy.name) ? cleanText(copy.name) + ' (copy)' : '';
-    copy.archived = false;
     wpEdit.row = copy;
     wpEdit.wpid = '';
     wpEdit.dirty = true;

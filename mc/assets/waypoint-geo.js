@@ -1197,7 +1197,7 @@
   async function draftFromResult(item) {
     var draft = {
       wpid: '', name: '', city: '', state: '', zip: '', address: '',
-      description: '', source_url: '', archived: false, lat: null, lon: null
+      description: '', source_url: '', lat: null, lon: null
     };
     if (!item) return draft;
     if (item.kind === 'place') {

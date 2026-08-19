@@ -5,7 +5,8 @@
 --
 -- WHY THIS FILE EXISTS. The table was built over a dozen migrations and its
 -- current shape is not written down in any one of them - you would have to read
--- 20260617 plus zip plus source_url plus archived plus latlon plus walk_order
+-- 20260617 plus zip plus source_url plus latlon plus walk_order (archived was
+-- added 2026072903 and DROPPED 2026081806; see that migration)
 -- plus the tour columns, and know which of the dropped ones (w3w) are gone. That
 -- is fine for a human with the repo and useless for the two audiences that
 -- actually need it:
@@ -31,7 +32,6 @@ create table if not exists public.waypoints (
 -- Every column added after the original create. Order is historical.
 alter table public.waypoints add column if not exists zip         text;
 alter table public.waypoints add column if not exists source_url  text;
-alter table public.waypoints add column if not exists archived    boolean not null default false;
 alter table public.waypoints add column if not exists lat         double precision;
 alter table public.waypoints add column if not exists lon         double precision;
 alter table public.waypoints add column if not exists walk_order  integer;

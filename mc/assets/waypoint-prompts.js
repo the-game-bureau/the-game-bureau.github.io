@@ -62,18 +62,11 @@
     return '';
   }
 
-  // An archived waypoint is a do-not-rescrape tombstone, so it counts for
-  // NEITHER job: it must not appear in a do-not-repeat list (the AI would take
-  // that as "this place is covered" when the truth is "we decided against it"),
-  // and it must not count towards a city's total, or a city whose stops were
-  // all rejected reads as well covered.
-  function truthyFlag(value) {
-    if (value === true) return true;
-    if (value === false || value == null) return false;
-    var v = String(value).trim().toLowerCase();
-    return !!v && ['false', 'f', 'no', 'n', '0'].indexOf(v) === -1;
-  }
-  function isArchived(row) { return truthyFlag(row && row.archived); }
+  // EVERY WAYPOINT COUNTS, and every one belongs in a do-not-repeat list. There
+  // used to be an isArchived() filter here, because an archived row was a
+  // do-not-rescrape tombstone and had to count for neither job. `archived` was
+  // dropped from public.waypoints on 2026-08-18, so there is nothing to filter:
+  // if we hold a place, an AI must be told we hold it.
 
   function parseLocation(loc) {
     const parts = cleanText(loc).split(',').map((s) => s.trim()).filter(Boolean);
@@ -96,7 +89,6 @@
       '  description text     One sentence, read aloud at the stop. Max 700 characters.',
       '  source_url  text     The page you verified this from. Never a search-results page.',
       '  lat, lon    float8   Coordinates. LEAVE THEM NULL - the page geocodes the address itself and writes them back. Never guess a coordinate.',
-      '  archived    boolean  A do-not-rescrape tombstone. LEAVE IT ALONE. Never write true.',
       '  walk_order  integer  An advisory per-CITY order, not a path position. LEAVE IT NULL - a path orders its stops in public.path_stops.ord.',
       '',
       'A PATH IS NOT ON THIS TABLE. Two more tables hold it, and the helper below writes all three:',
@@ -125,7 +117,6 @@ create table if not exists public.waypoints (
 
 alter table public.waypoints add column if not exists zip         text;
 alter table public.waypoints add column if not exists source_url  text;
-alter table public.waypoints add column if not exists archived    boolean not null default false;
 alter table public.waypoints add column if not exists lat         double precision;
 alter table public.waypoints add column if not exists lon         double precision;
 alter table public.waypoints add column if not exists walk_order  integer;
@@ -258,7 +249,7 @@ begin
      where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
        and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, '')) limit 1;
     if v_existing is not null then
-      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text; continue;
+      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text; continue;
     end if;
     insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order, ai_model)
     values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order, v_ai_model)
@@ -280,8 +271,6 @@ $$;`.trim();
     // Rules that keep a re-paste safe:
     //   * the append is skipped when the sentence is already in the description,
     //     so running the same SQL twice does not stutter;
-    //   * archived rows are appended to but NEVER un-archived — archived is a
-    //     do-not-rescrape tombstone and this must not resurrect one;
     //   * null state / zip / address / source_url are backfilled, but a value
     //     that is already there is left alone. The AI does not overwrite a human.
     // Keep in sync with supabase/waypoints-prompt-import.sql.
@@ -351,8 +340,7 @@ begin
            -- model must not be re-credited to whichever model appended later.
            ai_model    = coalesce(w.ai_model, v_ai_model)
      where w.wpid = v_row.wpid;
-    return query select 'appended'::text, v_name, v_row.wpid::text,
-      case when v_row.archived then 'appended to an ARCHIVED row; still archived' else null end;
+    return query select 'appended'::text, v_name, v_row.wpid::text, null::text;
   end loop;
 end;
 $$;`.trim();
@@ -477,7 +465,7 @@ $$;`.trim();
         '',
         'Everything you need is in this prompt. You have no access to our repository or our database, so do not refer to a file, do not ask for a schema, and do not assume anything already exists - the block you return must create what it needs and then use it.',
         '',
-        'Existing waypoints in this city to exclude (active and archived; do not re-suggest any of these names):',
+        'EVERY WAYPOINT WE ALREADY HOLD IN THIS CITY. Do not suggest any of these again, under this name or an obvious variant of it:',
         JSON.stringify(existing, null, 2)
       ].join('\n');
     }
@@ -506,7 +494,6 @@ $$;`.trim();
       if (!city) return 0;
       let n = 0;
       catalogue.forEach((r) => {
-        if (isArchived(r)) return;
         if (cleanText(r.city).toLowerCase() === city) n += 1;
       });
       return n;
@@ -602,7 +589,7 @@ $$;`.trim();
         '',
         'Everything you need is in this prompt. You have no access to our repository or our database, so do not refer to a file, do not ask for a schema, and do not assume anything already exists - the block you return must create what it needs and then use it.',
         '',
-        'Existing waypoints to exclude, by city (active and archived; do not re-suggest any of these names):',
+        'EVERY WAYPOINT WE ALREADY HOLD, by city. Do not suggest any of these again, under this name or an obvious variant of it:',
         JSON.stringify(existing, null, 2)
       ].join('\n');
     }
@@ -882,9 +869,7 @@ begin
     v_ord := v_ord + 1;
     v_existing := null;
 
-    -- Do we already hold this place? Name AND address, both lowercased. An
-    -- archived row counts as held: archived is a do-not-rescrape tombstone, and
-    -- re-inserting the place under a new wpid would defeat it entirely.
+    -- Do we already hold this place? Name AND address, both lowercased.
     if v_address is not null then
       select w.wpid into v_existing
         from public.waypoints w

@@ -17,11 +17,12 @@
 -- THE CONSTANTS. These are what make it safe to expose to anon. Do not add
 -- parameters for any of them.
 --
---   * Every waypoint it creates arrives LIVE (archived = false). It arrived
---     SHELVED for a day, when a review room existed to approve it; that room was
---     deleted and 2026081805 made every waypoint live, so a shelved arrival
---     would now be a row nothing could turn on. See that migration for what is
---     lost with it.
+--   * There is NO arrival state. `archived` was dropped by 2026081806; every
+--     waypoint this files goes straight into the library, ready to be walked.
+--     It arrived SHELVED for a day, when a review room existed to approve it;
+--     that room lasted an afternoon. What the column was really still doing was
+--     acting as a do-not-rescrape tombstone, and PATH BOT's prompt does that job
+--     now by reading the library before it searches.
 --   * The city must be the CITY_NAME OF A MAJOR-LEAGUE CLUB -- NFL, NBA, MLB or
 --     NHL. Not decoration: it is the whole scope of the routine's brief, and it
 --     is the one check that stops an anon caller writing an arbitrary path into
@@ -48,9 +49,7 @@
 -- stops. 100 W 14th Ave Pkwy in Denver is the Denver Art Museum AND the Scottish
 -- Angus Cow and Calf AND Big Sweep; 206 Washington St in Boston is the Old State
 -- House AND the Boston Massacre Site. Address alone would silently merge places
--- that are genuinely different. An ARCHIVED row counts as held, because archived
--- is a do-not-rescrape tombstone and re-inserting the place under a new wpid
--- would defeat it entirely.
+-- that are genuinely different.
 --
 -- A REUSED PLACE KEEPS ITS DESCRIPTION. The incoming sentence is discarded and
 -- the count says so. That is the accepted cost of one row per place: a stop
@@ -285,12 +284,10 @@ begin
           lon        = case when w.lat is null and w.lon is null then v_lon else w.lon end
         where w.wpid = v_wpid;
       else
-        -- archived = false, WRITTEN OUT rather than left to the column default,
-        -- so this function's behaviour does not move when that default does.
         insert into public.waypoints as w
-          (name, city, state, zip, address, description, source_url, ai_model, archived, lat, lon)
+          (name, city, state, zip, address, description, source_url, ai_model, lat, lon)
         values
-          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, false, v_lat, v_lon)
+          (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_stop_source, v_ai_model, v_lat, v_lon)
         returning w.wpid into v_wpid;
         v_created := v_created + 1;
       end if;
@@ -330,7 +327,7 @@ end;
 $$;
 
 comment on function public.tgb_pull_walking_tours(jsonb) is
-  'PATH BOT''s write path. SECURITY DEFINER, insert-only, callable with the publishable key. Files up to 4 published walking tours a call into paths / path_stops / waypoints. Every waypoint it creates arrives SHELVED, and the city must be the city_name of an NFL, NBA, MLB or NHL club: those two constants are what make it safe to expose to anon, so do not add parameters for them.';
+  'PATH BOT''s write path. SECURITY DEFINER, insert-only, callable with the publishable key. Files up to 4 published walking tours a call into paths / path_stops / waypoints. The city must be the city_name of an NFL, NBA, MLB or NHL club, and the caps on tours and stops per call are fixed: those constants are what make it safe to expose to anon, so do not add parameters for them.';
 
 revoke all on function public.tgb_pull_walking_tours(jsonb) from public;
 grant execute on function public.tgb_pull_walking_tours(jsonb) to anon, authenticated;

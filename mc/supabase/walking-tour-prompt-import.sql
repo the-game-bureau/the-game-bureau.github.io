@@ -124,9 +124,7 @@ begin
     v_ord := v_ord + 1;
     v_existing := null;
 
-    -- Do we already hold this place? Name AND address, both lowercased. An
-    -- archived row counts as held: archived is a do-not-rescrape tombstone, and
-    -- re-inserting the place under a new wpid would defeat it entirely.
+    -- Do we already hold this place? Name AND address, both lowercased.
     if v_address is not null then
       select w.wpid into v_existing
         from public.waypoints w
