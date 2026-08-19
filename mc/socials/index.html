@@ -382,6 +382,13 @@
        single column and it looks exactly as it did before thumbnails existed. */
     .post-card {
       display: grid;
+      /* 90% of the column and CENTRED. The preview is a MOCKUP of what the
+         platform will unfurl, not a full-width panel of ours, and at the same
+         width as everything else on the card it read as another band of the
+         page. Inset on both sides it reads as a quoted object rather than as a
+         band that happens to stop short. */
+      width: 90%;
+      margin-inline: auto;
       gap: 2px;
       padding: 9px 11px;
       border: 1px solid var(--control-line);
@@ -565,7 +572,11 @@
       gap: 12px;
       padding: 9px 14px 10px;
       border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      background: #f8fbff;
+      /* White, not the kicker's tint. It took that tint so the two would read
+         as one header; with the caption directly under it that made three
+         stacked grounds before the first sentence of the post. The rule under
+         it is enough to separate it. */
+      background: #fff;
     }
     .post-reasonband .post-why { flex: 1 1 auto; min-width: 0; }
     .post-topicpills {
@@ -632,6 +643,61 @@
 
     /* A question needs less room than a form. */
     .tool-modal-panel--ask { width: min(430px, calc(100vw - 32px)); }
+
+    .image-body { display: grid; gap: 12px; }
+    /* Big enough to judge. The whole reason this dialog exists is that a
+       one-line cell of text cannot tell you the url points at a masthead. */
+    .image-shot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 190px;
+      padding: 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #f7faff;
+    }
+    .image-shot img { max-width: 100%; max-height: 260px; border-radius: 4px; }
+    /* EMPTY AND BROKEN ARE DRAWN DIFFERENTLY, deliberately. Empty is the
+       ordinary state of an optional field; broken means the address is there
+       and the picture is not, which is the case worth acting on. */
+    .image-shot-msg {
+      color: rgba(var(--bic-blue-rgb), 0.5);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .image-shot-msg.is-broken { color: var(--bic-red); }
+    .image-note {
+      margin: 0;
+      color: rgba(var(--bic-blue-rgb), 0.66);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    /* The badge on the photo. The whole picture is the target; this only says
+       so, because a photograph does not look clickable on its own. */
+    .post-card-shot { position: relative; }
+    .post-card-shot-edit {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      padding: 2px 7px 3px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.3);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.94);
+      color: rgba(var(--bic-blue-rgb), 0.82);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.55rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      opacity: 0.75;
+      transition: opacity 120ms ease;
+    }
+    .post-shot:hover .post-card-shot-edit { opacity: 1; }
     .confirm-body { display: grid; gap: 14px; padding: 16px 18px 18px; }
     .confirm-text { margin: 0; color: var(--ink); font-size: 0.95rem; line-height: 1.5; }
 
@@ -1541,6 +1607,44 @@
         <p class="queue-empty" id="queueEmpty" hidden></p>
       </fieldset>
 
+      <!-- THE IMAGE DIALOG. An image url is the one field on a candidate you
+           cannot check by reading it: og:image scraping fails quietly, and a
+           masthead, a tracking pixel and a 404 all look like a fine URL in a
+           text box. So the box that edits it comes with the picture beside it,
+           at a size you can actually judge, which is what the strip's one-line
+           cell could never do. Opened by clicking the photo, or its EDIT badge
+           when there is no photo to click. -->
+      <div class="tool-backdrop" id="imageBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel" id="imageCard" role="dialog" aria-modal="true" aria-labelledby="imageTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Candidate image</span>
+            <h2 class="panel-title" id="imageTitle">Image URL</h2>
+          </div>
+          <span class="panel-head-actions">
+            <button class="btn small" type="button" data-image-close>Cancel</button>
+            <button class="btn small primary" type="button" data-image-save>Save</button>
+          </span>
+        </div>
+        <div class="modal-form image-body">
+          <div class="image-shot" id="imageShot"></div>
+          <label class="field">
+            <span class="field-label">Image URL</span>
+            <input type="text" id="imageUrlBox" placeholder="https://example.com/media/og.jpg" spellcheck="false">
+          </label>
+          <p class="image-note">
+            Blank is always allowed and is better than a guess. Without one the
+            candidate cannot reach Instagram at all, because its API refuses a
+            post with no image; Facebook and Threads take it either way.
+          </p>
+          <p class="status" id="imageStatus"></p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" type="button" data-image-close>Cancel</button>
+          <button class="btn primary" type="button" data-image-save>Save</button>
+        </div>
+      </section>
+
       <div class="tool-backdrop" id="manualBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
         <!-- Same lockup as the prompt dialog: a mono eyebrow saying how the
@@ -1910,13 +2014,20 @@ spread them honestly, and let the weakest one be weak.
 
 We have exactly three accounts: FACEBOOK, INSTAGRAM and THREADS. Never suggest one we do not have. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
 
-THIS TAG IS ADVICE, NOT ROUTING. Since 2026-08-09 one click posts a candidate to every account that can take it, so what you write here does not decide where anything goes. It is read by a human deciding whether to post at all. Say which account you think carries the story and why, in one short phrase:
+THIS TAG DECIDES WHERE THE POST GOES. It was advice for four months and stopped being advice on 2026-08-19: the Post button now offers only the accounts you named here, narrowed further by what each one can technically take. Name an account and the story can reach it; leave one off and it cannot, however good a fit it was.
+
+So tag what genuinely suits the story, not what you would like to be true, and do not leave an account off out of tidiness. Two consequences worth holding on to:
+
+- TAG EVERY ACCOUNT THE STORY REALLY SUITS. Under-tagging is now the expensive mistake. Most stories suit Facebook and Threads at least; say so.
+- IF YOU TAG NOTHING WE CAN POST TO, THE CANDIDATE CANNOT BE POSTED AT ALL. The button greys out and says so. That is a legitimate answer for a story we should not run, but it is a waste of one of your five, so score it accordingly.
+
+Say which accounts carry the story and why, in one short phrase each:
 
   FACEBOOK: the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
   INSTAGRAM: anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
   THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
 
-Judge from the image you captured in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook. Do not tag everything on everything; a tag that always fires tells the human nothing.
+Judge from the image you captured in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook, and that is now a real decision rather than a note: it means the story goes to Facebook alone. Do not tag everything on everything either, because a tag that always fires is not a judgement; tag what fits.
 
 7. WRITE THE SQL
 
@@ -2094,7 +2205,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     "rotationRule": "aim for four distinct topics across the five, no topic on more than two, at least two tagged games/competition/travel -- all soft, and broken rather than filing fewer than five. A broken rule lowers that pick's confidence.",
     "tilt": "games and travel first; place is flavour, not a filter; a story need not be about a city we sell into",
     "accounts": ["Facebook", "Instagram"],
-    "platformTagging": "each candidate is tagged with which of the two accounts it suits and why, judged from the image the story actually has. Instagram only when an image was captured -- its API refuses a text-only post. Never suggest a platform we do not have; X and YouTube were removed on 2026-08-07 and render as nothing.",
+    "platformTagging": "each candidate is tagged with which accounts it suits and why, judged from the image the story actually has. Since 2026-08-19 the tag DECIDES where the Post button will send it, narrowed by what each account can technically take: Instagram only when an image was captured, since its API refuses a text-only post. An untagged candidate posts everywhere it can, because silence means no opinion rather than no destinations. Never suggest a platform we do not have; X and YouTube were removed on 2026-08-07 and render as nothing.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
     "doNotCreate": [
       "a second table or a JSON file for the queue",
@@ -2972,6 +3083,84 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // backdrop, Escape, and a successful Add -- so the URL cannot be left
       // saying #manual over a closed dialog. That stale hash is worse than no
       // hash at all: reload, and the box you just closed opens again.
+      // ── THE IMAGE DIALOG ──────────────────────────────────────────────────
+      // ONE DOOR, TWO WAYS IN: the photo on the card, and the IMAGE URL cell in
+      // the strip (which is the only way in when there is no photo to click).
+      // Both call this. The field is deliberately NOT inline-editable any more,
+      // because two editors for one column is two things to keep in step, and
+      // the inline one could not show you the picture, which is the entire
+      // reason this field is hard.
+      var imageCard = document.getElementById('imageCard');
+      var imageBackdrop = document.getElementById('imageBackdrop');
+      var imageUrlBox = document.getElementById('imageUrlBox');
+      var imageShot = document.getElementById('imageShot');
+      var imageStatus = document.getElementById('imageStatus');
+      var imageEditing = null;   // { post, stableId }
+
+      function imageStatusText(text) {
+        if (imageStatus) imageStatus.textContent = text || '';
+      }
+
+      function openImageDialog(post, stableId) {
+        if (!imageCard) return;
+        imageEditing = { post: post, stableId: stableId || postId(post) };
+        imageUrlBox.value = String(post.image || '');
+        imageStatusText('');
+        paintImageShot();
+        openTool(imageCard, imageBackdrop, imageUrlBox);
+      }
+
+      function closeImageDialog() {
+        imageEditing = null;
+        closeTool(imageCard, imageBackdrop);
+      }
+
+      // Redrawn as you type, so a pasted url is judged before it is saved.
+      function paintImageShot() {
+        if (!imageShot) return;
+        imageShot.textContent = '';
+        var value = String(imageUrlBox.value || '').trim();
+        if (!value) {
+          var none = document.createElement('span');
+          none.className = 'image-shot-msg';
+          none.textContent = 'no image';
+          imageShot.appendChild(none);
+          return;
+        }
+        var img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        // BROKEN IS DRAWN DIFFERENTLY FROM EMPTY. An address that is there and
+        // does not resolve is the case worth acting on; an empty optional field
+        // is not news.
+        img.addEventListener('error', function () {
+          imageShot.textContent = '';
+          var bad = document.createElement('span');
+          bad.className = 'image-shot-msg is-broken';
+          bad.textContent = 'that address did not load';
+          imageShot.appendChild(bad);
+        });
+        img.src = value;
+        imageShot.appendChild(img);
+      }
+
+      function saveImageDialog() {
+        if (!imageEditing) return;
+        var pending = imageEditing;
+        // Same normalisation every other write uses, so a url typed without a
+        // scheme lands the same way here as it does anywhere else.
+        var patch = patchFor('image', String(imageUrlBox.value || '').trim());
+        imageStatusText('Saving...');
+        savePost(pending.stableId, patch).then(function () {
+          closeImageDialog();
+          renderQueue();
+        }).catch(function (err) {
+          // Reported IN THE DIALOG, not the page behind it: the box you were
+          // typing in is where you are looking.
+          imageStatusText(err.message || 'Could not save that image URL.');
+        });
+      }
+
       function closeManualPost() {
         closeTool(manualCard, manualBackdrop);
         setManualHash(false);
@@ -3638,9 +3827,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           shot.addEventListener('click', function (event) {
             event.preventDefault();
             event.stopPropagation();
-            var box = article.querySelector('.post-field-val[data-field-key="image"]');
-            if (box) { box.scrollIntoView({ block: 'nearest' }); box.click(); }
+            openImageDialog(post, id);
           });
+
+          // A BADGE SAYING SO. The whole picture is the target and always was,
+          // but a photograph does not look clickable, so the affordance had to
+          // be drawn. Upper right, small, and it shares the picture's handler
+          // rather than carrying its own: two paths to one dialog is two things
+          // to keep in step.
+          var shotEdit = document.createElement('span');
+          shotEdit.className = 'post-card-shot-edit';
+          shotEdit.textContent = 'Edit';
+          shotEdit.title = 'Edit the image URL';
+          shot.appendChild(shotEdit);
           card.appendChild(shot);
           card.classList.add('has-shot');
         }
@@ -3708,7 +3907,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // ABOVE THE REASONING, below the post. The post is what goes out; these
         // are the columns describing it that the post has no room for; the
         // reasoning is why it is here at all.
-        article.appendChild(buildFieldsRow(post));
+        article.appendChild(buildFieldsRow(post, id));
 
         var ephemera = document.createElement('div');
         ephemera.className = 'post-ephemera';
@@ -4136,7 +4335,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         { key: 'image',     label: 'Image URL', placeholder: 'no image', wide: true }
       ];
 
-      function buildFieldsRow(post) {
+      // Takes the STABLE id as well as the row: `id` is buildPost's local and is
+      // not in scope here, and reaching for it silently threw "id is not
+      // defined" the moment anybody clicked the IMAGE URL cell.
+      function buildFieldsRow(post, id) {
         var row = document.createElement('div');
         row.className = 'post-fields';
         CARD_FIELDS.forEach(function (f) {
@@ -4150,7 +4352,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           v.dataset.fieldKey = f.key;
           v.textContent = fieldToText(post, f.key);
           v.dataset.placeholder = f.placeholder;
-          if (f.readOnly) {
+          if (f.key === 'image') {
+            // THE ONLY WAY IN WHEN THERE IS NO PHOTO TO CLICK, and the same
+            // dialog either way. It keeps the .ed look because it IS editable;
+            // what changed is where the editing happens.
+            v.classList.add('ed');
+            v.tabIndex = 0;
+            if (!cleanText(v.textContent)) v.classList.add('is-blank');
+            v.title = 'Click to edit the image URL, with the picture beside it';
+            v.addEventListener('click', function () { openImageDialog(post, id); });
+            v.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageDialog(post, id); }
+            });
+          } else if (f.readOnly) {
             makeStatic(v, f.readOnly);
           } else {
             makeEditable(v, post, f.key, {
@@ -4491,7 +4705,45 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function postTargets(post) {
         var out = metaTargets(post);
         if (PLATFORM_AUTOPOST.threads) out.push('threads');
-        return out;
+
+        // THE BOT'S TAGS NARROW THIS, as of 2026-08-19. They were ADVICE, NOT
+        // ROUTING for four months and this reverses that: the Platforms cell
+        // was deleted the same day, so the judgement had nowhere left to be
+        // read, and a tag that is neither obeyed nor shown is not a tag.
+        //
+        // WHAT IT COSTS, and it is real: a candidate the bot tagged badly can
+        // no longer reach an account it was capable of reaching. Both prompts
+        // were changed in the same pass to say the tag now decides, because a
+        // model told its answer is advice writes a looser answer.
+        //
+        // NO ADVICE MEANS NO NARROWING. A row with an empty, absent or
+        // unrecognisable `platforms` posts everywhere it can. Every row filed
+        // before this existed, and every candidate added by hand through
+        // MANUAL, is in exactly that state, and treating silence as "post
+        // nowhere" would have made all of them unpostable at a stroke.
+        var wanted = suggestedKeys(post);
+        if (!wanted) return out;
+        return out.filter(function (k) { return wanted.indexOf(k) !== -1; });
+      }
+
+      // The accounts the bot named, as wire keys, or NULL when it named none we
+      // recognise. Null and empty are deliberately the same answer: see above.
+      //
+      // `platforms` is a jsonb array of {name, why}, but a hand-written row or
+      // an older one may hold bare strings, so both shapes are read. The match
+      // is lowercased and trimmed because the bot writes display names.
+      function suggestedKeys(post) {
+        var raw = post && post.platforms;
+        if (!Array.isArray(raw)) return null;
+        var keys = [];
+        raw.forEach(function (entry) {
+          var name = entry && typeof entry === 'object' ? entry.name : entry;
+          name = String(name || '').trim().toLowerCase();
+          for (var key in WIRE_LABELS) {
+            if (WIRE_LABELS[key].toLowerCase() === name && keys.indexOf(key) === -1) keys.push(key);
+          }
+        });
+        return keys.length ? keys : null;
       }
 
       // Real account names for the receipt. A LOOKUP WITH NO DEFAULT, on both
@@ -4502,6 +4754,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function wireLabels(keys) {
         return (keys || []).map(function (k) { return WIRE_LABELS[k] || k; });
+      }
+
+      // Why a candidate reaches NOTHING. Two rules can produce that now, and
+      // "API posting not configured" would be a lie about the second one.
+      function postBlockedReason(post) {
+        var wanted = suggestedKeys(post);
+        if (wanted && !metaTargets(post).concat(PLATFORM_AUTOPOST.threads ? ['threads'] : [])
+            .filter(function (k) { return wanted.indexOf(k) !== -1; }).length) {
+          return 'The bot suggested ' + wireLabels(wanted).join(' and ')
+            + ', and none of those can take this candidate. Edit the story or post it by hand.';
+        }
+        return autoBlockedReason('meta', post);
       }
 
       function autoBlockedReason(key, post) {
@@ -4624,9 +4888,32 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             ? 'Post to ' + targetLabels().join(' + ')
             : 'Post';
           go.disabled = !targets.length;
+          // THE TOOLTIP HAS TO SAY WHY AN ACCOUNT IS MISSING, now that two
+          // different rules can drop one. Without it a button reading "Post to
+          // Facebook" on a candidate with a perfectly good photograph is
+          // indistinguishable from a broken Instagram credential.
           go.title = targets.length
-            ? 'Posts to ' + targetLabels().join(' and ')
-            : (autoBlockedReason('meta', post) || 'API posting is not configured.');
+            ? 'Posts to ' + targetLabels().join(' and ') + missingNote()
+            : (postBlockedReason(post) || 'API posting is not configured.');
+        }
+
+        // Names each account this candidate is NOT reaching, and which of the
+        // two rules dropped it.
+        function missingNote() {
+          var targets = postTargets(post);
+          var wanted = suggestedKeys(post);
+          var notes = [];
+          ['facebook', 'instagram', 'threads'].forEach(function (key) {
+            if (targets.indexOf(key) !== -1) return;
+            var label = WIRE_LABELS[key];
+            if (!PLATFORM_AUTOPOST[key]) return;
+            if (key === 'instagram' && !hasImage(post)) {
+              notes.push('Not ' + label + ': its API refuses a post with no image.');
+            } else if (wanted && wanted.indexOf(key) === -1) {
+              notes.push('Not ' + label + ': the bot did not suggest it.');
+            }
+          });
+          return notes.length ? ' ' + notes.join(' ') : '';
         }
 
         go.addEventListener('click', function () {
@@ -4865,6 +5152,22 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         event.preventDefault();
         manualUrlInput.blur();
       });
+      if (imageBackdrop) imageBackdrop.addEventListener('click', closeImageDialog);
+      if (imageCard) {
+        imageCard.querySelectorAll('[data-image-close]').forEach(function (b) {
+          b.addEventListener('click', closeImageDialog);
+        });
+        imageCard.querySelectorAll('[data-image-save]').forEach(function (b) {
+          b.addEventListener('click', saveImageDialog);
+        });
+      }
+      if (imageUrlBox) {
+        imageUrlBox.addEventListener('input', paintImageShot);
+        imageUrlBox.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); saveImageDialog(); }
+        });
+      }
+
       if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualPost);
       Array.prototype.forEach.call(document.querySelectorAll('[data-manual-close]'), function (button) {
         button.addEventListener('click', closeManualPost);
