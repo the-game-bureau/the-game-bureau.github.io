@@ -281,8 +281,16 @@
     // primary-hard-right is the arrangement most dialogs settle on, and the
     // reason is the gap between them.
     //
-    // THE MIDDLE IS HELP: two that only fill the form in front of you, and one
-    // that copies it. None of them ends the dialog.
+    // THE MIDDLE IS HELP: one that fills the form in front of you and one that
+    // copies it. Neither ends the dialog.
+    //
+    // FIND ONLINE'S BUTTON WAS DELETED (2026-08-18). The dialog behind it is
+    // still here and still works, reachable as TgbWaypointEditor.openFind(seed):
+    // it is the only thing in this project that can pull a place out of
+    // OpenStreetMap by name, and the search half of waypoint-geo.js exists for
+    // it. Nothing calls it today. Either give it a door somewhere or delete
+    // openFindDialog, runFind, renderFindResults, openDraftFrom, #findDlg, the
+    // .find-* CSS and that half of waypoint-geo.js together.
     //
     // THE RIGHT IS HOW YOU LEAVE. Close discards, Save commits, and Save is the
     // only filled button in the room.
@@ -294,7 +302,6 @@
     '      <span class="dlg-rule" role="separator" aria-orientation="vertical"></span>',
     '      <span class="dlg-group">',
     '        <button class="btn small ghost" id="wpFillBtn" type="button" title="Geocode from what is set, then fill every blank field: ZIP, coordinates, description, source url, whatever is missing">Fill</button>',
-    '        <button class="btn small ghost" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box and open a result as a draft">Find online</button>',
     '        <button class="btn small ghost" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>',
     '      </span>',
     '      <span class="dlg-spacer"></span>',
@@ -593,7 +600,7 @@
 
   function wpBusy(on, text) {
     wpEdit.busy = !!on;
-    ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpDupeBtn', 'wpDeleteBtn']
+    ['wpSaveBtn', 'wpFillBtn', 'wpDupeBtn', 'wpDeleteBtn']
       .forEach((id) => { el(id).disabled = !!on; });
     if (text) wpNote(text, 'busy');
   }
@@ -912,13 +919,6 @@
     el('wpDeleteBtn').addEventListener('click', deleteWaypointRow);
     el('wpDupeBtn').addEventListener('click', duplicateWaypointRow);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
-    // Seeded with the name AND the city: "Freedom Tower" alone matches one in
-    // Manhattan, and the geocoder has no idea which town you are working in.
-    el('wpFindBtn').addEventListener('click', function () {
-      var seed = [cleanText(wpEdit.row && wpEdit.row.name), cleanText(wpEdit.row && wpEdit.row.city)]
-        .filter(Boolean).join(' ');
-      openFindDialog(seed);
-    });
     el('wpDlg').addEventListener('click', function (e) { if (e.target === el('wpDlg') && !wpEdit.busy) closeWaypointEditor(); });
 
     el('findGoBtn').addEventListener('click', runFind);
