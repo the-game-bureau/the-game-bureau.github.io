@@ -615,6 +615,35 @@
     '  .admin-site-nav .asn-links .asn-link::before { content: none; }',
     '  .admin-site-nav .asn-links .asn-word { display: none; }',
     '  .admin-site-nav .asn-admin { opacity: 1; }',
+    /* MISSION CONTROL IS NOT A ROOM ROW, AND THE THREE RULES ABOVE ERASED IT.
+       They shrink every .asn-links link to its trailing ADMIN tag -- glyph off,
+       section word off -- because on a room row the full-width line is the
+       PUBLIC sibling and it already carries both. MISSION CONTROL has no public
+       sibling and no ADMIN tag: its label IS those two .asn-word spans. So it
+       matched all three rules, kept its 48px height, and rendered as an empty
+       row. The hub was in the phone menu, tappable, and invisible.
+       It is put back as the full-width row it has to be, since there is no
+       second line for it to defer to. Specificity ties the generic rules at
+       (0,3,0), so these have to sit AFTER them -- the same source-order tie the
+       burger-on-desktop bug turned on. */
+    '  .admin-site-nav .asn-links .asn-mc {',
+    '    flex: 1 1 auto;',
+    '    min-width: 0;',
+    '    justify-content: flex-start;',
+    '    gap: 12px;',
+    '    padding: 0;',
+    '    color: var(--asn-ink);',
+    '    font-size: 0.82rem;',
+    '    letter-spacing: 0.06em;',
+    '  }',
+    /* Only `content` was taken away; the base rule still holds the box, the mask
+       and the size, so handing it back is the whole repair. */
+    '  .admin-site-nav .asn-links .asn-mc::before { content: ""; }',
+    '  .admin-site-nav .asn-links .asn-mc .asn-word { display: inline; }',
+    /* MISSION over CONTROL is a desktop shape, to keep the button from being
+       half again as wide as its neighbours. The panel row is already one line
+       wide, so the two words sit side by side with a tighter gap than the
+       0.55em a room row puts between its word and its tag. */
     '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
     '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
