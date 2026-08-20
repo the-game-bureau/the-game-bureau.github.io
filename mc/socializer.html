@@ -904,8 +904,10 @@
     body.is-posting .post-actions.is-posting-row > * { opacity: 1; }
     body.is-posting { cursor: progress; }
     /* The page's cursor says "wait"; a control that is genuinely still live
-       must not. */
-    body.is-posting [data-lock-exempt] { cursor: pointer; }
+       must not. The :not() matters because the posting card's own Skip IS
+       locked, and a dead button offering a pointer is the same lie the
+       dimming rule above exists to prevent. */
+    body.is-posting [data-lock-exempt]:not(:disabled) { cursor: pointer; }
 
     /* A SKIP TAKEN WHILE A POST IS IN THE AIR, not yet written. The dashes say
        intended-but-not-done, which is exactly what it is: the row still holds
@@ -3853,20 +3855,34 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           '.post-actions button, .queue-tabs button, .command-bar button, select.queue-sort');
       }
 
-      function setPostingLock(on, message) {
+      // The action row of the card being posted, held for as long as the lock
+      // is. See the exemption test below: it is the one row where Skip is NOT
+      // exempt.
+      var postingRow = null;
+
+      function setPostingLock(on, message, actingRow) {
         // Releasing an already-released lock would run the restore loop against
         // dataset flags it has cleared, switching on buttons that are off for
         // their own reasons. It happens for real: the watchdog below releases,
         // then the late reply releases again.
         if (!on && !postingLock) return;
         postingLock = !!on;
+        if (postingLock) postingRow = actingRow || null;
         document.body.classList.toggle('is-posting', postingLock);
         Array.prototype.forEach.call(lockableControls(), function (btn) {
-          // SKIP IS EXEMPT IN BOTH DIRECTIONS. Left out of the lock, and left
-          // out of the restore too: its enabled state is its own business, so
-          // the unlock loop must not reach in and switch on a Skip that is
-          // sitting disabled mid-save for a reason of its own.
-          if (btn.dataset.lockExempt) return;
+          // SKIP IS EXEMPT IN BOTH DIRECTIONS, EXCEPT ON THE CARD BEING POSTED.
+          // Everywhere else it is left out of the lock and out of the restore
+          // too, so the unlock cannot reach in and switch on a Skip sitting
+          // disabled mid-save for a reason of its own.
+          //
+          // ON THE POSTING CARD IT IS LOCKED LIKE ANY OTHER BUTTON. Deferring
+          // that particular press is answering a question the flush can only
+          // refuse: the story is going out on that card right now, so passing
+          // on it is not a decision anyone can still take. Offering the press
+          // and then declining it afterwards is worse than not offering it, and
+          // being inside the lock means the restore loop puts it back for free
+          // if the post fails and the card stays.
+          if (btn.dataset.lockExempt && !(postingRow && postingRow.contains(btn))) return;
           if (postingLock) {
             // Buttons already off for their own reasons — a candidate with no
             // targets, a row mid-save — are remembered, so unlocking restores
@@ -3884,6 +3900,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           pendingRender = false;
           renderQueue();
         }
+        // Cleared only after the loop, so the release pass tests the same row
+        // the lock pass did and restores exactly what it took.
+        if (!postingLock) postingRow = null;
         if (!postingLock) flushDeferredSkips();
       }
 
@@ -3952,15 +3971,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         ids.reduce(function (chain, id) {
           return chain.then(function () {
-            // A POSTED ROW IS A RECEIPT AND THE SKIP DOES NOT LAND ON IT. This
-            // is the one case the deferral creates: press Post and then Skip on
-            // the SAME card and the two answers contradict each other. The post
-            // is the one that already happened -- the story is on the accounts
-            // and `posted_platforms` is the only record of where -- so writing
-            // 'skipped' over it would leave the queue disagreeing with the
-            // Page about something that cannot be checked from here. It is
-            // reported rather than done silently; the Posted tab's Move/Copy to
-            // Review is the way back if it really was meant.
+            // A POSTED ROW IS A RECEIPT AND THE SKIP DOES NOT LAND ON IT.
+            // Locking the posting card's own Skip should make this unreachable,
+            // and it is kept anyway: a queue of intentions applied later must
+            // check the row it is about to overwrite, because the whole point
+            // of deferring is that the world moved in between. The post is the
+            // one that already happened -- the story is on the accounts and
+            // `posted_platforms` is the only record of where -- so writing
+            // 'skipped' over it would leave the queue disagreeing with the Page
+            // about something that cannot be checked from here. Reported rather
+            // than done silently; Move/Copy to Review is the way back.
             if (statusOf(postById(id)) === 'posted') { receipts.push(id); return; }
             return savePost(id, { status: 'skipped' })
               .then(function () { saved += 1; })
@@ -5712,11 +5732,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // Lock BEFORE this card's own buttons are touched, so the snapshot it
           // takes is the page as it was — otherwise unlocking would read these
           // two as "already off for their own reasons" and leave them dead.
-          setPostingLock(true, 'Posting to ' + targetLabels().join(' + ') + '… nothing else can be pressed until it answers.');
+          //
+          // The row goes IN to the lock rather than being marked after it: it
+          // is what tells the lock which Skip is not exempt, so it has to be
+          // known while the lock pass is running. Passing a reference is not
+          // touching a button, so the snapshot rule above still holds.
+          var actionRow = go.parentNode;
+          setPostingLock(true, 'Posting to ' + targetLabels().join(' + ') + '… nothing else can be pressed until it answers.', actionRow);
           go.textContent = 'Posting...';
           // Marks THIS row as the one working, so it keeps full contrast while
           // the rest of the queue dims.
-          var actionRow = go.parentNode;
           if (actionRow && actionRow.classList) actionRow.classList.add('is-posting-row');
 
           // A HUNG REQUEST MUST NOT LEAVE THE PAGE DEAD. Locking the whole queue
