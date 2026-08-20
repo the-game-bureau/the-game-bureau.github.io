@@ -473,7 +473,7 @@
       <div>
         <p class="review-kicker">Mission Control</p>
         <h1>Daily Review</h1>
-        <p class="review-copy">The last 26 hours of nightly output across waypoint candidates and gift-shop review candidates. Soundtrack review now lives in Tape Room.</p>
+        <p class="review-copy">The last 26 hours of routine output: paths TGB PATH BOT filed, and gift-shop review candidates. Soundtrack review now lives in Tape Room.</p>
       </div>
       <div class="review-head-tools">
         <a class="btn" href="/mc/soundtracks/">Sound Review</a>
@@ -497,7 +497,7 @@
       </div>
       <div class="metric">
         <span class="metric-value" id="waypointMetric">-</span>
-        <span class="metric-label">Waypoint Stops</span>
+        <span class="metric-label">Path Stops</span>
       </div>
     </section>
 
@@ -520,13 +520,24 @@
       <section class="review-panel" id="waypointsPanel">
         <header class="review-panel-head">
           <div>
-            <span class="section-label">Nightly candidate file</span>
-            <h2>Waypoint Stops</h2>
+            <!-- THE PANEL NAMES THE ROUTINE, NOT THE FILE (2026-08-20). It read
+                 "Nightly candidate file", which was the shape of the old job:
+                 TGB WAYPOINT BOT committed loose candidates and a human decided
+                 which became waypoints. That routine was folded into TGB PATH
+                 BOT, the file is deleted, and what lands now is a whole path
+                 already live in the library. Nothing here is awaiting a
+                 decision, so the panel is a receipt rather than a queue. -->
+            <span class="section-label">Filed by TGB PATH BOT</span>
+            <h2>Paths Filed</h2>
           </div>
           <div class="panel-actions">
             <span class="panel-count" id="waypointCount">-</span>
             <a class="btn" href="/mc/pathbuilder.html">Open Path Builder</a>
-            <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau/commits/main/mc/stops/nightly.json" target="_blank" rel="noopener noreferrer">View Log</a>
+            <!-- VIEW LOG IS GONE, not repointed. It opened the commit history of
+                 mc/stops/nightly.json, and the surviving routine commits
+                 nothing at all, so there is no log to show: the database is the
+                 record now and the Path Builder is how you read it. -->
+            <a class="btn" href="https://claude.ai/code/routines/trig_01HqDJy6BzpU7n23VXv8D1gW" target="_blank" rel="noopener noreferrer">TGB PATH BOT</a>
           </div>
         </header>
         <div class="panel-status" id="waypointStatus">Waiting for sign-in.</div>
@@ -549,11 +560,6 @@
 
       const REVIEW_HOURS = 26;
       const REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
-      const REPO_API = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io';
-      const RAW_BASE = 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io';
-      const PATHS = {
-        waypoints: 'mc/stops/nightly.json'
-      };
 
       const refreshBtn = document.getElementById('refreshBtn');
       const reviewWindow = document.getElementById('reviewWindow');
@@ -736,7 +742,7 @@
 
         const [giftResult, waypointResult] = await Promise.allSettled([
           loadGifts(cutoff, now),
-          loadWaypoints(cutoff, now)
+          loadPaths(cutoff, now)
         ]);
 
         const gifts = settledCount(giftResult);
@@ -856,94 +862,124 @@
         return out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       }
 
-      async function loadWaypoints(cutoff, now) {
+      // WHAT THIS PANEL READS CHANGED ON 2026-08-20, and the old answer is
+      // worth recording because it looked fine right up until it went silent.
+      //
+      // It used to read the GitHub commits API for mc/stops/nightly.json, the
+      // candidate file TGB WAYPOINT BOT committed twice a day, and render the
+      // stops out of the freshest commits. That routine was folded into TGB PATH
+      // BOT, which writes to the database and commits NOTHING, so the file was
+      // deleted and there is no commit feed left to read. Left alone this panel
+      // would have reported "no waypoint candidate file was committed" forever,
+      // which reads as a broken routine rather than a retired one.
+      //
+      // So it reads public.paths now: what the surviving routine actually filed
+      // in the review window, with the stops each path is made of. The unit
+      // moved from a loose candidate to a whole walk, which is what the routine
+      // now produces. Everything here is ALREADY LIVE in the library, so nothing
+      // on this panel is a decision waiting to be taken; it is a receipt, and
+      // the one thing still worth acting on is a stop that arrived with no
+      // point, which is flagged per row.
+      async function loadPaths(cutoff, now) {
         try {
-          const recent = await fetchPathCommits(PATHS.waypoints, cutoff, 10);
-          if (!recent.length) {
-            const latest = await latestPathCommit(PATHS.waypoints);
-            const msg = latest
-              ? 'No waypoint candidate file was committed in the last ' + REVIEW_HOURS + ' hours. Latest commit: ' + relativeTime(commitDate(latest), now) + '.'
-              : 'No waypoint candidate file was committed in the last ' + REVIEW_HOURS + ' hours.';
-            setSection('waypoints', 0, msg, '');
-            setList('waypoints', emptyNode('No fresh waypoint candidates to review.'));
+          if (adminAuth.ensureFreshSession) await adminAuth.ensureFreshSession();
+
+          const pathResponse = await fetch(restUrl('paths', {
+            select: 'tour_id,title,shape,city,created_at',
+            created_at: 'gte.' + cutoff.toISOString(),
+            order: 'created_at.desc'
+          }), { headers: authHeaders(), cache: 'no-store' });
+          if (!pathResponse.ok) throw new Error(await readError(pathResponse, 'Could not load filed paths.'));
+          const pathRows = await pathResponse.json();
+          const paths = Array.isArray(pathRows) ? pathRows : [];
+
+          if (!paths.length) {
+            setSection('waypoints', 0, 'No path was filed in the last ' + REVIEW_HOURS + ' hours.', '');
+            setList('waypoints', emptyNode('No fresh paths to look over.'));
             return 0;
           }
 
-          const runs = [];
-          for (const commit of recent) {
-            const data = await fetchRawJson(PATHS.waypoints, commit.sha);
-            const stops = Array.isArray(data && data.stops) ? data.stops : [];
-            runs.push({
-              commit,
-              data: data || {},
-              stops,
-              date: commitDate(commit),
-              title: firstLine(commit.commit && commit.commit.message)
-            });
-          }
+          // The stops for every fresh path in ONE request. PostgREST embeds the
+          // waypoint through path_stops.wpid, so a stop arrives as the place it
+          // actually is rather than as an id this page would have to resolve.
+          // Ordered by tour and then ord, because ord IS the walk and a path
+          // rendered in arrival order is a different walk from the one filed.
+          const ids = paths.map((row) => text(row && row.tour_id)).filter(Boolean);
+          const stopResponse = await fetch(restUrl('path_stops', {
+            select: 'tour_id,ord,waypoints(wpid,name,address,city,state,zip,lat,lon,description,source_url)',
+            tour_id: 'in.(' + ids.map((id) => '"' + id.replace(/"/g, '') + '"').join(',') + ')',
+            order: 'tour_id,ord'
+          }), { headers: authHeaders(), cache: 'no-store' });
+          if (!stopResponse.ok) throw new Error(await readError(stopResponse, 'Could not load path stops.'));
+          const stopRows = await stopResponse.json();
+
+          const byTour = new Map();
+          (Array.isArray(stopRows) ? stopRows : []).forEach((row) => {
+            const key = text(row && row.tour_id);
+            if (!key) return;
+            if (!byTour.has(key)) byTour.set(key, []);
+            byTour.get(key).push(row);
+          });
+
+          const runs = paths.map((row) => ({
+            path: row,
+            stops: byTour.get(text(row.tour_id)) || [],
+            date: new Date(row && row.created_at)
+          }));
 
           const stopCount = runs.reduce((sum, run) => sum + run.stops.length, 0);
           setSection(
             'waypoints',
             stopCount,
             stopCount
-              ? stopCount + ' waypoint stop' + (stopCount === 1 ? '' : 's') + ' found in fresh nightly files.'
-              : 'Fresh waypoint commits landed, but the candidate files contain no stops.',
+              ? stopCount + ' stop' + (stopCount === 1 ? '' : 's') + ' across ' + paths.length + ' fresh path' + (paths.length === 1 ? '' : 's') + '.'
+              : 'Fresh paths were filed, but none of them has any stops.',
             stopCount ? 'success' : 'warn'
           );
-          setList('waypoints', runs.length ? runs.map((run) => renderWaypointRun(run, now)) : emptyNode('No waypoint stops in the fresh file.'));
+          setList('waypoints', runs.map((run) => renderPathRun(run, now)));
           return stopCount;
         } catch (error) {
           console.error(error);
-          setSection('waypoints', 0, error.message || 'Could not load waypoint candidates.', 'error');
-          setList('waypoints', emptyNode('Waypoint review could not load. Open the Path Builder and press NIGHTLY to inspect directly.'));
+          setSection('waypoints', 0, error.message || 'Could not load filed paths.', 'error');
+          setList('waypoints', emptyNode('Path review could not load. Open the Path Builder to look directly.'));
           return 0;
         }
       }
 
-      function renderWaypointRun(run, now) {
+      function renderPathRun(run, now) {
         const card = document.createElement('div');
         card.className = 'run-card';
-        const city = text(run.data && run.data.city);
-        const title = city ? city + ' waypoint candidates' : (run.title || 'Waypoint candidates');
+        const city = text(run.path && run.path.city);
+        const title = text(run.path && run.path.title) || 'Untitled path';
+        const tourId = text(run.path && run.path.tour_id);
+        const shape = text(run.path && run.path.shape);
+
+        const sub = [
+          city,
+          shape ? shape.replace(/_/g, ' ') : '',
+          formatDate(run.date) + ' - ' + relativeTime(run.date, now)
+        ].filter(Boolean).join(' - ');
+
+        // The header links into the Path Builder on this path rather than out to
+        // a commit: there is no commit any more, and the walk is the thing you
+        // would want open if anything here looked wrong.
         card.appendChild(runHeader(
           title,
-          formatDate(run.date) + ' - ' + relativeTime(run.date, now),
-          run.commit && run.commit.html_url
+          sub,
+          tourId ? '/mc/pathbuilder.html?tour=' + encodeURIComponent(tourId) : ''
         ));
 
-        const sources = Array.isArray(run.data && run.data.sources) ? run.data.sources : [];
-        if (sources.length) {
-          const sourceList = document.createElement('ol');
-          sourceList.className = 'source-list';
-          sources.forEach((source) => {
-            const li = document.createElement('li');
-            const url = text(source && source.url);
-            if (url) {
-              const a = document.createElement('a');
-              a.href = url;
-              a.target = '_blank';
-              a.rel = 'noopener noreferrer';
-              a.textContent = text(source && source.title) || url;
-              li.appendChild(a);
-            } else {
-              li.textContent = text(source && source.title) || 'Source';
-            }
-            sourceList.appendChild(li);
-          });
-          card.appendChild(sourceList);
-        }
-
         if (!run.stops.length) {
-          card.appendChild(emptyNode('This fresh file has no stops.'));
+          card.appendChild(emptyNode('This path was filed with no stops.'));
           return card;
         }
 
-        run.stops.forEach((stop) => card.appendChild(renderWaypointStop(stop)));
+        run.stops.forEach((row) => card.appendChild(renderPathStop(row, tourId)));
         return card;
       }
 
-      function renderWaypointStop(stop) {
+      function renderPathStop(row, tourId) {
+        const stop = (row && row.waypoints) || {};
         const article = document.createElement('article');
         article.className = 'review-item';
         const main = document.createElement('div');
@@ -951,33 +987,58 @@
 
         const title = document.createElement('h3');
         title.className = 'item-title';
-        title.textContent = text(stop && stop.name) || '(unnamed stop)';
+        const ord = Number(row && row.ord);
+        title.textContent = (Number.isFinite(ord) ? ord + '. ' : '') + (text(stop.name) || '(unnamed stop)');
 
         const where = [
-          text(stop && stop.address),
-          text(stop && stop.city),
-          text(stop && stop.state),
-          text(stop && stop.zip)
+          text(stop.address),
+          text(stop.city),
+          text(stop.state),
+          text(stop.zip)
         ].filter(Boolean).join(', ');
         const copy = document.createElement('p');
         copy.className = 'item-copy';
-        copy.textContent = [where, truncate(stop && stop.description, 220)].filter(Boolean).join(' - ') || 'No address or description yet.';
+        copy.textContent = [where, truncate(stop.description, 220)].filter(Boolean).join(' - ') || 'No address or description yet.';
 
+        // THE CHIPS NAME WHAT IS MISSING, NOT WHAT IS PRESENT. Everything on
+        // this panel is already live, so "filed" on all of them says nothing;
+        // the gaps are the only part a human can act on, and they are the same
+        // gaps the routine's own repair half works through.
         const meta = document.createElement('div');
         meta.className = 'item-meta';
-        meta.appendChild(chip('Candidate', 'warn'));
-        const src = text(stop && stop.source_url);
-        if (src) meta.appendChild(chip('Source URL'));
+        if (!hasPoint(stop)) meta.appendChild(chip('No point', 'warn'));
+        if (!text(stop.zip)) meta.appendChild(chip('No ZIP', 'warn'));
+        const src = text(stop.source_url);
+        if (!src) meta.appendChild(chip('No source', 'warn'));
+        if (!meta.childNodes.length) meta.appendChild(chip('Complete'));
 
         main.append(title, copy, meta);
 
         const actions = document.createElement('div');
         actions.className = 'item-actions';
-        actions.appendChild(actionLink('/mc/pathbuilder.html', 'Open Path Builder'));
+        actions.appendChild(actionLink(
+          tourId ? '/mc/pathbuilder.html?tour=' + encodeURIComponent(tourId) : '/mc/pathbuilder.html',
+          'Open Path Builder'
+        ));
         if (src) actions.appendChild(actionLink(src, 'Source', true));
 
         article.append(main, actions);
         return article;
+      }
+
+      // isFinite(Number(lat)) IS THE WRONG TEST and this project has already
+      // paid for writing it: Number(null) and Number('') are both 0, and
+      // isFinite(0) is true, so an unlocated row reads as a row located at
+      // latitude zero. Check for absence explicitly, and refuse 0,0.
+      function hasPoint(stop) {
+        const lat = stop && stop.lat;
+        const lon = stop && stop.lon;
+        if (lat === null || lat === undefined || lat === '') return false;
+        if (lon === null || lon === undefined || lon === '') return false;
+        const nlat = Number(lat);
+        const nlon = Number(lon);
+        if (!Number.isFinite(nlat) || !Number.isFinite(nlon)) return false;
+        return !(nlat === 0 && nlon === 0);
       }
 
       function runHeader(titleText, subText, href) {
@@ -993,47 +1054,9 @@
         textWrap.append(title, sub);
         const actions = document.createElement('div');
         actions.className = 'item-actions';
-        if (href) actions.appendChild(actionLink(href, 'Commit', true));
+        if (href) actions.appendChild(actionLink(href, 'Open Path'));
         head.append(textWrap, actions);
         return head;
-      }
-
-      async function fetchPathCommits(path, since, perPage) {
-        const url = new URL(REPO_API + '/commits');
-        url.searchParams.set('path', path);
-        if (since) url.searchParams.set('since', since.toISOString());
-        url.searchParams.set('per_page', String(perPage || 10));
-        const response = await fetch(url.toString(), {
-          headers: { Accept: 'application/vnd.github+json' },
-          cache: 'no-store'
-        });
-        if (!response.ok) throw new Error('GitHub commits API returned ' + response.status + ' for ' + path + '.');
-        const rows = await response.json();
-        return Array.isArray(rows) ? rows : [];
-      }
-
-      async function latestPathCommit(path) {
-        const rows = await fetchPathCommits(path, null, 1);
-        return rows[0] || null;
-      }
-
-      async function fetchRawJson(path, sha) {
-        const url = RAW_BASE + '/' + encodeURIComponent(sha) + '/' + path.split('/').map(encodeURIComponent).join('/');
-        const response = await fetch(url, {
-          headers: { Accept: 'application/json,text/plain,*/*' },
-          cache: 'no-store'
-        });
-        if (!response.ok) throw new Error('Could not read ' + path + ' at ' + sha.slice(0, 7) + '.');
-        return response.json();
-      }
-
-      function commitDate(commit) {
-        const raw = commit && commit.commit && commit.commit.committer && commit.commit.committer.date;
-        return new Date(raw);
-      }
-
-      function firstLine(value) {
-        return text(value).split('\n')[0];
       }
 
       resetReview();

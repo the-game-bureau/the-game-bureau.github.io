@@ -1,10 +1,19 @@
-/* PAIRED WITH TWO ROUTINES, and one of them reads this file as its live spec.
+/* PAIRED WITH ONE ROUTINE, AND IT READS THIS FILE AS ITS LIVE SPEC.
  *
- *   TGB WAYPOINT BOT               trig_018FbHnaU5DqB4GesPfABV2d  cron 8 8,20 UTC
- *     uses buildWaypointAiPrompt; commits mc/stops/nightly.json.
- *   TGB NFL Anchor Path Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
+ *   TGB ANCHOR EVENTS  trig_01P6fMZjt4ZapaKVoiCUfGxw  cron 11 8,20 UTC
  *     STEP 1 OF ITS STORED PROMPT IS "open this file and find
  *     buildTourPlacesWaypointPrompt; that function is the specification".
+ *
+ * IT WAS TWO ROUTINES UNTIL 2026-08-20. TGB WAYPOINT BOT
+ * (trig_018FbHnaU5DqB4GesPfABV2d, cron 8 8,20 UTC) was folded into TGB PATH BOT
+ * and switched off; it never read this file as a spec, it simply covered the
+ * same ground as buildWaypointAiPrompt while committing its answer to
+ * mc/stops/nightly.json. That file is deleted and the sweep is now step 3b of
+ * TGB PATH BOT's stored prompt, which files a real path instead.
+ *
+ * buildWaypointAiPrompt IS UNAFFECTED AND STAYS. It is a PAGE prompt, pasted by
+ * a human into whatever chat AI is open, and its deliverable is import SQL. It
+ * lost a routine that resembled it, not its own reason to exist.
  *
  * So editing this file changes that routine on its next run, with nothing to
  * sync. The cost is the matching failure: RENAME OR MOVE
