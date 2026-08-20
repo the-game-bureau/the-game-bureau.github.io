@@ -199,7 +199,7 @@
       hubHidden: true,
       items: [
         {
-          href: '/mc/socials/',
+          href: '/mc/socializer.html',
           label: 'Socializer',
           description: 'Review AI-scouted stories and open prefilled composers for The Game Bureau social channels.'
         }

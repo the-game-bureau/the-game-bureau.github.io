@@ -14,7 +14,7 @@
 // prompt cannot fix a tool's output.
 //
 // THE PAGE CANNOT DO THIS ITSELF, which is the whole reason it is a function.
-// /mc/socials/ is static HTML on GitHub Pages and CORS forbids it reading
+// /mc/socializer.html is static HTML on GitHub Pages and CORS forbids it reading
 // another origin's markup. A server has no such rule.
 //
 // AUTH is the same gate socials-post and upload-guide-image use: the caller's
