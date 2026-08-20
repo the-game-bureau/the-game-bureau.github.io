@@ -886,16 +886,38 @@
     /* A post is in the air — see setPostingLock. The buttons are genuinely
        disabled in JS; this is only so the page LOOKS held rather than dead,
        and so the one card mid-post (which keeps its "Posting..." label) reads
-       as the reason for it. */
-    body.is-posting .post-actions,
+       as the reason for it.
+
+       THE DIMMING IS ON THE ACTION ROW'S CHILDREN, NOT ON THE ROW. It was on
+       the row until Skip stopped being locked, and it had to move: opacity
+       makes a stacking group, so a child of an element at 0.5 cannot be
+       brought back to full contrast by any rule of its own. A live Skip inside
+       a dimmed row would have read as dead, which is the one thing this whole
+       change exists to avoid. */
+    body.is-posting .post-actions > *:not([data-lock-exempt]),
     body.is-posting .queue-bar,
     body.is-posting .command-bar-inner {
       opacity: 0.5;
     }
     /* …except the row actually doing it, which keeps full contrast because its
        "Posting..." button is the explanation for everything else being off. */
-    body.is-posting .post-actions.is-posting-row { opacity: 1; }
+    body.is-posting .post-actions.is-posting-row > * { opacity: 1; }
     body.is-posting { cursor: progress; }
+    /* The page's cursor says "wait"; a control that is genuinely still live
+       must not. */
+    body.is-posting [data-lock-exempt] { cursor: pointer; }
+
+    /* A SKIP TAKEN WHILE A POST IS IN THE AIR, not yet written. The dashes say
+       intended-but-not-done, which is exactly what it is: the row still holds
+       its old status and the PATCH goes out when the lock lifts. Pressing it
+       again takes the intention back, so it cannot be a one-way misclick. */
+    .btn.is-skip-queued,
+    .btn.is-skip-queued:hover {
+      border-style: dashed;
+      border-color: rgba(194, 55, 55, 0.62);
+      background: rgba(194, 55, 55, 0.06);
+      color: var(--bic-red);
+    }
 
     /* Honour a reduced-motion preference across every transition added here. */
     @media (prefers-reduced-motion: reduce) {
@@ -3840,6 +3862,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         postingLock = !!on;
         document.body.classList.toggle('is-posting', postingLock);
         Array.prototype.forEach.call(lockableControls(), function (btn) {
+          // SKIP IS EXEMPT IN BOTH DIRECTIONS. Left out of the lock, and left
+          // out of the restore too: its enabled state is its own business, so
+          // the unlock loop must not reach in and switch on a Skip that is
+          // sitting disabled mid-save for a reason of its own.
+          if (btn.dataset.lockExempt) return;
           if (postingLock) {
             // Buttons already off for their own reasons — a candidate with no
             // targets, a row mid-save — are remembered, so unlocking restores
@@ -3857,6 +3884,98 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           pendingRender = false;
           renderQueue();
         }
+        if (!postingLock) flushDeferredSkips();
+      }
+
+      // SKIP STAYS PRESSABLE WHILE A POST IS IN THE AIR.
+      //
+      // Everything else on the page goes dead under the lock, and for Post
+      // itself that is the whole point: the reason the lock exists is that a
+      // second Post on a candidate already in flight sends the story twice and
+      // Facebook accepts it without complaint. Skip carries no such risk. It is
+      // also the button you most want during the wait, because a post takes
+      // long enough that the natural thing to do is work down the rest of the
+      // queue, and a locked Skip made that wait dead time.
+      //
+      // WHAT IT MUST NOT DO IS WRITE. A PATCH sent now races the post's own
+      // markPosted() on the same table, and on the posting card it races it for
+      // the same row. So the press is RECORDED and applied when the lock lifts:
+      // the button says so, and nothing about the stored row moves until then.
+      // The press is real; only the write waits.
+      var deferredSkips = [];
+
+      function postById(id) {
+        for (var i = 0; i < posts.length; i++) {
+          if (String(posts[i].id) === String(id)) return posts[i];
+        }
+        return null;
+      }
+
+      function isSkipQueued(id) {
+        return deferredSkips.indexOf(String(id)) !== -1;
+      }
+
+      // Pressing a queued Skip takes it back. Without this the only way out of
+      // a misclick would be to wait for the post, watch the skip land, and then
+      // Move to Review from the Skipped tab.
+      function toggleDeferredSkip(id, btn) {
+        var key = String(id);
+        var at = deferredSkips.indexOf(key);
+        if (at === -1) deferredSkips.push(key);
+        else deferredSkips.splice(at, 1);
+        paintSkipButton(btn, id);
+        flash(queueStatus, at === -1
+          ? 'Skip queued — it saves when the post answers'
+          : 'Skip cancelled');
+      }
+
+      function paintSkipButton(btn, id) {
+        if (!btn) return;
+        var queued = isSkipQueued(id);
+        btn.classList.toggle('is-skip-queued', queued);
+        btn.textContent = queued ? 'Skip queued' : 'Skip';
+        btn.title = queued
+          ? 'Queued while the post is in the air. It saves as soon as that answers. Press again to cancel.'
+          : 'Pass on this one — it will not come back on reload';
+      }
+
+      // Runs on unlock. Sequential rather than parallel: there are at most a
+      // handful, they are PATCHes to one table, and one at a time keeps the
+      // report in the order they were pressed.
+      function flushDeferredSkips() {
+        if (!deferredSkips.length) return;
+        var ids = deferredSkips.slice();
+        deferredSkips.length = 0;
+        var saved = 0;
+        var receipts = [];
+        var failed = [];
+
+        ids.reduce(function (chain, id) {
+          return chain.then(function () {
+            // A POSTED ROW IS A RECEIPT AND THE SKIP DOES NOT LAND ON IT. This
+            // is the one case the deferral creates: press Post and then Skip on
+            // the SAME card and the two answers contradict each other. The post
+            // is the one that already happened -- the story is on the accounts
+            // and `posted_platforms` is the only record of where -- so writing
+            // 'skipped' over it would leave the queue disagreeing with the
+            // Page about something that cannot be checked from here. It is
+            // reported rather than done silently; the Posted tab's Move/Copy to
+            // Review is the way back if it really was meant.
+            if (statusOf(postById(id)) === 'posted') { receipts.push(id); return; }
+            return savePost(id, { status: 'skipped' })
+              .then(function () { saved += 1; })
+              .catch(function (err) { failed.push(err.message); });
+          });
+        }, Promise.resolve()).then(function () {
+          renderQueue();
+          var parts = [];
+          if (saved) parts.push('Skipped ' + saved);
+          if (receipts.length) {
+            parts.push(receipts.length + ' already posted, left as posted');
+          }
+          if (failed.length) parts.push('could not save: ' + failed.join('; '));
+          if (parts.length) flash(queueStatus, parts.join(' · '));
+        });
       }
 
       function renderQueue() {
@@ -4776,9 +4895,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var trashBtn = document.createElement('button');
         trashBtn.className = 'btn danger';
         trashBtn.type = 'button';
-        trashBtn.textContent = 'Skip';
-        trashBtn.title = 'Pass on this one — it will not come back on reload';
+        // Left out of the posting lock; see deferredSkips for why this one
+        // button is safe to leave live and why it defers rather than writes.
+        trashBtn.dataset.lockExempt = '1';
+        // Painted from the queue rather than set here, so a card rebuilt while
+        // a skip is still pending comes back wearing it. The intention lives in
+        // deferredSkips, keyed by id; the button is only how it is shown.
+        paintSkipButton(trashBtn, id);
         trashBtn.addEventListener('click', function () {
+          if (postingLock) { toggleDeferredSkip(id, trashBtn); return; }
           trashBtn.disabled = true;
           savePost(id, { status: 'skipped' })
             .then(function () { renderQueue(); flash(queueStatus, 'Skipped'); })
