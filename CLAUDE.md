@@ -204,6 +204,16 @@ Reported as "when I try to change the title it doesn't work", with **nothing on 
 
 **Do not add a bare `return` to a write path here.** The room's whole error channel is `setNotice`, and a path that skips it is indistinguishable from success.
 
+### THE ISSUES COUNT AND ITS FILTER WERE HIDDEN ON A PHONE (2026-08-20)
+
+`.tape-head-label { display: none }` inside the Tape Room's `@media (max-width: 700px)` block hid **every** label cell in the tape header, and three of those cells are not labels at all: **TRACKS**, **ISSUES** and **NEW** each carry a live figure, and the last two wrap the `#flaggedOnly` and `#newOnly` checkboxes. So under 700px the room could not tell you how many open findings the catalogue held, and **the FLAGGED and NEW filters were unreachable** — the one control you most want on a phone, since the whole point of the count is to press it.
+
+- **The head is a wrapping flex row under 700px**, not a two-column grid. The grid's `var(--tape-cols)` is eight columns wide and cannot survive a 390px viewport, which is why the old rule reached for `display: none` in the first place; flex lets the sort buttons and the three figures wrap onto as many lines as they need. Measured at 390px the head is 86px tall against 76px before, and nothing overflows horizontally.
+- **The three figure cells are named individually and re-shown after the blanket hide**, rather than the hide being narrowed. The empty spacer cell in that row still has to go, and naming what stays is what keeps a future cell hidden by default.
+- **The TRACKS cell gained `tape-head-label--tracks-cell`** so the rule can name it; it was the one head cell with no class of its own. (`.tape-head-label--tracks` already existed in the CSS, matched nothing, and still matches nothing — don't mistake it for this.)
+- **The master air switch takes `margin-left: auto`** on the mobile head. It carries `justify-self: end`, which a flex parent ignores, so without this it sits jammed against the NEW figure instead of at the end of its line.
+- **The row layout under 700px was NOT touched.** A tape row's issue pips were always drawn; it was only the header that went silent.
+
 ### BOTH SOUNDTRACK PAGES CARRY NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-17)
 
 `soundtracks/index.html` (3,575 → 2,953 lines) and `mc/soundtracks/index.html` (7,530 → 5,308 lines) were stripped of **every** comment — 550 and 1,550 of them, CSS `/* */`, JS `//` and `/* */`, and HTML `<!-- -->` alike. The rationale that lived in them lives here now, in this section and the ones above it.
