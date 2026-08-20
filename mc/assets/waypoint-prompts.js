@@ -1,6 +1,6 @@
 /* PAIRED WITH TWO ROUTINES, and one of them reads this file as its live spec.
  *
- *   WAYPOINT BOT               trig_01Q5uCittJ3dT3M2xj8sKD3j  cron 8 8,20 UTC
+ *   TGB WAYPOINT BOT               trig_018FbHnaU5DqB4GesPfABV2d  cron 8 8,20 UTC
  *     uses buildWaypointAiPrompt; commits mc/stops/nightly.json.
  *   TGB NFL Anchor Path Builder trig_01P6fMZjt4ZapaKVoiCUfGxw cron 0 9,21 UTC
  *     STEP 1 OF ITS STORED PROMPT IS "open this file and find
@@ -35,7 +35,7 @@
  *   TgbWaypointPrompts.buildNflSportsWaypointPrompt(count)
  *
  * READ THIS BEFORE RENAMING ANYTHING. buildTourPlacesWaypointPrompt is the
- * stored specification of the TGB NFL Tour Builder routine
+ * stored specification of the TGB ANCHOR EVENTS routine
  * (trig_01P6fMZjt4ZapaKVoiCUfGxw): step 1 of its prompt is to open this file,
  * find that function, and follow it. The routine has no prompt of its own by
  * design, so editing the text here changes what it does on the next run - and

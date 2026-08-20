@@ -27,22 +27,22 @@ no DST calendar item any more, and the two-cron-plus-hour-guard trick is not
 worth the complexity for a job whose exact minute nobody depends on.
 
 The stagger exists so five cloud sessions do not provision at the same instant.
-The order is deliberate: the gift shop files books first, and SOCIALIZER BOT goes last so the
-gift catalogue it reads is the freshest it can be. PATH BOT was added on 2026-08-18 at `:17`,
+The order is deliberate: the gift shop files books first, and TGB SOCIALIZER BOT goes last so the
+gift catalogue it reads is the freshest it can be. TGB PATH BOT was added on 2026-08-18 at `:17`,
 after the five, and is the only one with NO page prompt in this repo: nothing on a page pastes
 walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
-| **SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer.html](../../socializer.html), PROMPT dialog | `tgb_pull_socials_candidates` |
+| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer.html](../../socializer.html), PROMPT dialog | `tgb_pull_socials_candidates` |
 | **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20` | [mc/soundtracks/index.html](../../soundtracks/index.html), PROMPT dialog | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
-| **WAYPOINT BOT** | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `8 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildWaypointAiPrompt` | commits `mc/stops/nightly.json` |
-| **TGB NFL Anchor Route Builder** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
-| **PATH BOT** | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20` | none: its prompt is self-contained on the trigger | `tgb_pull_walking_tours` |
+| **TGB WAYPOINT BOT** | `trig_018FbHnaU5DqB4GesPfABV2d` | `8 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildWaypointAiPrompt` | commits `mc/stops/nightly.json` |
+| **TGB ANCHOR EVENTS** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
+| **TGB PATH BOT** | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20` | none: its prompt is self-contained on the trigger | `tgb_pull_walking_tours` |
 
 **All six carry the no-em-dash rule and none contains an em dash** (five swept
-2026-08-15, PATH BOT written clean on 2026-08-18). Verify with `RemoteTrigger {action: "list"}` and count U+2014 in
+2026-08-15, TGB PATH BOT written clean on 2026-08-18). Verify with `RemoteTrigger {action: "list"}` and count U+2014 in
 each `job_config.ccr.events[0].data.message.content`.
 
 Six further routines (GTD briefs, inbox blitzes, the nightly Supabase backup)
@@ -51,7 +51,7 @@ deliberately left out of the sweep**: they write to nobody but Kevin, so a
 machine tell in them costs nothing. Seventeen em dashes between them as of
 2026-08-15, if that ever changes.
 
-### SOCIALIZER BOT's email deep-links each candidate
+### TGB SOCIALIZER BOT's email deep-links each candidate
 
 Step 8 of its stored prompt builds one link per candidate:
 
@@ -63,7 +63,7 @@ If the hash format ever changes, the prompt and the page have to move together,
 and the page is the half that also has to keep answering the old shape or every
 link in every email already sent goes dead.
 
-### TGB NFL Anchor Route Builder is the special case
+### TGB ANCHOR EVENTS is the special case
 
 **Its stored prompt is not a copy of anything. It is a pointer.** Step 1 is
 *open `mc/assets/waypoint-prompts.js`, find `buildTourPlacesWaypointPrompt`,

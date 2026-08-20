@@ -2,7 +2,7 @@
 //
 // window.TgbWaypointEditor
 //
-// WHY THIS FILE EXISTS. The editor lived inside mc/paths.html and the Waypoint
+// WHY THIS FILE EXISTS. The editor lived inside mc/pathbuilder.html and the Waypoint
 // Finder had a five-field form of its own, so the same job was done two ways in
 // two rooms: the Path Builder could geocode, search OpenStreetMap, run a Plus
 // Code, warn about a near-duplicate and shelve a place, and the Finder could
@@ -81,7 +81,7 @@
 
 
   // ---- helpers the editor used to borrow from its host page -------------------
-  // Each of these lived in mc/paths.html and is pulled in here so the module
+  // Each of these lived in mc/pathbuilder.html and is pulled in here so the module
   // stands alone. They are small and have no page state in them.
 
   // COLUMN PROBING, NOT ASSUMING. Naming a column PostgREST does not have 400s

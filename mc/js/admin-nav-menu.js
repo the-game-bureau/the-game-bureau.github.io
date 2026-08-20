@@ -49,6 +49,28 @@
       // full cards of scrolling.
       items: [
         {
+          href: '/mc/pathbuilder.html',
+          // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
+          // waypoints and nothing else -- no game, no challenges, no pricing --
+          // so it is a part a game is assembled FROM, which is what this group
+          // holds. Next door is where those parts get put together, and a Path
+          // is reusable across games in the same way a Guide, a City and a Team
+          // are.
+          //
+          // FIRST IN THE GROUP since 2026-08-19. It sat last, which put the
+          // room that actually assembles a walk below four catalogues you
+          // consult; a Path is the thing being built and the others are what it
+          // is built out of.
+          label: 'Path Builder',
+          // ONE ROOM, ONE NAME. The waypoint catalogue and the paths built from
+          // it were folded into this page on 2026-08-09, but the doorways kept
+          // calling it two things -- "Waypoints" from the Data Warehouse and
+          // Daily Review, "Path Builder" here -- so it read as two rooms that
+          // happened to share a URL. The description now says both jobs.
+          description: 'The catalog of real places, the nightly scout, and the walking paths built from them.',
+          action: 'GO TO THE PATH BUILDER'
+        },
+        {
           // This card was WAYPOINTS until 2026-08-09 — it pointed at
           // mc/data/waypoints.html, and once that page was folded into the
           // Path Builder it became a second door to a room the Game Builder
@@ -85,22 +107,6 @@
           label: 'Teams',
           description: 'The teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.',
           action: 'GO TO TEAMS'
-        },
-        {
-          href: '/mc/paths.html',
-          // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
-          // waypoints and nothing else -- no game, no challenges, no pricing --
-          // so it is a part a game is assembled FROM, which is what this group
-          // holds. Next door is where those parts get put together, and a Path
-          // is reusable across games in the same way a Guide, a City and a Team
-          // are.
-          label: 'Path Builder',
-          // ONE ROOM, ONE NAME. The waypoint catalogue and the paths built from
-          // it were folded into this page on 2026-08-09, but the doorways kept
-          // calling it two things -- "Waypoints" from the Data Warehouse and
-          // Daily Review, "Path Builder" here -- so it read as two rooms that
-          // happened to share a URL. The description now says both jobs.
-          description: 'The catalog of real places, the nightly scout, and the walking paths built from them.'
         }
       ]
     },
