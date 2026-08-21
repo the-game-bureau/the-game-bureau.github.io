@@ -699,6 +699,16 @@ A `TARGET PLATFORMS` row above the sheet: Facebook, Instagram, Threads, X, YouTu
   - **THE DOORS REFUSE, AND `copyPromptText()` IS WHERE THAT IS ENFORCED**, not only in CSS. Each door copies and then opens a chat window, so without the guard you would arrive somewhere with one useless sentence on the clipboard and no idea why. The greying is the appearance; the guard is the rule.
   - **Reset re-ticks every box and clears the stash and the dressing**, since `BASE_PROMPT` carries no block: boxes left unticked would claim a restriction the restored text does not have, and a cleared stash stops the box showing real text while still refusing to copy it.
 
+### THE PROMPT RETURNS THE SQL EDITOR LINK WITH ITS SQL (2026-08-20)
+
+The page prompt now prints `https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true` **directly under its SQL block**, every time.
+
+- **BECAUSE BY THEN YOU HAVE LEFT THE PAGE THAT HAS THE BUTTON.** The dialog's own `Insert results` door is only useful while you are standing in the Socializer; you read the AI's answer in ChatGPT. Without the link the next step is going back for it. A link somebody does not need costs them one line.
+- **`/sql/new?skip=true`, NOT `/sql/`, AND THE QUERY STRING IS NOT DECORATION.** `new` opens a **blank** query rather than whatever was last run in this project, and `skip=true` stops it asking. **Pasting six rows over somebody's half-written query is the accident that avoids.** The page's own door was still on the bare `/sql/` and was moved to match.
+- **The prompt and the door carry the same url, so they have to be changed together**, and the prompt says not to shorten it, wrap it, or swap the project ref.
+- **The ROUTINE prompt deliberately does NOT get this.** It writes through the RPC and never produces SQL, so a SQL editor link would be an instruction about a step it does not take.
+- **A comment cannot go inside a tag.** The first cut of the door's change put the explanation between the anchor's attributes, which is invalid HTML and would have broken the button. Caught by parsing the page rather than by reading the diff.
+
 ### THE MANUAL ADD DIALOG READS AS THE PROMPT DIALOG'S PAIR (2026-08-20)
 
 They are the room's two ways in, so they are built to be read together: **MANUAL ADD / Post Candidate** against **AI PROMPT / Six Post Candidates**.
