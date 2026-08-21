@@ -26,7 +26,9 @@ person runs something twice or hunts a bug that was fixed hours ago.
 | migration | what breaks until it is applied |
 |---|---|
 | [2026082102_socials_posted_ids.sql](mc/supabase/migrations/2026082102_socials_posted_ids.sql) | **Done fails on any post that reached a machine account**, since it writes `posted_ids`, so a posted candidate cannot be filed. The page names this file rather than showing a raw PGRST204. |
-| [2026082101_socials_returned_from.sql](mc/supabase/migrations/2026082101_socials_returned_from.sql) | **Move/Copy to Review stops working entirely.** All three of those buttons now write `returned_from`, so the PATCH or INSERT 400s and a candidate cannot be brought back out of Posted or Skipped at all. The page catches it and names this file rather than showing a raw PGRST204. |
+| [2026082103_socials_captions.sql](mc/supabase/migrations/2026082103_socials_captions.sql) | **Save captions fails**, reported inside the dialog. Everything else is unaffected: `blurbFor()` falls back to `blurb`, so every account posts the shared caption exactly as it did before. |
+
+**`2026082101_socials_returned_from.sql` WAS ON THIS LIST AND IS APPLIED**, verified on 2026-08-21 by probing `socials?select=returned_from` (200, against 42703 for the two above). Row deleted, per the rule. **Ask the database.**
 
 **THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
 for it. It listed `2026082003` as pending because that is what the last message
@@ -745,6 +747,18 @@ They are the room's two ways in, so they are built to be read together: **MANUAL
 - **IT GAINED THE ERRAND PARAGRAPH** (`.prompt-howto`) the prompt dialog has always had. Without it the head was an eyebrow, a title and a lot of white space where the buttons had been. It also answers the question the single box provokes: one unlabelled field taking either a link or a sentence looks like a field you are about to get wrong, and the line under it only says which way it is going *after* you type.
   - **It is two sentences: _"Paste a link, or type an idea. It will be filed for editing and review."_** An earlier draft added that the caption and image are written later on the card, which is true and is not this dialog's business. **Naming a step that happens somewhere else, at the moment somebody is trying to finish here, reads as a warning rather than as help.** Say what the box takes and what becomes of it.
 - **NO `Close` IN THE MANUAL HEAD**, even though the prompt dialog has one there. The prompt dialog's foot has no Cancel, so its Close is the only way out; this dialog's foot has Cancel, and adding Close above it would put back exactly the duplication just removed.
+
+### A CAPTION PER ACCOUNT, WHERE ONE IS WANTED (2026-08-21)
+
+`public.socials.captions`, [2026082103](mc/supabase/migrations/2026082103_socials_captions.sql), **apply by hand**. A jsonb object of OVERRIDES keyed by platform.
+
+- **ONE CAPTION CANNOT BE RIGHT FOR FOUR ACCOUNTS, and the mismatch was absorbed silently.** X allows 280 and counts a link as **23 however long it is**, so `xText()` trims with an ellipsis — the right call, since losing a tail beats a post that never goes out — which means **a sentence can be cut in half with nothing on screen saying so**. Instagram's caption link is **not clickable**, making "read it here" a dead instruction on the one account that cannot follow it. Facebook unfurls the destination with its own headline, so a caption repeating that headline says it twice.
+- **`blurb` IS STILL THE CAPTION.** This column is overrides and nothing else, so an absent key means use the shared one and **every row filed before the migration is already correct with a null**. Nothing was backfilled and nothing has two sources of truth.
+- **A BLANK OVERRIDE DELETES ITS KEY rather than storing `''`.** Clearing a box obviously means "go back to the shared caption", and if `''` were stored, `blurbFor()`'s fallback would be the only thing standing between it and **a post that is a bare link**. Clearing the last one writes `null`, not `{}`.
+- **`blurbFor()` IN [socials-post](mc/supabase/functions/socials-post/index.ts) AND `captionForPlatform()` IN THE PAGE ARE THE SAME FUNCTION TWICE**, because what goes out by machine and what lands on the clipboard have to be the same words. **Change them together.** In the Edge Function every call site is named for the account it serves — and the first cut got Instagram's wrong, because `caption: captionFor(row)` appeared twice and a blind replace made the Instagram container post Facebook's caption.
+- **A DIALOG, NOT FIVE BOXES ON THE CARD**, for the reason the image editor is a dialog: writing a different caption for X means **seeing it next to the shared one and next to its own character count**, neither of which fits under a post mockup. The card carries one quiet control, and it **says how many accounts differ** — that is a fact about what will actually go out, and you should not have to open anything to learn it.
+- **THE COUNT IS ONLY DRAWN ONCE A BOX HAS SOMETHING IN IT.** An empty box is using the shared caption, so a count there would be counting a string the box does not hold. Limits are only given where we know one: X's is our own code's budget, plus Threads 500 and Instagram 2200. **Facebook and YouTube get a plain count**, never an invented cap.
+- **THE BOT DOES NOT WRITE THIS AND NEITHER PROMPT MENTIONS IT.** A model asked for five captions writes five versions of one sentence, which is four more things to read on a candidate that will probably be skipped. An override is a human deciding one account needs different words.
 
 ### THE PLATFORM'S OWN POST ID IS KEPT (2026-08-21)
 

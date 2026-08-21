@@ -418,8 +418,25 @@ type Outcome = { platform: string; ok: boolean; id?: string; error?: string; ski
 
 /** Caption + blank line + link — the same shape the admin puts on the clipboard,
  *  so what goes out by machine reads identically to what goes out by hand. */
-function captionFor(row: { blurb?: string; url?: string }): string {
-  return [String(row.blurb ?? '').trim(), String(row.url ?? '').trim()]
+function blurbFor(row: any, platform: string): string {
+  const overrides = row && typeof row.captions === 'object' && row.captions ? row.captions : {};
+  const own = String(overrides[platform] ?? '').trim();
+  return own || String(row?.blurb ?? '').trim();
+}
+
+/** Caption + blank line + link, with the per-account caption where there is one.
+ *
+ *  `blurb` is the caption. `captions` holds OVERRIDES ONLY, keyed by platform,
+ *  for the accounts somebody decided need different words: X counts a link as
+ *  23 characters of 280, Instagram's caption link is not clickable, Facebook
+ *  unfurls the destination and its own headline. An absent or blank key means
+ *  use the shared one, so every row filed before the column existed is already
+ *  right with a null and nothing had to be backfilled.
+ *
+ *  THE FALLBACK IS DELIBERATE AND MUST STAY. If an override could mean "post
+ *  nothing here", a stray empty string would silently publish a bare link. */
+function captionFor(row: { blurb?: string; url?: string }, platform: string): string {
+  return [blurbFor(row, platform), String(row.url ?? '').trim()]
     .filter(Boolean)
     .join('\n\n');
 }
@@ -563,7 +580,7 @@ async function postFacebook(row: any): Promise<Outcome> {
     if (image && url && previewIsOurs(url)) {
       const out = await graph(`${pageId}/photos`, {
         url: image,
-        caption: captionFor(row),
+        caption: captionFor(row, 'facebook'),
         access_token: META_PAGE_TOKEN,
       });
       // A photo post answers with the photo id and the feed post's id; the
@@ -573,7 +590,7 @@ async function postFacebook(row: any): Promise<Outcome> {
 
     // `link` gives the native preview card; `message` is the caption above it.
     const params: Record<string, string> = {
-      message: String(row.blurb ?? '').trim(),
+      message: blurbFor(row, 'facebook'),
       access_token: META_PAGE_TOKEN,
     };
     if (url) params.link = url;
@@ -609,7 +626,7 @@ async function postInstagram(row: any): Promise<Outcome> {
     // Two steps, always: create an unpublished container, then publish it.
     const container = await graph(`${igUserId}/media`, {
       image_url: image,
-      caption: captionFor(row),
+      caption: captionFor(row, 'instagram'),
       access_token: META_PAGE_TOKEN,
     });
     if (!container?.id) throw new Error('no container id returned');
@@ -683,7 +700,7 @@ async function postThreads(row: any): Promise<Outcome> {
     const create: Record<string, string> = {
       // Text-only is legal here, which is the difference from Instagram.
       media_type: image ? 'IMAGE' : 'TEXT',
-      text: captionFor(row),
+      text: captionFor(row, 'threads'),
       access_token: token,
     };
     if (image) create.image_url = image;
@@ -770,7 +787,7 @@ async function xAuthHeader(method: string, url: string): Promise<string> {
 
 /** The caption X will actually accept: 280 with the link counted as 23. */
 function xText(row: any): string {
-  const caption = String(row.blurb ?? '').trim();
+  const caption = blurbFor(row, 'x');
   const link    = String(row.url ?? '').trim();
   const budget  = X_MAX_CHARS - (link ? X_LINK_COST + 2 : 0);
   // Trimmed rather than refused. A candidate over the limit is a caption that

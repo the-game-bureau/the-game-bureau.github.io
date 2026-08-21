@@ -904,6 +904,70 @@
        is the FOURTH time this project has been bitten by that exact rule; see
        the soundtracks deck and the waypoint editor's buttons. */
     .post-platform[hidden] { display: none; }
+    .captions-body { padding: 0 18px 4px; overflow: auto; }
+    .captions-shared {
+      margin: 12px 0 4px;
+      padding: 10px 12px;
+      border-left: 3px solid rgba(var(--bic-blue-rgb), 0.3);
+      background: rgba(var(--bic-blue-rgb), 0.045);
+    }
+    .captions-label {
+      display: block;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.6);
+    }
+    .captions-shared-text { margin: 4px 0 0; font-size: 0.95rem; line-height: 1.45; }
+    .captions-row { margin: 14px 0 0; }
+    .captions-row textarea {
+      width: 100%;
+      min-height: 62px;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 0.93rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+    .captions-head { display: flex; align-items: baseline; gap: 8px; }
+    /* THE COUNT IS ONLY DRAWN ONCE A BOX HAS SOMETHING IN IT. An empty box is
+       using the shared caption, so a count of 0 there would be counting the
+       wrong string, which is worse than counting nothing. */
+    .captions-count {
+      margin-left: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: rgba(var(--bic-blue-rgb), 0.55);
+    }
+    .captions-count.is-over { color: var(--bic-red); }
+    .captions-foot { padding: 12px 18px 16px; }
+    .captions-status { margin-right: auto; font-size: 0.82rem; color: var(--bic-red); }
+    /* The card's own control. Quiet, because most candidates never need one. */
+    .caption-variants {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: rgba(var(--bic-blue-rgb), 0.62);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .caption-variants:hover { color: var(--accent); text-decoration: underline; }
+    /* Carrying overrides is a fact worth seeing without opening anything. */
+    .caption-variants.has-any { color: var(--accent); }
     /* A link inside the red pen. It inherits the pen's colour rather than going
        browser-blue, which would read as a different kind of message. */
     .notice-link {
@@ -2206,6 +2270,43 @@
            new tab has to come from the browser's own handling of a click on a
            link or the popup blocker eats it -- the same rule the PROMPT
            dialog's three doors follow. -->
+      <!-- PER-ACCOUNT CAPTIONS. A dialog rather than five boxes on the card,
+           for the reason the image editor is a dialog: the point of writing a
+           different caption for X is SEEING it next to the shared one and next
+           to its own character count, and neither is possible in a field
+           squeezed under a post mockup. Most candidates never need one, so the
+           card carries a single control and nothing else. -->
+      <div class="tool-backdrop" id="captionsBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel" id="captionsCard"
+               role="dialog" aria-modal="true" aria-labelledby="captionsTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Per-account captions</span>
+            <h2 class="panel-title" id="captionsTitle">Say it differently</h2>
+          </div>
+          <span class="panel-head-actions">
+            <button class="btn small" type="button" id="captionsCancel">Cancel</button>
+          </span>
+        </div>
+        <div class="captions-body">
+          <p class="prompt-howto">
+            Every account posts the shared caption unless you write something else
+            here. Leave a box empty to use the shared one. X counts a link as 23
+            characters however long it is, Instagram's caption link is not
+            clickable, and Facebook already shows the destination's own headline.
+          </p>
+          <div class="captions-shared">
+            <span class="captions-label">Shared caption</span>
+            <p class="captions-shared-text" id="captionsShared"></p>
+          </div>
+          <div id="captionsRows"></div>
+        </div>
+        <div class="modal-actions captions-foot">
+          <span class="captions-status" id="captionsStatus"></span>
+          <button class="btn primary" type="button" id="captionsSave">Save captions</button>
+        </div>
+      </section>
+
       <div class="tool-backdrop" id="botBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel tool-modal-panel--ask" id="botCard"
                role="dialog" aria-modal="true" aria-labelledby="botTitle" hidden>
@@ -5182,6 +5283,37 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           title: 'Our caption, the line that actually gets published. Click to edit; Ctrl+Enter saves.'
         });
         caption.appendChild(captionText);
+
+        // ONE QUIET CONTROL, NOT FIVE BOXES. Most candidates want the same words
+        // everywhere, so the card says nothing about accounts until you ask --
+        // and when overrides exist it says HOW MANY, because that is a fact
+        // about what will actually go out and you should not have to open a
+        // dialog to learn it.
+        //
+        // Not offered on a decided card: nothing on a posted or skipped
+        // candidate is editable, and a control that opens a dialog which then
+        // refuses is worse than no control.
+        if (!posted && !skipped) {
+          var variantsBtn = document.createElement('button');
+          variantsBtn.type = 'button';
+          var n = overrideCount(post);
+          variantsBtn.className = 'caption-variants' + (n ? ' has-any' : '');
+          variantsBtn.textContent = n
+            ? (n === 1 ? '1 account says something else' : n + ' accounts say something else')
+            : 'per-account captions';
+          variantsBtn.title = n
+            ? 'Some accounts have their own caption. Click to read or change them.'
+            : 'Every account posts the shared caption. Click to write a different '
+              + 'one for X, Instagram or any other account.';
+          // The caption sits inside the mockup, which is a link, so a press here
+          // must not navigate to the story.
+          variantsBtn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            openCaptionsDialog(currentRow(id, post), id);
+          });
+          caption.appendChild(variantsBtn);
+        }
         // THE CAPTION LIVES INSIDE THE MOCKUP (2026-08-19), because the mockup
         // is a POST now rather than a link preview: account header, our words,
         // the picture. That is where the caption sits when it goes out, and
@@ -6200,6 +6332,52 @@ Finish with the SQL block and that link, then a short summary below them: the fi
 
 
 
+      // ── A CAPTION PER ACCOUNT, WHERE ONE IS WANTED ──────────────────────
+      //
+      // `blurb` is THE caption. `captions` holds OVERRIDES ONLY, keyed by
+      // platform, so an absent key means use the shared one and every row filed
+      // before the column existed is already right with a null.
+      //
+      // ONE CAPTION CANNOT BE RIGHT FOR FOUR ACCOUNTS, and the mismatch was
+      // being absorbed silently: X counts a link as 23 characters of 280 and
+      // the Edge Function TRIMS with an ellipsis rather than refusing, so a
+      // sentence can be cut in half with nothing on screen saying so;
+      // Instagram's caption link is not clickable, which makes "read it here" a
+      // dead instruction on the one account that cannot follow it; Facebook
+      // unfurls the destination with its own headline, so a caption repeating
+      // that headline says it twice.
+      //
+      // THIS MIRRORS blurbFor() IN socials-post, DELIBERATELY. What goes out by
+      // machine and what lands on the clipboard have to be the same words, so
+      // the two must be changed together.
+      var CAPTION_PLATFORMS = ['facebook', 'instagram', 'threads', 'x', 'youtube'];
+
+      // A cap the platform actually enforces, where we know it, so a counter can
+      // say something true. X's is our own code's: socials-post budgets
+      // X_MAX_CHARS minus a link counted at 23. Facebook's limit is far beyond
+      // anything written here, so it has none rather than a number nobody would
+      // ever meet.
+      var CAPTION_LIMITS = { x: 280 - 23 - 2, threads: 500, instagram: 2200 };
+
+      function captionOverrides(post) {
+        var raw = post && post.captions;
+        return (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+      }
+
+      /** The caption THIS account should carry. The fallback must stay: if an
+       *  override could mean "post nothing here", a stray empty string would
+       *  publish a bare link. */
+      function captionForPlatform(post, key) {
+        var own = cleanText(captionOverrides(post)[key] || '');
+        return own || cleanText(post && post.blurb || '');
+      }
+
+      function overrideCount(post) {
+        var o = captionOverrides(post), n = 0;
+        CAPTION_PLATFORMS.forEach(function (k) { if (cleanText(o[k] || '')) n++; });
+        return n;
+      }
+
       function clipboardText(post) {
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
@@ -7108,8 +7286,14 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               // BY HAND: copy, and open the place it is going. Both inside the
               // gesture, because the clipboard write needs user activation and
               // a popup blocker eats a window.open that arrives after an await.
+              // THE ACCOUNT'S OWN CAPTION IF IT HAS ONE. The open editor still
+              // beats the saved row for the shared caption, because Copy cannot
+              // await a save without losing its clipboard permission; an
+              // override is only ever edited in a dialog that saves before it
+              // closes, so `live` is current for those.
               var copied = copyToClipboard(clipboardText({
-                blurb: liveField(post, stateKey, 'blurb'),
+                blurb: cleanText(captionOverrides(live)[key] || '')
+                  || liveField(post, stateKey, 'blurb'),
                 url: liveField(post, stateKey, 'url')
               }));
               var giftImage = giftImageForCopy(live);
@@ -7460,6 +7644,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         closeManualPost();
         closeTool(promptCard, promptBackdrop);
         closeTool(botCard, botBackdrop);
+        closeCaptionsDialog();
       });
 
       if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
@@ -7500,6 +7685,126 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       if (healthBackdrop) healthBackdrop.addEventListener('click', function () {
         closeTool(healthCard, healthBackdrop);
       });
+
+      // ── PER-ACCOUNT CAPTIONS ─────────────────────────────────────────────
+      var captionsCard = document.getElementById('captionsCard');
+      var captionsBackdrop = document.getElementById('captionsBackdrop');
+      var captionsRows = document.getElementById('captionsRows');
+      var captionsSharedEl = document.getElementById('captionsShared');
+      var captionsStatusEl = document.getElementById('captionsStatus');
+      var captionsEditing = null;
+      var captionsBoxes = {};
+
+      function openCaptionsDialog(post, stableId) {
+        if (!captionsCard) return;
+        // Same gate as makeEditable and the image dialog: a decided candidate is
+        // a record, not a draft. Repeated here rather than assumed, because this
+        // is another write path that does not go through makeEditable.
+        var decided = statusOf(post);
+        if (decided === 'posted' || decided === 'skipped') {
+          flash(queueStatus, decided === 'posted'
+            ? 'That candidate has been posted; its card is the record of what went out.'
+            : 'That candidate was skipped. Move it back to Review to change anything.');
+          return;
+        }
+        captionsEditing = { post: post, stableId: stableId || postId(post) };
+        captionsBoxes = {};
+        if (captionsStatusEl) captionsStatusEl.textContent = '';
+        var shared = cleanText(post.blurb || '');
+        if (captionsSharedEl) {
+          captionsSharedEl.textContent = shared || 'no caption yet';
+          captionsSharedEl.style.opacity = shared ? '' : '0.55';
+        }
+        var overrides = captionOverrides(post);
+
+        captionsRows.textContent = '';
+        CAPTION_PLATFORMS.forEach(function (key) {
+          var row = document.createElement('div');
+          row.className = 'captions-row';
+
+          var head = document.createElement('div');
+          head.className = 'captions-head';
+          var label = document.createElement('span');
+          label.className = 'captions-label';
+          label.textContent = PLATFORM_NAME[key];
+          var count = document.createElement('span');
+          count.className = 'captions-count';
+          head.appendChild(label);
+          head.appendChild(count);
+
+          var box = document.createElement('textarea');
+          box.value = String(overrides[key] || '');
+          box.placeholder = shared || 'the shared caption';
+          box.setAttribute('aria-label', PLATFORM_NAME[key] + ' caption');
+
+          function paintCount() {
+            var v = cleanText(box.value);
+            // Nothing typed means the shared caption goes out, so a count here
+            // would be counting a string this box does not hold.
+            if (!v) { count.textContent = ''; count.classList.remove('is-over'); return; }
+            var cap = CAPTION_LIMITS[key];
+            count.textContent = cap ? (v.length + ' / ' + cap) : String(v.length);
+            count.classList.toggle('is-over', !!cap && v.length > cap);
+          }
+          box.addEventListener('input', paintCount);
+          paintCount();
+
+          row.appendChild(head);
+          row.appendChild(box);
+          captionsRows.appendChild(row);
+          captionsBoxes[key] = box;
+        });
+
+        openTool(captionsCard, captionsBackdrop);
+      }
+
+      function closeCaptionsDialog() {
+        captionsEditing = null;
+        closeTool(captionsCard, captionsBackdrop);
+      }
+
+      function saveCaptions() {
+        if (!captionsEditing) return;
+        var next = {};
+        // A BLANK BOX DELETES ITS KEY rather than storing an empty string.
+        // Clearing an override obviously means "go back to the shared caption",
+        // and if '' were stored, blurbFor's fallback is the only thing standing
+        // between that and a post that is a bare link.
+        CAPTION_PLATFORMS.forEach(function (key) {
+          var v = cleanText(captionsBoxes[key] && captionsBoxes[key].value || '');
+          if (v) next[key] = v;
+        });
+        var any = false;
+        for (var k in next) { any = true; break; }
+
+        var saveBtn = document.getElementById('captionsSave');
+        if (saveBtn) saveBtn.disabled = true;
+        if (captionsStatusEl) captionsStatusEl.textContent = '';
+        savePost(captionsEditing.stableId, { captions: any ? next : null })
+          .then(function () {
+            closeCaptionsDialog();
+            renderQueue();
+            flash(queueStatus, any
+              ? 'Captions saved'
+              : 'Every account now uses the shared caption');
+          })
+          .catch(function (err) {
+            if (saveBtn) saveBtn.disabled = false;
+            // Reported INSIDE the dialog, where you are looking, rather than in
+            // the queue's line behind it.
+            if (captionsStatusEl) {
+              captionsStatusEl.textContent = namesMissingColumn(err)
+                || ('Could not save: ' + err.message);
+            }
+          })
+          .then(function () { if (saveBtn) saveBtn.disabled = false; });
+      }
+
+      var captionsSaveBtn = document.getElementById('captionsSave');
+      if (captionsSaveBtn) captionsSaveBtn.addEventListener('click', saveCaptions);
+      var captionsCancelBtn = document.getElementById('captionsCancel');
+      if (captionsCancelBtn) captionsCancelBtn.addEventListener('click', closeCaptionsDialog);
+      if (captionsBackdrop) captionsBackdrop.addEventListener('click', closeCaptionsDialog);
 
       // ── TGB SOCIALIZER BOT: a sentence before the routine ────────────────
       //
