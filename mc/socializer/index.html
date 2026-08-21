@@ -5918,6 +5918,13 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // the headline (that is the outlet's words, not ours) and NOT `why` —
       // that is an internal note and pasting it into a social box would be an
       // embarrassing leak.
+      /** Ctrl+V or the Apple one. Two callers now, so it stopped being a local
+       *  variable inside the Copy handler: two copies of a platform sniff drift
+       *  the moment somebody adds a case to one of them. */
+      function pasteKeyName() {
+        return /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '\u2318V' : 'Ctrl+V';
+      }
+
       function clipboardText(post) {
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
@@ -6687,6 +6694,28 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           if (!targets.length || postingLock) return;
           clearNotice(feedbackEl);
 
+          // ── THE CAPTION GOES ON THE CLIPBOARD TOO, AND IT HAPPENS HERE ────
+          //
+          // Post reaches the accounts a machine can reach. X and YouTube are
+          // posted by hand, so on a candidate that names one, pressing Post
+          // finishes two thirds of a job and leaves you to go and find the
+          // caption for the rest of it. Now it is already on the clipboard.
+          //
+          // INSIDE THE CLICK, BEFORE THE AWAIT, AND THAT IS NOT A PREFERENCE.
+          // navigator.clipboard.writeText needs transient user activation, and
+          // activation does not survive a network round trip: copying after the
+          // post resolved would fail on a candidate that took three seconds to
+          // go out, which is most of them. So it is copied first and the dialog
+          // afterwards reports what actually happened.
+          //
+          // It reads liveField for the same reason the Copy button does, so an
+          // uncommitted edit is copied as typed even though the flush below has
+          // not run yet.
+          var clipboardPromise = copyToClipboard(clipboardText({
+            blurb: liveField(post, stateKey, 'blurb'),
+            url: liveField(post, stateKey, 'url')
+          }));
+
           // COMMIT WHAT IS OPEN BEFORE POSTING, and wait for it. The Edge
           // Function reads the row out of the DATABASE, so a caption sitting
           // uncommitted in its box is not merely stale here, it is invisible:
@@ -6697,10 +6726,10 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           // Post can afford the wait in a way Copy cannot, because nothing here
           // depends on staying inside the click: the lock is about to go on and
           // the whole thing is asynchronous already.
-          flushOpenEdit().then(startPost);
+          flushOpenEdit().then(function () { startPost(clipboardPromise); });
         });
 
-        function startPost() {
+        function startPost(clipboardPromise) {
           var targets = postTargets(currentRow(stateKey, post));
           if (!targets.length || postingLock) return;
           var restore = go.textContent;
@@ -6794,14 +6823,34 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                 lines.push('The post went out, but this candidate could not be ' +
                            'marked posted: ' + markErr.message + ' It is still in Review.');
               }
-              askConfirm(markErr ? 'Posted, not filed' : 'Posted!',
-                         lines.join(' '), 'OK', { hideNo: true })
-                .then(function () {
-                  renderQueue();
-                  flash(queueStatus, markErr
-                    ? 'Posted, but not filed'
-                    : 'Posted to ' + labels.join(' and '));
-                });
+              // NOT ASKED, STILL. The question the Copy button asks -- "mark
+              // this as posted?" -- does not belong here and is not missing by
+              // oversight: the function just reported which accounts took it,
+              // so the status is a recorded fact. Asking permission to write
+              // down something true only creates the chance of a false record.
+              // What the clipboard adds is the NEXT job, not a decision about
+              // this one.
+              Promise.resolve(clipboardPromise).then(function (copied) {
+                var byHand = byHandTarget(currentRow(stateKey, post));
+                if (copied) {
+                  lines.push('The caption and link are on your clipboard' +
+                             (byHand ? ', ready to paste into ' + byHand : '') +
+                             ' (' + pasteKeyName() + ').');
+                } else if (byHand) {
+                  // Named anyway. The clipboard failing is a smaller problem
+                  // than not knowing there is a second half to do.
+                  lines.push('Still to do by hand: ' + byHand +
+                             '. The caption could not be put on your clipboard, ' +
+                             'so copy it off the card.');
+                }
+                return askConfirm(markErr ? 'Posted, not filed' : 'Posted!',
+                                  lines.join(' '), 'OK', { hideNo: true });
+              }).then(function () {
+                renderQueue();
+                flash(queueStatus, markErr
+                  ? 'Posted, but not filed'
+                  : 'Posted to ' + labels.join(' and '));
+              });
             });
           }).catch(function (err) {
             window.clearTimeout(watchdog);
@@ -6819,7 +6868,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // card was gone by then. So the copy happens, and then it asks.
         copy.addEventListener('click', function () {
           clearNotice(feedbackEl);
-          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
+          var pasteKey = pasteKeyName();
 
           // Started inside the click, not after it: the clipboard write needs
           // the user gesture and cannot wait behind an answer.
