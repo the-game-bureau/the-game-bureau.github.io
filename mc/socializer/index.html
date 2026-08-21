@@ -1190,6 +1190,41 @@
     }
     .prompt-platforms input { accent-color: var(--accent); }
 
+    .health-body { display: grid; gap: 14px; padding: 4px 0 2px; }
+    .health-row {
+      display: grid;
+      gap: 5px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left-width: 4px;
+      border-radius: 8px;
+      background: #fff;
+    }
+    /* The left edge carries the verdict, so a row that needs doing is findable
+       without reading three paragraphs. Green is not used: an account that is
+       fine needs no colour, and colouring all three makes the one that matters
+       compete with two that do not. */
+    .health-row.is-bad { border-left-color: var(--bic-red); }
+    .health-row.is-ok { border-left-color: rgba(var(--bic-blue-rgb), 0.35); }
+    .health-name {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .health-row.is-bad .health-name { color: var(--bic-red); }
+    .health-detail { font-size: 0.92rem; line-height: 1.45; }
+    .health-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 2px; }
+    .health-links a {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
     .prompt-howto {
       margin: 2px 0 0;
       max-width: 58ch;
@@ -2003,6 +2038,36 @@
       <!-- The Edit dialog stood here until 2026-08-19; see the script. -->
 
       <div class="tool-backdrop" id="confirmBackdrop" hidden></div>
+
+      <!-- ACCOUNT HEALTH, WITH SOMEWHERE TO GO. This replaced a window.alert,
+           which could say a credential was wrong and could not take you to the
+           place that fixes it: an alert holds no links. Every row here carries
+           two, because a broken credential is always a question about two
+           different consoles, and the one people forget is the second.
+
+             1. Where the credential is ISSUED, which is the platform's own
+                developer console.
+             2. Where it is STORED, which is this project's Supabase secrets.
+
+           A value can be perfectly good in one and absent from the other, and
+           that failure reads identically to a bad token. -->
+      <section class="prompt-panel tool-modal-panel" id="healthCard" role="dialog"
+               aria-modal="true" aria-labelledby="healthTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Accounts</span>
+            <h2 class="panel-title" id="healthTitle">What each credential points at</h2>
+            <p class="prompt-howto">
+              Checked live against each platform. Nothing is posted.
+            </p>
+          </div>
+          <span class="panel-head-actions">
+            <button class="btn small" data-health-close type="button">Close</button>
+          </span>
+        </div>
+        <div class="health-body" id="healthBody"></div>
+      </section>
+      <div class="tool-backdrop" id="healthBackdrop" hidden></div>
       <!-- A yes/no question, asked where every other question on this page is
            asked. Deliberately generic: it takes its words from the caller, so
            the next confirmation does not add a third dialog. -->
@@ -2832,6 +2897,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var PLATFORM_BLOCK_OPEN  = '=== ACCOUNTS FOR THIS RUN ===';
       var PLATFORM_BLOCK_CLOSE = '=== END ACCOUNTS ===';
       var platformsEl = document.getElementById('promptPlatforms');
+      var healthCard = document.getElementById('healthCard');
+      var healthBackdrop = document.getElementById('healthBackdrop');
 
       function platformBoxes() {
         return platformsEl
@@ -3608,7 +3675,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (confirmCard && !confirmCard.hidden)) return;
+            (confirmCard && !confirmCard.hidden) ||
+            (healthCard && !healthCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
@@ -6255,15 +6323,84 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // different morning from one, and finding the second only after
           // fixing the first is the thing that wastes an afternoon.
           setPageStatus(bad.join('  |  '));
-        } else if (loud) {
-          var lines = ['meta', 'threads', 'x'].map(function (key) {
-            var d = accountHealth[key] || {};
-            return PLATFORM_HEALTH_LABEL[key] + ': ' + (d.detail || '?');
-          });
-          flash(queueStatus, 'Accounts checked');
-          window.alert(lines.join('\n\n'));
         }
+        if (loud) renderAccountHealth();
         return accountHealth;
+      }
+
+      // WHERE A CREDENTIAL COMES FROM, AND WHERE IT LIVES. Two links per
+      // account, and the second is the one people forget: a token can be
+      // perfectly good in the platform's console and absent from this project's
+      // secrets, and from the page that failure reads exactly like a bad token.
+      //
+      // The Supabase link is per-project and hardcoded to the ref this room
+      // talks to, so it cannot send anybody to the wrong dashboard. That ref is
+      // the same one pinned in mc/supabase/config.toml.
+      var SUPABASE_SECRETS_URL =
+        'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/settings/functions';
+
+      var PLATFORM_HEALTH_LINKS = {
+        meta: [
+          ['Meta app dashboard', 'https://developers.facebook.com/apps/'],
+          ['Business settings', 'https://business.facebook.com/settings/'],
+          ['Where the secret is set', SUPABASE_SECRETS_URL]
+        ],
+        threads: [
+          // Same host as Meta and a DIFFERENT credential, which is the whole
+          // trap: the token comes from the app's Threads use case, not from the
+          // Page. Linked separately so nobody reaches for the Page token again.
+          ['Threads API, in the app', 'https://developers.facebook.com/apps/'],
+          ['Where the secret is set', SUPABASE_SECRETS_URL]
+        ],
+        x: [
+          ['X developer portal', 'https://developer.x.com/en/portal/dashboard'],
+          ['X API pricing', 'https://docs.x.com/x-api/getting-started/pricing'],
+          ['Where the secrets are set', SUPABASE_SECRETS_URL]
+        ]
+      };
+
+      function renderAccountHealth() {
+        var body = document.getElementById('healthBody');
+        if (!body) return;
+        body.textContent = '';
+        if (!accountHealth) {
+          var none = document.createElement('p');
+          none.className = 'health-detail';
+          none.textContent = 'The check could not run. The Edge Function may not be ' +
+            'deployed: cd mc && supabase functions deploy socials-post';
+          body.appendChild(none);
+        } else {
+          ['meta', 'threads', 'x'].forEach(function (key) {
+            var d = accountHealth[key] || {};
+            var row = document.createElement('div');
+            row.className = 'health-row ' + (d.needsAttention ? 'is-bad' : 'is-ok');
+
+            var name = document.createElement('div');
+            name.className = 'health-name';
+            name.textContent = PLATFORM_HEALTH_LABEL[key] +
+              (d.needsAttention ? ' - needs attention' : '');
+            row.appendChild(name);
+
+            var detail = document.createElement('div');
+            detail.className = 'health-detail';
+            detail.textContent = d.detail || 'No answer.';
+            row.appendChild(detail);
+
+            var links = document.createElement('div');
+            links.className = 'health-links';
+            (PLATFORM_HEALTH_LINKS[key] || []).forEach(function (pair) {
+              var a = document.createElement('a');
+              a.href = pair[1];
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.textContent = pair[0];
+              links.appendChild(a);
+            });
+            row.appendChild(links);
+            body.appendChild(row);
+          });
+        }
+        openTool(healthCard, healthBackdrop);
       }
 
       var PLATFORM_HEALTH_LABEL = {
@@ -6702,6 +6839,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
       }
       if (promptResetBtn) promptResetBtn.addEventListener('click', resetPromptText);
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-health-close]'), function (b) {
+        b.addEventListener('click', function () { closeTool(healthCard, healthBackdrop); });
+      });
+      if (healthBackdrop) healthBackdrop.addEventListener('click', function () {
+        closeTool(healthCard, healthBackdrop);
+      });
 
       // Delegated, so the five boxes need no ids and a sixth account needs only
       // a line of markup. `change` rather than `click`: it fires for the
