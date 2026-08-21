@@ -431,6 +431,9 @@ Step **2c** of the routine's prompt: one video worth sharing on our own channel,
 - **The ids end `-y1`**, so six rows from one run do not have to be counted to be told apart.
 - **The thumbnail is `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`**, with `hqdefault.jpg` as the fallback the prompt names, because maxres does not exist for every video.
 
+- **THE PAGE PROMPT HAS IT TOO, AS OF THE SAME DAY.** It was routine-only for an hour, on the argument that a chat AI cannot check its own work against the queue. That held for the *count* and not for the *marker*: a human pasting SQL with `platforms` naming Facebook on a video row files a candidate that posts to the wrong accounts, and nothing downstream catches it. Better for the rule to be in front of them. **The dialog's title is now `Six Post Candidates`**, because the number is the one thing a reader checks the returned SQL against.
+- **The video is the SIXTH ROW OF THE SAME `insert`**, not a second statement, and the worked example in step 7 now carries it with `-y1` and the YouTube-only `platforms` array spelled out.
+
 ### THE ROUTINE WAS WASTING PICKS ON A TRUNCATED READ (2026-08-20)
 
 Step 1 tells the run to read `tgb_socials_filed_urls` before it searches. The run on 2026-08-20 piped that reply through **`head -c 6000`**, saw roughly a third of the 262 urls it held, and filed two stories it had already filed the week before; it then spent ten minutes of a twenty minute run finding replacements. **The prompt now says to save it to a file and `grep -c` that file per candidate**, and names this run as the reason. Nothing errored, and the run reported success: the only trace was two `duplicate` outcomes in a reply nobody reads afterwards.
@@ -628,6 +631,14 @@ Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migr
 - **A finding names TRACK TITLES, never ids.** `humaniseIssueText` exists for this: nobody reviewing a tape knows what "song 177" is, and an id is not something a human can act on.
 - **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
 - **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
+
+### THE MANUAL ADD DIALOG READS AS THE PROMPT DIALOG'S PAIR (2026-08-20)
+
+They are the room's two ways in, so they are built to be read together: **MANUAL ADD / Post Candidate** against **AI PROMPT / Six Post Candidates**.
+
+- **THE REPEATED BUTTONS CAME OFF THE MANUAL HEAD.** Cancel and Add Candidate appeared twice, a few inches apart, on a dialog three lines long. They were repeated from the foot because a phone could push the foot pair below the fold, and **that reasoning expired with the form**: it used to carry nine fields and a platform picker and now carries one box. Both submitted via `form="manualPostForm"` and only the foot pair carried ids, so nothing was lost. **Bring them back if a field ever makes this form tall again.** The Edit dialog's own repeated pair is a separate decision and was not touched.
+- **IT GAINED THE ERRAND PARAGRAPH** (`.prompt-howto`) the prompt dialog has always had. Without it the head was an eyebrow, a title and a lot of white space where the buttons had been. It also answers the question the single box provokes: one unlabelled field taking either a link or a sentence looks like a field you are about to get wrong, and the line under it only says which way it is going *after* you type.
+- **NO `Close` IN THE MANUAL HEAD**, even though the prompt dialog has one there. The prompt dialog's foot has no Cancel, so its Close is the only way out; this dialog's foot has Cancel, and adding Close above it would put back exactly the duplication just removed.
 
 ## Mission Control's ANCILLARY THINGS cards say what the ROOMS say (2026-08-19)
 
