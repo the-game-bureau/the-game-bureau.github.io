@@ -5497,6 +5497,57 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // candidate is would be two ways to end up with a broken one.
       var EDITING_KEY = null;
 
+      // ── WHAT YOU CAN SEE IS WHAT GETS COPIED AND POSTED ────────────────────
+      //
+      // Every card closes over the `post` object it was BUILT with, and that
+      // object goes stale two different ways:
+      //
+      //   1. savePost() REPLACES posts[i] with the row the database returned,
+      //      so after any save the card's `post` is not the saved row, it is an
+      //      orphan holding the old values.
+      //   2. An edit you have typed but not committed is in an <input> and in
+      //      no object at all yet.
+      //
+      // Either one makes a button send yesterday's caption. These two helpers
+      // are how a button asks what is TRUE RIGHT NOW instead of what was true
+      // when the card was drawn.
+      //
+      // `activeEdit` is the one open editor, if any. Only one can be open: the
+      // box commits on blur, so opening a second closes the first.
+      var activeEdit = null;
+
+      /** The freshest saved row for an id, or the fallback if it has gone. */
+      function currentRow(id, fallback) {
+        for (var i = 0; i < posts.length; i += 1) {
+          if (String(posts[i].id) === String(id)) return posts[i];
+        }
+        return fallback;
+      }
+
+      /** A field's live value: the open editor's box beats the saved row.
+       *
+       *  SYNCHRONOUS ON PURPOSE. The clipboard write has to happen inside the
+       *  click that asked for it or the browser refuses the permission, so this
+       *  cannot wait for a save to land. Reading the box directly is what makes
+       *  "type a caption, press Copy" copy the caption you can see. */
+      function liveField(row, id, key) {
+        if (activeEdit && activeEdit.id === String(id) && activeEdit.key === key) {
+          return cleanText(activeEdit.box.value);
+        }
+        return String((currentRow(id, row) || {})[key] || '');
+      }
+
+      /** Commit an open editor and resolve when the row has actually been
+       *  saved. For Post, which is already asynchronous and can afford to wait:
+       *  the Edge Function reads the row out of the DATABASE, so an uncommitted
+       *  caption would go out as whatever the row held before you typed. */
+      function flushOpenEdit() {
+        if (!activeEdit) return Promise.resolve();
+        var pending = activeEdit;
+        pending.box.blur();                       // fires commit()
+        return Promise.resolve(pending.promise || null);
+      }
+
       function fieldToText(post, key) {
         if (key === 'topics') return (post.topics || []).join(', ');
         if (key === 'platforms') {
@@ -5618,6 +5669,10 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           box.className = 'ed-input';
           box.value = current;
           box.setAttribute('aria-label', options.title || key);
+          // Registered so a button elsewhere on the card can read this box
+          // before it has been committed. Cleared in restore() and after a
+          // successful commit, both of which every exit path runs through.
+          activeEdit = { id: String(post.id), key: key, box: box, promise: null };
           var held = el.innerHTML;
           el.textContent = '';
           el.classList.remove('is-blank');
@@ -5626,11 +5681,32 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           box.select();
 
           var done = false;
-          function restore() { el.dataset.editing = ''; EDITING_KEY = null; el.innerHTML = held; }
+          function restore() {
+            el.dataset.editing = '';
+            EDITING_KEY = null;
+            activeEdit = null;
+            el.innerHTML = held;
+          }
 
           async function commit() {
             if (done) return;
             done = true;
+            // Whoever is waiting on this edit waits on THIS call, not on a
+            // later one: flushOpenEdit blurs the box, which lands here, and the
+            // promise it took is the one that resolves when the row is saved.
+            var settle;
+            if (activeEdit && activeEdit.box === box) {
+              activeEdit.promise = new Promise(function (r) { settle = r; });
+            }
+            var finish = function () { activeEdit = null; if (settle) settle(); };
+            try {
+              return await commitInner();
+            } finally {
+              finish();
+            }
+          }
+
+          async function commitInner() {
             var raw = cleanText(box.value);
             if (raw === current) { restore(); return; }
             if (key === 'headline' && !raw) {
@@ -6610,6 +6686,23 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           var targets = postTargets(post);
           if (!targets.length || postingLock) return;
           clearNotice(feedbackEl);
+
+          // COMMIT WHAT IS OPEN BEFORE POSTING, and wait for it. The Edge
+          // Function reads the row out of the DATABASE, so a caption sitting
+          // uncommitted in its box is not merely stale here, it is invisible:
+          // the post would go out carrying whatever the row held before you
+          // typed, and the card would then re-render showing the text you
+          // thought you had posted.
+          //
+          // Post can afford the wait in a way Copy cannot, because nothing here
+          // depends on staying inside the click: the lock is about to go on and
+          // the whole thing is asynchronous already.
+          flushOpenEdit().then(startPost);
+        });
+
+        function startPost() {
+          var targets = postTargets(currentRow(stateKey, post));
+          if (!targets.length || postingLock) return;
           var restore = go.textContent;
 
           // Lock BEFORE this card's own buttons are touched, so the snapshot it
@@ -6717,7 +6810,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             sync();
             askConfirm('Nothing was posted', err.message, 'OK', { hideNo: true });
           });
-        });
+        }
 
         // Copying and deciding are two different things, and this button used to
         // do both: it put the caption on the clipboard and marked the candidate
@@ -6736,7 +6829,17 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           // thing, then sat on the card afterwards with nothing left to tell
           // you. The paste key belongs in the dialog, which is where you are
           // looking and which goes away when you are done with it.
-          copyToClipboard(clipboardText(post)).then(function (copied) {
+          // THE LIVE TEXT, NOT THE CARD'S SNAPSHOT. Read synchronously, inside
+          // the click, for two reasons at once: the clipboard write loses its
+          // permission if it waits, and a caption you have typed but not
+          // committed exists only in its box. Clicking Copy blurs that box,
+          // which starts an async save, and the old code copied `post` before
+          // that save could land: you got the previous caption with no sign
+          // anything was wrong.
+          copyToClipboard(clipboardText({
+            blurb: liveField(post, stateKey, 'blurb'),
+            url: liveField(post, stateKey, 'url')
+          })).then(function (copied) {
             if (!copied) {
               askConfirm('Copy failed',
                          'The caption could not be put on the clipboard. Nothing has been ' +
