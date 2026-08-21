@@ -76,12 +76,17 @@ deliberate: narrowing it needs a hand-applied migration, the guard is doing its
 real job either way (it is what stops an anon caller writing an arbitrary path),
 and the prompt says in as many words that the latitude is not permission.
 
-**TGB WAYPOINT BOT's trigger is still enabled and must be switched off by hand.**
-A Claude Code remote session cannot touch a routine created through the website,
-so neither half of the trigger surgery could be done from the commit that made
-these changes. Until somebody disables `trig_018FbHnaU5DqB4GesPfABV2d` it keeps
-committing a file that nothing reads, into a path that no longer exists in the
-working tree.
+**TGB WAYPOINT BOT's trigger was disabled on 2026-08-21**, a day after this fold,
+during which it kept committing a file that nothing read into a path that no
+longer existed in the working tree.
+
+**"Must be switched off by hand" was wrong**, and it is worth correcting rather
+than deleting: a Claude Code CLOUD session cannot touch a routine created through
+the website, which is what that sentence was about, but a LOCAL session can.
+`RemoteTrigger {action: "update", body: {"enabled": false}}` does it in a second,
+and `enabled` is a top-level field, so it can be changed without resending the
+prompt. Disabled rather than deleted, because a trigger id does not survive a
+delete: `trig_018FbHnaU5DqB4GesPfABV2d` is one flag from running again.
 
 ### TGB SOCIALIZER BOT files SIX rows, not five (2026-08-20)
 
