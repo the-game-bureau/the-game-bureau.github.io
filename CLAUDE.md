@@ -435,6 +435,26 @@ Step **2c** of the routine's prompt: one video worth sharing on our own channel,
 - **THE PAGE PROMPT HAS IT TOO, AS OF THE SAME DAY.** It was routine-only for an hour, on the argument that a chat AI cannot check its own work against the queue. That held for the *count* and not for the *marker*: a human pasting SQL with `platforms` naming Facebook on a video row files a candidate that posts to the wrong accounts, and nothing downstream catches it. Better for the rule to be in front of them. **The dialog's title is now `Six Post Candidates`**, because the number is the one thing a reader checks the returned SQL against.
 - **The video is the SIXTH ROW OF THE SAME `insert`**, not a second statement, and the worked example in step 7 now carries it with `-y1` and the YouTube-only `platforms` array spelled out.
 
+### CREDENTIALS ARE CHECKED BEFORE THEY COST A POST (2026-08-20)
+
+Every credential failure here used to be found the same way: pick a candidate, write a caption, press Post, and **then** learn the token was wrong. The work was already done and the failure arrived at the worst moment. `{diagnose: true}` on [socials-post](mc/supabase/functions/socials-post/index.ts) now answers for **all three** destinations and posts nothing.
+
+- **THREADS IS THE ONE THAT NEEDED THIS.** Its token lasts 60 days and the function **only refreshes it when something is POSTED**, so a quiet fortnight is how it dies: nothing is broken, nobody did anything wrong, and the next post fails. Diagnose reports **days remaining** off the stored `expires_at` and flags it at **14 days or fewer**, while there is still time to act. `readStoredThreadsToken()` was split out of `threadsToken()` so the check can read an expiry **without triggering a refresh as a side effect**.
+- **META'S CHECK IS THE OLD ONE, WIDENED.** It still catches the failure with no outward symptom: a USER token instead of a PAGE token posts to somebody's personal feed, returns a real id, and looks exactly like success. **A Page has a category and a user does not** — that is the tell. It now also says when no Instagram account is linked to the Page.
+- **X IS SECRETS-ONLY, DELIBERATELY, AND IS NOT AN ALARM WHEN UNSET.** Every other probe is a free read; **an X API call costs money**, so a health check that made one would spend real cash every time somebody opened the room. It reports which of the four secrets are present, which catches the failure that actually happens (a half-finished setup) and costs nothing. And because X is posted by hand on purpose, missing secrets are the **expected** state: `needsAttention` is false.
+- **THE PAGE CHECKS ON LOAD AND IS SILENT WHEN HEALTHY.** A notice that appears every time you open the room is one nobody reads, so it writes to the red pen only when something needs attention. **A check that cannot RUN is not reported as an account fault** — the function may simply not be deployed, and crying wolf about Instagram because a fetch failed is worse than saying nothing.
+- **`Check accounts` in the VIEW bar is the same check said out loud**, for the moment after you change a secret and want to know whether it took.
+- **All the bad ones are named at once**, not just the first: two broken credentials is a different morning from one, and finding the second only after fixing the first is what wastes an afternoon.
+
+### A BROKEN IMAGE NO LONGER ADVERTISES INSTAGRAM (2026-08-20)
+
+`hasImage()` was "the column is not empty", which is what the Post button believed. An image url that 404s or 403s is a perfectly non-empty string, so **a dead picture still switched Instagram on** and the post then failed at Meta with Meta's own words about media.
+
+- **THE CARD ALREADY KNEW.** It draws IMAGE FAILED in red when the `<img>` errors, so the page held the answer and the button did not. `noteBrokenImage()` is that knowledge, shared.
+- **KEYED BY URL, NOT BY CANDIDATE.** The same address is broken for every row carrying it, and two candidates sharing a gift image should not discover it separately.
+- **IT REPAINTS ONLY ON THE FIRST FAILURE PER URL, AND THAT GUARD IS LOAD-BEARING.** `noteBrokenImage()` returns true once and false afterwards; without it the re-render draws the image, it errors, and the page loops.
+- **Editing in a working image re-enables Instagram with no extra code**, because saving already calls `renderQueue()` and the button is rebuilt from `postTargets()` each time. That part was always right; only the broken case was wrong.
+
 ### X IS A POSTING DESTINATION AGAIN (2026-08-20)
 
 X and YouTube were both dropped on 2026-08-07. **They do not come back together and they are not the same case:** X is an account we can post to by machine, so it is an ordinary fourth destination beside Facebook, Instagram and Threads; YouTube is shared by hand, so it stays a marker rather than a route. The Post button now reads *Post to Facebook + Instagram + Threads + X*.

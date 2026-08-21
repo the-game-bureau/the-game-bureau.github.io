@@ -315,6 +315,17 @@ async function refreshThreadsToken(token: string): Promise<{ token: string; expi
 /** The token to post with, refreshed if it is close to dying. Never throws for
  *  a refresh problem — a token that could not be renewed today is still a token
  *  that works today. */
+/** The stored Threads row, or null. Split out of threadsToken() so diagnose can
+ *  report an expiry without triggering a refresh as a side effect. */
+async function readStoredThreadsToken(): Promise<{ token?: string; expires_at?: string } | null> {
+  const { data } = await supa
+    .from('integration_tokens')
+    .select('token, expires_at')
+    .eq('key', THREADS_TOKEN_KEY)
+    .maybeSingle();
+  return data ?? null;
+}
+
 async function threadsToken(): Promise<string> {
   if (threadsTokenCache) return threadsTokenCache;
 
@@ -848,35 +859,149 @@ Deno.serve(async (req: Request) => {
   let body: { id?: string; platforms?: string[]; diagnose?: boolean } = {};
   try { body = await req.json(); } catch { return json(400, { error: 'invalid JSON body' }); }
 
-  // { diagnose: true } -- answer "what does this token actually point at?" and
-  // post nothing. Added because a post can succeed, return a real id, and still
-  // be invisible on the Page you are looking at: if the stored token is a USER
-  // token, /me resolves to the person rather than the Page, and the post lands
-  // on their own feed. From the outside that is indistinguishable from a post
-  // that failed silently. Returns no secret -- an id, a name, and a type.
+  // { diagnose: true } -- CHECK EVERY CREDENTIAL AND POST NOTHING.
+  //
+  // It began as a Meta-only probe, for a failure with no outward symptom: a
+  // post can succeed, return a real id, and still be invisible on the Page you
+  // are looking at, because if the stored token is a USER token /me resolves to
+  // the person and the post lands on their own feed. From the outside that is
+  // indistinguishable from a post that failed silently.
+  //
+  // It now answers for all three, because the same argument applies to the
+  // others in different ways: a Threads token EXPIRES and nothing tells you
+  // until a post fails, and X has four secrets of which the token pair is
+  // usually the one missing. The reply is one object per destination, shaped
+  // the same, so the page can render them without knowing which is which:
+  //
+  //   { configured, ok, detail, needsAttention, expiresInDays? }
+  //
+  // NO SECRET IS EVER RETURNED, only what it points at.
   if (body.diagnose) {
+    const out: Record<string, unknown> = { diagnose: true };
+
+    // ── Meta ────────────────────────────────────────────────────────────────
     try {
-      const probe = await fetch(
-        `${GRAPH}/me?fields=id,name,category,instagram_business_account{id,username}` +
-        `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`
-      );
-      const d = await probe.json().catch(() => ({}));
-      if (!probe.ok) return json(200, { diagnose: true, error: d?.error?.message || `HTTP ${probe.status}` });
-      return json(200, {
-        diagnose: true,
-        id: d?.id ?? null,
-        name: d?.name ?? null,
-        // A Page has a category; a user does not. This is the tell.
-        looksLike: d?.category ? 'PAGE token' : 'USER token (wrong -- see setup notes)',
-        category: d?.category ?? null,
-        instagram: d?.instagram_business_account
-          ? { id: d.instagram_business_account.id, username: d.instagram_business_account.username }
-          : null,
-        tokenSet: !!META_PAGE_TOKEN,
-      });
+      if (!META_PAGE_TOKEN) {
+        out.meta = {
+          configured: false, ok: false, needsAttention: true,
+          detail: 'META_PAGE_ACCESS_TOKEN is not set on this project.',
+        };
+      } else {
+        const probe = await fetch(
+          `${GRAPH}/me?fields=id,name,category,instagram_business_account{id,username}` +
+          `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`
+        );
+        const d = await probe.json().catch(() => ({}));
+        if (!probe.ok) {
+          out.meta = {
+            configured: true, ok: false, needsAttention: true,
+            detail: d?.error?.message || `HTTP ${probe.status}`,
+          };
+        } else {
+          // A Page has a category; a user does not. This is the tell.
+          const isPage = !!d?.category;
+          out.meta = {
+            configured: true,
+            ok: isPage,
+            needsAttention: !isPage,
+            detail: isPage
+              ? `Page token for "${d?.name ?? '?'}"` +
+                (d?.instagram_business_account
+                  ? `, Instagram @${d.instagram_business_account.username}`
+                  : ', but NO Instagram account is linked to it')
+              : 'This is a USER token, not a PAGE token: posts will land on a ' +
+                'personal feed rather than the Page. See the setup notes.',
+            id: d?.id ?? null,
+            name: d?.name ?? null,
+            instagram: d?.instagram_business_account
+              ? { id: d.instagram_business_account.id, username: d.instagram_business_account.username }
+              : null,
+          };
+        }
+      }
     } catch (err) {
-      return json(200, { diagnose: true, error: (err as Error).message });
+      out.meta = { configured: !!META_PAGE_TOKEN, ok: false, needsAttention: true, detail: (err as Error).message };
     }
+
+    // ── Threads: the only credential here that expires ──────────────────────
+    try {
+      if (!THREADS_USER) {
+        out.threads = {
+          configured: false, ok: false, needsAttention: true,
+          detail: 'THREADS_USER_ID is not set on this project.',
+        };
+      } else {
+        const stored = await readStoredThreadsToken();
+        const token  = await threadsToken();
+        // Days from the STORED expiry, which is the number that matters: the
+        // function only refreshes when it posts, so a quiet fortnight is how
+        // this dies. Reported even when the probe passes, because a token that
+        // works today and expires on Thursday still needs attention.
+        const expiresInDays = stored?.expires_at
+          ? Math.floor((new Date(stored.expires_at).getTime() - Date.now()) / 86400000)
+          : null;
+        if (!token) {
+          out.threads = {
+            configured: true, ok: false, needsAttention: true, expiresInDays,
+            detail: 'No Threads token available: THREADS_ACCESS_TOKEN is unset and ' +
+                    'nothing is stored in integration_tokens.',
+          };
+        } else {
+          const probe = await fetch(
+            `${THREADS}/me?fields=id,username&access_token=${encodeURIComponent(token)}`
+          );
+          const d = await probe.json().catch(() => ({}));
+          const live = probe.ok && !!d?.id;
+          // 14 days is two weeks of not posting, which has happened, against a
+          // 60 day token that only refreshes on a post.
+          const expiringSoon = expiresInDays !== null && expiresInDays <= 14;
+          out.threads = {
+            configured: true,
+            ok: live,
+            needsAttention: !live || expiringSoon,
+            expiresInDays,
+            detail: !live
+              ? (d?.error?.message || `HTTP ${probe.status}`)
+              : expiringSoon
+                ? `Token for @${d.username} works, but expires in ${expiresInDays} day(s). ` +
+                  'It only refreshes when something is POSTED, so a quiet fortnight ' +
+                  'will kill it. Post something, or reissue the token.'
+                : `Token for @${d.username}, ${expiresInDays === null ? 'expiry unknown' : expiresInDays + ' days left'}.`,
+          };
+        }
+      }
+    } catch (err) {
+      out.threads = { configured: !!THREADS_USER, ok: false, needsAttention: true, detail: (err as Error).message };
+    }
+
+    // ── X: SECRETS ONLY, DELIBERATELY NO LIVE CALL ──────────────────────────
+    // Every other probe here is a free read. X is metered and pay-per-use, so a
+    // health check that called it would spend real money every time somebody
+    // opened the page. Reporting which of the four secrets are present catches
+    // the failure that actually happens (a half-finished setup) and costs
+    // nothing; a wrong-but-present credential is found the first time a human
+    // presses Post, which is also the first time it matters.
+    const xMissing = [
+      !X_API_KEY    && 'X_API_KEY',
+      !X_API_SECRET && 'X_API_SECRET',
+      !X_TOKEN      && 'X_ACCESS_TOKEN',
+      !X_TOKEN_SEC  && 'X_ACCESS_TOKEN_SECRET',
+    ].filter(Boolean) as string[];
+    out.x = {
+      configured: xMissing.length === 0,
+      ok: xMissing.length === 0,
+      // NOT an alarm when unset. X is posted by hand on purpose (its API
+      // charges 20 cents for a post carrying a link), so missing secrets are
+      // the expected state rather than a fault.
+      needsAttention: false,
+      detail: xMissing.length
+        ? 'Not set: ' + xMissing.join(', ') + '. X is posted by hand, so this is ' +
+          'expected unless you have turned machine posting on.'
+        : 'All four secrets are set. Not live-checked: an X API call costs money.',
+      unchecked: true,
+    };
+
+    return json(200, out);
   }
 
   const id = String(body.id ?? '').trim();

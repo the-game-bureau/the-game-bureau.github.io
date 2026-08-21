@@ -3079,6 +3079,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // #edit=<id> has to wait for the rows, so it is chained onto the
           // load rather than fired beside it like #manual, which needs nothing.
           loadQueue().then(focusPostFromHash, focusPostFromHash);
+          // AFTER the queue, not beside it: this writes to the red pen only
+          // when a credential needs attention, and it must not be shouting
+          // about Threads over the top of a message about the load that just
+          // failed. Quiet on a healthy project, so it costs a signed-in admin
+          // two free API reads and nothing else.
+          checkAccounts(false);
           // Deep link, opened here rather than on DOMContentLoaded: until this
           // fires the whole page is display:none behind the sign-in gate, so a
           // dialog opened earlier would be invisible and would stay that way.
@@ -4895,6 +4901,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               shot.classList.add('is-empty', 'is-broken');
               if (img.parentNode) img.parentNode.removeChild(img);
               hint.textContent = 'image failed';
+              // AND TELL THE POST BUTTON. Until this, the card knew the picture
+              // was dead and the button did not, so Instagram stayed on the
+              // button and the post failed at Meta instead of here. Repaint
+              // only the FIRST time a url is seen to fail: noteBrokenImage
+              // returns false afterwards, which is what stops the re-render
+              // drawing the image, erroring, and looping.
+              if (noteBrokenImage(image)) renderQueue();
             });
             shot.appendChild(img);
           }
@@ -5621,6 +5634,23 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         btn.appendChild(window.TgbFollowReel.build());
         host.appendChild(btn);
         window.TgbFollowReel.popup(btn);
+
+        // CHECK ACCOUNTS, beside the reel. The automatic check on load is
+        // silent unless something is wrong, which is right for a warning and
+        // useless when you have just changed a secret and want to know whether
+        // it took. This is the same check, said out loud.
+        var health = document.createElement('button');
+        health.type = 'button';
+        health.className = 'btn';
+        health.textContent = 'Check accounts';
+        health.title = 'Ask the Edge Function what each credential actually points at, ' +
+                       'and how long the Threads token has left. Posts nothing.';
+        health.addEventListener('click', function () {
+          health.disabled = true;
+          checkAccounts(true).then(function () { health.disabled = false; },
+                                   function () { health.disabled = false; });
+        });
+        host.appendChild(health);
       }
 
       // Topics first (what the story is), then the platform recommendations
@@ -5905,8 +5935,36 @@ Finish with the SQL block, then a short summary below it: the five candidates in
            'with a link in it. Copy the caption and paste it into X.'
       };
 
+      // ── A BROKEN IMAGE IS NOT AN IMAGE ──────────────────────────────────
+      //
+      // hasImage() used to be "the column is not empty", which is what the
+      // Post button believed. But an image url that 404s or 403s is a perfectly
+      // non-empty string, so a dead picture still switched Instagram on and the
+      // post then failed at Meta with Meta's own words about media.
+      //
+      // THE CARD ALREADY KNEW. It draws IMAGE FAILED in red when the <img>
+      // errors, so the page held the answer and the button did not. This is
+      // that knowledge, shared.
+      //
+      // KEYED BY URL, NOT BY CANDIDATE. The same address is broken for every
+      // row carrying it, and two candidates sharing a gift image should not
+      // have to discover it separately.
+      var brokenImages = Object.create(null);
+
+      /** Called by the card's own <img> onerror. Returns true the FIRST time a
+       *  url is seen to fail, which is the only time anything needs repainting:
+       *  without that guard the re-render draws the image again, it errors
+       *  again, and the page loops. */
+      function noteBrokenImage(url) {
+        var key = String(url || '').trim();
+        if (!key || brokenImages[key]) return false;
+        brokenImages[key] = true;
+        return true;
+      }
+
       function hasImage(post) {
-        return !!String((post && post.image) || '').trim();
+        var url = String((post && post.image) || '').trim();
+        return !!url && !brokenImages[url];
       }
 
       // ── Meta is ONE destination that fans out ─────────────────────────────
@@ -6142,6 +6200,70 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           return name + ' — ' + (r.error || (r.skipped ? 'skipped' : 'failed'));
         }).join('  |  ');
       }
+
+      // ── ACCOUNT HEALTH, CHECKED BEFORE IT COSTS A POST ────────────────────
+      //
+      // Every credential failure here used to be found the same way: you picked
+      // a candidate, wrote a caption, pressed Post, and THEN learned the token
+      // was wrong. The work was already done and the failure arrived at the
+      // worst moment.
+      //
+      // THE ONE THAT REALLY NEEDED THIS IS THREADS. Its token lasts 60 days and
+      // the Edge Function only refreshes it WHEN SOMETHING IS POSTED, so a
+      // quiet fortnight is how it dies: nothing is broken, nobody did anything
+      // wrong, and the next post fails. The check reports days remaining and
+      // says so while there is still time to act.
+      //
+      // SILENT WHEN HEALTHY. A notice that appears every time you open the room
+      // is one nobody reads; this writes to the red pen only when something
+      // needs attention, which is the same bargain the rest of the page makes.
+      var accountHealth = null;
+
+      async function checkAccounts(loud) {
+        try {
+          var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + AUTOPOST_ENDPOINT, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ diagnose: true })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          accountHealth = await res.json();
+        } catch (err) {
+          // A check that cannot run is NOT reported as an account fault: the
+          // function may simply not be deployed, and crying wolf about
+          // Instagram because a fetch failed is worse than saying nothing.
+          accountHealth = null;
+          if (loud) setPageStatus('Could not check the accounts: ' + (err.message || err));
+          return null;
+        }
+
+        var bad = [];
+        ['meta', 'threads', 'x'].forEach(function (key) {
+          var d = accountHealth[key];
+          if (d && d.needsAttention) bad.push(PLATFORM_HEALTH_LABEL[key] + ': ' + d.detail);
+        });
+
+        if (bad.length) {
+          // Joined rather than only-the-first: two broken credentials is a
+          // different morning from one, and finding the second only after
+          // fixing the first is the thing that wastes an afternoon.
+          setPageStatus(bad.join('  |  '));
+        } else if (loud) {
+          var lines = ['meta', 'threads', 'x'].map(function (key) {
+            var d = accountHealth[key] || {};
+            return PLATFORM_HEALTH_LABEL[key] + ': ' + (d.detail || '?');
+          });
+          flash(queueStatus, 'Accounts checked');
+          window.alert(lines.join('\n\n'));
+        }
+        return accountHealth;
+      }
+
+      var PLATFORM_HEALTH_LABEL = {
+        meta: 'Facebook and Instagram',
+        threads: 'Threads',
+        x: 'X'
+      };
 
       // Console helper: type tgbDiagnosePost() on this page while signed in.
       // Answers "what does the stored Meta token actually point at?" and posts
