@@ -90,6 +90,32 @@
       match: /^\/mc\/highlights\//,
       // Trophy.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
+    },
+    {
+      key: 'follow',
+      label: 'FOLLOW',
+      // THE ADMIN SIDE OF FOLLOW IS THE SOCIALIZER, which is the whole twist
+      // this nav is built on: the face says the public section, the button goes
+      // to the room where that section is worked. /follow/ lists the five
+      // accounts; the Socializer is where what goes ON them is decided.
+      //
+      // IT ALSO GIVES THE SOCIALIZER ITS FIRST TOP-LEVEL BUTTON. Until now that
+      // room was reachable only from the dropdown or from a card on the hub,
+      // which is why admin-nav-menu.js keeps it in a `hubHidden` group and says
+      // so in a comment: "the socials room has no button in the site nav ... so
+      // this dropdown is the only way to reach it from another page". It has one
+      // now, and that comment is stale the moment this ships.
+      href: '/mc/socializer.html',
+      title: 'Admin socials, the Socializer',
+      publicHref: '/follow/',
+      publicTitle: 'Public follow page',
+      // The room is a FILE, not a folder, unlike every other entry here: it
+      // moved out of /mc/socials/ on 2026-08-19. Anchored with \.html so a
+      // future /mc/socializer-something does not light this button up.
+      match: /^\/mc\/socializer\.html/,
+      // Lucide users, the same glyph the public nav's FOLLOW button and the
+      // Follow page's own footer entry carry.
+      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"
     }
   ];
 

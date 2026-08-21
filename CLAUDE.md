@@ -1397,8 +1397,11 @@ build step and without proxying the domain through Cloudflare.
   cover one page**, not the site.
 - **A NEW PUBLIC PAGE UNDER `/mc/` MUST BE ADDED TO `PUBLIC_MC`**, or the
   beacon silently refuses to count it and the `<script>` tag looks like it
-  worked. `/mc/follow/` was added on 2026-08-20 and is the fifth entry. This is
-  the exact trap the four public `mc/` pages already fell into once.
+  worked. This is the exact trap the four public `mc/` pages already fell into
+  once. **Follow was briefly the fifth entry and is not one any more**: it moved
+  to `/follow/` at the root on 2026-08-20, where it is counted by default, and
+  it came back OUT of the list in the same commit. A page named there that no
+  longer lives under `/mc/` is a line that has stopped describing anything.
 - **The paid game runtime is excluded, and that is a decision rather than an
   oversight.** `/mc/game/run/` — the URL a buyer's email points at — plus both
   engines, `help.html`, `navigator.html`, `scan/`, `teams/` and `/mc/minigames/`
@@ -1553,7 +1556,7 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - [index.html](index.html)
 - every file matched by `mc/account/**/*.html` — moved under `mc/` on 2026-08-06 but still a public page wearing public chrome, so shared-chrome work still applies to it
 - every file matched by `birthdayball/**/*.html`
-- every file matched by `mc/follow/**/*.html` — the Follow page, added 2026-08-20
+- every file matched by `follow/**/*.html` — the Follow page, added 2026-08-20
 - every file matched by `mc/how/**/*.html`
 - every file matched by `ww/**/*.html`
 - [gifts/index.html](gifts/index.html) — the public shop, and **the only file left in `gifts/`** as of 2026-08-07. The folder has been `/gifts/` → `/shop/` (2026-06-26) → `/gifts/` (2026-07-30); **each move was a hard break with no redirect**, because GitHub Pages cannot serve a 301, so any `/shop/?city=` link shared while that path was live is now dead.
@@ -1570,12 +1573,26 @@ This grouping is the public website surface for shared chrome work such as navig
 
 ---
 
-## /mc/follow/ — the Follow page (2026-08-20)
+## /follow/ — the Follow page (2026-08-20)
 
-[mc/follow/index.html](mc/follow/index.html). A public page wearing public chrome, listing the five accounts: **Instagram, Threads, X, Facebook, YouTube**, all `@thegamebureau` except Facebook's page name.
+**BOTH NAVS CARRY A FOLLOW BUTTON, AND THEY GO TO DIFFERENT PLACES.** That is not an inconsistency, it is the shared admin nav's whole design: its buttons wear the public section's name and land on the room where that section is worked.
+
+| nav | file | FOLLOW goes to |
+|---|---|---|
+| public | [shell/site-nav.js](shell/site-nav.js) | `/follow/`, the page itself |
+| admin | [mc/js/admin-site-nav.js](mc/js/admin-site-nav.js) | `/mc/socializer.html`, where what goes on those accounts is decided |
+
+- **The public one carries NO COUNT**, alone among the five. The other four badge a number that moves (games built, gifts stocked, tapes made, scorelines posted); the accounts are five and will be five next year, so a badge there is furniture that looks like news. It takes no `nav-link--has-count` and no `statBadges` call.
+- **`order: 5` in [site-pages.css](shell/site-pages.css) is what puts it right of Highlights.** Those links are flex children with explicit orders, so adding the anchor after Highlights in the markup is not enough on its own: without the rule it lands wherever `order: 0` sorts, which is FIRST.
+- **THE ADMIN BUTTON GIVES THE SOCIALIZER ITS FIRST TOP-LEVEL DOOR.** Until now that room was reachable only from the dropdown or a card on the hub, and `admin-nav-menu.js` said so in a comment that this change made stale; the comment now records what replaced it. The entry stays in the dropdown anyway, because FOLLOW does not say Socializer on its face and somebody hunting the room by name should still find it in a list.
+- **Its `match` is `/^\/mc\/socializer\.html/`**, anchored with `\.html` because this room is a FILE and not a folder, unlike every other entry in that nav. Standing in the Socializer now lights FOLLOW rather than MISSION CONTROL, which is correct: `roomIsCurrent` makes the rooms more specific than the mast.
+
+
+
+[follow/index.html](follow/index.html), at the ROOT beside `games/`, `gifts/`, `highlights/` and `soundtracks/`. It was built at `mc/follow/` and moved on 2026-08-20, which is the repo's own rule applied: **if a visitor is served it, it does not live under `mc/`**. Moving it also took it back out of `PUBLIC_MC`, since that list exists only for public pages stranded under `/mc/`. A public page wearing public chrome, listing the five accounts: **Instagram, Threads, X, Facebook, YouTube**, all `@thegamebureau` except Facebook's page name.
 
 - **THE FOOTER'S FOLLOW COLUMN IS GONE, AND `SOCIALS` WITH IT.** It was five icon links straight to the accounts, built when there was nowhere else to put them. There is now, and keeping both meant **five urls written twice with no shared source** — which had already drifted, the footer carrying bare `instagram.com` against the page's `www.`. The footer now renders **two** columns, The Site and Documents, and The Site reads Games, Gifts, Soundtracks, Highlights, **Follow**.
-- **WHAT THAT COSTS, plainly:** reaching one account is two clicks from every public page rather than one. **If it turns out to matter, bring the column back by READING `/mc/follow/`, not by retyping the list into the footer** — retyping it is what created the drift the first time.
+- **WHAT THAT COSTS, plainly:** reaching one account is two clicks from every public page rather than one. **If it turns out to matter, bring the column back by READING `/follow/`, not by retyping the list into the footer** — retyping it is what created the drift the first time.
 - **`www.instagram.com`, not the bare domain.** The bare one 302s to www, and the footer's old note beside `threads.COM` already said a redirect is a hop it does not need to make — while the line above it carried exactly such a hop. **The page is the only list now**, so that inconsistency cannot come back. All five verified 200.
 - **X AND YOUTUBE ARE HERE BUT ARE NOT POSTING TARGETS.** They were removed from the Socializer on 2026-08-07 and `PLATFORM_AUTOPOST` has no row for either. **Having an account and posting to it by API are different things**; this page is about the former.
 - **`PUBLIC_MC` in [site-analytics.js](mc/assets/site-analytics.js) gained `follow`.** A public page under `/mc/` is refused by the analytics guard unless it is named there, and the `<script>` tag looks like it worked either way. That is the same trap `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/` fell into on 2026-08-06.

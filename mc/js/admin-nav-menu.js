@@ -197,11 +197,16 @@
     {
       label: 'Socials',
       // Menu only. /mc/ already carries Socializer under Ancillary Things at the
-      // top of the page, so a directory card below it was the same link twice —
+      // top of the page, so a directory card below it was the same link twice --
       // the same reason Gifts Admin and Soundtracks Admin are chores and appear
-      // in no menu group. It stays HERE because the socials room has no button
-      // in the site nav (the four rooms are games/gifts/soundtracks/highlights),
-      // so this dropdown is the only way to reach it from another page.
+      // in no menu group.
+      //
+      // IT USED TO SAY the dropdown was the only way to reach this room from
+      // another page, because the shared admin nav carried four buttons and none
+      // of them was social. THAT STOPPED BEING TRUE ON 2026-08-20: that nav has
+      // a fifth button, FOLLOW, and it lands here. This entry is kept anyway,
+      // because FOLLOW does not say Socializer on its face and somebody looking
+      // for the room by name should still find it in a list.
       hubHidden: true,
       items: [
         {

@@ -301,7 +301,7 @@
     // the shortcut for somebody who knows which network they want, and the
     // page is the thing you can send somebody. Lucide users, on the same
     // 24-box as the four glyphs above it.
-    ['/mc/follow/', 'Follow', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"]
+    ['/follow/', 'Follow', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"]
   ];
   // Lucide shield, on the same 24-box as the four section glyphs. A shield
   // rather than the padlock the admin nav carries: that padlock means "signed
@@ -316,7 +316,7 @@
 
   // THE FOLLOW COLUMN IS GONE (2026-08-20), and `SOCIALS` went with it. It was
   // five icon links straight to the accounts, built at a time when there was
-  // nowhere else to put them. There is now: /mc/follow/, which is in The Site
+  // nowhere else to put them. There is now: /follow/, which is in The Site
   // column above and can carry a handle and a line about what each account
   // actually posts. Five urls in two places is two places to keep in step, and
   // the footer is the copy that had already drifted (bare instagram.com against
@@ -324,7 +324,7 @@
   //
   // WHAT THIS COSTS, plainly: reaching one account is now two clicks rather
   // than one, from every public page. If that turns out to matter, bring the
-  // column back by reading /mc/follow/ rather than by retyping the list here.
+  // column back by reading /follow/ rather than by retyping the list here.
 
   function link(href, label, attrs) {
     return '<a href="' + href + '"' + (attrs || '') + '>' + label + '</a>';

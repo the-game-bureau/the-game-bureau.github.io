@@ -47,7 +47,7 @@
   // out, which is the safe direction for a list that has to be maintained by
   // hand — a new admin room is excluded by default, a new public page under
   // /mc/ merely goes uncounted until someone adds it here.
-  var PUBLIC_MC = /^\/mc\/(how|sampler|survey|account|follow)(\/|$)/;
+  var PUBLIC_MC = /^\/mc\/(how|sampler|survey|account)(\/|$)/;
 
   // No single-page exemptions at present. There was one for a few hours on
   // 2026-08-07 — /mc/gifts/aboutshop.html, a public page stranded inside the

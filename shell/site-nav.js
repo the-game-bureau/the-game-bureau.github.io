@@ -43,7 +43,7 @@
         // It takes no `nav-link--has-count` class and no statBadges call; the
         // base .nav-link is already inline-flex, so it lays out with its icon
         // regardless.
-        '<a class="nav-link nav-link--major nav-link--follow" href="/mc/follow/"><span class="nav-label">FOLLOW</span></a>' +
+        '<a class="nav-link nav-link--major nav-link--follow" href="/follow/"><span class="nav-label">FOLLOW</span></a>' +
       '</div>' +
     '</nav>';
 
