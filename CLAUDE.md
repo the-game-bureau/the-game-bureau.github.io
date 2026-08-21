@@ -419,6 +419,18 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
 - **The catalogue is alphabetical**, which it claimed to be in a comment and was not — rows came back in whatever order PostgREST returned them, so the room opened on Youngstown, Antalya, Barcelona, Amsterdam. It also gained a **city search** (city name and spine phrase only, never track titles: searching "kansas" should not return six other cities' tracks) and **lost the `N shown` chip**, which appeared under every tape whenever a filter was on and restated the length of the list directly below it.
 
 
+### THE SOCIALIZER'S VIEW BAR IS ONE REEL BUTTON (2026-08-20)
+
+It held three buttons, FACEBOOK / INSTAGRAM / THREADS, built from a `PLATFORM_URLS` object on the page. It is now **one button wearing the scrolling account reel**, opening the same menu the hub card and the public nav open. [mc/js/follow-reel.js](mc/js/follow-reel.js).
+
+- **THE BAR'S JOB IS UNCHANGED**: ADD on the left is where candidates come FROM, VIEW on the right is where a posted one ends UP, and checking a post really appeared is the step after every click.
+- **WHAT DID CHANGE, AND IT IS A REAL DIFFERENCE.** Those three were the accounts we can POST to. The menu carries all **five** we have, so X and YouTube are reachable from here and were not before. Nothing here posts to them; this bar is for going and looking, and there is no reason to be able to look at three of five.
+- **`PLATFORM_URLS` IS DELETED and the handles are no longer on this page.** They live in the module, which is also where the public nav's twin reads them, so a renamed handle cannot be fixed in one copy and missed in another. **`WIRE_LABELS` stays and is a different thing**: it maps the Edge Function's platform keys to display names and is used all over the posting path.
+- **42px SQUARE, matching `.btn`'s `min-height`**, so it lines up with the ADD bar opposite. The width follows the height rather than the content, because the content is one glyph and a 42px-tall button 12px wide reads as a slot rather than a control.
+- **`.command-bar-inner > .tgb-reelpop-wrap` NEEDS `align-self: center`.** `popup()` re-parents the button into that wrap, which becomes the flex child; without it the wrap collapses to its own height and the button stops lining up with the bar. **Third time this wrap has needed a layout property moved onto it** — see the footer's Follow control and the public nav's `order: 5`.
+- **No module, no button.** The page does not know the handles any more, so `buildViewLinks` renders nothing rather than a control that opens nothing.
+- **Found while doing this: `PLATFORM_COMPOSERS` is read by NOTHING.** Posting goes through the `socials-post` Edge Function, so those composer urls are a record of where a human would go by hand, not a wired path. Left in place (the urls are the expensive part to rediscover) with a comment saying so, and its claim that `PLATFORM_URLS` was its fallback was untrue even before that object was deleted.
+
 ### The Tape Room wears the Socializer's look (2026-08-14)
 
 The two rooms had shared a palette since 2026-08-06 — `--cut-panel-bg`, `--cut-panel-line`, `--control-line` were copied across then — but nothing else, so they still read as two products. The Socializer's actual vocabulary was ported wholesale. **When either room's chrome changes, change both**; the Socializer is the reference and this is the copy.

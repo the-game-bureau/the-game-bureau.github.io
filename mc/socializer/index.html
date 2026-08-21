@@ -1085,6 +1085,24 @@
       white-space: nowrap;
     }
 
+    /* SQUARE, AND EXACTLY AS TALL AS THE BUTTONS IT REPLACED. .btn is
+       min-height: 42px, so the reel button matches its neighbours in the ADD
+       bar opposite and the two fieldsets keep one baseline. Width follows the
+       height rather than the content, because the content is one glyph and a
+       42px-tall button 12px wide would read as a slot rather than a control. */
+    .btn--reel {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      padding: 0;
+    }
+    .btn--reel .tgb-reel { --reel-size: 19px; }
+    /* popup() re-parents the button into .tgb-reelpop-wrap, which becomes the
+       flex child of .command-bar-inner. Without this the wrap collapses to its
+       own content height and the button no longer lines up with the bar. Same
+       trap as the footer's Follow control and the public nav's `order`. */
+    .command-bar-inner > .tgb-reelpop-wrap { align-self: center; }
+
     .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
     .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
 
@@ -1688,10 +1706,14 @@
         </div>
       </fieldset>
 
-      <!-- Where a post ENDS UP, as against where it comes from. Filled from
-           PLATFORM_URLS so the accounts are named once on this page: a second
-           hand-typed copy in the markup is how a renamed handle ends up linked
-           correctly in one place and wrongly in another. -->
+      <!-- Where a post ENDS UP, as against where it comes from. It was three
+           buttons, one per account we post to; it is now the scrolling reel,
+           which opens a menu of all of them.
+
+           THE HANDLES ARE NOT ON THIS PAGE ANY MORE. They live in
+           mc/js/follow-reel.js, which is also where the public nav's twin gets
+           them, so a renamed handle cannot be corrected in one copy and missed
+           in another. PLATFORM_URLS was deleted with the buttons. -->
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner" id="viewLinks"></div>
@@ -2500,6 +2522,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
        so this room and its Ancillary Things card at /mc/ cannot drift apart.
        Its <p> is empty in the markup on purpose; see the file. -->
   <script src="/mc/js/room-blurbs.js"></script>
+  <script src="/mc/js/follow-reel.js"></script>
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script>
@@ -5231,44 +5254,43 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // Our four accounts, all at the handle @thegamebureau. Keyed by the same
       // normalized token used for the is-<platform> class, so a platform chip
       // becomes a link straight to that account's page.
-      var PLATFORM_URLS = {
-        instagram: 'https://www.instagram.com/thegamebureau',
-        facebook: 'https://www.facebook.com/thegamebureau',
-        threads: 'https://www.threads.com/@thegamebureau'
-      };
-
-      // ── The VIEW bar ──────────────────────────────────────────────────────
-      // Three links to the accounts themselves, beside the bar that fills the
-      // queue: one side is where candidates come FROM, the other is where a
-      // posted one ended UP. Checking that a post actually appeared is the step
-      // after every click, and it was a trip through a bookmark or a search.
+      // -- The VIEW bar ------------------------------------------------------
       //
-      // Ordered the way the Post button names them -- Facebook, Instagram,
-      // Threads -- so the row on screen and the row in the button agree.
-      // Built from PLATFORM_URLS rather than written into the markup: the
-      // handles are named once on this page, so a rename cannot land in one
-      // copy and miss the other.
-      var VIEW_ORDER = ['facebook', 'instagram', 'threads'];
-
+      // ONE BUTTON WEARING THE SCROLLING REEL, opening the menu of our accounts.
+      // It was three buttons, FACEBOOK / INSTAGRAM / THREADS, beside the bar
+      // that fills the queue: one side is where candidates come FROM, this side
+      // is where a posted one ends UP, and checking that a post really appeared
+      // is the step after every click.
+      //
+      // WHAT CHANGED IN MEANING, and it is a real difference rather than a
+      // tidy-up. Those three were the accounts we can POST to. The menu carries
+      // all five we HAVE, so X and YouTube are reachable from here now and were
+      // not before. Nothing here posts to them; this bar is for going and
+      // looking, and there is no reason to be able to look at three of five.
+      //
+      // THE HANDLES ARE GONE FROM THIS PAGE. PLATFORM_URLS held them and was
+      // read by nothing else, so it went with the buttons; the module owns them
+      // now. WIRE_LABELS stays, and is a different thing: it maps the Edge
+      // Function's platform keys to display names and is used all over the
+      // posting path.
       function buildViewLinks() {
         var host = document.getElementById('viewLinks');
         if (!host) return;
         host.textContent = '';
-        VIEW_ORDER.forEach(function (key) {
-          var url = PLATFORM_URLS[key];
-          if (!url) return;
-          var a = document.createElement('a');
-          a.className = 'btn';
-          a.href = url;
-          a.target = '_blank';
-          // noopener is not optional on a target=_blank link: without it the
-          // opened tab gets a handle on this one through window.opener.
-          a.rel = 'noopener noreferrer';
-          a.textContent = (WIRE_LABELS[key] || key).toUpperCase();
-          a.title = 'Open ' + (WIRE_LABELS[key] || key) + ' — ' +
-                    url.replace(/^https?:\/\/(www\.)?/, '');
-          host.appendChild(a);
-        });
+        if (!window.TgbFollowReel || typeof window.TgbFollowReel.popup !== 'function') {
+          // No module, no accounts: this page does not know the handles any
+          // more. An empty bar is the honest failure, and better than a button
+          // that opens nothing.
+          return;
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--reel';
+        btn.title = 'Our social accounts';
+        btn.setAttribute('aria-label', 'Our social accounts');
+        btn.appendChild(window.TgbFollowReel.build());
+        host.appendChild(btn);
+        window.TgbFollowReel.popup(btn);
       }
 
       // Topics first (what the story is), then the platform recommendations
@@ -5373,8 +5395,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // These are the composer entry points as of 2026-08; platforms move them,
       // and some depend on which account/page the browser session is currently
       // acting as. If one lands somewhere unhelpful, change it here — it is the
-      // single place any of this is decided. PLATFORM_URLS (the plain account
-      // pages) stays as the fallback.
+      // single place any of this is decided.
+      //
+      // TWO THINGS ABOUT THIS OBJECT THAT ARE NOT TRUE ANY MORE. It used to say
+      // PLATFORM_URLS was the fallback; that object was deleted on 2026-08-20
+      // with the three VIEW buttons, and nothing ever fell back to it in code
+      // anyway. And PLATFORM_COMPOSERS itself is READ BY NOTHING: posting goes
+      // through the socials-post Edge Function, so these composer urls are a
+      // record of where a human would go by hand, not a wired path. Left rather
+      // than deleted because the urls are the expensive part to rediscover, but
+      // do not mistake it for something that runs.
       var PLATFORM_COMPOSERS = {
         // Opens the tweet composer with an empty box.
         // Meta Business Suite composer — the one that posts AS the page rather
