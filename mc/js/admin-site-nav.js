@@ -30,121 +30,28 @@
   // The admin rooms. `match` is what makes a button read as current: the admin
   // pages sit at different depths (/mc/gifts/ vs /mc/soundtracks/), so this
   // tests the section rather than comparing the whole path.
-  var ROOMS = [
-    {
-      key: 'games',
-      // Points at the hub's GAME BUILDER section, not at /games/admin/ — that
-      // room lost its button bar on 2026-08-07 and is now a titled landing page,
-      // so sending people there was sending them to a dead end. The hub section
-      // carries every game tool, generated from admin-nav-menu.js.
-      //
-      // The anchor is minted by groupAnchor() in mc/index.html from the group
-      // LABEL, so renaming the "Game Builder" group there breaks this link.
-      // Rename both together.
-      label: 'GAMES',
-      href: '/mc/#game-builder',
-      title: 'Admin games',
-      publicHref: '/games/',
-      publicTitle: 'Public games page',
-      // Matches the three game EDITORS, not a room folder. /games/admin/ was
-      // emptied on 2026-08-07 — its index went, and marquee.html and stops.html
-      // moved to /mc/ — so the old /^\/games\/admin\// test could never fire
-      // again and this button never lit up. These three are what "you are in
-      // games" actually means now.
-      match: /^\/mc\/(profiles|stops|builder)\.html/,
-      // Map pin.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'gifts',
-      label: 'GIFTS',
-      href: '/mc/gifts/',
-      title: 'Admin gifts',
-      publicHref: '/gifts/',
-      publicTitle: 'Public gift shop',
-      match: /^\/mc\/gifts\//,
-      // Gift box.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8'/%3E%3Cpath d='M2 7h20v5H2z'/%3E%3Cpath d='M12 22V7'/%3E%3Cpath d='M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z'/%3E%3Cpath d='M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'soundtracks',
-      label: 'SOUNDTRACKS',
-      href: '/mc/soundtracks/',
-      title: 'Admin soundtracks',
-      publicHref: '/soundtracks/',
-      publicTitle: 'Public soundtracks page',
-      // The room moved out of /admin/ on 2026-08-17. This is what lights the
-      // button up when you are standing in it, so it has to move with the href
-      // or SOUNDTRACKS never shows as current again.
-      match: /^\/mc\/soundtracks\//,
-      // Double note.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'highlights',
-      label: 'HIGHLIGHTS',
-      href: '/mc/highlights/',
-      title: 'Admin highlights',
-      publicHref: '/highlights/',
-      publicTitle: 'Public highlights page',
-      match: /^\/mc\/highlights\//,
-      // Trophy.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'follow',
-      label: 'FOLLOW',
-      // THE ONLY BUTTON IN THIS BAR WITH NO WORD ON IT. Its face is the same
-      // scrolling reel of account icons the PUBLIC nav's FOLLOW button wears:
-      // one icon wide, five accounts deep. See buildFollowReel below.
-      //
-      // AND NO `ADMIN` UNDER IT EITHER. Every other button carries that
-      // sub-label because its face says a public section word while the button
-      // goes to a room; this face says nothing at all, so there is no claim for
-      // ADMIN to correct. A qualifier under a wordless button is a caption on a
-      // picture of nothing.
-      //
-      // IT NAVIGATES. The public copy of this reel opens a menu of the five
-      // accounts, because out there Follow IS those five links. In here it is a
-      // door to the Socializer, so it behaves like every other button in the
-      // bar and simply goes.
-      reel: true,
-      // THE ADMIN SIDE OF FOLLOW IS THE SOCIALIZER, which is the whole twist
-      // this nav is built on: the face says the public section, the button goes
-      // to the room where that section is worked. The public FOLLOW is a menu of
-      // the five accounts; the Socializer is where what goes ON them is decided.
-      //
-      // IT ALSO GIVES THE SOCIALIZER ITS FIRST TOP-LEVEL BUTTON. Until now that
-      // room was reachable only from the dropdown or from a card on the hub,
-      // which is why admin-nav-menu.js keeps it in a `hubHidden` group and says
-      // so in a comment: "the socials room has no button in the site nav ... so
-      // this dropdown is the only way to reach it from another page". It has one
-      // now, and that comment is stale the moment this ships.
-      href: '/mc/socializer/',
-      // NO 'Admin' QUALIFIER, unlike its four neighbours. Theirs exists to
-      // correct a face that says GIFTS while pointing at /mc/gifts/; this one
-      // names its destination outright because nothing on it says otherwise.
-      title: 'The Socializer',
-      // NO publicHref, alone among the five. The public counterpart of this
-      // room is a MENU rather than a page: /follow/ was deleted on 2026-08-20
-      // and pointing at it would be a link to a 404. The other four all have a
-      // real public page to sit beside.
-      // FOUR ADDRESSES IN TWO DAYS, and this regex has to move with every one
-      // of them. /mc/socials/ -> /mc/socializer.html (2026-08-19) -> back to
-      // /mc/socials/ (2026-08-20) -> /mc/socializer/ (2026-08-20). A folder
-      // named for the room, which is what every other entry here is.
-      //
-      // AN ESCAPED PATH HIDES FROM A SWEEP. This line survived the first pass
-      // of the third move untouched, because a search for "/mc/socials/" does
-      // not find "\/mc\/socials\/". Grep for the escaped form as well, every
-      // time -- a `match` out of step with its `href` does not error, it just
-      // quietly never lights the button.
-      match: /^\/mc\/socializer\//,
-      // Lucide users, the same glyph the public nav's FOLLOW button and the
-      // Follow page's own footer entry carry.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"
-    }
-  ];
+  // ── THE SECTION BUTTONS ARE GONE (2026-08-20) ────────────────────────────
+  //
+  // This bar used to carry GAMES / GIFTS / SOUNDTRACKS / HIGHLIGHTS / FOLLOW,
+  // each an admin destination wearing a public section's name, each with a
+  // quiet ADMIN under it and a plain link to its public page below. All five
+  // are deleted. The bar is now the brand, MISSION CONTROL, and the padlock.
+  //
+  // WHY: five doors on every room's header is a site map, not a navigation
+  // bar. Mission Control already IS the index, it is one press away, and it
+  // lists every room with a description rather than a one-word face you had to
+  // learn. The bar was answering a question the hub answers better.
+  //
+  // WHAT WENT WITH THEM, so nobody hunts for it: the ROOMS array and its five
+  // entries, the FOLLOW button's scrolling account reel (which had lived here
+  // for about an hour; it is now mc/js/follow-reel.js, used by the hub card),
+  // the public-counterpart links, and the burger, which existed only to
+  // collapse these five on a phone and had nothing left to collapse.
+  //
+  // The CSS for all of it is deleted too. Git has the lot if it is ever wanted
+  // back; an unrendered ROOMS array left sitting here would answer "is this
+  // wired?" with a convincing yes, which is the trap PLATFORM_ORDER already
+  // sprang on this project once.
 
   // EVERY DESTINATION IN THIS BAR OPENS IN A NEW TAB (2026-08-10). These rooms
   // hold work in progress — a half-written game in the Marquee, a dirty card in
@@ -159,54 +66,6 @@
   // rel is set with the target, never separately. A _blank link without
   // noopener hands the new page a window.opener reference back to this one,
   // and these are admin pages.
-  // ── THE FOLLOW REEL ───────────────────────────────────────────────────────
-  //
-  // MIRRORED FROM shell/site-nav.js, WHICH IS THE ORIGINAL. This file is
-  // self-contained on purpose (see the header): it cannot load the public nav,
-  // because site-nav.js returns early when there is no public header to build
-  // and never reaches its own exports, so TgbNav.socials() does not exist on an
-  // admin page. Copying five icons is the smaller evil.
-  //
-  // WHAT MAY DRIFT AND WHAT MAY NOT. These are ICONS ONLY, deliberately: the
-  // account URLS are not here, because this button goes to the Socializer and
-  // has no use for them. That matters, because a drifted URL sends somebody to
-  // the wrong place, which is what killed the footer's old Follow column, while
-  // a drifted icon set costs a picture. If a sixth account is ever added,
-  // add it in both files; the reel simply shows five until you do.
-  var SOCIAL_ICONS = [
-    // Instagram
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='20' x='2' y='2' rx='5'/%3E%3Cpath d='M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z'/%3E%3Cline x1='17.5' x2='17.51' y1='6.5' y2='6.5'/%3E%3C/svg%3E",
-    // Threads
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.44 12.01v-.017c.06-3.576.91-6.43 2.555-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.56 12c.057 3.086.748 5.496 2.055 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.32.142 1.48.696 2.562 1.75 3.132 3.048.795 1.81.868 4.759-1.542 7.11-1.843 1.8-4.08 2.61-7.243 2.63Z'/%3E%3C/svg%3E",
-    // X
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E",
-    // Facebook
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'/%3E%3C/svg%3E",
-    // YouTube
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12z'/%3E%3C/svg%3E"
-  ];
-
-  // SIX TILES FOR FIVE ACCOUNTS. The last frame repeats the first, so the track
-  // travels one whole tile past the end and the loop restarts at 0 invisibly.
-  // Without the repeat it snaps backwards through four icons every eleven
-  // seconds. Same trick, same timing, as the public nav.
-  function buildFollowReel() {
-    var reel = document.createElement('span');
-    reel.className = 'asn-follow-reel';
-    reel.setAttribute('aria-hidden', 'true');
-    var track = document.createElement('span');
-    track.className = 'asn-follow-track';
-    SOCIAL_ICONS.concat([SOCIAL_ICONS[0]]).forEach(function (ic) {
-      var tile = document.createElement('span');
-      tile.className = 'asn-follow-tile';
-      tile.style.mask = 'url("data:image/svg+xml,' + ic + '") center / contain no-repeat';
-      tile.style.webkitMask = 'url("data:image/svg+xml,' + ic + '") center / contain no-repeat';
-      track.appendChild(tile);
-    });
-    reel.appendChild(track);
-    return reel;
-  }
-
   function openInNewTab(anchor) {
     if (!anchor) return anchor;
     anchor.target = '_blank';
@@ -800,7 +659,11 @@
   // room button AND the mast button both filled in. The rooms are the more
   // specific answer, so Mission Control only claims the page when none of them
   // does. Computed once here, before any button is built.
-  var roomIsCurrent = ROOMS.some(function (room) { return room.match.test(path); });
+  // WAS `ROOMS.some(...)`: the room buttons were the more specific answer, so
+  // Mission Control stood down whenever one of them claimed the page. With the
+  // rooms gone there is nothing to defer to, and the mast button is the only
+  // thing that can be current.
+  var roomIsCurrent = false;
 
   var brand = document.createElement('div');
   brand.className = 'asn-brand';
@@ -812,94 +675,6 @@
   links.className = 'asn-links';
   links.setAttribute('aria-label', 'Admin sections');
 
-  ROOMS.forEach(function (room) {
-    // Each section is a column: the admin button, and under it a plain-text link
-    // to the PUBLIC page. The button and the link carry the same word, which is
-    // the point — one takes you to the room, the other to what a visitor sees.
-    // Without the second one there is no way from a room to its own public page,
-    // since every button in this bar is an admin destination.
-    var column = document.createElement('div');
-    column.className = 'asn-item';
-
-    var a = document.createElement('a');
-    a.className = 'asn-link';
-    a.href = room.href;
-    // THE REEL BUTTON STAYS IN THIS TAB, alone among the five. The other four
-    // are a sideways glance at another room while you are working in this one,
-    // so a new tab keeps your place; the Socializer is somewhere you GO, and a
-    // wordless button that silently spawns tabs every time you press it is how
-    // you end up with nine of them.
-    if (!room.reel) openInNewTab(a);
-    // ON THE COLUMN, not on the link. Both anchors inherit it, which is what
-    // lets the phone panel draw the section glyph beside the PUBLIC row instead
-    // of the admin one. The link keeps working unchanged: it inherits it too.
-    column.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + room.icon + '")');
-    a.title = room.title;
-    // Just the title: "GAMES — Admin games" reads as a stutter to a screen
-    // reader, and the title already contains the label.
-    a.setAttribute('aria-label', room.title);
-    // Two stacked lines of text, centred on each other, sitting to the RIGHT of
-    // the icon rather than under it: the icon stays a single glyph beside the
-    // label block. ADMIN is what tells you the button is not the public page —
-    // the plain link below the button is.
-    if (room.reel) {
-      // NO LABEL COLUMN AT ALL for this one, so there is no word and no ADMIN
-      // under it. The class is what turns the ::before glyph off, since the
-      // reel is the face and a Lucide icon beside it would be a second picture.
-      a.classList.add('asn-link--reel');
-      a.appendChild(buildFollowReel());
-    } else {
-      var labelCol = document.createElement('span');
-      labelCol.className = 'asn-labelcol';
-
-      var word = document.createElement('span');
-      word.className = 'asn-word';
-      word.textContent = room.label;
-
-      var admin = document.createElement('span');
-      admin.className = 'asn-admin';
-      admin.textContent = 'ADMIN';
-
-      labelCol.appendChild(word);
-      labelCol.appendChild(admin);
-      a.appendChild(labelCol);
-    }
-    if (room.match.test(path)) a.setAttribute('aria-current', 'page');
-    column.appendChild(a);
-
-    // A ROOM WITHOUT A PUBLIC COUNTERPART GETS NO PUBLIC LINK. FOLLOW is the
-    // first: its public side is a menu rather than a page, so there is no URL to
-    // point at, and `pub.href = undefined` renders a literal href="undefined"
-    // that 404s on click. Mission Control below already goes without one, for
-    // the same reason stated in its own comment.
-    if (!room.publicHref) {
-      links.appendChild(column);
-      return;
-    }
-
-    var pub = document.createElement('a');
-    pub.className = 'asn-public';
-    pub.href = room.publicHref;
-    openInNewTab(pub);
-    pub.title = room.publicTitle;
-    pub.setAttribute('aria-label', room.publicTitle);
-    // Both labels ship; CSS shows one. The section word is the desktop face —
-    // repeating the button's word is what makes the pair read as "the room, and
-    // what a visitor sees" — while the phone panel shows a plain PUBLIC tag,
-    // because stacked in a list the repeat looks like a duplicated row. The
-    // aria-label above already says the destination either way.
-    var pubWord = document.createElement('span');
-    pubWord.className = 'asn-public-word';
-    pubWord.textContent = room.label;
-    var pubTag = document.createElement('span');
-    pubTag.className = 'asn-public-tag';
-    pubTag.textContent = 'PUBLIC';
-    pub.appendChild(pubWord);
-    pub.appendChild(pubTag);
-    column.appendChild(pub);
-
-    links.appendChild(column);
-  });
 
   // ── Mission Control, between HIGHLIGHTS and the padlock ───────────────────
   // Every room can be reached from every other room by now; the hub could not be
@@ -978,57 +753,15 @@
 
   setSignedIn(false);
 
-  // ── The burger, left of the padlock ──────────────────────────────────────
-  // Hidden above 900px, where every destination is already on the bar.
+  // ── The padlock ──────────────────────────────────────────────────────────
+  // THE BURGER WENT WITH THE SECTION BUTTONS (2026-08-20). It existed only to
+  // collapse the five room buttons into a panel on a phone, and with nothing
+  // left to collapse it was a control that opened an empty drawer. Gone with it:
+  // setOpen, the data-nav-open attribute, the Escape and outside-tap handlers,
+  // and the matchMedia listener that reset the state when the layout widened.
   var tools = document.createElement('div');
   tools.className = 'asn-tools';
 
-  var burger = document.createElement('button');
-  burger.type = 'button';
-  burger.className = 'asn-link asn-burger';
-  burger.setAttribute('aria-controls', 'asn-links');
-  burger.style.setProperty('--asn-burger-icon', 'url("data:image/svg+xml,' + BURGER + '")');
-  burger.style.setProperty('--asn-burger-x', 'url("data:image/svg+xml,' + BURGER_X + '")');
-  links.id = 'asn-links';
-
-  function setOpen(open) {
-    header.setAttribute('data-nav-open', open ? 'true' : 'false');
-    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    burger.title = open ? 'Close menu' : 'Menu';
-    burger.setAttribute('aria-label', burger.title);
-    burger.style.setProperty('--asn-icon', open ? 'var(--asn-burger-x)' : 'var(--asn-burger-icon)');
-  }
-
-  burger.addEventListener('click', function () {
-    setOpen(header.getAttribute('data-nav-open') !== 'true');
-  });
-
-  // Escape and outside-tap close it. Both matter more than on a desktop menu:
-  // the panel pushes the page down, so leaving it open silently costs a screenful
-  // every time you come back to the tab.
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && header.getAttribute('data-nav-open') === 'true') {
-      setOpen(false);
-      burger.focus();
-    }
-  });
-  document.addEventListener('click', function (e) {
-    if (header.getAttribute('data-nav-open') !== 'true') return;
-    if (!header.contains(e.target)) setOpen(false);
-  });
-
-  // Widening past the breakpoint reveals the links again by CSS alone, which
-  // would leave aria-expanded="true" describing a control that is no longer
-  // there. Reset the state with the layout.
-  if (window.matchMedia) {
-    var wide = window.matchMedia('(min-width: 901px)');
-    var onWide = function (mq) { if (mq.matches) setOpen(false); };
-    if (wide.addEventListener) wide.addEventListener('change', onWide);
-    else if (wide.addListener) wide.addListener(onWide);
-  }
-
-  setOpen(false);
-  tools.appendChild(burger);
   tools.appendChild(lock);
 
   // Page watermark. It is not a grid item and no longer lives in the nav, so the

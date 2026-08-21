@@ -131,6 +131,16 @@ something real.
 - **THE TRIGGER IS WHAT RUNS; THIS FILE IS A DESCRIPTION OF IT.** Two crons in
   here had silently gone stale. `RemoteTrigger {action: "list"}` before trusting
   any cron written down.
+- **A `RemoteTrigger` UPDATE REPLACES `job_config` WHOLE. It does not merge.**
+  Exactly the `create or replace` trap, on a different system. Sending
+  `job_config` with only `environment_id` and `events` **silently dropped
+  `session_context.model` and `session_context.sources`** from TGB SOCIALIZER
+  BOT, so the routine lost its model pin and its git repository, and the reply
+  came back 200 looking fine. Sending it with only `session_context` then wiped
+  the entire prompt. **Always GET first, and send every key back**, and re-GET
+  afterwards to confirm what actually survived rather than trusting the 200.
+  A cron-only change is safe: `cron_expression` is a top-level field, not part
+  of `job_config`.
 - **A TRIGGER ID DOES NOT SURVIVE A DELETE.** Anything holding one has to be
   repointed, and a stale one in an `href` 404s silently. Prefer disabling to
   deleting.
@@ -1608,7 +1618,27 @@ This grouping is the public website surface for shared chrome work such as navig
 - **THE PANEL FLIPS UPWARD when there is more room above than below**, decided at open time from `getBoundingClientRect` rather than from which trigger it is. That is what the footer's copy needs — it sits at the bottom of the page — and deciding it by measurement rather than by caller is what makes `followPopup` safe to attach to a trigger anywhere.
 - **`order: 5` IS ON THE WRAPPER AS WELL AS THE ANCHOR**, and that is not belt and braces. `wireFollowPopup` re-parents the trigger into a positioned `<span>` so the panel has something to hang off, which makes the WRAPPER the flex child and leaves the button's own `order` inert. The wrapper had none, so it sorted at 0 and **FOLLOW jumped to the front of the nav**. One declaration covers both states.
 
-## THE ADMIN NAV'S FOLLOW BUTTON IS THE REEL, AND IT NAVIGATES (2026-08-20)
+## THE ADMIN NAV IS MISSION CONTROL AND THE PADLOCK (2026-08-20)
+
+[mc/js/admin-site-nav.js](mc/js/admin-site-nav.js) carried five section buttons — GAMES / GIFTS / SOUNDTRACKS / HIGHLIGHTS / FOLLOW — each an admin destination wearing a public section's name, each with a quiet ADMIN under it and a plain link to its public page below. **All five are deleted.** The bar is the brand, **MISSION CONTROL**, and the sign-in padlock.
+
+- **WHY: five doors on every room's header is a site map, not a navigation bar.** Mission Control already IS the index, it is one press away, and it lists every room with a description rather than a one-word face you had to learn.
+- **THE BURGER WENT WITH THEM**, along with `setOpen`, `data-nav-open`, the Escape and outside-tap handlers and the matchMedia reset. It existed only to collapse those five on a phone, so with nothing left to collapse it was a control that opened an empty drawer.
+- **`roomIsCurrent` IS NOW A CONSTANT `false`.** It was `ROOMS.some(...)`, and it existed because MISSION CONTROL matches the whole of `/^\/mc\//` while a room button was the more specific answer, so the mast button stood down whenever a room claimed the page. With no rooms there is nothing to defer to.
+- **THE FOLLOW REEL LASTED ABOUT AN HOUR HERE** and was not wasted: it moved to **[mc/js/follow-reel.js](mc/js/follow-reel.js)**, which is where every admin surface reads it from now. See below.
+- **THE CSS WAS NOT SWEPT IN THE SAME PASS.** `.asn-item`, `.asn-public*`, `.asn-labelcol`, `.asn-admin`, `.asn-link--reel`, `.asn-burger` and `.asn-follow-*` are all still in the injected stylesheet and now match nothing. Harmless at runtime, untidy, and **known** rather than overlooked. `.asn-labelcol` and `.asn-word` are the exception and are still live: MISSION CONTROL uses them for its two stacked lines.
+
+## THE FOLLOW REEL IS A SHARED ADMIN MODULE (2026-08-20)
+
+[mc/js/follow-reel.js](mc/js/follow-reel.js) builds the one-icon-wide scroller of our five account icons. `window.TgbFollowReel.build()` returns one; **the usual way to get one is `data-tgb-reel` on an empty element**, which the module fills at load, the same contract `room-blurbs.js` uses.
+
+- **IT IS DECORATION, NOT A CONTROL.** No click handler, no href, `aria-hidden`, and **`pointer-events: none`** — which is load-bearing on the hub, where it sits inside the SOCIALIZER card's heading and that card is one big `<a>`. A decoration that ate that click would be a bug.
+- **ITS FIRST HOME IS THE HUB'S SOCIALIZER CARD** ([mc/index.html](mc/index.html)), in front of the heading at `--reel-size: 1em` so it reads as part of the word rather than a badge stuck on the front. It says which five networks that room feeds without spending a word on it.
+- **`--reel-size` IS A VARIABLE AND THE KEYFRAMES ARE `calc()` MULTIPLES OF IT.** The track must travel exactly one tile per step or the icons land half cut, so a host resizes it with one custom property and nothing else.
+- **THE PUBLIC NAV KEEPS ITS OWN COPY** inside [shell/site-nav.js](shell/site-nav.js) and **cannot share this one**: that file returns early when there is no public header to build and never reaches its exports, so an admin page loading it gets nothing back. Two copies, and the split is admin / public.
+- **ICONS ONLY, NEVER THE URLS**, and that asymmetry is the safety argument. Nothing here links anywhere, so there is no url to get wrong. A drifted url sends somebody to the wrong account, which is what killed the footer's old Follow column; a drifted icon costs a picture. A sixth account means editing both files; until both are done the reel simply shows five.
+
+## THE ADMIN NAV'S FOLLOW BUTTON WAS THE REEL, FOR ONE HOUR (2026-08-20, superseded)
 
 The fifth button in the shared admin bar ([mc/js/admin-site-nav.js](mc/js/admin-site-nav.js)) wears the **same scrolling reel of account icons** the public nav's FOLLOW button wears, and it goes to the **Socializer**.
 
