@@ -181,22 +181,6 @@
        two ends of the row match, but on the flat panel rather than in a raised
        track: which candidates you are looking at is the decision, which end you
        start from is a preference. */
-    /* THE YOUTUBE FILTER IS NOT ONE OF THE TABS and must not look like a
-       fourth one. It wears the tab's size and shape so the row stays even, and
-       the red pen so it reads as a different kind of control: the three tabs
-       choose which candidates, this one narrows to a kind. */
-    .queue-tab--yt {
-      margin-left: 10px;
-      border-color: rgba(194, 55, 55, 0.4);
-      color: var(--bic-red);
-    }
-    .queue-tab--yt[hidden] { display: none; }
-    .queue-tab--yt.is-active {
-      border-color: var(--bic-red);
-      background: var(--bic-red);
-      color: #fff;
-    }
-
     .queue-sort {
       min-height: 32px;
       padding: 0 8px;
@@ -1784,20 +1768,14 @@
               Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
             </button>
           </div>
-          <!-- YOUTUBE, A FILTER RATHER THAN A FOURTH TAB. It cuts ACROSS the
-               three: a video can be in Review, Posted or Skipped like anything
-               else, and "which candidates" and "what kind of candidate" are two
-               questions. A fourth tab would have answered both at once and made
-               Review stop meaning all the undecided ones.
-
-               It hides itself when there are none, and turns itself off on the
-               way out, so a filter cannot be left on with nothing behind it.
-               Same behaviour as the Path Builder's PARTNERS filter. -->
-          <button class="queue-tab queue-tab--yt" id="tabYouTube" type="button"
-                  aria-pressed="false" hidden
-                  title="Only the videos to share on our YouTube channel. They sit in the same three tabs as everything else; this narrows to them.">
-            YouTube <span class="queue-tab-count" id="tabYouTubeCount">0</span>
-          </button>
+          <!-- NO YOUTUBE FILTER. There was one here for about an hour, on the
+               reasoning that a video is a different kind of candidate and you
+               would want to see them together. In practice a video is just a
+               candidate in Review like the other five, told apart by its own
+               Post button, which says it goes to YouTube by hand. A control
+               that narrows a list of a dozen rows to one of them is a control
+               nobody needs, and it made a third question ("what kind?") sit
+               beside a strip that was already answering "which ones?". -->
           <!-- Two words, no label. NEWEST / OLDEST is what the control says and
                what it does -- it names what sits at the TOP, so the word you can
                see is the card you are looking at. A "Sort" label in front of it
@@ -2450,9 +2428,11 @@ spread them honestly, and let the weakest one be weak.
 
 6. TAG THE PLATFORMS
 
-We have exactly three accounts we can POST to: FACEBOOK, INSTAGRAM and THREADS. Never suggest another on a story.
+We have exactly four accounts we can POST to: FACEBOOK, INSTAGRAM, THREADS and X. Never suggest another on a story.
 
-YOUTUBE IS NOT ONE OF THESE THREE. It appears on the video row from 2c, alone, and NOWHERE ELSE. Never add it to a story's platforms array: nothing here posts to YouTube, so on a story it would narrow the row for no reason, and on the video it is the marker that makes the queue treat it correctly. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
+X CAME BACK ON 2026-08-20, having been off this list since 2026-08-07. It is wired now, so tag it when it fits. It takes a text post and unfurls the link into a card from the story's own share image, so it does NOT need the candidate to carry an image the way Instagram does: judge it on whether the story is worth a short, sharp line.
+
+YOUTUBE IS NOT ONE OF THESE FOUR. It appears on the video row from 2c, alone, and NOWHERE ELSE. Never add it to a story's platforms array: nothing here posts to YouTube, so on a story it would narrow the row for no reason, and on the video it is the marker that makes the queue treat it correctly. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
 
 THIS TAG DECIDES WHERE THE POST GOES. It was advice for four months and stopped being advice on 2026-08-19: the Post button now offers only the accounts you named here, narrowed further by what each one can technically take. Name an account and the story can reach it; leave one off and it cannot, however good a fit it was.
 
@@ -2465,7 +2445,8 @@ Say which accounts carry the story and why, in one short phrase each:
 
   FACEBOOK: the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
   INSTAGRAM: anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
-  THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
+  THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image.
+  X: short and fast. One sharp line and a link, no image needed. Best for a story with a hook that survives being said in a sentence: a record broken, a strange contest, a thing that should not exist. Weakest for anything that needs setup before it is interesting, because the caption is capped at 280 characters INCLUDING the link, which is counted as 23 whatever its real length. Every candidate reaches it.
 
 Judge from the image you captured in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook, and that is now a real decision rather than a note: it means the story goes to Facebook alone. Do not tag everything on everything either, because a tag that always fires is not a judgement; tag what fits.
 
@@ -2720,12 +2701,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var queueList = document.getElementById('queueList');
       var queueEmpty = document.getElementById('queueEmpty');
       var tabActive = document.getElementById('tabActive');
-      var tabYouTube = document.getElementById('tabYouTube');
-      var tabYouTubeCount = document.getElementById('tabYouTubeCount');
-      // Off by default on every load. A filter that remembered itself would
-      // be a page that opens showing one candidate in five with no obvious
-      // reason why.
-      var youTubeOnly = false;
       var tabSkipped = document.getElementById('tabSkipped');
       var tabActiveCount = document.getElementById('tabActiveCount');
       var tabSkippedCount = document.getElementById('tabSkippedCount');
@@ -4310,23 +4285,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var buckets = { active: live, skipped: skipped, posted: posted };
         var shown = buckets[view] || live;
 
-        // THE COUNT IS OF THE WHOLE TABLE, NOT OF THIS TAB. It is answering
-        // "are there any videos" rather than "how many are in front of me", so
-        // it must not go to zero just because you happen to be standing in
-        // Skipped. The tab counts beside it are per-bucket and that is right for
-        // them: they ARE the buckets.
-        var ytAll = usable.filter(isYouTubePost);
-        if (tabYouTubeCount) tabYouTubeCount.textContent = String(ytAll.length);
-        if (tabYouTube) {
-          // Nothing to filter, so no control, and never left switched on behind
-          // a button that has just disappeared.
-          if (!ytAll.length && youTubeOnly) youTubeOnly = false;
-          tabYouTube.hidden = !ytAll.length;
-          tabYouTube.setAttribute('aria-pressed', youTubeOnly ? 'true' : 'false');
-          tabYouTube.classList.toggle('is-active', youTubeOnly);
-        }
-        if (youTubeOnly) shown = shown.filter(isYouTubePost);
-
         shown.forEach(function (post) {
           queueList.appendChild(buildPost(post, view, post.id));
         });
@@ -4340,11 +4298,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         queueList.setAttribute('aria-labelledby',
           view === 'skipped' ? 'tabSkipped' : (view === 'posted' ? 'tabPosted' : 'tabActive'));
 
-        if (youTubeOnly && !shown.length) {
-          // Says which filter emptied the list, because "nothing skipped yet"
-          // would be a lie about a tab that has plenty in it.
-          showEmpty('No YouTube candidates in this tab. Press YouTube again to see the rest.');
-        } else if (view === 'skipped') {
+        if (view === 'skipped') {
           showEmpty(skipped.length ? '' : 'Nothing skipped yet.');
         } else if (view === 'posted') {
           showEmpty(posted.length ? '' : 'Nothing posted yet. Finish a Post run and it lands here.');
@@ -5651,8 +5605,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // are per-step for the same reason: the caption for Instagram must land on
       // the clipboard at the moment its tab opens, not four steps earlier.
       // 'meta' is the merged Facebook+Instagram destination, not a Graph term.
-      // X was removed on 2026-08-07: it was never wired for API posting, so it
-      // only ever added a manual step this page could not help with.
+      // X was removed on 2026-08-07 for exactly the reason this runner exists to
+      // avoid: it was not wired for API posting, so it only ever added a manual
+      // step. It is wired as of 2026-08-20 and posts through the Edge Function
+      // with the other three, so it is not a step in here any more.
       // PLATFORM_ORDER lived here and was deleted on 2026-08-09. It listed the
       // destinations for a per-card picker that went away with X and YouTube,
       // and NOTHING HAD READ IT SINCE -- so adding 'threads' to it, as was done
@@ -5717,7 +5673,34 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // Threads TAKES TEXT-ONLY POSTS, so unlike Instagram it is not
         // conditional on the candidate having an image. That is why it is its
         // own destination rather than another account inside the meta fan-out.
-        threads: true      // graph.threads.net POST /{user}/threads -> /threads_publish
+        threads: true,     // graph.threads.net POST /{user}/threads -> /threads_publish
+        // X is ON since 2026-08-20, restored after being removed from this page
+        // on 2026-08-07. It is a third API and a third credential and shares
+        // nothing with the other two:
+        //
+        //   supabase secrets set X_API_KEY=...
+        //   supabase secrets set X_API_SECRET=...
+        //   supabase secrets set X_ACCESS_TOKEN=...
+        //   supabase secrets set X_ACCESS_TOKEN_SECRET=...
+        //
+        // ALL FOUR, AND THE TOKEN PAIR MUST BE READ AND WRITE. The default is
+        // read-only and a read-only token fails at post time with a 403 that
+        // says nothing about permissions; changing the app's permission level
+        // does not update an already-issued pair, so they have to be
+        // REGENERATED afterwards.
+        //
+        // POSTING NEEDS A PAID TIER. The free tier allows almost no writes.
+        // This is the only account here that costs money, which is worth
+        // knowing before wondering why a correct setup returns 403 or 429.
+        //
+        // TEXT AND A LINK, NO IMAGE UPLOAD. X unfurls the link into a card from
+        // the destination's own og:image, so the post is not bare, but the
+        // picture is the article's rather than one we sent. That makes X
+        // unconditional like Threads rather than image-gated like Instagram.
+        //
+        // OAuth 1.0a rather than OAuth 2.0, so nothing expires: see the long
+        // note in mc/supabase/functions/socials-post/index.ts for why.
+        x: true            // api.x.com POST /2/tweets
       };
 
       // Platforms that can NEVER be posted to by machine, as distinct from ones
@@ -5725,11 +5708,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // promise, "suggest only" is a fact, and one greyed button for both
       // implies something is coming that is not.
       //
-      // Empty since 2026-08-07, when YouTube was removed from the page entirely
-      // -- it was the only entry. Kept because the distinction is real and the
-      // next unpostable platform should land here rather than being quietly
-      // filed as "not configured yet".
-      var PLATFORM_SUGGEST_ONLY = {};
+      // Empty from 2026-08-07, when YouTube was removed from the page entirely,
+      // until 2026-08-20, when the routine started filing one video a run and
+      // YouTube became a real answer again rather than a missing one.
+      //
+      // A YouTube candidate is posted BY HAND, as a post on our channel. There
+      // is no small API for that the way there is for the other three, so this
+      // is a fact about the platform and not a piece of work waiting to be
+      // done, which is exactly the distinction this object exists to carry.
+      var PLATFORM_SUGGEST_ONLY = {
+        youtube: 'YouTube is posted by hand: open the video, share it to the ' +
+                 'channel as a post, then mark this one posted.'
+      };
 
       function hasImage(post) {
         return !!String((post && post.image) || '').trim();
@@ -5777,6 +5767,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function postTargets(post) {
         var out = metaTargets(post);
         if (PLATFORM_AUTOPOST.threads) out.push('threads');
+        // Unconditional, like Threads and unlike Instagram: X takes a text post
+        // and unfurls the link into a card, so a candidate with no image of its
+        // own still makes a normal post there.
+        if (PLATFORM_AUTOPOST.x) out.push('x');
 
         // THE BOT'S TAGS NARROW THIS, as of 2026-08-19. They were ADVICE, NOT
         // ROUTING for four months and this reverses that: the Platforms cell
@@ -5860,7 +5854,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // sides of the wire: the Edge Function had this as
       // `p === 'facebook' ? 'Facebook' : 'Instagram'` and would have filed
       // every Threads post as Instagram. A default is what makes that silent.
-      var WIRE_LABELS = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads' };
+      // X REJOINED ON 2026-08-20 and YouTube deliberately did NOT. The two were
+      // removed together on 2026-08-07, and they are not the same case: X is an
+      // account we can post to by machine, so it belongs here and gets routed;
+      // YouTube is shared by hand, so naming it here would make suggestedKeys()
+      // return a key that postTargets() can never satisfy, and isYouTubePost()
+      // reads the EMPTY result as the marker for a video row.
+      var WIRE_LABELS = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', x: 'X' };
 
       function wireLabels(keys) {
         return (keys || []).map(function (k) { return WIRE_LABELS[k] || k; });
@@ -5954,11 +5954,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       };
 
       // -- Post controls, inline on the card -------------------------------
-      // There is nothing to pick any more. X was removed on 2026-08-07 and
-      // YouTube before it, leaving Meta as the only destination -- and which
-      // Meta accounts a story reaches is not a preference but a fact about the
-      // candidate, because Instagram's API refuses a text-only post. So the
-      // button states the outcome instead of offering a choice with one answer:
+      // There is nothing to pick any more, and that is still true with four
+      // destinations rather than one. Which accounts a story reaches is not a
+      // preference but a fact about the candidate: Instagram's API refuses a
+      // text-only post, and the bot's own tags narrow the rest. So the button
+      // states the outcome instead of offering a choice it already knows the
+      // answer to:
       //
       //   candidate has an image  ->  "Post to Facebook + Instagram"
       //   candidate has no image  ->  "Post to Facebook"
@@ -6319,11 +6320,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       });
 
       if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
-      // A toggle, not a view: it leaves you in whichever tab you were in.
-      if (tabYouTube) tabYouTube.addEventListener('click', function () {
-        youTubeOnly = !youTubeOnly;
-        renderQueue();
-      });
       if (tabPosted) tabPosted.addEventListener('click', function () { setView('posted'); });
       if (tabSkipped) tabSkipped.addEventListener('click', function () { setView('skipped'); });
 
