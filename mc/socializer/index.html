@@ -1147,6 +1147,49 @@
        dialog rather than against the button beside it. Its own measure, because
        four sentences set to the full width of a --wide panel are a paragraph
        nobody reads. */
+    /* A row, not a column: five short words that read as one control. The
+       fieldset border is dropped because the dialog already frames this and a
+       second box around five checkboxes is a box too many. */
+    .prompt-platforms {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 16px;
+      margin: 0 0 10px;
+      padding: 0;
+      border: 0;
+    }
+    .prompt-platforms > legend {
+      float: left;
+      width: 100%;
+      margin: 0 0 6px;
+      padding: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .prompt-platforms label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    /* An unticked account is what you are looking for when you glance back at
+       this row, so it is the one that changes rather than the ticked ones. */
+    .prompt-platforms label.is-off {
+      color: var(--muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+    .prompt-platforms input { accent-color: var(--accent); }
+
     .prompt-howto {
       margin: 2px 0 0;
       max-width: 58ch;
@@ -2032,6 +2075,24 @@
         </div>
 
         <div class="prompt-body">
+          <!-- WHICH ACCOUNTS THIS RUN IS FOR. All five on is the ordinary state
+               and writes nothing into the prompt: the authored text already
+               covers every account, so an untouched dialog hands back exactly
+               the text in this file. Same shape as the Tape Room's city picker,
+               where blank is a real answer rather than a missing one.
+
+               Turning one OFF writes a short block at the top of the sheet
+               naming what to leave alone. Visible text rather than hidden
+               state, because the whole point of this dialog is that you can
+               read what you are about to paste. -->
+          <fieldset class="prompt-platforms" id="promptPlatforms">
+            <legend>Accounts this run</legend>
+            <label><input type="checkbox" value="Facebook" checked> Facebook</label>
+            <label><input type="checkbox" value="Instagram" checked> Instagram</label>
+            <label><input type="checkbox" value="Threads" checked> Threads</label>
+            <label><input type="checkbox" value="X" checked> X</label>
+            <label><input type="checkbox" value="YouTube" checked> YouTube</label>
+          </fieldset>
           <textarea class="prompt" id="promptText" spellcheck="false" aria-label="The prompt. Editable; your edits are kept in this browser.">You are the socials scout for The Game Bureau. Find five things worth sharing (one gift from our own shop, then four stories), write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review. Then find ONE YouTube video worth sharing on our own channel, which is a sixth row in that same statement and is not one of the five.
 
 You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socializer/ and decides what goes out.
@@ -2754,6 +2815,95 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var PROMPT_STORE_KEY = 'tgb_socials_prompt_v1';
       var BASE_PROMPT = promptEl ? promptEl.value : '';
 
+      // -- THE ACCOUNTS BLOCK ------------------------------------------------
+      //
+      // Toggling rewrites ONE delimited block at the top of the sheet and
+      // touches nothing else. That matters because this prompt is editable and
+      // what you type is kept: rebuilding the whole thing from BASE_PROMPT on
+      // every toggle, which is what the Tape Room's city picker does, would
+      // throw your edits away the moment you unticked a box.
+      //
+      // ALL FIVE TICKED WRITES NOTHING AT ALL. The authored prompt already
+      // covers every account, so the ordinary state hands back exactly the text
+      // in this file, and re-ticking the last box removes the block rather than
+      // leaving a paragraph behind saying "all of them".
+      var PLATFORM_BLOCK_OPEN  = '=== ACCOUNTS FOR THIS RUN ===';
+      var PLATFORM_BLOCK_CLOSE = '=== END ACCOUNTS ===';
+      var platformsEl = document.getElementById('promptPlatforms');
+
+      function platformBoxes() {
+        return platformsEl
+          ? Array.prototype.slice.call(platformsEl.querySelectorAll('input[type="checkbox"]'))
+          : [];
+      }
+
+      /** The block's text, or '' when every account is in play. */
+      function platformBlock() {
+        var boxes = platformBoxes();
+        var off = boxes.filter(function (b) { return !b.checked; })
+                       .map(function (b) { return b.value; });
+        if (!off.length) return '';
+
+        var on = boxes.filter(function (b) { return b.checked; })
+                      .map(function (b) { return b.value; });
+        var lines = [PLATFORM_BLOCK_OPEN];
+
+        // Named both ways round on purpose. "Only these" is the instruction; the
+        // list of what to leave alone is what stops a model tagging an account
+        // out of habit, because the rules further down still describe it.
+        lines.push(on.length
+          ? 'Only these accounts are in play this run: ' + on.join(', ') + '.'
+          : 'No accounts are in play this run.');
+        lines.push('Do not tag ' + off.join(' or ') + ' on any candidate, and ignore every');
+        lines.push('instruction below that describes ' +
+                   (off.length > 1 ? 'those accounts' : 'that account') + '.');
+
+        // YouTube is not a tag on a story, it is a whole extra row, so turning
+        // it off has to say so in the prompt's own terms or step 2c still runs.
+        if (off.indexOf('YouTube') !== -1) {
+          lines.push('');
+          lines.push('SKIP STEP 2c ENTIRELY. Hand back five rows, not six: no video row,');
+          lines.push('no -y1 id, and nothing tagged YouTube.');
+        }
+
+        lines.push(PLATFORM_BLOCK_CLOSE);
+        lines.push('');
+        lines.push('');
+        return lines.join('\n');
+      }
+
+      /** Replace the block in `text`, insert it at the top, or take it out. */
+      function withPlatformBlock(text) {
+        var block = platformBlock();
+        var start = text.indexOf(PLATFORM_BLOCK_OPEN);
+        if (start !== -1) {
+          var end = text.indexOf(PLATFORM_BLOCK_CLOSE, start);
+          if (end !== -1) {
+            // Eat the blank lines the block left after itself, so toggling twice
+            // does not leave a growing gap where it used to be.
+            var after = end + PLATFORM_BLOCK_CLOSE.length;
+            while (text.charAt(after) === '\n') after += 1;
+            text = text.slice(0, start) + text.slice(after);
+          }
+        }
+        return block ? block + text : text;
+      }
+
+      function paintPlatformLabels() {
+        platformBoxes().forEach(function (box) {
+          var label = box.closest ? box.closest('label') : box.parentNode;
+          if (label) label.classList.toggle('is-off', !box.checked);
+        });
+      }
+
+      function applyPlatformBlock() {
+        if (!promptEl) return;
+        promptEl.value = withPlatformBlock(promptEl.value);
+        paintPlatformLabels();
+        storePrompt();
+        paintPromptEdited();
+      }
+
       function promptFingerprint(text) {
         var h = 5381;
         for (var i = 0; i < text.length; i += 1) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
@@ -2803,6 +2953,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function resetPromptText() {
         if (!promptEl) return;
         promptEl.value = BASE_PROMPT;
+        // BASE_PROMPT has no accounts block in it, so the boxes have to come
+        // back on with it. Left unticked they would claim a restriction the
+        // restored text does not carry, which is worse than either state on its
+        // own: the control and the sheet would be saying different things.
+        platformBoxes().forEach(function (box) { box.checked = true; });
+        paintPlatformLabels();
         storePrompt();
         paintPromptEdited();
         if (copyStatus) copyStatus.textContent = 'Authored prompt restored';
@@ -6417,6 +6573,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
       }
       if (promptResetBtn) promptResetBtn.addEventListener('click', resetPromptText);
+
+      // Delegated, so the five boxes need no ids and a sixth account needs only
+      // a line of markup. `change` rather than `click`: it fires for the
+      // keyboard and for a press on the label text, both of which are how these
+      // actually get used.
+      if (platformsEl) {
+        platformsEl.addEventListener('change', function (e) {
+          if (e.target && e.target.type === 'checkbox') applyPlatformBlock();
+        });
+        // A stored edit may already carry a block from last time, in which case
+        // the boxes have to match the sheet rather than the markup's defaults.
+        // The sheet is the truth here: it is the thing that gets pasted.
+        if (promptEl && promptEl.value.indexOf(PLATFORM_BLOCK_OPEN) !== -1) {
+          var head = promptEl.value.slice(0, promptEl.value.indexOf(PLATFORM_BLOCK_CLOSE));
+          platformBoxes().forEach(function (box) {
+            box.checked = !new RegExp('\\b' + box.value + '\\b').test(
+              head.slice(head.indexOf('Do not tag'))
+            );
+          });
+        }
+        paintPlatformLabels();
+      }
 
       // ONE COPY, ONE CALLER since the Copy button went: each of the AI links,
       // which copy and then open their chat in the same click.
