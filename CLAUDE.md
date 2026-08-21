@@ -25,11 +25,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| [2026082102_socials_posted_ids.sql](mc/supabase/migrations/2026082102_socials_posted_ids.sql) | **Done fails on any post that reached a machine account**, since it writes `posted_ids`, so a posted candidate cannot be filed. The page names this file rather than showing a raw PGRST204. |
-| [2026082105_public_socials_feed_instagram.sql](mc/supabase/migrations/2026082105_public_socials_feed_instagram.sql) | **/linkinbio/ lists posts that never went to Instagram.** Nothing errors; the list is simply broader than the page says it is, which is the kind of wrong nobody reports. |
-| [2026082103_socials_captions.sql](mc/supabase/migrations/2026082103_socials_captions.sql) | **Save captions fails**, reported inside the dialog. Everything else is unaffected: `blurbFor()` falls back to `blurb`, so every account posts the shared caption exactly as it did before. |
-
-**`2026082101_socials_returned_from.sql` WAS ON THIS LIST AND IS APPLIED**, verified on 2026-08-21 by probing `socials?select=returned_from` (200, against 42703 for the two above). Row deleted, per the rule. **Ask the database.**
+| *(none)* | Everything in `mc/supabase/migrations/` is applied as of 2026-08-21, verified against the database rather than assumed: the four columns and functions added that day were each probed and answered 200. |
 
 **THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
 for it. It listed `2026082003` as pending because that is what the last message
