@@ -60,13 +60,26 @@
 
   * { box-sizing: border-box; }
 
-  html { -webkit-text-size-adjust: 100%; }
+  /* NOTHING MAY MOVE SIDEWAYS. Instagram's in-app browser rubber-bands on both
+     axes, so a single pixel of horizontal overflow anywhere turns every
+     vertical swipe into a wobble. `overflow-x: hidden` is the backstop and
+     `overscroll-behavior` is what stops the bounce itself -- the page no longer
+     slides against its own edges, and a swipe cannot chain through to whatever
+     the browser is showing behind it. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
 
   /* THIS PAGE IS READ ON A PHONE, IN INSTAGRAM'S OWN BROWSER, more or less
      without exception. Everything below is sized for a thumb first and simply
      stops widening on a desktop. */
   body {
     margin: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
     padding: 0 16px 56px;
     background: var(--ground);
     color: var(--text);
@@ -74,7 +87,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 560px; margin: 0 auto; }
+  .wrap { width: 100%; max-width: 560px; margin: 0 auto; }
 
   header { padding: 40px 4px 22px; text-align: center; }
 
@@ -100,10 +113,24 @@
      tapped by a thumb on a moving train. */
   .feed { display: grid; gap: 10px; }
 
+  /* EVERY ROW IS THE SAME HEIGHT, AND THAT IS THE REAL FIX FOR A PAGE THAT
+     SCOOTS. Row height used to be decided by the TEXT -- one line of headline
+     or three, in whichever font had arrived -- so the whole list re-laid itself
+     out when the webfont landed and again when a slow thumbnail resolved.
+     Everything below the change jumped.
+
+     At a fixed 98px the total height of the page is 25 rows times 108px before
+     a single character is measured. Nothing the fonts or the images do can move
+     anything. 98 = the 74px thumbnail plus 11px of padding either side plus
+     the two borders, so the picture still sets the proportion; the text now
+     fits inside that rather than deciding it. */
   .item {
     display: flex;
     align-items: center;
     gap: 13px;
+    height: 98px;
+    max-width: 100%;
+    overflow: hidden;
     padding: 11px;
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -130,17 +157,24 @@
     object-fit: cover;
   }
 
-  .body { min-width: 0; }
+  /* `flex: 1 1 auto` WITH `min-width: 0`. Without the explicit basis a flex
+     child is sized from its content, and .meta below is `nowrap`: a long outlet
+     name could set a width wider than the row and push the card past the
+     viewport, which is the horizontal overflow the rules above only hide. */
+  .body { flex: 1 1 auto; min-width: 0; }
 
   .title {
     margin: 0;
     font-size: 0.98rem;
     font-weight: 700;
     line-height: 1.32;
-    /* Three lines, then an ellipsis: a 90-character headline would otherwise
-       make one card four times the height of its neighbour. */
+    /* TWO LINES, NOT THREE, now that the card has a fixed height: two lines of
+       headline plus the source line fits inside 98px with room to spare, and
+       three does not -- the third line would push the source out of the card.
+       A long word is broken rather than allowed to set the width. */
+    overflow-wrap: anywhere;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -150,6 +184,7 @@
      things The Game Bureau wrote. */
   .meta {
     margin: 5px 0 0;
+    max-width: 100%;
     color: var(--muted);
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.68rem;
