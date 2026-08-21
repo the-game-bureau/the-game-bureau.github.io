@@ -315,17 +315,6 @@ async function refreshThreadsToken(token: string): Promise<{ token: string; expi
 /** The token to post with, refreshed if it is close to dying. Never throws for
  *  a refresh problem — a token that could not be renewed today is still a token
  *  that works today. */
-/** The stored Threads row, or null. Split out of threadsToken() so diagnose can
- *  report an expiry without triggering a refresh as a side effect. */
-async function readStoredThreadsToken(): Promise<{ token?: string; expires_at?: string } | null> {
-  const { data } = await supa
-    .from('integration_tokens')
-    .select('token, expires_at')
-    .eq('key', THREADS_TOKEN_KEY)
-    .maybeSingle();
-  return data ?? null;
-}
-
 async function threadsToken(): Promise<string> {
   if (threadsTokenCache) return threadsTokenCache;
 
@@ -931,14 +920,20 @@ Deno.serve(async (req: Request) => {
           detail: 'THREADS_USER_ID is not set on this project.',
         };
       } else {
+        // THE EXISTING READER, NOT A SECOND ONE. An earlier version of this
+        // block declared its own readStoredThreadsToken() a few lines below the
+        // real one, which shadowed it and handed `threadsToken()` a row with no
+        // `expiresAt` on it -- so the refresh logic silently stopped seeing an
+        // expiry at all. The function it needed was already there.
         const stored = await readStoredThreadsToken();
         const token  = await threadsToken();
         // Days from the STORED expiry, which is the number that matters: the
         // function only refreshes when it posts, so a quiet fortnight is how
         // this dies. Reported even when the probe passes, because a token that
         // works today and expires on Thursday still needs attention.
-        const expiresInDays = stored?.expires_at
-          ? Math.floor((new Date(stored.expires_at).getTime() - Date.now()) / 86400000)
+        // expiresAt is a millisecond timestamp and 0 means "not known".
+        const expiresInDays = stored && stored.expiresAt
+          ? Math.floor((stored.expiresAt - Date.now()) / 86400000)
           : null;
         if (!token) {
           out.threads = {
