@@ -5,10 +5,14 @@
  * word FOLLOW ever said, and it is the visual signature of anything to do with
  * our social accounts.
  *
- * IT IS NOT A CONTROL. No click handler, no href, aria-hidden, and
- * pointer-events: none so it cannot swallow a click meant for whatever it sits
- * inside. On the Mission Control hub it sits inside the SOCIALIZER card, which
- * is itself one big link, and a decoration that ate that click would be a bug.
+ * THE REEL ITSELF IS NEVER THE CONTROL. It is aria-hidden and carries
+ * pointer-events: none, always, in both of its uses. Where it needs to be
+ * pressable a real <button> is put AROUND it and takes the click, which is why
+ * that property can stay unconditional: the reel is the face, the button is the
+ * control, and a decoration that ate a click meant for something else would be
+ * a bug. On the Mission Control hub the SOCIALIZER card is one big <a>, so its
+ * follow button is a SIBLING of that anchor rather than a child of it: a
+ * <button> inside an <a> is invalid HTML and browsers disagree about it.
  *
  * WHY A FILE RATHER THAN INLINE. This is the THIRD place the reel has been
  * wanted (public nav, admin nav, the hub card) and the second time it was
@@ -17,15 +21,34 @@
  * header to build and never reaches its exports, so an admin page loading it
  * gets nothing. Every ADMIN surface reads this file instead.
  *
- * ICONS ONLY, NEVER THE URLS. That asymmetry is the safety argument. A drifted
- * url sends somebody to the wrong account, which is what killed the footer's
- * old Follow column; a drifted icon costs a picture. Nothing here links
- * anywhere, so there is no url to get wrong. Adding a sixth account means
- * editing this file and shell/site-nav.js; until both are done the reel simply
- * shows five.
+ * IT CARRIES THE URLS AS WELL AS THE ICONS, AND THAT REVERSES WHAT THIS FILE
+ * SAID WHEN IT WAS WRITTEN. The first version held icons only, on the argument
+ * that a drifted url sends somebody to the wrong account (which is what killed
+ * the footer's old Follow column) while a drifted icon merely costs a picture.
+ * That argument was sound while the reel was decoration and had nowhere to go.
+ * It stopped applying the moment the hub's reel became a BUTTON that opens the
+ * menu: a menu with no links in it is not a menu.
+ *
+ * SO THE DRIFT RISK IS REAL AGAIN and there is no clever way around it. This
+ * list and the one in shell/site-nav.js are the same five accounts written
+ * twice, kept in step by hand. site-nav.js cannot be shared: it returns early
+ * when there is no public header to build and never reaches its exports, so an
+ * admin page loading it gets nothing back. CHANGE AN ACCOUNT IN BOTH FILES.
  */
 (function () {
   'use strict';
+
+  // name and handle are shown in the menu; the icon is shared with the reel, so
+  // the faces scrolling on the button and the rows behind it cannot disagree.
+  var ACCOUNTS = [
+    ['https://www.instagram.com/thegamebureau', 'Instagram', '@thegamebureau'],
+    // threads.COM, not .net: Meta moved the domain and the old one redirects
+    // rather than resolving, a hop worth not making.
+    ['https://www.threads.com/@thegamebureau', 'Threads', '@thegamebureau'],
+    ['https://x.com/thegamebureau', 'X', '@thegamebureau'],
+    ['https://www.facebook.com/thegamebureau', 'Facebook', 'The Game Bureau'],
+    ['https://youtube.com/@thegamebureau', 'YouTube', '@thegamebureau']
+  ];
 
   var ICONS = [
     // Instagram
@@ -86,6 +109,61 @@
        first icon, which is still a truthful face. */
     '@media (prefers-reduced-motion: reduce) {',
     '  .tgb-reel-track { animation: none; }',
+    '}',
+    /* -- THE MENU ---------------------------------------------------------
+       A panel under the button, not a full-screen modal. Five links do not
+       earn a scrim and a dismissal; this is a menu and should feel like one.
+       Same shape as the public nav's, deliberately: it is the same five
+       accounts and should not read as a different object depending which
+       side of the site you are standing on. */
+    '.tgb-reelpop-wrap { position: relative; display: inline-flex; }',
+    '.tgb-reelpop {',
+    '  position: absolute;',
+    '  top: calc(100% + 8px);',
+    '  right: 0;',
+    '  z-index: 400;',
+    '  min-width: 232px;',
+    '  padding: 6px;',
+    '  border: 1px solid rgba(27, 36, 56, 0.16);',
+    '  border-radius: 12px;',
+    '  background: #fff;',
+    '  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.16);',
+    '  text-align: left;',
+    '}',
+    '.tgb-reelpop[hidden] { display: none; }',
+    /* Opens upward when there is more room above; see popup() for how that
+       is decided. */
+    '.tgb-reelpop--up { top: auto; bottom: calc(100% + 8px); }',
+    /* LINKTREE SHAPE: full-width stacked rows, each one a whole target. The
+       point of that pattern is there is nothing to aim at, because the row
+       IS the button. */
+    '.tgb-reelpop-item {',
+    '  display: flex;',
+    '  align-items: center;',
+    '  gap: 11px;',
+    '  padding: 9px 11px;',
+    '  border-radius: 8px;',
+    '  color: #1b2438;',
+    '  text-decoration: none;',
+    '  transition: background 0.12s ease;',
+    '}',
+    '.tgb-reelpop-item:hover, .tgb-reelpop-item:focus-visible {',
+    '  background: rgba(45, 72, 128, 0.07);',
+    '  outline: none;',
+    '}',
+    '.tgb-reelpop-item:focus-visible { box-shadow: inset 0 0 0 2px rgba(45,72,128,0.5); }',
+    '.tgb-reelpop-ico {',
+    '  flex: 0 0 18px;',
+    '  width: 18px;',
+    '  height: 18px;',
+    '  background: currentColor;',
+    '}',
+    '.tgb-reelpop-name { font-weight: 600; font-size: 0.9rem; line-height: 1.15; }',
+    '.tgb-reelpop-handle {',
+    '  display: block;',
+    '  font-family: "IBM Plex Mono", ui-monospace, monospace;',
+    '  font-size: 0.68rem;',
+    '  color: rgba(27, 36, 56, 0.55);',
     '}'
   ].join('\n');
 
@@ -119,6 +197,90 @@
     return reel;
   }
 
+  // -- THE MENU --------------------------------------------------------------
+  //
+  // Hangs the five accounts off any trigger you give it. The trigger keeps
+  // whatever it already is; this only re-parents it into a positioned wrap so
+  // the panel has something to sit under, builds the rows, and wires open and
+  // close.
+  //
+  // IT OPENS UPWARD WHEN THERE IS MORE ROOM ABOVE, decided at open time from
+  // getBoundingClientRect rather than from which trigger it is, so one function
+  // is safe on a button anywhere on the page.
+  function popup(trigger) {
+    if (!trigger || trigger.dataset.tgbReelPop === '1') return trigger;
+    trigger.dataset.tgbReelPop = '1';
+    ensureCss();
+
+    var wrap = document.createElement('span');
+    wrap.className = 'tgb-reelpop-wrap';
+    trigger.parentNode.insertBefore(wrap, trigger);
+    wrap.appendChild(trigger);
+
+    var pop = document.createElement('div');
+    pop.className = 'tgb-reelpop';
+    pop.hidden = true;
+    pop.setAttribute('role', 'menu');
+    ACCOUNTS.forEach(function (acct, i) {
+      var a = document.createElement('a');
+      a.className = 'tgb-reelpop-item';
+      a.href = acct[0];
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.setAttribute('role', 'menuitem');
+      var ico = document.createElement('span');
+      ico.className = 'tgb-reelpop-ico';
+      ico.style.mask = 'url("data:image/svg+xml,' + ICONS[i] + '") center / contain no-repeat';
+      ico.style.webkitMask = 'url("data:image/svg+xml,' + ICONS[i] + '") center / contain no-repeat';
+      var txt = document.createElement('span');
+      var nm = document.createElement('span');
+      nm.className = 'tgb-reelpop-name';
+      nm.textContent = acct[1];
+      var hd = document.createElement('span');
+      hd.className = 'tgb-reelpop-handle';
+      hd.textContent = acct[2];
+      txt.appendChild(nm);
+      txt.appendChild(hd);
+      a.appendChild(ico);
+      a.appendChild(txt);
+      pop.appendChild(a);
+    });
+    wrap.appendChild(pop);
+
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    function onOutside(e) { if (!wrap.contains(e.target)) close(); }
+    function onKey(e) { if (e.key === 'Escape') { close(); trigger.focus(); } }
+    function open() {
+      var box = trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
+      var below = box ? window.innerHeight - box.bottom : 999;
+      pop.classList.toggle('tgb-reelpop--up', !!(below < 260 && box && box.top > below));
+      pop.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      document.addEventListener('click', onOutside, true);
+      document.addEventListener('keydown', onKey, true);
+    }
+    function close() {
+      pop.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onOutside, true);
+      document.removeEventListener('keydown', onKey, true);
+    }
+
+    // preventDefault AND stopPropagation. The first is belt and braces on a
+    // <button type="button">; the second is load-bearing, because the
+    // outside-click handler is registered in the CAPTURE phase and would
+    // otherwise see this very click on its way down and shut the menu the
+    // instant it opened.
+    trigger.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pop.hidden) open(); else close();
+    });
+    return trigger;
+  }
+
   // Fills any empty element carrying data-tgb-reel, so a host page declares it
   // in markup and never has to write a line of script. Painted twice for the
   // same reason room-blurbs.js is: once now for a script at the end of the
@@ -140,5 +302,5 @@
     document.addEventListener('DOMContentLoaded', function () { paint(); });
   }
 
-  window.TgbFollowReel = { build: build, paint: paint };
+  window.TgbFollowReel = { build: build, paint: paint, popup: popup };
 })();
