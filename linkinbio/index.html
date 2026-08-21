@@ -31,7 +31,16 @@
 <link rel="preconnect" href="https://qmaafbncpzrdmqapkkgr.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<!-- THE WEBFONT MUST NOT BLOCK THE FIRST PAINT. A stylesheet link is
+     render-blocking, and this page is opened on a phone on mobile data from
+     inside Instagram: the words matter more than which face they are in. Loaded
+     as `print` and switched to `all` once it arrives, so the system stack in
+     the CSS below draws immediately and is replaced when the font lands. The
+     <noscript> copy is for a browser that never runs the switch. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap"></noscript>
 
 <style>
   :root {
@@ -151,6 +160,35 @@
     font-size: 0.92rem;
   }
 
+  /* THE WAY DEEPER, AND THE WAY BACK, IN THE SAME PLACE. Both are a single
+     control at the end of the list, because that is where you are when you run
+     out of things to read. */
+  .more { padding: 22px 4px 0; text-align: center; }
+  .more[hidden] { display: none; }
+
+  .more button, .more a {
+    display: inline-block;
+    padding: 12px 22px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .more button:hover, .more a:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+    background: #17171a;
+  }
+
+  .more button:disabled { opacity: 0.5; cursor: default; }
+
   footer { padding: 32px 4px 0; text-align: center; }
 
   footer a {
@@ -176,12 +214,14 @@
   <div class="wrap">
     <header>
       <h1>The Game Bureau Links</h1>
-      <p class="tag">Everything we have posted lately</p>
+      <p class="tag" id="tag">Everything we have posted lately</p>
     </header>
 
     <main class="feed" id="feed" aria-busy="true">
       <p class="note" id="note">Loading&hellip;</p>
     </main>
+
+    <div class="more" id="more" hidden></div>
 
     <footer>
       <a href="https://thegamebureau.com/">thegamebureau.com</a>
@@ -196,13 +236,30 @@
     var SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
     var SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
-    // 24 IS THE FUNCTION'S OWN CEILING, not a number chosen here.
-    // tgb_public_socials_feed clamps feed_limit to 24 so a public endpoint
-    // cannot be asked for the whole table. Asking for more is not an error, it
-    // just returns 24, so this says 24 rather than pretending otherwise.
-    var LIMIT = 24;
+    // TWO VIEWS, ONE FILE. The archive is `?all` rather than a second page,
+    // because a second page means a second copy of this stylesheet and this
+    // renderer, and copy-and-drift is the failure this repo has paid for more
+    // than any other. The link is what was asked for; a separate FILE was not.
+    var ARCHIVE = /(^|[?&])all(=|&|$)/.test(location.search);
+
+    // FRONT: 25. ARCHIVE: 100 A PAGE, walked.
+    //
+    // 100 is the function's own ceiling per call, so the archive is one request
+    // when there are fewer than 100 posts and grows a button when there are
+    // more. THE FIRST PAGE ALWAYS PAINTS BEFORE ANY OF THAT: nothing waits on a
+    // second request, which is the whole of "fast page load" here.
+    var FRONT = 25;
+    var PAGE = 100;
 
     var feed = document.getElementById('feed');
+    var more = document.getElementById('more');
+    // The heading stays. Only the line under it changes, so the two views are
+    // plainly the same page rather than two places with the same name.
+    if (ARCHIVE) {
+      var tag = document.getElementById('tag');
+      if (tag) tag.textContent = 'The archive';
+      document.title = 'Archive · The Game Bureau Links';
+    }
 
     function say(text) {
       feed.textContent = '';
@@ -276,19 +333,87 @@
       return a;
     }
 
-    fetch(SUPABASE_URL + '/rest/v1/rpc/tgb_public_socials_feed?feed_limit=' + LIMIT, {
-      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
-    })
-      .then(function (res) {
+    /** One page of the feed.
+     *
+     *  THE FIRST PAGE DELIBERATELY DOES NOT SEND feed_offset. That parameter
+     *  arrived with 2026082104, and until that migration is applied PostgREST
+     *  answers a call naming it with "function not found" -- so a page that
+     *  always sent it would be a page that was blank until somebody ran some
+     *  SQL. Sending it only when it is non-zero means the front view and the
+     *  archive's first page work against either version of the function, and
+     *  only the DEPTH of the archive waits on the migration.
+     */
+    function page(limit, offset) {
+      var q = '?feed_limit=' + limit + (offset ? '&feed_offset=' + offset : '');
+      return fetch(SUPABASE_URL + '/rest/v1/rpc/tgb_public_socials_feed' + q, {
+        headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+      }).then(function (res) {
         if (!res.ok) throw new Error('feed responded ' + res.status);
         return res.json();
-      })
+      }).then(function (rows) { return Array.isArray(rows) ? rows : []; });
+    }
+
+    function append(rows) {
+      var items = rows.map(build).filter(Boolean);
+      items.forEach(function (el) { feed.appendChild(el); });
+      return items.length;
+    }
+
+    function showArchiveLink() {
+      more.textContent = '';
+      var a = document.createElement('a');
+      a.href = '?all';
+      a.textContent = 'Everything we have posted';
+      more.appendChild(a);
+      more.hidden = false;
+    }
+
+    function showBackLink() {
+      more.textContent = '';
+      var a = document.createElement('a');
+      a.href = './';
+      a.textContent = 'Back to the latest';
+      more.appendChild(a);
+      more.hidden = false;
+    }
+
+    /** A BUTTON, NOT AN INFINITE SCROLL. Loading forever as somebody scrolls
+     *  makes the footer unreachable and spends their data without asking. */
+    function showMoreButton(nextOffset) {
+      more.textContent = '';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'Show more';
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        b.textContent = 'Loading…';
+        page(PAGE, nextOffset)
+          .then(function (rows) {
+            var n = append(rows);
+            // A SHORT PAGE IS THE END. Asking for the count separately would be
+            // a second request answering a question this one already settles.
+            if (rows.length < PAGE) { showBackLink(); return; }
+            showMoreButton(nextOffset + rows.length);
+            if (!n) showBackLink();
+          })
+          .catch(function (err) {
+            console.error('The Game Bureau Links: could not load more.', err);
+            showBackLink();
+          });
+      });
+      more.appendChild(b);
+      more.hidden = false;
+    }
+
+    page(ARCHIVE ? PAGE : FRONT, 0)
       .then(function (rows) {
-        var items = (Array.isArray(rows) ? rows : []).map(build).filter(Boolean);
-        if (!items.length) { say('Nothing here just yet.'); return; }
         feed.textContent = '';
-        items.forEach(function (el) { feed.appendChild(el); });
+        var n = append(rows);
         feed.setAttribute('aria-busy', 'false');
+        if (!n) { say('Nothing here just yet.'); return; }
+        if (!ARCHIVE) { showArchiveLink(); return; }
+        if (rows.length < PAGE) { showBackLink(); return; }
+        showMoreButton(rows.length);
       })
       .catch(function (err) {
         // A VISITOR IS TOLD NOTHING ABOUT OUR SCHEMA. The real reason goes to
