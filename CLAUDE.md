@@ -25,6 +25,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
+| [2026082102_socials_posted_ids.sql](mc/supabase/migrations/2026082102_socials_posted_ids.sql) | **Done fails on any post that reached a machine account**, since it writes `posted_ids`, so a posted candidate cannot be filed. The page names this file rather than showing a raw PGRST204. |
 | [2026082101_socials_returned_from.sql](mc/supabase/migrations/2026082101_socials_returned_from.sql) | **Move/Copy to Review stops working entirely.** All three of those buttons now write `returned_from`, so the PATCH or INSERT 400s and a candidate cannot be brought back out of Posted or Skipped at all. The page catches it and names this file rather than showing a raw PGRST204. |
 
 **THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
@@ -744,6 +745,17 @@ They are the room's two ways in, so they are built to be read together: **MANUAL
 - **IT GAINED THE ERRAND PARAGRAPH** (`.prompt-howto`) the prompt dialog has always had. Without it the head was an eyebrow, a title and a lot of white space where the buttons had been. It also answers the question the single box provokes: one unlabelled field taking either a link or a sentence looks like a field you are about to get wrong, and the line under it only says which way it is going *after* you type.
   - **It is two sentences: _"Paste a link, or type an idea. It will be filed for editing and review."_** An earlier draft added that the caption and image are written later on the card, which is true and is not this dialog's business. **Naming a step that happens somewhere else, at the moment somebody is trying to finish here, reads as a warning rather than as help.** Say what the box takes and what becomes of it.
 - **NO `Close` IN THE MANUAL HEAD**, even though the prompt dialog has one there. The prompt dialog's foot has no Cancel, so its Close is the only way out; this dialog's foot has Cancel, and adding Close above it would put back exactly the duplication just removed.
+
+### THE PLATFORM'S OWN POST ID IS KEPT (2026-08-21)
+
+`public.socials.posted_ids`, [2026082102](mc/supabase/migrations/2026082102_socials_posted_ids.sql), **apply by hand**. A jsonb object keyed by platform: `{"facebook": "123_456", "threads": "789"}`.
+
+- **`socials-post` HAS ALWAYS RETURNED THESE AND THE PAGE HAS ALWAYS DROPPED THEM.** Every successful post answers `{platform, ok: true, id}` and `markPosted` recorded only the NAMES.
+- **AN ID IS THE ONLY HANDLE BY WHICH A POST CAN LATER BE ASKED HOW IT DID.** Meta and Threads both serve engagement figures for a post you own, by id, and **there is no way to recover one afterwards** from a row that did not keep it. So this is not an analytics feature: it is the thing that has to exist **before** one is possible, and every post made without it is permanently unmeasurable.
+- **KEYED, NOT AN ARRAY.** An id is meaningless without knowing whose it is, and `posted_platforms` beside it is an ordered list a later edit could fall out of step with.
+- **BY-HAND ACCOUNTS ARE ABSENT, NOT NULL.** Nobody sees the id of a post a human made in X's own composer. A missing key means "we did not make this post through the API", which is true; a null would look like a failure. **A sitting that reached only X and YouTube writes no `posted_ids` key at all** rather than `{}`, which would claim we looked and found none.
+- **A REFUSED ACCOUNT APPEARS IN NEITHER** `posted_platforms` nor `posted_ids`, because both are built from the reply.
+- **`COLUMN_MIGRATIONS` IS THE NAMER.** One map from column name to migration file, so any write of a column the database lacks reports the file to run instead of a raw `PGRST204`. Add a line when you add a column.
 
 ### A CANDIDATE IN REVIEW SAYS IF IT HAS BEEN HERE BEFORE (2026-08-21)
 

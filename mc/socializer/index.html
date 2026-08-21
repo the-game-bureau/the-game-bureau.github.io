@@ -4879,16 +4879,31 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           + 'original is still in Skipped.'
       };
 
-      /** A write that names `returned_from` against a database that has not run
-       *  the migration comes back as a 400 with PGRST204 or 42703, which is a
-       *  statement about our schema and tells the person at the keyboard
-       *  nothing they can act on. Name the file instead. */
-      function namesReturnedMigration(err) {
+      // COLUMNS THIS PAGE WRITES THAT A DATABASE MAY NOT HAVE YET.
+      //
+      // Nothing in mc/supabase/migrations/ runs itself here, so a page can be
+      // deployed ahead of its schema. A write naming a column PostgREST does
+      // not know comes back as a 400 with PGRST204 or 42703, which is a
+      // statement about our schema and tells the person at the keyboard nothing
+      // they can act on. NAME THE FILE INSTEAD.
+      //
+      // Add a line when you add a column; delete it once the migration has been
+      // applied everywhere and the entry is only noise.
+      var COLUMN_MIGRATIONS = {
+        returned_from: '2026082101_socials_returned_from.sql',
+        posted_ids: '2026082102_socials_posted_ids.sql'
+      };
+
+      function namesMissingColumn(err) {
         var raw = String(err && err.message || '');
-        return /returned_from|PGRST204|42703/i.test(raw)
-          ? 'The database does not have the returned_from column yet. Apply '
-            + '2026082101_socials_returned_from.sql in the Supabase SQL editor.'
-          : '';
+        if (!/PGRST204|42703|schema cache|does not exist/i.test(raw)) return '';
+        for (var col in COLUMN_MIGRATIONS) {
+          if (raw.indexOf(col) !== -1) {
+            return 'The database does not have the ' + col + ' column yet. Apply '
+              + COLUMN_MIGRATIONS[col] + ' in the Supabase SQL editor.';
+          }
+        }
+        return '';
       }
 
       function returnedFrom(post) {
@@ -5586,7 +5601,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
               .catch(function (err) {
                 unpostBtn.disabled = false;
-                flash(queueStatus, namesReturnedMigration(err) || ('Could not save: ' + err.message));
+                flash(queueStatus, namesMissingColumn(err) || ('Could not save: ' + err.message));
               });
           }
 
@@ -5632,7 +5647,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                 flash(queueStatus, /23505|duplicate key/i.test(raw)
                   ? 'The database still refuses a second row with this url. Apply '
                     + '2026081901_socials_allow_reposts.sql, or use Move to Review.'
-                  : (namesReturnedMigration(err) || ('Could not copy: ' + raw)));
+                  : (namesMissingColumn(err) || ('Could not copy: ' + raw)));
               });
           }
           actions.appendChild(unpostBtn);
@@ -5654,7 +5669,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
               .catch(function (err) {
                 unskipBtn.disabled = false;
-                flash(queueStatus, namesReturnedMigration(err) || ('Could not save: ' + err.message));
+                flash(queueStatus, namesMissingColumn(err) || ('Could not save: ' + err.message));
               });
           });
           actions.appendChild(unskipBtn);
@@ -6957,6 +6972,13 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // used rather than the accounts the bot suggested. An account you were
         // offered and did not press is not on it.
         var used = [];
+        // THE PLATFORM'S OWN ID FOR EACH POST, keyed by platform. socials-post
+        // has always returned these and the page has always dropped them, and
+        // an id is the ONLY handle by which a post can later be asked how it
+        // did. It cannot be recovered afterwards, so it is kept at the one
+        // moment it exists. By-hand accounts never appear here: nobody sees the
+        // id of a post a human made in X's own composer.
+        var usedIds = {};
         var buttons = {};
 
         function noteUsed(key) {
@@ -6972,11 +6994,16 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         }
 
         function markPosted(labels, keepOpen) {
-          return savePost(stateKey, {
+          var patch = {
             status: 'posted',
             posted_at: new Date().toISOString(),
             posted_platforms: labels
-          }).then(function () {
+          };
+          // Only when there is something to record. A sitting that reached X and
+          // YouTube alone has no ids at all, and writing {} would claim we had
+          // looked and found none rather than that none exist.
+          for (var k in usedIds) { patch.posted_ids = usedIds; break; }
+          return savePost(stateKey, patch).then(function () {
             if (!keepOpen && typeof onDone === 'function') onDone();
             return null;
           }).catch(function (err) { return err; });
@@ -7140,7 +7167,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                   return x && String(x.platform || '').toLowerCase() === k;
                 })[0] || results[i];
               }
-              if (r && r.ok) { noteUsed(k); won.push(PLATFORM_NAME[k]); }
+              if (r && r.ok) {
+                noteUsed(k);
+                if (r.id) usedIds[k] = String(r.id);
+                won.push(PLATFORM_NAME[k]);
+              }
             });
             sync();
 
@@ -7187,7 +7218,8 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           markPosted(used.slice(), false).then(function (err) {
             if (err) {
               doneBtn.disabled = false;
-              stick(feedbackEl, 'Could not file it as posted: ' + err.message);
+              stick(feedbackEl, namesMissingColumn(err)
+                || ('Could not file it as posted: ' + err.message));
               return;
             }
             flash(queueStatus, 'Posted to ' + used.join(', '));
