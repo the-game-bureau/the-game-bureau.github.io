@@ -809,6 +809,29 @@
     .post-actions .post-edit-btn { margin-left: auto; }
 
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+
+    /* ── THE FIVE ACCOUNTS, ALWAYS IN THE SAME ORDER ────────────────────────
+       Grouped and butted together so they read as one control with five
+       positions rather than five unrelated buttons: after a day of this you
+       reach for the third one without reading it, which is the whole reason the
+       order never changes. Done and Skip keep the row's own 8px gap, because
+       they are not part of the group and must not look like a sixth account. */
+    .post-platforms { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+    .post-platform { min-width: 0; }
+    /* USED, NOT DISABLED. A pressed account stays pressable: posting twice is
+       a thing people legitimately do, and greying it out would make a retry
+       after a failure impossible. The tick says where you have got to. */
+    .post-platform.is-used {
+      border-color: var(--bic-green, #276740);
+      color: var(--bic-green, #276740);
+    }
+    .post-platform.is-used::after { content: ' ¹3'; }
+    /* Greyed accounts stay in place rather than being removed, so the five
+       positions do not shuffle from card to card. */
+    .post-platform:disabled { opacity: 0.42; cursor: not-allowed; }
+    /* Done is the decision, so it is the only filled button in the row, and it
+       is dead until something has actually been posted. */
+    .post-done:disabled { opacity: 0.45; cursor: not-allowed; }
     .post-edit-btn { margin-left: auto; }
 
     /* Post picker: tick any number of platforms, then step through them
@@ -5485,8 +5508,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // either editable on the card itself or deliberately read-only, so the
         // button opened a form to change things we had just decided should not
         // be changed here.
-        actions.appendChild(controls.postBtn);
-        actions.appendChild(controls.copyBtn);
+        // The five accounts, then Done, then Skip. Done sits between them
+        // deliberately: it belongs with the group whose work it finishes, and
+        // Skip is the other answer entirely.
+        actions.appendChild(controls.group);
+        actions.appendChild(controls.doneBtn);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         ephemera.appendChild(actions);
@@ -5930,16 +5956,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // pills on the right of that band now and carry their own text.
 
 
-      // What lands on the clipboard: caption, blank line, link. Deliberately NOT
-      // the headline (that is the outlet's words, not ours) and NOT `why` —
-      // that is an internal note and pasting it into a social box would be an
-      // embarrassing leak.
-      /** Ctrl+V or the Apple one. Two callers now, so it stopped being a local
-       *  variable inside the Copy handler: two copies of a platform sniff drift
-       *  the moment somebody adds a case to one of them. */
-      function pasteKeyName() {
-        return /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '\u2318V' : 'Ctrl+V';
-      }
 
       function clipboardText(post) {
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
@@ -5997,35 +6013,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // If a platform ever gets a reliable prefill worth having, add it back
       // here as an exception and say so in the picker — do not make it silent.
 
-      // Land on the WRITE box, not the profile. Each of these opens that
-      // platform's create-post surface directly, so the tab is ready for the
-      // paste instead of needing you to hunt for the compose button. Still no
-      // query string and no payload — the post travels on the clipboard.
-      //
-      // These are the composer entry points as of 2026-08; platforms move them,
-      // and some depend on which account/page the browser session is currently
-      // acting as. If one lands somewhere unhelpful, change it here — it is the
-      // single place any of this is decided.
-      //
-      // TWO THINGS ABOUT THIS OBJECT THAT ARE NOT TRUE ANY MORE. It used to say
-      // PLATFORM_URLS was the fallback; that object was deleted on 2026-08-20
-      // with the three VIEW buttons, and nothing ever fell back to it in code
-      // anyway. And PLATFORM_COMPOSERS itself is READ BY NOTHING: posting goes
-      // through the socials-post Edge Function, so these composer urls are a
-      // record of where a human would go by hand, not a wired path. Left rather
-      // than deleted because the urls are the expensive part to rediscover, but
-      // do not mistake it for something that runs.
-      var PLATFORM_COMPOSERS = {
-        // Opens the tweet composer with an empty box.
-        // Meta Business Suite composer — the one that posts AS the page rather
-        // than as you. Plain facebook.com/<page> only shows the page.
-        facebook: 'https://business.facebook.com/latest/composer/',
-        // Instagram's web create flow (the + button's destination).
-        instagram: 'https://www.instagram.com/create/select/',
-        // Threads has no dedicated create URL - the composer is the box at
-        // the top of the feed, so this lands on our profile with it in reach.
-        threads: 'https://www.threads.com/@thegamebureau'
-      };
+
 
 
 
@@ -6409,25 +6397,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return image;
       }
 
-      /** The by-hand destinations as one phrase, or '' if there are none.
-       *
-       *  ALL OF THEM, NOT THE FIRST. This returned a single name until
-       *  2026-08-21, and a candidate tagged X AND YouTube offered "Copy to
-       *  clipboard for X" while YouTube vanished with nothing on screen saying
-       *  it existed. That is the worst shape a bug can take here: the button
-       *  looked right, so nobody would go looking.
-       *
-       *  ONE BUTTON NAMING BOTH, NOT TWO BUTTONS. What goes on the clipboard is
-       *  identical for every by-hand destination, caption and link, so a second
-       *  button would put the same text on the same clipboard and differ only in
-       *  its label. The job is two pastes from one copy, and that is what this
-       *  says. */
-      function byHandTarget(post) {
-        var names = byHandTargets(post);
-        if (!names.length) return '';
-        if (names.length === 1) return names[0];
-        return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
-      }
 
       // A candidate that names YouTube AT ALL. It used to mean "names YouTube
       // and nothing else", which stopped being the right question on 2026-08-21
@@ -6456,35 +6425,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return (keys || []).map(function (k) { return WIRE_LABELS[k] || k; });
       }
 
-      // Why a candidate reaches NOTHING. Two rules can produce that now, and
-      // "API posting not configured" would be a lie about the second one.
-      function postBlockedReason(post) {
-        var wanted = suggestedKeys(post);
-        if (wanted && !metaTargets(post).concat(PLATFORM_AUTOPOST.threads ? ['threads'] : [])
-            .filter(function (k) { return wanted.indexOf(k) !== -1; }).length) {
-          // NAME WHAT THE BOT ACTUALLY ASKED FOR. wireLabels(wanted) is empty
-          // whenever it named only accounts this page cannot post to, which is
-          // every YouTube candidate, and the message read "The bot suggested ,
-          // and none of those can take this candidate."
-          // `wanted` can no longer be empty here: suggestedKeys returns null
-          // rather than [] when nothing machine-postable was named, and null
-          // does not reach this branch. So this is the real case it was always
-          // for: accounts were named and none of them can take THIS candidate,
-          // which today means Instagram on a row with no image.
-          return 'The bot suggested ' + wireLabels(wanted).join(' and ')
-            + ', and none of those can take this candidate. Edit the story or post it by hand.';
-        }
-        return autoBlockedReason('meta', post);
-      }
 
-      function autoBlockedReason(key, post) {
-        if (PLATFORM_SUGGEST_ONLY[key]) return PLATFORM_SUGGEST_ONLY[key];
-        if (key === 'meta') {
-          return metaTargets(post).length ? '' : 'API posting not configured yet.';
-        }
-        if (!PLATFORM_AUTOPOST[key]) return 'API posting not configured yet.';
-        return '';
-      }
 
       var AUTOPOST_ENDPOINT = 'socials-post';   // Supabase Edge Function, not built yet
 
@@ -6688,358 +6629,248 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       //   candidate has no image  ->  "Post to Facebook"
       //
       // The platform pills went with the choice they existed to express.
+      // ── ONE BUTTON PER ACCOUNT ────────────────────────────────────────────
+      //
+      // This was a single "Post to Facebook + Instagram + Threads" button, a
+      // Copy button, and a Skip. It worked while everything went out by machine
+      // and fell apart once two accounts went by hand: one press did three
+      // things, another press did a fourth by a completely different mechanism,
+      // and the row moved itself to Posted somewhere in the middle. You could
+      // not tell what had actually gone where.
+      //
+      // Five buttons, always in the same order, and each one does that account
+      // and nothing else. Then DONE, which is the only thing that moves the row.
+      //
+      // NO INSTRUCTIONS ON THE FACES. A button reads "X", not "Copy to
+      // clipboard for X": which mechanism an account uses is our problem, not
+      // something to make somebody read five times a day. What differs is what
+      // the button DOES, and it explains itself while it does it.
+      var PLATFORM_ROW = ['facebook', 'instagram', 'threads', 'x', 'youtube'];
+
+      var PLATFORM_NAME = {
+        facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads',
+        x: 'X', youtube: 'YouTube'
+      };
+
+      // Where a by-hand account is written. Opened WITH the copy, so the paste
+      // has somewhere to land: copying without opening leaves you to go and
+      // find the site, which is the step people forget and then wonder why
+      // nothing went out.
+      var PLATFORM_COMPOSE = {
+        // The composer with an empty box, rather than the profile.
+        x: 'https://x.com/compose/post',
+        // YouTube has no create-post URL; the box sits on the channel's own
+        // community tab, which is as close as a link gets.
+        youtube: 'https://www.youtube.com/@thegamebureau/community'
+      };
+
+      /** Is this account a plausible destination for this candidate?
+       *
+       *  Machine accounts defer to postTargets(), which already weighs the
+       *  bot's tags, the image and the autopost flags. By-hand accounts are
+       *  offered when the bot named them, and YouTube ONLY then: a news story
+       *  does not belong on the channel, so an untagged row must not offer it.
+       *  X is offered on an untagged row, because "no advice" has always meant
+       *  "no narrowing" here. */
+      function platformAvailable(row, key) {
+        if (PLATFORM_AUTOPOST[key]) return postTargets(row).indexOf(key) !== -1;
+        var names = suggestedNames(row).map(function (n) { return n.toLowerCase(); });
+        if (key === 'youtube') return names.indexOf('youtube') !== -1;
+        return names.indexOf(key) !== -1 || suggestedKeys(row) === null;
+      }
+
+      /** Why a greyed button is greyed, for its tooltip. Never on the face. */
+      function platformBlockedWhy(row, key) {
+        if (key === 'instagram' && !hasImage(row)) {
+          return 'Instagram refuses a post with no image, and this candidate has none ' +
+                 '(or its image will not load). Add one and this comes back.';
+        }
+        if (key === 'youtube') return 'Not a video: nothing here belongs on the channel.';
+        var named = suggestedNames(row);
+        if (named.length) {
+          return 'The bot did not suggest ' + PLATFORM_NAME[key] + ' for this one. It named ' +
+                 named.join(', ') + '.';
+        }
+        return PLATFORM_NAME[key] + ' is not available for this candidate.';
+      }
+
       function buildPostControls(post, feedbackEl, onDone, stableId) {
         var stateKey = stableId || postId(post);
 
-        var go = document.createElement('button');
-        go.type = 'button';
-        go.className = 'btn primary';
+        var group = document.createElement('div');
+        group.className = 'post-platforms';
 
-        // ── WHERE THE CLIPBOARD IS FOR ────────────────────────────────────
-        // Two destinations are posted by hand, for two different reasons (see
-        // PLATFORM_SUGGEST_ONLY), and on those candidates this button is not a
-        // convenience beside the Post button, it IS the way the thing gets
-        // posted. So it says which one: a bare "Copy to clipboard" on a video
-        // row makes you work out for yourself what to do with the text.
-        //
-        // Anything else keeps the plain label. On an ordinary story the machine
-        // does the posting and this is the fallback, so naming a platform would
-        // claim a job it is not doing.
-        var handTarget = byHandTarget(post);
+        // WHAT ACTUALLY HAPPENED, kept per card and only for this sitting.
+        // posted_platforms is a receipt, so DONE writes the accounts you really
+        // used rather than the accounts the bot suggested. An account you were
+        // offered and did not press is not on it.
+        var used = [];
+        var buttons = {};
 
-        var copy = document.createElement('button');
-        copy.type = 'button';
-        copy.className = 'btn';
-        copy.textContent = handTarget
-          ? 'Copy to clipboard for ' + handTarget
-          : 'Copy to clipboard';
-        copy.title = handTarget
-          ? 'Copy the caption and link, paste them into ' + handTarget +
-            ', and mark this posted'
-          : 'Copy the caption and link, and mark this posted';
-
-        // Real account names, because posted_platforms is a receipt: "meta" is
-        // this page's vocabulary and would mean nothing six months from now.
-        function targetLabels() {
-          return wireLabels(postTargets(post));
+        function noteUsed(key) {
+          if (used.indexOf(PLATFORM_NAME[key]) === -1) used.push(PLATFORM_NAME[key]);
+          if (buttons[key]) {
+            buttons[key].classList.add('is-used');
+            // The tick is state, not instruction: it says where you have got
+            // to, which is the thing five buttons make easy to lose.
+            buttons[key].title = PLATFORM_NAME[key] + ': done in this sitting. ' +
+                                 'Press again to repeat it.';
+          }
+          paintDone();
         }
 
-        // Resolves to the error if the row could not be written, otherwise
-        // null. It does not reject: every caller wants to carry on and say what
-        // happened, and a swallowed failure here would let a dialog report
-        // "Posted!" over a row that never changed.
         function markPosted(labels, keepOpen) {
           return savePost(stateKey, {
             status: 'posted',
-            posted_platforms: labels.length ? labels : null
+            posted_at: new Date().toISOString(),
+            posted_platforms: labels
           }).then(function () {
-            go.disabled = true;
-            copy.disabled = true;
-            if (!keepOpen && typeof onDone === 'function') onDone(labels);
+            if (!keepOpen && typeof onDone === 'function') onDone();
             return null;
-          }).catch(function (err) {
-            return err;
-          });
+          }).catch(function (err) { return err; });
         }
 
-        function sync() {
-          var targets = postTargets(post);
-          go.textContent = targets.length
-            ? 'Post to ' + targetLabels().join(' + ')
-            : 'Post';
-          go.disabled = !targets.length;
-          // THE TOOLTIP HAS TO SAY WHY AN ACCOUNT IS MISSING, now that two
-          // different rules can drop one. Without it a button reading "Post to
-          // Facebook" on a candidate with a perfectly good photograph is
-          // indistinguishable from a broken Instagram credential.
-          go.title = targets.length
-            ? 'Posts to ' + targetLabels().join(' and ') + missingNote()
-            : (postBlockedReason(post) || 'API posting is not configured.');
-        }
+        // ── the five ────────────────────────────────────────────────────────
+        PLATFORM_ROW.forEach(function (key) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn small post-platform';
+          btn.textContent = PLATFORM_NAME[key];
+          buttons[key] = btn;
 
-        // Names each account this candidate is NOT reaching, and which of the
-        // two rules dropped it.
-        function missingNote() {
-          var targets = postTargets(post);
-          var wanted = suggestedKeys(post);
-          var notes = [];
-          ['facebook', 'instagram', 'threads'].forEach(function (key) {
-            if (targets.indexOf(key) !== -1) return;
-            var label = WIRE_LABELS[key];
-            if (!PLATFORM_AUTOPOST[key]) return;
-            if (key === 'instagram' && !hasImage(post)) {
-              notes.push('Not ' + label + ': its API refuses a post with no image.');
-            } else if (wanted && wanted.indexOf(key) === -1) {
-              notes.push('Not ' + label + ': the bot did not suggest it.');
+          btn.addEventListener('click', function () {
+            if (btn.disabled || postingLock) return;
+            clearNotice(feedbackEl);
+            var live = currentRow(stateKey, post);
+
+            if (!PLATFORM_AUTOPOST[key]) {
+              // BY HAND: copy, and open the place it is going. Both inside the
+              // gesture, because the clipboard write needs user activation and
+              // a popup blocker eats a window.open that arrives after an await.
+              var copied = copyToClipboard(clipboardText({
+                blurb: liveField(post, stateKey, 'blurb'),
+                url: liveField(post, stateKey, 'url')
+              }));
+              var giftImage = giftImageForCopy(live);
+              if (PLATFORM_COMPOSE[key]) window.open(PLATFORM_COMPOSE[key], '_blank', 'noopener');
+              if (giftImage) window.open(giftImage, '_blank', 'noopener');
+              copied.then(function (ok) {
+                noteUsed(key);
+                stick(feedbackEl, ok
+                  ? PLATFORM_NAME[key] + ' is open and the caption is on your clipboard' +
+                    (giftImage ? ', with the gift photo in the next tab' : '') + '.'
+                  : PLATFORM_NAME[key] + ' is open, but the caption could not be copied: ' +
+                    'take it off the card by hand.');
+              });
+              return;
             }
+
+            // BY MACHINE: this account only. The lock is the same one the old
+            // single button used, so nothing else on the page can be pressed
+            // while a post is in the air and a second press cannot double-post.
+            flushOpenEdit().then(function () { postOne(key, btn); });
           });
-          return notes.length ? ' ' + notes.join(' ') : '';
-        }
 
-        go.addEventListener('click', function () {
-          var targets = postTargets(post);
-          if (!targets.length || postingLock) return;
-          clearNotice(feedbackEl);
-
-          // ── THE CAPTION GOES ON THE CLIPBOARD TOO, AND IT HAPPENS HERE ────
-          //
-          // Post reaches the accounts a machine can reach. X and YouTube are
-          // posted by hand, so on a candidate that names one, pressing Post
-          // finishes two thirds of a job and leaves you to go and find the
-          // caption for the rest of it. Now it is already on the clipboard.
-          //
-          // INSIDE THE CLICK, BEFORE THE AWAIT, AND THAT IS NOT A PREFERENCE.
-          // navigator.clipboard.writeText needs transient user activation, and
-          // activation does not survive a network round trip: copying after the
-          // post resolved would fail on a candidate that took three seconds to
-          // go out, which is most of them. So it is copied first and the dialog
-          // afterwards reports what actually happened.
-          //
-          // It reads liveField for the same reason the Copy button does, so an
-          // uncommitted edit is copied as typed even though the flush below has
-          // not run yet.
-          var clipboardPromise = copyToClipboard(clipboardText({
-            blurb: liveField(post, stateKey, 'blurb'),
-            url: liveField(post, stateKey, 'url')
-          }));
-
-          // COMMIT WHAT IS OPEN BEFORE POSTING, and wait for it. The Edge
-          // Function reads the row out of the DATABASE, so a caption sitting
-          // uncommitted in its box is not merely stale here, it is invisible:
-          // the post would go out carrying whatever the row held before you
-          // typed, and the card would then re-render showing the text you
-          // thought you had posted.
-          //
-          // Post can afford the wait in a way Copy cannot, because nothing here
-          // depends on staying inside the click: the lock is about to go on and
-          // the whole thing is asynchronous already.
-          flushOpenEdit().then(function () { startPost(clipboardPromise); });
+          group.appendChild(btn);
         });
 
-        function startPost(clipboardPromise) {
-          var targets = postTargets(currentRow(stateKey, post));
-          if (!targets.length || postingLock) return;
-          var restore = go.textContent;
+        function postOne(key, btn) {
+          var label = PLATFORM_NAME[key];
+          var restoreText = btn.textContent;
+          var actionRow = group.parentNode;
+          setPostingLock(true, 'Posting to ' + label +
+            '… nothing else can be pressed until it answers.', actionRow);
+          btn.textContent = 'Posting…';
 
-          // Lock BEFORE this card's own buttons are touched, so the snapshot it
-          // takes is the page as it was — otherwise unlocking would read these
-          // two as "already off for their own reasons" and leave them dead.
-          //
-          // The row goes IN to the lock rather than being marked after it: it
-          // is what tells the lock which Skip is not exempt, so it has to be
-          // known while the lock pass is running. Passing a reference is not
-          // touching a button, so the snapshot rule above still holds.
-          var actionRow = go.parentNode;
-          setPostingLock(true, 'Posting to ' + targetLabels().join(' + ') + '… nothing else can be pressed until it answers.', actionRow);
-          go.textContent = 'Posting...';
-          // Marks THIS row as the one working, so it keeps full contrast while
-          // the rest of the queue dims.
-          if (actionRow && actionRow.classList) actionRow.classList.add('is-posting-row');
-
-          // A HUNG REQUEST MUST NOT LEAVE THE PAGE DEAD. Locking the whole queue
-          // on a promise means a request that never settles locks it forever, so
-          // the lock lets itself go after three minutes. It does NOT abort the
-          // request -- the post may still be in progress, and cancelling it here
-          // would tell you nothing went out when it might have -- so it says to
-          // check the accounts rather than pressing Post again.
+          // The lock must never outlive a request that vanished, or the page is
+          // dead until it is reloaded.
           var watchdog = window.setTimeout(function () {
             setPostingLock(false);
             sync();
-            askConfirm('Still waiting',
-                       'The post request has not answered in three minutes. It may still ' +
-                       'have gone out, so check the accounts before pressing Post again. ' +
-                       'This candidate has not been marked posted.',
-                       'OK', { hideNo: true });
-          }, 180000);
+            stick(feedbackEl, 'No answer from ' + label + ' after 90 seconds. ' +
+                              'Check the account before pressing it again.');
+          }, 90000);
 
-          postViaApi(post, targets).then(function (reply) {
+          postViaApi(post, [key]).then(function (reply) {
             window.clearTimeout(watchdog);
-            go.textContent = restore;
-
-            // NOTHING WENT OUT. The HTTP call succeeded but Meta refused, so
-            // there is nothing to file and nothing to ask -- just Meta's own
-            // words, which are the only useful thing here.
-            if (!reply.posted.length) {
-              setPostingLock(false);
-              sync();
-              askConfirm('Nothing was posted',
-                         describeFailures(reply.results),
-                         'OK', { hideNo: true });
-              return;
-            }
-
-            var labels = wireLabels(reply.posted);
-            var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
-
-            // NOT ASKED, RECORDED. The function reported which accounts took
-            // the post, with ids -- that is a fact, not a preference, and
-            // status/posted_platforms are a record of what happened rather than
-            // a to-do state. Asking permission to write down something true only
-            // creates the chance of a false record: a No left a candidate in
-            // Active that was already live on the Page, indistinguishable from
-            // one never posted, and you would find out by posting it twice.
-            //
-            // Copy to clipboard still asks, and should: there the system cannot
-            // know whether you actually posted. The rule is to ask only when the
-            // answer is genuinely unknowable from here.
-            //
-            // To undo, the Posted tab carries Move/Copy to Review on every card -- a
-            // way back rather than a way to decline, so the record cannot drift.
-            var lines = ['Posted to ' + labels.join(' and ') + '.'];
-            if (failed.length) lines.push('Not posted: ' + describeFailures(reply.results));
-            if (reply.warning) lines.push(reply.warning);
-
-            // Mark first so the row is already correct behind the dialog, and
-            // hold the re-render until it is dismissed -- otherwise the card
-            // moves to Posted from under the notice you are reading.
-            markPosted(labels, true).then(function (markErr) {
-              // Released only now. savePost has already updated the local row,
-              // so a render held during the post draws this card as Posted --
-              // release any earlier and it would be redrawn from the old status
-              // with a live Post button on a story that just went out.
-              setPostingLock(false);
-              // Re-asserted after the unlock, not before it: releasing the lock
-              // restores every button to how it was when the lock was taken, and
-              // these two were live then. They must not be live now.
-              go.disabled = true;
-              copy.disabled = true;
-
-              // The post went out either way; if the bookkeeping failed, say so
-              // rather than letting the queue quietly disagree with the Page.
-              if (markErr) {
-                lines.push('The post went out, but this candidate could not be ' +
-                           'marked posted: ' + markErr.message + ' It is still in Review.');
-              }
-              // NOT ASKED, STILL. The question the Copy button asks -- "mark
-              // this as posted?" -- does not belong here and is not missing by
-              // oversight: the function just reported which accounts took it,
-              // so the status is a recorded fact. Asking permission to write
-              // down something true only creates the chance of a false record.
-              // What the clipboard adds is the NEXT job, not a decision about
-              // this one.
-              Promise.resolve(clipboardPromise).then(function (copied) {
-                var liveRow = currentRow(stateKey, post);
-                var byHand = byHandTarget(liveRow);
-                var giftImage = byHand ? giftImageForCopy(liveRow) : '';
-                if (giftImage) {
-                  lines.push('The shop link unfurls with the generic banner, so the ' +
-                             'gift photo is open in another tab: drag it in.');
-                  window.open(giftImage, '_blank', 'noopener');
-                }
-                if (copied) {
-                  lines.push('The caption and link are on your clipboard' +
-                             (byHand ? ', ready to paste into ' + byHand : '') +
-                             ' (' + pasteKeyName() + ').');
-                } else if (byHand) {
-                  // Named anyway. The clipboard failing is a smaller problem
-                  // than not knowing there is a second half to do.
-                  lines.push('Still to do by hand: ' + byHand +
-                             '. The caption could not be put on your clipboard, ' +
-                             'so copy it off the card.');
-                }
-                return askConfirm(markErr ? 'Posted, not filed' : 'Posted!',
-                                  lines.join(' '), 'OK', { hideNo: true });
-              }).then(function () {
-                renderQueue();
-                flash(queueStatus, markErr
-                  ? 'Posted, but not filed'
-                  : 'Posted to ' + labels.join(' and '));
-              });
-            });
-          }).catch(function (err) {
-            window.clearTimeout(watchdog);
-            go.textContent = restore;
+            btn.textContent = restoreText;
+            var ok = (reply.results || []).some(function (r) { return r && r.ok; });
             setPostingLock(false);
             sync();
-            askConfirm('Nothing was posted', err.message, 'OK', { hideNo: true });
+            if (ok) {
+              noteUsed(key);
+              stick(feedbackEl, 'Posted to ' + label + '.');
+            } else {
+              stick(feedbackEl, label + ' refused it: ' + describeFailures(reply.results));
+            }
+            if (reply.warning) stick(feedbackEl, reply.warning);
+          }).catch(function (err) {
+            window.clearTimeout(watchdog);
+            btn.textContent = restoreText;
+            setPostingLock(false);
+            sync();
+            stick(feedbackEl, 'Nothing was posted to ' + label + ': ' + err.message);
           });
         }
 
-        // Copying and deciding are two different things, and this button used to
-        // do both: it put the caption on the clipboard and marked the candidate
-        // posted in the same click. But copying is also how you grab a caption
-        // to look at, or to paste somewhere and then think better of -- and the
-        // card was gone by then. So the copy happens, and then it asks.
-        copy.addEventListener('click', function () {
-          clearNotice(feedbackEl);
-          var pasteKey = pasteKeyName();
+        // ── DONE ────────────────────────────────────────────────────────────
+        // THE ONLY THING THAT MOVES THE ROW. Every other button does one
+        // account and says so; this one is the decision, taken once, when you
+        // say the job is finished. Splitting them is the whole point of the
+        // change: a row used to move itself to Posted in the middle of a
+        // sequence you had not finished.
+        var doneBtn = document.createElement('button');
+        doneBtn.type = 'button';
+        doneBtn.className = 'btn primary post-done';
+        doneBtn.textContent = 'Done';
 
-          // Started inside the click, not after it: the clipboard write needs
-          // the user gesture and cannot wait behind an answer.
-          //
-          // It reports nothing on the card. A notice there said "copied, paste
-          // with Ctrl+V" at the same moment a dialog opened saying the same
-          // thing, then sat on the card afterwards with nothing left to tell
-          // you. The paste key belongs in the dialog, which is where you are
-          // looking and which goes away when you are done with it.
-          // THE LIVE TEXT, NOT THE CARD'S SNAPSHOT. Read synchronously, inside
-          // the click, for two reasons at once: the clipboard write loses its
-          // permission if it waits, and a caption you have typed but not
-          // committed exists only in its box. Clicking Copy blurs that box,
-          // which starts an async save, and the old code copied `post` before
-          // that save could land: you got the previous caption with no sign
-          // anything was wrong.
-          copyToClipboard(clipboardText({
-            blurb: liveField(post, stateKey, 'blurb'),
-            url: liveField(post, stateKey, 'url')
-          })).then(function (copied) {
-            if (!copied) {
-              askConfirm('Copy failed',
-                         'The caption could not be put on the clipboard. Nothing has been ' +
-                         'marked, so try again, or open Edit and copy it from there.',
-                         'OK', { hideNo: true });
+        function paintDone() {
+          doneBtn.disabled = !used.length;
+          doneBtn.title = used.length
+            ? 'File this as posted to ' + used.join(', ') + '.'
+            : 'Nothing has been posted yet. Press an account first, or Skip to pass on it.';
+        }
+
+        doneBtn.addEventListener('click', function () {
+          if (doneBtn.disabled || postingLock) return;
+          clearNotice(feedbackEl);
+          doneBtn.disabled = true;
+          markPosted(used.slice(), false).then(function (err) {
+            if (err) {
+              doneBtn.disabled = false;
+              stick(feedbackEl, 'Could not file it as posted: ' + err.message);
               return;
             }
-            // NAMES WHERE IT GOES, AND SAYS SO LOUDEST WHEN THERE ARE TWO.
-            // "Mark this candidate as posted?" after pasting into one of two
-            // places is the trap: you would answer yes having done half the
-            // job, and the row would go to Posted with the other half never
-            // done and nothing left on screen to remind you.
-            var live = currentRow(stateKey, post);
-            var hand = byHandTargets(live);
-            var giftImage = hand.length ? giftImageForCopy(live) : '';
-            var body = hand.length
-              ? 'Caption and link are on the clipboard. Paste into ' +
-                byHandTarget(live) + ' with ' + pasteKey +
-                (hand.length > 1 ? ', both from this one copy' : '') + '.'
-              : 'Caption and link are on the clipboard - paste with ' + pasteKey + '.';
-            // THE WARNING GOES IN THE QUESTION, not beside it. "Both still need
-            // doing" as its own sentence, followed by "mark this as posted?", is
-            // two things to hold at once; folded in, the question carries its own
-            // condition and cannot be answered without reading it.
-            // SAID BEFORE THE QUESTION, because it is a step and the question
-            // is the end of the job. Without it you paste, see the shop banner
-            // appear, and either post it anyway or go hunting for the real
-            // photograph with the dialog already dismissed.
-            var picture = giftImage
-              ? ' The shop link unfurls with the generic banner, so the gift photo ' +
-                'opens in a tab as well: drag it into the post.'
-              : '';
-            var ask = hand.length > 1
-              ? ' Mark this candidate as posted once you have done both?'
-              : ' Mark this candidate as posted?';
-            // OPENED INSIDE THE SAME GESTURE that copied, before the dialog
-            // resolves. A window.open from a .then() after an await is what a
-            // popup blocker exists to stop, and a blocked tab would leave the
-            // sentence above describing something that did not happen.
-            if (giftImage) window.open(giftImage, '_blank', 'noopener');
-            return askConfirm('Copied!', body + picture + ask, 'Yes').then(function (ok) {
-              // No account is claimed either way: you took it away to post by
-              // hand, so the receipt cannot know where it landed. Declining just
-              // leaves it in review -- the clipboard keeps what it copied.
-              //
-              // This one is still a question, and should be: unlike Post, nothing
-              // here can tell whether you actually posted it.
-              if (!ok) return;
-              return markPosted([], false).then(function (markErr) {
-                if (markErr) stick(feedbackEl, 'Could not mark it posted: ' + markErr.message);
-              });
-            });
+            flash(queueStatus, 'Posted to ' + used.join(', '));
           });
         });
 
+        /** Repaint availability. Called on build and after every post, because
+         *  a save can change what is possible: adding an image brings Instagram
+         *  back, and a broken one takes it away. */
+        function sync() {
+          var live = currentRow(stateKey, post);
+          PLATFORM_ROW.forEach(function (key) {
+            var btn = buttons[key];
+            if (!btn) return;
+            var ok = platformAvailable(live, key);
+            btn.disabled = !ok;
+            if (!ok) {
+              btn.classList.remove('is-used');
+              btn.title = platformBlockedWhy(live, key);
+            } else if (btn.classList.contains('is-used')) {
+              btn.title = PLATFORM_NAME[key] + ': done in this sitting. Press again to repeat it.';
+            } else {
+              btn.title = PLATFORM_AUTOPOST[key]
+                ? 'Post this to ' + PLATFORM_NAME[key] + ' now.'
+                : 'Open ' + PLATFORM_NAME[key] + ' with the caption on your clipboard.';
+            }
+          });
+          paintDone();
+        }
+
         sync();
-        return { postBtn: go, copyBtn: copy };
+        return { group: group, doneBtn: doneBtn };
       }
 
 
