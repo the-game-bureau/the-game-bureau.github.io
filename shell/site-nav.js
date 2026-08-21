@@ -36,6 +36,14 @@
         '<a class="nav-link nav-link--major nav-link--gifts nav-link--has-count" href="/gifts/"><span class="nav-label">GIFTS</span>' + statBadges(['gifts']) + '</a>' +
         '<a class="nav-link nav-link--major nav-link--sound nav-link--has-count" href="/soundtracks/"><span class="nav-label">SOUNDTRACKS</span>' + statBadges(['soundtracks']) + '</a>' +
         '<a class="nav-link nav-link--major nav-link--highlights nav-link--has-count" href="/highlights/"><span class="nav-label">HIGHLIGHTS</span>' + statBadges(['highlights']) + '</a>' +
+        // FOLLOW CARRIES NO COUNT, and that is the point of it not having one.
+        // The other four badge a number that MOVES: games built, gifts stocked,
+        // tapes made, scorelines posted. The accounts are five and will be five
+        // next year, so a badge there would be furniture that looks like news.
+        // It takes no `nav-link--has-count` class and no statBadges call; the
+        // base .nav-link is already inline-flex, so it lays out with its icon
+        // regardless.
+        '<a class="nav-link nav-link--major nav-link--follow" href="/mc/follow/"><span class="nav-label">FOLLOW</span></a>' +
       '</div>' +
     '</nav>';
 

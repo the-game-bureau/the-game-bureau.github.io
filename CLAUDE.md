@@ -4,6 +4,311 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
+## READ THIS FIRST
+
+Four short sections, all of them things that have already cost a day. Then a
+place for the big picture, then the room-by-room detail that makes up the rest of
+this file.
+
+---
+
+## 1. PENDING MIGRATIONS — SQL THAT IS WRITTEN BUT NOT YET APPLIED
+
+**Nothing in `mc/supabase/migrations/` runs itself.** Remote migration history in
+this project has drifted, the CLI refuses `db push`, and every migration here is
+pasted into the Supabase SQL editor by hand. So a file existing in the repo says
+NOTHING about whether the database has it.
+
+**KEEP THIS LIST CURRENT. Add a row when you write a migration; delete the row
+the moment it is applied.** A stale entry is worse than none, because the next
+person runs something twice or hunts a bug that was fixed hours ago.
+
+| migration | what breaks until it is applied |
+|---|---|
+| *(none)* | Everything in `mc/supabase/migrations/` is applied as of 2026-08-20, verified against the database rather than assumed. |
+
+**THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
+for it. It listed `2026082003` as pending because that is what the last message
+about it had said; the probe below returned 200, `public.partner_venues` was
+already gone, and the five partner rows had carried across. **Ask the database,
+do not repeat what you were last told.**
+
+**HOW TO TELL, RATHER THAN GUESS.** Ask the database, with the publishable key:
+
+```bash
+KEY=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
+API=https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1
+# a column: 200 means applied, 400 with 42703 means not
+curl -s -o /dev/null -w "%{http_code}\n" "$API/waypoints?select=partner_status&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+# a function: 200 means applied, 404 with PGRST202 means not
+curl -s -o /dev/null -w "%{http_code}\n" "$API/rpc/tgb_partner_coverage" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+```
+
+**A PAGE THAT NEEDS A MIGRATION MUST NAME IT.** Not a raw `42703` or `PGRST202`:
+those are statements about our schema and tell the person at the keyboard
+nothing they can act on. Catch it and say which file to run. The Path Builder and
+the waypoint editor both do this; copy that pattern.
+
+---
+
+## 2. HOW AN ADMIN PAGE DIES, AND THE TWO CHECKS THAT CATCH IT
+
+**THE FAILURE IS A COMPLETELY BLANK PAGE, WITH THE REASON ONLY IN THE CONSOLE.**
+It has happened twice. The mechanism is worth knowing because nothing about it is
+obvious from looking at the screen:
+
+1. Every admin room ends with a block of `el('someId').addEventListener(...)`.
+2. `el()` is `getElementById`, which returns **null** for an id that is not in
+   the markup, and `null.addEventListener` throws.
+3. That kills the REST of the block, **including the final `adminAuth.init()`**.
+4. `admin-shell.css` hides every child of `body.mc-auth-protected` until
+   `init()` adds `.mc-auth-authorized`.
+
+So one dead reference in the wiring takes down the entire room, silently. **A
+missing element should cost one button, not the page** — if you touch that block,
+consider making it defensive.
+
+**HOW THIS HAPPENS IN PRACTICE:** an edit script inserts the markup, fails a
+later assertion, and never writes the file, while a second script adds the
+wiring and does write. Half-applied. **After a failed edit, verify what actually
+landed before building on top of it.**
+
+**THE TWO CHECKS. Run both after touching any admin page.**
+
+```bash
+# 1. Every inline script still parses.
+node -e "
+const fs=require('fs');const s=fs.readFileSync('mc/pathbuilder.html','utf8');
+const re=/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+let m;while((m=re.exec(s))){try{new (require('vm').Script)(m[1]);}catch(e){console.log('PARSE FAIL: '+e.message);process.exit(1);}}
+console.log('parse OK');"
+
+# 2. Every id the script wires or writes exists in the markup.
+node -e "
+const fs=require('fs');const s=fs.readFileSync('mc/pathbuilder.html','utf8');
+const ids=[...s.matchAll(/el\('([\w]+)'\)\.(addEventListener|textContent|value|disabled|hidden|classList)/g)].map(m=>m[1]);
+const missing=[...new Set(ids)].filter(id=>!new RegExp('id=\"'+id+'\"').test(s));
+console.log(missing.length?('MISSING FROM MARKUP: '+missing.join(', ')):'all wired ids present');"
+```
+
+**Check 1 cannot catch check 2's bug.** The syntax is perfectly valid; the
+element simply is not there.
+
+---
+
+## 3. WORKING AGREEMENTS
+
+How to behave in this repo. Every one of these is here because ignoring it cost
+something real.
+
+- **NEVER LEAVE AN EMPTY CATCH, AND NEVER A BARE `return` ON A WRITE PATH.** A
+  write that fails without saying so is a bug in itself, and it is
+  indistinguishable from success. The Tape Room shipped three of these at once.
+  Every room has an error channel; use it.
+- **TRANSLATE DATABASE ERRORS INTO SENTENCES.** A `23505` becomes "that tape
+  already has it, it may be hidden". A `42703` names the migration. A raw
+  Postgres code is a statement about our schema, not an instruction to the
+  person reading it.
+- **PostgREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES A WRITE.** Check
+  the returned row, or a refused save reports success and the page shows a value
+  the table never took.
+- **PROVE THE MATHS BEFORE CLAIMING IT.** Anything with a distance, an order or a
+  cost in it gets run against a known geometry first. That is how the loop bug in
+  RECALC was found (a duplicate stop is zero metres away, so it was always taken
+  as stop 2) and how TUCK IN was shown to beat proximity ranking.
+- **`Number(null)` IS 0 AND `isFinite(0)` IS TRUE.** So `isFinite(Number(row.lat))`
+  calls an unlocated row located, and a `walkMetres` of 0 means UNMEASURABLE, not
+  shortest. Check for null explicitly. This has caused two separate bugs.
+- **A SHARED MODULE MAY NOT READ A HOST'S VARIABLE.** It works while there is one
+  host and throws on the second. See `WP_FIELDS`.
+- **`create or replace` REWRITES THE WHOLE FUNCTION.** A column another migration
+  taught it about is not inherited. Check the INSERT list against the table
+  before replacing one. The socials pull silently stopped writing `confidence`
+  for five days this way.
+- **CONSTANTS IN A `SECURITY DEFINER` RPC ARE THE SECURITY.** `status`,
+  `archived`, `origin`, `partner_status`: whatever the function hardcodes is what
+  makes it safe to expose to `anon`. **Never turn one into a parameter.**
+- **THE TRIGGER IS WHAT RUNS; THIS FILE IS A DESCRIPTION OF IT.** Two crons in
+  here had silently gone stale. `RemoteTrigger {action: "list"}` before trusting
+  any cron written down.
+- **A TRIGGER ID DOES NOT SURVIVE A DELETE.** Anything holding one has to be
+  repointed, and a stale one in an `href` 404s silently. Prefer disabling to
+  deleting.
+- **DELETE A ROOM'S DOORS IN THE SAME COMMIT AS THE ROOM.** GitHub Pages serves
+  no 301, so every move here is a hard break: the nav entry, the hub card, the
+  `room-blurbs.js` key, and any routine prompt that names the path.
+- **WRITE THE REASON, NOT THE CHANGE.** The next reader can see what the code
+  does; what they cannot see is what was tried before and why it lost. That is
+  what most of this file is.
+
+---
+
+## 4. WHERE EVERYTHING IS
+
+| room | file | tables | routine |
+|---|---|---|---|
+| **Tape Room** | [mc/soundtracks/index.html](mc/soundtracks/index.html) | `soundtracks`, `soundtrack_songs`, `soundtrack_issues` | TGB SOUNDTRACK BOT |
+| **Gift Shop** (the room) | [mc/gifts/index.html](mc/gifts/index.html) | `gift_shop_items`, `gift_shop_listings` | TGB GIFT SHOP BOT |
+| **Socializer** | [mc/socializer.html](mc/socializer.html) | `socials` | TGB SOCIALIZER BOT |
+| **Path Builder** | [mc/pathbuilder.html](mc/pathbuilder.html) | `waypoints`, `paths`, `path_stops` | TGB PATH BOT, TGB WAYPOINT BOT |
+| **Green Room** | [mc/greenroom.html](mc/greenroom.html) | `guides` | none |
+| **Cities** | [mc/data/cities.html](mc/data/cities.html) | `cities`, `countries` | none |
+| **Anchor Events** | [mc/data/events.html](mc/data/events.html) | `anchor_events` | TGB ANCHOR EVENTS (name only; see its note) |
+| **Teams** | [mc/data/teams.html](mc/data/teams.html) | `teams` | none |
+| **Stop Builder** | [mc/_stops.html](mc/_stops.html) — PARKED | `stops`, `challenges` | none |
+| **Mission Control** | [mc/index.html](mc/index.html) | `admin_access_requests` | none |
+
+**PUBLIC pages** are at the repo root: `games/`, `gifts/`, `highlights/`,
+`soundtracks/`, `index.html`, and the shared chrome in `shell/`. **Everything
+else lives under `mc/`**, and the rule for anything new is: if a visitor is not
+served it, it goes in `mc/`.
+
+**SHARED MODULES**, which exist because this repo has lost to copy-and-drift
+three times:
+
+| file | holds |
+|---|---|
+| [mc/assets/waypoint-editor.js](mc/assets/waypoint-editor.js) | the waypoint editor dialog, Fill, and `waypointNameEl` |
+| [mc/assets/waypoint-geo.js](mc/assets/waypoint-geo.js) | Plus Codes, Nominatim, the walk solver. **No DOM** |
+| [mc/assets/waypoint-prompts.js](mc/assets/waypoint-prompts.js) | the six AI prompts. **The text is the product** |
+| [mc/assets/geo.js](mc/assets/geo.js) | city/state/country parsing, `TgbGeo` |
+| [mc/js/room-blurbs.js](mc/js/room-blurbs.js) | each room's one standing sentence |
+| [mc/js/admin-nav-menu.js](mc/js/admin-nav-menu.js) | the nav, and the hub's directory cards |
+| [mc/js/admin-shell.css](mc/js/admin-shell.css) | the shared room header and every dialog's look |
+
+**THE SIX ROUTINES** and their triggers are in the schedule table further down.
+`RemoteTrigger` or `/schedule` edits them from here; you never have to open the
+website.
+
+---
+
+## 5. THE BIG PICTURE
+
+**We build live action, real world games.** Not an app you play at home. You walk
+somewhere, you stand in front of a real thing, and you work something out.
+
+### The shape of the business, in the order it happens
+
+1. **START WITH A CITY.** Every game is somewhere specific. The city comes first
+   and everything else is chosen to fit it.
+2. **AN ANCHOR EVENT BRINGS PEOPLE THERE.** A match, a concert, a convention, a
+   festival. We do not create the reason to travel; we find the reason that
+   already exists and put a game next to it. That is what `public.anchor_events`
+   holds, and it is why that table is not a sports table: the event is whatever
+   filled the hotels.
+3. **THE GAME IS PLAYED THE DAY BEFORE THE ANCHOR EVENT.** Visitors are already
+   in town, with an afternoon and an evening and nothing booked. That day is the
+   product's whole window.
+4. **THEY BUY A GAME** and play it whenever they like. **We suggest a start
+   time**, and the suggestion is doing real work: it is not scheduling, it is
+   what makes several groups finish at roughly the same moment.
+5. **SO THAT LIKE-MINDED PLAYERS MEET UP AT THE END.** The end of the game is a
+   room with other people in it who have just done the same thing.
+
+**POINT 5 IS WHY THE PARTNER PROGRAMME EXISTS**, and it is worth saying plainly
+because the partner work reads as a side quest otherwise. A partner is a bar or
+brewery that will host visiting fans; the reason we want one is that the game has
+to END somewhere, with a drink and other players. `partner_kind = 'game_end'` is
+the default because ending a game is the job. The suggested start time and the
+partner venue are two halves of the same idea.
+
+**IT ALSO EXPLAINS THE SUGGESTED-START-TIME RULE ELSEWHERE IN THIS FILE.** Any
+feature that lets a group drift off the common schedule quietly costs the thing
+in point 5.
+
+### The vocabulary, in the order it nests
+
+**A GAME consists of a PATH.**
+**A PATH consists of WAYPOINTS.**
+**A WAYPOINT plus a CHALLENGE is a STOP.**
+**The text after a solved challenge is a DIRECTION.**
+
+- A **CITY** is where a game happens.
+- An **ANCHOR EVENT** is the real-world thing that brought people to that city.
+  Ours is played the day before it. `public.anchor_events`.
+- A **GAME** is what somebody buys. `public.games`.
+- A **PATH** is the route it walks. `public.paths` plus `public.path_stops`.
+- A **WAYPOINT** is a real place: name, address, coordinates, a source that says
+  it is worth standing in front of. One row per place, ever. `public.waypoints`.
+- A **CHALLENGE** is the playable content: a question, a minigame, a photo, a
+  freeform answer. Reusable, so one challenge can sit at many stops.
+  `public.challenges`.
+- A **STOP** is a waypoint plus a challenge. It is the unit a player actually
+  experiences. `public.stops` today, keyed by city; see the parked Stop Builder
+  note for why that is wrong and what replaces it.
+- A **DIRECTION** is what a player is given after solving a challenge: the
+  feedback on what they just did, and the information that leads them to the next
+  waypoint. **It is the connective tissue of the whole walk** and the only part
+  of a game that is about the space BETWEEN two stops.
+
+### THE PERIPHERY: FOUR THINGS THAT HANG OFF THE CORE
+
+The nouns above are the product. **These four are not**, and knowing that is what
+keeps them in proportion: they attach to a city or to a game, they support the
+thing being sold, and none of them is on the critical path to somebody buying and
+walking a game.
+
+| periphery | attached to | tables | public page | room |
+|---|---|---|---|---|
+| **City soundtracks** | a CITY | `soundtracks`, `soundtrack_songs`, `soundtrack_issues` | [/soundtracks/](soundtracks/index.html) | Tape Room |
+| **City gifts** | a CITY | `gift_shop_items`, `gift_shop_listings` | [/gifts/](gifts/index.html) | Gift Shop (the room) |
+| **Game highlights** | a GAME that was played | `photo_submissions` | [/highlights/](highlights/) | Winner's Wall |
+| **Social media posts** | anything, mostly a story or a gift | `socials` | none, it posts outward | Socializer |
+
+**WHY THIS DISTINCTION IS WORTH WRITING DOWN.** Four of the six rooms in this
+project, four of the six routines, and a large share of this file are about the
+periphery, because the periphery is where the daily chores are. That is a fair
+reflection of where the WORK is and a badly misleading picture of where the
+PRODUCT is. A reader who arrives at this file cold would reasonably conclude we
+sell playlists.
+
+Two consequences worth holding on to:
+
+- **THE PERIPHERY HANGS OFF THE CORE, NEVER THE OTHER WAY ROUND.** A soundtrack
+  is for a city we play in; a gift is for a city we play in; a highlight is proof
+  somebody played. If a peripheral feature ever starts deciding which cities we
+  build games for, the tail is wagging the dog.
+- **THE CORE IS THE PART THAT IS LEAST FINISHED.** Soundtracks, gifts and socials
+  each have a room, a routine and a public page. Stops and challenges have a
+  PARKED editor and one challenge attached across 41 stop rows, and directions do
+  not have a table at all. **The mechanics people pay for are the least built
+  thing here**, and that is the single most useful sentence in this section.
+
+### DIRECTION IS NEW VOCABULARY AND HAS NO TABLE YET (2026-08-20)
+
+It is written down here because it is now a named thing, and naming it is what
+stops the next person inventing a second word for it. **Nothing in the database
+holds a direction today.** The engines carry the between-stop text inside the
+conversation flow in `public.games`, which means it is authored per game rather
+than per stop, and it cannot be reused the way a challenge can.
+
+**Do not invent a `directions` table on the strength of this paragraph.** When
+directions get a home it should almost certainly be alongside the challenge on
+`path_stops`, because a direction belongs to the LEG between two stops and the
+stop is the only thing that knows both ends. That is the same piece of work the
+Stop Builder note describes, and it touches both engines, which are the paid
+product.
+
+### TWO PLACES THIS DISAGREES WITH THE REST OF THE FILE
+
+Recorded rather than silently reconciled, because both are load-bearing and only
+Kevin can settle them.
+
+1. **"A game consists of A PATH" (singular) vs "A Game contains ONE OR MORE
+   Paths"** in the canonical hierarchy below. One path per game is the simpler
+   product and matches how a game is sold; one-or-more is what the schema allows,
+   since nothing stops several paths naming the same city. **If it is one, the
+   hierarchy section should say one**, and a game should point at exactly one
+   `tour_id`.
+2. **"A path consists of WAYPOINTS" vs "A Path contains an ordered list of
+   STOPS."** Both are true at different times, which is exactly the confusion:
+   `path_stops` holds ids and a position TODAY, so a path really is waypoints in
+   an order; it becomes stops when challenges are attached, which is the work
+   that has not happened yet. **The Path Builder builds waypoints in an order.
+   The player walks stops.**
+
+---
+
 ## SOUNDTRACKS — sound / city playlists
 
 > **"TAPE ROOM" means [mc/soundtracks/index.html](mc/soundtracks/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the TAPE ROOM"*, *"the TAPE ROOM is showing the wrong counts"* — is an instruction about that one file, with no other page to check first.
@@ -21,7 +326,7 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 >
 > **`/mc/soundtracks/` and `/soundtracks/` are different things.** The second is the public cassette page a visitor sees, and only LIVE tracks appear on it. The two paths now differ by one segment, so read carefully: `/mc/` is the room, the bare one is the shop window. Exactly the trap `/mc/gifts/` and `/gifts/` already set.
 >
-> **IT MOVED OUT OF `/admin/` ON 2026-08-17**, from `mc/soundtracks/admin/index.html`, to match the Stock Room at `/mc/gifts/` and the Socializer at `/mc/socializer.html` — every other room is named by its folder and this one carried a segment none of the others did. **A hard break with no redirect**, since GitHub Pages serves no 301: any bookmark on `/mc/soundtracks/admin/` is dead and now 404s. Every in-repo reference was repointed in the same commit — the hub's Daily Chores card, the shared admin nav's `href` **and its `match`** (that regex is what lights the button up when you are standing in the room, so it has to move with the href), `mc/review/index.html`, `soundtracks.md` and `PROMPTS.md`.
+> **IT MOVED OUT OF `/admin/` ON 2026-08-17**, from `mc/soundtracks/admin/index.html`, to match the Stock Room at `/mc/gifts/` and the Socializer at `/mc/socializer.html` — every other room is named by its folder and this one carried a segment none of the others did. **A hard break with no redirect**, since GitHub Pages serves no 301: any bookmark on `/mc/soundtracks/admin/` is dead and now 404s. Every in-repo reference was repointed in the same commit — the hub's Ancillary Things card, the shared admin nav's `href` **and its `match`** (that regex is what lights the button up when you are standing in the room, so it has to move with the href), `mc/review/index.html`, `soundtracks.md` and `PROMPTS.md`.
 
 The public page [soundtracks/index.html](soundtracks/index.html) renders city cassette cards at runtime from **two Supabase tables**: `public.soundtracks` (one row per city tape — `city_slug` PK, `spine_tag`, `spine_tag_position`, `archived`) and `public.soundtrack_songs` (one row per track — `city_slug`, `position`, `title`, `artist`, `blurb`, `spotify_id`, `explicit`, `archived`), plus the `public.soundtrack_stats` view for per-tape counts. Schema: [mc/supabase/migrations/2026072904_soundtracks_tables.sql](mc/supabase/migrations/2026072904_soundtracks_tables.sql); the 69-tape / 929-song lift out of the old JSON file is [2026072905_soundtracks_seed.sql](mc/supabase/migrations/2026072905_soundtracks_seed.sql).
 
@@ -157,7 +462,7 @@ Plus the standing rule from TGB ANCHOR EVENTS: **the fanbase city, never the ven
 
 ### All six TGB routines run at 3 AM and 3 PM Central, and NOBODY ADJUSTS FOR DST
 
-Set 2026-08-15, and a sixth was added on 2026-08-18. One schedule, staggered three minutes apart so the cloud sessions do not all provision at the same instant:
+Set 2026-08-15; a sixth was added on 2026-08-18. A seventh, TGB PARTNER BOT, lasted one day and was folded into TGB PATH BOT (see below). One schedule, staggered three minutes apart so the cloud sessions do not all provision at the same instant:
 
 | routine | trigger id | cron (UTC) |
 |---|---|---|
@@ -284,9 +589,11 @@ Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migr
 - **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
 - **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
 
-## Mission Control's Daily Chores cards say what the ROOMS say (2026-08-19)
+## Mission Control's ANCILLARY THINGS cards say what the ROOMS say (2026-08-19)
 
-All three headings are the room's own name — **STOCK ROOM**, **TAPE ROOM**, **SOCIALIZER** — and all three paragraphs are that room's own `.room-blurb`. They had been verbs with hand-written descriptions (*STOCK GIFTS*, *MAKE SOME MIX TAPES*), and those descriptions had gone quietly stale: the socials one still promised a per-account composer picker that was deleted when one click started reaching every account it can.
+**THE PANEL WAS CALLED DAILY CHORES UNTIL 2026-08-20.** The old name described the CADENCE and said nothing about what the three cards are; the new one says what they are, and it lines up with the big-picture section at the top of this file: soundtracks, gifts and social posts **hang off the product rather than being it**. **The class names did not move** — `.mc-chores` and `.mc-chore` are identifiers, the same bargain the Tape Room made through four renames of its verbs without the column following. Don't reintroduce "chore" in visible copy.
+
+All four headings are the room's own name — **GIFT SHOP**, **TAPE ROOM**, **SOCIALIZER**, **PARTNERS** — and all four paragraphs are that room's own `.room-blurb`. (**Partners joined on 2026-08-20**, moving out of the nav's Game Elements group and into its own `hubHidden` group, exactly as Socials is: a chore card at the top of `/mc/` plus a directory card below it is the same link twice.) They had been verbs with hand-written descriptions (*STOCK GIFTS*, *MAKE SOME MIX TAPES*), and those descriptions had gone quietly stale: the socials one still promised a per-account composer picker that was deleted when one click started reaching every account it can.
 
 **A door that describes a room in its own words drifts the moment the room changes**, and nothing makes it obvious — the card still reads perfectly.
 
@@ -294,11 +601,11 @@ All three headings are the room's own name — **STOCK ROOM**, **TAPE ROOM**, **
 
 **[mc/js/room-blurbs.js](mc/js/room-blurbs.js) holds all three strings and both surfaces render them**, so the pair cannot drift. This section used to end *"when you change a room's blurb, copy it here; the pair has no automation and no check"* — it has one now. **Edit the string in that file and the room and its door change together.**
 
-- **The contract is `data-room-blurb="<key>"` on an empty element**, plus the script. Keys are `stock-room`, `tape-room`, `socializer`.
+- **The contract is `data-room-blurb="<key>"` on an empty element**, plus the script. Keys are `stock-room`, `tape-room`, `socializer`, `partners`.
 - **THE MARKUP CARRIES NO FALLBACK TEXT, DELIBERATELY.** Leaving the sentence inline as a safety net recreates the exact thing this kills: two copies, one quietly wrong. An element that renders EMPTY because the script did not load is a visible failure somebody fixes; a stale sentence is an invisible one nobody notices. Same reasoning that deleted the soundtracks JSON fallback. **Don't "improve" it by putting the text back in the HTML.**
 - **BOTH SURFACES USE `.room-blurb`**, so the container is shared as well as the words. On the hub that meant scoping the card's own rule to **`.mc-hub-card p:not(.room-blurb)`** — the two were half-fighting, and `.mc-hub-card p` (0,1,1) beat `.room-blurb` (0,1,0) on some properties while losing `font-weight` and `max-width` to it, which is neither the card's look nor the room's. The directory cards still use the unscoped rule.
 - **The Socializer's blurb was a `<p class="status room-substat" id="pageStatus">`** until this pass, a leftover from when that line doubled as the status channel. **Nothing in the page reads that id** — `setPageStatus` writes `#pageNotice`, the scribble — so it became a plain `.room-blurb` like the other two. The Tape Room's `#pageTagline` is equally unread and was kept only because it costs nothing.
-- **A ROOM JOINS THE FILE WHEN IT GETS A DOOR.** The Path Builder and the Green Room have blurbs and no Daily Chores card, so their sentence is written once, on the room, and has nothing to drift against. Add them the day they get a card, not before.
+- **A ROOM JOINS THE FILE WHEN IT GETS A DOOR.** The Path Builder and the Green Room have blurbs and no Ancillary Things card, so their sentence is written once, on the room, and has nothing to drift against. Add them the day they get a card, not before.
 
 The `GO TO …` buttons repeat the heading now, which is what keeps them reading as a door rather than a second title.
 
@@ -315,7 +622,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
   - A **partial** unique index on `email where status = 'pending'` means one open request per address, while a denied one does not lock the address out forever — the usual reason for a second ask is that the first was a mistake.
   - An existing-account error from signup is **not** treated as a failure: somebody who signed up, was never approved, and has come back to ask again would otherwise be stopped by their own earlier attempt, with an error they cannot act on.
 - **`tgb_decide_admin_access(uuid, boolean)`** is `SECURITY DEFINER` because approving writes `admin_users`, which no client may write directly. **Its first line is `is_photo_admin()`** — without that it hands the admin list to anybody — and it is granted to `authenticated` only, so there are two gates rather than one. It locks the row `for update`, so two admins pressing Approve at once cannot both act.
-- **The panel is at the top of [mc/index.html](mc/index.html)**, above Daily Chores, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
+- **The panel is at the top of [mc/index.html](mc/index.html)**, above Ancillary Things, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
 
@@ -334,7 +641,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 >
 > **THE COST IS THE `#edit=` LINKS ALREADY IN SOMEBODY'S INBOX.** TGB SOCIALIZER BOT has mailed five `https://thegamebureau.com/mc/socials/#edit=<id>` links twice a day since August, and **every one of them is now dead** — the hash contract survives, the path under it does not. **TGB SOCIALIZER BOT's stored prompt was updated in the same pass** (`trig_01KDYndJhZ9ymgUgX5Xx6LsL`, by `RemoteTrigger`, cron and everything else untouched), so future emails point at the new path: the six occurrences in steps 7 and 8, plus a line in step 8 saying in as many words that the page moved and that writing `/mc/socials/` anywhere is wrong. The RPC names (`tgb_pull_socials_candidates`, `tgb_socials_filed_urls`, `tgb_socials_used_gift_urls`) keep their `socials` spelling — they are function names, not paths, and the table is still `public.socials`.
 >
-> Every in-repo reference was repointed in the same commit — the hub's Daily Chores card in `mc/index.html`, the Socializer entry in `mc/js/admin-nav-menu.js` (there is no `match` regex for this room, unlike the Tape Room's), the page's own `tgb-agent-context` block and PROMPT text, both Edge Functions' comments, `PROMPTS.md`, and the palette-source comments in `mc/gifts/index.html` and `mc/pathbuilder.html`. The three `../../mc/…` script and stylesheet paths in the page became root-absolute `/mc/…`, since the file changed depth.
+> Every in-repo reference was repointed in the same commit — the hub's Ancillary Things card in `mc/index.html`, the Socializer entry in `mc/js/admin-nav-menu.js` (there is no `match` regex for this room, unlike the Tape Room's), the page's own `tgb-agent-context` block and PROMPT text, both Edge Functions' comments, `PROMPTS.md`, and the palette-source comments in `mc/gifts/index.html` and `mc/pathbuilder.html`. The three `../../mc/…` script and stylesheet paths in the page became root-absolute `/mc/…`, since the file changed depth.
 
 > **Don't confuse it with TGB SOCIALIZER BOT**, which is the scheduled routine that files candidates *into* it. The two names now differ by one word, so read carefully: the SOCIALIZER is the page, TGB SOCIALIZER BOT is the trigger — a trigger at claude.ai, not a page. The Socializer is where a human decides; the bot only ever inserts. Same distinction the page itself makes: the button labelled TGB SOCIALIZER BOT opens the routine, and the PROMPT dialog beside it is deliberately *not* named after the bot.
 
@@ -603,21 +910,38 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
 
 ### THE WAYPOINT FINDER IS DELETED (2026-08-18, the same day it was built)
 
-`mc/waypoint-finder.html` existed for a few hours. It was a queue for deciding whether a place belongs in the library at all, sitting beside the Path Builder, which puts the kept ones in an order. **The split did not survive contact with the work**: reviewing a place and putting it on a walk are the same sitting, so it put the same two ADD buttons in two rooms and made you change rooms to type in a stop you were standing in front of. **One room, both jobs.** Its Daily Chore card on `/mc/`, its Game Elements nav entry and the file are all gone; there is no redirect, as usual.
+`mc/waypoint-finder.html` existed for a few hours. It was a queue for deciding whether a place belongs in the library at all, sitting beside the Path Builder, which puts the kept ones in an order. **The split did not survive contact with the work**: reviewing a place and putting it on a walk are the same sitting, so it put the same two ADD buttons in two rooms and made you change rooms to type in a stop you were standing in front of. **One room, both jobs.** Its card on `/mc/`, its Game Elements nav entry and the file are all gone; there is no redirect, as usual.
 
 **What survived it, and this is the part worth keeping:**
 
 - **[mc/assets/waypoint-editor.js](mc/assets/waypoint-editor.js)**, the whole waypoint editor as a module: `window.TgbWaypointEditor`. It came out of `mc/pathbuilder.html` (about 550 lines, plus its dialogs and its CSS) when the Finder needed the same editor and had grown a five-field form of its own instead. That is the copy-and-drift this repo has already lost to twice, with the Plus Code codec and the waypoints import helper, and the reason `waypoint-geo.js` and `waypoint-prompts.js` exist.
   - **It has one caller again**, and that is fine: the file is a clean seam, `pathbuilder.html` is 550 lines lighter, and re-inlining working code to save a script tag is churn. **Don't re-inline it.**
+  - **IT HAD ONE CALLER AND THAT HID A LEAK.** `WP_FIELDS`, the column list `wpPayload` writes on every save, was declared in **`mc/pathbuilder.html`** and read by the module as a global. It worked, because a top-level `const` in a classic script is visible to every other script on the page and this was the only host. **The second room to mount the editor got `WP_FIELDS is not defined` on its first write** — which surfaced on the short-lived `mc/partners.html` as Fill silently failing, the ReferenceError caught by `fillAndSaveRow`'s own try/catch and reported as though the geocoder had refused. Moved into the module on 2026-08-20; **nothing outside that file may declare it.** A module that reads a host's variable is not a module, and this is exactly what the file header promises it does not do.
+  - **`probe()` MUST BE RE-RUN ONCE THE ROWS ARE LOADED.** `probeWaypointColumns` answers "no such column" for everything when handed an empty array, and `wpPayload` gates `lat`/`lon` and `source_url` on that answer. A host that mounts before it loads therefore writes the zip and **silently drops the coordinates and the source**, which is the worst kind of half-success because nothing reports it. The Path Builder probes inside `loadAll`; Partners re-probes at the end of its own load.
   - **It brings its own markup, its own CSS and its own `#pathCityList` datalist**, so a host page has nothing to keep in step. The host contract is `restUrl` and `authHeaders` (required) plus optional `setStatus`, `waypoints()`, `defaultCity()`, `removeWaypoint()`, `onChanged()` and a `path` block. **A room with no `path` never offers to add a new place to a walk**, which is the only part of the editor that only makes sense next to an open path.
   - **Its buttons are ID-SCOPED (`#wpDlg .btn`) and that is deliberate.** Every room styles `.btn` its own way, and a host's sheet loads *after* the module's, so matching a bare `.btn` would lose on source order and the same dialog would read differently in each room. An id beats a class whatever the order.
 - **`public.waypoints.created_at`** ([2026081802](mc/supabase/migrations/2026081802_waypoints_created_at.sql)) stands and is still nullable, so a row from before the column existed reads as "arrived before we started counting" rather than carrying a made-up date. **Arrivals landing SHELVED ([2026081803](mc/supabase/migrations/2026081803_waypoints_arrive_shelved.sql)) did NOT survive**: see the section above. Everything from TGB WAYPOINT BOT, TGB PATH BOT, an import or a human's own hand now arrives live.
+
+### A WAYPOINT'S NAME IS A LINK TO ITS SOURCE (2026-08-20)
+
+`source_url` is where a claim about a place came from, it is required by three prompts, it is filled by Fill, **440 of 480 waypoints carry one** — and until now nothing read it. Every room printed the name as dead text and the URL not at all.
+
+- **`TgbWaypointEditor.waypointNameEl(row)` is the one builder**, exported from [waypoint-editor.js](mc/assets/waypoint-editor.js) because that is the shared waypoint module every room drawing a waypoint already loads. **It is not part of the editor**, and it is the first thing in that file that is not.
+- **Four call sites**: the Path Builder's library rows, its path rows and its map popup, and the Partners card. Four hand-written anchors is how three end up missing `rel="noopener"` and the fourth swallows a drag.
+- **`draggable = false` ON THE ANCHOR, AND NO `dragstart` HANDLER.** This is the trap. An anchor inside a draggable row is its own drag source, so the browser drags the LINK instead of the row. The fix is `draggable = false`, which makes the browser walk up and drag the row instead. **`preventDefault` on dragstart is NOT the fix and is actively wrong**: the event bubbles, so it cancels the drag entirely and makes the middle of every row dead to the one gesture the room is built on. (Caught in review, not in the browser.)
+- **No link without a parseable `http(s)` URL.** A `javascript:` source is refused by the protocol check, and a source that will not parse renders as plain text with a tooltip saying so, because an anchor that goes nowhere is worse than text: it invites the click.
+- **A name with no source looks identical until you point at it**, and its tooltip says there is none. Whether we recorded a source is not a fact about the PLACE, so it must not change how the place reads in a list.
+- **It inherits colour and weight** rather than going browser-blue and underlined; forty underlined blue names is a link farm, not a library. A dotted underline on hover is the room's existing idiom for "this does something".
+
+**Where a name is still NOT a link, and why it cannot be:** the map's Leaflet tooltips (plain text by nature), the anchor picker in the AI dialog (an `<option>` cannot hold a link), and Stop Builder's `waypointLabel` in [mc/_stops.html](mc/_stops.html), which returns a STRING for `<option>` text and does not fetch `source_url` at all. That room is parked.
 
 ### The Path Builder page
 
 - **THE LIBRARY IS A COPY SOURCE, NOT A CUT ONE** (2026-08-18). Adding a place to a path leaves it in the left panel, marked *on this path* and with Add spent. It used to vanish from the pool, which made adding a stop read as **moving** the place out of the catalogue — and the catalogue is the permanent thing: a place lives once in `public.waypoints` and can be on any number of paths, which is the whole reason `waypoints` and `path_stops` are two tables. A library that empties as you build contradicts that on screen. Add is disabled once used because a second copy is refused by the `(tour_id, wpid)` primary key, so the button's only outcome would be an error; the row still **drags**, because dragging an already-placed row is a move within the path.
 - **The panels are titled `WAYPOINT LIBRARY: CITY` and `PATH: CITY`.** The left one was "*city* waypoints not on this path", which defined a standing catalogue by what it was currently missing — so the same shelf was called something different a second after you dragged a row. The city goes after the colon so both titles start with the noun and line up down the page.
-- **THE ADD BAR HOLDS BOTH NOUNS: Waypoint · TGB WAYPOINT BOT | Path · Path Clone · TGB PATH BOT**, with a `.bar-sep` rule marking where one ends and the other begins.
+- **THE ADD BAR HOLDS BOTH NOUNS: Waypoint · Waypoint Prompts · TGB WAYPOINT BOT | Path · Path Clone · TGB PATH BOT**, with a `.bar-sep` rule marking where one ends and the other begins.
+  - **WAYPOINT PROMPTS, NOT WAYPOINT AI** (2026-08-20), and it sits SECOND, ahead of the routine. Two reasons, one for each half of the change. *AI* had stopped distinguishing anything: the routine beside it is AI and the six pulls it opens are AI, where what this button actually hands you is a **prompt to paste somewhere else**. And the order now reads as the two things YOU can press to make a waypoint, then the door to the routine that makes them on its own.
+  - **IT HAD NO DOOR AT ALL UNTIL 2026-08-20.** `openAiDialog` and its whole dialog were defined and called from nothing, which only came to light when a sixth pull was added to a dialog nobody could open. **`openFindDialog` is still in exactly that state**; see the editor's action-row note.
   - **THE BARE NOUN MAKES THE THING; the buttons after it say how else you can get one.** Both halves read the same way. **MANUAL came off both on 2026-08-18**: it was there to separate by-hand from by-routine, which the routine's own name already does, so it was a verb explaining a distinction the noun beside it had already made.
   - **CLONE keeps its `Path`**, because Clone is not the noun: "Clone" alone would not say what it copies, and this bar holds two things you could mean. **TGB PATH BOT keeps its own** for the older reason: it is a proper noun, the routine's name on the trigger and in this file.
   - **The waypoint half left for a few hours on 2026-08-18 and came back** when the Waypoint Finder was deleted. The path buttons went bare, then took `Path` back, then landed where they are now; the settled rule is the one above, and a button reading "Bot" or "Clone" alone would name nothing.
@@ -629,6 +953,8 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
   - **A row `fill()` could not improve is never PATCHed**, so a run over hundreds of rows touches only the ones it helped.
   - **A refused write is caught.** PostgREST answers 200 with an empty array when RLS blocks a PATCH, so without the check a bulk run reports hundreds of successes and writes none of them. Verified: run under the anon key it stops and says the database refused the write.
 - **`ALL WAYPOINTS` IS THE FIRST ENTRY IN THE PATH PICKER** (2026-08-18), above every city. It is not a path: `ALL_WAYPOINTS = '__all__'` is a sentinel meaning *no path open, show me everything*, and the library fills with all 463 rows under the heading `WAYPOINT LIBRARY: EVERY CITY`. "I want to look at the places, not a walk" is a real reason to come to this room, and until now there was no way to say it.
+  - **IT REACHES THE VIEW FROM A URL TOO**: `?path=__all__`. The query contract is the same one a real path uses, and the sentinel needs no special handling at boot, because `loadStops` asks PostgREST for `tour_id=eq.__all__`, gets an empty list and carries on.
+  - **THE 60-ROW CAP IS GONE, AND IT WAS WRONG HERE SPECIFICALLY** (2026-08-20). `renderPool` painted `rows.slice(0, 60)` and appended *"410 more, narrow the filter to see them"*, which is defensible for a city and indefensible for the one view whose entire promise is ALL of them: it drew 60 of 470. **A view named for its completeness cannot be the one that silently truncates.** The reason for the cap was real, that the whole library made the panel a scroll pit, so that is now answered in CSS instead: **`#poolList` and `#pathStops` are bounded at `70vh` and scroll inside their own panels** rather than growing the document. Both columns keep their headers on screen and move independently, which is what makes dragging between them workable on a long list.
   - **A sentinel, not an empty string.** Blank already means "choose a path", the state the picker returns to; a third meaning on that value would make *nothing open* and *everything shown* indistinguishable.
   - **It is offered even when there are no paths at all**, and the picker stays enabled for it: the one view that does not need a path must not be unreachable in a database that has none, which is also the state you are in before you build the first one.
   - **`hasOpenPath()` now guards everything that writes to a path**, because `state.pathId` being truthy stopped meaning "a path is open" the moment a sentinel could sit in it. Without it the library's → and its drag handle offered to add a stop to a walk that does not exist, and Save / Delete / Clone / Edit all read as live. **Test `hasOpenPath()`, never `state.pathId`, for anything that acts on a path.**
@@ -688,6 +1014,14 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
   - **THE FOOT IS THREE BUTTONS OF ONE KIND.** Delete destroys the record, Save commits it, Close discards: every one ENDS the dialog and you press each at most once a visit.
   - **FILL IS NOT ONE OF THOSE, which is why it moved to the head.** It is a tool you press repeatedly WHILE editing and it acts on the form rather than on the record, making it the same kind of thing as Open beside the Source box. A row of endings was never going to hold it, and it got moved three times in an afternoon proving that. On the head beside the WPID it reads as "fill this form in", said at the top of the form it fills.
   - **DUPLICATE was deleted** (2026-08-18), and `duplicateWaypointRow` with it. The `.dlg-rule` between the bands and the `.dlg-group` wrapper went too: with one button on the left there is nothing left to separate.
+- **EVERY COLUMN IS ON THE FORM** (2026-08-20), and the three that are not are not columns anybody should write.
+  - **Editable:** name, description, address, city, **state**, zip, source, **coordinates**, **walk order**, and the whole partner band.
+  - **Read-only:** `wpid`, `ai_model`, `created_at`, and the two partner stamps. Provenance and trigger-written values. **Typing over `ai_model` would destroy the only trace of which model produced a bad address**, and "what wrote this and when" is the first question asked of a row that looks wrong, which previously had no answer anywhere on the form.
+  - **DELIBERATELY ABSENT: `tour_id`, `tour_title`, `tour_shape`.** Retired in place since paths became their own tables on 2026-08-08 and read by nothing. **A box for a dead column is an invitation to write one.**
+  - **THE STATE BOX IS BACK, AND THE RULE THAT REMOVED IT MOVED RATHER THAN BEING DROPPED.** It went because a field with one correct answer is a field that can be got wrong: Nominatim says "Florida" where all 480 rows say "FL", so the city derived it. **What changed is where the derivation applies** — `wpPayload` now fills a BLANK only, because a box that silently discards what you type is worse than no box, and the field carries a **From city** action for when the derivation is what you want. The old cost is back too and is now VISIBLE: change the city and the stale state sits next to it rather than being silently rewritten, one press from correct.
+  - **THE COORDINATES ARE EDITABLE AS A PAIR.** They were a read-only reading, on the reasoning that Fill writes them and the map moves them. That holds until both fail at once: a place the geocoder cannot find has no pin to drag, and a coordinate copied off a map was then the only way in and there was none. **Both or neither**, enforced in the field and again in `wpPayload`.
+  - **CLEARING A POINT NOW WORKS.** `wpPayload` wrote the pair only when both were present, so emptying the boxes left the stored point untouched and a coordinate you deleted came straight back on reload. A blank, unparseable, out-of-range or 0,0 pair writes NULL, which is what the map already draws as "not located yet".
+  - **`walk_order` is a per-city HINT and is not a path position**, said on its own hint so nobody mistakes it for the other thing. A blank is null rather than 0: unsequenced is not position zero.
 - **FILL IS THE ONLY LOOKUP, and it fills EVERYTHING blank**: zip, address, coordinates, description and **source url**. Locate was a second button for one of the several fields Fill writes, so it went, and `locateWaypoint` with it; `geo.locate()` is untouched and `fill()` calls it. **Maps went too**: a door out of a dialog you came here to type in. **Nothing sits beside the Coordinates reading now** — `.wp-inline-act`, `.wp-readonly-row` and `openWaypointInMaps` are all gone; `geo.googleMapsUrl()` stays exported and unused here.
   - **To move a point that is already stored**, drag its pin on the map, or edit the address, which clears the pair on save because those coordinates described where the OLD address was. **Fill never overwrites a point that is there** and that is deliberate: a pin somebody dragged into place must not be replaced by a guess.
   - **The field is labelled SOURCE and carries an OPEN button** (2026-08-18). The box holds a url and obviously looks like one, so "Source URL" was naming the format rather than the thing: what it is FOR is the place the claim came from. Open sits beside the box rather than in the foot's button row, because it acts on that one value while the foot acts on the whole waypoint, and it is **disabled until the box holds something that parses as an http(s) url** - a source that will not parse is a source nobody can check, and opening it would put the browser somewhere strange rather than saying so. It is a bordered `.btn`, **not `.ghost`**: borderless is right among other buttons and reads as a stray word beside a text box.
@@ -703,10 +1037,23 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
 - **Every search source fails soft.** Overpass is a free endpoint that 504s whenever it is busy; the first cut let that reject the whole search, discarding Nominatim matches already in hand. `search()` reports which sources answered so a partial answer says so.
 - **`fillFieldsFromPlace` writes the state CODE.** Nominatim answers `"Florida"`; all 280-odd rows hold `"FL"`. The old page wrote the long form, making rows that look fine alone and sort, group and match differently from every other row in their state.
 - **Dedupe warns three times and blocks never** — results list, draft, and Create. One address is routinely several stops (a museum and the sculpture outside it), which is why a conflicting house number vetoes an address match outright while names match on containment and typos.
-- **RECALC, beside the path panel's legend** (2026-08-20). Leaves stop 1 where it is, then takes the stop closest to it as stop 2, the closest to that as stop 3, and so on. Greedy nearest neighbour, one pass, no lookahead. It rewrites `path_stops.ord` and **leaves it unsaved** so you look at the new shape on the map first; `markDirty` is what makes Save appear.
+- **TUCK IN, in the library panel's header** (2026-08-20). Re-sorts the library by **what each place would COST to insert into the open path**, and says which two stops it would go between. RECALC opposite reorders the path; this one tells you what to add to it.
+  - **CHEAPEST INSERTION, which is exact rather than a heuristic.** For a candidate C and each consecutive pair (A, B) on the path, `detour = d(A,C) + d(C,B) - d(A,B)` is precisely the metres the walk grows by if C goes between them. The smallest over all pairs is what C costs, and the pair that produced it is where it goes.
+  - **THIS IS NOT "WHAT IS NEAR THE PATH", AND THE DIFFERENCE IS THE POINT.** Measured on a straight four-stop test: a place **898 m** from the nearest stop costs **1.8 km** to insert, because it is past the start in the wrong direction and you pay the walk twice; a place **449 m** from the nearest stop costs **0 m**, because it is on the line. A proximity list ranks those two the wrong way round.
+  - **BETWEEN, NEVER AT THE ENDS.** A candidate is only offered a slot between two existing stops, so accepting one can never silently change where the walk starts or finishes. Those are editorial decisions, the same ones RECALC asks about.
+  - **THE ARROW INSERTS WHERE THE BADGE SAYS.** If the chip reads "between 3 and 4", pressing it puts it between 3 and 4. Appending would make the figure a fact about a position the button then refused to use.
+  - **`TUCK_MAX_METRES = 900`.** Beyond that a place is not tucked in, it is a diversion, and offering it as one is what would make the feature untrustworthy. Under 150 m the chip goes green: that is inside the error of a straight-line measure anyway, so it reads as free.
+  - **A leg with an unlocated end is SKIPPED, not scored zero**, or an unmeasurable gap would look like the cheapest one on the path.
+  - **The cost rides on the row as `__tuck` and is deleted when the mode is left.** These are the shared catalogue objects, not copies, so a stale badge would otherwise survive into the alphabetical list.
+  - Straight-line metres, like RECALC and with the same caveat: the map draws a routed pavement line and the two can disagree across a river.
+- **RECALC, beside the path panel's legend** (2026-08-20). Each stop becomes the nearest one left. Greedy nearest neighbour, one pass, no lookahead. It rewrites `path_stops.ord` and **leaves it unsaved** so you look at the new shape on the map first; `markDirty` is what makes Save appear.
   - **IT IS NOT THE OLD SUGGEST ORDER, on two counts, both deliberate.** That button chose its own start (the northernmost point) and then ran 2-opt to pull the crossings out. This one is **told where to begin** and does not second-guess the rest, because the first stop of a walk is an editorial decision — where a visitor parks, arrives, or gets a coffee — and it is exactly the thing a solver cannot know. `suggestWalk` in `waypoint-geo.js` is untouched and still does the 2-opt version if it is ever wanted.
   - **The trade, stated plainly:** greedy nearest neighbour paints itself into a corner, so the LAST leg can be a long walk back across everything it skipped. It is a starting arrangement to drag from, not a verdict.
   - **STRAIGHT-LINE METRES, so its answer and the drawn line can disagree** — the map draws a real pavement route, and on a river or a rail cutting they will. That disagreement is one of the two reasons Suggest order was removed; it is accepted here because the button is explicitly a rough first pass rather than a recommendation.
+  - **IT ASKS WHICH ENDS TO HOLD** (2026-08-20), in a small dialog: lock the start, lock the finish, both or neither. It used to pin stop 1 always and infer the loop, which is right often enough to be worth doing and wrong whenever the walk is meant to FINISH somewhere in particular: at a bar, at a station, at the stadium. **Both ends are editorial decisions and the solver knows only metres**, so it asks rather than guesses.
+  - **UNLOCKING THE START MAKES IT BETTER, NOT WORSE.** With the start free it tries **every stop as the seed** and keeps the shortest walk. On a fifteen-stop path that is a couple of hundred distance calculations and instant, and it is a genuinely better answer than the arbitrary seed the old `suggestWalk` justified with "northernmost, but stable". Measured on a five-stop test: start locked gave 45% shorter, both ends free gave **64%**.
+  - **The loop rule is now a DEFAULT rather than an inference.** A path whose last stop repeats its first opens with both boxes ticked, and the note says why. Untick the finish and the loop breaks, which is the honest consequence of the choice rather than something the code quietly prevents.
+  - **`walkMetres` returning 0 means UNMEASURABLE, not shortest.** In the try-every-seed loop that zero would win every comparison, so it is scored as `Infinity`. The same null-is-not-zero trap `hasPoint` documents.
   - **A LOOP KEEPS ITS CLOSING STOP.** A path whose last stop repeats its first is pinned at BOTH ends, and nearest neighbour must not be left to place that one: the duplicate is **zero metres** from the stop it repeats, so it is always the nearest thing going and gets taken as stop 2 — silently turning a loop into a walk that no longer comes home. Found by testing, not by reading. Repeats in the MIDDLE are left to the ordinary rule.
   - **An unlocated stop is not a candidate for "nearest" at all**; they keep their relative order and sink to the end, and the message says how many. A first stop with no point is refused outright, since there is nothing to measure from.
   - **It sits on the legend's line, not in the panel header.** The header acts on the PATH — its name, its shape, saving it — and this acts on the ORDER of the list above, which is what the legend is describing. Disabled under three stops, so it says so by being off rather than by answering back.
@@ -791,6 +1138,17 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - **ZIP AND COORDINATES ARE PART OF ITS JOB AND HAVE THEIR OWN STEP IN THE PROMPT**, because they are the half most easily skipped and the cost lands on somebody else: an unlocated waypoint cannot be drawn on the Path Builder's map, and geocoding it later costs a human 1.1 seconds a pin at Nominatim's one-request-a-second policy. The routine has the address in front of it already, so it is the cheapest place to pay that. The prompt carries the policy (sequential, 1.1s apart, identifying User-Agent, never parallelised), the accept test (the reply's `display_name` must contain the city asked for), and the standing rule that **a point is never invented or approximated** -- not from the city centre, not from a neighbouring stop, and never an intersection collapsed onto one of its streets, whose centroid can be a mile from the corner. A stop that genuinely cannot be located (an intersection, a span of street, a floor, a moored ship) is filed without one and named in the report.
 - **Everything it files lands LIVE**, in the [Path Builder](mc/pathbuilder.html)'s library, ready to put on a walk. It filed shelved for one day, while a review room existed; see the all-live section above for what went with that.
 
+### With AI (more places NEAR one of ours) — the cluster pull (2026-08-20)
+
+A sixth pull in the Path Builder's AI dialog, `buildClusterWaypointPrompt(city, anchor, count, notes)`. **It is a pull, not a new button**: the room already has one dialog with a picker, and a second door to the same idea is how two prompts start drifting.
+
+- **WHAT NO OTHER PULL COULD BE ASKED.** "Sweep one city" returns whatever is standable anywhere in it, and a walk built from that is a taxi ride between good places. This one is told the thing that actually makes a path: **proximity**. Every stop within a ten minute walk, roughly 800 metres, and an outlier is DROPPED rather than the radius stretched to keep it.
+- **THE ANCHOR IS THE POINT OF IT.** Pick a waypoint we already hold and the sweep centres on that place: *find me more near this one*, which is the question you have when a path has four stops and needs eight. **The whole ROW goes to the prompt, not the name** — its address and its stored point, so an AI is not sent looking up a place we can already describe exactly. It is also told **not to return the anchor itself**.
+- **Blank is a real answer and it is first in the list.** "Anywhere in the city" is what you want before a path exists, and the prompt handles it by picking the densest corner and naming which corner it chose in the first description.
+- **The anchor list follows the CITY BOX, not the open path.** Reading `pathCity()` would offer New Orleans waypoints while the field above said Denver. That is also why the city field rebuilds the inputs on change — and only that field, on only this pull, because a rebuild moves focus and doing it everywhere would make the form unusable.
+- **Sourced from published walking tours first**, like the tour-places prompt and for a sharper reason: a tour that exists has already decided both that these places are worth seeing AND that they are close enough to walk between, which is exactly the pair of judgements being asked for.
+- It shares `WIKI_SOURCE_LINES`, `WALK_ORDER_RULE`, `AI_MODEL_RULE` and `NO_EM_DASH_RULE` with the other five, and returns the same `tgb_import_waypoints_prompt_items` SQL block. **`parseLocation`, not `parseArea`** — there is no such helper, and writing one from memory is how the first cut threw a ReferenceError.
+
 ### With AI (sports) — the one importer that appends instead of skipping
 
 [mc/pathbuilder.html](mc/pathbuilder.html) has a fourth AI pull, **With AI (sports)** (added 2026-07-31), and it inverts the rule the other three share. The other prompts start from a city and ask what is in it; this one starts from the football and asks where it happened, keeping the answer **only when the place sits in a city other than that team's home** — a Seahawk's wedding church in New York, a Cowboys lineman's childhood home in Ohio, a Packers coach's grave in Georgia. A Steelers marker in Pittsburgh is explicitly worthless to it. Those stops are invisible to any city-first sweep, because no walking-tour list in Nashville is organized by which NFL team the groom played for.
@@ -801,6 +1159,36 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - It is its **own button, not a mode** of the With AI modal, because it has no place to pick — the search is "wherever the football turns out to be", so the mode's city picker would sit empty. One number, one button.
 
 ---
+
+## PARTNERS — venues that will host visiting fans (2026-08-20)
+
+> **A PARTNER IS A WAYPOINT.** It is a bar, brewery or other public food-and-drink room that will host visiting supporters of a rival fandom, wanted as the **last stop of a GAME run the day before the ANCHOR EVENT**. It is a row in `public.waypoints` carrying a `partner_status`, edited in the **Path Builder**, and filed by **TGB PATH BOT**.
+>
+> | | |
+> |---|---|
+> | **where** | [mc/pathbuilder.html](mc/pathbuilder.html) — the `PARTNERS n` filter in the library header, and the partner band in the waypoint editor |
+> | **table** | `public.waypoints`, columns prefixed `partner_` |
+> | **routine** | TGB PATH BOT, step 8 of three jobs |
+
+Migrations: [2026082001](mc/supabase/migrations/2026082001_partner_venues.sql), [2026082002](mc/supabase/migrations/2026082002_partner_suggested_teams.sql), [2026082003](mc/supabase/migrations/2026082003_partners_onto_waypoints.sql). **Apply by hand**, in that order. The third is the one that matters now; the first two are history it supersedes.
+
+### IT WAS A ROOM AND A ROUTINE FOR ONE DAY, AND BOTH ARE GONE
+
+Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues` plus TGB PARTNER BOT, and collapsed the same day. **Both halves came apart for the same reason: a partner is not a new kind of thing.**
+
+- **`partner_venues` was merged into `waypoints`** once the privacy argument for splitting them was withdrawn (see 2026082003 for the argument and what it costs). **A partner candidate is a waypoint with `partner_status` set**; the column being null is what "not a partner" means, so no second row can disagree with the flag.
+- **`mc/partners.html` was DELETED** the moment the columns moved. It was a second list of the same rows, with a second set of boxes writing the same table, behind a second door. Everything it did is now the library's `PARTNERS` filter and the editor's partner band. Its card on `/mc/`, its nav group and its `room-blurbs.js` key went with it. **A hard break with no redirect**, as always here.
+- **TGB PARTNER BOT was folded into TGB PATH BOT** as its third job. Same cities, same table, same doorway: filing a partner IS filing a waypoint, so two routines meant two runs a day reading the same NFL schedule and writing the same rows. **The old trigger (`trig_01VcgCjs3AWwrJbdUTYqVVcB`) is DISABLED, not deleted** — a delete is irreversible and this project lost a trigger id that way earlier the same day. Delete it once the merged step has run a few times.
+
+### What survived, and where it lives
+
+- **THE EDITOR'S PARTNER BAND** ([waypoint-editor.js](mc/assets/waypoint-editor.js)) is **collapsed until it applies**: 475 of 480 waypoints are not partners, and a dozen empty contact boxes under every statue would make the common case worse to serve the rare one. A checkbox opens it, and it opens itself for a row that already carries a status.
+  - **Unticking clears `partner_status` and nothing else.** The status is the flag; leaving the contacts alone means ticking it again brings back what somebody typed rather than making them find it twice. **`wpPayload` then nulls the whole set on save**, because a phone number on a row nothing calls a partner is a state nobody could interpret.
+  - **`partner_teams` is comma-separated in the box and an ARRAY in the column**, and the two dates are DATES — which is why neither is in `WP_FIELDS`: that loop writes `'' || null`, and **Postgres refuses `''` for both types**.
+  - **The band is not offered against a database without the columns.** `wpCols.partner` is probed like `source_url` and `latlon`; a tick box that silently fails to save is worse than no tick box.
+- **THE LIBRARY'S `PARTNERS n` FILTER** narrows the Path Builder's left panel to partner rows, and **cuts across the city test rather than sitting inside it**: "who have we lined up" is a question about the whole catalogue, and answering it only for the open city would hide the ones you have elsewhere. The button hides itself when there are none, and turns the filter off with it.
+- **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
+- **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
 ## Prompts and routines: the map is [mc/_dev/prompt-tools/PROMPTS.md](mc/_dev/prompt-tools/PROMPTS.md)
 
@@ -814,9 +1202,31 @@ Every AI prompt here is either a **page prompt** (in this repo, copied into a ch
 
 ---
 
-## THE STOCK ROOM — the gift shop admin page
+## THE GIFT SHOP (the room) — the gift shop admin page
 
-> **"STOCK ROOM" means [mc/gifts/index.html](mc/gifts/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the STOCK ROOM"*, *"the STOCK ROOM is showing the wrong count"* — is an instruction about that one file.
+**RENAMED FROM STOCK ROOM ON 2026-08-20, AND THE NAME NOW COLLIDES THREE WAYS.**
+That is worth stating before anything else, because STOCK ROOM existed precisely
+to prevent it:
+
+| the name | what it is | how to tell |
+|---|---|---|
+| **GIFT SHOP** the room | [mc/gifts/index.html](mc/gifts/index.html) | `/mc/gifts/`, admin-gated |
+| **the gift shop** the shop | [gifts/index.html](gifts/index.html) | `/gifts/`, what a buyer sees |
+| **TGB GIFT SHOP BOT** | the routine that files books into the room | a trigger at claude.ai |
+
+**THE PATH IS THE DISAMBIGUATOR NOW.** `/mc/gifts/` is the room; `/gifts/` is the
+shop. Getting those two confused was already called the single easiest mistake to
+make in this repo, and it just got easier: they no longer have different names.
+**When it is not obvious from context, write "the GIFT SHOP room" or "the public
+shop".**
+
+**THE HUB'S BUTTON STILL READS `GO TO STOCK ROOM`**, deliberately left alone.
+That means the card's heading and its button now disagree, which breaks the rule
+recorded under Ancillary Things that the `GO TO` button repeats the heading so it
+reads as a door rather than a second title. Left as asked; change both together
+if it is ever revisited.
+
+> **"GIFT SHOP" (the ROOM) means [mc/gifts/index.html](mc/gifts/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the GIFT SHOP"*, *"the STOCK ROOM is showing the wrong count"* — is an instruction about that one file. **STOCK ROOM still resolves here**: it was this room's name until 2026-08-20 and is the word most in-repo prose still uses.
 >
 > | | |
 > |---|---|
@@ -985,6 +1395,10 @@ build step and without proxying the domain through Cloudflare.
   `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/`. For its first
   week it was on `/soundtracks/` alone, so **any figures from before 2026-08-07
   cover one page**, not the site.
+- **A NEW PUBLIC PAGE UNDER `/mc/` MUST BE ADDED TO `PUBLIC_MC`**, or the
+  beacon silently refuses to count it and the `<script>` tag looks like it
+  worked. `/mc/follow/` was added on 2026-08-20 and is the fifth entry. This is
+  the exact trap the four public `mc/` pages already fell into once.
 - **The paid game runtime is excluded, and that is a decision rather than an
   oversight.** `/mc/game/run/` — the URL a buyer's email points at — plus both
   engines, `help.html`, `navigator.html`, `scan/`, `teams/` and `/mc/minigames/`
@@ -1139,6 +1553,7 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - [index.html](index.html)
 - every file matched by `mc/account/**/*.html` — moved under `mc/` on 2026-08-06 but still a public page wearing public chrome, so shared-chrome work still applies to it
 - every file matched by `birthdayball/**/*.html`
+- every file matched by `mc/follow/**/*.html` — the Follow page, added 2026-08-20
 - every file matched by `mc/how/**/*.html`
 - every file matched by `ww/**/*.html`
 - [gifts/index.html](gifts/index.html) — the public shop, and **the only file left in `gifts/`** as of 2026-08-07. The folder has been `/gifts/` → `/shop/` (2026-06-26) → `/gifts/` (2026-07-30); **each move was a hard break with no redirect**, because GitHub Pages cannot serve a 301, so any `/shop/?city=` link shared while that path was live is now dead.
@@ -1154,6 +1569,16 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/mc/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/mc/sampler/**/*.html`, `/mc/survey/**/*.html`, and `/shell/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, which is where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/mc/assets/admin-bridge.js`, `/shell/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [shell/site-pages.css](shell/site-pages.css).
 
 ---
+
+## /mc/follow/ — the Follow page (2026-08-20)
+
+[mc/follow/index.html](mc/follow/index.html). A public page wearing public chrome, listing the five accounts: **Instagram, Threads, X, Facebook, YouTube**, all `@thegamebureau` except Facebook's page name.
+
+- **THE FOOTER'S FOLLOW COLUMN IS GONE, AND `SOCIALS` WITH IT.** It was five icon links straight to the accounts, built when there was nowhere else to put them. There is now, and keeping both meant **five urls written twice with no shared source** — which had already drifted, the footer carrying bare `instagram.com` against the page's `www.`. The footer now renders **two** columns, The Site and Documents, and The Site reads Games, Gifts, Soundtracks, Highlights, **Follow**.
+- **WHAT THAT COSTS, plainly:** reaching one account is two clicks from every public page rather than one. **If it turns out to matter, bring the column back by READING `/mc/follow/`, not by retyping the list into the footer** — retyping it is what created the drift the first time.
+- **`www.instagram.com`, not the bare domain.** The bare one 302s to www, and the footer's old note beside `threads.COM` already said a redirect is a hop it does not need to make — while the line above it carried exactly such a hop. **The page is the only list now**, so that inconsistency cannot come back. All five verified 200.
+- **X AND YOUTUBE ARE HERE BUT ARE NOT POSTING TARGETS.** They were removed from the Socializer on 2026-08-07 and `PLATFORM_AUTOPOST` has no row for either. **Having an account and posting to it by API are different things**; this page is about the former.
+- **`PUBLIC_MC` in [site-analytics.js](mc/assets/site-analytics.js) gained `follow`.** A public page under `/mc/` is refused by the analytics guard unless it is named there, and the `<script>` tag looks like it worked either way. That is the same trap `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/` fell into on 2026-08-06.
 
 ## The "research assistant" pattern is gone (2026-08-07)
 
@@ -1203,6 +1628,7 @@ Use this product vocabulary everywhere new UI, code, data, and documentation are
 - A **Stop** combines one **Place** with one **Challenge**.
 - A **Place** is a reusable real-world point with geographic metadata such as city, address, coordinates, or Plus Code.
 - A **Challenge** is the playable content at a Stop: prompts, clues, media, mini-games, and player replies.
+- A **Direction** is what a player is given AFTER solving a challenge: feedback on what they just did, plus what leads them to the next waypoint. Named 2026-08-20. **It has no table yet** and lives inside the conversation flow in `public.games`; see THE BIG PICTURE at the top of this file before giving it one.
 
 Use `location` only for technical geographic fields and browser APIs. `waypoint`, `waypointGroup`, `waypoint_group`, and path `waypoints` are legacy compatibility vocabulary only; do not create new writes or UI with those names.
 

@@ -2,7 +2,7 @@
  *
  * A room's blurb is its standing one-sentence description of itself. It is
  * shown twice: on the room's own header, under the title, and on that room's
- * Daily Chores card at /mc/, which is the door you go through to reach it.
+ * Ancillary Things card at /mc/, which is the door you go through to reach it.
  *
  * THOSE TWO WERE HAND-COPIED AND THEY DRIFTED. That is not a hypothetical --
  * the Socializer's card still promised a per-account composer picker months
@@ -26,8 +26,12 @@
  * an invisible one nobody ever notices. Same reasoning that deleted the
  * soundtracks JSON fallback.
  *
- * A ROOM JOINS THIS FILE WHEN IT GETS A DOOR. The Path Builder and the Green
- * Room have blurbs and no Daily Chores card, so their sentence is written once,
+ * A ROOM JOINS THIS FILE WHEN IT GETS A DOOR, AND LEAVES WHEN IT LOSES ONE.
+ * Partners joined on 2026-08-20 and left the same day: the room was folded
+ * into the Path Builder, because a partner is a waypoint and it was a second
+ * list of the same rows. A key nothing renders is exactly the stale copy
+ * this file exists to prevent. The Path Builder and the Green
+ * Room have blurbs and no Ancillary Things card, so their sentence is written once,
  * on the room, and has nothing to drift against. Add them here the day they get
  * a card, not before.
  */

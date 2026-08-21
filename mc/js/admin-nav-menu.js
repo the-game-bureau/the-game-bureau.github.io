@@ -43,7 +43,7 @@
       // they are for is what tells you why Cities sits beside Anchor Events.
       label: 'Game Elements',
       // NOT `combined`. The four catalogs render as their own cards, the same
-      // shape as the Daily Chores at the top of the hub — these are places you
+      // shape as Ancillary Things at the top of the hub — these are places you
       // go and do something, not a directory you scan. `combined` is still
       // right for Game Builder below, which is nine tools and would be nine
       // full cards of scrolling.
@@ -196,7 +196,7 @@
     },
     {
       label: 'Socials',
-      // Menu only. /mc/ already carries Socializer as a Daily Chore at the
+      // Menu only. /mc/ already carries Socializer under Ancillary Things at the
       // top of the page, so a directory card below it was the same link twice —
       // the same reason Gifts Admin and Soundtracks Admin are chores and appear
       // in no menu group. It stays HERE because the socials room has no button

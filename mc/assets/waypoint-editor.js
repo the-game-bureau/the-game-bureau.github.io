@@ -88,7 +88,106 @@
   // the whole request, so the editor learns which optional columns exist by
   // looking at rows it has actually been given, and a database that has not run
   // a migration still works: the field is simply hidden.
-  var wpCols = { source_url: false, latlon: false, walk_order: false };
+  var wpCols = { source_url: false, latlon: false, walk_order: false, partner: false };
+
+  // THE COLUMNS wpPayload ALWAYS WRITES.
+  //
+  // THIS LIVED IN mc/pathbuilder.html UNTIL 2026-08-20 AND THE MODULE READ IT
+  // AS A GLOBAL. It worked, because a top-level `const` in a classic script
+  // is visible to every other script on the page, and the Path Builder was
+  // the only host. The moment a SECOND room mounted this editor, wpPayload
+  // threw `WP_FIELDS is not defined` on the first write -- which surfaced as
+  // Fill quietly failing on mc/partners.html, with the ReferenceError caught
+  // and reported as though the geocoder had refused.
+  //
+  // A module that reads a host's variable is not a module. The header of this
+  // file says it brings its own markup, CSS and datalist so a host carries no
+  // copy to fall out of step; this was the one thing that had been left
+  // behind. Nothing outside this file may declare it.
+  var WP_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
+
+  // THE PARTNER COLUMNS, written on every save alongside the place's own. They
+  // are listed separately because they are handled differently: `partner_teams`
+  // is an ARRAY and the two dates are DATES, so a blank has to become null
+  // rather than the empty string WP_FIELDS uses, and Postgres refuses '' for
+  // both types.
+  var WP_PARTNER_TEXT = [
+    'partner_status', 'partner_kind', 'partner_fandom',
+    'partner_contact_name', 'partner_contact_role', 'partner_contact_email',
+    'partner_contact_phone', 'partner_contact_url', 'partner_contact_source',
+    'partner_why', 'partner_notes'
+  ];
+  var WP_PARTNER_DATES = ['partner_event_date', 'partner_game_date'];
+
+  // A WAYPOINT'S NAME, AS A LINK TO ITS SOURCE.
+  //
+  // `source_url` is where a claim about a place came from, and it is the one
+  // field on a waypoint nobody could check without leaving the room. It was
+  // stored, required by three prompts, filled by Fill and read by nothing: the
+  // rooms printed the name as dead text and the URL not at all.
+  //
+  // ONE HELPER RATHER THAN FOUR COPIES, because it appears in the Path Builder's
+  // library rows, its path rows and its map popup, and on the Partners card, and
+  // four hand-written anchors is how three of them end up missing `rel=noopener`
+  // and the fourth swallows a drag.
+  //
+  // IT LIVES HERE because this is the shared waypoint module and every room that
+  // renders a waypoint already loads it. It is not part of the editor, and it is
+  // the first thing in this file that is not.
+  //
+  // THREE THINGS IT MUST DO, each of them a bug if left out:
+  //   * draggable = false. The Path Builder's rows are dragged BY THE WHOLE ROW,
+  //     and a browser starts its own link-drag from an anchor inside one, which
+  //     hijacks the gesture the room is built on.
+  //   * stopPropagation on click. A row click focuses or selects; following a
+  //     link should do neither.
+  //   * NO LINK WITHOUT A PARSEABLE http(s) URL. A source that will not parse is
+  //     a source nobody can check, and an anchor that goes nowhere is worse than
+  //     plain text because it invites the click.
+  function waypointNameEl(row, fallback) {
+    var name = cleanText(row && row.name)
+      || cleanText(fallback)
+      || ('WPID ' + ((row && row.wpid) || '?'));
+    var raw = cleanText(row && row.source_url);
+    var url = null;
+    if (raw) {
+      try {
+        var u = new URL(raw);
+        if (u.protocol === 'http:' || u.protocol === 'https:') url = u.href;
+      } catch (err) {
+        url = null;
+      }
+    }
+
+    if (!url) {
+      var span = document.createElement('span');
+      span.textContent = name;
+      // Say WHY it is not a link, on the name itself, because an unlinked name
+      // beside a linked one otherwise reads as a rendering fault.
+      span.title = raw
+        ? 'Source is not a web address, so there is nothing to open: ' + raw
+        : 'No source recorded for this place.';
+      return span;
+    }
+
+    var a = document.createElement('a');
+    a.className = 'wp-name-link';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.draggable = false;
+    a.textContent = name;
+    a.title = 'Open the source for this place in a new tab: ' + url;
+    a.addEventListener('click', function (e) { e.stopPropagation(); });
+    // NO dragstart HANDLER, AND THAT IS THE POINT OF draggable = false ABOVE.
+    // preventDefault here would cancel the drag ENTIRELY, not just the link's:
+    // dragstart bubbles, and the Path Builder's rows are dragged BY THE WHOLE
+    // ROW, so killing it on the name would make the middle of every row dead to
+    // the one gesture the room is built on. With the anchor not a drag source,
+    // the browser walks up to the row and drags that instead, which is exactly
+    // what is wanted.
+    return a;
+  }
 
   function probeWaypointColumns(rows) {
     var has = function (key) {
@@ -97,6 +196,7 @@
       });
     };
     wpCols.source_url = has('source_url');
+    wpCols.partner = has('partner_status');
     wpCols.latlon = has('lat');
     wpCols.walk_order = has('walk_order');
   }
@@ -164,6 +264,16 @@
   // of the page's own <style>, so a room can still override a rule if it has to
   // without needing !important.
   var CSS = [
+    /* THE NAME LINK. It inherits the name's colour and weight rather than
+       going browser-blue and underlined: it is still the row's title, and a
+       list of forty underlined blue names reads as a link farm. The dotted
+       underline appears on hover, which is the room's own idiom for "this
+       does something". A name with no source is a plain span and looks
+       identical until you point at it, which is correct: whether we recorded
+       a source is not a fact about the PLACE. */
+    'a.wp-name-link { color: inherit; font: inherit; text-decoration: none; }',
+    'a.wp-name-link:hover { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }',
+    'a.wp-name-link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }',
     '.wp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }',
     '.wp-form .wp-field { display: grid; gap: 4px; min-width: 0; }',
     '.wp-form .wp-field--full { grid-column: 1 / -1; }',
@@ -444,6 +554,241 @@
     wpEdit.dirty = false;
   }
 
+  // ── THE PARTNER BAND ──────────────────────────────────────────────────────
+  //
+  // A PARTNER IS A WAYPOINT, so it is edited in the waypoint editor. There was a
+  // whole room for this (mc/partners.html) and it is gone: once the columns
+  // moved onto public.waypoints, that page was a second list of the same rows
+  // with a second set of boxes writing the same table, reachable from a second
+  // door. Everything it did is here and in the Path Builder's library filter.
+  //
+  // COLLAPSED UNTIL IT APPLIES. 475 of 480 waypoints are not partners, and a
+  // dozen empty contact boxes under every museum and statue would make the
+  // common case worse to serve the rare one. The band is a checkbox that opens
+  // the rest, and it opens itself for a row that already carries a status.
+  //
+  // TURNING IT OFF CLEARS THE STATUS, which is what "not a partner" means: the
+  // column being null IS the flag. The other columns are left alone on purpose,
+  // so ticking the box again brings back the contact details somebody typed
+  // rather than making them find them a second time.
+  var PARTNER_STATUSES = ['candidate', 'contacted', 'approved', 'declined'];
+  var PARTNER_STATUS_LABEL = {
+    candidate: 'Candidate, nobody has called yet',
+    contacted: 'Contacted, waiting to hear',
+    approved: 'Approved, they will host',
+    declined: 'Declined'
+  };
+  var PARTNER_KINDS = [
+    { value: 'game_end', label: 'Game end' },
+    { value: 'game_start', label: 'Game start' },
+    { value: 'watch_party', label: 'Watch party' }
+  ];
+
+  // A READ-ONLY VALUE. Provenance and trigger-written stamps: things the row
+  // knows about itself that nobody should type over. Drawn in the form rather
+  // than left off it, because "what wrote this and when" is the first question
+  // asked of a row that looks wrong, and the answer was previously nowhere.
+  function wpReadonly(label, value, hint) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wp-field';
+    var lab = document.createElement('label');
+    lab.className = 'inline';
+    lab.textContent = label;
+    var v = document.createElement('div');
+    v.className = 'wp-readonly';
+    v.textContent = cleanText(value) || 'not set';
+    wrap.append(lab, v);
+    if (hint) {
+      var h = document.createElement('p');
+      h.className = 'wp-hint';
+      h.textContent = hint;
+      wrap.appendChild(h);
+    }
+    return wrap;
+  }
+
+  // A NUMBER FIELD. Blank is a real value and becomes null, which is what
+  // "unsequenced" means for walk_order.
+  function wpNumber(label, key, opts) {
+    var o = opts || {};
+    var wrap = document.createElement('div');
+    wrap.className = 'wp-field' + (o.full ? ' wp-field--full' : '');
+    var lab = document.createElement('label');
+    lab.className = 'inline';
+    lab.textContent = label;
+    var input = document.createElement('input');
+    input.type = 'number';
+    if (o.step) input.step = o.step;
+    if (o.placeholder) input.placeholder = o.placeholder;
+    input.value = wpEdit.row[key] == null ? '' : String(wpEdit.row[key]);
+    input.addEventListener('input', function () {
+      wpEdit.row[key] = input.value === '' ? null : input.value;
+      wpEdit.dirty = true;
+      paintWpErrors();
+    });
+    wrap.append(lab, input);
+    if (o.hint) {
+      var h = document.createElement('p');
+      h.className = 'wp-hint';
+      h.textContent = o.hint;
+      wrap.appendChild(h);
+    }
+    return wrap;
+  }
+
+  // THE STORED POINT, EDITABLE AS A PAIR.
+  //
+  // It was a read-only reading for months, on the reasoning that Fill writes it
+  // and the map moves it, so there was nothing left for a box to do. That holds
+  // right up until the two ways of setting it both fail: a place Nominatim
+  // cannot find, whose pin you cannot drag because there is no pin to drag. Then
+  // a coordinate copied off a map is the only way in, and there was none.
+  //
+  // BOTH OR NEITHER, ENFORCED HERE AND AGAIN IN wpPayload. A lat with no lon is
+  // not half a point, it is no point, and a row carrying one of the two would
+  // read as located everywhere the map looks at it.
+  function wpPointFields(box, row) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wp-field wp-field--full';
+    var lab = document.createElement('label');
+    lab.className = 'inline';
+    lab.textContent = 'Coordinates';
+    var line = document.createElement('div');
+    line.className = 'wp-field-line';
+
+    var lat = document.createElement('input');
+    lat.type = 'text';
+    lat.placeholder = 'latitude';
+    lat.value = row.lat == null ? '' : String(row.lat);
+    var lon = document.createElement('input');
+    lon.type = 'text';
+    lon.placeholder = 'longitude';
+    lon.value = row.lon == null ? '' : String(row.lon);
+
+    function commit() {
+      var a = cleanText(lat.value);
+      var b = cleanText(lon.value);
+      wpEdit.row.lat = a === '' ? null : a;
+      wpEdit.row.lon = b === '' ? null : b;
+      wpEdit.dirty = true;
+      paintWpErrors();
+    }
+    lat.addEventListener('input', commit);
+    lon.addEventListener('input', commit);
+
+    line.append(lat, lon);
+    wrap.append(lab, line);
+    var hint = document.createElement('p');
+    hint.className = 'wp-hint';
+    hint.textContent = wpCols.latlon
+      ? 'Both or neither. Fill writes these from the address and will not overwrite a point that is already there; the map can move it by dragging its pin. Type them only when neither of those can.'
+      : 'This database has no lat/lon columns.';
+    wrap.appendChild(hint);
+    box.appendChild(wrap);
+  }
+
+  function wpSelect(label, key, options, opts) {
+    var o = opts || {};
+    var wrap = document.createElement('div');
+    wrap.className = 'wp-field' + (o.full ? ' wp-field--full' : '');
+    var lab = document.createElement('label');
+    lab.className = 'inline';
+    lab.textContent = label;
+    var sel = document.createElement('select');
+    options.forEach(function (opt) {
+      var el2 = document.createElement('option');
+      el2.value = opt.value;
+      el2.textContent = opt.label;
+      if (String(cleanText(wpEdit.row[key])) === String(opt.value)) el2.selected = true;
+      sel.appendChild(el2);
+    });
+    sel.addEventListener('change', function () {
+      wpEdit.row[key] = sel.value;
+      wpEdit.dirty = true;
+      if (o.rerender) renderWpForm();
+    });
+    wrap.append(lab, sel);
+    if (o.hint) {
+      var h = document.createElement('p');
+      h.className = 'wp-hint';
+      h.textContent = o.hint;
+      wrap.appendChild(h);
+    }
+    return wrap;
+  }
+
+  function renderPartnerBand(box) {
+    // NOT OFFERED AGAINST A DATABASE THAT CANNOT STORE IT. A tick box that
+    // silently fails to save is worse than no tick box.
+    if (!wpCols.partner) return;
+    var on = !!cleanText(wpEdit.row.partner_status);
+
+    var head = document.createElement('div');
+    head.className = 'wp-field wp-field--full wp-partner-head';
+    var toggle = document.createElement('label');
+    toggle.className = 'inline wp-partner-toggle';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = on;
+    var cbText = document.createElement('span');
+    cbText.textContent = 'This place is a PARTNER: somewhere a game can end';
+    toggle.append(cb, cbText);
+    head.appendChild(toggle);
+    var hint = document.createElement('p');
+    hint.className = 'wp-hint';
+    hint.textContent = on
+      ? 'Bars, breweries and rooms that will host visiting fans. Unticking this stops it being a partner and keeps everything you typed.'
+      : 'Tick to record contacts and a decision for this place.';
+    head.appendChild(hint);
+    box.appendChild(head);
+
+    cb.addEventListener('change', function () {
+      // The status IS the flag, so this is the only column the toggle writes.
+      wpEdit.row.partner_status = cb.checked ? 'candidate' : null;
+      if (cb.checked && !cleanText(wpEdit.row.partner_kind)) {
+        wpEdit.row.partner_kind = 'game_end';
+      }
+      wpEdit.dirty = true;
+      renderWpForm();
+    });
+
+    if (!on) return;
+
+    box.append(
+      wpSelect('Status', 'partner_status', PARTNER_STATUSES.map(function (v) {
+        return { value: v, label: PARTNER_STATUS_LABEL[v] };
+      }), {
+        hint: 'Approved is the one that counts: it is what tells the routine this city is sorted.'
+      }),
+      wpSelect('What for', 'partner_kind', PARTNER_KINDS, {}),
+      wpField('Contact name', 'partner_contact_name', {
+        placeholder: 'who to ask for',
+        hint: 'Blank is better than a guess.' }),
+      wpField('Role', 'partner_contact_role', { placeholder: 'manager, events' }),
+      wpField('Email', 'partner_contact_email', { placeholder: 'none found' }),
+      wpField('Phone', 'partner_contact_phone', { placeholder: 'none found' }),
+      wpField('Their website', 'partner_contact_url', { placeholder: 'https://' }),
+      wpField('Where the contact came from', 'partner_contact_source', {
+        placeholder: 'the page you read it on',
+        hint: 'What makes the details checkable in three months.' }),
+      wpField('Visiting fandom', 'partner_fandom', {
+        placeholder: 'e.g. Packers',
+        hint: 'The one anchor event that made us look here.' }),
+      wpField('Teams it could take', 'partner_teams', {
+        full: true,
+        placeholder: 'Packers, Bears - leave empty for a room that takes anybody',
+        hint: 'Comma separated. EMPTY IS A REAL ANSWER and the strongest one: a general room covers its whole city.' }),
+      wpField('Anchor event date', 'partner_event_date', { placeholder: 'YYYY-MM-DD' }),
+      wpField('Our game date', 'partner_game_date', {
+        placeholder: 'YYYY-MM-DD',
+        hint: 'The day before the anchor event.' }),
+      wpField('Why this room', 'partner_why', { full: true, multiline: true,
+        placeholder: 'what makes it suit away fans' }),
+      wpField('Notes from the call', 'partner_notes', { full: true, multiline: true,
+        placeholder: 'what they said when you rang' })
+    );
+  }
+
   function wpField(label, key, opts) {
     const options = opts || {};
     const wrap = document.createElement('div');
@@ -537,6 +882,37 @@
         placeholder: '123 Main St',
         hint: 'Street only - city, state and ZIP have their own fields. A Plus Code is allowed where there is no street.' }),
       wpField('City', 'city', { list: 'pathCityList' }),
+      // THE STATE BOX IS BACK (2026-08-20), and the rule that removed it moved
+      // rather than being dropped. It was taken off because a field that can
+      // only be filled in one correct way is a field that can be got wrong:
+      // Nominatim answers "Florida" where all 480 stored rows say "FL", so the
+      // city derived it and the box was the way to break it.
+      //
+      // WHAT CHANGED IS WHERE THE DERIVATION APPLIES. It used to overwrite
+      // whatever was typed whenever the city resolved, which would make this box
+      // a control that silently ignores you. It now fills a BLANK only, and the
+      // action re-derives on demand. So the common case still costs nothing, and
+      // the rare correct answer the city cannot produce is finally typeable.
+      //
+      // THE COST, and it is the reason it was removed: change the city and the
+      // old state stays. That is now VISIBLE, in a box next to the city, rather
+      // than silently stored, and one press of From city fixes it.
+      wpField('State', 'state', {
+        placeholder: 'FL',
+        hint: 'Two-letter code for US places, otherwise the country. Filled from the city when blank.',
+        action: {
+          label: 'From city',
+          title: 'Derive the state from the city, replacing what is here',
+          enabled: () => !!cleanText(wpEdit.row.city),
+          run: () => {
+            const derived = stateFromCity(wpEdit.row.city);
+            if (!derived) { wpNote('That city does not resolve to a state.', 'error'); return; }
+            wpEdit.row.state = derived;
+            wpEdit.dirty = true;
+            renderWpForm();
+          }
+        }
+      }),
       // NO STATE BOX. The city carries it: public.cities holds the canonical
       // string, TgbGeo parses "Denver, Colorado" into a state, and stateFromCity
       // below writes the two-letter CODE the other 280 rows use. A field that
@@ -565,32 +941,41 @@
       })
     );
 
-    // Read-only, one writer each. See the dialog's markup comment.
-    const point = document.createElement('div');
-    point.className = 'wp-field';
-    const pl = document.createElement('label');
-    pl.className = 'inline';
-    pl.textContent = 'Coordinates';
-    const located = row.lat != null && row.lon != null;
-    const pv = document.createElement('div');
-    pv.className = 'wp-readonly';
-    pv.textContent = located
-      ? (Number(row.lat).toFixed(6) + ', ' + Number(row.lon).toFixed(6))
-      : (wpCols.latlon ? 'not located - press Fill' : 'no column');
+    renderPartnerBand(box);
 
-    // NOTHING SITS BESIDE THE READING. Locate and Maps were both here for an
-    // afternoon and both went: FILL writes the point along with every other
-    // blank, so Locate was a second button for one of the fields it does, and
-    // Maps was a door out of a dialog you came here to type in.
-    //
-    // TO MOVE A POINT THAT IS ALREADY STORED, drag its pin on the map, or edit
-    // the address, which clears the stored pair on save because those
-    // coordinates described where the OLD address was. Fill will not overwrite
-    // a point that is there, and that is deliberate: a pin somebody dragged into
-    // place must not be replaced by a guess.
+    wpPointFields(box, row);
 
-    point.append(pl, pv);
-    box.appendChild(point);
+    // WALK ORDER IS A PER-CITY HINT AND IS NOT A PATH POSITION. It predates
+    // paths entirely: a path's order is `path_stops.ord`, rewritten by RECALC
+    // and by dragging, and nothing may read a walk out of this column. It is
+    // here because it is a real column somebody may need to correct, with the
+    // distinction on its hint so nobody mistakes it for the other thing.
+    box.appendChild(wpNumber('Walk order', 'walk_order', {
+      placeholder: 'unsequenced',
+      hint: 'Advisory order within this CITY. NOT a path position: the order of a path is set by dragging its rows.'
+    }));
+
+    // PROVENANCE AND STAMPS, read-only. What wrote this row and when is the
+    // first question asked of one that looks wrong, and the answer used to be
+    // nowhere on this form. Typing over `ai_model` would destroy the only trace
+    // of which model produced a bad address.
+    box.appendChild(wpReadonly('Written by', row.ai_model,
+      'The model or importer that created this row. Provenance, so it is not editable.'));
+    box.appendChild(wpReadonly('Created', row.created_at
+      ? String(row.created_at).slice(0, 10) : '',
+      'Null on a row that predates the column, which is honest rather than a made-up date.'));
+    if (wpCols.partner && cleanText(row.partner_status)) {
+      box.appendChild(wpReadonly('Contacted', row.partner_contacted_at
+        ? String(row.partner_contacted_at).slice(0, 10) : '',
+        'Stamped by the database from the status, so the two cannot disagree.'));
+      box.appendChild(wpReadonly('Decided', row.partner_decided_at
+        ? String(row.partner_decided_at).slice(0, 10) : ''));
+    }
+
+    // THE THREE tour_* COLUMNS ARE DELIBERATELY ABSENT. `tour_id`, `tour_title`
+    // and `tour_shape` are RETIRED IN PLACE: nothing has read them since paths
+    // became their own tables on 2026-08-08, and they are kept only so a stale
+    // deploy does not 400. A box for a dead column is an invitation to write one.
 
     if (wpEdit.addToPath !== null && !wpEdit.wpid && hostPathOpen()) {
       const add = document.createElement('div');
@@ -628,17 +1013,71 @@
   function wpPayload(row) {
     const payload = {};
     WP_FIELDS.forEach((f) => { payload[f] = cleanText(row[f]) || null; });
-    // STATE COMES FROM THE CITY. It has no box any more, so a row edited here
-    // would otherwise write back whatever it happened to arrive with -- and a
-    // row whose city was just corrected would keep the old state.
-    // The derived value only overwrites when it resolves: a city TgbGeo cannot
-    // parse leaves whatever was already stored alone rather than nulling it.
-    const derived = stateFromCity(row.city);
-    if (derived) payload.state = derived;
+    // STATE IS DERIVED ONLY INTO A BLANK, since 2026-08-20. It used to overwrite
+    // whatever was stored whenever the city resolved, which was right while
+    // there was no State box and is wrong now there is one: a control that
+    // silently discards what you type is worse than no control. The box carries
+    // a From city action for the case the derivation is wanted.
+    if (!cleanText(payload.state)) {
+      const derived = stateFromCity(row.city);
+      if (derived) payload.state = derived;
+    }
+
+    // WALK ORDER, and a blank is null rather than 0: unsequenced is not
+    // position zero, and 1..n is what the column holds.
+    if (wpCols.walk_order) {
+      const wo = parseInt(cleanText(row.walk_order), 10);
+      payload.walk_order = isFinite(wo) && wo > 0 ? wo : null;
+    }
     if (wpCols.source_url) payload.source_url = cleanText(row.source_url) || null;
-    if (wpCols.latlon && row.lat != null && row.lon != null) {
-      payload.lat = Number(row.lat);
-      payload.lon = Number(row.lon);
+
+    // THE PARTNER COLUMNS, and only when the database has them. Probed like
+    // every other optional column, so a deploy that has not run 2026082003 still
+    // saves a waypoint instead of 400ing on a column PostgREST has never heard
+    // of. `partner_status` is the one the probe asks about, because it is the
+    // flag the whole set hangs off.
+    if (wpCols.partner) {
+      WP_PARTNER_TEXT.forEach(function (f) { payload[f] = cleanText(row[f]) || null; });
+      // A DATE CANNOT BE ''. Postgres rejects the empty string for date and for
+      // text[], which is why these two groups are not in WP_FIELDS: that loop
+      // writes '' || null, and '' is what an untouched box holds.
+      WP_PARTNER_DATES.forEach(function (f) {
+        var v = cleanText(row[f]);
+        payload[f] = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+      });
+      // COMMA SEPARATED IN THE BOX, ARRAY IN THE COLUMN. Empty means a general
+      // room that takes anybody, which is a real answer and is stored as null,
+      // because tgb_partner_coverage reads a null list as "covers the city".
+      var teams = row.partner_teams;
+      if (Array.isArray(teams)) {
+        teams = teams.map(function (t) { return cleanText(t); }).filter(Boolean);
+      } else {
+        teams = cleanText(teams).split(',').map(function (t) { return cleanText(t); }).filter(Boolean);
+      }
+      payload.partner_teams = teams.length ? teams : null;
+      // NOT A PARTNER MEANS THE WHOLE SET GOES. Leaving a phone number on a row
+      // whose status is null would put a contact on a place nothing calls a
+      // partner, which is the state nobody could interpret later.
+      if (!payload.partner_status) {
+        WP_PARTNER_TEXT.forEach(function (f) { payload[f] = null; });
+        WP_PARTNER_DATES.forEach(function (f) { payload[f] = null; });
+        payload.partner_teams = null;
+      }
+    }
+    // BOTH OR NEITHER, and CLEARING IS NOW POSSIBLE. This used to write the pair
+    // only when both were present, so emptying the boxes left the stored point
+    // untouched: a coordinate you deleted came straight back on reload. Now a
+    // pair that is blank, unparseable, out of range or 0,0 writes NULL, which is
+    // the honest answer and the one the map already draws as "not located yet".
+    if (wpCols.latlon) {
+      const la = Number(cleanText(row.lat));
+      const lo = Number(cleanText(row.lon));
+      const ok = cleanText(row.lat) !== '' && cleanText(row.lon) !== ''
+        && isFinite(la) && isFinite(lo)
+        && la >= -90 && la <= 90 && lo >= -180 && lo <= 180
+        && !(la === 0 && lo === 0);
+      payload.lat = ok ? la : null;
+      payload.lon = ok ? lo : null;
     }
     return payload;
   }
@@ -1023,6 +1462,7 @@
     // Re-probe after a host reloads its rows: which optional columns exist is
     // learned from rows the page actually holds, so a fresh load re-teaches it.
     probe: probeWaypointColumns,
+    waypointNameEl: waypointNameEl,
     // The dirty flag, for a host that guards a reload or a page unload.
     isDirty: function () { return !!wpEdit.dirty; }
   };
