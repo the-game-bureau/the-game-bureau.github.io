@@ -6366,20 +6366,40 @@ Finish with the SQL block and that link, then a short summary below them: the fi
        *  Names come from the bot's own tags rather than from WIRE_LABELS,
        *  because YouTube is deliberately absent from that object and would
        *  otherwise be unnameable here. */
-      function byHandTarget(post) {
-        var names = suggestedNames(post);
-        for (var i = 0; i < names.length; i++) {
-          var key = names[i].toLowerCase();
+      function byHandTargets(post) {
+        var out = [];
+        suggestedNames(post).forEach(function (name) {
+          var key = name.toLowerCase();
           // PLATFORM_AUTOPOST WINS OVER PLATFORM_SUGGEST_ONLY, because one of
           // those two objects is a decision and the other is a fact. X is in
           // SUGGEST_ONLY today only because its flag is off over the price;
           // flip that flag and it becomes a button, and this label has to stop
           // saying "copy it for X" about something the machine just posted.
           // YouTube's flag does not exist at all, so it is unaffected.
-          if (PLATFORM_AUTOPOST[key]) continue;
-          if (PLATFORM_SUGGEST_ONLY[key]) return names[i];
-        }
-        return '';
+          if (PLATFORM_AUTOPOST[key]) return;
+          if (PLATFORM_SUGGEST_ONLY[key] && out.indexOf(name) === -1) out.push(name);
+        });
+        return out;
+      }
+
+      /** The by-hand destinations as one phrase, or '' if there are none.
+       *
+       *  ALL OF THEM, NOT THE FIRST. This returned a single name until
+       *  2026-08-21, and a candidate tagged X AND YouTube offered "Copy to
+       *  clipboard for X" while YouTube vanished with nothing on screen saying
+       *  it existed. That is the worst shape a bug can take here: the button
+       *  looked right, so nobody would go looking.
+       *
+       *  ONE BUTTON NAMING BOTH, NOT TWO BUTTONS. What goes on the clipboard is
+       *  identical for every by-hand destination, caption and link, so a second
+       *  button would put the same text on the same clipboard and differ only in
+       *  its label. The job is two pastes from one copy, and that is what this
+       *  says. */
+      function byHandTarget(post) {
+        var names = byHandTargets(post);
+        if (!names.length) return '';
+        if (names.length === 1) return names[0];
+        return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
       }
 
       // A candidate that names YouTube AT ALL. It used to mean "names YouTube
@@ -6936,10 +6956,26 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                          'OK', { hideNo: true });
               return;
             }
-            return askConfirm('Copied!',
-                              'Caption and link are on the clipboard - paste with ' +
-                              pasteKey + '. Mark this candidate as posted?',
-                              'Yes').then(function (ok) {
+            // NAMES WHERE IT GOES, AND SAYS SO LOUDEST WHEN THERE ARE TWO.
+            // "Mark this candidate as posted?" after pasting into one of two
+            // places is the trap: you would answer yes having done half the
+            // job, and the row would go to Posted with the other half never
+            // done and nothing left on screen to remind you.
+            var live = currentRow(stateKey, post);
+            var hand = byHandTargets(live);
+            var body = hand.length
+              ? 'Caption and link are on the clipboard. Paste into ' +
+                byHandTarget(live) + ' with ' + pasteKey +
+                (hand.length > 1 ? ', both from this one copy' : '') + '.'
+              : 'Caption and link are on the clipboard - paste with ' + pasteKey + '.';
+            // THE WARNING GOES IN THE QUESTION, not beside it. "Both still need
+            // doing" as its own sentence, followed by "mark this as posted?", is
+            // two things to hold at once; folded in, the question carries its own
+            // condition and cannot be answered without reading it.
+            var ask = hand.length > 1
+              ? ' Mark this candidate as posted once you have done both?'
+              : ' Mark this candidate as posted?';
+            return askConfirm('Copied!', body + ask, 'Yes').then(function (ok) {
               // No account is claimed either way: you took it away to post by
               // hand, so the receipt cannot know where it landed. Declining just
               // leaves it in review -- the clipboard keeps what it copied.
