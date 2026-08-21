@@ -685,6 +685,20 @@ Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migr
 - **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
 - **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
 
+### THE PROMPT DIALOG HAS A TOGGLE PER PLATFORM (2026-08-20)
+
+A `TARGET PLATFORMS` row above the sheet: Facebook, Instagram, Threads, X, YouTube, **all ticked by default**.
+
+- **ALL FIVE TICKED WRITES NOTHING AT ALL.** The authored prompt already covers every account, so an untouched dialog hands back **exactly** the text in this file, byte for byte, and re-ticking the last box removes the block rather than leaving a paragraph saying "all of them". Same shape as the Tape Room's city picker, where blank is a real answer.
+- **UNTICKING WRITES ONE DELIMITED BLOCK at the top and touches nothing else**, between `=== ACCOUNTS FOR THIS RUN ===` and `=== END ACCOUNTS ===`. **That surgical approach is the whole point**: this prompt is editable and what you type is kept, so rebuilding from `BASE_PROMPT` on every toggle — which is what the city picker does — would throw your edits away the moment you unticked a box.
+- **THE BLOCK NAMES THE ACCOUNTS BOTH WAYS ROUND.** "Only these" is the instruction; the list of what to leave alone is what stops a model tagging an account out of habit, because the rules further down still describe it.
+- **YOUTUBE OFF SAYS `SKIP STEP 2c` IN THE PROMPT'S OWN WORDS**, because YouTube is not a tag on a story there, it is a whole extra row.
+- **NONE TICKED REPLACES THE WHOLE SHEET** with *"You must choose at least one platform to continue."* With every box off there is no run to describe, and **a prompt that carefully instructs an AI to post nowhere is a prompt somebody will paste anyway**.
+  - **THE REAL TEXT IS STASHED, NOT DESTROYED**, edits and all, and comes back the moment a box is ticked. Losing somebody's typing because they unticked five checkboxes would be the worst kind of data loss: silent, self-inflicted and impossible to guess at. **Stashed once**, so unticking the last box twice cannot overwrite the stash with the warning.
+  - **IT IS NEVER SAVED.** `storePrompt()` is skipped while the warning shows, so a browser closed in that state reopens with the real prompt rather than the warning stored as if it were one.
+  - **THE DOORS REFUSE, AND `copyPromptText()` IS WHERE THAT IS ENFORCED**, not only in CSS. Each door copies and then opens a chat window, so without the guard you would arrive somewhere with one useless sentence on the clipboard and no idea why. The greying is the appearance; the guard is the rule.
+  - **Reset re-ticks every box and clears the stash and the dressing**, since `BASE_PROMPT` carries no block: boxes left unticked would claim a restriction the restored text does not have, and a cleared stash stops the box showing real text while still refusing to copy it.
+
 ### THE MANUAL ADD DIALOG READS AS THE PROMPT DIALOG'S PAIR (2026-08-20)
 
 They are the room's two ways in, so they are built to be read together: **MANUAL ADD / Post Candidate** against **AI PROMPT / Six Post Candidates**.
