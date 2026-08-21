@@ -2418,17 +2418,31 @@ FILL THE ROW LIKE THIS. Note what differs from a story:
 - topics: from the same list as everything else.
 - confidence: the same 1-100 scale. Do not flatter it for having been hard to
   find.
-- platforms: EXACTLY '[{"name": "YouTube", "why": "..."}]'::jsonb AND NOTHING
-  ELSE.
+- platforms: ALWAYS names YouTube, and names Facebook, Instagram or Threads as
+  well wherever the video genuinely suits them.
 
-THAT LAST LINE IS LOAD-BEARING AND IS NOT A MATTER OF STYLE. The Socializer
-reads platforms to decide where its Post button can send a candidate. Naming
-YouTube ALONE is what marks the row as a video: it greys the Post button, which
-is correct because nothing we have posts to YouTube and the share is made by
-hand, and it is what puts the row behind the YouTube filter in the queue. Add
-Facebook or Threads to that array and it stops being a video candidate and
-becomes an ordinary post that happens to link to YouTube, which is a different
-thing and would go out to the wrong accounts.
+NAMING YOUTUBE IS WHAT MARKS THE ROW AS A VIDEO. It is what makes the Copy
+button read "Copy to clipboard for YouTube", which is how a human knows there is
+a share to make by hand. Leave it off and the row is an ordinary story that
+happens to link to a video.
+
+BUT IT IS A MARKER, NOT A FENCE, AND THIS CHANGED ON 2026-08-21. Naming YouTube
+used to mean YouTube and nothing else, and the Post button greyed out. That was
+right while a video was only ever shared on the channel and wrong as soon as one
+was also worth posting elsewhere: a good video is a good Facebook post and a good
+Threads post, and the marker was quietly acting as a veto on both.
+
+So judge the OTHER accounts on their own terms, exactly as you would for a story:
+
+  FACEBOOK  nearly always. A video link unfurls into a real preview there.
+  THREADS   usually. The link is clickable and the caption carries it.
+  INSTAGRAM only when the THUMBNAIL is worth looking at on its own, because
+            that is what actually gets posted: the link is not clickable in an
+            IG caption, so the picture has to do the work by itself.
+
+A video you would not post anywhere but the channel is a perfectly good answer:
+name YouTube alone and the Post button offers the three anyway, for a human to
+decide against.
 
 IF YOU FIND NOTHING WORTH SHARING, LEAVE THE ROW OUT and say so above the SQL
 block. This is the one part of the run where an empty answer is a good answer:
@@ -2632,7 +2646,9 @@ values
    'I picked this because the channel films one walk a week and this one is ours.',
    array['travel', 'games']::text[],
    'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-   '[{"name": "YouTube", "why": "a video, shared as a post on our channel"}]'::jsonb,
+   '[{"name": "YouTube", "why": "shared as a post on our channel"},
+     {"name": "Facebook", "why": "the link unfurls into a real preview"},
+     {"name": "Threads", "why": "reads like something people would send on"}]'::jsonb,
    64,
    'review',
    'prompt')
@@ -6287,22 +6303,28 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         }).filter(Boolean);
       }
 
-      // SILENCE AND AN UNPOSTABLE ANSWER ARE DIFFERENT THINGS, and telling them
-      // apart is what makes a YouTube candidate safe.
+      // A BY-HAND TAG IS A MARKER, NOT A ROUTE, AND MUST NEVER NARROW THE
+      // MACHINE ACCOUNTS.
       //
-      //   null  no advice at all: platforms absent, not an array, or empty.
-      //         Do not narrow. Every row filed before tags existed and every
-      //         MANUAL row is in this state, and reading it as "post nowhere"
-      //         would make all of them unpostable at a stroke.
-      //   []    the bot NAMED accounts and this page can post to none of them.
-      //         Post nowhere. A YouTube-only candidate is exactly this.
-      //   [..]  the postable subset of what it named.
+      // YouTube and X are both posted by hand. Naming one says "this also needs
+      // doing by hand"; it says nothing about whether the story suits Facebook.
+      // So the question this answers is only ever about the machine accounts:
       //
-      // This returned null for BOTH of the first two until 2026-08-20, so a
-      // candidate tagged YouTube alone read as no opinion and the Post button
-      // cheerfully offered Facebook, Instagram and Threads for a video we meant
-      // to share on YouTube. `[]` is truthy, so postTargets' `if (!wanted)`
-      // still catches only the null case and needed no change.
+      //   null  no machine advice. Do not narrow. Three things land here:
+      //         platforms absent or empty (every row filed before tags existed,
+      //         and every MANUAL row), and a row that named ONLY by-hand
+      //         platforms, which has expressed no opinion about the three we
+      //         can post to.
+      //   [..]  the bot named at least one machine account. Narrow to those.
+      //
+      // THIS REVERSED ON 2026-08-21. It used to return [] for "named accounts,
+      // none of them postable", which greyed the Post button on a YouTube
+      // candidate. That was right while a video was a thing you ONLY shared on
+      // the channel, and wrong as soon as a video was also worth posting to
+      // Facebook and Threads: the marker was quietly acting as a veto.
+      //
+      // Note the earlier version's [] is gone, so `postTargets`' `if (!wanted)`
+      // now catches every no-narrowing case, which is what it always meant.
       function suggestedKeys(post) {
         var raw = post && post.platforms;
         if (!Array.isArray(raw) || !raw.length) return null;
@@ -6310,10 +6332,20 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         suggestedNames(post).forEach(function (name) {
           name = name.toLowerCase();
           for (var key in WIRE_LABELS) {
+            // ONLY ACCOUNTS MACHINE POSTING IS ACTUALLY ON FOR. X is in
+            // WIRE_LABELS because it is a real account and the Edge Function
+            // can reach it, but PLATFORM_AUTOPOST.x is false: we post it by
+            // hand because of the price. So naming X is a by-hand marker today,
+            // exactly like naming YouTube, and must not narrow the three.
+            //
+            // Reading the flag rather than hardcoding a list is what makes this
+            // self-correcting: flip PLATFORM_AUTOPOST.x back on and an X-tagged
+            // row starts narrowing to X again with no other change.
+            if (!PLATFORM_AUTOPOST[key]) continue;
             if (WIRE_LABELS[key].toLowerCase() === name && keys.indexOf(key) === -1) keys.push(key);
           }
         });
-        return keys;
+        return keys.length ? keys : null;
       }
 
       /** The destination this candidate has to be posted to BY HAND, or ''.
@@ -6338,19 +6370,27 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         var names = suggestedNames(post);
         for (var i = 0; i < names.length; i++) {
           var key = names[i].toLowerCase();
+          // PLATFORM_AUTOPOST WINS OVER PLATFORM_SUGGEST_ONLY, because one of
+          // those two objects is a decision and the other is a fact. X is in
+          // SUGGEST_ONLY today only because its flag is off over the price;
+          // flip that flag and it becomes a button, and this label has to stop
+          // saying "copy it for X" about something the machine just posted.
+          // YouTube's flag does not exist at all, so it is unaffected.
+          if (PLATFORM_AUTOPOST[key]) continue;
           if (PLATFORM_SUGGEST_ONLY[key]) return names[i];
         }
         return '';
       }
 
-      // A candidate the bot sent to YouTube and nowhere else. Nothing here
-      // posts to YouTube: a community post is made by hand, so this is a marker
-      // rather than a route.
+      // A candidate that names YouTube AT ALL. It used to mean "names YouTube
+      // and nothing else", which stopped being the right question on 2026-08-21
+      // when a video became postable to the other accounts as well: a row tagged
+      // YouTube, Facebook and Threads is still a video, and still has to say so
+      // on its card and its Copy button.
       function isYouTubePost(post) {
-        var names = suggestedNames(post).map(function (n) { return n.toLowerCase(); });
-        return names.length > 0 &&
-               names.indexOf('youtube') !== -1 &&
-               (suggestedKeys(post) || []).length === 0;
+        return suggestedNames(post).some(function (n) {
+          return n.toLowerCase() === 'youtube';
+        });
       }
 
       // Real account names for the receipt. A LOOKUP WITH NO DEFAULT, on both
@@ -6379,12 +6419,12 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           // whenever it named only accounts this page cannot post to, which is
           // every YouTube candidate, and the message read "The bot suggested ,
           // and none of those can take this candidate."
-          var asked = wanted.length ? wireLabels(wanted) : suggestedNames(post);
-          if (isYouTubePost(post)) {
-            return 'This one is for YouTube, which is posted by hand: open the '
-              + 'video, share it to the channel, then mark this posted.';
-          }
-          return 'The bot suggested ' + asked.join(' and ')
+          // `wanted` can no longer be empty here: suggestedKeys returns null
+          // rather than [] when nothing machine-postable was named, and null
+          // does not reach this branch. So this is the real case it was always
+          // for: accounts were named and none of them can take THIS candidate,
+          // which today means Instagram on a row with no image.
+          return 'The bot suggested ' + wireLabels(wanted).join(' and ')
             + ', and none of those can take this candidate. Edit the story or post it by hand.';
         }
         return autoBlockedReason('meta', post);
