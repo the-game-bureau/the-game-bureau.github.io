@@ -328,6 +328,14 @@
       color: var(--bic-red);
       border-color: rgba(194, 55, 55, 0.45);
     }
+    /* IT WEARS THE ORIGIN CHIP'S SHAPE because it is the same kind of fact --
+       what this candidate IS, rather than what it says -- and it takes the
+       accent rather than the red pen: a row that has been round before is
+       context, not a warning. */
+    .post-kicker-back {
+      color: var(--accent);
+      border-color: rgba(var(--bic-blue-rgb), 0.4);
+    }
     .post-kicker-id {
       margin-right: auto;
       /* Larger than the kicker's own 0.62rem, and close to the bubble beside
@@ -4839,6 +4847,55 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return (v === 'manual' || v === 'prompt' || v === 'bot') ? v : 'bot';
       }
 
+      // A CANDIDATE IN REVIEW THAT HAS BEEN DECIDED BEFORE.
+      //
+      // A row that came back out of Posted or Skipped looks exactly like one
+      // the routine filed an hour ago, and they are not the same thing to
+      // decide about: one is a fresh pick, the other is a judgement somebody
+      // has already made and is now revisiting. Worse, MOVE from Posted
+      // deliberately destroys the receipt -- that is the whole point of Move --
+      // so the only evidence it had ever gone out was being erased.
+      //
+      // FOUR VALUES, THE TWO QUESTIONS CROSSED: which side it came back from,
+      // and whether the original survived. The distinction matters because a
+      // COPY means the other row is still out there posted or skipped, and a
+      // MOVE means this row IS that row.
+      var RETURNED_LABELS = {
+        'posted-move': 'back from Posted',
+        'posted-copy': 'copy of a posted one',
+        'skipped-move': 'back from Skipped',
+        'skipped-copy': 'copy of a skipped one'
+      };
+      var RETURNED_NOTES = {
+        'posted-move': 'This row was filed as posted and moved back to Review. The '
+          + 'receipt went with it, so there is no longer any record of where it went: '
+          + 'Move is for something that never really went out.',
+        'posted-copy': 'This is a fresh copy of a candidate that was posted. The '
+          + 'original is still in Posted with its receipt, so this one is here to run '
+          + 'again rather than to correct anything.',
+        'skipped-move': 'This one was skipped and has been put back in Review. '
+          + 'Somebody passed on it once already.',
+        'skipped-copy': 'This is a fresh copy of a candidate that was skipped. The '
+          + 'original is still in Skipped.'
+      };
+
+      /** A write that names `returned_from` against a database that has not run
+       *  the migration comes back as a 400 with PGRST204 or 42703, which is a
+       *  statement about our schema and tells the person at the keyboard
+       *  nothing they can act on. Name the file instead. */
+      function namesReturnedMigration(err) {
+        var raw = String(err && err.message || '');
+        return /returned_from|PGRST204|42703/i.test(raw)
+          ? 'The database does not have the returned_from column yet. Apply '
+            + '2026082101_socials_returned_from.sql in the Supabase SQL editor.'
+          : '';
+      }
+
+      function returnedFrom(post) {
+        var v = post && post.returned_from;
+        return RETURNED_LABELS[v] ? v : '';
+      }
+
       var ORIGIN_LABELS = { manual: 'Manual', prompt: 'Prompt', bot: 'Bot' };
       var ORIGIN_NOTES = {
         manual: 'Typed in by hand through MANUAL ADD.',
@@ -4977,6 +5034,20 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           originEl.textContent = originLabel(post);
           originEl.title = ORIGIN_NOTES[originOf(post)] || '';
           kickerId.appendChild(originEl);
+        }
+
+        // BEEN HERE BEFORE. Drawn only in Review, because that is the only
+        // place the fact changes anything: on a posted or skipped card it would
+        // be describing a previous life of a row that has since been decided
+        // again, which is history rather than news. The column is deliberately
+        // not cleared, so the guard is here rather than on the write.
+        var returned = returnedFrom(post);
+        if (returned && !posted && !skipped) {
+          var backEl = document.createElement('span');
+          backEl.className = 'post-kicker-origin post-kicker-back';
+          backEl.textContent = RETURNED_LABELS[returned];
+          backEl.title = RETURNED_NOTES[returned];
+          kickerId.appendChild(backEl);
         }
 
         // YOUTUBE MARKER. A video to share on the channel rather than a story to
@@ -5508,11 +5579,14 @@ Finish with the SQL block and that link, then a short summary below them: the fi
 
           function moveBackToReview() {
             unpostBtn.disabled = true;
-            return savePost(id, { status: 'review' })   // trigger clears posted_at too
+            // MARKED, BECAUSE THE TRIGGER IS ABOUT TO DESTROY THE EVIDENCE.
+            // Clearing posted_at is the whole point of Move, and it leaves the
+            // row indistinguishable from one the routine filed this morning.
+            return savePost(id, { status: 'review', returned_from: 'posted-move' })
               .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
               .catch(function (err) {
                 unpostBtn.disabled = false;
-                flash(queueStatus, 'Could not save: ' + err.message);
+                flash(queueStatus, namesReturnedMigration(err) || ('Could not save: ' + err.message));
               });
           }
 
@@ -5537,7 +5611,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               // the CANDIDATE came from, not who pressed the button: a repost of
               // something the bot found is still a thing the bot found, and
               // relabelling it would lose the only record of that.
-              origin: post.origin || 'bot'
+              origin: post.origin || 'bot',
+              // A COPY, NOT A MOVE: the original is still in Posted with its
+              // receipt, so this row exists to run the story again rather than
+              // to correct anything.
+              returned_from: 'posted-copy'
             };
             return insertPost(copy)
               .then(function () {
@@ -5554,7 +5632,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                 flash(queueStatus, /23505|duplicate key/i.test(raw)
                   ? 'The database still refuses a second row with this url. Apply '
                     + '2026081901_socials_allow_reposts.sql, or use Move to Review.'
-                  : 'Could not copy: ' + raw);
+                  : (namesReturnedMigration(err) || ('Could not copy: ' + raw)));
               });
           }
           actions.appendChild(unpostBtn);
@@ -5572,11 +5650,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           unskipBtn.title = 'Put this one back in Review';
           unskipBtn.addEventListener('click', function () {
             unskipBtn.disabled = true;
-            savePost(id, { status: 'review' })
+            savePost(id, { status: 'review', returned_from: 'skipped-move' })
               .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
               .catch(function (err) {
                 unskipBtn.disabled = false;
-                flash(queueStatus, 'Could not save: ' + err.message);
+                flash(queueStatus, namesReturnedMigration(err) || ('Could not save: ' + err.message));
               });
           });
           actions.appendChild(unskipBtn);

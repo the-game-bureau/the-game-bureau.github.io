@@ -25,7 +25,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| *(none)* | Everything in `mc/supabase/migrations/` is applied as of 2026-08-20, verified against the database rather than assumed. |
+| [2026082101_socials_returned_from.sql](mc/supabase/migrations/2026082101_socials_returned_from.sql) | **Move/Copy to Review stops working entirely.** All three of those buttons now write `returned_from`, so the PATCH or INSERT 400s and a candidate cannot be brought back out of Posted or Skipped at all. The page catches it and names this file rather than showing a raw PGRST204. |
 
 **THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
 for it. It listed `2026082003` as pending because that is what the last message
@@ -744,6 +744,18 @@ They are the room's two ways in, so they are built to be read together: **MANUAL
 - **IT GAINED THE ERRAND PARAGRAPH** (`.prompt-howto`) the prompt dialog has always had. Without it the head was an eyebrow, a title and a lot of white space where the buttons had been. It also answers the question the single box provokes: one unlabelled field taking either a link or a sentence looks like a field you are about to get wrong, and the line under it only says which way it is going *after* you type.
   - **It is two sentences: _"Paste a link, or type an idea. It will be filed for editing and review."_** An earlier draft added that the caption and image are written later on the card, which is true and is not this dialog's business. **Naming a step that happens somewhere else, at the moment somebody is trying to finish here, reads as a warning rather than as help.** Say what the box takes and what becomes of it.
 - **NO `Close` IN THE MANUAL HEAD**, even though the prompt dialog has one there. The prompt dialog's foot has no Cancel, so its Close is the only way out; this dialog's foot has Cancel, and adding Close above it would put back exactly the duplication just removed.
+
+### A CANDIDATE IN REVIEW SAYS IF IT HAS BEEN HERE BEFORE (2026-08-21)
+
+`public.socials.returned_from`, [2026082101](mc/supabase/migrations/2026082101_socials_returned_from.sql), **apply by hand**. A chip on the kicker: **back from Posted** / **copy of a posted one** / **back from Skipped** / **copy of a skipped one**.
+
+- **A ROW THAT CAME BACK LOOKED EXACTLY LIKE A FRESH PICK**, and they are not the same thing to decide about: one is a candidate nobody has read, the other is a judgement somebody has already made and is now revisiting.
+- **MOVE FROM POSTED DESTROYS THE ONLY EVIDENCE, BY DESIGN.** The trigger clears `posted_at` — that is the whole point of Move, which is for something that never really went out — so afterwards nothing anywhere recorded that the row had ever been posted. **This column is what survives that.**
+- **FOUR VALUES, THE TWO QUESTIONS CROSSED**: which side it came back from, and whether the original survived. **The copy/move distinction is the load-bearing half**: a COPY means the other row is still out there posted or skipped, a MOVE means this row *is* that row. One column rather than two, because a `returned_how` with no `returned_from` is meaningless and the pair would have to be constrained to agree.
+- **`skipped-copy` HAS NO BUTTON AND THE VALUE EXISTS ANYWAY.** The Skipped card offers Move alone, deliberately: a skipped candidate was never posted, so copying it would only produce two identical undecided rows. The value is in the CHECK so that adding the button later is a one-line change rather than a second migration.
+- **OVERWRITTEN ON EVERY RETURN, NEVER CLEARED.** A row that goes out and comes back twice describes its LAST return, which is the one you are looking at. **The chip is drawn only while the row is in Review**, so a stale value on a re-posted row costs nothing and clearing it would be a second write for no reader.
+- **IT IS NOT A HISTORY.** If an audit trail is ever wanted, that is an events table, not a wider column.
+- **It takes the accent, not the red pen**: a row that has been round before is context, not a warning. It wears the origin chip's shape because it is the same kind of fact — what the candidate *is*, rather than what it says.
 
 ## Mission Control's ANCILLARY THINGS cards say what the ROOMS say (2026-08-19)
 
