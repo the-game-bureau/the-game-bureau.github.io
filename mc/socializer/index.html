@@ -5703,7 +5703,20 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         //
         // OAuth 1.0a rather than OAuth 2.0, so nothing expires: see the long
         // note in mc/supabase/functions/socials-post/index.ts for why.
-        x: true            // api.x.com POST /2/tweets
+        // OFF, AND NOT BECAUSE IT IS UNWIRED. postX() in the Edge Function is
+        // finished and would work the moment four secrets were set. It is off
+        // because of what a post COSTS: X has no free tier, it is pay-per-use,
+        // and a post carrying a url is $0.200 against $0.015 for one without.
+        // Every post we make carries the story link, so we would always pay the
+        // expensive rate, about $30 a month at five posts a day, against three
+        // other accounts that are free.
+        //
+        // So X is done the way YouTube is done: the Copy button puts the caption
+        // and the link on the clipboard and you paste it in yourself. The code
+        // stays because the decision could reasonably go the other way, and
+        // because rediscovering the OAuth 1.0a signing would be the expensive
+        // part. Flip this to true and set the secrets if the bill is worth it.
+        x: false           // api.x.com POST /2/tweets, wired but deliberately off
       };
 
       // Platforms that can NEVER be posted to by machine, as distinct from ones
@@ -5715,13 +5728,25 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // until 2026-08-20, when the routine started filing one video a run and
       // YouTube became a real answer again rather than a missing one.
       //
-      // A YouTube candidate is posted BY HAND, as a post on our channel. There
-      // is no small API for that the way there is for the other three, so this
-      // is a fact about the platform and not a piece of work waiting to be
-      // done, which is exactly the distinction this object exists to carry.
+      // TWO ENTRIES, FOR TWO DIFFERENT REASONS, and the difference is worth
+      // keeping straight even though the button behaves the same way for both:
+      //
+      //   youtube  CANNOT be posted by machine. There is no small API for a
+      //            channel post the way there is for the other three. A fact
+      //            about the platform.
+      //   x        CAN be, and deliberately is not. postX() in the Edge
+      //            Function is finished; X has no free tier and charges $0.200
+      //            for a post containing a url against $0.015 without, and
+      //            every post we make carries one. A decision about money,
+      //            which is reversible: see PLATFORM_AUTOPOST.x.
+      //
+      // Both are answered the same way, by the Copy button, so the reason text
+      // is what carries the difference to whoever is reading the greyed button.
       var PLATFORM_SUGGEST_ONLY = {
         youtube: 'YouTube is posted by hand: open the video, share it to the ' +
-                 'channel as a post, then mark this one posted.'
+                 'channel as a post, then mark this one posted.',
+        x: 'X is posted by hand, because its API charges 20 cents for a post ' +
+           'with a link in it. Copy the caption and paste it into X.'
       };
 
       function hasImage(post) {
@@ -5843,9 +5868,31 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return keys;
       }
 
+      /** The one destination this candidate has to be posted to BY HAND, or ''.
+       *
+       *  Answers only when the machine can reach NOTHING for this row, which is
+       *  what makes the Copy button the whole job rather than a fallback. A
+       *  story tagged X as well as Facebook still posts to Facebook by machine,
+       *  so it keeps the plain label and the X half is simply not offered; the
+       *  alternative is a button claiming to be for X on a row that is about to
+       *  go somewhere else.
+       *
+       *  Names come from the bot's own tags rather than from WIRE_LABELS,
+       *  because YouTube is deliberately absent from that object and would
+       *  otherwise be unnameable here. */
+      function byHandTarget(post) {
+        if (postTargets(post).length) return '';
+        var names = suggestedNames(post);
+        for (var i = 0; i < names.length; i++) {
+          var key = names[i].toLowerCase();
+          if (PLATFORM_SUGGEST_ONLY[key]) return names[i];
+        }
+        return '';
+      }
+
       // A candidate the bot sent to YouTube and nowhere else. Nothing here
       // posts to YouTube: a community post is made by hand, so this is a marker
-      // and a filter rather than a route.
+      // rather than a route.
       function isYouTubePost(post) {
         var names = suggestedNames(post).map(function (n) { return n.toLowerCase(); });
         return names.length > 0 &&
@@ -5975,11 +6022,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         go.type = 'button';
         go.className = 'btn primary';
 
+        // ── WHERE THE CLIPBOARD IS FOR ────────────────────────────────────
+        // Two destinations are posted by hand, for two different reasons (see
+        // PLATFORM_SUGGEST_ONLY), and on those candidates this button is not a
+        // convenience beside the Post button, it IS the way the thing gets
+        // posted. So it says which one: a bare "Copy to clipboard" on a video
+        // row makes you work out for yourself what to do with the text.
+        //
+        // Anything else keeps the plain label. On an ordinary story the machine
+        // does the posting and this is the fallback, so naming a platform would
+        // claim a job it is not doing.
+        var handTarget = byHandTarget(post);
+
         var copy = document.createElement('button');
         copy.type = 'button';
         copy.className = 'btn';
-        copy.textContent = 'Copy to clipboard';
-        copy.title = 'Copy the caption and link, and mark this posted';
+        copy.textContent = handTarget
+          ? 'Copy to clipboard for ' + handTarget
+          : 'Copy to clipboard';
+        copy.title = handTarget
+          ? 'Copy the caption and link, paste them into ' + handTarget +
+            ', and mark this posted'
+          : 'Copy the caption and link, and mark this posted';
 
         // Real account names, because posted_platforms is a receipt: "meta" is
         // this page's vocabulary and would mean nothing six months from now.
