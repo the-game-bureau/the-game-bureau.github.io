@@ -3468,6 +3468,29 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return row;
       }
 
+      /** Delete a candidate outright. The only irreversible thing this page does.
+       *
+       *  `return=representation` IS NOT DECORATION. PostgREST answers 200 with
+       *  an EMPTY ARRAY when RLS refuses a write, so without reading the row
+       *  back a refused delete reports success and the card vanishes from the
+       *  screen until the next reload brings it back. That trap has already
+       *  cost this project a bulk run that reported hundreds of writes and made
+       *  none of them.
+       */
+      async function deletePost(id) {
+        var res = await fetch(restUrl(TABLE + '?id=eq.' + encodeURIComponent(id)), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error('Delete failed (' + res.status + '): ' + (await res.text()));
+        var rows = await res.json();
+        if (!rows || !rows.length) {
+          throw new Error('the database refused the delete, so nothing was removed');
+        }
+        posts = posts.filter(function (row) { return String(row.id) !== String(id); });
+        return rows[0];
+      }
+
       async function insertPost(row) {
         var res = await fetch(restUrl(TABLE), {
           method: 'POST',
@@ -5848,6 +5871,47 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                 flash(queueStatus, namesMissingColumn(err) || ('Could not save: ' + err.message));
               });
           });
+          // DELETE, ON A SKIPPED CARD ONLY. This is the one control on the page
+          // that destroys a record, so it is offered where a decision has
+          // already been taken against the candidate and nowhere else: not in
+          // Review, where the row is still a live question, and not on a
+          // posted card, whose receipt is the only record of what went out.
+          //
+          // DESTRUCTIVE HARD LEFT, with the auto margin pushing everything else
+          // right. Same arrangement as the waypoint editor's foot, and for the
+          // same reason: the irreversible button should be as far as the row
+          // goes from the one you actually came to press.
+          var deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn danger';
+          deleteBtn.type = 'button';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.style.marginRight = 'auto';
+          deleteBtn.title = 'Remove this candidate from the database for good. '
+            + 'It also stops being a tombstone, so the bot may find the story again.';
+          deleteBtn.addEventListener('click', function () {
+            // THE WARNING NAMES THE CONSEQUENCE NOBODY EXPECTS. That the row
+            // goes is obvious. That the story stops being remembered is not:
+            // tgb_socials_filed_urls reads this table, and the pull RPC checks
+            // it so the routine never files a story twice. Delete the row and
+            // that memory goes with it. Skipping keeps it, which is why
+            // skipping is usually the right answer for "we do not want this".
+            askConfirm('Delete this candidate?',
+              'It is removed from the database and cannot be brought back. It also '
+              + 'stops the bot remembering the story, so a future run may find and '
+              + 'file it again. Leaving it skipped keeps that memory.',
+              'Delete', { noLabel: 'Keep it' })
+              .then(function (yes) {
+                if (yes !== true) return;
+                deleteBtn.disabled = true;
+                deletePost(id)
+                  .then(function () { renderQueue(); flash(queueStatus, 'Deleted'); })
+                  .catch(function (err) {
+                    deleteBtn.disabled = false;
+                    flash(queueStatus, 'Could not delete: ' + err.message);
+                  });
+              });
+          });
+          actions.appendChild(deleteBtn);
           actions.appendChild(unskipBtn);
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
