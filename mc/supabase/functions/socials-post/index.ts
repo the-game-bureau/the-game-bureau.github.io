@@ -441,6 +441,39 @@ function captionFor(row: { blurb?: string; url?: string }, platform: string): st
     .join('\n\n');
 }
 
+/** Instagram's caption, with the one line that makes the link reachable.
+ *
+ *  INSTAGRAM IS THE ONLY ACCOUNT WHERE A CAPTION URL DOES NOTHING. It is not
+ *  clickable, not selectable in the app, and not copyable without a fight, so
+ *  every story posted there has been a thing you can see and cannot reach.
+ *  /linkinbio/ is the answer and this sentence is the signpost to it: without
+ *  it the bio link is an address nobody is told about.
+ *
+ *  ONLY WHEN THERE IS SOMETHING TO SEE. A candidate with no url never reaches
+ *  the bio page -- that page refuses a row it cannot send anybody to -- so
+ *  promising a link there would be sending somebody to look for nothing.
+ *
+ *  AND ONLY ONCE. A human writing an Instagram-specific caption may well end it
+ *  this way themselves, and the machine repeating it underneath is the kind of
+ *  small sloppiness that reads as automated.
+ */
+const IG_BIO_LINE = 'See link in bio.';
+
+function instagramCaption(row: any): string {
+  // blurbFor, NOT captionFor: the caption alone, WITHOUT the url.
+  //
+  // captionFor appends the link, which is right for the three accounts where a
+  // link does something and self-contradicting here. A dead address sitting
+  // directly above "See link in bio." asks the reader which link is meant, and
+  // answers with the one thing on the post they cannot use. The bio link is the
+  // route now, so the url has a home and does not need a second dead one.
+  const base = blurbFor(row, 'instagram');
+  const url = String(row?.url ?? '').trim();
+  if (!url) return base;
+  if (/see\s+link\s+in\s+bio/i.test(base)) return base;
+  return base ? base + "\n\n" + IG_BIO_LINE : IG_BIO_LINE;
+}
+
 // ── AMAZON SERVES 1500px AND META TAKES 1440 ────────────────────────────────
 // Every image on an Amazon-sourced gift is 1500px on its longest side. That is
 // not a coincidence, it is Amazon's own CDN token: `_SL1500_` means "scaled
@@ -626,7 +659,7 @@ async function postInstagram(row: any): Promise<Outcome> {
     // Two steps, always: create an unpublished container, then publish it.
     const container = await graph(`${igUserId}/media`, {
       image_url: image,
-      caption: captionFor(row, 'instagram'),
+      caption: instagramCaption(row),
       access_token: META_PAGE_TOKEN,
     });
     if (!container?.id) throw new Error('no container id returned');
