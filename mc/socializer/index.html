@@ -1150,6 +1150,18 @@
     /* A row, not a column: five short words that read as one control. The
        fieldset border is dropped because the dialog already frames this and a
        second box around five checkboxes is a box too many. */
+    /* THE SHEET SAYS SO AND THE DOORS LOOK SHUT. Greyed rather than hidden:
+       a control that vanishes makes you wonder what you broke, and these come
+       back the moment a box is ticked. The anchors keep working at the DOM
+       level, so copyPromptText refuses as well; this is the appearance and that
+       is the rule. */
+    .prompt-panel.is-blocked .prompt { color: var(--muted); font-style: italic; }
+    .prompt-panel.is-blocked .prompt-ai,
+    .prompt-panel.is-blocked .prompt-sql-btn {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
     .prompt-platforms {
       display: flex;
       flex-wrap: wrap;
@@ -2151,7 +2163,7 @@
                state, because the whole point of this dialog is that you can
                read what you are about to paste. -->
           <fieldset class="prompt-platforms" id="promptPlatforms">
-            <legend>Accounts this run</legend>
+            <legend>Target platforms</legend>
             <label><input type="checkbox" value="Facebook" checked> Facebook</label>
             <label><input type="checkbox" value="Instagram" checked> Instagram</label>
             <label><input type="checkbox" value="Threads" checked> Threads</label>
@@ -2965,10 +2977,51 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         });
       }
 
+      // ── NO PLATFORMS IS NOT A PROMPT ──────────────────────────────────────
+      //
+      // With every box unticked there is no run to describe, so the sheet holds
+      // one sentence saying so rather than a prompt whose accounts block reads
+      // "no accounts are in play". A prompt that carefully instructs an AI to
+      // post nowhere is a prompt somebody will paste anyway.
+      //
+      // THE REAL TEXT IS STASHED, NOT DESTROYED. Whatever was in the box, edits
+      // and all, comes back the moment a box is ticked. Losing somebody's
+      // typing because they unticked five checkboxes would be the worst kind of
+      // data loss: silent, self-inflicted, and impossible to guess at.
+      //
+      // AND IT IS NEVER SAVED. storePrompt() is skipped while the message is
+      // showing, so a browser that closed in this state reopens with the real
+      // prompt rather than with the warning stored as if it were one.
+      var PROMPT_NO_PLATFORMS = 'You must choose at least one platform to continue.';
+      var promptStash = null;
+
+      function anyPlatformOn() {
+        return platformBoxes().some(function (b) { return b.checked; });
+      }
+
       function applyPlatformBlock() {
         if (!promptEl) return;
-        promptEl.value = withPlatformBlock(promptEl.value);
         paintPlatformLabels();
+
+        if (!anyPlatformOn()) {
+          // Stash once. Unticking the last box twice in a row must not overwrite
+          // the real prompt with the warning.
+          if (promptStash === null) promptStash = withPlatformBlock(promptEl.value);
+          promptEl.value = PROMPT_NO_PLATFORMS;
+          promptEl.readOnly = true;
+          if (promptCard) promptCard.classList.add('is-blocked');
+          paintPromptEdited();
+          return;
+        }
+
+        if (promptStash !== null) {
+          promptEl.value = promptStash;
+          promptStash = null;
+          promptEl.readOnly = false;
+          if (promptCard) promptCard.classList.remove('is-blocked');
+        }
+
+        promptEl.value = withPlatformBlock(promptEl.value);
         storePrompt();
         paintPromptEdited();
       }
@@ -3027,6 +3080,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // restored text does not carry, which is worse than either state on its
         // own: the control and the sheet would be saying different things.
         platformBoxes().forEach(function (box) { box.checked = true; });
+        // Reset restores the authored prompt, so the stash and the blocked
+        // dressing have to go with it or the box would be showing real text
+        // while still refusing to copy it.
+        promptStash = null;
+        promptEl.readOnly = false;
+        if (promptCard) promptCard.classList.remove('is-blocked');
         paintPlatformLabels();
         storePrompt();
         paintPromptEdited();
@@ -6879,6 +6938,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       async function copyPromptText() {
         if (!promptEl) return false;
         window.clearTimeout(copyResetTimer);
+        // Refused rather than allowed to copy the warning. The doors open a
+        // chat window straight after copying, so without this you would arrive
+        // somewhere with one useless sentence on the clipboard and no obvious
+        // reason why.
+        if (promptStash !== null) {
+          if (copyStatus) copyStatus.textContent = 'Tick at least one platform first';
+          copyResetTimer = window.setTimeout(resetCopyStatus, 2600);
+          return false;
+        }
         try {
           await navigator.clipboard.writeText(promptEl.value || '');
           // THE LINE IS THE CONFIRMATION NOW. It was kept for failures alone
