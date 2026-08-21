@@ -839,6 +839,19 @@
       color: #fff;
     }
     .post-platform.is-ready:hover:not(:disabled) { background: #24396a; }
+    /* A FALLBACK IS NOT A READY STATE. Only Instagram lands here: it is a
+       machine account that cannot be posted by machine this time, for want of
+       an image, so it hands you a clipboard instead. It is still a destination
+       and still pressable, so it is not faded like an account that is no
+       destination at all; it simply must not wear the paint of the accounts
+       that are actually go, or a card reading `Both` shows three identical
+       buttons. The dashed edge is the room's existing idiom for provisional. */
+    .post-platform.is-fallback {
+      border-style: dashed;
+      border-color: rgba(var(--bic-blue-rgb), 0.55);
+      background: #fff;
+      color: var(--ink);
+    }
     /* USED, NOT DISABLED. A pressed account stays pressable: posting twice is
        a thing people legitimately do, and greying it out would make a retry
        after a failure impossible. The tick says where you have got to.
@@ -853,6 +866,9 @@
        point of five buttons is being able to see where you have got to. */
     .post-platform.is-used,
     .post-platform.is-ready.is-used {
+      /* solid, explicitly: a used FALLBACK keeps .is-fallback and would
+         otherwise stay dashed, so a finished account would look provisional. */
+      border-style: solid;
       border-color: var(--bic-green, #276740);
       background: var(--bic-green, #276740);
       color: #fff;
@@ -7005,7 +7021,17 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             if (!btn) return;
             var mode = platformMode(live, key);
             btn.disabled = mode === 'off';
-            btn.classList.toggle('is-ready', mode !== 'off');
+            // BLUE MEANS THIS ACCOUNT IS IN THE STATE IT IS MEANT TO BE IN.
+            // For X and YouTube that IS by hand, so they are blue whenever they
+            // are offered. Instagram by hand is a FALLBACK, not a normal state:
+            // it is supposed to post itself and cannot, for want of an image.
+            // Painting it like the two beside it made a card reading `All 2`
+            // show three identical buttons, which is the row disagreeing with
+            // its own count.
+            btn.classList.toggle('is-ready',
+              mode === 'machine' || (mode === 'hand' && !PLATFORM_AUTOPOST[key]));
+            btn.classList.toggle('is-fallback',
+              mode === 'hand' && !!PLATFORM_AUTOPOST[key]);
             if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
@@ -7033,7 +7059,10 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           allBtn.hidden = batch.length < 2;
           allBtn.disabled = batch.length < 2;
           if (!allBtn.hidden) {
-            allBtn.textContent = 'All ' + batch.length;
+            // BOTH READS AS ENGLISH AND `ALL 2` READS AS A COUNTER. There are
+            // only ever two or three, so the word is available for the one case
+            // that has one.
+            allBtn.textContent = batch.length === 2 ? 'Both' : 'All ' + batch.length;
             allBtn.title = 'Post this to ' + batch.map(function (k) {
               return PLATFORM_NAME[k];
             }).join(' + ') + ' in one go.';
