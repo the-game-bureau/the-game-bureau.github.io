@@ -818,13 +818,42 @@
        they are not part of the group and must not look like a sixth account. */
     .post-platforms { display: inline-flex; flex-wrap: wrap; gap: 4px; }
     .post-platform { min-width: 0; }
+    /* FILLED BLUE MEANS THE MACHINE WILL POST IT. The row carries three kinds
+       of button and, drawn alike, the only way to tell them apart was to read a
+       tooltip: an account that posts itself, an account that hands you a
+       clipboard, and an account that is not a destination at all. Filled is the
+       one you can fire and forget, so it is the one that gets the weight.
+
+       IT IS A STATE, NOT A RANK. The class is added and removed by sync() off
+       platformMode(), so Instagram loses its fill the moment its image breaks
+       and takes it back when you paste a working one. Nothing here is styled
+       from the bot's tags. */
+    .post-platform.is-machine {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .post-platform.is-machine:hover:not(:disabled) { background: #24396a; }
     /* USED, NOT DISABLED. A pressed account stays pressable: posting twice is
        a thing people legitimately do, and greying it out would make a retry
-       after a failure impossible. The tick says where you have got to. */
-    .post-platform.is-used {
+       after a failure impossible. The tick says where you have got to.
+
+       IT IS FILLED GREEN AND MUST STAY AFTER .is-machine IN THIS SHEET. Both
+       selectors are (0,2,0), so source order is the only thing deciding which
+       wins on a machine account you have already pressed. Green text on the
+       blue fill would be the alternative, and it is unreadable.
+
+       DONE IS GREEN WHATEVER THE ROUTE. A clipboard account and a machine
+       account that have both gone out are in the same state, and the whole
+       point of five buttons is being able to see where you have got to. */
+    .post-platform.is-used,
+    .post-platform.is-machine.is-used {
       border-color: var(--bic-green, #276740);
-      color: var(--bic-green, #276740);
+      background: var(--bic-green, #276740);
+      color: #fff;
     }
+    .post-platform.is-used:hover:not(:disabled),
+    .post-platform.is-machine.is-used:hover:not(:disabled) { background: #1f5334; }
     /* THE LITERAL CHARACTER, NOT A CSS ESCAPE. This was written as a
        backslash-2713 escape and reached the file as ' ¹3': it went through a
        heredoc and then Python, which read the first four characters as an
@@ -6971,6 +7000,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             if (!btn) return;
             var mode = platformMode(live, key);
             btn.disabled = mode === 'off';
+            btn.classList.toggle('is-machine', mode === 'machine');
             if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
