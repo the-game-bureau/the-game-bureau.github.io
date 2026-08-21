@@ -499,6 +499,16 @@ X and YouTube were both dropped on 2026-08-07. **They do not come back together 
 
 Step 1 tells the run to read `tgb_socials_filed_urls` before it searches. The run on 2026-08-20 piped that reply through **`head -c 6000`**, saw roughly a third of the 262 urls it held, and filed two stories it had already filed the week before; it then spent ten minutes of a twenty minute run finding replacements. **The prompt now says to save it to a file and `grep -c` that file per candidate**, and names this run as the reason. Nothing errored, and the run reported success: the only trace was two `duplicate` outcomes in a reply nobody reads afterwards.
 
+### A GIFT LINK CANNOT CARRY ITS OWN PICTURE, AND THAT IS NOT FIXABLE IN THE SHOP (2026-08-21)
+
+Every `/gifts/?item=<id>` link unfurls with the **same generic shop banner**, whichever gift it is. `gifts/index.html` hardcodes `og:image` to `shop_banner.png`, and **it cannot be made per-gift there**: the page is static HTML on GitHub Pages that fills itself in from Supabase after it loads, so **a crawler reads the file as committed and never runs the JavaScript**. There is no server to render it per gift. Setting `og:image` from script would satisfy a person reading the source and nothing else.
+
+- **THE THREE MACHINE ACCOUNTS ALREADY DODGE THIS AND NEED NOTHING.** `previewIsOurs()` in [socials-post](mc/supabase/functions/socials-post/index.ts) makes **Facebook post the gift PHOTO to `/photos`** rather than a link card to `/feed` when the url is ours and an image exists; Instagram always uploads `image`; Threads posts `media_type=IMAGE`. **Only the by-hand path is exposed**, because there the link is all X gets.
+- **SO THE COPY HANDS OVER THE PICTURE.** On a gift candidate with a by-hand destination, Copy (and a successful Post) opens the gift's own photo in a tab and the dialog says to drag it in. One extra manual step on a path that is already manual.
+  - **THE TAB OPENS INSIDE THE SAME GESTURE THAT COPIED**, before the dialog resolves. A `window.open` from a `.then()` after an await is exactly what a popup blocker exists to stop, and a blocked tab would leave the sentence describing something that did not happen.
+  - **IT FIRES ONLY FOR OUR SHOP LINKS**, matched on `thegamebureau.com/gifts/?item=`. A story's `og:image` is already what its own link unfurls, so opening it would be a tab for nothing.
+- **THE TWO REJECTED FIXES, so nobody re-proposes them cold.** An **Edge Function serving share tags** gives proper cards to everyone but puts a `supabase.co` domain on the post, which reads as less trustworthy than our own. **Generating a static page per gift** keeps the domain and fixes it everywhere, but means 600-odd generated files and a build step, which this repo has deliberately removed twice.
+
 ### THE SOCIALIZER'S VIEW BAR IS ONE REEL BUTTON (2026-08-20)
 
 It held three buttons, FACEBOOK / INSTAGRAM / THREADS, built from a `PLATFORM_URLS` object on the page. It is now **one button wearing the scrolling account reel**, opening the same menu the hub card and the public nav open. [mc/js/follow-reel.js](mc/js/follow-reel.js).

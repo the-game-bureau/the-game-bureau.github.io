@@ -6382,6 +6382,33 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return out;
       }
 
+      // ── A GIFT'S LINK DOES NOT CARRY ITS OWN PICTURE ──────────────────────
+      //
+      // /gifts/ is static HTML on GitHub Pages that fills itself in from
+      // Supabase AFTER it loads, so a crawler reads the file as committed and
+      // finds one hardcoded og:image: the shop banner. Every gift link
+      // therefore unfurls with the same generic picture, whichever gift it is.
+      // Setting og:image with JavaScript cannot fix that, because the crawler
+      // never runs the JavaScript. There is no server to render it per gift.
+      //
+      // THE MACHINE ACCOUNTS ALREADY DODGE THIS and need nothing here: the Edge
+      // Function's previewIsOurs() makes Facebook post the gift PHOTO rather
+      // than a link card when the url is ours, Instagram always uploads the
+      // image, and Threads posts media_type=IMAGE. Only the by-hand path is
+      // exposed, because there the link is all X gets.
+      //
+      // So on a gift, the copy hands over the picture as well. It is one more
+      // manual step on a path that is already manual, and the alternative is a
+      // post that looks like every other gift post we have ever made.
+      function giftImageForCopy(post) {
+        var url = String((post && post.url) || '');
+        var image = String((post && post.image) || '').trim();
+        // OUR shop link only. A story's og:image is already what its own link
+        // will unfurl, so opening it would be a tab for nothing.
+        if (!image || url.indexOf('thegamebureau.com/gifts/?item=') === -1) return '';
+        return image;
+      }
+
       /** The by-hand destinations as one phrase, or '' if there are none.
        *
        *  ALL OF THEM, NOT THE FIRST. This returned a single name until
@@ -6891,7 +6918,14 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               // What the clipboard adds is the NEXT job, not a decision about
               // this one.
               Promise.resolve(clipboardPromise).then(function (copied) {
-                var byHand = byHandTarget(currentRow(stateKey, post));
+                var liveRow = currentRow(stateKey, post);
+                var byHand = byHandTarget(liveRow);
+                var giftImage = byHand ? giftImageForCopy(liveRow) : '';
+                if (giftImage) {
+                  lines.push('The shop link unfurls with the generic banner, so the ' +
+                             'gift photo is open in another tab: drag it in.');
+                  window.open(giftImage, '_blank', 'noopener');
+                }
                 if (copied) {
                   lines.push('The caption and link are on your clipboard' +
                              (byHand ? ', ready to paste into ' + byHand : '') +
@@ -6963,6 +6997,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             // done and nothing left on screen to remind you.
             var live = currentRow(stateKey, post);
             var hand = byHandTargets(live);
+            var giftImage = hand.length ? giftImageForCopy(live) : '';
             var body = hand.length
               ? 'Caption and link are on the clipboard. Paste into ' +
                 byHandTarget(live) + ' with ' + pasteKey +
@@ -6972,10 +7007,23 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             // doing" as its own sentence, followed by "mark this as posted?", is
             // two things to hold at once; folded in, the question carries its own
             // condition and cannot be answered without reading it.
+            // SAID BEFORE THE QUESTION, because it is a step and the question
+            // is the end of the job. Without it you paste, see the shop banner
+            // appear, and either post it anyway or go hunting for the real
+            // photograph with the dialog already dismissed.
+            var picture = giftImage
+              ? ' The shop link unfurls with the generic banner, so the gift photo ' +
+                'opens in a tab as well: drag it into the post.'
+              : '';
             var ask = hand.length > 1
               ? ' Mark this candidate as posted once you have done both?'
               : ' Mark this candidate as posted?';
-            return askConfirm('Copied!', body + ask, 'Yes').then(function (ok) {
+            // OPENED INSIDE THE SAME GESTURE that copied, before the dialog
+            // resolves. A window.open from a .then() after an await is what a
+            // popup blocker exists to stop, and a blocked tab would leave the
+            // sentence above describing something that did not happen.
+            if (giftImage) window.open(giftImage, '_blank', 'noopener');
+            return askConfirm('Copied!', body + picture + ask, 'Yes').then(function (ok) {
               // No account is claimed either way: you took it away to post by
               // hand, so the receipt cannot know where it landed. Declining just
               // leaves it in review -- the clipboard keeps what it copied.
