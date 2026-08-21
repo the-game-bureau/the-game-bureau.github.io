@@ -818,42 +818,47 @@
        they are not part of the group and must not look like a sixth account. */
     .post-platforms { display: inline-flex; flex-wrap: wrap; gap: 4px; }
     .post-platform { min-width: 0; }
-    /* FILLED BLUE MEANS THE MACHINE WILL POST IT. The row carries three kinds
-       of button and, drawn alike, the only way to tell them apart was to read a
-       tooltip: an account that posts itself, an account that hands you a
-       clipboard, and an account that is not a destination at all. Filled is the
-       one you can fire and forget, so it is the one that gets the weight.
+    /* FILLED BLUE MEANS THIS ACCOUNT IS A DESTINATION FOR THIS CANDIDATE.
+       Available, in any sense: the machine will post it, or it hands you a
+       clipboard and opens its composer. The fill answers the question you ask
+       of the row five times a day, which is WHERE CAN THIS GO, and it answers
+       it at a glance rather than through five tooltips.
 
-       IT IS A STATE, NOT A RANK. The class is added and removed by sync() off
-       platformMode(), so Instagram loses its fill the moment its image breaks
-       and takes it back when you paste a working one. Nothing here is styled
-       from the bot's tags. */
-    .post-platform.is-machine {
+       IT DELIBERATELY DOES NOT DISTINGUISH MACHINE FROM BY HAND. That was the
+       first cut of this rule and it was the wrong question to answer in colour:
+       how an account is reached is our problem, and the button explains it
+       while you press it. What survives of that distinction is the HAIRLINE
+       before X, and the tooltip.
+
+       IT IS A STATE, NOT A RANK. sync() adds and removes it off platformMode(),
+       so a greyed account lights up the moment the candidate changes under it.
+       Nothing here is styled from the bot's tags. */
+    .post-platform.is-ready {
       border-color: var(--accent);
       background: var(--accent);
       color: #fff;
     }
-    .post-platform.is-machine:hover:not(:disabled) { background: #24396a; }
+    .post-platform.is-ready:hover:not(:disabled) { background: #24396a; }
     /* USED, NOT DISABLED. A pressed account stays pressable: posting twice is
        a thing people legitimately do, and greying it out would make a retry
        after a failure impossible. The tick says where you have got to.
 
-       IT IS FILLED GREEN AND MUST STAY AFTER .is-machine IN THIS SHEET. Both
-       selectors are (0,2,0), so source order is the only thing deciding which
-       wins on a machine account you have already pressed. Green text on the
-       blue fill would be the alternative, and it is unreadable.
+       IT IS FILLED GREEN AND MUST STAY AFTER .is-ready IN THIS SHEET. Both
+       selectors are (0,2,0), so source order is the only thing deciding an
+       available account you have already pressed. Green text on the blue fill
+       would be the alternative, and it is unreadable.
 
        DONE IS GREEN WHATEVER THE ROUTE. A clipboard account and a machine
        account that have both gone out are in the same state, and the whole
        point of five buttons is being able to see where you have got to. */
     .post-platform.is-used,
-    .post-platform.is-machine.is-used {
+    .post-platform.is-ready.is-used {
       border-color: var(--bic-green, #276740);
       background: var(--bic-green, #276740);
       color: #fff;
     }
     .post-platform.is-used:hover:not(:disabled),
-    .post-platform.is-machine.is-used:hover:not(:disabled) { background: #1f5334; }
+    .post-platform.is-ready.is-used:hover:not(:disabled) { background: #1f5334; }
     /* THE LITERAL CHARACTER, NOT A CSS ESCAPE. This was written as a
        backslash-2713 escape and reached the file as ' ¹3': it went through a
        heredoc and then Python, which read the first four characters as an
@@ -7000,7 +7005,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             if (!btn) return;
             var mode = platformMode(live, key);
             btn.disabled = mode === 'off';
-            btn.classList.toggle('is-machine', mode === 'machine');
+            btn.classList.toggle('is-ready', mode !== 'off');
             if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
