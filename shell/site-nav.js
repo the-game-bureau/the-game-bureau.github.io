@@ -245,10 +245,22 @@
     if (!link || link.dataset.tgbFollowPop === '1') return;
     link.dataset.tgbFollowPop = '1';
 
-    // THE REEL GOES ON THE NAV BUTTON ONLY. The footer's Follow sits in a
-    // column of labelled rows, and one unlabelled row among four labelled ones
-    // reads as a rendering fault rather than as a design.
-    if (link.classList && link.classList.contains('nav-link--follow')) {
+    // THE REEL IS OPT-IN, and two triggers ask for it: the nav button by its
+    // class, and anything else by data-follow-reel="1".
+    //
+    // IT USED TO BE NAV-ONLY, on the reasoning that the footer's Follow sat in
+    // a column of labelled rows where one unlabelled row would read as a
+    // rendering fault. That reasoning expired with the column: the footer's
+    // copy now lives in the sign-off bar beside the copyright, which is a line
+    // of odds and ends rather than a list of destinations, so an unlabelled
+    // glyph is at home there.
+    //
+    // THE POINT OF THE OPT-IN IS THAT THERE IS STILL ONE REEL. The footer asks
+    // for it rather than building its own, so the faces, the timing and the
+    // repeated last frame cannot drift between the two.
+    var wantsReel = link.classList &&
+      (link.classList.contains('nav-link--follow') || link.dataset.followReel === '1');
+    if (wantsReel) {
       if (!document.getElementById(REEL_STYLE_ID)) {
         var rs = document.createElement('style');
         rs.id = REEL_STYLE_ID;

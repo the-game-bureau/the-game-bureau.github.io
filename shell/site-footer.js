@@ -97,6 +97,27 @@
        as an invitation to a visitor. */
     'body .site-footer.site-footer .footer-mc-link{color:var(--muted,#52616f);font-size:.72rem;',
     'font-weight:700;}',
+    /* The Follow reel. margin-left:auto rather than relying on the row's
+       space-between: with three children, space-between would strand this in
+       the middle of a wide footer. The auto margin eats the free space instead,
+       so the copyright stays left and the reel sits beside Mission Control. */
+    /* BOTH SELECTORS, AND THE WRAP IS THE ONE THAT MATTERS. followPopup
+       re-parents the button into a .tgb-followpop-wrap so the panel has
+       something to position against, which makes the WRAP the flex child of
+       this row. Styling the button alone would put the auto margin on an
+       element the flex layout is no longer looking at, and the reel would sit
+       jammed against the copyright. This is the same mistake the nav made when
+       `order` went on the button and FOLLOW jumped to the front. */
+    'body .site-footer.site-footer .footer-bottom>.tgb-followpop-wrap,',
+    'body .site-footer.site-footer .footer-follow{margin-left:auto;align-self:center;',
+    /* align-self because the row is baseline-aligned and a button with no text
+       has no baseline to align to, so it would hang low. */
+    'display:inline-flex;padding:0;border:0;background:none;cursor:pointer;',
+    'color:var(--muted,#52616f);}',
+    'body .site-footer.site-footer .footer-follow[hidden]{display:none;}',
+    'body .site-footer.site-footer .footer-follow:hover{color:var(--ink,#1b2438);}',
+    'body .site-footer.site-footer .footer-follow:focus-visible{outline:2px solid ',
+    'var(--ink,#1b2438);outline-offset:3px;border-radius:3px;}',
     /* Field guide lightbox: the article lives at /shell/aboutshop.html and is
        fetched on demand, so there is one copy of the text for every page. The
        injected article arrives without that page's stylesheet, so these rules
@@ -369,9 +390,38 @@
     '</div>' +
     '<div class="footer-bottom">' +
       '<span class="footer-mark">&copy; ' + year + ' The Game Bureau</span>' +
+      // FOLLOW LIVES IN THE SIGN-OFF BAR, not in The Site column. That column
+      // is four destinations and this is a menu-opener, which is why it looked
+      // wrong there through three attempts. This row already holds the things
+      // that are not sections.
+      //
+      // NO LABEL, DELIBERATELY. The reel names the five networks by showing
+      // them, which is more than the word FOLLOW says, and an unlabelled glyph
+      // is at home in a line of fine print in a way it never was in a list.
+      //
+      // IT IS EMPTY IN THE MARKUP. site-nav.js fills it with the reel and hangs
+      // the menu on it; see the wiring below for what happens when that file is
+      // absent.
+      '<button type="button" class="footer-follow" data-follow-reel="1" hidden' +
+        ' aria-label="Follow The Game Bureau" title="Follow The Game Bureau"></button>' +
       '<a class="footer-mc-link" href="' + MISSION_CONTROL_HREF + '">Mission Control</a>' +
     '</div>';
   footer.dataset.tgbFooterReady = 'true';
+
+  // HANDED TO site-nav.js, WHICH OWNS BOTH THE LIST AND THE REEL. The footer
+  // does not know our account urls and must not learn them: it carried its own
+  // copy once and they drifted, bare instagram.com against www., which is why
+  // that column was deleted in the first place.
+  //
+  // THE BUTTON SHIPS `hidden` AND IS ONLY REVEALED ON SUCCESS. It has no href
+  // to fall back to and its whole content is injected, so without site-nav.js
+  // it would be an empty button that does nothing. An absent control is better
+  // than a dead one.
+  var followBtn = footer.querySelector('.footer-follow');
+  if (followBtn && window.TgbNav && typeof window.TgbNav.followPopup === 'function') {
+    window.TgbNav.followPopup(followBtn);
+    followBtn.hidden = false;
+  }
   injectFooterStyles();
   // Every link carrying the attribute gets its own lightbox, with the content
   // selector read off the attribute value. Iterating beats the old
