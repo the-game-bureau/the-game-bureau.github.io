@@ -105,14 +105,17 @@
       // so in a comment: "the socials room has no button in the site nav ... so
       // this dropdown is the only way to reach it from another page". It has one
       // now, and that comment is stale the moment this ships.
-      href: '/mc/socializer.html',
+      href: '/mc/socials/',
       title: 'Admin socials, the Socializer',
       publicHref: '/follow/',
       publicTitle: 'Public follow page',
-      // The room is a FILE, not a folder, unlike every other entry here: it
-      // moved out of /mc/socials/ on 2026-08-19. Anchored with \.html so a
-      // future /mc/socializer-something does not light this button up.
-      match: /^\/mc\/socializer\.html/,
+      // A FOLDER again, like every other entry here. This room went
+      // /mc/socials/ -> /mc/socializer.html on 2026-08-19 and back on
+      // 2026-08-20; the escaped regex survived the first sweep of the second
+      // move untouched, because a search for "/mc/socializer.html" does not
+      // find "\/mc\/socializer\.html". A match that has fallen out of step with
+      // its href does not error, it just quietly never lights the button.
+      match: /^\/mc\/socials\//,
       // Lucide users, the same glyph the public nav's FOLLOW button and the
       // Follow page's own footer entry carry.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"

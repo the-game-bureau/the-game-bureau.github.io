@@ -34,7 +34,7 @@ walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
-| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer.html](../../socializer.html), PROMPT dialog | `tgb_pull_socials_candidates` |
+| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socials/index.html](../../socials/index.html), PROMPT dialog | `tgb_pull_socials_candidates` |
 | **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20` | [mc/soundtracks/index.html](../../soundtracks/index.html), PROMPT dialog | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB WAYPOINT BOT** | `trig_018FbHnaU5DqB4GesPfABV2d` | `8 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildWaypointAiPrompt` | commits `mc/stops/nightly.json` |
@@ -55,9 +55,9 @@ machine tell in them costs nothing. Seventeen em dashes between them as of
 
 Step 8 of its stored prompt builds one link per candidate:
 
-    https://thegamebureau.com/mc/socializer.html#edit=<the id it filed>
+    https://thegamebureau.com/mc/socials/#edit=<the id it filed>
 
-That hash is a **contract with [mc/socializer.html](../../socializer.html)**,
+That hash is a **contract with [mc/socials/index.html](../../socials/index.html)**,
 which resolves it after the queue loads and opens that candidate's Edit dialog.
 If the hash format ever changes, the prompt and the page have to move together,
 and the page is the half that also has to keep answering the old shape or every
