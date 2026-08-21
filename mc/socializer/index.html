@@ -891,6 +891,15 @@
        is the FOURTH time this project has been bitten by that exact rule; see
        the soundtracks deck and the waypoint editor's buttons. */
     .post-platform[hidden] { display: none; }
+    /* A link inside the red pen. It inherits the pen's colour rather than going
+       browser-blue, which would read as a different kind of message. */
+    .notice-link {
+      color: inherit;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
     /* ALL is not `primary`: Done is the decision and stays the only filled
        button in the row. This one is weightier than the five it stands in
        front of and lighter than the one that files the row. */
@@ -3403,6 +3412,33 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         if (!el) return;
         window.clearTimeout(el._flashTimer);
         el.textContent = text;
+        el.classList.add('is-sticky');
+      }
+
+      /** A sticky notice with a real link on the end of it.
+       *
+       *  WHY A LINK AND NOT A SECOND TAB. Opening the gift photo alongside the
+       *  composer meant TWO window.open calls out of one click, and browsers
+       *  routinely allow the first and block the second. So the sentence
+       *  claimed a tab that was often not there, which is worse than not
+       *  offering the photo at all: you would go looking for it, not find it,
+       *  and have no idea whether the fault was yours.
+       *
+       *  A link is pressed when you want it, is a fresh user gesture of its
+       *  own, and therefore cannot be blocked. It also STAYS until the notice
+       *  is cleared, so the photo is still one press away at the moment you
+       *  actually need it, which is while the composer is open and before Done. */
+      function stickLink(el, text, href, label) {
+        if (!el) return;
+        window.clearTimeout(el._flashTimer);
+        el.textContent = text + ' ';
+        var a = document.createElement('a');
+        a.className = 'notice-link';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = label;
+        el.appendChild(a);
         el.classList.add('is-sticky');
       }
 
@@ -6890,15 +6926,39 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                 url: liveField(post, stateKey, 'url')
               }));
               var giftImage = giftImageForCopy(live);
-              if (PLATFORM_COMPOSE[key]) window.open(PLATFORM_COMPOSE[key], '_blank', 'noopener');
-              if (giftImage) window.open(giftImage, '_blank', 'noopener');
+              // ONE window.open PER CLICK. A second one is blocked by most
+              // browsers, so the composer gets the single popup and the gift
+              // photo becomes a link in the notice below.
+              var opened = PLATFORM_COMPOSE[key]
+                ? window.open(PLATFORM_COMPOSE[key], '_blank', 'noopener')
+                : null;
               copied.then(function (ok) {
                 noteUsed(key);
-                stick(feedbackEl, ok
-                  ? PLATFORM_NAME[key] + ' is open and the caption is on your clipboard' +
-                    (giftImage ? ', with the gift photo in the next tab' : '') + '.'
-                  : PLATFORM_NAME[key] + ' is open, but the caption could not be copied: ' +
-                    'take it off the card by hand.');
+                // Say what actually happened. window.open returns null when the
+                // browser refuses, and claiming a tab that is not there sends
+                // somebody hunting for it.
+                var where = !PLATFORM_COMPOSE[key] ? ''
+                  : opened === null
+                    ? PLATFORM_NAME[key] + ' could not be opened, your browser blocked the tab, but '
+                    : PLATFORM_NAME[key] + ' is open and ';
+                var head = where +
+                  (ok ? 'the caption is on your clipboard.'
+                      : 'the caption could not be copied: take it off the card by hand.');
+                if (!where) {
+                  head = ok ? 'The caption is on your clipboard.'
+                            : 'The caption could not be copied: take it off the card by hand.';
+                }
+                if (giftImage) {
+                  // A SHOP LINK UNFURLS AS THE GENERIC SHOP BANNER, whichever
+                  // gift it is, and there is no fixing that in a static page a
+                  // crawler never runs. So the picture is handed over instead,
+                  // and it has to be reachable at the moment it is wanted:
+                  // while the composer is open, before Done.
+                  stickLink(feedbackEl, head + ' This one needs its picture attached:',
+                            giftImage, 'open the gift photo');
+                } else {
+                  stick(feedbackEl, head);
+                }
               });
               return;
             }
