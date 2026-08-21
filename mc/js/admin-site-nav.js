@@ -80,6 +80,25 @@
   // bar that is not a section. It gets no public sibling link because it has no
   // public page — /mc/ is admin all the way down — which is why it renders as a
   // lone button beside the padlock rather than as another ROOMS column.
+  // ── THE WAY OUT TO THE PUBLIC SITE ───────────────────────────────────────
+  // Left of MISSION CONTROL, and the pairing is the point: one button is the
+  // way further in, the other is the way back out to what a visitor sees.
+  //
+  // THE PIN IS THE OLD GAMES ROOM GLYPH, kept when that button was deleted. It
+  // is the waypoint mark, which is the closest thing this project has to a
+  // logo, and it is doing the same job here it did there: standing for the
+  // product rather than for a tool.
+  //
+  // NO `match` AND NO aria-current. It points at the public site, so it can
+  // never be the page you are standing on: every page that loads this bar is
+  // under /mc/.
+  var TGB_HOME = {
+    label: 'TGB',
+    href: '/',
+    title: 'The Game Bureau, the public site',
+    icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"
+  };
+
   var MISSION_CONTROL = {
     label: 'MISSION CONTROL',
     href: '/mc/',
@@ -676,7 +695,30 @@
   links.setAttribute('aria-label', 'Admin sections');
 
 
-  // ── Mission Control, between HIGHLIGHTS and the padlock ───────────────────
+  // ── TGB, first on the bar ─────────────────────────────────────────────────
+  // A new tab, like MISSION CONTROL beside it: this is a look at the live site,
+  // not somewhere you were going instead of the room you are in, so it must not
+  // take the admin page away from you.
+  var home = document.createElement('a');
+  home.className = 'asn-link asn-home';
+  home.href = TGB_HOME.href;
+  openInNewTab(home);
+  home.title = TGB_HOME.title;
+  home.setAttribute('aria-label', TGB_HOME.title);
+  home.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + TGB_HOME.icon + '")');
+  // The same label column MISSION CONTROL uses, holding one word instead of
+  // two. Both buttons are 44px tall whatever is in them, so a one-line face and
+  // a two-line face sit level.
+  var homeLabel = document.createElement('span');
+  homeLabel.className = 'asn-labelcol';
+  var homeWord = document.createElement('span');
+  homeWord.className = 'asn-word';
+  homeWord.textContent = TGB_HOME.label;
+  homeLabel.appendChild(homeWord);
+  home.appendChild(homeLabel);
+  links.appendChild(home);
+
+  // ── Mission Control, right of TGB and left of the padlock ─────────────────
   // Every room can be reached from every other room by now; the hub could not be
   // reached from any of them without typing the URL. It is a bare button, no
   // ADMIN sub-label and no public link under it, because both would be lies.
