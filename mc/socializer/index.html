@@ -835,6 +835,22 @@
     /* Greyed accounts stay in place rather than being removed, so the five
        positions do not shuffle from card to card. */
     .post-platform:disabled { opacity: 0.42; cursor: not-allowed; }
+    /* [hidden] HAS TO BE RE-ASSERTED. `.btn` carries an author `display:
+       inline-flex` and [hidden] is only a UA-sheet `display: none`, so the
+       author rule wins and `allBtn.hidden = true` silently does nothing. This
+       is the FOURTH time this project has been bitten by that exact rule; see
+       the soundtracks deck and the waypoint editor's buttons. */
+    .post-platform[hidden] { display: none; }
+    /* ALL is not `primary`: Done is the decision and stays the only filled
+       button in the row. This one is weightier than the five it stands in
+       front of and lighter than the one that files the row. */
+    .post-platform--all { font-weight: 700; border-color: rgba(45, 72, 128, 0.55); }
+    .post-platform-sep {
+      align-self: stretch;
+      width: 1px;
+      margin: 2px 3px;
+      background: rgba(27, 36, 56, 0.16);
+    }
     /* Done is the decision, so it is the only filled button in the row, and it
        is dead until something has actually been posted. */
     .post-done:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -6663,6 +6679,10 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // find the site, which is the step people forget and then wonder why
       // nothing went out.
       var PLATFORM_COMPOSE = {
+        // THE DESKTOP UPLOAD FLOW, not the profile. Instagram is a by-hand
+        // account only when the candidate has no usable image, so the one thing
+        // you are certainly about to do is choose a picture.
+        instagram: 'https://www.instagram.com/create/select/',
         // The composer with an empty box, rather than the profile.
         x: 'https://x.com/compose/post',
         // YouTube has no create-post URL; the box sits on the channel's own
@@ -6670,27 +6690,44 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         youtube: 'https://www.youtube.com/@thegamebureau/community'
       };
 
-      /** Is this account a plausible destination for this candidate?
+      /** How this account can be reached for this candidate.
        *
-       *  Machine accounts defer to postTargets(), which already weighs the
-       *  bot's tags, the image and the autopost flags. By-hand accounts are
-       *  offered when the bot named them, and YouTube ONLY then: a news story
-       *  does not belong on the channel, so an untagged row must not offer it.
-       *  X is offered on an untagged row, because "no advice" has always meant
-       *  "no narrowing" here. */
-      function platformAvailable(row, key) {
-        if (PLATFORM_AUTOPOST[key]) return postTargets(row).indexOf(key) !== -1;
-        var names = suggestedNames(row).map(function (n) { return n.toLowerCase(); });
-        if (key === 'youtube') return names.indexOf('youtube') !== -1;
-        return names.indexOf(key) !== -1 || suggestedKeys(row) === null;
+       *    'machine'  the Edge Function posts it.
+       *    'hand'     the caption goes on the clipboard and the composer opens.
+       *    'off'      not a destination for this one.
+       *
+       *  THE MODE IS PER CANDIDATE, NOT PER PLATFORM, and Instagram is the
+       *  reason. Instagram's API refuses a post with no image, so a candidate
+       *  without one used to grey it out entirely. But an imageless candidate
+       *  is exactly when you want to put a picture on it BY HAND, and greying
+       *  the button made the one account that most needs a human choice the one
+       *  account you could not reach. Named but unpostable now means 'hand'.
+       *
+       *  Facebook and Threads have no such case: they take a text post, so if
+       *  they are named they are machine, and if they are not named they are
+       *  off. YouTube is offered ONLY when named, because a news story does not
+       *  belong on the channel. X is offered on an untagged row too, because
+       *  "no advice" has always meant "no narrowing" here. */
+      function platformMode(row, key) {
+        var named = suggestedNames(row).map(function (n) { return n.toLowerCase(); });
+        var wanted = suggestedKeys(row);
+
+        if (PLATFORM_AUTOPOST[key]) {
+          if (postTargets(row).indexOf(key) !== -1) return 'machine';
+          // Named, but the machine cannot take it. Only Instagram ever lands
+          // here, and only for want of an image.
+          if (key === 'instagram' && (wanted === null || named.indexOf('instagram') !== -1)) {
+            return 'hand';
+          }
+          return 'off';
+        }
+
+        if (key === 'youtube') return named.indexOf('youtube') !== -1 ? 'hand' : 'off';
+        return (named.indexOf(key) !== -1 || wanted === null) ? 'hand' : 'off';
       }
 
       /** Why a greyed button is greyed, for its tooltip. Never on the face. */
       function platformBlockedWhy(row, key) {
-        if (key === 'instagram' && !hasImage(row)) {
-          return 'Instagram refuses a post with no image, and this candidate has none ' +
-                 '(or its image will not load). Add one and this comes back.';
-        }
         if (key === 'youtube') return 'Not a video: nothing here belongs on the channel.';
         var named = suggestedNames(row);
         if (named.length) {
@@ -6698,6 +6735,14 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                  named.join(', ') + '.';
         }
         return PLATFORM_NAME[key] + ' is not available for this candidate.';
+      }
+
+      /** The accounts one press can post together: the machine ones, in row
+       *  order so the button's own count matches what you can see. */
+      function machineTargets(row) {
+        return PLATFORM_ROW.filter(function (key) {
+          return platformMode(row, key) === 'machine';
+        });
       }
 
       function buildPostControls(post, feedbackEl, onDone, stableId) {
@@ -6736,8 +6781,45 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           }).catch(function (err) { return err; });
         }
 
+        // ── ALL, first, because it is the common case ───────────────────────
+        //
+        // WHY A BUTTON AND NOT CHECKBOXES. The obvious way to post three
+        // accounts at once is a row of ticked boxes and a Post button, and this
+        // page HAD that shape once: it was deleted because it asked a question
+        // with one sensible answer, and it costs two actions to say yes to it.
+        // A button that names its own outcome is one press for the common case,
+        // and the five buttons beside it are still there for the exception.
+        //
+        // IT COUNTS WHAT IT WILL DO. `All 3` when three accounts can take it,
+        // `All 2` when Instagram cannot, and it is not drawn at all below two,
+        // where it would be a second copy of the button next to it.
+        var allBtn = document.createElement('button');
+        allBtn.type = 'button';
+        allBtn.className = 'btn small post-platform post-platform--all';
+
+        allBtn.addEventListener('click', function () {
+          if (allBtn.disabled || postingLock) return;
+          clearNotice(feedbackEl);
+          var keys = machineTargets(currentRow(stateKey, post));
+          if (!keys.length) return;
+          flushOpenEdit().then(function () { postKeys(keys, allBtn); });
+        });
+        group.appendChild(allBtn);
+
         // ── the five ────────────────────────────────────────────────────────
         PLATFORM_ROW.forEach(function (key) {
+          // A HAIRLINE BEFORE X, marking where the row stops posting for you
+          // and starts handing you a clipboard. It is static because X and
+          // YouTube are always by hand; Instagram can cross the line either way
+          // and deliberately does not move, since a button that changes its
+          // POSITION as well as its mechanism is one you have to find again.
+          if (key === 'x') {
+            var sep = document.createElement('span');
+            sep.className = 'post-platform-sep';
+            sep.setAttribute('aria-hidden', 'true');
+            group.appendChild(sep);
+          }
+
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn small post-platform';
@@ -6749,7 +6831,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             clearNotice(feedbackEl);
             var live = currentRow(stateKey, post);
 
-            if (!PLATFORM_AUTOPOST[key]) {
+            if (platformMode(live, key) === 'hand') {
               // BY HAND: copy, and open the place it is going. Both inside the
               // gesture, because the clipboard write needs user activation and
               // a popup blocker eats a window.open that arrives after an await.
@@ -6774,14 +6856,26 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             // BY MACHINE: this account only. The lock is the same one the old
             // single button used, so nothing else on the page can be pressed
             // while a post is in the air and a second press cannot double-post.
-            flushOpenEdit().then(function () { postOne(key, btn); });
+            flushOpenEdit().then(function () { postKeys([key], btn); });
           });
 
           group.appendChild(btn);
         });
 
-        function postOne(key, btn) {
-          var label = PLATFORM_NAME[key];
+        /** Post one or several machine accounts in a single request.
+         *
+         *  ONE CALL FOR THE BATCH, not a loop of calls: the Edge Function takes
+         *  a list and answers per account, so a batch is one lock, one watchdog
+         *  and one answer to read. A loop would hold the page hostage three
+         *  times over and could half-finish with nothing saying which half.
+         *
+         *  A PARTIAL ANSWER IS THE NORMAL CASE, and it is why `used` is built
+         *  from the reply rather than from what was asked for: if Instagram
+         *  refuses and Facebook takes it, only Facebook is ticked and only
+         *  Facebook reaches the receipt. */
+        function postKeys(keys, btn) {
+          var labels = keys.map(function (k) { return PLATFORM_NAME[k]; });
+          var label = labels.join(' + ');
           var restoreText = btn.textContent;
           var actionRow = group.parentNode;
           setPostingLock(true, 'Posting to ' + label +
@@ -6797,17 +6891,33 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                               'Check the account before pressing it again.');
           }, 90000);
 
-          postViaApi(post, [key]).then(function (reply) {
+          postViaApi(post, keys).then(function (reply) {
             window.clearTimeout(watchdog);
             btn.textContent = restoreText;
-            var ok = (reply.results || []).some(function (r) { return r && r.ok; });
             setPostingLock(false);
+
+            var results = reply.results || [];
+            var won = [];
+            keys.forEach(function (k, i) {
+              var r = results[i];
+              // Match by position, then by name, because a reply that reorders
+              // or drops an entry must not tick the wrong account.
+              if (!r || r.platform) {
+                r = results.filter(function (x) {
+                  return x && String(x.platform || '').toLowerCase() === k;
+                })[0] || results[i];
+              }
+              if (r && r.ok) { noteUsed(k); won.push(PLATFORM_NAME[k]); }
+            });
             sync();
-            if (ok) {
-              noteUsed(key);
-              stick(feedbackEl, 'Posted to ' + label + '.');
+
+            if (won.length === keys.length) {
+              stick(feedbackEl, 'Posted to ' + won.join(' + ') + '.');
+            } else if (won.length) {
+              stick(feedbackEl, 'Posted to ' + won.join(' + ') + '. The rest refused it: ' +
+                                describeFailures(results));
             } else {
-              stick(feedbackEl, label + ' refused it: ' + describeFailures(reply.results));
+              stick(feedbackEl, label + ' refused it: ' + describeFailures(results));
             }
             if (reply.warning) stick(feedbackEl, reply.warning);
           }).catch(function (err) {
@@ -6859,19 +6969,41 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           PLATFORM_ROW.forEach(function (key) {
             var btn = buttons[key];
             if (!btn) return;
-            var ok = platformAvailable(live, key);
-            btn.disabled = !ok;
-            if (!ok) {
+            var mode = platformMode(live, key);
+            btn.disabled = mode === 'off';
+            if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
             } else if (btn.classList.contains('is-used')) {
               btn.title = PLATFORM_NAME[key] + ': done in this sitting. Press again to repeat it.';
+            } else if (mode === 'machine') {
+              btn.title = 'Post this to ' + PLATFORM_NAME[key] + ' now.';
+            } else if (key === 'instagram') {
+              // The one button whose mechanism changes under you, so it says
+              // why rather than leaving the change to be noticed.
+              btn.title = 'This candidate has no image the API will take, so ' +
+                          'Instagram opens with the caption on your clipboard and ' +
+                          'you choose the picture. Add an image to the card and ' +
+                          'this posts itself instead.';
             } else {
-              btn.title = PLATFORM_AUTOPOST[key]
-                ? 'Post this to ' + PLATFORM_NAME[key] + ' now.'
-                : 'Open ' + PLATFORM_NAME[key] + ' with the caption on your clipboard.';
+              btn.title = 'Open ' + PLATFORM_NAME[key] + ' with the caption on your clipboard.';
             }
           });
+
+          var batch = machineTargets(live);
+          // Below two there is nothing to batch, and a button reading `All 1`
+          // beside the single account it means is the row saying one thing
+          // twice. Hidden rather than disabled: it is not unavailable, it is
+          // inapplicable, and a permanently dead control invites a press.
+          allBtn.hidden = batch.length < 2;
+          allBtn.disabled = batch.length < 2;
+          if (!allBtn.hidden) {
+            allBtn.textContent = 'All ' + batch.length;
+            allBtn.title = 'Post this to ' + batch.map(function (k) {
+              return PLATFORM_NAME[k];
+            }).join(' + ') + ' in one go.';
+          }
+
           paintDone();
         }
 
