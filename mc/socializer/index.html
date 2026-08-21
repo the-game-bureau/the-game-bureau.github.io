@@ -2196,6 +2196,41 @@
         </div>
         <div class="health-body" id="healthBody"></div>
       </section>
+      <!-- WHAT THE BOT BUTTON OPENS. It was a bare link to claude.ai, which is
+           a page that assumes you already know what a routine is and shows you
+           a cron expression to prove it. Anybody who presses this wanting to
+           know what fills their queue deserves a sentence first, and an address
+           to write to if the sentence is not enough.
+
+           THE DOOR IS A REAL ANCHOR, not a button that calls window.open. The
+           new tab has to come from the browser's own handling of a click on a
+           link or the popup blocker eats it -- the same rule the PROMPT
+           dialog's three doors follow. -->
+      <div class="tool-backdrop" id="botBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel tool-modal-panel--ask" id="botCard"
+               role="dialog" aria-modal="true" aria-labelledby="botTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Scheduled routine</span>
+            <h2 class="panel-title" id="botTitle">TGB SOCIALIZER BOT</h2>
+          </div>
+        </div>
+        <div class="confirm-body">
+          <p class="confirm-text">
+            A Claude Routine is running that populates SOCIALIZER with post
+            candidates twice per day. Contact
+            <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>
+            for more information.
+          </p>
+          <div class="modal-actions">
+            <button class="btn" id="botClose" type="button">Close</button>
+            <a class="btn primary" id="botOpen"
+               href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL"
+               target="_blank" rel="noopener noreferrer">Open the routine</a>
+          </div>
+        </div>
+      </section>
+
       <div class="tool-backdrop" id="healthBackdrop" hidden></div>
       <!-- A yes/no question, asked where every other question on this page is
            asked. Deliberately generic: it takes its words from the caller, so
@@ -3064,6 +3099,8 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       var PLATFORM_BLOCK_OPEN  = '=== ACCOUNTS FOR THIS RUN ===';
       var PLATFORM_BLOCK_CLOSE = '=== END ACCOUNTS ===';
       var platformsEl = document.getElementById('promptPlatforms');
+      var botCard = document.getElementById('botCard');
+      var botBackdrop = document.getElementById('botBackdrop');
       var healthCard = document.getElementById('healthCard');
       var healthBackdrop = document.getElementById('healthBackdrop');
 
@@ -7422,6 +7459,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         if (imageLightbox && !imageLightbox.hidden) { closeLightbox(); return; }
         closeManualPost();
         closeTool(promptCard, promptBackdrop);
+        closeTool(botCard, botBackdrop);
       });
 
       if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
@@ -7461,6 +7499,37 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       });
       if (healthBackdrop) healthBackdrop.addEventListener('click', function () {
         closeTool(healthCard, healthBackdrop);
+      });
+
+      // ── TGB SOCIALIZER BOT: a sentence before the routine ────────────────
+      //
+      // THE BUTTON STAYS AN ANCHOR and only a PLAIN left click becomes the
+      // dialog. A middle click, a modified click or a right click must open the
+      // routine the way any link does -- the same bargain the public FOLLOW
+      // button makes. So somebody who already knows what this is loses nothing.
+      var socialBotBtn = document.getElementById('socialBotBtn');
+      if (socialBotBtn && botCard) {
+        socialBotBtn.addEventListener('click', function (event) {
+          if (event.defaultPrevented || event.button !== 0) return;
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          openTool(botCard, botBackdrop);
+        });
+      }
+      var botCloseBtn = document.getElementById('botClose');
+      if (botCloseBtn) botCloseBtn.addEventListener('click', function () {
+        closeTool(botCard, botBackdrop);
+      });
+      // THE DOOR CLOSES THE DIALOG BEHIND IT and does NOT preventDefault: the
+      // navigation is the browser's own handling of a click on a link, which is
+      // what keeps the popup blocker out of it. Closing after the fact leaves
+      // the room tidy for when you come back to this tab.
+      var botOpenBtn = document.getElementById('botOpen');
+      if (botOpenBtn) botOpenBtn.addEventListener('click', function () {
+        closeTool(botCard, botBackdrop);
+      });
+      if (botBackdrop) botBackdrop.addEventListener('click', function () {
+        closeTool(botCard, botBackdrop);
       });
 
       // Delegated, so the five boxes need no ids and a sixth account needs only
