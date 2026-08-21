@@ -166,10 +166,30 @@ const THREADS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') ?? '';
 // REGENERATE the access token pair afterwards, because the old pair keeps the
 // old scope.
 //
-// POSTING NEEDS A PAID TIER. The free tier of the X API allows a very small
-// number of writes per month and the Basic tier is the first that is usable.
-// This is the only account here that is not free, and it is worth knowing
-// before wondering why a correct-looking setup returns 403 or 429.
+// EVERY POST COSTS 20 CENTS, AND THAT IS NOT A TYPO.
+//
+// Checked against docs.x.com/x-api/getting-started/pricing on 2026-08-20, after
+// an earlier version of this comment said "needs a paid tier" and was wrong in
+// a way that mattered. There is no free tier and no subscription any more: the
+// API is pay-per-use against credits bought up front, and posting is priced
+//
+//   $0.015  a plain post
+//   $0.200  a post CONTAINING A URL
+//
+// A post that carries a link is THIRTEEN TIMES the price of one that does not,
+// and every post this function makes carries a link: xText() is the caption, a
+// blank line and the story url, the same shape as the other three platforms.
+// So the rate that applies to us is always the expensive one.
+//
+// At five posts a day that is about $30 a month; at two, about $12. Cheap
+// against a salary and expensive against the other three accounts here, which
+// are free. THIS IS THE ONLY DESTINATION IN THIS FILE THAT COSTS MONEY PER
+// POST, and it is worth re-reading that price before wiring anything that posts
+// automatically. Nothing here does: a human presses the button.
+//
+// DROPPING THE LINK WOULD SAVE 92% AND IS NOT WORTH IT. A post with no link is
+// a post nobody can follow, which is the whole job. Moving the link into a
+// reply does not help either: a reply carrying a url is charged the same $0.200.
 //
 // OAUTH 1.0a, NOT OAUTH 2.0, AND THAT IS DELIBERATE. X's OAuth 2.0 user tokens
 // expire in two hours and their refresh tokens ROTATE on every use, so a failed
