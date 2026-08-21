@@ -884,7 +884,12 @@
     .post-platform.is-used::after { content: ' ✓'; }
     /* Greyed accounts stay in place rather than being removed, so the five
        positions do not shuffle from card to card. */
-    .post-platform:disabled { opacity: 0.42; cursor: not-allowed; }
+    .post-platform:disabled,
+    .post-platform[aria-disabled="true"] { opacity: 0.42; }
+    .post-platform:disabled { cursor: not-allowed; }
+    /* NOT `not-allowed`: this one IS pressable, and what it does is tell you
+       why it cannot be used. `help` is the cursor for exactly that. */
+    .post-platform[aria-disabled="true"] { cursor: help; }
     /* [hidden] HAS TO BE RE-ASSERTED. `.btn` carries an author `display:
        inline-flex` and [hidden] is only a UA-sheet `display: none`, so the
        author rule wins and `allBtn.hidden = true` silently does nothing. This
@@ -6812,15 +6817,47 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         return (named.indexOf(key) !== -1 || wanted === null) ? 'hand' : 'off';
       }
 
-      /** Why a greyed button is greyed, for its tooltip. Never on the face. */
+      /** The bot's accounts WITH the fragment it wrote about each.
+       *
+       *  Every entry in `platforms` carries a `why` -- "link preview does the
+       *  work", "lead photo of the mural carries it" -- and until now NOTHING
+       *  READ IT. Both prompts have asked for it since the column existed. */
+      function suggestedPicks(post) {
+        var raw = post && post.platforms;
+        if (!Array.isArray(raw)) return [];
+        return raw.map(function (entry) {
+          var obj = entry && typeof entry === 'object' ? entry : { name: entry };
+          return {
+            name: String(obj.name || '').trim(),
+            why: cleanText(obj.why || '')
+          };
+        }).filter(function (p) { return p.name; });
+      }
+
+      /** Why a greyed button is greyed. Never on the face.
+       *
+       *  IT GIVES THE BOT'S REASON, NOT THE BARE FACT OF THE DECISION. "The bot
+       *  did not suggest X" is a restatement of the greying, and answers
+       *  nothing: what you want to know standing in front of it is WHY it went
+       *  the way it did, so you can decide whether to overrule it.
+       *
+       *  A skipped account has no reason of its own, because the bot names what
+       *  it picked rather than what it passed over. So the honest answer is the
+       *  reasoning behind the accounts it DID choose, which is the same
+       *  judgement seen from the other side. */
       function platformBlockedWhy(row, key) {
-        if (key === 'youtube') return 'Not a video: nothing here belongs on the channel.';
-        var named = suggestedNames(row);
-        if (named.length) {
-          return 'The bot did not suggest ' + PLATFORM_NAME[key] + ' for this one. It named ' +
-                 named.join(', ') + '.';
+        if (key === 'youtube') {
+          return 'Not a video. The bot marks a candidate for the channel by naming ' +
+                 'YouTube, and it did not name this one, so there is nothing here to share.';
         }
-        return PLATFORM_NAME[key] + ' is not available for this candidate.';
+        var picks = suggestedPicks(row);
+        if (!picks.length) {
+          return PLATFORM_NAME[key] + ' is not a destination for this candidate.';
+        }
+        var listed = picks.map(function (p) {
+          return p.why ? p.name + ' (' + p.why + ')' : p.name;
+        }).join('; ');
+        return 'The bot passed over ' + PLATFORM_NAME[key] + ' here. It chose ' + listed + '.';
       }
 
       /** The accounts one press can post together: the machine ones, in row
@@ -6916,6 +6953,14 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             if (btn.disabled || postingLock) return;
             clearNotice(feedbackEl);
             var live = currentRow(stateKey, post);
+
+            // A GREYED BUTTON ANSWERS RATHER THAN DOING NOTHING. On a phone the
+            // tooltip does not exist, and a control that ignores a press is
+            // indistinguishable from one that is broken.
+            if (btn.getAttribute('aria-disabled') === 'true') {
+              stick(feedbackEl, platformBlockedWhy(live, key));
+              return;
+            }
 
             if (platformMode(live, key) === 'hand') {
               // BY HAND: copy, and open the place it is going. Both inside the
@@ -7080,7 +7125,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             var btn = buttons[key];
             if (!btn) return;
             var mode = platformMode(live, key);
-            btn.disabled = mode === 'off';
             // BLUE MEANS THIS ACCOUNT IS IN THE STATE IT IS MEANT TO BE IN.
             // For X and YouTube that IS by hand, so they are blue whenever they
             // are offered. Instagram by hand is a FALLBACK, not a normal state:
@@ -7092,6 +7136,18 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               mode === 'machine' || (mode === 'hand' && !PLATFORM_AUTOPOST[key]));
             btn.classList.toggle('is-fallback',
               mode === 'hand' && !!PLATFORM_AUTOPOST[key]);
+            // OFF IS `aria-disabled`, NOT `disabled`, AND THAT IS FOR THE PHONE.
+            // A disabled button dispatches NO click event at all, so on a touch
+            // screen -- where there is no hover and therefore no tooltip -- the
+            // reason it is greyed was simply unreachable. aria-disabled keeps it
+            // announced as unavailable and focusable, and the handler turns a
+            // press into the reason written into the notice.
+            //
+            // `disabled` is still what the POSTING LOCK uses, and the two do not
+            // collide: the lock sets and clears `.disabled`, sync() owns
+            // `aria-disabled`, and sync() runs again after every post.
+            if (mode === 'off') btn.setAttribute('aria-disabled', 'true');
+            else btn.removeAttribute('aria-disabled');
             if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
