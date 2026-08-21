@@ -235,7 +235,6 @@
        -- so the later of the two won, which is .asn-link's display: inline-flex,
        and the burger showed on desktop. Matching on .asn-link.asn-burger scores
        (0,3,0) and stops depending on where in the sheet the rule sits. */
-    '.admin-site-nav .asn-link.asn-burger { display: none; }',
     '.admin-site-nav .asn-brand {',
     '  color: inherit;',
     '  cursor: default;',
@@ -269,48 +268,20 @@
     /* flex-start, not center: each section is a two-row column (button over
        public link) while the padlock is a lone button, and centering would push
        the lock down to the middle of the taller columns. */
-    '.admin-site-nav .asn-links {',
-    '  display: flex;',
-    '  flex-wrap: wrap;',
-    '  align-items: flex-start;',
-    '  justify-content: flex-end;',
-    '  gap: 6px;',
-    '}',
-    '.admin-site-nav .asn-item {',
-    '  display: flex;',
-    '  flex-direction: column;',
-    '  align-items: stretch;',
-    '  gap: 3px;',
-    '}',
+    /* WAS a wrapping flex row, which is what five buttons of different widths
+       needed. The two that are left are equalised as a grid instead; see the
+       rule further down. Kept as the fallback nothing currently needs, rather
+       than two live definitions of one selector quietly fighting over source
+       order, it is simply gone. */
     /* The public link, deliberately plain: no border, no fill, smaller and
        lighter than the button above it, so the button stays the primary target
        and this reads as a footnote to it. */
-    '.admin-site-nav .asn-public {',
-    '  display: block;',
-    '  padding: 0 2px;',
-    '  color: rgba(var(--asn-blue-rgb), 0.78);',
-    '  font-family: "IBM Plex Mono", Consolas, monospace;',
-    '  font-size: 0.62rem;',
-    '  font-weight: 800;',
-    '  letter-spacing: 0.08em;',
-    '  line-height: 1.2;',
-    '  text-align: center;',
-    '  text-decoration: none;',
-    '  text-transform: uppercase;',
-    '}',
     /* The public link carries two labels and shows one at a time. On a desktop
        the button and the link under it deliberately repeat the same word — that
        pairing is what says "room, and the page a visitor sees". Stacked into a
        phone list the repeat reads as a duplicate row instead, so there the word
        gives way to a plain PUBLIC tag. Two spans rather than a JS text swap, so
        the panel needs no rebuild when the layout crosses the breakpoint. */
-    '.admin-site-nav .asn-public-tag { display: none; }',
-    '.admin-site-nav .asn-public:hover,',
-    '.admin-site-nav .asn-public:focus-visible {',
-    '  color: var(--asn-ink);',
-    '  text-decoration: underline;',
-    '  outline: none;',
-    '}',
     '.admin-site-nav .asn-link {',
     '  display: inline-flex;',
     '  align-items: center;',
@@ -334,8 +305,7 @@
     '}',
     /* currentColor + mask, so the glyph flips to white with the button when it
        fills in — one icon asset instead of a light and a dark copy. */
-    '.admin-site-nav .asn-link::before,',
-    '.admin-site-nav .asn-public::before {',
+    '.admin-site-nav .asn-link::before {',
     '  content: "";',
     '  display: inline-block;',
     '  width: 17px;',
@@ -346,38 +316,14 @@
     '  mask: var(--asn-icon) center / contain no-repeat;',
     '  -webkit-mask: var(--asn-icon) center / contain no-repeat;',
     '}',
-    /* OFF on the desktop bar. There the public link is a small caption under a
-       button that already carries the glyph, and a second copy of it beside the
-       caption reads as a second button. The phone panel turns it back on,
-       because there the public row IS the row. */
-    '.admin-site-nav .asn-public::before { display: none; }',
     /* ── THE FOLLOW REEL, the one wordless button in the bar ────────────────
        The reel IS the face, so the Lucide glyph is switched off: drawn as well
        it would be two pictures on one button. Padding matches the others so it
        sits in the same rhythm despite being narrower. */
-    '.admin-site-nav .asn-link--reel::before { content: none; }',
-    '.admin-site-nav .asn-link--reel { gap: 0; padding: 0 14px; }',
     /* 17px, NOT the public nav's 18: it matches the glyph the four buttons
        beside it carry, so all five faces are drawn to one size. */
-    '.admin-site-nav .asn-follow-reel {',
-    '  display: block;',
-    '  width: 17px;',
-    '  height: 17px;',
-    '  overflow: hidden;',
-    '}',
-    '.admin-site-nav .asn-follow-track {',
-    '  display: block;',
-    '  will-change: transform;',
-    '  animation: asnFollowReel 11s infinite;',
-    '}',
     /* currentColor, like every other glyph here, so it flips to white with the
        button when it fills in as the current room. */
-    '.admin-site-nav .asn-follow-tile {',
-    '  display: block;',
-    '  width: 17px;',
-    '  height: 17px;',
-    '  background: currentColor;',
-    '}',
     /* Each icon HOLDS, then slides. A continuous crawl is a fidget; a hold
        reads as "these are the five" and gives the eye time to name one. */
     '@keyframes asnFollowReel {',
@@ -391,7 +337,6 @@
     /* A LOOPING ANIMATION IS EXACTLY WHAT THIS SETTING IS FOR. Frozen on the
        first icon, which is still a truthful face for the button. */
     '@media (prefers-reduced-motion: reduce) {',
-    '  .admin-site-nav .asn-follow-track { animation: none; }',
     '}',
     /* The label block: section word, ADMIN centred beneath it. A column so the
        two lines centre on each other rather than on the button, which keeps
@@ -405,14 +350,24 @@
     '  line-height: 1;',
     '}',
     '.admin-site-nav .asn-word { line-height: 1; }',
-    /* Smaller, lighter and letterspaced, so it labels the button without
-       competing with the section name above it. */
-    '.admin-site-nav .asn-admin {',
-    '  font-size: 0.56rem;',
-    '  font-weight: 700;',
-    '  letter-spacing: 0.16em;',
-    '  line-height: 1;',
-    '  opacity: 0.78;',
+    /* ── TGB AND MISSION CONTROL ARE ONE SIZE ────────────────────────────────
+       They are the only two buttons on the bar and they read as a pair, so a
+       three-character face beside a two-line one looked like a mistake rather
+       than a difference.
+       EQUALISED BY GRID, NOT BY A MEASURED WIDTH. `grid-auto-columns: 1fr` in
+       an auto-width container sizes every track to the WIDEST one, so the pair
+       matches whatever the longest label happens to be and keeps matching if
+       either is renamed or a third button is added. A hand-measured min-width
+       would be a number nobody could maintain, and it would be wrong the first
+       time the font changed.
+       The default `align-items: stretch` is what makes the heights agree: the
+       one-line button grows to the two-line one rather than floating at 44px
+       beside a taller neighbour. */
+    '.admin-site-nav .asn-links {',
+    '  display: grid;',
+    '  grid-auto-flow: column;',
+    '  grid-auto-columns: 1fr;',
+    '  gap: 6px;',
     '}',
     '.admin-site-nav .asn-link:hover,',
     '.admin-site-nav .asn-link:focus-visible,',
@@ -497,151 +452,31 @@
     '             10px max(16px, env(safe-area-inset-left), calc(50vw - 50%));',
     '  }',
     '  .admin-site-nav .asn-tools { align-self: center; }',
-    '  .admin-site-nav .asn-link.asn-burger { display: inline-flex; }',
-    /* 44px square each. The padlock is 40 on a desktop, which is fine for a
-       cursor and one pixel-row short of the smallest reliable thumb target. */
-    /* Compound again, for the same reason: padding here has to beat
-       .asn-link's `0 14px`, and on a plain class selector that only holds
-       because this block happens to sit last in the sheet. */
-    '  .admin-site-nav .asn-link.asn-burger,',
+    /* 44px square. The padlock is 40 on a desktop, which is fine for a cursor
+       and one pixel-row short of the smallest reliable thumb target.
+       Compound selector, because this padding has to beat .asn-link's
+       `0 14px`, which on a plain class alone would only hold by source order. */
     '  .admin-site-nav .asn-link.asn-lock {',
     '    width: 44px;',
     '    padding: 0;',
     '  }',
-    /* The panel spans both columns on its own row, so it pushes the page down
-       instead of overlaying it. An overlay would need a scroll lock and a
-       backdrop; a phone has nothing behind this bar worth protecting. */
-    '  .admin-site-nav .asn-links {',
-    '    grid-column: 1 / -1;',
-    '    display: none;',
-    '    flex-direction: column;',
-    '    align-items: stretch;',
-    '    gap: 0;',
-    '    margin-top: 4px;',
-    '    border-top: 1px solid var(--asn-line);',
-    '  }',
-    '  .admin-site-nav[data-nav-open="true"] .asn-links { display: flex; }',
-    /* A LIST, NOT A ROW OF BUTTONS. The bordered, filled, rounded chrome earns
-       its keep on a desktop, where the five destinations sit side by side and
-       each one needs its own edge to be separable from its neighbour. Stacked
-       full-width in a panel there is nothing to separate them from -- one item
-       per line already does that -- so five boxes stacked read as clutter, and
-       a rounded box that spans the whole width no longer looks like a button
-       anyway. Hairline rules and plain text is what a phone menu is.
+    /* THE BAR STAYS A ROW ON A PHONE. It used to collapse into a stacked panel
+       that pushed the page down, revealed by the burger, because five buttons
+       with a public link under each could not fit a 390px screen. There are two
+       buttons now and they fit, so the panel, the burger and the whole list
+       treatment are gone.
 
-       The chrome is stripped by scoping to .asn-links, so the burger and the
-       padlock -- which live in .asn-tools, outside this nav -- keep their
-       button faces. They are controls, not destinations. */
-    '  .admin-site-nav .asn-links > * {',
-    '    border-bottom: 1px solid rgba(var(--asn-blue-rgb), 0.16);',
-    '  }',
-    '  .admin-site-nav .asn-links > *:last-child { border-bottom: 0; }',
-    '  .admin-site-nav .asn-item {',
-    '    flex-direction: row;',
-    '    align-items: center;',
-    '    gap: 8px;',
-    '  }',
-    '  .admin-site-nav .asn-links .asn-link {',
-    '    flex: 1 1 auto;',
-    '    min-width: 0;',
-    '    justify-content: flex-start;',
-    '    gap: 12px;',
-    /* 48, not the 44 the burger and lock carry: a full-width row has no border
-       to show where it starts and stops, so the spacing is what makes it look
-       tappable. */
-    '    min-height: 48px;',
-    '    padding: 0;',
-    '    border: 0;',
-    '    border-radius: 0;',
-    '    background: none;',
-    '    box-shadow: none;',
-    '    color: var(--asn-ink);',
-    '    font-size: 0.82rem;',
-    '    letter-spacing: 0.06em;',
-    '  }',
-    /* The blue fill has to be undone for the current page too, not just hover.
-       Compound and inside the media query, so it beats the base rule's (0,3,0)
-       on specificity rather than on source order -- the tie that put the burger
-       on every desktop page in the first place. On a touch device hover barely
-       exists, so current and hover sharing an underline costs nothing. */
-    '  .admin-site-nav .asn-links .asn-link:hover,',
-    '  .admin-site-nav .asn-links .asn-link:focus-visible,',
-    '  .admin-site-nav .asn-links .asn-link[aria-current="page"] {',
-    '    border: 0;',
-    '    background: none;',
-    '    box-shadow: none;',
-    '    color: var(--asn-blue);',
-    '    text-decoration: underline;',
-    '    text-underline-offset: 5px;',
-    '  }',
-    /* One line: GAMES with a quiet ADMIN after it. Stacked, the sub-label made
-       every row two lines tall for a word that is the same on all of them. */
-    '  .admin-site-nav .asn-labelcol {',
-    '    flex-direction: row;',
-    '    align-items: baseline;',
-    '    gap: 0.55em;',
-    '  }',
-    '  .admin-site-nav .asn-admin { opacity: 0.6; }',
-    /* Plain trailing text, full row height so the tap target survives losing the
-       button. It was a dashed button here until the rest of the panel stopped
-       being buttons; secondary-among-buttons and secondary-among-text are not
-       the same problem. */
-    '  .admin-site-nav .asn-public {',
-    '    display: inline-flex;',
-    '    align-items: center;',
-    '    flex: 0 0 auto;',
-    '    min-height: 48px;',
-    '    padding: 0 2px 0 12px;',
-    '    border: 0;',
-    '    background: none;',
-    '    color: rgba(var(--asn-blue-rgb), 0.7);',
-    '    font-size: 0.6rem;',
-    '  }',
-    /* THE ROW GOES WHERE ITS WORD SAYS. On a desktop the big button is the
-       ADMIN room and a small PUBLIC link sits under it, which is right: the bar
-       is five buttons wide, both destinations are visible at once, and an admin
-       crossing between rooms wants the room.
-       Stacked in a phone panel that stops being true. The row is one line
-       reading `SOUNDTRACKS  ADMIN ......... PUBLIC`, the whole line except the
-       last 40px is the admin link, and PUBLIC is a 0.6rem tag at the far right.
-       So the obvious target -- the section word -- was the only one you could
-       hit, and it was the one nobody meant to hit: tapping SOUNDTRACKS on a
-       phone landed you in the Tape Room.
-       Inverted here, and here only. The full-width row with the glyph is the
-       PUBLIC page; ADMIN becomes the trailing tag, still a 48px target, still
-       one tap away. Nothing about the desktop bar moves. */
-    '  .admin-site-nav .asn-item { flex-direction: row-reverse; }',
-    '  .admin-site-nav .asn-links .asn-public {',
-    '    flex: 1 1 auto;',
-    '    min-width: 0;',
-    '    justify-content: flex-start;',
-    '    gap: 12px;',
-    '    padding: 0;',
-    '    color: var(--asn-ink);',
-    '    font-size: 0.82rem;',
-    '    letter-spacing: 0.06em;',
-    '  }',
-    '  .admin-site-nav .asn-public::before { display: inline-block; }',
-    '  .admin-site-nav .asn-public-word { display: inline; }',
-    '  .admin-site-nav .asn-public-tag { display: none; }',
-    /* The admin link keeps its 48px height but shrinks to its ADMIN tag: same
-       treatment PUBLIC used to get, swapped over. The section word and the icon
-       are hidden on it because the row already carries both. */
-    '  .admin-site-nav .asn-links .asn-link {',
-    '    flex: 0 0 auto;',
-    '    padding: 0 2px 0 12px;',
-    '    color: rgba(var(--asn-blue-rgb), 0.7);',
-    '    font-size: 0.6rem;',
-    '  }',
-    '  .admin-site-nav .asn-links .asn-link::before { content: none; }',
-    '  .admin-site-nav .asn-links .asn-word { display: none; }',
-    /* THE REEL BUTTON WOULD BE AN EMPTY BOX HERE. The rules above shrink every
-       admin link to its ADMIN tag alone, hiding the glyph and the section word;
-       this button has no word and no tag, so it would keep its 48px height and
-       draw nothing at all. It keeps the reel and the padding to hold it. */
-    '  .admin-site-nav .asn-links .asn-link--reel { padding: 0 12px; }',
-    '  .admin-site-nav .asn-follow-reel { display: block; }',
-    '  .admin-site-nav .asn-admin { opacity: 1; }',
+       THIS WAS BRIEFLY BROKEN AND IT IS WORTH KNOWING HOW. The panel rules
+       outlived the burger by about an hour, and they said `display: none` with
+       `[data-nav-open="true"]` as the only way back. That attribute is written
+       by the burger, so with the burger gone nothing could set it: under 900px
+       the bar built its two buttons and then hid them, with no error and
+       nothing to click. Two more rules hid the icon and the word on every
+       `.asn-links .asn-link`, which existed so a section button could shrink to
+       its ADMIN tag; these buttons have no tag, so they would have rendered
+       EMPTY. DELETE A CONTROL AND ITS CSS IN THE SAME PASS. */
+    '  .admin-site-nav .asn-links { gap: 6px; }',
+    '  .admin-site-nav .asn-links .asn-link { padding: 0 10px; }',
     '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
     '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
