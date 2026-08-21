@@ -1,7 +1,7 @@
 // socials-post — POST { id, platforms: ["facebook","instagram", ...] }
 //
 // Posts an approved social candidate to Meta, on a human's click in
-// /mc/socials/. The page holds no credentials and never will: it is static HTML
+// /mc/socializer/. The page holds no credentials and never will: it is static HTML
 // in a public repo, so a token in it is a published token. The tokens live here,
 // as Supabase secrets, the same arrangement stripe-webhook and gs-send-code use.
 //
@@ -109,7 +109,7 @@
 //   5. supabase functions deploy socials-post
 //
 // Then flip facebook / instagram to true in PLATFORM_AUTOPOST in
-// mc/socials/index.html. Until that flip the page keeps Post disabled, so this
+// mc/socializer/index.html. Until that flip the page keeps Post disabled, so this
 // function being undeployed is never a broken button.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -324,7 +324,7 @@ async function metaIds(): Promise<{ pageId: string; igUserId: string }> {
 // the preflight and the request never leaves the page. The symptom is a bare
 // "Failed to fetch" with no status and nothing in the function's logs, which
 // reads like the function is down rather than like a header problem.
-// authHeaders() in /mc/socials/ sends apikey, Authorization and Accept; Accept
+// authHeaders() in /mc/socializer/ sends apikey, Authorization and Accept; Accept
 // is safelisted, the other two are not. x-client-info is included because the
 // Supabase JS client adds it and a future caller may go through that.
 const CORS = {

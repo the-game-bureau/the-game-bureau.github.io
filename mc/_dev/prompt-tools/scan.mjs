@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 const EM = '\u2014';
 const FILES = [
-  'mc/socials/index.html', 'mc/soundtracks/admin/index.html', 'mc/gifts/index.html',
+  'mc/socializer/index.html', 'mc/soundtracks/admin/index.html', 'mc/gifts/index.html',
   'mc/assets/waypoint-prompts.js', 'mc/picmaker/prompts.js', 'mc/greenroom.html',
   'mc/data/events.html', 'mc/data/teams.html', 'mc/routes.html', 'mc/data/cities.html'
 ];

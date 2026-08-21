@@ -94,6 +94,21 @@
     {
       key: 'follow',
       label: 'FOLLOW',
+      // THE ONLY BUTTON IN THIS BAR WITH NO WORD ON IT. Its face is the same
+      // scrolling reel of account icons the PUBLIC nav's FOLLOW button wears:
+      // one icon wide, five accounts deep. See buildFollowReel below.
+      //
+      // AND NO `ADMIN` UNDER IT EITHER. Every other button carries that
+      // sub-label because its face says a public section word while the button
+      // goes to a room; this face says nothing at all, so there is no claim for
+      // ADMIN to correct. A qualifier under a wordless button is a caption on a
+      // picture of nothing.
+      //
+      // IT NAVIGATES. The public copy of this reel opens a menu of the five
+      // accounts, because out there Follow IS those five links. In here it is a
+      // door to the Socializer, so it behaves like every other button in the
+      // bar and simply goes.
+      reel: true,
       // THE ADMIN SIDE OF FOLLOW IS THE SOCIALIZER, which is the whole twist
       // this nav is built on: the face says the public section, the button goes
       // to the room where that section is worked. The public FOLLOW is a menu of
@@ -105,19 +120,26 @@
       // so in a comment: "the socials room has no button in the site nav ... so
       // this dropdown is the only way to reach it from another page". It has one
       // now, and that comment is stale the moment this ships.
-      href: '/mc/socials/',
-      title: 'Admin socials, the Socializer',
+      href: '/mc/socializer/',
+      // NO 'Admin' QUALIFIER, unlike its four neighbours. Theirs exists to
+      // correct a face that says GIFTS while pointing at /mc/gifts/; this one
+      // names its destination outright because nothing on it says otherwise.
+      title: 'The Socializer',
       // NO publicHref, alone among the five. The public counterpart of this
       // room is a MENU rather than a page: /follow/ was deleted on 2026-08-20
       // and pointing at it would be a link to a 404. The other four all have a
       // real public page to sit beside.
-      // A FOLDER again, like every other entry here. This room went
-      // /mc/socials/ -> /mc/socializer.html on 2026-08-19 and back on
-      // 2026-08-20; the escaped regex survived the first sweep of the second
-      // move untouched, because a search for "/mc/socializer.html" does not
-      // find "\/mc\/socializer\.html". A match that has fallen out of step with
-      // its href does not error, it just quietly never lights the button.
-      match: /^\/mc\/socials\//,
+      // FOUR ADDRESSES IN TWO DAYS, and this regex has to move with every one
+      // of them. /mc/socials/ -> /mc/socializer.html (2026-08-19) -> back to
+      // /mc/socials/ (2026-08-20) -> /mc/socializer/ (2026-08-20). A folder
+      // named for the room, which is what every other entry here is.
+      //
+      // AN ESCAPED PATH HIDES FROM A SWEEP. This line survived the first pass
+      // of the third move untouched, because a search for "/mc/socials/" does
+      // not find "\/mc\/socials\/". Grep for the escaped form as well, every
+      // time -- a `match` out of step with its `href` does not error, it just
+      // quietly never lights the button.
+      match: /^\/mc\/socializer\//,
       // Lucide users, the same glyph the public nav's FOLLOW button and the
       // Follow page's own footer entry carry.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"
@@ -137,6 +159,54 @@
   // rel is set with the target, never separately. A _blank link without
   // noopener hands the new page a window.opener reference back to this one,
   // and these are admin pages.
+  // ── THE FOLLOW REEL ───────────────────────────────────────────────────────
+  //
+  // MIRRORED FROM shell/site-nav.js, WHICH IS THE ORIGINAL. This file is
+  // self-contained on purpose (see the header): it cannot load the public nav,
+  // because site-nav.js returns early when there is no public header to build
+  // and never reaches its own exports, so TgbNav.socials() does not exist on an
+  // admin page. Copying five icons is the smaller evil.
+  //
+  // WHAT MAY DRIFT AND WHAT MAY NOT. These are ICONS ONLY, deliberately: the
+  // account URLS are not here, because this button goes to the Socializer and
+  // has no use for them. That matters, because a drifted URL sends somebody to
+  // the wrong place, which is what killed the footer's old Follow column, while
+  // a drifted icon set costs a picture. If a sixth account is ever added,
+  // add it in both files; the reel simply shows five until you do.
+  var SOCIAL_ICONS = [
+    // Instagram
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='20' x='2' y='2' rx='5'/%3E%3Cpath d='M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z'/%3E%3Cline x1='17.5' x2='17.51' y1='6.5' y2='6.5'/%3E%3C/svg%3E",
+    // Threads
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.44 12.01v-.017c.06-3.576.91-6.43 2.555-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.56 12c.057 3.086.748 5.496 2.055 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.32.142 1.48.696 2.562 1.75 3.132 3.048.795 1.81.868 4.759-1.542 7.11-1.843 1.8-4.08 2.61-7.243 2.63Z'/%3E%3C/svg%3E",
+    // X
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E",
+    // Facebook
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'/%3E%3C/svg%3E",
+    // YouTube
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12z'/%3E%3C/svg%3E"
+  ];
+
+  // SIX TILES FOR FIVE ACCOUNTS. The last frame repeats the first, so the track
+  // travels one whole tile past the end and the loop restarts at 0 invisibly.
+  // Without the repeat it snaps backwards through four icons every eleven
+  // seconds. Same trick, same timing, as the public nav.
+  function buildFollowReel() {
+    var reel = document.createElement('span');
+    reel.className = 'asn-follow-reel';
+    reel.setAttribute('aria-hidden', 'true');
+    var track = document.createElement('span');
+    track.className = 'asn-follow-track';
+    SOCIAL_ICONS.concat([SOCIAL_ICONS[0]]).forEach(function (ic) {
+      var tile = document.createElement('span');
+      tile.className = 'asn-follow-tile';
+      tile.style.mask = 'url("data:image/svg+xml,' + ic + '") center / contain no-repeat';
+      tile.style.webkitMask = 'url("data:image/svg+xml,' + ic + '") center / contain no-repeat';
+      track.appendChild(tile);
+    });
+    reel.appendChild(track);
+    return reel;
+  }
+
   function openInNewTab(anchor) {
     if (!anchor) return anchor;
     anchor.target = '_blank';
@@ -403,6 +473,48 @@
        caption reads as a second button. The phone panel turns it back on,
        because there the public row IS the row. */
     '.admin-site-nav .asn-public::before { display: none; }',
+    /* ── THE FOLLOW REEL, the one wordless button in the bar ────────────────
+       The reel IS the face, so the Lucide glyph is switched off: drawn as well
+       it would be two pictures on one button. Padding matches the others so it
+       sits in the same rhythm despite being narrower. */
+    '.admin-site-nav .asn-link--reel::before { content: none; }',
+    '.admin-site-nav .asn-link--reel { gap: 0; padding: 0 14px; }',
+    /* 17px, NOT the public nav's 18: it matches the glyph the four buttons
+       beside it carry, so all five faces are drawn to one size. */
+    '.admin-site-nav .asn-follow-reel {',
+    '  display: block;',
+    '  width: 17px;',
+    '  height: 17px;',
+    '  overflow: hidden;',
+    '}',
+    '.admin-site-nav .asn-follow-track {',
+    '  display: block;',
+    '  will-change: transform;',
+    '  animation: asnFollowReel 11s infinite;',
+    '}',
+    /* currentColor, like every other glyph here, so it flips to white with the
+       button when it fills in as the current room. */
+    '.admin-site-nav .asn-follow-tile {',
+    '  display: block;',
+    '  width: 17px;',
+    '  height: 17px;',
+    '  background: currentColor;',
+    '}',
+    /* Each icon HOLDS, then slides. A continuous crawl is a fidget; a hold
+       reads as "these are the five" and gives the eye time to name one. */
+    '@keyframes asnFollowReel {',
+    '  0%, 16%   { transform: translateY(0); }',
+    '  20%, 36%  { transform: translateY(-17px); }',
+    '  40%, 56%  { transform: translateY(-34px); }',
+    '  60%, 76%  { transform: translateY(-51px); }',
+    '  80%, 96%  { transform: translateY(-68px); }',
+    '  100%      { transform: translateY(-85px); }',
+    '}',
+    /* A LOOPING ANIMATION IS EXACTLY WHAT THIS SETTING IS FOR. Frozen on the
+       first icon, which is still a truthful face for the button. */
+    '@media (prefers-reduced-motion: reduce) {',
+    '  .admin-site-nav .asn-follow-track { animation: none; }',
+    '}',
     /* The label block: section word, ADMIN centred beneath it. A column so the
        two lines centre on each other rather than on the button, which keeps
        ADMIN under the word and clear of the icon beside it. */
@@ -645,6 +757,12 @@
     '  }',
     '  .admin-site-nav .asn-links .asn-link::before { content: none; }',
     '  .admin-site-nav .asn-links .asn-word { display: none; }',
+    /* THE REEL BUTTON WOULD BE AN EMPTY BOX HERE. The rules above shrink every
+       admin link to its ADMIN tag alone, hiding the glyph and the section word;
+       this button has no word and no tag, so it would keep its 48px height and
+       draw nothing at all. It keeps the reel and the padding to hold it. */
+    '  .admin-site-nav .asn-links .asn-link--reel { padding: 0 12px; }',
+    '  .admin-site-nav .asn-follow-reel { display: block; }',
     '  .admin-site-nav .asn-admin { opacity: 1; }',
     '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
@@ -706,7 +824,12 @@
     var a = document.createElement('a');
     a.className = 'asn-link';
     a.href = room.href;
-    openInNewTab(a);
+    // THE REEL BUTTON STAYS IN THIS TAB, alone among the five. The other four
+    // are a sideways glance at another room while you are working in this one,
+    // so a new tab keeps your place; the Socializer is somewhere you GO, and a
+    // wordless button that silently spawns tabs every time you press it is how
+    // you end up with nine of them.
+    if (!room.reel) openInNewTab(a);
     // ON THE COLUMN, not on the link. Both anchors inherit it, which is what
     // lets the phone panel draw the section glyph beside the PUBLIC row instead
     // of the admin one. The link keeps working unchanged: it inherits it too.
@@ -719,20 +842,28 @@
     // the icon rather than under it: the icon stays a single glyph beside the
     // label block. ADMIN is what tells you the button is not the public page —
     // the plain link below the button is.
-    var labelCol = document.createElement('span');
-    labelCol.className = 'asn-labelcol';
+    if (room.reel) {
+      // NO LABEL COLUMN AT ALL for this one, so there is no word and no ADMIN
+      // under it. The class is what turns the ::before glyph off, since the
+      // reel is the face and a Lucide icon beside it would be a second picture.
+      a.classList.add('asn-link--reel');
+      a.appendChild(buildFollowReel());
+    } else {
+      var labelCol = document.createElement('span');
+      labelCol.className = 'asn-labelcol';
 
-    var word = document.createElement('span');
-    word.className = 'asn-word';
-    word.textContent = room.label;
+      var word = document.createElement('span');
+      word.className = 'asn-word';
+      word.textContent = room.label;
 
-    var admin = document.createElement('span');
-    admin.className = 'asn-admin';
-    admin.textContent = 'ADMIN';
+      var admin = document.createElement('span');
+      admin.className = 'asn-admin';
+      admin.textContent = 'ADMIN';
 
-    labelCol.appendChild(word);
-    labelCol.appendChild(admin);
-    a.appendChild(labelCol);
+      labelCol.appendChild(word);
+      labelCol.appendChild(admin);
+      a.appendChild(labelCol);
+    }
     if (room.match.test(path)) a.setAttribute('aria-current', 'page');
     column.appendChild(a);
 

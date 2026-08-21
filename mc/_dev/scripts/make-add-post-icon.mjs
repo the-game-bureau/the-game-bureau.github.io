@@ -1,4 +1,4 @@
-// Draws mc/socials/add-post.ico -- 16 + 32 px, the tab and bookmark icon the
+// Draws mc/assets/add-post.ico -- 16 + 32 px, the tab and bookmark icon the
 // Socializer swaps in while its #manual Add box is open.
 //
 // THE HOME-SCREEN ICON IS NOT DRAWN HERE. iOS ignores .ico and takes the
@@ -24,7 +24,12 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..');
-const OUT_DIR = join(REPO_ROOT, 'mc', 'socials');
+// IT LIVES IN mc/assets, NOT IN THE ROOM'S OWN FOLDER. It was written to
+// mc/socials/ until 2026-08-20 and this line was not moved with the file, so
+// running the script would have quietly recreated a folder that no longer
+// exists -- and the room has since been renamed to mc/socializer/, so the
+// recreated one would not even have been the right name.
+const OUT_DIR = join(REPO_ROOT, 'mc', 'assets');
 
 const FIELD = [0x2d, 0x48, 0x80];   // --bic-blue  #2d4880
 const PLUS  = [0xfe, 0xfe, 0xf9];   // --paper-base #fefef9
@@ -103,4 +108,4 @@ function ico(sizes) {
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(join(OUT_DIR, 'add-post.ico'), ico([16, 32]));
-console.log('wrote mc/socials/add-post.ico');
+console.log('wrote mc/assets/add-post.ico');
