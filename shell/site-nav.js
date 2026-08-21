@@ -68,7 +68,20 @@
         // the five account icons scrolling through it, built from SOCIALS in
         // buildFollowReel so the pictures cannot drift from the links behind
         // them. aria-label carries the name the word used to.
-        '<button type="button" class="nav-link nav-link--major nav-link--follow" aria-label="Follow The Game Bureau" title="Follow The Game Bureau"></button>' +
+        // THE HOVER AND THE ACCESSIBLE NAME ARE DIFFERENT ON PURPOSE, and this
+        // is the one place in the repo where that is true.
+        //
+        // `title` is read by somebody who can already SEE the reel cycling, so
+        // it does not have to name the action: "Where to find us" says what is
+        // behind the button, which is the thing the pictures cannot.
+        //
+        // `aria-label` is the button's accessible NAME and is announced to
+        // somebody who cannot see the reel at all. For them the plainest verb
+        // is the useful one, so it stays "Follow The Game Bureau". Don't
+        // "tidy" these into agreement -- they are aimed at two different
+        // readers with two different amounts of context.
+        '<button type="button" class="nav-link nav-link--major nav-link--follow"' +
+          ' aria-label="Follow The Game Bureau" title="Where to find us"></button>' +
       '</div>' +
     '</nav>';
 

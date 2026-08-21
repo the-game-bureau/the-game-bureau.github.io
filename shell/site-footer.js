@@ -403,7 +403,9 @@
       // the menu on it; see the wiring below for what happens when that file is
       // absent.
       '<button type="button" class="footer-follow" data-follow-reel="1" hidden' +
-        ' aria-label="Follow The Game Bureau" title="Follow The Game Bureau"></button>' +
+        // Hover says where the button goes, the accessible name says what it
+        // does. See the nav's copy of this button for why they differ.
+        ' aria-label="Follow The Game Bureau" title="Where to find us"></button>' +
       '<a class="footer-mc-link" href="' + MISSION_CONTROL_HREF + '">Mission Control</a>' +
     '</div>';
   footer.dataset.tgbFooterReady = 'true';
