@@ -51,6 +51,21 @@ deliberately left out of the sweep**: they write to nobody but Kevin, so a
 machine tell in them costs nothing. Seventeen em dashes between them as of
 2026-08-15, if that ever changes.
 
+### TGB SOCIALIZER BOT files SIX rows, not five (2026-08-20)
+
+Five for the queue (one gift, four stories) plus **one YouTube video** as a sixth,
+in its own RPC call. The video is marked by `platforms: [{"name": "YouTube"}]`
+and nothing else, which is what greys the Post button and puts it behind the
+Socializer's YouTube filter. **That array is the marker; adding a second platform
+to it turns the row back into an ordinary post.** Its id ends `-y1`.
+
+**The page PROMPT has NOT been given this step.** The two prompts are near-copies
+kept in step by hand, and this one is deliberately routine-only for now: the
+video slot is new, and it is worth seeing what the routine files before the same
+instruction goes to a chat AI that cannot check its own work against the queue.
+**If the page prompt gains it later, the platforms rule is the part that must
+travel verbatim.**
+
 ### TGB SOCIALIZER BOT's email deep-links each candidate
 
 Step 8 of its stored prompt builds one link per candidate:

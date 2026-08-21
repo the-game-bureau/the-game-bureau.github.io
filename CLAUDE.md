@@ -419,6 +419,22 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
 - **The catalogue is alphabetical**, which it claimed to be in a comment and was not — rows came back in whatever order PostgREST returned them, so the room opened on Youngstown, Antalya, Barcelona, Amsterdam. It also gained a **city search** (city name and spine phrase only, never track titles: searching "kansas" should not return six other cities' tracks) and **lost the `N shown` chip**, which appeared under every tape whenever a filter was on and restated the length of the list directly below it.
 
 
+### TGB SOCIALIZER BOT ALSO FINDS ONE YOUTUBE VIDEO A RUN (2026-08-20)
+
+Step **2c** of the routine's prompt: one video worth sharing on our own channel, filed as a **SIXTH row**. The gift and the four stories are untouched and it does not replace any of them.
+
+- **WE SHARE IT AS A POST ON THE CHANNEL**, which is YouTube's own way of pointing at somebody else's video. Nothing is reuploaded and no video is made; the deliverable is a link and a sentence.
+- **ONE, NOT FIVE.** A channel that shares somebody else's video twice a day is a channel nobody follows, and one a run already is twice a day. **Filing none is a good answer** and the prompt says so: the five stand on their own, and a weak share costs more than a missing one because it sits on our own channel under our name.
+- **THE MARKER IS `platforms: [{name: "YouTube"}]` AND NOTHING ELSE, AND IT IS LOAD-BEARING.** That one array does three jobs: it greys the Post button (correct, since nothing we have posts to YouTube), it puts the row behind the YouTube filter, and it is the only thing telling the queue this is a video. **Adding Facebook or Threads to it turns the row back into an ordinary post that happens to link to YouTube**, which goes out to the wrong accounts.
+- **A YOUTUBE-ONLY ROW USED TO OFFER TO POST TO FACEBOOK.** `suggestedKeys()` returned `null` for *both* "no advice" and "named accounts we cannot post to", and null means no narrowing. Null is now silence ONLY (absent, not an array, or empty), which is every legacy row and every MANUAL row and is what keeps those postable; `[]` now means the bot named accounts and none are postable. **`[]` is truthy, so `postTargets`' `if (!wanted)` still catches only null and needed no change.** Side effect, and the right one: a row naming only an unrecognised platform now posts nowhere rather than everywhere, because a named account is a statement.
+- **IT IS A FILTER IN THE QUEUE, NOT A FOURTH TAB.** It cuts ACROSS Review / Posted / Skipped: a video can be in any of them, and "which candidates" and "what kind of candidate" are two questions. **Its count is of the whole table**, not of the tab you are standing in, because it answers "are there any videos" and must not read zero from inside Skipped. Hides itself when there are none and switches itself off on the way out.
+- **The ids end `-y1`**, so six rows from one run do not have to be counted to be told apart.
+- **The thumbnail is `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`**, with `hqdefault.jpg` as the fallback the prompt names, because maxres does not exist for every video.
+
+### THE ROUTINE WAS WASTING PICKS ON A TRUNCATED READ (2026-08-20)
+
+Step 1 tells the run to read `tgb_socials_filed_urls` before it searches. The run on 2026-08-20 piped that reply through **`head -c 6000`**, saw roughly a third of the 262 urls it held, and filed two stories it had already filed the week before; it then spent ten minutes of a twenty minute run finding replacements. **The prompt now says to save it to a file and `grep -c` that file per candidate**, and names this run as the reason. Nothing errored, and the run reported success: the only trace was two `duplicate` outcomes in a reply nobody reads afterwards.
+
 ### THE SOCIALIZER'S VIEW BAR IS ONE REEL BUTTON (2026-08-20)
 
 It held three buttons, FACEBOOK / INSTAGRAM / THREADS, built from a `PLATFORM_URLS` object on the page. It is now **one button wearing the scrolling account reel**, opening the same menu the hub card and the public nav open. [mc/js/follow-reel.js](mc/js/follow-reel.js).
