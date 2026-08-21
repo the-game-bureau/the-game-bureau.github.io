@@ -181,6 +181,22 @@
        two ends of the row match, but on the flat panel rather than in a raised
        track: which candidates you are looking at is the decision, which end you
        start from is a preference. */
+    /* THE YOUTUBE FILTER IS NOT ONE OF THE TABS and must not look like a
+       fourth one. It wears the tab's size and shape so the row stays even, and
+       the red pen so it reads as a different kind of control: the three tabs
+       choose which candidates, this one narrows to a kind. */
+    .queue-tab--yt {
+      margin-left: 10px;
+      border-color: rgba(194, 55, 55, 0.4);
+      color: var(--bic-red);
+    }
+    .queue-tab--yt[hidden] { display: none; }
+    .queue-tab--yt.is-active {
+      border-color: var(--bic-red);
+      background: var(--bic-red);
+      color: #fff;
+    }
+
     .queue-sort {
       min-height: 32px;
       padding: 0 8px;
@@ -321,6 +337,13 @@
       cursor: help;
     }
 
+    /* The YouTube marker wears the origin chip's shape and the red pen, so it
+       reads as the same kind of fact as the origin beside it while still being
+       the one that changes what you can do with the row. */
+    .post-kicker-youtube {
+      color: var(--bic-red);
+      border-color: rgba(194, 55, 55, 0.45);
+    }
     .post-kicker-id {
       margin-right: auto;
       /* Larger than the kicker's own 0.62rem, and close to the bubble beside
@@ -1743,6 +1766,20 @@
               Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
             </button>
           </div>
+          <!-- YOUTUBE, A FILTER RATHER THAN A FOURTH TAB. It cuts ACROSS the
+               three: a video can be in Review, Posted or Skipped like anything
+               else, and "which candidates" and "what kind of candidate" are two
+               questions. A fourth tab would have answered both at once and made
+               Review stop meaning all the undecided ones.
+
+               It hides itself when there are none, and turns itself off on the
+               way out, so a filter cannot be left on with nothing behind it.
+               Same behaviour as the Path Builder's PARTNERS filter. -->
+          <button class="queue-tab queue-tab--yt" id="tabYouTube" type="button"
+                  aria-pressed="false" hidden
+                  title="Only the videos to share on our YouTube channel. They sit in the same three tabs as everything else; this narrows to them.">
+            YouTube <span class="queue-tab-count" id="tabYouTubeCount">0</span>
+          </button>
           <!-- Two words, no label. NEWEST / OLDEST is what the control says and
                what it does -- it names what sits at the TOP, so the word you can
                see is the card you are looking at. A "Sort" label in front of it
@@ -2545,6 +2582,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var queueList = document.getElementById('queueList');
       var queueEmpty = document.getElementById('queueEmpty');
       var tabActive = document.getElementById('tabActive');
+      var tabYouTube = document.getElementById('tabYouTube');
+      var tabYouTubeCount = document.getElementById('tabYouTubeCount');
+      // Off by default on every load. A filter that remembered itself would
+      // be a page that opens showing one candidate in five with no obvious
+      // reason why.
+      var youTubeOnly = false;
       var tabSkipped = document.getElementById('tabSkipped');
       var tabActiveCount = document.getElementById('tabActiveCount');
       var tabSkippedCount = document.getElementById('tabSkippedCount');
@@ -4129,6 +4172,23 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var buckets = { active: live, skipped: skipped, posted: posted };
         var shown = buckets[view] || live;
 
+        // THE COUNT IS OF THE WHOLE TABLE, NOT OF THIS TAB. It is answering
+        // "are there any videos" rather than "how many are in front of me", so
+        // it must not go to zero just because you happen to be standing in
+        // Skipped. The tab counts beside it are per-bucket and that is right for
+        // them: they ARE the buckets.
+        var ytAll = usable.filter(isYouTubePost);
+        if (tabYouTubeCount) tabYouTubeCount.textContent = String(ytAll.length);
+        if (tabYouTube) {
+          // Nothing to filter, so no control, and never left switched on behind
+          // a button that has just disappeared.
+          if (!ytAll.length && youTubeOnly) youTubeOnly = false;
+          tabYouTube.hidden = !ytAll.length;
+          tabYouTube.setAttribute('aria-pressed', youTubeOnly ? 'true' : 'false');
+          tabYouTube.classList.toggle('is-active', youTubeOnly);
+        }
+        if (youTubeOnly) shown = shown.filter(isYouTubePost);
+
         shown.forEach(function (post) {
           queueList.appendChild(buildPost(post, view, post.id));
         });
@@ -4142,7 +4202,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         queueList.setAttribute('aria-labelledby',
           view === 'skipped' ? 'tabSkipped' : (view === 'posted' ? 'tabPosted' : 'tabActive'));
 
-        if (view === 'skipped') {
+        if (youTubeOnly && !shown.length) {
+          // Says which filter emptied the list, because "nothing skipped yet"
+          // would be a lie about a tab that has plenty in it.
+          showEmpty('No YouTube candidates in this tab. Press YouTube again to see the rest.');
+        } else if (view === 'skipped') {
           showEmpty(skipped.length ? '' : 'Nothing skipped yet.');
         } else if (view === 'posted') {
           showEmpty(posted.length ? '' : 'Nothing posted yet. Finish a Post run and it lands here.');
@@ -4356,6 +4420,24 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           originEl.textContent = originLabel(post);
           originEl.title = ORIGIN_NOTES[originOf(post)] || '';
           kickerId.appendChild(originEl);
+        }
+
+        // YOUTUBE MARKER. A video to share on the channel rather than a story to
+        // post to the three accounts, so it has to be tellable apart at a
+        // glance in a list it shares with them. It sits with the id and the
+        // origin because it is the same kind of fact: what KIND of candidate
+        // this is, not what it says.
+        //
+        // Red pen, because the thing it warns about is that the Post button
+        // will not work on this row: YouTube community posts are made by hand.
+        if (isYouTubePost(post)) {
+          var ytEl = document.createElement('span');
+          ytEl.className = 'post-kicker-origin post-kicker-youtube';
+          ytEl.textContent = 'YouTube';
+          ytEl.title = 'A video to share on our YouTube channel. Nothing here posts '
+            + 'to YouTube, so this one is done by hand: open it, share it to the '
+            + 'channel, then mark this posted.';
+          kickerId.appendChild(ytEl);
         }
 
         kicker.appendChild(kickerId);
@@ -5584,18 +5666,56 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // `platforms` is a jsonb array of {name, why}, but a hand-written row or
       // an older one may hold bare strings, so both shapes are read. The match
       // is lowercased and trimmed because the bot writes display names.
+      // The raw names the bot asked for, in its own words, whether or not this
+      // page can post to any of them. Needed for the YouTube marker and for the
+      // blocked message, which has to be able to say "the bot suggested
+      // YouTube" about an account this page has never heard of.
+      function suggestedNames(post) {
+        var raw = post && post.platforms;
+        if (!Array.isArray(raw)) return [];
+        return raw.map(function (entry) {
+          var name = entry && typeof entry === 'object' ? entry.name : entry;
+          return String(name || '').trim();
+        }).filter(Boolean);
+      }
+
+      // SILENCE AND AN UNPOSTABLE ANSWER ARE DIFFERENT THINGS, and telling them
+      // apart is what makes a YouTube candidate safe.
+      //
+      //   null  no advice at all: platforms absent, not an array, or empty.
+      //         Do not narrow. Every row filed before tags existed and every
+      //         MANUAL row is in this state, and reading it as "post nowhere"
+      //         would make all of them unpostable at a stroke.
+      //   []    the bot NAMED accounts and this page can post to none of them.
+      //         Post nowhere. A YouTube-only candidate is exactly this.
+      //   [..]  the postable subset of what it named.
+      //
+      // This returned null for BOTH of the first two until 2026-08-20, so a
+      // candidate tagged YouTube alone read as no opinion and the Post button
+      // cheerfully offered Facebook, Instagram and Threads for a video we meant
+      // to share on YouTube. `[]` is truthy, so postTargets' `if (!wanted)`
+      // still catches only the null case and needed no change.
       function suggestedKeys(post) {
         var raw = post && post.platforms;
-        if (!Array.isArray(raw)) return null;
+        if (!Array.isArray(raw) || !raw.length) return null;
         var keys = [];
-        raw.forEach(function (entry) {
-          var name = entry && typeof entry === 'object' ? entry.name : entry;
-          name = String(name || '').trim().toLowerCase();
+        suggestedNames(post).forEach(function (name) {
+          name = name.toLowerCase();
           for (var key in WIRE_LABELS) {
             if (WIRE_LABELS[key].toLowerCase() === name && keys.indexOf(key) === -1) keys.push(key);
           }
         });
-        return keys.length ? keys : null;
+        return keys;
+      }
+
+      // A candidate the bot sent to YouTube and nowhere else. Nothing here
+      // posts to YouTube: a community post is made by hand, so this is a marker
+      // and a filter rather than a route.
+      function isYouTubePost(post) {
+        var names = suggestedNames(post).map(function (n) { return n.toLowerCase(); });
+        return names.length > 0 &&
+               names.indexOf('youtube') !== -1 &&
+               (suggestedKeys(post) || []).length === 0;
       }
 
       // Real account names for the receipt. A LOOKUP WITH NO DEFAULT, on both
@@ -5614,7 +5734,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var wanted = suggestedKeys(post);
         if (wanted && !metaTargets(post).concat(PLATFORM_AUTOPOST.threads ? ['threads'] : [])
             .filter(function (k) { return wanted.indexOf(k) !== -1; }).length) {
-          return 'The bot suggested ' + wireLabels(wanted).join(' and ')
+          // NAME WHAT THE BOT ACTUALLY ASKED FOR. wireLabels(wanted) is empty
+          // whenever it named only accounts this page cannot post to, which is
+          // every YouTube candidate, and the message read "The bot suggested ,
+          // and none of those can take this candidate."
+          var asked = wanted.length ? wireLabels(wanted) : suggestedNames(post);
+          if (isYouTubePost(post)) {
+            return 'This one is for YouTube, which is posted by hand: open the '
+              + 'video, share it to the channel, then mark this posted.';
+          }
+          return 'The bot suggested ' + asked.join(' and ')
             + ', and none of those can take this candidate. Edit the story or post it by hand.';
         }
         return autoBlockedReason('meta', post);
@@ -6052,6 +6181,11 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       });
 
       if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
+      // A toggle, not a view: it leaves you in whichever tab you were in.
+      if (tabYouTube) tabYouTube.addEventListener('click', function () {
+        youTubeOnly = !youTubeOnly;
+        renderQueue();
+      });
       if (tabPosted) tabPosted.addEventListener('click', function () { setView('posted'); });
       if (tabSkipped) tabSkipped.addEventListener('click', function () { setView('skipped'); });
 
