@@ -6082,20 +6082,25 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return keys;
       }
 
-      /** The one destination this candidate has to be posted to BY HAND, or ''.
+      /** The destination this candidate has to be posted to BY HAND, or ''.
        *
-       *  Answers only when the machine can reach NOTHING for this row, which is
-       *  what makes the Copy button the whole job rather than a fallback. A
-       *  story tagged X as well as Facebook still posts to Facebook by machine,
-       *  so it keeps the plain label and the X half is simply not offered; the
-       *  alternative is a button claiming to be for X on a row that is about to
-       *  go somewhere else.
+       *  BY-HAND AND BY-MACHINE COEXIST ON ONE CANDIDATE, and that is the
+       *  ordinary case rather than the exception. A story tagged Facebook and X
+       *  goes to Facebook when you press Post and to X when you press Copy:
+       *  both are real, both are wanted, and they are two different presses.
+       *
+       *  This used to answer only when the machine could reach NOTHING, on the
+       *  reasoning that a button saying "for X" on a row about to go to Facebook
+       *  was claiming a job it was not doing. That was backwards. The Post
+       *  button already states its own destinations, so the two controls
+       *  together read as the whole picture: "Post to Facebook + Threads" and
+       *  "Copy to clipboard for X". Staying silent about X did not avoid a false
+       *  claim, it hid the half of the job that still needed doing by hand.
        *
        *  Names come from the bot's own tags rather than from WIRE_LABELS,
        *  because YouTube is deliberately absent from that object and would
        *  otherwise be unnameable here. */
       function byHandTarget(post) {
-        if (postTargets(post).length) return '';
         var names = suggestedNames(post);
         for (var i = 0; i < names.length; i++) {
           var key = names[i].toLowerCase();
