@@ -1562,7 +1562,6 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - [index.html](index.html)
 - every file matched by `mc/account/**/*.html` — moved under `mc/` on 2026-08-06 but still a public page wearing public chrome, so shared-chrome work still applies to it
 - every file matched by `birthdayball/**/*.html`
-- every file matched by `follow/**/*.html` — the Follow page, added 2026-08-20
 - every file matched by `mc/how/**/*.html`
 - every file matched by `ww/**/*.html`
 - [gifts/index.html](gifts/index.html) — the public shop, and **the only file left in `gifts/`** as of 2026-08-07. The folder has been `/gifts/` → `/shop/` (2026-06-26) → `/gifts/` (2026-07-30); **each move was a hard break with no redirect**, because GitHub Pages cannot serve a 301, so any `/shop/?city=` link shared while that path was live is now dead.
@@ -1579,36 +1578,28 @@ This grouping is the public website surface for shared chrome work such as navig
 
 ---
 
-## /follow/ — the Follow page (2026-08-20)
+## FOLLOW is a menu, not a page (2026-08-20)
 
-**THE PUBLIC FOLLOW BUTTON OPENS A MENU RATHER THAN NAVIGATING** (2026-08-20). Five links do not earn a page load, a scroll and a way back, so the button drops a Linktree-shaped panel of the five accounts under itself: full-width rows, icon, name, handle, each row a whole target.
+**`/follow/` EXISTED FOR ONE DAY AND IS DELETED.** It was a public page listing the five accounts; five links did not earn a page load, a scroll and a way back. **FOLLOW is now a control that opens a Linktree-shaped menu** of the accounts, in two places: the public nav and The Site column of the footer.
 
-- **PROGRESSIVE ENHANCEMENT, and the anchor is real.** It is still `<a href="/follow/">` and the click is intercepted, so with no JavaScript, or before the module runs, it navigates to the page exactly as before. **A middle click, a modified click or a right click still opens the page**, because the browser expects a link to behave like one; only a plain left click becomes the menu.
-- **`shell/site-nav.js` NOW OWNS THE LIST**, exported as `TgbNav.socials()`. The footer used to carry its own copy and the two had already drifted (bare `instagram.com` against `www.`), which is why that column went. **Anything else that needs the accounts reads that function rather than typing them again.**
-- **`follow/index.html` STILL HAS ITS OWN COPY IN STATIC MARKUP**, which is the one duplication left. It is deliberate for now: the page is the no-JavaScript destination, and a page whose list is empty without JS is worse than a second copy. **If the page is ever deleted, or made to render from `TgbNav.socials()`, there is one list again.**
-- Escape closes it and returns focus to the button; an outside click closes it; `aria-haspopup` and `aria-expanded` are kept in step.
+- **`shell/site-nav.js` OWNS THE LIST**, exported as `TgbNav.socials()` and as `TgbNav.followPopup(el)`. The footer calls the second one rather than growing its own panel. **That is the whole point**: the footer once had a Follow column of five icon links, it drifted from the page's copy (bare `instagram.com` against `www.`), and it was deleted for exactly this reason. One list, rendered wherever it is wanted.
+- **BOTH TRIGGERS ARE `<button>`s.** They were anchors to `/follow/` with the click intercepted, which was right while the page existed; with it gone, an anchor would point at a 404 for anyone without JavaScript. A control that only opens a menu should be a button and should say so to a screen reader.
+- **THE NAV BUTTON HAS NO LABEL AND NO FIXED GLYPH.** Its face is a **one-icon-wide window with the five account icons scrolling through it**, each holding about two seconds. A Lucide "users" glyph was a picture of the IDEA of following; the accounts themselves tell you which networks we are on without asking anyone to read. `aria-label` carries the name the word used to.
+  - **The reel is built from `SOCIALS`**, the same array the menu is, so the faces and the links cannot disagree.
+  - **SIX TILES FOR FIVE ACCOUNTS.** The last frame is the first icon again, so the reel travels one whole tile past the end and the loop restarts at 0 invisibly. Without the repeat it snaps backwards through four icons every eleven seconds.
+  - **It freezes on the first icon under `prefers-reduced-motion`.** A looping animation is precisely what that setting is for, and one frozen account icon is still a truthful face for the button.
+  - The `::before` glyph the other four nav buttons carry is suppressed on this one, or there would be a second picture beside the reel.
+- **THE FOOTER'S FOLLOW KEEPS ITS WORD AND ITS PEOPLE ICON.** It sits in a column of four labelled rows, and one unlabelled row among them reads as a rendering fault rather than as a design. It uses `footer-sec` and `--footer-ico`, the same class and variable `iconLink` uses, and **every `a.footer-sec` rule had to widen to cover `button.footer-sec`** or it would have rendered as a bare browser button in a column of links.
+- **THE PANEL FLIPS UPWARD when there is more room above than below**, decided at open time from `getBoundingClientRect`, because the footer trigger sits at the bottom of the page and the same button can be above the fold on a short page and below it on a long one.
+- **`order: 5` IS ON THE WRAPPER AS WELL AS THE ANCHOR**, and that is not belt and braces. `wireFollowPopup` re-parents the trigger into a positioned `<span>` so the panel has something to hang off, which makes the WRAPPER the flex child and leaves the button's own `order` inert. The wrapper had none, so it sorted at 0 and **FOLLOW jumped to the front of the nav**. One declaration covers both states.
 
-**BOTH NAVS CARRY A FOLLOW BUTTON, AND THEY GO TO DIFFERENT PLACES.** That is not an inconsistency, it is the shared admin nav's whole design: its buttons wear the public section's name and land on the room where that section is worked.
+## THE NAV COUNTS HOLD THEIR SPACE (2026-08-20)
 
-| nav | file | FOLLOW goes to |
-|---|---|---|
-| public | [shell/site-nav.js](shell/site-nav.js) | `/follow/`, the page itself |
-| admin | [mc/js/admin-site-nav.js](mc/js/admin-site-nav.js) | `/mc/socials/`, where what goes on those accounts is decided |
+The four section buttons badge a live count, fetched by `site-footer.js` and pushed into the nav through `TgbNav.setButtonStats`. The badge used to be `hidden`, which is `display: none`: it took no room, so **every button grew and the whole row reflowed the moment the numbers landed**, two network round trips after first paint.
 
-- **The public one carries NO COUNT**, alone among the five. The other four badge a number that moves (games built, gifts stocked, tapes made, scorelines posted); the accounts are five and will be five next year, so a badge there is furniture that looks like news. It takes no `nav-link--has-count` and no `statBadges` call.
-- **`order: 5` in [site-pages.css](shell/site-pages.css) is what puts it right of Highlights.** Those links are flex children with explicit orders, so adding the anchor after Highlights in the markup is not enough on its own: without the rule it lands wherever `order: 0` sorts, which is FIRST.
-- **THE ADMIN BUTTON GIVES THE SOCIALIZER ITS FIRST TOP-LEVEL DOOR.** Until now that room was reachable only from the dropdown or a card on the hub, and `admin-nav-menu.js` said so in a comment that this change made stale; the comment now records what replaced it. The entry stays in the dropdown anyway, because FOLLOW does not say Socializer on its face and somebody hunting the room by name should still find it in a list.
-- **Its `match` is `/^\/mc\/socializer\.html/`**, anchored with `\.html` because this room is a FILE and not a folder, unlike every other entry in that nav. Standing in the Socializer now lights FOLLOW rather than MISSION CONTROL, which is correct: `roomIsCurrent` makes the rooms more specific than the mast.
-
-
-
-[follow/index.html](follow/index.html), at the ROOT beside `games/`, `gifts/`, `highlights/` and `soundtracks/`. It was built at `mc/follow/` and moved on 2026-08-20, which is the repo's own rule applied: **if a visitor is served it, it does not live under `mc/`**. Moving it also took it back out of `PUBLIC_MC`, since that list exists only for public pages stranded under `/mc/`. A public page wearing public chrome, listing the five accounts: **Instagram, Threads, X, Facebook, YouTube**, all `@thegamebureau` except Facebook's page name.
-
-- **THE FOOTER'S FOLLOW COLUMN IS GONE, AND `SOCIALS` WITH IT.** It was five icon links straight to the accounts, built when there was nowhere else to put them. There is now, and keeping both meant **five urls written twice with no shared source** — which had already drifted, the footer carrying bare `instagram.com` against the page's `www.`. The footer now renders **two** columns, The Site and Documents, and The Site reads Games, Gifts, Soundtracks, Highlights, **Follow**.
-- **WHAT THAT COSTS, plainly:** reaching one account is two clicks from every public page rather than one. **If it turns out to matter, bring the column back by READING `/follow/`, not by retyping the list into the footer** — retyping it is what created the drift the first time.
-- **`www.instagram.com`, not the bare domain.** The bare one 302s to www, and the footer's old note beside `threads.COM` already said a redirect is a hop it does not need to make — while the line above it carried exactly such a hop. **The page is the only list now**, so that inconsistency cannot come back. All five verified 200.
-- **X AND YOUTUBE ARE HERE BUT ARE NOT POSTING TARGETS.** They were removed from the Socializer on 2026-08-07 and `PLATFORM_AUTOPOST` has no row for either. **Having an account and posting to it by API are different things**; this page is about the former.
-- **`PUBLIC_MC` in [site-analytics.js](mc/assets/site-analytics.js) gained `follow`.** A public page under `/mc/` is refused by the analytics guard unless it is named there, and the `<script>` tag looks like it worked either way. That is the same trap `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/` fell into on 2026-08-06.
+- **It is now always in the layout and merely invisible until it has a number**, with **`min-width: 3ch`** reserved. Three characters covers every figure this site plausibly shows (470 waypoints, 616 gifts, 89 tapes); a fourth digit widens a button by one character rather than making the badge appear from nothing, which is a shift nobody notices.
+- **`data-pending`, not `hidden`.** `hidden` means "not rendered" and this IS rendered, just not readable yet, so `visibility` is the honest property. It is `aria-hidden` while pending so a screen reader does not announce a blank.
+- **`visibility`, never `display`.** `display: none` gives the space back and puts the pop straight back.
 
 ## The "research assistant" pattern is gone (2026-08-07)
 

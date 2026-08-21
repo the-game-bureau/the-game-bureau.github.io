@@ -96,8 +96,8 @@
       label: 'FOLLOW',
       // THE ADMIN SIDE OF FOLLOW IS THE SOCIALIZER, which is the whole twist
       // this nav is built on: the face says the public section, the button goes
-      // to the room where that section is worked. /follow/ lists the five
-      // accounts; the Socializer is where what goes ON them is decided.
+      // to the room where that section is worked. The public FOLLOW is a menu of
+      // the five accounts; the Socializer is where what goes ON them is decided.
       //
       // IT ALSO GIVES THE SOCIALIZER ITS FIRST TOP-LEVEL BUTTON. Until now that
       // room was reachable only from the dropdown or from a card on the hub,
@@ -107,8 +107,10 @@
       // now, and that comment is stale the moment this ships.
       href: '/mc/socials/',
       title: 'Admin socials, the Socializer',
-      publicHref: '/follow/',
-      publicTitle: 'Public follow page',
+      // NO publicHref, alone among the five. The public counterpart of this
+      // room is a MENU rather than a page: /follow/ was deleted on 2026-08-20
+      // and pointing at it would be a link to a 404. The other four all have a
+      // real public page to sit beside.
       // A FOLDER again, like every other entry here. This room went
       // /mc/socials/ -> /mc/socializer.html on 2026-08-19 and back on
       // 2026-08-20; the escaped regex survived the first sweep of the second
@@ -733,6 +735,16 @@
     a.appendChild(labelCol);
     if (room.match.test(path)) a.setAttribute('aria-current', 'page');
     column.appendChild(a);
+
+    // A ROOM WITHOUT A PUBLIC COUNTERPART GETS NO PUBLIC LINK. FOLLOW is the
+    // first: its public side is a menu rather than a page, so there is no URL to
+    // point at, and `pub.href = undefined` renders a literal href="undefined"
+    // that 404s on click. Mission Control below already goes without one, for
+    // the same reason stated in its own comment.
+    if (!room.publicHref) {
+      links.appendChild(column);
+      return;
+    }
 
     var pub = document.createElement('a');
     pub.className = 'asn-public';

@@ -73,9 +73,18 @@
           so all four labels start on the SAME x whatever the glyph's width. A
           trophy and a map pin do not have the same silhouette, and left to
           themselves the four words would sit at four different indents. */
-    'body .site-footer.site-footer a.footer-sec{display:inline-grid;',
+    // A BUTTON IS ONE OF THESE TOO. The Follow row opens a menu rather than
+    // going anywhere, so it is a <button>, and every rule below had to widen
+    // from `a.footer-sec` or it would have rendered as a bare browser button in
+    // a column of links. It also resets the UA button styling, which an anchor
+    // never carried.
+    'body .site-footer.site-footer a.footer-sec,',
+    'body .site-footer.site-footer button.footer-sec{display:inline-grid;',
     'grid-template-columns:15px auto;align-items:center;gap:8px;}',
-    '.site-footer a.footer-sec::before{content:"";width:15px;height:15px;',
+    '.site-footer button.footer-sec{border:0;background:none;padding:0;',
+    'font:inherit;color:inherit;cursor:pointer;text-align:left;}',
+    '.site-footer a.footer-sec::before,',
+    '.site-footer button.footer-sec::before{content:"";width:15px;height:15px;',
     'background:currentColor;',
     '-webkit-mask:var(--footer-ico) center/contain no-repeat;',
     'mask:var(--footer-ico) center/contain no-repeat;}',
@@ -296,12 +305,6 @@
     ['/soundtracks/', 'Soundtracks', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E"],
     ['/highlights/', 'Highlights', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"]
 ,
-    // FOLLOW IS A PAGE, and the Follow COLUMN further down is five direct
-    // links to the accounts themselves. Both, deliberately: the column is
-    // the shortcut for somebody who knows which network they want, and the
-    // page is the thing you can send somebody. Lucide users, on the same
-    // 24-box as the four glyphs above it.
-    ['/follow/', 'Follow', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"]
   ];
   // Lucide shield, on the same 24-box as the four section glyphs. A shield
   // rather than the padlock the admin nav carries: that padlock means "signed
@@ -325,6 +328,17 @@
   // WHAT THIS COSTS, plainly: reaching one account is now two clicks rather
   // than one, from every public page. If that turns out to matter, bring the
   // column back by reading /follow/ rather than by retyping the list here.
+
+  // FOLLOW IS A BUTTON IN THIS COLUMN, not a link, and it opens the SAME menu
+  // the nav's FOLLOW button opens. /follow/ existed for a day and is deleted:
+  // five links did not earn a page, and with the page gone an anchor here
+  // would point at a 404.
+  //
+  // THE LIST IS NOT HERE. site-nav.js owns it and this calls
+  // TgbNav.followPopup(). That is the whole reason the old Follow column of
+  // five icon links was deleted: it was a second copy of those urls and it had
+  // already drifted from the other one (bare instagram.com against www.).
+  var ICON_FOLLOW = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E";
 
   function link(href, label, attrs) {
     return '<a href="' + href + '"' + (attrs || '') + '>' + label + '</a>';
@@ -359,7 +373,16 @@
     '<div class="footer-cols">' +
       column('The Site', SECTIONS.map(function (s) {
         return iconLink(s[0], s[1], s[2]);
-      })) +
+      }).concat([
+        // Same markup as the four above it, so it sits in the same icon column
+        // and takes the same hover; a <button> only because it opens a menu
+        // rather than going anywhere.
+        // footer-sec and --footer-ico, the same class and variable iconLink uses,
+        // so this row gets the shared icon column and the shared alignment. It
+        // was briefly written with invented names and rendered unstyled.
+        '<button type="button" class="footer-sec" data-tgb-follow style="--footer-ico:url(&quot;data:image/svg+xml,'
+          + ICON_FOLLOW + '&quot;)">Follow</button>'
+      ])) +
       column('Documents', [
         // data-doc-lightbox is the hook wireDocLightbox looks for. It used to
         // find this link with querySelector('.footer-doc-link') — the FIRST
@@ -378,6 +401,12 @@
       '<a class="footer-mc-link" href="' + MISSION_CONTROL_HREF + '">Mission Control</a>' +
     '</div>';
   footer.dataset.tgbFooterReady = 'true';
+  // The menu belongs to site-nav.js; this only hands it the trigger. If the
+  // nav module is not on the page there is no menu to open, and the button
+  // stays inert rather than throwing.
+  if (window.TgbNav && typeof window.TgbNav.followPopup === 'function') {
+    window.TgbNav.followPopup(footer.querySelector('[data-tgb-follow]'));
+  }
   injectFooterStyles();
   // Every link carrying the attribute gets its own lightbox, with the content
   // selector read off the attribute value. Iterating beats the old

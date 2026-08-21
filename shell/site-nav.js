@@ -17,8 +17,24 @@
 
   var statValues = {};
 
+  // THE BADGE HOLDS ITS SPACE FROM THE FIRST PAINT.
+  //
+  // The counts arrive from site-footer.js after two network round trips, and
+  // the badge used to be `hidden`, which is display:none: it took no room, so
+  // every button in the nav grew and the row reflowed the moment they landed.
+  // That is the pop.
+  //
+  // It is now always in the layout and merely INVISIBLE until it has a real
+  // number, with 3ch reserved. Three characters covers every count this site
+  // will plausibly show (470 waypoints, 616 gifts, 89 tapes); a fourth digit
+  // widens the button by one character rather than making it appear from
+  // nothing, which is a shift nobody notices.
+  //
+  // `data-pending` rather than `hidden`, because `hidden` means "not
+  // rendered" and this IS rendered, just not readable yet. It is also aria-
+  // hidden while pending so a screen reader does not announce a blank.
   function statBadge(key) {
-    return '<span class="nav-count" data-tgb-nav-stat="' + key + '" hidden>0</span>';
+    return '<span class="nav-count" data-tgb-nav-stat="' + key + '" data-pending="1" aria-hidden="true"></span>';
   }
 
   function statBadges(keys) {
@@ -43,7 +59,16 @@
         // It takes no `nav-link--has-count` class and no statBadges call; the
         // base .nav-link is already inline-flex, so it lays out with its icon
         // regardless.
-        '<a class="nav-link nav-link--major nav-link--follow" href="/follow/"><span class="nav-label">FOLLOW</span></a>' +
+        // A BUTTON, NOT AN ANCHOR. It was <a href="/follow/"> while that page
+        // existed and the click was intercepted; the page is deleted, so an
+        // anchor here would be a link to a 404 for anyone without JavaScript.
+        // A control that only ever opens a menu should be a button and say so
+        // to a screen reader.
+        // NO LABEL AND NO FIXED GLYPH. The face is a one-icon-wide window with
+        // the five account icons scrolling through it, built from SOCIALS in
+        // buildFollowReel so the pictures cannot drift from the links behind
+        // them. aria-label carries the name the word used to.
+        '<button type="button" class="nav-link nav-link--major nav-link--follow" aria-label="Follow The Game Bureau" title="Follow The Game Bureau"></button>' +
       '</div>' +
     '</nav>';
 
@@ -78,6 +103,81 @@
       "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12z'/%3E%3C/svg%3E"]
   ];
 
+  // ── THE ICON REEL ───────────────────────────────────────────────────────
+  //
+  // ONE ICON WIDE, five icons deep, scrolling. The button used to read FOLLOW
+  // beside a Lucide "users" glyph, which is a picture of the IDEA of following.
+  // The accounts themselves are better: you learn which networks we are on
+  // without reading anything, and the button shrinks to a single glyph.
+  //
+  // IT IS BUILT FROM SOCIALS, the same array the menu is built from, so the
+  // faces on the reel and the links in the panel cannot disagree.
+  //
+  // THE LAST FRAME IS THE FIRST ICON AGAIN. Six tiles for five accounts: the
+  // reel travels a whole tile past the end and the loop restarts at 0, which
+  // is invisible. Without the repeat it would snap backwards through four
+  // icons every ten seconds.
+  function buildFollowReel() {
+    var reel = document.createElement('span');
+    reel.className = 'tgb-follow-reel';
+    reel.setAttribute('aria-hidden', 'true');
+    var track = document.createElement('span');
+    track.className = 'tgb-follow-track';
+    SOCIALS.concat([SOCIALS[0]]).forEach(function (sc) {
+      var t = document.createElement('span');
+      t.className = 'tgb-follow-tile';
+      t.style.mask = 'url("data:image/svg+xml,' + sc[3] + '") center / contain no-repeat';
+      t.style.webkitMask = 'url("data:image/svg+xml,' + sc[3] + '") center / contain no-repeat';
+      track.appendChild(t);
+    });
+    reel.appendChild(track);
+    return reel;
+  }
+
+  var REEL_STYLE_ID = 'tgb-follow-reel-css';
+  var REEL_CSS = [
+    '.tgb-follow-reel {',
+    '  display: block;',
+    '  width: 18px;',
+    '  height: 18px;',
+    '  overflow: hidden;',
+    '}',
+    '.tgb-follow-track {',
+    '  display: block;',
+    '  will-change: transform;',
+    '  animation: tgbFollowReel 11s infinite;',
+    '}',
+    '.tgb-follow-tile {',
+    '  display: block;',
+    '  width: 18px;',
+    '  height: 18px;',
+    '  background: currentColor;',
+    '}',
+    /* Each icon HOLDS, then slides. A continuous crawl is a fidget; a hold
+       reads as "these are the five" and gives the eye time to name one. */
+    '@keyframes tgbFollowReel {',
+    '  0%, 16%   { transform: translateY(0); }',
+    '  20%, 36%  { transform: translateY(-18px); }',
+    '  40%, 56%  { transform: translateY(-36px); }',
+    '  60%, 76%  { transform: translateY(-54px); }',
+    '  80%, 96%  { transform: translateY(-72px); }',
+    '  100%      { transform: translateY(-90px); }',
+    '}',
+    /* A LOOPING ANIMATION IS EXACTLY WHAT THIS SETTING IS FOR. Frozen on the
+       first icon, which is still a truthful face for the button. */
+    '@media (prefers-reduced-motion: reduce) {',
+    '  .tgb-follow-track { animation: none; }',
+    '}',
+    /* The button is the width of one glyph plus its padding: there is no label
+       left to make room for, and the ::before the other four carry would put a
+       second picture beside the reel. */
+    '.site-nav.site-nav .nav-link--follow::before { content: none !important; }',
+    '.site-nav.site-nav .nav-link--follow {',
+    '  padding: 0 12px !important;',
+    '  gap: 0;',
+    '}'
+  ].join('\n');
+
   var POP_STYLE_ID = 'tgb-follow-pop-css';
   var POP_CSS = [
     '.tgb-followpop-wrap { position: relative; display: inline-flex; }',
@@ -96,6 +196,11 @@
     '  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.16);',
     '}',
     '.tgb-followpop[hidden] { display: none; }',
+    /* THE FOOTER TRIGGER IS AT THE BOTTOM OF THE PAGE, so its panel opens
+       UPWARD. Chosen at open time from where the button actually is, not
+       hardcoded per caller: the same button can be above the fold on a short
+       page and below it on a long one. */
+    '.tgb-followpop--up { top: auto; bottom: calc(100% + 8px); }',
     /* LINKTREE SHAPE: full-width stacked rows, each one a whole target. The
        point of that pattern is that there is nothing to aim at, because the
        row IS the button. */
@@ -137,7 +242,22 @@
   ].join('\n');
 
   function wireFollowPopup(link) {
-    if (!link) return;
+    if (!link || link.dataset.tgbFollowPop === '1') return;
+    link.dataset.tgbFollowPop = '1';
+
+    // THE REEL GOES ON THE NAV BUTTON ONLY. The footer's Follow sits in a
+    // column of labelled rows, and one unlabelled row among four labelled ones
+    // reads as a rendering fault rather than as a design.
+    if (link.classList && link.classList.contains('nav-link--follow')) {
+      if (!document.getElementById(REEL_STYLE_ID)) {
+        var rs = document.createElement('style');
+        rs.id = REEL_STYLE_ID;
+        rs.textContent = REEL_CSS;
+        document.head.appendChild(rs);
+      }
+      link.textContent = '';
+      link.appendChild(buildFollowReel());
+    }
     if (!document.getElementById(POP_STYLE_ID)) {
       var st = document.createElement('style');
       st.id = POP_STYLE_ID;
@@ -182,6 +302,11 @@
     link.setAttribute('aria-expanded', 'false');
 
     function open() {
+      // Flip above the trigger when there is more room up than down. getBoundingClientRect
+      // is read at OPEN, so a resize or a scroll between opens is accounted for.
+      var box = link.getBoundingClientRect ? link.getBoundingClientRect() : null;
+      var below = box ? (window.innerHeight - box.bottom) : 999;
+      pop.classList.toggle('tgb-followpop--up', below < 260 && box && box.top > below);
       pop.hidden = false;
       link.setAttribute('aria-expanded', 'true');
       document.addEventListener('click', onOutside, true);
@@ -199,11 +324,12 @@
     }
 
     link.addEventListener('click', function (e) {
-      // THE ANCHOR STILL WORKS when the browser wants it to: a middle click, a
-      // modified click, or a right click must open /follow/ the way any link
-      // does. Only a plain left click becomes the menu.
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
+      // BOTH TRIGGERS ARE BUTTONS NOW. They were anchors to /follow/ with the
+      // click intercepted, which was the right shape while that page existed;
+      // it is deleted, so an anchor would point at a 404 for anyone without
+      // JavaScript. preventDefault is kept only because the footer's trigger
+      // lives inside a <nav> of links and a stray default would scroll.
+      if (e.preventDefault) e.preventDefault();
       if (pop.hidden) open(); else close();
     });
   }
@@ -216,7 +342,7 @@
   // FOLLOW opens a menu instead of navigating; see wireFollowPopup. Wired
   // AFTER the markup is in the document, because it re-parents the anchor
   // into a positioned wrapper.
-  wireFollowPopup(header.querySelector('a.nav-link--follow'));
+  wireFollowPopup(header.querySelector('.nav-link--follow'));
 
   function normalizePath(path) {
     if (!path) return '/';
@@ -280,6 +406,9 @@
     count = Math.max(0, Math.round(count));
     statValues[key] = count;
     el.textContent = String(count);
+    // The space was already reserved; this only makes it readable. See statBadge.
+    el.removeAttribute('data-pending');
+    el.removeAttribute('aria-hidden');
     el.hidden = false;
 
     var link = el.closest && el.closest('a.nav-link');
@@ -298,6 +427,9 @@
   window.TgbNav.setButtonStats = setStats;
   // THE ONE LIST OF OUR ACCOUNTS. Returns copies, so a caller cannot edit
   // the source by accident. Anything that needs them reads this.
+  // The footer's Follow control opens the SAME menu, so it calls this rather
+  // than growing a second copy of the list and a second panel.
+  window.TgbNav.followPopup = wireFollowPopup;
   window.TgbNav.socials = function () {
     return SOCIALS.map(function (s) {
       return { url: s[0], name: s[1], handle: s[2], icon: s[3] };
