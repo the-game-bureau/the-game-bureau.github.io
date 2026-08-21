@@ -696,13 +696,15 @@
 
 
   // ── TGB, first on the bar ─────────────────────────────────────────────────
-  // A new tab, like MISSION CONTROL beside it: this is a look at the live site,
-  // not somewhere you were going instead of the room you are in, so it must not
-  // take the admin page away from you.
+  // THIS TAB, unlike MISSION CONTROL beside it. It briefly opened a new one, on
+  // the reasoning that a glance at the live site should not take your admin page
+  // away. That is the wrong model of the press: leaving the admin area is a
+  // departure, not a peek, and a door that quietly spawns a tab every time you
+  // press it is how you end up with nine of them. The back button is the way
+  // back, which is what it is for.
   var home = document.createElement('a');
   home.className = 'asn-link asn-home';
   home.href = TGB_HOME.href;
-  openInNewTab(home);
   home.title = TGB_HOME.title;
   home.setAttribute('aria-label', TGB_HOME.title);
   home.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + TGB_HOME.icon + '")');
