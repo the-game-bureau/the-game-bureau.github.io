@@ -14,7 +14,7 @@
 -- ROWS FILED AFTER THE SEED ARE LEFT NULL. public.socials is admin-read only,
 -- so anything the bot filed on 2026-08-06 or 07 could not be read from here to
 -- be scored. Null is the honest value for them -- it means "not scored", which
--- is exactly true -- and /mc/socials/ renders nothing rather than a 0%.
+-- is exactly true -- and /mc/socializer/ renders nothing rather than a 0%.
 --
 -- HOW THEY WERE SCORED. Up: our own genre (hunts, puzzles, geocaching, ARGs), a
 -- place a player could go and stand in, a photograph that carries a post on its

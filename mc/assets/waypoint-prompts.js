@@ -1104,6 +1104,145 @@ $$;`.trim();
 
 
 /* ==== sportsPrompt ==== */
+    // A TIGHT CLUSTER, OPTIONALLY AROUND ONE PLACE WE ALREADY HOLD.
+    //
+    // WHAT THE OTHER PULLS DO NOT DO. "Sweep one city" returns whatever is
+    // standable anywhere in it, and a walk built from that answer is a taxi ride
+    // between good places. This one is told the thing that actually makes a
+    // path: PROXIMITY. Every stop must be within a few minutes of the last, and
+    // the whole set must fit one afternoon on foot.
+    //
+    // THE ANCHOR IS THE OTHER HALF. Given a waypoint we already hold, the sweep
+    // is centred on it: find me more places NEAR THIS ONE. That is the question
+    // you actually have when a path has four stops and needs eight, and no
+    // existing prompt could be asked it.
+    //
+    // SOURCED FROM PUBLISHED WALKING TOURS, like the tour-places prompt, because
+    // somebody has already decided these places are worth walking to AND worth
+    // walking BETWEEN. A cluster invented off a map is a set of things that
+    // happen to be close; a cluster lifted off a real tour is a walk.
+    function buildClusterWaypointPrompt(city, anchor, count, notes) {
+      var p = parseLocation(city);
+      var region = p.region || '';
+      var n = Math.max(1, Math.min(30, parseInt(count, 10) || 8));
+      var note = cleanText(notes);
+      var a = (anchor && cleanText(anchor.name)) ? anchor : null;
+      var existing = existingWaypointSample(800);
+      var lines = [];
+
+      lines.push('You are finding ' + n + ' places in ' + (p.city || city || 'the city we name')
+        + ' that a visitor could walk between in one afternoon, and we will build a path out of them.');
+      lines.push('');
+
+      if (a) {
+        var located = (a.lat != null && a.lon != null
+          && !(Number(a.lat) === 0 && Number(a.lon) === 0));
+        lines.push('CENTRE THE WHOLE SWEEP ON ONE PLACE WE ALREADY HOLD:');
+        lines.push('  ' + cleanText(a.name)
+          + (cleanText(a.address) ? ', ' + cleanText(a.address) : '')
+          + (cleanText(a.city) ? ', ' + cleanText(a.city) : ''));
+        lines.push(located
+          ? '  Its coordinates are ' + a.lat + ', ' + a.lon + '. Use them.'
+          : '  We hold no coordinates for it, so work from the street address.');
+        lines.push('');
+        lines.push('EVERY STOP YOU RETURN MUST BE WITHIN A TEN MINUTE WALK OF THAT PLACE,');
+        lines.push('roughly half a mile or 800 metres. Not the same neighbourhood, not the');
+        lines.push('same district: that radius. A place four blocks further out is a place');
+        lines.push('somebody has to be walked to and then walked back from, and that is the');
+        lines.push('one thing this pull exists to avoid.');
+        lines.push('');
+        lines.push('DO NOT RETURN THE ANCHOR ITSELF. We already have it. Return its neighbours.');
+      } else {
+        lines.push('NO ANCHOR WAS GIVEN, so choose the tightest cluster in the city yourself:');
+        lines.push('the historic core, the old market, the waterfront, whichever square mile');
+        lines.push('carries the most worth stopping at. Name the area you picked in the first');
+        lines.push('description so a human can tell where you went.');
+        lines.push('');
+        lines.push('EVERY STOP MUST BE WITHIN A TEN MINUTE WALK OF EVERY OTHER STOP.');
+        lines.push('That is the whole point of this pull. A single outlier ruins the set, so');
+        lines.push('drop it rather than stretching the radius to keep it.');
+      }
+
+      lines.push('');
+      lines.push('WHERE TO LOOK, in order:');
+      lines.push('- PUBLISHED WALKING TOURS of this city: a historical or preservation society,');
+      lines.push('  a landmarks commission, the National Park Service, a state historical');
+      lines.push('  commission, an NRHP historic-district guide, a university, museum, library');
+      lines.push('  or archive, the visitor bureau, an established heritage trail. A tour that');
+      lines.push('  already exists has decided BOTH that these places are worth seeing AND that');
+      lines.push('  they are close enough to walk between, which is exactly the pair of');
+      lines.push('  judgements you are being asked for.');
+      lines.push('- Then the sources below, filtered to the same radius.');
+      WIKI_SOURCE_LINES.forEach(function (l) { lines.push(l); });
+      lines.push('');
+      lines.push('REJECT a "top 10 things to do" listicle, a personal travel blog, a tour');
+      lines.push('company paid product whose stops are not published, and anything whose stop');
+      lines.push('list you cannot open and read.');
+      lines.push('');
+      lines.push('VERIFY EVERY STOP. Open its page. Confirm it still exists, is still where the');
+      lines.push('source says, and is visible from the street. Drop anything demolished, moved');
+      lines.push('or permanently closed. Never invent a street address, and never turn');
+      lines.push('coordinates into one.');
+      if (note) {
+        lines.push('');
+        lines.push('ANGLE FROM THE PERSON ASKING: ' + note);
+      }
+      lines.push('');
+      lines.push(WAYPOINTS_TABLE_DOC);
+      lines.push('');
+      lines.push('Hard requirements for each JSON object:');
+      lines.push('- name: the place name. Required.');
+      lines.push('- city: "' + (p.city || city || 'the city') + '".');
+      lines.push('- state: the 2-letter code for US places'
+        + (region ? ' (e.g. "' + region + '")' : '') + ', otherwise the country name.');
+      lines.push('- zip: the postal code as a string. REQUIRED whenever you have a street address. '
+        + 'A ZIP is a lookup from a known street address, not a guess, so the never-invent rule that '
+        + 'governs the address does NOT excuse leaving this null.');
+      lines.push('- address: the STREET ONLY, house number and street name. Never repeat the city, '
+        + 'state, ZIP or country. Null if you genuinely do not know the street.');
+      lines.push('- lat and lon: welcome, and never invented. Send them as a PAIR or not at all. '
+        + 'On this pull they are worth the effort: proximity is the whole brief, and a stop with a '
+        + 'point can be checked against the others rather than taken on trust.');
+      lines.push('- description: ONE original, concise tour-guide sentence. No marketing copy.');
+      lines.push('- source_url: REQUIRED on every object: the tour page or article you took the '
+        + 'stop from. Never a search-results page.');
+      lines.push(WALK_ORDER_RULE);
+      lines.push(AI_MODEL_RULE);
+      lines.push(NO_EM_DASH_RULE);
+      lines.push('- Do NOT include a wpid or id; the database assigns it.');
+      lines.push('- Do not include any place already in the "existing" list below.');
+      lines.push('- The JSON array may contain 1 to ' + n + ' objects. Do not pad with '
+        + 'unverifiable entries, and do not pad by widening the radius.');
+      lines.push('- Do not put the literal sequence $tgb$ inside any JSON string value.');
+      lines.push('- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql '
+        + 'code block. Do NOT split it across multiple blocks.');
+      lines.push('- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes '
+        + 'and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking '
+        + 'spaces, or other Unicode punctuation.');
+      lines.push('- The block must contain ONLY SQL: no prose, headings, or commentary before, '
+        + 'after, or inside it.');
+      lines.push('');
+      lines.push('Put one self-contained Supabase SQL script in that single block. It must begin '
+        + 'with the helper setup below, then call the helper with the verified-stop JSON array. Do '
+        + 'not omit the helper setup; the database may not have it yet. Use this exact SQL shape:');
+      lines.push(buildWaypointsSchemaSql());
+      lines.push(buildWaypointImportHelperSql());
+      lines.push('');
+      lines.push('select * from public.tgb_import_waypoints_prompt_items($tgb$');
+      lines.push('[ ... your JSON array here ... ]');
+      lines.push('$tgb$::jsonb);');
+      lines.push('');
+      lines.push('Everything you need is in this prompt. You have no access to our repository or '
+        + 'our database, so do not refer to a file, do not ask for a schema, and do not assume '
+        + 'anything already exists.');
+      lines.push('');
+      lines.push('EVERY WAYPOINT WE ALREADY HOLD. Do not suggest any of these again, under this '
+        + 'name or an obvious variant of it:');
+      lines.push(JSON.stringify(existing, null, 2));
+
+      return lines.join('\n');
+    }
+
     function buildNflSportsWaypointPrompt(count) {
       const n = Math.max(1, Math.min(100, parseInt(count, 10) || 10));
       const existing = existingWaypointSample(500);
@@ -1256,6 +1395,7 @@ $$;`.trim();
     buildWalkingTourImportHelperSql: buildWalkingTourImportHelperSql,
     buildWaypointAiPrompt: buildWaypointAiPrompt,
     buildNflWalkingTourPrompt: buildNflWalkingTourPrompt,
+    buildClusterWaypointPrompt: buildClusterWaypointPrompt,
     buildOldBarsWaypointPrompt: buildOldBarsWaypointPrompt,
     buildTourPlacesWaypointPrompt: buildTourPlacesWaypointPrompt,
     buildNflSportsWaypointPrompt: buildNflSportsWaypointPrompt

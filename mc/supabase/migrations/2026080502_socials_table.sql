@@ -15,7 +15,7 @@
 --
 -- HOW EACH SIDE WRITES
 --
---   The admin page   /mc/socials/ under an admin session. Reads and writes
+--   The admin page   /mc/socializer/ under an admin session. Reads and writes
 --                    directly: status, edits, everything.
 --   TGB SOCIAL BOT   through tgb_pull_socials_candidates() below. A cloud
 --                    routine has no secret store, so it calls a SECURITY

@@ -1,7 +1,7 @@
 // socials-post — POST { id, platforms: ["facebook","instagram", ...] }
 //
 // Posts an approved social candidate to Meta, on a human's click in
-// /mc/socializer.html. The page holds no credentials and never will: it is static HTML
+// /mc/socializer/. The page holds no credentials and never will: it is static HTML
 // in a public repo, so a token in it is a published token. The tokens live here,
 // as Supabase secrets, the same arrangement stripe-webhook and gs-send-code use.
 //
@@ -109,7 +109,7 @@
 //   5. supabase functions deploy socials-post
 //
 // Then flip facebook / instagram to true in PLATFORM_AUTOPOST in
-// mc/socializer.html. Until that flip the page keeps Post disabled, so this
+// mc/socializer/index.html. Until that flip the page keeps Post disabled, so this
 // function being undeployed is never a broken button.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -145,6 +145,79 @@ const GRAPH = 'https://graph.facebook.com/v21.0';
 const THREADS       = 'https://graph.threads.net/v1.0';
 const THREADS_USER  = Deno.env.get('THREADS_USER_ID') ?? '';
 const THREADS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') ?? '';
+
+// ── X IS A THIRD API, A THIRD CREDENTIAL, AND THE ONLY ONE THAT COSTS MONEY ──
+//
+// Restored on 2026-08-20. X and YouTube were both dropped from this page on
+// 2026-08-07; YouTube stays dropped (a video there is its own kind of candidate,
+// shared by hand, see the Socializer's YouTube filter) and X comes back as an
+// ordinary posting destination alongside Facebook, Instagram and Threads.
+//
+//   supabase secrets set X_API_KEY=...
+//   supabase secrets set X_API_SECRET=...
+//   supabase secrets set X_ACCESS_TOKEN=...
+//   supabase secrets set X_ACCESS_TOKEN_SECRET=...
+//   supabase functions deploy socials-post
+//
+// All four from developer.x.com -> your project -> Keys and tokens. The access
+// token pair must be generated with READ AND WRITE permission: the default is
+// read-only, and a read-only token fails at post time with a 403 that says
+// nothing about permissions. If you change the app's permission level you must
+// REGENERATE the access token pair afterwards, because the old pair keeps the
+// old scope.
+//
+// EVERY POST COSTS 20 CENTS, AND THAT IS NOT A TYPO.
+//
+// Checked against docs.x.com/x-api/getting-started/pricing on 2026-08-20, after
+// an earlier version of this comment said "needs a paid tier" and was wrong in
+// a way that mattered. There is no free tier and no subscription any more: the
+// API is pay-per-use against credits bought up front, and posting is priced
+//
+//   $0.015  a plain post
+//   $0.200  a post CONTAINING A URL
+//
+// A post that carries a link is THIRTEEN TIMES the price of one that does not,
+// and every post this function makes carries a link: xText() is the caption, a
+// blank line and the story url, the same shape as the other three platforms.
+// So the rate that applies to us is always the expensive one.
+//
+// At five posts a day that is about $30 a month; at two, about $12. Cheap
+// against a salary and expensive against the other three accounts here, which
+// are free. THIS IS THE ONLY DESTINATION IN THIS FILE THAT COSTS MONEY PER
+// POST, and it is worth re-reading that price before wiring anything that posts
+// automatically. Nothing here does: a human presses the button.
+//
+// DROPPING THE LINK WOULD SAVE 92% AND IS NOT WORTH IT. A post with no link is
+// a post nobody can follow, which is the whole job. Moving the link into a
+// reply does not help either: a reply carrying a url is charged the same $0.200.
+//
+// OAUTH 1.0a, NOT OAUTH 2.0, AND THAT IS DELIBERATE. X's OAuth 2.0 user tokens
+// expire in two hours and their refresh tokens ROTATE on every use, so a failed
+// refresh locks the account out until somebody walks a browser consent flow by
+// hand. OAuth 1.0a tokens do not expire at all. This project already carries one
+// expiring credential (Threads) and the note above it says plainly that nothing
+// else here needs renewing; adding a second, shorter-lived one with a manual
+// recovery step is the opposite of what this file wants. The cost is the
+// signing code below, which is fiddly but is written once and then never moves.
+//
+// TEXT AND A LINK ONLY. NO IMAGE. Uploading media to X means the v1.1
+// media/upload endpoint, a different host, a chunked protocol and a second set
+// of scopes; the post itself is one small JSON body. X unfurls the link into a
+// card from the destination's own og:image, which is the same picture the
+// candidate is carrying, so the post is not bare. If image upload is ever
+// wanted it is a separate piece of work, not a flag.
+const X_API        = 'https://api.x.com/2/tweets';
+const X_API_KEY    = Deno.env.get('X_API_KEY') ?? '';
+const X_API_SECRET = Deno.env.get('X_API_SECRET') ?? '';
+const X_TOKEN      = Deno.env.get('X_ACCESS_TOKEN') ?? '';
+const X_TOKEN_SEC  = Deno.env.get('X_ACCESS_TOKEN_SECRET') ?? '';
+
+// X counts every link as 23 characters however long it is (t.co wraps them), so
+// the real budget for the caption is 280 minus 23 minus the two newlines. The
+// caption rule in both prompts is 200 characters, which fits with room to spare;
+// this is the backstop for a hand-written candidate that ignored it.
+const X_MAX_CHARS  = 280;
+const X_LINK_COST  = 23;
 
 const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
@@ -324,7 +397,7 @@ async function metaIds(): Promise<{ pageId: string; igUserId: string }> {
 // the preflight and the request never leaves the page. The symptom is a bare
 // "Failed to fetch" with no status and nothing in the function's logs, which
 // reads like the function is down rather than like a header problem.
-// authHeaders() in /mc/socializer.html sends apikey, Authorization and Accept; Accept
+// authHeaders() in /mc/socializer/ sends apikey, Authorization and Accept; Accept
 // is safelisted, the other two are not. x-client-info is included because the
 // Supabase JS client adds it and a future caller may go through that.
 const CORS = {
@@ -636,6 +709,125 @@ async function postThreads(row: any): Promise<Outcome> {
   }
 }
 
+// ── OAUTH 1.0a SIGNING ───────────────────────────────────────────────────────
+//
+// Every one of these steps is load-bearing and a mistake in any of them
+// produces the same unhelpful 401. In order:
+//
+//   1. Percent-encoding is RFC 3986, which is NOT encodeURIComponent: that
+//      leaves ! * ' ( ) alone and X rejects the signature if they are not
+//      encoded. Hence xEncode below.
+//   2. The signature base includes the oauth_* parameters and any QUERY
+//      parameters, and deliberately NOT the JSON body. A JSON-bodied request is
+//      signed as though it had no body at all.
+//   3. Parameters are sorted by encoded key, joined with &, and the whole
+//      string is encoded again into the base.
+//   4. The signing key is the two secrets, each encoded, joined by &. The
+//      trailing & matters even when a secret is empty.
+function xEncode(v: string): string {
+  return encodeURIComponent(v).replace(
+    /[!*'()]/g,
+    (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase()
+  );
+}
+
+async function xAuthHeader(method: string, url: string): Promise<string> {
+  const oauth: Record<string, string> = {
+    oauth_consumer_key: X_API_KEY,
+    // A nonce only has to be unique per timestamp per token. Random hex is
+    // plenty and needs no state.
+    oauth_nonce: crypto.randomUUID().replace(/-/g, ''),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_token: X_TOKEN,
+    oauth_version: '1.0',
+  };
+
+  const paramString = Object.keys(oauth)
+    .sort()
+    .map((k) => `${xEncode(k)}=${xEncode(oauth[k])}`)
+    .join('&');
+
+  const base = [method.toUpperCase(), xEncode(url), xEncode(paramString)].join('&');
+  const key  = `${xEncode(X_API_SECRET)}&${xEncode(X_TOKEN_SEC)}`;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(key),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(base));
+  const signature = btoa(String.fromCharCode(...new Uint8Array(sig)));
+
+  const header = { ...oauth, oauth_signature: signature };
+  return 'OAuth ' + Object.keys(header)
+    .sort()
+    .map((k) => `${xEncode(k)}="${xEncode(header[k])}"`)
+    .join(', ');
+}
+
+/** The caption X will actually accept: 280 with the link counted as 23. */
+function xText(row: any): string {
+  const caption = String(row.blurb ?? '').trim();
+  const link    = String(row.url ?? '').trim();
+  const budget  = X_MAX_CHARS - (link ? X_LINK_COST + 2 : 0);
+  // Trimmed rather than refused. A candidate over the limit is a caption that
+  // broke a rule both prompts state, and losing the tail of a sentence is a
+  // smaller failure than a post that does not go out at all. The ellipsis is
+  // what tells a reader it happened.
+  const text = caption.length > budget ? caption.slice(0, Math.max(0, budget - 1)).trimEnd() + '\u2026' : caption;
+  return [text, link].filter(Boolean).join('\n\n');
+}
+
+async function postX(row: any): Promise<Outcome> {
+  // Named individually, because "X is not configured" sends somebody to look at
+  // all four and the one that is missing is usually the token pair: those are
+  // generated separately from the API key pair and are the ones that have to be
+  // regenerated after a permission change.
+  const missing = [
+    !X_API_KEY    && 'X_API_KEY',
+    !X_API_SECRET && 'X_API_SECRET',
+    !X_TOKEN      && 'X_ACCESS_TOKEN',
+    !X_TOKEN_SEC  && 'X_ACCESS_TOKEN_SECRET',
+  ].filter(Boolean);
+  if (missing.length) {
+    return {
+      platform: 'x',
+      ok: false,
+      error: `not set on this project: ${missing.join(', ')}. X needs its own ` +
+             'credential; no Meta or Threads token can reach it.',
+    };
+  }
+
+  try {
+    const auth = await xAuthHeader('POST', X_API);
+    const res  = await fetch(X_API, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: xText(row) }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // X puts its reason in three different places depending on the failure,
+      // and the bare status is the least useful of them. 403 on a
+      // correct-looking call is nearly always a read-only access token or an
+      // unpaid tier; say so rather than making somebody guess.
+      const detail = out?.detail || out?.title || out?.errors?.[0]?.message || `HTTP ${res.status}`;
+      const hint = res.status === 403
+        ? ' (a 403 here usually means the access token is read-only, or the ' +
+          'project is on a tier that cannot post; regenerate the token pair ' +
+          'after changing app permissions)'
+        : '';
+      throw new Error(detail + hint);
+    }
+    return { platform: 'x', ok: true, id: out?.data?.id };
+  } catch (err) {
+    return { platform: 'x', ok: false, error: (err as Error).message };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST')    return json(405, { error: 'POST only' });
@@ -656,35 +848,155 @@ Deno.serve(async (req: Request) => {
   let body: { id?: string; platforms?: string[]; diagnose?: boolean } = {};
   try { body = await req.json(); } catch { return json(400, { error: 'invalid JSON body' }); }
 
-  // { diagnose: true } -- answer "what does this token actually point at?" and
-  // post nothing. Added because a post can succeed, return a real id, and still
-  // be invisible on the Page you are looking at: if the stored token is a USER
-  // token, /me resolves to the person rather than the Page, and the post lands
-  // on their own feed. From the outside that is indistinguishable from a post
-  // that failed silently. Returns no secret -- an id, a name, and a type.
+  // { diagnose: true } -- CHECK EVERY CREDENTIAL AND POST NOTHING.
+  //
+  // It began as a Meta-only probe, for a failure with no outward symptom: a
+  // post can succeed, return a real id, and still be invisible on the Page you
+  // are looking at, because if the stored token is a USER token /me resolves to
+  // the person and the post lands on their own feed. From the outside that is
+  // indistinguishable from a post that failed silently.
+  //
+  // It now answers for all three, because the same argument applies to the
+  // others in different ways: a Threads token EXPIRES and nothing tells you
+  // until a post fails, and X has four secrets of which the token pair is
+  // usually the one missing. The reply is one object per destination, shaped
+  // the same, so the page can render them without knowing which is which:
+  //
+  //   { configured, ok, detail, needsAttention, expiresInDays? }
+  //
+  // NO SECRET IS EVER RETURNED, only what it points at.
   if (body.diagnose) {
+    const out: Record<string, unknown> = { diagnose: true };
+
+    // ── Meta ────────────────────────────────────────────────────────────────
     try {
-      const probe = await fetch(
-        `${GRAPH}/me?fields=id,name,category,instagram_business_account{id,username}` +
-        `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`
-      );
-      const d = await probe.json().catch(() => ({}));
-      if (!probe.ok) return json(200, { diagnose: true, error: d?.error?.message || `HTTP ${probe.status}` });
-      return json(200, {
-        diagnose: true,
-        id: d?.id ?? null,
-        name: d?.name ?? null,
-        // A Page has a category; a user does not. This is the tell.
-        looksLike: d?.category ? 'PAGE token' : 'USER token (wrong -- see setup notes)',
-        category: d?.category ?? null,
-        instagram: d?.instagram_business_account
-          ? { id: d.instagram_business_account.id, username: d.instagram_business_account.username }
-          : null,
-        tokenSet: !!META_PAGE_TOKEN,
-      });
+      if (!META_PAGE_TOKEN) {
+        out.meta = {
+          configured: false, ok: false, needsAttention: true,
+          detail: 'META_PAGE_ACCESS_TOKEN is not set on this project.',
+        };
+      } else {
+        const probe = await fetch(
+          `${GRAPH}/me?fields=id,name,category,instagram_business_account{id,username}` +
+          `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`
+        );
+        const d = await probe.json().catch(() => ({}));
+        if (!probe.ok) {
+          out.meta = {
+            configured: true, ok: false, needsAttention: true,
+            detail: d?.error?.message || `HTTP ${probe.status}`,
+          };
+        } else {
+          // A Page has a category; a user does not. This is the tell.
+          const isPage = !!d?.category;
+          out.meta = {
+            configured: true,
+            ok: isPage,
+            needsAttention: !isPage,
+            detail: isPage
+              ? `Page token for "${d?.name ?? '?'}"` +
+                (d?.instagram_business_account
+                  ? `, Instagram @${d.instagram_business_account.username}`
+                  : ', but NO Instagram account is linked to it')
+              : 'This is a USER token, not a PAGE token: posts will land on a ' +
+                'personal feed rather than the Page. See the setup notes.',
+            id: d?.id ?? null,
+            name: d?.name ?? null,
+            instagram: d?.instagram_business_account
+              ? { id: d.instagram_business_account.id, username: d.instagram_business_account.username }
+              : null,
+          };
+        }
+      }
     } catch (err) {
-      return json(200, { diagnose: true, error: (err as Error).message });
+      out.meta = { configured: !!META_PAGE_TOKEN, ok: false, needsAttention: true, detail: (err as Error).message };
     }
+
+    // ── Threads: the only credential here that expires ──────────────────────
+    try {
+      if (!THREADS_USER) {
+        out.threads = {
+          configured: false, ok: false, needsAttention: true,
+          detail: 'THREADS_USER_ID is not set on this project.',
+        };
+      } else {
+        // THE EXISTING READER, NOT A SECOND ONE. An earlier version of this
+        // block declared its own readStoredThreadsToken() a few lines below the
+        // real one, which shadowed it and handed `threadsToken()` a row with no
+        // `expiresAt` on it -- so the refresh logic silently stopped seeing an
+        // expiry at all. The function it needed was already there.
+        const stored = await readStoredThreadsToken();
+        const token  = await threadsToken();
+        // Days from the STORED expiry, which is the number that matters: the
+        // function only refreshes when it posts, so a quiet fortnight is how
+        // this dies. Reported even when the probe passes, because a token that
+        // works today and expires on Thursday still needs attention.
+        // expiresAt is a millisecond timestamp and 0 means "not known".
+        const expiresInDays = stored && stored.expiresAt
+          ? Math.floor((stored.expiresAt - Date.now()) / 86400000)
+          : null;
+        if (!token) {
+          out.threads = {
+            configured: true, ok: false, needsAttention: true, expiresInDays,
+            detail: 'No Threads token available: THREADS_ACCESS_TOKEN is unset and ' +
+                    'nothing is stored in integration_tokens.',
+          };
+        } else {
+          const probe = await fetch(
+            `${THREADS}/me?fields=id,username&access_token=${encodeURIComponent(token)}`
+          );
+          const d = await probe.json().catch(() => ({}));
+          const live = probe.ok && !!d?.id;
+          // 14 days is two weeks of not posting, which has happened, against a
+          // 60 day token that only refreshes on a post.
+          const expiringSoon = expiresInDays !== null && expiresInDays <= 14;
+          out.threads = {
+            configured: true,
+            ok: live,
+            needsAttention: !live || expiringSoon,
+            expiresInDays,
+            detail: !live
+              ? (d?.error?.message || `HTTP ${probe.status}`)
+              : expiringSoon
+                ? `Token for @${d.username} works, but expires in ${expiresInDays} day(s). ` +
+                  'It only refreshes when something is POSTED, so a quiet fortnight ' +
+                  'will kill it. Post something, or reissue the token.'
+                : `Token for @${d.username}, ${expiresInDays === null ? 'expiry unknown' : expiresInDays + ' days left'}.`,
+          };
+        }
+      }
+    } catch (err) {
+      out.threads = { configured: !!THREADS_USER, ok: false, needsAttention: true, detail: (err as Error).message };
+    }
+
+    // ── X: SECRETS ONLY, DELIBERATELY NO LIVE CALL ──────────────────────────
+    // Every other probe here is a free read. X is metered and pay-per-use, so a
+    // health check that called it would spend real money every time somebody
+    // opened the page. Reporting which of the four secrets are present catches
+    // the failure that actually happens (a half-finished setup) and costs
+    // nothing; a wrong-but-present credential is found the first time a human
+    // presses Post, which is also the first time it matters.
+    const xMissing = [
+      !X_API_KEY    && 'X_API_KEY',
+      !X_API_SECRET && 'X_API_SECRET',
+      !X_TOKEN      && 'X_ACCESS_TOKEN',
+      !X_TOKEN_SEC  && 'X_ACCESS_TOKEN_SECRET',
+    ].filter(Boolean) as string[];
+    out.x = {
+      configured: xMissing.length === 0,
+      ok: xMissing.length === 0,
+      // NOT an alarm when unset. X is posted by hand on purpose (its API
+      // charges 20 cents for a post carrying a link), so missing secrets are
+      // the expected state rather than a fault.
+      needsAttention: false,
+      detail: xMissing.length
+        ? 'Not set: ' + xMissing.join(', ') + '. X is posted by hand, so this is ' +
+          'expected unless you have turned machine posting on.'
+        : 'All four secrets are set. Not live-checked: an X API call costs money.',
+      unchecked: true,
+    };
+
+    return json(200, out);
   }
 
   const id = String(body.id ?? '').trim();
@@ -692,7 +1004,7 @@ Deno.serve(async (req: Request) => {
 
   const wanted = (Array.isArray(body.platforms) ? body.platforms : [])
     .map((p) => String(p).toLowerCase().trim())
-    .filter((p) => p === 'facebook' || p === 'instagram' || p === 'threads');
+    .filter((p) => p === 'facebook' || p === 'instagram' || p === 'threads' || p === 'x');
   if (!wanted.length) return json(400, { error: 'no supported platform requested' });
 
   const { data: row, error: rowErr } = await supa
@@ -707,6 +1019,7 @@ Deno.serve(async (req: Request) => {
   if (wanted.includes('facebook'))  results.push(await postFacebook(row));
   if (wanted.includes('instagram')) results.push(await postInstagram(row));
   if (wanted.includes('threads'))   results.push(await postThreads(row));
+  if (wanted.includes('x'))         results.push(await postX(row));
 
   const posted = results.filter((r) => r.ok).map((r) => r.platform);
 

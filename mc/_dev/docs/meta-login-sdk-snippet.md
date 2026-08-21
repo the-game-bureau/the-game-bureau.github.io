@@ -1,7 +1,7 @@
 # Facebook JavaScript SDK snippet — kept for reference, NOT installed
 
 Handed over by the Facebook Login for Business Quickstart on 2026-08-06 while
-setting up Meta posting for `/mc/socializer.html`. Kept because it was asked for, not
+setting up Meta posting for `/mc/socializer/`. Kept because it was asked for, not
 because anything uses it.
 
 ```html

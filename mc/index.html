@@ -233,7 +233,7 @@
       letter-spacing: 0;
     }
 
-    /* :not(.room-blurb) because the three Daily Chores blurbs are the ROOMS'
+    /* :not(.room-blurb) because the three Ancillary Things blurbs are the ROOMS'
        own sentences and wear the room's own container: `.room-blurb` in
        admin-shell.css, the same rule the header under each room's title uses.
        Without the :not() the two fought and the card won some properties and
@@ -415,7 +415,7 @@
 
     <!-- ACCESS REQUESTS. Hidden until there is at least one pending, so the hub
          is not carrying an empty box on the 364 days a year nobody is asking to
-         join. It sits ABOVE Daily Chores because somebody waiting on a decision
+         join. It sits ABOVE Ancillary Things because somebody waiting on a decision
          is waiting on a person, and a chore is not. -->
     <fieldset class="mc-chores mc-access" id="mcAccessPanel" hidden>
       <legend>Access Requests</legend>
@@ -424,10 +424,42 @@
     </fieldset>
 
     <fieldset class="mc-chores">
-      <legend>Daily Chores</legend>
+      <!-- ANCILLARY THINGS, renamed from DAILY CHORES on 2026-08-20. The old
+           name described the CADENCE and said nothing about what these are;
+           the new one says what they are, which the big-picture section of
+           CLAUDE.md now names outright: soundtracks, gifts and social posts
+           hang off the product rather than being it.
+           THE CLASS NAMES DO NOT MOVE. `.mc-chores` and `.mc-chore` are
+           identifiers, the same bargain the Tape Room made through four
+           renames of its verbs without the column following. -->
+      <legend>Ancillary Things</legend>
       <div class="mc-chores-inner">
+        <!-- SOCIALIZER FIRST (2026-08-21). The three are ordered by how often
+             they are opened rather than alphabetically or by age: this queue
+             fills twice a day and empties by hand, so it is the one you come
+             here for. The other two accumulate and are worked in sittings. -->
+        <!-- THE SLOT EXISTS SO THE FOLLOW BUTTON CAN BE A SIBLING OF THE CARD
+             RATHER THAN A CHILD OF IT. The card is one big <a>, and a <button>
+             inside an <a> is invalid HTML that browsers handle differently, so
+             the two sit side by side in a positioned wrapper and the button is
+             placed over the corner. The wrapper is the grid item now; the card
+             stretches to fill it. -->
+        <div class="mc-chore-slot">
+          <a class="mc-hub-card mc-chore" href="/mc/socializer/">
+            <h2>SOCIALIZER</h2>
+            <p class="room-blurb" data-room-blurb="socializer"></p>
+            <span class="mc-hub-card-button">GO TO SOCIALIZER</span>
+          </a>
+          <!-- The scrolling account reel, as a real control: it opens the menu
+               of the five accounts this room feeds. It ships without the reel
+               inside it, which mc/js/follow-reel.js supplies along with the
+               menu; if that file fails to load the button stays empty and
+               inert, so it is hidden until wiring succeeds. -->
+          <button type="button" class="mc-chore-follow" data-tgb-reel hidden
+                  aria-label="Our social accounts" title="Our social accounts"></button>
+        </div>
         <a class="mc-hub-card mc-chore" href="/mc/gifts/">
-          <h2>STOCK ROOM</h2>
+          <h2>GIFT SHOP</h2>
           <p class="room-blurb" data-room-blurb="stock-room"></p>
           <span class="mc-hub-card-button">GO TO STOCK ROOM</span>
         </a>
@@ -436,11 +468,6 @@
           <p class="room-blurb" data-room-blurb="tape-room"></p>
           <span class="mc-hub-card-button">GO TO TAPE ROOM</span>
         </a>
-        <a class="mc-hub-card mc-chore" href="/mc/socializer.html">
-          <h2>SOCIALIZER</h2>
-          <p class="room-blurb" data-room-blurb="socializer"></p>
-          <span class="mc-hub-card-button">GO TO SOCIALIZER</span>
-        </a>
       </div>
     </fieldset>
 
@@ -448,6 +475,66 @@
   </main>
 
   <style>
+    /* The slot is the grid item and the card fills it, so wrapping one card
+       changes nothing about how the three sit beside each other. */
+    .mc-chore-slot {
+      position: relative;
+      display: grid;
+    }
+    .mc-chore-slot > .mc-chore { height: 100%; }
+
+    /* UPPER RIGHT, OVER THE CARD. Absolute rather than in the card's flow
+       because the card is a link and this is not part of it: it has to sit on
+       top, not between the heading and the blurb.
+       The reel inside keeps pointer-events: none and this button is what takes
+       the press, which is the whole reason the reel can stay decorative in both
+       of its uses. */
+    .mc-chore-follow {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid rgba(var(--bic-blue-rgb, 45, 72, 128), 0.28);
+      border-radius: 8px;
+      background: #fff;
+      color: rgba(27, 36, 56, 0.75);
+      cursor: pointer;
+      transition: border-color 0.12s ease, color 0.12s ease;
+    }
+    /* [hidden] has to out-specify the display above, or the button shows before
+       follow-reel.js has put anything in it. The same trap the admin dialogs and
+       the public soundtracks deck both hit. */
+    .mc-chore-follow[hidden] { display: none; }
+    .mc-chore-follow:hover,
+    .mc-chore-follow:focus-visible {
+      border-color: var(--bic-blue, #2d4880);
+      color: var(--bic-blue, #2d4880);
+      outline: none;
+    }
+    .mc-chore-follow .tgb-reel { --reel-size: 16px; }
+    /* The wrap follow-reel.js re-parents the button into becomes the positioned
+       element, so the offsets have to move onto it: styling the button alone
+       would leave it in the card's flow with the wrap pinned to the corner.
+       Same mistake the public nav made when `order` went on the button instead
+       of its wrapper. */
+    .mc-chore-slot > .tgb-reelpop-wrap {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+    }
+    .mc-chore-slot > .tgb-reelpop-wrap > .mc-chore-follow {
+      position: static;
+      top: auto;
+      right: auto;
+    }
+
     /* Rows, not cards. A request is a name and two decisions; the card shape
        next door is for destinations you travel to. */
     .mc-access-inner { display: grid; gap: 8px; }
@@ -485,10 +572,23 @@
     .mc-access-note:empty { display: none; }
   </style>
 
-  <!-- The Daily Chores blurbs are the ROOMS' own sentences, rendered from
+  <!-- The Ancillary Things blurbs are the ROOMS' own sentences, rendered from
        one source so a card cannot drift from the room it opens. The <p>s
        above are empty on purpose; see mc/js/room-blurbs.js. -->
   <script src="/mc/js/room-blurbs.js"></script>
+  <script src="/mc/js/follow-reel.js"></script>
+  <script>
+    // The reel is painted by the module's own data-tgb-reel pass; this only
+    // hangs the menu on the button and then reveals it. Hidden until both have
+    // happened, so a failed script leaves no empty button that does nothing.
+    (function () {
+      var btn = document.querySelector('.mc-chore-follow');
+      if (btn && window.TgbFollowReel && typeof window.TgbFollowReel.popup === 'function') {
+        window.TgbFollowReel.popup(btn);
+        btn.hidden = false;
+      }
+    })();
+  </script>
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
@@ -740,7 +840,7 @@
         const groups = window.TgbMcAdminNav.getGroups();
         groups.forEach((group) => {
           // A group flagged hubHidden lives in the dropdown only — it is already
-          // on this page as a Daily Chore, and a second card is the same link
+          // on this page as an Ancillary Thing, and a second card is the same link
           // twice.
           if (group.hubHidden) return;
 

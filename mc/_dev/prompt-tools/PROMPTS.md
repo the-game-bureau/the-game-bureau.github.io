@@ -36,7 +36,7 @@ walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
-| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer.html](../../socializer.html), PROMPT dialog | `tgb_pull_socials_candidates` |
+| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer/index.html](../../socializer/index.html), PROMPT dialog | `tgb_pull_socials_candidates` |
 | **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20` | [mc/soundtracks/index.html](../../soundtracks/index.html), PROMPT dialog | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB ANCHOR EVENTS** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
@@ -83,13 +83,29 @@ these changes. Until somebody disables `trig_018FbHnaU5DqB4GesPfABV2d` it keeps
 committing a file that nothing reads, into a path that no longer exists in the
 working tree.
 
+### TGB SOCIALIZER BOT files SIX rows, not five (2026-08-20)
+
+Five for the queue (one gift, four stories) plus **one YouTube video** as a sixth,
+in its own RPC call. The video is marked by `platforms: [{"name": "YouTube"}]`
+and nothing else, which is what greys the Post button and puts it behind the
+Socializer's YouTube filter. **That array is the marker; adding a second platform
+to it turns the row back into an ordinary post.** Its id ends `-y1`.
+
+**THE PAGE PROMPT HAS IT TOO**, as of later the same day. It was routine-only
+for an hour, on the argument that a chat AI cannot check its own work against the
+queue. That held for the COUNT and not for the MARKER: a human pasting SQL whose
+video row names Facebook in `platforms` files a candidate that posts to the wrong
+accounts, and nothing downstream catches it. The rule belongs in front of them,
+so the dialog is titled **Six Post Candidates** and step 7's worked example
+carries the sixth row.
+
 ### TGB SOCIALIZER BOT's email deep-links each candidate
 
 Step 8 of its stored prompt builds one link per candidate:
 
-    https://thegamebureau.com/mc/socializer.html#edit=<the id it filed>
+    https://thegamebureau.com/mc/socializer/#edit=<the id it filed>
 
-That hash is a **contract with [mc/socializer.html](../../socializer.html)**,
+That hash is a **contract with [mc/socializer/index.html](../../socializer/index.html)**,
 which resolves it after the queue loads and opens that candidate's Edit dialog.
 If the hash format ever changes, the prompt and the page have to move together,
 and the page is the half that also has to keep answering the old shape or every

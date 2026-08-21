@@ -30,68 +30,28 @@
   // The admin rooms. `match` is what makes a button read as current: the admin
   // pages sit at different depths (/mc/gifts/ vs /mc/soundtracks/), so this
   // tests the section rather than comparing the whole path.
-  var ROOMS = [
-    {
-      key: 'games',
-      // Points at the hub's GAME BUILDER section, not at /games/admin/ — that
-      // room lost its button bar on 2026-08-07 and is now a titled landing page,
-      // so sending people there was sending them to a dead end. The hub section
-      // carries every game tool, generated from admin-nav-menu.js.
-      //
-      // The anchor is minted by groupAnchor() in mc/index.html from the group
-      // LABEL, so renaming the "Game Builder" group there breaks this link.
-      // Rename both together.
-      label: 'GAMES',
-      href: '/mc/#game-builder',
-      title: 'Admin games',
-      publicHref: '/games/',
-      publicTitle: 'Public games page',
-      // Matches the three game EDITORS, not a room folder. /games/admin/ was
-      // emptied on 2026-08-07 — its index went, and marquee.html and stops.html
-      // moved to /mc/ — so the old /^\/games\/admin\// test could never fire
-      // again and this button never lit up. These three are what "you are in
-      // games" actually means now.
-      match: /^\/mc\/(profiles|stops|builder)\.html/,
-      // Map pin.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'gifts',
-      label: 'GIFTS',
-      href: '/mc/gifts/',
-      title: 'Admin gifts',
-      publicHref: '/gifts/',
-      publicTitle: 'Public gift shop',
-      match: /^\/mc\/gifts\//,
-      // Gift box.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8'/%3E%3Cpath d='M2 7h20v5H2z'/%3E%3Cpath d='M12 22V7'/%3E%3Cpath d='M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z'/%3E%3Cpath d='M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'soundtracks',
-      label: 'SOUNDTRACKS',
-      href: '/mc/soundtracks/',
-      title: 'Admin soundtracks',
-      publicHref: '/soundtracks/',
-      publicTitle: 'Public soundtracks page',
-      // The room moved out of /admin/ on 2026-08-17. This is what lights the
-      // button up when you are standing in it, so it has to move with the href
-      // or SOUNDTRACKS never shows as current again.
-      match: /^\/mc\/soundtracks\//,
-      // Double note.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E"
-    },
-    {
-      key: 'highlights',
-      label: 'HIGHLIGHTS',
-      href: '/mc/highlights/',
-      title: 'Admin highlights',
-      publicHref: '/highlights/',
-      publicTitle: 'Public highlights page',
-      match: /^\/mc\/highlights\//,
-      // Trophy.
-      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
-    }
-  ];
+  // ── THE SECTION BUTTONS ARE GONE (2026-08-20) ────────────────────────────
+  //
+  // This bar used to carry GAMES / GIFTS / SOUNDTRACKS / HIGHLIGHTS / FOLLOW,
+  // each an admin destination wearing a public section's name, each with a
+  // quiet ADMIN under it and a plain link to its public page below. All five
+  // are deleted. The bar is now the brand, MISSION CONTROL, and the padlock.
+  //
+  // WHY: five doors on every room's header is a site map, not a navigation
+  // bar. Mission Control already IS the index, it is one press away, and it
+  // lists every room with a description rather than a one-word face you had to
+  // learn. The bar was answering a question the hub answers better.
+  //
+  // WHAT WENT WITH THEM, so nobody hunts for it: the ROOMS array and its five
+  // entries, the FOLLOW button's scrolling account reel (which had lived here
+  // for about an hour; it is now mc/js/follow-reel.js, used by the hub card),
+  // the public-counterpart links, and the burger, which existed only to
+  // collapse these five on a phone and had nothing left to collapse.
+  //
+  // The CSS for all of it is deleted too. Git has the lot if it is ever wanted
+  // back; an unrendered ROOMS array left sitting here would answer "is this
+  // wired?" with a convincing yes, which is the trap PLATFORM_ORDER already
+  // sprang on this project once.
 
   // EVERY DESTINATION IN THIS BAR OPENS IN A NEW TAB (2026-08-10). These rooms
   // hold work in progress — a half-written game in the Marquee, a dirty card in
@@ -120,6 +80,25 @@
   // bar that is not a section. It gets no public sibling link because it has no
   // public page — /mc/ is admin all the way down — which is why it renders as a
   // lone button beside the padlock rather than as another ROOMS column.
+  // ── THE WAY OUT TO THE PUBLIC SITE ───────────────────────────────────────
+  // Left of MISSION CONTROL, and the pairing is the point: one button is the
+  // way further in, the other is the way back out to what a visitor sees.
+  //
+  // THE PIN IS THE OLD GAMES ROOM GLYPH, kept when that button was deleted. It
+  // is the waypoint mark, which is the closest thing this project has to a
+  // logo, and it is doing the same job here it did there: standing for the
+  // product rather than for a tool.
+  //
+  // NO `match` AND NO aria-current. It points at the public site, so it can
+  // never be the page you are standing on: every page that loads this bar is
+  // under /mc/.
+  var TGB_HOME = {
+    label: 'TGB',
+    href: '/',
+    title: 'The Game Bureau, the public site',
+    icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"
+  };
+
   var MISSION_CONTROL = {
     label: 'MISSION CONTROL',
     href: '/mc/',
@@ -256,7 +235,6 @@
        -- so the later of the two won, which is .asn-link's display: inline-flex,
        and the burger showed on desktop. Matching on .asn-link.asn-burger scores
        (0,3,0) and stops depending on where in the sheet the rule sits. */
-    '.admin-site-nav .asn-link.asn-burger { display: none; }',
     '.admin-site-nav .asn-brand {',
     '  color: inherit;',
     '  cursor: default;',
@@ -290,48 +268,20 @@
     /* flex-start, not center: each section is a two-row column (button over
        public link) while the padlock is a lone button, and centering would push
        the lock down to the middle of the taller columns. */
-    '.admin-site-nav .asn-links {',
-    '  display: flex;',
-    '  flex-wrap: wrap;',
-    '  align-items: flex-start;',
-    '  justify-content: flex-end;',
-    '  gap: 6px;',
-    '}',
-    '.admin-site-nav .asn-item {',
-    '  display: flex;',
-    '  flex-direction: column;',
-    '  align-items: stretch;',
-    '  gap: 3px;',
-    '}',
+    /* WAS a wrapping flex row, which is what five buttons of different widths
+       needed. The two that are left are equalised as a grid instead; see the
+       rule further down. Kept as the fallback nothing currently needs, rather
+       than two live definitions of one selector quietly fighting over source
+       order, it is simply gone. */
     /* The public link, deliberately plain: no border, no fill, smaller and
        lighter than the button above it, so the button stays the primary target
        and this reads as a footnote to it. */
-    '.admin-site-nav .asn-public {',
-    '  display: block;',
-    '  padding: 0 2px;',
-    '  color: rgba(var(--asn-blue-rgb), 0.78);',
-    '  font-family: "IBM Plex Mono", Consolas, monospace;',
-    '  font-size: 0.62rem;',
-    '  font-weight: 800;',
-    '  letter-spacing: 0.08em;',
-    '  line-height: 1.2;',
-    '  text-align: center;',
-    '  text-decoration: none;',
-    '  text-transform: uppercase;',
-    '}',
     /* The public link carries two labels and shows one at a time. On a desktop
        the button and the link under it deliberately repeat the same word — that
        pairing is what says "room, and the page a visitor sees". Stacked into a
        phone list the repeat reads as a duplicate row instead, so there the word
        gives way to a plain PUBLIC tag. Two spans rather than a JS text swap, so
        the panel needs no rebuild when the layout crosses the breakpoint. */
-    '.admin-site-nav .asn-public-tag { display: none; }',
-    '.admin-site-nav .asn-public:hover,',
-    '.admin-site-nav .asn-public:focus-visible {',
-    '  color: var(--asn-ink);',
-    '  text-decoration: underline;',
-    '  outline: none;',
-    '}',
     '.admin-site-nav .asn-link {',
     '  display: inline-flex;',
     '  align-items: center;',
@@ -355,8 +305,7 @@
     '}',
     /* currentColor + mask, so the glyph flips to white with the button when it
        fills in — one icon asset instead of a light and a dark copy. */
-    '.admin-site-nav .asn-link::before,',
-    '.admin-site-nav .asn-public::before {',
+    '.admin-site-nav .asn-link::before {',
     '  content: "";',
     '  display: inline-block;',
     '  width: 17px;',
@@ -367,11 +316,28 @@
     '  mask: var(--asn-icon) center / contain no-repeat;',
     '  -webkit-mask: var(--asn-icon) center / contain no-repeat;',
     '}',
-    /* OFF on the desktop bar. There the public link is a small caption under a
-       button that already carries the glyph, and a second copy of it beside the
-       caption reads as a second button. The phone panel turns it back on,
-       because there the public row IS the row. */
-    '.admin-site-nav .asn-public::before { display: none; }',
+    /* ── THE FOLLOW REEL, the one wordless button in the bar ────────────────
+       The reel IS the face, so the Lucide glyph is switched off: drawn as well
+       it would be two pictures on one button. Padding matches the others so it
+       sits in the same rhythm despite being narrower. */
+    /* 17px, NOT the public nav's 18: it matches the glyph the four buttons
+       beside it carry, so all five faces are drawn to one size. */
+    /* currentColor, like every other glyph here, so it flips to white with the
+       button when it fills in as the current room. */
+    /* Each icon HOLDS, then slides. A continuous crawl is a fidget; a hold
+       reads as "these are the five" and gives the eye time to name one. */
+    '@keyframes asnFollowReel {',
+    '  0%, 16%   { transform: translateY(0); }',
+    '  20%, 36%  { transform: translateY(-17px); }',
+    '  40%, 56%  { transform: translateY(-34px); }',
+    '  60%, 76%  { transform: translateY(-51px); }',
+    '  80%, 96%  { transform: translateY(-68px); }',
+    '  100%      { transform: translateY(-85px); }',
+    '}',
+    /* A LOOPING ANIMATION IS EXACTLY WHAT THIS SETTING IS FOR. Frozen on the
+       first icon, which is still a truthful face for the button. */
+    '@media (prefers-reduced-motion: reduce) {',
+    '}',
     /* The label block: section word, ADMIN centred beneath it. A column so the
        two lines centre on each other rather than on the button, which keeps
        ADMIN under the word and clear of the icon beside it. */
@@ -384,14 +350,24 @@
     '  line-height: 1;',
     '}',
     '.admin-site-nav .asn-word { line-height: 1; }',
-    /* Smaller, lighter and letterspaced, so it labels the button without
-       competing with the section name above it. */
-    '.admin-site-nav .asn-admin {',
-    '  font-size: 0.56rem;',
-    '  font-weight: 700;',
-    '  letter-spacing: 0.16em;',
-    '  line-height: 1;',
-    '  opacity: 0.78;',
+    /* ── TGB AND MISSION CONTROL ARE ONE SIZE ────────────────────────────────
+       They are the only two buttons on the bar and they read as a pair, so a
+       three-character face beside a two-line one looked like a mistake rather
+       than a difference.
+       EQUALISED BY GRID, NOT BY A MEASURED WIDTH. `grid-auto-columns: 1fr` in
+       an auto-width container sizes every track to the WIDEST one, so the pair
+       matches whatever the longest label happens to be and keeps matching if
+       either is renamed or a third button is added. A hand-measured min-width
+       would be a number nobody could maintain, and it would be wrong the first
+       time the font changed.
+       The default `align-items: stretch` is what makes the heights agree: the
+       one-line button grows to the two-line one rather than floating at 44px
+       beside a taller neighbour. */
+    '.admin-site-nav .asn-links {',
+    '  display: grid;',
+    '  grid-auto-flow: column;',
+    '  grid-auto-columns: 1fr;',
+    '  gap: 6px;',
     '}',
     '.admin-site-nav .asn-link:hover,',
     '.admin-site-nav .asn-link:focus-visible,',
@@ -476,145 +452,31 @@
     '             10px max(16px, env(safe-area-inset-left), calc(50vw - 50%));',
     '  }',
     '  .admin-site-nav .asn-tools { align-self: center; }',
-    '  .admin-site-nav .asn-link.asn-burger { display: inline-flex; }',
-    /* 44px square each. The padlock is 40 on a desktop, which is fine for a
-       cursor and one pixel-row short of the smallest reliable thumb target. */
-    /* Compound again, for the same reason: padding here has to beat
-       .asn-link's `0 14px`, and on a plain class selector that only holds
-       because this block happens to sit last in the sheet. */
-    '  .admin-site-nav .asn-link.asn-burger,',
+    /* 44px square. The padlock is 40 on a desktop, which is fine for a cursor
+       and one pixel-row short of the smallest reliable thumb target.
+       Compound selector, because this padding has to beat .asn-link's
+       `0 14px`, which on a plain class alone would only hold by source order. */
     '  .admin-site-nav .asn-link.asn-lock {',
     '    width: 44px;',
     '    padding: 0;',
     '  }',
-    /* The panel spans both columns on its own row, so it pushes the page down
-       instead of overlaying it. An overlay would need a scroll lock and a
-       backdrop; a phone has nothing behind this bar worth protecting. */
-    '  .admin-site-nav .asn-links {',
-    '    grid-column: 1 / -1;',
-    '    display: none;',
-    '    flex-direction: column;',
-    '    align-items: stretch;',
-    '    gap: 0;',
-    '    margin-top: 4px;',
-    '    border-top: 1px solid var(--asn-line);',
-    '  }',
-    '  .admin-site-nav[data-nav-open="true"] .asn-links { display: flex; }',
-    /* A LIST, NOT A ROW OF BUTTONS. The bordered, filled, rounded chrome earns
-       its keep on a desktop, where the five destinations sit side by side and
-       each one needs its own edge to be separable from its neighbour. Stacked
-       full-width in a panel there is nothing to separate them from -- one item
-       per line already does that -- so five boxes stacked read as clutter, and
-       a rounded box that spans the whole width no longer looks like a button
-       anyway. Hairline rules and plain text is what a phone menu is.
+    /* THE BAR STAYS A ROW ON A PHONE. It used to collapse into a stacked panel
+       that pushed the page down, revealed by the burger, because five buttons
+       with a public link under each could not fit a 390px screen. There are two
+       buttons now and they fit, so the panel, the burger and the whole list
+       treatment are gone.
 
-       The chrome is stripped by scoping to .asn-links, so the burger and the
-       padlock -- which live in .asn-tools, outside this nav -- keep their
-       button faces. They are controls, not destinations. */
-    '  .admin-site-nav .asn-links > * {',
-    '    border-bottom: 1px solid rgba(var(--asn-blue-rgb), 0.16);',
-    '  }',
-    '  .admin-site-nav .asn-links > *:last-child { border-bottom: 0; }',
-    '  .admin-site-nav .asn-item {',
-    '    flex-direction: row;',
-    '    align-items: center;',
-    '    gap: 8px;',
-    '  }',
-    '  .admin-site-nav .asn-links .asn-link {',
-    '    flex: 1 1 auto;',
-    '    min-width: 0;',
-    '    justify-content: flex-start;',
-    '    gap: 12px;',
-    /* 48, not the 44 the burger and lock carry: a full-width row has no border
-       to show where it starts and stops, so the spacing is what makes it look
-       tappable. */
-    '    min-height: 48px;',
-    '    padding: 0;',
-    '    border: 0;',
-    '    border-radius: 0;',
-    '    background: none;',
-    '    box-shadow: none;',
-    '    color: var(--asn-ink);',
-    '    font-size: 0.82rem;',
-    '    letter-spacing: 0.06em;',
-    '  }',
-    /* The blue fill has to be undone for the current page too, not just hover.
-       Compound and inside the media query, so it beats the base rule's (0,3,0)
-       on specificity rather than on source order -- the tie that put the burger
-       on every desktop page in the first place. On a touch device hover barely
-       exists, so current and hover sharing an underline costs nothing. */
-    '  .admin-site-nav .asn-links .asn-link:hover,',
-    '  .admin-site-nav .asn-links .asn-link:focus-visible,',
-    '  .admin-site-nav .asn-links .asn-link[aria-current="page"] {',
-    '    border: 0;',
-    '    background: none;',
-    '    box-shadow: none;',
-    '    color: var(--asn-blue);',
-    '    text-decoration: underline;',
-    '    text-underline-offset: 5px;',
-    '  }',
-    /* One line: GAMES with a quiet ADMIN after it. Stacked, the sub-label made
-       every row two lines tall for a word that is the same on all of them. */
-    '  .admin-site-nav .asn-labelcol {',
-    '    flex-direction: row;',
-    '    align-items: baseline;',
-    '    gap: 0.55em;',
-    '  }',
-    '  .admin-site-nav .asn-admin { opacity: 0.6; }',
-    /* Plain trailing text, full row height so the tap target survives losing the
-       button. It was a dashed button here until the rest of the panel stopped
-       being buttons; secondary-among-buttons and secondary-among-text are not
-       the same problem. */
-    '  .admin-site-nav .asn-public {',
-    '    display: inline-flex;',
-    '    align-items: center;',
-    '    flex: 0 0 auto;',
-    '    min-height: 48px;',
-    '    padding: 0 2px 0 12px;',
-    '    border: 0;',
-    '    background: none;',
-    '    color: rgba(var(--asn-blue-rgb), 0.7);',
-    '    font-size: 0.6rem;',
-    '  }',
-    /* THE ROW GOES WHERE ITS WORD SAYS. On a desktop the big button is the
-       ADMIN room and a small PUBLIC link sits under it, which is right: the bar
-       is five buttons wide, both destinations are visible at once, and an admin
-       crossing between rooms wants the room.
-       Stacked in a phone panel that stops being true. The row is one line
-       reading `SOUNDTRACKS  ADMIN ......... PUBLIC`, the whole line except the
-       last 40px is the admin link, and PUBLIC is a 0.6rem tag at the far right.
-       So the obvious target -- the section word -- was the only one you could
-       hit, and it was the one nobody meant to hit: tapping SOUNDTRACKS on a
-       phone landed you in the Tape Room.
-       Inverted here, and here only. The full-width row with the glyph is the
-       PUBLIC page; ADMIN becomes the trailing tag, still a 48px target, still
-       one tap away. Nothing about the desktop bar moves. */
-    '  .admin-site-nav .asn-item { flex-direction: row-reverse; }',
-    '  .admin-site-nav .asn-links .asn-public {',
-    '    flex: 1 1 auto;',
-    '    min-width: 0;',
-    '    justify-content: flex-start;',
-    '    gap: 12px;',
-    '    padding: 0;',
-    '    color: var(--asn-ink);',
-    '    font-size: 0.82rem;',
-    '    letter-spacing: 0.06em;',
-    '  }',
-    '  .admin-site-nav .asn-public::before { display: inline-block; }',
-    '  .admin-site-nav .asn-public-word { display: inline; }',
-    '  .admin-site-nav .asn-public-tag { display: none; }',
-    /* The admin link keeps its 48px height but shrinks to its ADMIN tag: same
-       treatment PUBLIC used to get, swapped over. The section word and the icon
-       are hidden on it because the row already carries both. */
-    '  .admin-site-nav .asn-links .asn-link {',
-    '    flex: 0 0 auto;',
-    '    padding: 0 2px 0 12px;',
-    '    color: rgba(var(--asn-blue-rgb), 0.7);',
-    '    font-size: 0.6rem;',
-    '  }',
-    '  .admin-site-nav .asn-links .asn-link::before { content: none; }',
-    '  .admin-site-nav .asn-links .asn-word { display: none; }',
-    '  .admin-site-nav .asn-admin { opacity: 1; }',
+       THIS WAS BRIEFLY BROKEN AND IT IS WORTH KNOWING HOW. The panel rules
+       outlived the burger by about an hour, and they said `display: none` with
+       `[data-nav-open="true"]` as the only way back. That attribute is written
+       by the burger, so with the burger gone nothing could set it: under 900px
+       the bar built its two buttons and then hid them, with no error and
+       nothing to click. Two more rules hid the icon and the word on every
+       `.asn-links .asn-link`, which existed so a section button could shrink to
+       its ADMIN tag; these buttons have no tag, so they would have rendered
+       EMPTY. DELETE A CONTROL AND ITS CSS IN THE SAME PASS. */
+    '  .admin-site-nav .asn-links { gap: 6px; }',
+    '  .admin-site-nav .asn-links .asn-link { padding: 0 10px; }',
     '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
     '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
@@ -651,7 +513,11 @@
   // room button AND the mast button both filled in. The rooms are the more
   // specific answer, so Mission Control only claims the page when none of them
   // does. Computed once here, before any button is built.
-  var roomIsCurrent = ROOMS.some(function (room) { return room.match.test(path); });
+  // WAS `ROOMS.some(...)`: the room buttons were the more specific answer, so
+  // Mission Control stood down whenever one of them claimed the page. With the
+  // rooms gone there is nothing to defer to, and the mast button is the only
+  // thing that can be current.
+  var roomIsCurrent = false;
 
   var brand = document.createElement('div');
   brand.className = 'asn-brand';
@@ -663,73 +529,33 @@
   links.className = 'asn-links';
   links.setAttribute('aria-label', 'Admin sections');
 
-  ROOMS.forEach(function (room) {
-    // Each section is a column: the admin button, and under it a plain-text link
-    // to the PUBLIC page. The button and the link carry the same word, which is
-    // the point — one takes you to the room, the other to what a visitor sees.
-    // Without the second one there is no way from a room to its own public page,
-    // since every button in this bar is an admin destination.
-    var column = document.createElement('div');
-    column.className = 'asn-item';
 
-    var a = document.createElement('a');
-    a.className = 'asn-link';
-    a.href = room.href;
-    openInNewTab(a);
-    // ON THE COLUMN, not on the link. Both anchors inherit it, which is what
-    // lets the phone panel draw the section glyph beside the PUBLIC row instead
-    // of the admin one. The link keeps working unchanged: it inherits it too.
-    column.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + room.icon + '")');
-    a.title = room.title;
-    // Just the title: "GAMES — Admin games" reads as a stutter to a screen
-    // reader, and the title already contains the label.
-    a.setAttribute('aria-label', room.title);
-    // Two stacked lines of text, centred on each other, sitting to the RIGHT of
-    // the icon rather than under it: the icon stays a single glyph beside the
-    // label block. ADMIN is what tells you the button is not the public page —
-    // the plain link below the button is.
-    var labelCol = document.createElement('span');
-    labelCol.className = 'asn-labelcol';
+  // ── TGB, first on the bar ─────────────────────────────────────────────────
+  // THIS TAB, unlike MISSION CONTROL beside it. It briefly opened a new one, on
+  // the reasoning that a glance at the live site should not take your admin page
+  // away. That is the wrong model of the press: leaving the admin area is a
+  // departure, not a peek, and a door that quietly spawns a tab every time you
+  // press it is how you end up with nine of them. The back button is the way
+  // back, which is what it is for.
+  var home = document.createElement('a');
+  home.className = 'asn-link asn-home';
+  home.href = TGB_HOME.href;
+  home.title = TGB_HOME.title;
+  home.setAttribute('aria-label', TGB_HOME.title);
+  home.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + TGB_HOME.icon + '")');
+  // The same label column MISSION CONTROL uses, holding one word instead of
+  // two. Both buttons are 44px tall whatever is in them, so a one-line face and
+  // a two-line face sit level.
+  var homeLabel = document.createElement('span');
+  homeLabel.className = 'asn-labelcol';
+  var homeWord = document.createElement('span');
+  homeWord.className = 'asn-word';
+  homeWord.textContent = TGB_HOME.label;
+  homeLabel.appendChild(homeWord);
+  home.appendChild(homeLabel);
+  links.appendChild(home);
 
-    var word = document.createElement('span');
-    word.className = 'asn-word';
-    word.textContent = room.label;
-
-    var admin = document.createElement('span');
-    admin.className = 'asn-admin';
-    admin.textContent = 'ADMIN';
-
-    labelCol.appendChild(word);
-    labelCol.appendChild(admin);
-    a.appendChild(labelCol);
-    if (room.match.test(path)) a.setAttribute('aria-current', 'page');
-    column.appendChild(a);
-
-    var pub = document.createElement('a');
-    pub.className = 'asn-public';
-    pub.href = room.publicHref;
-    openInNewTab(pub);
-    pub.title = room.publicTitle;
-    pub.setAttribute('aria-label', room.publicTitle);
-    // Both labels ship; CSS shows one. The section word is the desktop face —
-    // repeating the button's word is what makes the pair read as "the room, and
-    // what a visitor sees" — while the phone panel shows a plain PUBLIC tag,
-    // because stacked in a list the repeat looks like a duplicated row. The
-    // aria-label above already says the destination either way.
-    var pubWord = document.createElement('span');
-    pubWord.className = 'asn-public-word';
-    pubWord.textContent = room.label;
-    var pubTag = document.createElement('span');
-    pubTag.className = 'asn-public-tag';
-    pubTag.textContent = 'PUBLIC';
-    pub.appendChild(pubWord);
-    pub.appendChild(pubTag);
-    column.appendChild(pub);
-
-    links.appendChild(column);
-  });
-
-  // ── Mission Control, between HIGHLIGHTS and the padlock ───────────────────
+  // ── Mission Control, right of TGB and left of the padlock ─────────────────
   // Every room can be reached from every other room by now; the hub could not be
   // reached from any of them without typing the URL. It is a bare button, no
   // ADMIN sub-label and no public link under it, because both would be lies.
@@ -806,57 +632,15 @@
 
   setSignedIn(false);
 
-  // ── The burger, left of the padlock ──────────────────────────────────────
-  // Hidden above 900px, where every destination is already on the bar.
+  // ── The padlock ──────────────────────────────────────────────────────────
+  // THE BURGER WENT WITH THE SECTION BUTTONS (2026-08-20). It existed only to
+  // collapse the five room buttons into a panel on a phone, and with nothing
+  // left to collapse it was a control that opened an empty drawer. Gone with it:
+  // setOpen, the data-nav-open attribute, the Escape and outside-tap handlers,
+  // and the matchMedia listener that reset the state when the layout widened.
   var tools = document.createElement('div');
   tools.className = 'asn-tools';
 
-  var burger = document.createElement('button');
-  burger.type = 'button';
-  burger.className = 'asn-link asn-burger';
-  burger.setAttribute('aria-controls', 'asn-links');
-  burger.style.setProperty('--asn-burger-icon', 'url("data:image/svg+xml,' + BURGER + '")');
-  burger.style.setProperty('--asn-burger-x', 'url("data:image/svg+xml,' + BURGER_X + '")');
-  links.id = 'asn-links';
-
-  function setOpen(open) {
-    header.setAttribute('data-nav-open', open ? 'true' : 'false');
-    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    burger.title = open ? 'Close menu' : 'Menu';
-    burger.setAttribute('aria-label', burger.title);
-    burger.style.setProperty('--asn-icon', open ? 'var(--asn-burger-x)' : 'var(--asn-burger-icon)');
-  }
-
-  burger.addEventListener('click', function () {
-    setOpen(header.getAttribute('data-nav-open') !== 'true');
-  });
-
-  // Escape and outside-tap close it. Both matter more than on a desktop menu:
-  // the panel pushes the page down, so leaving it open silently costs a screenful
-  // every time you come back to the tab.
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && header.getAttribute('data-nav-open') === 'true') {
-      setOpen(false);
-      burger.focus();
-    }
-  });
-  document.addEventListener('click', function (e) {
-    if (header.getAttribute('data-nav-open') !== 'true') return;
-    if (!header.contains(e.target)) setOpen(false);
-  });
-
-  // Widening past the breakpoint reveals the links again by CSS alone, which
-  // would leave aria-expanded="true" describing a control that is no longer
-  // there. Reset the state with the layout.
-  if (window.matchMedia) {
-    var wide = window.matchMedia('(min-width: 901px)');
-    var onWide = function (mq) { if (mq.matches) setOpen(false); };
-    if (wide.addEventListener) wide.addEventListener('change', onWide);
-    else if (wide.addListener) wide.addListener(onWide);
-  }
-
-  setOpen(false);
-  tools.appendChild(burger);
   tools.appendChild(lock);
 
   // Page watermark. It is not a grid item and no longer lives in the nav, so the

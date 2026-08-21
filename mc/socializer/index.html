@@ -321,6 +321,13 @@
       cursor: help;
     }
 
+    /* The YouTube marker wears the origin chip's shape and the red pen, so it
+       reads as the same kind of fact as the origin beside it while still being
+       the one that changes what you can do with the row. */
+    .post-kicker-youtube {
+      color: var(--bic-red);
+      border-color: rgba(194, 55, 55, 0.45);
+    }
     .post-kicker-id {
       margin-right: auto;
       /* Larger than the kicker's own 0.62rem, and close to the bubble beside
@@ -1085,6 +1092,42 @@
       white-space: nowrap;
     }
 
+    /* SQUARE, AND EXACTLY AS TALL AS THE BUTTONS IT REPLACED. .btn is
+       min-height: 42px, so the reel button matches its neighbours in the ADD
+       bar opposite and the two fieldsets keep one baseline. Width follows the
+       height rather than the content, because the content is one glyph and a
+       42px-tall button 12px wide would read as a slot rather than a control. */
+    /* SCOPED TO .command-bar, AND IT HAS TO BE. `.command-bar .btn` sets
+       `padding: 0 12px` at (0,2,0) and beats a bare `.btn--reel` at (0,1,0),
+       so the padding survived: a 42px border-box with 24px of side padding
+       leaves an 18px content box, and the 19px reel was being clipped by a
+       pixel on each side. The symptom is subtle enough to read as a rendering
+       artefact rather than a rule losing a specificity fight. */
+    .command-bar .btn--reel {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      padding: 0;
+    }
+    .command-bar .btn--reel .tgb-reel { --reel-size: 19px; }
+    /* popup() re-parents the button into .tgb-reelpop-wrap, which becomes the
+       flex child of .command-bar-inner. Without this the wrap collapses to its
+       own content height and the button no longer lines up with the bar. Same
+       trap as the footer's Follow control and the public nav's `order`. */
+    .command-bar-inner > .tgb-reelpop-wrap { align-self: center; }
+
+    /* CENTRED, BECAUSE THIS PANEL IS WIDER THAN ITS CONTENTS AND ALWAYS WILL BE.
+       A fieldset is at least as wide as its legend, and VIEW plus the folder
+       tab's padding is wider than one 42px button, so the panel cannot shrink
+       to fit the way it did when it held three word-buttons. Left-aligned, the
+       button sat against one edge of a box with a hole in the rest of it and
+       read as something that had failed to load.
+
+       On the INNER, not the fieldset: the panel's own width is set by the
+       legend and must not change, and this only decides where the content sits
+       inside it. */
+    .command-bar--view .command-bar-inner { justify-content: center; }
+
     .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
     .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
 
@@ -1104,6 +1147,96 @@
        dialog rather than against the button beside it. Its own measure, because
        four sentences set to the full width of a --wide panel are a paragraph
        nobody reads. */
+    /* A row, not a column: five short words that read as one control. The
+       fieldset border is dropped because the dialog already frames this and a
+       second box around five checkboxes is a box too many. */
+    /* THE SHEET SAYS SO AND THE DOORS LOOK SHUT. Greyed rather than hidden:
+       a control that vanishes makes you wonder what you broke, and these come
+       back the moment a box is ticked. The anchors keep working at the DOM
+       level, so copyPromptText refuses as well; this is the appearance and that
+       is the rule. */
+    .prompt-panel.is-blocked .prompt { color: var(--muted); font-style: italic; }
+    .prompt-panel.is-blocked .prompt-ai,
+    .prompt-panel.is-blocked .prompt-sql-btn {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .prompt-platforms {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 16px;
+      margin: 0 0 10px;
+      padding: 0;
+      border: 0;
+    }
+    .prompt-platforms > legend {
+      float: left;
+      width: 100%;
+      margin: 0 0 6px;
+      padding: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .prompt-platforms label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    /* An unticked account is what you are looking for when you glance back at
+       this row, so it is the one that changes rather than the ticked ones. */
+    .prompt-platforms label.is-off {
+      color: var(--muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+    .prompt-platforms input { accent-color: var(--accent); }
+
+    .health-body { display: grid; gap: 14px; padding: 4px 0 2px; }
+    .health-row {
+      display: grid;
+      gap: 5px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left-width: 4px;
+      border-radius: 8px;
+      background: #fff;
+    }
+    /* The left edge carries the verdict, so a row that needs doing is findable
+       without reading three paragraphs. Green is not used: an account that is
+       fine needs no colour, and colouring all three makes the one that matters
+       compete with two that do not. */
+    .health-row.is-bad { border-left-color: var(--bic-red); }
+    .health-row.is-ok { border-left-color: rgba(var(--bic-blue-rgb), 0.35); }
+    .health-name {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .health-row.is-bad .health-name { color: var(--bic-red); }
+    .health-detail { font-size: 0.92rem; line-height: 1.45; }
+    .health-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 2px; }
+    .health-links a {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
     .prompt-howto {
       margin: 2px 0 0;
       max-width: 58ch;
@@ -1261,6 +1394,17 @@
     .socials-room-head .stockroom-head-status {
       display: none;
     }
+
+    /* CLEARS THE SHARED 62ch CLAMP so the sentence sits on one line.
+       admin-shell.css measures .room-blurb for READING, which is right for a
+       paragraph and wrong for a one-line standing description under a title:
+       clamped, this one broke after "manually or through ai." and the second
+       half hung under it looking like a separate thought.
+       The Tape Room carries the identical rule for the identical reason -- see
+       .room-head .room-blurb in mc/soundtracks/index.html. If a third room
+       needs it, that is the moment to move it into the shared sheet rather
+       than write it a third time. */
+    .room-head .room-blurb { max-width: none; }
 
     .tool-backdrop {
       position: fixed;
@@ -1677,10 +1821,14 @@
         </div>
       </fieldset>
 
-      <!-- Where a post ENDS UP, as against where it comes from. Filled from
-           PLATFORM_URLS so the accounts are named once on this page: a second
-           hand-typed copy in the markup is how a renamed handle ends up linked
-           correctly in one place and wrongly in another. -->
+      <!-- Where a post ENDS UP, as against where it comes from. It was three
+           buttons, one per account we post to; it is now the scrolling reel,
+           which opens a menu of all of them.
+
+           THE HANDLES ARE NOT ON THIS PAGE ANY MORE. They live in
+           mc/js/follow-reel.js, which is also where the public nav's twin gets
+           them, so a renamed handle cannot be corrected in one copy and missed
+           in another. PLATFORM_URLS was deleted with the buttons. -->
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner" id="viewLinks"></div>
@@ -1710,6 +1858,14 @@
               Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
             </button>
           </div>
+          <!-- NO YOUTUBE FILTER. There was one here for about an hour, on the
+               reasoning that a video is a different kind of candidate and you
+               would want to see them together. In practice a video is just a
+               candidate in Review like the other five, told apart by its own
+               Post button, which says it goes to YouTube by hand. A control
+               that narrows a list of a dozen rows to one of them is a control
+               nobody needs, and it made a third question ("what kind?") sit
+               beside a strip that was already answering "which ones?". -->
           <!-- Two words, no label. NEWEST / OLDEST is what the control says and
                what it does -- it names what sits at the TOP, so the word you can
                see is the card you are looking at. A "Sort" label in front of it
@@ -1773,22 +1929,46 @@
         <!-- Same lockup as the prompt dialog: a mono eyebrow saying how the
              candidates arrive, then a short name saying how many. The two are
              the room's two ways in, so they are built to be read as a pair —
-             MANUAL ADD / Post Candidate against PASTE-READY PROMPT /
-             Five Post Candidates. -->
+             MANUAL ADD / Post Candidate against AI PROMPT /
+             Six Post Candidates. -->
         <div class="panel-head prompt-head">
           <div class="prompt-headline">
             <span class="prompt-eyebrow">Manual add</span>
             <h2 class="panel-title" id="manualTitle">Post Candidate</h2>
+            <!-- THE ERRAND, IN THE HEAD, exactly as the AI prompt dialog carries
+                 it, and the two are meant to read as a pair: they are the room's
+                 two ways in. Without it this head is an eyebrow, a title and a
+                 lot of white space where the repeated buttons used to be.
+
+                 It also answers the question the single box provokes. One
+                 unlabelled field asking for either a link or a sentence looks
+                 like a field you are about to get wrong, and the line under it
+                 only says which way it is about to go AFTER you have typed.
+
+                 TWO SENTENCES, AND IT SAID MORE. An earlier draft added that the
+                 caption and image come later on the card, which is true and is
+                 not this dialog's business: naming a step that happens somewhere
+                 else, at the moment somebody is trying to finish here, is the
+                 kind of helpfulness that reads as a warning. Say what the box
+                 takes and what happens to it. -->
+            <p class="prompt-howto">
+              Paste a link, or type an idea. It will be filed for editing and review.
+            </p>
           </div>
-          <!-- Cancel and Add, repeated from the footer, the same way the Edit
-               dialog carries them — on a phone the caption box can still push
-               the footer pair below the fold. Only the footer button carries an
-               id; both submit via form="manualPostForm", so there is no
-               duplicate id and no label to keep in step. -->
-          <span class="panel-head-actions">
-            <button class="btn small" data-manual-close type="button">Cancel</button>
-            <button class="btn small primary" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
-          </span>
+          <!-- NO BUTTONS UP HERE (2026-08-20). Cancel and Add were repeated
+               from the foot, on the reasoning that a phone could push the foot
+               pair below the fold. That reasoning expired with the form: this
+               dialog used to carry nine fields and a platform picker and now
+               carries ONE box, so there is nothing tall enough to push anything
+               anywhere. What was left was the same two buttons twice, a few
+               inches apart, on a dialog three lines long.
+
+               If a future field ever makes this form tall again, bring them
+               back rather than making the user scroll for the only two things
+               they can do. Both submitted via form="manualPostForm" and only
+               the foot pair carried ids, so nothing was lost by deleting these.
+               The Edit dialog's own repeated pair is a separate decision and
+               was not touched. -->
         </div>
         <!-- TWO BOXES: a link, and the headline it is filed under. This is a
              catch, not a finished candidate — the sprucing up happens later on
@@ -1870,6 +2050,36 @@
       <!-- The Edit dialog stood here until 2026-08-19; see the script. -->
 
       <div class="tool-backdrop" id="confirmBackdrop" hidden></div>
+
+      <!-- ACCOUNT HEALTH, WITH SOMEWHERE TO GO. This replaced a window.alert,
+           which could say a credential was wrong and could not take you to the
+           place that fixes it: an alert holds no links. Every row here carries
+           two, because a broken credential is always a question about two
+           different consoles, and the one people forget is the second.
+
+             1. Where the credential is ISSUED, which is the platform's own
+                developer console.
+             2. Where it is STORED, which is this project's Supabase secrets.
+
+           A value can be perfectly good in one and absent from the other, and
+           that failure reads identically to a bad token. -->
+      <section class="prompt-panel tool-modal-panel" id="healthCard" role="dialog"
+               aria-modal="true" aria-labelledby="healthTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Accounts</span>
+            <h2 class="panel-title" id="healthTitle">What each credential points at</h2>
+            <p class="prompt-howto">
+              Checked live against each platform. Nothing is posted.
+            </p>
+          </div>
+          <span class="panel-head-actions">
+            <button class="btn small" data-health-close type="button">Close</button>
+          </span>
+        </div>
+        <div class="health-body" id="healthBody"></div>
+      </section>
+      <div class="tool-backdrop" id="healthBackdrop" hidden></div>
       <!-- A yes/no question, asked where every other question on this page is
            asked. Deliberately generic: it takes its words from the caller, so
            the next confirmation does not add a third dialog. -->
@@ -1916,14 +2126,19 @@
                  different things wearing one name, with only one of them able
                  to write to the table. This dialog is the errand, so it is
                  named after the errand. -->
-            <h2 class="panel-title" id="promptTitle">Five Post Candidates</h2>
+            <h2 class="panel-title" id="promptTitle">Six Post Candidates</h2>
             <!-- THE ERRAND, IN THE HEAD, because nothing else on this dialog
                  says what to DO with the text. The foot's buttons are the steps
                  in order (Copy, then the three doors, then Insert results) and
                  they read as obvious only once you already know the routine.
                  The failures are named too: both of the common ones happen
                  AFTER you leave this page, so somebody meeting them has nothing
-                 on screen to connect them back to. -->
+                 on screen to connect them back to.
+
+                 SIX, NOT FIVE, SINCE 2026-08-20: the five for the queue plus
+                 one YouTube video to share on the channel. The number is in the
+                 title because it is the one thing a reader checks the returned
+                 SQL against. -->
             <p class="prompt-howto">
               Edit, copy and paste the prompt below into your choice of AI providers.
               Copy and paste the results you get into the website's database (Supabase).
@@ -1937,9 +2152,27 @@
         </div>
 
         <div class="prompt-body">
-          <textarea class="prompt" id="promptText" spellcheck="false" aria-label="The prompt. Editable; your edits are kept in this browser.">You are the socials scout for The Game Bureau. Find five things worth sharing (one gift from our own shop, then four stories), write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review.
+          <!-- WHICH ACCOUNTS THIS RUN IS FOR. All five on is the ordinary state
+               and writes nothing into the prompt: the authored text already
+               covers every account, so an untouched dialog hands back exactly
+               the text in this file. Same shape as the Tape Room's city picker,
+               where blank is a real answer rather than a missing one.
 
-You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socializer.html and decides what goes out.
+               Turning one OFF writes a short block at the top of the sheet
+               naming what to leave alone. Visible text rather than hidden
+               state, because the whole point of this dialog is that you can
+               read what you are about to paste. -->
+          <fieldset class="prompt-platforms" id="promptPlatforms">
+            <legend>Target platforms</legend>
+            <label><input type="checkbox" value="Facebook" checked> Facebook</label>
+            <label><input type="checkbox" value="Instagram" checked> Instagram</label>
+            <label><input type="checkbox" value="Threads" checked> Threads</label>
+            <label><input type="checkbox" value="X" checked> X</label>
+            <label><input type="checkbox" value="YouTube" checked> YouTube</label>
+          </fieldset>
+          <textarea class="prompt" id="promptText" spellcheck="false" aria-label="The prompt. Editable; your edits are kept in this browser.">You are the socials scout for The Game Bureau. Find five things worth sharing (one gift from our own shop, then four stories), write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review. Then find ONE YouTube video worth sharing on our own channel, which is a sixth row in that same statement and is not one of the five.
+
+You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socializer/ and decides what goes out.
 
 HOW TO RUN: READ THIS FIRST
 
@@ -1965,6 +2198,9 @@ FILE FIVE. EVERY RUN.
 This used to say a short honest run beats a padded one, and you were told to
 hand back four or three when five would not clear the bar. That is no longer the
 instruction. Come back with FIVE.
+
+THE YOUTUBE VIDEO IN 2c IS THE ONE EXCEPTION. It is a sixth row, it is not
+counted in the five, and coming back without one is a perfectly good answer.
 
 Every editorial rule below (the freshness window, the topic mix, five separate
 sources, the beat order) bends before the count does. Reach for a story eight
@@ -2132,6 +2368,74 @@ NEVER HAND BACK A RUN WITH NO GIFT. It is the only row that points at our own si
 
 STILL SKIP, whatever it costs the count: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test: if it would make someone ask "why is a game company posting this", it is not a fit. These are the one place the five gives way: hand back four rather than post something that embarrasses us, and say in the summary that you did.
 
+2c. ONE YOUTUBE VIDEO, AND IT IS NOT ONE OF THE FIVE
+
+Find ONE video worth sharing on our own YouTube channel and give it a SIXTH row
+in the same SQL statement. The gift and the four stories are unchanged and this
+does not replace any of them.
+
+WHAT WE ACTUALLY DO WITH IT. We share it as a POST on our channel, which is
+YouTube's own way of pointing at somebody else's video. We are not reuploading
+anything, we are not making a video, and we are not embedding it anywhere. The
+deliverable is a link and a sentence.
+
+ONE. Not two, not five.
+
+WHAT TO LOOK FOR: the same beat as the stories, in the same order. Scavenger and
+puzzle hunts, strange competitions, first-person travel where somebody walks a
+city, roadside oddities, stadium and fan culture. A video that makes somebody
+want to go and stand somewhere is the centre of it.
+
+PREFER something published in the last 30 days (a wider window than the stories
+get, because a good video keeps and a good article dates), a channel that is not
+enormous, and a real place a person could go to.
+
+SKIP, and this matters more than it does for a story, because sharing a video
+reads as an endorsement of the whole channel and not just of the one clip:
+everything on the avoid list in step 2; reaction videos, tier lists, AI-narrated
+slideshows and compilations of other people's clips; and any channel whose other
+recent uploads we would not want to be seen beside. LOOK AT THE CHANNEL, not
+only at the video.
+
+VERIFY IT LIKE ANY OTHER LINK. Open the watch page. Confirm the video exists, is
+public, is not age-gated, and is what you think it is. Never hand back a video
+id you did not open.
+
+FILL THE ROW LIKE THIS. Note what differs from a story:
+
+- id: ...-y1, with the y. The five are -1 to -5; the video takes a letter so
+  nobody has to work out which of six rows is which.
+- url: the plain watch url, https://www.youtube.com/watch?v=&lt;id&gt;. NOT youtu.be,
+  and with no timestamp, playlist or tracking parameters hanging off it.
+- headline: the video's real title, as published.
+- source: the channel name.
+- published: the video's publish date.
+- image: the thumbnail, https://i.ytimg.com/vi/&lt;id&gt;/maxresdefault.jpg. Check it
+  loads; if it 404s that video has no maxres, and hqdefault.jpg always exists.
+- blurb: the caption, to step 4's rules, ending on something to do.
+- why: first person, and SAY WHAT THE CHANNEL IS. That is the one thing a human
+  reading the queue cannot see from the row itself.
+- topics: from the same list as everything else.
+- confidence: the same 1-100 scale. Do not flatter it for having been hard to
+  find.
+- platforms: EXACTLY '[{"name": "YouTube", "why": "..."}]'::jsonb AND NOTHING
+  ELSE.
+
+THAT LAST LINE IS LOAD-BEARING AND IS NOT A MATTER OF STYLE. The Socializer
+reads platforms to decide where its Post button can send a candidate. Naming
+YouTube ALONE is what marks the row as a video: it greys the Post button, which
+is correct because nothing we have posts to YouTube and the share is made by
+hand, and it is what puts the row behind the YouTube filter in the queue. Add
+Facebook or Threads to that array and it stops being a video candidate and
+becomes an ordinary post that happens to link to YouTube, which is a different
+thing and would go out to the wrong accounts.
+
+IF YOU FIND NOTHING WORTH SHARING, LEAVE THE ROW OUT and say so above the SQL
+block. This is the one part of the run where an empty answer is a good answer:
+the five stand on their own, and a weak share costs more than a missing one,
+because it sits on our own channel with our name on it.
+
+
 3. VERIFY EVERY LINK
 
 Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened. A dead link is worse than four good ones. Record the real publication name and date. (The gift, if this run has one, is verified its own way; see 2b.)
@@ -2262,7 +2566,13 @@ spread them honestly, and let the weakest one be weak.
 
 6. TAG THE PLATFORMS
 
-We have exactly three accounts: FACEBOOK, INSTAGRAM and THREADS. Never suggest one we do not have. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
+We have exactly four accounts: FACEBOOK, INSTAGRAM, THREADS and X. Never suggest another on a story.
+
+THREE OF THEM ARE POSTED BY MACHINE AND X IS POSTED BY HAND, and that changes nothing about how you tag. Facebook, Instagram and Threads go out when a human presses Post. X goes out when they press Copy and paste it in themselves, because X charges us 20 cents for a post carrying a link and a button is not worth that. Either way the tag is what puts the account in front of them, so tag X exactly as carefully as the rest: leave it off and nobody is offered it.
+
+X CAME BACK ON 2026-08-20, having been off this list since 2026-08-07. It takes a text post and unfurls the link into a card from the story's own share image, so it does NOT need the candidate to carry an image the way Instagram does: judge it on whether the story is worth a short, sharp line.
+
+YOUTUBE IS NOT ONE OF THESE FOUR. It appears on the video row from 2c, alone, and NOWHERE ELSE. Never add it to a story's platforms array: nothing here posts to YouTube, so on a story it would narrow the row for no reason, and on the video it is the marker that makes the queue treat it correctly. X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
 
 THIS TAG DECIDES WHERE THE POST GOES. It was advice for four months and stopped being advice on 2026-08-19: the Post button now offers only the accounts you named here, narrowed further by what each one can technically take. Name an account and the story can reach it; leave one off and it cannot, however good a fit it was.
 
@@ -2275,7 +2585,8 @@ Say which accounts carry the story and why, in one short phrase each:
 
   FACEBOOK: the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
   INSTAGRAM: anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
-  THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
+  THREADS: text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image.
+  X: short and fast. One sharp line and a link, no image needed. Best for a story with a hook that survives being said in a sentence: a record broken, a strange contest, a thing that should not exist. Weakest for anything that needs setup before it is interesting, because the caption is capped at 280 characters INCLUDING the link, which is counted as 23 whatever its real length. Every candidate reaches it.
 
 Judge from the image you captured in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook, and that is now a real decision rather than a note: it means the story goes to Facebook alone. Do not tag everything on everything either, because a tag that always fires is not a judgement; tag what fits.
 
@@ -2305,8 +2616,26 @@ values
      {"name": "Instagram", "why": "lead photo of the mural carries it"}]'::jsonb,
    72,
    'review',
+   'prompt'),
+
+  -- , ( ... three more stories ... )
+
+  -- THE SIXTH ROW IS THE YOUTUBE VIDEO. Same columns, the id ending -y1, and
+  -- platforms holding YouTube and nothing else. That array is what marks it as
+  -- a video; see 2c.
+  ('2026-08-05-1500-y1',
+   'The video''s real title',
+   'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+   'The Channel Name',
+   '2026-08-01',
+   'The caption we would post on the channel.',
+   'I picked this because the channel films one walk a week and this one is ours.',
+   array['travel', 'games']::text[],
+   'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+   '[{"name": "YouTube", "why": "a video, shared as a post on our channel"}]'::jsonb,
+   64,
+   'review',
    'prompt')
-  -- , ( ... four more ... )
 on conflict do nothing
 returning id;
 ```
@@ -2314,7 +2643,7 @@ returning id;
 RULES THE STATEMENT MUST FOLLOW:
 
 - status is ALWAYS the literal 'review'. Never 'posted' or 'skipped'. A human
-  makes that call in /mc/socializer.html. Never set posted_at or posted_platforms.
+  makes that call in /mc/socializer/. Never set posted_at or posted_platforms.
 - origin is ALWAYS the literal 'prompt'. It records that these rows came through
   this prompt and a chat AI rather than from the scheduled routine ('bot') or
   from somebody typing into the page ('manual'), which is how a reviewer knows
@@ -2355,7 +2684,23 @@ An INSERT is the only statement you are allowed to write.
 Nothing to commit. `git status` should be clean when you finish; if it is not,
 you have written a file you were not asked to write.
 
-Finish with the SQL block, then a short summary below it: the five candidates in confidence order, highest first, with their scores, sources and topics; which rules you bent to reach five and for which picks; what you rejected and why; anything dropped because the link would not resolve; and every candidate filed WITHOUT an image, named, with which of the two reasons in step 3 applied. The SQL is the deliverable; never end a run with the summary alone.</textarea>
+PRINT THIS LINK DIRECTLY UNDER THE SQL BLOCK, on its own line, as a plain
+clickable URL and nothing else:
+
+    https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true
+
+It opens a blank query in this project's SQL editor, which is where the
+statement above has to be run. Print it EVERY TIME, even when you think
+the reader knows it. By the time they are reading your answer they have
+left the page that has the button, so the alternative is going back for
+it, and a link they do not need costs them one line.
+
+Do not shorten it, do not wrap it in markup, and do not change the query
+string: `new` is what opens a blank editor rather than the last thing
+somebody ran, and `skip=true` is what stops it asking. Never substitute a
+different project ref; that one is ours.
+
+Finish with the SQL block and that link, then a short summary below them: the five candidates in confidence order, highest first, with their scores, sources and topics; which rules you bent to reach five and for which picks; what you rejected and why; anything dropped because the link would not resolve; and every candidate filed WITHOUT an image, named, with which of the two reasons in step 3 applied. The SQL is the deliverable; never end a run with the summary alone.</textarea>
         </div>
 
         <!-- THE FOOT IS THE JOB IN ORDER: copy it, paste it into an AI, run what
@@ -2411,9 +2756,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
           <!-- Where the answer goes. An <a>, not a fetch: this page holds only
                the publishable key, and running arbitrary SQL needs the service
-               role, which cannot live in a public HTML file. -->
+               role, which cannot live in a public HTML file.
+
+               /sql/new?skip=true, not /sql/: `new` opens a BLANK query rather
+               than whatever was last run in this project, and `skip=true` stops
+               it asking. Pasting six rows over somebody's half-written query is
+               the accident that avoids. The prompt prints the same url under
+               its own SQL block, so the two have to stay in step. -->
           <a class="btn prompt-sql-btn" id="sqlEditorBtn" target="_blank" rel="noopener noreferrer"
-             href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/"
+             href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
              title="Open the Supabase SQL editor and run the statement the AI gave you">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2433,8 +2784,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
     =============
     THIS PAGE IS "THE SOCIALIZER". That is its name on screen and its name in
     conversation: an instruction that says SOCIALIZER means this file,
-    mc/socializer.html, served at https://thegamebureau.com/mc/socializer.html
-    and at http://127.0.0.1:5500/mc/socializer.html under Live Server. There is no other
+    mc/socializer/index.html, served at https://thegamebureau.com/mc/socializer/
+    and at http://127.0.0.1:5500/mc/socializer/ under Live Server. There is no other
     page it could mean.
 
     Do not confuse it with TGB SOCIALIZER BOT, the scheduled routine that files
@@ -2456,9 +2807,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
   <script type="application/json" id="tgb-agent-context">
   {
     "name": "SOCIALIZER",
-    "file": "mc/socializer.html",
-    "url": "https://thegamebureau.com/mc/socializer.html",
-    "localUrl": "http://127.0.0.1:5500/mc/socializer.html",
+    "file": "mc/socializer/index.html",
+    "url": "https://thegamebureau.com/mc/socializer/",
+    "localUrl": "http://127.0.0.1:5500/mc/socializer/",
     "access": "public HTML on GitHub Pages, gated by the admin sign-in; the data is admin-only (RLS authenticated both ways)",
     "notToBeConfusedWith": "TGB SOCIALIZER BOT: the scheduled routine that files candidates into this page, trigger trig_01KDYndJhZ9ymgUgX5Xx6LsL",
     "purpose": "Shortlist of candidates The Game Bureau socials might post. An agent finds stories and writes a caption for each; a human posts or skips them.",
@@ -2486,9 +2837,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
   </script>
 
   <!-- The room blurb under the title is rendered from one shared string,
-       so this room and its Daily Chores card at /mc/ cannot drift apart.
+       so this room and its Ancillary Things card at /mc/ cannot drift apart.
        Its <p> is empty in the markup on purpose; see the file. -->
   <script src="/mc/js/room-blurbs.js"></script>
+  <script src="/mc/js/follow-reel.js"></script>
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script>
@@ -2564,6 +2916,138 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var PROMPT_STORE_KEY = 'tgb_socials_prompt_v1';
       var BASE_PROMPT = promptEl ? promptEl.value : '';
 
+      // -- THE ACCOUNTS BLOCK ------------------------------------------------
+      //
+      // Toggling rewrites ONE delimited block at the top of the sheet and
+      // touches nothing else. That matters because this prompt is editable and
+      // what you type is kept: rebuilding the whole thing from BASE_PROMPT on
+      // every toggle, which is what the Tape Room's city picker does, would
+      // throw your edits away the moment you unticked a box.
+      //
+      // ALL FIVE TICKED WRITES NOTHING AT ALL. The authored prompt already
+      // covers every account, so the ordinary state hands back exactly the text
+      // in this file, and re-ticking the last box removes the block rather than
+      // leaving a paragraph behind saying "all of them".
+      var PLATFORM_BLOCK_OPEN  = '=== ACCOUNTS FOR THIS RUN ===';
+      var PLATFORM_BLOCK_CLOSE = '=== END ACCOUNTS ===';
+      var platformsEl = document.getElementById('promptPlatforms');
+      var healthCard = document.getElementById('healthCard');
+      var healthBackdrop = document.getElementById('healthBackdrop');
+
+      function platformBoxes() {
+        return platformsEl
+          ? Array.prototype.slice.call(platformsEl.querySelectorAll('input[type="checkbox"]'))
+          : [];
+      }
+
+      /** The block's text, or '' when every account is in play. */
+      function platformBlock() {
+        var boxes = platformBoxes();
+        var off = boxes.filter(function (b) { return !b.checked; })
+                       .map(function (b) { return b.value; });
+        if (!off.length) return '';
+
+        var on = boxes.filter(function (b) { return b.checked; })
+                      .map(function (b) { return b.value; });
+        var lines = [PLATFORM_BLOCK_OPEN];
+
+        // Named both ways round on purpose. "Only these" is the instruction; the
+        // list of what to leave alone is what stops a model tagging an account
+        // out of habit, because the rules further down still describe it.
+        lines.push(on.length
+          ? 'Only these accounts are in play this run: ' + on.join(', ') + '.'
+          : 'No accounts are in play this run.');
+        lines.push('Do not tag ' + off.join(' or ') + ' on any candidate, and ignore every');
+        lines.push('instruction below that describes ' +
+                   (off.length > 1 ? 'those accounts' : 'that account') + '.');
+
+        // YouTube is not a tag on a story, it is a whole extra row, so turning
+        // it off has to say so in the prompt's own terms or step 2c still runs.
+        if (off.indexOf('YouTube') !== -1) {
+          lines.push('');
+          lines.push('SKIP STEP 2c ENTIRELY. Hand back five rows, not six: no video row,');
+          lines.push('no -y1 id, and nothing tagged YouTube.');
+        }
+
+        lines.push(PLATFORM_BLOCK_CLOSE);
+        lines.push('');
+        lines.push('');
+        return lines.join('\n');
+      }
+
+      /** Replace the block in `text`, insert it at the top, or take it out. */
+      function withPlatformBlock(text) {
+        var block = platformBlock();
+        var start = text.indexOf(PLATFORM_BLOCK_OPEN);
+        if (start !== -1) {
+          var end = text.indexOf(PLATFORM_BLOCK_CLOSE, start);
+          if (end !== -1) {
+            // Eat the blank lines the block left after itself, so toggling twice
+            // does not leave a growing gap where it used to be.
+            var after = end + PLATFORM_BLOCK_CLOSE.length;
+            while (text.charAt(after) === '\n') after += 1;
+            text = text.slice(0, start) + text.slice(after);
+          }
+        }
+        return block ? block + text : text;
+      }
+
+      function paintPlatformLabels() {
+        platformBoxes().forEach(function (box) {
+          var label = box.closest ? box.closest('label') : box.parentNode;
+          if (label) label.classList.toggle('is-off', !box.checked);
+        });
+      }
+
+      // ── NO PLATFORMS IS NOT A PROMPT ──────────────────────────────────────
+      //
+      // With every box unticked there is no run to describe, so the sheet holds
+      // one sentence saying so rather than a prompt whose accounts block reads
+      // "no accounts are in play". A prompt that carefully instructs an AI to
+      // post nowhere is a prompt somebody will paste anyway.
+      //
+      // THE REAL TEXT IS STASHED, NOT DESTROYED. Whatever was in the box, edits
+      // and all, comes back the moment a box is ticked. Losing somebody's
+      // typing because they unticked five checkboxes would be the worst kind of
+      // data loss: silent, self-inflicted, and impossible to guess at.
+      //
+      // AND IT IS NEVER SAVED. storePrompt() is skipped while the message is
+      // showing, so a browser that closed in this state reopens with the real
+      // prompt rather than with the warning stored as if it were one.
+      var PROMPT_NO_PLATFORMS = 'You must choose at least one platform to continue.';
+      var promptStash = null;
+
+      function anyPlatformOn() {
+        return platformBoxes().some(function (b) { return b.checked; });
+      }
+
+      function applyPlatformBlock() {
+        if (!promptEl) return;
+        paintPlatformLabels();
+
+        if (!anyPlatformOn()) {
+          // Stash once. Unticking the last box twice in a row must not overwrite
+          // the real prompt with the warning.
+          if (promptStash === null) promptStash = withPlatformBlock(promptEl.value);
+          promptEl.value = PROMPT_NO_PLATFORMS;
+          promptEl.readOnly = true;
+          if (promptCard) promptCard.classList.add('is-blocked');
+          paintPromptEdited();
+          return;
+        }
+
+        if (promptStash !== null) {
+          promptEl.value = promptStash;
+          promptStash = null;
+          promptEl.readOnly = false;
+          if (promptCard) promptCard.classList.remove('is-blocked');
+        }
+
+        promptEl.value = withPlatformBlock(promptEl.value);
+        storePrompt();
+        paintPromptEdited();
+      }
+
       function promptFingerprint(text) {
         var h = 5381;
         for (var i = 0; i < text.length; i += 1) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
@@ -2613,6 +3097,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function resetPromptText() {
         if (!promptEl) return;
         promptEl.value = BASE_PROMPT;
+        // BASE_PROMPT has no accounts block in it, so the boxes have to come
+        // back on with it. Left unticked they would claim a restriction the
+        // restored text does not carry, which is worse than either state on its
+        // own: the control and the sheet would be saying different things.
+        platformBoxes().forEach(function (box) { box.checked = true; });
+        // Reset restores the authored prompt, so the stash and the blocked
+        // dressing have to go with it or the box would be showing real text
+        // while still refusing to copy it.
+        promptStash = null;
+        promptEl.readOnly = false;
+        if (promptCard) promptCard.classList.remove('is-blocked');
+        paintPlatformLabels();
         storePrompt();
         paintPromptEdited();
         if (copyStatus) copyStatus.textContent = 'Authored prompt restored';
@@ -2733,6 +3229,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           // #edit=<id> has to wait for the rows, so it is chained onto the
           // load rather than fired beside it like #manual, which needs nothing.
           loadQueue().then(focusPostFromHash, focusPostFromHash);
+          // AFTER the queue, not beside it: this writes to the red pen only
+          // when a credential needs attention, and it must not be shouting
+          // about Threads over the top of a message about the load that just
+          // failed. Quiet on a healthy project, so it costs a signed-in admin
+          // two free API reads and nothing else.
+          checkAccounts(false);
           // Deep link, opened here rather than on DOMContentLoaded: until this
           // fires the whole page is display:none behind the sign-in gate, so a
           // dialog opened earlier would be invisible and would stay that way.
@@ -3254,12 +3756,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (confirmCard && !confirmCard.hidden)) return;
+            (confirmCard && !confirmCard.hidden) ||
+            (healthCard && !healthCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
       // ── THE ADD BOX HAS ITS OWN URL ──────────────────────────────────────
-      //   https://thegamebureau.com/mc/socializer.html#manual
+      //   https://thegamebureau.com/mc/socializer/#manual
       //
       // A dialog you can link to is one you can bookmark, keep on a phone home
       // screen, or send to yourself -- which is exactly the moment this box is
@@ -3309,7 +3812,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
 
       // ── ONE CANDIDATE HAS ITS OWN URL TOO ────────────────────────────────
-      //   https://thegamebureau.com/mc/socializer.html#edit=2026-08-15-2014-1
+      //   https://thegamebureau.com/mc/socializer/#edit=2026-08-15-2014-1
       //
       // Opens that candidate's Edit dialog. It exists for the routine's email:
       // every run mails five candidates, and the only thing you can do about
@@ -4324,6 +4827,24 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           kickerId.appendChild(originEl);
         }
 
+        // YOUTUBE MARKER. A video to share on the channel rather than a story to
+        // post to the three accounts, so it has to be tellable apart at a
+        // glance in a list it shares with them. It sits with the id and the
+        // origin because it is the same kind of fact: what KIND of candidate
+        // this is, not what it says.
+        //
+        // Red pen, because the thing it warns about is that the Post button
+        // will not work on this row: YouTube community posts are made by hand.
+        if (isYouTubePost(post)) {
+          var ytEl = document.createElement('span');
+          ytEl.className = 'post-kicker-origin post-kicker-youtube';
+          ytEl.textContent = 'YouTube';
+          ytEl.title = 'A video to share on our YouTube channel. Nothing here posts '
+            + 'to YouTube, so this one is done by hand: open it, share it to the '
+            + 'channel, then mark this posted.';
+          kickerId.appendChild(ytEl);
+        }
+
         kicker.appendChild(kickerId);
 
         // TOPIC PILLS, FAR RIGHT OF THE KICKER (2026-08-19). They were words in
@@ -4531,6 +5052,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               shot.classList.add('is-empty', 'is-broken');
               if (img.parentNode) img.parentNode.removeChild(img);
               hint.textContent = 'image failed';
+              // AND TELL THE POST BUTTON. Until this, the card knew the picture
+              // was dead and the button did not, so Instagram stayed on the
+              // button and the post failed at Meta instead of here. Repaint
+              // only the FIRST time a url is seen to fail: noteBrokenImage
+              // returns false afterwards, which is what stops the re-render
+              // drawing the image, erroring, and looping.
+              if (noteBrokenImage(image)) renderQueue();
             });
             shot.appendChild(img);
           }
@@ -5220,44 +5748,60 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // Our four accounts, all at the handle @thegamebureau. Keyed by the same
       // normalized token used for the is-<platform> class, so a platform chip
       // becomes a link straight to that account's page.
-      var PLATFORM_URLS = {
-        instagram: 'https://www.instagram.com/thegamebureau',
-        facebook: 'https://www.facebook.com/thegamebureau',
-        threads: 'https://www.threads.com/@thegamebureau'
-      };
-
-      // ── The VIEW bar ──────────────────────────────────────────────────────
-      // Three links to the accounts themselves, beside the bar that fills the
-      // queue: one side is where candidates come FROM, the other is where a
-      // posted one ended UP. Checking that a post actually appeared is the step
-      // after every click, and it was a trip through a bookmark or a search.
+      // -- The VIEW bar ------------------------------------------------------
       //
-      // Ordered the way the Post button names them -- Facebook, Instagram,
-      // Threads -- so the row on screen and the row in the button agree.
-      // Built from PLATFORM_URLS rather than written into the markup: the
-      // handles are named once on this page, so a rename cannot land in one
-      // copy and miss the other.
-      var VIEW_ORDER = ['facebook', 'instagram', 'threads'];
-
+      // ONE BUTTON WEARING THE SCROLLING REEL, opening the menu of our accounts.
+      // It was three buttons, FACEBOOK / INSTAGRAM / THREADS, beside the bar
+      // that fills the queue: one side is where candidates come FROM, this side
+      // is where a posted one ends UP, and checking that a post really appeared
+      // is the step after every click.
+      //
+      // WHAT CHANGED IN MEANING, and it is a real difference rather than a
+      // tidy-up. Those three were the accounts we can POST to. The menu carries
+      // all five we HAVE, so X and YouTube are reachable from here now and were
+      // not before. Nothing here posts to them; this bar is for going and
+      // looking, and there is no reason to be able to look at three of five.
+      //
+      // THE HANDLES ARE GONE FROM THIS PAGE. PLATFORM_URLS held them and was
+      // read by nothing else, so it went with the buttons; the module owns them
+      // now. WIRE_LABELS stays, and is a different thing: it maps the Edge
+      // Function's platform keys to display names and is used all over the
+      // posting path.
       function buildViewLinks() {
         var host = document.getElementById('viewLinks');
         if (!host) return;
         host.textContent = '';
-        VIEW_ORDER.forEach(function (key) {
-          var url = PLATFORM_URLS[key];
-          if (!url) return;
-          var a = document.createElement('a');
-          a.className = 'btn';
-          a.href = url;
-          a.target = '_blank';
-          // noopener is not optional on a target=_blank link: without it the
-          // opened tab gets a handle on this one through window.opener.
-          a.rel = 'noopener noreferrer';
-          a.textContent = (WIRE_LABELS[key] || key).toUpperCase();
-          a.title = 'Open ' + (WIRE_LABELS[key] || key) + ' — ' +
-                    url.replace(/^https?:\/\/(www\.)?/, '');
-          host.appendChild(a);
+        if (!window.TgbFollowReel || typeof window.TgbFollowReel.popup !== 'function') {
+          // No module, no accounts: this page does not know the handles any
+          // more. An empty bar is the honest failure, and better than a button
+          // that opens nothing.
+          return;
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--reel';
+        btn.title = 'Our social accounts';
+        btn.setAttribute('aria-label', 'Our social accounts');
+        btn.appendChild(window.TgbFollowReel.build());
+        host.appendChild(btn);
+        window.TgbFollowReel.popup(btn);
+
+        // CHECK ACCOUNTS, beside the reel. The automatic check on load is
+        // silent unless something is wrong, which is right for a warning and
+        // useless when you have just changed a secret and want to know whether
+        // it took. This is the same check, said out loud.
+        var health = document.createElement('button');
+        health.type = 'button';
+        health.className = 'btn';
+        health.textContent = 'Check accounts';
+        health.title = 'Ask the Edge Function what each credential actually points at, ' +
+                       'and how long the Threads token has left. Posts nothing.';
+        health.addEventListener('click', function () {
+          health.disabled = true;
+          checkAccounts(true).then(function () { health.disabled = false; },
+                                   function () { health.disabled = false; });
         });
+        host.appendChild(health);
       }
 
       // Topics first (what the story is), then the platform recommendations
@@ -5362,8 +5906,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // These are the composer entry points as of 2026-08; platforms move them,
       // and some depend on which account/page the browser session is currently
       // acting as. If one lands somewhere unhelpful, change it here — it is the
-      // single place any of this is decided. PLATFORM_URLS (the plain account
-      // pages) stays as the fallback.
+      // single place any of this is decided.
+      //
+      // TWO THINGS ABOUT THIS OBJECT THAT ARE NOT TRUE ANY MORE. It used to say
+      // PLATFORM_URLS was the fallback; that object was deleted on 2026-08-20
+      // with the three VIEW buttons, and nothing ever fell back to it in code
+      // anyway. And PLATFORM_COMPOSERS itself is READ BY NOTHING: posting goes
+      // through the socials-post Edge Function, so these composer urls are a
+      // record of where a human would go by hand, not a wired path. Left rather
+      // than deleted because the urls are the expensive part to rediscover, but
+      // do not mistake it for something that runs.
       var PLATFORM_COMPOSERS = {
         // Opens the tweet composer with an empty box.
         // Meta Business Suite composer — the one that posts AS the page rather
@@ -5390,8 +5942,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // are per-step for the same reason: the caption for Instagram must land on
       // the clipboard at the moment its tab opens, not four steps earlier.
       // 'meta' is the merged Facebook+Instagram destination, not a Graph term.
-      // X was removed on 2026-08-07: it was never wired for API posting, so it
-      // only ever added a manual step this page could not help with.
+      // X was removed on 2026-08-07 for exactly the reason this runner exists to
+      // avoid: it was not wired for API posting, so it only ever added a manual
+      // step. It is wired as of 2026-08-20 and posts through the Edge Function
+      // with the other three, so it is not a step in here any more.
       // PLATFORM_ORDER lived here and was deleted on 2026-08-09. It listed the
       // destinations for a per-card picker that went away with X and YouTube,
       // and NOTHING HAD READ IT SINCE -- so adding 'threads' to it, as was done
@@ -5456,7 +6010,50 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // Threads TAKES TEXT-ONLY POSTS, so unlike Instagram it is not
         // conditional on the candidate having an image. That is why it is its
         // own destination rather than another account inside the meta fan-out.
-        threads: true      // graph.threads.net POST /{user}/threads -> /threads_publish
+        threads: true,     // graph.threads.net POST /{user}/threads -> /threads_publish
+        // X is ON since 2026-08-20, restored after being removed from this page
+        // on 2026-08-07. It is a third API and a third credential and shares
+        // nothing with the other two:
+        //
+        //   supabase secrets set X_API_KEY=...
+        //   supabase secrets set X_API_SECRET=...
+        //   supabase secrets set X_ACCESS_TOKEN=...
+        //   supabase secrets set X_ACCESS_TOKEN_SECRET=...
+        //
+        // ALL FOUR, AND THE TOKEN PAIR MUST BE READ AND WRITE. The default is
+        // read-only and a read-only token fails at post time with a 403 that
+        // says nothing about permissions; changing the app's permission level
+        // does not update an already-issued pair, so they have to be
+        // REGENERATED afterwards.
+        //
+        // EVERY POST COSTS 20 CENTS. There is no free tier: the X API is
+        // pay-per-use against prepaid credits, $0.015 a post and $0.200 for a
+        // post CONTAINING A URL. Every post we make carries the story link, so
+        // we always pay the second one. About $30 a month at five posts a day.
+        // The other three accounts here are free; this is the only one that is
+        // not, and it is the only reason to think twice before pressing Post.
+        //
+        // TEXT AND A LINK, NO IMAGE UPLOAD. X unfurls the link into a card from
+        // the destination's own og:image, so the post is not bare, but the
+        // picture is the article's rather than one we sent. That makes X
+        // unconditional like Threads rather than image-gated like Instagram.
+        //
+        // OAuth 1.0a rather than OAuth 2.0, so nothing expires: see the long
+        // note in mc/supabase/functions/socials-post/index.ts for why.
+        // OFF, AND NOT BECAUSE IT IS UNWIRED. postX() in the Edge Function is
+        // finished and would work the moment four secrets were set. It is off
+        // because of what a post COSTS: X has no free tier, it is pay-per-use,
+        // and a post carrying a url is $0.200 against $0.015 for one without.
+        // Every post we make carries the story link, so we would always pay the
+        // expensive rate, about $30 a month at five posts a day, against three
+        // other accounts that are free.
+        //
+        // So X is done the way YouTube is done: the Copy button puts the caption
+        // and the link on the clipboard and you paste it in yourself. The code
+        // stays because the decision could reasonably go the other way, and
+        // because rediscovering the OAuth 1.0a signing would be the expensive
+        // part. Flip this to true and set the secrets if the bill is worth it.
+        x: false           // api.x.com POST /2/tweets, wired but deliberately off
       };
 
       // Platforms that can NEVER be posted to by machine, as distinct from ones
@@ -5464,14 +6061,61 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // promise, "suggest only" is a fact, and one greyed button for both
       // implies something is coming that is not.
       //
-      // Empty since 2026-08-07, when YouTube was removed from the page entirely
-      // -- it was the only entry. Kept because the distinction is real and the
-      // next unpostable platform should land here rather than being quietly
-      // filed as "not configured yet".
-      var PLATFORM_SUGGEST_ONLY = {};
+      // Empty from 2026-08-07, when YouTube was removed from the page entirely,
+      // until 2026-08-20, when the routine started filing one video a run and
+      // YouTube became a real answer again rather than a missing one.
+      //
+      // TWO ENTRIES, FOR TWO DIFFERENT REASONS, and the difference is worth
+      // keeping straight even though the button behaves the same way for both:
+      //
+      //   youtube  CANNOT be posted by machine. There is no small API for a
+      //            channel post the way there is for the other three. A fact
+      //            about the platform.
+      //   x        CAN be, and deliberately is not. postX() in the Edge
+      //            Function is finished; X has no free tier and charges $0.200
+      //            for a post containing a url against $0.015 without, and
+      //            every post we make carries one. A decision about money,
+      //            which is reversible: see PLATFORM_AUTOPOST.x.
+      //
+      // Both are answered the same way, by the Copy button, so the reason text
+      // is what carries the difference to whoever is reading the greyed button.
+      var PLATFORM_SUGGEST_ONLY = {
+        youtube: 'YouTube is posted by hand: open the video, share it to the ' +
+                 'channel as a post, then mark this one posted.',
+        x: 'X is posted by hand, because its API charges 20 cents for a post ' +
+           'with a link in it. Copy the caption and paste it into X.'
+      };
+
+      // ── A BROKEN IMAGE IS NOT AN IMAGE ──────────────────────────────────
+      //
+      // hasImage() used to be "the column is not empty", which is what the
+      // Post button believed. But an image url that 404s or 403s is a perfectly
+      // non-empty string, so a dead picture still switched Instagram on and the
+      // post then failed at Meta with Meta's own words about media.
+      //
+      // THE CARD ALREADY KNEW. It draws IMAGE FAILED in red when the <img>
+      // errors, so the page held the answer and the button did not. This is
+      // that knowledge, shared.
+      //
+      // KEYED BY URL, NOT BY CANDIDATE. The same address is broken for every
+      // row carrying it, and two candidates sharing a gift image should not
+      // have to discover it separately.
+      var brokenImages = Object.create(null);
+
+      /** Called by the card's own <img> onerror. Returns true the FIRST time a
+       *  url is seen to fail, which is the only time anything needs repainting:
+       *  without that guard the re-render draws the image again, it errors
+       *  again, and the page loops. */
+      function noteBrokenImage(url) {
+        var key = String(url || '').trim();
+        if (!key || brokenImages[key]) return false;
+        brokenImages[key] = true;
+        return true;
+      }
 
       function hasImage(post) {
-        return !!String((post && post.image) || '').trim();
+        var url = String((post && post.image) || '').trim();
+        return !!url && !brokenImages[url];
       }
 
       // ── Meta is ONE destination that fans out ─────────────────────────────
@@ -5516,6 +6160,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function postTargets(post) {
         var out = metaTargets(post);
         if (PLATFORM_AUTOPOST.threads) out.push('threads');
+        // Unconditional, like Threads and unlike Instagram: X takes a text post
+        // and unfurls the link into a card, so a candidate with no image of its
+        // own still makes a normal post there.
+        if (PLATFORM_AUTOPOST.x) out.push('x');
 
         // THE BOT'S TAGS NARROW THIS, as of 2026-08-19. They were ADVICE, NOT
         // ROUTING for four months and this reverses that: the Platforms cell
@@ -5543,25 +6191,96 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // `platforms` is a jsonb array of {name, why}, but a hand-written row or
       // an older one may hold bare strings, so both shapes are read. The match
       // is lowercased and trimmed because the bot writes display names.
+      // The raw names the bot asked for, in its own words, whether or not this
+      // page can post to any of them. Needed for the YouTube marker and for the
+      // blocked message, which has to be able to say "the bot suggested
+      // YouTube" about an account this page has never heard of.
+      function suggestedNames(post) {
+        var raw = post && post.platforms;
+        if (!Array.isArray(raw)) return [];
+        return raw.map(function (entry) {
+          var name = entry && typeof entry === 'object' ? entry.name : entry;
+          return String(name || '').trim();
+        }).filter(Boolean);
+      }
+
+      // SILENCE AND AN UNPOSTABLE ANSWER ARE DIFFERENT THINGS, and telling them
+      // apart is what makes a YouTube candidate safe.
+      //
+      //   null  no advice at all: platforms absent, not an array, or empty.
+      //         Do not narrow. Every row filed before tags existed and every
+      //         MANUAL row is in this state, and reading it as "post nowhere"
+      //         would make all of them unpostable at a stroke.
+      //   []    the bot NAMED accounts and this page can post to none of them.
+      //         Post nowhere. A YouTube-only candidate is exactly this.
+      //   [..]  the postable subset of what it named.
+      //
+      // This returned null for BOTH of the first two until 2026-08-20, so a
+      // candidate tagged YouTube alone read as no opinion and the Post button
+      // cheerfully offered Facebook, Instagram and Threads for a video we meant
+      // to share on YouTube. `[]` is truthy, so postTargets' `if (!wanted)`
+      // still catches only the null case and needed no change.
       function suggestedKeys(post) {
         var raw = post && post.platforms;
-        if (!Array.isArray(raw)) return null;
+        if (!Array.isArray(raw) || !raw.length) return null;
         var keys = [];
-        raw.forEach(function (entry) {
-          var name = entry && typeof entry === 'object' ? entry.name : entry;
-          name = String(name || '').trim().toLowerCase();
+        suggestedNames(post).forEach(function (name) {
+          name = name.toLowerCase();
           for (var key in WIRE_LABELS) {
             if (WIRE_LABELS[key].toLowerCase() === name && keys.indexOf(key) === -1) keys.push(key);
           }
         });
-        return keys.length ? keys : null;
+        return keys;
+      }
+
+      /** The destination this candidate has to be posted to BY HAND, or ''.
+       *
+       *  BY-HAND AND BY-MACHINE COEXIST ON ONE CANDIDATE, and that is the
+       *  ordinary case rather than the exception. A story tagged Facebook and X
+       *  goes to Facebook when you press Post and to X when you press Copy:
+       *  both are real, both are wanted, and they are two different presses.
+       *
+       *  This used to answer only when the machine could reach NOTHING, on the
+       *  reasoning that a button saying "for X" on a row about to go to Facebook
+       *  was claiming a job it was not doing. That was backwards. The Post
+       *  button already states its own destinations, so the two controls
+       *  together read as the whole picture: "Post to Facebook + Threads" and
+       *  "Copy to clipboard for X". Staying silent about X did not avoid a false
+       *  claim, it hid the half of the job that still needed doing by hand.
+       *
+       *  Names come from the bot's own tags rather than from WIRE_LABELS,
+       *  because YouTube is deliberately absent from that object and would
+       *  otherwise be unnameable here. */
+      function byHandTarget(post) {
+        var names = suggestedNames(post);
+        for (var i = 0; i < names.length; i++) {
+          var key = names[i].toLowerCase();
+          if (PLATFORM_SUGGEST_ONLY[key]) return names[i];
+        }
+        return '';
+      }
+
+      // A candidate the bot sent to YouTube and nowhere else. Nothing here
+      // posts to YouTube: a community post is made by hand, so this is a marker
+      // rather than a route.
+      function isYouTubePost(post) {
+        var names = suggestedNames(post).map(function (n) { return n.toLowerCase(); });
+        return names.length > 0 &&
+               names.indexOf('youtube') !== -1 &&
+               (suggestedKeys(post) || []).length === 0;
       }
 
       // Real account names for the receipt. A LOOKUP WITH NO DEFAULT, on both
       // sides of the wire: the Edge Function had this as
       // `p === 'facebook' ? 'Facebook' : 'Instagram'` and would have filed
       // every Threads post as Instagram. A default is what makes that silent.
-      var WIRE_LABELS = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads' };
+      // X REJOINED ON 2026-08-20 and YouTube deliberately did NOT. The two were
+      // removed together on 2026-08-07, and they are not the same case: X is an
+      // account we can post to by machine, so it belongs here and gets routed;
+      // YouTube is shared by hand, so naming it here would make suggestedKeys()
+      // return a key that postTargets() can never satisfy, and isYouTubePost()
+      // reads the EMPTY result as the marker for a video row.
+      var WIRE_LABELS = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', x: 'X' };
 
       function wireLabels(keys) {
         return (keys || []).map(function (k) { return WIRE_LABELS[k] || k; });
@@ -5573,7 +6292,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var wanted = suggestedKeys(post);
         if (wanted && !metaTargets(post).concat(PLATFORM_AUTOPOST.threads ? ['threads'] : [])
             .filter(function (k) { return wanted.indexOf(k) !== -1; }).length) {
-          return 'The bot suggested ' + wireLabels(wanted).join(' and ')
+          // NAME WHAT THE BOT ACTUALLY ASKED FOR. wireLabels(wanted) is empty
+          // whenever it named only accounts this page cannot post to, which is
+          // every YouTube candidate, and the message read "The bot suggested ,
+          // and none of those can take this candidate."
+          var asked = wanted.length ? wireLabels(wanted) : suggestedNames(post);
+          if (isYouTubePost(post)) {
+            return 'This one is for YouTube, which is posted by hand: open the '
+              + 'video, share it to the channel, then mark this posted.';
+          }
+          return 'The bot suggested ' + asked.join(' and ')
             + ', and none of those can take this candidate. Edit the story or post it by hand.';
         }
         return autoBlockedReason('meta', post);
@@ -5629,6 +6357,139 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }).join('  |  ');
       }
 
+      // ── ACCOUNT HEALTH, CHECKED BEFORE IT COSTS A POST ────────────────────
+      //
+      // Every credential failure here used to be found the same way: you picked
+      // a candidate, wrote a caption, pressed Post, and THEN learned the token
+      // was wrong. The work was already done and the failure arrived at the
+      // worst moment.
+      //
+      // THE ONE THAT REALLY NEEDED THIS IS THREADS. Its token lasts 60 days and
+      // the Edge Function only refreshes it WHEN SOMETHING IS POSTED, so a
+      // quiet fortnight is how it dies: nothing is broken, nobody did anything
+      // wrong, and the next post fails. The check reports days remaining and
+      // says so while there is still time to act.
+      //
+      // SILENT WHEN HEALTHY. A notice that appears every time you open the room
+      // is one nobody reads; this writes to the red pen only when something
+      // needs attention, which is the same bargain the rest of the page makes.
+      var accountHealth = null;
+
+      async function checkAccounts(loud) {
+        try {
+          var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + AUTOPOST_ENDPOINT, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ diagnose: true })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          accountHealth = await res.json();
+        } catch (err) {
+          // A check that cannot run is NOT reported as an account fault: the
+          // function may simply not be deployed, and crying wolf about
+          // Instagram because a fetch failed is worse than saying nothing.
+          accountHealth = null;
+          if (loud) setPageStatus('Could not check the accounts: ' + (err.message || err));
+          return null;
+        }
+
+        var bad = [];
+        ['meta', 'threads', 'x'].forEach(function (key) {
+          var d = accountHealth[key];
+          if (d && d.needsAttention) bad.push(PLATFORM_HEALTH_LABEL[key] + ': ' + d.detail);
+        });
+
+        if (bad.length) {
+          // Joined rather than only-the-first: two broken credentials is a
+          // different morning from one, and finding the second only after
+          // fixing the first is the thing that wastes an afternoon.
+          setPageStatus(bad.join('  |  '));
+        }
+        if (loud) renderAccountHealth();
+        return accountHealth;
+      }
+
+      // WHERE A CREDENTIAL COMES FROM, AND WHERE IT LIVES. Two links per
+      // account, and the second is the one people forget: a token can be
+      // perfectly good in the platform's console and absent from this project's
+      // secrets, and from the page that failure reads exactly like a bad token.
+      //
+      // The Supabase link is per-project and hardcoded to the ref this room
+      // talks to, so it cannot send anybody to the wrong dashboard. That ref is
+      // the same one pinned in mc/supabase/config.toml.
+      var SUPABASE_SECRETS_URL =
+        'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/settings/functions';
+
+      var PLATFORM_HEALTH_LINKS = {
+        meta: [
+          ['Meta app dashboard', 'https://developers.facebook.com/apps/'],
+          ['Business settings', 'https://business.facebook.com/settings/'],
+          ['Where the secret is set', SUPABASE_SECRETS_URL]
+        ],
+        threads: [
+          // Same host as Meta and a DIFFERENT credential, which is the whole
+          // trap: the token comes from the app's Threads use case, not from the
+          // Page. Linked separately so nobody reaches for the Page token again.
+          ['Threads API, in the app', 'https://developers.facebook.com/apps/'],
+          ['Where the secret is set', SUPABASE_SECRETS_URL]
+        ],
+        x: [
+          ['X developer portal', 'https://developer.x.com/en/portal/dashboard'],
+          ['X API pricing', 'https://docs.x.com/x-api/getting-started/pricing'],
+          ['Where the secrets are set', SUPABASE_SECRETS_URL]
+        ]
+      };
+
+      function renderAccountHealth() {
+        var body = document.getElementById('healthBody');
+        if (!body) return;
+        body.textContent = '';
+        if (!accountHealth) {
+          var none = document.createElement('p');
+          none.className = 'health-detail';
+          none.textContent = 'The check could not run. The Edge Function may not be ' +
+            'deployed: cd mc && supabase functions deploy socials-post';
+          body.appendChild(none);
+        } else {
+          ['meta', 'threads', 'x'].forEach(function (key) {
+            var d = accountHealth[key] || {};
+            var row = document.createElement('div');
+            row.className = 'health-row ' + (d.needsAttention ? 'is-bad' : 'is-ok');
+
+            var name = document.createElement('div');
+            name.className = 'health-name';
+            name.textContent = PLATFORM_HEALTH_LABEL[key] +
+              (d.needsAttention ? ' - needs attention' : '');
+            row.appendChild(name);
+
+            var detail = document.createElement('div');
+            detail.className = 'health-detail';
+            detail.textContent = d.detail || 'No answer.';
+            row.appendChild(detail);
+
+            var links = document.createElement('div');
+            links.className = 'health-links';
+            (PLATFORM_HEALTH_LINKS[key] || []).forEach(function (pair) {
+              var a = document.createElement('a');
+              a.href = pair[1];
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.textContent = pair[0];
+              links.appendChild(a);
+            });
+            row.appendChild(links);
+            body.appendChild(row);
+          });
+        }
+        openTool(healthCard, healthBackdrop);
+      }
+
+      var PLATFORM_HEALTH_LABEL = {
+        meta: 'Facebook and Instagram',
+        threads: 'Threads',
+        x: 'X'
+      };
+
       // Console helper: type tgbDiagnosePost() on this page while signed in.
       // Answers "what does the stored Meta token actually point at?" and posts
       // nothing. Exposed deliberately -- the alternative is asking someone to
@@ -5646,11 +6507,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       };
 
       // -- Post controls, inline on the card -------------------------------
-      // There is nothing to pick any more. X was removed on 2026-08-07 and
-      // YouTube before it, leaving Meta as the only destination -- and which
-      // Meta accounts a story reaches is not a preference but a fact about the
-      // candidate, because Instagram's API refuses a text-only post. So the
-      // button states the outcome instead of offering a choice with one answer:
+      // There is nothing to pick any more, and that is still true with four
+      // destinations rather than one. Which accounts a story reaches is not a
+      // preference but a fact about the candidate: Instagram's API refuses a
+      // text-only post, and the bot's own tags narrow the rest. So the button
+      // states the outcome instead of offering a choice it already knows the
+      // answer to:
       //
       //   candidate has an image  ->  "Post to Facebook + Instagram"
       //   candidate has no image  ->  "Post to Facebook"
@@ -5663,11 +6525,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         go.type = 'button';
         go.className = 'btn primary';
 
+        // ── WHERE THE CLIPBOARD IS FOR ────────────────────────────────────
+        // Two destinations are posted by hand, for two different reasons (see
+        // PLATFORM_SUGGEST_ONLY), and on those candidates this button is not a
+        // convenience beside the Post button, it IS the way the thing gets
+        // posted. So it says which one: a bare "Copy to clipboard" on a video
+        // row makes you work out for yourself what to do with the text.
+        //
+        // Anything else keeps the plain label. On an ordinary story the machine
+        // does the posting and this is the fallback, so naming a platform would
+        // claim a job it is not doing.
+        var handTarget = byHandTarget(post);
+
         var copy = document.createElement('button');
         copy.type = 'button';
         copy.className = 'btn';
-        copy.textContent = 'Copy to clipboard';
-        copy.title = 'Copy the caption and link, and mark this posted';
+        copy.textContent = handTarget
+          ? 'Copy to clipboard for ' + handTarget
+          : 'Copy to clipboard';
+        copy.title = handTarget
+          ? 'Copy the caption and link, paste them into ' + handTarget +
+            ', and mark this posted'
+          : 'Copy the caption and link, and mark this posted';
 
         // Real account names, because posted_platforms is a receipt: "meta" is
         // this page's vocabulary and would mean nothing six months from now.
@@ -6042,6 +6921,35 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
       if (promptResetBtn) promptResetBtn.addEventListener('click', resetPromptText);
 
+      Array.prototype.forEach.call(document.querySelectorAll('[data-health-close]'), function (b) {
+        b.addEventListener('click', function () { closeTool(healthCard, healthBackdrop); });
+      });
+      if (healthBackdrop) healthBackdrop.addEventListener('click', function () {
+        closeTool(healthCard, healthBackdrop);
+      });
+
+      // Delegated, so the five boxes need no ids and a sixth account needs only
+      // a line of markup. `change` rather than `click`: it fires for the
+      // keyboard and for a press on the label text, both of which are how these
+      // actually get used.
+      if (platformsEl) {
+        platformsEl.addEventListener('change', function (e) {
+          if (e.target && e.target.type === 'checkbox') applyPlatformBlock();
+        });
+        // A stored edit may already carry a block from last time, in which case
+        // the boxes have to match the sheet rather than the markup's defaults.
+        // The sheet is the truth here: it is the thing that gets pasted.
+        if (promptEl && promptEl.value.indexOf(PLATFORM_BLOCK_OPEN) !== -1) {
+          var head = promptEl.value.slice(0, promptEl.value.indexOf(PLATFORM_BLOCK_CLOSE));
+          platformBoxes().forEach(function (box) {
+            box.checked = !new RegExp('\\b' + box.value + '\\b').test(
+              head.slice(head.indexOf('Do not tag'))
+            );
+          });
+        }
+        paintPlatformLabels();
+      }
+
       // ONE COPY, ONE CALLER since the Copy button went: each of the AI links,
       // which copy and then open their chat in the same click.
       //
@@ -6052,6 +6960,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       async function copyPromptText() {
         if (!promptEl) return false;
         window.clearTimeout(copyResetTimer);
+        // Refused rather than allowed to copy the warning. The doors open a
+        // chat window straight after copying, so without this you would arrive
+        // somewhere with one useless sentence on the clipboard and no obvious
+        // reason why.
+        if (promptStash !== null) {
+          if (copyStatus) copyStatus.textContent = 'Tick at least one platform first';
+          copyResetTimer = window.setTimeout(resetCopyStatus, 2600);
+          return false;
+        }
         try {
           await navigator.clipboard.writeText(promptEl.value || '');
           // THE LINE IS THE CONFIRMATION NOW. It was kept for failures alone

@@ -4,6 +4,321 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
+## READ THIS FIRST
+
+Four short sections, all of them things that have already cost a day. Then a
+place for the big picture, then the room-by-room detail that makes up the rest of
+this file.
+
+---
+
+## 1. PENDING MIGRATIONS — SQL THAT IS WRITTEN BUT NOT YET APPLIED
+
+**Nothing in `mc/supabase/migrations/` runs itself.** Remote migration history in
+this project has drifted, the CLI refuses `db push`, and every migration here is
+pasted into the Supabase SQL editor by hand. So a file existing in the repo says
+NOTHING about whether the database has it.
+
+**KEEP THIS LIST CURRENT. Add a row when you write a migration; delete the row
+the moment it is applied.** A stale entry is worse than none, because the next
+person runs something twice or hunts a bug that was fixed hours ago.
+
+| migration | what breaks until it is applied |
+|---|---|
+| *(none)* | Everything in `mc/supabase/migrations/` is applied as of 2026-08-20, verified against the database rather than assumed. |
+
+**THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
+for it. It listed `2026082003` as pending because that is what the last message
+about it had said; the probe below returned 200, `public.partner_venues` was
+already gone, and the five partner rows had carried across. **Ask the database,
+do not repeat what you were last told.**
+
+**HOW TO TELL, RATHER THAN GUESS.** Ask the database, with the publishable key:
+
+```bash
+KEY=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
+API=https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1
+# a column: 200 means applied, 400 with 42703 means not
+curl -s -o /dev/null -w "%{http_code}\n" "$API/waypoints?select=partner_status&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+# a function: 200 means applied, 404 with PGRST202 means not
+curl -s -o /dev/null -w "%{http_code}\n" "$API/rpc/tgb_partner_coverage" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+```
+
+**A PAGE THAT NEEDS A MIGRATION MUST NAME IT.** Not a raw `42703` or `PGRST202`:
+those are statements about our schema and tell the person at the keyboard
+nothing they can act on. Catch it and say which file to run. The Path Builder and
+the waypoint editor both do this; copy that pattern.
+
+---
+
+## 2. HOW AN ADMIN PAGE DIES, AND THE TWO CHECKS THAT CATCH IT
+
+**THE FAILURE IS A COMPLETELY BLANK PAGE, WITH THE REASON ONLY IN THE CONSOLE.**
+It has happened twice. The mechanism is worth knowing because nothing about it is
+obvious from looking at the screen:
+
+1. Every admin room ends with a block of `el('someId').addEventListener(...)`.
+2. `el()` is `getElementById`, which returns **null** for an id that is not in
+   the markup, and `null.addEventListener` throws.
+3. That kills the REST of the block, **including the final `adminAuth.init()`**.
+4. `admin-shell.css` hides every child of `body.mc-auth-protected` until
+   `init()` adds `.mc-auth-authorized`.
+
+So one dead reference in the wiring takes down the entire room, silently. **A
+missing element should cost one button, not the page** — if you touch that block,
+consider making it defensive.
+
+**HOW THIS HAPPENS IN PRACTICE:** an edit script inserts the markup, fails a
+later assertion, and never writes the file, while a second script adds the
+wiring and does write. Half-applied. **After a failed edit, verify what actually
+landed before building on top of it.**
+
+**THE TWO CHECKS. Run both after touching any admin page.**
+
+```bash
+# 1. Every inline script still parses.
+node -e "
+const fs=require('fs');const s=fs.readFileSync('mc/pathbuilder.html','utf8');
+const re=/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+let m;while((m=re.exec(s))){try{new (require('vm').Script)(m[1]);}catch(e){console.log('PARSE FAIL: '+e.message);process.exit(1);}}
+console.log('parse OK');"
+
+# 2. Every id the script wires or writes exists in the markup.
+node -e "
+const fs=require('fs');const s=fs.readFileSync('mc/pathbuilder.html','utf8');
+const ids=[...s.matchAll(/el\('([\w]+)'\)\.(addEventListener|textContent|value|disabled|hidden|classList)/g)].map(m=>m[1]);
+const missing=[...new Set(ids)].filter(id=>!new RegExp('id=\"'+id+'\"').test(s));
+console.log(missing.length?('MISSING FROM MARKUP: '+missing.join(', ')):'all wired ids present');"
+```
+
+**Check 1 cannot catch check 2's bug.** The syntax is perfectly valid; the
+element simply is not there.
+
+---
+
+## 3. WORKING AGREEMENTS
+
+How to behave in this repo. Every one of these is here because ignoring it cost
+something real.
+
+- **NEVER LEAVE AN EMPTY CATCH, AND NEVER A BARE `return` ON A WRITE PATH.** A
+  write that fails without saying so is a bug in itself, and it is
+  indistinguishable from success. The Tape Room shipped three of these at once.
+  Every room has an error channel; use it.
+- **TRANSLATE DATABASE ERRORS INTO SENTENCES.** A `23505` becomes "that tape
+  already has it, it may be hidden". A `42703` names the migration. A raw
+  Postgres code is a statement about our schema, not an instruction to the
+  person reading it.
+- **PostgREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES A WRITE.** Check
+  the returned row, or a refused save reports success and the page shows a value
+  the table never took.
+- **PROVE THE MATHS BEFORE CLAIMING IT.** Anything with a distance, an order or a
+  cost in it gets run against a known geometry first. That is how the loop bug in
+  RECALC was found (a duplicate stop is zero metres away, so it was always taken
+  as stop 2) and how TUCK IN was shown to beat proximity ranking.
+- **`Number(null)` IS 0 AND `isFinite(0)` IS TRUE.** So `isFinite(Number(row.lat))`
+  calls an unlocated row located, and a `walkMetres` of 0 means UNMEASURABLE, not
+  shortest. Check for null explicitly. This has caused two separate bugs.
+- **A SHARED MODULE MAY NOT READ A HOST'S VARIABLE.** It works while there is one
+  host and throws on the second. See `WP_FIELDS`.
+- **`create or replace` REWRITES THE WHOLE FUNCTION.** A column another migration
+  taught it about is not inherited. Check the INSERT list against the table
+  before replacing one. The socials pull silently stopped writing `confidence`
+  for five days this way.
+- **CONSTANTS IN A `SECURITY DEFINER` RPC ARE THE SECURITY.** `status`,
+  `archived`, `origin`, `partner_status`: whatever the function hardcodes is what
+  makes it safe to expose to `anon`. **Never turn one into a parameter.**
+- **THE TRIGGER IS WHAT RUNS; THIS FILE IS A DESCRIPTION OF IT.** Two crons in
+  here had silently gone stale. `RemoteTrigger {action: "list"}` before trusting
+  any cron written down.
+- **A `RemoteTrigger` UPDATE REPLACES `job_config` WHOLE. It does not merge.**
+  Exactly the `create or replace` trap, on a different system. Sending
+  `job_config` with only `environment_id` and `events` **silently dropped
+  `session_context.model` and `session_context.sources`** from TGB SOCIALIZER
+  BOT, so the routine lost its model pin and its git repository, and the reply
+  came back 200 looking fine. Sending it with only `session_context` then wiped
+  the entire prompt. **Always GET first, and send every key back**, and re-GET
+  afterwards to confirm what actually survived rather than trusting the 200.
+  A cron-only change is safe: `cron_expression` is a top-level field, not part
+  of `job_config`.
+- **A TRIGGER ID DOES NOT SURVIVE A DELETE.** Anything holding one has to be
+  repointed, and a stale one in an `href` 404s silently. Prefer disabling to
+  deleting.
+- **DELETE A ROOM'S DOORS IN THE SAME COMMIT AS THE ROOM.** GitHub Pages serves
+  no 301, so every move here is a hard break: the nav entry, the hub card, the
+  `room-blurbs.js` key, and any routine prompt that names the path.
+- **WRITE THE REASON, NOT THE CHANGE.** The next reader can see what the code
+  does; what they cannot see is what was tried before and why it lost. That is
+  what most of this file is.
+
+---
+
+## 4. WHERE EVERYTHING IS
+
+| room | file | tables | routine |
+|---|---|---|---|
+| **Tape Room** | [mc/soundtracks/index.html](mc/soundtracks/index.html) | `soundtracks`, `soundtrack_songs`, `soundtrack_issues` | TGB SOUNDTRACK BOT |
+| **Gift Shop** (the room) | [mc/gifts/index.html](mc/gifts/index.html) | `gift_shop_items`, `gift_shop_listings` | TGB GIFT SHOP BOT |
+| **Socializer** | [mc/socializer/index.html](mc/socializer/index.html) | `socials` | TGB SOCIALIZER BOT |
+| **Path Builder** | [mc/pathbuilder.html](mc/pathbuilder.html) | `waypoints`, `paths`, `path_stops` | TGB PATH BOT, TGB WAYPOINT BOT |
+| **Green Room** | [mc/greenroom.html](mc/greenroom.html) | `guides` | none |
+| **Cities** | [mc/data/cities.html](mc/data/cities.html) | `cities`, `countries` | none |
+| **Anchor Events** | [mc/data/events.html](mc/data/events.html) | `anchor_events` | TGB ANCHOR EVENTS (name only; see its note) |
+| **Teams** | [mc/data/teams.html](mc/data/teams.html) | `teams` | none |
+| **Stop Builder** | [mc/_stops.html](mc/_stops.html) — PARKED | `stops`, `challenges` | none |
+| **Mission Control** | [mc/index.html](mc/index.html) | `admin_access_requests` | none |
+
+**PUBLIC pages** are at the repo root: `games/`, `gifts/`, `highlights/`,
+`soundtracks/`, `index.html`, and the shared chrome in `shell/`. **Everything
+else lives under `mc/`**, and the rule for anything new is: if a visitor is not
+served it, it goes in `mc/`.
+
+**SHARED MODULES**, which exist because this repo has lost to copy-and-drift
+three times:
+
+| file | holds |
+|---|---|
+| [mc/assets/waypoint-editor.js](mc/assets/waypoint-editor.js) | the waypoint editor dialog, Fill, and `waypointNameEl` |
+| [mc/assets/waypoint-geo.js](mc/assets/waypoint-geo.js) | Plus Codes, Nominatim, the walk solver. **No DOM** |
+| [mc/assets/waypoint-prompts.js](mc/assets/waypoint-prompts.js) | the six AI prompts. **The text is the product** |
+| [mc/assets/geo.js](mc/assets/geo.js) | city/state/country parsing, `TgbGeo` |
+| [mc/js/room-blurbs.js](mc/js/room-blurbs.js) | each room's one standing sentence |
+| [mc/js/admin-nav-menu.js](mc/js/admin-nav-menu.js) | the nav, and the hub's directory cards |
+| [mc/js/admin-shell.css](mc/js/admin-shell.css) | the shared room header and every dialog's look |
+
+**THE SIX ROUTINES** and their triggers are in the schedule table further down.
+`RemoteTrigger` or `/schedule` edits them from here; you never have to open the
+website.
+
+---
+
+## 5. THE BIG PICTURE
+
+**We build live action, real world games.** Not an app you play at home. You walk
+somewhere, you stand in front of a real thing, and you work something out.
+
+### The shape of the business, in the order it happens
+
+1. **START WITH A CITY.** Every game is somewhere specific. The city comes first
+   and everything else is chosen to fit it.
+2. **AN ANCHOR EVENT BRINGS PEOPLE THERE.** A match, a concert, a convention, a
+   festival. We do not create the reason to travel; we find the reason that
+   already exists and put a game next to it. That is what `public.anchor_events`
+   holds, and it is why that table is not a sports table: the event is whatever
+   filled the hotels.
+3. **THE GAME IS PLAYED THE DAY BEFORE THE ANCHOR EVENT.** Visitors are already
+   in town, with an afternoon and an evening and nothing booked. That day is the
+   product's whole window.
+4. **THEY BUY A GAME** and play it whenever they like. **We suggest a start
+   time**, and the suggestion is doing real work: it is not scheduling, it is
+   what makes several groups finish at roughly the same moment.
+5. **SO THAT LIKE-MINDED PLAYERS MEET UP AT THE END.** The end of the game is a
+   room with other people in it who have just done the same thing.
+
+**POINT 5 IS WHY THE PARTNER PROGRAMME EXISTS**, and it is worth saying plainly
+because the partner work reads as a side quest otherwise. A partner is a bar or
+brewery that will host visiting fans; the reason we want one is that the game has
+to END somewhere, with a drink and other players. `partner_kind = 'game_end'` is
+the default because ending a game is the job. The suggested start time and the
+partner venue are two halves of the same idea.
+
+**IT ALSO EXPLAINS THE SUGGESTED-START-TIME RULE ELSEWHERE IN THIS FILE.** Any
+feature that lets a group drift off the common schedule quietly costs the thing
+in point 5.
+
+### The vocabulary, in the order it nests
+
+**A GAME consists of a PATH.**
+**A PATH consists of WAYPOINTS.**
+**A WAYPOINT plus a CHALLENGE is a STOP.**
+**The text after a solved challenge is a DIRECTION.**
+
+- A **CITY** is where a game happens.
+- An **ANCHOR EVENT** is the real-world thing that brought people to that city.
+  Ours is played the day before it. `public.anchor_events`.
+- A **GAME** is what somebody buys. `public.games`.
+- A **PATH** is the route it walks. `public.paths` plus `public.path_stops`.
+- A **WAYPOINT** is a real place: name, address, coordinates, a source that says
+  it is worth standing in front of. One row per place, ever. `public.waypoints`.
+- A **CHALLENGE** is the playable content: a question, a minigame, a photo, a
+  freeform answer. Reusable, so one challenge can sit at many stops.
+  `public.challenges`.
+- A **STOP** is a waypoint plus a challenge. It is the unit a player actually
+  experiences. `public.stops` today, keyed by city; see the parked Stop Builder
+  note for why that is wrong and what replaces it.
+- A **DIRECTION** is what a player is given after solving a challenge: the
+  feedback on what they just did, and the information that leads them to the next
+  waypoint. **It is the connective tissue of the whole walk** and the only part
+  of a game that is about the space BETWEEN two stops.
+
+### THE PERIPHERY: FOUR THINGS THAT HANG OFF THE CORE
+
+The nouns above are the product. **These four are not**, and knowing that is what
+keeps them in proportion: they attach to a city or to a game, they support the
+thing being sold, and none of them is on the critical path to somebody buying and
+walking a game.
+
+| periphery | attached to | tables | public page | room |
+|---|---|---|---|---|
+| **City soundtracks** | a CITY | `soundtracks`, `soundtrack_songs`, `soundtrack_issues` | [/soundtracks/](soundtracks/index.html) | Tape Room |
+| **City gifts** | a CITY | `gift_shop_items`, `gift_shop_listings` | [/gifts/](gifts/index.html) | Gift Shop (the room) |
+| **Game highlights** | a GAME that was played | `photo_submissions` | [/highlights/](highlights/) | Winner's Wall |
+| **Social media posts** | anything, mostly a story or a gift | `socials` | none, it posts outward | Socializer |
+
+**WHY THIS DISTINCTION IS WORTH WRITING DOWN.** Four of the six rooms in this
+project, four of the six routines, and a large share of this file are about the
+periphery, because the periphery is where the daily chores are. That is a fair
+reflection of where the WORK is and a badly misleading picture of where the
+PRODUCT is. A reader who arrives at this file cold would reasonably conclude we
+sell playlists.
+
+Two consequences worth holding on to:
+
+- **THE PERIPHERY HANGS OFF THE CORE, NEVER THE OTHER WAY ROUND.** A soundtrack
+  is for a city we play in; a gift is for a city we play in; a highlight is proof
+  somebody played. If a peripheral feature ever starts deciding which cities we
+  build games for, the tail is wagging the dog.
+- **THE CORE IS THE PART THAT IS LEAST FINISHED.** Soundtracks, gifts and socials
+  each have a room, a routine and a public page. Stops and challenges have a
+  PARKED editor and one challenge attached across 41 stop rows, and directions do
+  not have a table at all. **The mechanics people pay for are the least built
+  thing here**, and that is the single most useful sentence in this section.
+
+### DIRECTION IS NEW VOCABULARY AND HAS NO TABLE YET (2026-08-20)
+
+It is written down here because it is now a named thing, and naming it is what
+stops the next person inventing a second word for it. **Nothing in the database
+holds a direction today.** The engines carry the between-stop text inside the
+conversation flow in `public.games`, which means it is authored per game rather
+than per stop, and it cannot be reused the way a challenge can.
+
+**Do not invent a `directions` table on the strength of this paragraph.** When
+directions get a home it should almost certainly be alongside the challenge on
+`path_stops`, because a direction belongs to the LEG between two stops and the
+stop is the only thing that knows both ends. That is the same piece of work the
+Stop Builder note describes, and it touches both engines, which are the paid
+product.
+
+### TWO PLACES THIS DISAGREES WITH THE REST OF THE FILE
+
+Recorded rather than silently reconciled, because both are load-bearing and only
+Kevin can settle them.
+
+1. **"A game consists of A PATH" (singular) vs "A Game contains ONE OR MORE
+   Paths"** in the canonical hierarchy below. One path per game is the simpler
+   product and matches how a game is sold; one-or-more is what the schema allows,
+   since nothing stops several paths naming the same city. **If it is one, the
+   hierarchy section should say one**, and a game should point at exactly one
+   `tour_id`.
+2. **"A path consists of WAYPOINTS" vs "A Path contains an ordered list of
+   STOPS."** Both are true at different times, which is exactly the confusion:
+   `path_stops` holds ids and a position TODAY, so a path really is waypoints in
+   an order; it becomes stops when challenges are attached, which is the work
+   that has not happened yet. **The Path Builder builds waypoints in an order.
+   The player walks stops.**
+
+---
+
 ## SOUNDTRACKS — sound / city playlists
 
 > **"TAPE ROOM" means [mc/soundtracks/index.html](mc/soundtracks/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the TAPE ROOM"*, *"the TAPE ROOM is showing the wrong counts"* — is an instruction about that one file, with no other page to check first.
@@ -21,7 +336,7 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 >
 > **`/mc/soundtracks/` and `/soundtracks/` are different things.** The second is the public cassette page a visitor sees, and only LIVE tracks appear on it. The two paths now differ by one segment, so read carefully: `/mc/` is the room, the bare one is the shop window. Exactly the trap `/mc/gifts/` and `/gifts/` already set.
 >
-> **IT MOVED OUT OF `/admin/` ON 2026-08-17**, from `mc/soundtracks/admin/index.html`, to match the Stock Room at `/mc/gifts/` and the Socializer at `/mc/socializer.html` — every other room is named by its folder and this one carried a segment none of the others did. **A hard break with no redirect**, since GitHub Pages serves no 301: any bookmark on `/mc/soundtracks/admin/` is dead and now 404s. Every in-repo reference was repointed in the same commit — the hub's Daily Chores card, the shared admin nav's `href` **and its `match`** (that regex is what lights the button up when you are standing in the room, so it has to move with the href), `mc/review/index.html`, `soundtracks.md` and `PROMPTS.md`.
+> **IT MOVED OUT OF `/admin/` ON 2026-08-17**, from `mc/soundtracks/admin/index.html`, to match the Stock Room at `/mc/gifts/` and the Socializer at `/mc/socializer/` — every other room is named by its folder and this one carried a segment none of the others did. **A hard break with no redirect**, since GitHub Pages serves no 301: any bookmark on `/mc/soundtracks/admin/` is dead and now 404s. Every in-repo reference was repointed in the same commit — the hub's Ancillary Things card, the shared admin nav's `href` **and its `match`** (that regex is what lights the button up when you are standing in the room, so it has to move with the href), `mc/review/index.html`, `soundtracks.md` and `PROMPTS.md`.
 
 The public page [soundtracks/index.html](soundtracks/index.html) renders city cassette cards at runtime from **two Supabase tables**: `public.soundtracks` (one row per city tape — `city_slug` PK, `spine_tag`, `spine_tag_position`, `archived`) and `public.soundtrack_songs` (one row per track — `city_slug`, `position`, `title`, `artist`, `blurb`, `spotify_id`, `explicit`, `archived`), plus the `public.soundtrack_stats` view for per-tape counts. Schema: [mc/supabase/migrations/2026072904_soundtracks_tables.sql](mc/supabase/migrations/2026072904_soundtracks_tables.sql); the 69-tape / 929-song lift out of the old JSON file is [2026072905_soundtracks_seed.sql](mc/supabase/migrations/2026072905_soundtracks_seed.sql).
 
@@ -104,6 +419,92 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
 - **The catalogue is alphabetical**, which it claimed to be in a comment and was not — rows came back in whatever order PostgREST returned them, so the room opened on Youngstown, Antalya, Barcelona, Amsterdam. It also gained a **city search** (city name and spine phrase only, never track titles: searching "kansas" should not return six other cities' tracks) and **lost the `N shown` chip**, which appeared under every tape whenever a filter was on and restated the length of the list directly below it.
 
 
+### TGB SOCIALIZER BOT ALSO FINDS ONE YOUTUBE VIDEO A RUN (2026-08-20)
+
+Step **2c** of the routine's prompt: one video worth sharing on our own channel, filed as a **SIXTH row**. The gift and the four stories are untouched and it does not replace any of them.
+
+- **WE SHARE IT AS A POST ON THE CHANNEL**, which is YouTube's own way of pointing at somebody else's video. Nothing is reuploaded and no video is made; the deliverable is a link and a sentence.
+- **ONE, NOT FIVE.** A channel that shares somebody else's video twice a day is a channel nobody follows, and one a run already is twice a day. **Filing none is a good answer** and the prompt says so: the five stand on their own, and a weak share costs more than a missing one because it sits on our own channel under our name.
+- **THE MARKER IS `platforms: [{name: "YouTube"}]` AND NOTHING ELSE, AND IT IS LOAD-BEARING.** That one array does three jobs: it greys the Post button (correct, since nothing we have posts to YouTube), it puts the row behind the YouTube filter, and it is the only thing telling the queue this is a video. **Adding Facebook or Threads to it turns the row back into an ordinary post that happens to link to YouTube**, which goes out to the wrong accounts.
+- **A YOUTUBE-ONLY ROW USED TO OFFER TO POST TO FACEBOOK.** `suggestedKeys()` returned `null` for *both* "no advice" and "named accounts we cannot post to", and null means no narrowing. Null is now silence ONLY (absent, not an array, or empty), which is every legacy row and every MANUAL row and is what keeps those postable; `[]` now means the bot named accounts and none are postable. **`[]` is truthy, so `postTargets`' `if (!wanted)` still catches only null and needed no change.** Side effect, and the right one: a row naming only an unrecognised platform now posts nowhere rather than everywhere, because a named account is a statement.
+- **THERE IS NO YOUTUBE FILTER IN THE QUEUE.** One existed for about an hour on 2026-08-20 and was removed: a video is just a candidate in Review like the other five, told apart by **its own Post button**, and a control that narrows a list of a dozen rows to one of them is a control nobody needs. It also put a third question ("what kind?") beside a strip already answering "which ones?".
+- **`PLATFORM_SUGGEST_ONLY` IS WHERE YOUTUBE LIVES, and that object was built for exactly this.** It is the difference between "not wired yet", which is a promise, and "cannot be posted by machine", which is a fact; one greyed button for both implies something is coming that is not. It was emptied on 2026-08-07 when YouTube left the page and refilled on 2026-08-20 when the routine started filing videos.
+- **The ids end `-y1`**, so six rows from one run do not have to be counted to be told apart.
+- **The thumbnail is `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`**, with `hqdefault.jpg` as the fallback the prompt names, because maxres does not exist for every video.
+
+- **THE PAGE PROMPT HAS IT TOO, AS OF THE SAME DAY.** It was routine-only for an hour, on the argument that a chat AI cannot check its own work against the queue. That held for the *count* and not for the *marker*: a human pasting SQL with `platforms` naming Facebook on a video row files a candidate that posts to the wrong accounts, and nothing downstream catches it. Better for the rule to be in front of them. **The dialog's title is now `Six Post Candidates`**, because the number is the one thing a reader checks the returned SQL against.
+- **The video is the SIXTH ROW OF THE SAME `insert`**, not a second statement, and the worked example in step 7 now carries it with `-y1` and the YouTube-only `platforms` array spelled out.
+
+### CREDENTIALS ARE CHECKED BEFORE THEY COST A POST (2026-08-20)
+
+Every credential failure here used to be found the same way: pick a candidate, write a caption, press Post, and **then** learn the token was wrong. The work was already done and the failure arrived at the worst moment. `{diagnose: true}` on [socials-post](mc/supabase/functions/socials-post/index.ts) now answers for **all three** destinations and posts nothing.
+
+- **A DUPLICATE `readStoredThreadsToken()` TOOK THE WHOLE FUNCTION DOWN, AND THE DEPLOY REPORTED SUCCESS.** The first cut of this added a second declaration of a helper that **already existed forty lines above it**. `supabase functions deploy` bundled and said *Deployed*; the function then answered every call with `BOOT_ERROR: Function failed to start`. **Posting was dead site-wide, on a deploy that looked clean.**
+  - **The second bug inside the first**: the two returned different shapes (`expiresAt` as a millisecond number against a raw `expires_at` string). Mine shadowed the real one, so `threadsToken()` would have read `undefined` for the expiry and **silently stopped refreshing** — the exact failure the check was written to prevent.
+  - **THE ONLY PROOF A DEPLOY WORKED IS A CALL.** `curl` the function with the publishable key: `{"error":"not authorized"}` means it booted and the admin gate ran; `BOOT_ERROR` means it did not. This CLI version has no `functions logs`, so that curl is the whole diagnostic.
+- **THREADS IS THE ONE THAT NEEDED THIS.** Its token lasts 60 days and the function **only refreshes it when something is POSTED**, so a quiet fortnight is how it dies: nothing is broken, nobody did anything wrong, and the next post fails. Diagnose reports **days remaining** off the stored `expires_at` and flags it at **14 days or fewer**, while there is still time to act. `readStoredThreadsToken()` was split out of `threadsToken()` so the check can read an expiry **without triggering a refresh as a side effect**.
+- **META'S CHECK IS THE OLD ONE, WIDENED.** It still catches the failure with no outward symptom: a USER token instead of a PAGE token posts to somebody's personal feed, returns a real id, and looks exactly like success. **A Page has a category and a user does not** — that is the tell. It now also says when no Instagram account is linked to the Page.
+- **X IS SECRETS-ONLY, DELIBERATELY, AND IS NOT AN ALARM WHEN UNSET.** Every other probe is a free read; **an X API call costs money**, so a health check that made one would spend real cash every time somebody opened the room. It reports which of the four secrets are present, which catches the failure that actually happens (a half-finished setup) and costs nothing. And because X is posted by hand on purpose, missing secrets are the **expected** state: `needsAttention` is false.
+- **THE PAGE CHECKS ON LOAD AND IS SILENT WHEN HEALTHY.** A notice that appears every time you open the room is one nobody reads, so it writes to the red pen only when something needs attention. **A check that cannot RUN is not reported as an account fault** — the function may simply not be deployed, and crying wolf about Instagram because a fetch failed is worse than saying nothing.
+- **`Check accounts` in the VIEW bar is the same check said out loud**, for the moment after you change a secret and want to know whether it took.
+- **All the bad ones are named at once**, not just the first: two broken credentials is a different morning from one, and finding the second only after fixing the first is what wastes an afternoon.
+
+### A BROKEN IMAGE NO LONGER ADVERTISES INSTAGRAM (2026-08-20)
+
+`hasImage()` was "the column is not empty", which is what the Post button believed. An image url that 404s or 403s is a perfectly non-empty string, so **a dead picture still switched Instagram on** and the post then failed at Meta with Meta's own words about media.
+
+- **THE CARD ALREADY KNEW.** It draws IMAGE FAILED in red when the `<img>` errors, so the page held the answer and the button did not. `noteBrokenImage()` is that knowledge, shared.
+- **KEYED BY URL, NOT BY CANDIDATE.** The same address is broken for every row carrying it, and two candidates sharing a gift image should not discover it separately.
+- **IT REPAINTS ONLY ON THE FIRST FAILURE PER URL, AND THAT GUARD IS LOAD-BEARING.** `noteBrokenImage()` returns true once and false afterwards; without it the re-render draws the image, it errors, and the page loops.
+- **Editing in a working image re-enables Instagram with no extra code**, because saving already calls `renderQueue()` and the button is rebuilt from `postTargets()` each time. That part was always right; only the broken case was wrong.
+
+### X IS A POSTING DESTINATION AGAIN (2026-08-20)
+
+X and YouTube were both dropped on 2026-08-07. **They do not come back together and they are not the same case:** X is an account we can post to by machine, so it is an ordinary fourth destination beside Facebook, Instagram and Threads; YouTube is shared by hand, so it stays a marker rather than a route. The Post button now reads *Post to Facebook + Instagram + Threads + X*.
+
+- **FOUR NEW SECRETS AND A DEPLOY, AND NOTHING WORKS UNTIL BOTH.** `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`, then `cd mc && supabase functions deploy socials-post`. The function names the missing ones individually rather than saying "X is not configured", because the pair that is usually missing is the token pair.
+- **THE TOKEN PAIR MUST BE READ AND WRITE.** The default is read-only, and a read-only token fails at post time with a **403 that says nothing about permissions**. Changing the app's permission level does not update an already-issued pair: they have to be **regenerated** afterwards. The function's 403 branch says so, because nothing else will.
+- **BOTH PROMPTS TAG X, AND THE TAG IS WHAT PUTS IT IN FRONT OF A HUMAN.** The routine went to four accounts on 2026-08-20, after a stretch where the page prompt knew about X and the routine's did not, so **no bot candidate could ever be offered to X** and the Copy button read plain on every one of them.
+  - **"WE HAVE FOUR ACCOUNTS", NOT "FOUR WE CAN POST TO."** The first wording was written while machine posting was still on and became a small lie the moment the flag went off. Both prompts now say plainly that three go by machine and X goes by hand, and that **the tag matters exactly as much either way**: leave X off and nobody is offered it.
+  - **The email's destination line names it separately**, as `Facebook, Instagram, Threads. X by hand.`, so a reader knows which part is a button and which is an errand.
+  - **The 200-character caption cap is now also justified by X**, which allows 280 including a link counted as 23 however long it is.
+- **SO X IS POSTED BY HAND, LIKE YOUTUBE, AND `PLATFORM_AUTOPOST.x` IS `false`.** The Edge Function's `postX()` is finished and would work the moment four secrets were set; it is off because of the price, not because it is unwired. **The code stays** because the decision could reasonably go the other way and because rediscovering the OAuth 1.0a signing is the expensive part. Flip the flag and set the secrets if the bill is ever worth it.
+- **THE COPY BUTTON NAMES ITS DESTINATION, AND BY-HAND COEXISTS WITH BY-MACHINE.** `Copy to clipboard for X`, `Copy to clipboard for YouTube`, plain `Copy to clipboard` otherwise. **The two buttons together are the whole picture**, and a candidate tagged Facebook and X reads:
+
+  > **Post to Facebook + Threads**  ·  **Copy to clipboard for X**
+
+  Two presses, both real, both wanted.
+  - **THIS REVERSED WITHIN THE HOUR.** `byHandTarget()` first answered only when the machine could reach **nothing**, on the reasoning that naming X on a row about to go to Facebook claimed a job it was not doing. **Backwards**: the Post button already states its own destinations, so there is no false claim to avoid, and staying silent about X **hid the half of the job that still needed a human**.
+  - It reads names from the bot's own tags rather than `WIRE_LABELS`, because YouTube is deliberately absent from that object and would otherwise be unnameable.
+- **`PLATFORM_SUGGEST_ONLY` HOLDS BOTH, FOR TWO DIFFERENT REASONS.** `youtube` **cannot** be posted by machine, which is a fact about the platform; `x` **can** be and deliberately is not, which is a decision about money and is reversible. The button behaves the same either way, so the reason string is what carries the difference to whoever reads it.
+- **EVERY POST COSTS 20 CENTS, AND THAT IS THE HEADLINE FACT ABOUT X.** Checked against [X's own pricing page](https://docs.x.com/x-api/getting-started/pricing) on 2026-08-20, after a first draft of this section said "needs a paid tier", which was wrong in a way that mattered. **There is no free tier and no subscription any more**: pay-per-use against prepaid credits, priced **$0.015 a plain post and $0.200 for a post CONTAINING A URL**.
+  - **A link costs thirteen times a bare post, and every post we make carries one.** `xText()` is caption, blank line, story url, the same shape as the other three platforms, so the expensive rate is the only rate that ever applies to us. **Roughly $30 a month at five posts a day, $12 at two.**
+  - **Dropping the link would save 92% and is not worth it**: a post nobody can follow is not the job. Moving the link to a reply does not help either, since a reply carrying a url is charged the same $0.200.
+  - **The other three accounts are free. X is the only one that is not**, and it is the only reason on this page to think twice before pressing Post. Nothing posts automatically; a human presses the button, which is what keeps the bill a decision rather than a subscription.
+- **OAUTH 1.0a, NOT OAUTH 2.0, DELIBERATELY.** X's OAuth 2.0 user tokens expire in two hours and their refresh tokens **rotate on every use**, so a failed refresh locks the account out until somebody walks a browser consent flow by hand. OAuth 1.0a tokens do not expire at all. This project already carries one expiring credential (Threads) and says plainly that nothing else needs renewing; a second, shorter-lived one with a manual recovery step is the opposite of what that note wants. The cost is the signing code, which is fiddly and then never moves.
+  - **Four things in that signing are load-bearing and every mistake gives the same unhelpful 401:** percent-encoding is RFC 3986 and **not `encodeURIComponent`**, which leaves `! * ' ( )` alone; the JSON **body is not signed**, only the oauth and query parameters; parameters are sorted by encoded key and the joined string is encoded again into the base; and the signing key is both secrets encoded and joined by `&`, **with the trailing `&` even when a secret is empty**.
+- **TEXT AND A LINK, NO IMAGE UPLOAD.** Media on X means the v1.1 `media/upload` endpoint, a different host, a chunked protocol and another set of scopes. X unfurls the link into a card from the destination's own `og:image`, so the post is not bare, but the picture is the article's rather than one we sent. **That makes X unconditional like Threads rather than image-gated like Instagram.**
+- **280 CHARACTERS INCLUDING THE LINK, WHICH COUNTS AS 23** however long it is. Both prompts cap a caption at 200, so this fits with room spare; `xText()` trims with an ellipsis rather than refusing, because losing the tail of a sentence is a smaller failure than a post that never goes out.
+- **`WIRE_LABELS` GAINS `x` AND MUST NEVER GAIN `youtube`.** `suggestedKeys()` maps only what is in that object, and `isYouTubePost()` reads the **empty** result as the marker for a video row. Adding youtube there would return a key `postTargets()` can never satisfy and would break the marker.
+
+### THE ROUTINE WAS WASTING PICKS ON A TRUNCATED READ (2026-08-20)
+
+Step 1 tells the run to read `tgb_socials_filed_urls` before it searches. The run on 2026-08-20 piped that reply through **`head -c 6000`**, saw roughly a third of the 262 urls it held, and filed two stories it had already filed the week before; it then spent ten minutes of a twenty minute run finding replacements. **The prompt now says to save it to a file and `grep -c` that file per candidate**, and names this run as the reason. Nothing errored, and the run reported success: the only trace was two `duplicate` outcomes in a reply nobody reads afterwards.
+
+### THE SOCIALIZER'S VIEW BAR IS ONE REEL BUTTON (2026-08-20)
+
+It held three buttons, FACEBOOK / INSTAGRAM / THREADS, built from a `PLATFORM_URLS` object on the page. It is now **one button wearing the scrolling account reel**, opening the same menu the hub card and the public nav open. [mc/js/follow-reel.js](mc/js/follow-reel.js).
+
+- **THE BAR'S JOB IS UNCHANGED**: ADD on the left is where candidates come FROM, VIEW on the right is where a posted one ends UP, and checking a post really appeared is the step after every click.
+- **WHAT DID CHANGE, AND IT IS A REAL DIFFERENCE.** Those three were the accounts we can POST to. The menu carries all **five** we have, so X and YouTube are reachable from here and were not before. Nothing here posts to them; this bar is for going and looking, and there is no reason to be able to look at three of five.
+- **`PLATFORM_URLS` IS DELETED and the handles are no longer on this page.** They live in the module, which is also where the public nav's twin reads them, so a renamed handle cannot be fixed in one copy and missed in another. **`WIRE_LABELS` stays and is a different thing**: it maps the Edge Function's platform keys to display names and is used all over the posting path.
+- **42px SQUARE, matching `.btn`'s `min-height`**, so it lines up with the ADD bar opposite. The width follows the height rather than the content, because the content is one glyph and a 42px-tall button 12px wide reads as a slot rather than a control.
+- **IT IS CENTRED IN THE PANEL, because that panel is wider than its contents and always will be.** A fieldset is at least as wide as its legend, and VIEW plus the folder tab's padding is wider than one 42px button, so the bar cannot shrink to fit the way it did holding three word-buttons. Left-aligned it sat against one edge of a box with a hole in the rest of it and read as something that had failed to load. `justify-content: center` goes on the INNER, never the fieldset: the panel's width is the legend's business and this only decides where the content sits inside it.
+- **THE SIZING RULE IS SCOPED `.command-bar .btn--reel` AND HAS TO BE.** `.command-bar .btn` sets `padding: 0 12px` at (0,2,0) and beats a bare `.btn--reel` at (0,1,0), so the padding survived: a 42px border-box with 24px of side padding leaves an **18px content box for a 19px reel**, clipping it a pixel each side. Subtle enough to read as a rendering artefact rather than a rule losing a specificity fight, and it was only caught by reading the COMPUTED padding back rather than trusting the declaration.
+- **`.command-bar-inner > .tgb-reelpop-wrap` NEEDS `align-self: center`.** `popup()` re-parents the button into that wrap, which becomes the flex child; without it the wrap collapses to its own height and the button stops lining up with the bar. **Third time this wrap has needed a layout property moved onto it** — see the footer's Follow control and the public nav's `order: 5`.
+- **No module, no button.** The page does not know the handles any more, so `buildViewLinks` renders nothing rather than a control that opens nothing.
+- **Found while doing this: `PLATFORM_COMPOSERS` is read by NOTHING.** Posting goes through the `socials-post` Edge Function, so those composer urls are a record of where a human would go by hand, not a wired path. Left in place (the urls are the expensive part to rediscover) with a comment saying so, and its claim that `PLATFORM_URLS` was its fallback was untrue even before that object was deleted.
+
 ### The Tape Room wears the Socializer's look (2026-08-14)
 
 The two rooms had shared a palette since 2026-08-06 — `--cut-panel-bg`, `--cut-panel-line`, `--control-line` were copied across then — but nothing else, so they still read as two products. The Socializer's actual vocabulary was ported wholesale. **When either room's chrome changes, change both**; the Socializer is the reference and this is the copy.
@@ -157,7 +558,7 @@ Plus the standing rule from TGB ANCHOR EVENTS: **the fanbase city, never the ven
 
 ### All five TGB routines run at 3 AM and 3 PM Central, and NOBODY ADJUSTS FOR DST
 
-Set 2026-08-15, a sixth was added on 2026-08-18, and it went back to five on 2026-08-20 when TGB WAYPOINT BOT was folded into TGB PATH BOT. One schedule, staggered three minutes apart so the cloud sessions do not all provision at the same instant:
+Set 2026-08-15, and it has been resettled twice since by folding routines together rather than adding them. A sixth, TGB PARTNER BOT, was added on 2026-08-18 and lasted one day before becoming a job inside TGB PATH BOT; TGB WAYPOINT BOT went the same way on 2026-08-20, for the same reason, leaving five. **Both folds are the same lesson**: two routines covering one job from opposite ends, where only one of them reached the database. One schedule, staggered three minutes apart so the cloud sessions do not all provision at the same instant:
 
 | routine | trigger id | cron (UTC) |
 |---|---|---|
@@ -289,9 +690,46 @@ Migrations [2026081601_soundtracks_multiple_tapes_per_city.sql](mc/supabase/migr
 - **Issue pips are a thick red outline on a white ground**, so they read as a mark on the row rather than a filled chip competing with the row's own state colour.
 - **There is no delete button on an issue.** The issue's own buttons decide it; the popup's only global control is Cancel. Deleting a finding is the one outcome that leaves no record, and the recurrence of an uncleared finding on the next audit is the only check that a fix landed.
 
-## Mission Control's Daily Chores cards say what the ROOMS say (2026-08-19)
+### THE PROMPT DIALOG HAS A TOGGLE PER PLATFORM (2026-08-20)
 
-All three headings are the room's own name — **STOCK ROOM**, **TAPE ROOM**, **SOCIALIZER** — and all three paragraphs are that room's own `.room-blurb`. They had been verbs with hand-written descriptions (*STOCK GIFTS*, *MAKE SOME MIX TAPES*), and those descriptions had gone quietly stale: the socials one still promised a per-account composer picker that was deleted when one click started reaching every account it can.
+A `TARGET PLATFORMS` row above the sheet: Facebook, Instagram, Threads, X, YouTube, **all ticked by default**.
+
+- **ALL FIVE TICKED WRITES NOTHING AT ALL.** The authored prompt already covers every account, so an untouched dialog hands back **exactly** the text in this file, byte for byte, and re-ticking the last box removes the block rather than leaving a paragraph saying "all of them". Same shape as the Tape Room's city picker, where blank is a real answer.
+- **UNTICKING WRITES ONE DELIMITED BLOCK at the top and touches nothing else**, between `=== ACCOUNTS FOR THIS RUN ===` and `=== END ACCOUNTS ===`. **That surgical approach is the whole point**: this prompt is editable and what you type is kept, so rebuilding from `BASE_PROMPT` on every toggle — which is what the city picker does — would throw your edits away the moment you unticked a box.
+- **THE BLOCK NAMES THE ACCOUNTS BOTH WAYS ROUND.** "Only these" is the instruction; the list of what to leave alone is what stops a model tagging an account out of habit, because the rules further down still describe it.
+- **YOUTUBE OFF SAYS `SKIP STEP 2c` IN THE PROMPT'S OWN WORDS**, because YouTube is not a tag on a story there, it is a whole extra row.
+- **NONE TICKED REPLACES THE WHOLE SHEET** with *"You must choose at least one platform to continue."* With every box off there is no run to describe, and **a prompt that carefully instructs an AI to post nowhere is a prompt somebody will paste anyway**.
+  - **THE REAL TEXT IS STASHED, NOT DESTROYED**, edits and all, and comes back the moment a box is ticked. Losing somebody's typing because they unticked five checkboxes would be the worst kind of data loss: silent, self-inflicted and impossible to guess at. **Stashed once**, so unticking the last box twice cannot overwrite the stash with the warning.
+  - **IT IS NEVER SAVED.** `storePrompt()` is skipped while the warning shows, so a browser closed in that state reopens with the real prompt rather than the warning stored as if it were one.
+  - **THE DOORS REFUSE, AND `copyPromptText()` IS WHERE THAT IS ENFORCED**, not only in CSS. Each door copies and then opens a chat window, so without the guard you would arrive somewhere with one useless sentence on the clipboard and no idea why. The greying is the appearance; the guard is the rule.
+  - **Reset re-ticks every box and clears the stash and the dressing**, since `BASE_PROMPT` carries no block: boxes left unticked would claim a restriction the restored text does not have, and a cleared stash stops the box showing real text while still refusing to copy it.
+
+### THE PROMPT RETURNS THE SQL EDITOR LINK WITH ITS SQL (2026-08-20)
+
+The page prompt now prints `https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true` **directly under its SQL block**, every time.
+
+- **BECAUSE BY THEN YOU HAVE LEFT THE PAGE THAT HAS THE BUTTON.** The dialog's own `Insert results` door is only useful while you are standing in the Socializer; you read the AI's answer in ChatGPT. Without the link the next step is going back for it. A link somebody does not need costs them one line.
+- **`/sql/new?skip=true`, NOT `/sql/`, AND THE QUERY STRING IS NOT DECORATION.** `new` opens a **blank** query rather than whatever was last run in this project, and `skip=true` stops it asking. **Pasting six rows over somebody's half-written query is the accident that avoids.** The page's own door was still on the bare `/sql/` and was moved to match.
+- **The prompt and the door carry the same url, so they have to be changed together**, and the prompt says not to shorten it, wrap it, or swap the project ref.
+- **The ROUTINE prompt deliberately does NOT get this.** It writes through the RPC and never produces SQL, so a SQL editor link would be an instruction about a step it does not take.
+- **A comment cannot go inside a tag.** The first cut of the door's change put the explanation between the anchor's attributes, which is invalid HTML and would have broken the button. Caught by parsing the page rather than by reading the diff.
+
+### THE MANUAL ADD DIALOG READS AS THE PROMPT DIALOG'S PAIR (2026-08-20)
+
+They are the room's two ways in, so they are built to be read together: **MANUAL ADD / Post Candidate** against **AI PROMPT / Six Post Candidates**.
+
+- **THE REPEATED BUTTONS CAME OFF THE MANUAL HEAD.** Cancel and Add Candidate appeared twice, a few inches apart, on a dialog three lines long. They were repeated from the foot because a phone could push the foot pair below the fold, and **that reasoning expired with the form**: it used to carry nine fields and a platform picker and now carries one box. Both submitted via `form="manualPostForm"` and only the foot pair carried ids, so nothing was lost. **Bring them back if a field ever makes this form tall again.** The Edit dialog's own repeated pair is a separate decision and was not touched.
+- **IT GAINED THE ERRAND PARAGRAPH** (`.prompt-howto`) the prompt dialog has always had. Without it the head was an eyebrow, a title and a lot of white space where the buttons had been. It also answers the question the single box provokes: one unlabelled field taking either a link or a sentence looks like a field you are about to get wrong, and the line under it only says which way it is going *after* you type.
+  - **It is two sentences: _"Paste a link, or type an idea. It will be filed for editing and review."_** An earlier draft added that the caption and image are written later on the card, which is true and is not this dialog's business. **Naming a step that happens somewhere else, at the moment somebody is trying to finish here, reads as a warning rather than as help.** Say what the box takes and what becomes of it.
+- **NO `Close` IN THE MANUAL HEAD**, even though the prompt dialog has one there. The prompt dialog's foot has no Cancel, so its Close is the only way out; this dialog's foot has Cancel, and adding Close above it would put back exactly the duplication just removed.
+
+## Mission Control's ANCILLARY THINGS cards say what the ROOMS say (2026-08-19)
+
+**SOCIALIZER SITS FIRST (2026-08-21).** The three are ordered by how often they are opened, not alphabetically and not by age: the socials queue fills twice a day and is emptied by hand, so it is the one you come to this page for. The Gift Shop and the Tape Room accumulate and are worked in sittings. **Its card is the one wrapped in `.mc-chore-slot`**, so moving it means moving the wrapper and its follow button together, not just the `<a>`.
+
+**THE PANEL WAS CALLED DAILY CHORES UNTIL 2026-08-20.** The old name described the CADENCE and said nothing about what the three cards are; the new one says what they are, and it lines up with the big-picture section at the top of this file: soundtracks, gifts and social posts **hang off the product rather than being it**. **The class names did not move** — `.mc-chores` and `.mc-chore` are identifiers, the same bargain the Tape Room made through four renames of its verbs without the column following. Don't reintroduce "chore" in visible copy.
+
+All four headings are the room's own name — **GIFT SHOP**, **TAPE ROOM**, **SOCIALIZER**, **PARTNERS** — and all four paragraphs are that room's own `.room-blurb`. (**Partners joined on 2026-08-20**, moving out of the nav's Game Elements group and into its own `hubHidden` group, exactly as Socials is: a chore card at the top of `/mc/` plus a directory card below it is the same link twice.) They had been verbs with hand-written descriptions (*STOCK GIFTS*, *MAKE SOME MIX TAPES*), and those descriptions had gone quietly stale: the socials one still promised a per-account composer picker that was deleted when one click started reaching every account it can.
 
 **A door that describes a room in its own words drifts the moment the room changes**, and nothing makes it obvious — the card still reads perfectly.
 
@@ -299,11 +737,11 @@ All three headings are the room's own name — **STOCK ROOM**, **TAPE ROOM**, **
 
 **[mc/js/room-blurbs.js](mc/js/room-blurbs.js) holds all three strings and both surfaces render them**, so the pair cannot drift. This section used to end *"when you change a room's blurb, copy it here; the pair has no automation and no check"* — it has one now. **Edit the string in that file and the room and its door change together.**
 
-- **The contract is `data-room-blurb="<key>"` on an empty element**, plus the script. Keys are `stock-room`, `tape-room`, `socializer`.
+- **The contract is `data-room-blurb="<key>"` on an empty element**, plus the script. Keys are `stock-room`, `tape-room`, `socializer`, `partners`.
 - **THE MARKUP CARRIES NO FALLBACK TEXT, DELIBERATELY.** Leaving the sentence inline as a safety net recreates the exact thing this kills: two copies, one quietly wrong. An element that renders EMPTY because the script did not load is a visible failure somebody fixes; a stale sentence is an invisible one nobody notices. Same reasoning that deleted the soundtracks JSON fallback. **Don't "improve" it by putting the text back in the HTML.**
 - **BOTH SURFACES USE `.room-blurb`**, so the container is shared as well as the words. On the hub that meant scoping the card's own rule to **`.mc-hub-card p:not(.room-blurb)`** — the two were half-fighting, and `.mc-hub-card p` (0,1,1) beat `.room-blurb` (0,1,0) on some properties while losing `font-weight` and `max-width` to it, which is neither the card's look nor the room's. The directory cards still use the unscoped rule.
 - **The Socializer's blurb was a `<p class="status room-substat" id="pageStatus">`** until this pass, a leftover from when that line doubled as the status channel. **Nothing in the page reads that id** — `setPageStatus` writes `#pageNotice`, the scribble — so it became a plain `.room-blurb` like the other two. The Tape Room's `#pageTagline` is equally unread and was kept only because it costs nothing.
-- **A ROOM JOINS THE FILE WHEN IT GETS A DOOR.** The Path Builder and the Green Room have blurbs and no Daily Chores card, so their sentence is written once, on the room, and has nothing to drift against. Add them the day they get a card, not before.
+- **A ROOM JOINS THE FILE WHEN IT GETS A DOOR.** The Path Builder and the Green Room have blurbs and no Ancillary Things card, so their sentence is written once, on the room, and has nothing to drift against. Add them the day they get a card, not before.
 
 The `GO TO …` buttons repeat the heading now, which is what keeps them reading as a door rather than a second title.
 
@@ -320,34 +758,50 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
   - A **partial** unique index on `email where status = 'pending'` means one open request per address, while a denied one does not lock the address out forever — the usual reason for a second ask is that the first was a mistake.
   - An existing-account error from signup is **not** treated as a failure: somebody who signed up, was never approved, and has come back to ask again would otherwise be stopped by their own earlier attempt, with an error they cannot act on.
 - **`tgb_decide_admin_access(uuid, boolean)`** is `SECURITY DEFINER` because approving writes `admin_users`, which no client may write directly. **Its first line is `is_photo_admin()`** — without that it hands the admin list to anybody — and it is granted to `authenticated` only, so there are two gates rather than one. It locks the row `for update`, so two admins pressing Approve at once cannot both act.
-- **The panel is at the top of [mc/index.html](mc/index.html)**, above Daily Chores, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
+- **The panel is at the top of [mc/index.html](mc/index.html)**, above Ancillary Things, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
 
 ## THE SOCIALIZER — the social post admin page
 
-> **"SOCIALIZER" means [mc/socializer.html](mc/socializer.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the SOCIALIZER"*, *"the SOCIALIZER is showing the wrong order"* — is an instruction about that one file, with no other page to check first.
+> **"SOCIALIZER" means [mc/socializer/index.html](mc/socializer/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the SOCIALIZER"*, *"the SOCIALIZER is showing the wrong order"* — is an instruction about that one file, with no other page to check first.
 >
 > | | |
 > |---|---|
-> | **file** | `mc/socializer.html` — one self-contained page: markup, CSS and script in the one file, plus the AI prompt in a `<textarea>` |
-> | **live** | <https://thegamebureau.com/mc/socializer.html> — public HTML on GitHub Pages, gated by the admin sign-in, so the *page* is reachable by anyone and the *data* is not (RLS is `authenticated` both ways) |
-> | **local** | <http://127.0.0.1:5500/mc/socializer.html> under Live Server |
+> | **file** | `mc/socializer/index.html` — one self-contained page: markup, CSS and script in the one file, plus the AI prompt in a `<textarea>` |
+> | **live** | <https://thegamebureau.com/mc/socializer/> — public HTML on GitHub Pages, gated by the admin sign-in, so the *page* is reachable by anyone and the *data* is not (RLS is `authenticated` both ways) |
+> | **local** | <http://127.0.0.1:5500/mc/socializer/> under Live Server |
 > | **table** | `public.socials`, admin-read only |
 >
-> **IT MOVED OUT OF `/mc/socials/` ON 2026-08-19**, from `mc/socials/index.html`, and the folder is gone. The room is now named by a file rather than by a folder, which is the OPPOSITE of the convention every other room follows (`/mc/gifts/`, `/mc/soundtracks/`) — it sits beside `mc/pathbuilder.html` and `mc/greenroom.html` instead. **A hard break with no redirect**, since GitHub Pages serves no 301: `/mc/socials/` now 404s.
+> **FOUR ADDRESSES IN TWO DAYS. This is the record, in order:**
 >
-> **THE COST IS THE `#edit=` LINKS ALREADY IN SOMEBODY'S INBOX.** TGB SOCIALIZER BOT has mailed five `https://thegamebureau.com/mc/socials/#edit=<id>` links twice a day since August, and **every one of them is now dead** — the hash contract survives, the path under it does not. **TGB SOCIALIZER BOT's stored prompt was updated in the same pass** (`trig_01KDYndJhZ9ymgUgX5Xx6LsL`, by `RemoteTrigger`, cron and everything else untouched), so future emails point at the new path: the six occurrences in steps 7 and 8, plus a line in step 8 saying in as many words that the page moved and that writing `/mc/socials/` anywhere is wrong. The RPC names (`tgb_pull_socials_candidates`, `tgb_socials_filed_urls`, `tgb_socials_used_gift_urls`) keep their `socials` spelling — they are function names, not paths, and the table is still `public.socials`.
+> | when | where | why it moved |
+> |---|---|---|
+> | until 2026-08-19 | `mc/socials/index.html` | named after the TABLE it edits |
+> | 2026-08-19 | `mc/socializer.html` | named after the room, but as a FILE |
+> | 2026-08-20 | `mc/socials/index.html` | back: a file breaks the folder convention |
+> | 2026-08-20 | **`mc/socializer/index.html`** | named after the room AND a folder |
 >
-> Every in-repo reference was repointed in the same commit — the hub's Daily Chores card in `mc/index.html`, the Socializer entry in `mc/js/admin-nav-menu.js` (there is no `match` regex for this room, unlike the Tape Room's), the page's own `tgb-agent-context` block and PROMPT text, both Edge Functions' comments, `PROMPTS.md`, and the palette-source comments in `mc/gifts/index.html` and `mc/pathbuilder.html`. The three `../../mc/…` script and stylesheet paths in the page became root-absolute `/mc/…`, since the file changed depth.
-
+> **THE LAST ONE IS THE ONE THAT SATISFIES BOTH RULES**, which is why the other three did not stick. Every room here is named by its folder (`/mc/gifts/`, `/mc/soundtracks/`) — that is the convention `socializer.html` broke — and every room is called by its own name on screen, which is what `socials/` broke, since the `<h1>` has said SOCIALIZER throughout and only the path disagreed. **There is no fifth form available**, so treat this as settled.
+>
+> **THE FIRST ROUND TRIP COST NOTHING AND THAT WAS LUCK. THIS ONE COSTS SOMETHING REAL.** `#edit=` links are what matters: TGB SOCIALIZER BOT mails five of them twice a day and has since August. The 19th broke them and the 20th healed them, because the path came back. **This move does not come back** — every link in every summary mailed before 2026-08-20 is permanently dead, and GitHub Pages serves no 301, so there is nothing to be done for them. Mail from the next run onward carries the new path. **That is the price of settling it, paid once and knowingly.**
+>
+> **WHAT THE MOVES TAUGHT, worth more than the moves:**
+>
+> - **The asset paths only survived because they were made root-absolute on the way out.** The page's three `../../mc/…` script and stylesheet references became `/mc/…` on the 19th, so changing depth twice in two days cost nothing. A relative path would have broken every time. (The fourth move keeps the same depth, so it could not have bitten here — but that is luck, not the reason it was safe.)
+> - **AN ESCAPED PATH HIDES FROM A SWEEP, AND IT HID TWICE.** The admin nav's `match` regex is written `/^\/mc\/socials\//`, and a search for `/mc/socials/` does not find it. It survived the first pass of the second move and the first pass of the fourth. A `match` out of step with its `href` does not error: it just quietly never lights the button. **Grep for the escaped form every time.**
+> - **The stored prompt is a third copy of the path** and moves with neither the file nor the repo. It is edited by hand on the trigger, every time.
+> - **A blind find-and-replace rewrites the HISTORY as well as the paths.** The fourth move turned this very section into "it left `/mc/socializer/` on 2026-08-19", which is nonsense, and turned the retired `mc/socials/socials.json` into a file that never existed. **After sweeping paths, re-read the prose that describes the moves.**
+>
+> Every in-repo reference was repointed in the same commit, every time — the hub's Ancillary Things card in `mc/index.html`, the Socializer entry in `mc/js/admin-nav-menu.js` (there is no `match` regex for this room there, unlike the Tape Room's), the shared admin nav's FOLLOW button **and its `match`**, the page's own `tgb-agent-context` block and PROMPT text, both Edge Functions' comments, `PROMPTS.md`, the three migration comments, and the palette-source comments in `mc/gifts/index.html` and `mc/pathbuilder.html`.
+>
 > **Don't confuse it with TGB SOCIALIZER BOT**, which is the scheduled routine that files candidates *into* it. The two names now differ by one word, so read carefully: the SOCIALIZER is the page, TGB SOCIALIZER BOT is the trigger — a trigger at claude.ai, not a page. The Socializer is where a human decides; the bot only ever inserts. Same distinction the page itself makes: the button labelled TGB SOCIALIZER BOT opens the routine, and the PROMPT dialog beside it is deliberately *not* named after the bot.
 
-[mc/socializer.html](mc/socializer.html) — **the Socializer** — shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIALIZER BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `14 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central (2 o'clock in winter; see the schedule note above, nobody adjusts)).
+[mc/socializer/index.html](mc/socializer/index.html) — **the Socializer** — shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIALIZER BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `14 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central (2 o'clock in winter; see the schedule note above, nobody adjusts)).
 
 **ONE table holds everything: `public.socials`** ([mc/supabase/migrations/2026080502_socials_table.sql](mc/supabase/migrations/2026080502_socials_table.sql)). A row is a candidate — its content *and* its decision (`status` = review | posted | skipped). There is no JSON file and no localStorage.
 
-**How it got here, so nobody rebuilds a discarded shape.** It was `socials/queue.json` committed by the bot, then `mc/socials/socials.json`, then briefly that file **plus** a `socials_post_state` overlay table for the human decisions. All of it is retired. The split was the problem: neither half told you what was true on its own, the file grew forever with no sign that most of it had been dealt with, decisions lived in one browser's localStorage and were invisible everywhere else, and "can we delete the json" had a dangerous answer because the file was the only copy of the content. **Don't reintroduce a file or a second table.**
+**How it got here, so nobody rebuilds a discarded shape.** It was `socials/queue.json` committed by the bot, then `mc/socials/socials.json` (the room's address at the time), then briefly that file **plus** a `socials_post_state` overlay table for the human decisions. All of it is retired. The split was the problem: neither half told you what was true on its own, the file grew forever with no sign that most of it had been dealt with, decisions lived in one browser's localStorage and were invisible everywhere else, and "can we delete the json" had a dangerous answer because the file was the only copy of the content. **Don't reintroduce a file or a second table.**
 
 - **The bot inserts through `tgb_pull_socials_candidates(jsonb)`** and commits nothing. `SECURITY DEFINER`, callable with the publishable key — a cloud routine has no secret store, the same constraint that produced `tgb_pull_book_candidates` and `tgb_pull_soundtrack_songs`. Insert-only, **always `status = 'review'`**, capped at 25 a call, and a url already present is skipped rather than raising. **Don't add a `status` parameter** — that constant is what makes it safe to expose to `anon`.
 - **Dedupe is a unique index on `lower(url)`**, server-side. The bot cannot read the table (admin-only) and doesn't need to; the RPC returns `{inserted, skipped}` and the prompt tells it to check that reply.
@@ -356,7 +810,9 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
   - **The scheme is only prefixed when the result parses.** The blur handler used the bare scheme regex, which prefixes anything — that turned a typed sentence into `https://Ran into a guy at the bar` and saved *that* as the caption. Both the box and the save now run the candidate through `normalizeManualUrl` first.
   - **`socials_url_idx` had to become blank-tolerant** ([2026081501](mc/supabase/migrations/2026081501_socials_url_index_allow_blank.sql)). `url` is NOT NULL, so every text-only candidate carries the same `''` and the second INSERT hit the unique index — the first note filed, the second failed with a 23505 naming a column the human never filled in. The predicate now skips the blank as well as the gift urls it already skipped. Two notes are two notes; a real story url is still filed once and once only. **This migration is not yet applied** — remote migration history in this project has drifted (the CLI refuses `db push`, and nothing since 2026-05 is recorded there), so it goes in by hand in the SQL editor like the rest. Until then a second text-only candidate is refused, with the page naming the migration rather than showing the raw error.
 - **The last-run indicator is gone**, and deliberately. It read the GitHub commits API for the JSON on the principle that a failed run pushes nothing; the bot no longer commits, so that signal doesn't exist. If it returns, read the newest `created_at` — **not** the commits API.
-- **Each run emails its summary** (added 2026-08-05) — the routine's own `notifications.channel.email` flag, not the Gmail connector, which on this account can only draft. Step 7 of the prompt is the whole spec for that mail: the agent's **final message is an HTML fragment and nothing else** — no markdown, no prose around it, no code fence — carrying a header count, a **Review them** button, one block per candidate with the headline linked to its story, a Not filed list, and Notes. Two links to `https://thegamebureau.com/mc/socializer.html`, top and bottom.
+- **THE MAIL GOES TO THE ROUTINE'S OWNER, AND THERE IS NO RECIPIENT FIELD TO SET.** `notifications.channel.email: true` is the whole control; the address is the claude.ai account the trigger belongs to, which is **kevinmkolb@gmail.com**. So "send it to Kevin" was already true and could not have been made truer by configuration. **What changed on 2026-08-21 is that the prompt now names him**, because a routine told who is reading writes for a person rather than for a log.
+- **THE FOOT CARRIES TWO LINKS: the Socializer and `https://thegamebureau.com/mc`.** The email arrives twice a day and is often the only reason anybody opens the site, and once they are in, the queue is not always what they came for: the Gift Shop and the Tape Room are one press from `/mc` and unreachable from a link that only goes to the Socializer. **Two, side by side, and no more** — it is a footer, not a menu. Both appear even on a run that filed nothing, since the run you most need to open is the one that went wrong.
+- **Each run emails its summary** (added 2026-08-05) — the routine's own `notifications.channel.email` flag, not the Gmail connector, which on this account can only draft. Step 7 of the prompt is the whole spec for that mail: the agent's **final message is an HTML fragment and nothing else** — no markdown, no prose around it, no code fence — carrying a header count, a **Review them** button, one block per candidate with the headline linked to its story, a Not filed list, and Notes. Two links to `https://thegamebureau.com/mc/socializer/`, top and bottom.
   - **Email rules, not web rules.** Fragment only (no `<html>`/`<head>`/`<style>`), inline styles only because mail clients strip stylesheets, no images, nothing over 600px — it is read on a phone. Palette is the site's: ink `#1b2438`, muted `#6b7280`, blue `#2d4880`.
   - **The fragment goes out on a failed or empty run too**, with the failure written into Notes. The run you most need to open is the one that went wrong, and an email with no link is a dead end.
 - **Five candidates every run, and a `confidence` score is what makes that safe** (2026-08-07). The bot used to be told a short honest run beat a padded one and to file four or three when five would not clear the bar. It now files **five**, bending every editorial rule — the 7-day window, the topic mix, one-source-per-story — before it bends the count, and declares the stretch by scoring each pick **1-100** into `socials.confidence` ([2026080701_socials_confidence.sql](mc/supabase/migrations/2026080701_socials_confidence.sql)). 80+ post it without thinking, 20-39 filed to reach five with a rule bent. **Null is not zero** — every row before that date, and every hand-added candidate, is unscored, and the card renders nothing rather than a 0. The one rule that still outranks the count is the avoid list: file four rather than post something off-brand. The score prints as `72%` in a bubble at the head of the card's kicker, red under 40.
@@ -401,7 +857,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
   - Added to the page's PROMPT and the routine's stored prompt in the same pass, plus the gift bullet in both.
 - **NO EM DASH, in the prompt or in anything it hands back** (2026-08-15). The prompt carried 45 of them and now carries none, and it says so about itself: *"This prompt does not use one either, deliberately: if the instructions were littered with them you would copy the habit."* The ban covers the caption, the headline, the `why`, the closing summary and the step-7 email, because all of those go out under our name on our own accounts and an em dash is the clearest single tell that a machine wrote the line. Rewrites used a comma, colon, semicolon, full stop or brackets, whichever the sentence wanted; **don't reintroduce one while editing this text**, and check any new clause you add. **The routine's stored prompt at claude.ai carries its own copy of these rules and has NOT been swept** — it is the same by-hand sync the editorial rules already need.
   - The prompt lives in a `<textarea>`, which is RCDATA: `<div>` survives as literal text, but `&` must be written `&amp;` or a raw `&middot;` in the email template is entity-decoded and whoever copies it gets a real `·`.
-- **ONE CANDIDATE HAS ITS OWN URL** (2026-08-15): `https://thegamebureau.com/mc/socializer.html#edit=<id>` opens the Socializer and **scrolls to that candidate's card and flashes it**. It opened the candidate's Edit dialog until **2026-08-19, when that dialog was deleted** (see below); the hash and its name are unchanged, because TGB SOCIALIZER BOT has mailed links in that shape twice a day since August and every one of them still has to land. It exists for TGB SOCIALIZER BOT's email, which mails five candidates twice a day; a link to the queue alone made you hunt for the row you had just read about on a phone. Same `replaceState` reasoning as `#manual` (assigning `location.hash` pushes a history entry per open and close), and the hash is **cleared on every way out** or a reload would reopen a dialog you had closed. It is resolved **after** `loadQueue()` resolves, not beside it like `#manual`, because the id has to match rows that are actually in memory; an id that matches nothing says "no candidate <id>" in the red pen rather than doing nothing. Opening the dialog from the page stamps the hash too, so the link in the email and the link you copy off the page are the same string.
+- **ONE CANDIDATE HAS ITS OWN URL** (2026-08-15): `https://thegamebureau.com/mc/socializer/#edit=<id>` opens the Socializer and **scrolls to that candidate's card and flashes it**. It opened the candidate's Edit dialog until **2026-08-19, when that dialog was deleted** (see below); the hash and its name are unchanged, because TGB SOCIALIZER BOT has mailed links in that shape twice a day since August and every one of them still has to land. It exists for TGB SOCIALIZER BOT's email, which mails five candidates twice a day; a link to the queue alone made you hunt for the row you had just read about on a phone. Same `replaceState` reasoning as `#manual` (assigning `location.hash` pushes a history entry per open and close), and the hash is **cleared on every way out** or a reload would reopen a dialog you had closed. It is resolved **after** `loadQueue()` resolves, not beside it like `#manual`, because the id has to match rows that are actually in memory; an id that matches nothing says "no candidate <id>" in the red pen rather than doing nothing. Opening the dialog from the page stamps the hash too, so the link in the email and the link you copy off the page are the same string.
 - **THE EDIT BUTTON AND ITS DIALOG ARE DELETED** (2026-08-19), along with `EDIT_FIELDS`, `makeEditBtn`, `openEditDialog`, `closeEditDialog` and `submitEdit`. Every field the dialog reached is now either editable on the card or deliberately read-only, so it was a form for changing the things that had just been decided should not be changed.
   - **THE COST, stated plainly: `url`, `headline`, `source`, `published` and `topics` are now editable NOWHERE in this page.** A genuinely bad capture (a headline scraped as "403 Forbidden", a url pointing at the wrong story) is repaired with SQL, or by skipping the candidate and letting the bot find it again. That is the accepted trade, not an oversight.
   - **`#edit=<id>` STILL WORKS AND MUST.** TGB SOCIALIZER BOT mails five of those links twice a day, one per candidate, so somebody reading the email on a phone can tap the third story and land on it. `focusPostFromHash` scrolls to the card and rings it for 2.4s instead of opening a form, and `article.dataset.postId` is the only thing standing between that email and a dead link. **An unknown id still says "no candidate <id>"** rather than doing nothing.
@@ -484,7 +940,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 `POST { url }` → `{ image, from, title? }` or `{ image: null, reason }`. The **Fetch from page** button beside the Image URL box in the Socializer's image dialog. **Needs a deploy**: `cd mc && supabase functions deploy scrape-og-image`.
 
 - **WHY IT EXISTS.** `socials.image` decides whether a candidate can reach Instagram at all, and filling it was the AI's job while it had the article open — which worked or did not depending entirely on the AI. A browsing tool that returns the page **source** finds `og:image` in the head in a second; one that returns a cleaned, summarised article has stripped the head before the model sees it. **Grok was the reported case.** A prompt cannot fix a tool's output, so the answer moved to a server, where it is the same for every candidate however it was filed.
-- **THE PAGE CANNOT DO IT**, which is the whole reason it is a function: `/mc/socializer.html` is static HTML on GitHub Pages and CORS forbids reading another origin's markup.
+- **THE PAGE CANNOT DO IT**, which is the whole reason it is a function: `/mc/socializer/` is static HTML on GitHub Pages and CORS forbids reading another origin's markup.
 - **METADATA ONLY, IN ORDER**: `og:image` → `twitter:image` → `<link rel="image_src">`. **It will NOT hunt for the biggest `<img>`** — that is guessing, and a guessed address is worse than an absence, because an absence is visible and a wrong one looks right until a post goes out wearing a tracking pixel. No usable tag returns `{ image: null, reason }`, which is an **answer**, not an error.
 - **Attribute order is not fixed in real HTML.** `<meta content="…" property="og:image">` is as legal as the other way round and plenty of CMSes emit it; matching one order is how a scraper "works on every site I tested". Both are matched, and `&amp;` in a query string is decoded — an unescaped one produces a URL that 404s while looking perfectly correct.
 - **Relative paths resolve against the page that ANSWERED**, not the one requested, since redirects are followed.
@@ -496,7 +952,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 
 ### Posting: three accounts, two credentials, one that expires
 
-**Post** calls the [socials-post](mc/supabase/functions/socials-post/index.ts) Edge Function, which holds every token. The page holds none and never will — it is static HTML in a public repo, so a token in it is a published token. `PLATFORM_AUTOPOST` in [mc/socializer.html](mc/socializer.html) is only a flag saying whether the function can genuinely post there; flipping one on without its secret turns Post into a button that reports a failure the page could have predicted.
+**Post** calls the [socials-post](mc/supabase/functions/socials-post/index.ts) Edge Function, which holds every token. The page holds none and never will — it is static HTML in a public repo, so a token in it is a published token. `PLATFORM_AUTOPOST` in [mc/socializer/index.html](mc/socializer/index.html) is only a flag saying whether the function can genuinely post there; flipping one on without its secret turns Post into a button that reports a failure the page could have predicted.
 
 - **Facebook and Instagram are one credential** — a single Page token, `META_PAGE_ACCESS_TOKEN`. Both ids are **derived from the token** rather than stored, because a mistyped numeric id doesn't error, it posts to the wrong place. A whole day was lost to the app and the Page sitting in different **business portfolios**, which no permission can bridge and which reports nothing: the post succeeds, returns a real id, and lands somewhere else. `tgbDiagnosePost()` in the console answers what the token actually points at; run it after any token change.
 - **Threads is a separate API, token and id** on `graph.threads.net` — a Page token cannot reach it. Getting the credential is a four-step errand where three steps are invisible: **Threads Tester** is its own app role (not the generic Tester), the invite is **accepted inside the phone app** with nothing in the dashboard prompting you, the account must be **public**, and `THREADS_USER_ID` is displayed nowhere — read it from `GET graph.threads.net/v1.0/me?fields=id,username`.
@@ -611,22 +1067,40 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
 
 ### THE WAYPOINT FINDER IS DELETED (2026-08-18, the same day it was built)
 
-`mc/waypoint-finder.html` existed for a few hours. It was a queue for deciding whether a place belongs in the library at all, sitting beside the Path Builder, which puts the kept ones in an order. **The split did not survive contact with the work**: reviewing a place and putting it on a walk are the same sitting, so it put the same two ADD buttons in two rooms and made you change rooms to type in a stop you were standing in front of. **One room, both jobs.** Its Daily Chore card on `/mc/`, its Game Elements nav entry and the file are all gone; there is no redirect, as usual.
+`mc/waypoint-finder.html` existed for a few hours. It was a queue for deciding whether a place belongs in the library at all, sitting beside the Path Builder, which puts the kept ones in an order. **The split did not survive contact with the work**: reviewing a place and putting it on a walk are the same sitting, so it put the same two ADD buttons in two rooms and made you change rooms to type in a stop you were standing in front of. **One room, both jobs.** Its card on `/mc/`, its Game Elements nav entry and the file are all gone; there is no redirect, as usual.
 
 **What survived it, and this is the part worth keeping:**
 
 - **[mc/assets/waypoint-editor.js](mc/assets/waypoint-editor.js)**, the whole waypoint editor as a module: `window.TgbWaypointEditor`. It came out of `mc/pathbuilder.html` (about 550 lines, plus its dialogs and its CSS) when the Finder needed the same editor and had grown a five-field form of its own instead. That is the copy-and-drift this repo has already lost to twice, with the Plus Code codec and the waypoints import helper, and the reason `waypoint-geo.js` and `waypoint-prompts.js` exist.
   - **It has one caller again**, and that is fine: the file is a clean seam, `pathbuilder.html` is 550 lines lighter, and re-inlining working code to save a script tag is churn. **Don't re-inline it.**
+  - **IT HAD ONE CALLER AND THAT HID A LEAK.** `WP_FIELDS`, the column list `wpPayload` writes on every save, was declared in **`mc/pathbuilder.html`** and read by the module as a global. It worked, because a top-level `const` in a classic script is visible to every other script on the page and this was the only host. **The second room to mount the editor got `WP_FIELDS is not defined` on its first write** — which surfaced on the short-lived `mc/partners.html` as Fill silently failing, the ReferenceError caught by `fillAndSaveRow`'s own try/catch and reported as though the geocoder had refused. Moved into the module on 2026-08-20; **nothing outside that file may declare it.** A module that reads a host's variable is not a module, and this is exactly what the file header promises it does not do.
+  - **`probe()` MUST BE RE-RUN ONCE THE ROWS ARE LOADED.** `probeWaypointColumns` answers "no such column" for everything when handed an empty array, and `wpPayload` gates `lat`/`lon` and `source_url` on that answer. A host that mounts before it loads therefore writes the zip and **silently drops the coordinates and the source**, which is the worst kind of half-success because nothing reports it. The Path Builder probes inside `loadAll`; Partners re-probes at the end of its own load.
   - **It brings its own markup, its own CSS and its own `#pathCityList` datalist**, so a host page has nothing to keep in step. The host contract is `restUrl` and `authHeaders` (required) plus optional `setStatus`, `waypoints()`, `defaultCity()`, `removeWaypoint()`, `onChanged()` and a `path` block. **A room with no `path` never offers to add a new place to a walk**, which is the only part of the editor that only makes sense next to an open path.
   - **Its buttons are ID-SCOPED (`#wpDlg .btn`) and that is deliberate.** Every room styles `.btn` its own way, and a host's sheet loads *after* the module's, so matching a bare `.btn` would lose on source order and the same dialog would read differently in each room. An id beats a class whatever the order.
 - **`public.waypoints.created_at`** ([2026081802](mc/supabase/migrations/2026081802_waypoints_created_at.sql)) stands and is still nullable, so a row from before the column existed reads as "arrived before we started counting" rather than carrying a made-up date. **Arrivals landing SHELVED ([2026081803](mc/supabase/migrations/2026081803_waypoints_arrive_shelved.sql)) did NOT survive**: see the section above. Everything from TGB PATH BOT, an import or a human's own hand now arrives live. (TGB WAYPOINT BOT was on that list until it was retired on 2026-08-20.)
+
+### A WAYPOINT'S NAME IS A LINK TO ITS SOURCE (2026-08-20)
+
+`source_url` is where a claim about a place came from, it is required by three prompts, it is filled by Fill, **440 of 480 waypoints carry one** — and until now nothing read it. Every room printed the name as dead text and the URL not at all.
+
+- **`TgbWaypointEditor.waypointNameEl(row)` is the one builder**, exported from [waypoint-editor.js](mc/assets/waypoint-editor.js) because that is the shared waypoint module every room drawing a waypoint already loads. **It is not part of the editor**, and it is the first thing in that file that is not.
+- **Four call sites**: the Path Builder's library rows, its path rows and its map popup, and the Partners card. Four hand-written anchors is how three end up missing `rel="noopener"` and the fourth swallows a drag.
+- **`draggable = false` ON THE ANCHOR, AND NO `dragstart` HANDLER.** This is the trap. An anchor inside a draggable row is its own drag source, so the browser drags the LINK instead of the row. The fix is `draggable = false`, which makes the browser walk up and drag the row instead. **`preventDefault` on dragstart is NOT the fix and is actively wrong**: the event bubbles, so it cancels the drag entirely and makes the middle of every row dead to the one gesture the room is built on. (Caught in review, not in the browser.)
+- **No link without a parseable `http(s)` URL.** A `javascript:` source is refused by the protocol check, and a source that will not parse renders as plain text with a tooltip saying so, because an anchor that goes nowhere is worse than text: it invites the click.
+- **A name with no source looks identical until you point at it**, and its tooltip says there is none. Whether we recorded a source is not a fact about the PLACE, so it must not change how the place reads in a list.
+- **It inherits colour and weight** rather than going browser-blue and underlined; forty underlined blue names is a link farm, not a library. A dotted underline on hover is the room's existing idiom for "this does something".
+
+**Where a name is still NOT a link, and why it cannot be:** the map's Leaflet tooltips (plain text by nature), the anchor picker in the AI dialog (an `<option>` cannot hold a link), and Stop Builder's `waypointLabel` in [mc/_stops.html](mc/_stops.html), which returns a STRING for `<option>` text and does not fetch `source_url` at all. That room is parked.
 
 ### The Path Builder page
 
 - **THE LIBRARY IS A COPY SOURCE, NOT A CUT ONE** (2026-08-18). Adding a place to a path leaves it in the left panel, marked *on this path* and with Add spent. It used to vanish from the pool, which made adding a stop read as **moving** the place out of the catalogue — and the catalogue is the permanent thing: a place lives once in `public.waypoints` and can be on any number of paths, which is the whole reason `waypoints` and `path_stops` are two tables. A library that empties as you build contradicts that on screen. Add is disabled once used because a second copy is refused by the `(tour_id, wpid)` primary key, so the button's only outcome would be an error; the row still **drags**, because dragging an already-placed row is a move within the path.
 - **The panels are titled `WAYPOINT LIBRARY: CITY` and `PATH: CITY`.** The left one was "*city* waypoints not on this path", which defined a standing catalogue by what it was currently missing — so the same shelf was called something different a second after you dragged a row. The city goes after the colon so both titles start with the noun and line up down the page.
-- **THE ADD BAR HOLDS BOTH NOUNS: Waypoint | Path · Path Clone · TGB PATH BOT**, with a `.bar-sep` rule marking where one ends and the other begins. **TGB WAYPOINT BOT sat after Waypoint and came off on 2026-08-20** with the routine itself.
-  - **THE BARE NOUN MAKES THE THING; the buttons after it say how else you can get one.** Both halves read that way until 2026-08-20, and **the Waypoint half now has nothing after it**, which is correct rather than lopsided: the surviving routine files a whole PATH and the waypoints arrive as its stops, so there is no second way to get a waypoint on its own. A door in the Waypoint half would promise a routine that hands you loose places, which is exactly the job that was retired. **MANUAL came off both on 2026-08-18**: it was there to separate by-hand from by-routine, which the routine's own name already does, so it was a verb explaining a distinction the noun beside it had already made.
+- **THE ADD BAR HOLDS BOTH NOUNS: Waypoint · Waypoint Prompts | Path · Path Clone · TGB PATH BOT**, with a `.bar-sep` rule marking where one ends and the other begins.
+  - **TWO CHANGES LANDED ON THIS BAR FROM OPPOSITE DIRECTIONS ON 2026-08-20 AND BOTH SURVIVE.** TGB WAYPOINT BOT's door was **deleted**, because the routine was folded into TGB PATH BOT and a door to it would 404; and **Waypoint Prompts gained a door**, because `openAiDialog` and its whole six-pull dialog had been defined and reachable from nothing. **They are not the same button**: the retired routine filed loose places on its own, and this one hands you a prompt to paste into another AI, which still returns loose waypoints.
+  - **SO THE TWO HALVES NO LONGER READ THE SAME WAY, and that is honest rather than untidy.** The old pattern was "the bare noun makes the thing; the buttons after it say how else you can get one." The Waypoint half now has one fewer way, because the routine that made loose places is gone: the surviving one files a whole PATH and the waypoints arrive as its stops.
+  - **WAYPOINT PROMPTS, NOT WAYPOINT AI.** *AI* had stopped distinguishing anything: the routine beside it is AI and the six pulls it opens are AI. What this button actually hands you is a **prompt to paste somewhere else**.
+  - **`openFindDialog` IS STILL IN THAT STATE** — wired, working, and reachable from nothing. Either give it a door or delete it with `runFind`, `renderFindResults`, `openDraftFrom`, `#findDlg` and the search half of `waypoint-geo.js`, together.
   - **CLONE keeps its `Path`**, because Clone is not the noun: "Clone" alone would not say what it copies, and this bar holds two things you could mean. **TGB PATH BOT keeps its own** for the older reason: it is a proper noun, the routine's name on the trigger and in this file.
   - **The waypoint half left for a few hours on 2026-08-18 and came back** when the Waypoint Finder was deleted. The path buttons went bare, then took `Path` back, then landed where they are now; the settled rule is the one above, and a button reading "Bot" or "Clone" alone would name nothing.
   - **No ↗ on the door.** TGB PATH BOT opens claude.ai and wears the same chrome as the buttons beside it (so did TGB WAYPOINT BOT, while there were two); marking one control as a door while the rest are not reads as a difference in kind rather than in destination. `.btn` carries `display: inline-flex` and `text-decoration: none` so an `<a class="btn">` sits level with its `<button>` siblings.
@@ -637,6 +1111,8 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
   - **A row `fill()` could not improve is never PATCHed**, so a run over hundreds of rows touches only the ones it helped.
   - **A refused write is caught.** PostgREST answers 200 with an empty array when RLS blocks a PATCH, so without the check a bulk run reports hundreds of successes and writes none of them. Verified: run under the anon key it stops and says the database refused the write.
 - **`ALL WAYPOINTS` IS THE FIRST ENTRY IN THE PATH PICKER** (2026-08-18), above every city. It is not a path: `ALL_WAYPOINTS = '__all__'` is a sentinel meaning *no path open, show me everything*, and the library fills with all 463 rows under the heading `WAYPOINT LIBRARY: EVERY CITY`. "I want to look at the places, not a walk" is a real reason to come to this room, and until now there was no way to say it.
+  - **IT REACHES THE VIEW FROM A URL TOO**: `?path=__all__`. The query contract is the same one a real path uses, and the sentinel needs no special handling at boot, because `loadStops` asks PostgREST for `tour_id=eq.__all__`, gets an empty list and carries on.
+  - **THE 60-ROW CAP IS GONE, AND IT WAS WRONG HERE SPECIFICALLY** (2026-08-20). `renderPool` painted `rows.slice(0, 60)` and appended *"410 more, narrow the filter to see them"*, which is defensible for a city and indefensible for the one view whose entire promise is ALL of them: it drew 60 of 470. **A view named for its completeness cannot be the one that silently truncates.** The reason for the cap was real, that the whole library made the panel a scroll pit, so that is now answered in CSS instead: **`#poolList` and `#pathStops` are bounded at `70vh` and scroll inside their own panels** rather than growing the document. Both columns keep their headers on screen and move independently, which is what makes dragging between them workable on a long list.
   - **A sentinel, not an empty string.** Blank already means "choose a path", the state the picker returns to; a third meaning on that value would make *nothing open* and *everything shown* indistinguishable.
   - **It is offered even when there are no paths at all**, and the picker stays enabled for it: the one view that does not need a path must not be unreachable in a database that has none, which is also the state you are in before you build the first one.
   - **`hasOpenPath()` now guards everything that writes to a path**, because `state.pathId` being truthy stopped meaning "a path is open" the moment a sentinel could sit in it. Without it the library's → and its drag handle offered to add a stop to a walk that does not exist, and Save / Delete / Clone / Edit all read as live. **Test `hasOpenPath()`, never `state.pathId`, for anything that acts on a path.**
@@ -696,6 +1172,14 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
   - **THE FOOT IS THREE BUTTONS OF ONE KIND.** Delete destroys the record, Save commits it, Close discards: every one ENDS the dialog and you press each at most once a visit.
   - **FILL IS NOT ONE OF THOSE, which is why it moved to the head.** It is a tool you press repeatedly WHILE editing and it acts on the form rather than on the record, making it the same kind of thing as Open beside the Source box. A row of endings was never going to hold it, and it got moved three times in an afternoon proving that. On the head beside the WPID it reads as "fill this form in", said at the top of the form it fills.
   - **DUPLICATE was deleted** (2026-08-18), and `duplicateWaypointRow` with it. The `.dlg-rule` between the bands and the `.dlg-group` wrapper went too: with one button on the left there is nothing left to separate.
+- **EVERY COLUMN IS ON THE FORM** (2026-08-20), and the three that are not are not columns anybody should write.
+  - **Editable:** name, description, address, city, **state**, zip, source, **coordinates**, **walk order**, and the whole partner band.
+  - **Read-only:** `wpid`, `ai_model`, `created_at`, and the two partner stamps. Provenance and trigger-written values. **Typing over `ai_model` would destroy the only trace of which model produced a bad address**, and "what wrote this and when" is the first question asked of a row that looks wrong, which previously had no answer anywhere on the form.
+  - **DELIBERATELY ABSENT: `tour_id`, `tour_title`, `tour_shape`.** Retired in place since paths became their own tables on 2026-08-08 and read by nothing. **A box for a dead column is an invitation to write one.**
+  - **THE STATE BOX IS BACK, AND THE RULE THAT REMOVED IT MOVED RATHER THAN BEING DROPPED.** It went because a field with one correct answer is a field that can be got wrong: Nominatim says "Florida" where all 480 rows say "FL", so the city derived it. **What changed is where the derivation applies** — `wpPayload` now fills a BLANK only, because a box that silently discards what you type is worse than no box, and the field carries a **From city** action for when the derivation is what you want. The old cost is back too and is now VISIBLE: change the city and the stale state sits next to it rather than being silently rewritten, one press from correct.
+  - **THE COORDINATES ARE EDITABLE AS A PAIR.** They were a read-only reading, on the reasoning that Fill writes them and the map moves them. That holds until both fail at once: a place the geocoder cannot find has no pin to drag, and a coordinate copied off a map was then the only way in and there was none. **Both or neither**, enforced in the field and again in `wpPayload`.
+  - **CLEARING A POINT NOW WORKS.** `wpPayload` wrote the pair only when both were present, so emptying the boxes left the stored point untouched and a coordinate you deleted came straight back on reload. A blank, unparseable, out-of-range or 0,0 pair writes NULL, which is what the map already draws as "not located yet".
+  - **`walk_order` is a per-city HINT and is not a path position**, said on its own hint so nobody mistakes it for the other thing. A blank is null rather than 0: unsequenced is not position zero.
 - **FILL IS THE ONLY LOOKUP, and it fills EVERYTHING blank**: zip, address, coordinates, description and **source url**. Locate was a second button for one of the several fields Fill writes, so it went, and `locateWaypoint` with it; `geo.locate()` is untouched and `fill()` calls it. **Maps went too**: a door out of a dialog you came here to type in. **Nothing sits beside the Coordinates reading now** — `.wp-inline-act`, `.wp-readonly-row` and `openWaypointInMaps` are all gone; `geo.googleMapsUrl()` stays exported and unused here.
   - **To move a point that is already stored**, drag its pin on the map, or edit the address, which clears the pair on save because those coordinates described where the OLD address was. **Fill never overwrites a point that is there** and that is deliberate: a pin somebody dragged into place must not be replaced by a guess.
   - **The field is labelled SOURCE and carries an OPEN button** (2026-08-18). The box holds a url and obviously looks like one, so "Source URL" was naming the format rather than the thing: what it is FOR is the place the claim came from. Open sits beside the box rather than in the foot's button row, because it acts on that one value while the foot acts on the whole waypoint, and it is **disabled until the box holds something that parses as an http(s) url** - a source that will not parse is a source nobody can check, and opening it would put the browser somewhere strange rather than saying so. It is a bordered `.btn`, **not `.ghost`**: borderless is right among other buttons and reads as a stray word beside a text box.
@@ -711,10 +1195,23 @@ Two migrations an hour apart: [2026081805](mc/supabase/migrations/2026081805_way
 - **Every search source fails soft.** Overpass is a free endpoint that 504s whenever it is busy; the first cut let that reject the whole search, discarding Nominatim matches already in hand. `search()` reports which sources answered so a partial answer says so.
 - **`fillFieldsFromPlace` writes the state CODE.** Nominatim answers `"Florida"`; all 280-odd rows hold `"FL"`. The old page wrote the long form, making rows that look fine alone and sort, group and match differently from every other row in their state.
 - **Dedupe warns three times and blocks never** — results list, draft, and Create. One address is routinely several stops (a museum and the sculpture outside it), which is why a conflicting house number vetoes an address match outright while names match on containment and typos.
-- **RECALC, beside the path panel's legend** (2026-08-20). Leaves stop 1 where it is, then takes the stop closest to it as stop 2, the closest to that as stop 3, and so on. Greedy nearest neighbour, one pass, no lookahead. It rewrites `path_stops.ord` and **leaves it unsaved** so you look at the new shape on the map first; `markDirty` is what makes Save appear.
+- **TUCK IN, in the library panel's header** (2026-08-20). Re-sorts the library by **what each place would COST to insert into the open path**, and says which two stops it would go between. RECALC opposite reorders the path; this one tells you what to add to it.
+  - **CHEAPEST INSERTION, which is exact rather than a heuristic.** For a candidate C and each consecutive pair (A, B) on the path, `detour = d(A,C) + d(C,B) - d(A,B)` is precisely the metres the walk grows by if C goes between them. The smallest over all pairs is what C costs, and the pair that produced it is where it goes.
+  - **THIS IS NOT "WHAT IS NEAR THE PATH", AND THE DIFFERENCE IS THE POINT.** Measured on a straight four-stop test: a place **898 m** from the nearest stop costs **1.8 km** to insert, because it is past the start in the wrong direction and you pay the walk twice; a place **449 m** from the nearest stop costs **0 m**, because it is on the line. A proximity list ranks those two the wrong way round.
+  - **BETWEEN, NEVER AT THE ENDS.** A candidate is only offered a slot between two existing stops, so accepting one can never silently change where the walk starts or finishes. Those are editorial decisions, the same ones RECALC asks about.
+  - **THE ARROW INSERTS WHERE THE BADGE SAYS.** If the chip reads "between 3 and 4", pressing it puts it between 3 and 4. Appending would make the figure a fact about a position the button then refused to use.
+  - **`TUCK_MAX_METRES = 900`.** Beyond that a place is not tucked in, it is a diversion, and offering it as one is what would make the feature untrustworthy. Under 150 m the chip goes green: that is inside the error of a straight-line measure anyway, so it reads as free.
+  - **A leg with an unlocated end is SKIPPED, not scored zero**, or an unmeasurable gap would look like the cheapest one on the path.
+  - **The cost rides on the row as `__tuck` and is deleted when the mode is left.** These are the shared catalogue objects, not copies, so a stale badge would otherwise survive into the alphabetical list.
+  - Straight-line metres, like RECALC and with the same caveat: the map draws a routed pavement line and the two can disagree across a river.
+- **RECALC, beside the path panel's legend** (2026-08-20). Each stop becomes the nearest one left. Greedy nearest neighbour, one pass, no lookahead. It rewrites `path_stops.ord` and **leaves it unsaved** so you look at the new shape on the map first; `markDirty` is what makes Save appear.
   - **IT IS NOT THE OLD SUGGEST ORDER, on two counts, both deliberate.** That button chose its own start (the northernmost point) and then ran 2-opt to pull the crossings out. This one is **told where to begin** and does not second-guess the rest, because the first stop of a walk is an editorial decision — where a visitor parks, arrives, or gets a coffee — and it is exactly the thing a solver cannot know. `suggestWalk` in `waypoint-geo.js` is untouched and still does the 2-opt version if it is ever wanted.
   - **The trade, stated plainly:** greedy nearest neighbour paints itself into a corner, so the LAST leg can be a long walk back across everything it skipped. It is a starting arrangement to drag from, not a verdict.
   - **STRAIGHT-LINE METRES, so its answer and the drawn line can disagree** — the map draws a real pavement route, and on a river or a rail cutting they will. That disagreement is one of the two reasons Suggest order was removed; it is accepted here because the button is explicitly a rough first pass rather than a recommendation.
+  - **IT ASKS WHICH ENDS TO HOLD** (2026-08-20), in a small dialog: lock the start, lock the finish, both or neither. It used to pin stop 1 always and infer the loop, which is right often enough to be worth doing and wrong whenever the walk is meant to FINISH somewhere in particular: at a bar, at a station, at the stadium. **Both ends are editorial decisions and the solver knows only metres**, so it asks rather than guesses.
+  - **UNLOCKING THE START MAKES IT BETTER, NOT WORSE.** With the start free it tries **every stop as the seed** and keeps the shortest walk. On a fifteen-stop path that is a couple of hundred distance calculations and instant, and it is a genuinely better answer than the arbitrary seed the old `suggestWalk` justified with "northernmost, but stable". Measured on a five-stop test: start locked gave 45% shorter, both ends free gave **64%**.
+  - **The loop rule is now a DEFAULT rather than an inference.** A path whose last stop repeats its first opens with both boxes ticked, and the note says why. Untick the finish and the loop breaks, which is the honest consequence of the choice rather than something the code quietly prevents.
+  - **`walkMetres` returning 0 means UNMEASURABLE, not shortest.** In the try-every-seed loop that zero would win every comparison, so it is scored as `Infinity`. The same null-is-not-zero trap `hasPoint` documents.
   - **A LOOP KEEPS ITS CLOSING STOP.** A path whose last stop repeats its first is pinned at BOTH ends, and nearest neighbour must not be left to place that one: the duplicate is **zero metres** from the stop it repeats, so it is always the nearest thing going and gets taken as stop 2 — silently turning a loop into a walk that no longer comes home. Found by testing, not by reading. Repeats in the MIDDLE are left to the ordinary rule.
   - **An unlocated stop is not a candidate for "nearest" at all**; they keep their relative order and sink to the end, and the message says how many. A first stop with no point is refused outright, since there is nothing to measure from.
   - **It sits on the legend's line, not in the panel header.** The header acts on the PATH — its name, its shape, saving it — and this acts on the ORDER of the list above, which is what the legend is describing. Disabled under three stops, so it says so by being off rather than by answering back.
@@ -805,6 +1302,17 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - **ZIP AND COORDINATES ARE PART OF ITS JOB AND HAVE THEIR OWN STEP IN THE PROMPT**, because they are the half most easily skipped and the cost lands on somebody else: an unlocated waypoint cannot be drawn on the Path Builder's map, and geocoding it later costs a human 1.1 seconds a pin at Nominatim's one-request-a-second policy. The routine has the address in front of it already, so it is the cheapest place to pay that. The prompt carries the policy (sequential, 1.1s apart, identifying User-Agent, never parallelised), the accept test (the reply's `display_name` must contain the city asked for), and the standing rule that **a point is never invented or approximated** -- not from the city centre, not from a neighbouring stop, and never an intersection collapsed onto one of its streets, whose centroid can be a mile from the corner. A stop that genuinely cannot be located (an intersection, a span of street, a floor, a moored ship) is filed without one and named in the report.
 - **Everything it files lands LIVE**, in the [Path Builder](mc/pathbuilder.html)'s library, ready to put on a walk. It filed shelved for one day, while a review room existed; see the all-live section above for what went with that.
 
+### With AI (more places NEAR one of ours) — the cluster pull (2026-08-20)
+
+A sixth pull in the Path Builder's AI dialog, `buildClusterWaypointPrompt(city, anchor, count, notes)`. **It is a pull, not a new button**: the room already has one dialog with a picker, and a second door to the same idea is how two prompts start drifting.
+
+- **WHAT NO OTHER PULL COULD BE ASKED.** "Sweep one city" returns whatever is standable anywhere in it, and a walk built from that is a taxi ride between good places. This one is told the thing that actually makes a path: **proximity**. Every stop within a ten minute walk, roughly 800 metres, and an outlier is DROPPED rather than the radius stretched to keep it.
+- **THE ANCHOR IS THE POINT OF IT.** Pick a waypoint we already hold and the sweep centres on that place: *find me more near this one*, which is the question you have when a path has four stops and needs eight. **The whole ROW goes to the prompt, not the name** — its address and its stored point, so an AI is not sent looking up a place we can already describe exactly. It is also told **not to return the anchor itself**.
+- **Blank is a real answer and it is first in the list.** "Anywhere in the city" is what you want before a path exists, and the prompt handles it by picking the densest corner and naming which corner it chose in the first description.
+- **The anchor list follows the CITY BOX, not the open path.** Reading `pathCity()` would offer New Orleans waypoints while the field above said Denver. That is also why the city field rebuilds the inputs on change — and only that field, on only this pull, because a rebuild moves focus and doing it everywhere would make the form unusable.
+- **Sourced from published walking tours first**, like the tour-places prompt and for a sharper reason: a tour that exists has already decided both that these places are worth seeing AND that they are close enough to walk between, which is exactly the pair of judgements being asked for.
+- It shares `WIKI_SOURCE_LINES`, `WALK_ORDER_RULE`, `AI_MODEL_RULE` and `NO_EM_DASH_RULE` with the other five, and returns the same `tgb_import_waypoints_prompt_items` SQL block. **`parseLocation`, not `parseArea`** — there is no such helper, and writing one from memory is how the first cut threw a ReferenceError.
+
 ### With AI (sports) — the one importer that appends instead of skipping
 
 [mc/pathbuilder.html](mc/pathbuilder.html) has a fourth AI pull, **With AI (sports)** (added 2026-07-31), and it inverts the rule the other three share. The other prompts start from a city and ask what is in it; this one starts from the football and asks where it happened, keeping the answer **only when the place sits in a city other than that team's home** — a Seahawk's wedding church in New York, a Cowboys lineman's childhood home in Ohio, a Packers coach's grave in Georgia. A Steelers marker in Pittsburgh is explicitly worthless to it. Those stops are invisible to any city-first sweep, because no walking-tour list in Nashville is organized by which NFL team the groom played for.
@@ -815,6 +1323,36 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - It is its **own button, not a mode** of the With AI modal, because it has no place to pick — the search is "wherever the football turns out to be", so the mode's city picker would sit empty. One number, one button.
 
 ---
+
+## PARTNERS — venues that will host visiting fans (2026-08-20)
+
+> **A PARTNER IS A WAYPOINT.** It is a bar, brewery or other public food-and-drink room that will host visiting supporters of a rival fandom, wanted as the **last stop of a GAME run the day before the ANCHOR EVENT**. It is a row in `public.waypoints` carrying a `partner_status`, edited in the **Path Builder**, and filed by **TGB PATH BOT**.
+>
+> | | |
+> |---|---|
+> | **where** | [mc/pathbuilder.html](mc/pathbuilder.html) — the `PARTNERS n` filter in the library header, and the partner band in the waypoint editor |
+> | **table** | `public.waypoints`, columns prefixed `partner_` |
+> | **routine** | TGB PATH BOT, step 8 of three jobs |
+
+Migrations: [2026082001](mc/supabase/migrations/2026082001_partner_venues.sql), [2026082002](mc/supabase/migrations/2026082002_partner_suggested_teams.sql), [2026082003](mc/supabase/migrations/2026082003_partners_onto_waypoints.sql). **Apply by hand**, in that order. The third is the one that matters now; the first two are history it supersedes.
+
+### IT WAS A ROOM AND A ROUTINE FOR ONE DAY, AND BOTH ARE GONE
+
+Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues` plus TGB PARTNER BOT, and collapsed the same day. **Both halves came apart for the same reason: a partner is not a new kind of thing.**
+
+- **`partner_venues` was merged into `waypoints`** once the privacy argument for splitting them was withdrawn (see 2026082003 for the argument and what it costs). **A partner candidate is a waypoint with `partner_status` set**; the column being null is what "not a partner" means, so no second row can disagree with the flag.
+- **`mc/partners.html` was DELETED** the moment the columns moved. It was a second list of the same rows, with a second set of boxes writing the same table, behind a second door. Everything it did is now the library's `PARTNERS` filter and the editor's partner band. Its card on `/mc/`, its nav group and its `room-blurbs.js` key went with it. **A hard break with no redirect**, as always here.
+- **TGB PARTNER BOT was folded into TGB PATH BOT** as its third job. Same cities, same table, same doorway: filing a partner IS filing a waypoint, so two routines meant two runs a day reading the same NFL schedule and writing the same rows. **The old trigger (`trig_01VcgCjs3AWwrJbdUTYqVVcB`) is DISABLED, not deleted** — a delete is irreversible and this project lost a trigger id that way earlier the same day. Delete it once the merged step has run a few times.
+
+### What survived, and where it lives
+
+- **THE EDITOR'S PARTNER BAND** ([waypoint-editor.js](mc/assets/waypoint-editor.js)) is **collapsed until it applies**: 475 of 480 waypoints are not partners, and a dozen empty contact boxes under every statue would make the common case worse to serve the rare one. A checkbox opens it, and it opens itself for a row that already carries a status.
+  - **Unticking clears `partner_status` and nothing else.** The status is the flag; leaving the contacts alone means ticking it again brings back what somebody typed rather than making them find it twice. **`wpPayload` then nulls the whole set on save**, because a phone number on a row nothing calls a partner is a state nobody could interpret.
+  - **`partner_teams` is comma-separated in the box and an ARRAY in the column**, and the two dates are DATES — which is why neither is in `WP_FIELDS`: that loop writes `'' || null`, and **Postgres refuses `''` for both types**.
+  - **The band is not offered against a database without the columns.** `wpCols.partner` is probed like `source_url` and `latlon`; a tick box that silently fails to save is worse than no tick box.
+- **THE LIBRARY'S `PARTNERS n` FILTER** narrows the Path Builder's left panel to partner rows, and **cuts across the city test rather than sitting inside it**: "who have we lined up" is a question about the whole catalogue, and answering it only for the open city would hide the ones you have elsewhere. The button hides itself when there are none, and turns the filter off with it.
+- **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
+- **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
 ## Prompts and routines: the map is [mc/_dev/prompt-tools/PROMPTS.md](mc/_dev/prompt-tools/PROMPTS.md)
 
@@ -828,9 +1366,31 @@ Every AI prompt here is either a **page prompt** (in this repo, copied into a ch
 
 ---
 
-## THE STOCK ROOM — the gift shop admin page
+## THE GIFT SHOP (the room) — the gift shop admin page
 
-> **"STOCK ROOM" means [mc/gifts/index.html](mc/gifts/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the STOCK ROOM"*, *"the STOCK ROOM is showing the wrong count"* — is an instruction about that one file.
+**RENAMED FROM STOCK ROOM ON 2026-08-20, AND THE NAME NOW COLLIDES THREE WAYS.**
+That is worth stating before anything else, because STOCK ROOM existed precisely
+to prevent it:
+
+| the name | what it is | how to tell |
+|---|---|---|
+| **GIFT SHOP** the room | [mc/gifts/index.html](mc/gifts/index.html) | `/mc/gifts/`, admin-gated |
+| **the gift shop** the shop | [gifts/index.html](gifts/index.html) | `/gifts/`, what a buyer sees |
+| **TGB GIFT SHOP BOT** | the routine that files books into the room | a trigger at claude.ai |
+
+**THE PATH IS THE DISAMBIGUATOR NOW.** `/mc/gifts/` is the room; `/gifts/` is the
+shop. Getting those two confused was already called the single easiest mistake to
+make in this repo, and it just got easier: they no longer have different names.
+**When it is not obvious from context, write "the GIFT SHOP room" or "the public
+shop".**
+
+**THE HUB'S BUTTON STILL READS `GO TO STOCK ROOM`**, deliberately left alone.
+That means the card's heading and its button now disagree, which breaks the rule
+recorded under Ancillary Things that the `GO TO` button repeats the heading so it
+reads as a door rather than a second title. Left as asked; change both together
+if it is ever revisited.
+
+> **"GIFT SHOP" (the ROOM) means [mc/gifts/index.html](mc/gifts/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the GIFT SHOP"*, *"the STOCK ROOM is showing the wrong count"* — is an instruction about that one file. **STOCK ROOM still resolves here**: it was this room's name until 2026-08-20 and is the word most in-repo prose still uses.
 >
 > | | |
 > |---|---|
@@ -850,7 +1410,7 @@ Every AI prompt here is either a **page prompt** (in this repo, copied into a ch
 
 ### It wears the Socializer's chrome (2026-08-15)
 
-Brought into line with [mc/socializer.html](mc/socializer.html) and the Tape Room in one pass. **When any of the three changes, change all three**; the Socializer is the reference and the other two are copies.
+Brought into line with [mc/socializer/index.html](mc/socializer/index.html) and the Tape Room in one pass. **When any of the three changes, change all three**; the Socializer is the reference and the other two are copies.
 
 - **The cut-panel tokens were a neutral grey** (`--cut-panel-bg: #eef0f4`, both line tokens aliased to `--line`) — exactly the "faint box" state the Tape Room was in before its own pass. Now `#e4ecfa` with the two line tokens at 0.38 / 0.3 alpha, plus the tighter `0 1px 4px` cushion, so the bars read as defined panels.
 - **Folder-tab legends** on `.command-bar`, `.toolbar` *and* `.btn-fieldset` — the `::before` arch, copied verbatim including `isolation: isolate`. The old `.btn-fieldset > legend` rule was deleted rather than left to fight it.
@@ -907,7 +1467,7 @@ Migrations: [2026080901_guides_table.sql](mc/supabase/migrations/2026080901_guid
 
 ### The Guide Green Room
 
-**[mc/greenroom.html](mc/greenroom.html)** is where guides are added, written, illustrated and deleted. It replaced `mc/guides.html`, **deleted the same day** — that page was one card per GAME, which is the shape the migration exists to undo. Styled on [mc/socializer.html](mc/socializer.html), and it is the **Guide Green Room** card in the Game Elements group of the nav.
+**[mc/greenroom.html](mc/greenroom.html)** is where guides are added, written, illustrated and deleted. It replaced `mc/guides.html`, **deleted the same day** — that page was one card per GAME, which is the shape the migration exists to undo. Styled on [mc/socializer/index.html](mc/socializer/index.html), and it is the **Guide Green Room** card in the Game Elements group of the nav.
 
 - **The card shows no game information at all**, by design. The moment a card lists the games a guide fronts it becomes a report about games instead of a place to write a character.
 - Every column is an editable box on the card; **an empty one is bordered pen-red** — no chips, no error text. Roughly half the catalogue has no background, so that wall of red is the honest state of it rather than a fault. (Don't record live counts here; the table is edited daily and a number in this file rots within hours — 34 guides on the morning of 2026-08-09 was 28 by the afternoon.)
@@ -999,6 +1559,13 @@ build step and without proxying the domain through Cloudflare.
   `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/`. For its first
   week it was on `/soundtracks/` alone, so **any figures from before 2026-08-07
   cover one page**, not the site.
+- **A NEW PUBLIC PAGE UNDER `/mc/` MUST BE ADDED TO `PUBLIC_MC`**, or the
+  beacon silently refuses to count it and the `<script>` tag looks like it
+  worked. This is the exact trap the four public `mc/` pages already fell into
+  once. **Follow was briefly the fifth entry and is not one any more**: it moved
+  to `/follow/` at the root on 2026-08-20, where it is counted by default, and
+  it came back OUT of the list in the same commit. A page named there that no
+  longer lives under `/mc/` is a line that has stopped describing anything.
 - **The paid game runtime is excluded, and that is a decision rather than an
   oversight.** `/mc/game/run/` — the URL a buyer's email points at — plus both
   engines, `help.html`, `navigator.html`, `scan/`, `teams/` and `/mc/minigames/`
@@ -1169,6 +1736,76 @@ This grouping is the public website surface for shared chrome work such as navig
 
 ---
 
+## FOLLOW is a menu, not a page (2026-08-20)
+
+**`/follow/` EXISTED FOR ONE DAY AND IS DELETED.** It was a public page listing the five accounts; five links did not earn a page load, a scroll and a way back. **FOLLOW is now a control that opens a Linktree-shaped menu** of the accounts, in two places: the public nav, and the **sign-off bar** of the footer.
+
+- **`shell/site-nav.js` OWNS THE LIST AND THE REEL**, exported as `TgbNav.socials()` and `TgbNav.followPopup(el)`. The footer hands its button to the second one; **it does not know our account urls and must not learn them**, because it carried its own copy once and they drifted (bare `instagram.com` against `www.`), which is what deleted the old Follow column.
+- **THE FOOTER'S COPY IS IN THE SIGN-OFF BAR, NOT IN THE SITE COLUMN** (2026-08-20), and it took four attempts to land there. The footer has held a column of five icon links, then a link to `/follow/`, then a labelled button in The Site column, and now this. **The Site is four DESTINATIONS and Follow is a menu-opener**, which is why it read wrong in that column every time; the sign-off row already holds the copyright and the Mission Control door, which is to say the things that are not sections. An unlabelled glyph is at home in a line of fine print in a way it never was in a list.
+- **IT IS THE REEL, WITH NO WORD**, the same one-icon-wide scroller the nav wears. The reel names the five networks by showing them, which is more than the word FOLLOW says.
+- **THE REEL IS OPT-IN VIA `data-follow-reel="1"`**, which is what keeps there being ONE reel. It was gated on the nav's own class; the footer asks for it by attribute rather than building a second copy, so the faces, the timing and the repeated last frame cannot drift between the two.
+- **THE WRAP IS THE FLEX CHILD, NOT THE BUTTON.** `followPopup` re-parents its trigger into a `.tgb-followpop-wrap` so the panel has something to position against, so **any layout property aimed at the button lands on an element the flex row is no longer looking at** — the footer's `margin-left: auto` is on both. This is the same mistake the nav made when `order: 5` went on the button and FOLLOW jumped to the front of the bar. The auto margin is also why it is not left to `justify-content: space-between`: with three children that would strand the reel in the middle of a wide footer.
+- **THE BUTTON SHIPS `hidden` AND IS REVEALED ONLY ON SUCCESS.** It has no `href` to fall back to and its entire content is injected, so without `site-nav.js` it would be an empty button that does nothing. **Three public pages load the footer and no nav** — [mc/account/](mc/account/index.html), [mc/how/](mc/how/index.html) and [shell/privacy.html](shell/privacy.html) — so the control is simply absent there, which is the right failure. An absent control beats a dead one.
+- **THE TRIGGER IS A `<button>`.** It was an anchor to `/follow/` with the click intercepted, which was right while the page existed; with it gone, an anchor would point at a 404 for anyone without JavaScript. A control that only opens a menu should be a button and should say so to a screen reader.
+- **THE NAV BUTTON HAS NO LABEL AND NO FIXED GLYPH.** Its face is a **one-icon-wide window with the five account icons scrolling through it**, each holding about two seconds. A Lucide "users" glyph was a picture of the IDEA of following; the accounts themselves tell you which networks we are on without asking anyone to read.
+  - **THE HOVER AND THE ACCESSIBLE NAME DISAGREE ON PURPOSE, and this is the only control in the repo where that is true.** `title` is **"Where to find us"** and `aria-label` is **"Follow The Game Bureau"**. The tooltip is read by somebody who can already see the reel cycling, so it does not have to name the action and is better spent saying what is behind the button; the accessible name is announced to somebody who cannot see the reel at all, and for them the plainest verb is the useful one. **Don't tidy them into agreement** — they are aimed at two readers with two different amounts of context. Both copies of the button carry the same pair.
+  - **The reel is built from `SOCIALS`**, the same array the menu is, so the faces and the links cannot disagree.
+  - **SIX TILES FOR FIVE ACCOUNTS.** The last frame is the first icon again, so the reel travels one whole tile past the end and the loop restarts at 0 invisibly. Without the repeat it snaps backwards through four icons every eleven seconds.
+  - **It freezes on the first icon under `prefers-reduced-motion`.** A looping animation is precisely what that setting is for, and one frozen account icon is still a truthful face for the button.
+  - The `::before` glyph the other four nav buttons carry is suppressed on this one, or there would be a second picture beside the reel.
+- **THE PANEL FLIPS UPWARD when there is more room above than below**, decided at open time from `getBoundingClientRect` rather than from which trigger it is. That is what the footer's copy needs — it sits at the bottom of the page — and deciding it by measurement rather than by caller is what makes `followPopup` safe to attach to a trigger anywhere.
+- **`order: 5` IS ON THE WRAPPER AS WELL AS THE ANCHOR**, and that is not belt and braces. `wireFollowPopup` re-parents the trigger into a positioned `<span>` so the panel has something to hang off, which makes the WRAPPER the flex child and leaves the button's own `order` inert. The wrapper had none, so it sorted at 0 and **FOLLOW jumped to the front of the nav**. One declaration covers both states.
+
+## THE ADMIN NAV IS TGB, MISSION CONTROL AND THE PADLOCK (2026-08-20)
+
+[mc/js/admin-site-nav.js](mc/js/admin-site-nav.js) carried five section buttons — GAMES / GIFTS / SOUNDTRACKS / HIGHLIGHTS / FOLLOW — each an admin destination wearing a public section's name, each with a quiet ADMIN under it and a plain link to its public page below. **All five are deleted.** The bar is the brand, **MISSION CONTROL**, and the sign-in padlock.
+
+- **TGB SITS LEFT OF IT** (2026-08-20), an `<a>` to `/` wearing the **waypoint pin** — the glyph the deleted GAMES button carried, which is the closest thing this project has to a logo and is doing the same job here it did there: standing for the product rather than for a tool. The pairing is the point: **one button is the way further in, the other the way back out to what a visitor sees.** It takes **no `match` and no `aria-current`**, because every page that loads this bar is under `/mc/`, so it can never be the page you are standing on. **It stays in THIS tab**, unlike MISSION CONTROL beside it. It opened a new one for about ten minutes, on the reasoning that a glance at the live site should not take your admin page away; that is the wrong model of the press. Leaving the admin area is a departure rather than a peek, and a door that quietly spawns a tab on every press is how you end up with nine of them. The back button is the way back.
+- **WHY: five doors on every room's header is a site map, not a navigation bar.** Mission Control already IS the index, it is one press away, and it lists every room with a description rather than a one-word face you had to learn.
+- **THE BURGER WENT WITH THEM**, along with `setOpen`, `data-nav-open`, the Escape and outside-tap handlers and the matchMedia reset. It existed only to collapse those five on a phone, so with nothing left to collapse it was a control that opened an empty drawer.
+- **`roomIsCurrent` IS NOW A CONSTANT `false`.** It was `ROOMS.some(...)`, and it existed because MISSION CONTROL matches the whole of `/^\/mc\//` while a room button was the more specific answer, so the mast button stood down whenever a room claimed the page. With no rooms there is nothing to defer to.
+- **THE FOLLOW REEL LASTED ABOUT AN HOUR HERE** and was not wasted: it moved to **[mc/js/follow-reel.js](mc/js/follow-reel.js)**, which is where every admin surface reads it from now. See below.
+- **TGB AND MISSION CONTROL ARE ONE SIZE, EQUALISED BY GRID RATHER THAN BY A MEASURED WIDTH.** `.asn-links` is `grid-auto-flow: column` with **`grid-auto-columns: 1fr`**, which in an auto-width container sizes every track to the widest one. So the pair matches whatever the longest label happens to be, and keeps matching if either is renamed or a third button is added; a hand-measured `min-width` would be a number nobody could maintain and would be wrong the first time the font changed. Grid's default `align-items: stretch` is what makes the HEIGHTS agree, so the one-line face grows to the two-line one instead of floating at 44px beside a taller neighbour.
+- **DELETING THE BURGER BROKE THE PHONE BAR FOR AN HOUR, SILENTLY.** The panel rules outlived it: under 900px `.asn-links` was `display: none` with **`[data-nav-open="true"]` as the only way back**, and that attribute is written by the burger. With the burger gone nothing on earth could set it, so the bar built its two buttons and then hid them, with no error and nothing to click. Two further rules hid the icon and the word on every `.asn-links .asn-link` (they existed so a section button could shrink to its ADMIN tag) and these buttons have no tag, so they would have rendered EMPTY. **The bar is now simply a row on a phone**, which two buttons fit. **DELETE A CONTROL AND ITS CSS IN THE SAME PASS.**
+- **THE DEAD CSS IS SWEPT.** `.asn-item`, `.asn-public*`, `.asn-admin`, `.asn-link--reel`, `.asn-burger` and `.asn-follow-*` are gone, 66 lines. `.asn-labelcol` and `.asn-word` stay: MISSION CONTROL uses them for its two stacked lines.
+  - **THE SWEEP ORPHANED THE ONE RULE THAT DRAWS EVERY GLYPH**, and this is the trap in any selector-based deletion. The mask rule was a GROUP, `.asn-link::before, .asn-public::before { ... }`; removing the dead half took the declaration block with it and left `.asn-link::before,` dangling, which makes the **whole stylesheet fail to parse**, not just that rule. Caught because jsdom refused the sheet. **When deleting a selector, check whether it shares a rule with a live one.**
+
+## THE FOLLOW REEL IS A SHARED ADMIN MODULE (2026-08-20)
+
+[mc/js/follow-reel.js](mc/js/follow-reel.js) builds the one-icon-wide scroller of our five account icons. `window.TgbFollowReel.build()` returns one; **the usual way to get one is `data-tgb-reel` on an empty element**, which the module fills at load, the same contract `room-blurbs.js` uses.
+
+- **IT IS DECORATION, NOT A CONTROL.** No click handler, no href, `aria-hidden`, and **`pointer-events: none`** — which is load-bearing on the hub, where it sits inside the SOCIALIZER card's heading and that card is one big `<a>`. A decoration that ate that click would be a bug.
+- **ON THE HUB IT IS A BUTTON IN THE SOCIALIZER CARD'S UPPER RIGHT** ([mc/index.html](mc/index.html)) and it **opens the menu of the five accounts**. It spent an hour in front of the heading as pure decoration first; as a control it says which networks the room feeds *and* gets you to them.
+- **THE BUTTON IS A SIBLING OF THE CARD, NOT A CHILD.** The card is one big `<a>` and **a `<button>` inside an `<a>` is invalid HTML** that browsers disagree about, so a `.mc-chore-slot` wrapper holds both and the button is placed over the corner. The wrapper is the grid item; the card stretches to fill it, so wrapping one card changes nothing about how the three sit together.
+- **THE REEL STAYS DECORATIVE IN BOTH USES, AND THAT IS WHAT KEEPS `pointer-events: none` UNCONDITIONAL.** Where it must be pressable, a real button goes AROUND it and takes the click. The reel is the face; the button is the control.
+- **`popup()` RE-PARENTS ITS TRIGGER INTO `.tgb-reelpop-wrap`, SO THE OFFSETS MOVE TO THE WRAP.** Styling the button alone would leave it in the card's flow with the wrap pinned to the corner — the same mistake the public nav made when `order: 5` went on the button instead of its wrapper.
+- **`stopPropagation` ON THE TRIGGER IS LOAD-BEARING.** The outside-click handler is registered in the **capture** phase, so without it the menu would see its own opening click on the way down and shut instantly.
+- **THE BUTTON SHIPS `hidden` AND IS REVEALED ONLY AFTER WIRING**, and `[hidden]` has to out-specify its `display: inline-flex` or it shows empty before the module fills it. Third time this project has hit that rule — see the admin dialogs and the public soundtracks deck.
+- **`--reel-size` IS A VARIABLE AND THE KEYFRAMES ARE `calc()` MULTIPLES OF IT.** The track must travel exactly one tile per step or the icons land half cut, so a host resizes it with one custom property and nothing else.
+- **THE PUBLIC NAV KEEPS ITS OWN COPY** inside [shell/site-nav.js](shell/site-nav.js) and **cannot share this one**: that file returns early when there is no public header to build and never reaches its exports, so an admin page loading it gets nothing back. Two copies, and the split is admin / public.
+- **ONE ARRAY OF OBJECTS, NOT TWO LISTS MATCHED BY INDEX.** `ACCOUNTS` and `ICONS` were separate and paired by position, which worked **exactly until the first reorder**: moving Facebook up on 2026-08-20 would have left every icon attached to the wrong account, silently, with nothing to catch it but somebody looking at the menu. Keyed together they cannot drift. **The public nav's `SOCIALS` was always one array and was never at risk** — that is the shape to copy.
+- **THE MENU ORDER IS INSTAGRAM, FACEBOOK, THREADS, X, YOUTUBE**, with Facebook under Instagram because those two are one Page and one credential everywhere else in this project. **The order lives in both files and must be changed in both.**
+- **IT CARRIES THE URLS NOW, WHICH REVERSES HOW IT SHIPPED THIS MORNING.** The first version held icons only, on the argument that a drifted url sends somebody to the wrong account (what killed the footer's old Follow column) while a drifted icon merely costs a picture. **That held while the reel was decoration with nowhere to go, and stopped the moment it became a button that opens the menu: a menu with no links in it is not a menu.** So the five accounts are written twice, here and in `site-nav.js`, kept in step by hand, and there is no clever way around it. **Change an account in both files.**
+
+## THE ADMIN NAV'S FOLLOW BUTTON WAS THE REEL, FOR ONE HOUR (2026-08-20, superseded)
+
+The fifth button in the shared admin bar ([mc/js/admin-site-nav.js](mc/js/admin-site-nav.js)) wears the **same scrolling reel of account icons** the public nav's FOLLOW button wears, and it goes to the **Socializer**.
+
+- **NO WORD AND NO `ADMIN` UNDER IT.** Every other button in that bar carries the ADMIN sub-label because its face says a public section word (GIFTS) while the button goes to a room (`/mc/gifts/`) — the label exists to correct the face. **This face says nothing at all**, so there is no claim to correct, and a qualifier under a wordless button is a caption on a picture of nothing. `title` and `aria-label` both read **"The Socializer"**, naming the destination outright rather than "Admin socials".
+- **IT NAVIGATES; THE PUBLIC COPY OPENS A MENU.** Out there Follow *is* those five links, so the button is a menu-opener. In here it is a door to the room where what goes on those accounts is decided, so it behaves like every other button in the bar.
+- **IT IS THE ONLY ONE OF THE FIVE THAT STAYS IN THE SAME TAB.** The other four are a sideways glance at another room while you are working in this one, so a new tab keeps your place. The Socializer is somewhere you GO — and a wordless button that silently spawns a tab on every press is how you end up with nine of them.
+- **THE ICONS ARE MIRRORED FROM `shell/site-nav.js` AND THE URLS ARE NOT.** That asymmetry is the whole safety argument. This file is self-contained by design and **cannot** borrow the public nav's copy: `site-nav.js` returns early when there is no public header to build and never reaches its own exports, so `TgbNav.socials()` does not exist on an admin page. So five icons are duplicated — but **only the icons**, because this button goes to the Socializer and has no use for the account urls. A drifted URL sends somebody to the wrong place, which is exactly what killed the footer's old Follow column; a drifted icon costs a picture. Add a sixth account in both files; until you do, the admin reel simply shows five.
+- **THE NARROW BREAKPOINT WOULD HAVE DRAWN AN EMPTY BOX.** Under the phone rules every admin link shrinks to its ADMIN tag alone, with `::before { content: none }` and `.asn-word { display: none }`. This button has neither a glyph nor a word, so it would have kept its 48px height and drawn nothing. It is named explicitly there and keeps its reel.
+- **17px, not the public nav's 18.** It matches the Lucide glyph the four buttons beside it carry, so all five faces are drawn to one size. The `@keyframes` are a separate name (`asnFollowReel`) with 17px steps for the same reason.
+
+## THE NAV COUNTS HOLD THEIR SPACE (2026-08-20)
+
+The four section buttons badge a live count, fetched by `site-footer.js` and pushed into the nav through `TgbNav.setButtonStats`. The badge used to be `hidden`, which is `display: none`: it took no room, so **every button grew and the whole row reflowed the moment the numbers landed**, two network round trips after first paint.
+
+- **It is now always in the layout and merely invisible until it has a number**, with **`min-width: 3ch`** reserved. Three characters covers every figure this site plausibly shows (470 waypoints, 616 gifts, 89 tapes); a fourth digit widens a button by one character rather than making the badge appear from nothing, which is a shift nobody notices.
+- **`data-pending`, not `hidden`.** `hidden` means "not rendered" and this IS rendered, just not readable yet, so `visibility` is the honest property. It is `aria-hidden` while pending so a screen reader does not announce a blank.
+- **`visibility`, never `display`.** `display: none` gives the space back and puts the pop straight back.
+
 ## The "research assistant" pattern is gone (2026-08-07)
 
 `mc/research.html`, `mc/get_games.html`, `mc/mlb.html`, `mc/places.html`, `mc/get_teams.html`, `mc/js/research.js`, `mc/research.css`, `mc/js/research-nav.js` and `mc/README.md` were **all deleted on 2026-08-07**. Don't rebuild any of it.
@@ -1217,6 +1854,7 @@ Use this product vocabulary everywhere new UI, code, data, and documentation are
 - A **Stop** combines one **Place** with one **Challenge**.
 - A **Place** is a reusable real-world point with geographic metadata such as city, address, coordinates, or Plus Code.
 - A **Challenge** is the playable content at a Stop: prompts, clues, media, mini-games, and player replies.
+- A **Direction** is what a player is given AFTER solving a challenge: feedback on what they just did, plus what leads them to the next waypoint. Named 2026-08-20. **It has no table yet** and lives inside the conversation flow in `public.games`; see THE BIG PICTURE at the top of this file before giving it one.
 
 Use `location` only for technical geographic fields and browser APIs. `waypoint`, `waypointGroup`, `waypoint_group`, and path `waypoints` are legacy compatibility vocabulary only; do not create new writes or UI with those names.
 

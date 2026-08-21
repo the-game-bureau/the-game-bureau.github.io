@@ -27,7 +27,7 @@
       --line: rgba(var(--bic-blue-rgb), 0.18);
       --paper: rgba(255, 255, 255, 0.92);
       --warn: rgba(190, 55, 55, 0.9);
-      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer.html
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
          is the reference room and this is a copy of it, so when either one's
          chrome changes, change both. These three are what make a bar read as a
          defined panel rather than a faint box -- the state the Tape Room and the
@@ -65,7 +65,7 @@
     .status.success { color: var(--bic-red); }
     .status.error { font-weight: 700; }
 
-    /* ── THE COMMAND BAR, copied from mc/socializer.html ────────────────
+    /* ── THE COMMAND BAR, copied from mc/socializer/index.html ────────────────
        Removed earlier the same day when the last page-level bar moved onto the
        path panel, and brought straight back for the ADD bar -- copied out of
        the Socializer again rather than reconstructed, which is the standing
@@ -323,6 +323,14 @@
     .panel-acts { display: flex; gap: 6px; flex-wrap: wrap; }
     .panel-acts .btn { padding: 5px 10px; font-size: 0.76rem; }
     .panel-body { padding: 8px; min-height: 90px; }
+    /* THE LISTS SCROLL, THE PAGE DOES NOT. Both columns can run to hundreds
+       of rows -- the library is 470 on ALL WAYPOINTS -- and letting them grow
+       the document means the panel heads, the map and the filter box all
+       scroll away from the rows they describe. Bounded here, each column
+       keeps its header on screen and moves independently, which is also what
+       makes dragging from one to the other possible on a long list.
+       70vh rather than a pixel height so a tall screen gets the benefit. */
+    #poolList, #pathStops { max-height: 70vh; overflow-y: auto; }
 
     .stop {
       display: flex;
@@ -389,6 +397,19 @@
        colour at all: it is a hole nobody has filled and the reason a pin will
        not draw. */
     .stop-tag--missing { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.5); }
+    /* A DETOUR WORTH NOTHING IS DRAWN AS GOOD NEWS. Under 150 metres is inside
+       the error of a straight-line measure anyway, so it reads green: this one
+       is free. Above that it is ink, a real number to weigh rather than a
+       warning, because a 600 metre detour is not a fault. */
+    .stop-tag--tuck-free { color: #2f6b3d; border-color: rgba(47, 107, 61, 0.55); }
+    .stop-tag--tuck { color: var(--ink); border-color: var(--control-line); }
+    /* Partner state, read at a glance while building. Approved is the one that
+       changes what you would do with the row, so it is the only one in colour;
+       declined is dimmed because it is a closed question, not a warning. */
+    .stop-tag--partner-yes { color: #2f6b3d; border-color: rgba(47, 107, 61, 0.55); }
+    .stop-tag--partner { color: var(--ink); border-color: var(--control-line); }
+    .stop-tag--partner-no { color: var(--muted); border-color: var(--line); }
+    .btn.small.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
     .stop-ord {
       min-width: 1.9em;
       text-align: right;
@@ -714,22 +735,38 @@
       <fieldset class="command-bar">
         <legend>ADD</legend>
         <div class="command-bar-inner">
-          <!-- WAYPOINT IS THE BARE NOUN AND IT NOW STANDS ALONE (2026-08-20).
-               TGB WAYPOINT BOT SAT HERE AND IS GONE, because the routine is:
-               it was folded into TGB PATH BOT, at the other end of this bar.
-               THE TWO HALVES NO LONGER READ THE SAME WAY, and that is the point
-               rather than an oversight. The pattern was "the bare noun makes the
-               thing; the buttons after it say how else you can get one", and
-               there is no longer a second way to get a waypoint on its own: the
-               surviving routine files a whole PATH, and the waypoints arrive as
-               its stops. A door to it from the Waypoint half would promise a
-               routine that hands you loose places, which is exactly the job that
-               was retired.
-               MANUAL came off both halves on 2026-08-18. It was there to
-               separate by-hand from by-routine, which the routine's own name
-               already does, so it was a verb explaining a distinction the noun
-               beside it had already made. -->
+          <!-- WAYPOINT, THEN WAYPOINT PROMPTS. NO ROUTINE DOOR ON THIS HALF.
+               Two changes landed on this bar from opposite directions on
+               2026-08-20 and the merge keeps both, because they were answers to
+               different questions.
+
+               TGB WAYPOINT BOT SAT HERE AND IS GONE, because the routine is: it
+               was folded into TGB PATH BOT at the other end of this bar. A door
+               to it would 404, and a door to the surviving routine would promise
+               something it does not do, since that one files a whole PATH and
+               the waypoints arrive as its stops rather than as loose places.
+
+               WAYPOINT PROMPTS STAYS, AND IT HAD NO DOOR UNTIL 2026-08-20.
+               openAiDialog and its whole six-pull dialog were defined and
+               reachable from nothing, the same state openFindDialog is still in.
+               A dialog nobody can open is a feature nobody has. This button is
+               not the retired routine wearing a new name: it hands you a PROMPT
+               to paste into another AI, which still returns loose waypoints.
+
+               SO THE TWO HALVES NO LONGER READ THE SAME WAY. The old pattern was
+               "the bare noun makes the thing; the buttons after it say how else
+               you can get one", and the Waypoint half now has one fewer way,
+               because the routine that made loose places is gone.
+
+               PROMPTS, NOT AI. Every button in this room could be called AI by
+               now: the routine is AI and the pulls it opens are AI. What this
+               one actually hands you is a prompt for somewhere else.
+
+               MANUAL came off both halves on 2026-08-18. It separated by-hand
+               from by-routine, which the routine's own name already does. -->
           <button class="btn" id="addWaypointBtn" type="button" title="Type a place in by hand">Waypoint</button>
+          <button class="btn" id="aiWaypointBtn" type="button"
+                  title="Build a prompt for another AI: sweep a city, lift a published walking tour, or find more places near one we already hold. It returns SQL you run in Supabase.">Waypoint Prompts</button>
           <!-- The bar holds two nouns. The rule says where one ends and the
                other begins, which four buttons in a row of identical chrome
                otherwise leave you to work out from the words. -->
@@ -826,6 +863,17 @@
                city you are filtered to, or the whole library when you are not.
                Hidden when there is nothing missing, so a tidy city shows no
                button rather than a button that would do nothing. -->
+          <!-- WHAT WOULD FIT INTO THE OPEN PATH, cheapest first. It sits here
+               because it re-sorts and re-annotates THIS list; RECALC opposite
+               reorders the path itself. Hidden with no path open, because
+               "between which two stops" has no meaning then. -->
+          <!-- PARTNERS ARE WAYPOINTS, so they live in this library like every
+               other place; this narrows it to them. mc/partners.html was a whole
+               room for this and is deleted: once the columns moved onto
+               public.waypoints it was a second list of the same rows with a
+               second set of boxes writing the same table. -->
+          <button class="btn small" id="poolPartnerBtn" type="button" hidden></button>
+          <button class="btn small" id="poolTuckBtn" type="button" hidden></button>
           <button class="btn small" id="poolFillBtn" type="button" hidden></button>
         </div>
         <!-- WHAT NEEDS DOING TO A WAYPOINT goes here, not under the map. The
@@ -888,7 +936,7 @@
         <div class="hint-row">
           <p class="hint">Start (<span class="hint-start">&#9654;</span>), stops along the way (<span class="hint-mid">&#9679;</span>), end (<span class="hint-end">&#9632;</span>).</p>
           <button class="btn small" id="recalcBtn" type="button" disabled
-                  title="Reorder from the first stop, each next stop the nearest one left. The first stop is never moved, and nothing is saved until you press Save.">RECALC</button>
+                  title="Reorder so each stop is the nearest one left. Choose which ends to hold: the start, the finish, both or neither. Nothing is saved until you press Save.">RECALC</button>
         </div>
       </section>
 
@@ -932,6 +980,31 @@
         <span class="dlg-spacer"></span>
         <button class="btn" id="editPathCancel" type="button">Cancel</button>
         <button class="btn primary" id="editPathSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECALC ASKS WHICH ENDS TO HOLD. It used to pin stop 1 always and infer the
+       closing stop of a loop, which was right often enough to be worth doing and
+       wrong whenever the walk was meant to finish somewhere in particular: at a
+       bar, at a station, at the stadium. Those are editorial decisions and the
+       solver cannot know them, so it asks rather than guesses. -->
+  <div class="dlg" id="recalcDlg" role="dialog" aria-modal="true" aria-labelledby="recalcTitle">
+    <div class="dlg-panel">
+      <h2 class="dlg-title" id="recalcTitle">Recalculate the order</h2>
+      <p class="dlg-note">Each stop after the locked start becomes the nearest one left. Straight-line distance, so it is a first arrangement to drag from rather than a verdict.</p>
+      <div class="dlg-field">
+        <label class="inline"><input type="checkbox" id="recalcLockStart" checked> Lock the start</label>
+        <p class="wp-hint" id="recalcStartNote"></p>
+      </div>
+      <div class="dlg-field">
+        <label class="inline"><input type="checkbox" id="recalcLockEnd"> Lock the finish</label>
+        <p class="wp-hint" id="recalcEndNote"></p>
+      </div>
+      <p class="dlg-note" id="recalcFreeNote"></p>
+      <div class="dlg-actions">
+        <button class="btn" id="recalcCancel" type="button">Cancel</button>
+        <button class="btn primary" id="recalcGo" type="button">Recalculate</button>
       </div>
     </div>
   </div>
@@ -1059,7 +1132,11 @@
       // already returns, and a stored copy of a derived value is a thing that
       // can quietly disagree with the path it came from. Readers call pathCity().
       dirty: false,      // the ORDER/membership differs from what is stored
-      poolQuery: ''
+      poolQuery: '',
+      // Library sorted by what each place would COST to insert; see tuckCandidates.
+      tuckIn: false,
+      // Library narrowed to partner venues; see renderPoolPartners.
+      partnersOnly: false
     };
 
     const el = (id) => document.getElementById(id);
@@ -1430,7 +1507,10 @@
         main.className = 'stop-main';
         const name = document.createElement('div');
         name.className = 'stop-name';
-        name.textContent = cleanText(w.name) || ('WPID ' + w.wpid);
+        // THE NAME IS A LINK TO THE PLACE'S SOURCE when it has one. Shared
+        // helper, so the four rooms that draw a waypoint name cannot drift on
+        // rel, target or the drag guard; see waypointNameEl.
+        name.appendChild(TgbWaypointEditor.waypointNameEl(w));
         const meta = document.createElement('div');
         meta.className = 'stop-meta';
         meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ')
@@ -1579,6 +1659,27 @@
     }
 
     function poolRows() {
+      // TUCK IN MODE REPLACES THE LIST AND ITS ORDER. It is not a filter laid
+      // over the alphabetical library: the question is different, so the answer
+      // is a different list, ordered by what each place COSTS rather than by its
+      // name. The search box still narrows it, because "the cheapest thing with
+      // 'museum' in the name" is a real question.
+      if (state.tuckIn && hasOpenPath() && state.stops.length >= 2) {
+        const q = state.poolQuery.toLowerCase();
+        return tuckCandidates()
+          .filter((c) => !q
+            || (cleanText(c.w.name) + ' ' + cleanText(c.w.address)).toLowerCase().includes(q))
+          .map((c) => {
+            // The cost rides ON the row, so renderPool can draw it without
+            // recomputing and without a second lookup keyed by wpid.
+            c.w.__tuck = c.cost;
+            return c.w;
+          });
+      }
+      // Leaving the mode must not leave a stale badge on a row: the object is
+      // the shared catalogue row, not a copy.
+      state.waypoints.forEach((w) => { delete w.__tuck; });
+
       // THE CHOSEN CITY, falling back to the open path's. Choosing a city is
       // now what fills this library, so a city with no path yet still shows its
       // waypoints -- which is exactly the state you are in when you are about
@@ -1588,6 +1689,15 @@
       const q = state.poolQuery.toLowerCase();
       const showAll = state.pathId === ALL_WAYPOINTS;
       const rows = state.waypoints.filter((w) => {
+        // PARTNERS ONLY cuts across the city test rather than sitting inside it:
+        // it is a question about the whole catalogue ("who have we lined up"),
+        // and answering it only for the open city would hide the four you have
+        // in the other three.
+        if (state.partnersOnly && !cleanText(w.partner_status)) return false;
+        if (state.partnersOnly) {
+          if (!q) return true;
+          return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
+        }
         // On ALL WAYPOINTS the city test is skipped entirely rather than made to
         // pass: `!city` already means "no path open", which must keep returning
         // nothing, or the empty state would silently become the whole library.
@@ -1767,6 +1877,8 @@
       // was a tally of something visible from where you are standing.
       el('poolCount').textContent = rows.length + (rows.length === 1 ? ' waypoint' : ' waypoints');
       renderPoolFill();
+      renderPoolTuck();
+      renderPoolPartners();
       if (!rows.length) {
         box.innerHTML = '<p class="empty">'
           + (city
@@ -1777,9 +1889,18 @@
           + '</p>';
         return;
       }
-      // Capped, because "every waypoint" is 282 rows and painting all of them
-      // makes the panel a scroll pit. The filter is how you find the rest.
-      rows.slice(0, 60).forEach((w) => {
+      // EVERY MATCHING ROW IS PAINTED. This was capped at 60 for a real reason,
+      // that painting the whole library made the panel a scroll pit -- but the
+      // cap was applied to ALL WAYPOINTS too, so the one view whose entire
+      // promise is "all of them" drew 60 of 470 and printed "410 more, narrow
+      // the filter". A view named for its completeness cannot be the one that
+      // silently truncates.
+      //
+      // The scroll pit is answered where it belongs, in CSS: #poolList scrolls
+      // inside its own panel rather than growing the page. See .panel-body
+      // --scroller. A city view is a few dozen rows and never notices; the
+      // library view is 470 and now says so honestly.
+      rows.forEach((w) => {
         const row = document.createElement('div');
         row.className = 'stop';
         // The pool row carries the wpid for the same reason a path row does:
@@ -1812,7 +1933,10 @@
         main.className = 'stop-main';
         const name = document.createElement('div');
         name.className = 'stop-name';
-        name.textContent = cleanText(w.name) || ('WPID ' + w.wpid);
+        // THE NAME IS A LINK TO THE PLACE'S SOURCE when it has one. Shared
+        // helper, so the four rooms that draw a waypoint name cannot drift on
+        // rel, target or the drag guard; see waypointNameEl.
+        name.appendChild(TgbWaypointEditor.waypointNameEl(w));
         const meta = document.createElement('div');
         meta.className = 'stop-meta';
         meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ') || 'no address';
@@ -1829,6 +1953,35 @@
         // row would tell you.
         const tags = document.createElement('div');
         tags.className = 'stop-tags';
+        // WHAT IT WOULD COST AND WHERE IT WOULD GO. First among the tags,
+        // because in this mode it is the reason the row is on screen at all.
+        if (w.__tuck) {
+          const t = w.__tuck;
+          tags.appendChild(poolTag(
+            '+' + fmtMetres(t.metres) + ' between ' + t.after + ' and ' + t.before,
+            t.metres <= 150 ? 'stop-tag--tuck-free' : 'stop-tag--tuck',
+            'Adding this between stop ' + t.after + ' and stop ' + t.before + ' makes the walk '
+              + fmtMetres(t.metres) + ' longer. Straight-line, so the routed line on the map '
+              + 'may differ. The arrow puts it there rather than on the end.'));
+        }
+        // A PARTNER SAYS SO WHEREVER IT APPEARS, not only inside the filter: a
+        // bar you can end a game in is a different kind of stop, and that is
+        // worth knowing while you are building a walk past it.
+        const pStatus = cleanText(w.partner_status);
+        if (pStatus) {
+          tags.appendChild(poolTag(
+            'partner: ' + (PARTNER_LABEL[pStatus] || pStatus),
+            pStatus === 'approved' ? 'stop-tag--partner-yes'
+              : pStatus === 'declined' ? 'stop-tag--partner-no' : 'stop-tag--partner',
+            (pStatus === 'approved'
+              ? 'They have agreed to host visiting fans. '
+              : pStatus === 'declined'
+                ? 'We asked and they said no. '
+                : pStatus === 'contacted'
+                  ? 'We have asked and are waiting to hear. '
+                  : 'Found by the routine; nobody has called them yet. ')
+            + 'Press Edit to see the contacts and record a call.'));
+        }
         const gaps = missingBits(w);
         if (gaps.length) {
           tags.appendChild(poolTag('missing', 'stop-tag--missing',
@@ -1866,20 +2019,25 @@
         // width of one glyph -- and three words on every row of a list this long
         // were three words repeated fifty times.
         // The full phrase survives on the TITLE, where it costs nothing.
+        // IN TUCK IN MODE THE ARROW INSERTS WHERE THE NUMBER SAYS, which is the
+        // whole value of the mode: the badge tells you it belongs between 3 and
+        // 4, so pressing it must put it between 3 and 4. Appending would make
+        // the figure a fact about a position the button then refused to use.
+        const tuck = w.__tuck;
         const addBtn = arrowBtn('right',
-          used ? 'Put it on the path again' : 'Add to path',
-          () => addStop(w.wpid), !hasOpenPath());
+          tuck
+            ? 'Insert between stop ' + tuck.after + ' and stop ' + tuck.before
+              + ', which adds ' + fmtMetres(tuck.metres) + ' to the walk'
+            : (used ? 'Put it on the path again' : 'Add to path'),
+          () => {
+            if (tuck) { insertStop(w.wpid, tuck.at); markDirty(); }
+            else addStop(w.wpid);
+          }, !hasOpenPath());
         addBtn.classList.add('stop-add');
         actions.appendChild(addBtn);
         row.append(handle, main, actions);
         box.appendChild(row);
       });
-      if (rows.length > 60) {
-        const more = document.createElement('p');
-        more.className = 'empty';
-        more.textContent = (rows.length - 60) + ' more - narrow the filter to see them.';
-        box.appendChild(more);
-      }
     }
 
     // THE CITY DATALIST MOVED INTO waypoint-editor.js. The reason it is ONE
@@ -2203,7 +2361,7 @@
         // better than the list: you pick the next stop by where it is.
         const pop = document.createElement('div');
         pop.innerHTML = '<div class="rb-pop-name"></div><div class="rb-pop-meta"></div>';
-        pop.querySelector('.rb-pop-name').textContent = cleanText(w.name) || ('WPID ' + w.wpid);
+        pop.querySelector('.rb-pop-name').appendChild(TgbWaypointEditor.waypointNameEl(w));
         pop.querySelector('.rb-pop-meta').textContent = cleanText(w.address) || 'no address';
         pop.appendChild(mkBtn('Add to path', 'Put this on the end of the path', () => {
           map.closePopup();
@@ -2341,7 +2499,10 @@
     // Only these go to the database. Naming a column PostgREST does not have
     // rejects the WHOLE write, so the three that arrived in later migrations are
     // probed from the shape of a real row rather than assumed.
-    const WP_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
+    // WP_FIELDS MOVED INTO waypoint-editor.js on 2026-08-20. It was declared
+    // here and used only by that module, which read it as a global -- fine
+    // while this page was its only host, and a ReferenceError on the first
+    // write from any second room. Do not declare it here again.
 
     // THE WAYPOINT EDITOR LIVES IN /mc/assets/waypoint-editor.js (2026-08-18).
     // It was ~550 lines here, and the Waypoint Finder had a five-field form of
@@ -2373,6 +2534,9 @@
       { key: 'tour', label: 'With AI - tour places (a real walk)',
         blurb: 'Starts from published walking tours and keeps only what they actually stop at. A loop that finishes within five minutes of where it began, commercial start and end. This is the prompt the TGB ANCHOR EVENTS routine reads as its spec.',
         fields: ['city', 'notes', 'shape'] },
+      { key: 'cluster', label: 'With AI - more places NEAR one of ours',
+        blurb: 'A tight cluster you could walk in an afternoon, lifted off published walking tours. Pick a waypoint and it sweeps within ten minutes of THAT place, which is the question you have when a path is half built. Leave the anchor blank and it picks the densest corner of the city itself.',
+        fields: ['city', 'anchor', 'count', 'notes'] },
       { key: 'nfl', label: 'With AI - NFL cities that need stops',
         blurb: 'Several cities at once, least-covered first.',
         fields: ['cityCount', 'perCity', 'keywords'] },
@@ -2425,7 +2589,15 @@
       input.value = aiState.values[key] != null ? aiState.values[key] : (options.value || '');
       aiState.values[key] = input.value;
       input.addEventListener('input', () => { aiState.values[key] = input.value; });
-      input.addEventListener('change', () => { aiState.values[key] = input.value; });
+      input.addEventListener('change', () => {
+        aiState.values[key] = input.value;
+        // THE CITY BOX FEEDS THE ANCHOR PICKER, so it has to redraw when the
+        // city changes or the list underneath keeps offering the old city's
+        // waypoints. Only on the cluster pull, and only from the city field,
+        // because a rebuild moves focus and doing it on every field would make
+        // the form unusable.
+        if (aiState.pull === 'cluster' && key === 'city') renderAiInputs();
+      });
       wrap.append(lab, input);
       if (options.hint) {
         const hint = document.createElement('p');
@@ -2456,6 +2628,42 @@
         if (f === 'city') box.appendChild(aiInput('city', 'City', {
           value: here ? here : '', placeholder: 'Miami, FL', full: true
         }));
+        if (f === 'anchor') {
+          // THE ANCHOR LIST FOLLOWS THE CITY BOX, not the open path, because the
+          // city box is what this dialog is being pointed at. Reading pathCity()
+          // would offer New Orleans waypoints while the field above said Denver.
+          //
+          // BLANK IS A REAL ANSWER and it is first: "anywhere in this city" is
+          // what you want before a path exists, and the prompt handles it by
+          // picking the densest corner itself.
+          const forCity = cleanText(aiState.values.city || here).toLowerCase();
+          const near = state.waypoints
+            .filter((w) => {
+              if (!forCity) return false;
+              // Match on the city NAME, since the box may hold "Denver, CO"
+              // while a waypoint holds the bare "Denver".
+              const wc = cleanText(w.city).toLowerCase();
+              return wc && (forCity === wc || forCity.indexOf(wc + ',') === 0 || forCity.split(',')[0].trim() === wc);
+            })
+            .sort((x, y) => cleanText(x.name).localeCompare(cleanText(y.name)));
+          const opts = [{ value: '', label: 'Anywhere in the city' }].concat(
+            near.map((w) => ({
+              value: String(w.wpid),
+              // The address is what tells two similarly named places apart, and
+              // a bare list of names in one city is unusable at fifty rows.
+              label: cleanText(w.name) + (cleanText(w.address) ? ' - ' + cleanText(w.address) : '')
+            }))
+          );
+          box.appendChild(aiInput('anchor', 'Near which waypoint', {
+            select: opts, full: true,
+            hint: near.length
+              ? near.length + ' waypoint' + (near.length === 1 ? '' : 's') + ' in that city. '
+                + 'The sweep stays within a ten minute walk of the one you pick.'
+              : (forCity
+                  ? 'We hold nothing in that city yet, so the prompt will pick its own corner.'
+                  : 'Type a city above to choose an anchor.')
+          }));
+        }
         if (f === 'count') box.appendChild(aiInput('count', 'How many', { number: true, value: '10' }));
         if (f === 'cityCount') box.appendChild(aiInput('cityCount', 'How many cities', {
           number: true, value: '5',
@@ -2502,6 +2710,13 @@
             cleanText(v.keywords), cleanText(v.sourceUrl));
         } else if (aiState.pull === 'tour') {
           text = P.buildTourPlacesWaypointPrompt(cleanText(v.city), cleanText(v.notes), cleanText(v.shape));
+        } else if (aiState.pull === 'cluster') {
+          // The anchor goes across as the WHOLE ROW, not as a name: the prompt
+          // wants its address and its point, and a name alone would send an AI
+          // looking up a place we can already describe exactly.
+          const anchor = v.anchor ? wpById(v.anchor) : null;
+          text = P.buildClusterWaypointPrompt(cleanText(v.city), anchor || null,
+            Number(v.count) || 8, cleanText(v.notes));
         } else if (aiState.pull === 'nfl') {
           const cities = P.nflCitiesByNeed().slice(0, Number(v.cityCount) || 5).map((c) => c.city);
           text = P.buildNflWalkingTourPrompt(cities, Number(v.perCity) || 5, cleanText(v.keywords));
@@ -2582,8 +2797,190 @@
     // route, so RECALC's answer and the drawn line can disagree, and on a river
     // or a rail cutting they will. It is a starting arrangement to drag from,
     // not a verdict.
-    function recalcOrder() {
+    // ── TUCK IN: which library waypoint fits between which two stops ──────────
+    //
+    // THE QUESTION THIS ANSWERS. You have a path and 400 places, and the useful
+    // question is not "what is near the path" but "what could I add WITHOUT
+    // making the walk much longer". Those are different: a place 50 metres off
+    // the line between stops 3 and 4 costs almost nothing, and a place 50 metres
+    // from stop 1 but in the opposite direction costs a there-and-back.
+    //
+    // CHEAPEST INSERTION, which is exact rather than a heuristic. For a candidate
+    // C and each consecutive pair (A, B) already on the path:
+    //
+    //     detour = d(A,C) + d(C,B) - d(A,B)
+    //
+    // That is precisely the metres the walk grows by if C goes between them. The
+    // smallest detour over all pairs is what C costs, and the pair that produced
+    // it is where it goes. Nothing about it is guesswork; it is the same measure
+    // a solver uses internally, surfaced so a human can make the call.
+    //
+    // BETWEEN, NEVER AT THE ENDS. The ends of a walk are editorial: where people
+    // park, arrive, or want to finish. A candidate is only ever offered a place
+    // between two existing stops, so accepting one can never silently change
+    // where the walk starts or where it ends. That is also exactly what "tuck in
+    // between two waypoints" asks for.
+    //
+    // STRAIGHT-LINE METRES, like RECALC and for the same reason: the map draws a
+    // routed pavement line and the two can disagree across a river. The number
+    // is a ranking, and it is honest about being one.
+    function insertionCostFor(w) {
+      const pt = pointOf(w);
+      if (!pt) return null;
+      const geo = window.TgbWaypointGeo;
+      if (!geo) return null;
+      const stops = state.stops;
+      if (stops.length < 2) return null;
+
+      const m = (a, b) => geo.haversineMeters(a.lat, a.lon, b.lat, b.lon);
+      let best = null;
+      for (let i = 0; i < stops.length - 1; i += 1) {
+        const a = pointOf(wpById(stops[i]));
+        const b = pointOf(wpById(stops[i + 1]));
+        // A leg with an unlocated end cannot be measured, so it is not offered.
+        // Skipped rather than scored as zero, which would make it look free.
+        if (!a || !b) continue;
+        const detour = m(a, pt) + m(pt, b) - m(a, b);
+        if (best === null || detour < best.metres) {
+          best = { metres: Math.max(0, Math.round(detour)), at: i + 1, after: i + 1, before: i + 2 };
+        }
+      }
+      return best;
+    }
+
+    // How far off the walk it is worth going. Beyond this a place is not
+    // "tucked in", it is a diversion, and offering it as one is the thing that
+    // would make this feature untrustworthy.
+    const TUCK_MAX_METRES = 900;
+
+    // Partner statuses, in the order they happen. The words are the room's, the
+    // column is `partner_status`, and the null column is what "not a partner"
+    // means.
+    const PARTNER_LABEL = {
+      candidate: 'candidate', contacted: 'contacted',
+      approved: 'approved', declined: 'declined'
+    };
+
+    function partnerCount() {
+      return state.waypoints.filter((w) => cleanText(w.partner_status)).length;
+    }
+
+    function renderPoolPartners() {
+      const btn = el('poolPartnerBtn');
+      if (!btn) return;
+      const n = partnerCount();
+      // NO BUTTON WHEN THERE ARE NONE, and the filter turns itself off with it:
+      // a filter showing an empty list is a room telling you it is broken.
+      if (!n) {
+        btn.hidden = true;
+        state.partnersOnly = false;
+        return;
+      }
+      btn.hidden = false;
+      btn.classList.toggle('is-on', state.partnersOnly);
+      btn.textContent = state.partnersOnly ? 'PARTNERS ×' : 'PARTNERS ' + n;
+      btn.title = state.partnersOnly
+        ? 'Showing partner venues only. Press again for the whole library.'
+        : n + ' partner venue' + (n === 1 ? '' : 's') + ': bars and rooms that will host '
+          + 'visiting fans. Press Edit on one to record a call.';
+    }
+
+    function renderPoolTuck() {
+      const btn = el('poolTuckBtn');
+      if (!btn) return;
+      // NOTHING TO ANSWER WITHOUT A PATH OF AT LEAST TWO STOPS: "between which
+      // two" needs two.
+      if (!hasOpenPath() || state.stops.length < 2) {
+        btn.hidden = true;
+        state.tuckIn = false;
+        return;
+      }
+      btn.hidden = false;
+      btn.classList.toggle('is-on', state.tuckIn);
+      btn.textContent = state.tuckIn ? 'TUCK IN ×' : 'TUCK IN';
+      btn.title = state.tuckIn
+        ? 'Showing what fits into this path, cheapest first. Press again for the whole library.'
+        : 'Sort this list by how far each place would ADD to the walk, and say which two stops it goes between.';
+    }
+
+    function tuckCandidates() {
+      if (!hasOpenPath() || state.stops.length < 2) return [];
+      const city = pathCity().toLowerCase();
+      const onPath = new Set(state.stops.map(String));
+      const out = [];
+      state.waypoints.forEach((w) => {
+        if (onPath.has(String(w.wpid))) return;
+        if (city && cleanText(w.city).toLowerCase() !== city) return;
+        const cost = insertionCostFor(w);
+        if (!cost || cost.metres > TUCK_MAX_METRES) return;
+        out.push({ w: w, cost: cost });
+      });
+      // Cheapest first: the whole point is that the top of the list is the one
+      // you can add for nothing.
+      out.sort((x, y) => x.cost.metres - y.cost.metres);
+      return out;
+    }
+
+    function fmtMetres(m) {
+      return m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m';
+    }
+
+    // THE DIALOG. RECALC asks which ends to hold rather than assuming, because
+    // where a walk starts and where it finishes are editorial decisions -- the
+    // car park, the station, the bar you want them in at the end -- and a solver
+    // that knows only metres cannot have an opinion about either.
+    function openRecalcDialog() {
       if (!hasOpenPath()) return;
+      const stops = state.stops;
+      if (stops.length < 3) {
+        setStatus('Nothing to recalculate: a path needs three stops before the order can change.');
+        return;
+      }
+      const firstName = wpName(stops[0]) || 'the first stop';
+      const lastName = wpName(stops[stops.length - 1]) || 'the last stop';
+      const isLoop = stops[stops.length - 1] === stops[0];
+
+      el('recalcStartNote').textContent = 'Hold ' + firstName + ' as stop 1. '
+        + 'Unlocked, every stop is tried as the start and the shortest walk wins.';
+      el('recalcEndNote').textContent = isLoop
+        ? 'This path already returns to ' + firstName + '. Lock the finish to keep it a loop.'
+        : 'Hold ' + lastName + ' as the last stop.';
+      // A LOOP DEFAULTS TO BOTH LOCKED. Its closing stop is zero metres from the
+      // stop it repeats, so nearest neighbour would take it as stop 2 and quietly
+      // turn the loop into a walk that never comes home.
+      el('recalcLockStart').checked = true;
+      el('recalcLockEnd').checked = isLoop;
+      el('recalcFreeNote').textContent = '';
+      el('recalcDlg').classList.add('is-open');
+    }
+
+    function closeRecalcDialog() { el('recalcDlg').classList.remove('is-open'); }
+
+    // --- RECALC: nearest neighbour, with the ends you chose held ---------------
+
+    // WHAT IT DOES: walk from the start, each next stop the nearest one left.
+    // Greedy, one pass, no lookahead.
+    //
+    // LOCK START (the usual case): stop 1 does not move.
+    // UNLOCK START: every stop is tried as the seed and the shortest result
+    //   wins. That is n runs of an n-step loop, which on a fifteen stop path is
+    //   a couple of hundred distance calculations and instant. It is a genuinely
+    //   better answer than picking a seed arbitrarily, which is what the old
+    //   suggestWalk did with the northernmost point.
+    // LOCK FINISH: the last stop is held out of the pool and put back on the end.
+    //   This GENERALISES the loop rule that used to be inferred: a path whose
+    //   last stop repeats its first is pinned at both ends by default, because
+    //   the duplicate is zero metres away and would otherwise be taken as stop 2,
+    //   silently turning the loop into a walk that never comes home.
+    //
+    // THE TRADE, unchanged: greedy nearest neighbour paints itself into a corner,
+    // so the last leg can be a long walk back across everything it skipped.
+    // STRAIGHT-LINE METRES, so its answer and the routed line on the map can
+    // disagree. It is a starting arrangement to drag from, not a verdict.
+    function recalcOrder(opts) {
+      if (!hasOpenPath()) return;
+      const lockStart = !opts || opts.lockStart !== false;
+      const lockEnd = !!(opts && opts.lockEnd);
 
       const stops = state.stops.slice();
       if (stops.length < 3) {
@@ -2591,94 +2988,114 @@
         return;
       }
 
-      const first = stops[0];
-      const firstPt = pointOf(wpById(first));
-      // A LOOP THAT ENDS ON ITS OWN FIRST SQUARE KEEPS ITS CLOSING STOP AT THE
-      // END. Nearest neighbour cannot be left to place this one: the duplicate
-      // is ZERO metres from the stop it repeats, so it is always the nearest
-      // thing going and gets taken as stop 2, which silently turns the loop into
-      // a walk that no longer comes home. Pinning both ends is the only reading
-      // of "closest" that does not destroy the shape somebody built on purpose.
-      // Repeats in the MIDDLE of a path are left to the ordinary rule.
-      const closesLoop = stops.length > 2 && stops[stops.length - 1] === first;
-      if (!firstPt) {
-        setStatus('The first stop has no coordinates, so there is nothing to measure from. '
-          + 'Fill it in from the library and try again.');
-        return;
-      }
-
-      // An unlocated stop cannot be measured against anything, so it is not a
-      // candidate for "nearest" at all. They keep their relative order and sink
-      // to the end, which is what the old solver did too: better than dropping
-      // them, and better than pretending they are somewhere.
-      const located = [];
-      const unlocated = [];
-      const lastAt = stops.length - 1;
-      stops.forEach((id, i) => {
-        if (i === 0) return;
-        if (closesLoop && i === lastAt) return;
-        const pt = pointOf(wpById(id));
-        if (pt) located.push({ id, pt });
-        else unlocated.push(id);
-      });
-
-      if (located.length < 2) {
-        setStatus('Not enough located stops to reorder: ' + located.length + ' of '
-          + (stops.length - 1) + ' after the first have coordinates.');
-        return;
-      }
-
-      // window.TgbWaypointGeo, not a bare `geo`: that name is a LOCAL inside two
-      // other functions in this file and is not in scope here.
       const metres = (a, b) => window.TgbWaypointGeo.haversineMeters(a.lat, a.lon, b.lat, b.lon);
       const before = walkMetres(stops);
 
-      // A place may sit on a path twice, so this walks a POOL and splices out
-      // what it takes rather than keying on wpid: keying on the id would place
-      // the first copy and lose the second. The closing stop of a loop is held
-      // out of this pool entirely; see closesLoop above.
-      const pool = located.slice();
-      const ordered = [first];
-      let here = firstPt;
-      while (pool.length) {
-        let bestAt = 0;
-        let bestD = Infinity;
-        for (let i = 0; i < pool.length; i += 1) {
-          const d = metres(here, pool[i].pt);
-          if (d < bestD) { bestD = d; bestAt = i; }
-        }
-        const next = pool.splice(bestAt, 1)[0];
-        ordered.push(next.id);
-        here = next.pt;
+      const heldSet = new Set();
+      if (lockStart) heldSet.add(0);
+      if (lockEnd) heldSet.add(stops.length - 1);
+
+      // An unlocated stop cannot be measured against anything, so it is not a
+      // candidate for "nearest" at all. They keep their relative order and sink
+      // to the end: better than dropping them, and better than pretending they
+      // are somewhere.
+      const pool = [];
+      const unlocated = [];
+      stops.forEach((id, i) => {
+        if (heldSet.has(i)) return;
+        const pt = pointOf(wpById(id));
+        if (pt) pool.push({ id, pt });
+        else unlocated.push(id);
+      });
+
+      const startId = lockStart ? stops[0] : null;
+      const endId = lockEnd ? stops[stops.length - 1] : null;
+      const startPt = lockStart ? pointOf(wpById(startId)) : null;
+      if (lockStart && !startPt) {
+        setStatus('The first stop has no coordinates, so there is nothing to measure from. '
+          + 'Fill it in from the library, or unlock the start.');
+        return;
       }
-      ordered.push(...unlocated);
-      if (closesLoop) ordered.push(first);
+      if (pool.length + (lockStart ? 1 : 0) < 2) {
+        setStatus('Not enough located stops to reorder: only ' + pool.length
+          + ' of the movable stops have coordinates.');
+        return;
+      }
+
+      // One greedy pass from a given point over a copy of the pool.
+      function runFrom(seedPt, seedId, rest) {
+        const left = rest.slice();
+        const out = seedId == null ? [] : [seedId];
+        let here = seedPt;
+        while (left.length) {
+          let at = 0;
+          let best = Infinity;
+          for (let i = 0; i < left.length; i += 1) {
+            const d = metres(here, left[i].pt);
+            if (d < best) { best = d; at = i; }
+          }
+          const next = left.splice(at, 1)[0];
+          out.push(next.id);
+          here = next.pt;
+        }
+        return out;
+      }
+
+      let ordered;
+      if (lockStart) {
+        ordered = runFrom(startPt, startId, pool);
+      } else {
+        // EVERY STOP TRIED AS THE START, shortest wins. An arbitrary seed is how
+        // the old solver justified starting from the northernmost point; with the
+        // start explicitly unlocked, the honest answer is to try them all.
+        let bestOrder = null;
+        let bestLen = Infinity;
+        pool.forEach((seed) => {
+          const rest = pool.filter((x) => x !== seed);
+          const candidate = runFrom(seed.pt, seed.id, rest);
+          const withEnds = candidate.concat(unlocated, endId == null ? [] : [endId]);
+          // walkMetres returns 0 when a leg cannot be measured; treat that as
+          // UNKNOWN rather than as shortest, or a path carrying an unlocated stop
+          // would win every comparison with a score of nothing.
+          const score = walkMetres(withEnds) || Infinity;
+          if (score < bestLen) { bestLen = score; bestOrder = candidate; }
+        });
+        ordered = bestOrder || pool.map((x) => x.id);
+      }
+
+      ordered = ordered.concat(unlocated);
+      if (lockEnd) ordered.push(endId);
 
       const same = ordered.length === stops.length
         && ordered.every((id, i) => id === stops[i]);
       if (same) {
-        setStatus('Already in nearest-neighbour order from the first stop, so nothing moved.');
+        setStatus('Already in that order, so nothing moved.');
         return;
       }
 
       state.stops = ordered;
-      // Unsaved on purpose, exactly as Suggest order was: you look at the new
-      // shape on the map, keep dragging if it is wrong, and Save when it is not.
-      // markDirty is what makes Save appear.
+      // Unsaved on purpose: you look at the new shape on the map, keep dragging
+      // if it is wrong, and Save when it is not. markDirty is what makes Save
+      // appear.
       markDirty();
 
       const after = walkMetres(ordered);
-      const parts = ['Reordered ' + (ordered.length - 1) + ' stops from ' + (wpName(first) || 'the first stop') + '.'];
+      const parts = [];
+      parts.push('Reordered ' + (ordered.length - heldSet.size) + ' stops.');
       if (before && after) {
         const pct = Math.round((1 - after / before) * 100);
         parts.push(fmtKm(before) + ' to ' + fmtKm(after)
           + (pct > 0 ? ', ' + pct + '% shorter.' : pct < 0 ? ', ' + Math.abs(pct) + '% longer.' : '.'));
       }
+      const locks = [];
+      if (lockStart) locks.push('start ' + (wpName(startId) || 'stop 1'));
+      if (lockEnd) locks.push('finish ' + (wpName(endId) || 'the last stop'));
+      if (locks.length) parts.push('Held: ' + locks.join(' and ') + '.');
+      else parts.push('Both ends free, so it tried every stop as the start.');
       if (unlocated.length) {
         parts.push(unlocated.length + ' stop' + (unlocated.length === 1 ? '' : 's')
           + ' with no coordinates left at the end.');
       }
-      if (closesLoop) parts.push('Kept the closing stop, so it still returns to the start.');
       parts.push('Not saved yet.');
       setStatus(parts.join(' '));
     }
@@ -3323,11 +3740,20 @@
       // The editor and Find online handle their own Escape, inside the module.
     });
     el('addWaypointBtn').addEventListener('click', () => TgbWaypointEditor.open(null));
+    el('poolPartnerBtn').addEventListener('click', () => {
+      state.partnersOnly = !state.partnersOnly;
+      renderPool();
+    });
+    el('poolTuckBtn').addEventListener('click', () => {
+      state.tuckIn = !state.tuckIn;
+      renderPool();
+    });
     el('poolFillBtn').addEventListener('click', runPoolFill);
     el('saveBtn').addEventListener('click', saveOrder);
     el('deletePathBtn').addEventListener('click', deletePath);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
     el('aiPull').addEventListener('change', (e) => { aiState.pull = e.target.value; renderAiInputs(); });
+    el('aiWaypointBtn').addEventListener('click', openAiDialog);
     el('aiBuildBtn').addEventListener('click', buildAiPrompt);
     el('aiCopyBtn').addEventListener('click', copyAiPrompt);
     el('aiCloseBtn').addEventListener('click', closeAiDialog);
@@ -3366,7 +3792,14 @@
     // from one that is broken. Replace when the action is decided.
     el('addPathBtn').addEventListener('click', () => openNewPathDialog(''));
     el('editPathBtn').addEventListener('click', openEditPathDialog);
-    el('recalcBtn').addEventListener('click', recalcOrder);
+    el('recalcBtn').addEventListener('click', openRecalcDialog);
+    el('recalcCancel').addEventListener('click', closeRecalcDialog);
+    el('recalcGo').addEventListener('click', () => {
+      const lockStart = el('recalcLockStart').checked;
+      const lockEnd = el('recalcLockEnd').checked;
+      closeRecalcDialog();
+      recalcOrder({ lockStart: lockStart, lockEnd: lockEnd });
+    });
     el('clonePathBtn').addEventListener('click', () => openNewPathDialog(state.pathId));
     el('editPathCancel').addEventListener('click', closeEditPathDialog);
     el('editPathSave').addEventListener('click', saveEditPath);
