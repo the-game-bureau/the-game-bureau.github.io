@@ -1849,6 +1849,23 @@ This grouping is the public website surface for shared chrome work such as navig
 
 ---
 
+## /linkinbio/ — THE ONE ADDRESS AN INSTAGRAM BIO CAN HOLD (2026-08-21)
+
+[linkinbio/index.html](linkinbio/index.html). A black page listing the last 24 things we actually posted, each a whole-row link with the outlet's headline and a thumbnail. Title: **The Game Bureau Links**.
+
+- **IT EXISTS BECAUSE INSTAGRAM'S CAPTION LINK IS NOT CLICKABLE**, on the account most likely to be read. Without somewhere to send people, every story posted there is a thing you can see and cannot reach. **This is not the Start Page idea that was refused** — that was a menu of our five accounts, and `/follow/` was deleted the day before for being five links that did not earn a page load. This one carries the CONTENT.
+- **IT CALLS `tgb_public_socials_feed`, NOT THE TABLE**, and that is the whole safety argument. `public.socials` is admin-only in both directions and must stay so: it holds the review queue, `why` (an internal note written for one person) and `confidence` (the bot's score for its own pick). The function is `SECURITY DEFINER`, `STABLE` so a plain **GET** works from a static page, returns **`status = 'posted'` rows only**, and refuses all three of those fields.
+  - **"ANY POST OF ANY KIND" MEANS ANY KIND, NOT ANY STATUS.** Stories, gifts and YouTube videos all appear. **Review and Skipped never do** — a candidate in Review is one nobody has decided on, and a skipped one was often turned down for being off-brand or grim. Publishing either would put our editorial judgement on the public web.
+- **[2026082004_public_socials_feed.sql](mc/supabase/migrations/2026082004_public_socials_feed.sql) IS APPLIED**, verified by calling it. It was written for the deleted Follow page and recorded here as having no consumer; **it has one now**, and this page needed no migration of its own.
+- **24 IS THE FUNCTION'S CEILING, NOT A CHOICE MADE IN THE PAGE.** It clamps `feed_limit` so a public endpoint cannot be asked for the whole table. At ten posts a day that is a bit over two days of history, which is what a bio link is for; raising it means editing the function, not the page.
+- **NO SHARED CHROME, DELIBERATELY.** No nav, no `site-footer.js`, no `site-pages.css`. A bio-link page is one screen with no navigation — that is the form. **Don't add it to the site-pages nav sweep.**
+- **It is at the ROOT, so `site-analytics.js` counts it by default** and `PUBLIC_MC` needs no entry. Traffic is the entire point of the page, so measuring it matters more here than almost anywhere.
+- **THE SOURCE IS NAMED ON EVERY ROW AND THAT IS NOT DECORATION.** A headline is the **outlet's** line. A bare list of them under our own masthead would read as things The Game Bureau wrote.
+- **A row with no url is not drawn.** MANUAL ADD can file a plain line of text with no destination, which is useful in the queue and is nothing at all on a page whose only job is to send people somewhere.
+- **A dead image leaves the placeholder** rather than a browser's broken-image glyph, which on a black card looks like the page itself has failed. Same reasoning as the Socializer's IMAGE FAILED state, drawn the other way round because this one is public.
+- **Links open in the SAME TAB.** This is read inside Instagram's own browser, where a new tab is a second webview with no obvious way back.
+- **A failure says "Nothing here just yet." and puts the real reason in the console.** A visitor is told nothing about our schema; somebody who came to find out why the page is empty looks in the one place that has it.
+
 ## FOLLOW is a menu, not a page (2026-08-20)
 
 **`/follow/` EXISTED FOR ONE DAY AND IS DELETED.** It was a public page listing the five accounts; five links did not earn a page load, a scroll and a way back. **FOLLOW is now a control that opens a Linktree-shaped menu** of the accounts, in two places: the public nav, and the **sign-off bar** of the footer.
