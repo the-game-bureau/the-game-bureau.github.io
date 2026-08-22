@@ -1009,6 +1009,13 @@
        is six, and the gap is subtracted from the pair rather than pushing them
        out of the row. */
     .item-save-actions {
+      /* The dashed rule belonged to .item-save-row, the box that held these two
+         and the old TAGS panel. That box has gone; the line is worth keeping,
+         because it separates the two things that act on the whole gift from the
+         fields above them. */
+      padding-top: 10px;
+      margin-top: 2px;
+      border-top: 1px dashed var(--line);
       display: flex;
       align-items: stretch;
       gap: 12px;
@@ -1033,12 +1040,24 @@
     }
     /* Single vertical column. The two old wrapper columns collapse to
        display:contents so their fieldsets become direct children of the stack. */
+    /* TWO COLUMNS: what you LOOK AT on the left, what you TYPE on the right.
+       The media column is fixed and narrow because a preview does not get more
+       useful with more width, while the fields do. `align-items: start` keeps
+       each column its own height rather than stretching the shorter one. */
     .item-body {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      align-items: start;
       gap: 12px;
     }
-    .item-focus-col,
+    .item-col-media,
+    .item-col-main {
+      display: flex;
+      flex-direction: column;
+      min-inline-size: 0;
+      gap: 12px;
+    }
+    /* Not a box: an ancestor hook for the field styling. See the markup. */
     .item-fields { display: contents; }
 
     /* A gift the save moved out of the active filter. It fades where it sits and
@@ -1728,25 +1747,6 @@
     .item-fields .address-row input { flex: 1 1 auto; min-width: 0; }
     .item-fields .address-row .btn { flex: 0 0 auto; }
 
-    /* SHOPS AND A SHORT STATUS ON ONE LINE, at the top of the card. The two
-       questions you ask of a gift before anything else are WHERE does it sell
-       and IS IT LIVE, so they sit together and above the fold. Shops takes the
-       space and the status panel takes only what it needs. */
-    .item-toprow {
-      display: flex;
-      /* NOWRAP, AND A ZERO BASIS ON SHOPS. With `wrap` and a 320px basis the two
-         panels needed 320px plus the status panel's own width before they would
-         sit together, which most card widths do not give them, so they broke
-         onto separate lines and the row did nothing. A zero basis lets Shops
-         take whatever is left after the status panel has taken what it needs,
-         however narrow that is, and `min-inline-size: 0` is what allows it to
-         go below its content width instead of pushing the row wider. */
-      flex-wrap: nowrap;
-      align-items: flex-start;
-      gap: 12px;
-    }
-    .item-toprow > .item-listings { flex: 1 1 0; min-inline-size: 0; }
-    .item-toprow > .item-status-panel--compact { flex: 0 0 auto; }
     .item-listings {
       grid-column: 1 / -1;
       display: grid;
@@ -2074,17 +2074,6 @@
     }
     /* Save is the last thing in the field column, so it sits under the field
        you just edited instead of across the card. */
-    .item-save-row {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 12px;
-      padding-top: 10px;
-      margin-top: 2px;
-      border-top: 1px dashed var(--line);
-    }
-    /* Status panel on top, SAVE on its own full-width line beneath. */
-    .item-save-row .item-status-panel { flex: 0 0 auto; }
     .item-save-btn {
       width: 100%;
       min-height: 38px;
@@ -2723,11 +2712,6 @@
         gap: 12px;
       }
 
-      .item-focus-col {
-        width: 100%;
-        max-width: 100%;
-      }
-
       .item-focus {
         width: 100%;
       }
@@ -2852,7 +2836,11 @@
         min-height: 44px;
       }
 
-      .item-save-row .btn {
+      /* A 44px target on a phone. Repointed from .item-save-row, the box that
+         used to hold these; it names Delete explicitly because Delete is not a
+         .btn, it carries .item-status-delete. */
+      .item-save-actions .btn,
+      .item-save-actions .item-delete-btn {
         flex: 1 1 auto;
         min-height: 44px;
       }
@@ -2862,11 +2850,11 @@
         width: 100%;
       }
 
-      /* Stacked on a phone: side by side, Shops would be too narrow to search
-         in and the status words would wrap inside their own buttons. */
-      .item-toprow { flex-direction: column; }
-      .item-toprow > .item-listings,
-      .item-toprow > .item-status-panel--compact { flex: 1 1 100%; width: 100%; }
+      /* ONE COLUMN UNDER THE BREAKPOINT, in the same order: the preview first,
+         then everything written about it. Two columns at phone width would
+         leave both too narrow to use. */
+      .item-body { grid-template-columns: minmax(0, 1fr); }
+
 
 
 
@@ -2914,7 +2902,7 @@
         box-shadow: none;
       }
 
-      .add-gift-body .item-save-row {
+      .add-gift-body .item-save-actions {
         position: sticky;
         bottom: 0;
         z-index: 4;
@@ -2964,7 +2952,7 @@
         padding-inline: 8px;
       }
 
-      .add-gift-body .item-save-row {
+      .add-gift-body .item-save-actions {
         margin-inline: -10px;
         padding-inline: 10px;
       }
@@ -3117,8 +3105,110 @@
         <span data-issue-text></span>
         <button class="item-issue-clear" type="button" data-action="clear-issue">Clear issue</button>
       </div>
+      <!-- TWO COLUMNS ON A WIDE SCREEN, and the split is by what you look at
+           rather than by what the columns are called. The picture and the two
+           addresses that produce it stay pinned on the left while you work down
+           the right, because every field on the right is written ABOUT the thing
+           on the left and checking it used to mean scrolling back up.
+
+           It is one column under the breakpoint, in the same order, because at
+           phone width two columns would make both of them useless. -->
       <div class="item-body">
-      <div class="item-toprow">
+        <div class="item-col-media">
+          <!-- THE PREVIEW IS ITS OWN PANEL NOW. It shared a box with the two url
+               fields under the name "Target", which named neither of them: one
+               is where the gift SELLS and the other is the picture of it. A
+               panel that holds a photograph and two text inputs cannot have an
+               honest single label, so it became two. -->
+          <fieldset class="item-image item-preview btn-fieldset">
+            <legend>Preview</legend>
+            <div class="item-focus item-target-frame" data-target-frame data-state="empty">
+                        <div class="item-target-bar">
+                          <span class="item-target-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                          <span class="item-target-host" data-target-host></span>
+                          <button class="item-target-expand" data-action="open-target-tab" type="button" title="Open the target page in a new tab" aria-label="Open the target page in a new tab">⤢</button>
+                        </div>
+                        <span data-target-placeholder>NO LINK</span>
+                        <div class="item-target-page">
+                          <img class="item-target-img" data-target-img alt="" referrerpolicy="no-referrer">
+                          <iframe class="item-target-pdf" data-target-pdf title="PDF preview" referrerpolicy="no-referrer" tabindex="-1"></iframe>
+                          <div class="item-target-text">
+                            <span class="item-target-title" data-target-caption></span>
+                            <span class="item-target-ok">✓ page and image loads successfully</span>
+                            <span class="item-target-match" data-target-match>
+                              <span class="item-target-match-text" data-target-match-text></span>
+                              <span class="item-target-thumbrow">
+                                <button type="button" class="item-target-thumb" data-action="zoom-our-image" title="Open our gift image" hidden>
+                                  <img data-target-thumb alt="" referrerpolicy="no-referrer">
+                                </button>
+                                <button type="button" class="item-target-copy" data-action="use-preview-image" title="Copy the image shown in the Target preview into the Image field" aria-label="Use the target preview image">⧉</button>
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+          </fieldset>
+
+          <fieldset class="item-image item-links btn-fieldset">
+            <legend>Links</legend>
+            <span class="item-image-url">
+                        <span class="field-lead" tabindex="0" role="img" aria-label="About the Link field" data-tip="Where the gift-shop button sends the shopper. Three kinds of link work: an Amazon or Bookshop.org AFFILIATE link (paid), or a plain DESTINATION link — e.g. a city's official visitor guide (https://www.neworleans.com/plan/request-a-guide/), tickets, or an experience. Destination items can be free or paid; that's handled on the destination's own page, not here.">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.7 2.6 15.3 0 18"></path><path d="M12 3c-2.6 2.7-2.6 15.3 0 18"></path></svg>
+                        </span>
+                        <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/… or https://www.neworleans.com/…">
+                        <button class="field-refill" type="button" data-action="open-target-tab" title="Open the target page in a new tab" aria-label="Open the target page in a new tab">⤢</button>
+                      </span>
+                      <span class="item-image-url">
+                        <span class="field-lead" aria-hidden="true" title="Image">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><circle cx="8.5" cy="9.5" r="1.5"></circle><path d="M4.5 18l4.5-5 3 3.5L15 14l4.5 4.5"></path></svg>
+                        </span>
+                        <input data-field="image_url" type="url" required placeholder="https://…">
+                        <button class="field-refill" type="button" data-action="use-preview-image" title="Copy the image shown in the Target preview into this field" aria-label="Use the target preview image">⧉</button>
+                      </span>
+          </fieldset>
+        </div>
+
+        <div class="item-col-main">
+          <!-- .item-fields IS AN ANCESTOR SELECTOR, NOT A LAYOUT BOX: eighteen
+               rules style the inputs and labels through it, and it is
+               display: contents so it adds no box of its own. It wraps THE GIFT
+               and nothing else, deliberately. Put it on the whole column and
+               `.item-fields select { height: 34px }` would flatten the Shops
+               multi-select, which is a size="4" list. -->
+          <div class="item-fields">
+          <fieldset class="item-details btn-fieldset">
+            <legend>The gift</legend>
+            <div class="item-details-body">
+            <label>
+              <span class="field-label-row">Title</span>
+              <span class="field-input-row">
+                <input data-field="title" type="text" placeholder="Field Notebook">
+                <button class="field-refill" type="button" data-action="refill-field" data-refill="title" title="Refetch just the title from the Link (or search by what is typed here)" aria-label="Refetch the title">↻</button>
+              </span>
+            </label>
+            <label class="field-wide">
+              <span class="field-label-row">Description</span>
+              <span class="field-input-row field-input-row--top">
+                <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
+                <button class="field-refill" type="button" data-action="refill-field" data-refill="description" title="Refetch just the description from the Link" aria-label="Refetch the description">↻</button>
+              </span>
+            </label>
+            <label>
+              <!-- A span, not a <button>: a button is a labelable element, so as the
+                   first one in this <label> it became the label's control. Clicking
+                   anywhere in the label — the faux CTA button included — forwarded a
+                   synthetic click to it and left it focus-visible, which held the tip
+                   open over the faux button. Same span+tabindex shape as .field-lead. -->
+              <span class="field-label-row">Button label<span class="field-info" tabindex="0" role="img" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</span></span>
+              <!-- No title= here: this input is dressed as the shop's CTA button,
+                   and a tooltip riding the faux button reads like the button has a
+                   hint of its own. The "i" beside the label is the only tip. -->
+              <input class="cta-button-input" data-field="cta_label" type="text" placeholder="Visit Site →">
+            </label>
+            </div>
+          </fieldset>
+          </div>
+
           <fieldset class="item-listings btn-fieldset is-collapsed" data-listings>
             <legend>Shops</legend>
             <div class="item-listings-head">
@@ -3135,152 +3225,61 @@
               </div>
             </div>
           </fieldset>
-          <fieldset class="item-status-panel item-status-panel--compact btn-fieldset">
-            <legend>STATUS</legend>
-            <div class="item-status-choices" data-status-choices>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="REVIEW" data-status-choice>
-                  <span>Review</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="LIVE" data-status-choice>
-                  <span>Live</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="SHELVED" data-status-choice>
-                  <span>Shelved</span>
-                </label>
-              </div>
-            </div>
-          </fieldset>
-      </div>
 
-        <div class="item-focus-col">
-        <fieldset class="item-image item-target btn-fieldset">
-          <legend>Target</legend>
-          <div class="item-focus item-target-frame" data-target-frame data-state="empty">
-            <div class="item-target-bar">
-              <span class="item-target-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="item-target-host" data-target-host></span>
-              <button class="item-target-expand" data-action="open-target-tab" type="button" title="Open the target page in a new tab" aria-label="Open the target page in a new tab">⤢</button>
-            </div>
-            <span data-target-placeholder>NO LINK</span>
-            <div class="item-target-page">
-              <img class="item-target-img" data-target-img alt="" referrerpolicy="no-referrer">
-              <iframe class="item-target-pdf" data-target-pdf title="PDF preview" referrerpolicy="no-referrer" tabindex="-1"></iframe>
-              <div class="item-target-text">
-                <span class="item-target-title" data-target-caption></span>
-                <span class="item-target-ok">✓ page and image loads successfully</span>
-                <span class="item-target-match" data-target-match>
-                  <span class="item-target-match-text" data-target-match-text></span>
-                  <span class="item-target-thumbrow">
-                    <button type="button" class="item-target-thumb" data-action="zoom-our-image" title="Open our gift image" hidden>
-                      <img data-target-thumb alt="" referrerpolicy="no-referrer">
-                    </button>
-                    <button type="button" class="item-target-copy" data-action="use-preview-image" title="Copy the image shown in the Target preview into the Image field" aria-label="Use the target preview image">⧉</button>
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-          <span class="item-image-url">
-            <span class="field-lead" tabindex="0" role="img" aria-label="About the Link field" data-tip="Where the gift-shop button sends the shopper. Three kinds of link work: an Amazon or Bookshop.org AFFILIATE link (paid), or a plain DESTINATION link — e.g. a city's official visitor guide (https://www.neworleans.com/plan/request-a-guide/), tickets, or an experience. Destination items can be free or paid; that's handled on the destination's own page, not here.">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.7 2.6 15.3 0 18"></path><path d="M12 3c-2.6 2.7-2.6 15.3 0 18"></path></svg>
-            </span>
-            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/… or https://www.neworleans.com/…">
-            <button class="field-refill" type="button" data-action="open-target-tab" title="Open the target page in a new tab" aria-label="Open the target page in a new tab">⤢</button>
-          </span>
-          <span class="item-image-url">
-            <span class="field-lead" aria-hidden="true" title="Image">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><circle cx="8.5" cy="9.5" r="1.5"></circle><path d="M4.5 18l4.5-5 3 3.5L15 14l4.5 4.5"></path></svg>
-            </span>
-            <input data-field="image_url" type="url" required placeholder="https://…">
-            <button class="field-refill" type="button" data-action="use-preview-image" title="Copy the image shown in the Target preview into this field" aria-label="Use the target preview image">⧉</button>
-          </span>
-        </fieldset>
-        </div>
-        <div class="item-fields">
-        <fieldset class="item-details btn-fieldset">
-          <legend>Details</legend>
-          <div class="item-details-body">
-          <label>
-            <span class="field-label-row">Title</span>
-            <span class="field-input-row">
-              <input data-field="title" type="text" placeholder="Field Notebook">
-              <button class="field-refill" type="button" data-action="refill-field" data-refill="title" title="Refetch just the title from the Link (or search by what is typed here)" aria-label="Refetch the title">↻</button>
-            </span>
-          </label>
-          <label class="field-wide">
-            <span class="field-label-row">Description</span>
-            <span class="field-input-row field-input-row--top">
-              <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
-              <button class="field-refill" type="button" data-action="refill-field" data-refill="description" title="Refetch just the description from the Link" aria-label="Refetch the description">↻</button>
-            </span>
-          </label>
-          <label>
-            <!-- A span, not a <button>: a button is a labelable element, so as the
-                 first one in this <label> it became the label's control. Clicking
-                 anywhere in the label — the faux CTA button included — forwarded a
-                 synthetic click to it and left it focus-visible, which held the tip
-                 open over the faux button. Same span+tabindex shape as .field-lead. -->
-            <span class="field-label-row">Button label<span class="field-info" tabindex="0" role="img" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</span></span>
-            <!-- No title= here: this input is dressed as the shop's CTA button,
-                 and a tooltip riding the faux button reads like the button has a
-                 hint of its own. The "i" beside the label is the only tip. -->
-            <input class="cta-button-input" data-field="cta_label" type="text" placeholder="Visit Site →">
-          </label>
-          </div>
-        </fieldset>
-
-        <div class="item-save-row">
+          <!-- ONE PANEL FOR EVERYTHING THAT IS A STATE. The three states and the
+               two flags were in separate boxes at opposite ends of the card, one
+               called STATUS and one called TAGS, and the split was invisible:
+               both answer "what IS this gift", and Featured and Sports were only
+               apart because they started life beside Delete. -->
           <fieldset class="item-status-panel btn-fieldset">
-            <legend>TAGS</legend>
+            <legend>State</legend>
             <div class="item-status-choices" data-status-choices>
               <div class="item-status-slot">
-                <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
-                  <input type="checkbox" data-field="featured">
-                  <span>★</span>
-                </label>
-              </div>
+                              <label class="item-status-choice">
+                                <input type="radio" value="REVIEW" data-status-choice>
+                                <span>Review</span>
+                              </label>
+                            </div>
+                            <div class="item-status-slot">
+                              <label class="item-status-choice">
+                                <input type="radio" value="LIVE" data-status-choice>
+                                <span>Live</span>
+                              </label>
+                            </div>
+                            <div class="item-status-slot">
+                              <label class="item-status-choice">
+                                <input type="radio" value="SHELVED" data-status-choice>
+                                <span>Shelved</span>
+                              </label>
               <div class="item-status-slot">
-                <label class="item-status-choice item-sports-choice" title="Sports — mark this gift as sports / team merch (for future filtering). Independent of status.">
-                  <input type="checkbox" data-field="sports">
-                  <span>
-                    <!-- Tabler Icons "ball-american-football" (MIT). -->
-                    <svg class="item-sports-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M15 9l-6 6"></path>
-                      <path d="M10 12l2 2"></path>
-                      <path d="M12 10l2 2"></path>
-                      <path d="M8 21a5 5 0 0 0 -5 -5"></path>
-                      <path d="M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5"></path>
-                      <path d="M16 3a5 5 0 0 0 5 5"></path>
-                    </svg>
-                    <span class="sr-only">Sports</span>
-                  </span>
-                </label>
-              </div>
+                              <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
+                                <input type="checkbox" data-field="featured">
+                                <span>★</span>
+                              </label>
+                            </div>
+                            <div class="item-status-slot">
+                              <label class="item-status-choice item-sports-choice" title="Sports — mark this gift as sports / team merch (for future filtering). Independent of status.">
+                                <input type="checkbox" data-field="sports">
+                                <span>
+                                  <!-- Tabler Icons "ball-american-football" (MIT). -->
+                                  <svg class="item-sports-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M15 9l-6 6"></path>
+                                    <path d="M10 12l2 2"></path>
+                                    <path d="M12 10l2 2"></path>
+                                    <path d="M8 21a5 5 0 0 0 -5 -5"></path>
+                                    <path d="M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5"></path>
+                                    <path d="M16 3a5 5 0 0 0 5 5"></path>
+                                  </svg>
+                                  <span class="sr-only">Sports</span>
+                                </span>
+                              </label>
             </div>
           </fieldset>
-          <!-- SAVE AND DELETE SHARE A LINE, HALF EACH. They are the two things
-               you can do to the whole gift, so they sit together and away from
-               TAGS, which only sets flags on it.
 
-               THEY ARE THE SAME SIZE AND MUST NOT BE THE SAME WEIGHT. Delete is
-               the only irreversible control on the card and it is now adjacent
-               to the button you press on every edit, so the dashed red outline
-               against Save's filled blue is doing real work: it is the only
-               thing left telling them apart at a glance. Do not let Delete
-               become a filled button. -->
           <div class="item-save-actions">
             <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
             <button class="item-status-delete item-delete-btn" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
           </div>
-        </div>
         </div>
       </div>
     </fieldset>
