@@ -3334,7 +3334,7 @@
                                 <button type="button" class="item-target-thumb" data-action="zoom-our-image" title="Open our gift image" hidden>
                                   <img data-target-thumb alt="" referrerpolicy="no-referrer">
                                 </button>
-                                <button type="button" class="item-target-copy" data-action="use-preview-image" title="Copy the image shown in the Target preview into the Image field" aria-label="Use the target preview image">⧉</button>
+                                <button type="button" class="item-target-copy" data-action="use-preview-image" title="Use the picture the page shows" aria-label="Use the picture the page shows">⧉</button>
                               </span>
                             </span>
                           </div>
@@ -3355,8 +3355,12 @@
                         <span class="field-lead" aria-hidden="true" title="Image">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><circle cx="8.5" cy="9.5" r="1.5"></circle><path d="M4.5 18l4.5-5 3 3.5L15 14l4.5 4.5"></path></svg>
                         </span>
+                        <!-- NO ⧉ HERE. There were two of these, on the field and
+                             in the preview's match row, doing the identical
+                             thing. The one in the match row sits beside the
+                             thumbnail of the picture it would take, which is the
+                             only place the button can explain itself. -->
                         <input data-field="image_url" type="url" required placeholder="https://…">
-                        <button class="field-refill" type="button" data-action="use-preview-image" title="Copy the image shown in the Target preview into this field" aria-label="Use the target preview image">⧉</button>
                       </span>
           </fieldset>
         </div>
@@ -4651,12 +4655,25 @@
         });
     }
 
+    // THE PICTURE IS CHOSEN, NOT ASKED FOR. Ours if we have one, because a
+    // human picked it; otherwise the one the destination page uses, which the
+    // card scraped and stashed on the article. Only if there is neither does
+    // anybody have to do anything.
     function processEntryImage(entry) {
       if (entry.node) {
         const box = entry.node.querySelector('[data-field="image_url"]');
         if (box && String(box.value || '').trim()) return String(box.value).trim();
       }
-      return String((entry.row && entry.row.image_url) || '').trim();
+      const own = String((entry.row && entry.row.image_url) || '').trim();
+      if (own) return own;
+      return processEntryPageImage(entry);
+    }
+
+    // The destination page's own og:image, as scraped by the card. Empty until
+    // that card's preview has resolved, which is why it is read fresh each time
+    // rather than captured when the queue was built.
+    function processEntryPageImage(entry) {
+      return entry.node ? String(entry.node.dataset.pageImage || '').trim() : '';
     }
 
     function processEntryUrl(entry) {
@@ -4725,6 +4742,8 @@
       // already blocks a live gift with no link, image or city, but it reports
       // into the card, which is behind this dialog. Saying so on the button is
       // the difference between a reason and a dead press.
+      // `src` already counts the page's picture as an image, because GO LIVE
+      // will take it. The guard must not refuse what the press is about to fix.
       const missing = [];
       if (!processEntryUrl(entry)) missing.push('a link');
       if (!src) missing.push('an image');
@@ -4801,6 +4820,22 @@
         document.getElementById('processNote').textContent =
           'That gift is not loaded on this page, so it cannot be changed from here.';
         return;
+      }
+
+      // TAKING THE PAGE'S PICTURE IS PART OF GOING LIVE, not a separate errand.
+      // A gift with no image cannot be published, and the page it points at
+      // almost always has one; making somebody close the dialog, find the card
+      // and press a copy button first is asking them to do what the code can
+      // already see how to do. It is written into the field so the shop gets a
+      // real value, and the card is told, so the change is visible rather than
+      // silent.
+      if (kind === 'live') {
+        const box = article.querySelector('[data-field="image_url"]');
+        const page = processEntryPageImage(entry);
+        if (box && !String(box.value || '').trim() && page) {
+          box.value = page;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       }
 
       processState.busy = true;
@@ -6015,23 +6050,33 @@
         if (!targetMatch) return;
         const our = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
         let state, text;
-        if (!our) {
-          state = 'missing'; text = '✗ fetch or add gift image';
+        // THE LINE DESCRIBES THE PICTURE ABOVE IT, which is now always ours
+        // when we have one. Each state says what the shop will publish, and
+        // only the last one asks anything of you.
+        if (!our && !targetPreviewImage) {
+          state = 'missing'; text = '✗ no picture anywhere — add one';
+        } else if (!our) {
+          state = 'using'; text = '↑ the page\'s picture, ready to take';
         } else if (targetPreviewImage && our === targetPreviewImage) {
-          state = 'match'; text = '✓ our thumbnail and web image match';
+          state = 'match'; text = '✓ the shop and the page show this';
         } else if (targetPreviewImage) {
-          state = 'override'; text = '⚑ our thumbnail overrides web image';
+          state = 'override'; text = '⚑ the page shows a different one';
         } else {
-          // No web image — our image is what's shown in the preview above.
-          state = 'using'; text = '✓ your gift image is shown above';
+          state = 'using'; text = '✓ this is what the shop shows';
         }
-        // The little compare-thumbnail is only useful when a DIFFERENT web image
-        // is showing in the preview; when our image is already the preview, it's
-        // redundant, so hide it.
+        // THE THUMBNAIL IS THE PAGE'S PICTURE NOW, not ours. Ours is the big one
+        // above, so a small copy of it beside itself said nothing; the useful
+        // small picture is the alternative you might want instead.
         if (targetThumbBtn && targetThumbImg) {
-          const showThumb = our && targetPreviewImage && our !== targetPreviewImage;
-          if (showThumb) { if (targetThumbImg.getAttribute('src') !== our) targetThumbImg.src = our; targetThumbBtn.hidden = false; }
-          else { targetThumbImg.removeAttribute('src'); targetThumbBtn.hidden = true; }
+          const showThumb = !!(targetPreviewImage && targetPreviewImage !== our);
+          if (showThumb) {
+            if (targetThumbImg.getAttribute('src') !== targetPreviewImage) targetThumbImg.src = targetPreviewImage;
+            targetThumbBtn.hidden = false;
+            targetThumbBtn.title = 'Open the picture the page uses';
+          } else {
+            targetThumbImg.removeAttribute('src');
+            targetThumbBtn.hidden = true;
+          }
         }
         targetMatch.dataset.state = state;
         if (targetMatchText) targetMatchText.textContent = text;
@@ -6086,12 +6131,24 @@
             if (targetOkLine) { targetOkLine.textContent = '✓ PDF loads successfully'; targetOkLine.style.color = ''; }
           } else {
             targetPreviewImage = opts.image || '';
-            // Image priority: scraped web image → OUR gift image → the site's
-            // favicon (so a blocked/preview-less link is branded, never blank).
+            // THE SCRAPED PAGE IMAGE IS STASHED ON THE ARTICLE so anything
+            // outside this closure can reach it. PROCESS uses it to fill a
+            // missing gift image rather than refusing to publish.
+            article.dataset.pageImage = targetPreviewImage;
+            // IMAGE PRIORITY: OUR gift image → the scraped web image → the
+            // site's favicon.
+            //
+            // OURS FIRST, AND THAT IS THE CHANGE. It used to be the web image
+            // first, so the biggest thing on the card was sometimes what the
+            // shop will publish and sometimes not, and you had to read a line of
+            // text to know which. A picture whose meaning depends on state is a
+            // picture you cannot trust at a glance. What you see is now always
+            // what the shop shows, and the page's own picture is offered beside
+            // it when it differs.
             const ourImage = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
             const host = (targetHost && targetHost.textContent) || hostOf((urlInput && urlInput.value) || '');
             const favicon = host ? ('https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128') : '';
-            const shownImage = opts.image || ourImage || favicon;
+            const shownImage = ourImage || opts.image || favicon;
             if (targetImg) {
               if (shownImage) targetImg.src = shownImage;
               else targetImg.removeAttribute('src');
@@ -6261,11 +6318,14 @@
       const imageUrlInput = article.querySelector('[data-field="image_url"]');
       if (imageUrlInput) {
         imageUrlInput.addEventListener('input', () => {
-          // When our image IS the preview (no scraped web image), keep the big
-          // preview in step as you edit the Image field.
-          if (targetImg && targetFrame && targetFrame.dataset.state === 'ok' && !targetPreviewImage) {
+          // The big picture is ours whenever we have one, so it follows every
+          // keystroke here. No longer conditional on there being no web image:
+          // ours wins either way, which is the whole point of the priority.
+          if (targetImg && targetFrame && targetFrame.dataset.state === 'ok') {
             const our = imageUrlInput.value.trim();
-            if (our) targetImg.src = our; else targetImg.removeAttribute('src');
+            if (our) targetImg.src = our;
+            else if (targetPreviewImage) targetImg.src = targetPreviewImage;
+            else targetImg.removeAttribute('src');
           }
           refreshTargetMatch();
           fitTargetTitle();
