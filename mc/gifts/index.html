@@ -880,15 +880,15 @@
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.94);
     }
+    /* THIS IS A TRIAGE CONTROL, NOT A FORM ROW. Dispensing a gift is looking
+       at the cover, glancing at the city and pressing one of three buttons, so
+       the three states take the width and the two flags take only what a glyph
+       needs. As five equal columns the buttons got three fifths of the panel
+       and the two things you press least were as wide as the three you press
+       most. */
     .item-status-choices {
-      display: grid;
-      /* SIZED TO WHATEVER THE PANEL HOLDS, rather than to a number kept in step
-         by hand. STATUS carries three states and TAGS carries two flags, and
-         that count has already been wrong twice today: it was six when one
-         panel held everything, then three when both did. `auto-flow: column`
-         with equal auto-columns means adding or removing a slot needs no CSS. */
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(0, 1fr);
+      display: flex;
+      align-items: stretch;
       align-items: start;
       gap: 6px;
       margin: 0;
@@ -897,7 +897,11 @@
       display: grid;
       gap: 5px;
       min-width: 0;
+      /* The three states share whatever is left after the flags. */
+      flex: 1 1 0;
     }
+    /* A flag is a glyph, so it needs a glyph's width and no more. */
+    .item-status-slot--flag { flex: 0 0 40px; }
     .item-status-choice {
       position: relative;
       display: grid;
@@ -906,14 +910,16 @@
       align-items: center;
       gap: 3px;
       min-width: 0;
-      min-height: 32px;
+      /* 44px, the size a control gets when it is pressed all day and pressed in
+         a hurry. It was 32, which is a form control's height. */
+      min-height: 44px;
       padding: 6px 6px;
       border: 1px solid var(--control-line);
       border-radius: 8px;
       background: #fff;
       color: var(--ink);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.68rem;
+      font-size: 0.78rem;
       font-weight: 700;
       letter-spacing: 0.02em;
       line-height: 1.1;
@@ -1046,7 +1052,7 @@
        each column its own height rather than stretching the shorter one. */
     .item-body {
       display: grid;
-      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
       align-items: start;
       gap: 12px;
     }
@@ -1094,7 +1100,10 @@
       position: relative;
       width: 400px;
       max-width: 100%;
-      aspect-ratio: 400 / 220;
+      /* TALLER THAN IT WAS, because the thing being judged is a book cover and a
+         cover is portrait. The image sits at 46% of the frame's width and the
+         full height, so height is the only dimension that makes it bigger. */
+      aspect-ratio: 400 / 300;
       border-radius: 8px;
       background:
         radial-gradient(130% 110% at 50% 0%, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0) 60%),
@@ -3169,6 +3178,77 @@
         </div>
 
         <div class="item-col-main">
+
+          <fieldset class="item-listings btn-fieldset is-collapsed" data-listings>
+            <legend>Shops</legend>
+            <div class="item-listings-head">
+              <div class="item-listings-head-actions">
+                <button class="listing-toggle" data-action="toggle-picker" type="button">Add shop</button>
+              </div>
+            </div>
+            <div class="item-listings-chips" data-listings-chips></div>
+            <div class="item-listings-picker" data-listings-picker>
+              <input class="listing-search" data-listings-search type="text" placeholder="Search cities to add..." autocomplete="off">
+              <select class="listing-picker-select" data-listings-select multiple size="4" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
+              <div class="listing-picker-actions">
+                <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
+              </div>
+            </div>
+          </fieldset>
+
+
+          <!-- ONE PANEL FOR EVERYTHING THAT IS A STATE. The three states and the
+               two flags were in separate boxes at opposite ends of the card, one
+               called STATUS and one called TAGS, and the split was invisible:
+               both answer "what IS this gift", and Featured and Sports were only
+               apart because they started life beside Delete. -->
+          <fieldset class="item-status-panel btn-fieldset">
+            <legend>State</legend>
+            <div class="item-status-choices" data-status-choices>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="REVIEW" data-status-choice>
+                  <span>Review</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="LIVE" data-status-choice>
+                  <span>Live</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="SHELVED" data-status-choice>
+                  <span>Shelved</span>
+                </label>
+              </div>
+              <div class="item-status-slot item-status-slot--flag">
+                <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
+                  <input type="checkbox" data-field="featured">
+                  <span>★</span>
+                </label>
+              </div>
+              <div class="item-status-slot item-status-slot--flag">
+                <label class="item-status-choice item-sports-choice" title="Sports — mark this gift as sports / team merch (for future filtering). Independent of status.">
+                  <input type="checkbox" data-field="sports">
+                  <span>
+                    <!-- Tabler Icons "ball-american-football" (MIT). -->
+                    <svg class="item-sports-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M15 9l-6 6"></path>
+                      <path d="M10 12l2 2"></path>
+                      <path d="M12 10l2 2"></path>
+                      <path d="M8 21a5 5 0 0 0 -5 -5"></path>
+                      <path d="M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5"></path>
+                      <path d="M16 3a5 5 0 0 0 5 5"></path>
+                    </svg>
+                    <span class="sr-only">Sports</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+
           <!-- .item-fields IS AN ANCESTOR SELECTOR, NOT A LAYOUT BOX: eighteen
                rules style the inputs and labels through it, and it is
                display: contents so it adds no box of its own. It wraps THE GIFT
@@ -3208,73 +3288,6 @@
             </div>
           </fieldset>
           </div>
-
-          <fieldset class="item-listings btn-fieldset is-collapsed" data-listings>
-            <legend>Shops</legend>
-            <div class="item-listings-head">
-              <div class="item-listings-head-actions">
-                <button class="listing-toggle" data-action="toggle-picker" type="button">Add shop</button>
-              </div>
-            </div>
-            <div class="item-listings-chips" data-listings-chips></div>
-            <div class="item-listings-picker" data-listings-picker>
-              <input class="listing-search" data-listings-search type="text" placeholder="Search cities to add..." autocomplete="off">
-              <select class="listing-picker-select" data-listings-select multiple size="4" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
-              <div class="listing-picker-actions">
-                <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
-              </div>
-            </div>
-          </fieldset>
-
-          <!-- ONE PANEL FOR EVERYTHING THAT IS A STATE. The three states and the
-               two flags were in separate boxes at opposite ends of the card, one
-               called STATUS and one called TAGS, and the split was invisible:
-               both answer "what IS this gift", and Featured and Sports were only
-               apart because they started life beside Delete. -->
-          <fieldset class="item-status-panel btn-fieldset">
-            <legend>State</legend>
-            <div class="item-status-choices" data-status-choices>
-              <div class="item-status-slot">
-                              <label class="item-status-choice">
-                                <input type="radio" value="REVIEW" data-status-choice>
-                                <span>Review</span>
-                              </label>
-                            </div>
-                            <div class="item-status-slot">
-                              <label class="item-status-choice">
-                                <input type="radio" value="LIVE" data-status-choice>
-                                <span>Live</span>
-                              </label>
-                            </div>
-                            <div class="item-status-slot">
-                              <label class="item-status-choice">
-                                <input type="radio" value="SHELVED" data-status-choice>
-                                <span>Shelved</span>
-                              </label>
-              <div class="item-status-slot">
-                              <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
-                                <input type="checkbox" data-field="featured">
-                                <span>★</span>
-                              </label>
-                            </div>
-                            <div class="item-status-slot">
-                              <label class="item-status-choice item-sports-choice" title="Sports — mark this gift as sports / team merch (for future filtering). Independent of status.">
-                                <input type="checkbox" data-field="sports">
-                                <span>
-                                  <!-- Tabler Icons "ball-american-football" (MIT). -->
-                                  <svg class="item-sports-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M15 9l-6 6"></path>
-                                    <path d="M10 12l2 2"></path>
-                                    <path d="M12 10l2 2"></path>
-                                    <path d="M8 21a5 5 0 0 0 -5 -5"></path>
-                                    <path d="M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5"></path>
-                                    <path d="M16 3a5 5 0 0 0 5 5"></path>
-                                  </svg>
-                                  <span class="sr-only">Sports</span>
-                                </span>
-                              </label>
-            </div>
-          </fieldset>
 
           <div class="item-save-actions">
             <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
