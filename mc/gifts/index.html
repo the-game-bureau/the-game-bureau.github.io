@@ -1695,6 +1695,26 @@
     .item-fields .address-row input { flex: 1 1 auto; min-width: 0; }
     .item-fields .address-row .btn { flex: 0 0 auto; }
 
+    /* SHOPS AND A SHORT STATUS ON ONE LINE, at the top of the card. The two
+       questions you ask of a gift before anything else are WHERE does it sell
+       and IS IT LIVE, so they sit together and above the fold. Shops takes the
+       space and the status panel takes only what it needs. */
+    .item-toprow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .item-toprow > .item-listings { flex: 1 1 320px; min-inline-size: 0; }
+    .item-toprow > .item-status-panel--compact { flex: 0 0 auto; }
+    /* THREE SLOTS, NOT SIX. The shared .item-status-choices is a six-column
+       grid because the full panel carries Featured, Sports and Delete as well;
+       left at six, these three would each take a sixth and the panel would be
+       half empty. */
+    .item-status-panel--compact .item-status-choices {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .item-listings {
       grid-column: 1 / -1;
       display: grid;
@@ -2810,6 +2830,12 @@
         width: 100%;
       }
 
+      /* Stacked on a phone: side by side, Shops would be too narrow to search
+         in and the status words would wrap inside their own buttons. */
+      .item-toprow { flex-direction: column; }
+      .item-toprow > .item-listings,
+      .item-toprow > .item-status-panel--compact { flex: 1 1 100%; width: 100%; }
+
       .item-status-choices {
         grid-template-columns: repeat(6, minmax(0, 1fr));
       }
@@ -3062,22 +3088,47 @@
         <button class="item-issue-clear" type="button" data-action="clear-issue">Clear issue</button>
       </div>
       <div class="item-body">
-        <fieldset class="item-listings btn-fieldset is-collapsed" data-listings>
-          <legend>Shops</legend>
-          <div class="item-listings-head">
-            <div class="item-listings-head-actions">
-              <button class="listing-toggle" data-action="toggle-picker" type="button">Add shop</button>
+      <div class="item-toprow">
+          <fieldset class="item-listings btn-fieldset is-collapsed" data-listings>
+            <legend>Shops</legend>
+            <div class="item-listings-head">
+              <div class="item-listings-head-actions">
+                <button class="listing-toggle" data-action="toggle-picker" type="button">Add shop</button>
+              </div>
             </div>
-          </div>
-          <div class="item-listings-chips" data-listings-chips></div>
-          <div class="item-listings-picker" data-listings-picker>
-            <input class="listing-search" data-listings-search type="text" placeholder="Search cities to add..." autocomplete="off">
-            <select class="listing-picker-select" data-listings-select multiple size="4" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
-            <div class="listing-picker-actions">
-              <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
+            <div class="item-listings-chips" data-listings-chips></div>
+            <div class="item-listings-picker" data-listings-picker>
+              <input class="listing-search" data-listings-search type="text" placeholder="Search cities to add..." autocomplete="off">
+              <select class="listing-picker-select" data-listings-select multiple size="4" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
+              <div class="listing-picker-actions">
+                <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
+              </div>
             </div>
-          </div>
-        </fieldset>
+          </fieldset>
+          <fieldset class="item-status-panel item-status-panel--compact btn-fieldset">
+            <legend>STATUS</legend>
+            <div class="item-status-choices" data-status-choices>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="REVIEW" data-status-choice>
+                  <span>Review</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="LIVE" data-status-choice>
+                  <span>Live</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
+                <label class="item-status-choice">
+                  <input type="radio" value="SHELVED" data-status-choice>
+                  <span>Shelved</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+      </div>
 
         <div class="item-focus-col">
         <fieldset class="item-image item-target btn-fieldset">
@@ -5023,7 +5074,22 @@
       // certified_at = LIVE, and everything else defaults to REVIEW.
       const statusChoiceInputs = Array.from(article.querySelectorAll('[data-status-choice]'));
       const statusRadioName = 'gift-status-' + (item.id || ('new-' + (++statusRadioGroupCounter)));
-      statusChoiceInputs.forEach((input) => { input.name = statusRadioName; });
+      // ONE GROUP PER PANEL, NOT ONE PER CARD. The card carries the status
+      // choices TWICE now: the short copy at the top beside Shops, and the full
+      // panel at the bottom that also holds Featured, Sports and Delete. A radio
+      // group allows exactly one checked member, so with a single shared name
+      // the two copies of LIVE would fight: checking it up top would silently
+      // uncheck it below and the lower panel would show no selection at all.
+      //
+      // Suffixing the compact panel makes them two groups of three, so both can
+      // show the same value. They stay in step because setStatusChoice() below
+      // writes `checked` on EVERY input by value, and every read goes through
+      // selectedStatusChoice() rather than through one particular input.
+      statusChoiceInputs.forEach((input) => {
+        const panel = input.closest('.item-status-panel');
+        const compact = !!(panel && panel.classList.contains('item-status-panel--compact'));
+        input.name = statusRadioName + (compact ? '-compact' : '');
+      });
       const articleStatus = () => itemStatusOf(article);
       const selectedStatusChoice = () => {
         const selected = statusChoiceInputs.find((input) => input.checked);
