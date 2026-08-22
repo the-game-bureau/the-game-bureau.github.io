@@ -1046,6 +1046,75 @@
     }
     /* Single vertical column. The two old wrapper columns collapse to
        display:contents so their fieldsets become direct children of the stack. */
+    /* ── PROCESS, the dispensing dialog ──────────────────────────────────
+       Sized so the cover is the biggest thing on screen and the three buttons
+       are the next biggest. Nothing else competes. */
+    .process-modal {
+      position: fixed; inset: 0; z-index: 1700;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .process-modal[hidden] { display: none; }
+    .process-backdrop { position: absolute; inset: 0; background: rgba(12, 18, 30, 0.62); }
+    .process-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: min(420px, 100%);
+      max-height: calc(100vh - 32px);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 48px rgba(12, 18, 30, 0.28);
+      overflow: hidden;
+    }
+    .process-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px 6px;
+    }
+    .process-count {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .process-close {
+      border: 0; background: none; color: var(--muted);
+      font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 2px 6px;
+    }
+    .process-close:hover { color: var(--ink); }
+    .process-body { padding: 0 18px 4px; overflow: auto; text-align: center; }
+    /* THE COVER IS THE POINT OF THE DIALOG, so it gets the room. Portrait, and
+       `contain` so a book is never cropped: the whole reason you are looking is
+       to judge it. */
+    .process-shot {
+      display: grid; place-items: center;
+      height: 260px;
+      margin: 0 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f4f6fa;
+      overflow: hidden;
+    }
+    .process-shot img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .process-shot .process-noimg {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .process-title { margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.3; }
+    .process-city {
+      margin: 6px 0 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
+      color: var(--accent);
+    }
+    .process-note { margin: 8px 0 0; min-height: 1.1em; font-size: 0.8rem; color: var(--bic-red); }
+    /* Three equal targets, big, because this is the whole interaction. */
+    .process-actions { display: flex; gap: 8px; padding: 14px 18px 18px; }
+    .process-actions > .btn { flex: 1 1 0; min-height: 48px; font-size: 0.78rem; }
+    .process-shelve { border-color: var(--danger); color: var(--danger); }
+    .process-actions > .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
     /* TWO COLUMNS: what you LOOK AT on the left, what you TYPE on the right.
        The media column is fixed and narrow because a preview does not get more
        useful with more width, while the fields do. `align-items: start` keeps
@@ -3025,6 +3094,11 @@
       <fieldset class="command-bar">
         <legend>Add</legend>
         <div class="command-bar-inner">
+          <!-- PROCESS is the room's one-thing-at-a-time mode: the oldest gift
+               waiting in Review, its cover, its city, and three ways out. It
+               sits first because emptying the queue is the job you come here to
+               do; everything else in this bar is for filling it. -->
+          <button class="btn primary" id="processBtn" type="button" disabled>PROCESS</button>
           <button class="btn" id="addItemBtn" type="button" disabled>MANUAL</button>
           <button class="btn" id="searchPromptBtn" type="button" disabled>PROMPT</button>
           <button class="btn" id="nightlyBtn" type="button" title="Runs twice a day, 3 AM and 3 PM Central: finds candidate books for the city with the fewest gifts and files them for review — it can never publish. Shows what it does, when it last ran, and its prompt.">TGB GIFT SHOP BOT</button>
@@ -3103,6 +3177,31 @@
       </div>
     </section>
   </main>
+
+  <!-- ONE GIFT, THREE WAYS OUT. Dispensing is a rhythm, not a form: look at
+       the cover, read the city, press one of three. Everything that is not one
+       of those four things is left off, and the card behind is still there for
+       anything that needs typing. -->
+  <div class="process-modal" id="processModal" hidden>
+    <div class="process-backdrop" data-process-dismiss></div>
+    <section class="process-panel" role="dialog" aria-modal="true" aria-labelledby="processTitle">
+      <header class="process-head">
+        <span class="process-count" id="processCount"></span>
+        <button class="process-close" type="button" data-process-dismiss aria-label="Close">&times;</button>
+      </header>
+      <div class="process-body">
+        <div class="process-shot" id="processShot"></div>
+        <h2 class="process-title" id="processTitle"></h2>
+        <p class="process-city" id="processCity"></p>
+        <p class="process-note" id="processNote"></p>
+      </div>
+      <div class="process-actions">
+        <button class="btn primary process-go" type="button" id="processLive">GO LIVE</button>
+        <button class="btn process-shelve" type="button" id="processShelve">SHELVE</button>
+        <button class="btn process-later" type="button" id="processLater">LATER</button>
+      </div>
+    </section>
+  </div>
 
   <template id="itemTemplate">
     <fieldset class="item btn-fieldset" data-id="">
@@ -4438,6 +4537,185 @@
       else delete saveAllChangesBtn.dataset.saving;
       saveAllChangesBtn.disabled = isBusy || !hasUnsavedChanges();
       saveAllChangesBtn.textContent = isBusy ? 'SAVING...' : 'SAVE ALL CHANGES';
+    }
+
+    // ── PROCESS: the oldest gift in Review, one at a time ──────────────────
+    //
+    // IT DRIVES THE CARD'S OWN SAVE, never a fetch of its own. `_saveItemChanges`
+    // is what the radio buttons call, so triage and the card cannot drift into
+    // two ideas of what LIVE means, and every guard the card already has (a live
+    // gift needs a link, an image and a city) applies here for free.
+    //
+    // LATER IS NOT A STATUS. It writes nothing at all: the gift stays in Review
+    // and is simply skipped for the rest of this sitting. Persisting a "seen and
+    // passed over" flag would be inventing a fourth state, and the queue is
+    // oldest-first, so a LATER gift comes back at the top of the next sitting,
+    // which is what later means.
+    const processState = { queue: [], at: 0, seen: new Set(), busy: false };
+
+    function processEntries() {
+      return itemEntries()
+        .filter((entry) => entryStatus(entry) === 'REVIEW')
+        .filter((entry) => entry.id && !processState.seen.has(entry.id))
+        .sort((a, b) => {
+          // Oldest first. A card with no row behind it has just been added by
+          // hand, so it sorts last rather than jumping the queue.
+          const ta = Date.parse((a.row && a.row.created_at) || '') || Infinity;
+          const tb = Date.parse((b.row && b.row.created_at) || '') || Infinity;
+          return ta - tb;
+        });
+    }
+
+    function processEntryImage(entry) {
+      if (entry.node) {
+        const box = entry.node.querySelector('[data-field="image_url"]');
+        if (box && String(box.value || '').trim()) return String(box.value).trim();
+      }
+      return String((entry.row && entry.row.image_url) || '').trim();
+    }
+
+    function processEntryUrl(entry) {
+      if (entry.node) {
+        const box = entry.node.querySelector('[data-field="url"]');
+        if (box && String(box.value || '').trim()) return String(box.value).trim();
+      }
+      return String((entry.row && entry.row.url) || '').trim();
+    }
+
+    function renderProcess() {
+      const modal = document.getElementById('processModal');
+      if (!modal) return;
+      const shot = document.getElementById('processShot');
+      const title = document.getElementById('processTitle');
+      const city = document.getElementById('processCity');
+      const note = document.getElementById('processNote');
+      const count = document.getElementById('processCount');
+      const live = document.getElementById('processLive');
+      const shelve = document.getElementById('processShelve');
+      const later = document.getElementById('processLater');
+
+      const entry = processState.queue[processState.at];
+      shot.textContent = '';
+      note.textContent = '';
+
+      if (!entry) {
+        title.textContent = 'Nothing left in Review.';
+        city.textContent = '';
+        count.textContent = 'Done';
+        const msg = document.createElement('span');
+        msg.className = 'process-noimg';
+        msg.textContent = 'queue empty';
+        shot.appendChild(msg);
+        [live, shelve, later].forEach((b) => { b.disabled = true; });
+        return;
+      }
+
+      count.textContent = (processState.at + 1) + ' of ' + processState.queue.length;
+      title.textContent = entryTitle(entry) || '(no title)';
+      const cities = entryCities(entry);
+      city.textContent = cities.length ? cities.join('  ·  ') : 'no shop yet';
+
+      const src = processEntryImage(entry);
+      if (src) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.addEventListener('error', () => {
+          shot.textContent = '';
+          const bad = document.createElement('span');
+          bad.className = 'process-noimg';
+          bad.textContent = 'image did not load';
+          shot.appendChild(bad);
+        });
+        img.src = src;
+        shot.appendChild(img);
+      } else {
+        const none = document.createElement('span');
+        none.className = 'process-noimg';
+        none.textContent = 'no image';
+        shot.appendChild(none);
+      }
+
+      // GO LIVE IS REFUSED BEFORE IT IS PRESSED, not after. The card's save
+      // already blocks a live gift with no link, image or city, but it reports
+      // into the card, which is behind this dialog. Saying so on the button is
+      // the difference between a reason and a dead press.
+      const missing = [];
+      if (!processEntryUrl(entry)) missing.push('a link');
+      if (!src) missing.push('an image');
+      if (!cities.length) missing.push('a shop');
+      live.disabled = missing.length > 0 || processState.busy;
+      live.title = missing.length
+        ? 'Needs ' + missing.join(', ') + ' before it can go live. Close this and edit the card.'
+        : 'Publish it to the shop and move to the next one.';
+      shelve.disabled = processState.busy;
+      later.disabled = processState.busy;
+      if (missing.length) note.textContent = 'Cannot go live yet: needs ' + missing.join(', ') + '.';
+    }
+
+    function nextProcess() {
+      processState.at += 1;
+      renderProcess();
+    }
+
+    async function decideProcess(kind) {
+      const entry = processState.queue[processState.at];
+      if (!entry || processState.busy) return;
+      processState.seen.add(entry.id);
+
+      if (kind === 'later') { nextProcess(); return; }
+
+      const article = entry.node;
+      if (!article || typeof article._saveItemChanges !== 'function') {
+        document.getElementById('processNote').textContent =
+          'That gift is not loaded on this page, so it cannot be changed from here.';
+        return;
+      }
+
+      processState.busy = true;
+      renderProcess();
+      const opts = kind === 'live'
+        ? { certifiedAt: new Date().toISOString(), archived: false, rejectedAt: null,
+            requirePublicFields: true, refreshAfterSave: false, openAfterCreate: false }
+        : { rejectedAt: new Date().toISOString(), archived: true, certifiedAt: null,
+            refreshAfterSave: false, openAfterCreate: false };
+
+      let ok = false;
+      try { ok = await article._saveItemChanges(opts); } catch (err) { ok = false; }
+      processState.busy = false;
+
+      if (!ok) {
+        // It stays on screen and the queue does not advance: a refusal you can
+        // click past is a refusal nobody reads.
+        processState.seen.delete(entry.id);
+        renderProcess();
+        document.getElementById('processNote').textContent =
+          'That did not save. The card behind this dialog says why.';
+        return;
+      }
+      refreshItemsView();
+      nextProcess();
+    }
+
+    function openProcess() {
+      processState.seen = new Set();
+      processState.queue = processEntries();
+      processState.at = 0;
+      processState.busy = false;
+      renderProcess();
+      const modal = document.getElementById('processModal');
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      const first = document.getElementById('processLive');
+      if (first) window.setTimeout(() => first.focus(), 0);
+    }
+
+    function closeProcess() {
+      const modal = document.getElementById('processModal');
+      if (!modal || modal.hidden) return;
+      modal.hidden = true;
+      document.body.style.overflow = '';
+      refreshItemsView();
     }
 
     async function saveAllDirtyItems() {
@@ -6076,6 +6354,26 @@
       setTimeout(() => article.classList.remove('is-targeted'), 3000);
     }
 
+    const processBtn = document.getElementById('processBtn');
+    if (processBtn) processBtn.addEventListener('click', openProcess);
+    // GUARDED, because this room has twice been taken down by one dead
+    // getElementById in a wiring block: el() returns null, null.addEventListener
+    // throws, and everything after it in the block dies including the auth init
+    // that reveals the page. A missing button should cost one button.
+    [['processLive', 'live'], ['processShelve', 'shelve'], ['processLater', 'later']]
+      .forEach(([id, kind]) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', () => decideProcess(kind));
+      });
+    document.querySelectorAll('[data-process-dismiss]').forEach((el) => {
+      el.addEventListener('click', closeProcess);
+    });
+    // Escape closes it. A dialog you can only leave with the mouse is a dialog
+    // that interrupts the rhythm it exists to create.
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeProcess();
+    });
+
     addItemBtn.addEventListener('click', () => {
       // New gifts start in Review by default; you publish when ready.
       const article = appendItemRow({});
@@ -7072,6 +7370,7 @@ $$;`.trim();
         await loadGames();
         await renderAllItems();
         addItemBtn.disabled = false;
+        if (processBtn) processBtn.disabled = false;
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (statusFilter) statusFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
@@ -7082,6 +7381,7 @@ $$;`.trim();
       } catch (error) {
         console.error(error);
         addItemBtn.disabled = false;
+        if (processBtn) processBtn.disabled = false;
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (statusFilter) statusFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
