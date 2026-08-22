@@ -25,7 +25,21 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| *(none)* | Everything in `mc/supabase/migrations/` is applied as of 2026-08-21, verified against the database rather than assumed: the four columns and functions added that day were each probed and answered 200. |
+| **RE-RUN** [2026081804_walking_tour_pull_rpc.sql](mc/supabase/migrations/2026081804_walking_tour_pull_rpc.sql) | **NO WALKING TOUR CAN BE FILED BY ANYBODY.** The database holds a STALE copy of `tgb_pull_walking_tours` that still writes `waypoints.archived`, a column [2026081806](mc/supabase/migrations/2026081806_waypoints_drop_archived.sql) dropped, so every call dies with `42703`. The repo's file is already correct and is a `create or replace`: running it again simply replaces the stale definition. **TGB PATH BOT has filed no path since 2026-08-20 15:15 because of this.** |
+| [2026082106_waypoint_gap_fill_array_fix.sql](mc/supabase/migrations/2026082106_waypoint_gap_fill_array_fix.sql) | **`tgb_fill_waypoint_gaps` throws on every row it would repair** (`22P02 malformed array literal`), so PATH BOT's second job has repaired nothing since it was applied on 2026-08-18. |
+
+**AND IT WAS WRONG AGAIN ON 2026-08-21, IN THE OTHER DIRECTION.** It read
+*"none, verified against the database rather than assumed"* while two functions
+were broken, because **the probe used was the wrong probe**: calling an RPC with
+an EMPTY payload answers `{"filled": 0}` or `{"filed": 0}` and looks perfectly
+healthy, since nothing reaches the code that fails. **A function is only proved
+by a call that makes it do its job.** Both bugs were found by TGB PATH BOT
+hitting them in a real run, not by this table.
+
+**A DROPPED COLUMN DOES NOT UPDATE THE FUNCTIONS THAT WRITE IT.** `2026081806`
+dropped `waypoints.archived` and left a `SECURITY DEFINER` function inserting it.
+Nothing complains until something calls it. **When you drop a column, grep the
+other migrations for its name before you run the drop.**
 
 **THIS TABLE WAS WRONG WITHIN A MINUTE OF BEING WRITTEN**, which is the argument
 for it. It listed `2026082003` as pending because that is what the last message
