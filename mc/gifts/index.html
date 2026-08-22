@@ -198,6 +198,20 @@
     body:not(.is-admin) .command-bar,
     body:not(.is-admin) .toolbar { display: none; }
 
+    /* TWO BARS ON ONE LINE. A .command-bar is a full-width block on its own,
+       so inside the row both of those have to be undone: the width, and the
+       bottom margin, which the row now carries for the pair. */
+    .bar-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .bar-row > .command-bar { width: auto; margin: 0; }
+    /* Process takes what one button needs; Add takes the rest. */
+    .bar-row > .command-bar--process { flex: 0 0 auto; }
+    .bar-row > .command-bar:not(.command-bar--process) { flex: 1 1 auto; min-inline-size: 0; }
+
     .command-bar {
       display: block;
       width: 100%;
@@ -2830,6 +2844,11 @@
         overflow-y: auto;
       }
 
+      /* Stacked on a phone: side by side, Add's six buttons would wrap into a
+         column beside a single GO. */
+      .bar-row { flex-direction: column; }
+      .bar-row > .command-bar { width: 100%; }
+
       .item {
         padding: 4px 12px 12px;
       }
@@ -3140,15 +3159,18 @@
         </div>
       </div>
 
-      <!-- PROCESS HAS ITS OWN BAR, above Add, because it is not one of the ways
-           gifts arrive: it is the one-thing-at-a-time mode for clearing what has
-           already arrived. In the Add bar it read as a fifth way to file
-           something. A bar with one button in it is not waste here; it is the
-           job you came to do, given the room the rest of them share. -->
-      <fieldset class="command-bar">
+      <!-- PROCESS IS ITS OWN BAR BESIDE ADD, not inside it. It is not one of the
+           ways a gift arrives, which is what Add is for: it is the
+           one-thing-at-a-time mode for clearing what has already arrived, and
+           among MANUAL and PROMPT it read as a fifth way to file something.
+
+           Its own bar, on the same line, because one button does not need a
+           full-width row of its own and Add has space to spare. -->
+      <div class="bar-row">
+      <fieldset class="command-bar command-bar--process">
         <legend>Process</legend>
         <div class="command-bar-inner">
-          <button class="btn primary" id="processBtn" type="button" disabled>BO</button>
+          <button class="btn primary" id="processBtn" type="button" disabled>GO</button>
         </div>
       </fieldset>
 
@@ -3168,6 +3190,7 @@
           <a class="btn ghost" href="https://bookshop.org/affiliates/dashboard" target="_blank" rel="noopener noreferrer" title="Bookshop.org affiliate dashboard">Bookshop.org</a>
         </div>
       </fieldset>
+      </div>
       <script>
         // Show the confirmed URL-error count from the nightly JSON on the
         // Gift Shop ISSUES filter. Red when > 0.
