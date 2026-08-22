@@ -882,7 +882,13 @@
     }
     .item-status-choices {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      /* SIZED TO WHATEVER THE PANEL HOLDS, rather than to a number kept in step
+         by hand. STATUS carries three states and TAGS carries two flags, and
+         that count has already been wrong twice today: it was six when one
+         panel held everything, then three when both did. `auto-flow: column`
+         with equal auto-columns means adding or removing a slot needs no CSS. */
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
       align-items: start;
       gap: 6px;
       margin: 0;
@@ -997,6 +1003,13 @@
       outline: none;
     }
     .item-status-delete[disabled] { opacity: 0.5; cursor: progress; }
+    /* Full width under SAVE, and sized to sit with it rather than with the
+       little flag pills it used to stand among. */
+    .item-delete-btn {
+      min-height: 38px;
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+    }
 
     .item {
       display: block;
@@ -1723,14 +1736,6 @@
     }
     .item-toprow > .item-listings { flex: 1 1 0; min-inline-size: 0; }
     .item-toprow > .item-status-panel--compact { flex: 0 0 auto; }
-    /* THREE SLOTS, NOT SIX. The shared .item-status-choices is a six-column
-       grid because the full panel carries Featured, Sports and Delete as well;
-       left at six, these three would each take a sixth and the panel would be
-       half empty. */
-    .item-status-panel--compact .item-status-choices {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
     .item-listings {
       grid-column: 1 / -1;
       display: grid;
@@ -2852,9 +2857,7 @@
       .item-toprow > .item-listings,
       .item-toprow > .item-status-panel--compact { flex: 1 1 100%; width: 100%; }
 
-      .item-status-choices {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-      }
+
 
       .add-gift-modal {
         align-items: stretch;
@@ -2920,8 +2923,8 @@
 
       h1 { font-size: 2.05rem; }
 
-      /* Six status pills on one line — tighten them so labels don't clip on the
-         narrowest phones. */
+      /* Pills on one line — tighten them so labels don't clip on the narrowest
+         phones. */
       .item-status-choices { gap: 4px; }
       .item-status-choice,
       .item-status-delete {
@@ -3228,24 +3231,6 @@
             <legend>TAGS</legend>
             <div class="item-status-choices" data-status-choices>
               <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="REVIEW" data-status-choice>
-                  <span>Review</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="LIVE" data-status-choice>
-                  <span>Live</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="SHELVED" data-status-choice>
-                  <span>Shelved</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
                 <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
                   <input type="checkbox" data-field="featured">
                   <span>★</span>
@@ -3268,12 +3253,17 @@
                   </span>
                 </label>
               </div>
-              <div class="item-status-slot">
-                <button class="item-status-delete" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
-              </div>
             </div>
           </fieldset>
           <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
+          <!-- DELETE SITS UNDER SAVE, FULL WIDTH, and out of the TAGS row. It
+               was a third pill in that row, the same size and shape as Featured
+               and Sports, which made the one irreversible control on the card
+               look like the two harmless flags beside it. Under Save it reads
+               as what it is: the other thing you can do to the whole gift.
+               .item-save-row is a stretch flex column, so the width comes for
+               free. -->
+          <button class="item-status-delete item-delete-btn" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
         </div>
         </div>
       </div>
@@ -5090,22 +5080,16 @@
       // certified_at = LIVE, and everything else defaults to REVIEW.
       const statusChoiceInputs = Array.from(article.querySelectorAll('[data-status-choice]'));
       const statusRadioName = 'gift-status-' + (item.id || ('new-' + (++statusRadioGroupCounter)));
-      // ONE GROUP PER PANEL, NOT ONE PER CARD. The card carries the status
-      // choices TWICE now: the short copy at the top beside Shops, and the full
-      // panel at the bottom that also holds Featured, Sports and Delete. A radio
-      // group allows exactly one checked member, so with a single shared name
-      // the two copies of LIVE would fight: checking it up top would silently
-      // uncheck it below and the lower panel would show no selection at all.
+      // One group, because the three states live in ONE panel again: the STATUS
+      // group at the top beside Shops. The name is per gift, so two cards on
+      // screen cannot join the same group and steal each other's selection.
       //
-      // Suffixing the compact panel makes them two groups of three, so both can
-      // show the same value. They stay in step because setStatusChoice() below
-      // writes `checked` on EVERY input by value, and every read goes through
-      // selectedStatusChoice() rather than through one particular input.
-      statusChoiceInputs.forEach((input) => {
-        const panel = input.closest('.item-status-panel');
-        const compact = !!(panel && panel.classList.contains('item-status-panel--compact'));
-        input.name = statusRadioName + (compact ? '-compact' : '');
-      });
+      // This briefly needed a suffix per panel, while TAGS still carried a
+      // second copy of the three states: a radio group allows exactly one
+      // checked member, so a single shared name made the two copies of LIVE
+      // fight and one of them always showed unselected. If the choices are ever
+      // duplicated again, that is the trap.
+      statusChoiceInputs.forEach((input) => { input.name = statusRadioName; });
       const articleStatus = () => itemStatusOf(article);
       const selectedStatusChoice = () => {
         const selected = statusChoiceInputs.find((input) => input.checked);
