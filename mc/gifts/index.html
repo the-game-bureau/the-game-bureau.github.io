@@ -1082,7 +1082,10 @@
       font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 2px 6px;
     }
     .process-close:hover { color: var(--ink); }
-    .process-body { padding: 0 18px 4px; overflow: auto; text-align: center; }
+    /* NOT `overflow: auto`. A scrollbar that appears on one gift and not the
+       next is itself a layout shift, and with every block fixed there is
+       nothing left to scroll. */
+    .process-body { padding: 0 18px 4px; overflow: hidden; text-align: center; }
     /* THE COVER IS THE POINT OF THE DIALOG, so it gets the room. Portrait, and
        `contain` so a book is never cropped: the whole reason you are looking is
        to judge it. */
@@ -1101,14 +1104,48 @@
       font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
       color: var(--muted);
     }
-    .process-title { margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.3; }
+    /* EVERY BLOCK BELOW THE COVER HAS A FIXED HEIGHT, and that is the whole
+       point of this section. The three buttons are pressed in a rhythm, dozens
+       of times in a sitting, and a button that moves between presses is a
+       button you have to look at. The picture was already pinned at 260px; what
+       still moved the row was the TEXT: a two-line title pushed the buttons down
+       where a one-line title did not, and the red note appeared out of nothing.
+
+       So the title is exactly two lines whether it needs them or not, the city
+       is exactly one, and the note holds its two lines empty. Heights are in rem
+       and derived from each element's own font-size times its line-height, so a
+       font change moves them together. Change a size, redo the sum. */
+    .process-title {
+      margin: 0;
+      height: 2.66rem;              /* 2 lines: 1.02rem x 1.3 x 2 */
+      font-size: 1.02rem;
+      font-weight: 700;
+      line-height: 1.3;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
     .process-city {
       margin: 6px 0 0;
+      height: 1.12rem;              /* 1 line: 0.8rem x 1.4 */
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
+      line-height: 1.4;
       color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .process-note { margin: 8px 0 0; min-height: 1.1em; font-size: 0.8rem; color: var(--bic-red); }
+    .process-note {
+      margin: 8px 0 0;
+      height: 2.08rem;              /* 2 lines: 0.8rem x 1.3 x 2 */
+      font-size: 0.8rem;
+      line-height: 1.3;
+      color: var(--bic-red);
+      overflow: hidden;
+    }
     /* Three equal targets, big, because this is the whole interaction. */
     .process-actions { display: flex; gap: 8px; padding: 14px 18px 18px; }
     .process-actions > .btn { flex: 1 1 0; min-height: 48px; font-size: 0.78rem; }
@@ -4651,6 +4688,30 @@
       shelve.disabled = processState.busy;
       later.disabled = processState.busy;
       if (missing.length) note.textContent = 'Cannot go live yet: needs ' + missing.join(', ') + '.';
+
+      // Fetch the next two covers while this one is being judged.
+      preloadFromProcess(processState.at + 1);
+    }
+
+    // THE NEXT COVER IS ALREADY IN THE BROWSER before you press anything.
+    // These images are hotlinked from Bookshop, Amazon and OpenLibrary, so the
+    // first paint of each one is a network round trip; without this every press
+    // is answered by an empty grey box for as long as that takes, which is
+    // exactly the pause the dialog exists to remove.
+    //
+    // It is a bare Image(), not a <link rel=preload>: the element is never in
+    // the document, the browser caches the response, and the tag the real <img>
+    // then renders is a cache hit. Nothing to clean up and nothing to leak.
+    const processPreloaded = new Set();
+    function preloadFromProcess(at) {
+      for (const entry of processState.queue.slice(at, at + 2)) {
+        const src = processEntryImage(entry);
+        if (!src || processPreloaded.has(src)) continue;
+        processPreloaded.add(src);
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.src = src;
+      }
     }
 
     function nextProcess() {
@@ -4703,6 +4764,9 @@
       processState.at = 0;
       processState.busy = false;
       renderProcess();
+      // The first cover is wanted immediately, so it is not left to the render's
+      // look-ahead, which starts at the one after it.
+      preloadFromProcess(0);
       const modal = document.getElementById('processModal');
       modal.hidden = false;
       document.body.style.overflow = 'hidden';
