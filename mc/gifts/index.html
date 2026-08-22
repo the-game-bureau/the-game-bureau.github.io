@@ -4606,7 +4606,7 @@
     // passed over" flag would be inventing a fourth state, and the queue is
     // oldest-first, so a LATER gift comes back at the top of the next sitting,
     // which is what later means.
-    const processState = { queue: [], at: 0, seen: new Set(), busy: false };
+    const processState = { queue: [], at: 0, seen: new Set(), busy: false, done: null };
 
     function processEntries() {
       return itemEntries()
@@ -4732,8 +4732,30 @@
       }
     }
 
+    // WHAT A FINISHED SITTING SAYS. The counts are the whole report: how many
+    // went out, how many were put away, and how many you passed over and will
+    // meet again next time.
+    function processTally() {
+      const d = processState.done || { live: 0, shelve: 0, later: 0 };
+      const bits = [];
+      if (d.live) bits.push(d.live + ' live');
+      if (d.shelve) bits.push(d.shelve + ' shelved');
+      if (d.later) bits.push(d.later + ' left for later');
+      return bits.length ? bits.join(', ') + '.' : '';
+    }
+
     function nextProcess() {
       processState.at += 1;
+      // THE DIALOG CLOSES ITSELF WHEN THERE IS NOTHING LEFT. An empty dialog
+      // with three dead buttons is a thing you have to dismiss, and dismissing
+      // it is a press that does nothing: the queue being finished IS the answer,
+      // so the room says so and gets out of the way.
+      if (processState.at >= processState.queue.length) {
+        closeProcess();
+        const tally = processTally();
+        setStatus(shopStatus, tally ? 'Review is clear. ' + tally : 'Nothing left in Review.', 'success');
+        return;
+      }
       renderProcess();
     }
 
@@ -4742,7 +4764,7 @@
       if (!entry || processState.busy) return;
       processState.seen.add(entry.id);
 
-      if (kind === 'later') { nextProcess(); return; }
+      if (kind === 'later') { processState.done.later += 1; nextProcess(); return; }
 
       const article = entry.node;
       if (!article || typeof article._saveItemChanges !== 'function') {
@@ -4772,6 +4794,7 @@
           'That did not save. The card behind this dialog says why.';
         return;
       }
+      processState.done[kind === 'live' ? 'live' : 'shelve'] += 1;
       refreshItemsView();
       nextProcess();
     }
@@ -4781,6 +4804,14 @@
       processState.queue = processEntries();
       processState.at = 0;
       processState.busy = false;
+      processState.done = { live: 0, shelve: 0, later: 0 };
+      // NOTHING TO PROCESS MEANS NOTHING OPENS. Showing the dialog just to say
+      // it is empty makes you dismiss a box you did not ask for; the status line
+      // is where the room already answers questions like this one.
+      if (!processState.queue.length) {
+        setStatus(shopStatus, 'Nothing is waiting in Review.', 'success');
+        return;
+      }
       renderProcess();
       // The first cover is wanted immediately, so it is not left to the render's
       // look-ahead, which starts at the one after it.
