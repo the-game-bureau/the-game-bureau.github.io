@@ -1705,6 +1705,10 @@ The card went through both failures in one day, which is worth recording as a pa
 
 **So the bands stayed and the card closed.** A row is one line — caret, date, name, kind, city, id — and opens into the banded editor on the one row you are working on.
 
+- **EXPAND ALL / COLLAPSE ALL sits above the list**, right-aligned in the panel head, opposite the folder tab.
+  - **ONE BUTTON THAT NAMES WHAT IT WILL DO, not a pair.** Expand all and Collapse all are never both useful: whatever the list is, one of them is a no-op. **A MIXTURE READS "Expand all"**, because that is what the press does — one press to a known state, rather than a toggle whose outcome depends on what you happened to leave open.
+  - **IT ACTS ON THE PAGE, NOT THE TABLE**, and the tooltip counts the rows so it says which. `render()` only builds the current page, so there is nothing else on screen to open — and opening all 600 would mean building 13,000 controls, which is exactly what closing rows by default avoided. **Expanding fifty is still 1,100**, which is the deliberate cost of pressing it and the reason it is a button rather than a default.
+  - **`setOpen` REPAINTS IT.** Opening the last shut row by hand makes the page fully open, and without that call the button goes on offering to expand a list that already is. `render()` repaints it too, since every render rebuilds the cards closed.
 - **THE FIELDS ARE NOT BUILT UNTIL THE ROW IS OPENED, and that is not a micro-optimisation.** Building them anyway and merely hiding them would put **22 controls per row in the document, 1,100 for a page of fifty**, and pay that cost again on **every keystroke in the search box**, which is what re-renders the list. Measured in jsdom against the live table: a closed page of fifty rows now holds **zero** `[data-field]` controls, and 22 the moment one is opened.
 - **THE HEAD IS A REAL `<button>`, not a div with a click handler.** Focusable, space and enter work, and `aria-expanded` tells a screen reader it expands something. None of that comes free from a div.
 - **THE TITLE IS EDITED IN THE HEADER, AND THERE IS NO TITLE FIELD IN THE BODY** (2026-08-24). The event's name belongs where the event's name is; a second box for it in the What band was the same value in two places.
@@ -1716,7 +1720,7 @@ The card went through both failures in one day, which is worth recording as a pa
   - **AN UNTITLED SPORTS ROW SHOWS ITS DERIVED NAME AS THE PLACEHOLDER**, italic and lighter so it cannot be mistaken for something somebody typed. A row named from its two clubs would otherwise show an empty box and lose a name it really has. `markDirty` refreshes the placeholder and **never writes to the value** — writing `displayTitle()` back into the box would overwrite what you are typing with a fallback derived from it.
   - **`HEADER_FIELDS` EXTENDS `assertBandsCoverFields`.** That check exists to catch a column with no control anywhere; a field moved out of the bands would have tripped it, and silencing it by deleting the check would have thrown away the guard. Anything given a control outside the bands goes in that list.
 - **THE ID AND EVERY PILL LIVE ON ONE META LINE AT THE FOOT OF THE BODY** (2026-08-24). The head is a caret, a title and a city, and nothing else.
-  - **THE HEAD HAD COLLECTED FIVE KINDS OF CHIP** — kind, past, neutral site, update needed, unsaved — **and a row could wear four at once**, so the name the row exists to show was being squeezed between a caret and a queue of tags. The id sat beyond them, a 20-character mono key competing with the event's name.
+  - **THE HEAD HAD COLLECTED FIVE KINDS OF CHIP** — kind, past, neutral site, update needed, unsaved — **and a row could wear four at once**, so the name the row exists to show was being squeezed between a caret and a queue of tags. (**All five are gone now**; see the review section below.) The id sat beyond them, a 20-character mono key competing with the event's name.
   - **THEY SHARE A LINE BECAUSE THEY ARE THE SAME KIND OF FACT**: what this RECORD is, as against what the event is. The fields above say when and where; this line says the row has been round the block. The pills take `margin-left: auto` so the id reads from the left and the state from the right whatever the id's length.
   - **A NEW ROW'S ID IS A DIFFERENT OBJECT** and stays where it was: a required input at the TOP of the body, because nothing can be stored until it is filled. The read-only line is drawn only for a saved row.
   - **THE PILLS ARE BUILT IN `buildRow` AND APPENDED IN `buildBody`.** `paintPast` and `markDirty` close over them and both can fire before the body has ever been built.
@@ -1726,7 +1730,7 @@ The card went through both failures in one day, which is worth recording as a pa
   - **WHY IT LEFT THE LEFT:** you scan a list of events by NAME, and a mono date at the head of every line is a column of near-identical strings to read past before reaching the words. **The least readable thing on the row sat in front of the most.** The name leads now.
   - **WHY IT LEFT THE HEAD ALTOGETHER:** with the When band boxed directly under the collapse row, an opened card said the same three facts twice a few pixels apart, and **the head's copy was the one you could not act on**.
   - **WHAT IT COSTS, stated plainly.** A closed row no longer says when the event is, so a list sorted by date is ordered on something invisible — **the same objection that brought the kind chip back under a type sort**. Accepted as asked. If it is wanted back it belongs on the CLOSED row only, hidden the moment the row opens, which is the shape that has no duplication in it.
-  - **`displayDate()` / `displayTime()` / `displayWhen()` ALL SURVIVE** — the CHECK report and its copied text still say when an event is. `.event-datebox`, `.event-when` and `.event-time` were deleted with the markup, per the standing rule that a control and its CSS go in the same pass.
+  - **`displayDate()` / `displayTime()` / `displayWhen()` ALL SURVIVE** — the annotation lines and the row head still say when an event is. `.event-datebox`, `.event-when` and `.event-time` were deleted with the markup, per the standing rule that a control and its CSS go in the same pass.
   - **`margin-left: auto` went back onto `.event-id`** when the box that had taken it was removed. Two autos in one flex row split the free space between them, so exactly one element in the head may carry it.
 - **THE CONTAINERS WERE COMPACTED AGAIN** (2026-08-24), sixteen declarations, **all of them padding, gap, margin, radius or control height — no type sizes**. Those were already cut once and cutting them again is how a room ends up unreadable. Row gap 6→4px, card head 7/10→5/9, body 9/10/10→7/9/8, field gaps 6/8→5/7, panel and bar padding 4/12/12→2/9/8, radius 10→8, bar gap 12→8, controls 42→36px, and the folder-tab legend 0.92→0.74rem. **The tab was the tallest thing on a bar holding one control**, which is the giveaway that a label had been sized for a different room.
   - **THE SHARED ROOM HEADER WAS LEFT ALONE.** `.room-head`, `.room-title` and `.room-blurb` come from `admin-shell.css` and are the same object in four rooms. **Overriding the title size here is exactly the fork that sheet exists to prevent** — four inline copies is how those rooms drifted into four different scales in the first place. If the header is too tall, it is too tall in every room and changes there.
@@ -1808,19 +1812,28 @@ It had a SORT tab offering four orders — date each way, and type-then-date eac
 - **UNDATED SINKS TO THE END and ties break on `id`**, which is what makes the order stable: twelve fixtures share a Sunday, and without a second key one could move under you as you type in the search box.
 - **DELETED WITH IT**, all of it read by nothing afterwards: the type branch of `compareRows`, the kind chip (drawn only while grouped by type, to stop the grouping being invisible), and **`effectiveKind()`**, whose only two readers those were. The places that still ask "is this a sports row" use the plainer `!kind || kind === 'sports'`.
 
-### MARKED PAST (2026-08-24)
+### MARKED PAST WAS A CHIP, AND IT WENT WITH THE REST (2026-08-24)
 
-A quiet dashed `past` chip on any row whose LAST day has been and gone.
+A quiet dashed `past` chip used to sit on any row whose LAST day had been and
+gone. **It is deleted, with `isPast()`**, in the pass that took every chip off
+these rows. Its reasoning is kept because the questions come back:
 
-- **IT READS `end_date`, NOT `event_date`**, so a festival is not called past while it is still running.
-- **TODAY IS NOT PAST.** The comparison is strictly less than, so an event happening this afternoon is still ahead of you — which is exactly when somebody is most likely to be looking at it.
-- **QUIET, NOT RED.** That an event has happened is a **fact** about it, not a fault and not a job; most of this catalogue will be past eventually and a red mark on all of it would say nothing. **The red pen stays reserved for UPDATE NEEDED**, which is a row asking for something.
-- **IT IS NOT THE `past-but-scheduled` FINDING.** That one fires when a past row still claims to be `scheduled`, which is a record out of step with the world. This says only when the event was.
-- Drawn on every row and shown by class, like the unsaved chip, so repainting it as the dates change costs no DOM work. It follows the form: drag a date into the past and the row marks itself.
+- **IT READ `end_date`, NOT `event_date`**, so a festival was not called past
+  while it was still running.
+- **TODAY IS NOT PAST.** Strictly less than, so an event happening this afternoon
+  is still ahead of you, which is when somebody is most likely to look at it.
+- **IT WAS NOT THE `past-but-scheduled` RULE, AND THAT RULE SURVIVES.** That one
+  fires when a past row still claims to be `scheduled` — a record out of step
+  with the world — and it now forces the row into review. The chip said only when
+  the event was, which the date on the row already says.
+- **WHICH IS WHY LOSING IT COSTS LITTLE.** The row carries its date; a chip
+  restating that the date has passed was the row saying one thing twice.
 
-**The live table cannot test it — all 603 rows are in the future**, so 16 cases run against fixtures built around today: long past, yesterday, today, a festival mid-run, a festival that ended yesterday, a future row, an undated row.
-
-**AND THE FIRST RUN FAILED ON THE TEST, NOT THE PAGE.** The fixtures were built with `toISOString()` (UTC) while `todayIso()` is local, and local is currently a day behind UTC — so the fixture's "yesterday" was really the page's today and a correct answer was reported as a failure. **The page's choice is the right one**: whether an event has happened should be answered in the reader's own day.
+**AND THE FIRST TEST RUN FAILED ON THE TEST, NOT THE PAGE.** The fixtures were
+built with `toISOString()` (UTC) while `todayIso()` is local, and local was a day
+behind UTC, so the fixture's "yesterday" was really the page's today. **The
+page's choice is the right one**: whether an event has happened should be
+answered in the reader's own day. `past-sort-test` still holds that case.
 
 ### SPLIT A MULTI-DAY EVENT INTO ONE EVENT PER DAY (2026-08-23)
 
@@ -1835,63 +1848,147 @@ A **Split into N days** button on an opened row, drawn only when `end_date` is l
 - **IDS ARE `<id>-D2`, `-D3`…, AND DAY 1 KEEPS THE BARE ID.** An id already in the table gets a letter (`-D2a`) rather than being written over: two rows cannot share a primary key, and silently clobbering somebody's row is the worse failure.
 - **RE-SPLITTING REWRITES THE SUFFIX RATHER THAN STACKING IT**, so a row cannot end up `X (Day 1 of 3) (Day 1 of 2)`. `DAY_SUFFIX_RE` is what strips the old one.
 - **NO EM DASH IN THE SEPARATOR**, per the standing rule, and `DAY_SUFFIX` is a constant so a fifth opinion about the wording is one edit.
-- **CHECK REPORTS A MULTI-DAY ROW so it is findable without opening fifty cards** — the Split button only exists on an opened one. **It is deliberately NOT `update: true`**: nothing is missing from a multi-day row and nobody has to find anything out, so a red UPDATE NEEDED chip on every festival in the table forever would be the flag crying wolf again.
+- **THE `multi-day` RULE EXISTS so a splittable row is findable without opening fifty cards** — the Split button only exists on an opened one. **It is the one rule marked `noReview: true`**: nothing is missing from a multi-day row and nobody has to find anything out, so putting every festival in the table into review forever would be the flag crying wolf again.
 - **`.event-actions .btn[hidden]` HAD TO BE DECLARED — the SIXTH time this project has hit that rule.** `.btn` carries an author `display: inline-flex` and `[hidden]` is only a UA-sheet `display: none`, so setting `.hidden` silently did nothing and Split appeared on every row.
 
-**PROVED ON ROWS BUILT TO BE SPLIT, because there is not one multi-day event in the live table.** 28 unit cases over `dayCount` / `dayTitle` / `dayId` / `planSplit` — DST both ways, a leap day, a year boundary, id collisions, re-splitting, a nine-day festival — and 10 more in the rendered page: the button appears on a four-day row and not on a one-day row or a real NFL fixture, widening the end date reveals it and recounts with no reload, narrowing hides it again, the actions read `Delete | Split | Save`, and CHECK names the row without flagging it UPDATE NEEDED.
+**PROVED ON ROWS BUILT TO BE SPLIT, because there is not one multi-day event in the live table.** 28 unit cases over `dayCount` / `dayTitle` / `dayId` / `planSplit` — DST both ways, a leap day, a year boundary, id collisions, re-splitting, a nine-day festival — and 10 more in the rendered page: the button appears on a four-day row and not on a one-day row or a real NFL fixture, widening the end date reveals it and recounts with no reload, narrowing hides it again, the actions read `Delete | Split | Save`, and the `multi-day` rule names the row without turning it red.
 
-### UPDATE NEEDED — the chip for what is not known YET (2026-08-23)
+### AN ERROR PUTS THE ROW INTO REVIEW. THERE ARE NO CHIPS. (2026-08-24)
 
-A red chip on the closed row when something the world has not told us yet is missing. **Not "this row is wrong" — that is what the CHECK report's error tier is for.** Nobody made a mistake filing a playoff fixture with no seeding; the bracket simply has not been decided.
+**`status = 'review'` is now the one place "something is wrong with this row" is
+recorded**, and it is written by the audit and by a human alike. That second half
+is the whole point of the change: **a person can flag a row exactly the way the
+checks do**, by picking Review in the Status dropdown, and it lands in the same
+list, wearing the same red, reached by the same button.
 
-- **IT IS THE SAME RULE SET THE CHECK REPORT READS, and that is the whole design.** Nine of the eighteen `CHECK_RULES` carry `update: true`, and `updateReasons()` is the only reader. **A separate list of what makes a row incomplete would be a second idea of it**, and the two would drift the first time either was edited — the chip saying a row is fine while the report says it is not.
-- **NINE REASONS**: no start time (TBA), postponed, a placeholder club, no date, no venue, no venue city, half a club entered, final with no score, past but still scheduled.
-- **`cancelled` DELIBERATELY DOES NOT FLAG.** That one is settled and nothing further is coming; postponed is a promise of a new date.
-- **THE PLAYOFF CASE IS WHY THIS EXISTS.** A bracket fixture is filed with the slot known and the clubs not: `TBD at TBD`, `AFC #2`, `Winner Game 3`. Those are good rows to hold — the date and venue are real — and useless for building a game until the seeding lands.
-  - **`isPlaceholderClub` READS THE CLUB FIELDS ONLY, NEVER THE TITLE.** "AFC Championship" is a real, finished title for a row whose two clubs are known, and matching it there would flag every playoff game forever.
-  - **The conference pattern is anchored to the WHOLE value** (`^(afc|nfc|american|national)(...)?$`), so a club whose name merely contains one of those words is untouched. Tested: "National Harbor Wizards" and "New England Patriots" do not flag.
-  - **It is deliberately narrow.** A false positive puts UPDATE NEEDED on a finished row, and **a chip that cries wolf is one people stop reading**, which costs more than the flag was worth.
-- **IT REPLACED A ONE-OFF `⚠ club missing` WARNING**, which said one of these nine things and stayed silent about the other eight. Two chips for one idea is the repetition this room keeps having to remove. `.event-warn` was deleted with it — **delete a control and its CSS in the same pass**.
-- **THE REASONS ARE ON THE TOOLTIP, not in the chip.** "UPDATE NEEDED · no start time · postponed · a club is still a placeholder" is a paragraph on a row meant to be one line. The chip is the flag; the tooltip is why.
-- **`club-missing` SPLIT INTO TWO RULES, and the split is the interesting part.** It bailed on any row with a title, because a titled sports row still has something to be called — correct for the NAME question, and **exactly what made it useless as an UPDATE NEEDED signal, since a bracket row usually has a title**. So `no-name` (error) keeps the title bail and asks what to call the row; `club-missing` (check, update) asks whether the fixture is usable, and a fandom game takes its palette and its copy from the away club whatever the row is called.
+**THE ROW ITSELF IS THE FLAG.** `.event-row.is-review` takes a red border, a
+3px red left edge and a faint red fill, and its reasons are drawn as
+`.event-annotation-line`s **on the CLOSED row** — you do not open a card to find
+out what is wrong with it. **Every chip is gone**: `past`, `neutral site`,
+`update needed`, `unsaved` and the `.event-pills` wrap that held them, plus
+`isPast()` and the `.event-kind` CSS. **Delete a control and its CSS in the same
+pass**; this room had collected five kinds of chip and a row could wear four at
+once, which squeezed the name the row exists to show.
 
-**THE LIVE TABLE IS CLEAN, SO THE FLAG SHOWS ON NOTHING TODAY** — 272 rows, every one with a time, a city, a venue and a status of `scheduled`. **An empty result is what a broken flag also returns**, so all nine rules were provoked with rows built to trip them, plus four false-positive guards. Sixteen cases, all as expected.
+- **`reviewReasons(row)` IS THE ONE READER, AND IT READS `CHECK_RULES`.** Every
+  rule but one carries the force; **a separate list of what makes a row wrong
+  would be a second idea of it** and the two would drift the first time either
+  was edited. It also folds in the cross-row duplicate finding, which no
+  per-row rule can see.
+- **`isInReview(row)` IS `status === 'review'` OR `reviewReasons().length`.** So a
+  row can be in review because a rule says so, because a human said so, or both,
+  and nothing on screen has to distinguish them.
+- **`multi-day` IS THE ONE RULE MARKED `noReview: true`.** A run of several days
+  is a suggestion (there is a Split button for it), not a fault. Forcing it would
+  put every festival in the table into review forever, which is the flag crying
+  wolf — and a flag people stop reading costs more than it was worth.
+- **`'review'` HAD TO GO INTO `STATUS_VALUES` OR THE PAGE ACCUSES ITSELF.** The
+  `bad-status` rule flags a status it does not recognise, so without this a row
+  in review is in review *because* it is in review, and it never settles.
+  Nothing in the database needed changing: `anchor_events.status` is free text
+  with no CHECK, so `review` needed no migration.
 
-**AND THE ESCAPING SCAR CAME BACK, TWICE IN ONE PASS.** `` in the placeholder regexes reached the file as a literal **backspace** (0x08), and `'
-'` in the tooltip join reached it as a real newline, breaking the parse. Both went through a bash heredoc into Python into the file; **three layers of escaping and one of them ate it** — the same failure as the `¹3` tick in the Socializer. `cat -A` is what showed it, since `^H` is invisible in a normal diff and in the Read tool alike. **Fix: build the backslash with `chr(92)`, or write the file with a tool that adds no quoting layer.** The page is now verified to contain **zero** control characters, and the tooltip separator is asserted to be a one-character newline rather than the two characters backslash-n.
+**THE ERRORS BUTTON RUNS THE CHECKS, WRITES `review`, AND SHOWS ONLY THOSE
+ROWS.** One press does all three, because they are one errand. It reads
+`Errors (N)` with N the count in review, and **`Show all` while you are in that
+view**, so the face always names what the press will do.
 
-### CHECK — the whole-table audit (2026-08-23)
+- **IT FORCES THE CITY CATALOGUE RELOAD (`{ force: true }`).** `TgbCities`
+  caches on first load, and the commonest fix for a finding is adding the city on
+  the other page. Without the force you would come back, press Errors, and be
+  told the city still does not exist: **both halves working and the errand
+  looking broken.** Best-effort, since a catalogue that will not reload is no
+  reason to refuse to re-check the events.
+- **THE WRITE IS PER ROW WITH `Prefer: return=representation`.** PostgREST
+  answers **200 with an empty array** when RLS refuses a PATCH, so without
+  reading the row back a refused sweep reports success and the page shows a
+  status the table never took.
+- **IT WRITES ONLY WHAT IS NOT ALREADY IN REVIEW**, so a second press writes
+  nothing. Verified against the live table before shipping: one press would
+  rewrite **0 of 604 rows**, because they are all clean.
 
-A tab at the far right of the bar row holding one button, **ERRORS**, which opens a dialog also titled **ERRORS** (it read "Table check" until 2026-08-24; the button and the thing it opens should not have two names). It reads every row and reports what looks wrong. **It reports and never edits** — the same human-in-the-loop split every routine here makes, and for the same reason: an audit that quietly repaired a date or invented a city would be the one action nobody could review afterwards.
+**TWO COSTS, STATED PLAINLY, BECAUSE BOTH ARE REAL AND NEITHER IS AN OVERSIGHT.**
 
-- **IT IS ITS OWN TAB BECAUSE IT ACTS ON THE WHOLE TABLE.** Narrowing a list and auditing it are different jobs, and a control that reads every row does not belong in a bar labelled for finding one.
-- **IT READS `state.rows`, WHICH IS GENUINELY THE WHOLE TABLE**, because `loadEvents()` pulls through `TgbRest.fetchAll` and pages past PostgREST's silent 1000-row cap. **If that ever goes back to a single unpaged fetch this button starts auditing the first thousand rows and reporting a clean bill for the rest**, which is the worst shape a bug can take here.
-- **TWO TIERS, AND THE DIFFERENCE IS WHETHER WE ARE SURE.** `error` is broken — a non-sports row with no title has nothing to render as a name, an end date before its start date is not a range. `check` is worth a look and may be fine — a venue city the catalog has never heard of is usually just a city nobody has added yet. **One colour for both would make the red mean nothing.**
-- **THIRTEEN PER-ROW RULES PLUS TWO THAT CANNOT BE.** A rule answers one question about one row and returns a sentence or nothing, so adding a check is one entry in `CHECK_RULES`. The two exceptions: **duplicates** are cross-row (two rows describing one fixture, which the primary key cannot catch because the ids differ), and **unsaved edits** are read off the SCREEN, since that is the only place they exist.
-- **`label-drift` IS THE ONE SCHEMA FINDING AND THE MOST USEFUL THING THIS BUTTON CAN SAY.** A trigger rebuilds `away_label` / `home_label` from the locale + mascot halves on every write, and the builder's event picker falls back to them. A row where they disagree does not mean the ROW is wrong — it means `tgb_anchor_events_sync_labels` is **not installed on this database**, and the finding names the migration to run.
-- **UNSAVED EDITS LEAD THE REPORT, AND THAT IS THE ONE FINDING WITH A DEADLINE.** A dirty card is DOM state; `render()` rebuilds from the stored rows, so **paging or changing a filter silently discards the edit**, and there is no `beforeunload` guard on this page. Naming them is the only warning you get. They are read from `.event-row.is-dirty` rather than from `state.rows`, because an unsaved edit is not in `state.rows` at all.
-- **A FINDING CAN SEND YOU SOMEWHERE ELSE, AND TAKE ITS ANSWER WITH IT** (2026-08-24). `FINDING_GOTO` is keyed by rule, so a finding whose fix is in another room says so in one entry rather than the renderer growing a special case. **Today there is one: `unknown-city`.** A venue city the catalogue has never heard of is usually a real town nobody has added yet, and **the fix is on the Cities page, not on this row** — typing the name again here would only re-enter the same unrecognised string.
-  - **THE BUTTON READS `Add city` AND CARRIES THE CITY**: `/mc/data/cities.html?add=<encoded>`. **Landing somebody on a 1,451-row catalogue and leaving them to retype a string they were just looking at relocates the errand rather than removing it.** The Cities page opens its add dialog prefilled; `openAddDialog`'s existing `initialValue` parses "Nowheresville, Nebraska" into a city and a state, and the state code derives from there.
-  - **`?add=` IS CLEARED WHEN THE REQUEST HAS BEEN ACTED ON, not on arrival.** It was cleared first, so **a branch that bailed lost the request and a reload could not retry it**. Cleared on resolve, a reload while the form is still open reopens it rather than losing what you came to do, and cancelling leaves the URL as the plain Cities page. `replaceState` rather than assignment, or every arrival would push a history entry — the same reasoning the Socializer's `#edit=` carries.
-  - **A CITY ALREADY IN THE CATALOGUE IS REPORTED AND SHOWN, NOT OFFERED.** A stale link is the ordinary case: you add the city, go back to the report and press the same button again. The list is searched down to the row so **the answer is on screen** — which is also how you check the spelling that made the other page think it was missing. Opening a form the database will refuse is the worse answer.
-  - **EVERY BRANCH SAYS SOMETHING.** This arrived as one silent path: if the dialog did not open you got a blank Cities page and no reason, **indistinguishable from the link being broken**. A picker that failed to load says to reload; a dialog refused because another is open says so.
-  - **THE TWO PAGES HAD TO AGREE ABOUT "ALREADY THERE", AND DID NOT.** `isKnownCity()` on Anchor Events compared **exactly** (`=== v`) while the Cities page lowercased, so a row holding `chicago, illinois` was **UNKNOWN on one page and ALREADY THERE on the other** — press `Add city` and no form appears, because both pages are right by their own rule. Both use `trim + lowercase` now. **Deliberately nothing cleverer**: `city` is a canonical string with one spelling, and a fuzzy match would start hiding the real typos the finding exists to catch.
-  - **It is an `<a>` opening in a NEW TAB**: you are on an errand and coming straight back, and a navigation would take the report with it along with every finding you had not dealt with. `.check-item > .btn` styles the control **by position rather than by tag**, or the anchor and the button would read as different kinds of control.
-- **`Go` ON EVERY OTHER FINDING CLEARS EVERY FILTER AND RINGS THE ROW.** A report that names a broken row and gives you no way to reach it is a report you then search by hand, which on 272 rows is the whole cost of having run the check. Clearing the filters is not tidiness: the row must be reachable whatever the list was narrowed to when the check ran, and it may be on another page of a filtered set. `.event-row` gained `data-row-id` so Go matches on the id rather than on a title two events may share.
-- **EVERY CONTROL IS IN THE HEAD AND THE DIALOG HAS NO FOOT** (2026-08-24): **Copy report · Refresh · Close**. The report is a long scrolling list, and **a foot is where you look having FINISHED reading something** — exactly the wrong place for Refresh, which is the button you press repeatedly *while* reading. Up top all three stay put however far down the findings you are. The order is what you do with the report, then what re-makes it, then the way out, with Close hard right where every dialog on this page keeps it.
-  - **NONE OF THE THREE IS A FILLED `primary`.** Copy report was one while it sat alone in a foot; among three controls a filled button reads as the one you are meant to press, and none of these is.
-  - **THE COPY STATUS MOVED INTO THE BODY, OUTSIDE `.check-summary`.** `renderCheckReport()` clears that element on every render and **Refresh renders**, so a "Copied." nested there would be wiped by the next press.
-- **REFRESH RE-READS THE DATABASE, it does not merely re-run the rules over what is already in memory** (2026-08-24). The report's whole job is to send you off to fix things — to the Cities page, to another tab, to the SQL editor — and **a re-run that could not see any of that would leave a finding on screen that is no longer true**, which is worse than not offering the button.
-  - **IT FORCES THE CITY CATALOGUE, and that is the half that matters.** `Add city` sends you to another tab to add exactly the city this report is complaining about, and `TgbCities` caches on first load — so without `{ force: true }` you would come back, press Refresh, and be told the city still does not exist. **Both halves would be working and the errand would look broken.**
-  - **The catalogue reload is best-effort.** It is not this page's table, and a catalogue that will not reload is no reason to refuse to re-check the events; `isKnownCity` already treats an unloaded list as "say nothing" rather than flagging every row.
-  - **The report is repainted whatever happened.** A failed re-read leaves the previous rows in place, and re-checking those is still the honest answer.
-- **A RULE THAT THROWS IS CAUGHT AND LOGGED**, and the audit carries on. A bug in one rule must not tell somebody their table is fine.
-- **The button is dead when signed out**, because nothing is loaded then and an audit would report a clean table of nothing — the most misleading answer available.
-- **`isKnownCity` RETURNS TRUE WHEN THE CITY CATALOG HAS NOT LOADED**, deliberately. Crying wolf on all 272 rows because a fetch was slow is worse than saying nothing.
+1. **`review` OVERWRITES THE PREVIOUS STATUS AND NOTHING RECORDS WHAT IT WAS.**
+   A `postponed` row that trips a rule becomes `review`, and the fact that it was
+   postponed survives only in whatever else the row says. One column is holding
+   two ideas — where the event stands in the world, and whether we are happy with
+   the row. **If that ever bites, the answer is a second column
+   (`needs_review boolean`), not a cleverer status.**
+2. **THE SWEEP NEVER WRITES A ROW BACK OUT OF REVIEW.** Fixing the fault drops
+   the specific findings and leaves the row red until somebody sets the status
+   back by hand. **That is deliberate**: clearing it automatically would undo a
+   human's own flag, which is the one thing this change exists to make possible.
+   So the annotation on such a row must say something TRUE of it — *"In review,
+   with nothing here for a rule to object to; set the status back when it is
+   settled"* — and must **not** claim a human flagged it, which was the first
+   wording and was wrong for exactly the rows the sweep had touched.
 
-**PROVED BY A RUN THAT MADE IT DO ITS JOB, NOT BY AN EMPTY REPLY.** Against the live table all thirteen rules found **nothing**, and that is honest: 272 rows, all `sports`, all `scheduled`, all dated 2026-09-09 onward, so no rule has anything to bite on. **An empty answer is exactly what a broken check also returns**, so every rule was additionally run against a synthetic row built to trip it, and all thirteen fired.
+**THE ERRORS DIALOG IS DELETED**, with `renderCheckReport`, `FINDING_GOTO`, the
+Copy report / Refresh / Close head, `.check-item` and the rest of its CSS. A
+report listing findings had to repeat each row's name and id just to say what it
+was talking about, and then offer a way back to it; drawn on the row it inherits
+both for free. **The same reasoning that deleted the Tape Room's Issues view.**
 
-**AND THE TEST HARNESS FELL INTO THIS FILE'S OWN 1000-ROW TRAP.** A first pass reported **90 unknown-city findings** across the nine NFL venue towns (East Rutherford, Inglewood, Orchard Park…). They are all real rows in `public.cities`; the harness had fetched the catalogue with one unpaged `curl` and got the alphabet as far as roughly M. **`city-picker.js` pages properly, so the page itself was always right** — the bug was in the check of the check. Re-run against all 1,451 cities: zero. **A truncated read does not error; it just quietly makes everything after M look missing.**
+**WHAT THAT COST: the `Add city` button is gone.** `FINDING_GOTO` carried the
+unknown city to `/mc/data/cities.html?add=<encoded>` so the add dialog opened
+prefilled. **The Cities half is untouched and still works** — `?add=` is still
+read, still cleared only once acted on, still `replaceState` — so rebuilding the
+affordance is one link on the annotation line if it is wanted. What was lost is
+only the link.
+
+**THE RULES THEMSELVES ARE UNCHANGED and their reasoning still holds:**
+
+- **`isPlaceholderClub` READS THE CLUB FIELDS ONLY, NEVER THE TITLE.** "AFC
+  Championship" is a real title for a row whose clubs are known, and matching it
+  there would flag every playoff game forever. The conference pattern is anchored
+  to the WHOLE value, so "National Harbor Wizards" and "New England Patriots" do
+  not flag.
+- **`cancelled` DELIBERATELY DOES NOT FLAG.** It is settled; `postponed` is a
+  promise of a new date.
+- **`label-drift` IS THE ONE SCHEMA FINDING.** `away_label` / `home_label`
+  disagreeing with their locale + mascot halves does not mean the ROW is wrong,
+  it means `tgb_anchor_events_sync_labels` is not installed, and the finding
+  names the migration.
+- **`isKnownCity` RETURNS TRUE WHEN THE CATALOGUE HAS NOT LOADED**, and it
+  compares **trim + lowercase**. It compared exactly (`=== v`) while the Cities
+  page lowercased, so a row holding `chicago, illinois` was **UNKNOWN here and
+  ALREADY THERE over there** — press Add city, no form appears, both pages right
+  by their own rule. Deliberately nothing fuzzier: `city` is a canonical string
+  with one spelling, and a loose match would hide the typos this exists to catch.
+- **THE AUDIT READS `state.rows`, WHICH IS GENUINELY THE WHOLE TABLE**, because
+  `loadEvents()` pulls through `TgbRest.fetchAll` and pages past PostgREST's
+  silent 1000-row cap. **If that ever goes back to a single unpaged fetch, the
+  sweep audits the first thousand rows and reports a clean bill for the rest.**
+- **A RULE THAT THROWS IS CAUGHT AND LOGGED** and the sweep carries on. A bug in
+  one rule must not tell somebody their table is fine.
+
+**PROVED BY RUNS THAT MADE IT DO ITS JOB, NOT BY AN EMPTY REPLY.** The live table
+is clean, so every rule finds nothing on it — **and an empty answer is exactly
+what a broken check also returns.** So each rule is provoked by a row built to
+trip it (16 cases, including four false-positive guards), and 23 more in the
+rendered page: the faulty row is red and the clean one is not, a hand-flagged row
+is red with the "nothing objects" wording, a multi-day run is NOT forced, the
+annotation shows on the CLOSED row and names both faults, one press writes only
+the faulty row and only `review`, the list narrows to the review rows, the second
+press shows everything, a repeat sweep writes nothing, `review` is in the Status
+dropdown, and a row in review is not also a bad-status error.
+
+**AND THE TEST HARNESS FELL INTO THIS FILE'S OWN 1000-ROW TRAP.** A first pass
+reported **90 unknown-city findings** across the NFL venue towns. They are all
+real rows in `public.cities`; the harness had fetched the catalogue with one
+unpaged `curl` and got the alphabet as far as roughly M. **`city-picker.js` pages
+properly, so the page itself was always right** — the bug was in the check of the
+check.
+
+**THE ESCAPING SCAR CAME BACK, SIX TIMES ACROSS THIS WORK.** A backslash-b
+reached the file as a literal **backspace** (0x08), a backslash-n as a real
+newline that broke the parse, and a backslash-zero-zero-b-seven as a **NUL byte**
+that made grep call the file binary. All went through a bash heredoc into Python
+into the file: **three layers of escaping and one of them ate it.** `cat -A` is
+what shows it, since these are invisible in a normal diff. **Fix: build the
+backslash with `chr(92)`, type the character literally, or use `includes()`
+instead of a regex.** The page is verified to contain zero control characters.
 
 ### SCHEDULE — the league importer, and the two pages it replaced
 
@@ -2411,7 +2508,7 @@ There is exactly **one** city table for the whole site: `public.cities`, keyed b
 - **THE ADD DIALOG HAS NO ABBR BOX** (2026-08-24). It asked you to type the two-letter state code beside the state you had just chosen — **the one field on that form with exactly one right answer**. `findState()` knows every US state and CA province, which is what `state_code` is for and what drives the map icons, so the code is derived and the box is gone.
   - **THE DERIVED CODE IS SHOWN IN THE PREVIEW** (`Saves as: Youngstown, Ohio · code OH`), because with the box gone that line is the only place you can see whether one was worked out — **a silent derivation and a silent failure to derive look identical**.
   - **WHAT IS GIVEN UP: a foreign region's own code.** `resolveGeoParts` still takes an explicit code and its comment names the case (Île-de-France → IDF); nothing on this dialog supplies one any more. Two things soften it: `findState` treats a value of three characters or fewer as a code, so **typing `IDF` into the State box still works**, and the Cities page's row editor keeps its `St. abbr` field for fixing one afterwards.
-  - **`?add=<city>` OPENS IT PREFILLED**, which is how the Anchor Events CHECK report hands over an unknown city. See that section for the round trip.
+  - **`?add=<city>` OPENS IT PREFILLED**, which is how the Anchor Events room USED to hand over an unknown city. **That link went with the errors dialog** and the Cities half is untouched, so `?add=` still works and rebuilding the affordance is one anchor. See that section.
 - **Every city control goes through [mc/assets/city-picker.js](mc/assets/city-picker.js)** (`window.TgbCities`) — Start City in `mc/profiles.html`, and the venue City in [mc/anchor_events.html](mc/anchor_events.html). (`mc/anchor-events.html` used it before it was deleted on 2026-08-01; `mc/mapper.html` and `mc/content.html` before they were archived on 2026-07-30.) It fills the control from the catalog and hangs a **+** beside it that adds a city without leaving the page. `attach(el, { includeIgnored: true })` for admin surfaces; omit the flag where only real destinations belong.
   - **`attach()` is for a control that outlives a render.** It pushes a controller onto a module-level array and never releases it, so a page that rebuilds a list of rows on every keystroke must not call it per row — `mc/anchor_events.html` binds one shared `<datalist>` from `TgbCities.all()` instead and puts the **+ city** button in its command bar. Use `attach()` on a form; use the catalog directly on a list.
 - **Queries use `select=*`, never a column list naming a hide flag.** PostgREST 400s on an unknown column, so an explicit list breaks any database that hasn't run the migration yet; readers treat a missing column as `false` and fall back to `ignored`.

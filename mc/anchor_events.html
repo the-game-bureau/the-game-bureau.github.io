@@ -222,60 +222,9 @@
     .command-bar input[type="search"] { flex: 1 1 200px; max-width: 320px; }
 
     .command-bar--check { flex: 0 0 auto; }
-
-    /* ── The check report ───────────────────────────────────────────────── */
-    /* Rides the .prompt-lightbox lockup, like the schedule importer, so all
-       three dialogs on this page are the same object and only the body differs.
-       Restyling one restyles them all, which is the point. */
-    .check-summary {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px;
-      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; color: var(--muted);
-    }
-    .check-tally { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-    .check-tally--bad { color: var(--danger); }
-    .check-tally--ok { color: var(--success); }
-    /* The head is space-between, so the three controls have to be one group or
-       the title would be pushed in among them. */
-    .check-head-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    /* No button is `primary` here. Copy report was, back when it was the one
-       thing in a foot; among three controls a filled button reads as the one
-       you are meant to press, and none of these three is. */
-    #checkCopyStatus:empty { display: none; }
-    #checkCopyStatus { margin: -4px 0 8px; }
-
-    .check-group { margin: 0 0 12px; }
-    .check-group-head {
-      display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;
-      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 800;
-      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
-    }
-    .check-group-count { font-weight: 600; letter-spacing: 0.04em; }
-    /* Two tiers, and the difference is whether we are SURE. An error is broken:
-       a non-sports row with no title has nothing to render. A check is worth a
-       look and may be perfectly fine -- a venue city we have never listed is
-       often just a city nobody has added yet. Colouring them the same would
-       make the red mean nothing. */
-    .check-group--error .check-group-head { color: var(--danger); }
-
-    .check-item {
-      display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center;
-      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
-      background: #fff; margin: 0 0 6px;
-    }
-    .check-group--error .check-item { border-color: rgba(160, 63, 45, 0.4); }
-    .check-item-what { min-width: 0; }
-    .check-item-row { font-size: 0.86rem; font-weight: 700; overflow-wrap: anywhere; }
-    .check-item-id {
-      margin-top: 2px; font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
-      color: var(--muted); overflow-wrap: anywhere;
-    }
-    .check-item-detail { margin-top: 3px; font-size: 0.78rem; color: var(--muted); }
     /* The Go control is a <button> for most findings and an <a> for the ones
        that send you to another room, so it is styled by position rather than by
        tag -- otherwise the two read as different kinds of control. */
-    .check-item > .btn { text-decoration: none; white-space: nowrap; }
 
     /* WHERE A FINDING LANDS YOU. A report that names a broken row and gives you
        no way to reach it is a report you then have to search by hand, which on
@@ -301,6 +250,12 @@
       background: var(--cut-panel-bg);
       box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
     }
+
+    /* The panel's own controls, above the list. Right-aligned because the
+       legend is a tab on the left and the two would otherwise collide at narrow
+       widths -- and because it acts on the whole list below it rather than on
+       anything beside it. */
+    .panel-head { display: flex; justify-content: flex-end; margin: 0 0 6px; }
 
     /* ── Event cards ───────────────────────────────────────────────────────── */
     /* A ROW IS ONE LINE UNTIL YOU OPEN IT. Every card used to be its whole
@@ -399,12 +354,6 @@
     .event-where {
       font-size: 0.78rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere;
     }
-    .event-kind {
-      font-family: "IBM Plex Mono", monospace; font-size: 0.58rem; font-weight: 800;
-      letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
-      border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
-      white-space: nowrap;
-    }
     /* NOTHING IN THE HEAD CARRIES `margin-left: auto` ANY MORE, and nothing
        should. The push used to live on the id, then on the date box, then back
        on the id, and was missed on one of those hops. With `.event-name` at
@@ -422,14 +371,6 @@
       display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
       padding-top: 6px; border-top: 1px solid var(--line);
     }
-    /* Pushed right, so the id reads from the left and the state from the right
-       whatever the id's length. It is the only auto margin on the line. */
-    .event-pills {
-      margin-left: auto; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-    }
-    /* An empty wrap would still take the auto margin and leave a gap that says
-       nothing; with no pills at all the id simply sits on its own. */
-    .event-pills:empty { display: none; }
     .event-idline-label {
       font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 800;
       letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
@@ -438,29 +379,47 @@
       font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
       color: var(--muted); overflow-wrap: anywhere; user-select: all;
     }
-    .event-kind--neutral { border-color: var(--accent); color: var(--accent); }
-    /* THE RED PEN, and the only chip on a closed row that asks you to go and do
-       something. Filled rather than outlined, because it has to be findable
-       while scrolling a page of fifty -- an outline reads as one more quiet tag
-       at this size. Replaced a bare `⚠ club missing` warning that flagged one of
-       the seven reasons a row can be incomplete and said nothing about the
-       other six. */
-    .event-kind--update {
-      border-color: var(--danger); background: var(--danger); color: #fff;
-      cursor: help;
+
+    /* ── A ROW IN REVIEW IS RED, ALL OF IT ──────────────────────────────────
+       Not a chip on it: the row IS the thing that is wrong, so the row is what
+       turns red. Border, fill and a heavy left edge, so it is unmissable down a
+       page of fifty and needs nothing opened to be seen.
+
+       THE FILL IS 0.05 AND THE EDGE IS 3px, deliberately that way round. A wash
+       strong enough to spot from across the card would make the words in it
+       harder to read than the words in a healthy row, which is backwards: the
+       rows you must read carefully are exactly these. The edge does the
+       spotting; the wash only says the row is grouped with the edge. */
+    .event-row.is-review {
+      border-color: rgba(160, 63, 45, 0.55);
+      border-left: 3px solid var(--danger);
+      background: rgba(160, 63, 45, 0.05);
     }
-    /* SAYS SO IN A WORD, not only in the border. An unsaved edit is discarded
-       the moment the list redraws, and on a closed row the border is all there
-       would otherwise be to say so. */
-    .event-kind--unsaved { border-color: var(--accent); color: #fff; background: var(--accent); }
-    .event-row:not(.is-dirty) .event-kind--unsaved { display: none; }
-    /* Quiet, not red: an event having happened is a fact about it, not a fault
-       and not a job. Most of this catalogue will be past eventually, so a loud
-       mark on all of it would say nothing. */
-    .event-kind--past {
-      border-style: dashed; color: var(--muted); background: rgba(var(--bic-blue-rgb), 0.04);
+    .event-row.is-review .event-head:hover { background: rgba(160, 63, 45, 0.07); }
+    /* The title box sits on the row's fill, so it needs its own ground back or
+       it reads as a red field rather than a white box on a red row. */
+    .event-row.is-review .event-name:hover,
+    .event-row.is-review .event-name:focus { background: #fff; }
+
+    /* THE ANNOTATION, under the name and above the body, so it is on the CLOSED
+       row. This is what the row is being pulled up for; putting it behind a
+       tooltip or inside the body would be hiding the answer inside the
+       question. */
+    .event-annotation {
+      padding: 0 10px 7px 9px;
+      display: grid; gap: 2px;
     }
-    .event-row:not(.is-past) .event-kind--past { display: none; }
+    .event-annotation[hidden] { display: none; }
+    .event-annotation-line {
+      margin: 0;
+      color: var(--danger);
+      font-size: 0.78rem; line-height: 1.35;
+    }
+    /* A bullet only from the second line, so a single reason reads as a
+       sentence rather than as a list of one. */
+    .event-annotation-line + .event-annotation-line::before {
+      content: "·  "; font-weight: 700;
+    }
 
     /* ── The opened row ────────────────────────────────────────────────────── */
     .event-body { padding: 7px 9px 8px; display: grid; gap: 7px; }
@@ -953,58 +912,25 @@
       <fieldset class="command-bar command-bar--check">
         <legend>Check</legend>
         <div class="command-bar-inner">
-          <button class="btn" id="openCheckBtn" type="button"
-                  title="Read every row in the table and report what looks wrong, plus anything edited on screen and not yet saved.">ERRORS</button>
+          <button class="btn" id="errorsBtn" type="button"
+                  title="Check every row, put anything wrong into review, and list what is in review.">Errors</button>
         </div>
       </fieldset>
     </div>
 
     <fieldset class="panel">
       <legend>Events</legend>
+      <!-- ONE BUTTON THAT NAMES WHAT IT WILL DO, not a pair. Expand all and
+           Collapse all are never both useful: whatever the list is, one of them
+           is a no-op. The face reads the state it produces, the way the Tape
+           Room's verbs do. -->
+      <div class="panel-head">
+        <button class="btn small" id="toggleAllBtn" type="button">Expand all</button>
+      </div>
       <div class="pager pager--top" id="pagerTop" hidden></div>
       <div class="event-list" id="eventList"></div>
       <div class="pager pager--bottom" id="pagerBottom" hidden></div>
     </fieldset>
-
-    <!-- CHECK — the whole-table audit. It reports and never edits, the same
-         human-in-the-loop split every routine in this project makes: a finding
-         is a statement, and a person decides what to do about it. -->
-    <div class="prompt-lightbox" id="checkLightbox" role="dialog" aria-modal="true" aria-labelledby="checkDialogTitle" hidden>
-      <div class="prompt-dialog">
-        <!-- EVERY CONTROL IS IN THE HEAD AND THERE IS NO FOOT. This report is a
-             long scrolling list, and a foot is where you look when you have
-             finished reading something -- which is exactly the wrong place for
-             Refresh, the button you press repeatedly WHILE reading. Up here all
-             three stay put no matter how far down the findings you are.
-
-             ORDER: Copy report, Refresh, Close. What you do with the report,
-             then what re-makes it, then the way out -- and Close last, hard
-             right, where every dialog on this page keeps it. -->
-        <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="checkDialogTitle">Errors</h2>
-          <div class="check-head-actions">
-            <button class="btn small" id="copyCheckBtn" type="button">Copy report</button>
-            <!-- REFRESH RE-READS THE DATABASE, it does not merely re-run the
-                 rules over what is already in memory. The report's whole job is
-                 to send you off to fix things -- to the Cities page, to another
-                 tab, to the SQL editor -- and a re-run that could not see any of
-                 that would leave a finding on screen that is no longer true,
-                 which is worse than not offering the button. -->
-            <button class="btn small" id="refreshCheckBtn" type="button"
-                    title="Read the table and the city catalogue again, then check them.">Refresh</button>
-            <button class="btn small" id="closeCheckBtn" type="button">Close</button>
-          </div>
-        </div>
-        <div class="prompt-dialog-body">
-          <div class="check-summary" id="checkSummary"></div>
-          <!-- OUTSIDE .check-summary, not inside it. renderCheckReport() clears
-               that element on every render, and Refresh renders -- so a "Copied."
-               nested there would be wiped by the next press. -->
-          <p class="prompt-copy-status" id="checkCopyStatus" aria-live="polite"></p>
-          <div id="checkReport"></div>
-        </div>
-      </div>
-    </div>
 
     <!-- MANUAL — one event, typed by hand. A POPUP rather than a card unshifted
          into the list: creating a row and editing one are different jobs, and
@@ -1227,7 +1153,10 @@
       // a Bills home game is in Orchard Park and a Giants home game is in East
       // Rutherford, so string comparison would call half the league neutral.
       neutral_site:    { label: 'Neutral site', type: 'checkbox' },
-      status:          { label: 'Status',     type: 'select', options: ['scheduled', 'final', 'postponed', 'cancelled'] },
+      // REVIEW SITS SECOND, next to scheduled, because it is the one a human
+      // reaches for: putting a row into review by hand is the whole reason it
+      // is a status rather than a flag only the check can set.
+      status:          { label: 'Status',     type: 'select', options: ['scheduled', 'review', 'final', 'postponed', 'cancelled'] },
       away_score:      { label: 'Away score', type: 'number' },
       home_score:      { label: 'Home score', type: 'number' },
       // OPEN sits beside this box because a url is the one field on the card you
@@ -1318,6 +1247,7 @@
     const pagerTopEl = document.getElementById('pagerTop');
     const pagerBottomEl = document.getElementById('pagerBottom');
     const addEventBtn = document.getElementById('addEventBtn');
+    const toggleAllBtn = document.getElementById('toggleAllBtn');
     const openPromptBtn = document.getElementById('openPromptBtn');
     const closePromptBtn = document.getElementById('closePromptBtn');
     const copyPromptBtn = document.getElementById('copyPromptBtn');
@@ -1334,14 +1264,7 @@
     const footPrompt = document.getElementById('footPrompt');
     const modeScheduleBtn = document.getElementById('modeScheduleBtn');
     const modePromptBtn = document.getElementById('modePromptBtn');
-    const openCheckBtn = document.getElementById('openCheckBtn');
-    const closeCheckBtn = document.getElementById('closeCheckBtn');
-    const copyCheckBtn = document.getElementById('copyCheckBtn');
-    const refreshCheckBtn = document.getElementById('refreshCheckBtn');
-    const checkLightbox = document.getElementById('checkLightbox');
-    const checkSummary = document.getElementById('checkSummary');
-    const checkReport = document.getElementById('checkReport');
-    const checkCopyStatus = document.getElementById('checkCopyStatus');
+    const errorsBtn = document.getElementById('errorsBtn');
     const eventPromptText = document.getElementById('eventPromptText');
     const promptCopyStatus = document.getElementById('promptCopyStatus');
     const promptFocus = document.getElementById('promptFocus');
@@ -1359,7 +1282,10 @@
     //
     // `sort` IS GONE FROM state. Nothing chooses any more, so nothing has to be
     // remembered; compareRows is simply the order.
-    const state = { rows: [], authed: false, page: 1, q: '' };
+    // `reviewOnly` IS A VIEW, NOT A SEARCH TERM. It narrows to the rows that
+    // are in review, which is a question about the row's state rather than
+    // about its text, and the search box is still free to narrow within it.
+    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1421,18 +1347,12 @@
     // a row with no kind and no clubs is one the Clubs band should be offered
     // for, not hidden from.
 
-    // HAS IT HAPPENED YET. Reads the LAST day, so a festival is not called past
-    // while it is still running, and compares as ISO strings, which sort
-    // correctly and need no Date object to be built for every row on every
-    // render.
-    //
-    // TODAY IS NOT PAST. The comparison is strictly less than, so an event
-    // happening this afternoon is still ahead of you -- which is exactly when
-    // somebody is most likely to be looking at it.
-    function isPast(row) {
-      const last = clean(row.end_date) || clean(row.event_date);
-      return !!last && last < todayIso();
-    }
+    // isPast() WAS DELETED WITH THE PILLS. Its only reader was the `past` chip,
+    // which said an event had happened -- a fact rather than a fault, and one
+    // the card had no business reporting once every state moved onto the row
+    // itself. THE CASE THAT IS A FAULT SURVIVES: the `past-but-scheduled` rule
+    // still catches a row that has been and gone while claiming to be
+    // scheduled, and that one turns the row red like any other error.
 
     function displayTitle(row) {
       const t = clean(row.title);
@@ -1495,6 +1415,7 @@
     // the week headings are what answer that question now, and if a real date
     // filter is ever wanted back it is a filter, not a search term.
     function matches(row) {
+      if (state.reviewOnly && !isInReview(row)) return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_locale, row.away_mascot, row.home_locale, row.home_mascot,
@@ -1803,87 +1724,64 @@
       where.textContent = clean(row.city);
       head.appendChild(where);
 
-      // ── EVERY PILL LIVES IN THE BODY, on the meta line beside the id ──────
-      // The head is a caret, a title and a city. It had collected five kinds of
-      // chip -- kind, past, neutral site, update needed, unsaved -- and a row
-      // could wear four of them at once, so the name it exists to show was
-      // being squeezed between a caret and a queue of tags.
+      // ── NO PILLS. THE ROW ITSELF IS THE SIGNAL ────────────────────────────
+      // The head had collected five kinds of chip and a row could wear four at
+      // once; moving them into the body then hid every one of them on a CLOSED
+      // row, which is where you actually scan. Both shapes were wrong in the
+      // same way: a state worth knowing was being said in a small object beside
+      // the thing rather than by the thing.
       //
-      // THEY GO WITH THE ID BECAUSE THEY ARE THE SAME KIND OF FACT: what this
-      // RECORD is, as against what the event is. The fields above say when and
-      // where; this line says the row has been round the block.
+      // A ROW IN REVIEW IS RED, ALL OF IT -- border, fill, and the annotation
+      // under its name. You cannot miss it down a page of fifty and you do not
+      // have to open anything to see it.
       //
-      // WHAT IT COSTS, plainly: a CLOSED row now shows no state at all -- not
-      // that it is unsaved, not that it needs updating. That is the second
-      // thing to leave the closed row after the date, and the two together
-      // mean the list is now names and cities only. If any of it comes back it
-      // should be `unsaved`, which is the one with a deadline attached.
-      //
-      // They are BUILT HERE and APPENDED IN buildBody: paintPast and markDirty
-      // close over them, and both can fire before the body has ever been built.
-      const pills = [];
+      // WHAT WENT, and none of it is mourned: `past` (a fact, not a fault, and
+      // the past-but-scheduled rule covers the case that IS a fault),
+      // `neutral site` (a field in WHERE, and the card is not a report of its
+      // own fields), `update needed` (this is that, said louder) and `unsaved`
+      // (the accent border already says it, and now says it alone).
+      const annotation = document.createElement('div');
+      annotation.className = 'event-annotation';
 
-      // Drawn always and shown by class, so repainting as the dates change
-      // costs no DOM work.
-      //
-      // QUIET, NOT RED. That an event has happened is a FACT about it, not a
-      // fault and not a job: most of this catalogue will be past eventually and
-      // a red mark on all of it would say nothing. The red pen is reserved for
-      // UPDATE NEEDED, which is a row asking for something.
-      //
-      // IT IS NOT THE `past-but-scheduled` FINDING. That fires when a past row
-      // still claims to be scheduled, which is a record out of step with the
-      // world. This says only when the event was.
-      const past = document.createElement('span');
-      past.className = 'event-kind event-kind--past';
-      past.textContent = 'past';
-      past.title = 'The last day of this event has been and gone.';
-      pills.push(past);
-
-      // NO KIND CHIP. It was drawn only while the list was grouped by type, to
-      // stop the grouping being invisible; with the type sort gone there is
-      // nothing for it to explain. On every row it was furniture anyway -- the
-      // whole table is `sports`, so it said the same word every time. The kind
-      // is in the What band a click away.
-
-      if (row.neutral_site === true) {
-        const neutral = document.createElement('span');
-        neutral.className = 'event-kind event-kind--neutral';
-        neutral.textContent = 'neutral site';
-        neutral.title = 'Neither club is at home. Expected to spawn one game per travelling fanbase.';
-        pills.push(neutral);
-      }
-
-      // UPDATE NEEDED, one chip for every "not known yet" on the row. It
-      // replaced a one-off `club missing` warning that named one of nine
-      // reasons and stayed silent about the other eight. THE REASONS ARE ON THE
-      // TOOLTIP, not in the chip: four of them spelled out is a paragraph.
-      const reasons = updateReasons(row);
-      if (reasons.length) {
-        const flag = document.createElement('span');
-        flag.className = 'event-kind event-kind--update';
-        flag.textContent = 'update needed';
-        flag.title = reasons.join('\n');
-        pills.push(flag);
-      }
-
-      // Drawn on every card and hidden by CSS until `.is-dirty`, so marking one
-      // costs no DOM work per keystroke.
-      const unsaved = document.createElement('span');
-      unsaved.className = 'event-kind event-kind--unsaved';
-      unsaved.textContent = 'unsaved';
-      unsaved.title = 'Edited and not saved. Paging or changing a filter redraws the list and discards it.';
-      pills.push(unsaved);
+      const paintReview = (r) => {
+        const reasons = reviewReasons(r);
+        const manual = clean(r.status) === 'review' && reasons.length === 0;
+        el.classList.toggle('is-review', reasons.length > 0 || manual);
+        // ONE LINE PER REASON, in full. The old chip put four of them on a
+        // tooltip, which is a paragraph nobody hovers; this is the annotation
+        // the row is being pulled up for, so it is the thing to read.
+        annotation.textContent = '';
+        if (manual) {
+          // IT MUST NOT SAY "by hand", WHICH IT DID AND WHICH WAS WRONG HALF
+          // THE TIME. A row in review with nothing for a rule to object to is
+          // either one somebody flagged themselves OR one whose fault has been
+          // fixed and whose status nobody has cleared -- and the row records
+          // which nowhere, because the sweep never writes a row back out of
+          // review. So the line says what is true of both and names the action.
+          const p = document.createElement('p');
+          p.className = 'event-annotation-line';
+          p.textContent = 'In review, with nothing here for a rule to object to. ' +
+            'If the fault has been dealt with, set the status back; if somebody flagged this by hand, the reason is theirs.';
+          annotation.appendChild(p);
+        }
+        reasons.forEach((why) => {
+          const p = document.createElement('p');
+          p.className = 'event-annotation-line';
+          p.textContent = why;
+          annotation.appendChild(p);
+        });
+        annotation.hidden = !annotation.firstChild;
+      };
 
       el.appendChild(head);
+      el.appendChild(annotation);
 
       const body = document.createElement('div');
       body.className = 'event-body';
       body.hidden = true;
       el.appendChild(body);
 
-      const paintPast = (r) => el.classList.toggle('is-past', isPast(r));
-      paintPast(row);
+      paintReview(row);
 
       // Typing in the header title marks the row unsaved exactly as a field in
       // the body does. It is bound here rather than in buildBody because the
@@ -1901,7 +1799,9 @@
         // to rather than an empty row.
         name.placeholder = displayTitle(Object.assign({}, preview, { title: '' }));
         where.textContent = clean(preview.city);
-        paintPast(preview);
+        // Typing a fix repaints the row: correct the fault and the red goes
+        // while you are still looking at it, without a save or a re-check.
+        paintReview(preview);
       };
 
       // THE EDITOR IS BUILT ON FIRST OPEN AND NEVER AGAIN. Building it anyway
@@ -1979,13 +1879,6 @@
         // with it, and it is what a SQL fix or a stored link needs.
         idVal.title = 'Permanent. Every game pointing at this event uses it, so it cannot be changed.';
         meta.append(idLabel, idVal);
-        // The pills, pushed to the right of the same line. They were built with
-        // the head because paintPast and markDirty close over them and both can
-        // fire before the body has ever been built.
-        const pillWrap = document.createElement('span');
-        pillWrap.className = 'event-pills';
-        pills.forEach((chip) => pillWrap.appendChild(chip));
-        meta.appendChild(pillWrap);
         body.appendChild(meta);
 
         const actions = document.createElement('div');
@@ -2034,6 +1927,10 @@
         if (open) buildBody();
         el.classList.toggle('is-open', open);
         body.hidden = !open;
+        // Opening the last shut row makes the page fully open, which changes
+        // what the panel button should say. Without this it can offer to expand
+        // a list that is already expanded.
+        syncToggleAll();
         caret.setAttribute('aria-expanded', open ? 'true' : 'false');
         caret.setAttribute('aria-label', (open ? 'Collapse' : 'Expand') + ' this event');
       }
@@ -2145,8 +2042,10 @@
     //
     // UTC, like the split maths and for the same reason: these are calendar
     // dates, and a local Date crossing a DST boundary lands on 23 or 25 hours
-    // and can be pushed into the neighbouring week. (`isPast` is deliberately
-    // LOCAL -- "has this happened to me yet" is a different question.)
+    // and can be pushed into the neighbouring week. (The `past-but-scheduled`
+    // rule is deliberately LOCAL, via todayIso() -- "has this happened where I
+    // am" is a different question with a different right answer, and getting
+    // the two the same way round is the mistake.)
     function isoWeek(iso) {
       const p = clean(iso).split('-');
       if (p.length !== 3) return null;
@@ -2227,6 +2126,9 @@
       // A COPY, then sorted. state.rows is the loaded table and other things
       // read it by index -- saveRow and deleteRow both splice it -- so sorting
       // it in place would reorder the thing every other reader is holding.
+      // Before matches() runs, because matches() asks isInReview() which asks
+      // reviewReasons() which reads the set.
+      rebuildDuplicates();
       const filtered = state.rows.filter(matches).sort(compareRows);
       const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       if (state.page > pages) state.page = pages;
@@ -2261,6 +2163,74 @@
       }
       renderPager(pagerTopEl, filtered.length, pages);
       renderPager(pagerBottomEl, filtered.length, pages);
+      // The count on Errors is a fact about the loaded rows, so it is repainted
+      // whenever they change: a save that clears the last fault takes the
+      // number down without a re-check.
+      syncErrorsBtn();
+      // Every render rebuilds the cards closed, so the button has to be
+      // repainted with them or it goes on offering to collapse a shut list.
+      syncToggleAll();
+    }
+
+    // ── Expand / collapse everything on the page ──────────────────────────────
+    // IT ACTS ON THE PAGE, NOT THE TABLE, and the tooltip says so. `render()`
+    // only builds the fifty rows of the current page, so there is nothing else
+    // on screen to open -- and opening all 603 would mean building 13,000
+    // controls, which is precisely what closing the rows by default avoided.
+    //
+    // EXPANDING FIFTY IS STILL 1,100 CONTROLS. That is the deliberate cost of
+    // pressing it, and it is why this is a button rather than a default.
+    function openRows() {
+      return listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
+    }
+
+    function syncToggleAll() {
+      if (!toggleAllBtn) return;
+      const rows = openRows();
+      const anyClosed = rows.some((r) => !r.classList.contains('is-open'));
+      toggleAllBtn.disabled = rows.length === 0;
+      // THE FACE READS THE STATE IT PRODUCES, so pressing it is never a
+      // surprise. With nothing open it says Expand all; with everything open it
+      // says Collapse all; with a mixture it says Expand all, because that is
+      // what it will do -- one press to a known state rather than a toggle
+      // whose outcome depends on what you happened to leave open.
+      toggleAllBtn.textContent = anyClosed ? 'Expand all' : 'Collapse all';
+      toggleAllBtn.title = rows.length === 0
+        ? 'Nothing on this page to open.'
+        : (anyClosed ? 'Open all ' : 'Close all ') + rows.length + ' rows on this page.';
+    }
+
+    function toggleAll() {
+      const rows = openRows();
+      if (!rows.length) return;
+      const open = rows.some((r) => !r.classList.contains('is-open'));
+      rows.forEach((r) => { if (typeof r.__setOpen === 'function') r.__setOpen(open); });
+      syncToggleAll();
+    }
+
+    // WHERE A ROW IS. Restored after being deleted with the errors dialog, whose
+    // Go button was its other caller -- `submitManual` still needs it, and the
+    // deletion left an uncaught ReferenceError on the one path that adds an
+    // event. Found by the tests, not by reading the diff.
+    function focusEventRow(id) {
+      const wanted = clean(id);
+      if (!wanted) return;
+      // The filters are cleared first: a row added while a review view or a
+      // search was on has to be reachable whatever the list was narrowed to,
+      // and it may well be on another page of it.
+      state.q = wanted.toLowerCase();
+      state.reviewOnly = false;
+      state.page = 1;
+      if (searchInput) searchInput.value = wanted;
+      render();
+      const rows = listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
+      const el = rows.find((node) => clean(node.dataset.rowId) === wanted);
+      if (!el) { setStatus('No row on screen for ' + wanted + '.', 'error'); return; }
+      // scrollIntoView is not universal -- jsdom has none -- and a missing
+      // scroll is no reason for anything to throw.
+      if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('is-found');
+      setTimeout(() => el.classList.remove('is-found'), 2400);
     }
 
     function emptyNode(text) {
@@ -2599,7 +2569,11 @@
        heard of is usually just a city nobody has added yet. One colour for both
        would make the red mean nothing, which is how a report stops being read. */
     const KIND_VALUES = ['sports', 'concert', 'convention', 'festival', 'expo', 'other'];
-    const STATUS_VALUES = ['scheduled', 'final', 'postponed', 'cancelled'];
+    // `review` IS A STATUS, AND IT HAS TO BE IN THIS LIST. The bad-status rule
+    // reports any value not here, so without it every row put into review would
+    // immediately be an error BECAUSE it was in review -- a loop that never
+    // settles and whose cause is invisible from the report.
+    const STATUS_VALUES = ['scheduled', 'review', 'final', 'postponed', 'cancelled'];
 
     // todayIso() is already defined above, for the Upcoming / Past filter, and
     // the past-but-scheduled rule reuses it. Two of them would be two ideas of
@@ -2810,7 +2784,7 @@
         // UPDATE NEEDED means the world has not told us something yet. Putting
         // it there would put a red chip on every festival in the table forever.
         key: 'multi-day',
-        level: 'check',
+        level: 'check', noReview: true,
         test: (r) => {
           const total = dayCount(r);
           return total > 1
@@ -2881,351 +2855,222 @@
       }
     ];
 
-    // UPDATE NEEDED: the subset of the rules that mean "data we expect to
-    // arrive later has not arrived", as against "this row is wrong". A missing
-    // kickoff time, a postponement, a bracket whose clubs are not seeded yet:
-    // nobody made a mistake, the world has simply not told us yet.
+    // ── WHAT PUTS A ROW INTO REVIEW ───────────────────────────────────────────
+    // AN ERROR OF ANY KIND FORCES `status = 'review'`. Not a marker beside the
+    // status, and not a column of its own: the status IS the answer to "is
+    // something wrong with this row", so a human can put one into review by
+    // hand from the same dropdown the check writes to, and there is one place
+    // to look rather than two that can disagree.
     //
-    // IT IS THE SAME RULE SET THE CHECK REPORT READS, and that is the point. A
-    // separate list of what makes a row incomplete would be a second idea of
-    // it, and the two would drift the first time either was edited -- the chip
-    // saying a row is fine while the report says it is not. One `update: true`
-    // on the rule puts it in both.
-    function updateReasons(row) {
-      return CHECK_RULES
-        .filter((rule) => rule.update)
+    // WHAT IT COSTS, and it is real: `review` overwrites whatever the row said
+    // before -- usually `scheduled` -- and nothing records what that was. Fixing
+    // the fault does not restore it; somebody sets the status back. That is the
+    // price of one column holding both a real-world state and a workflow one,
+    // and it is the thing to revisit first if this ever needs undoing.
+    //
+    // EVERY RULE FORCES IT EXCEPT THOSE MARKED `noReview`. Today that is
+    // `multi-day` alone, which is a suggestion -- split this festival if you
+    // like -- rather than a fault, and would otherwise put every multi-day event
+    // in the table into review forever.
+    function reviewReasons(row) {
+      const reasons = CHECK_RULES
+        .filter((rule) => !rule.noReview)
         .map((rule) => {
           try { return rule.test(row) || ''; }
           catch (err) { console.error('check rule ' + rule.key + ' threw', err); return ''; }
         })
         .filter(Boolean);
+      const twin = duplicateIds.get(clean(row.id));
+      if (twin) {
+        reasons.push('Same league, date and clubs as ' + twin +
+          '. One of the two is probably a re-import.');
+      }
+      return reasons;
+    }
+
+    // A row is in review if the CHECK says so or if a human said so. The second
+    // half is the point of the change: `status === 'review'` with no findings is
+    // somebody flagging a row for a reason no rule knows about.
+    function isInReview(row) {
+      return clean(row.status) === 'review' || reviewReasons(row).length > 0;
     }
 
     // CROSS-ROW, so it cannot live in CHECK_RULES: two rows describing one
     // fixture is a duplicate the primary key cannot catch, because the ids
     // differ. A doubleheader suffix or a re-import under a new id shape both
     // land here.
-    function duplicateFindings(rows) {
+    // ── DUPLICATES ARE CROSS-ROW, so they cannot be a CHECK_RULES entry ──────
+    // Two rows describing one fixture is a duplicate the primary key cannot
+    // catch, because the ids differ: a doubleheader suffix, a re-import under a
+    // new id shape. A rule sees one row at a time, so the set is computed once
+    // over the whole table and consulted per row.
+    //
+    // IT IS RECOMPUTED IN render(), not cached forever: a save or a delete
+    // changes the answer, and a stale set would keep a row red after its twin
+    // was removed.
+    let duplicateIds = new Map();
+
+    function rebuildDuplicates() {
       const seen = new Map();
-      const out = [];
-      rows.forEach((r) => {
-        if (!clean(r.event_date)) return;   // undated, already reported
+      const found = new Map();
+      state.rows.forEach((r) => {
+        if (!clean(r.event_date)) return;   // undated is its own finding
         const parts = [
           clean(r.league),
           clean(r.event_date),
           clean(r.away_label) || clean(r.away_mascot),
           clean(r.home_label) || clean(r.home_mascot)
         ];
-        // Nothing identifying beyond the date: two concerts on one day are not
+        // Nothing identifying beyond the date: two concerts on one night are not
         // a duplicate, so say nothing rather than guess.
         if (!parts[2] && !parts[3] && !clean(r.title)) return;
         const key = parts.concat(clean(r.title)).map((v) => v.toLowerCase()).join('|');
         const first = seen.get(key);
-        if (first) {
-          out.push({
-            level: 'check',
-            key: 'duplicate',
-            row: r,
-            detail: 'Same league, date and clubs as ' + (clean(first.id) || '(no id)') + '. One of the two is probably a re-import.'
-          });
-        } else {
-          seen.set(key, r);
-        }
+        if (first) found.set(clean(r.id), clean(first.id));
+        else seen.set(key, r);
       });
-      return out;
+      duplicateIds = found;
     }
 
-    // UNSAVED EDITS ARE READ OFF THE SCREEN, NOT OFF state.rows, because the
-    // screen is the only place they exist: a dirty card is DOM state and
-    // render() rebuilds from the stored rows, so paging or changing a filter
-    // throws the edit away. Naming them here is the one warning you get before
-    // that happens, which is why they lead the report rather than trailing it.
-    function unsavedFindings() {
-      if (!listEl) return [];
-      return Array.from(listEl.querySelectorAll('.event-row.is-dirty')).map((el) => {
-        const nameEl = el.querySelector('.event-name');
-        return {
-          level: 'change',
-          key: 'unsaved-edit',
-          row: { id: clean(el.dataset.rowId), title: nameEl ? nameEl.value : '' },
-          detail: 'Edited on screen and not saved. Paging or changing a filter redraws the list and discards it.'
-        };
-      });
-    }
+    // runChecks(), unsavedFindings() and the three-tier grouping went with the
+    // dialog. Nothing tiers findings any more: a row is in review or it is not,
+    // and an unsaved edit is said by the accent border rather than by a report.
 
-    function runChecks() {
-      const rows = state.rows.slice();
-      const findings = [];
-      rows.forEach((row) => {
-        CHECK_RULES.forEach((rule) => {
-          let detail = '';
-          // ONE BAD RULE MUST NOT TAKE THE WHOLE REPORT DOWN. A rule that throws
-          // is a bug in the rule, not a reason to tell somebody their table is
-          // fine, so it is logged and the rest of the audit carries on.
-          try {
-            detail = rule.test(row) || '';
-          } catch (err) {
-            console.error('check rule ' + rule.key + ' threw', err);
-          }
-          if (detail) findings.push({ level: rule.level, key: rule.key, row: row, detail: detail });
-        });
-      });
-      duplicateFindings(rows).forEach((f) => findings.push(f));
-      return { checked: rows.length, findings: unsavedFindings().concat(findings) };
-    }
+    // FINDING_GOTO AND CHECK_GROUPS WENT WITH THE DIALOG. The first sent an
+    // `unknown-city` finding to the Cities page with the town already in the
+    // add form; the second grouped findings into Errors / Worth a look /
+    // Unsaved. Neither has a reader now that a finding is a line on its own row
+    // rather than an entry in a list. See the note above the sweep for what
+    // that costs.
 
-    // WHERE A FINDING IS ACTUALLY FIXED. Most are fixed on the row, so Go lands
-    // you there. Some are not: an unknown venue city is very often a real town
-    // nobody has added to the shared catalogue yet, and **the fix for that is on
-    // the Cities page, not on this row** -- typing the name again here would
-    // only re-enter the same unrecognised string.
+    // ── ERRORS: run the checks, then pull the review rows up ─────────────────
+    // THE CHECK IS A WRITER NOW, and that reverses what this report used to be.
+    // It reported and never edited, on the argument that a finding is a
+    // statement and a human decides. What it does instead is make the finding
+    // STICK: a row with a fault goes to `status = 'review'` and stays there
+    // until somebody deals with it, so the queue survives a reload, is visible
+    // to anything else reading the table, and can be added to by hand.
     //
-    // Keyed by rule, so a finding that has somewhere better to send you says so
-    // in one entry rather than the renderer growing a special case.
-    const FINDING_GOTO = {
-      // `?add=` CARRIES THE CITY, so the Cities page opens its add dialog
-      // already filled in. Landing somebody on a 1,451-row catalogue and
-      // leaving them to retype a string they were just looking at is the errand
-      // this is meant to remove, not relocate. The Cities page parses the
-      // string into a city and a state and derives the state code from there.
-      'unknown-city': (row) => ({
-        label: 'Add city',
-        href: '/mc/data/cities.html?add=' + encodeURIComponent(clean(row.city)),
-        title: 'Open the shared city catalogue in a new tab, with "' + clean(row.city) +
-               '" already filled into the add form. Come back here afterwards; the event row itself is fine.'
-      })
-    };
-
-    const CHECK_GROUPS = [
-      { level: 'change', label: 'Unsaved on screen' },
-      { level: 'error', label: 'Errors' },
-      { level: 'check', label: 'Worth a look' }
-    ];
-
-    // WHERE A FINDING LANDS YOU. A report that names a broken row and gives you
-    // no way to reach it is a report you then search by hand, which on a table
-    // this size is the whole cost of having run the check.
-    function focusEventRow(id) {
-      const wanted = clean(id);
-      if (!wanted) {
-        setStatus('That finding has no id to search for.', 'error');
-        return;
-      }
-      // Every filter is cleared first: the row has to be reachable whatever the
-      // list was narrowed to when the check ran, and it may well be on another
-      // page of a filtered set.
-      state.q = wanted.toLowerCase();
-      state.page = 1;
-      if (searchInput) searchInput.value = wanted;
-      render();
-      const rows = listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
-      const el = rows.find((node) => clean(node.dataset.rowId) === wanted);
-      if (!el) {
-        setStatus('No row on screen for ' + wanted + '.', 'error');
-        return;
-      }
-      // OPENED, not just ringed. Rows are closed by default now, so landing on
-      // one and leaving it shut would show the heading and hide the field the
-      // finding is about, which is the thing you pressed Go to reach.
-      if (typeof el.__setOpen === 'function') el.__setOpen(true);
-      if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      el.classList.add('is-found');
-      setTimeout(() => el.classList.remove('is-found'), 2400);
-    }
-
-    function renderCheckReport() {
-      if (!checkReport || !checkSummary) return;
-      const result = runChecks();
-      checkReport.innerHTML = '';
-      checkSummary.innerHTML = '';
-
-      const tally = document.createElement('span');
-      tally.className = 'check-tally ' + (result.findings.length ? 'check-tally--bad' : 'check-tally--ok');
-      tally.textContent = result.findings.length
-        ? result.findings.length + (result.findings.length === 1 ? ' finding' : ' findings')
-        : 'nothing to report';
-      checkSummary.appendChild(tally);
-
-      const scope = document.createElement('span');
-      scope.textContent = result.checked + ' rows checked, every row in the table rather than this page of it';
-      checkSummary.appendChild(scope);
-
-      if (!result.findings.length) {
-        const ok = document.createElement('div');
-        ok.className = 'empty';
-        ok.textContent = 'Every row has a date, a name the editor can render, and a kind and status it can show.';
-        checkReport.appendChild(ok);
-        return;
-      }
-
-      CHECK_GROUPS.forEach((group) => {
-        const mine = result.findings.filter((f) => f.level === group.level);
-        if (!mine.length) return;
-
-        const wrap = document.createElement('div');
-        wrap.className = 'check-group check-group--' + group.level;
-
-        const head = document.createElement('div');
-        head.className = 'check-group-head';
-        head.appendChild(document.createTextNode(group.label));
-        const count = document.createElement('span');
-        count.className = 'check-group-count';
-        count.textContent = mine.length;
-        head.appendChild(count);
-        wrap.appendChild(head);
-
-        mine.forEach((f) => {
-          const item = document.createElement('div');
-          item.className = 'check-item';
-
-          const what = document.createElement('div');
-          what.className = 'check-item-what';
-
-          const name = document.createElement('div');
-          name.className = 'check-item-row';
-          name.textContent = displayTitle(f.row) || '(untitled)';
-          what.appendChild(name);
-
-          const idLine = document.createElement('div');
-          idLine.className = 'check-item-id';
-          idLine.textContent = clean(f.row.id) || '(no id yet)';
-          what.appendChild(idLine);
-
-          const detail = document.createElement('div');
-          detail.className = 'check-item-detail';
-          detail.textContent = f.detail;
-          what.appendChild(detail);
-
-          item.appendChild(what);
-
-          const dest = FINDING_GOTO[f.key] && FINDING_GOTO[f.key](f.row);
-          if (dest) {
-            // AN ANCHOR IN A NEW TAB, not a navigation. You are being sent on an
-            // errand to another room and coming straight back, and the report
-            // you are reading would be gone if this replaced the page -- along
-            // with every other finding you had not dealt with yet.
-            const go = document.createElement('a');
-            go.className = 'btn small';
-            go.href = dest.href;
-            go.target = '_blank';
-            go.rel = 'noopener';
-            go.textContent = dest.label;
-            go.title = dest.title;
-            item.appendChild(go);
-          } else {
-            const go = document.createElement('button');
-            go.className = 'btn small';
-            go.type = 'button';
-            go.textContent = 'Go';
-            go.title = 'Close this report, search for that row and ring it.';
-            go.addEventListener('click', () => {
-              closeCheckDialog();
-              focusEventRow(clean(f.row.id));
-            });
-            item.appendChild(go);
-          }
-
-          wrap.appendChild(item);
-        });
-
-        checkReport.appendChild(wrap);
-      });
-    }
-
-    function checkReportText() {
-      const result = runChecks();
-      const lines = ['ANCHOR EVENTS - table check', result.checked + ' rows checked', ''];
-      if (!result.findings.length) {
-        lines.push('Nothing to report.');
-        return lines.join('\n');
-      }
-      CHECK_GROUPS.forEach((group) => {
-        const mine = result.findings.filter((f) => f.level === group.level);
-        if (!mine.length) return;
-        lines.push(group.label.toUpperCase() + ' (' + mine.length + ')');
-        mine.forEach((f) => {
-          lines.push('  - ' + (clean(f.row.id) || '(no id yet)') + ' | ' + (displayTitle(f.row) || '(untitled)'));
-          lines.push('      ' + f.detail);
-        });
-        lines.push('');
-      });
-      return lines.join('\n').replace(/\s+$/, '');
-    }
-
-    function openCheckDialog() {
-      if (!checkLightbox) return;
-      renderCheckReport();
-      checkLightbox.hidden = false;
-      checkLightbox.classList.add('is-open');
-      if (checkCopyStatus) checkCopyStatus.textContent = '';
-      if (closeCheckBtn) closeCheckBtn.focus();
-    }
-
-    function closeCheckDialog() {
-      if (!checkLightbox) return;
-      checkLightbox.classList.remove('is-open');
-      checkLightbox.hidden = true;
-      if (openCheckBtn) openCheckBtn.focus();
-    }
-
-    // RE-READS BOTH SOURCES, because the report checks a row against two things
-    // and either can change while you are acting on it: the events table, and
-    // the shared city catalogue that `unknown-city` is measured against.
-    //
-    // THE CITY CATALOGUE IS THE ONE THAT MATTERS MOST HERE. The `Add city`
-    // button sends you to another tab to add exactly the city this report is
-    // complaining about; TgbCities caches on first load, so without
-    // `{ force: true }` you would come back, press Refresh, and be told the
-    // city still does not exist -- which would make the whole errand look
-    // broken while both halves were working.
-    async function refreshCheckReport() {
-      if (!refreshCheckBtn) return;
-      refreshCheckBtn.disabled = true;
-      const orig = refreshCheckBtn.textContent;
-      refreshCheckBtn.textContent = 'Reading…';
-      if (checkCopyStatus) checkCopyStatus.textContent = '';
+    // IT ONLY EVER WRITES `review`, and only onto rows that are not already in
+    // it. It never writes a row back OUT of review: clearing one is a human's
+    // decision, because the check cannot know whether the underlying thing was
+    // actually dealt with or merely made to stop matching.
+    async function runErrorSweep() {
+      if (!errorsBtn) return;
+      errorsBtn.disabled = true;
+      const orig = errorsBtn.textContent;
+      errorsBtn.textContent = 'Checking…';
       try {
-        // The city catalogue is best-effort: it is not this page's table, and a
-        // catalogue that will not reload is no reason to refuse to re-check the
-        // events. isKnownCity already treats an unloaded list as "say nothing".
+        // A row can only be judged against the catalogue it is judged against,
+        // and the city half of that lives in another table somebody may have
+        // just added to. Best-effort: a catalogue that will not reload is no
+        // reason to refuse to check the events.
         if (window.TgbCities && typeof TgbCities.load === 'function') {
           await TgbCities.load({ force: true }).catch((err) => console.error(err));
         }
-        await loadEvents();
-      } catch (err) {
-        console.error(err);
-        if (checkCopyStatus) {
-          checkCopyStatus.textContent = 'Could not re-read: ' + (err && err.message ? err.message : 'unknown error');
-          checkCopyStatus.style.color = 'var(--danger)';
+
+        const needs = state.rows.filter((r) =>
+          clean(r.status) !== 'review' && reviewReasons(r).length > 0);
+
+        if (needs.length) {
+          // ONE PATCH PER ROW rather than one bulk call. PostgREST can update
+          // many rows in a request only by a FILTER, and the filter that would
+          // select exactly these is the list of ids -- which is the same number
+          // of round trips' worth of URL and loses which row failed. Per row,
+          // a refusal names the row.
+          let wrote = 0;
+          const failed = [];
+          for (const row of needs) {
+            try {
+              const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
+                method: 'PATCH',
+                headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+                body: JSON.stringify({ status: 'review' })
+              });
+              const saved = res.ok ? await res.json() : null;
+              // PostgREST answers 200 with an empty array when RLS refuses, so
+              // without reading the row back a refused sweep reports success
+              // and the queue is empty on the next load.
+              if (Array.isArray(saved) && saved.length) {
+                Object.assign(row, saved[0]);
+                wrote += 1;
+              } else {
+                failed.push(clean(row.id));
+              }
+            } catch (err) {
+              console.error(err);
+              failed.push(clean(row.id));
+            }
+          }
+          if (failed.length) {
+            setStatus('Put ' + wrote + ' into review. ' + failed.length +
+              ' could not be written: ' + failed.slice(0, 3).join(', ') +
+              (failed.length > 3 ? '…' : '') + ' Check you are signed in as an admin.', 'error');
+          } else {
+            setStatus('Put ' + wrote + (wrote === 1 ? ' event' : ' events') + ' into review.', 'success');
+          }
+        }
+
+        // Now pull them up. Counted from the rows rather than from `needs`,
+        // because a row somebody flagged BY HAND is in review with no findings
+        // and belongs in this view just as much.
+        state.reviewOnly = true;
+        state.page = 1;
+        render();
+        if (!needs.length) {
+          const inReview = state.rows.filter(isInReview).length;
+          setStatus(inReview
+            ? 'Nothing new. ' + inReview + ' in review.'
+            : 'Checked ' + state.rows.length + ' events. Nothing to review.', 'success');
         }
       } finally {
-        refreshCheckBtn.disabled = false;
-        refreshCheckBtn.textContent = orig;
-      }
-      // Repainted whatever happened above: a failed re-read leaves the previous
-      // rows in place, and re-checking them is still the honest answer.
-      renderCheckReport();
-    }
-
-    async function copyCheckReport() {
-      const text = checkReportText();
-      try {
-        await navigator.clipboard.writeText(text);
-        if (checkCopyStatus) {
-          checkCopyStatus.textContent = 'Copied.';
-          checkCopyStatus.style.color = 'var(--success)';
-        }
-      } catch (err) {
-        console.error(err);
-        if (checkCopyStatus) {
-          checkCopyStatus.textContent = 'Could not copy automatically. Select the report and copy it by hand.';
-          checkCopyStatus.style.color = 'var(--danger)';
-        }
+        errorsBtn.disabled = false;
+        errorsBtn.textContent = orig;
+        syncErrorsBtn();
       }
     }
 
-    // The schedule importer no longer has a lightbox of its own: it is a pane of
-    // the PROMPT dialog. Its own open/close buttons went with it.
+    // THE BUTTON IS ALSO THE WAY OUT. Once the view is on, it reads Show all:
+    // a filter you can enter and not leave is a trap, and the search box does
+    // not clear this one because this is not a search.
+    function syncErrorsBtn() {
+      if (!errorsBtn) return;
+      if (state.reviewOnly) {
+        errorsBtn.textContent = 'Show all';
+        errorsBtn.title = 'Leave the review list and show every event again.';
+        return;
+      }
+      const n = state.rows.filter(isInReview).length;
+      errorsBtn.textContent = n ? 'Errors (' + n + ')' : 'Errors';
+      errorsBtn.title = 'Check every row, put anything wrong into review, and list what is in review.';
+    }
+
+    function toggleErrors() {
+      if (state.reviewOnly) {
+        state.reviewOnly = false;
+        state.page = 1;
+        render();
+        syncErrorsBtn();
+        return;
+      }
+      runErrorSweep();
+    }
+
+    // THE ERRORS DIALOG IS GONE, and with it renderCheckReport, checkReportText,
+    // openCheckDialog, closeCheckDialog, refreshCheckReport and copyCheckReport.
+    // THE FINDINGS ARE DRAWN ON THE ROW THEY ARE ABOUT NOW, which is where the
+    // Tape Room ended up with its own issues view for the same reason: a finding
+    // in a separate list has to repeat the row's name just to say what it is
+    // talking about, and then offer a way back to it. On the row it inherits
+    // both for free, and it is visible without opening anything.
+    //
+    // WHAT WAS LOST, stated plainly. **Copy report** has no home now that there
+    // is no report to copy. **The `Add city` button** that carried an unknown
+    // town to the Cities page prefilled is the one worth rebuilding if it is
+    // missed: the annotation names the town, and naming it is not the same as
+    // getting you there. `?add=` on the Cities page still works and is still
+    // tested, so it is one link away from coming back.
+
     const schedLeague = document.getElementById('schedLeague');
     const schedFrom = document.getElementById('schedFrom');
     const schedTo = document.getElementById('schedTo');
@@ -4104,6 +3949,7 @@
         openManualDialog();
       });
     }
+    if (toggleAllBtn) toggleAllBtn.addEventListener('click', toggleAll);
     if (closeManualBtn) closeManualBtn.addEventListener('click', closeManualDialog);
     if (manualSaveBtn) manualSaveBtn.addEventListener('click', submitManual);
     if (manualLightbox) {
@@ -4133,20 +3979,13 @@
       schedNoneBtn.addEventListener('click', () => { schedState.checked = new Set(); renderSchedule(); });
     }
 
-    if (openCheckBtn) {
-      openCheckBtn.addEventListener('click', () => {
-        // Nothing is loaded when signed out, so an audit would report a clean
-        // table of nothing -- which is the most misleading answer available.
+    if (errorsBtn) {
+      errorsBtn.addEventListener('click', () => {
+        // Nothing is loaded when signed out, so a sweep would check a clean
+        // table of nothing -- the most misleading answer available -- and would
+        // then have nothing to write to.
         if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
-        openCheckDialog();
-      });
-    }
-    if (closeCheckBtn) closeCheckBtn.addEventListener('click', closeCheckDialog);
-    if (copyCheckBtn) copyCheckBtn.addEventListener('click', copyCheckReport);
-    if (refreshCheckBtn) refreshCheckBtn.addEventListener('click', refreshCheckReport);
-    if (checkLightbox) {
-      checkLightbox.addEventListener('click', (event) => {
-        if (event.target === checkLightbox) closeCheckDialog();
+        toggleErrors();
       });
     }
 
@@ -4181,7 +4020,6 @@
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
       if (manualLightbox && !manualLightbox.hidden) { closeManualDialog(); return; }
-      if (checkLightbox && !checkLightbox.hidden) { closeCheckDialog(); return; }
       if (promptLightbox && !promptLightbox.hidden) closePromptLightbox();
     });
 
