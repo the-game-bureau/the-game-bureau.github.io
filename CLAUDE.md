@@ -1756,6 +1756,23 @@ The card went through both failures in one day, which is worth recording as a pa
     - **A REAL `<fieldset><legend>`, the same object as the command bars up the page**, so the browser cuts the panel's top border for the tab. Drawing that cut over a `<div>` means faking a gap that has to track the word's width. The tab is a **pseudo-element over the top half of the legend** with `isolation: isolate` — the identical construction, and the identical reasons, as `.command-bar > legend`.
     - **IT WAS A PILL FOR ONE PASS.** A pill says "label on a group"; a tab says "this panel is a section of the card", which is what these are and what the rest of the room already uses.
     - **`--band-rgb` IS SET PER BAND AND EVERYTHING ELSE IS AN ALPHA OF IT** — the fill, the border and the tab. Held as R,G,B triples rather than colours so a hue cannot drift between the three.
+    - **WHY IS PLUM, AND IT WAS THE ERROR RED UNTIL 2026-08-24.** Not merely
+      near it: `--band-why-rgb` was `160, 63, 45` and `--danger` is `#a03f2d`,
+      **the same three numbers**. That was a harmless joke while nothing else on
+      the card was red, and it stopped being one the day a row in review started
+      taking `--danger` for its border and its left edge, so the WHY tab read as
+      a fault rather than as a heading. It is `132, 38, 112` now.
+    - **CHOSEN BY MEASUREMENT.** 54 deltaE off the red pen, where it was 0.0;
+      24 off the violet next door, against the 18.6 that blue and violet have
+      always sat at, so it is no tighter than the set already was; 7.23:1 as tab
+      text on its own wash.
+    - **HUE ALONE IS THE WRONG METRIC, and the first cut of the test used it.**
+      **Amber is only 30 degrees off the red pen** and does not read as red at
+      all, because it also differs in lightness and chroma — so a hue-gap bar
+      strict enough to protect WHY failed WHEN for no reason. In Lab, amber is
+      **32 deltaE** away, which is comfortable. `bands-test` recomputes contrast
+      and deltaE **from the stylesheet**, so changing a token fails loudly rather
+      than drifting a shade at a time, and no band can ever be the red pen again.
     - **THE AMBER IS MEASURED, NOT PICKED.** The tab sets its text in the band's own hue on a wash of it, and at 0.62rem that must clear 4.5:1. A natural amber (150,106,24) came out at **3.67:1** — amber is simply light — so When is `122,84,12`, which measures 4.97:1 and still reads amber beside the other four. **All five were checked; the worst is 4.97:1.**
     - **THE FILLS ALONE DO NOT SEPARATE FIVE HUES**, and it is worth knowing rather than pretending. At the alpha a card can carry, the five washes are within a few channel values of each other; **the tab is what actually carries the colour**, and the fill is a hint that the tab is telling the truth.
     - **`box: true` IS GONE.** Only When was boxed, on the argument that it is the one most reached for; with a hue each, singling one out would say it is the only group that is a group. It says it by being the amber one.
