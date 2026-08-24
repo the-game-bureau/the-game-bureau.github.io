@@ -41,6 +41,7 @@ walking tours, so there is no pair to keep in step.
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB ANCHOR EVENTS** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
 | **TGB PATH BOT** | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20` | none, but see [path-bot.prompt.md](path-bot.prompt.md) | `tgb_pull_walking_tours`, `tgb_fill_waypoint_gaps` |
+| **TGB CONCERT BOT** | `trig_01RY2ktLpjXwNUo4mYTncPBe` | `0 17` | **the spec IS [concert-bot.prompt.md](concert-bot.prompt.md)**, read every run | `tgb_pull_concert_tours` |
 
 **All five carry the no-em-dash rule and none contains an em dash** (four swept
 2026-08-15, TGB PATH BOT written clean on 2026-08-18 and kept clean through the

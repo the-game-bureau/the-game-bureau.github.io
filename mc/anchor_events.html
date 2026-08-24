@@ -12,9 +12,11 @@
     * { box-sizing: border-box; }
 
     :root {
+      --mc-shell-width: 1180px;
       --paper-base: #fefef9;
       --bic-blue: #2d4880;
       --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
       --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
       --paper-line-major: rgba(190, 55, 55, 0.24);
       --ink: var(--bic-blue);
@@ -25,6 +27,28 @@
       --danger: #a03f2d;
       --success: #2f6b3d;
       --stack-gap: 14px;
+      /* The Socializer's cut-panel tokens, ported verbatim. The Tape Room and
+         the Gift Shop carry the same three; the Socializer is the reference and
+         this is a copy, so when any one of them changes, change them all. A
+         neutral grey here read as a faint box rather than a defined panel. */
+      /* ONE HUE PER QUESTION. The five Ws are the card's whole structure, so
+         they are told apart by colour rather than by reading five badges --
+         you learn where the dates are once and then aim at the amber band.
+         Held as R,G,B triples, not colours, so the band fill, the badge and
+         the border are three alphas of ONE value and cannot drift apart. */
+      --band-who-rgb: 45, 72, 128;      /* the house blue: who is playing */
+      --band-what-rgb: 92, 64, 132;     /* violet */
+      /* DARKER THAN IT LOOKS IT SHOULD BE, and measured rather than picked.
+         The badge sets its text in the band's own hue on a 0.16 wash of it, and
+         at 0.6rem that has to clear 4.5:1. A natural amber (150,106,24) came
+         out at 3.67:1 -- amber is simply light -- so it is 122,84,12, which
+         measures 4.97:1 and still reads amber against the other four. */
+      --band-when-rgb: 122, 84, 12;     /* amber, the one you reach for most */
+      --band-where-rgb: 40, 106, 74;    /* green */
+      --band-why-rgb: 160, 63, 45;      /* rust, matching --danger's family */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
     }
 
     body {
@@ -42,10 +66,6 @@
     }
     button, input, select, textarea { font: inherit; }
 
-    .legend { margin: 0 0 18px; padding: 0 12px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
-    .legend strong { color: var(--ink); }
-    .legend a { color: var(--accent); }
-
     /* ── Buttons ───────────────────────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; min-height: 38px;
@@ -62,83 +82,601 @@
     .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
     .btn:disabled { opacity: 0.5; cursor: default; }
 
-    /* ── Command bar ───────────────────────────────────────────────────────── */
+    /* THE BLURB SITS ON ONE LINE. admin-shell.css clamps .room-blurb to 62ch,
+       which is right for READING -- that is the measure a paragraph wants -- and
+       wrong for a single standing sentence under a display-sized title, where
+       the second line reads as an orphan. Both halves are needed: nowrap alone
+       against a 62ch box just overflows it, so the clamp has to go too. Same
+       local override the Tape Room and the Socializer carry.
+
+       IT WRAPS ON A PHONE, AND THAT IS NOT OPTIONAL. The sentence is ~140
+       characters; at ~340px of usable width nowrap would either push the page
+       past the viewport or need type nobody can read. A page that scrolls
+       sideways is the one failure worth breaking the line for. */
+    .room-head .room-blurb {
+      max-width: none;
+      white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+      .room-head .room-blurb { white-space: normal; }
+    }
+
+    /* THE SCRIBBLE IS A RED PEN WHATEVER THE NEWS IS. #pageStatus keeps its id
+       so every setStatus() call still lands, but it is the margin note now, not
+       a line under the title -- and its own .error / .success tones would
+       otherwise recolour the pen. Same override the Gift Shop makes on
+       #shopStatus and the Path Builder on its own status element. */
+    .room-scribble.error,
+    .room-scribble.success { color: inherit; }
+
+    /* == Command bars, the Socializer's folder tabs ======================== */
+    /* ADD and SEARCH EXISTING share a line, ADD FIRST. The Socializer puts ADD
+       hard left for the same reason: it is where a row comes FROM, and where
+       things come from belongs at the start of the line. SEARCH EXISTING acts
+       on what is already here, so it follows.
+
+       ADD is only as wide as its three buttons; SEARCH EXISTING takes the rest.
+       .command-bar centres itself and caps at the shell width, which is right
+       for a room with one bar sitting alone, so both are cleared HERE rather
+       than in that rule. Left in place, width:100% makes both panels demand the
+       full row and they overlap.
+
+       THE FLEX IS KEYED OFF THE CLASSES, NOT OFF :first-child, and that is the
+       whole cost of this swap. `.bar-row .command-bar:first-child` meant "the
+       one on the left grows" -- true while the search was on the left and
+       exactly wrong the moment ADD moved there, since it would have stretched
+       ADD's three buttons across the row and squeezed the search into its own
+       width. Named, the rule survives another reorder. */
+    .bar-row {
+      display: flex; gap: 8px; align-items: flex-start;
+      width: 100%; max-width: var(--mc-shell-width); margin: 0 auto var(--stack-gap);
+    }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .command-bar--add { flex: 0 0 auto; }
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    @media (max-width: 760px) {
+      .bar-row { flex-wrap: wrap; }
+      .command-bar--find { flex: 1 1 100%; }
+    }
+
     .command-bar {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding: 0 12px; margin: 0 0 var(--stack-gap);
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      min-inline-size: 0;
+      padding: 2px 9px 8px;
+      margin: 0 auto var(--stack-gap);
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
+    }
+    /* THE FOLDER TAB, ported verbatim from the Socializer. The legend cuts the
+       panel's top border and the line used to just stop either side of it; it
+       now wears a tab, so the border runs into the label and back out again.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is the legend's default position.
+       But the tab's sides must stop AT that line rather than carrying on into
+       the panel, and a bordered box whose bottom edge is the line cannot also
+       have its text centred on the line.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line -- `inset: 0 0 50%`, since the legend's midpoint IS the line.
+       The word's lower half hangs into the panel, invisibly, because the tab
+       fill and the panel are the same colour with no edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 drops
+       it behind the fieldset's own background and it vanishes. */
+    .command-bar > legend,
+    .panel > legend {
+      float: none;
+      width: auto;
+      padding: 2px 8px;
+      margin: 0 0 0 9px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .command-bar > legend::before,
+    .panel > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar-inner {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    }
+    /* 42px to match the Socializer's bars, so a button here and a button there
+       are the same object. The page's own .btn is 38px and still is everywhere
+       outside a command bar -- the row buttons on a card are deliberately
+       smaller than the room's controls. */
+    .command-bar .btn {
+      min-width: 0; padding: 0 11px; min-height: 36px;
+      border-color: var(--control-line);
+      box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
+      font-size: 0.78rem; letter-spacing: 0.02em; white-space: nowrap;
     }
     .command-bar input[type="search"],
     .command-bar-select {
-      min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
-      background: #fff; color: var(--ink); min-width: 0;
+      min-height: 36px; padding: 0 9px; border: 1px solid var(--control-line);
+      border-radius: 8px; background: #fff; color: var(--ink); min-width: 0;
+      box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
     }
-    .command-bar input[type="search"] { flex: 1 1 220px; max-width: 340px; }
-    .command-bar-divider { width: 1px; height: 26px; background: var(--line); }
-    .command-bar-label {
-      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 800;
-      letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    .command-bar input[type="search"] { flex: 1 1 200px; max-width: 320px; }
+
+    .command-bar--check { flex: 0 0 auto; }
+
+    /* ── The check report ───────────────────────────────────────────────── */
+    /* Rides the .prompt-lightbox lockup, like the schedule importer, so all
+       three dialogs on this page are the same object and only the body differs.
+       Restyling one restyles them all, which is the point. */
+    .check-summary {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; color: var(--muted);
+    }
+    .check-tally { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+    .check-tally--bad { color: var(--danger); }
+    .check-tally--ok { color: var(--success); }
+    /* The head is space-between, so the three controls have to be one group or
+       the title would be pushed in among them. */
+    .check-head-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    /* No button is `primary` here. Copy report was, back when it was the one
+       thing in a foot; among three controls a filled button reads as the one
+       you are meant to press, and none of these three is. */
+    #checkCopyStatus:empty { display: none; }
+    #checkCopyStatus { margin: -4px 0 8px; }
+
+    .check-group { margin: 0 0 12px; }
+    .check-group-head {
+      display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 800;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    }
+    .check-group-count { font-weight: 600; letter-spacing: 0.04em; }
+    /* Two tiers, and the difference is whether we are SURE. An error is broken:
+       a non-sports row with no title has nothing to render. A check is worth a
+       look and may be perfectly fine -- a venue city we have never listed is
+       often just a city nobody has added yet. Colouring them the same would
+       make the red mean nothing. */
+    .check-group--error .check-group-head { color: var(--danger); }
+
+    .check-item {
+      display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; margin: 0 0 6px;
+    }
+    .check-group--error .check-item { border-color: rgba(160, 63, 45, 0.4); }
+    .check-item-what { min-width: 0; }
+    .check-item-row { font-size: 0.86rem; font-weight: 700; overflow-wrap: anywhere; }
+    .check-item-id {
+      margin-top: 2px; font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
+      color: var(--muted); overflow-wrap: anywhere;
+    }
+    .check-item-detail { margin-top: 3px; font-size: 0.78rem; color: var(--muted); }
+    /* The Go control is a <button> for most findings and an <a> for the ones
+       that send you to another room, so it is styled by position rather than by
+       tag -- otherwise the two read as different kinds of control. */
+    .check-item > .btn { text-decoration: none; white-space: nowrap; }
+
+    /* WHERE A FINDING LANDS YOU. A report that names a broken row and gives you
+       no way to reach it is a report you then have to search by hand, which on
+       a table this size is the whole cost of running the check. */
+    .event-row.is-found {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), 0.18);
     }
 
+    /* The list wears the same cut panel as the bars above it, with its own
+       folder tab, so the room reads as one set of tagged folders rather than a
+       tinted toolbar sitting on an unrelated white box. The tint is also what
+       lets the white cards inside read as objects on it; both were near-white
+       before, leaving the cards to separate on a 1px border alone. */
     .panel {
-      margin: 0 12px 24px; padding: 12px; border: 1px solid var(--line);
-      border-radius: 12px; background: var(--paper);
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      min-inline-size: 0;
+      padding: 2px 9px 9px;
+      margin: 0 auto 18px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 8px;
+      background: var(--cut-panel-bg);
+      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
     }
 
     /* ── Event cards ───────────────────────────────────────────────────────── */
-    .event-list { display: grid; gap: 10px; }
+    /* A ROW IS ONE LINE UNTIL YOU OPEN IT. Every card used to be its whole
+       editor, so fifty rows meant fifty copies of a 22-field form and the list
+       was unscrollable -- you could not see three events at once, let alone
+       scan a week. Closed, fifty rows fit on a screen and a half; open, you get
+       the same banded editor as before, on the one row you are actually working
+       on.
+
+       THE FIELDS ARE NOT BUILT UNTIL THE ROW IS OPENED. Building them anyway
+       and merely hiding them would put 1,100 inputs in the document for a page
+       of fifty and cost that on every keystroke in the search box, which is what
+       re-renders the list. */
+    .event-list { display: grid; gap: 4px; }
+
+    /* A WEEK HEADING IS A RULE WITH A LABEL ON IT, not a card. It separates the
+       rows rather than being one of them, so it has no border, no fill and no
+       box: another framed object in a list of framed objects would read as an
+       event you cannot open. Same reasoning as the Tape Room's "a tape is a
+       heading, not a box". */
+    .week-head {
+      display: flex; align-items: baseline; gap: 8px;
+      margin: 8px 2px 2px; padding-bottom: 3px;
+      border-bottom: 1px solid var(--cut-panel-line);
+    }
+    /* No gap above the first one: it is already sitting under the panel's own
+       top padding, and a heading pushed down from that reads as detached. */
+    .week-head:first-child { margin-top: 2px; }
+    .week-head-label {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
+    }
+    .week-head-span { font-size: 0.72rem; color: var(--muted); }
+    /* Pushed to the far right, where the id sits on the rows below, so the
+       column of numbers lines up. */
+    .week-head-count {
+      margin-left: auto;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.64rem; color: var(--muted);
+    }
     .event-row {
-      display: grid; gap: 8px; padding: 10px 12px;
-      border: 1px solid var(--line); border-radius: 10px; background: #fff;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff;
+      min-width: 0;
     }
     .event-row.is-dirty { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.1); }
-    .event-row.is-new { border-style: dashed; }
 
-    .event-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .event-when {
-      font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; font-weight: 700;
-      color: var(--ink); white-space: nowrap;
+    /* ── The closed row ────────────────────────────────────────────────────── */
+    /* A <div>, because it contains the title input and an <input> may not sit
+       inside a <button>. The caret below carries the button semantics. */
+    .event-head {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      width: 100%; padding: 5px 9px; margin: 0;
+      border-radius: 7px; cursor: pointer;
     }
-    .event-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+    .event-head:hover { background: rgba(var(--bic-blue-rgb), 0.05); }
+    .event-row.is-open > .event-head {
+      border-bottom: 1px solid var(--line);
+      border-radius: 8px 8px 0 0;
+    }
+    /* Points down when the row is open. A rotation rather than two glyphs, so
+       there is nothing to keep in step. */
+    .event-caret {
+      flex: 0 0 auto; padding: 2px 4px; margin: -2px 0;
+      border: 0; background: none; color: var(--muted);
+      font: inherit; font-size: 0.68rem; line-height: 1; cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+    .event-caret:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+    .event-row.is-open .event-caret { transform: rotate(90deg); }
+
+    /* IT LEADS THE ROW, AND IT IS THE TITLE BOX. Drawn as text at rest -- no
+       border, no fill, inheriting the row's font -- so a closed list still reads
+       as a list rather than as fifty forms. The border appears on hover and
+       focus, which is where "you can change this" needs saying and nowhere
+       else.
+
+       `flex: 1 1 auto` with `min-width: 0` is what lets it take the middle of
+       the row and still shrink rather than pushing the chips off the end. */
+    .event-name {
+      flex: 1 1 auto; min-width: 0;
+      padding: 2px 5px; margin: -2px 0;
+      border: 1px solid transparent; border-radius: 5px; background: none;
+      font: inherit; font-weight: 700; color: var(--ink);
+      text-overflow: ellipsis;
+    }
+    .event-name:hover { border-color: var(--control-line); background: #fff; }
+    .event-name:focus {
+      border-color: var(--accent); background: #fff;
+      outline: 2px solid var(--accent); outline-offset: -1px;
+    }
+    /* The derived name a sports row falls back to. Lighter and italic so it
+       cannot be mistaken for a title somebody typed. */
+    .event-name::placeholder { color: var(--muted); font-weight: 500; font-style: italic; opacity: 1; }
+    /* THE CITY EARNS ITS PLACE ON THE CLOSED ROW and the venue does not: a game
+       is built around a city, so "where is this" is the question you ask of a
+       list of events. The stadium is a detail you open the row for. */
+    .event-where {
+      font-size: 0.78rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere;
+    }
     .event-kind {
-      font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 800;
-      letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.58rem; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 6px;
       border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
+      white-space: nowrap;
     }
-    .event-id {
-      margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.64rem;
-      color: var(--muted); overflow-wrap: anywhere;
+    /* NOTHING IN THE HEAD CARRIES `margin-left: auto` ANY MORE, and nothing
+       should. The push used to live on the id, then on the date box, then back
+       on the id, and was missed on one of those hops. With `.event-name` at
+       `flex: 1 1 auto` the title takes the slack itself and everything after it
+       is held right for free -- one fewer thing to move the next time an
+       element leaves the head. */
+
+    /* THE ID, at the foot of the opened body. It sits with the actions because
+       it is provenance rather than a field: what the record IS, at the edge of
+       the form, not among the things you change. */
+    /* ONE META LINE at the foot of the body, carrying the id and every pill.
+       They are the same kind of fact -- what this RECORD is, as against what
+       the event is -- so they share a line rather than each getting one. */
+    .event-meta {
+      display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      padding-top: 6px; border-top: 1px solid var(--line);
     }
-    .event-warn { font-size: 0.68rem; font-weight: 700; color: var(--danger); }
+    /* Pushed right, so the id reads from the left and the state from the right
+       whatever the id's length. It is the only auto margin on the line. */
+    .event-pills {
+      margin-left: auto; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    }
+    /* An empty wrap would still take the auto margin and leave a gap that says
+       nothing; with no pills at all the id simply sits on its own. */
+    .event-pills:empty { display: none; }
+    .event-idline-label {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 800;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    }
+    .event-idline-value {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      color: var(--muted); overflow-wrap: anywhere; user-select: all;
+    }
     .event-kind--neutral { border-color: var(--accent); color: var(--accent); }
-    .event-fields label.field--check {
-      align-content: start;
-      grid-template-columns: auto 1fr;
-      align-items: center;
-      column-gap: 6px;
+    /* THE RED PEN, and the only chip on a closed row that asks you to go and do
+       something. Filled rather than outlined, because it has to be findable
+       while scrolling a page of fifty -- an outline reads as one more quiet tag
+       at this size. Replaced a bare `⚠ club missing` warning that flagged one of
+       the seven reasons a row can be incomplete and said nothing about the
+       other six. */
+    .event-kind--update {
+      border-color: var(--danger); background: var(--danger); color: #fff;
+      cursor: help;
     }
-    .event-fields label.field--check input { min-height: 0; width: 16px; height: 16px; accent-color: var(--accent); order: -1; }
+    /* SAYS SO IN A WORD, not only in the border. An unsaved edit is discarded
+       the moment the list redraws, and on a closed row the border is all there
+       would otherwise be to say so. */
+    .event-kind--unsaved { border-color: var(--accent); color: #fff; background: var(--accent); }
+    .event-row:not(.is-dirty) .event-kind--unsaved { display: none; }
+    /* Quiet, not red: an event having happened is a fact about it, not a fault
+       and not a job. Most of this catalogue will be past eventually, so a loud
+       mark on all of it would say nothing. */
+    .event-kind--past {
+      border-style: dashed; color: var(--muted); background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .event-row:not(.is-past) .event-kind--past { display: none; }
+
+    /* ── The opened row ────────────────────────────────────────────────────── */
+    .event-body { padding: 7px 9px 8px; display: grid; gap: 7px; }
+    .event-body[hidden] { display: none; }
+
+    /* EVERY BAND IS A FOLDER-TAB PANEL IN ITS OWN COLOUR, and it is a real
+       <fieldset><legend> so the browser cuts the top border for the tab itself.
+       That is the room's existing idiom -- the command bars up the page are the
+       same object -- so the card and the bars read as one vocabulary instead of
+       two.
+       `--band-rgb` is set per band below and every colour here is an alpha of
+       it, so a hue cannot drift between the fill, the border and the tab. */
+    .event-band {
+      min-width: 0;
+      padding: 2px 9px 8px;
+      margin: 0;
+      border: 1px solid rgba(var(--band-rgb), 0.32);
+      border-radius: 6px;
+      background: rgba(var(--band-rgb), 0.09);
+    }
+    .event-band[data-band="who"]   { --band-rgb: var(--band-who-rgb); }
+    .event-band[data-band="what"]  { --band-rgb: var(--band-what-rgb); }
+    .event-band[data-band="when"]  { --band-rgb: var(--band-when-rgb); }
+    .event-band[data-band="where"] { --band-rgb: var(--band-where-rgb); }
+    .event-band[data-band="why"]   { --band-rgb: var(--band-why-rgb); }
+    /* The id band on the manual form has no question of its own, so it takes
+       the house blue rather than inventing a sixth hue. */
+    .event-band:not([data-band]) { --band-rgb: var(--bic-blue-rgb); }
+    /* [hidden] HAS TO WIN, and this is the fifth time this project has hit the
+       rule. Any author `display` beats the UA sheet's `display: none`, so
+       .event-band and .event-body are left as plain blocks and this is the belt
+       for whenever one grows a display of its own. */
+    .event-band[hidden] { display: none; }
+    /* A BADGE, not a heading with a rule. The bands are the five Ws now, which
+       are one short word each -- a word that short set as a heading and trailed
+       by a rule to the edge of the card reads as a section title for a document,
+       when what it is is a LABEL on a group of boxes. A pill says that.
+       The rule went with it: the badge is enough of an edge, and a rule as well
+       was two ways of marking one boundary. */
+    /* A TAB, NOT A PILL. Same construction as the command bars' legends, and
+       the reasoning is the same: the tab is a PSEUDO-ELEMENT drawn over the top
+       half of the legend box, not a border on the legend itself. The word has to
+       sit centred on the panel's top line -- which is where a legend goes by
+       default -- while the tab's sides stop AT that line, and one box cannot do
+       both: a bordered box whose bottom edge is the line always has its text
+       the better part of half a box above it.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line, `inset: 0 0 50%`, since the legend's midpoint IS the line. The
+       word's lower half hangs into the panel, invisibly, because the tab fill
+       and the panel are the same colour with no edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 drops
+       it behind the fieldset's background and it vanishes. */
+    .event-band-head {
+      float: none;
+      width: auto;
+      padding: 2px 8px;
+      margin: 0 0 0 6px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      color: rgb(var(--band-rgb));
+      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 800;
+      letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .event-band-head::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid rgba(var(--band-rgb), 0.32);
+      border-bottom: 0;
+      /* 4px, not the panel's 6px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome. */
+      border-radius: 4px 4px 0 0;
+      background: rgba(var(--band-rgb), 0.09);
+    }
 
     .event-fields {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 6px 8px; min-width: 0;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 5px 7px; min-width: 0;
     }
+    /* 0.64rem. Smaller than the 0.68 these briefly were, because a label inside
+       an opened row sits directly above the thing it names and is read once;
+       still well clear of the 0.6rem they started at, which was under 10px at a
+       default root. */
     .event-fields label {
-      display: grid; gap: 3px; font-size: 0.6rem; font-weight: 700;
-      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); min-width: 0;
+      display: grid; gap: 3px; font-size: 0.64rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0;
     }
     .event-fields input,
     .event-fields select,
     .event-fields textarea {
-      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
-      background: #fff; color: var(--ink); font-weight: 500; min-width: 0;
+      min-height: 32px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.86rem; font-weight: 500; min-width: 0;
     }
-    .event-fields textarea { min-height: 56px; resize: vertical; }
+    .event-fields input:focus-visible,
+    .event-fields select:focus-visible,
+    .event-fields textarea:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+    }
+    .event-fields textarea { min-height: 48px; resize: vertical; }
+    /* The box keeps the room; the action takes only what its word needs. */
+    .event-fields .field-with-action { display: flex; gap: 6px; min-width: 0; }
+    .event-fields .field-with-action > input { flex: 1 1 auto; min-width: 0; }
+    .event-fields .field-action {
+      flex: 0 0 auto; min-height: 32px; padding: 0 10px; font-size: 0.72rem;
+      text-decoration: none;
+    }
+    /* NOT `disabled`: an anchor cannot be, and the greying has to be visual
+       plus aria. It keeps its place rather than being removed, so the box
+       beside it does not change width the moment you type into it. */
+    .event-fields .field-action.is-off {
+      opacity: 0.45; pointer-events: none; cursor: default;
+    }
     /* A city that isn't in public.cities — kept, but visibly not from the catalog. */
     .event-fields input.is-unknown-city { border-color: rgba(160, 63, 45, 0.55); color: var(--danger); }
+    /* THE CHECKBOX IS LABEL-ABOVE-CONTROL LIKE EVERYTHING ELSE. It was a
+       two-column grid -- box then words, both on one line -- which put the whole
+       field up on the LABEL row of its neighbours, floating above two inputs
+       with nothing under it. Every other field in the band reads label, then
+       control; this one now does too, so the labels line up across the row and
+       so do the controls.
+
+       THE 8.5px IS THE ALIGNMENT, and it is exact rather than rounded. An input
+       is 32px tall, so its middle sits 16px down; the box is 15px, so it needs
+       (32 - 15) / 2 = 8.5 to put its own middle on 16 too. Change the input
+       height or the box size and this changes with them. */
+    .event-fields label.field--check { align-content: start; }
+    .event-fields label.field--check input {
+      order: 0;
+      justify-self: start;
+      width: 15px; height: 15px; min-height: 0;
+      margin-top: 8.5px;
+      accent-color: var(--accent);
+    }
     .field--wide { grid-column: span 2; }
     .field--full { grid-column: 1 / -1; }
 
-    .event-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    /* WHO IS A TWO-ROW TABLE, ONE ROW PER CLUB. The auto-fit grid packed the
+       ten fields in whatever order they fitted, so a club's four facts could
+       break across two lines while the other club's stayed whole -- the away
+       side reading as a row and the home side as a leftover.
+       Four fixed columns instead: from | are | score | tgbid. League and Sport
+       take two each, filling the line above, so the two club rows start clean.
+
+       nth-child(1) AND (2) ARE league AND sport, which is positional and so is
+       pinned by a test. `:has()` would name them directly and is not reached
+       for here because this file supports whatever the admin's browser is. */
+    .event-band[data-band="who"] .event-fields {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .event-band[data-band="who"] .event-fields > label:nth-child(1),
+    .event-band[data-band="who"] .event-fields > label:nth-child(2) {
+      grid-column: span 2;
+    }
+    /* Four columns need roughly 4 x 120px plus gaps. Below that each club takes
+       two lines rather than interleaving with the other one, which is the thing
+       this layout exists to prevent. */
+    @media (max-width: 720px) {
+      .event-band[data-band="who"] .event-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 420px) {
+      .event-band[data-band="who"] .event-fields { grid-template-columns: 1fr; }
+      .event-band[data-band="who"] .event-fields > label:nth-child(1),
+      .event-band[data-band="who"] .event-fields > label:nth-child(2) { grid-column: auto; }
+    }
+
+    /* WHAT PUTS ITS TWO FIELDS SIDE BY SIDE. Kind is a select with six short
+       values and Description is prose, so the auto-fit grid's equal columns
+       were wrong in both directions -- and `span: 'full'` on the description
+       pushed it onto a row of its own, leaving a six-character dropdown alone
+       on the line above it.
+       Fixed proportions rather than auto-fit, because the two are not
+       interchangeable: one is always narrow and one always wants the room.
+       `minmax(0, …)` on both, or a long word in the textarea can push the
+       column past the card. */
+    .event-band[data-band="what"] .event-fields {
+      grid-template-columns: minmax(0, 0.55fr) minmax(0, 2fr);
+      align-items: start;
+    }
+    /* The description is no longer a full-width field HERE. Scoped to the band
+       rather than dropped from FIELD_META, so the manual form -- one column, so
+       full width either way -- and anywhere else this field is drawn keep the
+       behaviour they were written for. */
+    .event-band[data-band="what"] .field--full { grid-column: auto; }
+    /* Shorter beside a 32px select than it is alone: two lines is enough to
+       start typing in, and it still drags taller. */
+    .event-band[data-band="what"] textarea { min-height: 40px; }
+    /* Two columns cannot hold at phone width -- 0.55fr of ~320px is a 110px
+       dropdown next to a 200px box, and the labels above them wrap to three
+       lines each. */
+    @media (max-width: 560px) {
+      .event-band[data-band="what"] .event-fields { grid-template-columns: 1fr; }
+      .event-band[data-band="what"] .field--full { grid-column: 1 / -1; }
+    }
+
+    /* DESTRUCTIVE HARD LEFT, as far from the button you came to press as the row
+       goes. Delete used to sit against Save, which is one misclick from losing a
+       row every game pointing at it depends on. Same arrangement the waypoint
+       editor's foot uses. */
+    .event-actions {
+      display: flex; gap: 6px; align-items: center;
+      padding-top: 6px; border-top: 1px solid var(--line);
+    }
+    /* The meta line already drew the rule that separates the foot from the form,
+       so the actions directly under it must not draw a second one three pixels
+       below the first. */
+    .event-meta + .event-actions { border-top: 0; padding-top: 4px; }
+    .event-actions .event-actions-gap { flex: 1 1 auto; }
+    /* .btn carries an author `display: inline-flex` and [hidden] is only a
+       UA-sheet `display: none`, so the author rule wins and setting .hidden
+       silently does nothing. SIXTH time this project has hit that rule. */
+    .event-actions .btn[hidden] { display: none; }
 
     .empty { padding: 22px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
 
@@ -165,6 +703,66 @@
       margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
     }
     .prompt-dialog-body { padding: 12px; overflow: auto; }
+    /* ONE FIELD PER LINE. .event-fields is an auto-fit grid because a card is
+       wide and shallow; a creation form is the opposite -- you read down it once,
+       in order, and a two-column layout makes "what comes next" a question. */
+    .manual-form { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .manual-form label {
+      display: grid; gap: 3px; font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0;
+    }
+    .manual-form input,
+    .manual-form select,
+    .manual-form textarea {
+      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.9rem; font-weight: 500; min-width: 0;
+    }
+    .manual-form textarea { min-height: 54px; resize: vertical; }
+    .manual-form input:focus-visible,
+    .manual-form select:focus-visible,
+    .manual-form textarea:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+    }
+    .manual-form input.is-unknown-city { border-color: rgba(160, 63, 45, 0.55); color: var(--danger); }
+    /* The checkbox is the one field whose label reads better beside it. */
+    /* THE MANUAL FORM KEEPS THE INLINE TREATMENT, deliberately. It is one
+       column, so a label on its own line above a 15px box would spend two rows
+       of a 22-field form on one tick -- and there are no neighbouring controls
+       for it to line up with, which is the whole reason the card's version
+       changed. */
+    .manual-form label.field--check {
+      grid-template-columns: auto 1fr; align-items: center; column-gap: 7px;
+    }
+    .manual-form label.field--check input { min-height: 0; width: 15px; height: 15px; accent-color: var(--accent); order: -1; }
+    /* A quiet rule between the groups, so a 22-field column still reads as
+       sections without needing headings that would double its height. */
+    .manual-form .manual-gap {
+      height: 1px; margin: 4px 0 2px; background: var(--line); border: 0;
+    }
+    .manual-hint {
+      margin: -1px 0 0; font-size: 0.7rem; font-weight: 500; letter-spacing: 0;
+      text-transform: none; color: var(--muted);
+    }
+    /* THE TWO WAYS IN, as a segmented strip under the title. Not a dropdown: a
+       closed select cannot say that there are two mechanisms or which one you
+       are looking at, and that is the whole thing this strip exists to say. */
+    .prompt-modes {
+      display: flex; gap: 6px; padding: 8px 12px 0;
+    }
+    .prompt-mode {
+      padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+      background: #fff; color: var(--muted); cursor: pointer;
+      font: inherit; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.02em;
+    }
+    .prompt-mode:hover { border-color: var(--accent); color: var(--ink); }
+    .prompt-mode.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    /* The foot swaps with the body: the schedule's foot carries Import selected
+       and the prompt's carries Copy, and leaving both on screen would offer a
+       button acting on a pane you cannot see. */
+    .prompt-foot-pane {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    }
+    .prompt-foot-pane[hidden] { display: none; }
     .prompt-text {
       width: 100%; min-height: 360px; resize: vertical;
       border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
@@ -272,11 +870,7 @@
     .pager-info { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted); }
 
     @media (max-width: 760px) {
-      .legend { padding: 0 2px; }
-      .command-bar { padding: 0 2px; }
-      .panel { margin: 0 2px 24px; }
       .field--wide { grid-column: span 1; }
-      .event-id { margin-left: 0; width: 100%; }
       .event-actions .btn { flex: 1 1 auto; }
     }
   </style>
@@ -287,58 +881,175 @@
     <header class="admin-site-nav" data-admin-site-nav></header>
     <script src="/mc/js/admin-site-nav.js"></script>
 
+    <!-- The shared room header out of mc/js/admin-shell.css, the same one the
+         Socializer, the Tape Room and the Gift Shop wear. The blurb is the
+         standing description of the room and is NOT a status line; the scribble
+         beside it is the error channel. Keeping them separate is the whole
+         point: this page used one element for both, so a failed save wiped the
+         only description of the room and left nothing to restore it. -->
     <div class="room-head">
       <div class="room-titlecol">
         <h1 class="room-title" id="eventTitle">0 ANCHOR EVENTS</h1>
-        <p class="room-substat" id="pageStatus" aria-live="polite"></p>
+        <p class="room-blurb">Each Game Bureau game is based on a real world event. A sports game, a moment from history, a concert or anything that has an audience.</p>
       </div>
+      <!-- A DIRECT CHILD OF .room-head, and it has to be. .room-scribble is
+           absolute against its nearest positioned ancestor; nested inside the
+           title column its `right: 0` would be the right edge of the TITLE
+           rather than of the header, and every notice would land on the name. -->
+      <span class="room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
     </div>
 
-    <p class="legend">
-      Each Game Bureau game is based on a real world event. A sports game, a moment from history,
-      a concert or whatever will draw interest.
-    </p>
+    <div class="bar-row">
+      <!-- ADD SITS HARD LEFT, where a row comes FROM. Three ways in, and the
+           tooltips end the same way so the only thing to read is who does the
+           work: you, a league feed, or any AI. The Socializer's own two labels
+           are ADD and VIEW; there is nowhere to GO from this table, so the
+           other half searches what is already filed instead. -->
+      <fieldset class="command-bar command-bar--add">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="addEventBtn" type="button"
+                  title="Add one event yourself, straight onto this page.">MANUAL</button>
+          <!-- SCHEDULE FOLDED INTO PROMPT. Two buttons answered one question --
+               fill this table with a lot of events at once -- and made you pick
+               a mechanism before opening anything. Which one applies is a fact
+               about what you are looking for, not a preference: a league feed
+               exists for the big four and does not exist for a concert. The
+               dialog now says that and lets you switch. -->
+          <button class="btn" id="openPromptBtn" type="button"
+                  title="Find events in bulk: import a real league schedule, or use any AI and paste back the SQL it returns.">PROMPT</button>
+        </div>
+      </fieldset>
 
-    <div class="command-bar" aria-label="Events">
-      <input type="search" id="searchInput" placeholder="Search title, team, venue, city…" autocomplete="off">
-      <select id="kindFilter" class="command-bar-select" aria-label="Filter by kind">
-        <option value="">All kinds</option>
-      </select>
-      <select id="leagueFilter" class="command-bar-select" aria-label="Filter by league">
-        <option value="">All leagues</option>
-      </select>
-      <select id="whenFilter" class="command-bar-select" aria-label="Filter by date">
-        <option value="">Any date</option>
-        <option value="upcoming">Upcoming</option>
-        <option value="past">Past</option>
-        <option value="undated">No date</option>
-      </select>
-      <span class="command-bar-divider" aria-hidden="true"></span>
-      <span class="command-bar-label">ADD</span>
-      <button class="btn small primary" id="addEventBtn" type="button">manual</button>
-      <button class="btn small" id="openScheduleBtn" type="button" title="Pull a real league schedule from ESPN and import the matchups straight into this table">schedule</button>
-      <button class="btn small" id="openPromptBtn" type="button" title="Copy a prompt into an AI; paste back the Supabase SQL it returns">prompt</button>
+      <!-- SEARCH EXISTING narrows what is already here, so it follows ADD and
+           takes the rest of the line. It reads as the pair to ADD: one puts a
+           row in, the other goes looking through the rows already there. The
+           CLASS stays .command-bar--find -- an identifier, not visible copy,
+           the same bargain the Tape Room made through four renames of its
+           verbs without the column following. -->
+      <fieldset class="command-bar command-bar--find">
+        <legend>Search existing</legend>
+        <!-- ONE BOX. It carried three dropdowns beside it -- kind, league and a
+             date window -- and the box already searches every one of those
+             fields: typing "concert", "NFL" or "Chicago" narrows the list the
+             same way the pickers did, without three controls sitting there on
+             every visit for the sake of it. What is genuinely lost is the DATE
+             window, which is not a text match; the `past` pill and the week
+             headings are what answer that question now. -->
+        <div class="command-bar-inner">
+          <input type="search" id="searchInput" placeholder="Search title, club, league, venue, city, kind…" autocomplete="off">
+        </div>
+      </fieldset>
+
+      <!-- CHECK SITS HARD RIGHT, at the far end of the bar from ADD. The row
+           reads left to right as the order you work in: put events in, find
+           them, order them, and then -- last, and only when you want it -- ask
+           what is wrong with the whole table.
+
+           It is its own tab rather than a button inside SEARCH EXISTING because
+           narrowing a list and auditing it are different jobs, and a control
+           that reads every row does not belong in a bar labelled for finding
+           one. -->
+      <fieldset class="command-bar command-bar--check">
+        <legend>Check</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="openCheckBtn" type="button"
+                  title="Read every row in the table and report what looks wrong, plus anything edited on screen and not yet saved.">ERRORS</button>
+        </div>
+      </fieldset>
     </div>
 
-    <section class="panel">
+    <fieldset class="panel">
+      <legend>Events</legend>
       <div class="pager pager--top" id="pagerTop" hidden></div>
       <div class="event-list" id="eventList"></div>
       <div class="pager pager--bottom" id="pagerBottom" hidden></div>
-    </section>
+    </fieldset>
 
-    <!-- SCHEDULE — the league importer. Replaces two pages that did this the long
-         way round: mc/mlb.html (run a Node script, save mlb.jsonl, upload it here,
-         push to public.games) and mc/get_games.html (ask an AI for matchups and
-         keep them in a .jsonl nobody imported). The schedule is a public JSON
-         feed, so the browser can just read it, and the rows land in the table
-         games are actually anchored to. -->
-    <div class="prompt-lightbox" id="scheduleLightbox" role="dialog" aria-modal="true" aria-labelledby="scheduleDialogTitle" hidden>
+    <!-- CHECK — the whole-table audit. It reports and never edits, the same
+         human-in-the-loop split every routine in this project makes: a finding
+         is a statement, and a person decides what to do about it. -->
+    <div class="prompt-lightbox" id="checkLightbox" role="dialog" aria-modal="true" aria-labelledby="checkDialogTitle" hidden>
       <div class="prompt-dialog">
+        <!-- EVERY CONTROL IS IN THE HEAD AND THERE IS NO FOOT. This report is a
+             long scrolling list, and a foot is where you look when you have
+             finished reading something -- which is exactly the wrong place for
+             Refresh, the button you press repeatedly WHILE reading. Up here all
+             three stay put no matter how far down the findings you are.
+
+             ORDER: Copy report, Refresh, Close. What you do with the report,
+             then what re-makes it, then the way out -- and Close last, hard
+             right, where every dialog on this page keeps it. -->
         <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="scheduleDialogTitle">Import a league schedule</h2>
-          <button class="btn small" id="closeScheduleBtn" type="button">Close</button>
+          <h2 class="prompt-dialog-title" id="checkDialogTitle">Errors</h2>
+          <div class="check-head-actions">
+            <button class="btn small" id="copyCheckBtn" type="button">Copy report</button>
+            <!-- REFRESH RE-READS THE DATABASE, it does not merely re-run the
+                 rules over what is already in memory. The report's whole job is
+                 to send you off to fix things -- to the Cities page, to another
+                 tab, to the SQL editor -- and a re-run that could not see any of
+                 that would leave a finding on screen that is no longer true,
+                 which is worse than not offering the button. -->
+            <button class="btn small" id="refreshCheckBtn" type="button"
+                    title="Read the table and the city catalogue again, then check them.">Refresh</button>
+            <button class="btn small" id="closeCheckBtn" type="button">Close</button>
+          </div>
         </div>
         <div class="prompt-dialog-body">
+          <div class="check-summary" id="checkSummary"></div>
+          <!-- OUTSIDE .check-summary, not inside it. renderCheckReport() clears
+               that element on every render, and Refresh renders -- so a "Copied."
+               nested there would be wiped by the next press. -->
+          <p class="prompt-copy-status" id="checkCopyStatus" aria-live="polite"></p>
+          <div id="checkReport"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL — one event, typed by hand. A POPUP rather than a card unshifted
+         into the list: creating a row and editing one are different jobs, and
+         doing the first inside the list meant a half-built event sitting among
+         603 real ones, disappearing the moment anything re-rendered.
+         A PLAIN FORM, one field per line, in the order somebody describes an
+         event: what it is, when, where, who is playing, how it went, where we
+         got it. -->
+    <div class="prompt-lightbox" id="manualLightbox" role="dialog" aria-modal="true" aria-labelledby="manualDialogTitle" hidden>
+      <div class="prompt-dialog">
+        <div class="prompt-dialog-head">
+          <h2 class="prompt-dialog-title" id="manualDialogTitle">Add an event</h2>
+          <button class="btn small" id="closeManualBtn" type="button">Close</button>
+        </div>
+        <div class="prompt-dialog-body">
+          <form class="manual-form" id="manualForm" autocomplete="off"></form>
+        </div>
+        <div class="prompt-dialog-foot">
+          <div class="prompt-copy-status" id="manualStatus" aria-live="polite"></div>
+          <button class="btn small primary" id="manualSaveBtn" type="button">Add event</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
+      <div class="prompt-dialog">
+        <div class="prompt-dialog-head">
+          <h2 class="prompt-dialog-title" id="promptDialogTitle">Find events</h2>
+          <button class="btn small" id="closePromptBtn" type="button">Close</button>
+        </div>
+        <!-- ONE DOOR, TWO WAYS THROUGH IT. SCHEDULE and PROMPT were two buttons
+             in the ADD bar and they answer the same question -- "fill this table
+             with a lot of events at once" -- by two mechanisms that a person
+             should not have to choose between before opening anything. The
+             difference is which is available for what: a league feed exists for
+             the big four and does not exist for a concert.
+             The mechanisms stay completely separate behind this strip. -->
+        <div class="prompt-modes" role="tablist" aria-label="How to find events">
+          <button class="prompt-mode" id="modeScheduleBtn" type="button" role="tab" aria-selected="false"
+                  title="Read a real league schedule from ESPN and import the matchups straight into this table.">League schedule</button>
+          <button class="prompt-mode" id="modePromptBtn" type="button" role="tab" aria-selected="true"
+                  title="Copy a prompt into any AI and paste back the SQL it returns. For anything a schedule feed does not carry.">AI prompt</button>
+        </div>
+        <div class="prompt-dialog-body">
+          <div id="paneSchedule" hidden>
           <div class="sched-controls">
             <label>League
               <select id="schedLeague">
@@ -370,21 +1081,8 @@
           <div class="sched-list" id="schedList"></div>
           <div class="sched-progress" id="schedProgress" hidden><span id="schedProgressBar"></span></div>
           <p class="sched-status" id="schedStatus" aria-live="polite"></p>
-        </div>
-        <div class="prompt-dialog-foot">
-          <div class="sched-count" id="schedFootNote">Every row is editable after import.</div>
-          <button class="btn small primary" id="schedImportBtn" type="button" disabled>Import selected</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
-      <div class="prompt-dialog">
-        <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="promptDialogTitle">Event Finder Prompt</h2>
-          <button class="btn small" id="closePromptBtn" type="button">Close</button>
-        </div>
-        <div class="prompt-dialog-body">
+          </div>
+          <div id="panePrompt">
           <fieldset class="prompt-options" aria-label="Result count">
             <legend class="prompt-options-label">Events</legend>
             <label class="prompt-option"><input type="radio" name="promptCount" value="10" checked>10</label>
@@ -424,10 +1122,17 @@
             <input type="text" id="promptFocus" placeholder="optional — e.g. arena tours in Denver, fall conventions" autocomplete="off">
           </div>
           <textarea class="prompt-text" id="eventPromptText" spellcheck="false" readonly></textarea>
+          </div>
         </div>
         <div class="prompt-dialog-foot">
-          <div class="prompt-copy-status" id="promptCopyStatus" aria-live="polite"></div>
-          <button class="btn small primary" id="copyPromptBtn" type="button">Copy</button>
+          <div class="prompt-foot-pane" id="footSchedule" hidden>
+          <div class="sched-count" id="schedFootNote">Every row is editable after import.</div>
+          <button class="btn small primary" id="schedImportBtn" type="button" disabled>Import selected</button>
+          </div>
+          <div class="prompt-foot-pane" id="footPrompt">
+            <div class="prompt-copy-status" id="promptCopyStatus" aria-live="polite"></div>
+            <button class="btn small primary" id="copyPromptBtn" type="button">Copy</button>
+          </div>
         </div>
       </div>
     </div>
@@ -447,10 +1152,20 @@
     // The table is called anchor_events, not events. It predates this page —
     // 20260720_anchor_events.sql created it, and games.anchor_event_id is a FK
     // to it — so renaming would mean a migration plus a builder change for no
-    // behavioural gain. This page is the Data Warehouse view of that catalog;
-    // mc/anchor-events.html is the older editor over the same rows.
+    // behavioural gain.
+    //
+    // THIS FILE IS mc/anchor_events.html AS OF 2026-08-23, moved out of
+    // mc/data/events.html so the room is named after the table it edits rather
+    // than after the folder it happened to sit in. A hard break with no
+    // redirect, like every move here: /mc/data/events.html now 404s. The Data
+    // Warehouse card and the admin nav entry were repointed in the same commit.
+    // The older editor at mc/anchor-events.html was deleted on 2026-08-01; this
+    // is the only editor over these rows.
     const TABLE = 'anchor_events';
-    const DEFAULT_SUBSTAT = 'The shared catalog of real events games are anchored to. Read by the game builder.';
+    // The standing sentence lives in the markup as .room-blurb now, so there is
+    // nothing for setStatus to fall back TO: an empty message clears the pen.
+    // Printing the description in red every time a write finished was the old
+    // bug this arrangement exists to prevent.
 
     // Writable columns, in the order the row editor lays them out. `id` is the
     // text primary key and is edited only on a row that has not been saved yet:
@@ -478,9 +1193,20 @@
       title:           { label: 'Title',      type: 'text',   span: 'wide', placeholder: 'Eras Tour · Bears at Panthers' },
       league:          { label: 'League',     type: 'text',   placeholder: 'NFL' },
       sport:           { label: 'Sport',      type: 'text',   placeholder: 'Football' },
-      event_date:      { label: 'Date',       type: 'date' },
+      // START DATE, not Date. It sits next to End date and the pair has to read
+      // as a pair: a bare "Date" beside "End date" invites the reading that one
+      // is the event and the other is something about it, when they are the two
+      // ends of the same thing. The COLUMN stays event_date — visible copy only,
+      // the same bargain the Tape Room made through four renames of its verbs.
+      event_date:      { label: 'Start date', type: 'date' },
       end_date:        { label: 'End date',   type: 'date' },
-      start_time:      { label: 'Start (local)', type: 'time' },
+      // "Start (local)" was unambiguous while the date beside it was called
+      // "Date". With that renamed to Start date the band read "Start date | End
+      // date | Start (local)" — two labels opening on the same word for two
+      // different things. "(local)" stays and is load-bearing: this column holds
+      // the clock a player standing outside the venue reads, not the broadcast
+      // time the league publishes, and the two differ for most of the schedule.
+      start_time:      { label: 'Start time (local)', type: 'time' },
       away_locale:     { label: 'Away from',  type: 'text',   placeholder: 'Chicago' },
       away_mascot:     { label: 'Away are',   type: 'text',   placeholder: 'Bears' },
       home_locale:     { label: 'Home from',  type: 'text',   placeholder: 'Carolina' },
@@ -495,7 +1221,7 @@
       // in Inglewood, the Giants in East Rutherford. Picked from public.cities
       // via TgbCities so the string matches the catalog exactly; see cityPicker
       // below for why it includes the hidden ones.
-      city:            { label: 'City (venue)', type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
+      city:            { label: 'Venue city',  type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
       // Neither club at home — the international series, a Super Bowl, a bowl
       // game. Deliberately not inferred by comparing the home locale to the city:
       // a Bills home game is in Orchard Park and a Giants home game is in East
@@ -504,19 +1230,90 @@
       status:          { label: 'Status',     type: 'select', options: ['scheduled', 'final', 'postponed', 'cancelled'] },
       away_score:      { label: 'Away score', type: 'number' },
       home_score:      { label: 'Home score', type: 'number' },
-      url:             { label: 'URL',        type: 'url',    span: 'wide', placeholder: 'https://…' },
+      // OPEN sits beside this box because a url is the one field on the card you
+      // cannot check by reading it: a tickets page that has moved, a 404 and a
+      // perfectly good address all look identical in a text input.
+      url:             { label: 'URL',        type: 'url',    span: 'wide', action: 'open', placeholder: 'https://…' },
       source:          { label: 'Source',     type: 'text',   span: 'wide' },
       description:     { label: 'Description', type: 'textarea', span: 'full' }
     };
+
+    // THE CARD'S SIX BANDS, in the order somebody reads an event: what it is,
+    // when, where, who is playing, how it ended, where we got it. EDITABLE_FIELDS
+    // above is still the column list -- the write path reads that, not this --
+    // and these two must between them cover it, which assertBandsCoverFields()
+    // below checks out loud rather than leaving a field silently unreachable.
+    //
+    // `sportsOnly` is the point of the whole arrangement. A concert row carried
+    // eight blank club and tgbid boxes, which is most of the card given over to
+    // saying "not applicable" twenty-one times.
+    // THE FIVE Ws. An anchor event is a real thing that happened somewhere, so
+    // the questions a person asks of one are the questions they ask of any
+    // event -- and naming the bands that way means nobody has to learn our
+    // vocabulary to read the form.
+    //
+    // THREE JUDGEMENT CALLS IN THE MAPPING, all of them arguable:
+    //
+    // SCORES ARE UNDER WHO. They are per-club columns -- away_score sits beside
+    // away_mascot -- and "who won" is a question about the clubs, not a sixth
+    // category. A Result band of its own held three fields that only ever apply
+    // to the same rows the club fields do.
+    //
+    // STATUS IS UNDER WHEN. scheduled / postponed / cancelled are statements
+    // about whether and when this happens, which is what the dates answer.
+    //
+    // WHY IS THE EVIDENCE: where the event came from and where to read about
+    // it. That is the honest reading of `source` and `url` -- why we believe
+    // this is a real event worth building a game around. Same job
+    // `waypoints.source_url` does, named for the question rather than the
+    // format.
+    //
+    // NO PER-BAND EXPLANATORY NOTE. Each band carried one, which is five extra
+    // sentences to read on a form whose labels already say what the fields are.
+    const FIELD_GROUPS = [
+      // AWAY'S FOUR, THEN HOME'S FOUR, each side on its own line. The tgbids
+      // used to trail after both clubs, so `home_score` wrapped onto a second
+      // row beside them and a club's four facts were split across two lines
+      // while the other club's sat whole on one. Ordered by SIDE, the band is a
+      // two-row table -- from | are | score | tgbid -- read down the columns.
+      { key: 'who',   label: 'Who',   sportsOnly: true,
+        fields: ['league', 'sport',
+                 'away_locale', 'away_mascot', 'away_score', 'away_team_tgbid',
+                 'home_locale', 'home_mascot', 'home_score', 'home_team_tgbid'] },
+      // NO `title` HERE: it is the card's header box, and a second control for
+      // it would be the same value in two places.
+      { key: 'what',  label: 'What',  fields: ['kind', 'description'] },
+      // NO `box` FLAG ANY MORE. Every band is a panel in its own colour, so
+      // singling one out would say it is the only group that is a group. When
+      // is still the one most often reached for -- a fixture moves, a kickoff
+      // slot lands, a festival turns out to run three days -- and it says so
+      // now by being the amber one rather than the boxed one.
+      { key: 'when',  label: 'When',  fields: ['event_date', 'end_date', 'start_time', 'status'] },
+      { key: 'where', label: 'Where', fields: ['venue_name', 'city', 'neutral_site'] },
+      { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
+    ];
+
+    // A FIELD IN NO BAND IS A FIELD YOU CANNOT EDIT, and nothing would say so:
+    // the card would simply not draw it and the column would quietly stop being
+    // maintained. Cheap to check, so it is checked on load.
+    // Fields with a control of their own OUTSIDE the bands. `title` is the
+    // card's header box. Anything added here still has to exist somewhere, or
+    // the check below stops meaning what it says.
+    const HEADER_FIELDS = ['title'];
+
+    (function assertBandsCoverFields() {
+      const covered = FIELD_GROUPS.reduce((acc, g) => acc.concat(g.fields), []).concat(HEADER_FIELDS);
+      const missing = EDITABLE_FIELDS.filter((f) => covered.indexOf(f) === -1);
+      const stray = covered.filter((f) => EDITABLE_FIELDS.indexOf(f) === -1);
+      if (missing.length) console.error('anchor_events: editable fields with no control, so unreachable on the card:', missing);
+      if (stray.length) console.error('anchor_events: a control names a field that is not editable:', stray);
+    }());
 
     const PAGE_SIZE = 50;
 
     const titleEl = document.getElementById('eventTitle');
     const pageStatus = document.getElementById('pageStatus');
     const searchInput = document.getElementById('searchInput');
-    const kindFilter = document.getElementById('kindFilter');
-    const leagueFilter = document.getElementById('leagueFilter');
-    const whenFilter = document.getElementById('whenFilter');
     const listEl = document.getElementById('eventList');
     const pagerTopEl = document.getElementById('pagerTop');
     const pagerBottomEl = document.getElementById('pagerBottom');
@@ -524,7 +1321,27 @@
     const openPromptBtn = document.getElementById('openPromptBtn');
     const closePromptBtn = document.getElementById('closePromptBtn');
     const copyPromptBtn = document.getElementById('copyPromptBtn');
+    const manualLightbox = document.getElementById('manualLightbox');
+    const manualForm = document.getElementById('manualForm');
+    const manualStatus = document.getElementById('manualStatus');
+    const manualSaveBtn = document.getElementById('manualSaveBtn');
+    const closeManualBtn = document.getElementById('closeManualBtn');
     const promptLightbox = document.getElementById('promptLightbox');
+    const promptDialogTitle = document.getElementById('promptDialogTitle');
+    const paneSchedule = document.getElementById('paneSchedule');
+    const panePrompt = document.getElementById('panePrompt');
+    const footSchedule = document.getElementById('footSchedule');
+    const footPrompt = document.getElementById('footPrompt');
+    const modeScheduleBtn = document.getElementById('modeScheduleBtn');
+    const modePromptBtn = document.getElementById('modePromptBtn');
+    const openCheckBtn = document.getElementById('openCheckBtn');
+    const closeCheckBtn = document.getElementById('closeCheckBtn');
+    const copyCheckBtn = document.getElementById('copyCheckBtn');
+    const refreshCheckBtn = document.getElementById('refreshCheckBtn');
+    const checkLightbox = document.getElementById('checkLightbox');
+    const checkSummary = document.getElementById('checkSummary');
+    const checkReport = document.getElementById('checkReport');
+    const checkCopyStatus = document.getElementById('checkCopyStatus');
     const eventPromptText = document.getElementById('eventPromptText');
     const promptCopyStatus = document.getElementById('promptCopyStatus');
     const promptFocus = document.getElementById('promptFocus');
@@ -533,15 +1350,37 @@
     const promptTo = document.getElementById('promptTo');
     const promptCountRadios = Array.from(document.querySelectorAll('input[name="promptCount"]'));
 
-    const state = { rows: [], authed: false, page: 1, q: '', kind: '', league: '', when: '' };
+    // THE ORDER IS OLDEST FIRST AND THERE IS NO PICKER (2026-08-24). This is a
+    // forward-looking catalogue: a game is played the day before its anchor
+    // event, so the row you want is the next one coming up. The list is also
+    // separated by numbered weeks, which only reads as a calendar in one
+    // direction -- a control offering to run the weeks backwards, or to group by
+    // type instead, was offering to make the page worse.
+    //
+    // `sort` IS GONE FROM state. Nothing chooses any more, so nothing has to be
+    // remembered; compareRows is simply the order.
+    const state = { rows: [], authed: false, page: 1, q: '' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
+    // THE RED-PEN SCRIBBLE, beside the room name. A success clears itself after
+    // six seconds -- a stale "saved" an hour later is a lie about what is
+    // currently true -- and an ERROR STAYS until the next action, because the
+    // thing that went wrong has not gone away just because time passed.
+    let statusTimer = null;
     function setStatus(text, kind) {
       if (!pageStatus) return;
-      pageStatus.textContent = text || DEFAULT_SUBSTAT;
+      if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
+      pageStatus.textContent = text || '';
       pageStatus.classList.toggle('error', kind === 'error');
       pageStatus.classList.toggle('success', kind === 'success');
+      if (text && kind !== 'error') {
+        statusTimer = setTimeout(function () {
+          statusTimer = null;
+          pageStatus.textContent = '';
+          pageStatus.classList.remove('error', 'success');
+        }, 6000);
+      }
     }
 
     function restUrl(table, params) {
@@ -571,6 +1410,30 @@
       return joined || clean(row[side + '_label']);
     }
 
+    // effectiveKind() was deleted with the type sort and its chip, which were
+    // its only two readers. It derived a kind for a row whose `kind` column is
+    // blank but which carries two clubs -- what the old importers left behind.
+    //
+    // The places that still ask "is this a sports row" use the plainer test
+    // `!kind || kind === 'sports'`: syncBands, for whether to draw the Clubs
+    // band, and the two club rules in CHECK_RULES. They treat a blank kind as
+    // sports WITHOUT looking at the clubs, which is the right reading there --
+    // a row with no kind and no clubs is one the Clubs band should be offered
+    // for, not hidden from.
+
+    // HAS IT HAPPENED YET. Reads the LAST day, so a festival is not called past
+    // while it is still running, and compares as ISO strings, which sort
+    // correctly and need no Date object to be built for every row on every
+    // render.
+    //
+    // TODAY IS NOT PAST. The comparison is strictly less than, so an event
+    // happening this afternoon is still ahead of you -- which is exactly when
+    // somebody is most likely to be looking at it.
+    function isPast(row) {
+      const last = clean(row.end_date) || clean(row.event_date);
+      return !!last && last < todayIso();
+    }
+
     function displayTitle(row) {
       const t = clean(row.title);
       if (t) return t;
@@ -580,21 +1443,38 @@
       return clean(row.id) || '(untitled event)';
     }
 
-    function displayWhen(row) {
+    function shortDate(iso) {
+      const parts = clean(iso).split('-');
+      if (parts.length !== 3) return clean(iso);
+      const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // TWO HALVES RATHER THAN ONE STRING, so the date box can set them
+    // differently: the date is the thing you scan a column of, the time is a
+    // detail under it. Joined, the whole line had to be one weight and the date
+    // lost its emphasis to a clock nobody is scanning for.
+    function displayDate(row) {
       const d = clean(row.event_date);
       if (!d) return 'no date';
       const end = clean(row.end_date);
-      const t = clean(row.start_time);
-      const short = (iso) => {
-        const parts = iso.split('-');
-        if (parts.length !== 3) return iso;
-        const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-      };
-      let out = short(d);
-      if (end && end !== d) out += ' – ' + short(end);
-      if (t) out += ' · ' + t.slice(0, 5);
-      return out;
+      // A range only when the two genuinely differ. end_date now defaults to
+      // event_date, so nearly every row has one and printing "Nov 3 - Nov 3"
+      // would be the box shouting a fact about nothing.
+      return (end && end !== d) ? shortDate(d) + ' – ' + shortDate(end) : shortDate(d);
+    }
+
+    function displayTime(row) {
+      // Postgres hands back HH:MM:SS and nobody schedules to the second.
+      return clean(row.start_time).slice(0, 5);
+    }
+
+    // The one-string form, kept because the CHECK report and any other reader
+    // that wants the whole answer in a sentence still uses it.
+    function displayWhen(row) {
+      const d = displayDate(row);
+      const t = displayTime(row);
+      return t ? d + ' · ' + t : d;
     }
 
     // ── Filters ───────────────────────────────────────────────────────────────
@@ -604,16 +1484,17 @@
       return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
     };
 
+    // ONE FILTER: the search box. The kind, league and date pickers beside it
+    // were removed because the box already searches kind, league, club, venue,
+    // city, status and source -- typing "concert" or "NFL" narrowed the list
+    // exactly as the pickers did, and three controls sat on screen every visit
+    // to duplicate it.
+    //
+    // WHAT IS GENUINELY LOST IS THE DATE WINDOW. Upcoming / Past / No date is
+    // not a text match, so it is gone rather than folded in. The `past` pill and
+    // the week headings are what answer that question now, and if a real date
+    // filter is ever wanted back it is a filter, not a search term.
     function matches(row) {
-      if (state.kind && clean(row.kind).toLowerCase() !== state.kind) return false;
-      if (state.league && clean(row.league).toUpperCase() !== state.league) return false;
-      if (state.when) {
-        const d = clean(row.event_date);
-        const end = clean(row.end_date) || d;
-        if (state.when === 'undated' && d) return false;
-        if (state.when === 'upcoming' && (!d || end < todayIso())) return false;
-        if (state.when === 'past' && (!d || end >= todayIso())) return false;
-      }
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_locale, row.away_mascot, row.home_locale, row.home_mascot,
@@ -624,39 +1505,9 @@
       return true;
     }
 
-    function fillSelect(el, current, values, allLabel) {
-      if (!el) return current;
-      el.innerHTML = '';
-      const all = document.createElement('option');
-      all.value = '';
-      all.textContent = allLabel;
-      el.appendChild(all);
-      let kept = '';
-      values.forEach((v) => {
-        const o = document.createElement('option');
-        o.value = v.value;
-        o.textContent = v.label;
-        if (v.value === current) kept = current;
-        el.appendChild(o);
-      });
-      el.value = kept;
-      return kept;
-    }
-
-    function rebuildFilters() {
-      const kinds = new Map();
-      const leagues = new Map();
-      state.rows.forEach((r) => {
-        const k = clean(r.kind).toLowerCase();
-        if (k) kinds.set(k, (kinds.get(k) || 0) + 1);
-        const l = clean(r.league).toUpperCase();
-        if (l) leagues.set(l, (leagues.get(l) || 0) + 1);
-      });
-      const opts = (m) => [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([v, n]) => ({ value: v, label: v + ' (' + n + ')' }));
-      state.kind = fillSelect(kindFilter, state.kind, opts(kinds), 'All kinds');
-      state.league = fillSelect(leagueFilter, state.league, opts(leagues), 'All leagues');
-    }
+    // fillSelect() and rebuildFilters() were deleted with the three pickers they
+    // filled. They walked every row on every load to count kinds and leagues for
+    // dropdown labels; nothing reads those counts now.
 
     // ── Row editor ────────────────────────────────────────────────────────────
     function fieldControl(row, name, onDirty) {
@@ -703,7 +1554,64 @@
       input.dataset.field = name;
       input.addEventListener('input', onDirty);
       input.addEventListener('change', onDirty);
-      label.appendChild(input);
+
+      // AN ACTION SITS BESIDE THE BOX, NOT IN THE CARD'S FOOT. It acts on this
+      // one value; the foot acts on the whole row. Same arrangement the waypoint
+      // editor uses for its Source field, and `action` is generic so any other
+      // field can grow one the same way.
+      if (meta.action === 'open') {
+        const wrap = document.createElement('div');
+        wrap.className = 'field-with-action';
+        wrap.appendChild(input);
+
+        const open = document.createElement('a');
+        open.className = 'btn small field-action';
+        open.target = '_blank';
+        // noreferrer as well as noopener: the destination is somebody else's
+        // site and there is no reason to tell it where the link came from.
+        open.rel = 'noopener noreferrer';
+        open.textContent = 'Open';
+
+        // A BORDERED .btn, NOT A BARE LINK. Borderless reads as a stray word
+        // beside a text box, and this is a control.
+        const syncOpen = () => {
+          const v = clean(input.value);
+          let ok = false;
+          if (v) {
+            try {
+              const u = new URL(v);
+              ok = u.protocol === 'http:' || u.protocol === 'https:';
+            } catch (e) { ok = false; }
+          }
+          // DEAD UNTIL THE BOX HOLDS SOMETHING THAT PARSES, and the two states
+          // are different elements' worth of behaviour rather than a class: an
+          // anchor with no href is not focusable and cannot be followed, which
+          // is exactly what is wanted. A url that will not parse is one nobody
+          // can check, and opening it would put the browser somewhere strange
+          // rather than saying so.
+          if (ok) {
+            open.href = v;
+            open.removeAttribute('aria-disabled');
+            open.classList.remove('is-off');
+            open.title = 'Open ' + v + ' in a new tab.';
+          } else {
+            open.removeAttribute('href');
+            open.setAttribute('aria-disabled', 'true');
+            open.classList.add('is-off');
+            open.title = v
+              ? 'That is not an http or https address, so there is nothing to open.'
+              : 'No link on this event yet.';
+          }
+        };
+        input.addEventListener('input', syncOpen);
+        input.addEventListener('change', syncOpen);
+        syncOpen();
+
+        wrap.appendChild(open);
+        label.appendChild(wrap);
+      } else {
+        label.appendChild(input);
+      }
 
       if (meta.picker === 'city') bindCityInput(input);
       return label;
@@ -799,89 +1707,377 @@
       return payload;
     }
 
+    // A SINGLE-DAY EVENT ENDS THE DAY IT STARTS, so end_date is filled from
+    // event_date when it is left blank rather than stored null.
+    //
+    // WHAT THIS CHANGES: null used to MEAN "one day" -- the column comment in
+    // 2026080101 says so -- and now every row carries a real last day, so the
+    // two readers that had to spell the fallback out (`matches()` and the
+    // CHECK rule) get the right answer without it. They keep their `|| d`
+    // anyway, because the 272 rows filed before this still hold null and a
+    // reader that assumes otherwise would call every one of them undated.
+    //
+    // IT DOES NOT INVENT A RANGE. displayWhen only prints "start - end" when
+    // the two differ, so a filled-in same-day end shows exactly as it did.
+    function withDefaults(payload) {
+      const out = Object.assign({}, payload);
+      if (clean(out.event_date) && !clean(out.end_date)) out.end_date = clean(out.event_date);
+      return out;
+    }
+
     function buildRow(row) {
       const el = document.createElement('article');
-      el.className = 'event-row' + (row.__isNew ? ' is-new' : '');
+      el.className = 'event-row';
+      // The card's own id, so CHECK's Go button can find the row it named
+      // without matching on a title two events may share.
+      el.dataset.rowId = clean(row.id);
 
+      // THE HEAD IS A <div> AGAIN, AND IT HAD TO BE. It was a <button> so that
+      // expanding was focusable and announced; the title is editable in it now,
+      // and **an <input> inside a <button> is invalid HTML** -- interactive
+      // content is not allowed in a button's content model, and browsers
+      // disagree about what to do with it. Same class of problem as the hub's
+      // button-inside-an-anchor.
+      //
+      // WHAT REPLACES THE BUTTON'S SEMANTICS: the caret is now a real <button>
+      // carrying aria-expanded, so the keyboard and a screen reader still have
+      // one proper control that says what it does. The rest of the head keeps a
+      // click handler, so a mouse can still open a row by hitting anywhere on
+      // it -- which is the affordance a caret alone would have lost.
       const head = document.createElement('div');
       head.className = 'event-head';
-      const when = document.createElement('span');
-      when.className = 'event-when';
-      when.textContent = displayWhen(row);
-      const name = document.createElement('span');
-      name.className = 'event-name';
-      name.textContent = displayTitle(row);
-      const kind = document.createElement('span');
-      kind.className = 'event-kind';
-      kind.textContent = clean(row.kind) || (clubName(row, 'away') && clubName(row, 'home') ? 'sports' : 'event');
-      head.append(when, name, kind);
 
-      // The only thing worth warning about on a sports row is a club that is
-      // only half entered — the mascot is what the game's copy says, so a row
-      // without one reads as "at" with a blank on one side.
+      const caret = document.createElement('button');
+      caret.type = 'button';
+      caret.className = 'event-caret';
+      caret.textContent = '▶';
+      caret.setAttribute('aria-expanded', 'false');
+      caret.setAttribute('aria-label', 'Expand this event');
+
+      // THE TITLE IS ALWAYS AN INPUT, not a span that swaps for one on click.
+      // Two elements holding one value is two things to keep in step, and the
+      // Socializer has already paid for the click-to-edit version: its span
+      // carried an Enter/Space handler that swallowed the SPACE key inside the
+      // box it had just opened, so "The Local Herald" could only be typed as
+      // one word. An input that is simply always there cannot have that bug.
+      //
+      // IT LOOKS LIKE TEXT UNTIL YOU REACH FOR IT -- no border and no fill at
+      // rest -- so a closed row still reads as a row rather than as a form.
+      //
+      // `data-field="title"` IS LOAD-BEARING. readForm() searches the whole
+      // card, head included, so Save and Create pick this up with no special
+      // case, and there is exactly one place the title lives.
+      const name = document.createElement('input');
+      name.type = 'text';
+      name.className = 'event-name';
+      name.dataset.field = 'title';
+      name.value = clean(row.title);
+      // A sports row may legitimately have no title and be named from its two
+      // clubs. Showing an empty box there would hide a name the row really has,
+      // so the derived one is the placeholder.
+      name.placeholder = displayTitle(Object.assign({}, row, { title: '' }));
+      name.setAttribute('aria-label', 'Event title');
+
+      head.append(caret, name);
+
+      // NO DATE OR TIME IN THE HEAD. They sat in a box upper right for a day.
+      // With the When band boxed directly under the collapse row, an opened card
+      // said the same three facts twice a few pixels apart, and the head's copy
+      // was the one you could not act on.
+      //
+      // WHAT THIS COSTS, stated plainly: a CLOSED row no longer says when the
+      // event is, so a list sorted by date is ordered on something invisible --
+      // the same objection that brought the kind chip back under a type sort.
+      // The date is one click away in the When box. If it is wanted back it
+      // belongs on the closed row ONLY, hidden the moment the row opens.
+      //
+      // `displayDate` / `displayTime` / `displayWhen` all survive: the CHECK
+      // report and its copied text still say when an event is.
+
+      // The CITY, never the venue: a game is built around a city, so "where is
+      // this" is the question you ask of a list of events, and the stadium is a
+      // detail you open the row for. It is the LAST thing in the head now --
+      // every pill has left.
+      const where = document.createElement('span');
+      where.className = 'event-where';
+      where.textContent = clean(row.city);
+      head.appendChild(where);
+
+      // ── EVERY PILL LIVES IN THE BODY, on the meta line beside the id ──────
+      // The head is a caret, a title and a city. It had collected five kinds of
+      // chip -- kind, past, neutral site, update needed, unsaved -- and a row
+      // could wear four of them at once, so the name it exists to show was
+      // being squeezed between a caret and a queue of tags.
+      //
+      // THEY GO WITH THE ID BECAUSE THEY ARE THE SAME KIND OF FACT: what this
+      // RECORD is, as against what the event is. The fields above say when and
+      // where; this line says the row has been round the block.
+      //
+      // WHAT IT COSTS, plainly: a CLOSED row now shows no state at all -- not
+      // that it is unsaved, not that it needs updating. That is the second
+      // thing to leave the closed row after the date, and the two together
+      // mean the list is now names and cities only. If any of it comes back it
+      // should be `unsaved`, which is the one with a deadline attached.
+      //
+      // They are BUILT HERE and APPENDED IN buildBody: paintPast and markDirty
+      // close over them, and both can fire before the body has ever been built.
+      const pills = [];
+
+      // Drawn always and shown by class, so repainting as the dates change
+      // costs no DOM work.
+      //
+      // QUIET, NOT RED. That an event has happened is a FACT about it, not a
+      // fault and not a job: most of this catalogue will be past eventually and
+      // a red mark on all of it would say nothing. The red pen is reserved for
+      // UPDATE NEEDED, which is a row asking for something.
+      //
+      // IT IS NOT THE `past-but-scheduled` FINDING. That fires when a past row
+      // still claims to be scheduled, which is a record out of step with the
+      // world. This says only when the event was.
+      const past = document.createElement('span');
+      past.className = 'event-kind event-kind--past';
+      past.textContent = 'past';
+      past.title = 'The last day of this event has been and gone.';
+      pills.push(past);
+
+      // NO KIND CHIP. It was drawn only while the list was grouped by type, to
+      // stop the grouping being invisible; with the type sort gone there is
+      // nothing for it to explain. On every row it was furniture anyway -- the
+      // whole table is `sports`, so it said the same word every time. The kind
+      // is in the What band a click away.
+
       if (row.neutral_site === true) {
         const neutral = document.createElement('span');
         neutral.className = 'event-kind event-kind--neutral';
         neutral.textContent = 'neutral site';
         neutral.title = 'Neither club is at home. Expected to spawn one game per travelling fanbase.';
-        head.appendChild(neutral);
+        pills.push(neutral);
       }
 
-      const isSports = (clean(row.kind).toLowerCase() || (clubName(row, 'away') && clubName(row, 'home') ? 'sports' : '')) === 'sports';
-      if (isSports && !(clean(row.away_mascot) && clean(row.home_mascot))) {
-        const warn = document.createElement('span');
-        warn.className = 'event-warn';
-        warn.textContent = '⚠ club missing';
-        warn.title = 'A sports event wants both clubs as “from” + “are” — e.g. Chicago + Bears.';
-        head.appendChild(warn);
+      // UPDATE NEEDED, one chip for every "not known yet" on the row. It
+      // replaced a one-off `club missing` warning that named one of nine
+      // reasons and stayed silent about the other eight. THE REASONS ARE ON THE
+      // TOOLTIP, not in the chip: four of them spelled out is a paragraph.
+      const reasons = updateReasons(row);
+      if (reasons.length) {
+        const flag = document.createElement('span');
+        flag.className = 'event-kind event-kind--update';
+        flag.textContent = 'update needed';
+        flag.title = reasons.join('\n');
+        pills.push(flag);
       }
 
-      const idEl = document.createElement('span');
-      idEl.className = 'event-id';
-      idEl.textContent = clean(row.id);
-      head.appendChild(idEl);
+      // Drawn on every card and hidden by CSS until `.is-dirty`, so marking one
+      // costs no DOM work per keystroke.
+      const unsaved = document.createElement('span');
+      unsaved.className = 'event-kind event-kind--unsaved';
+      unsaved.textContent = 'unsaved';
+      unsaved.title = 'Edited and not saved. Paging or changing a filter redraws the list and discards it.';
+      pills.push(unsaved);
+
       el.appendChild(head);
 
-      const fields = document.createElement('div');
-      fields.className = 'event-fields';
+      const body = document.createElement('div');
+      body.className = 'event-body';
+      body.hidden = true;
+      el.appendChild(body);
+
+      const paintPast = (r) => el.classList.toggle('is-past', isPast(r));
+      paintPast(row);
+
+      // Typing in the header title marks the row unsaved exactly as a field in
+      // the body does. It is bound here rather than in buildBody because the
+      // box exists on a CLOSED row too, which is the whole point of it.
+      name.addEventListener('input', () => markDirty());
+      name.addEventListener('change', () => markDirty());
+
       const markDirty = () => {
         el.classList.add('is-dirty');
-        name.textContent = displayTitle(readFormPreview(el, row));
-        when.textContent = displayWhen(readFormPreview(el, row));
+        const preview = readFormPreview(el, row);
+        // NOT the title: it IS the box, and writing displayTitle() back into it
+        // would overwrite what you are typing with a fallback derived from it.
+        // The placeholder is refreshed instead, so clearing the title on a
+        // sports row immediately shows the club-derived name it will fall back
+        // to rather than an empty row.
+        name.placeholder = displayTitle(Object.assign({}, preview, { title: '' }));
+        where.textContent = clean(preview.city);
+        paintPast(preview);
       };
-      // A row that has never been saved needs its primary key typed, because
-      // the database does not generate one.
-      if (row.__isNew) {
-        const idLabel = document.createElement('label');
-        idLabel.className = 'field--wide';
-        idLabel.append(document.createTextNode('ID (permanent)'));
-        const idInput = document.createElement('input');
-        idInput.type = 'text';
-        idInput.dataset.field = 'id';
-        idInput.value = clean(row.id);
-        idInput.placeholder = 'NFL-2026-W1-CAR-CHI';
-        idInput.addEventListener('input', markDirty);
-        idLabel.appendChild(idInput);
-        fields.appendChild(idLabel);
-      }
-      EDITABLE_FIELDS.forEach((f) => fields.appendChild(fieldControl(row, f, markDirty)));
-      el.appendChild(fields);
 
-      const actions = document.createElement('div');
-      actions.className = 'event-actions';
-      const saveBtn = document.createElement('button');
-      saveBtn.type = 'button';
-      saveBtn.className = 'btn small primary';
-      saveBtn.textContent = row.__isNew ? 'Create' : 'Save';
-      saveBtn.addEventListener('click', () => saveRow(row, el, saveBtn));
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'btn small warn';
-      delBtn.textContent = row.__isNew ? 'Discard' : 'Delete';
-      delBtn.addEventListener('click', () => deleteRow(row, delBtn));
-      actions.append(saveBtn, delBtn);
-      el.appendChild(actions);
+      // THE EDITOR IS BUILT ON FIRST OPEN AND NEVER AGAIN. Building it anyway
+      // and merely hiding it would put 22 controls per row in the document, 1,100
+      // for a page of fifty, and pay that on every keystroke in the search box,
+      // which is what re-renders the list.
+      let built = false;
+      function buildBody() {
+        if (built) return;
+        built = true;
+
+        FIELD_GROUPS.forEach((group) => {
+          // A REAL <fieldset><legend>, so the browser cuts the panel's top
+          // border for the tab. Drawing that cut by hand over a <div> means
+          // faking the gap, and the gap has to track the word's width.
+          const band = document.createElement('fieldset');
+          band.className = 'event-band';
+          band.dataset.band = group.key;
+          const bandHead = document.createElement('legend');
+          bandHead.className = 'event-band-head';
+          bandHead.textContent = group.label;
+          band.appendChild(bandHead);
+          const fields = document.createElement('div');
+          fields.className = 'event-fields';
+          group.fields.forEach((f) => fields.appendChild(fieldControl(row, f, markDirty)));
+          band.appendChild(fields);
+          body.appendChild(band);
+        });
+
+        // The Clubs band appears and disappears as Kind changes, so switching a
+        // row from concert to sports opens it without a reload.
+        const kindSelect = body.querySelector('[data-field="kind"]');
+        if (kindSelect) kindSelect.addEventListener('change', () => syncBands(el));
+        syncBands(el);
+
+        // THE END DATE FILLS ITSELF IN FRONT OF YOU. withDefaults() would apply
+        // it at save time regardless, but then the box would sit empty while a
+        // value went to the database -- a card showing something the row does
+        // not hold, which is the disagreement nobody notices until later. Doing
+        // it here means what you see is what is written.
+        //
+        // IT ONLY EVER FILLS A BLANK. A real range you typed is never
+        // overwritten by changing the start date, and clearing the end date
+        // leaves it clear until you touch the start again.
+        const startEl = body.querySelector('[data-field="event_date"]');
+        const endEl = body.querySelector('[data-field="end_date"]');
+        if (startEl && endEl) {
+          startEl.addEventListener('change', () => {
+            if (clean(startEl.value) && !clean(endEl.value)) {
+              endEl.value = startEl.value;
+              markDirty();
+            }
+          });
+        }
+
+        // THE ID, AT THE END OF THE BODY. It was in the head, where it was the
+        // only thing on a closed row nobody reads while scanning: a 20-character
+        // mono key beside the event's name, competing with it for the eye.
+        //
+        // IT SITS WITH THE ACTIONS BECAUSE IT IS PROVENANCE, not a field. Same
+        // call the waypoint editor makes with `wpid` and `created_at`: what a
+        // record IS goes at the edge of the form, not among the things you
+        // change. A NEW row's id is a different object -- a required input at
+        // the TOP of the body, because nothing can be stored until it is filled
+        // -- and it is drawn there instead.
+        const meta = document.createElement('div');
+        meta.className = 'event-meta';
+        const idLabel = document.createElement('span');
+        idLabel.className = 'event-idline-label';
+        idLabel.textContent = 'ID';
+        const idVal = document.createElement('span');
+        idVal.className = 'event-idline-value';
+        idVal.textContent = clean(row.id);
+        // Selectable on purpose: copying an id is the one thing anybody does
+        // with it, and it is what a SQL fix or a stored link needs.
+        idVal.title = 'Permanent. Every game pointing at this event uses it, so it cannot be changed.';
+        meta.append(idLabel, idVal);
+        // The pills, pushed to the right of the same line. They were built with
+        // the head because paintPast and markDirty close over them and both can
+        // fire before the body has ever been built.
+        const pillWrap = document.createElement('span');
+        pillWrap.className = 'event-pills';
+        pills.forEach((chip) => pillWrap.appendChild(chip));
+        meta.appendChild(pillWrap);
+        body.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'event-actions';
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn small warn';
+        delBtn.textContent = 'Delete';
+        delBtn.title = 'Delete the row for good. Any game pointing at it loses its anchor event.';
+        delBtn.addEventListener('click', () => deleteRow(row, delBtn));
+        const gap = document.createElement('span');
+        gap.className = 'event-actions-gap';
+
+        // SPLIT IS DRAWN ONLY WHEN THERE IS A SPAN TO SPLIT, and it re-decides
+        // that as the dates change, so widening an event's end date makes the
+        // button appear without a reload. It is not greyed-when-inactive like
+        // the buttons on a socials card: those five are a fixed set you learn
+        // the position of, and this is one control on a row of three.
+        const splitBtn = document.createElement('button');
+        splitBtn.type = 'button';
+        splitBtn.className = 'btn small';
+        splitBtn.addEventListener('click', () => splitRow(row, el, splitBtn));
+
+        function syncSplit() {
+          const total = dayCount(withDefaults(readForm(el)));
+          splitBtn.hidden = total < 2;
+          splitBtn.textContent = 'Split into ' + total + ' days';
+          splitBtn.title = 'Make one event per day, ' + total + ' in all, each titled "(Day n of ' +
+            total + ')". This row keeps its ID and becomes day 1, so a game already anchored to it stays anchored.';
+        }
+        [startEl, endEl].forEach((input) => {
+          if (input) input.addEventListener('change', syncSplit);
+        });
+        syncSplit();
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn small primary';
+        saveBtn.textContent = 'Save';
+        saveBtn.addEventListener('click', () => saveRow(row, el, saveBtn));
+        actions.append(delBtn, gap, splitBtn, saveBtn);
+        body.appendChild(actions);
+      }
+
+      function setOpen(open) {
+        if (open) buildBody();
+        el.classList.toggle('is-open', open);
+        body.hidden = !open;
+        caret.setAttribute('aria-expanded', open ? 'true' : 'false');
+        caret.setAttribute('aria-label', (open ? 'Collapse' : 'Expand') + ' this event');
+      }
+      el.__setOpen = setOpen;
+
+      // THE TITLE BOX IS NOT A TOGGLE. Without this guard, clicking into the
+      // title to fix a typo would also open or close the row underneath it,
+      // and every click that landed while you were already typing would flip
+      // it again. The id is exempt for the same reason: it is text you select
+      // and copy, and a selection drag ending on it should not collapse the
+      // row you were reading.
+      head.addEventListener('click', (event) => {
+        if (event.target.closest('.event-name, .event-id')) return;
+        setOpen(body.hidden);
+      });
+      // The caret is inside the head, so its own click would reach the handler
+      // above and toggle a second time, landing back where it started.
+      caret.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setOpen(body.hidden);
+      });
+
       return el;
+    }
+
+    // A SPORTS-ONLY BAND IS HIDDEN ONLY WHEN IT IS ALSO EMPTY, and that second
+    // half is what keeps this honest. Hiding a band that holds values would put
+    // data on the row that nothing on screen can reach or correct -- the exact
+    // failure mode of a field in no band at all. So a concert row that somehow
+    // carries a mascot still shows Clubs, and you can see it and clear it.
+    function syncBands(el) {
+      const kindEl = el.querySelector('[data-field="kind"]');
+      const kind = clean(kindEl && kindEl.value).toLowerCase();
+      FIELD_GROUPS.forEach((group) => {
+        if (!group.sportsOnly) return;
+        const band = el.querySelector('[data-band="' + group.key + '"]');
+        if (!band) return;
+        const applies = !kind || kind === 'sports';
+        const filled = group.fields.some((f) => {
+          const input = el.querySelector('[data-field="' + f + '"]');
+          return input && clean(input.value);
+        });
+        band.hidden = !applies && !filled;
+      });
     }
 
     // Header text follows the inputs while you type, without touching the row.
@@ -914,6 +2110,109 @@
       el.append(mk('‹ Prev', state.page - 1, state.page <= 1), info, mk('Next ›', state.page + 1, state.page >= pages));
     }
 
+    // ── Sort ──────────────────────────────────────────────────────────────────
+    // AN UNDATED ROW SINKS TO THE END IN BOTH DIRECTIONS, and that is not the
+    // same as sorting it. `nullslast` is what the server does on load, and it is
+    // the right answer here for the same reason: a row with no date has no
+    // position on a timeline, so putting it at the top of "oldest first" would
+    // be the list asserting something it does not know. Sunk, it is always in
+    // the one place you can look for it.
+    //
+    // TIES BREAK ON id, which is what makes the order STABLE. Twelve fixtures
+    // share a Sunday, and without a second key their order comes from whatever
+    // Array.prototype.sort did last -- so a row could move under you when you
+    // typed in the search box, which is the sort of thing nobody reports and
+    // everybody distrusts.
+    function compareRows(a, b) {
+      const da = clean(a.event_date);
+      const db = clean(b.event_date);
+      if (da && !db) return -1;
+      if (!da && db) return 1;
+      if (da !== db) {
+        // ISO dates compare correctly as strings, which is the whole reason
+        // this column is a date rather than something formatted.
+        return da < db ? -1 : 1;
+      }
+      return clean(a.id).localeCompare(clean(b.id));
+    }
+
+    // ── Weeks ─────────────────────────────────────────────────────────────────
+    // ISO-8601 WEEK NUMBERS, not "day of year over seven". Week 1 is the week
+    // holding the first Thursday of January, weeks run Monday to Sunday, and a
+    // year has 52 or 53 of them. Anything simpler disagrees with every calendar,
+    // every league's own week numbering and every colleague's, at the turn of
+    // the year, which is exactly when an NFL schedule is busiest.
+    //
+    // UTC, like the split maths and for the same reason: these are calendar
+    // dates, and a local Date crossing a DST boundary lands on 23 or 25 hours
+    // and can be pushed into the neighbouring week. (`isPast` is deliberately
+    // LOCAL -- "has this happened to me yet" is a different question.)
+    function isoWeek(iso) {
+      const p = clean(iso).split('-');
+      if (p.length !== 3) return null;
+      const d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+      if (!Number.isFinite(d.getTime())) return null;
+      // Shift to the Thursday of this week: the ISO year is whichever year that
+      // Thursday falls in, which is what makes 2026-12-31 read as week 53 of
+      // 2026 and 2027-01-01 as the same week rather than week 1 of 2027.
+      const day = (d.getUTCDay() + 6) % 7;          // Monday = 0
+      d.setUTCDate(d.getUTCDate() - day + 3);
+      const isoYear = d.getUTCFullYear();
+      const firstThursday = new Date(Date.UTC(isoYear, 0, 4));
+      const ft = (firstThursday.getUTCDay() + 6) % 7;
+      firstThursday.setUTCDate(firstThursday.getUTCDate() - ft + 3);
+      const week = 1 + Math.round((d - firstThursday) / (7 * DAY_MS));
+      return { year: isoYear, week: week, key: isoYear + '-W' + String(week).padStart(2, '0') };
+    }
+
+    // The Monday and Sunday of a week, so the heading can say which days it is
+    // rather than making somebody count.
+    function weekSpan(iso) {
+      const p = clean(iso).split('-');
+      if (p.length !== 3) return null;
+      const d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+      const day = (d.getUTCDay() + 6) % 7;
+      const mon = new Date(d.getTime() - day * DAY_MS);
+      const sun = new Date(mon.getTime() + 6 * DAY_MS);
+      return { start: utcToIso(mon), end: utcToIso(sun) };
+    }
+
+    function weekHeading(row) {
+      const w = isoWeek(row.event_date);
+      if (!w) return { key: 'undated', label: 'No date', span: '' };
+      const span = weekSpan(row.event_date);
+      const short = (i) => {
+        const q = i.split('-');
+        return new Date(Number(q[0]), Number(q[1]) - 1, Number(q[2]))
+          .toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      };
+      return {
+        key: w.key,
+        label: 'Week ' + w.week,
+        span: span ? short(span.start) + ' – ' + short(span.end) + ', ' + w.year : String(w.year)
+      };
+    }
+
+    function weekHeadingNode(head, count) {
+      const el = document.createElement('div');
+      el.className = 'week-head';
+      const label = document.createElement('span');
+      label.className = 'week-head-label';
+      label.textContent = head.label;
+      el.appendChild(label);
+      if (head.span) {
+        const span = document.createElement('span');
+        span.className = 'week-head-span';
+        span.textContent = head.span;
+        el.appendChild(span);
+      }
+      const n = document.createElement('span');
+      n.className = 'week-head-count';
+      n.textContent = count + (count === 1 ? ' event' : ' events');
+      el.appendChild(n);
+      return el;
+    }
+
     function render() {
       if (!listEl) return;
       listEl.innerHTML = '';
@@ -925,7 +2224,10 @@
         return;
       }
 
-      const filtered = state.rows.filter(matches);
+      // A COPY, then sorted. state.rows is the loaded table and other things
+      // read it by index -- saveRow and deleteRow both splice it -- so sorting
+      // it in place would reorder the thing every other reader is holding.
+      const filtered = state.rows.filter(matches).sort(compareRows);
       const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       if (state.page > pages) state.page = pages;
       const slice = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
@@ -933,7 +2235,29 @@
       if (!filtered.length) {
         listEl.appendChild(emptyNode(state.rows.length ? 'No events match those filters.' : 'No events yet. Press ADD manual, or run the Week 1 seed migration.'));
       } else {
-        slice.forEach((row) => listEl.appendChild(buildRow(row)));
+        // SEPARATED BY WEEK, always. It used to be conditional, because a type
+        // sort would have had two groupings fighting over one list; with the
+        // sort picker gone there is only ever this one.
+        //
+        // THE HEADINGS ARE PER PAGE, not per filtered set. A week split across a
+        // page boundary gets its heading again at the top of the next page,
+        // which is right: you are reading the page in front of you, and a run of
+        // rows with no heading above them is a run you cannot place. The count
+        // on the heading is that PAGE's count for the same reason.
+        //
+        // A NEW ROW IS UNDATED AND PINNED FIRST, so it lands under "No date" at
+        // the top rather than wherever an empty date sorts. That is the honest
+        // heading for it and it is the row you are about to fill in.
+        let openKey = null;
+        slice.forEach((row) => {
+          const head = weekHeading(row);
+          if (head.key !== openKey) {
+            openKey = head.key;
+            const n = slice.filter((r) => weekHeading(r).key === head.key).length;
+            listEl.appendChild(weekHeadingNode(head, n));
+          }
+          listEl.appendChild(buildRow(row));
+        });
       }
       renderPager(pagerTopEl, filtered.length, pages);
       renderPager(pagerBottomEl, filtered.length, pages);
@@ -987,7 +2311,6 @@
       // Venue and current flag are included so the audit task below has enough
       // to judge each row without another round trip.
       const existing = state.rows
-        .filter((r) => !r.__isNew)
         .map((r) => [
           clean(r.id),
           displayTitle(r),
@@ -1041,7 +2364,7 @@
         '',
         'event_date: the date AT THE VENUE, as YYYY-MM-DD. For an event broadcast across time zones this is the local date, which can differ from the date on a US listing: an NFL game played in Melbourne at 8:35 p.m. ET Thursday is Friday morning locally, and the row takes the Friday.',
         '',
-        'end_date: only for something that runs more than one day (a convention, a festival). Null otherwise.',
+        'end_date: the LAST day. For something that runs more than one day (a convention, a festival) that is the closing date; for a single-day event it is the SAME VALUE as event_date. Never null when event_date is set: the page fills it in the same way, so a null here is the one row in the table that disagrees with the rest.',
         '',
         'start_time: VENUE-LOCAL 24-hour HH:MM. Leagues and promoters publish in Eastern, so convert, and note the published time in the description so the two can be reconciled later. This is the time a player standing outside the venue experiences.',
         '',
@@ -1121,13 +2444,40 @@
       promptCopyStatus.style.color = isSuccess ? 'var(--success)' : 'var(--muted)';
     }
 
-    function openPromptLightbox() {
+    // ONE DIALOG, TWO PANES. The body and the FOOT both swap: the schedule's
+    // foot carries Import selected, the prompt's carries Copy, and leaving both
+    // on screen would offer a button that acts on a pane you cannot see.
+    function setPromptMode(mode) {
+      const schedule = mode === 'schedule';
+      if (paneSchedule) paneSchedule.hidden = !schedule;
+      if (panePrompt) panePrompt.hidden = schedule;
+      if (footSchedule) footSchedule.hidden = !schedule;
+      if (footPrompt) footPrompt.hidden = schedule;
+      [[modeScheduleBtn, schedule], [modePromptBtn, !schedule]].forEach(([btn, on]) => {
+        if (!btn) return;
+        btn.classList.toggle('is-on', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (promptDialogTitle) {
+        promptDialogTitle.textContent = schedule ? 'Import a league schedule' : 'Event finder prompt';
+      }
+      // The prompt text is built from the controls in its own pane, so it is
+      // refreshed on the way in rather than held from a previous opening.
+      if (schedule) prepareSchedulePane();
+      else refreshPromptText();
+    }
+
+    function openPromptLightbox(mode) {
       if (!promptLightbox) return;
-      refreshPromptText();
+      setPromptMode(mode || 'prompt');
       promptLightbox.hidden = false;
       promptLightbox.classList.add('is-open');
       setPromptCopyStatus('');
-      if (eventPromptText) eventPromptText.focus();
+      if (mode === 'schedule') {
+        if (schedFetchBtn) schedFetchBtn.focus();
+      } else if (eventPromptText) {
+        eventPromptText.focus();
+      }
     }
 
     function closePromptLightbox() {
@@ -1230,9 +2580,652 @@
 
     const schedState = { rows: [], q: '', checked: new Set(), busy: false };
 
-    const scheduleLightbox = document.getElementById('scheduleLightbox');
-    const openScheduleBtn = document.getElementById('openScheduleBtn');
-    const closeScheduleBtn = document.getElementById('closeScheduleBtn');
+    /* ── CHECK: read the whole table and say what looks wrong ──────────────
+       IT REPORTS AND NEVER EDITS. Same split every routine in this project
+       makes: a finding is a statement about a row, and a human decides. An
+       audit that quietly "fixed" a date or invented a city would be the one
+       thing nobody could review afterwards.
+
+       IT READS state.rows, WHICH IS THE WHOLE TABLE. loadEvents() pulls through
+       TgbRest.fetchAll, which pages past PostgREST's silent 1000-row cap, so
+       the check covers every row and not the 50 on screen. If that ever goes
+       back to a single unpaged fetch, this button starts quietly auditing the
+       first thousand rows and reporting a clean bill for the rest.
+
+       TWO TIERS, AND THE DIFFERENCE IS WHETHER WE ARE SURE. `error` is broken:
+       a non-sports row with no title has nothing to render as a name, and an
+       end date before its start date is not a date range. `check` is worth a
+       look and may be perfectly fine -- a venue city the catalog has never
+       heard of is usually just a city nobody has added yet. One colour for both
+       would make the red mean nothing, which is how a report stops being read. */
+    const KIND_VALUES = ['sports', 'concert', 'convention', 'festival', 'expo', 'other'];
+    const STATUS_VALUES = ['scheduled', 'final', 'postponed', 'cancelled'];
+
+    // todayIso() is already defined above, for the Upcoming / Past filter, and
+    // the past-but-scheduled rule reuses it. Two of them would be two ideas of
+    // what "today" is the moment one grew a timezone.
+    // CASE- AND SPACE-INSENSITIVE, and it has to be. This was `=== v`, an exact
+    // match, while the Cities page's own "is it already here" check lowercases
+    // -- so a row holding "foxborough, Massachusetts" was UNKNOWN here and
+    // ALREADY THERE over there. The `Add city` button then opened the Cities
+    // page and no form appeared, because both pages were right by their own
+    // rule and the rules disagreed.
+    //
+    // The comparison is the same shape in both places now. It is deliberately
+    // not doing anything cleverer than trim + lowercase: `city` is a canonical
+    // string with one spelling, and a fuzzy match here would start hiding real
+    // typos, which is the whole point of the finding.
+    function cityKey(v) {
+      return clean(v).toLowerCase();
+    }
+
+    function isKnownCity(v) {
+      if (!v) return true;
+      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return true;
+      const all = TgbCities.all();
+      // Catalog not loaded: say nothing rather than calling every city unknown.
+      if (!all || !all.length) return true;
+      const key = cityKey(v);
+      return all.some((r) => cityKey(r && r.city) === key);
+    }
+
+    function parsesAsUrl(v) {
+      try {
+        const u = new URL(v);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // WHAT A PLACEHOLDER CLUB LOOKS LIKE. Deliberately narrow: a false positive
+    // here puts UPDATE NEEDED on a finished row, and a chip that cries wolf is
+    // one people stop reading, which costs more than the flag was worth.
+    //
+    // The last pattern is the bracket case -- a conference or division name
+    // standing in for a club that is not decided yet ("AFC", "NFC East"). It is
+    // anchored to the WHOLE value, so a real club whose name merely contains one
+    // of those words is untouched.
+    const PLACEHOLDER_CLUB = [
+      /^(tbd|tba|to be determined|n\/a|unknown|\?+|-+)$/i,
+      /\b(tbd|tba|to be determined)\b/i,
+      /\b(winner|loser)\b/i,
+      /\b(seed|no\.\s*\d+)\b|#\d+/i,
+      /^(afc|nfc|american|national)(\s+(east|west|north|south|wild ?card|championship|conference))?$/i
+    ];
+
+    function isPlaceholderClub(v) {
+      return PLACEHOLDER_CLUB.some((re) => re.test(v));
+    }
+
+    // The label the database trigger should have written from the two halves.
+    // Used only to tell whether that trigger is actually installed.
+    function rebuiltLabel(locale, mascot) {
+      return [clean(locale), clean(mascot)].filter(Boolean).join(' ');
+    }
+
+    // Each rule answers ONE question about ONE row and returns a sentence or
+    // nothing. Adding a check is adding an entry here and nothing else.
+    const CHECK_RULES = [
+      {
+        key: 'no-title',
+        level: 'error',
+        test: (r) => (clean(r.kind) && clean(r.kind) !== 'sports' && !clean(r.title))
+          ? 'A ' + clean(r.kind) + ' row has no title, and only a sports row can fall back to "away at home". This event has nothing to render as a name.'
+          : ''
+      },
+      {
+        // TWO RULES OUT OF WHAT WAS ONE, because half a club is two different
+        // problems and the single rule could only report the first.
+        //
+        // This one is about the NAME: a sports row with no title is rendered
+        // from its two clubs, so missing one leaves it with nothing to be
+        // called. A titled row is fine on that count, which is why the old rule
+        // bailed on a title -- and that bail is exactly what made it useless as
+        // an UPDATE NEEDED signal, since a bracket row usually has a title.
+        key: 'no-name',
+        level: 'error',
+        test: (r) => {
+          const sports = !clean(r.kind) || clean(r.kind) === 'sports';
+          if (!sports) return '';
+          if (clean(r.title)) return '';
+          if (clean(r.away_mascot) && clean(r.home_mascot)) return '';
+          const missing = [!clean(r.away_mascot) && 'away', !clean(r.home_mascot) && 'home'].filter(Boolean);
+          return 'A sports row with no title is named from its two clubs, and the ' + missing.join(' and ') + ' one is missing.';
+        }
+      },
+      {
+        // And this one is about the GAME. A fandom game takes its palette and
+        // its copy from the away club, so a half-entered fixture is unusable
+        // whatever it is called. Title or no title.
+        key: 'club-missing',
+        level: 'check', update: true,
+        test: (r) => {
+          const sports = !clean(r.kind) || clean(r.kind) === 'sports';
+          if (!sports) return '';
+          if (clean(r.away_mascot) && clean(r.home_mascot)) return '';
+          const missing = [!clean(r.away_mascot) && 'away', !clean(r.home_mascot) && 'home'].filter(Boolean);
+          return 'The ' + missing.join(' and ') + ' club is not filled in. A game takes its copy and its palette from the away club.';
+        }
+      },
+      {
+        key: 'no-date',
+        level: 'error', update: true,
+        test: (r) => clean(r.event_date)
+          ? ''
+          : 'No date. A game is played the day before its anchor event, so an undated event cannot anchor one.'
+      },
+      {
+        key: 'end-before-start',
+        level: 'error',
+        test: (r) => (clean(r.end_date) && clean(r.event_date) && clean(r.end_date) < clean(r.event_date))
+          ? 'End date ' + clean(r.end_date) + ' is before the start date ' + clean(r.event_date) + '.'
+          : ''
+      },
+      {
+        key: 'bad-kind',
+        level: 'error',
+        test: (r) => (clean(r.kind) && KIND_VALUES.indexOf(clean(r.kind)) === -1)
+          ? 'kind is "' + clean(r.kind) + '", which is not one of ' + KIND_VALUES.join(', ') + '. The Kind dropdown cannot show it, so editing this row silently changes it.'
+          : ''
+      },
+      {
+        key: 'bad-status',
+        level: 'error',
+        test: (r) => (clean(r.status) && STATUS_VALUES.indexOf(clean(r.status)) === -1)
+          ? 'status is "' + clean(r.status) + '", which is not one of ' + STATUS_VALUES.join(', ') + '.'
+          : ''
+      },
+      {
+        // THE ONE SCHEMA FINDING, and the most useful thing this button can
+        // tell you. A trigger rebuilds away_label / home_label from the two
+        // halves on every write, and the builder's event picker falls back to
+        // them. A row where they disagree does not mean the row is wrong -- it
+        // means the trigger is not installed on this database.
+        key: 'label-drift',
+        level: 'error',
+        test: (r) => {
+          const bad = [];
+          const away = rebuiltLabel(r.away_locale, r.away_mascot);
+          const home = rebuiltLabel(r.home_locale, r.home_mascot);
+          if (away && clean(r.away_label) && clean(r.away_label) !== away) {
+            bad.push('away_label "' + clean(r.away_label) + '" against "' + away + '"');
+          }
+          if (home && clean(r.home_label) && clean(r.home_label) !== home) {
+            bad.push('home_label "' + clean(r.home_label) + '" against "' + home + '"');
+          }
+          return bad.length
+            ? 'The stored label disagrees with the locale and mascot it is rebuilt from (' + bad.join('; ') + '). That means tgb_anchor_events_sync_labels is not installed: run 2026080101_anchor_events_general_columns.sql.'
+            : '';
+        }
+      },
+      {
+        // TBA. A fixture without a kickoff time is the commonest thing a league
+        // fills in later, and it is the one an event is least usable without:
+        // the whole product is a game played the day before, at a time chosen
+        // to make groups finish together.
+        key: 'no-time',
+        level: 'check', update: true,
+        test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the league has not announced the slot yet.'
+      },
+      {
+        // A postponement is a promise of a new date, not a decision. Cancelled
+        // deliberately does NOT flag: that one is settled, and nothing further
+        // is coming.
+        key: 'postponed',
+        level: 'check', update: true,
+        test: (r) => clean(r.status) === 'postponed'
+          ? 'Postponed. The replacement date is what this row is waiting for.'
+          : ''
+      },
+      {
+        // THE PLAYOFF CASE. A bracket fixture is filed with the slot known and
+        // the clubs not: "TBD at TBD", "AFC #2", "Winner Game 3". Those are
+        // perfectly good rows to hold -- the date and the venue are real -- and
+        // they are useless for building a game until the seeding lands.
+        //
+        // IT READS THE CLUB FIELDS ONLY, NEVER THE TITLE. "AFC Championship" is
+        // a real and finished title for a row whose two clubs are known, and
+        // matching it there would flag every playoff game forever.
+        key: 'placeholder-club',
+        level: 'check', update: true,
+        test: (r) => {
+          const fields = ['away_locale', 'away_mascot', 'away_label',
+                          'home_locale', 'home_mascot', 'home_label'];
+          const hits = fields
+            .map((f) => clean(r[f]))
+            .filter(Boolean)
+            .filter((v) => isPlaceholderClub(v));
+          if (!hits.length) return '';
+          return 'A club is still a placeholder (' + hits.join(', ') + '). Fill it in once the bracket is decided.';
+        }
+      },
+      {
+        // FINDABLE WITHOUT OPENING FIFTY ROWS. The Split button only exists on
+        // an opened card, so without this a multi-day event is invisible until
+        // somebody happens to expand it.
+        //
+        // NOT `update: true`. Nothing is missing from a multi-day row and
+        // nobody has to go and find anything out -- it is a suggestion, and
+        // UPDATE NEEDED means the world has not told us something yet. Putting
+        // it there would put a red chip on every festival in the table forever.
+        key: 'multi-day',
+        level: 'check',
+        test: (r) => {
+          const total = dayCount(r);
+          return total > 1
+            ? 'Runs ' + total + ' days. A game is played the day BEFORE its anchor event, so each day is its own opportunity: open the row and press Split into ' + total + ' days.'
+            : '';
+        }
+      },
+      {
+        key: 'no-venue',
+        level: 'check', update: true,
+        test: (r) => clean(r.venue_name)
+          ? ''
+          : 'No venue. The city is enough to build a game around, so this is a gap rather than a fault.'
+      },
+      {
+        key: 'no-city',
+        level: 'check', update: true,
+        test: (r) => clean(r.city)
+          ? ''
+          : 'No venue city. The city is what a game is built around, and nothing here can place this event without one.'
+      },
+      {
+        key: 'unknown-city',
+        level: 'check',
+        test: (r) => (clean(r.city) && !isKnownCity(clean(r.city)))
+          ? '"' + clean(r.city) + '" is not in the shared city catalog. Either it is a typo, or it is a real venue town nobody has added on the Cities page yet.'
+          : ''
+      },
+      {
+        key: 'bad-url',
+        level: 'check',
+        test: (r) => (clean(r.url) && !parsesAsUrl(clean(r.url)))
+          ? 'url "' + clean(r.url) + '" does not parse as an http or https address, so nothing can open it.'
+          : ''
+      },
+      {
+        key: 'score-without-final',
+        level: 'check',
+        test: (r) => {
+          const hasScore = r.away_score != null || r.home_score != null;
+          return (hasScore && clean(r.status) && clean(r.status) !== 'final')
+            ? 'A score is filled in but the status is "' + clean(r.status) + '". One of the two is out of date.'
+            : '';
+        }
+      },
+      {
+        key: 'final-without-score',
+        level: 'check', update: true,
+        test: (r) => (clean(r.status) === 'final' && r.away_score == null && r.home_score == null)
+          ? 'Marked final with no score on either side.'
+          : ''
+      },
+      {
+        // THE STALENESS SIGNAL. Nothing sweeps this table, so a season of
+        // finished games sits here still reading "scheduled" until somebody
+        // looks, and the Past filter is the only other thing that would surface
+        // it.
+        key: 'past-but-scheduled',
+        level: 'check', update: true,
+        test: (r) => {
+          const d = clean(r.end_date) || clean(r.event_date);
+          if (!d) return '';
+          if (clean(r.status) !== 'scheduled') return '';
+          return d < todayIso()
+            ? 'Dated ' + d + ', which has passed, and still marked scheduled.'
+            : '';
+        }
+      }
+    ];
+
+    // UPDATE NEEDED: the subset of the rules that mean "data we expect to
+    // arrive later has not arrived", as against "this row is wrong". A missing
+    // kickoff time, a postponement, a bracket whose clubs are not seeded yet:
+    // nobody made a mistake, the world has simply not told us yet.
+    //
+    // IT IS THE SAME RULE SET THE CHECK REPORT READS, and that is the point. A
+    // separate list of what makes a row incomplete would be a second idea of
+    // it, and the two would drift the first time either was edited -- the chip
+    // saying a row is fine while the report says it is not. One `update: true`
+    // on the rule puts it in both.
+    function updateReasons(row) {
+      return CHECK_RULES
+        .filter((rule) => rule.update)
+        .map((rule) => {
+          try { return rule.test(row) || ''; }
+          catch (err) { console.error('check rule ' + rule.key + ' threw', err); return ''; }
+        })
+        .filter(Boolean);
+    }
+
+    // CROSS-ROW, so it cannot live in CHECK_RULES: two rows describing one
+    // fixture is a duplicate the primary key cannot catch, because the ids
+    // differ. A doubleheader suffix or a re-import under a new id shape both
+    // land here.
+    function duplicateFindings(rows) {
+      const seen = new Map();
+      const out = [];
+      rows.forEach((r) => {
+        if (!clean(r.event_date)) return;   // undated, already reported
+        const parts = [
+          clean(r.league),
+          clean(r.event_date),
+          clean(r.away_label) || clean(r.away_mascot),
+          clean(r.home_label) || clean(r.home_mascot)
+        ];
+        // Nothing identifying beyond the date: two concerts on one day are not
+        // a duplicate, so say nothing rather than guess.
+        if (!parts[2] && !parts[3] && !clean(r.title)) return;
+        const key = parts.concat(clean(r.title)).map((v) => v.toLowerCase()).join('|');
+        const first = seen.get(key);
+        if (first) {
+          out.push({
+            level: 'check',
+            key: 'duplicate',
+            row: r,
+            detail: 'Same league, date and clubs as ' + (clean(first.id) || '(no id)') + '. One of the two is probably a re-import.'
+          });
+        } else {
+          seen.set(key, r);
+        }
+      });
+      return out;
+    }
+
+    // UNSAVED EDITS ARE READ OFF THE SCREEN, NOT OFF state.rows, because the
+    // screen is the only place they exist: a dirty card is DOM state and
+    // render() rebuilds from the stored rows, so paging or changing a filter
+    // throws the edit away. Naming them here is the one warning you get before
+    // that happens, which is why they lead the report rather than trailing it.
+    function unsavedFindings() {
+      if (!listEl) return [];
+      return Array.from(listEl.querySelectorAll('.event-row.is-dirty')).map((el) => {
+        const nameEl = el.querySelector('.event-name');
+        return {
+          level: 'change',
+          key: 'unsaved-edit',
+          row: { id: clean(el.dataset.rowId), title: nameEl ? nameEl.value : '' },
+          detail: 'Edited on screen and not saved. Paging or changing a filter redraws the list and discards it.'
+        };
+      });
+    }
+
+    function runChecks() {
+      const rows = state.rows.slice();
+      const findings = [];
+      rows.forEach((row) => {
+        CHECK_RULES.forEach((rule) => {
+          let detail = '';
+          // ONE BAD RULE MUST NOT TAKE THE WHOLE REPORT DOWN. A rule that throws
+          // is a bug in the rule, not a reason to tell somebody their table is
+          // fine, so it is logged and the rest of the audit carries on.
+          try {
+            detail = rule.test(row) || '';
+          } catch (err) {
+            console.error('check rule ' + rule.key + ' threw', err);
+          }
+          if (detail) findings.push({ level: rule.level, key: rule.key, row: row, detail: detail });
+        });
+      });
+      duplicateFindings(rows).forEach((f) => findings.push(f));
+      return { checked: rows.length, findings: unsavedFindings().concat(findings) };
+    }
+
+    // WHERE A FINDING IS ACTUALLY FIXED. Most are fixed on the row, so Go lands
+    // you there. Some are not: an unknown venue city is very often a real town
+    // nobody has added to the shared catalogue yet, and **the fix for that is on
+    // the Cities page, not on this row** -- typing the name again here would
+    // only re-enter the same unrecognised string.
+    //
+    // Keyed by rule, so a finding that has somewhere better to send you says so
+    // in one entry rather than the renderer growing a special case.
+    const FINDING_GOTO = {
+      // `?add=` CARRIES THE CITY, so the Cities page opens its add dialog
+      // already filled in. Landing somebody on a 1,451-row catalogue and
+      // leaving them to retype a string they were just looking at is the errand
+      // this is meant to remove, not relocate. The Cities page parses the
+      // string into a city and a state and derives the state code from there.
+      'unknown-city': (row) => ({
+        label: 'Add city',
+        href: '/mc/data/cities.html?add=' + encodeURIComponent(clean(row.city)),
+        title: 'Open the shared city catalogue in a new tab, with "' + clean(row.city) +
+               '" already filled into the add form. Come back here afterwards; the event row itself is fine.'
+      })
+    };
+
+    const CHECK_GROUPS = [
+      { level: 'change', label: 'Unsaved on screen' },
+      { level: 'error', label: 'Errors' },
+      { level: 'check', label: 'Worth a look' }
+    ];
+
+    // WHERE A FINDING LANDS YOU. A report that names a broken row and gives you
+    // no way to reach it is a report you then search by hand, which on a table
+    // this size is the whole cost of having run the check.
+    function focusEventRow(id) {
+      const wanted = clean(id);
+      if (!wanted) {
+        setStatus('That finding has no id to search for.', 'error');
+        return;
+      }
+      // Every filter is cleared first: the row has to be reachable whatever the
+      // list was narrowed to when the check ran, and it may well be on another
+      // page of a filtered set.
+      state.q = wanted.toLowerCase();
+      state.page = 1;
+      if (searchInput) searchInput.value = wanted;
+      render();
+      const rows = listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
+      const el = rows.find((node) => clean(node.dataset.rowId) === wanted);
+      if (!el) {
+        setStatus('No row on screen for ' + wanted + '.', 'error');
+        return;
+      }
+      // OPENED, not just ringed. Rows are closed by default now, so landing on
+      // one and leaving it shut would show the heading and hide the field the
+      // finding is about, which is the thing you pressed Go to reach.
+      if (typeof el.__setOpen === 'function') el.__setOpen(true);
+      if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('is-found');
+      setTimeout(() => el.classList.remove('is-found'), 2400);
+    }
+
+    function renderCheckReport() {
+      if (!checkReport || !checkSummary) return;
+      const result = runChecks();
+      checkReport.innerHTML = '';
+      checkSummary.innerHTML = '';
+
+      const tally = document.createElement('span');
+      tally.className = 'check-tally ' + (result.findings.length ? 'check-tally--bad' : 'check-tally--ok');
+      tally.textContent = result.findings.length
+        ? result.findings.length + (result.findings.length === 1 ? ' finding' : ' findings')
+        : 'nothing to report';
+      checkSummary.appendChild(tally);
+
+      const scope = document.createElement('span');
+      scope.textContent = result.checked + ' rows checked, every row in the table rather than this page of it';
+      checkSummary.appendChild(scope);
+
+      if (!result.findings.length) {
+        const ok = document.createElement('div');
+        ok.className = 'empty';
+        ok.textContent = 'Every row has a date, a name the editor can render, and a kind and status it can show.';
+        checkReport.appendChild(ok);
+        return;
+      }
+
+      CHECK_GROUPS.forEach((group) => {
+        const mine = result.findings.filter((f) => f.level === group.level);
+        if (!mine.length) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'check-group check-group--' + group.level;
+
+        const head = document.createElement('div');
+        head.className = 'check-group-head';
+        head.appendChild(document.createTextNode(group.label));
+        const count = document.createElement('span');
+        count.className = 'check-group-count';
+        count.textContent = mine.length;
+        head.appendChild(count);
+        wrap.appendChild(head);
+
+        mine.forEach((f) => {
+          const item = document.createElement('div');
+          item.className = 'check-item';
+
+          const what = document.createElement('div');
+          what.className = 'check-item-what';
+
+          const name = document.createElement('div');
+          name.className = 'check-item-row';
+          name.textContent = displayTitle(f.row) || '(untitled)';
+          what.appendChild(name);
+
+          const idLine = document.createElement('div');
+          idLine.className = 'check-item-id';
+          idLine.textContent = clean(f.row.id) || '(no id yet)';
+          what.appendChild(idLine);
+
+          const detail = document.createElement('div');
+          detail.className = 'check-item-detail';
+          detail.textContent = f.detail;
+          what.appendChild(detail);
+
+          item.appendChild(what);
+
+          const dest = FINDING_GOTO[f.key] && FINDING_GOTO[f.key](f.row);
+          if (dest) {
+            // AN ANCHOR IN A NEW TAB, not a navigation. You are being sent on an
+            // errand to another room and coming straight back, and the report
+            // you are reading would be gone if this replaced the page -- along
+            // with every other finding you had not dealt with yet.
+            const go = document.createElement('a');
+            go.className = 'btn small';
+            go.href = dest.href;
+            go.target = '_blank';
+            go.rel = 'noopener';
+            go.textContent = dest.label;
+            go.title = dest.title;
+            item.appendChild(go);
+          } else {
+            const go = document.createElement('button');
+            go.className = 'btn small';
+            go.type = 'button';
+            go.textContent = 'Go';
+            go.title = 'Close this report, search for that row and ring it.';
+            go.addEventListener('click', () => {
+              closeCheckDialog();
+              focusEventRow(clean(f.row.id));
+            });
+            item.appendChild(go);
+          }
+
+          wrap.appendChild(item);
+        });
+
+        checkReport.appendChild(wrap);
+      });
+    }
+
+    function checkReportText() {
+      const result = runChecks();
+      const lines = ['ANCHOR EVENTS - table check', result.checked + ' rows checked', ''];
+      if (!result.findings.length) {
+        lines.push('Nothing to report.');
+        return lines.join('\n');
+      }
+      CHECK_GROUPS.forEach((group) => {
+        const mine = result.findings.filter((f) => f.level === group.level);
+        if (!mine.length) return;
+        lines.push(group.label.toUpperCase() + ' (' + mine.length + ')');
+        mine.forEach((f) => {
+          lines.push('  - ' + (clean(f.row.id) || '(no id yet)') + ' | ' + (displayTitle(f.row) || '(untitled)'));
+          lines.push('      ' + f.detail);
+        });
+        lines.push('');
+      });
+      return lines.join('\n').replace(/\s+$/, '');
+    }
+
+    function openCheckDialog() {
+      if (!checkLightbox) return;
+      renderCheckReport();
+      checkLightbox.hidden = false;
+      checkLightbox.classList.add('is-open');
+      if (checkCopyStatus) checkCopyStatus.textContent = '';
+      if (closeCheckBtn) closeCheckBtn.focus();
+    }
+
+    function closeCheckDialog() {
+      if (!checkLightbox) return;
+      checkLightbox.classList.remove('is-open');
+      checkLightbox.hidden = true;
+      if (openCheckBtn) openCheckBtn.focus();
+    }
+
+    // RE-READS BOTH SOURCES, because the report checks a row against two things
+    // and either can change while you are acting on it: the events table, and
+    // the shared city catalogue that `unknown-city` is measured against.
+    //
+    // THE CITY CATALOGUE IS THE ONE THAT MATTERS MOST HERE. The `Add city`
+    // button sends you to another tab to add exactly the city this report is
+    // complaining about; TgbCities caches on first load, so without
+    // `{ force: true }` you would come back, press Refresh, and be told the
+    // city still does not exist -- which would make the whole errand look
+    // broken while both halves were working.
+    async function refreshCheckReport() {
+      if (!refreshCheckBtn) return;
+      refreshCheckBtn.disabled = true;
+      const orig = refreshCheckBtn.textContent;
+      refreshCheckBtn.textContent = 'Reading…';
+      if (checkCopyStatus) checkCopyStatus.textContent = '';
+      try {
+        // The city catalogue is best-effort: it is not this page's table, and a
+        // catalogue that will not reload is no reason to refuse to re-check the
+        // events. isKnownCity already treats an unloaded list as "say nothing".
+        if (window.TgbCities && typeof TgbCities.load === 'function') {
+          await TgbCities.load({ force: true }).catch((err) => console.error(err));
+        }
+        await loadEvents();
+      } catch (err) {
+        console.error(err);
+        if (checkCopyStatus) {
+          checkCopyStatus.textContent = 'Could not re-read: ' + (err && err.message ? err.message : 'unknown error');
+          checkCopyStatus.style.color = 'var(--danger)';
+        }
+      } finally {
+        refreshCheckBtn.disabled = false;
+        refreshCheckBtn.textContent = orig;
+      }
+      // Repainted whatever happened above: a failed re-read leaves the previous
+      // rows in place, and re-checking them is still the honest answer.
+      renderCheckReport();
+    }
+
+    async function copyCheckReport() {
+      const text = checkReportText();
+      try {
+        await navigator.clipboard.writeText(text);
+        if (checkCopyStatus) {
+          checkCopyStatus.textContent = 'Copied.';
+          checkCopyStatus.style.color = 'var(--success)';
+        }
+      } catch (err) {
+        console.error(err);
+        if (checkCopyStatus) {
+          checkCopyStatus.textContent = 'Could not copy automatically. Select the report and copy it by hand.';
+          checkCopyStatus.style.color = 'var(--danger)';
+        }
+      }
+    }
+
+    // The schedule importer no longer has a lightbox of its own: it is a pane of
+    // the PROMPT dialog. Its own open/close buttons went with it.
     const schedLeague = document.getElementById('schedLeague');
     const schedFrom = document.getElementById('schedFrom');
     const schedTo = document.getElementById('schedTo');
@@ -1363,7 +3356,11 @@
         league: cfg.league,
         sport: cfg.sport,
         event_date: eventDate || null,
-        end_date: null,
+        // A fixture is one day, so it ends the day it starts. Same rule
+        // withDefaults() applies on the card; written here rather than run
+        // through that function because this builds a row from scratch instead
+        // of reading one off a form.
+        end_date: eventDate || null,
         start_time: local ? local.time : null,
         away_locale: clean(away.team.location) || null,
         away_mascot: clean(away.team.name) || null,
@@ -1436,7 +3433,7 @@
       }
     }
 
-    const existingIds = () => new Set(state.rows.filter((r) => !r.__isNew).map((r) => clean(r.id)));
+    const existingIds = () => new Set(state.rows.map((r) => clean(r.id)));
 
     function schedVisible() {
       const q = schedState.q;
@@ -1572,7 +3569,6 @@
         const byId = new Set(state.rows.map((r) => clean(r.id)));
         inserted.forEach((r) => { if (!byId.has(clean(r.id))) state.rows.push(r); });
         inserted.forEach((r) => schedState.checked.delete(clean(r.id)));
-        rebuildFilters();
         render();
         refreshPromptText();
         setStatus('Imported ' + inserted.length + ' event(s) from ESPN.', 'success');
@@ -1588,8 +3584,11 @@
       schedProgress.hidden = true;
     }
 
-    function openScheduleDialog() {
-      if (!scheduleLightbox) return;
+    // The schedule pane's one-off setup, run when that pane is shown rather than
+    // when a dialog of its own opened. It seeds a sensible week if the dates are
+    // empty and paints whatever was last fetched, so switching back to the pane
+    // does not look like the fetch was lost.
+    function prepareSchedulePane() {
       if (schedFrom && !schedFrom.value) {
         const today = todayIso();
         schedFrom.value = today;
@@ -1599,17 +3598,244 @@
           schedTo.value = d.toISOString().slice(0, 10);
         }
       }
-      scheduleLightbox.hidden = false;
-      scheduleLightbox.classList.add('is-open');
       renderSchedule();
-      if (schedFetchBtn) schedFetchBtn.focus();
     }
 
-    function closeScheduleDialog() {
-      if (!scheduleLightbox) return;
-      scheduleLightbox.classList.remove('is-open');
-      scheduleLightbox.hidden = true;
-      if (openScheduleBtn) openScheduleBtn.focus();
+    // ── MANUAL: one event, typed by hand, in a popup ──────────────────────────
+    // A DIALOG RATHER THAN A CARD UNSHIFTED INTO THE LIST. Creating a row and
+    // editing one are different jobs, and doing the first inside the list put a
+    // half-built event among 603 real ones -- sorted with them, counted with
+    // them, and thrown away the moment anything re-rendered, because an unsaved
+    // row lives in the DOM and render() rebuilds from the stored rows.
+    //
+    // THE ORDER IS THE ORDER SOMEBODY DESCRIBES AN EVENT: what it is, when,
+    // where, who is playing, how it went, where we got it. The id leads because
+    // it is the one field the save refuses without, and because that is where
+    // the card puts it too.
+    //
+    // IT REUSES fieldControl(), SO THERE IS ONE DEFINITION OF EVERY FIELD.
+    // Building a second set of inputs here is how a form and a card start
+    // disagreeing about which values are legal -- the city picker, the time
+    // trimming, the select that keeps an off-list value would all have to be
+    // written twice.
+    // THE SAME FIVE QUESTIONS AS THE CARD, in the same order, so learning one
+    // form teaches the other. Derived from FIELD_GROUPS rather than listed
+    // again: two hand-kept orders would drift the first time a field moved.
+    //
+    // `title` IS INJECTED INTO WHAT. On a card it is the header box, so it is
+    // in no band; this dialog has no header box, so it has to appear somewhere
+    // -- and it belongs next to the kind and the description, not tacked onto
+    // the end of the form.
+    const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
+    const MANUAL_ORDER = ['id'].concat(
+      FIELD_GROUPS.reduce(function (acc, g) {
+        const extra = MANUAL_EXTRA[g.key];
+        let fields = g.fields.slice();
+        if (extra) {
+          const at = fields.indexOf(extra.after);
+          fields.splice(at < 0 ? fields.length : at + 1, 0, extra.field);
+        }
+        return acc.concat(['-'], fields);
+      }, [])
+    );
+
+    // Every editable column must appear on this form too, or a field is
+    // reachable when editing and not when creating -- which is worse than
+    // either, because the row arrives missing something nobody was asked for.
+    (function assertManualCoversFields() {
+      const named = MANUAL_ORDER.filter((f) => f !== '-');
+      const missing = EDITABLE_FIELDS.filter((f) => named.indexOf(f) === -1);
+      const twice = named.filter((f, i) => named.indexOf(f) !== i);
+      if (missing.length) console.error('anchor_events: MANUAL form is missing editable fields:', missing);
+      // A field injected into a group that already lists it would render two
+      // boxes for one column, and readForm would take whichever it found first.
+      if (twice.length) console.error('anchor_events: MANUAL form lists a field twice:', twice);
+    }());
+
+    function buildManualForm() {
+      if (!manualForm) return;
+      manualForm.innerHTML = '';
+      // A fresh draft each time the dialog opens. The defaults are the two the
+      // database would otherwise be given by hand on nearly every row.
+      const draft = { kind: 'sports', status: 'scheduled' };
+
+      MANUAL_ORDER.forEach((f) => {
+        if (f === '-') {
+          manualForm.appendChild(document.createElement('hr')).className = 'manual-gap';
+          return;
+        }
+        if (f === 'id') {
+          const label = document.createElement('label');
+          label.append(document.createTextNode('ID (permanent)'));
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.id = 'manualId';
+          input.placeholder = 'NFL-2026-W1-CAR-CHI';
+          label.appendChild(input);
+          const hint = document.createElement('span');
+          hint.className = 'manual-hint';
+          hint.textContent = 'Every game points at this, so it can never be changed. Shape: LEAGUE-YEAR-Wweek-HOME-AWAY, or KIND-YEAR-MM-DD-NAME.';
+          label.appendChild(hint);
+          manualForm.appendChild(label);
+          return;
+        }
+        // onDirty is a no-op here: there is no row to mark unsaved, because
+        // nothing exists until Add is pressed.
+        manualForm.appendChild(fieldControl(draft, f, function () {}));
+      });
+
+      // The end date mirrors the start exactly as it does on a card, so what is
+      // written is what you can see before you press Add.
+      const startEl = manualForm.querySelector('[data-field="event_date"]');
+      const endEl = manualForm.querySelector('[data-field="end_date"]');
+      if (startEl && endEl) {
+        startEl.addEventListener('change', () => {
+          if (clean(startEl.value) && !clean(endEl.value)) endEl.value = startEl.value;
+        });
+      }
+    }
+
+    // ── The venue city follows the event into the catalogue ──────────────────
+    // A new event routinely names a town the catalogue has never held -- a
+    // stadium suburb, a festival site -- and until now that produced an
+    // `unknown-city` finding, a trip to the Cities page, and a form to fill in
+    // by hand. The event has just told us the city; adding it is the obvious
+    // thing to do with that.
+    //
+    // IT NEVER BLOCKS AND NEVER FAILS THE EVENT. The event is already saved by
+    // the time this runs; a catalogue write that is refused is reported to the
+    // red pen and nothing else. **A city that could not be added is a smaller
+    // problem than an event that looks like it did not save.**
+    //
+    // IT IS NOT A GUESS. `TgbCities.add` is handed the canonical string and the
+    // geo parsed from it by TgbGeo -- exactly what the add dialog sends -- so a
+    // city arriving this way is the same row as one added by hand.
+    // `eventName` is passed IN rather than read from a variable in submitManual:
+    // `added` is local to that function, and reaching for it from here would
+    // have been a ReferenceError the first time somebody added an event with a
+    // new city -- inside a .then(), so it would have surfaced as a rejected
+    // promise blaming the catalogue write.
+    function ensureCityExists(cityRaw, eventName) {
+      const wanted = clean(cityRaw);
+      if (!wanted) return;
+      if (!(window.TgbCities && typeof TgbCities.add === 'function')) return;
+      // Already here: nothing to do, and no message either -- the common case
+      // is not news.
+      if (isKnownCity(wanted)) return;
+
+      const geo = (window.TgbGeo && typeof TgbGeo.parseGeo === 'function')
+        ? TgbGeo.parseGeo(wanted) : null;
+      const payload = geo ? {
+        city_name: geo.cityName || null,
+        state_code: geo.stateCode || null,
+        state_name: geo.stateName || null,
+        country_code: geo.countryCode || null,
+        country_name: geo.countryName || null
+      } : null;
+
+      TgbCities.add(wanted, { authHeaders: authHeaders, geo: payload })
+        .then((row) => {
+          const name = (row && row.city) || wanted;
+          setStatus('Added ' + eventName + ', and put "' + name + '" in the city catalogue.', 'success');
+          // Re-read so isKnownCity and the City datalist both know about it
+          // straight away; without this the CHECK report would still call the
+          // city unknown until the next full load.
+          if (typeof TgbCities.load === 'function') {
+            TgbCities.load({ force: true }).then(refreshCityOptions).catch((err) => console.error(err));
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          setStatus('Event saved, but "' + wanted + '" could not be added to the city catalogue: ' +
+            (err && err.message ? err.message : 'unknown error') + ' Add it on the Cities page.', 'error');
+        });
+    }
+
+    function setManualStatus(text, isError) {
+      if (!manualStatus) return;
+      manualStatus.textContent = text || '';
+      manualStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+    }
+
+    function openManualDialog() {
+      if (!manualLightbox) return;
+      buildManualForm();
+      setManualStatus('');
+      manualLightbox.hidden = false;
+      manualLightbox.classList.add('is-open');
+      const first = manualForm && manualForm.querySelector('#manualId');
+      if (first) first.focus();
+    }
+
+    function closeManualDialog() {
+      if (!manualLightbox) return;
+      manualLightbox.classList.remove('is-open');
+      manualLightbox.hidden = true;
+      if (addEventBtn) addEventBtn.focus();
+    }
+
+    async function submitManual() {
+      if (!manualForm || !manualSaveBtn) return;
+      const idInput = manualForm.querySelector('#manualId');
+      const id = clean(idInput && idInput.value);
+      if (!id) {
+        setManualStatus('Give the event an ID before adding it.', true);
+        if (idInput) idInput.focus();
+        return;
+      }
+      // Checked here as well as by the database, because a primary-key
+      // collision comes back as a raw 23505 naming a constraint, and the answer
+      // -- "that id is taken" -- is one we already have in hand.
+      if (state.rows.some((r) => clean(r.id) === id)) {
+        setManualStatus('An event with the ID "' + id + '" already exists.', true);
+        if (idInput) idInput.focus();
+        return;
+      }
+
+      const payload = Object.assign({ id: id }, withDefaults(readForm(manualForm)));
+      manualSaveBtn.disabled = true;
+      const orig = manualSaveBtn.textContent;
+      manualSaveBtn.textContent = 'Adding…';
+      setManualStatus('');
+      let added = null;
+      try {
+        const res = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not add the event.'));
+        const saved = await res.json();
+        // PostgREST answers 200 with an empty array when RLS refuses a write, so
+        // the row has to be read back or a refused insert reports success and
+        // the event vanishes on the next reload.
+        if (!Array.isArray(saved) || !saved.length) {
+          throw new Error('Nothing was saved — the database refused the write. Check you are signed in as an admin.');
+        }
+        added = saved[0];
+      } catch (err) {
+        console.error(err);
+        setManualStatus(err && err.message ? err.message : 'Could not add the event.', true);
+      } finally {
+        manualSaveBtn.disabled = false;
+        manualSaveBtn.textContent = orig;
+      }
+
+      // ONCE THE WRITE HAS LANDED, NOTHING AFTER IT MAY REPORT FAILURE. This
+      // was inside the try, so anything that threw while tidying up -- a
+      // scrollIntoView an environment does not implement, a render fault --
+      // was caught by the same handler and told you the event could not be
+      // added, about an event that is now in the database. The row is saved;
+      // the rest is presentation.
+      if (!added) return;
+      state.rows.push(added);
+      ensureCityExists(added.city, displayTitle(added));
+      closeManualDialog();
+      render();
+      setStatus('Added ' + displayTitle(added) + '.', 'success');
+      // Land on it: a row added to a 600-row table sorted by date is not
+      // necessarily anywhere you can see.
+      focusEventRow(clean(added.id));
     }
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -1630,11 +3856,13 @@
         if (window.TgbCities && typeof TgbCities.load === 'function') {
           try { await TgbCities.load(); refreshCityOptions(); } catch (e) { console.error(e); }
         }
-        const url = restUrl(TABLE, { select: '*', order: 'event_date.desc.nullslast,id.asc' });
+        // The same order compareRows applies, so the first paint and the sorted
+        // list agree and there is no moment where one is drawn and re-sorted
+        // into the other. Kept in step by hand; nothing checks that they are.
+        const url = restUrl(TABLE, { select: '*', order: 'event_date.asc.nullslast,id.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];
         state.page = 1;
-        rebuildFilters();
         render();
         // The prompt embeds the current catalog so the AI does not re-suggest
         // what we already have — rebuild it whenever the rows change.
@@ -1647,42 +3875,31 @@
       }
     }
 
+    // UPDATE ONLY. Creating an event is the MANUAL dialog's job, so this no
+    // longer branches on whether the row exists -- every card on the list is a
+    // row the database already has.
     async function saveRow(row, el, btn) {
-      const payload = readForm(el);
-      const isNew = !!row.__isNew;
-      const idInput = el.querySelector('[data-field="id"]');
-      const id = isNew ? clean(idInput && idInput.value) : clean(row.id);
-      if (!id) { setStatus('Give the event an ID before creating it.', 'error'); return; }
-      if (isNew && state.rows.some((r) => !r.__isNew && clean(r.id) === id)) {
-        setStatus('An event with the ID "' + id + '" already exists.', 'error');
-        return;
-      }
+      const payload = withDefaults(readForm(el));
+      const id = clean(row.id);
+      if (!id) { setStatus('That row has no ID, so there is nothing to save against.', 'error'); return; }
 
       btn.disabled = true;
       const orig = btn.textContent;
-      btn.textContent = isNew ? 'Creating…' : 'Saving…';
+      btn.textContent = 'Saving…';
       try {
-        const res = isNew
-          ? await fetch(restUrl(TABLE, {}), {
-              method: 'POST',
-              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-              body: JSON.stringify(Object.assign({ id: id }, payload))
-            })
-          : await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
-              method: 'PATCH',
-              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-              body: JSON.stringify(payload)
-            });
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
         if (!res.ok) throw new Error(await readError(res, 'Save failed.'));
         const saved = await res.json();
         if (!Array.isArray(saved) || !saved.length) {
           throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
         }
-        delete row.__isNew;
         Object.assign(row, saved[0]);
-        rebuildFilters();
         render();
-        setStatus((isNew ? 'Created ' : 'Saved ') + displayTitle(row) + '.', 'success');
+        setStatus('Saved ' + displayTitle(row) + '.', 'success');
       } catch (err) {
         console.error(err);
         setStatus(err && err.message ? err.message : 'Save failed.', 'error');
@@ -1691,12 +3908,166 @@
       }
     }
 
-    async function deleteRow(row, btn) {
-      if (row.__isNew) {
-        state.rows = state.rows.filter((r) => r !== row);
-        render();
+    // ── SPLIT A MULTI-DAY EVENT INTO ONE EVENT PER DAY ────────────────────────
+    // A GAME IS PLAYED THE DAY BEFORE ITS ANCHOR EVENT, and that is the whole
+    // reason this exists. A convention that runs Friday to Sunday is not one
+    // opportunity, it is three: somebody arriving for Saturday wants a game on
+    // Friday, and a single row spanning the weekend cannot express that. Split,
+    // each day is its own anchorable event with its own date.
+    //
+    // THE ORIGINAL ROW SURVIVES AND BECOMES DAY 1. It is not deleted and
+    // re-created, because `games.anchor_event_id` is a foreign key pointing at
+    // that id: deleting the row would either fail on the constraint or orphan
+    // every game built on it. Days 2..N are new rows; day 1 keeps the id
+    // anything already points at, and a game anchored to the old span stays
+    // anchored to the first day of it, which is the closest true answer.
+
+    const DAY_MS = 86400000;
+
+    function isoToUtc(iso) {
+      const p = clean(iso).split('-');
+      if (p.length !== 3) return null;
+      const t = Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return Number.isFinite(t) ? t : null;
+    }
+
+    // UTC THROUGHOUT, deliberately. These are calendar dates, not moments: a
+    // local-time Date crossing a DST boundary lands on 23 or 25 hours and the
+    // day arithmetic drifts by one, which on a nine-day festival is a real
+    // wrong answer rather than a rounding error.
+    function utcToIso(ms) {
+      const d = new Date(ms);
+      const p = (n) => String(n).padStart(2, '0');
+      return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
+    }
+
+    function dayCount(row) {
+      const a = isoToUtc(row && row.event_date);
+      const b = isoToUtc(row && row.end_date);
+      if (a == null || b == null || b <= a) return 1;
+      return Math.round((b - a) / DAY_MS) + 1;
+    }
+
+    // NO EM DASH, per the standing rule in CLAUDE.md, and the separator is a
+    // constant so a fifth opinion about it is one edit rather than four.
+    const DAY_SUFFIX = (n, total) => ' (Day ' + n + ' of ' + total + ')';
+    // Matches a suffix this function wrote, so splitting a row twice does not
+    // produce "X (Day 1 of 3) (Day 1 of 2)".
+    const DAY_SUFFIX_RE = /\s*\(Day \d+ of \d+\)\s*$/;
+
+    function dayTitle(base, n, total) {
+      return clean(base).replace(DAY_SUFFIX_RE, '') + DAY_SUFFIX(n, total);
+    }
+
+    // `<id>-D2`, `-D3`... Day 1 keeps the bare id. An id already in the table
+    // gets a letter rather than being overwritten: two rows cannot share a
+    // primary key, and silently clobbering somebody's row is the worse failure.
+    function dayId(baseId, n, taken) {
+      if (n === 1) return clean(baseId);
+      let candidate = clean(baseId) + '-D' + n;
+      let suffix = 0;
+      while (taken.has(candidate)) {
+        suffix += 1;
+        candidate = clean(baseId) + '-D' + n + String.fromCharCode(96 + suffix);
+        if (suffix > 25) return '';
+      }
+      return candidate;
+    }
+
+    // Builds every row the split will write. Pure, so it can be reasoned about
+    // and tested without a database: the caller does the PATCH and the POSTs.
+    function planSplit(row, taken) {
+      const total = dayCount(row);
+      if (total < 2) return null;
+      const start = isoToUtc(row.event_date);
+      const base = clean(row.title) || displayTitle(row);
+      const seen = new Set(taken);
+      const days = [];
+      for (let n = 1; n <= total; n += 1) {
+        const iso = utcToIso(start + (n - 1) * DAY_MS);
+        const id = dayId(row.id, n, seen);
+        if (!id) return null;
+        seen.add(id);
+        days.push({ n: n, id: id, event_date: iso, end_date: iso, title: dayTitle(base, n, total) });
+      }
+      return { total: total, days: days };
+    }
+
+    async function splitRow(row, el, btn) {
+      // READS THE FORM, NOT THE STORED ROW, so a span you have just typed splits
+      // the way it looks on screen. withDefaults() then collapses a blank end
+      // date exactly as a save would, which is what makes "no range" impossible
+      // to reach by accident here.
+      const current = Object.assign({}, row, withDefaults(readForm(el)));
+      const plan = planSplit(current, existingIds());
+      if (!plan) {
+        setStatus('That event runs a single day, so there is nothing to split.', 'error');
         return;
       }
+
+      const ok = window.confirm(
+        'Split "' + (clean(current.title) || displayTitle(current)) + '" into ' + plan.total + ' one-day events?\n\n' +
+        plan.days.map((d) => '  ' + d.event_date + '  ' + d.id).join('\n') + '\n\n' +
+        'This row keeps its ID and becomes day 1, so any game already anchored to it stays anchored. ' +
+        'The other ' + (plan.total - 1) + ' are new rows. It is not undoable in one press.'
+      );
+      if (!ok) return;
+
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = 'Splitting…';
+      try {
+        // DAY 1 FIRST. If the inserts fail afterwards you are left with a
+        // one-day event and a clear message, which is a state somebody can act
+        // on. The other order leaves duplicate days 2..N sitting beside a row
+        // that still claims the whole span.
+        const first = plan.days[0];
+        const patch = Object.assign({}, readForm(el), {
+          event_date: first.event_date, end_date: first.end_date, title: first.title
+        });
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(patch)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not update day 1.'));
+        const savedFirst = await res.json();
+        // PostgREST answers 200 with an empty array when RLS refuses a write,
+        // so the row has to be read back or a refused split reports success.
+        if (!Array.isArray(savedFirst) || !savedFirst.length) {
+          throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
+        }
+        Object.assign(row, savedFirst[0]);
+
+        const rest = plan.days.slice(1).map((d) => Object.assign({}, readForm(el), {
+          id: d.id, event_date: d.event_date, end_date: d.end_date, title: d.title
+        }));
+        const res2 = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(rest)
+        });
+        if (!res2.ok) {
+          throw new Error('Day 1 was saved, but the other days were not: ' + await readError(res2, 'insert failed') +
+            ' — the original is now a one-day event, so you can fix the problem and split it again.');
+        }
+        const inserted = await res2.json();
+        if (!Array.isArray(inserted) || inserted.length !== rest.length) {
+          throw new Error('Day 1 was saved but only ' + (Array.isArray(inserted) ? inserted.length : 0) +
+            ' of ' + rest.length + ' other days were inserted.');
+        }
+        inserted.forEach((r) => state.rows.push(r));
+        render();
+        setStatus('Split into ' + plan.total + ' one-day events.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Split failed.', 'error');
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+    async function deleteRow(row, btn) {
       const id = clean(row.id);
       if (!id) return;
       if (!window.confirm('Delete "' + displayTitle(row) + '" from the events catalog?\n\nThis is permanent, and it will fail if a game is still anchored to it.')) return;
@@ -1709,7 +4080,6 @@
         });
         if (!res.ok) throw new Error(await readError(res, 'Delete failed.'));
         state.rows = state.rows.filter((r) => r !== row);
-        rebuildFilters();
         render();
         setStatus('Deleted ' + id + '.', 'success');
       } catch (err) {
@@ -1728,32 +4098,20 @@
         render();
       });
     }
-    [[kindFilter, 'kind'], [leagueFilter, 'league'], [whenFilter, 'when']].forEach(([el, key]) => {
-      if (!el) return;
-      el.addEventListener('change', () => { state[key] = el.value; state.page = 1; render(); });
-    });
-
     if (addEventBtn) {
       addEventBtn.addEventListener('click', () => {
         if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
-        state.rows.unshift({ id: '', kind: 'sports', status: 'scheduled', __isNew: true });
-        state.page = 1;
-        state.q = ''; state.kind = ''; state.league = ''; state.when = '';
-        if (searchInput) searchInput.value = '';
-        rebuildFilters();
-        render();
-        const first = listEl && listEl.querySelector('.event-row.is-new [data-field="id"]');
-        if (first) first.focus();
+        openManualDialog();
+      });
+    }
+    if (closeManualBtn) closeManualBtn.addEventListener('click', closeManualDialog);
+    if (manualSaveBtn) manualSaveBtn.addEventListener('click', submitManual);
+    if (manualLightbox) {
+      manualLightbox.addEventListener('click', (event) => {
+        if (event.target === manualLightbox) closeManualDialog();
       });
     }
 
-    if (openScheduleBtn) {
-      openScheduleBtn.addEventListener('click', () => {
-        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
-        openScheduleDialog();
-      });
-    }
-    if (closeScheduleBtn) closeScheduleBtn.addEventListener('click', closeScheduleDialog);
     if (schedFetchBtn) schedFetchBtn.addEventListener('click', fetchSchedule);
     if (schedImportBtn) schedImportBtn.addEventListener('click', importSelected);
     if (schedFilter) {
@@ -1774,13 +4132,35 @@
     if (schedNoneBtn) {
       schedNoneBtn.addEventListener('click', () => { schedState.checked = new Set(); renderSchedule(); });
     }
-    if (scheduleLightbox) {
-      scheduleLightbox.addEventListener('click', (event) => {
-        if (event.target === scheduleLightbox) closeScheduleDialog();
+
+    if (openCheckBtn) {
+      openCheckBtn.addEventListener('click', () => {
+        // Nothing is loaded when signed out, so an audit would report a clean
+        // table of nothing -- which is the most misleading answer available.
+        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+        openCheckDialog();
+      });
+    }
+    if (closeCheckBtn) closeCheckBtn.addEventListener('click', closeCheckDialog);
+    if (copyCheckBtn) copyCheckBtn.addEventListener('click', copyCheckReport);
+    if (refreshCheckBtn) refreshCheckBtn.addEventListener('click', refreshCheckReport);
+    if (checkLightbox) {
+      checkLightbox.addEventListener('click', (event) => {
+        if (event.target === checkLightbox) closeCheckDialog();
       });
     }
 
-    if (openPromptBtn) openPromptBtn.addEventListener('click', openPromptLightbox);
+    // OPENS ON THE PROMPT PANE. It is the one that works for anything, and the
+    // schedule feed only covers the big four leagues -- so the general answer is
+    // the default and the specialised one is a click away, not the reverse.
+    if (openPromptBtn) {
+      openPromptBtn.addEventListener('click', () => {
+        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+        openPromptLightbox('prompt');
+      });
+    }
+    if (modeScheduleBtn) modeScheduleBtn.addEventListener('click', () => setPromptMode('schedule'));
+    if (modePromptBtn) modePromptBtn.addEventListener('click', () => setPromptMode('prompt'));
     if (closePromptBtn) closePromptBtn.addEventListener('click', closePromptLightbox);
     if (copyPromptBtn) copyPromptBtn.addEventListener('click', copyPromptText);
     if (promptFocus) promptFocus.addEventListener('input', refreshPromptText);
@@ -1800,7 +4180,8 @@
     }
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
-      if (scheduleLightbox && !scheduleLightbox.hidden) { closeScheduleDialog(); return; }
+      if (manualLightbox && !manualLightbox.hidden) { closeManualDialog(); return; }
+      if (checkLightbox && !checkLightbox.hidden) { closeCheckDialog(); return; }
       if (promptLightbox && !promptLightbox.hidden) closePromptLightbox();
     });
 
@@ -1810,7 +4191,6 @@
       onSignedOut: () => {
         state.authed = false;
         state.rows = [];
-        rebuildFilters();
         render();
         setStatus('Sign in with an admin account.');
       }

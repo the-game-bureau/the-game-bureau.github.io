@@ -375,9 +375,29 @@
 
   // ── Add dialog ─────────────────────────────────────────────────────────────
 
+  // A COUNTER, so each dialog's datalist gets an id of its own. Two dialogs
+  // both carrying id="tgb-city-states" is invalid HTML, and it BREAKS: once the
+  // second wrap is in the document, `wrap.querySelector('#tgb-city-states')`
+  // can resolve to the first dialog's datalist, fail the descendant test and
+  // come back null -- and the next line calls appendChild on it.
+  var dialogSeq = 0;
+
   function openAddDialog(opts) {
     ensureStyles();
+    // ONE AT A TIME. Nothing here stacks: a second dialog would sit on the same
+    // scrim over the first, and the one underneath is unreachable and still
+    // holding an unresolved promise. This became reachable when the Cities page
+    // learned to open the dialog itself from `?add=`, so arriving with one open
+    // and then pressing ADD gave you two.
+    var existing = document.querySelector('.tgb-city-dialog');
+    if (existing) {
+      var box = existing.querySelector('.tgb-city-in-city');
+      if (box && typeof box.focus === 'function') box.focus();
+      return Promise.resolve(null);
+    }
     return new Promise(function (resolve) {
+      dialogSeq += 1;
+      var stateListId = 'tgb-city-states-' + dialogSeq;
       var wrap = document.createElement('div');
       wrap.className = 'tgb-city-dialog';
       wrap.innerHTML =
@@ -385,9 +405,13 @@
           '<h3>Add</h3>' +
           '<p>City, state/province, and country. The rest of the row (slug and the map/oval fields) fills in from these.</p>' +
           '<input type="text" class="tgb-city-in-city" placeholder="City, e.g. Youngstown" autocomplete="off">' +
+          // NO ABBR BOX. The two-letter code is derived from the state you
+          // choose -- findState() knows every US state and CA province, which
+          // is what state_code is for and what drives the map icons -- so a box
+          // asking you to type it was asking for the one thing on this form
+          // with exactly one right answer.
           '<div class="tgb-city-row">' +
-            '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="tgb-city-states">' +
-            '<input type="text" class="tgb-city-in-abbr" placeholder="Abbr" autocomplete="off" maxlength="3" aria-label="State abbreviation" style="flex:0 0 78px;text-transform:uppercase;">' +
+            '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="' + stateListId + '">' +
           '</div>' +
           '<div class="tgb-city-row">' +
             '<span class="tgb-city-wrap">' +
@@ -395,7 +419,7 @@
               '<button type="button" class="tgb-city-add tgb-city-add-country" title="Add a country to the shared list" aria-label="Add a country">+</button>' +
             '</span>' +
           '</div>' +
-          '<datalist id="tgb-city-states"></datalist>' +
+          '<datalist id="' + stateListId + '"></datalist>' +
           '<div class="tgb-city-preview"></div>' +
           '<label class="tgb-city-ignored-note">' +
             '<input type="checkbox" class="tgb-city-ignored-box"> Hide from games, soundtracks and gift shop' +
@@ -409,7 +433,6 @@
 
       var cityInput = wrap.querySelector('.tgb-city-in-city');
       var stateInput = wrap.querySelector('.tgb-city-in-state');
-      var abbrInput = wrap.querySelector('.tgb-city-in-abbr');
       var countryInput = wrap.querySelector('.tgb-city-in-country');
       var ignoredBox = wrap.querySelector('.tgb-city-ignored-box');
       var preview = wrap.querySelector('.tgb-city-preview');
@@ -418,8 +441,13 @@
       // State is a type-ahead from geo.js; Country is a real dropdown sourced
       // from the countries catalog (public.countries via TgbGeo). Refill once
       // the catalog loads, keeping the current pick.
-      var stateDl = wrap.querySelector('#tgb-city-states');
-      stateList().forEach(function (s) { var o = document.createElement('option'); o.value = s.name; stateDl.appendChild(o); });
+      // BY TAG WITHIN THE WRAP, not by id. The id is what the input's `list`
+      // attribute needs; finding the element again through it is the part that
+      // went wrong, so this does not.
+      var stateDl = wrap.querySelector('datalist');
+      if (stateDl) {
+        stateList().forEach(function (s) { var o = document.createElement('option'); o.value = s.name; stateDl.appendChild(o); });
+      }
       function fillCountries() {
         var keep = countryInput.value;
         countryInput.innerHTML = '';
@@ -442,20 +470,20 @@
         if (event.key === 'Escape') close(null);
         if (event.key === 'Enter' && wrap.contains(document.activeElement)) save();
       }
+      // THE DERIVED CODE IS SHOWN, not merely used. It is a real stored column
+      // that drives the map icons, and with the box gone the preview line is the
+      // only place you can see whether one was worked out -- a silent
+      // derivation and a silent failure to derive look identical.
       function refreshPreview() {
-        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, abbrInput.value);
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, '');
         preview.classList.remove('is-error');
-        preview.textContent = r.geo.city_name ? 'Saves as: ' + r.composed : '';
-      }
-      // Typing a known state/province name auto-fills its abbr (leave a manually
-      // typed one alone; foreign regions stay blank for you to enter a code).
-      function autofillAbbr() {
-        if (abbrInput.value.trim()) return;
-        var st = findState(stateInput.value);
-        if (st && st.code) abbrInput.value = st.code;
+        if (!r.geo.city_name) { preview.textContent = ''; return; }
+        var line = 'Saves as: ' + r.composed;
+        if (r.geo.state_code) line += '  ·  code ' + r.geo.state_code;
+        preview.textContent = line;
       }
       function save() {
-        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, abbrInput.value);
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, '');
         if (!r.geo.city_name) {
           preview.classList.add('is-error');
           preview.textContent = 'Type a city first.';
@@ -485,8 +513,7 @@
           });
       });
 
-      [cityInput, stateInput, abbrInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
-      stateInput.addEventListener('input', autofillAbbr);
+      [cityInput, stateInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
       countryInput.addEventListener('change', refreshPreview);   // <select> fires change
       wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
       saveBtn.addEventListener('click', save);
@@ -499,7 +526,6 @@
         if (parsed && parsed.cityName) {
           cityInput.value = parsed.cityName;
           stateInput.value = parsed.stateName || parsed.stateCode || '';
-          if (parsed.stateCode) abbrInput.value = parsed.stateCode;
           if (parsed.countryName) countryInput.value = parsed.countryName;
         } else {
           cityInput.value = String(opts.initialValue).replace(/,.*$/, '').trim();

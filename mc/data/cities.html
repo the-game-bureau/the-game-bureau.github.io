@@ -811,9 +811,70 @@
       document.body.appendChild(dl);
     }());
 
+    // ── ?add=<city string> ────────────────────────────────────────────────────
+    // Somewhere else in Mission Control found a city this catalogue does not
+    // have and sent you here to add it. The Anchor Events CHECK report is the
+    // first caller: its `unknown-city` finding cannot be fixed on the event row,
+    // because the row already holds the string nobody recognises.
+    //
+    // IT OPENS THE ADD DIALOG PREFILLED rather than merely landing you on the
+    // page. Arriving at a 1,451-row catalogue and being told to type in a city
+    // you were just looking at somewhere else is the errand this exists to
+    // remove; openAddDialog's `initialValue` already parses "Nowheresville,
+    // Nebraska" into a city and a state, and the state code derives from there.
+    //
+    // AFTER load, not beside it: the dialog writes through the same authHeaders
+    // the page uses, so it has to wait for the session the way everything else
+    // here does.
+    function openAddFromQuery() {
+      let wanted = '';
+      try { wanted = (new URLSearchParams(location.search).get('add') || '').trim(); }
+      catch (e) { wanted = ''; }
+      if (!wanted) return;
+
+      // EVERY BRANCH BELOW SAYS SOMETHING. This arrived as one silent path --
+      // if the dialog did not open you got a blank Cities page and no reason,
+      // which is indistinguishable from the link being broken.
+      const done = () => {
+        // CLEARED ONLY ONCE WE HAVE ACTED. It used to be cleared first, so a
+        // branch that bailed lost the request and a reload could not retry it.
+        try { history.replaceState(null, '', location.pathname); } catch (e) { /* history unavailable */ }
+      };
+
+      if (!(window.TgbCities && typeof TgbCities.openAddDialog === 'function')) {
+        setStatus('The city picker did not load, so "' + wanted + '" could not be opened for adding. Reload the page (Ctrl+Shift+R).', 'error');
+        return;   // query kept: a reload is exactly the fix, and it will retry
+      }
+
+      // ALREADY HERE? Don't open a form the database would refuse -- but don't
+      // just whisper it either. The list is searched down to the row so the
+      // answer is on screen, which is also how you check the spelling that made
+      // the other page think it was missing.
+      const key = String(wanted).trim().toLowerCase();
+      const match = state.rows.find((r) => String(r.city || '').trim().toLowerCase() === key);
+      if (match) {
+        done();
+        if (searchInput) { searchInput.value = match.city; state.page = 1; state.q = key; render(); }
+        setStatus('"' + match.city + '" is already in the catalogue, shown below. Nothing to add.', 'success');
+        return;
+      }
+
+      TgbCities.openAddDialog({ authHeaders: authHeaders, initialValue: wanted }).then((cityRow) => {
+        done();
+        if (!cityRow) {
+          // openAddDialog resolves null when it refuses -- today, only because
+          // another one of its dialogs is already open.
+          setStatus('The add form did not open for "' + wanted + '". Close any other dialog and press ADD.', 'error');
+          return;
+        }
+        setStatus('Added ' + (cityRow.city || 'city') + '.', 'success');
+        loadCities();
+      });
+    }
+
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
-      onAuthorized: async () => { state.authed = true; await loadCities(); },
+      onAuthorized: async () => { state.authed = true; await loadCities(); openAddFromQuery(); },
       onSignedOut: () => { state.authed = false; state.rows = []; rebuildFilters(); render(); refreshPromptText(); setStatus('Sign in with an admin account.'); }
     });
 
