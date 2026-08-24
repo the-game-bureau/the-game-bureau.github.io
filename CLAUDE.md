@@ -1685,6 +1685,45 @@ Mission Control had grown a dialog vocabulary per room — `.tool-modal-panel` (
   - **The mechanisms are untouched behind it.** Every id of both panes survives, so all the schedule wiring and all the prompt wiring needed no edit — `openScheduleDialog` became `prepareSchedulePane`, called when that pane is shown, and `#scheduleLightbox` with its own Close button was deleted.
 - **SEARCH EXISTING IS ONE TEXT BOX** (2026-08-24). It carried three dropdowns — kind, league and a date window — and **the box already searches kind, league, club, venue, city, status and source**, so typing "concert" or "NFL" narrowed the list exactly as the pickers did while three controls sat there on every visit duplicating it. `fillSelect`, `rebuildFilters` and three `state` keys went with them; that pair walked every row on every load to count values for dropdown labels nothing now reads.
   - **WHAT IS GENUINELY LOST IS THE DATE WINDOW.** Upcoming / Past / No date is not a text match, so it is gone rather than folded in. **The `past` pill and the week headings are what answer that question now**, and if a real date filter is ever wanted back it is a filter, not a search term.
+- **A `FILTER` TAB SITS BETWEEN SEARCH EXISTING AND CHECK** (2026-08-24), with two
+  checkboxes: **Review** and **Neutral site**. Four tabs now, in the order you
+  work in: put rows in, search the text, narrow by state, then ask what is wrong
+  with the whole table.
+  - **A CHECKBOX, NOT A SEARCH TERM, BECAUSE NEITHER IS TEXT.** `neutral_site` is
+    a boolean the row never spells out, and being in review is a state — so
+    nothing you could type in the box next door reaches either. That is the test
+    for whether something belongs here rather than there.
+  - **THE NEUTRAL-SITE BOX IS THE ONLY WAY TO FIND THOSE 15 ROWS NOW.** The pill
+    that said so went with all the others, and it was the only thing on the page
+    that named the column. Deleting a marker without a filter to replace it makes
+    the fact unreachable, not merely quiet.
+  - **THE COUNTS ARE WHY THESE ARE VISIBLE CONTROLS.** A closed picker cannot say
+    that 43 rows are waiting on you, which is the question the strip exists to
+    answer. Same argument as the Tape Room's filter strip.
+  - **COUNTED OVER THE WHOLE TABLE, NEVER OVER WHAT IS ON SCREEN.** A count that
+    shrank as you ticked the other box would read as the filter breaking, and the
+    question each one answers is *how many are there*, not *how many survive the
+    filter I have already applied*.
+  - **A COUNT OF ZERO IS NOT DRAWN.** `(0)` beside every filter on every visit is
+    a number that never means anything.
+  - **ONE STATE, TWO CONTROLS: the Review box and the ERRORS button drive the same
+    `state.reviewOnly`.** The sweep ticks the box, and unticking it IS pressing
+    Show all. **Two controls with two ideas of one filter is how a page starts
+    contradicting itself**, which this room has already paid for once — a counts
+    line reading "13 shelved" beside a tab reading 8, from the same data.
+  - **TICKING BOTH IS AN INTERSECTION, and the search box narrows WITHIN whatever
+    is ticked.** Clearing the text does not clear a filter; they are different
+    questions.
+  - **ONLY SEARCH EXISTING MAY GROW.** `.command-bar--filter` is `flex: 0 0 auto`
+    like ADD and CHECK: two flexible tabs would split the slack and neither end
+    of the bar would stay pinned.
+  - **THERE IS NO `el()` HELPER ON THIS PAGE and the first cut of this used one.**
+    It holds module-level `document.getElementById` consts instead, so `el(...)`
+    was a ReferenceError that killed the whole listener block — and with it every
+    control wired after it. **The standing id-check did not catch it**, because
+    that check matches `el('x').property` and these were bare calls. Caught by
+    rendering the page, which is the only thing that would have.
+
 - **The list panel is a `fieldset` with its own tab too**, so the room reads as a set of tagged folders rather than a tinted toolbar sitting on an unrelated white box. `<section class="panel">` became `<fieldset class="panel">`; the tint is also what lets the white cards read as objects on it.
 - **`#pageStatus` IS THE RED-PEN SCRIBBLE NOW**, keeping its id so every `setStatus()` call still lands, and the standing sentence moved into a `.room-blurb` in the markup. **That split is the point.** One element was the description, the save confirmation and the error channel at once, and `setStatus('')` fell back to printing the description — so a write failure erased the only explanation of the room, and a successful save reprinted the tagline in red pen. `DEFAULT_SUBSTAT` is deleted; an empty message now clears the pen. A success clears itself after six seconds, an **error stays** until the next action.
 - **`.room-scribble.error` / `.success` are overridden to `inherit`**, the same guard `#shopStatus` carries: the pen is red whatever the news is.

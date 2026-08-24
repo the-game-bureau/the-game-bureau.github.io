@@ -231,6 +231,29 @@
     .command-bar input[type="search"] { flex: 1 1 200px; max-width: 320px; }
 
     .command-bar--check { flex: 0 0 auto; }
+    /* FILTER does not grow. Only SEARCH EXISTING may take the slack, or two
+       flexible tabs would split it and neither end would be pinned. */
+    .command-bar--filter { flex: 0 0 auto; }
+    .bar-check {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: var(--ink); white-space: nowrap;
+      cursor: pointer; user-select: none;
+    }
+    /* 8.5px puts the 15px box's middle on the 32px control's middle, exactly as
+       the neutral-site field in the WHERE band does. Recomputed by a test from
+       the stylesheet, so changing either number fails loudly. */
+    .bar-check input { width: 15px; height: 15px; margin: 0; accent-color: var(--bic-blue); cursor: pointer; }
+    /* A ticked filter is stated in the label, not only in the box: a tick is
+       small and the strip is read at a glance. */
+    .bar-check.is-on { font-weight: 600; color: var(--bic-blue); }
+    /* THE COUNT IS DRAWN ONLY WHEN THERE IS SOMETHING TO COUNT. A "(0)" beside
+       every filter on every visit is a number that never means anything, and
+       the strip's whole job is to carry the ones that do. */
+    .bar-check-n { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+    .bar-check-n:empty { display: none; }
+    .bar-check.is-on .bar-check-n { color: inherit; }
+    /* The review count is the red pen, matching the rows it points at. */
+    #reviewFilterLabel .bar-check-n[data-any="1"] { color: var(--danger); }
     /* The Go control is a <button> for most findings and an <a> for the ones
        that send you to another room, so it is styled by position rather than by
        tag -- otherwise the two read as different kinds of control. */
@@ -909,6 +932,33 @@
         </div>
       </fieldset>
 
+      <!-- FILTER SITS BETWEEN THEM, and the order of the four tabs is the order
+           you work in: put rows in, search the text, narrow by state, then ask
+           what is wrong with the whole table.
+
+           A CHECKBOX, NOT A SEARCH TERM. Both of these are facts about a row
+           that its text does not contain: `neutral_site` is a boolean nothing
+           spells out, and being in review is a state. Typing cannot reach
+           either, which is exactly why they are not in the box next door.
+
+           THE COUNTS ARE THE REASON THESE ARE VISIBLE CONTROLS rather than a
+           dropdown. A closed picker cannot say that 43 rows are waiting on you,
+           which is the question the strip exists to answer. Same argument as the
+           Tape Room's filter strip. -->
+      <fieldset class="command-bar command-bar--filter">
+        <legend>Filter</legend>
+        <div class="command-bar-inner">
+          <label class="bar-check" id="reviewFilterLabel">
+            <input type="checkbox" id="reviewFilter">
+            <span>Review <b class="bar-check-n" id="reviewFilterN"></b></span>
+          </label>
+          <label class="bar-check" id="neutralFilterLabel">
+            <input type="checkbox" id="neutralFilter">
+            <span>Neutral site <b class="bar-check-n" id="neutralFilterN"></b></span>
+          </label>
+        </div>
+      </fieldset>
+
       <!-- CHECK SITS HARD RIGHT, at the far end of the bar from ADD. The row
            reads left to right as the order you work in: put events in, find
            them, order them, and then -- last, and only when you want it -- ask
@@ -1252,6 +1302,12 @@
     const titleEl = document.getElementById('eventTitle');
     const pageStatus = document.getElementById('pageStatus');
     const searchInput = document.getElementById('searchInput');
+    const reviewFilter = document.getElementById('reviewFilter');
+    const neutralFilter = document.getElementById('neutralFilter');
+    const reviewFilterLabel = document.getElementById('reviewFilterLabel');
+    const neutralFilterLabel = document.getElementById('neutralFilterLabel');
+    const reviewFilterN = document.getElementById('reviewFilterN');
+    const neutralFilterN = document.getElementById('neutralFilterN');
     const listEl = document.getElementById('eventList');
     const pagerTopEl = document.getElementById('pagerTop');
     const pagerBottomEl = document.getElementById('pagerBottom');
@@ -1294,7 +1350,11 @@
     // `reviewOnly` IS A VIEW, NOT A SEARCH TERM. It narrows to the rows that
     // are in review, which is a question about the row's state rather than
     // about its text, and the search box is still free to narrow within it.
-    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false };
+    // `neutralOnly` IS THE ONLY WAY TO FIND A NEUTRAL-SITE ROW NOW. The pill
+    // that said so was deleted with the rest of them, and `neutral_site` is a
+    // boolean the row's text never spells out, so nothing the search box can be
+    // told would reach these 15 rows.
+    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false, neutralOnly: false };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1425,6 +1485,7 @@
     // filter is ever wanted back it is a filter, not a search term.
     function matches(row) {
       if (state.reviewOnly && !isInReview(row)) return false;
+      if (state.neutralOnly && row.neutral_site !== true) return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_locale, row.away_mascot, row.home_locale, row.home_mascot,
@@ -3067,7 +3128,34 @@
     // THE BUTTON IS ALSO THE WAY OUT. Once the view is on, it reads Show all:
     // a filter you can enter and not leave is a trap, and the search box does
     // not clear this one because this is not a search.
+    // ONE STATE, TWO CONTROLS. The Review checkbox and the Errors button drive
+    // the same `state.reviewOnly`, so the button ticks the box when it opens the
+    // view and unticking the box is the same act as pressing Show all. Two
+    // controls with two ideas of one filter is how a page starts contradicting
+    // itself; this page has already paid for that once, with a counts line
+    // saying "13 shelved" beside a tab saying 8 from the same data.
+    function syncFilters() {
+      const paint = (box, label, nEl, on, count) => {
+        if (!box) return;
+        box.checked = on;
+        if (label) label.classList.toggle('is-on', on);
+        if (nEl) {
+          nEl.textContent = count ? String(count) : '';
+          if (count) nEl.setAttribute('data-any', '1'); else nEl.removeAttribute('data-any');
+        }
+      };
+      // COUNTED OVER THE WHOLE TABLE, NOT OVER WHAT IS ON SCREEN. A count that
+      // shrank as you ticked the other box would read as the filter breaking,
+      // and the question each one answers is "how many are there", not "how
+      // many survive the filter I have already applied".
+      paint(reviewFilter, reviewFilterLabel, reviewFilterN,
+        state.reviewOnly, state.rows.filter(isInReview).length);
+      paint(neutralFilter, neutralFilterLabel, neutralFilterN,
+        state.neutralOnly, state.rows.filter((r) => r.neutral_site === true).length);
+    }
+
     function syncErrorsBtn() {
+      syncFilters();
       if (!errorsBtn) return;
       if (state.reviewOnly) {
         errorsBtn.textContent = 'Show all';
@@ -3977,6 +4065,19 @@
         render();
       });
     }
+    // THE CHECKBOXES ARE WIRED BY A LOOP, not one block each, so a third filter
+    // is one entry rather than a copy of this with two words changed.
+    [[reviewFilter, 'reviewOnly'], [neutralFilter, 'neutralOnly']].forEach(([box, key]) => {
+      if (!box) return;
+      box.addEventListener('change', () => {
+        state[key] = box.checked;
+        state.page = 1;
+        render();
+        // render() repaints the strip and the Errors button, so unticking
+        // Review really is the same act as pressing Show all.
+      });
+    });
+
     if (addEventBtn) {
       addEventBtn.addEventListener('click', () => {
         if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
