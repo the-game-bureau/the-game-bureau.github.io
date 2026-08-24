@@ -867,7 +867,14 @@
       min-width: 0;
       overflow-wrap: anywhere;
     }
-    .item-issue-clear {
+    .item-issue-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .item-issue-clear,
+    .item-issue-test {
       flex: 0 0 auto;
       min-height: 28px;
       padding: 0 8px;
@@ -882,11 +889,21 @@
       text-transform: uppercase;
       cursor: pointer;
     }
-    .item-issue-clear:hover {
+    .item-issue-test {
+      border-color: rgba(var(--bic-blue-rgb), 0.34);
+      color: var(--accent);
+    }
+    .item-issue-clear:hover,
+    .item-issue-test:hover {
       border-color: #d92626;
       color: #d92626;
     }
-    .item-issue-clear:disabled {
+    .item-issue-test:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .item-issue-clear:disabled,
+    .item-issue-test:disabled {
       opacity: 0.58;
       cursor: progress;
     }
@@ -1168,6 +1185,117 @@
     /* Three equal targets, big, because this is the whole interaction. */
     .process-actions { display: flex; gap: 8px; padding: 14px 18px 18px; }
     .process-actions > .btn { flex: 1 1 0; min-height: 48px; font-size: 0.78rem; }
+    .process-modal.is-batch .process-panel { width: min(760px, 100%); }
+    .process-modal.is-batch .process-body {
+      min-height: 0;
+      overflow: auto;
+      text-align: left;
+    }
+    .process-modal.is-batch .process-shot { display: none; }
+    .process-modal.is-batch .process-title {
+      height: auto;
+      min-height: 2.66rem;
+      display: block;
+      -webkit-line-clamp: unset;
+    }
+    .process-batch-tools[hidden],
+    .process-batch-list[hidden] { display: none; }
+    .process-batch-tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 8px;
+    }
+    .process-batch-tools .btn {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 0 12px;
+      font-size: 0.72rem;
+    }
+    .process-batch-summary {
+      margin-left: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .process-batch-list {
+      display: grid;
+      gap: 8px;
+      max-height: min(52vh, 420px);
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .process-batch-item {
+      display: grid;
+      grid-template-columns: 24px 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .process-batch-item:hover,
+    .process-batch-item:has(input:focus-visible) {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.08);
+    }
+    .process-batch-item:has(input:checked) {
+      border-color: var(--accent);
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .process-batch-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    .process-batch-thumb {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f4f6fa;
+      overflow: hidden;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .process-batch-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .process-batch-copy { min-width: 0; }
+    .process-batch-name {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .process-batch-meta {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .process-batch-warning { color: var(--bic-red); }
     /* SHELVE IS BLUE, NOT RED. Shelving is not destruction: the row stays, it
        simply leaves the shop, and Delete on the card is the button that means
        gone. Dressing it in the red pen made the middle of three ordinary
@@ -3160,17 +3288,17 @@
       </div>
 
       <!-- PROCESS IS ITS OWN BAR BESIDE ADD, not inside it. It is not one of the
-           ways a gift arrives, which is what Add is for: it is the
-           one-thing-at-a-time mode for clearing what has already arrived, and
-           among MANUAL and PROMPT it read as a fifth way to file something.
+           ways a gift arrives, which is what Add is for: it clears what has
+           already arrived, either one by one or city by city.
 
-           Its own bar, on the same line, because one button does not need a
-           full-width row of its own and Add has space to spare. -->
+           Its own bar, on the same line, because processing is a separate
+           work mode and Add has space to spare. -->
       <div class="bar-row">
       <fieldset class="command-bar command-bar--process">
         <legend>Process</legend>
         <div class="command-bar-inner">
-          <button class="btn primary" id="processBtn" type="button" disabled>GO</button>
+          <button class="btn primary" id="processBtn" type="button" disabled>ONE BY ONE</button>
+          <button class="btn primary" id="processBatchBtn" type="button" disabled>BATCH</button>
         </div>
       </fieldset>
 
@@ -3257,10 +3385,9 @@
     </section>
   </main>
 
-  <!-- ONE GIFT, THREE WAYS OUT. Dispensing is a rhythm, not a form: look at
-       the cover, read the city, press one of three. Everything that is not one
-       of those four things is left off, and the card behind is still there for
-       anything that needs typing. -->
+  <!-- PROCESS MODAL. One by one is cover, city, three buttons. Batch is one
+       city page with selectable gifts and those same three decisions. The card
+       behind is still there for anything that needs typing. -->
   <div class="process-modal" id="processModal" hidden>
     <div class="process-backdrop" data-process-dismiss></div>
     <section class="process-panel" role="dialog" aria-modal="true" aria-labelledby="processTitle">
@@ -3272,6 +3399,11 @@
         <div class="process-shot" id="processShot"></div>
         <h2 class="process-title" id="processTitle"></h2>
         <p class="process-city" id="processCity"></p>
+        <div class="process-batch-tools" id="processBatchTools" hidden>
+          <button class="btn" id="processBatchSelectAll" type="button">SELECT ALL</button>
+          <span class="process-batch-summary" id="processBatchSummary"></span>
+        </div>
+        <div class="process-batch-list" id="processBatchList" hidden></div>
         <p class="process-note" id="processNote"></p>
       </div>
       <div class="process-actions">
@@ -3296,7 +3428,10 @@
       </div>
       <div class="item-issue-note" data-issue-note hidden>
         <span data-issue-text></span>
-        <button class="item-issue-clear" type="button" data-action="clear-issue">Clear issue</button>
+        <div class="item-issue-actions">
+          <button class="item-issue-test" type="button" data-action="test-gift">Test</button>
+          <button class="item-issue-clear" type="button" data-action="clear-issue">Clear issue</button>
+        </div>
       </div>
       <!-- TWO COLUMNS ON A WIDE SCREEN, and the split is by what you look at
            rather than by what the columns are called. The picture and the two
@@ -3761,6 +3896,7 @@
     const initialParams = new URLSearchParams(window.location.search);
     const initialItemId = String(initialParams.get('item') || '').trim();
     const isInitialItemMode = !!initialItemId;
+    const initialTestRequested = /^(1|true|yes|test)$/i.test(String(initialParams.get('test') || '').trim());
     let issueFilterActive = String(initialParams.get('issues') || '').toLowerCase() === 'open';
     const initialShopCityParam = String(initialParams.get('city') || '').trim();
     // The stock room opens with every filter off — the whole catalog, no city
@@ -3791,6 +3927,7 @@
     const ITEMS_PAGE_SIZE = 10;
     let itemsVisibleLimit = ITEMS_PAGE_SIZE;
     let initialItemFocusPending = !!initialItemId;
+    let initialGiftTestPending = !!initialItemId && initialTestRequested;
     let initialCityFilterApplied = false;
     const BOOKSHOP_AFFILIATE_ID = '87073';
     const BOOKSHOP_IMPORT_HELPER_SQL = 'mc/supabase/gs-bookshop-prompt-import.sql';
@@ -3851,6 +3988,10 @@
         setCityFilterEnabled(false);
         updateViewGiftShopLink();
         addItemBtn.disabled = true;
+        const processOneByOneBtn = document.getElementById('processBtn');
+        const processBatchControl = document.getElementById('processBatchBtn');
+        if (processOneByOneBtn) processOneByOneBtn.disabled = true;
+        if (processBatchControl) processBatchControl.disabled = true;
         setSuggestItemsButtonEnabled(false);
         setStatus(shopStatus, '');
         renderEmpty();
@@ -4044,6 +4185,105 @@
       });
       if (!res.ok && res.status !== 409) {
         throw new Error(await readError(res, 'Could not clear this issue.'));
+      }
+    }
+
+    function itemFieldValue(article, name) {
+      const el = article ? article.querySelector('[data-field="' + name + '"]') : null;
+      return String((el && el.value) || '').trim();
+    }
+
+    function parseHttpUrl(value) {
+      try {
+        const url = new URL(String(value || '').trim(), window.location.href);
+        return /^https?:$/i.test(url.protocol) ? url : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function testImageLoad(url, timeoutMs = 8000) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        let done = false;
+        const finish = (ok, detail) => {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timer);
+          img.onload = null;
+          img.onerror = null;
+          resolve({ ok, detail });
+        };
+        const timer = window.setTimeout(() => finish(false, 'image timeout'), timeoutMs);
+        img.onload = () => finish(true, 'image loads');
+        img.onerror = () => finish(false, 'image failed');
+        img.referrerPolicy = 'no-referrer';
+        img.src = url;
+        if (img.complete && img.naturalWidth > 0) finish(true, 'image loads');
+      });
+    }
+
+    async function runGiftCardTest(article, setItemStatus, triggerButton) {
+      if (!article || typeof setItemStatus !== 'function') return;
+      const button = triggerButton || article.querySelector('[data-action="test-gift"]');
+      const original = button ? button.textContent : '';
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'TESTING...';
+      }
+      setItemStatus('Testing gift...');
+      try {
+        const messages = [];
+        let failures = 0;
+
+        const linkRaw = itemFieldValue(article, 'url');
+        const link = parseHttpUrl(linkRaw);
+        if (!linkRaw) {
+          failures++;
+          messages.push('link missing');
+        } else if (!link) {
+          failures++;
+          messages.push('link invalid');
+        } else {
+          const targetFrame = article.querySelector('[data-target-frame]');
+          const targetState = String((targetFrame && targetFrame.dataset.state) || '');
+          if (targetState === 'ok' || targetState === 'pdf') {
+            messages.push('link preview OK');
+          } else if (targetState === 'error') {
+            failures++;
+            messages.push('link preview failed');
+          } else {
+            messages.push('link URL OK');
+          }
+        }
+
+        const imageRaw = itemFieldValue(article, 'image_url');
+        const image = parseHttpUrl(imageRaw);
+        if (!imageRaw) {
+          failures++;
+          messages.push('image missing');
+        } else if (!image) {
+          failures++;
+          messages.push('image invalid');
+        } else {
+          const result = await testImageLoad(image.href);
+          if (result.ok) messages.push(result.detail);
+          else {
+            failures++;
+            messages.push(result.detail);
+          }
+        }
+
+        setItemStatus('TEST: ' + messages.join(' / ') + '.', failures ? 'error' : 'success');
+        setTimeout(() => setItemStatus(''), failures ? 4200 : 2600);
+      } catch (error) {
+        console.error(error);
+        setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.textContent = original || 'TEST';
+        }
       }
     }
 
@@ -4640,19 +4880,46 @@
     // passed over" flag would be inventing a fourth state, and the queue is
     // oldest-first, so a LATER gift comes back at the top of the next sitting,
     // which is what later means.
-    const processState = { queue: [], at: 0, seen: new Set(), busy: false, done: null };
+    const processState = {
+      mode: 'single',
+      queue: [],
+      at: 0,
+      seen: new Set(),
+      busy: false,
+      done: null,
+      cityGroups: [],
+      cityAt: 0,
+      selected: new Set()
+    };
+
+    function processEntryComparator(a, b) {
+      // Oldest first. A card with no row behind it has just been added by hand,
+      // so it sorts last rather than jumping the queue.
+      const ta = Date.parse((a.row && a.row.created_at) || '') || Infinity;
+      const tb = Date.parse((b.row && b.row.created_at) || '') || Infinity;
+      return (ta - tb) ||
+        entryTitle(a).localeCompare(entryTitle(b), undefined, { sensitivity: 'base', numeric: true }) ||
+        String(a.id).localeCompare(String(b.id), undefined, { sensitivity: 'base', numeric: true });
+    }
 
     function processEntries() {
       return itemEntries()
         .filter((entry) => entryStatus(entry) === 'REVIEW')
         .filter((entry) => entry.id && !processState.seen.has(entry.id))
-        .sort((a, b) => {
-          // Oldest first. A card with no row behind it has just been added by
-          // hand, so it sorts last rather than jumping the queue.
-          const ta = Date.parse((a.row && a.row.created_at) || '') || Infinity;
-          const tb = Date.parse((b.row && b.row.created_at) || '') || Infinity;
-          return ta - tb;
+        .sort(processEntryComparator);
+    }
+
+    function processBatchGroups() {
+      const groups = new Map();
+      processEntries().forEach((entry) => {
+        entryCities(entry).forEach((city) => {
+          if (!groups.has(city)) groups.set(city, []);
+          groups.get(city).push(entry);
         });
+      });
+      return Array.from(groups.entries())
+        .map(([city, entries]) => ({ city, entries: entries.slice().sort(processEntryComparator) }))
+        .sort((a, b) => a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }));
     }
 
     // THE PICTURE IS CHOSEN, NOT ASKED FOR. Ours if we have one, because a
@@ -4684,6 +4951,57 @@
       return String((entry.row && entry.row.url) || '').trim();
     }
 
+    function processEntryMissing(entry) {
+      const missing = [];
+      if (!processEntryUrl(entry)) missing.push('a link');
+      if (!processEntryImage(entry)) missing.push('an image');
+      if (!entryCities(entry).length) missing.push('a shop');
+      return missing;
+    }
+
+    function processMissingSummary(entry) {
+      const missing = processEntryMissing(entry);
+      return missing.length ? 'Needs ' + missing.join(', ') : 'Ready';
+    }
+
+    function ensureProcessEntryNode(entry) {
+      if (!entry) return null;
+      if (entry.node) return entry.node;
+      if (!entry.row) return null;
+      entry.node = appendItemRow(entry.row);
+      entry.node.classList.add('hidden');
+      return entry.node;
+    }
+
+    function processSaveOptions(kind) {
+      return kind === 'live'
+        ? { certifiedAt: new Date().toISOString(), archived: false, rejectedAt: null,
+            requirePublicFields: true, refreshAfterSave: false, openAfterCreate: false }
+        : { rejectedAt: new Date().toISOString(), archived: true, certifiedAt: null,
+            refreshAfterSave: false, openAfterCreate: false };
+    }
+
+    async function saveProcessEntry(entry, kind) {
+      const article = ensureProcessEntryNode(entry);
+      if (!article || typeof article._saveItemChanges !== 'function') return false;
+
+      // Taking the page's picture is part of going live, not a separate errand.
+      if (kind === 'live') {
+        const box = article.querySelector('[data-field="image_url"]');
+        const page = processEntryPageImage(entry);
+        if (box && !String(box.value || '').trim() && page) {
+          box.value = page;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+
+      try {
+        return await article._saveItemChanges(processSaveOptions(kind));
+      } catch (err) {
+        return false;
+      }
+    }
+
     function renderProcess() {
       const modal = document.getElementById('processModal');
       if (!modal) return;
@@ -4695,6 +5013,19 @@
       const live = document.getElementById('processLive');
       const shelve = document.getElementById('processShelve');
       const later = document.getElementById('processLater');
+      const batchTools = document.getElementById('processBatchTools');
+      const batchList = document.getElementById('processBatchList');
+      const batchSummary = document.getElementById('processBatchSummary');
+      const selectAll = document.getElementById('processBatchSelectAll');
+      const isBatch = processState.mode === 'batch';
+
+      modal.classList.toggle('is-batch', isBatch);
+      if (batchTools) batchTools.hidden = !isBatch;
+      if (batchList) batchList.hidden = !isBatch;
+      if (isBatch) {
+        renderProcessBatch({ title, city, note, count, live, shelve, later, batchList, batchSummary, selectAll });
+        return;
+      }
 
       const entry = processState.queue[processState.at];
       shot.textContent = '';
@@ -4744,10 +5075,7 @@
       // the difference between a reason and a dead press.
       // `src` already counts the page's picture as an image, because GO LIVE
       // will take it. The guard must not refuse what the press is about to fix.
-      const missing = [];
-      if (!processEntryUrl(entry)) missing.push('a link');
-      if (!src) missing.push('an image');
-      if (!cities.length) missing.push('a shop');
+      const missing = processEntryMissing(entry);
       live.disabled = missing.length > 0 || processState.busy;
       live.title = missing.length
         ? 'Needs ' + missing.join(', ') + ' before it can go live. Close this and edit the card.'
@@ -4758,6 +5086,121 @@
 
       // Fetch the next two covers while this one is being judged.
       preloadFromProcess(processState.at + 1);
+    }
+
+    function currentProcessBatchGroup() {
+      return processState.cityGroups[processState.cityAt] || null;
+    }
+
+    function currentProcessBatchEntries() {
+      const group = currentProcessBatchGroup();
+      return group ? group.entries : [];
+    }
+
+    function selectedProcessBatchEntries() {
+      const selected = processState.selected || new Set();
+      return currentProcessBatchEntries().filter((entry) => selected.has(entry.id));
+    }
+
+    function renderProcessBatch(parts) {
+      const { title, city, note, count, live, shelve, later, batchList, batchSummary, selectAll } = parts;
+      const group = currentProcessBatchGroup();
+      if (note) note.textContent = '';
+      if (!group) {
+        title.textContent = 'Nothing left in Review.';
+        city.textContent = '';
+        count.textContent = 'Done';
+        if (batchList) batchList.textContent = '';
+        if (batchSummary) batchSummary.textContent = '';
+        if (selectAll) selectAll.disabled = true;
+        [live, shelve, later].forEach((b) => { b.disabled = true; });
+        return;
+      }
+
+      const entries = group.entries;
+      const currentIds = new Set(entries.map((entry) => entry.id));
+      processState.selected = new Set(Array.from(processState.selected || []).filter((id) => currentIds.has(id)));
+      const selectedEntries = selectedProcessBatchEntries();
+      const selectedCount = selectedEntries.length;
+      const allSelected = entries.length > 0 && entries.every((entry) => processState.selected.has(entry.id));
+
+      count.textContent = 'City ' + (processState.cityAt + 1) + ' of ' + processState.cityGroups.length;
+      title.textContent = group.city;
+      city.textContent = entries.length + ' gift' + (entries.length === 1 ? '' : 's') + ' in Review';
+      if (batchSummary) {
+        batchSummary.textContent = selectedCount
+          ? selectedCount + ' selected'
+          : 'Select gifts';
+      }
+      if (selectAll) {
+        selectAll.disabled = processState.busy || entries.length === 0;
+        selectAll.textContent = allSelected ? 'CLEAR' : 'SELECT ALL';
+      }
+      if (batchList) {
+        batchList.textContent = '';
+        entries.forEach((entry) => {
+          const row = document.createElement('label');
+          row.className = 'process-batch-item';
+
+          const checkbox = document.createElement('input');
+          checkbox.className = 'process-batch-check';
+          checkbox.type = 'checkbox';
+          checkbox.checked = processState.selected.has(entry.id);
+          checkbox.disabled = processState.busy;
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) processState.selected.add(entry.id);
+            else processState.selected.delete(entry.id);
+            renderProcess();
+          });
+
+          const thumb = document.createElement('span');
+          thumb.className = 'process-batch-thumb';
+          const src = processEntryImage(entry);
+          if (src) {
+            const img = document.createElement('img');
+            img.alt = '';
+            img.referrerPolicy = 'no-referrer';
+            img.addEventListener('error', () => {
+              thumb.textContent = 'No img';
+            });
+            img.src = src;
+            thumb.appendChild(img);
+          } else {
+            thumb.textContent = 'No img';
+          }
+
+          const copy = document.createElement('span');
+          copy.className = 'process-batch-copy';
+          const name = document.createElement('span');
+          name.className = 'process-batch-name';
+          name.textContent = entryTitle(entry) || '(no title)';
+          const meta = document.createElement('span');
+          meta.className = 'process-batch-meta';
+          const otherCities = entryCities(entry).filter((c) => c !== group.city);
+          const missing = processMissingSummary(entry);
+          meta.textContent = (otherCities.length ? 'Also: ' + otherCities.map(cityShort).join(', ') + ' | ' : '') + missing;
+          if (missing !== 'Ready') meta.classList.add('process-batch-warning');
+          copy.append(name, meta);
+
+          row.append(checkbox, thumb, copy);
+          batchList.appendChild(row);
+        });
+      }
+
+      const blocked = selectedEntries.filter((entry) => processEntryMissing(entry).length);
+      live.disabled = processState.busy || !selectedCount || blocked.length > 0;
+      live.title = !selectedCount
+        ? 'Select gifts first.'
+        : (blocked.length
+          ? blocked.length + ' selected gift' + (blocked.length === 1 ? ' needs' : 's need') + ' edits before going live.'
+          : 'Publish selected gifts and keep moving city by city.');
+      shelve.disabled = processState.busy || !selectedCount;
+      later.disabled = processState.busy || !selectedCount;
+      if (processState.busy) {
+        note.textContent = 'Processing selected gifts...';
+      } else if (blocked.length) {
+        note.textContent = blocked.length + ' selected cannot go live yet. Deselect them or edit the cards behind this dialog.';
+      }
     }
 
     // THE NEXT COVER IS ALREADY IN THE BROWSER before you press anything.
@@ -4809,16 +5252,18 @@
     }
 
     async function decideProcess(kind) {
+      if (processState.mode === 'batch') return decideProcessBatch(kind);
       const entry = processState.queue[processState.at];
       if (!entry || processState.busy) return;
       processState.seen.add(entry.id);
 
       if (kind === 'later') { processState.done.later += 1; nextProcess(); return; }
 
-      const article = entry.node;
+      const article = ensureProcessEntryNode(entry);
       if (!article || typeof article._saveItemChanges !== 'function') {
+        processState.seen.delete(entry.id);
         document.getElementById('processNote').textContent =
-          'That gift is not loaded on this page, so it cannot be changed from here.';
+          'That gift could not be opened for editing, so it cannot be changed from here.';
         return;
       }
 
@@ -4840,11 +5285,7 @@
 
       processState.busy = true;
       renderProcess();
-      const opts = kind === 'live'
-        ? { certifiedAt: new Date().toISOString(), archived: false, rejectedAt: null,
-            requirePublicFields: true, refreshAfterSave: false, openAfterCreate: false }
-        : { rejectedAt: new Date().toISOString(), archived: true, certifiedAt: null,
-            refreshAfterSave: false, openAfterCreate: false };
+      const opts = processSaveOptions(kind);
 
       let ok = false;
       try { ok = await article._saveItemChanges(opts); } catch (err) { ok = false; }
@@ -4864,12 +5305,77 @@
       nextProcess();
     }
 
+    async function decideProcessBatch(kind) {
+      const group = currentProcessBatchGroup();
+      if (!group || processState.busy) return;
+      const entries = selectedProcessBatchEntries();
+      if (!entries.length) {
+        renderProcess();
+        return;
+      }
+
+      if (kind === 'live' && entries.some((entry) => processEntryMissing(entry).length)) {
+        renderProcess();
+        const note = document.getElementById('processNote');
+        if (note) note.textContent = 'Some selected gifts need edits before going live.';
+        return;
+      }
+
+      const oldCity = group.city;
+      const oldIndex = processState.cityAt;
+      processState.busy = true;
+      renderProcess();
+
+      let saved = 0;
+      let failed = 0;
+      for (const entry of entries) {
+        processState.seen.add(entry.id);
+        if (kind === 'later') {
+          saved++;
+          continue;
+        }
+        const ok = await saveProcessEntry(entry, kind);
+        if (ok) saved++;
+        else {
+          failed++;
+          processState.seen.delete(entry.id);
+        }
+      }
+
+      const doneKey = kind === 'live' ? 'live' : (kind === 'shelve' ? 'shelve' : 'later');
+      processState.done[doneKey] += saved;
+      processState.busy = false;
+      processState.selected.clear();
+      if (kind !== 'later') refreshItemsView();
+
+      processState.cityGroups = processBatchGroups();
+      const sameCityIndex = processState.cityGroups.findIndex((nextGroup) => nextGroup.city === oldCity);
+      processState.cityAt = sameCityIndex >= 0 ? sameCityIndex : Math.min(oldIndex, processState.cityGroups.length);
+      if (processState.cityAt >= processState.cityGroups.length) {
+        closeProcess();
+        const tally = processTally();
+        setStatus(shopStatus, tally ? 'No more city batches in this sitting. ' + tally : 'Nothing left in city batches.', 'success');
+        return;
+      }
+
+      renderProcess();
+      const note = document.getElementById('processNote');
+      if (note && failed) {
+        note.textContent = (saved ? saved + ' processed. ' : '') +
+          failed + ' gift' + (failed === 1 ? '' : 's') + ' did not save. The cards behind this dialog say why.';
+      }
+    }
+
     function openProcess() {
+      processState.mode = 'single';
       processState.seen = new Set();
       processState.queue = processEntries();
       processState.at = 0;
       processState.busy = false;
       processState.done = { live: 0, shelve: 0, later: 0 };
+      processState.cityGroups = [];
+      processState.cityAt = 0;
+      processState.selected = new Set();
       // NOTHING TO PROCESS MEANS NOTHING OPENS. Showing the dialog just to say
       // it is empty makes you dismiss a box you did not ask for; the status line
       // is where the room already answers questions like this one.
@@ -4888,10 +5394,33 @@
       if (first) window.setTimeout(() => first.focus(), 0);
     }
 
+    function openBatchProcess() {
+      processState.mode = 'batch';
+      processState.seen = new Set();
+      processState.queue = [];
+      processState.at = 0;
+      processState.busy = false;
+      processState.done = { live: 0, shelve: 0, later: 0 };
+      processState.cityGroups = processBatchGroups();
+      processState.cityAt = 0;
+      processState.selected = new Set();
+      if (!processState.cityGroups.length) {
+        setStatus(shopStatus, 'No city has gifts waiting in Review.', 'success');
+        return;
+      }
+      renderProcess();
+      const modal = document.getElementById('processModal');
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      const first = document.getElementById('processBatchSelectAll');
+      if (first) window.setTimeout(() => first.focus(), 0);
+    }
+
     function closeProcess() {
       const modal = document.getElementById('processModal');
       if (!modal || modal.hidden) return;
       modal.hidden = true;
+      modal.classList.remove('is-batch');
       document.body.style.overflow = '';
       refreshItemsView();
     }
@@ -5902,6 +6431,11 @@
 
       const statusEl = article.querySelector('[data-status]');
       const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
+      const testGiftButton = article.querySelector('[data-action="test-gift"]');
+      article._testGiftCard = (button) => runGiftCardTest(article, setItemStatus, button);
+      if (testGiftButton) {
+        testGiftButton.addEventListener('click', () => article._testGiftCard(testGiftButton));
+      }
       const clearIssueButton = article.querySelector('[data-action="clear-issue"]');
       if (clearIssueButton) {
         clearIssueButton.addEventListener('click', async () => {
@@ -6555,10 +7089,26 @@
       const titleInput = article.querySelector('[data-field="title"]');
       if (titleInput) titleInput.focus({ preventScroll: true });
       setTimeout(() => article.classList.remove('is-targeted'), 3000);
+      if (initialGiftTestPending && typeof article._testGiftCard === 'function') {
+        initialGiftTestPending = false;
+        window.setTimeout(() => article._testGiftCard(), 350);
+      }
     }
 
     const processBtn = document.getElementById('processBtn');
     if (processBtn) processBtn.addEventListener('click', openProcess);
+    const processBatchBtn = document.getElementById('processBatchBtn');
+    if (processBatchBtn) processBatchBtn.addEventListener('click', openBatchProcess);
+    const processBatchSelectAll = document.getElementById('processBatchSelectAll');
+    if (processBatchSelectAll) {
+      processBatchSelectAll.addEventListener('click', () => {
+        const entries = currentProcessBatchEntries();
+        const allSelected = entries.length > 0 && entries.every((entry) => processState.selected.has(entry.id));
+        if (allSelected) entries.forEach((entry) => processState.selected.delete(entry.id));
+        else entries.forEach((entry) => processState.selected.add(entry.id));
+        renderProcess();
+      });
+    }
     // GUARDED, because this room has twice been taken down by one dead
     // getElementById in a wiring block: el() returns null, null.addEventListener
     // throws, and everything after it in the block dies including the auth init
@@ -7563,6 +8113,8 @@ $$;`.trim();
 
     async function showShop() {
       addItemBtn.disabled = true;
+      if (processBtn) processBtn.disabled = true;
+      if (processBatchBtn) processBatchBtn.disabled = true;
       if (itemSortSelect) itemSortSelect.disabled = true;
       if (statusFilter) statusFilter.disabled = true;
       if (itemSearchInput) itemSearchInput.disabled = true;
@@ -7574,6 +8126,7 @@ $$;`.trim();
         await renderAllItems();
         addItemBtn.disabled = false;
         if (processBtn) processBtn.disabled = false;
+        if (processBatchBtn) processBatchBtn.disabled = false;
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (statusFilter) statusFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
@@ -7585,6 +8138,7 @@ $$;`.trim();
         console.error(error);
         addItemBtn.disabled = false;
         if (processBtn) processBtn.disabled = false;
+        if (processBatchBtn) processBatchBtn.disabled = false;
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (statusFilter) statusFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;

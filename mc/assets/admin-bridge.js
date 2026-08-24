@@ -32,6 +32,11 @@
       '.tgb-admin-edit-wrap{position:relative;display:grid;min-width:0;}',
       '.tgb-admin-edit-wrap>.tgb-admin-edit-link{position:absolute;right:8px;bottom:8px;z-index:3;min-height:30px;background:rgba(17,17,17,.92);}',
       '.tgb-admin-edit-wrap>.tgb-admin-edit-link:hover,.tgb-admin-edit-wrap>.tgb-admin-edit-link:focus-visible{background:#fff;}',
+      '.tgb-admin-card-tools{position:absolute;right:8px;bottom:8px;z-index:3;display:flex;align-items:center;gap:6px;}',
+      '.tgb-admin-card-tools>.tgb-admin-edit-link{position:static;min-height:30px;background:rgba(17,17,17,.92);}',
+      '.tgb-admin-card-tools>.tgb-admin-edit-link:hover,.tgb-admin-card-tools>.tgb-admin-edit-link:focus-visible{background:#fff;}',
+      '.tgb-admin-test-link{border-color:#d92626;background:#d92626;color:#fff!important;}',
+      '.tgb-admin-test-link:hover,.tgb-admin-test-link:focus-visible{background:#fff;color:#d92626!important;border-color:#d92626;}',
       '[data-admin-target] .tgb-admin-edit-link{position:static;}',
       '.tgb-admin-logout{position:fixed;right:14px;top:14px;z-index:2147483000;display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 14px;border:1px solid #111;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent;}',
       '.tgb-admin-logout:hover,.tgb-admin-logout:focus-visible{background:#fff;color:#111;outline:none;}'
@@ -220,15 +225,33 @@
     return link;
   }
 
+  function createTestLink(kind, data) {
+    if (kind !== 'gift-item' || !data.id) return null;
+    var link = document.createElement('a');
+    link.className = 'tgb-admin-edit-link tgb-admin-test-link';
+    link.href = rootHref('mc/gifts/?item=' + encode(data.id) + '&test=1');
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'TEST';
+    link.dataset.tgbAdminInjected = 'true';
+    return link;
+  }
+
+  function appendGiftLinks(target, testLink, editLink) {
+    if (testLink) target.appendChild(testLink);
+    target.appendChild(editLink);
+  }
+
   function appendEditLink(el) {
     if (!el || el.dataset.tgbAdminReady === 'true') return;
     var kind = el.dataset.adminEdit || '';
     if (!kind) return;
     var data = dataFor(el);
     var link = createEditLink(kind, data);
+    var testLink = createTestLink(kind, data);
     var target = data.target ? el.querySelector(data.target) : null;
     if (target) {
-      target.appendChild(link);
+      appendGiftLinks(target, testLink, link);
       el.dataset.tgbAdminReady = 'true';
       return;
     }
@@ -239,7 +262,24 @@
       el.parentNode.insertBefore(wrapper, el);
       wrapper.appendChild(el);
       el.dataset.tgbAdminWrapped = 'true';
-      wrapper.appendChild(link);
+      if (testLink) {
+        var anchorTools = document.createElement('div');
+        anchorTools.className = 'tgb-admin-card-tools';
+        anchorTools.dataset.tgbAdminInjected = 'true';
+        appendGiftLinks(anchorTools, testLink, link);
+        wrapper.appendChild(anchorTools);
+      } else {
+        wrapper.appendChild(link);
+      }
+      el.dataset.tgbAdminReady = 'true';
+      return;
+    }
+    if (testLink) {
+      var tools = document.createElement('div');
+      tools.className = 'tgb-admin-card-tools';
+      tools.dataset.tgbAdminInjected = 'true';
+      appendGiftLinks(tools, testLink, link);
+      el.appendChild(tools);
       el.dataset.tgbAdminReady = 'true';
       return;
     }
@@ -309,6 +349,9 @@
     removeLogoutButton();
     document.documentElement.classList.remove('tgb-admin-authorized');
     document.querySelectorAll('.tgb-admin-edit-link[data-tgb-admin-injected="true"]').forEach(function (el) {
+      el.remove();
+    });
+    document.querySelectorAll('.tgb-admin-card-tools[data-tgb-admin-injected="true"]').forEach(function (el) {
       el.remove();
     });
     document.querySelectorAll('[data-tgb-admin-ready]').forEach(function (el) {

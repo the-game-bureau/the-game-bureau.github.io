@@ -818,12 +818,12 @@
 
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
 
-    /* ── THE FIVE ACCOUNTS, ALWAYS IN THE SAME ORDER ────────────────────────
-       Grouped and butted together so they read as one control with five
-       positions rather than five unrelated buttons: after a day of this you
+    /* ── THE ACCOUNT OPTIONS, ALWAYS IN THE SAME ORDER ──────────────────────
+       Grouped and butted together so they read as one control with fixed
+       positions rather than unrelated buttons: after a day of this you
        reach for the third one without reading it, which is the whole reason the
        order never changes. Done and Skip keep the row's own 8px gap, because
-       they are not part of the group and must not look like a sixth account. */
+       they are not part of the group and must not look like account options. */
     .post-platforms { display: inline-flex; flex-wrap: wrap; gap: 4px; }
     .post-platform { min-width: 0; }
     /* FILLED BLUE MEANS THIS ACCOUNT IS A DESTINATION FOR THIS CANDIDATE.
@@ -871,7 +871,7 @@
 
        DONE IS GREEN WHATEVER THE ROUTE. A clipboard account and a machine
        account that have both gone out are in the same state, and the whole
-       point of five buttons is being able to see where you have got to. */
+       point of account buttons is being able to see where you have got to. */
     .post-platform.is-used,
     .post-platform.is-ready.is-used {
       /* solid, explicitly: a used FALLBACK keeps .is-fallback and would
@@ -6007,7 +6007,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // either editable on the card itself or deliberately read-only, so the
         // button opened a form to change things we had just decided should not
         // be changed here.
-        // The five accounts, then Done, then Skip. Done sits between them
+        // The account options, then Done, then Skip. Done sits between them
         // deliberately: it belongs with the group whose work it finishes, and
         // Skip is the other answer entirely.
         actions.appendChild(controls.group);
@@ -6511,6 +6511,38 @@ Finish with the SQL block and that link, then a short summary below them: the fi
 
       function clipboardText(post) {
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
+      }
+
+      function candidateClipboardText(post, stateKey) {
+        var live = currentRow(stateKey, post) || post || {};
+        var lines = [];
+        function add(label, value) {
+          value = cleanText(value || '');
+          if (value) lines.push(label + ': ' + value);
+        }
+        var topics = (activeEdit && activeEdit.id === String(stateKey) && activeEdit.key === 'topics')
+          ? liveField(post, stateKey, 'topics')
+          : (Array.isArray(live.topics) ? live.topics.join(', ') : cleanText(live.topics || ''));
+        var platforms = (activeEdit && activeEdit.id === String(stateKey) && activeEdit.key === 'platforms')
+          ? liveField(post, stateKey, 'platforms')
+          : suggestedPicks(live).map(function (pick) {
+              return pick.why ? pick.name + ': ' + pick.why : pick.name;
+            }).join('; ');
+        var score = confidenceOf(live);
+
+        add('Candidate', candidateLabel(live));
+        add('ID', postId(live));
+        add('Headline', liveField(post, stateKey, 'headline'));
+        add('Caption', liveField(post, stateKey, 'blurb'));
+        add('URL', liveField(post, stateKey, 'url'));
+        add('Source', liveField(post, stateKey, 'source'));
+        add('Published', liveField(post, stateKey, 'published'));
+        add('Topics', topics);
+        add('Image', liveField(post, stateKey, 'image'));
+        add('Why', liveField(post, stateKey, 'why'));
+        add('Confidence', score === null ? '' : score + '/100');
+        add('Platforms', platforms);
+        return lines.join('\n');
       }
 
       // Resolves to whether the text reached the clipboard, and reports nothing
@@ -7190,18 +7222,18 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       // and the row moved itself to Posted somewhere in the middle. You could
       // not tell what had actually gone where.
       //
-      // Five buttons, always in the same order, and each one does that account
-      // and nothing else. Then DONE, which is the only thing that moves the row.
+      // Account buttons, always in the same order, and each one does one
+      // destination and nothing else. Then DONE, which is the only thing that moves the row.
       //
       // NO INSTRUCTIONS ON THE FACES. A button reads "X", not "Copy to
       // clipboard for X": which mechanism an account uses is our problem, not
       // something to make somebody read five times a day. What differs is what
       // the button DOES, and it explains itself while it does it.
-      var PLATFORM_ROW = ['facebook', 'instagram', 'threads', 'x', 'youtube'];
+      var PLATFORM_ROW = ['facebook', 'instagram', 'threads', 'x', 'youtube', 'notes'];
 
       var PLATFORM_NAME = {
         facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads',
-        x: 'X', youtube: 'YouTube'
+        x: 'X', youtube: 'YouTube', notes: 'Notes'
       };
 
       // Where a by-hand account is written. Opened WITH the copy, so the paste
@@ -7216,8 +7248,9 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // The composer with an empty box, rather than the profile.
         x: 'https://x.com/compose/post',
         // YouTube has no create-post URL; the box sits on the channel's own
-        // community tab, which is as close as a link gets.
-        youtube: 'https://www.youtube.com/@thegamebureau/community'
+        // posts tab, which is as close as a link gets.
+        youtube: 'https://www.youtube.com/@thegamebureau/posts',
+        notes: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ='
       };
 
       /** How this account can be reached for this candidate.
@@ -7241,6 +7274,8 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       function platformMode(row, key) {
         var named = suggestedNames(row).map(function (n) { return n.toLowerCase(); });
         var wanted = suggestedKeys(row);
+
+        if (key === 'notes') return 'hand';
 
         if (PLATFORM_AUTOPOST[key]) {
           if (postTargets(row).indexOf(key) !== -1) return 'machine';
@@ -7332,7 +7367,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           if (buttons[key]) {
             buttons[key].classList.add('is-used');
             // The tick is state, not instruction: it says where you have got
-            // to, which is the thing five buttons make easy to lose.
+            // to, which is the thing account buttons make easy to lose.
             buttons[key].title = PLATFORM_NAME[key] + ': done in this sitting. ' +
                                  'Press again to repeat it.';
           }
@@ -7362,7 +7397,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         // page HAD that shape once: it was deleted because it asked a question
         // with one sensible answer, and it costs two actions to say yes to it.
         // A button that names its own outcome is one press for the common case,
-        // and the five buttons beside it are still there for the exception.
+        // and the account buttons beside it are still there for the exception.
         //
         // IT COUNTS WHAT IT WILL DO. `All 3` when three accounts can take it,
         // `All 2` when Instagram cannot, and it is not drawn at all below two,
@@ -7380,12 +7415,12 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         });
         group.appendChild(allBtn);
 
-        // ── the five ────────────────────────────────────────────────────────
+        // ── the account options ─────────────────────────────────────────────
         PLATFORM_ROW.forEach(function (key) {
           // A HAIRLINE BEFORE X, marking where the row stops posting for you
-          // and starts handing you a clipboard. It is static because X and
-          // YouTube are always by hand; Instagram can cross the line either way
-          // and deliberately does not move, since a button that changes its
+          // and starts handing you a clipboard. It is static because X, YouTube
+          // and Notes are always by hand; Instagram can cross the line either
+          // way and deliberately does not move, since a button that changes its
           // POSITION as well as its mechanism is one you have to find again.
           if (key === 'x') {
             var sep = document.createElement('span');
@@ -7422,12 +7457,15 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               // await a save without losing its clipboard permission; an
               // override is only ever edited in a dialog that saves before it
               // closes, so `live` is current for those.
-              var copied = copyToClipboard(clipboardText({
-                blurb: cleanText(captionOverrides(live)[key] || '')
-                  || liveField(post, stateKey, 'blurb'),
-                url: liveField(post, stateKey, 'url')
-              }));
-              var giftImage = giftImageForCopy(live);
+              var copyNoun = key === 'notes' ? 'candidate' : 'caption';
+              var copied = copyToClipboard(key === 'notes'
+                ? candidateClipboardText(live, stateKey)
+                : clipboardText({
+                    blurb: cleanText(captionOverrides(live)[key] || '')
+                      || liveField(post, stateKey, 'blurb'),
+                    url: liveField(post, stateKey, 'url')
+                  }));
+              var giftImage = key === 'notes' ? '' : giftImageForCopy(live);
               // ONE window.open PER CLICK. A second one is blocked by most
               // browsers, so the composer gets the single popup and the gift
               // photo becomes a link in the notice below.
@@ -7444,11 +7482,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                     ? PLATFORM_NAME[key] + ' could not be opened, your browser blocked the tab, but '
                     : PLATFORM_NAME[key] + ' is open and ';
                 var head = where +
-                  (ok ? 'the caption is on your clipboard.'
-                      : 'the caption could not be copied: take it off the card by hand.');
+                  (ok ? 'the ' + copyNoun + ' is on your clipboard.'
+                      : 'the ' + copyNoun + ' could not be copied: take it off the card by hand.');
                 if (!where) {
-                  head = ok ? 'The caption is on your clipboard.'
-                            : 'The caption could not be copied: take it off the card by hand.';
+                  head = ok ? 'The ' + copyNoun + ' is on your clipboard.'
+                            : 'The ' + copyNoun + ' could not be copied: take it off the card by hand.';
                 }
                 if (giftImage) {
                   // A SHOP LINK UNFURLS AS THE GENERIC SHOP BANNER, whichever
@@ -7588,9 +7626,10 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             if (!btn) return;
             var mode = platformMode(live, key);
             // BLUE MEANS THIS ACCOUNT IS IN THE STATE IT IS MEANT TO BE IN.
-            // For X and YouTube that IS by hand, so they are blue whenever they
-            // are offered. Instagram by hand is a FALLBACK, not a normal state:
-            // it is supposed to post itself and cannot, for want of an image.
+            // For X, YouTube and Notes that IS by hand, so they are blue
+            // whenever they are offered. Instagram by hand is a FALLBACK, not
+            // a normal state: it is supposed to post itself and cannot, for
+            // want of an image.
             // Painting it like the two beside it made a card reading `All 2`
             // show three identical buttons, which is the row disagreeing with
             // its own count.
@@ -7624,6 +7663,8 @@ Finish with the SQL block and that link, then a short summary below them: the fi
                           'Instagram opens with the caption on your clipboard and ' +
                           'you choose the picture. Add an image to the card and ' +
                           'this posts itself instead.';
+            } else if (key === 'notes') {
+              btn.title = 'Copy this candidate and open the shared iCloud note.';
             } else {
               btn.title = 'Open ' + PLATFORM_NAME[key] + ' with the caption on your clipboard.';
             }
