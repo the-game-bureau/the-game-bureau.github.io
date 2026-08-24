@@ -1937,6 +1937,46 @@ read, still cleared only once acted on, still `replaceState` — so rebuilding t
 affordance is one link on the annotation line if it is wanted. What was lost is
 only the link.
 
+### A TBD ANYWHERE ON THE ROW FORCES REVIEW (2026-08-24)
+
+The `tbd` rule scans **every editable text field** for `tbd` / `tba` / `to be
+determined` / `to be announced`, so the ERRORS press files those rows like any
+other finding. It is a rule rather than a one-off UPDATE on purpose: the SQL
+would fix today's rows and say nothing about tomorrow's import.
+
+- **IT WAS ALREADY CAUGHT IN THE CLUB FIELDS AND THAT MISSED THE REAL CASE.**
+  `isPlaceholderClub` reads `away_*` / `home_*` only. **The 43 rows that actually
+  carry a TBD carry it in the DESCRIPTION** — `"... ESPN listing: TBD."`, written
+  by the ESPN importer when a kickoff has not been published.
+- **AND THOSE ROWS STORE A START TIME THAT MEANS NOTHING.** The importer zoned
+  the placeholder anyway, so they read `21:00:00` or `00:00:00`. **A row claiming
+  midnight is worse than a row claiming nothing**, because `no-start-time` cannot
+  see it: the field is populated. The TBD is the only trace left that the time
+  was never known, which is what makes scanning the prose worth doing.
+- **WORD BOUNDARY, NEVER A BARE SUBSTRING.** `Tbilisi` and `Ratbdome` must not
+  flag; a rule that cries wolf is one people stop reading.
+- **NUMERIC AND BOOLEAN FIELDS ARE NOT SCANNED.** `TEXT_FIELDS` is DERIVED from
+  `EDITABLE_FIELDS` minus those two lists rather than written out again, so a
+  column added to the form is scanned without anybody remembering to.
+- **THE DEAD `update: true` FLAG WENT IN THE SAME PASS.** Nine rules carried it
+  and **nothing had read it** since `reviewReasons` started filtering on
+  `noReview`. Two ideas of "does this force review" is exactly the drift this
+  file keeps paying for.
+
+**PROVED AGAINST THE LIVE TABLE, ALL 603 ROWS PAGED.** A press would put
+**43 rows** into review, every one of them for `tbd`, and **no other rule fires
+on the remaining 560** — so widening the scan did not start flagging finished
+rows. 21 unit cases besides, six of them false-positive guards.
+
+**THE ESCAPING SCAR AGAIN, SEVENTH TIME.** The two word boundaries in `TBD_RE`
+reached the file as literal **backspace** bytes. Same heredoc into Python into
+the file; same fix, `chr(92)`.
+
+**THE TEST HARNESS BROKE ON THE INSERT POINT, WHICH IS WORTH KNOWING.** The new
+constants sit between `PLACEHOLDER_CLUB` and `isPlaceholderClub`, so the suites'
+`helpers` regex swallowed them and `TBD_RE` was declared twice. **A test that
+scrapes a source file by regex is coupled to where things sit in it.**
+
 **THE RULES THEMSELVES ARE UNCHANGED and their reasoning still holds:**
 
 - **`isPlaceholderClub` READS THE CLUB FIELDS ONLY, NEVER THE TITLE.** "AFC

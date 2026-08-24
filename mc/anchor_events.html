@@ -2628,6 +2628,14 @@
       /^(afc|nfc|american|national)(\s+(east|west|north|south|wild ?card|championship|conference))?$/i
     ];
 
+    // WORD-BOUNDARY, NEVER A BARE SUBSTRING. A loose match would flag any word
+    // that happens to contain the letters, and a rule that cries wolf is one
+    // people stop reading.
+    const TBD_RE = /\b(tbd|tba|to be determined|to be announced)\b/i;
+    const TEXT_FIELDS = EDITABLE_FIELDS.filter(
+      (f) => !NUMERIC_FIELDS.includes(f) && !BOOLEAN_FIELDS.includes(f)
+    );
+
     function isPlaceholderClub(v) {
       return PLACEHOLDER_CLUB.some((re) => re.test(v));
     }
@@ -2673,7 +2681,7 @@
         // its copy from the away club, so a half-entered fixture is unusable
         // whatever it is called. Title or no title.
         key: 'club-missing',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => {
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
@@ -2684,7 +2692,7 @@
       },
       {
         key: 'no-date',
-        level: 'error', update: true,
+        level: 'error',
         test: (r) => clean(r.event_date)
           ? ''
           : 'No date. A game is played the day before its anchor event, so an undated event cannot anchor one.'
@@ -2739,7 +2747,7 @@
         // the whole product is a game played the day before, at a time chosen
         // to make groups finish together.
         key: 'no-time',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the league has not announced the slot yet.'
       },
       {
@@ -2747,7 +2755,7 @@
         // deliberately does NOT flag: that one is settled, and nothing further
         // is coming.
         key: 'postponed',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => clean(r.status) === 'postponed'
           ? 'Postponed. The replacement date is what this row is waiting for.'
           : ''
@@ -2762,7 +2770,7 @@
         // a real and finished title for a row whose two clubs are known, and
         // matching it there would flag every playoff game forever.
         key: 'placeholder-club',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => {
           const fields = ['away_locale', 'away_mascot', 'away_label',
                           'home_locale', 'home_mascot', 'home_label'];
@@ -2779,7 +2787,7 @@
         // an opened card, so without this a multi-day event is invisible until
         // somebody happens to expand it.
         //
-        // NOT `update: true`. Nothing is missing from a multi-day row and
+        // NOT FORCED. Nothing is missing from a multi-day row and
         // nobody has to go and find anything out -- it is a suggestion, and
         // UPDATE NEEDED means the world has not told us something yet. Putting
         // it there would put a red chip on every festival in the table forever.
@@ -2794,14 +2802,31 @@
       },
       {
         key: 'no-venue',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => clean(r.venue_name)
           ? ''
           : 'No venue. The city is enough to build a game around, so this is a gap rather than a fault.'
       },
       {
+        // A TBD ANYWHERE ON THE ROW IS THE ROW SAYING IT IS NOT FINISHED.
+        // It was caught in the club fields only, by isPlaceholderClub, which
+        // misses the case that actually occurs: the ESPN importer writes
+        // "ESPN listing: TBD." into the description when a kickoff has not been
+        // published, and then stores the zone conversion of that placeholder as
+        // a real start_time. 43 rows read 00:00:00 or 21:00:00 and mean nothing.
+        key: 'tbd',
+        level: 'check',
+        test: (r) => {
+          const hits = TEXT_FIELDS.filter((f) => TBD_RE.test(clean(r[f])));
+          if (!hits.length) return '';
+          return 'Says TBD in ' + hits.join(', ') + '. Something about this row '
+            + 'is not settled yet, and any value beside it may be a placeholder '
+            + 'rather than a fact.';
+        }
+      },
+      {
         key: 'no-city',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => clean(r.city)
           ? ''
           : 'No venue city. The city is what a game is built around, and nothing here can place this event without one.'
@@ -2832,7 +2857,7 @@
       },
       {
         key: 'final-without-score',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => (clean(r.status) === 'final' && r.away_score == null && r.home_score == null)
           ? 'Marked final with no score on either side.'
           : ''
@@ -2843,7 +2868,7 @@
         // looks, and the Past filter is the only other thing that would surface
         // it.
         key: 'past-but-scheduled',
-        level: 'check', update: true,
+        level: 'check',
         test: (r) => {
           const d = clean(r.end_date) || clean(r.event_date);
           if (!d) return '';
