@@ -12,7 +12,43 @@ this file.
 
 ---
 
-## 1. PENDING MIGRATIONS — SQL THAT IS WRITTEN BUT NOT YET APPLIED
+## 1. YOU CAN RUN SQL FROM HERE. `supabase db query --linked`.
+
+**This file said for months that every migration goes in by hand, and that was
+half right and cost real time.** `supabase db push` IS refused, because remote
+migration history has drifted. **`supabase db query` is not, and it executes
+arbitrary SQL against production through the Management API**, using a credential
+the CLI already has cached. No service-role key, no database password, nothing to
+add.
+
+```bash
+cd mc                                  # NOT the repo root. See below.
+supabase db query --linked --file supabase/migrations/<file>.sql
+supabase db query --linked -o table "select count(*) from public.events;"
+```
+
+- **`cd mc` FIRST, AND THE FAILURE IS MISLEADING.** From the repo root it says
+  *"Cannot find project ref. Have you run supabase link?"*, which reads as a
+  missing credential and is really a missing `supabase/` directory.
+- **`--linked`, OR IT TRIES localhost:54322** and fails with connection refused,
+  which reads as the remote being down.
+- **`--file`, NOT AN INLINE STRING, for anything with a function body in it.** A
+  `$$ ... $$` block passed as a shell argument comes back echoed and then errors.
+  The file form has no quoting layer to lose.
+- **It is a real session**, so a `begin; … commit;` file is one transaction and a
+  failure rolls the whole thing back, exactly as in the SQL editor.
+
+**SO THE RULE IS: APPLY IT, THEN PROVE IT.** Write the migration, run it, then
+run its own Verify block and report the real numbers. **An empty payload proves
+nothing**, and this project has been caught by exactly that twice.
+
+**KEEP THE `apply by hand` NOTE IN OLDER MIGRATION HEADERS** rather than sweeping
+them: they record how that file was applied on the day, and rewriting them would
+be editing history to match a tool that arrived later.
+
+---
+
+## 2. PENDING MIGRATIONS — SQL THAT IS WRITTEN BUT NOT YET APPLIED
 
 **Nothing in `mc/supabase/migrations/` runs itself.** Remote migration history in
 this project has drifted, the CLI refuses `db push`, and every migration here is
@@ -1893,7 +1929,7 @@ its verbs without the column following.
 
 ### DELETE MEANS ARCHIVE, AND ARCHIVED STILL COUNTS (2026-08-25)
 
-`public.events.archived_at` — [2026082504](mc/supabase/migrations/2026082504_events_archive.sql), **apply by hand**. Null is live; a
+`public.events.archived_at` — [2026082504](mc/supabase/migrations/2026082504_events_archive.sql), **applied 2026-08-25**. Null is live; a
 timestamp means somebody took the event off the list. **The row stays.**
 
 - **TWO REASONS IT CANNOT BE A REAL DELETE, and they pull the same way.**
