@@ -493,6 +493,26 @@
       <p class="mc-access-note" id="mcBotsNote"></p>
     </fieldset>
 
+    <!-- CITIES. One city at a time, with its three visibility flags. The
+         catalogue is 1,451 rows and the question asked of it from here is
+         almost always about ONE of them, so a hundred-row page is the right
+         shape for the room and the wrong one for a hub panel. Renaming, the
+         structured geo fields, the bulk AI import and the filters stay in
+         mc/data/cities.html, which is one link away. -->
+    <fieldset class="mc-chores mc-city" id="mcCityPanel">
+      <legend>Cities</legend>
+      <div class="mc-city-bar">
+        <input type="search" id="mcCitySearch" placeholder="Find a city…" autocomplete="off">
+        <button type="button" class="mc-work-btn" id="mcCityPrev" title="The one before.">&#8592;</button>
+        <span class="mc-city-pos" id="mcCityPos"></span>
+        <button type="button" class="mc-work-btn" id="mcCityNext" title="The next one.">&#8594;</button>
+        <button type="button" class="mc-work-btn is-primary" id="mcCityAdd" title="Add a city to the catalogue.">Add</button>
+        <a class="mc-review-open" href="/mc/data/cities.html" title="The full room: renaming, geo fields, filters and the bulk import.">room</a>
+      </div>
+      <div id="mcCityBody"></div>
+      <p class="mc-access-note" id="mcCityNote"></p>
+    </fieldset>
+
     <fieldset class="mc-chores">
       <!-- ANCILLARY THINGS, renamed from DAILY CHORES on 2026-08-20. The old
            name described the CADENCE and said nothing about what these are;
@@ -632,6 +652,29 @@
     .mc-work-empty { margin: 6px 2px; color: var(--muted); font-size: 0.82rem; }
     .mc-work-error { color: var(--danger); }
 
+    .mc-city-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+    .mc-city-bar input[type="search"] {
+      min-height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.8rem; flex: 1 1 180px; max-width: 260px;
+    }
+    .mc-city-pos {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted);
+      min-width: 8ch; text-align: center; white-space: nowrap;
+    }
+    .mc-city-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
+    .mc-city-name { font-size: 1rem; font-weight: 700; color: var(--ink); }
+    .mc-city-badge {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.64rem; font-weight: 700;
+      letter-spacing: 0.08em; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+    }
+    .mc-city-flags { display: flex; gap: 14px; flex-wrap: wrap; }
+    .mc-city-flag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: var(--ink); cursor: pointer; white-space: nowrap;
+    }
+    .mc-city-flag input { width: 15px; height: 15px; margin: 0; accent-color: var(--bic-blue); cursor: pointer; }
+
     .mc-bots-table td:nth-child(2),
     .mc-bots-table td:nth-child(3) {
       font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; color: var(--muted);
@@ -764,6 +807,10 @@
       }
     })();
   </script>
+  <!-- geo.js and city-picker.js are what the Cities panel reads the catalogue
+       and its badges from; the hub did not load either before. -->
+  <script src="/mc/assets/geo.js"></script>
+  <script src="/mc/assets/city-picker.js"></script>
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
@@ -1225,6 +1272,8 @@
       const workList = document.getElementById('mcWorkList');
       const workNote = document.getElementById('mcWorkNote');
       const workClose = document.getElementById('mcWorkClose');
+      // Set on authorization, not only when a worklist opens: the Cities panel
+      // writes with it too and does not go through openWork().
       let workSession = null;
       let workKey = null;
 
@@ -1385,6 +1434,223 @@
 
       function session0() { return workSession; }
 
+      // ── CITIES ──────────────────────────────────────────────────────────
+      //
+      // ONE CITY AT A TIME. The catalogue is 1,451 rows and the question asked
+      // of it from here is almost always about ONE of them: is Foxborough
+      // hidden, should Tulsa be on the gift shop. A hundred-row page is the
+      // right shape for the room and the wrong shape for a hub panel, so this
+      // shows a single city with its three visibility flags and steps.
+      //
+      // IT IS NOT THE WHOLE ROOM AND DOES NOT TRY TO BE. Renaming a city, the
+      // structured geo fields, the bulk AI import and the three filters stay in
+      // mc/data/cities.html, which is one link away. **A rename in particular
+      // must not be offered here**: `city` is the KEY that games and gift-shop
+      // listings reference BY STRING, nothing updates them automatically, and
+      // the room's own rename warning is three sentences long for that reason.
+      const CITY_TABLE = 'cities';
+      const CITY_FLAGS = [
+        ['hide_from_games', 'games', 'Keep this city out of the finder on /games/. Use for stadium towns we do not sell into.'],
+        ['hide_from_soundtracks', 'soundtracks', 'Keep this city off the cassette rail on /soundtracks/.'],
+        ['hide_from_gift_shop', 'gift shop', 'Keep this city out of Shop By City on /gifts/.']
+      ];
+
+      const cityPanel = document.getElementById('mcCityPanel');
+      const citySearch = document.getElementById('mcCitySearch');
+      const cityBody = document.getElementById('mcCityBody');
+      const cityNote = document.getElementById('mcCityNote');
+      const cityPrev = document.getElementById('mcCityPrev');
+      const cityNext = document.getElementById('mcCityNext');
+      const cityPos = document.getElementById('mcCityPos');
+      const cityAdd = document.getElementById('mcCityAdd');
+      const cityState = { rows: [], i: 0, q: '' };
+
+      // The room's own fallback: a database that has not run
+      // 2026072901_cities_hide_flags.sql has no per-surface columns, and the
+      // retired `ignored` meant hidden everywhere.
+      function cityFlagOn(row, column) {
+        if (row[column] === undefined) return row.ignored === true;
+        return row[column] === true;
+      }
+
+      function cityMatches(row) {
+        if (!cityState.q) return true;
+        return String(row.city || '').toLowerCase().indexOf(cityState.q) !== -1;
+      }
+
+      function cityVisible() {
+        return cityState.rows.filter(cityMatches);
+      }
+
+      function renderCity() {
+        if (!cityBody) return;
+        cityBody.textContent = '';
+        const rows = cityVisible();
+        if (!rows.length) {
+          const p = document.createElement('p');
+          p.className = 'mc-work-empty';
+          p.textContent = cityState.rows.length
+            ? 'No city matches that.'
+            : 'Could not read the city catalogue.';
+          cityBody.appendChild(p);
+          cityPos.textContent = '';
+          cityPrev.disabled = true;
+          cityNext.disabled = true;
+          return;
+        }
+        if (cityState.i >= rows.length) cityState.i = 0;
+        if (cityState.i < 0) cityState.i = rows.length - 1;
+        const row = rows[cityState.i];
+
+        const head = document.createElement('div');
+        head.className = 'mc-city-head';
+        const name = document.createElement('span');
+        name.className = 'mc-city-name';
+        name.textContent = row.city || row.slug || '(unnamed)';
+        head.appendChild(name);
+        // The same two badges the room draws, from the same helper, so a city
+        // reads identically in both places.
+        if (window.TgbGeo && TgbGeo.geoBadge) {
+          const b = TgbGeo.geoBadge(row);
+          const code = (row.state_code || (b && b.kind === 'state' ? b.value : '')) ||
+                       (row.country_code || (b && b.kind === 'country' ? b.value : ''));
+          if (code) {
+            const badge = document.createElement('span');
+            badge.className = 'mc-city-badge';
+            badge.textContent = code;
+            head.appendChild(badge);
+          }
+        }
+        cityBody.appendChild(head);
+
+        const flags = document.createElement('div');
+        flags.className = 'mc-city-flags';
+        const boxes = CITY_FLAGS.map(function (f) {
+          const label = document.createElement('label');
+          label.className = 'mc-city-flag';
+          label.title = f[2];
+          const box = document.createElement('input');
+          box.type = 'checkbox';
+          box.checked = cityFlagOn(row, f[0]);
+          box.addEventListener('change', function () { saveCity(row, boxes); });
+          label.appendChild(box);
+          label.appendChild(document.createTextNode('hide from ' + f[1]));
+          flags.appendChild(label);
+          return { column: f[0], box: box };
+        });
+        cityBody.appendChild(flags);
+
+        cityPos.textContent = (cityState.i + 1) + ' of ' + rows.length;
+        cityPrev.disabled = rows.length < 2;
+        cityNext.disabled = rows.length < 2;
+      }
+
+      // SAVES ON THE TICK, no Save button. There is one row on screen and three
+      // booleans on it: a Save button would be a second press for a decision
+      // already made, and the room's own Save exists because its card also
+      // carries five text fields that a rename has to be warned about.
+      async function saveCity(row, boxes) {
+        boxes.forEach(function (b) { b.box.disabled = true; });
+        const payload = {};
+        boxes.forEach(function (b) { payload[b.column] = b.box.checked; });
+        // `ignored` IS DEPRECATED AND STILL WRITTEN, so a reader that has not
+        // moved to the three columns keeps behaving sensibly. It means "hidden
+        // everywhere", so it is true only when all three are -- the room writes
+        // it exactly this way and the two must not disagree.
+        payload.ignored = boxes.every(function (b) { return b.box.checked; });
+        try {
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + CITY_TABLE +
+              '?slug=eq.' + encodeURIComponent(row.slug), {
+            method: 'PATCH',
+            // return=representation IS NOT DECORATION: PostgREST answers 200
+            // with an empty array when RLS refuses, so without reading the row
+            // back a refused change reports success and the tick stays on
+            // screen against a database that never took it.
+            headers: Object.assign(accessHeaders(workSession), { Prefer: 'return=representation' }),
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+          const saved = await res.json();
+          if (!Array.isArray(saved) || !saved.length) {
+            throw new Error('The database refused that change. Check you are still signed in as an admin.');
+          }
+          Object.assign(row, saved[0]);
+          cityNote.classList.remove('mc-work-error');
+          cityNote.textContent = 'Saved ' + (row.city || row.slug) + '.';
+        } catch (err) {
+          // PUT THE TICKS BACK. Leaving them where the click left them shows a
+          // state the database does not hold, which is the failure this whole
+          // page keeps guarding against.
+          boxes.forEach(function (b) { b.box.checked = cityFlagOn(row, b.column); });
+          cityNote.classList.add('mc-work-error');
+          cityNote.textContent = err && err.message ? err.message : 'That did not work.';
+        } finally {
+          boxes.forEach(function (b) { b.box.disabled = false; });
+        }
+      }
+
+      function stepCity(by) {
+        cityState.i += by;
+        renderCity();
+      }
+
+      async function loadCities(session) {
+        if (!cityPanel) return;
+        if (!(window.TgbCities && typeof TgbCities.load === 'function')) {
+          cityPanel.hidden = true;
+          return;
+        }
+        try {
+          await TgbCities.load();
+          // includeIgnored: the room shows hidden cities greyed rather than
+          // dropping them, and a panel that could not reach a hidden city would
+          // be unable to UNHIDE one, which is half of what it is for.
+          cityState.rows = TgbCities.all();
+          renderCity();
+        } catch (err) {
+          cityState.rows = [];
+          renderCity();
+        }
+      }
+
+      if (citySearch) {
+        citySearch.addEventListener('input', function () {
+          cityState.q = citySearch.value.trim().toLowerCase();
+          // BACK TO THE FIRST MATCH on every keystroke. Holding the index while
+          // the list shrinks under it lands you on an unrelated city.
+          cityState.i = 0;
+          renderCity();
+        });
+      }
+      if (cityPrev) cityPrev.addEventListener('click', function () { stepCity(-1); });
+      if (cityNext) cityNext.addEventListener('click', function () { stepCity(1); });
+      if (cityAdd) {
+        cityAdd.addEventListener('click', function () {
+          // GUARD ON WHAT IS ACTUALLY CALLED. This tested `TgbCities.add` and
+          // then called `openAddDialog`, so a module exporting one and not the
+          // other would have gone straight past the guard into a TypeError --
+          // and a module exporting the other way round would have refused to
+          // open a dialog it could perfectly well open.
+          if (!(window.TgbCities && typeof TgbCities.openAddDialog === 'function')) {
+            // No dialog available: send them to the room rather than doing
+            // nothing, which is indistinguishable from a broken button.
+            window.location.href = '/mc/data/cities.html';
+            return;
+          }
+          // THE SHARED ADD DIALOG, not a second form. It derives the state code,
+          // composes the canonical string and writes the structured geo, and a
+          // city added here has to be the same row as one added anywhere else.
+          TgbCities.openAddDialog({ authHeaders: function () { return accessHeaders(workSession); } })
+            .then(function (row) {
+              if (!row) return;
+              cityState.q = '';
+              if (citySearch) citySearch.value = '';
+              loadCities(workSession);
+            })
+            .catch(function (err) { console.error(err); });
+        });
+      }
+
       if (workClose) workClose.addEventListener('click', closeWork);
 
       const adminAuth = window.TgbMcAdminAuth.create({
@@ -1393,8 +1659,10 @@
         onAuthorized: function (session) {
           requestAnimationFrame(applyHash);
           loadAccessRequests(session);
+          workSession = session;
           loadReview(session);
           loadBots(session);
+          loadCities(session);
         }
       });
 

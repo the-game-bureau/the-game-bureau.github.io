@@ -927,6 +927,42 @@ function**, where `arguments` belongs to the enclosing scope — so it never
 matched and every decision fell through to a generic reply that read as the
 database refusing the write.
 
+### CITIES — one city at a time, on the hub (2026-08-25)
+
+A panel showing **one** city with its three visibility flags, a search, and
+steps either side.
+
+- **ONE, BECAUSE THE QUESTION IS ALWAYS ABOUT ONE.** The catalogue is 1,451 rows
+  and what you come to it for from here is *is Foxborough hidden*, *should Tulsa
+  be on the gift shop*. A hundred-row page is the right shape for the room and
+  the wrong shape for a hub panel.
+- **IT IS NOT THE WHOLE ROOM AND DOES NOT TRY TO BE.** [mc/data/cities.html](mc/data/cities.html) keeps
+  renaming, the structured geo fields, the three filters and the bulk AI import,
+  and is one link away. **The page is NOT deleted** — say so if it should be.
+- **A RENAME IS DELIBERATELY NOT OFFERED HERE.** `city` is the KEY that games and
+  gift-shop listings reference **by string**, nothing updates them
+  automatically, and the room's own rename warning runs to three sentences for
+  that reason. A one-line panel is the wrong place to make that decision.
+- **IT SAVES ON THE TICK, with no Save button.** One row, three booleans: a Save
+  would be a second press for a decision already made. The room has one because
+  its card also carries five text fields a rename must be warned about.
+- **`ignored` IS WRITTEN TOO, and the rule is copied exactly**: deprecated, still
+  written so a reader that has not moved to the three columns behaves sensibly,
+  and true **only when all three are**. The room writes it the same way and the
+  two must not disagree.
+- **A REFUSED WRITE PUTS THE TICK BACK.** PostgREST answers 200 with an empty
+  array when RLS refuses, and leaving the box where the click put it would show
+  a state the database does not hold.
+- **SEARCH RESETS TO THE FIRST MATCH ON EVERY KEYSTROKE.** Holding the index
+  while the list shrinks under it lands you on an unrelated city.
+- **ADD OPENS THE SHARED DIALOG** (`TgbCities.openAddDialog`), never a second
+  form: it derives the state code, composes the canonical string and writes the
+  structured geo, so a city added here is the same row as one added anywhere
+  else. **The guard tests the function it actually calls** — it tested
+  `TgbCities.add` and called `openAddDialog`, which would have walked straight
+  past into a TypeError.
+- **The hub now loads `geo.js` and `city-picker.js`**, which it did not before.
+
 ### ROUTINES — all seven, and whether they are alive
 
 - **LAST FILED, NOT LAST RUN.** Each row reads the newest row in the table that
