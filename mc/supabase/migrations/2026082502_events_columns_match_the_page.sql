@@ -148,17 +148,6 @@ create trigger tgb_events_sync_geo
   before insert or update on public.events
   for each row execute function public.tgb_sync_events_geo();
 
--- ── 2b. Backfill the split, because a trigger fires on WRITE ────────────────
--- The five columns above are filled by tgb_sync_events_geo, which runs on insert
--- and update. It does NOT run over rows already sitting in the table, so without
--- this every one of the 603 existing rows would keep a null in all five and the
--- split would look broken.
---
--- THIS WAS A COMMENT IN THE VERIFY SECTION AND THAT WAS NOT GOOD ENOUGH: a step
--- somebody has to notice and run by hand is a step that gets skipped. The
--- no-op update is the whole trick -- it changes nothing and fires the trigger.
-update public.events set venue_city = venue_city;
-
 -- ── 3. The two trigger functions that name the renamed columns ───────────────
 -- Written out rather than patched, because both are four lines and the column
 -- names ARE the function. `tgb_touch_anchor_events_updated_at` is not here: it
@@ -217,6 +206,30 @@ end $$;
 -- what makes somebody think a flag is wired when it is not.
 drop function if exists public.tgb_anchor_events_sync_team_labels();
 drop function if exists public.tgb_anchor_events_default_end_date();
+
+-- ── 3b. Backfill the split. IT HAS TO BE HERE, NOT BEFORE SECTION 3 ─────────
+--
+-- The five geo columns are filled by tgb_sync_events_geo, which fires on write
+-- and does NOT run over rows already in the table, so without this every one of
+-- the 603 existing rows keeps a null in all five and the split looks broken.
+--
+-- IT SAT AT THE END OF SECTION 2 AND THAT WAS WRONG, WHICH ONLY A REAL RUN
+-- SHOWED. A no-op update fires EVERY before-update trigger on the table, not
+-- just the one you have in mind -- and at that point the OLD
+-- `tgb_anchor_events_sync_labels` was still attached, still pointing at a
+-- function whose body reads `new.away_locale`, a column section 1 had renamed
+-- away four statements earlier. The whole migration died with:
+--
+--     42703: record "new" has no field "away_locale"
+--
+-- **A BACKFILL THAT WRITES ROWS MUST COME AFTER EVERY TRIGGER ON THE TABLE IS
+-- CONSISTENT WITH THE NEW SHAPE.** Nothing was lost when it failed, because the
+-- file is one transaction and the error rolled it back.
+--
+-- It also re-fires tgb_events_sync_team_names over every row, which is harmless
+-- and mildly useful: it rebuilds away_team_name and home_team_name from the
+-- halves, so any row whose stored name had drifted comes out agreeing with them.
+update public.events set venue_city = venue_city;
 
 -- ── 4. The RPC, which names the renamed columns in its INSERT ───────────────
 --
