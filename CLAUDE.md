@@ -861,6 +861,15 @@ somebody owes.
   window. Normalising would mean changing five rooms to suit one table.
   - **The Tape Room's window is COMPUTED from the same 72 hours**, not written
     out again, so the hub and the room cannot drift about what NEW means.
+- **THE FIRST COLUMN NAMES THE QUEUE, NOT JUST THE ROOM**, wherever a room has
+  more than one. The Tape Room has two — tracks waiting on a decision, findings
+  waiting to be cleared — and they are different jobs with different verbs, so
+  one merged figure would hide that. They read **Tape Room: new tracks** and
+  **Tape Room: findings**.
+  - **IT CANNOT BE LEFT TO THE "WHAT IT IS" COLUMN**, which is what the first cut
+    did. That column is `display: none` under 640px, so **on a phone the table
+    read as one room listed twice with two numbers and nothing to tell them
+    apart.** A test now asserts no two rows share a label.
 - **A REFUSED READ IS NEVER DRAWN AS A ZERO.** `socials` and `soundtrack_issues`
   are admin-read only, so a lapsed session answers 403 — and reporting that as 0
   would say the queue is empty when nobody knows. `countOf()` returns **null**,

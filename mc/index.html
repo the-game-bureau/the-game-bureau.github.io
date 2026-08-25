@@ -871,7 +871,7 @@
         { room: 'Gift Shop', href: '/mc/gifts/',
           what: 'gifts filed by the bot, awaiting a keep or a shelve',
           path: 'gift_shop_items?select=id&archived=eq.true&certified_at=is.null' },
-        { room: 'Tape Room', href: '/mc/soundtracks/',
+        { room: 'Tape Room', queue: 'new tracks', href: '/mc/soundtracks/',
           what: 'tracks filed in the last 72 hours',
           // The room's own NEW window, computed rather than hardcoded so the two
           // cannot drift into disagreeing about what "new" means.
@@ -879,7 +879,7 @@
             const since = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
             return 'soundtrack_songs?select=id&archived=eq.true&created_at=gte.' + encodeURIComponent(since);
           } },
-        { room: 'Tape Room', href: '/mc/soundtracks/',
+        { room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
           what: 'open findings from the audit',
           path: 'soundtrack_issues?select=id&status=eq.open' }
       ];
@@ -925,6 +925,19 @@
         } catch (err) { return null; }
       }
 
+      // THE FIRST COLUMN NAMES THE QUEUE, NOT JUST THE ROOM, wherever a room has
+      // more than one. The Tape Room has two -- tracks waiting on a decision and
+      // findings waiting to be cleared -- and they are different jobs with
+      // different verbs, so merging them into one figure would hide that.
+      //
+      // IT CANNOT BE LEFT TO THE "WHAT IT IS" COLUMN, which is what the first
+      // cut did: that column is `display: none` under 640px, so on a phone the
+      // table read as one room listed twice with two numbers and nothing to tell
+      // them apart.
+      function reviewLabel(src) {
+        return src.queue ? src.room + ': ' + src.queue : src.room;
+      }
+
       function reviewRow(room, href, count, what, isTotal) {
         const tr = document.createElement('tr');
         if (isTotal) tr.className = 'mc-review-total';
@@ -963,7 +976,7 @@
           else if (!n) return;                 // a clear room is not news
           else total += n;
           drawn++;
-          reviewBody.appendChild(reviewRow(src.room, src.href, n, src.what, false));
+          reviewBody.appendChild(reviewRow(reviewLabel(src), src.href, n, src.what, false));
         });
         if (drawn > 1) {
           reviewBody.appendChild(reviewRow('Total', null, total,
