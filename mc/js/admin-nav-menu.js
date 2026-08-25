@@ -89,7 +89,7 @@
           action: 'GO TO CITIES'
         },
         {
-          href: '/mc/anchor_events.html',
+          href: '/mc/events/',
           // Absorbed /mc/get_games.html ("Sports Games Research") and
           // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
           // gathered real schedules the long way round and neither wrote

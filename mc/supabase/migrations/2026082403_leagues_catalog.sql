@@ -15,7 +15,7 @@
 -- nothing reconciles them.
 --
 -- THIS SEED USES THE TITLE CASE, because that is what `anchor_events` holds and
--- what a picker on mc/anchor_events.html would write. It does NOT rewrite
+-- what a picker on mc/events/index.html would write. It does NOT rewrite
 -- `teams`: that is 639 rows read by the builder and the fandom palette, and
 -- changing them is a separate decision with its own blast radius. Recorded here
 -- rather than quietly reconciled.
@@ -44,7 +44,7 @@ comment on column public.leagues.sport  is 'Title case, matching anchor_events.s
 comment on column public.leagues.league is 'The league as anchor_events.league and teams.league already spell it: NFL, NCAAF, MLB.';
 
 -- Ten popular US leagues. The first seven are the ones the ESPN importer in
--- mc/anchor_events.html can already read a schedule for, spelled the way its
+-- mc/events/index.html can already read a schedule for, spelled the way its
 -- LEAGUES map spells them, so the two agree. The last three have no feed here
 -- and are listed because they are among the most watched sport in the country,
 -- which is the question this table answers.

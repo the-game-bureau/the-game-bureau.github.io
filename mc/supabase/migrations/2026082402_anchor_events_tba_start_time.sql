@@ -17,7 +17,7 @@
 --
 -- THE COST, PLAINLY: 00:01 is a real time, so the field alone cannot be told
 -- from a genuine 12:01 AM event. What stops that being lost is that the TBD
--- stays in the description and the `tbd` rule in mc/anchor_events.html keeps the
+-- stays in the description and the `tbd` rule in mc/events/index.html keeps the
 -- row in review until somebody replaces it with the real kickoff. Do not "tidy"
 -- the description afterwards: it is the only evidence of what 00:01 means.
 --

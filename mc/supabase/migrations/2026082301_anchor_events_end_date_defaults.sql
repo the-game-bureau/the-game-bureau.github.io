@@ -3,7 +3,7 @@
 -- 2026080101 added end_date for multi-day runs and its comment said "Null for a
 -- single-day event". That is a fine convention and it makes every reader carry
 -- the fallback: `coalesce(end_date, event_date)` in SQL, `end_date || event_date`
--- in the two places mc/anchor_events.html asks when an event finishes. A reader
+-- in the two places mc/events/index.html asks when an event finishes. A reader
 -- that forgets it calls a one-day event undated.
 --
 -- The page now fills end_date from event_date on every write -- the card mirrors
