@@ -1732,7 +1732,9 @@ message for no gain — the same bargain the Tape Room made through four renames
 its verbs without the column following.
 
 **Don't create a second `events` table**, or the builder's Choose Event picker in
-[mc/marquee.html](mc/marquee.html) will silently ignore half the catalog.  [mc/events/index.html](mc/events/index.html) ("Anchor Events", added 2026-08-01) is the editor over those rows, and the only one — it replaced `mc/anchor-events.html`, deleted the same day. **Don't create a second `events` table**, or the builder's Choose Event picker in [mc/profiles.html](mc/profiles.html) will silently ignore half the catalog.
+[mc/marquee.html](mc/marquee.html) will silently ignore half the catalog.
+
+[mc/events/index.html](mc/events/index.html) ("Anchor Events", added 2026-08-01) is the editor over those rows, and the only one — it replaced `mc/anchor-events.html`, deleted the same day.
 
 **IT IS `mc/events/index.html` AS OF 2026-08-24**, and that is the FOURTH address in two days. In order: `mc/data/events.html`, then `mc/anchor_events.html` on 2026-08-23, then here.
 
