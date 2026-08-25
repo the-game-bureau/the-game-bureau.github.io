@@ -1891,6 +1891,58 @@ its verbs without the column following.
 - **`start_time` is venue-local**, per the column's own comment — the time a player standing outside the stadium sees. Leagues publish in Eastern, so a seed has to convert; the NFL Week 1 seed ([2026080102](mc/supabase/migrations/2026080102_nfl_2026_week1_anchor_events.sql), 16 games) keeps the ET broadcast time in `description` so the two stay reconcilable, and its Melbourne game deliberately carries a date one day later than the US listing.
 - `id` is a **client-supplied text primary key** (`NFL-2026-W1-CAR-CHI`), not generated. The events page only lets you type it on a row that has never been saved — changing it later would orphan every game pointing at it.
 
+### DELETE MEANS ARCHIVE, AND ARCHIVED STILL COUNTS (2026-08-25)
+
+`public.events.archived_at` — [2026082504](mc/supabase/migrations/2026082504_events_archive.sql), **apply by hand**. Null is live; a
+timestamp means somebody took the event off the list. **The row stays.**
+
+- **TWO REASONS IT CANNOT BE A REAL DELETE, and they pull the same way.**
+  `games.anchor_event_id` is a foreign key with **no `on delete` clause**, so it
+  is NO ACTION and deleting a referenced event fails outright — a good safety net
+  this keeps. And **a deleted event comes straight back**: both pull RPCs dedupe
+  against this table, so removing a row tells TGB ANCHOR BOT only that it has
+  never seen the thing, and the next run files it again. **The row IS the
+  tombstone.**
+- **NOTHING WAS NEEDED TO MAKE "NOT PULLED AGAIN" WORK**, which was checked
+  rather than assumed: `tgb_pull_anchor_events` dedupes on the id and on the
+  natural key **with no filter on the rows it looks at**, and
+  `tgb_pull_concert_tours` uses `on conflict (id)`. An archived row is still a
+  row. **If either dedupe ever grows a `where archived_at is null`, that is the
+  bug the migration's comment exists to prevent.**
+- **NOT A `status` OF 'archived'.** `status` says where the event stands in the
+  world; archiving says what we think of the record. One column for both is the
+  cost this file already records for `review`, which overwrites the previous
+  status and loses it. A cancelled event you have also archived is two true
+  facts.
+- **THE BUTTON SAYS DELETE AND THE TOOLTIP ADMITS THE MECHANISM.** Delete is what
+  somebody came to the row to do and archiving is how it is done safely, so the
+  face is honest about the OUTCOME (it leaves the list) and the tooltip is honest
+  about the MEANS. **That sentence must stay said.** On an archived row the face
+  reads **Restore**.
+- **ARCHIVED ROWS ARE OFF THE LIST BY DEFAULT**, behind a third checkbox reading
+  **Removed** — labelled for the button somebody pressed, not for the column.
+  **It is not a narrowing like the other two**: Review and Neutral site pick a
+  subset of what is on screen, this one SWAPS the list for what is otherwise
+  hidden.
+- **PAST ARCHIVED EVENTS ARE PURGED, and that is the one case where the row has
+  no job left**: nothing re-files a past date, because both pulls refuse one.
+  `tgb_purge_archived_events()` runs once per load, after the whole table is in,
+  and **skips anything a game points at** — reported by count, not skipped in
+  silence, because "why is this still here" is the obvious next question.
+  - **IT IS THE ONE FUNCTION HERE GRANTED TO `authenticated` ONLY.** Every other
+    is INSERT-only and exposed to `anon` because a cloud routine has no secret
+    store. This one DELETES, and tightly-bounded is not the standard for handing
+    a delete to an anonymous caller. No routine needs it; the room runs it with a
+    person present.
+  - **A MISSING FUNCTION IS NOT AN ERROR THE ROOM SHOUTS ABOUT.** The likeliest
+    cause is the migration not being applied, and a housekeeping job that could
+    not run is no reason to redden a page that otherwise works. It warns to the
+    console and names the file.
+- **`restUrl()` CANNOT BUILD AN RPC PATH**, and the first cut of the purge used
+  it. It runs the table name through `encodeURIComponent`, so
+  `rpc/tgb_purge_archived_events` comes out `rpc%2Ftgb_purge…` and 404s. **An
+  RPC path has a slash that must survive.** Caught by a test, not by reading.
+
 ### THE FIRST 50 PAINT, THE REST ARRIVES BEHIND THEM (2026-08-25)
 
 The table went from 603 rows to **4,123** the morning TGB ANCHOR BOT first ran,

@@ -959,6 +959,15 @@
             <input type="checkbox" id="neutralFilter">
             <span>Neutral site <b class="bar-check-n" id="neutralFilterN"></b></span>
           </label>
+          <!-- NOT A NARROWING LIKE THE OTHER TWO. Review and Neutral site pick a
+               subset of what is on screen; this one SWAPS the list for the rows
+               that are otherwise hidden. It reads as a third checkbox because
+               that is what it looks like, and its label says "Removed" rather
+               than "Archived" so it matches the button somebody pressed. -->
+          <label class="bar-check" id="archivedFilterLabel">
+            <input type="checkbox" id="archivedFilter">
+            <span>Removed <b class="bar-check-n" id="archivedFilterN"></b></span>
+          </label>
         </div>
       </fieldset>
 
@@ -1333,6 +1342,9 @@
     const neutralFilterLabel = document.getElementById('neutralFilterLabel');
     const reviewFilterN = document.getElementById('reviewFilterN');
     const neutralFilterN = document.getElementById('neutralFilterN');
+    const archivedFilter = document.getElementById('archivedFilter');
+    const archivedFilterLabel = document.getElementById('archivedFilterLabel');
+    const archivedFilterN = document.getElementById('archivedFilterN');
     const listEl = document.getElementById('eventList');
     const pagerTopEl = document.getElementById('pagerTop');
     const pagerBottomEl = document.getElementById('pagerBottom');
@@ -1383,7 +1395,11 @@
     // server reported on the first request. Anything that reads state.rows as THE
     // TABLE rather than as a page has to check `loaded` first.
     const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false, neutralOnly: false,
-                    loaded: false, total: null };
+                    loaded: false, total: null,
+                    // ARCHIVED ROWS ARE HIDDEN BY DEFAULT. They are kept so a game can
+                    // reference them and so a bot cannot re-file them, not so somebody
+                    // has to scroll past them.
+                    showArchived: false };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1519,6 +1535,11 @@
     // the week headings are what answer that question now, and if a real date
     // filter is ever wanted back it is a filter, not a search term.
     function matches(row) {
+      // FIRST, because it is the only test that hides a row you did not ask
+      // about. Everything below narrows what you CAN see; this decides what
+      // is on the list at all.
+      if (!state.showArchived && clean(row.archived_at)) return false;
+      if (state.showArchived && !clean(row.archived_at)) return false;
       if (state.reviewOnly && !isInReview(row)) return false;
       if (state.neutralOnly && row.neutral_site !== true) return false;
       if (state.q) {
@@ -1991,9 +2012,19 @@
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'btn small warn';
-        delBtn.textContent = 'Delete';
-        delBtn.title = 'Delete the row for good. Any game pointing at it loses its anchor event.';
-        delBtn.addEventListener('click', () => deleteRow(row, delBtn));
+        // THE FACE SAYS DELETE AND THE ACT IS ARCHIVE, deliberately. Delete is
+        // what somebody comes to this row to do, and archiving is HOW we do it
+        // safely -- a game may point at the row, and both pull RPCs dedupe
+        // against this table, so a real delete invites the bot to file the
+        // event again on its next run. **The tooltip is where that is said**,
+        // and it must stay said: the button is honest about the outcome (it
+        // leaves the list) and the tooltip is honest about the mechanism.
+        const archived = !!clean(row.archived_at);
+        delBtn.textContent = archived ? 'Restore' : 'Delete';
+        delBtn.title = archived
+          ? 'Put this event back on the list.'
+          : 'Take it off the list. The row is kept so a game can still point at it and so the bots do not file it again; it is removed for good once its date has passed.';
+        delBtn.addEventListener('click', () => setArchived(row, delBtn, !archived));
         const gap = document.createElement('span');
         gap.className = 'event-actions-gap';
 
@@ -3195,6 +3226,8 @@
         state.reviewOnly, state.rows.filter(isInReview).length);
       paint(neutralFilter, neutralFilterLabel, neutralFilterN,
         state.neutralOnly, state.rows.filter((r) => r.neutral_site === true).length);
+      paint(archivedFilter, archivedFilterLabel, archivedFilterN,
+        state.showArchived, state.rows.filter((r) => clean(r.archived_at)).length);
     }
 
     function syncErrorsBtn() {
@@ -4122,6 +4155,10 @@
       }
       refreshPromptText();
       setStatus('Loaded ' + state.rows.length + ' events.', 'success');
+      // AFTER THE WHOLE TABLE IS IN, never before: the purge reports what it
+      // removed, and removing rows from a list that is still filling would
+      // fight the loader.
+      purgeArchived();
     }
 
 
@@ -4317,26 +4354,94 @@
       }
     }
 
-    async function deleteRow(row, btn) {
+    // ARCHIVE, NOT DELETE. See the button above for why the face says Delete.
+    async function setArchived(row, btn, on) {
       const id = clean(row.id);
       if (!id) return;
-      if (!window.confirm('Delete "' + displayTitle(row) + '" from the events catalog?\n\nThis is permanent, and it will fail if a game is still anchored to it.')) return;
+      if (on && !window.confirm(
+            'Take "' + displayTitle(row) + '" off the list?\n\n' +
+            'The row is KEPT, so any game anchored to it still works and the bots will not file the event again. ' +
+            'It is removed for good once its date has passed.')) return;
       btn.disabled = true;
       const orig = btn.textContent;
-      btn.textContent = 'Deleting…';
+      btn.textContent = on ? 'Removing…' : 'Restoring…';
       try {
         const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
-          method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' })
+          method: 'PATCH',
+          // return=representation IS NOT DECORATION. PostgREST answers 200 with
+          // an EMPTY ARRAY when RLS refuses a write, so without reading the row
+          // back a refused archive reports success and the card vanishes until
+          // a reload brings it straight back.
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ archived_at: on ? new Date().toISOString() : null })
         });
-        if (!res.ok) throw new Error(await readError(res, 'Delete failed.'));
-        state.rows = state.rows.filter((r) => r !== row);
+        if (!res.ok) throw new Error(await readError(res, on ? 'Could not remove it.' : 'Could not restore it.'));
+        const saved = await res.json();
+        if (!Array.isArray(saved) || !saved.length) {
+          throw new Error('The database refused that write, so nothing changed. Check you are signed in as an admin.');
+        }
+        const i = state.rows.indexOf(row);
+        if (i !== -1) state.rows[i] = saved[0]; else state.rows.push(saved[0]);
         render();
-        setStatus('Deleted ' + id + '.', 'success');
+        setStatus(on
+          ? 'Took ' + id + ' off the list. It is kept so nothing re-files it.'
+          : 'Put ' + id + ' back on the list.', 'success');
       } catch (err) {
         console.error(err);
-        setStatus(err && err.message ? err.message : 'Delete failed.', 'error');
+        setStatus(err && err.message ? err.message : 'That did not work.', 'error');
         btn.disabled = false;
         btn.textContent = orig;
+      }
+    }
+
+    // ── Purge: an archived event that has already happened has no job left ────
+    //
+    // Nothing will re-file a past date, because both pulls refuse one, so the
+    // row is not doing the tombstone work any more. It goes -- unless a game
+    // points at it, which is the reference this whole design exists to keep.
+    //
+    // IT RUNS ONCE PER LOAD, AFTER THE WHOLE TABLE IS IN, and only ever touches
+    // rows that are archived AND past AND unreferenced. Silent when it finds
+    // nothing: the common case is not news.
+    async function purgeArchived() {
+      if (!state.authed) return;
+      try {
+        // NOT restUrl(). It runs the table name through encodeURIComponent, so
+        // 'rpc/tgb_purge_archived_events' comes out as 'rpc%2Ftgb_purge...' and
+        // the call 404s. An RPC path has a slash in it that must survive.
+        const rpcUrl = SUPABASE_CONFIG.url + '/rest/v1/rpc/tgb_purge_archived_events';
+        const res = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: '{}'
+        });
+        if (!res.ok) {
+          // NOT AN ERROR THE ROOM SHOUTS ABOUT. The likeliest cause is that
+          // 2026082504 has not been applied, and a housekeeping job that could
+          // not run is no reason to redden a page that otherwise works.
+          const body = await res.text();
+          if (/PGRST202/.test(body)) {
+            console.warn('tgb_purge_archived_events is not installed: run mc/supabase/migrations/2026082504_events_archive.sql');
+          } else {
+            console.warn('purge skipped:', body);
+          }
+          return;
+        }
+        const out = await res.json();
+        const gone = (out && out.deleted) || 0;
+        const kept = (out && out.kept_referenced) || 0;
+        if (!gone && !kept) return;
+        const ids = new Set((out && out.ids) || []);
+        if (ids.size) {
+          state.rows = state.rows.filter((r) => !ids.has(clean(r.id)));
+          render();
+        }
+        setStatus('Removed ' + gone + (gone === 1 ? ' archived event' : ' archived events') +
+          ' whose date has passed.' +
+          (kept ? ' ' + kept + ' kept, because a game still points at ' + (kept === 1 ? 'it' : 'them') + '.' : ''),
+          'success');
+      } catch (err) {
+        console.warn('purge skipped:', err);
       }
     }
 
@@ -4350,7 +4455,7 @@
     }
     // THE CHECKBOXES ARE WIRED BY A LOOP, not one block each, so a third filter
     // is one entry rather than a copy of this with two words changed.
-    [[reviewFilter, 'reviewOnly'], [neutralFilter, 'neutralOnly']].forEach(([box, key]) => {
+    [[reviewFilter, 'reviewOnly'], [neutralFilter, 'neutralOnly'], [archivedFilter, 'showArchived']].forEach(([box, key]) => {
       if (!box) return;
       box.addEventListener('change', () => {
         state[key] = box.checked;

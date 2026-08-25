@@ -94,6 +94,14 @@ minutes of a twenty minute run finding replacements. Nothing errored.
 growing. Page it with `limit` and `offset`, or narrow the date window; an
 unfiltered read that looks complete is how this goes wrong quietly.
 
+**AN EVENT SOMEBODY REMOVED IS STILL FILED, AND YOU MUST NOT RE-FILE IT.** A
+human taking an event off the list in the room does not delete the row, it sets
+`archived_at` — precisely so the dedupe still sees it and you do not put the
+thing straight back on the next run. **The read above returns those rows too, and
+that is deliberate: treat one as already filed.** If you find yourself thinking a
+row "should" be there because it is missing from the room, it is not missing, it
+was removed on purpose.
+
 **The RPC also refuses duplicates** on the id AND on (date, city, and either the
 title or both club nicknames), so the same fixture read from two sites cannot
 land twice. **That is a backstop, not your job** — a run that leans on it is
