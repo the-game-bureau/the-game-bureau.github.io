@@ -1789,6 +1789,26 @@ The card went through both failures in one day, which is worth recording as a pa
 - **`FIELD_GROUPS` is the layout; `EDITABLE_FIELDS` is still the column list.** The write path reads the second, never the first, so the two can disagree — and **a field in no band is a field nobody can edit, with nothing on screen saying so**: the card would simply not draw it and the column would quietly stop being maintained. `assertBandsCoverFields()` runs on load and logs both directions of that mismatch.
 - **THE BANDS ARE THE FIVE Ws: Who · What · When · Where · Why** (2026-08-24). An anchor event is a real thing that happened somewhere, so the questions a person asks of one are the questions they ask of any event — **naming the bands that way means nobody has to learn our vocabulary to read the form**. They were When / What / Where / Clubs / Result / Source.
   - **WHO IS A TWO-ROW TABLE, ONE ROW PER CLUB** (2026-08-24): `from | are | score | tgbid`, away above home, with League and Sport spanning two each on the line above. The ten fields were in an auto-fit grid that packed them in whatever order they fitted, so **`home_score` wrapped onto a second row beside the tgbids** — one club's four facts split across two lines while the other club's sat whole on one.
+    - **EVERY LABEL NAMES ITS OWN FIELD** (2026-08-24). They were `Away from`,
+      `Away are`, `Home from`, `Home are` — built so a club's row scanned as a
+      sentence: *"Away, from Chicago, are Bears"*. **That works reading left to
+      right along the row and fails the moment you look at one box**, which is
+      exactly what somebody does when filling one in. A form label has to work
+      the second way.
+    - **`geo` AND `nickname` SAY WHAT GOES IN THE BOX; `Away team` SAYS WHOSE.**
+      So: **Away team geo · Away team nickname · Away team score · Away team
+      tgbid**, and the same four for home.
+    - **THE SCORES WERE RENAMED TOO, THOUGH THEY WERE ALREADY READABLE.** A row
+      where three labels open `Away team` and the fourth opens `Away` reads as
+      an oversight. All four columns of a club's row now share one shape, so the
+      band reads DOWN as well as across.
+    - **THE LONGEST IS `Away team tgbid (opt)`, about 142px in a ~120px column**,
+      so it wraps to two lines. That is fine and was checked rather than assumed;
+      the label has no `nowrap`, and the narrow breakpoints give it MORE room,
+      not less. Anything that would need three lines is too long.
+    - **THE MANUAL FORM FOLLOWED FOR FREE**, being derived from `FIELD_GROUPS`.
+      Two hand-kept lists would have drifted on the first rename — which is the
+      whole reason it is derived.
     - **THE FIELD ORDER IS BY SIDE**, away's four then home's four. The tgbids used to trail after both clubs, which is what let the wrap interleave them.
     - **`nth-child(1)` and `(2)` are League and Sport**, which is positional and therefore **pinned by a test**. `:has()` would name them directly and is not reached for, because this file serves whatever browser the admin happens to have.
     - **THE MANUAL FORM NEEDED NO EDIT.** It is derived from `FIELD_GROUPS`, so it followed — which is the whole point of deriving it, and two suites noticed by failing on the old order.
