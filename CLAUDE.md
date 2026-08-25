@@ -842,6 +842,65 @@ They are the room's two ways in, so they are built to be read together: **MANUAL
 - **IT IS NOT A HISTORY.** If an audit trail is ever wanted, that is an events table, not a wider column.
 - **It takes the accent, not the red pen**: a row that has been round before is context, not a warning. It wears the origin chip's shape because it is the same kind of fact — what the candidate *is*, rather than what it says.
 
+## THE HUB ANSWERS "WHAT IS WAITING ON ME" AND "ARE THE BOTS ALIVE" (2026-08-25)
+
+Two tables at the top of [mc/index.html](mc/index.html), above Ancillary Things.
+
+### TO REVIEW — one table, every room
+
+Until this, the question was answered by opening five rooms and counting. It sits
+near the top for the same reason Access Requests does: it is about a decision
+somebody owes.
+
+- **A ROW IS DRAWN ONLY WHEN IT HAS SOMETHING IN IT**, and the panel hides itself
+  when every room is clear. A table of five zeroes every morning is a table
+  nobody reads, and all-clear is the state most worth seeing at a glance.
+- **THE QUERY IS WRITTEN PER ROOM, NOT NORMALISED**, because the rooms genuinely
+  disagree about what "waiting" is: Events writes a `status`, the Gift Shop
+  derives it from two timestamps, the Tape Room from a flag plus a 72-hour
+  window. Normalising would mean changing five rooms to suit one table.
+  - **The Tape Room's window is COMPUTED from the same 72 hours**, not written
+    out again, so the hub and the room cannot drift about what NEW means.
+- **A REFUSED READ IS NEVER DRAWN AS A ZERO.** `socials` and `soundtrack_issues`
+  are admin-read only, so a lapsed session answers 403 — and reporting that as 0
+  would say the queue is empty when nobody knows. `countOf()` returns **null**,
+  the row reads *could not read* in a quieter pen, and the total says it is a
+  floor. **"Nothing is waiting" and "we could not find out" are opposite
+  answers**, and the whole value of the panel is that the first can be trusted.
+
+### ROUTINES — all seven, and whether they are alive
+
+- **LAST FILED, NOT LAST RUN.** Each row reads the newest row in the table that
+  routine writes. **A run that errored writes nothing**, and since none of them
+  commit anything, that absence is the only signal there is. Past its own cadence
+  the figure goes red — that IS the failure notice.
+  - **TGB ANCHOR EVENTS reads `commits a file`** rather than a blank, because its
+    prompt is still the NFL tour builder and it writes no table. A blank nobody
+    can interpret is worse than a sentence.
+- **THERE IS NO RUN BUTTON, AND THAT IS NOT AN OVERSIGHT.** Firing a routine is a
+  POST to the claude.ai trigger API with an **OAuth bearer**, and this page is
+  public HTML on GitHub Pages: **a token in it is a published token**. Checked
+  rather than assumed — `ANTHROPIC_API_KEY` in `.env` is an empty placeholder,
+  and the trigger API does not take an API key anyway.
+  - **OPEN goes to the routine at claude.ai, where Run is**, and the tooltip says
+    so rather than leaving somebody pressing a button twice.
+  - **IF A RUN BUTTON IS EVER WANTED** it is an Edge Function holding a token,
+    gated by `is_photo_admin()`, exactly as `socials-post` holds the Meta
+    credentials. It needs a token that exists first.
+
+### THE `no-time` CHANGE LEFT 524 ROWS FALSELY RED, AND THAT HAD TO BE CLEARED
+
+An ERRORS sweep had already written `status = 'review'` on 567 events under the
+old rules. **The sweep never writes a row back OUT of review** — deliberately,
+so it cannot undo a human's own flag — so those rows would have stayed red
+forever for a rule that no longer objects. Counted first: **524 flagged for the
+missing time alone, 43 genuine TBD, and 0 with any other fault**, which is what
+made the cleanup safe to bound. The 524 are back to `scheduled`; 43 remain.
+
+**THIS IS THE STANDING COST OF THAT DESIGN.** Loosening a rule does not release
+the rows it already flagged. Whenever a rule stops forcing, check what is stuck
+behind it.
+
 ## Mission Control's ANCILLARY THINGS cards say what the ROOMS say (2026-08-19)
 
 **SOCIALIZER SITS FIRST (2026-08-21).** The three are ordered by how often they are opened, not alphabetically and not by age: the socials queue fills twice a day and is emptied by hand, so it is the one you come to this page for. The Gift Shop and the Tape Room accumulate and are worked in sittings. **Its card is the one wrapped in `.mc-chore-slot`**, so moving it means moving the wrapper and its follow button together, not just the `<a>`.

@@ -443,6 +443,43 @@
       <p class="mc-access-note" id="mcAccessNote"></p>
     </fieldset>
 
+    <!-- TO REVIEW. One table, every room, because the question "what is waiting
+         on me" was previously answered by opening five rooms and counting. It
+         sits at the top for the same reason Access Requests does: it is the
+         only thing on this page that is about a decision somebody owes.
+
+         A ROW IS DRAWN ONLY WHEN IT HAS SOMETHING IN IT. A table listing five
+         zeroes every morning is a table nobody reads, and the panel hides
+         itself entirely when every room is clear -- which is the state worth
+         being able to see at a glance. -->
+    <fieldset class="mc-chores mc-review" id="mcReviewPanel" hidden>
+      <legend>To Review</legend>
+      <div class="mc-review-inner">
+        <table class="mc-review-table">
+          <thead>
+            <tr><th>Room</th><th>Waiting</th><th>What it is</th></tr>
+          </thead>
+          <tbody id="mcReviewBody"></tbody>
+        </table>
+      </div>
+      <p class="mc-access-note" id="mcReviewNote"></p>
+    </fieldset>
+
+    <!-- THE ROUTINES. All of them, with what they do and when they next run.
+         See the note by the OPEN button for why there is no Run here. -->
+    <fieldset class="mc-chores mc-bots" id="mcBotsPanel">
+      <legend>Routines</legend>
+      <div class="mc-review-inner">
+        <table class="mc-review-table mc-bots-table">
+          <thead>
+            <tr><th>Routine</th><th>Runs</th><th>Last filed</th><th></th></tr>
+          </thead>
+          <tbody id="mcBotsBody"></tbody>
+        </table>
+      </div>
+      <p class="mc-access-note" id="mcBotsNote"></p>
+    </fieldset>
+
     <fieldset class="mc-chores">
       <!-- ANCILLARY THINGS, renamed from DAILY CHORES on 2026-08-20. The old
            name described the CADENCE and said nothing about what these are;
@@ -497,6 +534,54 @@
   <style>
     /* The slot is the grid item and the card fills it, so wrapping one card
        changes nothing about how the three sit beside each other. */
+    .mc-review-inner { overflow-x: auto; }
+    .mc-review-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.82rem; color: var(--ink);
+    }
+    .mc-review-table th {
+      text-align: left; padding: 4px 8px 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--line); white-space: nowrap;
+    }
+    .mc-review-table td { padding: 6px 8px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.08); }
+    .mc-review-table tr:last-child td { border-bottom: 0; }
+    .mc-review-table a { color: inherit; font-weight: 700; text-decoration: none; }
+    .mc-review-table a:hover { text-decoration: underline; }
+    /* THE COUNT IS THE COLUMN YOU SCAN, so it is mono and right-aligned: a
+       ragged left edge on four numbers is the one thing a table is for. */
+    .mc-review-n {
+      font-family: "IBM Plex Mono", monospace; font-weight: 700;
+      text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .mc-review-what { color: var(--muted); font-size: 0.78rem; }
+    /* A count that could not be read is NOT drawn as zero. A room whose table
+       refused the read is not a room with nothing waiting, and the two must
+       never look the same. */
+    .mc-review-n--unknown { color: var(--muted); font-weight: 400; }
+    .mc-review-total td { border-top: 1px solid var(--line); font-weight: 700; }
+
+    .mc-bots-table td:nth-child(2),
+    .mc-bots-table td:nth-child(3) {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; color: var(--muted);
+      white-space: nowrap;
+    }
+    .mc-bot-open {
+      display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
+      border: 1px solid var(--line); border-radius: 6px; background: #fff;
+      color: var(--ink); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+      text-decoration: none; white-space: nowrap;
+    }
+    .mc-bot-open:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); text-decoration: none; }
+    /* Overdue: the routine should have filed something by now and has not. */
+    .mc-bot-stale { color: var(--danger) !important; font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .mc-review-table { font-size: 0.78rem; }
+      .mc-review-what { display: none; }
+    }
+
     .mc-chore-slot {
       position: relative;
       display: grid;
@@ -757,12 +842,211 @@
         });
       }
 
+      // ── TO REVIEW, and THE ROUTINES ────────────────────────────────────
+      //
+      // Both read under the signed-in admin's own session. `socials` and
+      // `soundtrack_issues` are admin-read only, so the publishable key alone
+      // would answer with an empty list rather than a refusal -- which is
+      // exactly the shape of bug this panel must not have, since an empty list
+      // and "nothing waiting" look identical. See countOf() for how a refused
+      // read is kept distinguishable from a zero.
+      const reviewPanel = document.getElementById('mcReviewPanel');
+      const reviewBody = document.getElementById('mcReviewBody');
+      const reviewNote = document.getElementById('mcReviewNote');
+      const botsBody = document.getElementById('mcBotsBody');
+      const botsNote = document.getElementById('mcBotsNote');
+
+      // WHAT EACH ROOM CALLS "WAITING ON A PERSON". These are not one idea with
+      // one column: the events room writes a status, the gift shop derives it
+      // from two timestamps, the Tape Room derives it from a flag and a
+      // 72-hour window. The query is written per room rather than normalised,
+      // because normalising would mean changing five rooms to suit this table.
+      const REVIEW_SOURCES = [
+        { room: 'Events', href: '/mc/events/',
+          what: 'flagged by the checks, or by hand',
+          path: 'events?select=id&status=eq.review' },
+        { room: 'Socializer', href: '/mc/socializer/',
+          what: 'post candidates nobody has decided on',
+          path: 'socials?select=id&status=eq.review' },
+        { room: 'Gift Shop', href: '/mc/gifts/',
+          what: 'gifts filed by the bot, awaiting a keep or a shelve',
+          path: 'gift_shop_items?select=id&archived=eq.true&certified_at=is.null' },
+        { room: 'Tape Room', href: '/mc/soundtracks/',
+          what: 'tracks filed in the last 72 hours',
+          // The room's own NEW window, computed rather than hardcoded so the two
+          // cannot drift into disagreeing about what "new" means.
+          path: function () {
+            const since = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+            return 'soundtrack_songs?select=id&archived=eq.true&created_at=gte.' + encodeURIComponent(since);
+          } },
+        { room: 'Tape Room', href: '/mc/soundtracks/',
+          what: 'open findings from the audit',
+          path: 'soundtrack_issues?select=id&status=eq.open' }
+      ];
+
+      // EVERY TGB ROUTINE. The trigger ids are the addresses; a stale one 404s
+      // silently, which is why they live here beside the name rather than being
+      // remembered. `filed` is the table each one writes, so the row can say
+      // when it last actually did something rather than when it last ran: a run
+      // that errored writes nothing, and that absence is the signal.
+      const BOTS = [
+        { name: 'TGB ANCHOR BOT', id: 'trig_01HKMKbnCyH6WLKuw7ZstY5b', cron: '3am + 3pm',
+          filed: 'events?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        { name: 'TGB CONCERT BOT', id: 'trig_01RY2ktLpjXwNUo4mYTncPBe', cron: 'noon',
+          filed: 'events?select=created_at&kind=eq.concert&order=created_at.desc&limit=1', stale: 50 },
+        { name: 'TGB GIFT SHOP BOT', id: 'trig_01H7cKJ4fk5bA1NWSqPZi4ah', cron: '3am + 3pm',
+          filed: 'gift_shop_items?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        { name: 'TGB SOUNDTRACK BOT', id: 'trig_014sqaUyU7557svq9mGA1E4a', cron: '3am + 3pm',
+          filed: 'soundtrack_songs?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        { name: 'TGB SOCIALIZER BOT', id: 'trig_01KDYndJhZ9ymgUgX5Xx6LsL', cron: '3am + 3pm',
+          filed: 'socials?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        { name: 'TGB PATH BOT', id: 'trig_01HqDJy6BzpU7n23VXv8D1gW', cron: '3am + 3pm',
+          filed: 'paths?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        // Its prompt is still the NFL tour builder, which COMMITS A FILE rather
+        // than writing a table, so there is nothing here to read a last-filed
+        // from. Said outright rather than left as a blank nobody can interpret.
+        { name: 'TGB ANCHOR EVENTS', id: 'trig_01P6fMZjt4ZapaKVoiCUfGxw', cron: '3am + 3pm',
+          filed: null }
+      ];
+
+      // A COUNT, OR null IF THE READ FAILED. Never 0 on a refusal: "nothing is
+      // waiting" and "we could not find out" are opposite answers, and the whole
+      // value of this panel is that the first one can be trusted.
+      async function countOf(session, path) {
+        try {
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + path + '&limit=1', {
+            headers: Object.assign(accessHeaders(session), { Prefer: 'count=exact' }),
+            cache: 'no-store'
+          });
+          if (!res.ok) return null;
+          const range = res.headers.get('content-range') || '';
+          const total = Number(range.split('/')[1]);
+          return Number.isFinite(total) ? total : null;
+        } catch (err) { return null; }
+      }
+
+      function reviewRow(room, href, count, what, isTotal) {
+        const tr = document.createElement('tr');
+        if (isTotal) tr.className = 'mc-review-total';
+        const td1 = document.createElement('td');
+        if (href) {
+          const a = document.createElement('a');
+          a.href = href;
+          a.textContent = room;
+          td1.appendChild(a);
+        } else {
+          td1.textContent = room;
+        }
+        const td2 = document.createElement('td');
+        td2.className = 'mc-review-n' + (count === null ? ' mc-review-n--unknown' : '');
+        td2.textContent = count === null ? 'could not read' : String(count);
+        const td3 = document.createElement('td');
+        td3.className = 'mc-review-what';
+        td3.textContent = what;
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        tr.appendChild(td3);
+        return tr;
+      }
+
+      async function loadReview(session) {
+        const counts = await Promise.all(REVIEW_SOURCES.map(function (src) {
+          return countOf(session, typeof src.path === 'function' ? src.path() : src.path);
+        }));
+        reviewBody.textContent = '';
+        let total = 0;
+        let unknown = 0;
+        let drawn = 0;
+        REVIEW_SOURCES.forEach(function (src, i) {
+          const n = counts[i];
+          if (n === null) unknown++;
+          else if (!n) return;                 // a clear room is not news
+          else total += n;
+          drawn++;
+          reviewBody.appendChild(reviewRow(src.room, src.href, n, src.what, false));
+        });
+        if (drawn > 1) {
+          reviewBody.appendChild(reviewRow('Total', null, total,
+            unknown ? unknown + ' room' + (unknown === 1 ? '' : 's') + ' could not be read, so this is a floor' : '',
+            true));
+        }
+        reviewNote.textContent = '';
+        reviewPanel.hidden = !drawn;
+      }
+
+      function agoShort(iso) {
+        const t = Date.parse(iso || '');
+        if (!Number.isFinite(t)) return null;
+        const h = (Date.now() - t) / 3600000;
+        if (h < 1) return 'just now';
+        if (h < 24) return Math.round(h) + 'h ago';
+        return Math.round(h / 24) + 'd ago';
+      }
+
+      async function loadBots(session) {
+        botsBody.textContent = '';
+        const rows = BOTS.map(function (bot) {
+          const tr = document.createElement('tr');
+          const td1 = document.createElement('td');
+          td1.textContent = bot.name;
+          const td2 = document.createElement('td');
+          td2.textContent = bot.cron;
+          const td3 = document.createElement('td');
+          td3.textContent = bot.filed ? '...' : 'commits a file';
+          const td4 = document.createElement('td');
+          const a = document.createElement('a');
+          a.className = 'mc-bot-open';
+          a.href = 'https://claude.ai/code/routines/' + bot.id;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = 'OPEN';
+          // IT OPENS THE ROUTINE, IT DOES NOT RUN IT, and the tooltip says so
+          // rather than letting somebody press it twice wondering why nothing
+          // happened. Running one is a POST to the claude.ai trigger API with an
+          // OAuth bearer, and this page is public HTML on GitHub Pages: a token
+          // in it is a published token. The Run button is one click away, on the
+          // page this opens.
+          a.title = 'Open ' + bot.name + ' at claude.ai, where Run is. This page cannot fire it: that needs a credential, and anything in this page is public.';
+          td4.appendChild(a);
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+          tr.appendChild(td3);
+          tr.appendChild(td4);
+          botsBody.appendChild(tr);
+          return { bot: bot, cell: td3 };
+        });
+        botsNote.textContent = 'OPEN takes you to the routine at claude.ai, where the Run button is. ' +
+          'Last filed is when the routine last wrote a row, not when it last ran: a run that errored writes nothing, and that absence is the signal.';
+        await Promise.all(rows.map(async function (r) {
+          if (!r.bot.filed) return;
+          try {
+            const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + r.bot.filed, {
+              headers: accessHeaders(session), cache: 'no-store'
+            });
+            if (!res.ok) { r.cell.textContent = 'could not read'; return; }
+            const out = await res.json();
+            const stamp = Array.isArray(out) && out.length ? out[0].created_at : null;
+            r.cell.textContent = agoShort(stamp) || 'nothing yet';
+            // OVERDUE, in the routine's own cadence. A red figure here IS the
+            // failure notice: these commit nothing, so a run that died leaves no
+            // other trace anywhere.
+            const t = Date.parse(stamp || '');
+            if (Number.isFinite(t) && (Date.now() - t) / 3600000 > r.bot.stale) {
+              r.cell.classList.add('mc-bot-stale');
+              r.cell.title = 'Overdue. ' + r.bot.name + ' runs ' + r.bot.cron + ' and has filed nothing since.';
+            }
+          } catch (err) { r.cell.textContent = 'could not read'; }
+        }));
+      }
+
       const adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         // Fires after .mc-auth-authorized lands, so the sections have layout.
         onAuthorized: function (session) {
           requestAnimationFrame(applyHash);
           loadAccessRequests(session);
+          loadReview(session);
+          loadBots(session);
         }
       });
 
