@@ -2647,6 +2647,61 @@ Two columns, `sport` and `league`, seeded with ten US leagues.
   three have no feed here and are listed because the table's job is to say what
   we cover, not what we can scrape.
 
+### The Leagues room — [mc/teams/leagues.htm](mc/teams/leagues.htm) (2026-08-24)
+
+The editor over `public.leagues`: list, add, edit, delete. **The fifth page to
+wear the Socializer's chrome**, ported from [mc/anchor_events.html](mc/anchor_events.html) — when any of
+the five changes, change them all; the Socializer is the reference.
+
+- **IT IS `.htm`, THE ONLY ONE IN THE LIVE REPO**, and it does not follow the
+  folder convention either (every room is named by its folder: `/mc/gifts/`,
+  `/mc/socializer/`). Both were asked for explicitly. **Worth knowing before
+  somebody "fixes" it**: GitHub Pages serves no 301, so a rename to
+  `/mc/teams/leagues/` would be a hard break like every other move here.
+- **THE NAV ENTRY WENT IN THE SAME COMMIT.** A room with no door is unreachable,
+  which is the standing rule read the other way round.
+- **ADD IS THE WHOLE BAR — no search, no filter.** Ten rows. A control that
+  narrows a list of ten to one of them is a control nobody needs, the same
+  reasoning that kept a YouTube filter out of the Socializer's queue.
+- **GROUPED BY SPORT, AND THE GROUPING IS THE POINT.** `sport` is free text, so a
+  second spelling of one sport appears as a second heading with one row under it.
+  **That is the only place on the site where such a drift is visible at a
+  glance**, and this database already has one — see the note above. The add
+  dialog's sport box is a `datalist` of the sports already used, for the same
+  reason.
+- **THE LEAGUE IS THE PRIMARY KEY AND IS STILL EDITABLE, WITH A GUARD.** Postgres
+  permits renaming a PK and **there is no foreign key to refuse it**, so nothing
+  in the database would warn that every `anchor_events` and `teams` row naming
+  the old string is now pointing at a league that is not in the list. So the page
+  **counts those rows first and puts the number in the question**: *"331
+  anchor_events rows and 515 teams rows name NCAAF. There is no foreign key, so
+  those rows will NOT follow the rename."* Delete asks the same way.
+  - **A table it cannot read is reported as unchecked, never as zero.** A
+    confident zero about a table nobody could reach is the worse answer.
+- **A NEW LEAGUE IS UPPER CASED ON THE WAY IN.** Every other table spells a
+  league that way and the whole value of this catalogue is that the strings
+  match; correcting it is obviously right, so it is done rather than refused.
+- **NOTHING AUTOSAVES.** An edit is a draft keyed by the row's ORIGINAL league,
+  so a re-render cannot silently discard typing, and the foot counts the unsaved
+  ones. **That count is the only warning there is** — and it is repainted by
+  `paintDirtyCount()` on every keystroke rather than by `render()`, which cannot
+  run per keystroke without stealing focus from the box being typed in. It was
+  wired to `render()` alone at first and simply never appeared.
+- **`return=representation` ON THE SAVE, THE DELETE AND THE INSERT.** PostgREST
+  answers **200 with an empty array** when RLS refuses a write, so without
+  reading the row back a refused save reports success and the page shows a value
+  the table never took. Tested by refusing every write.
+- **A MISSING TABLE NAMES THE MIGRATION** rather than reporting `42P01`, which is
+  a statement about our schema and not something the person at the keyboard can
+  act on.
+
+**PROVED BY RENDERING IT**, in jsdom with the auth and REST modules stubbed: 46
+cases over the ten real rows — the grouping and counts, an edit saving and
+regrouping, a rename warning with both reference counts and one warning it has
+nothing to strand, the upper-casing, a duplicate caught before the round trip,
+a delete naming what points at it, a cancelled delete sending no request, a
+refused write reported as refused, and the missing-table message.
+
 ## One city catalog: `public.cities`
 
 There is exactly **one** city table for the whole site: `public.cities`, keyed by `slug`, with `city` (the canonical string) unique. `/soundtracks/`, `/gifts/`, and `/mc/gifts/` all read it.

@@ -107,6 +107,15 @@
           label: 'Teams',
           description: 'The teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.',
           action: 'GO TO TEAMS'
+        },
+        {
+          // A ROOM WITH NO DOOR IS UNREACHABLE, and this file is the door. Added
+          // in the same commit as the room, which is the standing rule here read
+          // the other way round: doors and rooms move together.
+          href: '/mc/teams/leagues.htm',
+          label: 'Leagues',
+          description: 'Which sport each league plays — the list anchor events and teams are both naming.',
+          action: 'GO TO LEAGUES'
         }
       ]
     },

@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LEAGUES | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    /* THE SOCIALIZER'S CHROME, fifth copy. The Tape Room, the Gift Shop, the
+       Path Builder and Anchor Events all wear this; the Socializer is the
+       reference and these are copies, so WHEN ANY OF THEM CHANGES, CHANGE THEM
+       ALL. Ported from mc/anchor_events.html, which is the most recent port and
+       the closest sibling: a small admin-only table with a list and a form. */
+    :root {
+      --mc-shell-width: 1180px;
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+      --stack-gap: 14px;
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+    button, input, select, textarea { font: inherit; }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 38px;
+      padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      color: var(--ink); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
+      text-decoration: none; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn.warn { color: var(--danger); border-color: rgba(160, 63, 45, 0.45); background: transparent; }
+    .btn.warn:hover { background: rgba(160, 63, 45, 0.08); border-color: var(--danger); }
+    .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    /* [hidden] HAS TO WIN. .btn carries an author `display: inline-flex` and
+       [hidden] is only a UA-sheet `display: none`, so the author rule beats it
+       and setting .hidden silently does nothing. This project has been bitten by
+       that rule SEVEN times now, most recently on the Split button. */
+    .btn[hidden] { display: none; }
+
+    /* ── Room head ─────────────────────────────────────────────────────────── */
+    .room-head .room-blurb { max-width: none; white-space: nowrap; }
+    @media (max-width: 900px) { .room-head .room-blurb { white-space: normal; } }
+    /* THE SCRIBBLE IS A RED PEN WHATEVER THE NEWS IS, so its own tone classes
+       must not recolour it. Same override the Gift Shop makes on #shopStatus. */
+    .room-scribble.error,
+    .room-scribble.success { color: inherit; }
+
+    /* ── Command bars, the Socializer's folder tabs ────────────────────────── */
+    .bar-row {
+      width: 100%; max-width: var(--mc-shell-width); margin: 0 auto;
+      display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px;
+    }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .command-bar--add { flex: 0 0 auto; }
+    .command-bar {
+      width: 100%; max-width: var(--mc-shell-width); min-inline-size: 0;
+      padding: 2px 9px 8px; margin: 0 auto var(--stack-gap);
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
+    }
+    /* The tab is a PSEUDO-ELEMENT over the top half of the legend, not a border
+       on the legend itself: the word sits centred on the panel's top line, which
+       is where a legend goes by default, while the tab's sides stop AT that
+       line. One box cannot do both. `isolation: isolate` is load-bearing -- the
+       arch is at z-index -1 and without a stacking context of its own it drops
+       behind the fieldset's background and vanishes. */
+    .command-bar > legend,
+    .panel > legend {
+      float: none; width: auto; padding: 2px 8px; margin: 0 0 0 9px;
+      position: relative; isolation: isolate; line-height: 1;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
+    }
+    .command-bar > legend::before,
+    .panel > legend::before {
+      content: ""; position: absolute; z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line); border-bottom: 0;
+      border-radius: 5px 5px 0 0; background: var(--cut-panel-bg);
+    }
+    .command-bar-inner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .command-bar .btn {
+      min-width: 0; padding: 0 11px; min-height: 36px;
+      border-color: var(--control-line);
+      box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
+      font-size: 0.78rem; letter-spacing: 0.02em; white-space: nowrap;
+    }
+
+    /* ── The list panel ────────────────────────────────────────────────────── */
+    .panel {
+      width: 100%; max-width: var(--mc-shell-width); min-inline-size: 0;
+      padding: 2px 9px 9px; margin: 0 auto 18px;
+      border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg);
+      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
+    }
+    .league-list { display: flex; flex-direction: column; gap: 4px; }
+
+    /* GROUPED BY SPORT, and the heading is doing real work rather than
+       decoration: `sport` is free text, so two spellings of one sport show up
+       here as two headings. That is the only place on the site where such a
+       drift is visible at a glance, and this database already has one --
+       teams.sport holds `football` where anchor_events.sport holds `Football`. */
+    .sport-group { margin: 8px 0 0; }
+    .sport-group:first-child { margin-top: 2px; }
+    .sport-head {
+      display: flex; align-items: baseline; gap: 8px;
+      margin: 0 0 4px; padding: 0 2px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+    .sport-head-n { font-variant-numeric: tabular-nums; opacity: 0.75; }
+
+    .league-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff;
+    }
+    /* An unsaved row takes the accent edge. A new row is discarded by the next
+       render, so the edge is the only warning there is. */
+    .league-row.is-dirty { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+    .league-row.is-new { border-style: dashed; }
+
+    .league-field { display: grid; gap: 3px; min-width: 0; }
+    .league-field > span {
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .league-field input {
+      min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.9rem; font-weight: 500; min-width: 0;
+    }
+    .league-field input:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+    }
+    /* THE LEAGUE IS THE PRIMARY KEY, so its box is drawn in the mono face the
+       rest of this site gives an identifier. It is editable -- see the rename
+       guard in the script -- but it should not look like ordinary prose. */
+    .league-field--key input {
+      font-family: "IBM Plex Mono", monospace; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .league-field--sport { flex: 1 1 220px; }
+    .league-field--key { flex: 0 0 190px; }
+    .league-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+
+    .empty {
+      padding: 18px 10px; text-align: center; color: var(--muted);
+      font-size: 0.85rem; background: #fff; border: 1px dashed var(--line); border-radius: 7px;
+    }
+    .list-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 2px 2px; font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem; color: var(--muted); flex-wrap: wrap;
+    }
+
+    /* ── The add dialog, the Socializer's lockup ───────────────────────────── */
+    .prompt-lightbox {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      padding: 20px; background: rgba(17, 24, 32, 0.5); z-index: 1200;
+    }
+    .prompt-lightbox.is-open { display: flex; }
+    .prompt-dialog {
+      width: min(520px, 100%); max-height: min(82vh, 900px);
+      display: grid; grid-template-rows: auto 1fr auto;
+      border: 1px solid var(--line); border-top: 8px solid var(--accent); border-radius: 12px;
+      background: rgba(255, 255, 255, 0.98); box-shadow: 0 24px 48px rgba(17, 24, 32, 0.28);
+      overflow: hidden;
+    }
+    .prompt-dialog-head, .prompt-dialog-foot {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-dialog-head { justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .prompt-dialog-foot { justify-content: space-between; border-top: 1px solid var(--line); }
+    .prompt-dialog-title {
+      margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .prompt-eyebrow {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    }
+    .prompt-dialog-body { padding: 12px; overflow: auto; }
+    .prompt-howto { margin: 0 0 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+    /* ONE FIELD PER LINE. You read down a creation form once, in order. */
+    .manual-form { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .manual-form label {
+      display: grid; gap: 3px; font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0;
+    }
+    .manual-form input {
+      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.9rem; font-weight: 500; min-width: 0;
+    }
+    .manual-form input:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+    }
+    .manual-form #newLeague {
+      font-family: "IBM Plex Mono", monospace; font-weight: 600; text-transform: uppercase;
+    }
+    .field-hint {
+      font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none;
+      color: var(--muted); line-height: 1.35;
+    }
+    .dlg-status { font-size: 0.78rem; color: var(--muted); min-height: 1em; }
+    .dlg-status.error { color: var(--danger); }
+
+    @media (max-width: 620px) {
+      .league-field--key, .league-field--sport { flex: 1 1 100%; }
+      .league-actions { margin-left: 0; width: 100%; }
+      .league-actions .btn { flex: 1 1 auto; }
+    }
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">0 LEAGUES</h1>
+        <p class="room-blurb">Which sport each league plays. Anchor events and teams both name a league; this is the list they are naming.</p>
+      </div>
+      <!-- A DIRECT CHILD OF .room-head. .room-scribble is absolute against its
+           nearest positioned ancestor, so nested inside the title column its
+           `right: 0` would be the right edge of the TITLE and every notice would
+           land on the name. -->
+      <span class="room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+    </div>
+
+    <div class="bar-row">
+      <!-- ADD SITS HARD LEFT, where a row comes FROM. The Socializer's own two
+           labels are ADD and VIEW; there is nowhere to GO from this table and
+           nothing to search in ten rows, so ADD is the whole bar. A search box
+           that narrows a list of ten to one of them is a control nobody needs --
+           the same reasoning that kept a YouTube filter out of the Socializer's
+           queue. -->
+      <fieldset class="command-bar command-bar--add">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="addLeagueBtn" type="button"
+                  title="Add a league and the sport it plays.">NEW LEAGUE</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <fieldset class="panel">
+      <legend>Leagues</legend>
+      <div id="leagueList" class="league-list"></div>
+      <div class="list-foot">
+        <span id="listCount"></span>
+        <span id="listNote"></span>
+      </div>
+    </fieldset>
+  </main>
+
+  <div class="prompt-lightbox" id="addLightbox" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle" hidden>
+    <section class="prompt-dialog">
+      <div class="prompt-dialog-head">
+        <div>
+          <div class="prompt-eyebrow">Manual add</div>
+          <h2 class="prompt-dialog-title" id="addDialogTitle">New League</h2>
+        </div>
+      </div>
+      <div class="prompt-dialog-body">
+        <p class="prompt-howto">Two fields. The league is how every other table already spells it, so it has to match: <b>NFL</b>, not <b>nfl</b> or <b>National Football League</b>.</p>
+        <form class="manual-form" id="addForm" autocomplete="off">
+          <label>Sport
+            <input id="newSport" list="sportList" placeholder="Football" required>
+            <span class="field-hint">Pick an existing one where you can. A new spelling of a sport already listed is how one sport becomes two.</span>
+          </label>
+          <label>League
+            <input id="newLeague" placeholder="NFL" required>
+            <span class="field-hint">Permanent in practice: other tables reference it by this exact string.</span>
+          </label>
+        </form>
+        <p class="dlg-status" id="addStatus"></p>
+      </div>
+      <div class="prompt-dialog-foot">
+        <button class="btn" type="button" id="addCancelBtn">Cancel</button>
+        <button class="btn primary" type="submit" form="addForm" id="addSaveBtn">Add league</button>
+      </div>
+    </section>
+  </div>
+
+  <datalist id="sportList"></datalist>
+
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    // public.leagues -- two columns, `sport` and `league`, created by
+    // mc/supabase/migrations/2026082403_leagues_catalog.sql. `league` is the
+    // primary key: there is one NFL, and it is the string anchor_events.league
+    // and teams.league already store.
+    const TABLE = 'leagues';
+
+    // THE TABLES THAT NAME A LEAGUE BY STRING, checked before a rename. There is
+    // no foreign key -- deliberately, since anchor_events.league is free text and
+    // a FK would refuse the first festival carrying an unlisted league -- so
+    // nothing in the database will stop a rename orphaning these rows. That is
+    // exactly why the page has to ask.
+    const REFERRING_TABLES = ['anchor_events', 'teams'];
+
+    const clean = (v) => (v == null ? '' : String(v)).trim();
+
+    const listEl = document.getElementById('leagueList');
+    const titleEl = document.getElementById('roomTitle');
+    const statusEl = document.getElementById('pageStatus');
+    const countEl = document.getElementById('listCount');
+    const noteEl = document.getElementById('listNote');
+    const sportListEl = document.getElementById('sportList');
+    const addLeagueBtn = document.getElementById('addLeagueBtn');
+    const addLightbox = document.getElementById('addLightbox');
+    const addForm = document.getElementById('addForm');
+    const newSport = document.getElementById('newSport');
+    const newLeague = document.getElementById('newLeague');
+    const addStatus = document.getElementById('addStatus');
+    const addCancelBtn = document.getElementById('addCancelBtn');
+    const addSaveBtn = document.getElementById('addSaveBtn');
+
+    // `rows` is what the database holds. `drafts` is what is on screen and not
+    // yet written, keyed by the row's ORIGINAL league -- an edit is a working
+    // copy, so a re-render cannot silently discard typing.
+    const state = { rows: [], authed: false, drafts: new Map() };
+
+    let adminAuth = null;
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey
+      }, extra || {});
+    }
+
+    // A SUCCESS CLEARS ITSELF; AN ERROR STAYS until the next action. A stale
+    // "saved" an hour later is a lie about what is currently true, and an error
+    // that vanished before you read it may as well not have been shown.
+    let statusTimer = null;
+    function setStatus(msg, tone) {
+      if (!statusEl) return;
+      if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
+      statusEl.textContent = msg || '';
+      statusEl.classList.toggle('error', tone === 'error');
+      statusEl.classList.toggle('success', tone === 'success');
+      if (msg && tone === 'success') statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 6000);
+    }
+
+    // TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw Postgres code is a
+    // statement about our schema and tells the person at the keyboard nothing
+    // they can act on. 42P01 in particular names the migration to run.
+    async function readError(res, fallback) {
+      let body = null;
+      try { body = await res.json(); } catch (e) { /* not JSON; fall through */ }
+      const code = body && body.code;
+      const msg = clean(body && (body.message || body.hint));
+      if (code === '42P01') {
+        return 'There is no leagues table yet. Run mc/supabase/migrations/2026082403_leagues_catalog.sql in the Supabase SQL editor.';
+      }
+      if (code === '23505') return 'That league is already in the list.';
+      if (code === '23502') return 'Both a sport and a league are required.';
+      if (res.status === 401 || res.status === 403) {
+        return 'The database refused the write. Check you are signed in as an admin.';
+      }
+      return msg ? fallback + ' (' + msg + ')' : fallback;
+    }
+
+    async function loadLeagues() {
+      if (!state.authed) return;
+      try {
+        // Ten rows today, so no paging is needed -- but TgbRest.fetchAll pages
+        // past PostgREST's silent 1000-row cap for free, and a catalogue that
+        // grows is exactly where that trap gets sprung.
+        const rows = await window.TgbRest.fetchAll(
+          restUrl(TABLE, { select: '*', order: 'sport.asc,league.asc' }), authHeaders());
+        state.rows = Array.isArray(rows) ? rows : [];
+        state.drafts.clear();
+        render();
+        setStatus('');
+      } catch (err) {
+        // NEVER AN EMPTY CATCH. A load that fails without saying so leaves an
+        // empty room indistinguishable from a room with nothing in it.
+        state.rows = [];
+        render();
+        const msg = clean(err && err.message);
+        setStatus(/42P01|does not exist|not find the table/i.test(msg)
+          ? 'There is no leagues table yet. Run mc/supabase/migrations/2026082403_leagues_catalog.sql in the Supabase SQL editor.'
+          : 'Could not load the leagues. ' + (msg || 'Check you are signed in as an admin.'), 'error');
+      }
+    }
+
+    function sports() {
+      const seen = [];
+      state.rows.forEach((r) => { const s = clean(r.sport); if (s && !seen.includes(s)) seen.push(s); });
+      return seen.sort((a, b) => a.localeCompare(b));
+    }
+
+    function fillSportList() {
+      if (!sportListEl) return;
+      sportListEl.innerHTML = '';
+      sports().forEach((s) => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        sportListEl.appendChild(opt);
+      });
+    }
+
+    // The draft for a row, created on first edit. Keyed by the row's ORIGINAL
+    // league, which is what identifies it in the database whatever the box says.
+    function draftFor(row) {
+      const key = clean(row.league);
+      if (!state.drafts.has(key)) {
+        state.drafts.set(key, { sport: clean(row.sport), league: key });
+      }
+      return state.drafts.get(key);
+    }
+    function isDirty(row) {
+      const d = state.drafts.get(clean(row.league));
+      if (!d) return false;
+      return d.sport !== clean(row.sport) || d.league !== clean(row.league);
+    }
+
+    function buildRow(row) {
+      const wrap = document.createElement('div');
+      wrap.className = 'league-row';
+      wrap.dataset.league = clean(row.league);
+      if (isDirty(row)) wrap.classList.add('is-dirty');
+
+      const d = state.drafts.get(clean(row.league));
+      const field = (labelText, cls, value, onInput) => {
+        const label = document.createElement('label');
+        label.className = 'league-field ' + cls;
+        const span = document.createElement('span');
+        span.textContent = labelText;
+        const input = document.createElement('input');
+        input.value = value;
+        input.addEventListener('input', () => onInput(input.value));
+        label.appendChild(span);
+        label.appendChild(input);
+        return { label, input };
+      };
+
+      const sportF = field('Sport', 'league-field--sport',
+        d ? d.sport : clean(row.sport), (v) => { draftFor(row).sport = v; paintDirty(); });
+      sportF.input.setAttribute('list', 'sportList');
+
+      const keyF = field('League', 'league-field--key',
+        d ? d.league : clean(row.league), (v) => { draftFor(row).league = v; paintDirty(); });
+
+      // IT REPAINTS THE FOOT TOO. The unsaved count is the ONLY warning that a
+      // draft exists -- nothing autosaves and a reload discards it -- and it was
+      // written only by render(), which cannot be called on every keystroke
+      // because rebuilding the list steals focus from the box being typed in.
+      function paintDirty() {
+        wrap.classList.toggle('is-dirty', isDirty(row));
+        paintDirtyCount();
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'league-actions';
+
+      // DESTRUCTIVE HARD LEFT of the pair, primary right, the same arrangement
+      // the waypoint editor's foot and the event card use: the irreversible
+      // button belongs as far as the row goes from the one you came to press.
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn small warn';
+      del.textContent = 'Delete';
+      del.title = 'Remove this league from the catalogue. Rows in other tables that name it are left alone.';
+      del.addEventListener('click', () => deleteLeague(row));
+
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'btn small primary';
+      save.textContent = 'Save';
+      save.addEventListener('click', () => saveLeague(row));
+
+      actions.appendChild(del);
+      actions.appendChild(save);
+      wrap.appendChild(sportF.label);
+      wrap.appendChild(keyF.label);
+      wrap.appendChild(actions);
+      return wrap;
+    }
+
+    function render() {
+      if (!listEl) return;
+      listEl.innerHTML = '';
+      fillSportList();
+
+      const n = state.rows.length;
+      if (titleEl) titleEl.textContent = n + (n === 1 ? ' LEAGUE' : ' LEAGUES');
+
+      if (!state.authed) {
+        listEl.appendChild(emptyNode('Sign in with an admin account to load the leagues.'));
+        if (countEl) countEl.textContent = '';
+        if (noteEl) noteEl.textContent = '';
+        return;
+      }
+      if (!n) {
+        listEl.appendChild(emptyNode('No leagues yet. Press NEW LEAGUE to add one.'));
+        if (countEl) countEl.textContent = '';
+        if (noteEl) noteEl.textContent = '';
+        return;
+      }
+
+      // GROUPED BY SPORT. Ten rows do not need a grouping to be readable; the
+      // grouping is here because `sport` is free text, so a second spelling of
+      // one sport appears as a second heading with one row under it. That is the
+      // only place on the site where such a drift is visible at a glance.
+      const bySport = new Map();
+      state.rows.forEach((r) => {
+        const key = clean(r.sport) || '(no sport)';
+        if (!bySport.has(key)) bySport.set(key, []);
+        bySport.get(key).push(r);
+      });
+      [...bySport.keys()].sort((a, b) => a.localeCompare(b)).forEach((sport) => {
+        const group = document.createElement('div');
+        group.className = 'sport-group';
+        const head = document.createElement('div');
+        head.className = 'sport-head';
+        const name = document.createElement('span');
+        name.textContent = sport;
+        const count = document.createElement('span');
+        count.className = 'sport-head-n';
+        const list = bySport.get(sport);
+        count.textContent = list.length;
+        head.appendChild(name);
+        head.appendChild(count);
+        group.appendChild(head);
+        list.forEach((r) => group.appendChild(buildRow(r)));
+        listEl.appendChild(group);
+      });
+
+      if (countEl) countEl.textContent = n + ' in ' + bySport.size + (bySport.size === 1 ? ' sport' : ' sports');
+      paintDirtyCount();
+    }
+
+    // AN UNSAVED EDIT IS THE ONE THING HERE WITH A DEADLINE. Nothing autosaves
+    // and a reload discards drafts, so this count is the only warning there is.
+    function paintDirtyCount() {
+      if (!noteEl) return;
+      const dirty = state.rows.filter(isDirty).length;
+      noteEl.textContent = dirty
+        ? dirty + (dirty === 1 ? ' unsaved edit' : ' unsaved edits')
+        : '';
+    }
+
+    function emptyNode(text) {
+      const div = document.createElement('div');
+      div.className = 'empty';
+      div.textContent = text;
+      return div;
+    }
+
+    // ── Counting what a rename would strand ──────────────────────────────────
+    // Renaming the primary key is allowed -- Postgres permits it and there is no
+    // foreign key to refuse it -- and it would leave every anchor_events and
+    // teams row naming the OLD string pointing at a league that no longer
+    // exists. Nothing in the database will warn about that, so the page counts
+    // them and puts the number in the question.
+    async function countReferences(league) {
+      const counts = [];
+      for (const table of REFERRING_TABLES) {
+        try {
+          const res = await fetch(restUrl(table, { select: 'league', league: 'eq.' + league }), {
+            headers: authHeaders({ Prefer: 'count=exact' })
+          });
+          if (!res.ok) continue;
+          const range = res.headers.get('content-range') || '';
+          const total = Number(range.split('/')[1]);
+          if (Number.isFinite(total) && total > 0) counts.push({ table: table, n: total });
+        } catch (err) {
+          // A table we cannot read is a table we cannot vouch for. Say nothing
+          // about it rather than reporting a confident zero.
+          counts.push({ table: table, n: null });
+        }
+      }
+      return counts;
+    }
+
+    function describeRefs(counts) {
+      const known = counts.filter((c) => c.n);
+      const unknown = counts.filter((c) => c.n === null);
+      const parts = known.map((c) => c.n + ' ' + c.table + (c.n === 1 ? ' row' : ' rows'));
+      if (unknown.length) parts.push('and ' + unknown.map((c) => c.table).join(', ') + ' could not be checked');
+      return parts.join(', ');
+    }
+
+    async function saveLeague(row) {
+      const original = clean(row.league);
+      const d = state.drafts.get(original);
+      if (!d) { setStatus('Nothing to save on ' + original + '.'); return; }
+
+      const sport = clean(d.sport);
+      const league = clean(d.league);
+      if (!sport || !league) { setStatus('Both a sport and a league are required.', 'error'); return; }
+
+      if (league !== original) {
+        const counts = await countReferences(original);
+        const desc = describeRefs(counts);
+        const warn = desc
+          ? 'Rename ' + original + ' to ' + league + '?\n\n' + desc + ' name "' + original +
+            '". There is no foreign key, so those rows will NOT follow the rename: they will go on naming a league that is no longer in this list.'
+          : 'Rename ' + original + ' to ' + league + '?\n\nNothing else in the database names it today.';
+        if (!window.confirm(warn)) return;
+      }
+
+      try {
+        const res = await fetch(restUrl(TABLE, { league: 'eq.' + original }), {
+          method: 'PATCH',
+          // return=representation IS NOT DECORATION. PostgREST answers 200 with
+          // an EMPTY ARRAY when RLS refuses a write, so without reading the row
+          // back a refused save reports success and the page shows a value the
+          // table never took.
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ sport: sport, league: league })
+        });
+        if (!res.ok) { setStatus(await readError(res, 'Could not save ' + original + '.'), 'error'); return; }
+        const saved = await res.json();
+        if (!Array.isArray(saved) || !saved.length) {
+          setStatus('The database refused that write, so nothing was saved. Check you are signed in as an admin.', 'error');
+          return;
+        }
+        state.drafts.delete(original);
+        await loadLeagues();
+        setStatus('Saved ' + league + '.', 'success');
+      } catch (err) {
+        setStatus('Could not save ' + original + '. ' + (clean(err && err.message) || 'Check your connection.'), 'error');
+      }
+    }
+
+    async function deleteLeague(row) {
+      const league = clean(row.league);
+      const counts = await countReferences(league);
+      const desc = describeRefs(counts);
+      const warn = desc
+        ? 'Delete ' + league + '?\n\n' + desc + ' name it. Those rows are NOT deleted and NOT changed; they will simply name a league that is no longer in this list.'
+        : 'Delete ' + league + '?\n\nNothing else in the database names it.';
+      if (!window.confirm(warn)) return;
+
+      try {
+        const res = await fetch(restUrl(TABLE, { league: 'eq.' + league }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) { setStatus(await readError(res, 'Could not delete ' + league + '.'), 'error'); return; }
+        const gone = await res.json();
+        if (!Array.isArray(gone) || !gone.length) {
+          setStatus('The database refused that delete, so ' + league + ' is still there. Check you are signed in as an admin.', 'error');
+          return;
+        }
+        state.drafts.delete(league);
+        await loadLeagues();
+        setStatus('Deleted ' + league + '.', 'success');
+      } catch (err) {
+        setStatus('Could not delete ' + league + '. ' + (clean(err && err.message) || 'Check your connection.'), 'error');
+      }
+    }
+
+    // ── The add dialog ───────────────────────────────────────────────────────
+    function openAddDialog() {
+      if (!addLightbox) return;
+      addLightbox.hidden = false;
+      addLightbox.classList.add('is-open');
+      if (addStatus) { addStatus.textContent = ''; addStatus.classList.remove('error'); }
+      if (newSport) newSport.value = '';
+      if (newLeague) newLeague.value = '';
+      fillSportList();
+      if (newSport) newSport.focus();
+    }
+    function closeAddDialog() {
+      if (!addLightbox) return;
+      addLightbox.classList.remove('is-open');
+      addLightbox.hidden = true;
+    }
+    function setAddStatus(msg, isError) {
+      if (!addStatus) return;
+      addStatus.textContent = msg || '';
+      addStatus.classList.toggle('error', !!isError);
+    }
+
+    async function submitAdd(ev) {
+      if (ev) ev.preventDefault();
+      const sport = clean(newSport && newSport.value);
+      // UPPER CASE, because that is how every other table spells a league and
+      // the whole value of this catalogue is that the strings match. Done on the
+      // way in rather than by refusing the input: correcting it is obviously
+      // right and there is nothing for a human to decide.
+      const league = clean(newLeague && newLeague.value).toUpperCase();
+      if (!sport || !league) { setAddStatus('Both a sport and a league are required.', true); return; }
+      if (state.rows.some((r) => clean(r.league).toUpperCase() === league)) {
+        setAddStatus(league + ' is already in the list.', true);
+        return;
+      }
+
+      addSaveBtn.disabled = true;
+      try {
+        const res = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ sport: sport, league: league })
+        });
+        if (!res.ok) { setAddStatus(await readError(res, 'Could not add ' + league + '.'), true); return; }
+        const saved = await res.json();
+        if (!Array.isArray(saved) || !saved.length) {
+          setAddStatus('The database refused that write, so nothing was added. Check you are signed in as an admin.', true);
+          return;
+        }
+        closeAddDialog();
+        // POST-WRITE TIDYING SITS OUTSIDE THE TRY. Anything that throws after a
+        // successful insert would otherwise report "could not add" about a
+        // league that is already in the table.
+      } catch (err) {
+        setAddStatus('Could not add ' + league + '. ' + (clean(err && err.message) || 'Check your connection.'), true);
+        return;
+      } finally {
+        addSaveBtn.disabled = false;
+      }
+      await loadLeagues();
+      setStatus('Added ' + league + '.', 'success');
+    }
+
+    if (addLeagueBtn) {
+      addLeagueBtn.addEventListener('click', () => {
+        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+        openAddDialog();
+      });
+    }
+    if (addForm) addForm.addEventListener('submit', submitAdd);
+    if (addCancelBtn) addCancelBtn.addEventListener('click', closeAddDialog);
+    if (addLightbox) {
+      addLightbox.addEventListener('click', (ev) => { if (ev.target === addLightbox) closeAddDialog(); });
+    }
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && addLightbox && !addLightbox.hidden) closeAddDialog();
+    });
+
+    // A DRAFT IS DISCARDED BY A RELOAD, and nothing here autosaves, so leaving
+    // with unsaved work is warned about. Same guard the Gift Shop and the Path
+    // Builder carry.
+    window.addEventListener('beforeunload', (ev) => {
+      if (!state.rows.some(isDirty)) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    });
+
+    adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => { state.authed = true; await loadLeagues(); },
+      onSignedOut: () => {
+        state.authed = false;
+        state.rows = [];
+        state.drafts.clear();
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+    setStatus('');
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
