@@ -937,8 +937,15 @@ steps either side.
   be on the gift shop*. A hundred-row page is the right shape for the room and
   the wrong shape for a hub panel.
 - **IT IS NOT THE WHOLE ROOM AND DOES NOT TRY TO BE.** [mc/data/cities.html](mc/data/cities.html) keeps
-  renaming, the structured geo fields, the three filters and the bulk AI import,
-  and is one link away. **The page is NOT deleted** — say so if it should be.
+  renaming, the structured geo fields, the three filters and the bulk AI import.
+  **The page is NOT deleted** — say so if it should be.
+- **THERE IS NO LINK TO THE ROOM FROM THIS PANEL.** The bar is search, back,
+  where-you-are, next and Add: five things that all act on the city in front of
+  you, and a sixth that only went somewhere else was the one thing on it that
+  did not. **It strands nothing** — the room is still reached from the nav menu
+  and the Data Warehouse card, checked before removing it. The Add button's
+  fallback still goes there when the shared dialog is missing, because a button
+  that does nothing is indistinguishable from a broken one.
 - **A RENAME IS DELIBERATELY NOT OFFERED HERE.** `city` is the KEY that games and
   gift-shop listings reference **by string**, nothing updates them
   automatically, and the room's own rename warning runs to three sentences for
