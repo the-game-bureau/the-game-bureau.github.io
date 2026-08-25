@@ -455,6 +455,11 @@
     .event-annotation-line + .event-annotation-line::before {
       content: "·  "; font-weight: 700;
     }
+    /* A NOTE, NOT A FAULT. `no-time` and `multi-day` report without accusing, so
+       they are drawn in the muted pen. Sharing the red one would undo the whole
+       point of `noReview`: 524 rows would look wrong for a slot the source has
+       simply not announced yet. */
+    .event-annotation-line--note { color: var(--muted); }
 
     /* ── The opened row ────────────────────────────────────────────────────── */
     .event-body { padding: 7px 9px 8px; display: grid; gap: 7px; }
@@ -1896,6 +1901,14 @@
           p.textContent = why;
           annotation.appendChild(p);
         });
+        // NOTES LAST, and quieter. What is wrong with the row comes before what
+        // is merely worth knowing about it.
+        noteReasons(r).forEach((why) => {
+          const p = document.createElement('p');
+          p.className = 'event-annotation-line event-annotation-line--note';
+          p.textContent = why;
+          annotation.appendChild(p);
+        });
         annotation.hidden = !annotation.firstChild;
       };
 
@@ -2886,13 +2899,28 @@
         }
       },
       {
-        // TBA. A fixture without a kickoff time is the commonest thing a league
-        // fills in later, and it is the one an event is least usable without:
-        // the whole product is a game played the day before, at a time chosen
-        // to make groups finish together.
+        // NOT A FAULT, WHICH IS WHY IT CARRIES `noReview`. A missing start time
+        // almost always means the SOURCE has not announced the slot yet, and
+        // that is a gap which fills itself: the league or the promoter publishes
+        // it, the next run picks it up. Forcing a row into review for it puts
+        // 524 events -- most of the concert catalogue -- into a list of things
+        // somebody is supposed to act on, and there is nothing to act on.
+        //
+        // IT IS STILL REPORTED, on the row, because "which of these has no time
+        // yet" is a real question. It just is not an accusation. Same standing
+        // as `multi-day`.
+        //
+        // AN EXPLICIT TBD IS DIFFERENT and still forces review: that is scraped
+        // text sitting in the description which will go stale and wants
+        // clearing out, and the row usually carries a meaningless zoned time
+        // beside it. See the `tbd` rule and TBA_TIME.
+        //
+        // "THE SOURCE", NOT "THE LEAGUE". It said league, which was true while
+        // the table was 603 NFL and NCAAF fixtures and became wrong the morning
+        // TGB ANCHOR BOT filed 524 concerts.
         key: 'no-time',
-        level: 'check',
-        test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the league has not announced the slot yet.'
+        level: 'check', noReview: true,
+        test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the source has not announced the slot yet.'
       },
       {
         // A postponement is a promise of a new date, not a decision. Cancelled
@@ -3038,9 +3066,10 @@
     // and it is the thing to revisit first if this ever needs undoing.
     //
     // EVERY RULE FORCES IT EXCEPT THOSE MARKED `noReview`. Today that is
-    // `multi-day` alone, which is a suggestion -- split this festival if you
-    // like -- rather than a fault, and would otherwise put every multi-day event
-    // in the table into review forever.
+    // `multi-day` (a suggestion: split this festival if you like) and `no-time`
+    // (the source has not announced the slot yet). Both would otherwise put
+    // thousands of rows into review forever for nothing anybody can act on.
+    // Their findings are still drawn, by noteReasons() below, in the muted pen.
     function reviewReasons(row) {
       const reasons = CHECK_RULES
         .filter((rule) => !rule.noReview)
@@ -3060,6 +3089,25 @@
     // A row is in review if the CHECK says so or if a human said so. The second
     // half is the point of the change: `status === 'review'` with no findings is
     // somebody flagging a row for a reason no rule knows about.
+    // THE RULES THAT REPORT WITHOUT ACCUSING. `reviewReasons` filters these out
+    // by design, which meant their findings were computed and then shown
+    // NOWHERE -- `multi-day` had been silent since it was written, and
+    // `no-time` joined it. A rule whose message no eye ever reaches is a rule
+    // that is not doing anything.
+    //
+    // They are drawn on the same annotation, in the muted pen rather than the
+    // red one: a note, not a fault. That difference is the whole reason these
+    // two carry `noReview` in the first place.
+    function noteReasons(row) {
+      return CHECK_RULES
+        .filter((rule) => rule.noReview)
+        .map((rule) => {
+          try { return rule.test(row) || ''; }
+          catch (err) { console.error('check rule ' + rule.key + ' threw', err); return ''; }
+        })
+        .filter(Boolean);
+    }
+
     function isInReview(row) {
       return clean(row.status) === 'review' || reviewReasons(row).length > 0;
     }

@@ -2243,7 +2243,32 @@ once, which squeezed the name the row exists to show.
 - **`isInReview(row)` IS `status === 'review'` OR `reviewReasons().length`.** So a
   row can be in review because a rule says so, because a human said so, or both,
   and nothing on screen has to distinguish them.
-- **`multi-day` IS THE ONE RULE MARKED `noReview: true`.** A run of several days
+- **TWO RULES REPORT WITHOUT ACCUSING, AND THEY ARE DRAWN AS NOTES** (2026-08-25).
+  `multi-day` and `no-time` carry `noReview: true`: their findings appear on the
+  row in the **muted** pen, under any real faults, and never turn it red or put
+  it into review.
+  - **`no-time` STOPPED FORCING because a missing start time means the SOURCE has
+    not announced the slot yet.** That is a gap which fills itself when the
+    league or the promoter publishes it, not something anybody can act on.
+    Forcing it put **524 rows** — most of the concert catalogue — into a list of
+    things to do with nothing to do. An ERRORS press went from **567 rows (14%)
+    to 43 (1%)**, measured against the live 4,123.
+  - **THE MESSAGE SAYS "THE SOURCE", NOT "THE LEAGUE".** League was true while
+    the table was 603 NFL and NCAAF fixtures and became wrong the morning TGB
+    ANCHOR BOT filed 524 concerts.
+  - **AN EXPLICIT `TBD` STILL FORCES REVIEW**, and the difference is real: that
+    is scraped text sitting in the description which goes stale and wants
+    clearing, and the row usually carries a meaningless zoned time beside it.
+    Absent is a gap; TBD is a statement.
+  - **THEIR FINDINGS HAD NEVER BEEN SHOWN TO ANYBODY.** `reviewReasons()` filters
+    `noReview` rules out by design and nothing else read them, so `multi-day` had
+    been computed and discarded since it was written. **A rule whose message no
+    eye ever reaches is a rule that is not doing anything.** `noteReasons()` is
+    the reader; a test asserted the old silence and had to be corrected.
+  - **`.event-annotation-line--note` IS MUTED, NOT RED.** Sharing the red pen
+    would undo the whole point: 524 rows would look wrong for a slot nobody has
+    announced.
+- **`multi-day` WAS THE ONLY RULE MARKED `noReview: true` until `no-time` joined it.** A run of several days
   is a suggestion (there is a Split button for it), not a fault. Forcing it would
   put every festival in the table into review forever, which is the flag crying
   wolf — and a flag people stop reading costs more than it was worth.
