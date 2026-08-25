@@ -2894,7 +2894,12 @@
             bad.push('home_team_name "' + clean(r.home_team_name) + '" against "' + home + '"');
           }
           return bad.length
-            ? 'The stored label disagrees with the locale and mascot it is rebuilt from (' + bad.join('; ') + '). That means tgb_anchor_events_sync_labels is not installed: run 2026080101_anchor_events_general_columns.sql.'
+            // IT NAMED A TRIGGER THAT NO LONGER EXISTS. 2026082502 renamed the
+            // whole family to tgb_events_*, and this message went on telling
+            // people to run a migration that would not fix it and to look for
+            // an object that is not there -- the exact failure the
+            // translate-errors-into-sentences rule exists to prevent.
+            ? 'The stored name disagrees with the geo and nickname it is rebuilt from (' + bad.join('; ') + '). That means tgb_events_sync_team_names is not installed: run 2026082502_events_columns_match_the_page.sql.'
             : '';
         }
       },
@@ -3080,7 +3085,11 @@
         .filter(Boolean);
       const twin = duplicateIds.get(clean(row.id));
       if (twin) {
-        reasons.push('Same league, date and clubs as ' + twin +
+        const what = twin.what || ['date'];
+        const list = what.length > 1
+          ? what.slice(0, -1).join(', ') + ' and ' + what[what.length - 1]
+          : what[0];
+        reasons.push('Same ' + list + ' as ' + twin.twin +
           '. One of the two is probably a re-import.');
       }
       return reasons;
@@ -3143,8 +3152,19 @@
         if (!parts[2] && !parts[3] && !clean(r.title)) return;
         const key = parts.concat(clean(r.title)).map((v) => v.toLowerCase()).join('|');
         const first = seen.get(key);
-        if (first) found.set(clean(r.id), clean(first.id));
-        else seen.set(key, r);
+        if (first) {
+          // THE MESSAGE NAMES WHAT ACTUALLY MATCHED, and this is why it is built
+          // here rather than written as one sentence at the finding. It used to
+          // read "Same league, date and clubs" on EVERY duplicate -- which is
+          // right for a fixture and nonsense on a concert, where the league is
+          // null and there are no clubs. The table is 524 concerts deep now.
+          const what = [];
+          if (parts[0]) what.push('league');
+          if (clean(r.title)) what.push('title');
+          what.push('date');
+          if (parts[2] || parts[3]) what.push('clubs');
+          found.set(clean(r.id), { twin: clean(first.id), what: what });
+        } else seen.set(key, r);
       });
       duplicateIds = found;
     }

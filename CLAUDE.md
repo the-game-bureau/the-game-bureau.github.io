@@ -2407,6 +2407,27 @@ scrapes a source file by regex is coupled to where things sit in it.**
   not flag.
 - **`cancelled` DELIBERATELY DOES NOT FLAG.** It is settled; `postponed` is a
   promise of a new date.
+- **A FINDING MUST FIT THE ROW IT IS DRAWN ON** (2026-08-25). The duplicate
+  finding read **"Same league, date and clubs as X"** on every row it caught —
+  right for a fixture and **nonsense on a concert**, which has no league and no
+  clubs. The table is 524 concerts deep. The message is now built from what
+  actually matched: *"Same league, title, date and clubs as NFL-A"* against
+  *"Same title and date as CON-A"*.
+  - **`duplicateIds` HOLDS `{twin, what}`, NOT JUST AN ID.** The phrase is
+    assembled where the key is, because that is the only place that knows which
+    parts were non-empty. Writing one sentence at the finding is what produced
+    the wrong one.
+  - **THE KEY ITSELF WAS ALREADY RIGHT** and did not change: it falls back to
+    title + date when there are no clubs, which is why two concerts on one night
+    at different venues are not called duplicates. **Only the wording was
+    wrong**, which is the kind of bug that survives because the logic works.
+- **`label-drift` NAMED A TRIGGER THAT NO LONGER EXISTS**, and did from the
+  moment 2026082502 renamed the family to `tgb_events_*`. It told people to run
+  a migration that would not fix it and to look for `tgb_anchor_events_sync_labels`,
+  which is not there. **A finding that names the wrong object is worse than no
+  finding**: it is the translate-errors-into-sentences rule failing in the one
+  place it was supposed to be applied. It names `tgb_events_sync_team_names` and
+  2026082502 now.
 - **`label-drift` IS THE ONE SCHEMA FINDING.** `away_label` / `home_label`
   disagreeing with their locale + mascot halves does not mean the ROW is wrong,
   it means `tgb_anchor_events_sync_labels` is not installed, and the finding
