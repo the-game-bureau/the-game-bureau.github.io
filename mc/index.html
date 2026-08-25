@@ -465,6 +465,19 @@
       <p class="mc-access-note" id="mcReviewNote"></p>
     </fieldset>
 
+    <!-- THE WORKLIST. The queue picked in the table above, item by item, each
+         with the one or two decisions this page can honestly offer. It is a
+         worklist and not a second copy of each room: see QUEUES in the script
+         for why an item gets one line and a button rather than a card. -->
+    <fieldset class="mc-chores mc-work" id="mcWorkPanel" hidden>
+      <legend id="mcWorkTitle">Review</legend>
+      <div class="mc-work-head">
+        <button type="button" class="mc-work-close" id="mcWorkClose">Close</button>
+      </div>
+      <div id="mcWorkList"></div>
+      <p class="mc-access-note" id="mcWorkNote"></p>
+    </fieldset>
+
     <!-- THE ROUTINES. All of them, with what they do and when they next run.
          See the note by the OPEN button for why there is no Run here. -->
     <fieldset class="mc-chores mc-bots" id="mcBotsPanel">
@@ -561,6 +574,63 @@
        never look the same. */
     .mc-review-n--unknown { color: var(--muted); font-weight: 400; }
     .mc-review-total td { border-top: 1px solid var(--line); font-weight: 700; }
+
+    /* THE ROOM NAME IS A BUTTON, not a link, because it opens the worklist on
+       this page rather than going anywhere. It still LOOKS like the link it
+       replaced: a control that changes appearance as well as behaviour is one
+       you have to find again. */
+    .mc-review-pick {
+      border: 0; background: none; padding: 0; margin: 0;
+      font: inherit; color: inherit; font-weight: 700;
+      cursor: pointer; text-align: left;
+    }
+    .mc-review-pick:hover { text-decoration: underline; }
+    .mc-review-pick.is-on { text-decoration: underline; color: var(--accent); }
+    .mc-review-open {
+      margin-left: 8px; font-size: 0.7rem; font-weight: 400;
+      color: var(--muted); text-decoration: none; white-space: nowrap;
+    }
+    .mc-review-open:hover { text-decoration: underline; }
+
+    .mc-work-head { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+    .mc-work-close {
+      border: 1px solid var(--line); border-radius: 6px; background: #fff;
+      color: var(--ink); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 3px 9px; cursor: pointer;
+    }
+    .mc-work-close:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .mc-work-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 6px 8px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.08);
+    }
+    .mc-work-row:last-child { border-bottom: 0; }
+    /* A DECIDED ROW STAYS PUT AND GOES QUIET. Removing it would shift every row
+       under the pointer, so the next press lands on something else -- and after
+       three decisions you would not know what you had just done. */
+    .mc-work-row.is-done { opacity: 0.5; }
+    .mc-work-text { display: grid; gap: 1px; min-width: 0; flex: 1 1 260px; }
+    .mc-work-title { color: var(--ink); font-size: 0.84rem; font-weight: 700; text-decoration: none; }
+    .mc-work-title:hover { text-decoration: underline; }
+    .mc-work-sub {
+      color: var(--muted); font-size: 0.74rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mc-work-acts { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .mc-work-btn {
+      min-height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.04em; cursor: pointer; white-space: nowrap;
+    }
+    .mc-work-btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .mc-work-btn.is-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .mc-work-btn.is-warn { color: var(--danger); border-color: rgba(160, 63, 45, 0.45); }
+    .mc-work-btn:disabled { opacity: 0.5; cursor: default; }
+    .mc-work-done {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--success);
+    }
+    .mc-work-empty { margin: 6px 2px; color: var(--muted); font-size: 0.82rem; }
+    .mc-work-error { color: var(--danger); }
 
     .mc-bots-table td:nth-child(2),
     .mc-bots-table td:nth-child(3) {
@@ -850,6 +920,7 @@
       // exactly the shape of bug this panel must not have, since an empty list
       // and "nothing waiting" look identical. See countOf() for how a refused
       // read is kept distinguishable from a zero.
+      const WORK_PAGE = 25;
       const reviewPanel = document.getElementById('mcReviewPanel');
       const reviewBody = document.getElementById('mcReviewBody');
       const reviewNote = document.getElementById('mcReviewNote');
@@ -862,16 +933,16 @@
       // 72-hour window. The query is written per room rather than normalised,
       // because normalising would mean changing five rooms to suit this table.
       const REVIEW_SOURCES = [
-        { room: 'Events', href: '/mc/events/',
+        { key: 'events', room: 'Events', href: '/mc/events/',
           what: 'flagged by the checks, or by hand',
           path: 'events?select=id&status=eq.review' },
-        { room: 'Socializer', href: '/mc/socializer/',
+        { key: 'socials', room: 'Socializer', href: '/mc/socializer/',
           what: 'post candidates nobody has decided on',
           path: 'socials?select=id&status=eq.review' },
-        { room: 'Gift Shop', href: '/mc/gifts/',
+        { key: 'gifts', room: 'Gift Shop', href: '/mc/gifts/',
           what: 'gifts filed by the bot, awaiting a keep or a shelve',
           path: 'gift_shop_items?select=id&archived=eq.true&certified_at=is.null' },
-        { room: 'Tape Room', queue: 'new tracks', href: '/mc/soundtracks/',
+        { key: 'tracks', room: 'Tape Room', queue: 'new tracks', href: '/mc/soundtracks/',
           what: 'tracks filed in the last 72 hours',
           // The room's own NEW window, computed rather than hardcoded so the two
           // cannot drift into disagreeing about what "new" means.
@@ -879,7 +950,7 @@
             const since = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
             return 'soundtrack_songs?select=id&archived=eq.true&created_at=gte.' + encodeURIComponent(since);
           } },
-        { room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
+        { key: 'issues', room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
           what: 'open findings from the audit',
           path: 'soundtrack_issues?select=id&status=eq.open' }
       ];
@@ -938,11 +1009,33 @@
         return src.queue ? src.room + ': ' + src.queue : src.room;
       }
 
-      function reviewRow(room, href, count, what, isTotal) {
+      function reviewRow(room, href, count, what, isTotal, src, session) {
         const tr = document.createElement('tr');
         if (isTotal) tr.className = 'mc-review-total';
         const td1 = document.createElement('td');
-        if (href) {
+        if (src) {
+          // THE NAME OPENS THE WORKLIST HERE; the small `room` link beside it
+          // still goes to the room. Two destinations, so two controls: making
+          // one control mean both would be the ambiguity this page exists to
+          // remove.
+          const pick = document.createElement('button');
+          pick.type = 'button';
+          pick.className = 'mc-review-pick';
+          pick.dataset.queue = src.key;
+          pick.textContent = room;
+          pick.title = 'Review these here.';
+          pick.addEventListener('click', function () {
+            if (workKey === src.key) { closeWork(); return; }
+            openWork(session, src);
+          });
+          td1.appendChild(pick);
+          const go = document.createElement('a');
+          go.className = 'mc-review-open';
+          go.href = href;
+          go.textContent = 'room';
+          go.title = 'Open ' + src.room + ' instead.';
+          td1.appendChild(go);
+        } else if (href) {
           const a = document.createElement('a');
           a.href = href;
           a.textContent = room;
@@ -976,7 +1069,7 @@
           else if (!n) return;                 // a clear room is not news
           else total += n;
           drawn++;
-          reviewBody.appendChild(reviewRow(reviewLabel(src), src.href, n, src.what, false));
+          reviewBody.appendChild(reviewRow(reviewLabel(src), src.href, n, src.what, false, src, session));
         });
         if (drawn > 1) {
           reviewBody.appendChild(reviewRow('Total', null, total,
@@ -1051,6 +1144,248 @@
           } catch (err) { r.cell.textContent = 'could not read'; }
         }));
       }
+
+      // ── REVIEWING ON THIS PAGE ──────────────────────────────────────────
+      //
+      // The summary rows are selectable: pick one and its ITEMS load beneath,
+      // each with the one or two decisions it supports.
+      //
+      // IT IS A WORKLIST, NOT A SECOND COPY OF EACH ROOM, and the difference is
+      // deliberate. The Tape Room ran a separate QUEUE view for one afternoon
+      // and deleted it, because a track then had two homes, two renderings and
+      // two sets of buttons, and you had to know which room you were standing in
+      // before you knew what a press would do. What makes this one worth having
+      // is that it is CROSS-ROOM: no single room can show you the other four.
+      //
+      // So an item gets ONE LINE and its decision, never a card. Anything that
+      // needs judgement -- writing a caption, choosing accounts, editing a
+      // track -- is a link into the room that owns it. **If a queue ever grows a
+      // third button here, that is the sign it belongs in its room instead.**
+      const QUEUES = {
+        events: {
+          // Clearing a review is the only decision this page offers on an event.
+          // The findings themselves are drawn on the row in its own room, and
+          // acting on one means editing fields, which is that room's job.
+          list: 'events?select=id,title,start_date,venue_city&status=eq.review&order=start_date.asc',
+          line: function (r) { return [r.title || r.id, [r.start_date, r.venue_city].filter(Boolean).join(' · ')]; },
+          open: function (r) { return '/mc/events/#edit=' + encodeURIComponent(r.id); },
+          acts: [{ label: 'Clear', title: 'Take it out of review. Nothing else about the row changes.',
+                   patch: { status: 'scheduled' } }]
+        },
+        socials: {
+          // SKIP ONLY. Posting needs the Edge Function, a caption per account and
+          // five buttons; that is the Socializer's whole reason to exist and
+          // will not be duplicated here.
+          list: 'socials?select=id,headline,blurb,created_at&status=eq.review&order=created_at.desc',
+          line: function (r) { return [r.headline || r.blurb || r.id, r.blurb && r.headline ? r.blurb : '']; },
+          open: function (r) { return '/mc/socializer/#edit=' + encodeURIComponent(r.id); },
+          acts: [{ label: 'Skip', warn: true, title: 'Turn this candidate down. Post it from the Socializer instead if you want it to go out.',
+                   patch: { status: 'skipped' } }]
+        },
+        gifts: {
+          list: 'gift_shop_items?select=id,title,description,created_at&archived=eq.true&certified_at=is.null&order=created_at.desc',
+          line: function (r) { return [r.title || r.id, r.description || '']; },
+          open: function () { return '/mc/gifts/'; },
+          // KEEP CLEARS `rejected_at` AND SHELVE CLEARS `certified_at`, because
+          // the two stamps are one decision seen twice and a row carrying both
+          // is a row no reader can interpret.
+          acts: [{ label: 'Keep', primary: true, title: 'Publish it to the public shop.',
+                   patch: { certified_at: 'NOW', rejected_at: null } },
+                 { label: 'Shelve', warn: true, title: 'Turn it down. It stays on file so the bot does not re-pick it.',
+                   patch: { rejected_at: 'NOW', certified_at: null } }]
+        },
+        tracks: {
+          list: 'soundtrack_songs?select=id,title,artist,city_slug&archived=eq.true&order=created_at.desc',
+          since: 'created_at',
+          line: function (r) { return [[r.title, r.artist].filter(Boolean).join(' — '), r.city_slug || '']; },
+          open: function () { return '/mc/soundtracks/'; },
+          // LIVE and SHELVED are the room's own two words, and `archived` is
+          // both of them. Using any others here would be a fifth vocabulary for
+          // one column, which that room has already been through.
+          acts: [{ label: 'Live', primary: true, title: 'Publish the track to /soundtracks/.',
+                   patch: { archived: false } },
+                 { label: 'Shelve', warn: true, title: 'Keep it off the tape. The row stays as a do-not-rescrape tombstone.',
+                   patch: { archived: true } }]
+        },
+        issues: {
+          list: 'soundtrack_issues?select=id,kind,severity,detail,city_slug&status=eq.open&order=created_at.desc',
+          line: function (r) { return [r.detail || r.kind, [r.city_slug, r.kind, r.severity].filter(Boolean).join(' · ')]; },
+          open: function () { return '/mc/soundtracks/'; },
+          // `fixed`, NEVER `dismissed`. The partial index only blocks a re-report
+          // while a finding is open, so a cleared one comes straight back on the
+          // next audit if the problem is still there, and that recurrence is the
+          // only check a fix landed. `dismissed` silences it forever.
+          acts: [{ label: 'Clear', title: 'Mark it dealt with. If the problem is still there the next audit files it again, which is the only check that a fix landed.',
+                   patch: { status: 'fixed' } }]
+        }
+      };
+
+      const workPanel = document.getElementById('mcWorkPanel');
+      const workTitle = document.getElementById('mcWorkTitle');
+      const workList = document.getElementById('mcWorkList');
+      const workNote = document.getElementById('mcWorkNote');
+      const workClose = document.getElementById('mcWorkClose');
+      let workSession = null;
+      let workKey = null;
+
+      function closeWork() {
+        workKey = null;
+        workPanel.hidden = true;
+        workList.textContent = '';
+        [...reviewBody.querySelectorAll('.mc-review-pick')].forEach(function (b) {
+          b.classList.remove('is-on');
+        });
+      }
+
+      async function openWork(session, src) {
+        workSession = session;
+        workKey = src.key;
+        workPanel.hidden = false;
+        workTitle.textContent = reviewLabel(src);
+        workNote.textContent = '';
+        workList.textContent = '';
+        const loading = document.createElement('p');
+        loading.className = 'mc-work-empty';
+        loading.textContent = 'Loading…';
+        workList.appendChild(loading);
+        [...reviewBody.querySelectorAll('.mc-review-pick')].forEach(function (b) {
+          b.classList.toggle('is-on', b.dataset.queue === src.key);
+        });
+
+        const q = QUEUES[src.key];
+        let path = q.list;
+        // The Tape Room's 72-hour NEW window, applied here rather than written
+        // into the path, so this and the count above cannot disagree.
+        if (q.since) {
+          const iso = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+          path += '&' + q.since + '=gte.' + encodeURIComponent(iso);
+        }
+        // A PAGE AT A TIME. 139 gifts is not a worklist, it is a wall.
+        path += '&limit=' + WORK_PAGE;
+        try {
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + path, {
+            headers: accessHeaders(session), cache: 'no-store'
+          });
+          if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+          const rows = await res.json();
+          renderWork(src, Array.isArray(rows) ? rows : []);
+        } catch (err) {
+          workList.textContent = '';
+          const p = document.createElement('p');
+          p.className = 'mc-work-empty mc-work-error';
+          // NOT AN EMPTY LIST. A queue that could not be read and a queue with
+          // nothing in it are opposite answers, and this page has already made
+          // that distinction once in countOf().
+          p.textContent = 'Could not read that queue. ' + (err && err.message ? err.message : '');
+          workList.appendChild(p);
+        }
+      }
+
+      function renderWork(src, rows) {
+        workList.textContent = '';
+        if (!rows.length) {
+          const p = document.createElement('p');
+          p.className = 'mc-work-empty';
+          p.textContent = 'Nothing left here.';
+          workList.appendChild(p);
+          workNote.textContent = '';
+          return;
+        }
+        const q = QUEUES[src.key];
+        rows.forEach(function (row) {
+          workList.appendChild(workRow(src, q, row));
+        });
+        workNote.textContent = rows.length >= WORK_PAGE
+          ? 'Showing the first ' + WORK_PAGE + '. Decide these and press the row again for more.'
+          : '';
+      }
+
+      function workRow(src, q, row) {
+        const el = document.createElement('div');
+        el.className = 'mc-work-row';
+        const parts = q.line(row);
+
+        const text = document.createElement('div');
+        text.className = 'mc-work-text';
+        const a = document.createElement('a');
+        a.className = 'mc-work-title';
+        a.href = q.open(row);
+        // OPEN IN THE ROOM THAT OWNS IT. Everything this page cannot decide --
+        // a caption, an edit, a picture -- lives there, and the link is what
+        // keeps this a worklist rather than a rival editor.
+        a.title = 'Open it in ' + src.room + '.';
+        a.textContent = parts[0] || row.id;
+        text.appendChild(a);
+        if (parts[1]) {
+          const sub = document.createElement('span');
+          sub.className = 'mc-work-sub';
+          sub.textContent = parts[1];
+          text.appendChild(sub);
+        }
+
+        const acts = document.createElement('div');
+        acts.className = 'mc-work-acts';
+        q.acts.forEach(function (act) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'mc-work-btn' + (act.primary ? ' is-primary' : '') + (act.warn ? ' is-warn' : '');
+          btn.textContent = act.label;
+          btn.title = act.title;
+          btn.addEventListener('click', function () { decideWork(src, q, row, act, el, acts); });
+          acts.appendChild(btn);
+        });
+
+        el.appendChild(text);
+        el.appendChild(acts);
+        return el;
+      }
+
+      async function decideWork(src, q, row, act, el, acts) {
+        const buttons = [...acts.querySelectorAll('button')];
+        buttons.forEach(function (b) { b.disabled = true; });
+        // 'NOW' is a marker rather than a value, so the timestamp is stamped at
+        // the moment of the press rather than when the page was drawn.
+        const body = {};
+        Object.keys(act.patch).forEach(function (k) {
+          body[k] = act.patch[k] === 'NOW' ? new Date().toISOString() : act.patch[k];
+        });
+        try {
+          const table = q.list.split('?')[0];
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + table +
+              '?id=eq.' + encodeURIComponent(row.id), {
+            method: 'PATCH',
+            // return=representation IS NOT DECORATION. PostgREST answers 200
+            // with an EMPTY ARRAY when RLS refuses a write, so without reading
+            // the row back a refused decision reports success and the item
+            // vanishes until a reload brings it straight back.
+            headers: Object.assign(accessHeaders(session0()), { Prefer: 'return=representation' }),
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+          const saved = await res.json();
+          if (!Array.isArray(saved) || !saved.length) {
+            throw new Error('The database refused that write. Check you are still signed in as an admin.');
+          }
+          el.classList.add('is-done');
+          acts.textContent = '';
+          const done = document.createElement('span');
+          done.className = 'mc-work-done';
+          done.textContent = act.label.toLowerCase();
+          acts.appendChild(done);
+          // THE COUNTS ARE REBUILT, not decremented. A decision can change more
+          // than one queue -- shelving a track can settle a finding about it --
+          // and a number this page worked out for itself would drift.
+          loadReview(session0());
+        } catch (err) {
+          buttons.forEach(function (b) { b.disabled = false; });
+          workNote.textContent = err && err.message ? err.message : 'That did not work.';
+          workNote.classList.add('mc-work-error');
+        }
+      }
+
+      function session0() { return workSession; }
+
+      if (workClose) workClose.addEventListener('click', closeWork);
 
       const adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,

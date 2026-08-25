@@ -877,6 +877,56 @@ somebody owes.
   floor. **"Nothing is waiting" and "we could not find out" are opposite
   answers**, and the whole value of the panel is that the first can be trusted.
 
+### AND YOU REVIEW THEM HERE (2026-08-25)
+
+Pick a room in that table and its ITEMS load beneath it, each with the one or
+two decisions this page can honestly offer. The small `room` link beside the
+name still goes to the room — two destinations, so two controls.
+
+- **IT IS A WORKLIST, NOT A SECOND COPY OF EACH ROOM**, and that line is the
+  whole design. **The Tape Room ran a separate QUEUE view for one afternoon and
+  deleted it**, because a track then had two homes, two renderings and two sets
+  of buttons, and you had to know which room you were standing in before you knew
+  what a press would do. What earns this one its place is that it is
+  **CROSS-ROOM**: no single room can show you the other four.
+- **SO AN ITEM GETS ONE LINE AND ITS DECISION, NEVER A CARD.** Anything needing
+  judgement — writing a caption, choosing accounts, editing a track — is a link
+  into the room that owns it. **If a queue ever grows a third button here, that
+  is the sign it belongs in its room instead.**
+- **WHAT EACH QUEUE OFFERS, and why it stops there:**
+
+  | queue | here | why not more |
+  |---|---|---|
+  | Events | Clear | acting on a finding means editing fields |
+  | Socializer | Skip | posting needs the Edge Function, a caption per account and five buttons |
+  | Gift Shop | Keep · Shelve | two timestamps, and nothing else to decide |
+  | Tape Room tracks | Live · Shelve | the room's own two words for `archived` |
+  | Tape Room findings | Clear | writes `fixed`, never `dismissed` |
+
+- **KEEP CLEARS `rejected_at` AND SHELVE CLEARS `certified_at`.** The two stamps
+  are one decision seen twice, and a row carrying both is one no reader can
+  interpret.
+- **A DECIDED ROW STAYS PUT AND GOES QUIET.** Removing it would shift every row
+  under the pointer so the next press lands on something else, and after three
+  decisions you would not know what you had just done.
+- **THE COUNTS ARE REBUILT AFTER EVERY DECISION, NOT DECREMENTED.** One decision
+  can settle more than one queue — shelving a track can answer a finding about it
+  — and a number this page worked out for itself would drift from the database.
+- **`return=representation` ON EVERY WRITE.** PostgREST answers 200 with an empty
+  array when RLS refuses, so without reading the row back a refused decision
+  reports success and the item vanishes until a reload brings it straight back.
+- **A QUEUE THAT CANNOT BE READ SAYS SO**, rather than drawing an empty list —
+  the same distinction `countOf()` makes in the table above.
+
+**THE HARNESS WAS THE BROKEN HALF TWICE HERE, both worth knowing.** Its
+last-filed branch matched on `order=created_at.desc`, which the worklist's item
+list also sorts by, so the list got the one-row shape and the panel said
+"Nothing left here" about three gifts that were there; the real discriminator is
+`select=created_at`. And its PATCH branch read `arguments[1]` inside an **arrow
+function**, where `arguments` belongs to the enclosing scope — so it never
+matched and every decision fell through to a generic reply that read as the
+database refusing the write.
+
 ### ROUTINES — all seven, and whether they are alive
 
 - **LAST FILED, NOT LAST RUN.** Each row reads the newest row in the table that
