@@ -234,6 +234,9 @@
     /* FILTER does not grow. Only SEARCH EXISTING may take the slack, or two
        flexible tabs would split it and neither end would be pinned. */
     .command-bar--filter { flex: 0 0 auto; }
+    /* Waiting for the rest of the table. Not `disabled`, so a press still
+       reaches the handler and can say why. */
+    .command-bar .btn.is-waiting { opacity: 0.55; cursor: progress; }
     .bar-check {
       display: inline-flex; align-items: center; gap: 6px;
       font-size: 0.78rem; color: var(--ink); white-space: nowrap;
@@ -1376,7 +1379,11 @@
     // that said so was deleted with the rest of them, and `neutral_site` is a
     // boolean the row's text never spells out, so nothing the search box can be
     // told would reach these 15 rows.
-    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false, neutralOnly: false };
+    // `loaded` IS FALSE UNTIL THE WHOLE TABLE IS HERE, and `total` is the count the
+    // server reported on the first request. Anything that reads state.rows as THE
+    // TABLE rather than as a page has to check `loaded` first.
+    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false, neutralOnly: false,
+                    loaded: false, total: null };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -2082,7 +2089,12 @@
 
     // ── Render ────────────────────────────────────────────────────────────────
     function updateTitle() {
-      if (titleEl) titleEl.textContent = state.rows.length + (state.rows.length === 1 ? ' ANCHOR EVENT' : ' ANCHOR EVENTS');
+      // THE SERVER'S COUNT, NOT WHAT HAS ARRIVED. Counting up from 50 to 4,123 as
+      // chunks land reads as the number being unstable rather than as loading.
+      if (titleEl) {
+        const n = (state.total !== null && !state.loaded) ? state.total : state.rows.length;
+        titleEl.textContent = n + (n === 1 ? ' ANCHOR EVENT' : ' ANCHOR EVENTS');
+      }
     }
 
     function renderPager(el, total, pages) {
@@ -3195,10 +3207,30 @@
       }
       const n = state.rows.filter(isInReview).length;
       errorsBtn.textContent = n ? 'Errors (' + n + ')' : 'Errors';
+      if (!state.loaded) {
+        // NOT `disabled`. A disabled button dispatches no click, so on a phone
+        // the reason would be unreachable -- the same argument the greyed
+        // platform buttons in the Socializer settle the same way.
+        errorsBtn.classList.add('is-waiting');
+        errorsBtn.title = 'Waiting for the whole table. The check reads every row, so it cannot run on a partial load.';
+        return;
+      }
+      errorsBtn.classList.remove('is-waiting');
       errorsBtn.title = 'Check every row, put anything wrong into review, and list what is in review.';
     }
 
     function toggleErrors() {
+      // IT REFUSES ON A PARTIAL TABLE, and this is the one control where that
+      // matters. Every other feature degrades to "incomplete" while rows are
+      // still arriving; the audit degrades to WRONG -- it would sweep what has
+      // landed, write review on some of it, and report a clean bill for
+      // thousands of rows it has never seen.
+      if (!state.loaded && !state.reviewOnly) {
+        setStatus('Still loading (' + state.rows.length +
+          (state.total ? ' of ' + state.total : '') +
+          '). The check runs over the whole table, so it waits for all of it.', 'error');
+        return;
+      }
       if (state.reviewOnly) {
         state.reviewOnly = false;
         state.page = 1;
@@ -3957,9 +3989,29 @@
     // 2026080101_anchor_events_general_columns.sql lacks kind/title/description/
     // url/end_date, and PostgREST 400s on an unknown column in a select list.
     // Reading * degrades to "those fields are blank" instead of a dead page.
+    // ── Loading: the first 50 paint, the rest arrives behind them ────────────
+    //
+    // The table passed 4,000 rows the morning TGB ANCHOR BOT first ran, and
+    // pulling all of it before drawing anything meant five sequential round
+    // trips of a thousand rows each before the screen showed a single event.
+    //
+    // WHY NOT JUST PAGE THE SERVER 50 AT A TIME. Because `state.rows` is not the
+    // page, it is THE TABLE, and five separate things read it that way: the
+    // ERRORS audit, the cross-row duplicate check, the two filter counts, the
+    // search box, and the "already in the catalog" list the PROMPT embeds.
+    // **An audit that has only seen 50 rows and reports a clean bill is the
+    // worst shape a bug can take here**, and this file already carries that
+    // warning about the 1000-row cap. So the whole table is still loaded; what
+    // changed is that the screen no longer waits for it.
+    //
+    // `state.loaded` IS THE HONEST FLAG. Until it is true the room says so, and
+    // ERRORS refuses to run: it is the one control whose answer would be wrong
+    // rather than merely incomplete.
     async function loadEvents() {
       if (listEl) { listEl.innerHTML = ''; listEl.appendChild(emptyNode('Loading events…')); }
       setStatus('Loading events…');
+      state.loaded = false;
+      state.total = null;
       try {
         if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
           try { await adminAuth.ensureFreshSession(); } catch (e) {}
@@ -3974,20 +4026,104 @@
         // list agree and there is no moment where one is drawn and re-sorted
         // into the other. Kept in step by hand; nothing checks that they are.
         const url = restUrl(TABLE, { select: '*', order: 'start_date.asc.nullslast,id.asc' });
-        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
-        state.rows = Array.isArray(rows) ? rows : [];
+
+        // FIRST PAGE, WITH THE TRUE TOTAL. `count=exact` costs one header and
+        // means the title can say 4,123 from the first round trip instead of
+        // counting up as chunks land, which reads as the number being unstable.
+        const first = await fetch(url, {
+          headers: authHeaders({ Accept: 'application/json', Range: '0-' + (PAGE_SIZE - 1), Prefer: 'count=exact' }),
+          cache: 'no-store'
+        });
+        if (!first.ok) {
+          let text = '';
+          try { text = await first.text(); } catch (e) {}
+          throw new Error(text || ('Request failed (' + first.status + ')'));
+        }
+        // Defensive on `headers`: a Response always has them, but this page is
+        // also driven by test harnesses and proxies, and a missing count simply
+        // leaves `total` null, which every reader below already handles.
+        const head = (first.headers && first.headers.get('content-range')) || '';
+        const total = Number(head.split('/')[1]);
+        state.total = Number.isFinite(total) ? total : null;
+        state.rows = await first.json();
+        if (!Array.isArray(state.rows)) state.rows = [];
         state.page = 1;
         render();
-        // The prompt embeds the current catalog so the AI does not re-suggest
-        // what we already have — rebuild it whenever the rows change.
         refreshPromptText();
-        setStatus('Loaded ' + state.rows.length + ' events.', 'success');
+
+        if (state.total !== null && state.rows.length >= state.total) {
+          finishLoad();
+          return;
+        }
+        setStatus('Showing ' + state.rows.length +
+          (state.total ? ' of ' + state.total : '') + '. Loading the rest…');
+        loadRest(url);
       } catch (err) {
         console.error(err);
+        state.loaded = false;
         setStatus(err && err.message ? err.message : 'Could not load events.', 'error');
         if (listEl) { listEl.innerHTML = ''; listEl.appendChild(emptyNode('Could not load events.')); }
       }
     }
+
+    // The remainder, a thousand at a time, appended without redrawing: a list
+    // that rebuilds itself under you while you are reading it is worse than one
+    // that takes a moment to finish.
+    async function loadRest(url) {
+      try {
+        for (let from = state.rows.length; ; from += 1000) {
+          const res = await fetch(url, {
+            headers: authHeaders({ Accept: 'application/json', Range: from + '-' + (from + 999) }),
+            cache: 'no-store'
+          });
+          if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+          const batch = await res.json();
+          if (!Array.isArray(batch) || !batch.length) break;
+          // DEDUPED BY ID ON THE WAY IN, and this is not belt and braces. If
+          // anything between here and Postgres ignored the Range header, every
+          // chunk would return the same rows and this loop would append them
+          // forever -- a page that grows without bound and a duplicate check
+          // that then finds thousands of collisions with itself. Keying on the
+          // id makes the loop safe against a server that does not page.
+          const seen = new Set(state.rows.map((r) => clean(r.id)));
+          const fresh = batch.filter((r) => !seen.has(clean(r.id)));
+          if (!fresh.length) break;
+          Array.prototype.push.apply(state.rows, fresh);
+          setStatus('Showing ' + PAGE_SIZE + ' of ' + state.rows.length +
+            (state.total ? ' of ' + state.total : '') + '. Loading the rest…');
+          if (state.total !== null && state.rows.length >= state.total) break;
+          if (batch.length < 1000) break;
+        }
+        finishLoad();
+      } catch (err) {
+        // A PARTIAL LOAD IS NOT A SILENT ONE. Everything already on screen is
+        // real; what is not safe is anything that reads the whole table, and
+        // `state.loaded` staying false is what keeps ERRORS switched off.
+        console.error(err);
+        setStatus('Loaded ' + state.rows.length +
+          (state.total ? ' of ' + state.total : '') +
+          ' events, then the connection failed. Press Reload; the checks stay off until the whole table is here.', 'error');
+        syncErrorsBtn();
+      }
+    }
+
+    function finishLoad() {
+      state.loaded = true;
+      rebuildDuplicates();
+      // REDRAW ONLY IF NOTHING WOULD BE THROWN AWAY. An open card, a half-typed
+      // edit or a search someone is in the middle of are all worth more than a
+      // tidy repaint; the counts and the pager are updated either way.
+      const busy = !!(listEl && listEl.querySelector('.event-row.is-open, .event-row.is-dirty'));
+      if (busy) {
+        syncErrorsBtn();
+        syncToggleAll();
+      } else {
+        render();
+      }
+      refreshPromptText();
+      setStatus('Loaded ' + state.rows.length + ' events.', 'success');
+    }
+
 
     // UPDATE ONLY. Creating an event is the MANUAL dialog's job, so this no
     // longer branches on whether the row exists -- every card on the list is a

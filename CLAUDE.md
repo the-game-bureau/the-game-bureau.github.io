@@ -1891,6 +1891,54 @@ its verbs without the column following.
 - **`start_time` is venue-local**, per the column's own comment — the time a player standing outside the stadium sees. Leagues publish in Eastern, so a seed has to convert; the NFL Week 1 seed ([2026080102](mc/supabase/migrations/2026080102_nfl_2026_week1_anchor_events.sql), 16 games) keeps the ET broadcast time in `description` so the two stay reconcilable, and its Melbourne game deliberately carries a date one day later than the US listing.
 - `id` is a **client-supplied text primary key** (`NFL-2026-W1-CAR-CHI`), not generated. The events page only lets you type it on a row that has never been saved — changing it later would orphan every game pointing at it.
 
+### THE FIRST 50 PAINT, THE REST ARRIVES BEHIND THEM (2026-08-25)
+
+The table went from 603 rows to **4,123** the morning TGB ANCHOR BOT first ran,
+and `loadEvents()` pulled all of it before drawing anything: five sequential
+round trips of a thousand rows before a single event was on screen.
+
+- **THE FIRST REQUEST IS ONE PAGE, `Range: 0-49`**, rendered immediately. The
+  remainder is paged a thousand at a time behind it and **appended without
+  redrawing** — a list that rebuilds itself while you are reading it is worse
+  than one that takes a moment to finish.
+- **IT DID NOT BECOME SERVER-SIDE PAGING, AND THAT IS THE WHOLE DESIGN.**
+  `state.rows` is not the page, it is THE TABLE, and five things read it that
+  way: the ERRORS audit, the cross-row duplicate check, the two filter counts,
+  the search box, and the "already in the catalog" list the PROMPT embeds. **An
+  audit that has seen 50 rows and reports a clean bill is the worst shape a bug
+  can take here** — the same warning this file already carries about the
+  1000-row cap. The whole table is still loaded; only the WAIT was removed.
+- **`state.loaded` IS THE HONEST FLAG, and ERRORS is the one control that
+  refuses while it is false.** Everything else degrades to *incomplete*; the
+  audit degrades to *wrong*. It greys with `is-waiting` and says why — **not
+  `disabled`**, because a disabled button dispatches no click and the reason
+  would be unreachable on a phone, which is the argument the Socializer's greyed
+  platform buttons already settle.
+- **THE TITLE SHOWS THE SERVER'S COUNT, NOT WHAT HAS ARRIVED.** `count=exact` on
+  the first request costs one header and means the room says 4,123 immediately;
+  counting up from 50 as chunks land reads as the number being unstable rather
+  than as loading.
+- **THE APPEND DEDUPES BY ID, AND THAT IS NOT BELT AND BRACES.** If anything
+  between the page and Postgres ignored the `Range` header, every chunk would
+  return the same rows and the loop would append them forever. Keying on the id
+  makes it safe against a server that does not page; it also stops at
+  `state.total` when the count is known.
+- **A FAILED BACKGROUND LOAD IS NOT SILENT.** What is on screen is real; what is
+  not safe is anything reading the whole table, so `loaded` stays false, the
+  audit stays off, and the scribble says how many arrived before the connection
+  went.
+- **`finishLoad()` REDRAWS ONLY IF NOTHING WOULD BE THROWN AWAY.** An open card
+  or a half-typed edit is worth more than a tidy repaint; the counts and the
+  pager are updated either way.
+
+**THE TEST HARNESSES ALL BROKE, AND THEY WERE RIGHT TO.** Every suite stubbed
+`TgbRest.fetchAll` and returned the fixture from it — modelling the old data
+path. The page now loads through `fetch` with a `Range` header, so eighteen
+suites were made **Range-aware**: they slice the fixture and answer
+`content-range` when `count=exact` is asked for. **A stub that ignores Range is
+a stub that no longer models the thing under test**, and it was that mismatch,
+not a page fault, that produced the first round of failures.
+
 ### A ROW IS ONE LINE UNTIL YOU OPEN IT (2026-08-23)
 
 The card went through both failures in one day, which is worth recording as a pair. It began as **21 controls in one flat `auto-fit` grid**: every field looked equally important and equally likely to be the one you came to change, so finding the score meant reading every label. Grouping them into six named bands fixed that and **made the card worse**, because it was still every field, now with headings, rules and an explanatory note per band. **Fifty rows meant fifty copies of a 22-field form.** You could not see three events at once, let alone scan a week.
