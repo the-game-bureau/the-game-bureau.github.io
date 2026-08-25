@@ -2605,6 +2605,48 @@ The country badge that appears on the public games page (in the hero meta list a
 
 ---
 
+## `public.leagues` — which sport each league plays (2026-08-24)
+
+Two columns, `sport` and `league`, seeded with ten US leagues.
+[2026082403](mc/supabase/migrations/2026082403_leagues_catalog.sql), **apply by hand**.
+
+| sport | leagues |
+|---|---|
+| Football | NFL, NCAAF |
+| Basketball | NBA, NCAAB, WNBA |
+| Baseball | MLB |
+| Hockey | NHL |
+| Soccer | MLS |
+| Auto racing | NASCAR |
+| Mixed martial arts | UFC |
+
+- **WHY, WHEN `teams` ALREADY CARRIES BOTH.** `teams` answers *what sport does
+  this CLUB play*, 639 times over with the pair repeated on every row, so "what
+  leagues do we cover" is a distinct scan and **a league with no teams filed
+  cannot be named at all**. Four of these ten are in that position: MLS, WNBA,
+  NASCAR and UFC.
+- **`sport` IS ALREADY SPELLED TWO WAYS AND THIS DOES NOT FIX THAT.**
+  `teams.sport` holds lower case `football` (515 rows); `anchor_events.sport`
+  holds `Football` (331). Neither is wrong and nothing reconciles them. **The
+  seed uses the title case**, because that is what `anchor_events` holds and what
+  a picker on that page would write; `teams` is left alone, being 639 rows read
+  by the builder and the fandom palette. Recorded rather than quietly changed.
+- **THE LEAGUE IS THE KEY**, not a surrogate. There is one NFL, and `NFL` is the
+  value `anchor_events.league` and `teams.league` already store, so a reference
+  from either is a plain text match with nothing to carry.
+- **NO FOREIGN KEY FROM `anchor_events.league`, DELIBERATELY.** That column is
+  free text, and a FK would refuse the first concert or festival carrying a
+  league nobody has listed. **This is a catalogue, not a gate.** Both `distinct`
+  checks pass today — every league in `anchor_events` and in `teams` is in the
+  seed, verified before shipping — so the FK is available whenever the refusals
+  are actually wanted.
+- **Anon-readable, admin-written**, like `cities` and `teams`: reference data
+  with nothing private in it, and a cloud routine holds only the publishable key.
+- **The first seven are the leagues the ESPN importer can already read a schedule
+  for**, spelled as its own `LEAGUES` map spells them, so the two agree. The last
+  three have no feed here and are listed because the table's job is to say what
+  we cover, not what we can scrape.
+
 ## One city catalog: `public.cities`
 
 There is exactly **one** city table for the whole site: `public.cities`, keyed by `slug`, with `city` (the canonical string) unique. `/soundtracks/`, `/gifts/`, and `/mc/gifts/` all read it.
