@@ -148,6 +148,17 @@ create trigger tgb_events_sync_geo
   before insert or update on public.events
   for each row execute function public.tgb_sync_events_geo();
 
+-- ── 2b. Backfill the split, because a trigger fires on WRITE ────────────────
+-- The five columns above are filled by tgb_sync_events_geo, which runs on insert
+-- and update. It does NOT run over rows already sitting in the table, so without
+-- this every one of the 603 existing rows would keep a null in all five and the
+-- split would look broken.
+--
+-- THIS WAS A COMMENT IN THE VERIFY SECTION AND THAT WAS NOT GOOD ENOUGH: a step
+-- somebody has to notice and run by hand is a step that gets skipped. The
+-- no-op update is the whole trick -- it changes nothing and fires the trigger.
+update public.events set venue_city = venue_city;
+
 -- ── 3. The two trigger functions that name the renamed columns ───────────────
 -- Written out rather than patched, because both are four lines and the column
 -- names ARE the function. `tgb_touch_anchor_events_updated_at` is not here: it
@@ -316,12 +327,9 @@ commit;
 --      from public.events;
 --    -- expect 603 / 603 / 603 / 603
 --
--- 3. THE SPLIT IS ONLY FILLED FOR ROWS THAT HAVE BEEN WRITTEN SINCE. A trigger
---    fires on write, not on rows already sitting there, so the five new columns
---    are NULL on all 603 until this backfill runs. THIS IS THE STEP THAT IS
---    EASY TO FORGET, and skipping it leaves five columns that look broken:
---
---    update public.events set venue_city = venue_city;   -- fires the trigger
+-- 3. THE SPLIT IS FILLED ON EVERY ROW. Step 2b above did the backfill inside
+--    the transaction, because a trigger fires on write and would otherwise have
+--    left all 603 existing rows null in all five columns:
 --
 --    select count(*) filter (where venue_city_name is not null)  as named,
 --           count(*) filter (where venue_state_code is not null) as stated,
