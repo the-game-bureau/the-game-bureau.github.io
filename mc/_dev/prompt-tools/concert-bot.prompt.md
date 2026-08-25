@@ -86,7 +86,7 @@ Both are anon-readable with the publishable key
 
 ```
 # The concert dates already filed, so you do not spend a pick on one we have.
-/events?select=id,title,city,event_date&kind=eq.concert&order=event_date.asc
+/events?select=id,title,venue_city,start_date&kind=eq.concert&order=start_date.asc
 
 # The city catalogue. 1,451 rows, and PostgREST STOPS AT 1000 WITHOUT SAYING SO
 # -- an unfiltered read hands you the alphabet to about M and looks complete.
@@ -128,6 +128,13 @@ Each row:
 | `start_time` | `HH:MM`, **venue-local** — the clock a person standing outside the door reads, not a listing's own timezone. Omit it rather than guess. |
 | `url` | The SeatGeek page for that date. |
 | `description` | One or two plain sentences. What the tour is, why somebody would travel for it. |
+
+**THE KEYS ABOVE ARE THE FUNCTION'S CONTRACT, NOT THE COLUMN NAMES.** The table
+renamed several columns on 2026-08-25 (`event_date` became `start_date`, `city`
+became `venue_city`, `venue_name` became `venue`) and **the payload keys did
+NOT** — the function maps them. So keep sending `city`, `venue_name` and
+`event_date` exactly as spelled in the table above. **The read URL further up
+does use the new names**, because that one really is reading columns.
 
 **`kind`, `status`, `end_date` and `source` are NOT yours to send.** The function
 hardcodes them (`concert` / `scheduled` / same as `event_date` / `SeatGeek`) and

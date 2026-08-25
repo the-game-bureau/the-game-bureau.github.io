@@ -12127,7 +12127,7 @@ function populateTeamSelects() {
 // selects (which then apply the palette exactly as a manual pick would).
 async function loadBuilderAnchorEvents() {
   if (!hasSupabaseStore()) return;
-  const url = buildSupabaseUrl({ select: '*', order: 'event_date.desc.nullslast,id.asc' }, 'events');
+  const url = buildSupabaseUrl({ select: '*', order: 'start_date.desc.nullslast,id.asc' }, 'events');
   if (!url) return;
   try {
     const res = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
@@ -12149,14 +12149,14 @@ function anchorEventTeamName(tgbid, fallback) {
 }
 
 function anchorEventLabel(ev) {
-  const date = (ev.event_date && String(ev.event_date).trim()) || 'undated';
+  const date = (ev.start_date && String(ev.start_date).trim()) || 'undated';
   const teams = ev.away_team_tgbid != null || ev.home_team_tgbid != null;
   // Any event can be anchored — a concert/convention shows its title; a sports
   // event with teams shows the matchup.
   const main = ev.title
     ? ev.title
     : (teams
-        ? (anchorEventTeamName(ev.away_team_tgbid, ev.away_label) + ' @ ' + anchorEventTeamName(ev.home_team_tgbid, ev.home_label))
+        ? (anchorEventTeamName(ev.away_team_tgbid, ev.away_team_name) + ' @ ' + anchorEventTeamName(ev.home_team_tgbid, ev.home_team_name))
         : (ev.id || 'event'));
   const kind = ev.kind ? ev.kind + ' · ' : '';
   return date + ' · ' + kind + main;

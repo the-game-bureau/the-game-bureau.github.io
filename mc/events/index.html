@@ -1167,17 +1167,17 @@
     // copy calls them. A game uses those halves separately, and storing them
     // split means an event is complete on its own, with no join to public.teams.
     //
-    // away_label / home_label are deliberately absent: a database trigger
+    // away_team_name / home_team_name are deliberately absent: a database trigger
     // rebuilds them from these two halves on every write, so they stay correct
     // for the builder's event picker without anyone editing them here.
     const EDITABLE_FIELDS = [
-      'kind', 'title', 'league', 'sport', 'event_date', 'end_date', 'start_time',
-      'away_locale', 'away_mascot', 'home_locale', 'home_mascot',
-      'venue_name', 'city', 'neutral_site', 'status', 'away_score', 'home_score',
+      'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
+      'away_team_geo', 'away_team_nickname', 'home_team_geo', 'home_team_nickname',
+      'venue', 'venue_city', 'neutral_site', 'status', 'away_team_score', 'home_team_score',
       'away_team_tgbid', 'home_team_tgbid',
       'url', 'source', 'description'
     ];
-    const NUMERIC_FIELDS = ['away_team_tgbid', 'home_team_tgbid', 'away_score', 'home_score'];
+    const NUMERIC_FIELDS = ['away_team_tgbid', 'home_team_tgbid', 'away_team_score', 'home_team_score'];
     const BOOLEAN_FIELDS = ['neutral_site'];
 
     const FIELD_META = {
@@ -1188,9 +1188,9 @@
       // START DATE, not Date. It sits next to End date and the pair has to read
       // as a pair: a bare "Date" beside "End date" invites the reading that one
       // is the event and the other is something about it, when they are the two
-      // ends of the same thing. The COLUMN stays event_date — visible copy only,
+      // ends of the same thing. The COLUMN stays start_date — visible copy only,
       // the same bargain the Tape Room made through four renames of its verbs.
-      event_date:      { label: 'Start date', type: 'date' },
+      start_date:      { label: 'Start date', type: 'date' },
       end_date:        { label: 'End date',   type: 'date' },
       // "Start (local)" was unambiguous while the date beside it was called
       // "Date". With that renamed to Start date the band read "Start date | End
@@ -1209,21 +1209,21 @@
       // A LABEL NAMES ITS OWN FIELD. `geo` and `nickname` say what goes in the
       // box; `Away team` says whose. The four columns of a club's row now share
       // one shape, so the band reads down as well as across.
-      away_locale:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
-      away_mascot:     { label: 'Away team nickname', type: 'text', placeholder: 'Bears' },
-      home_locale:     { label: 'Home team geo',      type: 'text', placeholder: 'Carolina' },
-      home_mascot:     { label: 'Home team nickname', type: 'text', placeholder: 'Panthers' },
+      away_team_geo:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
+      away_team_nickname:     { label: 'Away team nickname', type: 'text', placeholder: 'Bears' },
+      home_team_geo:     { label: 'Home team geo',      type: 'text', placeholder: 'Carolina' },
+      home_team_nickname:     { label: 'Home team nickname', type: 'text', placeholder: 'Panthers' },
       // Optional. Nothing on this page needs them — they exist only so the
       // builder can pull the fandom color palette off the away club.
       away_team_tgbid: { label: 'Away team tgbid (opt)', type: 'number' },
       home_team_tgbid: { label: 'Home team tgbid (opt)', type: 'number' },
-      venue_name:      { label: 'Venue',      type: 'text',   span: 'wide' },
+      venue:      { label: 'Venue',      type: 'text',   span: 'wide' },
       // The VENUE city — where the event physically happens, which is not always
       // a club's home market: Bears at Panthers is Charlotte, the Chargers play
       // in Inglewood, the Giants in East Rutherford. Picked from public.cities
       // via TgbCities so the string matches the catalog exactly; see cityPicker
       // below for why it includes the hidden ones.
-      city:            { label: 'Venue city',  type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
+      venue_city:      { label: 'Venue city',  type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
       // Neither club at home — the international series, a Super Bowl, a bowl
       // game. Deliberately not inferred by comparing the home locale to the city:
       // a Bills home game is in Orchard Park and a Giants home game is in East
@@ -1238,8 +1238,8 @@
       // band that were already readable on their own, and they are renamed
       // anyway: a row where three labels say "Away team" and the fourth says
       // "Away" reads as an oversight.
-      away_score:      { label: 'Away team score', type: 'number' },
-      home_score:      { label: 'Home team score', type: 'number' },
+      away_team_score:      { label: 'Away team score', type: 'number' },
+      home_team_score:      { label: 'Home team score', type: 'number' },
       // OPEN sits beside this box because a url is the one field on the card you
       // cannot check by reading it: a tickets page that has moved, a 404 and a
       // perfectly good address all look identical in a text input.
@@ -1264,8 +1264,8 @@
     //
     // THREE JUDGEMENT CALLS IN THE MAPPING, all of them arguable:
     //
-    // SCORES ARE UNDER WHO. They are per-club columns -- away_score sits beside
-    // away_mascot -- and "who won" is a question about the clubs, not a sixth
+    // SCORES ARE UNDER WHO. They are per-club columns -- away_team_score sits beside
+    // away_team_nickname -- and "who won" is a question about the clubs, not a sixth
     // category. A Result band of its own held three fields that only ever apply
     // to the same rows the club fields do.
     //
@@ -1282,14 +1282,14 @@
     // sentences to read on a form whose labels already say what the fields are.
     const FIELD_GROUPS = [
       // AWAY'S FOUR, THEN HOME'S FOUR, each side on its own line. The tgbids
-      // used to trail after both clubs, so `home_score` wrapped onto a second
+      // used to trail after both clubs, so `home_team_score` wrapped onto a second
       // row beside them and a club's four facts were split across two lines
       // while the other club's sat whole on one. Ordered by SIDE, the band is a
       // two-row table -- from | are | score | tgbid -- read down the columns.
       { key: 'who',   label: 'Who',   sportsOnly: true,
         fields: ['league', 'sport',
-                 'away_locale', 'away_mascot', 'away_score', 'away_team_tgbid',
-                 'home_locale', 'home_mascot', 'home_score', 'home_team_tgbid'] },
+                 'away_team_geo', 'away_team_nickname', 'away_team_score', 'away_team_tgbid',
+                 'home_team_geo', 'home_team_nickname', 'home_team_score', 'home_team_tgbid'] },
       // NO `title` HERE: it is the card's header box, and a second control for
       // it would be the same value in two places.
       { key: 'what',  label: 'What',  fields: ['kind', 'description'] },
@@ -1298,8 +1298,8 @@
       // is still the one most often reached for -- a fixture moves, a kickoff
       // slot lands, a festival turns out to run three days -- and it says so
       // now by being the amber one rather than the boxed one.
-      { key: 'when',  label: 'When',  fields: ['event_date', 'end_date', 'start_time', 'status'] },
-      { key: 'where', label: 'Where', fields: ['venue_name', 'city', 'neutral_site'] },
+      { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time', 'status'] },
+      { key: 'where', label: 'Where', fields: ['venue', 'venue_city', 'neutral_site'] },
       { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
     ];
 
@@ -1421,10 +1421,16 @@
     // A sports row can leave `title` empty and read as "<away> at <home>"; every
     // other kind has no team columns to fall back on, so it needs one.
     function clubName(row, side) {
-      const joined = [clean(row[side + '_locale']), clean(row[side + '_mascot'])].filter(Boolean).join(' ');
+      // BUILT BY CONCATENATION, WHICH IS WHY THE 2026-08-25 COLUMN RENAME MISSED
+      // IT. A word-boundary sweep over the file cannot see `_locale` inside
+      // `side + '_locale'`, so this function went on reading three columns that
+      // no longer existed and quietly returned nothing -- every untitled sports
+      // row lost its derived name. Caught by rendering the page, not by reading
+      // the diff. **If these columns are ever renamed again, look here first.**
+      const joined = [clean(row[side + '_team_geo']), clean(row[side + '_team_nickname'])].filter(Boolean).join(' ');
       // Fall back to the one-string column for a row written before the split,
-      // or one whose trigger-rebuilt label has not come back from a save yet.
-      return joined || clean(row[side + '_label']);
+      // or one whose trigger-rebuilt name has not come back from a save yet.
+      return joined || clean(row[side + '_team_name']);
     }
 
     // effectiveKind() was deleted with the type sort and its chip, which were
@@ -1466,11 +1472,11 @@
     // detail under it. Joined, the whole line had to be one weight and the date
     // lost its emphasis to a clock nobody is scanning for.
     function displayDate(row) {
-      const d = clean(row.event_date);
+      const d = clean(row.start_date);
       if (!d) return 'no date';
       const end = clean(row.end_date);
       // A range only when the two genuinely differ. end_date now defaults to
-      // event_date, so nearly every row has one and printing "Nov 3 - Nov 3"
+      // start_date, so nearly every row has one and printing "Nov 3 - Nov 3"
       // would be the box shouting a fact about nothing.
       return (end && end !== d) ? shortDate(d) + ' – ' + shortDate(end) : shortDate(d);
     }
@@ -1510,8 +1516,8 @@
       if (state.neutralOnly && row.neutral_site !== true) return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
-          row.away_locale, row.away_mascot, row.home_locale, row.home_mascot,
-          row.away_label, row.home_label, row.venue_name, row.city, row.status, row.source]
+          row.away_team_geo, row.away_team_nickname, row.home_team_geo, row.home_team_nickname,
+          row.away_team_name, row.home_team_name, row.venue, row.venue_city, row.status, row.source]
           .map((v) => clean(v).toLowerCase()).join(' ');
         if (!hay.includes(state.q)) return false;
       }
@@ -1721,7 +1727,7 @@
     }
 
     // A SINGLE-DAY EVENT ENDS THE DAY IT STARTS, so end_date is filled from
-    // event_date when it is left blank rather than stored null.
+    // start_date when it is left blank rather than stored null.
     //
     // WHAT THIS CHANGES: null used to MEAN "one day" -- the column comment in
     // 2026080101 says so -- and now every row carries a real last day, so the
@@ -1734,7 +1740,7 @@
     // the two differ, so a filled-in same-day end shows exactly as it did.
     function withDefaults(payload) {
       const out = Object.assign({}, payload);
-      if (clean(out.event_date) && !clean(out.end_date)) out.end_date = clean(out.event_date);
+      if (clean(out.start_date) && !clean(out.end_date)) out.end_date = clean(out.start_date);
       return out;
     }
 
@@ -1813,7 +1819,7 @@
       // every pill has left.
       const where = document.createElement('span');
       where.className = 'event-where';
-      where.textContent = clean(row.city);
+      where.textContent = clean(row.venue_city);
       head.appendChild(where);
 
       // ── NO PILLS. THE ROW ITSELF IS THE SIGNAL ────────────────────────────
@@ -1890,7 +1896,7 @@
         // sports row immediately shows the club-derived name it will fall back
         // to rather than an empty row.
         name.placeholder = displayTitle(Object.assign({}, preview, { title: '' }));
-        where.textContent = clean(preview.city);
+        where.textContent = clean(preview.venue_city);
         // Typing a fix repaints the row: correct the fault and the red goes
         // while you are still looking at it, without a save or a re-check.
         paintReview(preview);
@@ -1938,7 +1944,7 @@
         // IT ONLY EVER FILLS A BLANK. A real range you typed is never
         // overwritten by changing the start date, and clearing the end date
         // leaves it clear until you touch the start again.
-        const startEl = body.querySelector('[data-field="event_date"]');
+        const startEl = body.querySelector('[data-field="start_date"]');
         const endEl = body.querySelector('[data-field="end_date"]');
         if (startEl && endEl) {
           startEl.addEventListener('change', () => {
@@ -2113,8 +2119,8 @@
     // typed in the search box, which is the sort of thing nobody reports and
     // everybody distrusts.
     function compareRows(a, b) {
-      const da = clean(a.event_date);
-      const db = clean(b.event_date);
+      const da = clean(a.start_date);
+      const db = clean(b.start_date);
       if (da && !db) return -1;
       if (!da && db) return 1;
       if (da !== db) {
@@ -2169,9 +2175,9 @@
     }
 
     function weekHeading(row) {
-      const w = isoWeek(row.event_date);
+      const w = isoWeek(row.start_date);
       if (!w) return { key: 'undated', label: 'No date', span: '' };
-      const span = weekSpan(row.event_date);
+      const span = weekSpan(row.start_date);
       const short = (i) => {
         const q = i.split('-');
         return new Date(Number(q[0]), Number(q[1]) - 1, Number(q[2]))
@@ -2341,8 +2347,8 @@
     //
     // Everything this page and the schema know has to be restated in the prompt,
     // because the model cannot see either: the id format, the kind vocabulary,
-    // the locale + mascot split, that start_time is venue-local, that away_label
-    // and home_label are trigger-derived and must NOT be written, and that the
+    // the locale + mascot split, that start_time is venue-local, that away_team_name
+    // and home_team_name are trigger-derived and must NOT be written, and that the
     // city has to match public.cities exactly.
     // The scope line, from the League + from/to controls that came over from
     // mc/get_games.html. It is prose rather than a parameter block because the
@@ -2376,8 +2382,8 @@
         .map((r) => [
           clean(r.id),
           displayTitle(r),
-          clean(r.event_date) || 'undated',
-          [clean(r.venue_name), clean(r.city)].filter(Boolean).join(', ') || 'venue unknown',
+          clean(r.start_date) || 'undated',
+          [clean(r.venue), clean(r.venue_city)].filter(Boolean).join(', ') || 'venue unknown',
           r.neutral_site === true ? 'neutral=YES' : 'neutral=no'
         ].join('  |  '))
         .sort();
@@ -2416,30 +2422,30 @@
         'title: how a person would say it. For a sports row this is optional (it falls back to the two clubs), but fill it anyway. For every other kind it is REQUIRED, because the team columns are empty.',
         '',
         'THE TWO CLUBS, on a sports row, are stored SPLIT INTO TWO COLUMNS EACH:',
-        '  away_locale / home_locale: where the club is from: "Chicago", "New England", "Green Bay".',
-        '  away_mascot / home_mascot: the nickname alone: "Bears", "Patriots", "Packers".',
+        '  away_team_geo / home_team_geo: where the club is from: "Chicago", "New England", "Green Bay".',
+        '  away_team_nickname / home_team_nickname: the nickname alone: "Bears", "Patriots", "Packers".',
         '  Never put "Chicago Bears" in one column. The locale is a place and the mascot is what the game copy calls them, and they are used separately.',
-        '  DO NOT write away_label or home_label at all. A database trigger rebuilds those from the two halves; writing them by hand is overwritten and wrong.',
+        '  DO NOT write away_team_name or home_team_name at all. A database trigger rebuilds those from the two halves; writing them by hand is overwritten and wrong.',
         '  Leave all four null on a non-sports row.',
         '',
         'league / sport: e.g. "NFL" / "Football". Null on a non-sports row.',
         '',
-        'event_date: the date AT THE VENUE, as YYYY-MM-DD. For an event broadcast across time zones this is the local date, which can differ from the date on a US listing: an NFL game played in Melbourne at 8:35 p.m. ET Thursday is Friday morning locally, and the row takes the Friday.',
+        'start_date: the date AT THE VENUE, as YYYY-MM-DD. For an event broadcast across time zones this is the local date, which can differ from the date on a US listing: an NFL game played in Melbourne at 8:35 p.m. ET Thursday is Friday morning locally, and the row takes the Friday.',
         '',
-        'end_date: the LAST day. For something that runs more than one day (a convention, a festival) that is the closing date; for a single-day event it is the SAME VALUE as event_date. Never null when event_date is set: the page fills it in the same way, so a null here is the one row in the table that disagrees with the rest.',
+        'end_date: the LAST day. For something that runs more than one day (a convention, a festival) that is the closing date; for a single-day event it is the SAME VALUE as start_date. Never null when start_date is set: the page fills it in the same way, so a null here is the one row in the table that disagrees with the rest.',
         '',
         'start_time: VENUE-LOCAL 24-hour HH:MM. Leagues and promoters publish in Eastern, so convert, and note the published time in the description so the two can be reconciled later. This is the time a player standing outside the venue experiences.',
         '',
-        'venue_name: the venue as it is currently named. Use the current sponsor name.',
+        'venue: the venue as it is currently named. Use the current sponsor name.',
         '',
-        'city: the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. It must match a row in public.cities EXACTLY, from the list at the bottom of this prompt; if the venue city is not on that list, still use the correct city and say so in a note after the SQL so it can be added.',
+        'venue_city: the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. It must match a row in public.cities EXACTLY, from the list at the bottom of this prompt; if the venue city is not on that list, still use the correct city and say so in a note after the SQL so it can be added.',
         '',
         'neutral_site: true / false, and READ THIS CAREFULLY because it is the field most often got wrong:',
         '- true means NEITHER club is at home. Both fanbases are travelling and the host city has no home team in it.',
         '- Set it true for: any international game (the NFL\'s London / Dublin / Madrid / Munich / Berlin / São Paulo / Melbourne / Mexico City series, and the equivalent in any other league), a Super Bowl or championship final at a pre-chosen venue, a college bowl game, a neutral-site kickoff or classic, a game relocated by weather, fire, stadium damage or a scheduling conflict, and any event billed as being at a neutral site.',
         '- Set it FALSE for an ordinary home game even when the stadium is in a differently-named town. A Bills home game is in Orchard Park, a Giants or Jets home game is in East Rutherford, a Cowboys home game is in Arlington, a 49ers home game is in Santa Clara, a Cardinals home game is in Glendale, a Dolphins home game is in Miami Gardens, a Patriots home game is in Foxborough, a Commanders home game is in Summerfield, a Chargers or Rams home game is in Inglewood. These are NOT neutral sites; the club plays there every year.',
         '- So do not decide this by comparing the home locale to the city string. Decide it from what the league actually calls the game.',
-        '- An international game is still assigned a nominal "home" club by the league. Keep that club in home_locale / home_mascot AND set neutral_site true: both facts are true at once, and the flag is what stops the host city being treated as that club\'s home market.',
+        '- An international game is still assigned a nominal "home" club by the league. Keep that club in home_team_geo / home_team_nickname AND set neutral_site true: both facts are true at once, and the flag is what stops the host city being treated as that club\'s home market.',
         '- false on every non-sports row.',
         '',
         'status: "scheduled" for anything upcoming.',
@@ -2450,7 +2456,7 @@
         '',
         'source: where you got it, e.g. "NFL.com 2026 schedule release".',
         '',
-        'Leave alone entirely: away_team_tgbid, home_team_tgbid, away_score, home_score, away_label, home_label. Do not include them in the column list.',
+        'Leave alone entirely: away_team_tgbid, home_team_tgbid, away_team_score, home_team_score, away_team_name, home_team_name. Do not include them in the column list.',
         '',
         'Output requirements:',
         'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
@@ -2462,8 +2468,8 @@
         '',
         'Use this exact SQL shape (replace the sample rows with your ' + n + '):',
         'insert into public.events',
-        '  (id, kind, title, description, league, sport, event_date, end_date, start_time,',
-        '   away_locale, away_mascot, home_locale, home_mascot, venue_name, city, neutral_site, status, url, source)',
+        '  (id, kind, title, description, league, sport, start_date, end_date, start_time,',
+        '   away_team_geo, away_team_nickname, home_team_geo, home_team_nickname, venue, venue_city, neutral_site, status, url, source)',
         'values',
         "  ('NFL-2026-W1-CAR-CHI', 'sports', 'Chicago Bears at Carolina Panthers', 'Week 1; published as 1:00 p.m. ET.', 'NFL', 'Football', '2026-09-13', null, '13:00', 'Chicago', 'Bears', 'Carolina', 'Panthers', 'Bank of America Stadium', 'Charlotte, North Carolina', false, 'scheduled', 'https://www.nfl.com/schedules/2026/REG1/', 'NFL.com 2026 schedule release'),",
         "  ('NFL-2026-W5-JAX-LAR', 'sports', 'Los Angeles Rams at Jacksonville Jaguars', 'International Series; published as 9:30 a.m. ET, 2:30 p.m. London time.', 'NFL', 'Football', '2026-10-11', null, '14:30', 'Los Angeles', 'Rams', 'Jacksonville', 'Jaguars', 'Wembley Stadium', 'London, United Kingdom', true, 'scheduled', 'https://www.nfl.com/international/', 'NFL.com international series'),",
@@ -2766,8 +2772,8 @@
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
           if (clean(r.title)) return '';
-          if (clean(r.away_mascot) && clean(r.home_mascot)) return '';
-          const missing = [!clean(r.away_mascot) && 'away', !clean(r.home_mascot) && 'home'].filter(Boolean);
+          if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
+          const missing = [!clean(r.away_team_nickname) && 'away', !clean(r.home_team_nickname) && 'home'].filter(Boolean);
           return 'A sports row with no title is named from its two clubs, and the ' + missing.join(' and ') + ' one is missing.';
         }
       },
@@ -2780,23 +2786,23 @@
         test: (r) => {
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
-          if (clean(r.away_mascot) && clean(r.home_mascot)) return '';
-          const missing = [!clean(r.away_mascot) && 'away', !clean(r.home_mascot) && 'home'].filter(Boolean);
+          if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
+          const missing = [!clean(r.away_team_nickname) && 'away', !clean(r.home_team_nickname) && 'home'].filter(Boolean);
           return 'The ' + missing.join(' and ') + ' club is not filled in. A game takes its copy and its palette from the away club.';
         }
       },
       {
         key: 'no-date',
         level: 'error',
-        test: (r) => clean(r.event_date)
+        test: (r) => clean(r.start_date)
           ? ''
           : 'No date. A game is played the day before its anchor event, so an undated event cannot anchor one.'
       },
       {
         key: 'end-before-start',
         level: 'error',
-        test: (r) => (clean(r.end_date) && clean(r.event_date) && clean(r.end_date) < clean(r.event_date))
-          ? 'End date ' + clean(r.end_date) + ' is before the start date ' + clean(r.event_date) + '.'
+        test: (r) => (clean(r.end_date) && clean(r.start_date) && clean(r.end_date) < clean(r.start_date))
+          ? 'End date ' + clean(r.end_date) + ' is before the start date ' + clean(r.start_date) + '.'
           : ''
       },
       {
@@ -2815,7 +2821,7 @@
       },
       {
         // THE ONE SCHEMA FINDING, and the most useful thing this button can
-        // tell you. A trigger rebuilds away_label / home_label from the two
+        // tell you. A trigger rebuilds away_team_name / home_team_name from the two
         // halves on every write, and the builder's event picker falls back to
         // them. A row where they disagree does not mean the row is wrong -- it
         // means the trigger is not installed on this database.
@@ -2823,13 +2829,13 @@
         level: 'error',
         test: (r) => {
           const bad = [];
-          const away = rebuiltLabel(r.away_locale, r.away_mascot);
-          const home = rebuiltLabel(r.home_locale, r.home_mascot);
-          if (away && clean(r.away_label) && clean(r.away_label) !== away) {
-            bad.push('away_label "' + clean(r.away_label) + '" against "' + away + '"');
+          const away = rebuiltLabel(r.away_team_geo, r.away_team_nickname);
+          const home = rebuiltLabel(r.home_team_geo, r.home_team_nickname);
+          if (away && clean(r.away_team_name) && clean(r.away_team_name) !== away) {
+            bad.push('away_team_name "' + clean(r.away_team_name) + '" against "' + away + '"');
           }
-          if (home && clean(r.home_label) && clean(r.home_label) !== home) {
-            bad.push('home_label "' + clean(r.home_label) + '" against "' + home + '"');
+          if (home && clean(r.home_team_name) && clean(r.home_team_name) !== home) {
+            bad.push('home_team_name "' + clean(r.home_team_name) + '" against "' + home + '"');
           }
           return bad.length
             ? 'The stored label disagrees with the locale and mascot it is rebuilt from (' + bad.join('; ') + '). That means tgb_anchor_events_sync_labels is not installed: run 2026080101_anchor_events_general_columns.sql.'
@@ -2867,8 +2873,8 @@
         key: 'placeholder-club',
         level: 'check',
         test: (r) => {
-          const fields = ['away_locale', 'away_mascot', 'away_label',
-                          'home_locale', 'home_mascot', 'home_label'];
+          const fields = ['away_team_geo', 'away_team_nickname', 'away_team_name',
+                          'home_team_geo', 'home_team_nickname', 'home_team_name'];
           const hits = fields
             .map((f) => clean(r[f]))
             .filter(Boolean)
@@ -2898,7 +2904,7 @@
       {
         key: 'no-venue',
         level: 'check',
-        test: (r) => clean(r.venue_name)
+        test: (r) => clean(r.venue)
           ? ''
           : 'No venue. The city is enough to build a game around, so this is a gap rather than a fault.'
       },
@@ -2922,15 +2928,15 @@
       {
         key: 'no-city',
         level: 'check',
-        test: (r) => clean(r.city)
+        test: (r) => clean(r.venue_city)
           ? ''
           : 'No venue city. The city is what a game is built around, and nothing here can place this event without one.'
       },
       {
         key: 'unknown-city',
         level: 'check',
-        test: (r) => (clean(r.city) && !isKnownCity(clean(r.city)))
-          ? '"' + clean(r.city) + '" is not in the shared city catalog. Either it is a typo, or it is a real venue town nobody has added on the Cities page yet.'
+        test: (r) => (clean(r.venue_city) && !isKnownCity(clean(r.venue_city)))
+          ? '"' + clean(r.venue_city) + '" is not in the shared city catalog. Either it is a typo, or it is a real venue town nobody has added on the Cities page yet.'
           : ''
       },
       {
@@ -2944,7 +2950,7 @@
         key: 'score-without-final',
         level: 'check',
         test: (r) => {
-          const hasScore = r.away_score != null || r.home_score != null;
+          const hasScore = r.away_team_score != null || r.home_team_score != null;
           return (hasScore && clean(r.status) && clean(r.status) !== 'final')
             ? 'A score is filled in but the status is "' + clean(r.status) + '". One of the two is out of date.'
             : '';
@@ -2953,7 +2959,7 @@
       {
         key: 'final-without-score',
         level: 'check',
-        test: (r) => (clean(r.status) === 'final' && r.away_score == null && r.home_score == null)
+        test: (r) => (clean(r.status) === 'final' && r.away_team_score == null && r.home_team_score == null)
           ? 'Marked final with no score on either side.'
           : ''
       },
@@ -2965,7 +2971,7 @@
         key: 'past-but-scheduled',
         level: 'check',
         test: (r) => {
-          const d = clean(r.end_date) || clean(r.event_date);
+          const d = clean(r.end_date) || clean(r.start_date);
           if (!d) return '';
           if (clean(r.status) !== 'scheduled') return '';
           return d < todayIso()
@@ -3034,12 +3040,12 @@
       const seen = new Map();
       const found = new Map();
       state.rows.forEach((r) => {
-        if (!clean(r.event_date)) return;   // undated is its own finding
+        if (!clean(r.start_date)) return;   // undated is its own finding
         const parts = [
           clean(r.league),
-          clean(r.event_date),
-          clean(r.away_label) || clean(r.away_mascot),
-          clean(r.home_label) || clean(r.home_mascot)
+          clean(r.start_date),
+          clean(r.away_team_name) || clean(r.away_team_nickname),
+          clean(r.home_team_name) || clean(r.home_team_nickname)
         ];
         // Nothing identifying beyond the date: two concerts on one night are not
         // a duplicate, so say nothing rather than guess.
@@ -3347,7 +3353,7 @@
         description: description || null,
         league: cfg.league,
         sport: cfg.sport,
-        event_date: eventDate || null,
+        start_date: eventDate || null,
         // A fixture is one day, so it ends the day it starts. Same rule
         // withDefaults() applies on the card; written here rather than run
         // through that function because this builds a row from scratch instead
@@ -3367,20 +3373,20 @@
         // the TBD stays in the description and the `tbd` rule keeps the row in
         // review until somebody replaces it with the real kickoff.
         start_time: TBD_RE.test(publishedTime) ? TBA_TIME : (local ? local.time : null),
-        away_locale: clean(away.team.location) || null,
-        away_mascot: clean(away.team.name) || null,
-        home_locale: clean(home.team.location) || null,
-        home_mascot: clean(home.team.name) || null,
-        venue_name: clean(comp.venue && comp.venue.fullName) || null,
-        city: city || null,
+        away_team_geo: clean(away.team.location) || null,
+        away_team_nickname: clean(away.team.name) || null,
+        home_team_geo: clean(home.team.location) || null,
+        home_team_nickname: clean(home.team.name) || null,
+        venue: clean(comp.venue && comp.venue.fullName) || null,
+        venue_city: city || null,
         // Published per game by the league, not inferred here. This is the whole
         // reason the feed beats an AI for the four big leagues: an ordinary home
         // game in a suburb stadium comes back false and the London game true,
         // which is exactly the distinction the prompt has to spell out at length.
         neutral_site: comp.neutralSite === true,
         status: status,
-        away_score: score(away),
-        home_score: score(home),
+        away_team_score: score(away),
+        home_team_score: score(home),
         url: (cfg.web && clean(event.id))
           ? 'https://www.espn.com/' + cfg.web + '/game/_/gameId/' + clean(event.id)
           : null,
@@ -3412,7 +3418,7 @@
           // The feed's range is applied to UTC timestamps, so a late Sunday game
           // comes back on Monday. Trim to the window the user actually asked for,
           // measured on the venue-local date this page stores.
-          .filter((r) => r.event_date && r.event_date >= from && r.event_date <= to);
+          .filter((r) => r.start_date && r.start_date >= from && r.start_date <= to);
 
         // A club can play two games on one date (a doubleheader), which collides
         // on the date-based id. Suffix the later ones rather than dropping them.
@@ -3443,8 +3449,8 @@
     function schedVisible() {
       const q = schedState.q;
       if (!q) return schedState.rows;
-      return schedState.rows.filter((r) => [r.id, r.title, r.away_locale, r.away_mascot,
-        r.home_locale, r.home_mascot, r.venue_name, r.city, r.event_date]
+      return schedState.rows.filter((r) => [r.id, r.title, r.away_team_geo, r.away_team_nickname,
+        r.home_team_geo, r.home_team_nickname, r.venue, r.venue_city, r.start_date]
         .map((v) => clean(v).toLowerCase()).join(' ').includes(q));
     }
 
@@ -3483,12 +3489,12 @@
           if (!row.__tzKnown) name.appendChild(badge('no local time', 'warn'));
           const sub = document.createElement('div');
           sub.className = 'sched-sub';
-          sub.textContent = [clean(row.venue_name), clean(row.city), clean(row.id)].filter(Boolean).join(' · ');
+          sub.textContent = [clean(row.venue), clean(row.venue_city), clean(row.id)].filter(Boolean).join(' · ');
           mid.append(name, sub);
 
           const when = document.createElement('div');
           when.className = 'sched-when';
-          when.textContent = clean(row.event_date) + (row.start_time ? '\n' + row.start_time : '');
+          when.textContent = clean(row.start_date) + (row.start_time ? '\n' + row.start_time : '');
 
           item.append(cb, mid, when);
           schedList.appendChild(item);
@@ -3691,7 +3697,7 @@
 
       // The end date mirrors the start exactly as it does on a card, so what is
       // written is what you can see before you press Add.
-      const startEl = manualForm.querySelector('[data-field="event_date"]');
+      const startEl = manualForm.querySelector('[data-field="start_date"]');
       const endEl = manualForm.querySelector('[data-field="end_date"]');
       if (startEl && endEl) {
         startEl.addEventListener('change', () => {
@@ -3720,14 +3726,54 @@
     // have been a ReferenceError the first time somebody added an event with a
     // new city -- inside a .then(), so it would have surfaced as a rejected
     // promise blaming the catalogue write.
-    function ensureCityExists(cityRaw, eventName) {
-      const wanted = clean(cityRaw);
-      if (!wanted) return;
-      if (!(window.TgbCities && typeof TgbCities.add === 'function')) return;
-      // Already here: nothing to do, and no message either -- the common case
-      // is not news.
-      if (isKnownCity(wanted)) return;
+    // ── Every city a new event needs, added or reported ──────────────────────
+    //
+    // A new event routinely names a town the catalogue has never held, and until
+    // this existed that produced an `unknown-city` finding, a trip to the Cities
+    // page and a form to fill in by hand. The event has just told us the city;
+    // adding it is the obvious thing to do with that.
+    //
+    // THREE CITIES CAN BE INVOLVED and they are NOT the same kind of value:
+    //
+    //   venue_city      CANONICAL. "Charlotte, North Carolina". It comes from
+    //                   the picker or from the ESPN importer via TgbGeo, so it
+    //                   carries its state and can be added outright.
+    //
+    //   away_team_geo   A MARKET, not a city, and this is the whole reason the
+    //   home_team_geo   two halves behave differently. "Chicago" is a city;
+    //                   "New England", "Carolina", "Tampa Bay" and "Minnesota"
+    //                   are not, and none of the four carries a state.
+    //
+    // SO A CLUB GEO IS NEVER INVENTED INTO A CATALOGUE ROW. Writing "New
+    // England" into public.cities would put a thing that is not a city into the
+    // one city list the whole site reads, and writing "Chicago" without a state
+    // would sit beside the real "Chicago, Illinois" as a near-duplicate nobody
+    // can tell apart later. Both are worse than the gap they fill. It is
+    // reported by name instead, which is the same bargain every other guess in
+    // this project refuses: never approximate a coordinate, never derive a ZIP
+    // from a city, never invent a location.
+    //
+    // WHAT IT CAN DO is check. A club geo that already matches a catalogue city
+    // is silent, because the common case is not news.
+    function cityBareName(value) {
+      const v = clean(value);
+      const comma = v.indexOf(',');
+      return (comma === -1 ? v : v.slice(0, comma)).trim().toLowerCase();
+    }
 
+    // Exactly one catalogue city whose own name matches, or nothing. Portland
+    // matches two and is therefore NOT resolved: an ambiguous answer is a guess
+    // wearing a number.
+    function catalogueMatchesForGeo(geoRaw) {
+      const key = cityBareName(geoRaw);
+      if (!key) return [];
+      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return [];
+      return TgbCities.all()
+        .map((r) => clean(r && r.city))
+        .filter((c) => c && cityBareName(c) === key);
+    }
+
+    function addCanonicalCity(wanted) {
       const geo = (window.TgbGeo && typeof TgbGeo.parseGeo === 'function')
         ? TgbGeo.parseGeo(wanted) : null;
       const payload = geo ? {
@@ -3737,23 +3783,80 @@
         country_code: geo.countryCode || null,
         country_name: geo.countryName || null
       } : null;
+      return TgbCities.add(wanted, { authHeaders: authHeaders, geo: payload });
+    }
 
-      TgbCities.add(wanted, { authHeaders: authHeaders, geo: payload })
-        .then((row) => {
-          const name = (row && row.city) || wanted;
-          setStatus('Added ' + eventName + ', and put "' + name + '" in the city catalogue.', 'success');
-          // Re-read so isKnownCity and the City datalist both know about it
-          // straight away; without this the CHECK report would still call the
-          // city unknown until the next full load.
-          if (typeof TgbCities.load === 'function') {
-            TgbCities.load({ force: true }).then(refreshCityOptions).catch((err) => console.error(err));
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-          setStatus('Event saved, but "' + wanted + '" could not be added to the city catalogue: ' +
-            (err && err.message ? err.message : 'unknown error') + ' Add it on the Cities page.', 'error');
-        });
+    // IT NEVER BLOCKS AND NEVER FAILS THE EVENT. The row is already saved by the
+    // time this runs, so a refused catalogue write is reported and nothing else:
+    // a city that could not be added is a smaller problem than an event that
+    // looks like it did not save.
+    function ensureCitiesExist(row, eventName) {
+      if (!row) return;
+      if (!(window.TgbCities && typeof TgbCities.add === 'function')) return;
+
+      const venue = clean(row.venue_city);
+      const geos = [clean(row.away_team_geo), clean(row.home_team_geo)].filter(Boolean);
+
+      const toAdd = (venue && !isKnownCity(venue)) ? [venue] : [];
+      const unresolved = [];
+      const ambiguous = [];
+
+      geos.forEach((g) => {
+        // A club geo that IS a canonical string (it carries a comma) is treated
+        // like the venue city: it can be added, because it brought its state.
+        if (g.indexOf(',') !== -1) {
+          if (!isKnownCity(g) && toAdd.indexOf(g) === -1) toAdd.push(g);
+          return;
+        }
+        const matches = catalogueMatchesForGeo(g);
+        if (matches.length === 1) return;                  // already there
+        if (matches.length > 1) { ambiguous.push(g); return; }
+        unresolved.push(g);
+      });
+
+      const report = () => {
+        const notes = [];
+        if (unresolved.length) {
+          notes.push(unresolved.join(' and ') + (unresolved.length === 1 ? ' is' : ' are') +
+            ' not in the city catalogue, and there is no state on the row to add ' +
+            (unresolved.length === 1 ? 'it' : 'them') + ' with. Add on the Cities page if wanted.');
+        }
+        if (ambiguous.length) {
+          notes.push(ambiguous.join(' and ') + ' matches more than one city in the catalogue, so nothing was added.');
+        }
+        return notes.join(' ');
+      };
+
+      if (!toAdd.length) {
+        const note = report();
+        if (note) setStatus('Added ' + eventName + '. ' + note, 'success');
+        return;
+      }
+
+      Promise.all(toAdd.map((c) => addCanonicalCity(c).then(
+        (r) => ({ ok: true, name: (r && r.city) || c }),
+        (err) => ({ ok: false, name: c, err: err })
+      ))).then((results) => {
+        const added = results.filter((r) => r.ok).map((r) => r.name);
+        const failed = results.filter((r) => !r.ok);
+        const note = report();
+        if (added.length) {
+          setStatus('Added ' + eventName + ', and put ' +
+            added.map((n) => '"' + n + '"').join(' and ') +
+            ' in the city catalogue.' + (note ? ' ' + note : ''), 'success');
+        }
+        if (failed.length) {
+          failed.forEach((f) => console.error(f.err));
+          setStatus('Event saved, but ' + failed.map((f) => '"' + f.name + '"').join(' and ') +
+            ' could not be added to the city catalogue. Add on the Cities page.', 'error');
+        }
+        // FORCE THE RELOAD, or isKnownCity and the City datalist both go on not
+        // knowing, and the ERRORS sweep still calls the city unknown -- both
+        // halves working and the errand looking broken.
+        if (added.length && typeof TgbCities.load === 'function') {
+          TgbCities.load({ force: true }).then(refreshCityOptions).catch((err) => console.error(err));
+        }
+      });
     }
 
     function setManualStatus(text, isError) {
@@ -3834,10 +3937,16 @@
       // the rest is presentation.
       if (!added) return;
       state.rows.push(added);
-      ensureCityExists(added.city, displayTitle(added));
       closeManualDialog();
       render();
       setStatus('Added ' + displayTitle(added) + '.', 'success');
+      // AFTER the plain confirmation, never before it. This writes its own
+      // richer message over the top when it has something to say, and it can
+      // answer SYNCHRONOUSLY -- a club market it refuses to invent needs no
+      // round trip. Called first, that message was overwritten a line later by
+      // the bare "Added X." and the whole report vanished. The old
+      // ensureCityExists always went through a promise, which hid the ordering.
+      ensureCitiesExist(added, displayTitle(added));
       // Land on it: a row added to a 600-row table sorted by date is not
       // necessarily anywhere you can see.
       focusEventRow(clean(added.id));
@@ -3864,7 +3973,7 @@
         // The same order compareRows applies, so the first paint and the sorted
         // list agree and there is no moment where one is drawn and re-sorted
         // into the other. Kept in step by hand; nothing checks that they are.
-        const url = restUrl(TABLE, { select: '*', order: 'event_date.asc.nullslast,id.asc' });
+        const url = restUrl(TABLE, { select: '*', order: 'start_date.asc.nullslast,id.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];
         state.page = 1;
@@ -3947,7 +4056,7 @@
     }
 
     function dayCount(row) {
-      const a = isoToUtc(row && row.event_date);
+      const a = isoToUtc(row && row.start_date);
       const b = isoToUtc(row && row.end_date);
       if (a == null || b == null || b <= a) return 1;
       return Math.round((b - a) / DAY_MS) + 1;
@@ -3984,7 +4093,7 @@
     function planSplit(row, taken) {
       const total = dayCount(row);
       if (total < 2) return null;
-      const start = isoToUtc(row.event_date);
+      const start = isoToUtc(row.start_date);
       const base = clean(row.title) || displayTitle(row);
       const seen = new Set(taken);
       const days = [];
@@ -3993,7 +4102,7 @@
         const id = dayId(row.id, n, seen);
         if (!id) return null;
         seen.add(id);
-        days.push({ n: n, id: id, event_date: iso, end_date: iso, title: dayTitle(base, n, total) });
+        days.push({ n: n, id: id, start_date: iso, end_date: iso, title: dayTitle(base, n, total) });
       }
       return { total: total, days: days };
     }
@@ -4012,7 +4121,7 @@
 
       const ok = window.confirm(
         'Split "' + (clean(current.title) || displayTitle(current)) + '" into ' + plan.total + ' one-day events?\n\n' +
-        plan.days.map((d) => '  ' + d.event_date + '  ' + d.id).join('\n') + '\n\n' +
+        plan.days.map((d) => '  ' + d.start_date + '  ' + d.id).join('\n') + '\n\n' +
         'This row keeps its ID and becomes day 1, so any game already anchored to it stays anchored. ' +
         'The other ' + (plan.total - 1) + ' are new rows. It is not undoable in one press.'
       );
@@ -4028,7 +4137,7 @@
         // that still claims the whole span.
         const first = plan.days[0];
         const patch = Object.assign({}, readForm(el), {
-          event_date: first.event_date, end_date: first.end_date, title: first.title
+          start_date: first.start_date, end_date: first.end_date, title: first.title
         });
         const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
           method: 'PATCH',
@@ -4045,7 +4154,7 @@
         Object.assign(row, savedFirst[0]);
 
         const rest = plan.days.slice(1).map((d) => Object.assign({}, readForm(el), {
-          id: d.id, event_date: d.event_date, end_date: d.end_date, title: d.title
+          id: d.id, start_date: d.start_date, end_date: d.end_date, title: d.title
         }));
         const res2 = await fetch(restUrl(TABLE, {}), {
           method: 'POST',
