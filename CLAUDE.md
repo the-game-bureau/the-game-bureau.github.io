@@ -609,8 +609,9 @@ Set 2026-08-15, and it has been resettled twice since by folding routines togeth
 | TGB SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 | TGB PATH BOT | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20 * * *` |
 | TGB CONCERT BOT | `trig_01RY2ktLpjXwNUo4mYTncPBe` | `0 17 * * *` (noon Central, once daily) |
+| TGB ANCHOR BOT | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
 
-**THE `:8` SLOT IS EMPTY AND CAN BE REUSED.** It was TGB WAYPOINT BOT's. The stagger only exists so five cloud sessions do not provision at the same instant, so a gap in it costs nothing and a sixth routine may take that minute.
+**THE `:8` SLOT IS TGB ANCHOR BOT'S AS OF 2026-08-25.** It was TGB WAYPOINT BOT's and sat empty after that routine was retired; the stagger exists only so cloud sessions do not provision at the same instant, so a freed minute is simply available. **There is no free slot now.**
 
 **EVERY TGB ROUTINE IS `TGB <NAME>` IN CAPITALS, AND THAT NAME IS ITS NAME EVERYWHERE** (2026-08-20). They had been a mixture — *TGB Gift Shop Bot* in title case, *SOCIALIZER BOT* and *PATH BOT* with no prefix at all — and the prefix is what groups them in the routine list at claude.ai, which also holds seven personal routines (the GTD briefs, Coach Steve Bot, the inbox blitzes, the Supabase backup). Renamed on the triggers, then swept through this file, `PROMPTS.md`, and the buttons in the Socializer, the Stock Room and the Path Builder, so the label you press and the routine it opens read the same. **The stored prompts still identify themselves the old way** (*"You are SOCIALIZER BOT"*, *"You are the TGB NFL Tour Builder"*); nothing depends on that string, and it is the one place the new names have not reached.
 
@@ -1413,6 +1414,57 @@ Either can replace the other; pressing the button recomputes from geometry whene
 **SEATGEEK IS READ AS PUBLIC PAGES, NOT THROUGH AN API.** A cloud routine has no secret store, so there is nowhere to put a client id — the same constraint that shaped every write path here. The prompt tells the run to ask its browsing tool for page SOURCE when it gets a cleaned-up summary back, which is the failure that made Grok file imageless socials candidates.
 
 **EMAIL IS ON.** The run's only output is rows and a summary, and the summary carries the one thing needing a human: the cities it had to drop. Without a channel that report goes nowhere.
+
+### TGB ANCHOR BOT — fills `public.events` from anywhere it can (2026-08-25)
+
+`trig_01HKMKbnCyH6WLKuw7ZstY5b`, cron `8 8,20 * * *` — twice daily on the shared
+schedule, in the minute TGB WAYPOINT BOT left free. **The spec is
+[anchor-bot.prompt.md](mc/_dev/prompt-tools/anchor-bot.prompt.md), re-read every run**, the same arrangement TGB
+CONCERT BOT uses: edit the file and the next run behaves differently, with
+nothing to redeploy. It stops rather than improvises if the file is missing or
+does not open with its own heading.
+
+**IT PULLS EVERYTHING, NOT ONE KIND.** Sport, concerts, conventions, festivals,
+expos, from SeatGeek, league and club sites, ESPN, venue calendars.
+
+- **THE ONE HARD FILTER IS A VENUE HOLDING 10,000 OR MORE**, and it separates an
+  event that fills hotels from a gig in a room above a pub. **A venue whose
+  capacity cannot be established is a row it does not file**: nothing downstream
+  re-checks it, so a guess stays wrong forever.
+  - **CAPACITY IS NOT IN THE DATABASE AND CANNOT BE.** There is no column, and
+    inventing one only a routine writes would be a fact nobody could check. The
+    rule lives in the prompt because that is the only place it can actually be
+    verified, against the venue's own page. **If it ever needs to be queryable it
+    belongs on a VENUES table**, which does not exist.
+- **THE WRITE PATH IS `tgb_pull_anchor_events(jsonb)`** — [2026082503](mc/supabase/migrations/2026082503_anchor_event_pull_rpc.sql), **apply
+  by hand**. The seventh SECURITY DEFINER pull, for the reason all six others
+  exist: `events` is `authenticated`-only and a cloud routine has no secret
+  store.
+  - **IT IS A SECOND FUNCTION, NOT A WIDENED `tgb_pull_concert_tours`.** That one
+    hardcodes `kind = 'concert'` and `source = 'SeatGeek'`, and **those constants
+    are its security**. Widening it would mean turning its two safest constants
+    into parameters, which is the one change to refuse.
+  - **What is still constant here, and still the security:** `status` is always
+    `scheduled`, `kind` must be one of the six the page knows, the city must
+    already be in `public.cities`, the date must be in the future, and at most
+    **60 rows a call**. Sixty rather than ten because the brief is "as many as it
+    can" — it is a bigger cap, and it is still a cap.
+  - **`on conflict (id)` IS NOT ENOUGH FOR "NO DUPLICATES".** It catches a re-run
+    of the same call; it does not catch **the same fixture filed under two ids**,
+    which is exactly what happens when one run reads it from SeatGeek and the
+    next from a league site. So it also refuses a match on **(start_date,
+    venue_city, and either the title or both club nicknames)**.
+  - **That natural key is deliberately NOT (date, city) alone**: two concerts in
+    one city on one night is ordinary, and so is a doubleheader.
+  - **The payload KEYS ARE THE COLUMN NAMES**, unlike TGB CONCERT BOT, whose keys
+    are a legacy contract the function maps. What the routine sends is what a
+    human sees on the page.
+- **IT OVERLAPS TGB CONCERT BOT ON PURPOSE, AND THE DEDUPE IS WHAT MAKES THAT
+  SAFE.** Concert Bot files ten concerts at noon through its own doorway; Anchor
+  Bot files whatever it finds, twice a day, through this one. **Both write the
+  same table and neither can file the other's row twice.** If Concert Bot ever
+  looks redundant, disable it rather than deleting it — a trigger id does not
+  survive a delete, and this project lost one that way on 2026-08-20.
 
 ### TGB ANCHOR EVENTS — a fifth routine, and the only one that reads a page as its spec
 
