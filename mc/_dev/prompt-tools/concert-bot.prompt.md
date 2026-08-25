@@ -16,7 +16,7 @@ asked for and nothing downstream can tell them apart.
 ## What you are doing
 
 Find **10 announced concert tour dates** and file them into
-`public.anchor_events` as anchor events.
+`public.events` as anchor events.
 
 An **anchor event** is the real-world thing that brings people to a city. We do
 not create the reason to travel; we find the reason that already exists and put
@@ -86,7 +86,7 @@ Both are anon-readable with the publishable key
 
 ```
 # The concert dates already filed, so you do not spend a pick on one we have.
-/anchor_events?select=id,title,city,event_date&kind=eq.concert&order=event_date.asc
+/events?select=id,title,city,event_date&kind=eq.concert&order=event_date.asc
 
 # The city catalogue. 1,451 rows, and PostgREST STOPS AT 1000 WITHOUT SAYING SO
 # -- an unfiltered read hands you the alphabet to about M and looks complete.

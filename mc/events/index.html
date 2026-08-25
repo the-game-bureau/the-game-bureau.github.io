@@ -1134,19 +1134,26 @@
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    // The table is called anchor_events, not events. It predates this page —
-    // 20260720_anchor_events.sql created it, and games.anchor_event_id is a FK
-    // to it — so renaming would mean a migration plus a builder change for no
-    // behavioural gain.
+    // public.events. It was `anchor_events` until 2026-08-25 -- see
+    // mc/supabase/migrations/2026082501_anchor_events_becomes_events.sql. The
+    // qualifier was distinguishing the table from a thing that does not exist:
+    // nothing else in the database calls itself an event. GAMES are built on top
+    // of these rows and are their own table.
     //
-    // THIS FILE IS mc/events/index.html AS OF 2026-08-23, moved out of
-    // mc/data/events.html so the room is named after the table it edits rather
-    // than after the folder it happened to sit in. A hard break with no
-    // redirect, like every move here: /mc/data/events.html now 404s. The Data
-    // Warehouse card and the admin nav entry were repointed in the same commit.
+    // `games.anchor_event_id` KEPT ITS NAME and still points here. The column
+    // describes what it holds, and renaming it would touch public.games, which
+    // both engines read at play time and which is the paid product.
+    //
+    // THE FILE MOVED THREE TIMES IN THREE DAYS and the rename is what stopped
+    // it: mc/data/events.html, then mc/anchor_events.html on 2026-08-23 to name
+    // the table, then mc/events/index.html on 2026-08-24 to follow the folder
+    // convention. Each move traded one rule against the other because the room
+    // and the table were called different things. Now they are not. Every move
+    // was a hard break with no redirect, so all three old paths 404.
+    //
     // The older editor at mc/anchor-events.html was deleted on 2026-08-01; this
     // is the only editor over these rows.
-    const TABLE = 'anchor_events';
+    const TABLE = 'events';
     // The standing sentence lives in the markup as .room-blurb now, so there is
     // nothing for setStatus to fall back TO: an empty message clears the pen.
     // Printing the description in red every time a write finished was the old
@@ -1308,8 +1315,8 @@
       const covered = FIELD_GROUPS.reduce((acc, g) => acc.concat(g.fields), []).concat(HEADER_FIELDS);
       const missing = EDITABLE_FIELDS.filter((f) => covered.indexOf(f) === -1);
       const stray = covered.filter((f) => EDITABLE_FIELDS.indexOf(f) === -1);
-      if (missing.length) console.error('anchor_events: editable fields with no control, so unreachable on the card:', missing);
-      if (stray.length) console.error('anchor_events: a control names a field that is not editable:', stray);
+      if (missing.length) console.error('events: editable fields with no control, so unreachable on the card:', missing);
+      if (stray.length) console.error('events: a control names a field that is not editable:', stray);
     }());
 
     const PAGE_SIZE = 50;
@@ -2383,7 +2390,7 @@
       return [
         'You are researching real, scheduled, real-world events for The Game Bureau, which builds location-based games around them. A game is played in the host city on the day of the event, so every row has to be a real event with a real date and a real venue.',
         '',
-        'Task: find ' + n + ' events and return them as ONE Supabase SQL script that inserts into public.anchor_events.'
+        'Task: find ' + n + ' events and return them as ONE Supabase SQL script that inserts into public.events.'
           + (hint ? ' Focus on: ' + hint + '.' : ''),
         promptScopeLine(),
         '',
@@ -2454,7 +2461,7 @@
         '- Do not re-add anything in the "already in the catalog" list below.',
         '',
         'Use this exact SQL shape (replace the sample rows with your ' + n + '):',
-        'insert into public.anchor_events',
+        'insert into public.events',
         '  (id, kind, title, description, league, sport, event_date, end_date, start_time,',
         '   away_locale, away_mascot, home_locale, home_mascot, venue_name, city, neutral_site, status, url, source)',
         'values',
@@ -2469,8 +2476,8 @@
         '- an ordinary home game flagged `neutral=YES` is also wrong; remember the suburb stadiums listed above;',
         '- a non-sports row should be `neutral=no`.',
         'If you find any, append a SECOND fenced ```sql block after the first containing only UPDATE statements, one per id, and nothing else:',
-        "  update public.anchor_events set neutral_site = true  where id = 'NFL-2026-W1-LAR-SF';",
-        "  update public.anchor_events set neutral_site = false where id = 'SOME-OTHER-ID';",
+        "  update public.events set neutral_site = true  where id = 'NFL-2026-W1-LAR-SF';",
+        "  update public.events set neutral_site = false where id = 'SOME-OTHER-ID';",
         'Then, after that block, list in plain prose which rows you changed and why. If nothing needs fixing, say "no neutral-site corrections" and omit the second block entirely. Never guess; only correct a row you can actually verify.',
         '',
         'Already in the catalog. Do not re-add any of these, and audit their neutral-site flags as described above.',
@@ -3292,7 +3299,7 @@
       STATUS_SUSPENDED: 'postponed', STATUS_DELAYED: 'scheduled'
     };
 
-    // One feed event -> one anchor_events row. Everything the row needs is in
+    // One feed event -> one events row. Everything the row needs is in
     // the feed except the venue's timezone, which venueZone() supplies.
     function mapEspnEvent(event, cfg, weekNumber) {
       const comp = event && Array.isArray(event.competitions) ? event.competitions[0] : null;
@@ -3644,10 +3651,10 @@
       const named = MANUAL_ORDER.filter((f) => f !== '-');
       const missing = EDITABLE_FIELDS.filter((f) => named.indexOf(f) === -1);
       const twice = named.filter((f, i) => named.indexOf(f) !== i);
-      if (missing.length) console.error('anchor_events: MANUAL form is missing editable fields:', missing);
+      if (missing.length) console.error('events: MANUAL form is missing editable fields:', missing);
       // A field injected into a group that already lists it would render two
       // boxes for one column, and readForm would take whichever it found first.
-      if (twice.length) console.error('anchor_events: MANUAL form lists a field twice:', twice);
+      if (twice.length) console.error('events: MANUAL form lists a field twice:', twice);
     }());
 
     function buildManualForm() {

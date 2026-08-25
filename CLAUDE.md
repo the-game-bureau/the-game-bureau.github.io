@@ -1668,7 +1668,71 @@ Mission Control had grown a dialog vocabulary per room — `.tool-modal-panel` (
 
 ## Anchor events — the real-world events games are built around
 
-**The table is `public.anchor_events`, not `events`.** [mc/supabase/migrations/20260720_anchor_events.sql](mc/supabase/migrations/20260720_anchor_events.sql) created it and `games.anchor_event_id` is a FK to it, so the name is load-bearing in the builder. [mc/events/index.html](mc/events/index.html) ("Anchor Events", added 2026-08-01) is the editor over those rows, and the only one — it replaced `mc/anchor-events.html`, deleted the same day. **Don't create a second `events` table**, or the builder's Choose Event picker in [mc/profiles.html](mc/profiles.html) will silently ignore half the catalog.
+**THE TABLE IS `public.events` AS OF 2026-08-25**, renamed from
+`public.anchor_events` by [2026082501](mc/supabase/migrations/2026082501_anchor_events_becomes_events.sql), **apply by hand**. The qualifier was
+distinguishing it from a thing that does not exist: nothing else in the database
+calls itself an event. **GAMES are built on top of these rows and are their own
+table.** [20260720_anchor_events.sql](mc/supabase/migrations/20260720_anchor_events.sql) created it and
+`games.anchor_event_id` is a FK to it, so the migration filenames and that column
+still carry the old word — see below.
+
+**THIS ENDED THE ROOM'S THREE MOVES IN THREE DAYS.** `mc/data/events.html`, then
+`mc/anchor_events.html` on 2026-08-23 to name the table, then
+`mc/events/index.html` on 2026-08-24 to follow the folder convention. **Each move
+traded one rule against the other because the room and the table were called
+different things.** Renaming the table is what stopped the trade; the path, the
+room and the table now agree. The standing "do not create a `public.events`
+table" warning is retired with it — it IS that table.
+
+**WHAT A TABLE RENAME BREAKS, AND WHAT IT DOES NOT.** Worth knowing, because the
+list is shorter and sharper than it looks.
+- **SAFE, following the table by OID rather than by name:** `games.anchor_event_id`'s
+  foreign key, all three triggers, and all three trigger FUNCTIONS — which read
+  `new.*` and never name the table.
+- **BROKEN, and repaired in the same migration: `tgb_pull_concert_tours`.** A
+  plpgsql body is stored as TEXT and resolved at runtime, so `insert into
+  public.anchor_events` would have raised `42P01` on **TGB CONCERT BOT's next
+  unattended run, at noon, with nobody watching.** That is the one thing a rename
+  silently arms here.
+  - **IT IS RE-CREATED FROM THE LIVE DEFINITION, not from the repo's copy.**
+    `pg_get_functiondef`, one identifier replaced, `execute`. **A `create or
+    replace` rewrites the WHOLE function** and this project has already lost a
+    column that way — 2026081302 rebuilt the socials pull's INSERT list and
+    dropped `confidence` for five days. Changing one identifier cannot drop
+    anything, and it repairs whatever is actually installed even if that has
+    drifted from the file.
+- **The indexes, the primary key and the policies are renamed by scanning the
+  catalog**, not by listing the five names this repo happens to know about — so
+  anything added by hand in the dashboard moves too. A table called `events`
+  whose key is `anchor_events_pkey` half-remembers its old name.
+
+**NO COMPATIBILITY VIEW, DELIBERATELY, AND THIS DEPARTS FROM THE routes -> paths
+PRECEDENT.** That rename left read-only views at the old names because its
+consumers were spread across two engines and could not all be enumerated. **Here
+they can, and there were five**, all in this repo: the room, `mc/marquee.html`,
+the Data Warehouse card, TGB CONCERT BOT's prompt file, and the function above.
+A view would guard against nothing but our own oversight and would **hide** it —
+the same failure that got the soundtracks JSON fallback deleted, where a stale
+file rendered perfectly and told nobody the tables were unreachable. `PGRST205`
+names itself; let it.
+
+**`games.anchor_event_id` IS NOT RENAMED, AND THAT IS A DECISION.** The column
+still describes what it holds. Renaming it would touch `public.games`, which
+**both engines read with `select=*` at play time** and which is the paid product.
+`games.anchor_event_id -> events.id` reads perfectly well. Do it on its own day.
+
+**THE CHOOSE EVENT PICKER IS IN [mc/marquee.html](mc/marquee.html), NOT `mc/profiles.html`**, which is
+what this file said. Worth knowing before somebody greps for it.
+
+**THE OLD NAME SURVIVES IN THREE PLACES ON PURPOSE**: the migration FILENAMES,
+which are history; the trigger names (`tgb_anchor_events_sync_labels` and the
+other two), which are identifiers the `label-drift` finding names out loud; and
+`games.anchor_event_id`. Renaming the triggers would mean editing that finding's
+message for no gain — the same bargain the Tape Room made through four renames of
+its verbs without the column following.
+
+**Don't create a second `events` table**, or the builder's Choose Event picker in
+[mc/marquee.html](mc/marquee.html) will silently ignore half the catalog.  [mc/events/index.html](mc/events/index.html) ("Anchor Events", added 2026-08-01) is the editor over those rows, and the only one — it replaced `mc/anchor-events.html`, deleted the same day. **Don't create a second `events` table**, or the builder's Choose Event picker in [mc/profiles.html](mc/profiles.html) will silently ignore half the catalog.
 
 **IT IS `mc/events/index.html` AS OF 2026-08-24**, and that is the FOURTH address in two days. In order: `mc/data/events.html`, then `mc/anchor_events.html` on 2026-08-23, then here.
 
