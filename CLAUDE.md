@@ -1993,6 +1993,37 @@ read, still cleared only once acted on, still `replaceState` — so rebuilding t
 affordance is one link on the annotation line if it is wanted. What was lost is
 only the link.
 
+### 12:01 AM MEANS THE KICKOFF HAS NOT BEEN ANNOUNCED (2026-08-24)
+
+`TBA_TIME = '00:01'`, written by the ESPN importer and backfilled onto the 43
+rows already filed by [2026082402](mc/supabase/migrations/2026082402_anchor_events_tba_start_time.sql), **apply by hand**.
+
+- **ESPN SAYS SO AND THE IMPORTER THREW IT AWAY.** A fixture with no published
+  kickoff still carries a placeholder UTC timestamp, and `status.type.shortDetail`
+  reads `TBD`. The importer copied that into the description and then **zoned the
+  placeholder anyway**, so the 43 rows hold **26 at 00:00, 11 at 23:00, 5 at
+  21:00 and 1 at 22:00** — one placeholder seen through four timezones.
+- **A WRONG TIME IS WORSE THAN A BLANK, and this is why it mattered.**
+  `no-start-time` cannot see these rows: the field IS populated. The standing
+  rule that an unmapped venue leaves `start_time` NULL exists for exactly this
+  reason and was being undercut by the branch above it.
+- **00:01 IS THE LISTINGS CONVENTION** for "to be announced". It sorts to the top
+  of its own day rather than sitting among the evening games, and it is one
+  minute off a midnight that might be genuine.
+- **THE COST, PLAINLY: it is a real time.** The field alone cannot be told from a
+  genuine 12:01 AM event. What stops that being lost is that **the TBD stays in
+  the description** and the `tbd` rule keeps the row in review until somebody
+  replaces it with the real kickoff. **Do not tidy those descriptions** — the
+  sentence is the only evidence of what 00:01 means.
+- **THE BACKFILL MATCHES ON THE DESCRIPTION, NEVER ON THE TIME.** All four
+  placeholder clock values are times real fixtures also hold, so matching on them
+  would rewrite genuine kickoffs. Word-boundary in Postgres (`~*` with `\m`/`\M`)
+  as on the page, and `is distinct from` makes it re-runnable.
+- **ONE CONSTANT.** `TBA_TIME` is named once, so the importer and any future
+  writer cannot disagree about which minute means "not announced".
+- **The page writes it going forward**, so the migration is a backfill of what is
+  already filed rather than the mechanism — the same split as the `tbd` rule.
+
 ### A TBD ANYWHERE ON THE ROW FORCES REVIEW (2026-08-24)
 
 The `tbd` rule scans **every editable text field** for `tbd` / `tba` / `to be

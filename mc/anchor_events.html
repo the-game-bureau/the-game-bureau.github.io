@@ -2701,6 +2701,9 @@
     // WORD-BOUNDARY, NEVER A BARE SUBSTRING. A loose match would flag any word
     // that happens to contain the letters, and a rule that cries wolf is one
     // people stop reading.
+    // ONE CONSTANT, so the importer, the rule and any future writer cannot
+    // disagree about which minute means "not announced".
+    const TBA_TIME = '00:01';
     const TBD_RE = /\b(tbd|tba|to be determined|to be announced)\b/i;
     const TEXT_FIELDS = EDITABLE_FIELDS.filter(
       (f) => !NUMERIC_FIELDS.includes(f) && !BOOLEAN_FIELDS.includes(f)
@@ -3328,7 +3331,20 @@
         // through that function because this builds a row from scratch instead
         // of reading one off a form.
         end_date: eventDate || null,
-        start_time: local ? local.time : null,
+        // 12:01 AM MEANS THE KICKOFF HAS NOT BEEN ANNOUNCED. ESPN sets a
+        // placeholder UTC timestamp on a TBD fixture and says so in
+        // `shortDetail`; zoning that placeholder produced a real-looking
+        // 21:00 or 00:00, which is the worst answer available because
+        // `no-start-time` cannot see it -- the field is populated. 00:01 is
+        // the listings convention for "to be announced", it sorts to the top
+        // of its own day rather than sitting among the evening games, and it
+        // is one minute off a midnight that might be genuine.
+        //
+        // THE COST, PLAINLY: it is a real time, so the field alone cannot be
+        // told from a genuine 12:01 AM event. What stops it being lost is that
+        // the TBD stays in the description and the `tbd` rule keeps the row in
+        // review until somebody replaces it with the real kickoff.
+        start_time: TBD_RE.test(publishedTime) ? TBA_TIME : (local ? local.time : null),
         away_locale: clean(away.team.location) || null,
         away_mascot: clean(away.team.name) || null,
         home_locale: clean(home.team.location) || null,
