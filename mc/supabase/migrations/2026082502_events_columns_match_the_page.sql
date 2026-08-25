@@ -348,8 +348,21 @@ commit;
 --           count(*) filter (where venue_state_code is not null) as stated,
 --           count(*) filter (where venue_country_code is not null) as countried
 --      from public.events;
---    -- expect 603 named, ~600 stated (non-US rows have a country instead),
---    -- and every row to have exactly one of state_code or country_code
+--    -- APPLIED 2026-08-25, and the real answer was:
+--    --   venue_city_name    603 / 603
+--    --   venue_state_code   592 / 603
+--    --   venue_country_code 603 / 603
+--    --
+--    -- THIS NOTE PREDICTED "exactly one of state_code or country_code" AND THAT
+--    -- WAS WRONG. A US row carries BOTH: WA *and* USA. Checked against
+--    -- public.cities, which is the reference implementation and does the same
+--    -- thing -- "Seattle, Washington" is city_name=Seattle, state=WA,
+--    -- country=USA there too. The eleven rows with no state are the eight
+--    -- non-US venues (Dublin, London, Melbourne, Rio de Janeiro, Saint-Denis,
+--    -- Madrid, Munich, Mexico City), which carry a country instead.
+--    --
+--    -- The expectation was the broken half, not the migration. Worth leaving
+--    -- written down, because the next person will guess the same way.
 --
 --    select venue_city, venue_city_name, venue_state_code, venue_country_code
 --      from public.events order by random() limit 5;
@@ -398,3 +411,9 @@ commit;
 --    --        A Hall / Chicago, Illinois / Chicago / IL
 --
 --    delete from public.events where id = 'CONCERT-COLUMNS-PROBE';
+--
+--    RUN 2026-08-25 AND IT PASSED: outcome "inserted", and the row came back
+--    concert / scheduled / SeatGeek / 2027-06-01 / 2027-06-01 / A Hall /
+--    Chicago, Illinois / Chicago / IL. So the JSON contract survived (the call
+--    still sends `city`, `event_date` and `venue_name`) AND the INSERT writes
+--    the new columns, which is exactly the pair section 4 exists to keep apart.

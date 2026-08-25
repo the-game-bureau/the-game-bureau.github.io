@@ -1720,6 +1720,33 @@ Mission Control had grown a dialog vocabulary per room — `.tool-modal-panel` (
 
 ## Anchor events — the real-world events games are built around
 
+**THE COLUMNS ARE THE PAGE'S WORDS AS OF 2026-08-25** — [2026082502](mc/supabase/migrations/2026082502_events_columns_match_the_page.sql), **applied**.
+`event_date` is `start_date`, `venue_name` is `venue`, `city` is `venue_city`,
+`away_locale`/`away_mascot` are `away_team_geo`/`away_team_nickname`,
+`away_label` is `away_team_name`, `away_score` is `away_team_score`, and the
+same four for home. The triggers are `tgb_events_*`. **Verified against the live
+table**: all eleven old names 400, all eleven new ones 200, 603 rows with
+nothing lost, and every `away_team_name` agreeing with its two halves.
+
+**`venue_city` KEEPS THE CANONICAL COMPOSITE and gained five derived parts** —
+`venue_city_name`, `venue_state_code`, `venue_state_name`, `venue_country_code`,
+`venue_country_name` — filled by `tgb_sync_events_geo` from `tgb_parse_geo`,
+the pattern `games`, `teams` and `cities` already use. **A US row carries BOTH a
+state and a country** (WA *and* USA), exactly as `cities` does; the eleven rows
+with no state are the eight non-US venues. The migration's own verify note
+predicted "exactly one of the two" and was wrong, which is left written down
+there because the next reader will guess the same way.
+
+**THE BACKFILL HAD TO MOVE, AND ONLY A REAL RUN SHOWED IT.** A no-op
+`update ... set venue_city = venue_city` fires EVERY before-update trigger, not
+just the geo one — so at the end of section 2 it ran while the OLD
+`tgb_anchor_events_sync_labels` was still attached, still reading
+`new.away_locale`, a column section 1 had renamed away four statements earlier:
+`42703: record "new" has no field "away_locale"`. **A backfill that writes rows
+must come after every trigger on the table is consistent with the new shape.**
+The file is one transaction, so the failure rolled back cleanly and cost
+nothing.
+
 **THE TABLE IS `public.events` AS OF 2026-08-25**, renamed from
 `public.anchor_events` by [2026082501](mc/supabase/migrations/2026082501_anchor_events_becomes_events.sql), **apply by hand**. The qualifier was
 distinguishing it from a thing that does not exist: nothing else in the database
