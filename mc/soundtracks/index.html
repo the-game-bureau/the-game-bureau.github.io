@@ -1598,7 +1598,7 @@
         <span class="issue-foot-note" id="tracksFoot"></span>
       </div>
     </section>
-
+  </main>
 
   <script type="application/json" id="tgb-agent-context">
 {
@@ -1606,9 +1606,9 @@
   "docs": "mc/soundtracks/soundtracks.md",
   "publicPage": "/soundtracks/",
   "tables": {
-    "tapes": "public.soundtracks (city_slug pk, spine_tag, spine_tag_position, archived)",
     "tracks": "public.soundtrack (city_slug, tape, position, title, artist, blurb, spotify_id, explicit, archived). ONE TABLE, one row per track; the tape is (city_slug, tape) and there is no tape id.",
-    "counts": "public.soundtrack_stats (active_songs, archived_songs, last_song_at per tape)"
+    "counts": "public.soundtrack_stats, a view grouped by (city_slug, tape): active_songs, archived_songs, last_song_at, and archived = bool_and(archived), so a tape is shelved when every track on it is",
+    "findings": "public.soundtrack.findings, a jsonb array. Admin-read only: anon holds per-column grants that exclude it, so select=* answers 42501"
   },
   "writePath": {
     "rpc": "public.tgb_pull_soundtrack_songs(payload jsonb). Replies {added, skipped}.",
@@ -2532,7 +2532,12 @@
           // ONE TABLE, ONE READ. public.soundtrack is one row per TRACK; the
           // TAPE is (city_slug, tape) and is grouped out below. There is no
           // tapes table, no tape id and no findings table any more.
-          fetchAllRows('soundtrack?select=*&order=city_slug.asc,tape.asc,position.asc,id.asc'),
+          // `true` IS useAuth AND IT IS LOAD-BEARING. `findings` is revoked from
+          // `anon` by per-column grant, and PostgREST expands `*` to columns the
+          // caller cannot read, so this exact request answers **401 / 42501**
+          // without a session. The room is admin-gated and needs the findings,
+          // so it reads as the signed-in admin rather than naming its columns.
+          fetchAllRows('soundtrack?select=*&order=city_slug.asc,tape.asc,position.asc,id.asc', true),
           Promise.resolve([]),
           Promise.resolve([]),
 
