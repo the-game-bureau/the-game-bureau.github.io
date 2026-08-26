@@ -637,6 +637,28 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### A TRACK CAN BE MARKED SPORTS (2026-08-26)
+
+`public.soundtrack.sports`, a plain boolean, false by default. [2026082601](mc/supabase/migrations/2026082601_soundtrack_sports.sql),
+applied. An `S` checkbox beside `E` on every track row.
+
+- **PER TRACK, NOT PER TAPE.** A tape is not a sports tape; it is a city's tape
+  with two or three sports tracks on it, which is the ratio the brief has asked
+  for from the beginning. The fact belongs on the track that IS one.
+- **NOTHING READS IT YET, and that is worth writing down.** It is for filtering
+  at play time in a game. An unread boolean invites repurposing: this one means
+  *this recording is sports music*, not *this track is good for a game*, and
+  those diverge the moment anybody wants the second.
+- **THE `anon` GRANT HAD TO BE RE-ISSUED, and every future column here does
+  too.** That grant is PER COLUMN so `findings` can stay out of it, and **a
+  column added later is not covered by it**. The public page names its columns,
+  so one it names and cannot read answers 42501 for the whole request and the
+  page goes blank. Verified after: `select=id,sports` 200, `select=*` 401.
+- **THE GRID GAINED A COLUMN AND ALL FOUR PLACES MOVED TOGETHER** -- the popup's
+  `--track-cols`, the main list's, the main header's, and the popup's static
+  header markup -- plus the built header's cell list and its `--mid` indices.
+  Miss one and every label sits a column left of the field it names.
+
 ### EVERYTHING SHELVED, NO FILTERS, BADGES LEAD THE ROW (2026-08-26)
 
 - **EVERY TAPE AND TRACK IS SHELVED.** `update public.soundtrack set archived =

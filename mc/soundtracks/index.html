@@ -493,7 +493,7 @@
     .track-head,
     .track-lines {
 
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -922,7 +922,7 @@
        and would otherwise resolve to nothing out here and collapse every
        column to zero. */
     .track-line--in-list {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
       margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
@@ -1003,7 +1003,7 @@
        `.track-head, .track-lines`, which live inside the popup, so out here it
        would resolve to nothing and collapse every column to zero. */
     .track-head--main {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
       margin-left: 22px;
       margin-bottom: 4px;
     }
@@ -1387,6 +1387,7 @@
           <span class="track-head-label">Blurb</span>
           <span class="track-head-label" title="The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.">Spotify</span>
           <span class="track-head-label track-head-label--mid" title="Marked explicit on Spotify">E</span>
+          <span class="track-head-label track-head-label--mid" title="Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.">S</span>
 
           <label class="tape-air track-air tape-air--all" id="trackAirAll">
             <span class="tape-air-word tape-air-word--off">Shelved</span>
@@ -2103,6 +2104,7 @@
           };
           if (row.spotify_id) song.spotifyId = row.spotify_id;
           if (row.explicit) song.explicit = true;
+          if (row.sports) song.sports = true;
           if (row.archived) song.archived = true; else tape.archived = false;
           if (row.archived_with_tape) song.archivedWithTape = true;
 
@@ -3172,7 +3174,8 @@
             position: Number(posEl.value) || 0,
             blurb: text(blurbEl.value) || null,
             spotify_id: spotifyIdFrom(idEl.value) || null,
-            explicit: !!explicitEl.checked
+            explicit: !!explicitEl.checked,
+            sports: !!sportsEl.checked
           };
           if (apply) apply(fields);
           if (!fields.title || !fields.artist) {
@@ -3355,6 +3358,24 @@
         });
         explicitWrap.appendChild(explicitEl);
 
+        // SPORTS. A fight song, a victory anthem, a stadium walk-up or goal
+        // song, something a crowd sings outside the ground. Per TRACK, because
+        // a tape is a city's tape with two or three of these on it rather than
+        // a sports tape. Nothing reads it yet; it is for filtering at play time
+        // in a game.
+        var sportsWrap = document.createElement('span');
+        sportsWrap.className = 'track-explicit track-sports';
+        var sportsEl = document.createElement('input');
+        sportsEl.type = 'checkbox';
+        sportsEl.checked = !!song.sports;
+        sportsEl.setAttribute('aria-label', 'Sports music, for ' + songDisplay(song));
+        sportsEl.title = 'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song, '
+          + 'something a crowd sings outside the ground. Nothing reads it yet; it is for filtering at play time.';
+        sportsEl.addEventListener('change', function () {
+          commit(null, null, function (f) { f.sports = !!sportsEl.checked; });
+        });
+        sportsWrap.appendChild(sportsEl);
+
         var air = document.createElement('label');
         air.className = 'tape-air track-air';
         var off = document.createElement('span');
@@ -3424,7 +3445,7 @@
         newCell.className = 'track-line-new';
         if (isNewTrack(song)) newCell.appendChild(trackNewBadge(song));
 
-        line.append(newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, air, del);
+        line.append(newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, sportsWrap, air, del);
 
         if (isFocused) {
           var stage = document.createElement('div');
@@ -3668,6 +3689,7 @@
         ['Blurb', 'The sentence under this track on /soundtracks/. Ten words or fewer.'],
         ['Spotify', 'The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.'],
         ['E', 'Marked explicit on Spotify'],
+        ['S', 'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'],
         ['', 'Live on /soundtracks/, or shelved off it.'],
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
@@ -3679,7 +3701,7 @@
         TRACK_HEAD_CELLS.forEach(function (cell, i) {
           var el = document.createElement('span');
           el.className = 'track-head-label'
-            + (i === 7 || i === 9 ? ' track-head-label--mid' : '');
+            + (i === 7 || i === 8 || i === 10 ? ' track-head-label--mid' : '');
           el.textContent = cell[0];
           if (cell[1]) el.title = cell[1];
           head.appendChild(el);
