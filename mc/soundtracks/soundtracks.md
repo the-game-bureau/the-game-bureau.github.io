@@ -302,10 +302,24 @@ response at 1,000 rows and truncates silently, and there are over 1,600 tracks.
 
 The `kind` string drives the filter in the Tape Room, so it matters.
 
-- **`spotify`** the id resolves to nothing, or to a **different recording** than
-  the title and artist claim. Check this first, file at severity `high`: it is
-  the only failure a visitor actually hits. A *wrong* id is far worse than a
-  *missing* one, since missing falls back to a search and still works.
+- **`spotify`** three separate faults, and the severity is what tells them
+  apart. Check this kind first: it is the only failure a visitor actually hits.
+  - the id resolves to **nothing**, or to a **different recording** than the
+    title and artist claim: severity `high`. A wrong id passes every format
+    check and then plays the wrong song, or nothing, under our name.
+  - the id is **MISSING**: severity `warn`. A wrong id is far worse than a
+    missing one, because missing falls back to a Spotify search and the track
+    still works. **But it is a real gap and it is worth a human's minute**: the
+    track cannot be previewed from the room without one, and **208 of the
+    catalogue's 1,651 tracks are in this state** (counted 2026-08-26). Say it
+    plainly: *no Spotify id, so this cannot be previewed and falls back to a
+    search.*
+  - **NEVER FILE A MISSING ID AND THEN GUESS ONE.** The rule in section 6 is
+    unchanged and it outranks this: an id you did not open a real
+    `open.spotify.com/track` page for does not go in the row. Reporting the gap
+    is the WHOLE of what you may do about it. The finding is what asks a human to
+    fill it in, and filling it with a fabricated id is the worst outcome
+    available here.
 - **`spelling`** a misspelled title or artist, a typo in a blurb, a
   mis-capitalised proper noun. Check against the real release rather than your
   expectation: stylised titles are often correct as written.
@@ -376,7 +390,9 @@ The reply is `{"added": N, "skipped": M}`.
 
 The one thing you may fix yourself is a song **you added this run** that you
 then find fault with. And never propose retiring a song merely because you could
-not verify its Spotify id: the song stays, the id is simply absent.
+not verify its Spotify id: the song stays, the id is simply absent, and **the
+audit files that absence as a `spotify` finding at `warn`** so a human can go and
+find it.
 
 ---
 
@@ -407,6 +423,7 @@ asked to.
 
 Then a short summary: which two cities and why, the titles you added, which are
 the sports picks and how you confirmed each pairing, every `skipped` and what
-you did about it, any song whose Spotify id you could not verify, and which five
+you did about it, any song whose Spotify id you could not verify (each of which
+is also a `spotify` finding at `warn`, filed against the track), and which five
 tapes you audited with how many findings filed. **A clean tape is a result worth
 stating.** Nobody is watching this run, so the summary is the only record of it.
