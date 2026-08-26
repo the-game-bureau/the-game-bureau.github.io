@@ -656,36 +656,31 @@ head, so pressing Next at rest made the page jump away from you.
   no call at all. jsdom does no layout, so counting the calls is the only thing
   that can be asserted headlessly here.
 
-### THE SORT ROW AND THE TAPE ROW ARE ONE ROW (2026-08-26)
+### TWO BARS, AND EACH MEANS ONE THING (2026-08-26)
 
-`.ctl-taperow` was `flex: 1 0 100%`, which forced the tape's line onto a second
-line and made the header two bars again in everything but the border between
-them. It is `flex: 1 1 520px` now: it takes the remaining width and wraps only
-when there genuinely is not enough.
+Merging the room's controls into the tape's line was tried and reversed the same
+day. **Eleven controls of two different kinds on one row** is what it produced,
+with the two Shelved/Live toggles side by side meaning different things. The
+split is back and this is the settled shape:
 
-- **A DIVIDER, NOT A RULE.** A `border-left` before the tape's half, so the
-  room's controls and this tape's own controls do not read as one
-  undifferentiated run of buttons.
-- **THE TAPE LINE KEEPS NO CARD OF ITS OWN** inside the panel: no border, no
-  radius, no background.
+| bar | what it is about |
+|---|---|
+| `.room-controls` | the CATALOGUE: how it is sorted, which of its 113 tapes are shown |
+| `.tape-bar` | the TAPE IN FRONT OF YOU: where it is, its name, its counts, its status, and the way to the next one |
 
-**IT BROKE A RULE THIS FILE STATES, AND THE FILTER CHANGED SHAPE RATHER THAN
-MOVING BACK OUT.** *"A switch on a ROW is a status changer, a switch in a HEADER
-is a filter"* stopped working when both Shelved/Live switches ended up in one
-header looking identical. **The catalogue filter is now two pills, `Live 97` and
-`Shelved 16`, matching Issues and New**, because that is what it does. There is
-exactly **one toggle switch left in the header and it is inside the tape's row**,
-which a test asserts.
-
-- **NEITHER TICKED AND BOTH TICKED MEAN THE SAME THING**, which is the honest
-  reading of "show live" and "show shelved" asked together, and it means the
-  pair can never express a filter that shows nothing.
-- **`paintMasterAir` MUST NOT WRITE THE BOXES BACK.** It did, and ticking both
-  then unticked both on the next render: both ticked derives to `all`, and `all`
-  derives back to neither. The meaning was right and the controls jumped under
-  the pointer. **The boxes are the state; the painter paints counts.**
-- **The counts are over the whole catalogue**, never over what the filter has
-  left, so they do not shrink as you narrow.
+- **THE TAPE'S BAR IS THE STICKY ONE, not the room's.** The room's bar is
+  reference, set once and read past; the tape's carries the arrows and the
+  status switch and is worth having on screen while you work down its tracks.
+  It was the other way round, which pinned the half you do not touch.
+- **THE ROOM'S BAR IS QUIETER**, a shade smaller and unpinned, so the two do not
+  compete for the same attention.
+- **THE FILTER STAYING TWO PILLS IS THE PART TO KEEP.** It was made pills to
+  stop it being mistaken for the tape's own switch when they shared a row; they
+  no longer share one, and it should stay pills anyway, because `Live 97` and
+  `Shelved 16` say what they do and carry their counts, which a two-position
+  switch cannot.
+- **THE ORDER IS `room-controls > tape-bar > tape-lines`**, asserted by a test
+  that reads the panel's children in sequence rather than checking each exists.
 
 ### THE CATALOGUE COUNT SITS WITH THE ROOM'S NAME (2026-08-26)
 
