@@ -715,6 +715,58 @@ The `x` at the end of the track header deleted the whole tape. It now deletes
   not, and it is the reason **Shelve instead** sits on the confirmation as the
   first button.
 
+### EVERY TRACK FILTER IS IN THE VIEW BAR (2026-08-26)
+
+The Shelved/Live switch and the Explicit and Sports buttons were built into the
+track header, one per column. **They are in the VIEW bar now**, next to the place
+filter, so every control that decides what you are looking at is in one place.
+The header labels its columns and holds the tick and the batch button; **it
+narrows nothing and writes nothing.**
+
+- **WHY THEY LOOKED RIGHT ON THE HEADER AND WERE WRONG THERE.** A header labels
+  the columns under it; these three narrow the LIST. Reading well is not the same
+  as belonging.
+- **THE BAR NOW READS: pager, place, status, explicit, sports | doors.**
+  Everything left of the separator narrows what you are looking at; everything
+  right of it is somewhere to go. A test asserts that order.
+- **THE CONTROLS ARE PAINTED FROM STATE, NEVER READ FROM.** `trackAirFilter` and
+  `trackFlagFilter` are the truth and `paintViewFilters` draws from them on every
+  render, so **the popup's own switch and these cannot disagree** -- which is the
+  failure this switch has already had once.
+- **THE SWITCH COUNTS THE TAPE ON SCREEN.** The list it narrows is one tape's; a
+  catalogue-wide figure beside it would be the bar answering a question nobody
+  asked.
+- **`buildAirFilter` and `buildFlagFilter` ARE GONE.** The VIEW controls are
+  markup plus a painter, because there is one of each and they are not rebuilt
+  per tape.
+- **THE TAPE HEADER WAS NOT DELETED, and the condition for deleting it is not
+  met.** It still carries the select-all tick, the Batch edit button and twelve
+  column labels; removing it would take all three. **What left it is every
+  control that filtered or wrote.**
+
+### THE ROOM IS 1,400px WIDE, AND THE VIEW BAR STILL DOES NOT FIT (2026-08-26)
+
+`--mc-shell-width` went from 1,180 to 1,400, and `.app` reads that token rather
+than carrying its own number.
+
+**MEASURED, NOT FELT.** The VIEW bar needs about **1,117px** for the pager, four
+filters and four doors. ADD's two buttons want about **387px**.
+
+| shell | row | ADD gets |
+|---|---|---|
+| 1,180 | 1,148 | **19px** -- both buttons clipped to nothing |
+| 1,400 | 1,368 | 239px -- both partly readable |
+| 1,560 | 1,528 | 399px -- everything fits |
+
+**1,400 IS A COMPROMISE AND IS RECORDED AS ONE.** ADD still clips. The options,
+none of them mine to choose: shorten `LISTENER STATS` / `ABOUT` / `ISSUES`, drop
+a door, let the bar wrap under a width, or go to 1,560 and accept a frame wider
+than most laptops.
+
+**THE TABLE IS THE OTHER WINNER.** Twelve columns at 14pt had 1,148px; they have
+1,368, which takes the title column from 195px to 290 and the blurb from 146 to
+218.
+
 ### ONE FILTER AT A TIME: LIVE, EXPLICIT OR SPORTS (2026-08-26)
 
 The Explicit and Sports column headers are buttons that filter on their own
@@ -831,113 +883,6 @@ pressing it opens a dialog with everything a selection can be made to do.
   once: both `--track-cols` declarations, the built header's cell list, its
   `--mid` and `--tiny` indices, the `fill()` positions, and the popup's static
   markup. **Miss one and every label sits a column from the field it names.**
-
-### ONE FILTER AT A TIME: LIVE, EXPLICIT OR SPORTS (2026-08-26)
-
-The Explicit and Sports column headers are buttons that filter on their own
-column, and **they are standalone**: choosing one clears the Status switch and
-the other flag, so exactly one question is ever narrowing the list.
-
-- **WHY STANDALONE.** With three filters that could combine, a short list has up
-  to three reasons and you have to check three controls to find out which. One
-  at a time means the answer is always the one control that is lit.
-- **`trackPassesFilters(song)` IS THE ONE TEST**, and both `renderTrackArchive`
-  and the popup's `renderTracks` call it. **Two readers of "what is visible" is
-  exactly how the air switch was silently inert once**: it painted the state and
-  then built its list from an unfiltered array a few lines away.
-- **TWO VARIABLES, NOT ONE.** `trackAirFilter` is a tri-state with its own
-  painter; the flags are plain toggles. The two setters clear each other, which
-  is where "standalone" actually lives.
-- **THEY ARE REAL BUTTONS with `aria-pressed`**, not labels with a click
-  handler: a word that silently does something when you click it is not a
-  control. At rest they look like the column labels they replaced, because that
-  is still what they are.
-- **THE EMPTY STATE NAMES THE FILTER THAT EMPTIED IT**, whichever of the three it
-  was, rather than assuming it was the air switch.
-- **PROVED ON A TAPE THAT HAS SOME.** The first tape has no explicit tracks, so
-  "0 of 5" is the right answer **and is also what an inert filter would give**.
-  The test walks to a tape with a mix and checks the count there, and checks the
-  press sends no PATCH, POST or DELETE.
-
-### TICK TRACKS, AND THE HEADER ACTS ON ALL OF THEM (2026-08-26)
-
-A twelfth column, first on the row, holding a tick per track and a select-all in
-the header. Tick anything and a **bulk bar** appears across the header: **Live · Shelve |
-Clear**.
-
-- **TWO VERBS, AND THEY ARE THE ONES A SELECTION IS FOR.** Explicit, Not
-  explicit, Sports and Not sports were on this bar and are gone (2026-08-26).
-  Those two columns are a fact about a RECORDING, decided one track at a time
-  from its own tick box, and **a button that set fifteen of them at once was
-  offering to be wrong fifteen times in a press.** Live and Shelve are the
-  editorial decision this room exists to make, and the one that used to cost a
-  press per track. **The flags are still editable on every row and still
-  filterable from the header; only the bulk WRITE went.**
-- **A BAR, NOT THE FILTER, AND THAT IS THE WHOLE DESIGN.** The Status header is
-  a filter and must stay one. **This room has already had the most destructive
-  act in it hiding inside its quietest control** -- a switch that read like a
-  filter and took 96 tapes off `/soundtracks/` in one press. A header switch that
-  sometimes filtered and sometimes wrote would be that again. These are separate
-  controls, worded as verbs, and **they exist only while something is selected**,
-  so they cannot be mistaken for a filter. A test asserts the Status cell holds
-  no button.
-- **IT IS WHAT MAKES A TAPE LIVE IN ONE PRESS.** When tape state went, this file
-  recorded the cost: one press per track. Select all, press Live.
-- **THE SELECTION IS PRUNED TO WHAT IS DRAWN, ON EVERY RENDER.** The filter and
-  the pager both change what is on screen, and **a bulk press that reached a
-  hidden row would be silent and would land on somebody else's work.** Stepping
-  to another tape therefore drops the selection, which a test checks.
-- **ONE REQUEST FOR THE LOT**, `id=in.(...)`, not a loop. A loop can half-finish
-  with nothing saying which half.
-- **`return=representation`, AND A SHORT REPLY IS REPORTED RATHER THAN ROUNDED
-  UP.** PostgREST answers 200 with an empty array when RLS refuses, so without
-  reading the rows back a refused press reports success; and saying "12 updated"
-  about 9 is the quiet sort of lie this room has been caught by before.
-- **DELETE ARMS FIRST AND SITS HARD RIGHT.** Everything else on the bar sets a
-  column somebody can set back; this one cannot be undone and takes the tracks'
-  do-not-rescrape tombstones with them, so the routine is free to propose every
-  one of them again.
-- **THE POPUP HAS TICKS BUT NO SELECT-ALL AND NO BAR.** The selection is shared,
-  so a box ticked there is ticked on the list behind it; the bar lives on the one
-  header that can show it without covering the tracks.
-- **THE GRID WENT FROM ELEVEN COLUMNS TO TWELVE**, which moved six things at
-  once: both `--track-cols` declarations, the built header's cell list, its
-  `--mid` and `--tiny` indices, the `fill()` positions, and the popup's static
-  markup. **Miss one and every label sits a column from the field it names.**
-
-### THE STATUS HEADER IS A FILTER AGAIN (2026-08-26)
-
-The Status column's header cell carries a Shelved / Live tri-state that narrows
-which track rows are drawn. **It is not the tape switch coming back**: that one
-wrote every row of the tape and is gone with tape state. **A switch on a ROW
-changes that track; a switch in a HEADER narrows the list. The position is what
-tells them apart**, which is the rule this room already settled once.
-
-- **ONE QUESTION ASKED FROM TWO PLACES.** The popup's `#trackAirAll` and this one
-  both drive `trackAirFilter`, and both now go through `setTrackAir`, which
-  repaints **both** surfaces. Setting it in the popup and finding the list behind
-  it unchanged is the sort of disagreement nobody notices until it costs
-  something.
-- **IT CARRIES NO id.** The popup owns `#trackAirAll`, and a second element with
-  that id would make `getElementById` answer for whichever came first.
-- **THE LIST IS BUILT FROM WHAT THE FILTER LEAVES.** `renderTracks` learned this
-  the hard way once -- it painted the switch and then built its list from an
-  unfiltered array a few lines away, so the control was silently inert. **Two
-  readers of "what is visible" is how that happens.**
-- **THE EMPTY RESULT NAMES THE WAY OUT.** The filter is in the header above, so a
-  bare "nothing here" would leave somebody looking at a tape they know has tracks
-  with no idea what hid them.
-- **IT IS THE HEADER'S SIZE, NOT THE ROW'S.** It sits among 0.62rem column
-  labels; at the row's 14pt it would be the loudest thing in the bar. The
-  switches it filters keep the row's size.
-- **THE CATALOGUE LINE DOES NOT MOVE WITH IT**, and a test asserts that, as it
-  does for the place filter.
-- **PROVED ON A TAPE THAT HOLDS BOTH.** Everything but New Orleans is shelved, so
-  on any other tape "Shelved" is the whole list and **the filter could be inert
-  without a single assertion noticing.** The test walks to the tape with live
-  tracks and checks the count there. It also checks the press sends **no PATCH
-  and no POST**, which is the whole difference between this control and the one
-  on a row.
 
 ### A TAPE HAS NO STATE. LIVE AND SHELVED ARE FACTS ABOUT A TRACK. (2026-08-26)
 
