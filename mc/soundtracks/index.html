@@ -1066,9 +1066,16 @@
 
     .bot-hint b { color: var(--ink); font-weight: 700; }
 
+    /* `display: block` BEATS `.tape-line-num`'s flex, and it has to. In a flex
+       box the three pieces of "55 tracks, 10 live" become separate flex items
+       and the spaces between them are dropped. */
     .tape-line-counts {
+      display: block;
       justify-self: start;
+      align-self: center;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       font: 500 0.78rem/1.2 var(--mono);
       color: var(--muted);
     }
@@ -2781,6 +2788,13 @@
           var issues = document.createElement('span');
           issues.className = 'tape-line-num tape-line-issues';
 
+          // IT GOES ON THE ROW, NOT IN THE NAME CELL, and that is the whole
+          // reason the first cut of this was invisible: `.tape-line-name` is a
+          // `display: flex; flex-wrap: nowrap` box, so a child of it became a
+          // flex item squeezed onto the same line, and its `grid-column` was
+          // inert because its parent is a flex container rather than the grid.
+          var findingNote = null;
+
           var flags = issuesForTape(tape);
           if (flags.length) {
             var tapeFlags = tapeIssues(tape).length;
@@ -2808,13 +2822,12 @@
             // acting on one meant opening the tape to find out whether it was
             // worth opening. The first finding's own words go here, with a
             // count when there are more.
-            var note = document.createElement('span');
-            note.className = 'tape-line-finding';
+            findingNote = document.createElement('span');
+            findingNote.className = 'tape-line-finding';
             var first = flags[0];
-            note.textContent = humaniseIssueText(text(first && first.detail))
+            findingNote.textContent = humaniseIssueText(text(first && first.detail))
               + (flags.length > 1 ? '  (+' + (flags.length - 1) + ' more)' : '');
-            note.title = issueScopeSummary(tapeFlags, trackFlags);
-            name.appendChild(note);
+            findingNote.title = issueScopeSummary(tapeFlags, trackFlags);
           }
 
           var shelved = truthyFlag(tape && tape.archived);
@@ -2918,6 +2931,7 @@
           delCell.appendChild(delBtn);
 
           row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
+          if (findingNote) row.appendChild(findingNote);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) row.appendChild(confirmStrip);

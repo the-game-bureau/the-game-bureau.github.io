@@ -539,6 +539,18 @@ now, so you can decide whether a tape is worth opening without opening it.
   if it should go on anyway.**
 - The counts column widened to `19ch` and the pips column narrowed to `96px` to
   pay for it; the finding line spans the full grid under the name.
+- **BOTH SHIPPED INVISIBLE THE FIRST TIME, AND THE TEST DID NOT NOTICE**, which
+  is the part worth keeping. **`.tape-line-name` is `display: flex; flex-wrap:
+  nowrap`**, so a finding line appended inside it became a flex item squeezed
+  onto the same line, and its `grid-column: 1 / -1` was **inert, because its
+  parent was a flex container rather than the grid**. It has to be appended to
+  the ROW. And **`.tape-line-num` is `display: flex` too**, so the three pieces
+  of "55 tracks, 10 live" became separate flex items with the spaces between
+  them dropped; the counts cell sets `display: block` to beat it.
+  - **A `textContent` ASSERTION PASSES ON A PAGE THAT RENDERS WRONG.** That is
+    what the first check did, and it reported success twice. The check now reads
+    **`getComputedStyle`** for `display`, `grid-column` and the parent, which is
+    the only thing that could have caught either fault.
 
 ### THE BOT BUTTON ASKS FOR A FOCUS CITY, THEN OPENS THE ROUTINE (2026-08-25)
 
