@@ -708,42 +708,56 @@ so the row's size is simply inherited.
   that would be silent -- and the resting size. **The shrinking itself is
   unverified from here.**
 
-### THE VIEW BAR HAS A COUNTRY / STATE / CITY FILTER (2026-08-26)
+### THE VIEW BAR FILTERS BY PLACE, ONE LINE PER PLACE (2026-08-26)
 
-One `<select>` between the pager and the doors: **ALL TAPES**, then three
-optgroups, **Country**, **State**, **City**, each option carrying its tape count.
-Choosing one narrows what the arrows step through; the room still shows **one
-tape at a time**.
+One `<select>` between the pager and the doors. **ALL TAPES**, then a flat list
+of **136 places, each written out on one line, narrowest first**: `New Orleans,
+Louisiana, United States`, `Louisiana, United States`, `United States  (74)`.
+Choosing one narrows what the arrows step through; the room still shows one tape
+at a time.
 
 - **IT SITS BEFORE THE `.bar-sep`, AND THAT RULE IS THE ARGUMENT.** Everything
   left of it is about the tape you are on; everything right of it is somewhere to
   go. A filter that decides which tapes the arrows walk is the first kind.
-- **`kind:value`, NEVER A BARE VALUE.** Luxembourg is a country and a city, and
-  two options that both read `Luxembourg` and mean different things is the sort
-  of bug nobody reports because it looks like it worked.
+- **IT WAS THREE OPTGROUPS OF BARE NAMES FOR ONE PASS.** That made you read a
+  group heading to know what a name meant, and it left **Georgia the state
+  indistinguishable from Georgia the country**. Writing the whole place on the
+  line answers both without a heading.
+- **THE VALUE IS THE LABEL, prefixed by its level.** A city name alone is not
+  unique -- this catalogue holds two Portlands and two Alexandrias -- so matching
+  on it would quietly select both. The full path is unique by construction, and
+  it is already the text on screen. A test asserts label and value agree.
+- **A LEVEL THAT SUBDIVIDES NOTHING IS NOT OFFERED.** Algeria holds one tape, in
+  Algiers, in Algiers Province, so all three levels would select the same single
+  tape and the list would say one thing three times. A state earns a line when it
+  holds more than one city with tapes; a country when it holds more than one such
+  state. **113 tapes give 136 options rather than 200-odd.**
+- **ALPHABETICAL BY WHAT IS WRITTEN, and the levels interleave.** You look a
+  place up under its own first word rather than having to know which of three
+  groups somebody filed it in.
+- **THE COUNT IS THE POINT OF SHOWING IT**, and **one tape gets none**: `(1)`
+  beside a line that already names one place is a number that never tells anybody
+  anything. A closed list cannot say Texas holds nine tapes, which is the
+  question you open it to ask.
 - **THE OPTIONS ARE BUILT FROM THE CATALOGUE**, so the list can only offer a
   choice with tapes behind it: an empty result is not a state this control can
-  produce. **A stored value the catalogue no longer holds falls back to ALL**
-  rather than leaving the room on a filter that matches nothing.
-- **THE COUNT IS THE POINT OF SHOWING IT.** A closed list cannot say Texas holds
-  nine tapes, which is the question you open it to ask. Same argument as the
-  filter strips this room has had before.
-- **REBUILT ONLY WHEN THE CATALOGUE CHANGES**, keyed on a signature of the
-  option set. Rebuilding on every render would close the list under the pointer
-  while somebody is reading it.
+  produce. **A stored value the catalogue no longer holds falls back to ALL.**
+- **REBUILT ONLY WHEN THE CATALOGUE CHANGES**, keyed on a signature of the option
+  set. Rebuilding on every render would close the list under the pointer while
+  somebody is reading it.
 - **A FILTER RESETS TO THE TOP.** Keeping `tapeAt` would land you on whatever
   happens to be fiftieth in a completely different list.
 - **THE CATALOGUE LINE DOES NOT NARROW WITH IT**, and a test asserts that. It is
   the standing measure of the room, and a figure that shrank as you filtered
   would read as the filter breaking.
-- **IT UNDOES WHAT A NATIVE `select` BRINGS.** `appearance: none` plus two
-  gradients for the arrow, and its own font, or it reads as a different kind of
-  thing from the `.btn`s either side. **The open list inherits none of that** --
-  the browser draws it -- so `option` and `optgroup` set their own type.
-- **CAPPED AT 22ch BECAUSE THE BAR DOES NOT WRAP.** A country name is as long as
-  it is, and the widest option must not be able to push the doors off the end.
-  **The ADD bar is what gives way**, per the one-line rule, so at the 1,180px
-  shell its two buttons now clip a little.
+- **IT UNDOES WHAT A NATIVE `select` BRINGS** -- `appearance: none` plus two
+  gradients for the arrow, and its own font -- or it reads as a different kind of
+  thing from the `.btn`s either side. **The open list inherits none of that**,
+  the browser drawing it, so `option` sets its own type.
+- **CAPPED AT 30ch BECAUSE THE BAR DOES NOT WRAP.** The widest label is
+  `Aix-en-Provence, Provence-Alpes-Cote d'Azur, France`, and the closed control
+  must not be able to push the doors off the end. **The ADD bar is what gives
+  way**, per the one-line rule.
 
 ### COLUMNS SIZED TO WHAT THEY HOLD, AND NO OFFSET (2026-08-26)
 

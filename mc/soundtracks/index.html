@@ -994,7 +994,7 @@
        and the widest option must not be able to push the doors off the end. */
     .tape-filter {
       flex: 0 1 auto;
-      max-width: 22ch;
+      max-width: 30ch;
       padding: 0 26px 0 10px;
       font: inherit;
       font-family: "IBM Plex Mono", monospace;
@@ -1014,8 +1014,7 @@
 
     /* THE OPEN LIST IS DRAWN BY THE BROWSER and inherits none of the above, so
        its own type is set here or the options come back at the page default. */
-    .tape-filter option,
-    .tape-filter optgroup {
+    .tape-filter option {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.78rem;
       letter-spacing: normal;
@@ -2343,18 +2342,31 @@
       // one this is.
       // WHICH TAPES THE ARROWS STEP THROUGH.
       //
-      // `kind:value`, so a city called Luxembourg and a country called
-      // Luxembourg cannot be the same option. Empty is every tape, and it is the
-      // resting state.
+      // ONE FLAT LIST, EACH OPTION A WHOLE PLACE ON ONE LINE, narrowest first:
+      // "New Orleans, Louisiana, United States", "Louisiana, United States",
+      // "United States". It was three optgroups of bare names, which made you
+      // read the group heading to know what a name meant and left `Georgia` the
+      // state indistinguishable from Georgia the country.
+      //
+      // THE VALUE IS THE LABEL, prefixed by its level. A city name alone is not
+      // unique -- this catalogue holds two Portlands and two Alexandrias -- so
+      // matching on it would quietly select both. The full path is unique by
+      // construction, and it is the thing already on screen.
       var tapeFilter = '';
       var tapeFilterSig = '';
 
-      function tapeFilterKey(tape) {
+      // The three levels of one tape's address, narrowest first. An empty part
+      // is dropped rather than left as an empty segment: most of the world has
+      // no state.
+      function tapePlaceLabels(tape) {
         var slug = text(tape && tape.city_slug);
+        var city = text(soundCityLabel(slug));
+        var state = text(cityStateLabel(slug));
+        var country = text(cityCountryLabel(slug));
         return {
-          country: cityCountryLabel(slug),
-          state: cityStateLabel(slug),
-          city: soundCityLabel(slug)
+          L3: [city, state, country].filter(Boolean).join(', '),
+          L2: [state, country].filter(Boolean).join(', '),
+          L1: country
         };
       }
 
@@ -2362,10 +2374,10 @@
         if (!tapeFilter) return true;
         var at = tapeFilter.indexOf(':');
         if (at < 0) return true;
-        var kind = tapeFilter.slice(0, at);
+        var level = tapeFilter.slice(0, at);
         var want = tapeFilter.slice(at + 1);
-        var have = tapeFilterKey(tape);
-        return text(have[kind]) === want;
+        var have = tapePlaceLabels(tape);
+        return text(have[level]) === want;
       }
 
       // THE OPTIONS ARE BUILT FROM THE CATALOGUE, so the list can only offer a
@@ -2374,21 +2386,44 @@
       function paintTapeFilter() {
         var sel = document.getElementById('tapeFilter');
         if (!sel) return;
-        var groups = { country: {}, state: {}, city: {} };
+
+        var counts = { L1: {}, L2: {}, L3: {} };
+        // What each broader level SUBDIVIDES, which is what decides whether it
+        // earns a line of its own.
+        var under = { L1: {}, L2: {} };
         soundtracks().forEach(function (tape) {
-          var k = tapeFilterKey(tape);
-          ['country', 'state', 'city'].forEach(function (kind) {
-            var v = text(k[kind]);
-            if (v) groups[kind][v] = (groups[kind][v] || 0) + 1;
+          var p = tapePlaceLabels(tape);
+          ['L1', 'L2', 'L3'].forEach(function (level) {
+            if (!p[level]) return;
+            counts[level][p[level]] = (counts[level][p[level]] || 0) + 1;
           });
+          if (p.L1 && p.L2) (under.L1[p.L1] = under.L1[p.L1] || {})[p.L2] = 1;
+          if (p.L1 && !p.L2 && p.L3) (under.L1[p.L1] = under.L1[p.L1] || {})[p.L3] = 1;
+          if (p.L2 && p.L3) (under.L2[p.L2] = under.L2[p.L2] || {})[p.L3] = 1;
         });
 
-        var order = [
-          ['country', 'Country'],
-          ['state', 'State'],
-          ['city', 'City']
-        ];
-        var sig = JSON.stringify(groups);
+        // A LEVEL THAT SUBDIVIDES NOTHING IS NOT OFFERED. Algeria holds one tape
+        // in Algiers, in Algiers Province, so all three levels would select the
+        // same single tape and the list would say the same thing three times.
+        var rows = [];
+        Object.keys(counts.L3).forEach(function (label) {
+          rows.push({ value: 'L3:' + label, label: label, n: counts.L3[label] });
+        });
+        Object.keys(counts.L2).forEach(function (label) {
+          if (Object.keys(under.L2[label] || {}).length < 2) return;
+          rows.push({ value: 'L2:' + label, label: label, n: counts.L2[label] });
+        });
+        Object.keys(counts.L1).forEach(function (label) {
+          if (Object.keys(under.L1[label] || {}).length < 2) return;
+          rows.push({ value: 'L1:' + label, label: label, n: counts.L1[label] });
+        });
+
+        // ALPHABETICAL BY WHAT IS WRITTEN. The levels interleave, and that is
+        // the point: you look a place up under its own first word rather than
+        // having to know which of three groups somebody filed it in.
+        rows.sort(function (a, b) { return a.label.localeCompare(b.label); });
+
+        var sig = JSON.stringify(rows);
         // REBUILT ONLY WHEN THE CATALOGUE CHANGES. Rebuilding on every render
         // would close the list under the pointer while somebody is reading it.
         if (sig === tapeFilterSig) { sel.value = tapeFilter; markAll(sel); return; }
@@ -2400,24 +2435,15 @@
         all.textContent = 'ALL TAPES';
         sel.appendChild(all);
 
-        order.forEach(function (pair) {
-          var kind = pair[0];
-          var names = Object.keys(groups[kind]).sort(function (a, b) {
-            return a.localeCompare(b);
-          });
-          if (!names.length) return;
-          var group = document.createElement('optgroup');
-          group.label = pair[1];
-          names.forEach(function (name) {
-            var opt = document.createElement('option');
-            opt.value = kind + ':' + name;
-            // THE COUNT IS THE POINT OF SHOWING IT. A closed list cannot say
-            // that Texas holds nine tapes, which is the question you open it to
-            // ask.
-            opt.textContent = name + '  (' + groups[kind][name] + ')';
-            group.appendChild(opt);
-          });
-          sel.appendChild(group);
+        rows.forEach(function (row) {
+          var opt = document.createElement('option');
+          opt.value = row.value;
+          // THE COUNT IS THE POINT OF SHOWING IT: a closed list cannot say that
+          // Texas holds nine tapes, which is the question you open it to ask.
+          // ONE TAPE GETS NO COUNT -- "(1)" beside a line that already names one
+          // place is a number that never tells anybody anything.
+          opt.textContent = row.n > 1 ? (row.label + '  (' + row.n + ')') : row.label;
+          sel.appendChild(opt);
         });
 
         // A FILTER WHOSE VALUE HAS GONE takes the list back to everything rather
