@@ -656,6 +656,27 @@ head, so pressing Next at rest made the page jump away from you.
   no call at all. jsdom does no layout, so counting the calls is the only thing
   that can be asserted headlessly here.
 
+### THE SORT ROW AND THE TAPE ROW ARE ONE ROW (2026-08-26)
+
+`.ctl-taperow` was `flex: 1 0 100%`, which forced the tape's line onto a second
+line and made the header two bars again in everything but the border between
+them. It is `flex: 1 1 520px` now: it takes the remaining width and wraps only
+when there genuinely is not enough.
+
+- **A DIVIDER, NOT A RULE.** A `border-left` before the tape's half, so the
+  room's controls and this tape's own controls do not read as one
+  undifferentiated run of buttons.
+- **THE TAPE LINE KEEPS NO CARD OF ITS OWN** inside the panel: no border, no
+  radius, no background.
+
+**AND THIS BREAKS A RULE THIS FILE ALREADY STATES.** *"A switch on a ROW is a
+status changer, a switch in a HEADER is a filter."* Both Shelved/Live switches
+are in the header now and they look identical: the one in the SHOW group filters
+the catalogue, the one after the divider shelves the tape in front of you.
+**What keeps them apart today is the SHOW label and the divider, which is
+weaker than the rule was.** If that ever bites, the answer is to label the tape's
+own switch rather than to move it back out.
+
 ### THE CATALOGUE COUNT SITS WITH THE ROOM'S NAME (2026-08-26)
 
 `1514/1643` moved out of the controls bar and onto the `TAPE ROOM` heading's own
