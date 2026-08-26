@@ -441,6 +441,78 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
   - The admin tolerates the table being absent (the issues fetch `.catch`es to `[]`), so the page still works against a database that hasn't run the migration.
 - **Archiving a tape cascades to its tracks**, via the `soundtracks_cascade_archive` trigger ([mc/supabase/migrations/2026073001_soundtrack_tape_archive_cascade.sql](mc/supabase/migrations/2026073001_soundtrack_tape_archive_cascade.sql)). It archives the tape's *live* songs and stamps them `archived_with_tape = true`; restoring the tape clears exactly those. **A song archived on its own stays archived through a tape restore** — that row is a do-not-rescrape tombstone, the one thing here that must never come back by accident. It lives in a trigger, not the admin page, so the rule holds for the Supabase table editor and psql too, and can't be half-applied by a client that dies between two requests. Anything reading `active_songs` depends on this: before the cascade a hidden city still reported 15 active tracks.
 
+### THE FINDINGS TABLE IS FOLDED ONTO THE ROW, AND `soundtracks` IS `soundtrack` (2026-08-25)
+
+Three tables became two. [2026082506](mc/supabase/migrations/2026082506_soundtrack_fold_findings.sql) + [2026082507](mc/supabase/migrations/2026082507_soundtrack_findings_access.sql), both **applied**.
+
+| was | now |
+|---|---|
+| `soundtracks` (113 tapes) | **`soundtrack`** |
+| `soundtrack_songs` (1,643) | unchanged |
+| `soundtrack_issues` (285) | a **`findings` jsonb array** on the row each is about |
+
+- **jsonb AND NOT COLUMNS, because a row carries more than one.** Checked
+  against the live table: three tracks hold three findings each, and the four
+  kinds are independent. Flat `issue_kind` / `issue_detail` columns would have
+  silently dropped the rest.
+- **THE TAPE GETS THEM TOO.** 66 of the 285 name no track — they are statements
+  about the LIST (short of 15, over 15) — so folding everything onto tracks
+  would have lost all 66.
+- **21 OF THOSE 66 HAD A NULL `tape_id`** and were lost by the first backfill:
+  they predate that column and carry only `city_slug`. **Caught by counting 285
+  in and 264 out**, not by reading the SQL. Placed by resolving `city_slug` to
+  the first tape, the same rule the RPC uses; **2 of them are in Tampa, which
+  has two tapes, so those two are a guess** — both already `fixed`, so nothing
+  live turned on it.
+- **THE FINGERPRINT DEDUPE MOVED INTO THE FUNCTION.** A jsonb array cannot carry
+  a unique index, so `tgb_report_soundtrack_issues` checks the array before
+  appending. **The rule it protects is unchanged**: open findings only, so a
+  finding cleared to `fixed` becomes reportable again and that recurrence is the
+  only check a fix landed. Proved by a call — a reworded repeat came back
+  `{"added": 0, "skipped": 1}`.
+- **`soundtrack_issues` IS RETIRED IN PLACE, NOT DROPPED**, like `public.maps`.
+  Nothing reads it; the `drop` sits commented at the bottom of 2026082506.
+  **It still holds its 285 rows, so anything still reading it sees a count that
+  never moves again** — which is exactly what the hub was doing until it was
+  repointed.
+
+### THE FOLD LEAKED EVERY EDITORIAL NOTE, FOR A FEW MINUTES
+
+**`soundtrack_issues` was admin-read only** — RLS answered `anon` with `[]`.
+`soundtrack_songs` and `soundtrack` are **publicly readable**, because the
+cassette page needs them. So the moment the findings moved, anyone holding the
+publishable key — **which is in the public HTML of this site** — could read
+*"this song has no real tie to the city"*.
+
+- **MOVING A COLUMN MOVES IT UNDER A DIFFERENT RLS POLICY.** A table's privacy is
+  a property of the TABLE, not of the data. **Folding a private table into a
+  public one publishes it, and nothing warns you** — the rows simply appear.
+  Found by asking the live database with the publishable key, which is worth
+  doing after any change that moves data between tables.
+- **A COLUMN-LEVEL `revoke` CANNOT OVERRIDE A TABLE-LEVEL GRANT.** `select` on a
+  table means every column, present and future. The first attempt revoked the
+  column and changed nothing. The fix is to revoke the TABLE grant and re-issue
+  it column by column, omitting `findings`.
+- **SO `select=*` AS `anon` NOW ANSWERS 42501** on both tables, because PostgREST
+  expands `*` to columns the caller cannot read. **The public cassette page names
+  its columns instead. Do not put `*` back** — that is the privacy boundary, not
+  tidiness.
+- **`public.soundtrack_findings` is the flattened read**, one row per finding,
+  **`security_invoker = true`** so the caller's grants apply. Without that a view
+  runs as its owner and would hand `anon` exactly what the grants just took away
+  — the same leak through a different door. Granted to `authenticated` only.
+- **`tgb_resolve_soundtrack_finding(id, status)` clears one**, because a view is
+  not updatable through PostgREST. It is the first soundtrack function that is
+  not insert-only, so **its first line is `is_photo_admin()`** — the grant alone
+  would let any authenticated Supabase user call it.
+
+**WHAT READS WHAT NOW.** The Tape Room rebuilds its flat `soundtrackIssues`
+array from the two reads it already makes, so everything downstream of that
+variable is untouched; writing one back reads the owning row, edits the element
+and PATCHes the whole array. The hub counts and lists through
+`soundtrack_findings` and clears through the RPC. The public page and the footer
+were only affected by the rename and the column list.
+
 ### ONE VIEW, ONE LIST, FOUR VERBS (2026-08-16)
 
 **The room is a single list of tapes, and there are no view tabs.** It has been two stacked panels (catalogue + findings), then two tabbed views of one panel, then a queue and a catalogue, all inside three weeks. The last of those lasted an afternoon: a separate QUEUE view meant a track had **two homes, two renderings and two sets of buttons**, and you had to know which room you were standing in before you knew what a press would do.

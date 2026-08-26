@@ -2637,7 +2637,7 @@ prose before or after the code block.</textarea>
         var fromSlug = text(tape.city_slug);
         try {
 
-          await patchRow('soundtracks?id=eq.' + encodeURIComponent(tape.id),
+          await patchRow('soundtrack?id=eq.' + encodeURIComponent(tape.id),
             { city_slug: toSlug });
         } catch (error) {
           console.error(error);
@@ -2850,7 +2850,7 @@ prose before or after the code block.</textarea>
 
       async function resolveIssue(issue, status, quiet) {
         try {
-          await patchRow('soundtrack_issues?id=eq.' + encodeURIComponent(issue.id), { status: status || 'fixed' });
+          await patchFindingStatus(issue, status || 'fixed');
         } catch (error) {
           console.error(error);
           setNotice('Could not skip that finding. ' + error.message, 'error');
@@ -2896,16 +2896,85 @@ prose before or after the code block.</textarea>
         }
       }
 
+      // ── Findings, folded onto their row (2026-08-25) ────────────────────
+      //
+      // `soundtrack_issues` is retired in place: nothing reads it any more. A
+      // finding lives in the `findings` jsonb array of the row it is about,
+      // which is a track when it names one and the TAPE otherwise -- 66 of the
+      // 285 name no track, being statements about the list itself.
+      //
+      // AN ARRAY AND NOT COLUMNS, because a row can carry more than one: three
+      // tracks hold three findings each today, and the four kinds are
+      // independent.
+      function collectFindings(tapeRows, songRows) {
+        var out = [];
+        function take(list, owner) {
+          if (!Array.isArray(list)) return;
+          list.forEach(function (f) {
+            if (!f || f.status !== 'open') return;      // the old read filtered to open
+            out.push({
+              id: f.id,
+              kind: f.kind,
+              severity: f.severity,
+              detail: f.detail,
+              suggestion: f.suggestion,
+              status: f.status,
+              fingerprint: f.fingerprint,
+              created_at: f.created_at,
+              resolved_at: f.resolved_at,
+              song_id: owner.song_id,
+              tape_id: owner.tape_id,
+              city_slug: owner.city_slug
+            });
+          });
+        }
+        (Array.isArray(tapeRows) ? tapeRows : []).forEach(function (t) {
+          take(t.findings, { song_id: null, tape_id: t.id, city_slug: t.city_slug });
+        });
+        (Array.isArray(songRows) ? songRows : []).forEach(function (sg) {
+          take(sg.findings, { song_id: sg.id, tape_id: sg.tape_id, city_slug: sg.city_slug });
+        });
+        out.sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+        return out;
+      }
+
+      // WRITING ONE BACK IS A READ, AN EDIT AND A PATCH OF THE WHOLE ARRAY.
+      // Postgres has no way to update one element of a jsonb array by predicate
+      // from PostgREST, so the row is read, the matching element's status is
+      // changed, and the array goes back whole. **The read is what makes this
+      // safe against a stale page**: the array that goes back is the one the
+      // database holds now, with one element changed, not the one this page
+      // loaded some minutes ago.
+      async function patchFindingStatus(issue, status) {
+        var onSong = issue.song_id != null;
+        var table = onSong ? 'soundtrack_songs' : 'soundtrack';
+        var id = onSong ? issue.song_id : issue.tape_id;
+        var rows = await fetchAllRows(table + '?select=id,findings&id=eq.' + encodeURIComponent(id), true);
+        var row = Array.isArray(rows) ? rows[0] : null;
+        if (!row) throw new Error('That row is no longer there, so the finding could not be updated.');
+        var next = (Array.isArray(row.findings) ? row.findings : []).map(function (f) {
+          if (!f || String(f.id) !== String(issue.id)) return f;
+          var copy = {};
+          Object.keys(f).forEach(function (k) { copy[k] = f[k]; });
+          copy.status = status;
+          copy.resolved_at = status === 'open' ? null : new Date().toISOString();
+          return copy;
+        });
+        await patchRow(table + '?id=eq.' + encodeURIComponent(id), { findings: next });
+      }
+
       async function fetchSoundtrackTables() {
         var results = await Promise.all([
-          fetchAllRows('soundtracks?select=*&order=city_slug.asc'),
+          fetchAllRows('soundtrack?select=*&order=city_slug.asc'),
           fetchAllRows('soundtrack_songs?select=*&order=city_slug.asc,position.asc,id.asc'),
 
-          fetchAllRows('soundtrack_issues?select=*&status=eq.open&order=created_at.desc', true)
-            .catch(function (error) {
-              console.warn('soundtrack_issues unavailable', error);
-              return [];
-            }),
+          // FINDINGS ARE NO LONGER A TABLE. They were folded onto the row each
+          // one is ABOUT on 2026-08-25 -- a track's live in
+          // soundtrack_songs.findings, a whole-tape one in soundtrack.findings
+          // -- so there is nothing to fetch here. The array is rebuilt from the
+          // two reads above, in the SAME SHAPE the page has always held, so
+          // everything downstream of soundtrackIssues is untouched.
+          Promise.resolve([]),
 
           fetchAllRows('cities?select=*&order=city.asc')
             .catch(function (error) {
@@ -2913,7 +2982,11 @@ prose before or after the code block.</textarea>
               return [];
             })
         ]);
-        soundtrackIssues = Array.isArray(results[2]) ? results[2] : [];
+        // Rebuilt from the rows, flattened back into the flat list the rest of
+        // this page expects: each finding carries the song_id / tape_id /
+        // city_slug it used to have as columns, so songIssues(), the FLAGGED
+        // filter and renderFindings() all keep working unchanged.
+        soundtrackIssues = collectFindings(results[0], results[1]);
         rebuildCityMap(results[3]);
 
         var byTape = {};
@@ -3300,7 +3373,7 @@ prose before or after the code block.</textarea>
             var label = cityFullLabel(slug);
             input.disabled = true;
             try {
-              await patchRow('soundtracks?id=eq.' + encodeURIComponent(tape.id),
+              await patchRow('soundtrack?id=eq.' + encodeURIComponent(tape.id),
                 { archived: want });
             } catch (error) {
               console.error(error);
@@ -3473,7 +3546,7 @@ prose before or after the code block.</textarea>
         var slug = text(tape && tape.city_slug);
         if (!slug) return { ok: false, message: 'That tape is no longer loaded. Press Reload.' };
         try {
-          await patchRow('soundtracks?id=eq.' + encodeURIComponent(tape.id), fields);
+          await patchRow('soundtrack?id=eq.' + encodeURIComponent(tape.id), fields);
         } catch (error) {
           console.error(error);
           return { ok: false, message: friendlyWriteError(error, trackCityLabel(tape)) };
@@ -3603,7 +3676,7 @@ prose before or after the code block.</textarea>
         var label = trackCityLabel(tape);
         if (!slug) return false;
         try {
-          await patchRow('soundtracks?id=eq.' + encodeURIComponent(tape.id), { archived: !!archived });
+          await patchRow('soundtrack?id=eq.' + encodeURIComponent(tape.id), { archived: !!archived });
           await loadSoundtrackArchive();
         } catch (error) {
           console.error(error);
@@ -4223,7 +4296,7 @@ prose before or after the code block.</textarea>
         if (!tape || tape.id == null) return false;
         var label = tapeNameOf(tape);
         try {
-          await deleteRow('soundtracks?id=eq.' + encodeURIComponent(tape.id));
+          await deleteRow('soundtrack?id=eq.' + encodeURIComponent(tape.id));
         } catch (error) {
           console.error(error);
           setNotice('could not delete ' + label, 'error');
@@ -4863,7 +4936,7 @@ prose before or after the code block.</textarea>
         if (spine && manualLeads) body.spine_tag_position = 'before';
         var made;
         try {
-          made = await insertRow('soundtracks', body);
+          made = await insertRow('soundtrack', body);
         } catch (error) {
           console.error(error);
           setNotice(friendlyWriteError(error, cityFullLabel(t.row.slug)), 'error');
@@ -4981,7 +5054,7 @@ prose before or after the code block.</textarea>
         tapeAirAllInput.disabled = true;
         try {
 
-          await patchRow('soundtracks?archived=is.' + (want ? 'false' : 'true'),
+          await patchRow('soundtrack?archived=is.' + (want ? 'false' : 'true'),
             { archived: want });
         } catch (error) {
           console.error(error);

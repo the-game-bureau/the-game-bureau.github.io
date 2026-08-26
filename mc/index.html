@@ -964,7 +964,7 @@
       // ── TO REVIEW, and THE ROUTINES ────────────────────────────────────
       //
       // Both read under the signed-in admin's own session. `socials` and
-      // `soundtrack_issues` are admin-read only, so the publishable key alone
+      // `soundtrack_findings` are admin-read only, so the publishable key alone
       // would answer with an empty list rather than a refusal -- which is
       // exactly the shape of bug this panel must not have, since an empty list
       // and "nothing waiting" look identical. See countOf() for how a refused
@@ -1001,7 +1001,11 @@
           } },
         { key: 'issues', room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
           what: 'open findings from the audit',
-          path: 'soundtrack_issues?select=id&status=eq.open' }
+          // THE VIEW, NOT THE TABLE. soundtrack_issues was retired on
+          // 2026-08-25 when findings were folded onto the row each is about.
+          // It still HOLDS its 285 rows, so reading it would show a count that
+          // never moves again however many findings get cleared.
+          path: 'soundtrack_findings?select=id&status=eq.open' }
       ];
 
       // EVERY TGB ROUTINE. The trigger ids are the addresses; a stale one 404s
@@ -1257,15 +1261,16 @@
                    patch: { archived: true } }]
         },
         issues: {
-          list: 'soundtrack_issues?select=id,kind,severity,detail,city_slug&status=eq.open&order=created_at.desc',
+          list: 'soundtrack_findings?select=id,kind,severity,detail,city_slug&status=eq.open&order=created_at.desc',
           line: function (r) { return [r.detail || r.kind, [r.city_slug, r.kind, r.severity].filter(Boolean).join(' · ')]; },
           open: function () { return '/mc/soundtracks/'; },
-          // `fixed`, NEVER `dismissed`. The partial index only blocks a re-report
-          // while a finding is open, so a cleared one comes straight back on the
-          // next audit if the problem is still there, and that recurrence is the
-          // only check a fix landed. `dismissed` silences it forever.
+          // A VIEW IS NOT UPDATABLE THROUGH PostgREST, so clearing goes through
+          // an RPC that finds the finding by id in whichever row carries it.
+          // `fixed`, NEVER `dismissed`: a cleared finding comes straight back on
+          // the next audit if the problem is still there, and that recurrence is
+          // the only check a fix landed.
           acts: [{ label: 'Clear', title: 'Mark it dealt with. If the problem is still there the next audit files it again, which is the only check that a fix landed.',
-                   patch: { status: 'fixed' } }]
+                   rpc: 'tgb_resolve_soundtrack_finding', args: function (row) { return { p_id: row.id, p_status: 'fixed' }; } }]
         }
       };
 

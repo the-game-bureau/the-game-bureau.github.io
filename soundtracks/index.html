@@ -2646,9 +2646,21 @@
       function fetchSoundtracks() {
         return Promise.all([
 
-          fetchAllRows(buildSupabaseUrl('soundtracks', { select: '*', order: 'city_slug.asc,id.asc' })),
+          // NAMED COLUMNS, NOT `*`, AND THIS IS A PRIVACY BOUNDARY RATHER THAN
+          // TIDINESS. Audit findings were folded onto these rows on 2026-08-25,
+          // and a finding is an INTERNAL editorial note -- "this song has no
+          // real tie to the city". They were admin-read only as their own
+          // table and stay admin-read as a column: `anon` holds a per-column
+          // grant that excludes `findings`, so `select=*` now answers 42501
+          // permission denied for the whole request.
+          //
+          // **Do not put `*` back.** Add a column here when the page needs one.
+          fetchAllRows(buildSupabaseUrl('soundtrack', {
+            select: 'id,city_slug,spine_tag,spine_tag_position,archived',
+            order: 'city_slug.asc,id.asc'
+          })),
           fetchAllRows(buildSupabaseUrl('soundtrack_songs', {
-            select: '*',
+            select: 'id,tape_id,city_slug,position,title,artist,blurb,spotify_id,explicit,archived,archived_with_tape',
             order: 'tape_id.asc,position.asc,id.asc'
           }))
         ]).then(function (results) {
