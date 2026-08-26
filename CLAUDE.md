@@ -453,6 +453,40 @@ detector written that way **found nothing and looked like a clean codebase**. **
 instead of a regex, `String.fromCharCode`, `JSON.stringify` for a compound key.
 `cat -A` is what shows it, since these are invisible in a normal diff.
 
+### THE HEADER'S SHELVED / LIVE SWITCH IS A FILTER (2026-08-25)
+
+Both of them: the one in the tape head, and the one in an open tape's track
+head. **They used to rewrite every row they summarised.**
+
+- **THAT PUT THE MOST DESTRUCTIVE ACT IN THE ROOM IN ITS QUIETEST CONTROL.** One
+  press on a switch that reads like a filter, sitting in a header beside two
+  actual filters (FLAGGED and NEW), took all 96 live tapes off `/soundtracks/`
+  behind a confirm dialog nobody reads. It looked like a filter because in that
+  position it IS one.
+- **THREE STATES, AND NEUTRAL IS THE MIDDLE.** `all` is the resting state and
+  the knob sits centre on it. **Pressing a WORD picks that state and pressing it
+  again clears it**; pressing the knob cycles all, live, shelved. A checkbox
+  cannot be put into `indeterminate` by a user click, so the label's own click
+  is taken over with `preventDefault` and **the input is painted from the state
+  rather than driving it**.
+- **PER-ROW SWITCHES ARE UNTOUCHED AND STILL WRITE.** That is the whole
+  distinction: a switch on a ROW is a status changer, a switch in a HEADER is a
+  filter. Proved by a run that presses all four: the tape row POSTs
+  `tgb_set_tape_archived`, the track row PATCHes `soundtrack`, and **neither
+  header switch sends anything at all**.
+- **THE COUNTS ARE OVER THE WHOLE SET, never over what the filter has left.** A
+  count that shrank as you filtered would read as the filter breaking, and the
+  question it answers is how many there are. Same rule the Anchor Events filter
+  strip already keeps.
+- **`renderTracks` BUILDS ITS LIST FROM `allSongs`, NOT FROM
+  `visibleTrackSongs`**, which is why the first cut of the track filter did
+  nothing at all: the state changed, the switch repainted, and the list was
+  built from an unfiltered array a few lines away. **Two readers of "what is
+  visible" is how a control ends up silently inert.**
+- **`tgb_set_all_tapes_archived` IS DROPPED** ([2026082513](mc/supabase/migrations/2026082513_drop_bulk_tape_archive.sql)), the switch having
+  been its only caller. `tgb_set_tape_archived` stays: the per-row switch still
+  needs it, and it carries the shelve cascade.
+
 ### THE TAPE ROOM HAS NO MANUAL AND NO PROMPT BUTTON (2026-08-25)
 
 - **MANUAL created an EMPTY tape, which cannot exist any more**, a tape being

@@ -1393,7 +1393,7 @@
           <label class="tape-air tape-air--all" id="tapeAirAll">
             <span class="tape-air-word tape-air-word--off">Shelved</span>
             <input class="tape-air-input" id="tapeAirAllInput" type="checkbox"
-                   aria-label="Status of every tape">
+                   aria-label="Show shelved tapes, live tapes, or both">
             <span class="tape-air-track" aria-hidden="true"></span>
             <span class="tape-air-word tape-air-word--on">Live</span>
           </label>
@@ -1434,7 +1434,7 @@
           <label class="tape-air track-air tape-air--all" id="trackAirAll">
             <span class="tape-air-word tape-air-word--off">Shelved</span>
             <input class="tape-air-input" id="trackAirAllInput" type="checkbox"
-                   aria-label="Status of every track on this tape">
+                   aria-label="Show shelved tracks, live tracks, or both">
             <span class="tape-air-track" aria-hidden="true"></span>
             <span class="tape-air-word tape-air-word--on">Live</span>
           </label>
@@ -1588,6 +1588,17 @@
 
       var flaggedOnly = false;
       var newOnly = false;
+
+      // THE SHELVED / LIVE SWITCH IN A HEADER IS A FILTER, NOT A STATUS
+      // CHANGER. It used to rewrite every row it summarised, which is the most
+      // destructive act in the room sitting in the quietest control, one press
+      // from a confirm nobody reads. It reads as a filter, it sits in a header
+      // beside two other filters, and it is one now.
+      //
+      // 'all' is the NEUTRAL middle and is what the knob rests on. Per-row
+      // switches are untouched: those are the status changers.
+      var airFilter = 'all';          // the tape list
+      var trackAirFilter = 'all';     // the tracks inside an open tape
 
       var pageNotice = document.getElementById('pageNotice');
       var soundtrackIssues = [];
@@ -2589,6 +2600,11 @@
             return issuesForTape(tape).length > 0;
           });
         }
+        if (airFilter !== 'all') {
+          tapes = tapes.filter(function (tape) {
+            return airMatches(airFilter, truthyFlag(tape && tape.archived));
+          });
+        }
 
         tapes = tapes.sort(function (a, b) {
           var sa = text(a && a.city_slug), sb = text(b && b.city_slug);
@@ -2609,13 +2625,17 @@
         if (!tapes.length) {
 
           trackArchiveList.appendChild(emptyNode(
-            newOnly && flaggedOnly
-              ? 'No tape from the last ' + NEW_FOR_HOURS + ' hours has an open issue.'
-              : newOnly
-                ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. TGB SOUNDTRACK BOT runs twice a day.'
-                : flaggedOnly
-                  ? 'No open issues on any tape. The daily audit reports here when it finds something.'
-                  : 'No tapes yet.'));
+            airFilter !== 'all'
+              ? ('No ' + airFilter + ' tapes'
+                  + (newOnly || flaggedOnly ? ' match the other filters.' : '.')
+                  + ' Press ' + (airFilter === 'live' ? 'Live' : 'Shelved') + ' again to show both.')
+              : newOnly && flaggedOnly
+                ? 'No tape from the last ' + NEW_FOR_HOURS + ' hours has an open issue.'
+                : newOnly
+                  ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. TGB SOUNDTRACK BOT runs twice a day.'
+                  : flaggedOnly
+                    ? 'No open issues on any tape. The daily audit reports here when it finds something.'
+                    : 'No tapes yet.'));
           paintMasterAir();
           setArchiveStatus('', '');
           return;
@@ -3400,66 +3420,40 @@
       var trackAirAll = document.getElementById('trackAirAll');
       var trackAirAllInput = document.getElementById('trackAirAllInput');
 
-      function visibleTrackSongs() {
+      // Every track on the open tape, before any filter. The switch's counts
+      // read this; the list reads visibleTrackSongs below.
+      function allTrackSongs() {
         var tape = tapeById(tracksTapeId);
-        if (!tape) return [];
-        var songs = allSongs(tape);
-        if (tracksOnlySongId == null) return songs;
-        return songs.filter(function (song) { return String(song.id) === String(tracksOnlySongId); });
+        return tape ? allSongs(tape) : [];
+      }
+
+      function visibleTrackSongs() {
+        var songs = allTrackSongs();
+        if (tracksOnlySongId != null) {
+          return songs.filter(function (song) { return String(song.id) === String(tracksOnlySongId); });
+        }
+        if (trackAirFilter === 'all') return songs;
+        return songs.filter(function (song) {
+          return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+        });
       }
 
       function paintTrackMasterAir() {
-        if (!trackAirAll || !trackAirAllInput) return;
-        var songs = visibleTrackSongs();
+        // COUNTS OVER THE WHOLE TAPE, never over what the filter has left. A
+        // count that shrank as you filtered would read as the filter breaking,
+        // and the question it answers is how many there are.
+        var songs = allTrackSongs();
         var live = 0, shelved = 0;
         songs.forEach(function (song) {
           if (songStatus(song) === 'LIVE') live += 1; else shelved += 1;
         });
-        var allLive = songs.length > 0 && shelved === 0;
-        var allShelved = songs.length > 0 && live === 0;
-        trackAirAllInput.indeterminate = !allLive && !allShelved;
-        trackAirAllInput.checked = allLive;
-        trackAirAllInput.disabled = songs.length === 0;
-        trackAirAll.querySelector('.tape-air-word--off').classList.toggle('is-current', allShelved);
-        trackAirAll.querySelector('.tape-air-word--on').classList.toggle('is-current', allLive);
-        trackAirAllInput.title = songs.length === 0
-          ? 'No tracks on this tape.'
-          : live + ' live, ' + shelved + ' shelved. Switching this puts every track here the same way.';
+        paintAirSwitch(trackAirAll, trackAirAllInput, trackAirFilter,
+          { live: live, shelved: shelved, total: songs.length }, 'tracks');
       }
 
-      if (trackAirAllInput) trackAirAllInput.addEventListener('change', async function () {
-        var want = trackAirAllInput.checked ? 'LIVE' : 'SHELVED';
-        var tape = tapeById(tracksTapeId);
-        var tapeIndex = tapeIndexById(tracksTapeId);
-        if (!tape) return;
-        var moving = visibleTrackSongs().filter(function (song) { return songStatus(song) !== want; });
-        if (!moving.length) { paintTrackMasterAir(); return; }
-
-        if (want === 'SHELVED' && moving.length > 1 && !window.confirm(
-            'Shelve ' + moving.length + ' tracks on ' + tapeNameOf(tape) + '?'
-            + String.fromCharCode(10) + String.fromCharCode(10)
-            + 'Each one comes off /soundtracks/ and keeps its row as a tombstone, so the routine never picks it for this tape again.')) {
-          paintTrackMasterAir();
-          return;
-        }
-
-        trackAirAllInput.disabled = true;
-        var done = 0;
-        for (var i = 0; i < moving.length; i++) {
-          var at = (tape.songs || []).indexOf(moving[i]);
-          if (at < 0) continue;
-
-          if (await setTrackStatus(tapeIndex, at, want, true)) done += 1;
-        }
-        trackAirAllInput.disabled = false;
-
-        renderTrackArchive();
-        renderTracks();
-        setNotice(done
-          ? (done + (done === 1 ? ' track ' : ' tracks ') + (want === 'LIVE' ? 'live' : 'shelved')
-            + ' on ' + tapeNameOf(tape))
-          : 'could not change those tracks', done ? 'success' : 'error');
-      });
+      wireAirSwitch(trackAirAll, trackAirAllInput,
+        function () { return trackAirFilter; },
+        function (value) { trackAirFilter = value; renderTracks(); });
 
       var tapePendingDelete = null;
 
@@ -3570,6 +3564,14 @@
         });
         if (tracksOnlySongId != null) {
           songs = songs.filter(function (song) { return String(song.id) === String(tracksOnlySongId); });
+        } else if (trackAirFilter !== 'all') {
+          // THE HEADER SWITCH IS A FILTER. `visibleTrackSongs` says the same
+          // thing for the keyboard and the counts, but this list is built here,
+          // so the filter has to be applied here too or the switch does
+          // nothing and says nothing about why.
+          songs = songs.filter(function (song) {
+            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+          });
         }
 
         if (fillPromptBtn) {
@@ -4061,6 +4063,60 @@
       var tapeAirAll = document.getElementById('tapeAirAll');
       var tapeAirAllInput = document.getElementById('tapeAirAllInput');
 
+      // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
+      // `indeterminate` by a user click, so the label's own click is taken over
+      // and the input is painted from the state rather than driving it.
+      var AIR_CYCLE = { all: 'live', live: 'shelved', shelved: 'all' };
+
+      function paintAirSwitch(label, input, value, counts, noun) {
+        if (!label || !input) return;
+        input.indeterminate = value === 'all';
+        input.checked = value === 'live';
+        input.disabled = false;
+        label.querySelector('.tape-air-word--off')
+          .classList.toggle('is-current', value === 'shelved');
+        label.querySelector('.tape-air-word--on')
+          .classList.toggle('is-current', value === 'live');
+        input.title = counts.live + ' live, ' + counts.shelved + ' shelved. '
+          + (value === 'all'
+              ? 'Showing both. Press a word to show only those ' + noun + '.'
+              : 'Showing ' + value + ' ' + noun + ' only. Press again to show both.');
+      }
+
+      // Pressing a WORD picks that state, or clears it when it is already on;
+      // pressing the knob cycles. Both beat the native toggle, which would
+      // otherwise flip the checkbox underneath us.
+      function wireAirSwitch(label, input, get, set) {
+        if (!label || !input) return;
+        label.addEventListener('click', function (event) {
+          event.preventDefault();
+          var word = event.target && event.target.closest
+            ? event.target.closest('.tape-air-word') : null;
+          var now = get();
+          if (word && word.classList.contains('tape-air-word--off')) {
+            set(now === 'shelved' ? 'all' : 'shelved');
+          } else if (word && word.classList.contains('tape-air-word--on')) {
+            set(now === 'live' ? 'all' : 'live');
+          } else {
+            set(AIR_CYCLE[now] || 'all');
+          }
+        });
+        input.addEventListener('keydown', function (event) {
+          if (event.key !== ' ' && event.key !== 'Enter') return;
+          event.preventDefault();
+          set(AIR_CYCLE[get()] || 'all');
+        });
+        // A checkbox still fires change on some keyboards; the state is the
+        // truth, so repaint from it rather than reading the box.
+        input.addEventListener('change', function (event) { event.preventDefault(); set(get()); });
+      }
+
+      function airMatches(value, isShelved) {
+        if (value === 'live') return !isShelved;
+        if (value === 'shelved') return !!isShelved;
+        return true;
+      }
+
       function airCounts() {
         var live = 0, shelved = 0;
         soundtracks().forEach(function (tape) {
@@ -4070,56 +4126,12 @@
       }
 
       function paintMasterAir() {
-        if (!tapeAirAllInput || !tapeAirAll) return;
-        var n = airCounts();
-        var allLive = n.total > 0 && n.shelved === 0;
-        var allShelved = n.total > 0 && n.live === 0;
-        tapeAirAllInput.indeterminate = !allLive && !allShelved;
-        tapeAirAllInput.checked = allLive;
-        tapeAirAllInput.disabled = n.total === 0;
-        tapeAirAll.querySelector('.tape-air-word--off')
-          .classList.toggle('is-current', allShelved);
-        tapeAirAll.querySelector('.tape-air-word--on')
-          .classList.toggle('is-current', allLive);
-        tapeAirAllInput.title = n.total === 0
-          ? 'No tapes loaded.'
-          : n.live + ' live, ' + n.shelved + ' shelved. Switching this puts every tape the same way.';
+        paintAirSwitch(tapeAirAll, tapeAirAllInput, airFilter, airCounts(), 'tapes');
       }
 
-      if (tapeAirAllInput) tapeAirAllInput.addEventListener('change', async function () {
-        var want = !tapeAirAllInput.checked;
-        var n = airCounts();
-        var affected = want ? n.live : n.shelved;
-        if (!affected) { paintMasterAir(); return; }
-
-        var question = want
-          ? ('Shelve every tape?\n\n' + affected + ' live tape' + (affected === 1 ? '' : 's')
-            + ' will come off /soundtracks/, along with every track on them. The public page will be empty.')
-          : ('Put every tape back on air?\n\n' + affected + ' shelved tape' + (affected === 1 ? '' : 's')
-            + ' will return to /soundtracks/, with the tracks each one took down. A track shelved on its own stays shelved.');
-        if (!window.confirm(question)) { paintMasterAir(); return; }
-
-        tapeAirAllInput.disabled = true;
-        try {
-
-          await callRpc('tgb_set_all_tapes_archived', { p_archived: want });
-        } catch (error) {
-          console.error(error);
-          setNotice((want ? 'could not shelve every tape' : 'could not put every tape back'), 'error');
-          paintMasterAir();
-          return;
-        }
-
-        soundtracks().forEach(function (tape) { tape.archived = want; });
-        if (trackArchiveList) {
-          Array.prototype.forEach.call(trackArchiveList.querySelectorAll('.tape-line'), function (row) {
-            if (typeof row.repaintAir === 'function') row.repaintAir(want);
-          });
-        }
-        paintMasterAir();
-        setNotice((want ? 'shelved every tape, ' : 'put every tape back on air, ')
-          + affected + ' changed', want ? 'hold' : 'success');
-      });
+      wireAirSwitch(tapeAirAll, tapeAirAllInput,
+        function () { return airFilter; },
+        function (value) { airFilter = value; renderTrackArchive(); });
 
       function fitInput(el) {
 
