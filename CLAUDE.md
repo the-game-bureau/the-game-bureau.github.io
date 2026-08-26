@@ -742,6 +742,34 @@ the other flag, so exactly one question is ever narrowing the list.
   The test walks to a tape with a mix and checks the count there, and checks the
   press sends no PATCH, POST or DELETE.
 
+### THE BLURB NEVER SCROLLS, AND THE LIST IS AS WIDE AS THE BAR (2026-08-26)
+
+- **EVERY BLURB ON SCREEN HAD A SCROLLBAR, AND A GUARD WAS THE CAUSE.** A
+  `ResizeObserver` set a `manual` latch the moment the box's height differed from
+  what `grow()` had applied by more than 2px. That is not only a human dragging
+  the resize grip -- **it is the column settling**: the grid resolving, a webfont
+  arriving. Once latched, `grow()` returned early **forever** and `.is-manual`
+  turned `overflow: auto` on. A guard against one thing fired on another,
+  permanently, and read as a styling fault.
+  - **THE LATCH, THE OBSERVER AND THE GRIP ARE ALL GONE.** `resize: none` means
+    there is nothing left for such an observer to watch, and `overflow: hidden`
+    is unconditional -- **not even on focus**, which was the other half of it:
+    the box you are typing in is the one that most needs to show all of itself.
+  - A test asserts the computed `overflow` and `resize`, and that no latch is
+    left in the code. **The first cut of that test searched the raw source and
+    matched the comment explaining the removal** -- comments are not code.
+- **THE BLURB IS THE ONE CHILD OF A TRACK ROW WITH A SIZE OF ITS OWN**, 0.72rem
+  against the row's 14pt, and it is earned: its column is about 146px and it is
+  **the only field that WRAPS**, so it cannot shrink to fit the way the others do
+  and it alone set every row's height. The test that forbids a child declaring a
+  size now names this one exception.
+- **THE LIST RUNS THE FULL WIDTH OF THE ROOM.** The header and the rows carried
+  `margin-left: 22px`, from when they sat under a tape line and were indented to
+  read as belonging to it. **There is no tape line**, so that was 22px of nothing
+  making the list narrower than the bar above it: **1,126px against 1,148px**.
+  Both are 1,148 now.
+- **THE DIALOG SAYS GO LIVE, not Put live.**
+
 ### TICK TRACKS, THEN BATCH EDIT (2026-08-26)
 
 A twelfth column, first on the row, holding a tick per track and a select-all in

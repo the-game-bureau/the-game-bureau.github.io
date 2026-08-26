@@ -746,8 +746,17 @@
     .track-input--blurb::placeholder { color: var(--bic-red, #c23737); opacity: 0.8; }
 
     textarea.track-input--blurb {
-      resize: vertical;
+      /* NEVER A SCROLLBAR, AND NOTHING TO DRAG. The box is sized to its content
+         by `grow()` on every render, so a scrollbar could only ever mean the
+         sizing had failed -- and for a while it did, permanently. */
+      resize: none;
       overflow: hidden;
+      /* THE ONE CHILD OF A TRACK ROW WITH A SIZE OF ITS OWN, and it is earned:
+         the blurb column is about 139px and this is the only field that WRAPS,
+         so at the row's 14pt it was three or four words a line and it alone set
+         every row's height. Everything else on the row shrinks to fit its column
+         instead; a wrapping box cannot. */
+      font-size: 0.72rem;
       line-height: 1.28;
       padding-top: 2px;
       padding-bottom: 2px;
@@ -755,8 +764,9 @@
       min-height: 30px;
     }
 
-    textarea.track-input--blurb.is-manual,
-    textarea.track-input--blurb:focus { overflow: auto; }
+    /* NOT EVEN ON FOCUS. `overflow: auto` here was the other half of the
+       scrollbar: the box you are typing in is the one that most needs to show
+       all of itself. */
 
     .track-input--id::placeholder { color: var(--muted); opacity: 0.75; }
 
@@ -977,7 +987,6 @@
     /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row; its columns come
        from `.tape-lines`, the same declaration the header above it reads. */
     .track-line--in-list {
-      margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
     }
@@ -1180,9 +1189,13 @@
     .room-stats-sep { opacity: 0.7; }
 
     /* THE TRACK HEADER ON THE MAIN LIST. It takes its columns from `.tape-lines`
-       above it, like the rows do, so the two cannot drift. */
+       above it, like the rows do, so the two cannot drift.
+       NO LEFT INDENT. It carried `margin-left: 22px`, from when the rows sat
+       under a tape line and were indented to read as belonging to it. There is
+       no tape line, so the indent was 22px of nothing that made the list
+       narrower than the ADD/VIEW bar above it: 1,126px against 1,148px. Both are
+       1,148 now, and the two edges line up down the page. */
     .track-head--main {
-      margin-left: 22px;
       margin-bottom: 4px;
     }
 
@@ -3305,7 +3318,7 @@
           // ONLY THE MOVES THAT WOULD CHANGE SOMETHING. A selection that is
           // already live has nothing to gain from Live.
           if (anyShelved) {
-            btn('Put live', 'primary', function () {
+            btn('Go live', 'primary', function () {
               applyToSelection(tape, { archived: false }, 'Live');
             }, 'Put every selected track on /soundtracks/.');
           }
@@ -3535,10 +3548,6 @@
           area.title = 'The sentence under this track on /soundtracks/. Ten words or fewer, no trailing period. Required: a missing one is reported by the audit.';
           var was = value;
 
-          var manual = false;
-
-          var applied = 0;
-
           // ONE LINE AT REST, THE WHOLE BLURB WHEN YOU ARE IN IT. This is what
           // actually sets a track row's height: a ten-word blurb wraps to two or
           // three lines in its column, so every row was two or three lines tall
@@ -3560,34 +3569,29 @@
           }
           paintBlurbTitle();
 
+          // IT GROWS TO ITS CONTENT AND NEVER SCROLLS. It grows wherever it is
+          // drawn, so a track is the same height on the main list and in the
+          // popup.
+          //
+          // THE `manual` LATCH AND ITS ResizeObserver ARE GONE, and they are why
+          // every blurb on screen had a scrollbar. The observer set `manual` the
+          // moment the box's height differed from what `grow` had applied by
+          // more than 2px -- which is not only a human dragging the resize grip,
+          // it is the COLUMN SETTLING: the grid resolving, a webfont arriving.
+          // Once latched, `grow()` returned early forever and `.is-manual`
+          // turned `overflow: auto` on. A guard against one thing fired on
+          // another, permanently, and looked like a styling fault.
+          //
+          // The grip is gone with it (`resize: none`), so there is nothing left
+          // for such an observer to watch.
           function grow() {
-            if (manual) return;
             if (!area.isConnected) return;
-
-            // IT GROWS TO ITS CONTENT, wherever it is drawn. It was one line at
-            // rest, which made a track row on the main list a different height
-            // from the same row in the popup.
             area.style.height = 'auto';
-            applied = Math.max(MIN_H, area.scrollHeight);
-            area.style.height = applied + 'px';
+            area.style.height = Math.max(MIN_H, area.scrollHeight) + 'px';
           }
           grow();
 
           area.growToFit = grow;
-
-          if (window.ResizeObserver) {
-            var ro = new ResizeObserver(function (entries) {
-              if (manual || !entries.length) return;
-              var h = Math.round(entries[0].contentRect.height + 10);
-
-              if (applied && Math.abs(h - applied) > 2) {
-                manual = true;
-                area.classList.add('is-manual');
-                ro.disconnect();
-              }
-            });
-            ro.observe(area);
-          }
 
           area.addEventListener('focus', function () {
             was = area.value; trackPendingDelete = null;
