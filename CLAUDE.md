@@ -638,6 +638,20 @@ or three lines tall, and trimming the row's padding moved almost nothing.
   0, so the grow path measures 26px there whatever the text. The resting state,
   the uniformity and the tooltip are all checked; the expansion is not.
 
+### THE CATALOGUE COUNT SITS WITH THE ROOM'S NAME (2026-08-26)
+
+`1514/1643` moved out of the controls bar and onto the `TAPE ROOM` heading's own
+line, small and quiet in mono.
+
+- **IT IS THE ONE FIGURE IN THE ROOM THAT IS NOT ABOUT THE TAPE IN FRONT OF
+  YOU.** Everything else on that bar sorts, filters or acts; among them a bare
+  number read as a fourth thing to press, which is why it had needed
+  `margin-left: auto` to be shoved away from them in the first place.
+- **SMALL, BESIDE THE HEADING RATHER THAN UNDER IT.** A standing figure, not
+  news, so it must not compete with the room's name: 0.72rem mono, muted, with
+  only the number itself in ink.
+- The controls bar is now two groups and the tape's row, and nothing else.
+
 ### ONE HEADER, NOT THREE (2026-08-26)
 
 The room had three bars stacked over the tracks: the sort and filter controls,
