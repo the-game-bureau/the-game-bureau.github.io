@@ -1174,11 +1174,6 @@
     .queue-noplayer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .queue-noplayer-how { flex-basis: 100%; font-size: 0.78rem; color: var(--muted); }
 
-    .track-editor { margin: 6px 0; padding: 8px; border: 1px solid #ccc; }
-    .editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
-    .editor-field { display: grid; gap: 2px; }
-    .editor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-
     .prompt-layout {
       width: 100%;
       max-width: var(--mc-shell-width);
@@ -1414,7 +1409,6 @@
         </div>
         <div class="panel-head-actions">
 
-          <button class="btn small" id="fillPromptBtn" type="button" hidden>Fill prompt</button>
           <button class="btn small" type="button" data-tracks-close>Close</button>
         </div>
       </div>
@@ -1603,7 +1597,6 @@
       var pageNotice = document.getElementById('pageNotice');
       var soundtrackIssues = [];
 
-      var REVIEW_HOURS = 14;
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
 
@@ -3251,109 +3244,12 @@
         return name;
       }
 
-      function tapeFillPrompt(tape) {
-        var NL = String.fromCharCode(10);
-        var counts = tapeCounts(tape);
-        var want = Math.max(0, 15 - counts.LIVE);
-        var city = cityFullLabel(tape.city_slug);
-        var L = [];
-
-        L.push('You are filling a city soundtrack for The Game Bureau.');
-        L.push('Research by web search FIRST, then answer with ONE ```sql block and nothing else.');
-        L.push('');
-        L.push('## THE TAPE');
-        L.push('City: ' + city + ', city_slug ' + text(tape.city_slug));
-        if (text(tape.spine_tag)) {
-          L.push('Spine phrase: "' + text(tape.spine_tag) + '"');
-          L.push('THE PHRASE IS A BRIEF, not decoration. It narrows what belongs here on mood,');
-          L.push('genre, era, scene or time of day. The city still has to be true: a genre tape is');
-          L.push('that genre FOR THAT CITY, not a genre playlist wearing a city label. A phrase');
-          L.push('that says nothing (Soundtrack, Mix Tape, Jams) leaves the city as the whole brief.');
-        } else {
-          L.push('Spine phrase: none, so the city is the whole brief.');
-        }
-        L.push('It holds ' + counts.LIVE + ' live '
-          + (counts.LIVE === 1 ? 'track' : 'tracks')
-          + (counts.SHELVED ? ' and ' + counts.SHELVED + ' shelved, which do not count' : ''));
-        L.push('');
-        L.push('## WHAT TO DO');
-        L.push('1. Read what is already on this tape so you do not propose a duplicate, including');
-        L.push('   the shelved ones: a shelved track is a do-not-rescrape tombstone and the');
-        L.push('   database will silently drop a repeat of it. This URL is public and opens as it');
-        L.push('   stands:');
-        L.push('   https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack'
-          + '?select=title,artist,archived'
-          + '&city_slug=eq.' + encodeURIComponent(text(tape.city_slug))
-          + '&tape=eq.' + encodeURIComponent(text(tape.spine_tag))
-          + '&order=position.asc&apikey=' + SUPABASE_CONFIG.publishableKey);
-        L.push('2. Research ' + want + ' more '
-          + (want === 1 ? 'track' : 'tracks') + ' and return a call to the RPC:');
-        L.push('');
-        L.push('   select public.tgb_pull_soundtrack_songs(\'[{"city_slug":"'
-          + text(tape.city_slug) + '","songs":[');
-        L.push('     {"title":"...","artist":"...","spotify_id":"...","blurb":"...","explicit":false}');
-        L.push('   ]}]\'::jsonb);');
-        L.push('');
-        L.push('   The argument is a BARE ARRAY. Do not wrap it in {"payload": [...]}: that is the');
-        L.push('   PostgREST spelling, where a top-level key names a parameter over HTTP. In SQL');
-        L.push('   the call is positional, and the wrapper makes the function stop with');
-        L.push('   "Expected a JSON array of tape objects".');
-        L.push('');
-        L.push('   Do NOT write an INSERT. The function is what guarantees a new track arrives');
-        L.push('   shelved rather than straight onto the public page, and it refuses a hidden city.');
-        if (tapesInCity(tape.city_slug).length > 1) {
-          L.push('');
-          L.push('   THIS CITY HAS MORE THAN ONE TAPE. Send the spine phrase exactly as written');
-          L.push('   above, or the songs land on the wrong one:');
-          L.push('     "city_slug":"' + text(tape.city_slug) + '","tape":"' + text(tape.spine_tag) + '"');
-        } else {
-          L.push('');
-          L.push('   OMIT tape. Sending one addresses a tape by that name and would create a');
-          L.push('   SECOND tape for this city rather than filling this one.');
-        }
-        L.push('');
-        L.push('## WHAT BELONGS ON A TAPE, in rough priority');
-        L.push('- Songs that name the place: the city, its streets, its neighbourhoods.');
-        L.push('- Hometown artists: people from there, and records made there.');
-        L.push('- Sports and game-day music: college and pro fight songs, the victory anthem, a');
-        L.push('  stadium walk-up or goal song, what fans sing in the car park. Aim for 2 or 3.');
-        L.push('  VERIFY THE TEAM ACTUALLY USES IT. Stadium-song lore is the most error-prone');
-        L.push('  thing on these tapes: Thunderstruck is the Cowboys, Crazy Train the Patriots,');
-        L.push('  Enter Sandman the Yankees. If you cannot confirm the pairing, pick a hometown');
-        L.push('  artist instead.');
-        L.push('- Local scenes and labels the city is known for.');
-        L.push('Keep the mix varied across eras and genres where the city supports it.');
-        L.push('');
-        L.push('## RULES, ALL OF WHICH ARE ENFORCED SOMEWHERE');
-        L.push('- PROPOSE EXACTLY ' + want + '. That is what takes this tape to fifteen live.');
-        L.push('- Max 2 songs per artist across the tape, counting what is already there. Watch for');
-        L.push('  one act spelled two ways: that is one artist, not two.');
-        L.push('- Every song needs a title, an artist, and a city-specific blurb of 10 words or');
-        L.push('  fewer with no trailing period. There is no minimum LENGTH: four true words beat');
-        L.push('  eight padded ones.');
-        L.push('- NEVER invent a spotify_id. It is 22 characters and a fabricated one passes the');
-        L.push('  CHECK constraint and then silently plays nothing. Copy it from a real');
-        L.push('  open.spotify.com track page you actually opened, or omit the field entirely.');
-        L.push('  Omitting is always correct; guessing never is.');
-        L.push('- Never propose a track with the word KARAOKE anywhere in it, in any field or');
-        L.push('  casing, including anything Spotify shows for it.');
-        L.push('- Real commercial recordings only. No tribute, sped-up, slowed or re-recorded');
-        L.push('  versions; a remaster of the original master is fine.');
-        L.push('- NO EM DASHES anywhere in what you hand back, in the SQL or around it. Not the');
-        L.push('  character and not the entity. It is the clearest single tell that a machine wrote');
-        L.push('  the line, and a blurb is read off a cassette on a public page.');
-        L.push('');
-        L.push('Return the SQL only. A human runs it in the Supabase SQL editor; you have no access.');
-        return L.join(NL);
-      }
-
       var tracksCard = document.getElementById('tracksCard');
       var tracksBackdrop = document.getElementById('tracksBackdrop');
       var tracksTitle = document.getElementById('tracksTitle');
       var tracksSub = document.getElementById('tracksSub');
       var tracksFoot = document.getElementById('tracksFoot');
       var trackLines = document.getElementById('trackLines');
-      var fillPromptBtn = document.getElementById('fillPromptBtn');
       var tapeFindings = document.getElementById('tapeFindings');
 
       var tracksTapeId = null;
@@ -3572,15 +3468,6 @@
           songs = songs.filter(function (song) {
             return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
           });
-        }
-
-        if (fillPromptBtn) {
-          var want = Math.max(0, 15 - counts.LIVE);
-          fillPromptBtn.hidden = want === 0;
-          fillPromptBtn.textContent = 'Fill prompt';
-          fillPromptBtn.title = 'Copy a prompt that researches the ' + want
-            + (want === 1 ? ' track' : ' tracks')
-            + ' this tape needs and hands back one SQL statement to run.';
         }
 
         var tapeOwn = tapeIssues(tape);
@@ -3960,30 +3847,6 @@
         blurbResizeTimer = setTimeout(growBlurbs, 120);
       });
 
-      if (fillPromptBtn) fillPromptBtn.addEventListener('click', function () {
-        var tape = tapeById(tracksTapeId);
-        if (!tape) return;
-        var said = tapeFillPrompt(tape);
-
-        var done = function () {
-          fillPromptBtn.textContent = 'Copied';
-          fillPromptBtn.classList.add('is-copied');
-          setTimeout(function () {
-            fillPromptBtn.textContent = 'Fill prompt';
-            fillPromptBtn.classList.remove('is-copied');
-          }, 1800);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(said).then(done, function () {
-            setNotice('could not reach the clipboard, the prompt is in the console', 'error');
-            console.log(said);
-          });
-        } else {
-          setNotice('this browser has no clipboard access, the prompt is in the console', 'error');
-          console.log(said);
-        }
-      });
-
       if (tracksBackdrop) tracksBackdrop.addEventListener('click', closeTracks);
       if (tracksCard) {
         Array.prototype.forEach.call(tracksCard.querySelectorAll('[data-tracks-close]'), function (btn) {
@@ -4274,8 +4137,6 @@
         return text(row.city) || soundCityLabel(slug);
       }
 
-      var STALE_AFTER_HOURS = REVIEW_HOURS;
-
       function relativeTime(then, now) {
         if (!(then instanceof Date) || !Number.isFinite(then.getTime())) return '';
         var mins = Math.round((now - then) / 60000);
@@ -4291,6 +4152,11 @@
         var botBtn = document.getElementById('soundtrackBotBtn');
         if (!botBtn) return;
 
+        // NO STALENESS ON A GAP ANY MORE. TGB SOUNDTRACK BOT has no schedule
+        // as of 2026-08-25: it is run by hand, so a quiet week is a decision
+        // rather than a failure, and a red edge that is permanently on is a
+        // signal nobody reads. `stale` survives for the one thing that is still
+        // a fault: not being able to read the table at all.
         function say(when, what, stale) {
           botBtn.title = [text(when), text(what)].filter(Boolean).join(' — ');
           botBtn.classList.toggle('is-stale', !!stale);
@@ -4310,7 +4176,6 @@
           var stamp = new Date(row.created_at);
           if (!Number.isFinite(stamp.getTime())) throw new Error('no timestamp');
           var now = new Date();
-          var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
 
           var since = new Date(stamp.getTime() - 3600000).toISOString();
           var wrote = await runTally(since);
@@ -4319,9 +4184,9 @@
             weekday: 'short', month: 'short', day: 'numeric',
             hour: 'numeric', minute: '2-digit'
           }) + (wrote ? ' · ' + wrote : ' · ' + soundCityLabel(row.city_slug))
-            + (stale ? ' · no new track in over a day — check the routine.' : '');
+            + ' · run it from the routine when you want more.';
 
-          say('Last run ' + relativeTime(stamp, now), detail, stale);
+          say('Last run ' + relativeTime(stamp, now), detail, false);
         } catch (error) {
 
           say('Last run unavailable',

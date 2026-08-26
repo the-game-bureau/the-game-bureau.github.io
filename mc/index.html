@@ -1021,8 +1021,11 @@
           filed: 'events?select=created_at&kind=eq.concert&order=created_at.desc&limit=1', stale: 50 },
         { name: 'TGB GIFT SHOP BOT', id: 'trig_01H7cKJ4fk5bA1NWSqPZi4ah', cron: '3am + 3pm',
           filed: 'gift_shop_items?select=created_at&order=created_at.desc&limit=1', stale: 26 },
-        { name: 'TGB SOUNDTRACK BOT', id: 'trig_014sqaUyU7557svq9mGA1E4a', cron: '3am + 3pm',
-          filed: 'soundtrack?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+        // NO SCHEDULE as of 2026-08-25: its cron was cleared and it is run by
+        // hand. `stale: null` is what stops the figure going red, because with
+        // nothing firing it a gap is a decision rather than a failure.
+        { name: 'TGB SOUNDTRACK BOT', id: 'trig_014sqaUyU7557svq9mGA1E4a', cron: 'by hand',
+          filed: 'soundtrack?select=created_at&order=created_at.desc&limit=1', stale: null },
         { name: 'TGB SOCIALIZER BOT', id: 'trig_01KDYndJhZ9ymgUgX5Xx6LsL', cron: '3am + 3pm',
           filed: 'socials?select=created_at&order=created_at.desc&limit=1', stale: 26 },
         { name: 'TGB PATH BOT', id: 'trig_01HqDJy6BzpU7n23VXv8D1gW', cron: '3am + 3pm',
@@ -1190,8 +1193,12 @@
             // OVERDUE, in the routine's own cadence. A red figure here IS the
             // failure notice: these commit nothing, so a run that died leaves no
             // other trace anywhere.
+            // `stale` IS null FOR A ROUTINE WITH NO SCHEDULE, and the guard has
+            // to test it: `anything > null` is `anything > 0`, so without this a
+            // hand-run routine would be red from the minute after it ran.
             const t = Date.parse(stamp || '');
-            if (Number.isFinite(t) && (Date.now() - t) / 3600000 > r.bot.stale) {
+            if (Number.isFinite(r.bot.stale)
+                && Number.isFinite(t) && (Date.now() - t) / 3600000 > r.bot.stale) {
               r.cell.classList.add('mc-bot-stale');
               r.cell.title = 'Overdue. ' + r.bot.name + ' runs ' + r.bot.cron + ' and has filed nothing since.';
             }

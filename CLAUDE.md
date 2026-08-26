@@ -453,6 +453,32 @@ detector written that way **found nothing and looked like a clean codebase**. **
 instead of a regex, `String.fromCharCode`, `JSON.stringify` for a compound key.
 `cat -A` is what shows it, since these are invisible in a normal diff.
 
+### TGB SOUNDTRACK BOT HAS NO SCHEDULE. IT IS RUN BY HAND. (2026-08-25)
+
+`cron_expression` is cleared on `trig_014sqaUyU7557svq9mGA1E4a`, so
+`next_run_at` is the zero value and nothing fires it. **`enabled` stays true**,
+which is the point: a disabled routine is a different thing, and this one is
+still meant to be run, just by a person pressing Run at claude.ai.
+
+- **NOT DELETED, AND THAT IS THE STANDING RULE HERE.** A trigger id does not
+  survive a delete, this project lost `trig_01Q5uCitt...` that way on
+  2026-08-20 and had to repoint four places. Clearing the cron changes one
+  top-level field and leaves the prompt, the model pin and the git source
+  untouched, which was verified by reading the reply back.
+- **IT IS THE ONLY TGB ROUTINE OFF THE SHARED SCHEDULE**, so the `:5` slot in
+  the twice-daily stagger is now free.
+- **TWO STALENESS SIGNALS HAD TO GO WITH IT, OR THEY WOULD BE PERMANENTLY RED.**
+  Both existed because a run that errors writes nothing, so a stale last-filed
+  WAS the failure notice. **With nothing firing it, a gap is a decision rather
+  than a failure**, and a red edge that is always on is a signal nobody reads.
+  - The Tape Room's `.btn.is-stale` on the TGB SOUNDTRACK BOT button, and
+    `REVIEW_HOURS` / `STALE_AFTER_HOURS` with it. **`stale` survives for the one
+    thing still a fault**: not being able to read the table at all.
+  - The hub's routine row is `cron: 'by hand'`, `stale: null`. **The guard had
+    to learn to test it**: `anything > null` is `anything > 0`, so without
+    `Number.isFinite(r.bot.stale)` a hand-run routine would go red the minute
+    after it ran. Every other routine's threshold is unchanged.
+
 ### THE HEADER'S SHELVED / LIVE SWITCH IS A FILTER (2026-08-25)
 
 Both of them: the one in the tape head, and the one in an open tape's track
@@ -842,7 +868,7 @@ The two rooms had shared a palette since 2026-08-06 — `--cut-panel-bg`, `--cut
 
 ### Daily generation — a Claude Code cloud routine, not CI
 
-New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB SOUNDTRACK BOT", `trig_014sqaUyU7557svq9mGA1E4a`, cron `5 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [mc/soundtracks/index.html](mc/soundtracks/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all.
+New soundtracks are added by a **Claude Code cloud agent** ("TGB SOUNDTRACK BOT", `trig_014sqaUyU7557svq9mGA1E4a`, **no cron: run by hand**, see the note above), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [mc/soundtracks/index.html](mc/soundtracks/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all.
 
 **The routine's stored prompt and the Tape Room's PROMPT button are two different prompts on purpose, and the difference is the write path** — the same split the Socializer makes, for the same reason. The routine holds the publishable key and calls `tgb_pull_soundtrack_songs` unattended. The PROMPT button is for pasting into *another* AI — ChatGPT, Gemini, whatever is open — which has no key and no session, so its deliverable is **one `select public.tgb_pull_soundtrack_songs('…'::jsonb);` statement in a ```sql block** that a human runs in the Supabase SQL editor. **THE ARGUMENT IS A BARE ARRAY, NOT `{"tapes": [...]}`.** That wrapper is how PostgREST names arguments over HTTP, where a top-level key is matched to a *parameter name*; in SQL the call is positional, so the argument is the array itself. Wrapping it makes the argument an object and the function stops with `Expected a JSON array of tape objects`, which reads like malformed JSON when it is only in the wrong container. **Both the PROMPT dialog and the issue "Copy fix prompt" shipped with the wrapper and every statement they produced failed** (found 2026-08-17). The routine is unaffected: it calls over HTTP, where the wrapper is correct. **It calls the RPC and is NOT a raw INSERT**: the function is what guarantees `archived = true` / `certified_at = null` / `rejected_at = null`, refuses a hidden city, caps the call and drops a malformed `spotify_id`. A hand-written INSERT bypasses every one of those and could publish straight to `/soundtracks/`. Editorial rules — the four song sources, the 15, two-per-artist, the blurb rule, the verify-or-omit rule on Spotify IDs — have to be kept in step across both by hand; only the last step differs.
 
@@ -868,7 +894,7 @@ Set 2026-08-15, and it has been resettled twice since by folding routines togeth
 | routine | trigger id | cron (UTC) |
 |---|---|---|
 | TGB GIFT SHOP BOT | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20 * * *` |
-| TGB SOUNDTRACK BOT | `trig_014sqaUyU7557svq9mGA1E4a` | `5 8,20 * * *` |
+| TGB SOUNDTRACK BOT | `trig_014sqaUyU7557svq9mGA1E4a` | **none, run by hand** |
 | TGB ANCHOR EVENTS | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
 | TGB SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 | TGB PATH BOT | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20 * * *` |
