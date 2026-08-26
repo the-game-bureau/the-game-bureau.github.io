@@ -655,6 +655,34 @@ The two checkbox columns read **Explicit** and **Sports** rather than `E` and
   and the standing warning is that missing one puts every label a column away
   from the field it names.
 
+### THE HEADER'S X DELETES THE SELECTION, AND THERE IS NO TAPE DELETE (2026-08-26)
+
+The `x` at the end of the track header deleted the whole tape. It now deletes
+**the ticked tracks and nothing else**.
+
+- **THAT CAPABILITY IS GONE RATHER THAN RELOCATED, and it must not be described
+  as the same thing reached a different way.** Deleting a tape and deleting all
+  of a tape's tracks are different acts with different scopes, and the second is
+  the only one this room still offers. `tapePendingDelete`, `renderTapeConfirm`
+  and `deleteTape` went with it.
+- **`tapePath` WENT TOO, AND SHOULD NOT COME BACK FOR CONVENIENCE.** It built a
+  filter matching EVERY ROW OF A TAPE, which is precisely the scope nothing in
+  this room writes to any more: the x acts on ticked ids and so does the bulk
+  bar. A tape-wide filter somebody forgets to scope rewrites a whole city.
+- **IT IS OFF, NOT ABSENT, WITH NOTHING TICKED.** A control that vanished would
+  move the ones beside it, so the position of the one you want would depend on
+  the state of the selection. **`aria-disabled`, not `disabled`** -- a disabled
+  button dispatches no click at all, so on a touch screen the reason it is off
+  would be unreachable. Pressing it says *tick the tracks you want to delete
+  first*.
+- **THE BULK BAR LOST ITS OWN DELETE.** Two controls for one act, a few inches
+  apart, is the duplication this room keeps removing. The bar sets columns; the
+  x deletes.
+- **THE QUESTION CARRIES THE CONSEQUENCE NOBODY EXPECTS.** That the rows go is
+  obvious; that the tracks take their **do-not-rescrape tombstones** with them is
+  not, and it is the reason **Shelve instead** sits on the confirmation as the
+  first button.
+
 ### ONE FILTER AT A TIME: LIVE, EXPLICIT OR SPORTS (2026-08-26)
 
 The Explicit and Sports column headers are buttons that filter on their own

@@ -807,6 +807,14 @@
       overflow: hidden;
     }
 
+
+    /* THE X IS OFF, NOT ABSENT, WITH NOTHING TICKED. A control that vanished
+       would move the ones beside it, so the position of the one you want would
+       depend on the state of the selection. It stays pressable so it can say
+       why it is off -- on a touch screen there is no tooltip to hover. */
+    .track-del.is-off { opacity: 0.3; cursor: help; }
+    .track-del.is-off:hover { border-color: transparent; color: inherit; background: transparent; }
+
     .track-del.is-armed {
       border-color: var(--bic-red, #c23737);
       background: var(--bic-red, #c23737);
@@ -2226,7 +2234,7 @@
 
       // THE TAPE HAS NO id ANY MORE. It is (city_slug, tape), and this is the
       // string the page uses wherever it used to hold a tape id -- as a map key
-      // and as a row's tape_id. `tapePath` turns it back into a filter.
+      // and as a row's tape_id.
       function tapeKey(citySlug, tapeName) {
         return JSON.stringify([String(citySlug || ''), String(tapeName || '')]);
       }
@@ -2244,10 +2252,12 @@
         return res.json().catch(function () { return null; });
       }
 
-      function tapePath(tape) {
-        return 'soundtrack?city_slug=eq.' + encodeURIComponent(tape.city_slug) +
-               '&tape=eq.' + encodeURIComponent(tape.spine_tag || '');
-      }
+      // `tapePath` went with the tape delete on 2026-08-26. It built a filter
+      // matching EVERY ROW OF A TAPE, which is precisely the scope nothing in
+      // this room writes to any more: the X acts on ticked ids and the bulk bar
+      // acts on ticked ids. **Do not bring it back for convenience** -- a
+      // tape-wide filter somebody forgets to scope rewrites a whole city.
+
 
       // WRITING ONE BACK IS A READ, AN EDIT AND A PATCH OF THE WHOLE ARRAY.
       // Postgres has no way to update one element of a jsonb array by predicate
@@ -2277,7 +2287,7 @@
         // THE TAPES ARE GROUPED OUT OF THE TRACKS, in the SAME SHAPE this page
         // has always held one, so everything downstream is untouched. The only
         // real difference is that a tape has no `id`: `tape.key` is
-        // (city_slug, tape) and `tapePath(tape)` is how you write to it.
+        // (city_slug, tape).
         //
         // A TAPE IS SHELVED WHEN EVERY TRACK ON IT IS. There is no tape row to
         // carry the flag any more, and that is what it always meant.
@@ -2746,21 +2756,7 @@
           tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
             + counts.SHELVED + ' shelved, ' + total + ' in all.';
 
-          var armed = String(tapePendingDelete) === String(tape.id);
-          var delBtn = document.createElement('button');
-          delBtn.type = 'button';
-          delBtn.className = 'track-del' + (armed ? ' is-armed' : '');
-          delBtn.textContent = '×';
-          delBtn.setAttribute('aria-label', 'Delete the ' + tapeNameOf(tape) + ' tape');
-          delBtn.title = armed
-            ? 'Put the question away'
-            : 'Delete this tape, its tracks and their findings';
-          delBtn.addEventListener('click', function (event) {
-
-            event.stopPropagation();
-            tapePendingDelete = armed ? null : tape.id;
-            renderTrackArchive();
-          });
+          var delBtn = buildSelectionDelete();
 
           // BOTH ARROWS AT THE FAR LEFT, SIDE BY SIDE. Split to the two ends
           // they were a long way apart for one job, and you had to cross the
@@ -2804,9 +2800,8 @@
           var bulk = buildBulkBar(tape);
           if (bulk) head.appendChild(bulk);
 
-          var confirmStrip = renderTapeConfirm(tape);
+          var confirmStrip = renderSelectionConfirm(tape);
           if (confirmStrip) head.appendChild(confirmStrip);
-          if (confirmStrip) confirmStrip.classList.add('track-confirm--head');
 
           // THE HEADER GOES IN FIRST, ahead of the rows it heads.
           trackArchiveList.appendChild(head);
@@ -3240,42 +3235,76 @@
         function () { return trackAirFilter; },
         setTrackAir);
 
-      var tapePendingDelete = null;
+      // THE X IN THE HEADER DELETES WHAT IS TICKED, AND NOTHING ELSE.
+      //
+      // It deleted the whole TAPE until 2026-08-26, and it does not any more:
+      // it removes the ticked tracks and touches nothing else. THERE IS NO
+      // TAPE-LEVEL DELETE NOW, which is a real capability removed rather than
+      // relocated -- do not describe this button as the same thing reached a
+      // different way.
+      //
+      // IT IS OFF, NOT ABSENT, WHEN NOTHING IS TICKED. A control that vanished
+      // would move the two beside it, so the position of the one you want would
+      // depend on the state of the selection. `aria-disabled` rather than
+      // `disabled`, because a disabled button dispatches no click at all and on
+      // a touch screen the reason it is off would be unreachable.
+      function buildSelectionDelete() {
+        var n = selectedCount();
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'track-del' + (bulkPendingDelete ? ' is-armed' : '')
+          + (n ? '' : ' is-off');
+        btn.textContent = '\u00d7';
+        btn.setAttribute('aria-label', n
+          ? ('Delete ' + n + (n === 1 ? ' selected track' : ' selected tracks'))
+          : 'Delete selected tracks');
+        btn.setAttribute('aria-disabled', n ? 'false' : 'true');
+        btn.title = !n
+          ? 'Tick the tracks you want to delete first. This acts on the selection only.'
+          : (bulkPendingDelete
+              ? 'Put the question away'
+              : 'Delete the ' + n + (n === 1 ? ' selected track' : ' selected tracks'));
+        btn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          if (!n) {
+            setNotice('tick the tracks you want to delete first', 'error');
+            return;
+          }
+          bulkPendingDelete = !bulkPendingDelete;
+          renderTrackArchive();
+        });
+        return btn;
+      }
 
-      function renderTapeConfirm(tape) {
-        if (!tape || tapePendingDelete == null) return null;
-        if (String(tapePendingDelete) !== String(tape.id)) return null;
-
-        var counts = tapeCounts(tape);
-        var total = counts.LIVE + counts.SHELVED;
-
-        // COUNTED OFF `soundtrackIssues`, THE FLAT ARRAY THIS ROOM STILL BUILDS
-        // AND NO LONGER DRAWS. This line read a bare `findings`, which is
-        // defined nowhere: pressing the tape's delete button raised a
-        // ReferenceError inside `renderTapeConfirm`, which took
-        // `renderTrackArchive` down with it and blanked the room. A leftover
-        // from the pass that moved the findings UI to /mc/issues.html -- the
-        // DATA is untouched, and deleting a tape still deletes its findings, so
-        // the sentence is still true and now has a number behind it.
-        var findings = (Array.isArray(soundtrackIssues) ? soundtrackIssues : [])
-          .filter(function (f) { return String(f.tape_id) === String(tape.id); }).length;
+      // THE QUESTION, IN THE HEADER, WITH THE CONSEQUENCE NOBODY EXPECTS IN IT.
+      // That the rows go is obvious. That the tracks take their do-not-rescrape
+      // tombstones with them is not, and it is the reason shelving is almost
+      // always the right answer instead.
+      function renderSelectionConfirm(tape) {
+        var n = selectedCount();
+        if (!bulkPendingDelete || !n) return null;
 
         var box = document.createElement('div');
-        box.className = 'track-confirm';
+        box.className = 'track-confirm track-confirm--head';
+
         var words = document.createElement('p');
         var lead = document.createElement('strong');
-        lead.textContent = 'Delete ' + tapeNameOf(tape) + ' for good? ';
+        lead.textContent = 'Delete ' + n + (n === 1 ? ' track' : ' tracks') + ' for good? ';
         words.appendChild(lead);
         words.appendChild(document.createTextNode(
-          'This also deletes ' + total + (total === 1 ? ' track' : ' tracks')
-          + (findings ? ' and ' + findings + (findings === 1 ? ' issue' : ' issues') : '')
-          + '. The tracks take their do-not-rescrape tombstones with them, so the '
-          + 'routine is free to propose every one of them again. Shelving keeps all '
-          + 'of it and simply takes the tape off /soundtracks/.'));
+          'This cannot be undone. They take their do-not-rescrape tombstones with '
+          + 'them, so the routine is free to propose every one of them again. '
+          + 'Shelving keeps all of it and simply takes them off /soundtracks/.'));
 
-        // NO "SHELVE INSTEAD" BUTTON. There is no tape-level shelve to offer;
-        // the gentler answer is now shelving the tracks, which the rows below
-        // do one at a time.
+        var shelveBtn = document.createElement('button');
+        shelveBtn.type = 'button';
+        shelveBtn.className = 'btn small primary';
+        shelveBtn.textContent = 'Shelve instead';
+        shelveBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          bulkPendingDelete = false;
+          applyToSelection(tape, { archived: true }, 'Shelve');
+        });
 
         var reallyBtn = document.createElement('button');
         reallyBtn.type = 'button';
@@ -3284,7 +3313,7 @@
         reallyBtn.addEventListener('click', async function (event) {
           event.stopPropagation();
           reallyBtn.disabled = true;
-          await deleteTape(tape);
+          await deleteSelection(tape);
         });
 
         var cancelBtn = document.createElement('button');
@@ -3293,34 +3322,19 @@
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', function (event) {
           event.stopPropagation();
-          tapePendingDelete = null;
+          bulkPendingDelete = false;
           renderTrackArchive();
         });
 
-        box.append(words, reallyBtn, cancelBtn);
+        box.append(words, shelveBtn, reallyBtn, cancelBtn);
         return box;
       }
 
-      async function deleteTape(tape) {
-        if (!tape || tape.id == null) return false;
-        var label = tapeNameOf(tape);
-        try {
-          // DELETING A TAPE IS DELETING ITS TRACKS, because they are the tape.
-          await deleteRow(tapePath(tape));
-        } catch (error) {
-          console.error(error);
-          setNotice('could not delete ' + label, 'error');
-          return false;
-        }
-        tapePendingDelete = null;
-
-        if (tracksOpen() && String(tracksTapeId) === String(tape.id)) closeTracks();
-
-        await loadSoundtrackArchive();
-        renderTrackArchive('deleted the ' + label + ' tape, its tracks and their '
-          + 'tombstones went with it', 'hold');
-        return true;
-      }
+      // `tapePendingDelete`, `renderTapeConfirm` and `deleteTape` went here on
+      // 2026-08-26, when the header's X stopped acting on the tape. They were
+      // the only tape-level delete, so THAT CAPABILITY IS GONE rather than
+      // moved: deleting a tape is now deleting its tracks, which is a different
+      // act with a different scope even where the outcome looks the same.
 
       function renderTracks() {
         if (!trackLines || !tracksOpen()) return;
@@ -4192,22 +4206,9 @@
         act('Not sports', 'Clear sports on every selected track.', { sports: false });
         rule();
 
-        // IT ASKS, AND EVERYTHING ELSE HERE DOES NOT. The rest set a column
-        // somebody can set back; this one cannot be undone and takes the tracks'
-        // do-not-rescrape tombstones with them, so the routine is free to
-        // propose every one of them again.
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'btn small warn' + (bulkPendingDelete ? ' is-armed' : '');
-        del.textContent = bulkPendingDelete ? ('Delete ' + n + ' for good') : 'Delete';
-        del.title = bulkPendingDelete
-          ? 'This cannot be undone, and the tracks take their do-not-rescrape tombstones with them.'
-          : 'Delete every selected track. Shelving is almost always what you want instead.';
-        del.addEventListener('click', function () {
-          if (!bulkPendingDelete) { bulkPendingDelete = true; renderTrackArchive(); return; }
-          deleteSelection(tape);
-        });
-        bar.appendChild(del);
+        // NO DELETE ON THIS BAR. The X at the end of the header is the one
+        // control that deletes a selection; a second button doing the same
+        // thing a few inches away is the duplication this room keeps removing.
 
         var clear = document.createElement('button');
         clear.type = 'button';
