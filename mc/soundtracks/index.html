@@ -2804,11 +2804,30 @@
               input.disabled = false;
               return;
             }
+            // SHELVING A TAPE SHELVES ITS TRACKS, so the page has to be
+            // reloaded rather than the tape's own flag flipped in memory.
+            // `tgb_set_tape_archived` writes every row of the tape; this
+            // handler used to update `tape.archived` alone, which was invisible
+            // while the tracks lived in a popup and is plainly wrong now they
+            // are on the page: the tape read SHELVED with fifteen LIVE tracks
+            // under it until something else forced a reload.
             if (tape) tape.archived = want;
             shelved = want;
             paintAir(want);
+            try {
+              await loadSoundtrackArchive();
+            } catch (error) {
+              console.error(error);
+              setNotice('shelved ' + label + ' in the database, but the page could not '
+                + 'reload. Press Reload to see its tracks.', 'error');
+              input.disabled = false;
+              return;
+            }
             input.disabled = false;
-            setNotice((want ? 'shelved ' : 'back on air, ') + label, 'success');
+            setNotice((want ? 'shelved ' : 'back on air, ') + label
+              + (want ? ', with its live tracks'
+                      : ', with the tracks it took down. A track shelved on its own stays shelved.'),
+              'success');
           });
 
           paintAir(shelved);

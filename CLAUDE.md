@@ -614,6 +614,29 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### SHELVING A TAPE SHELVES ITS TRACKS, ON SCREEN AS WELL (2026-08-26)
+
+The database always did it: `tgb_set_tape_archived` writes every row of the tape
+and stamps `archived_with_tape`. **The page did not show it.** The tape row's own
+switch flipped `tape.archived` in memory and never reloaded, so the tape read
+SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
+
+- **IT WAS INVISIBLE UNTIL THE TRACKS CAME OUT OF THE POPUP.** With the tracks
+  behind a dialog you reopened it and saw the truth; with them on the page the
+  row and its tracks openly disagreed. **A change of surface turned a harmless
+  shortcut into a visible lie.**
+- **`setTapeArchived` HAD ALWAYS RELOADED.** Two paths to one act, one of them
+  correct, which is the shape this file keeps warning about.
+- **A FAILED RELOAD IS SAID OUT LOUD** and names the fix, because the write did
+  land: the database is shelved and only the page is behind.
+- **The notice now says what else moved** -- "with its live tracks" one way,
+  "with the tracks it took down, a track shelved on its own stays shelved" the
+  other.
+- **PROVED BY A STUB THAT MODELS THE FUNCTION**, not one that answers OK.
+  Shelving Aachen shelved all 30 of its tracks on screen and dropped the
+  catalogue's live count by exactly 30; restoring brought them back and returned
+  the count to where it started.
+
 ### EVERY TAPE ON THE PAGE, AND THE PAGER IS GONE (2026-08-26)
 
 113 tape lines, 113 track headers, 1,643 editable track rows, all at once. The
