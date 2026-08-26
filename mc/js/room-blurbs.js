@@ -40,7 +40,11 @@
 
   var BLURBS = {
     'stock-room': 'Gifts for every city we play in. Books and objects are added here by hand or through ai; certify or shelve each one.',
-    'tape-room': 'Soundtracks enhance the game experience. Tracks are added here through ai and start as "shelved". This page allows you to turn tapes live, edit them and fix issues.',
+    'tape-room': 'Soundtracks enhance the game experience. Tracks are added here through ai and start as "shelved". This page allows you to manage soundtracks.',
+    // ITS OWN ROOM SINCE 2026-08-26. The tape-room sentence above used to end
+    // "turn tapes live, edit them and fix issues", which stopped being true the
+    // day the findings came out of that room.
+    'issues': 'What the daily audit found wrong with the tapes. Every finding the soundtrack bot has filed, in one place.',
     'socializer': 'Social media posts are added here manually or through ai. Edit then skip or post each one.'
   };
 
