@@ -742,6 +742,86 @@ the other flag, so exactly one question is ever narrowing the list.
   The test walks to a tape with a mix and checks the count there, and checks the
   press sends no PATCH, POST or DELETE.
 
+### TICK TRACKS, THEN BATCH EDIT (2026-08-26)
+
+A twelfth column, first on the row, holding a tick per track and a select-all in
+the header. Tick anything and a **Batch edit N** button appears beside that tick;
+pressing it opens a dialog with everything a selection can be made to do.
+
+- **A BUTTON AND A DIALOG, NOT A BAR.** It was a row of verbs across the header
+  for an hour. **A bar that appears and disappears changes the height of the
+  thing you are reading**, and it put a delete permanently in the corner of your
+  eye. One button opens one panel.
+- **THE BUTTON IS POSITIONED, NOT PLACED.** The tick's column is 30px; the
+  button is absolute against that cell and sits OVER the two columns after it,
+  which are empty in the header. **So a selection appearing changes no width and
+  nothing under it moves.**
+- **THE DIALOG HAS TWO STATES, IN ONE PANEL.** First the moves, then -- if you
+  press Delete -- the question about deleting, in the same panel. **A second
+  dialog over a dialog is worse than a panel that changes its mind**, and the way
+  out of the second state is **Back**, not Cancel, because that is what it is.
+- **ONLY THE MOVES THAT WOULD CHANGE SOMETHING ARE DRAWN.** An all-shelved
+  selection is offered **Put live** and not Shelve; a live one the reverse. A
+  button that writes `archived = true` over `archived = true` reports a success
+  that changed nothing.
+- **THERE IS NO X ON THE HEADER.** It deleted the tape, then the selection, and
+  now nothing at all: the Del column's header is a plain label naming the column
+  of per-row deletes under it. **Deleting a selection is inside the dialog and
+  nowhere else.**
+- **IT IS WHAT MAKES A TAPE LIVE IN ONE PRESS.** When tape state went, this file
+  recorded the cost: one press per track. Select all, Batch edit, Put live.
+- **NO BULK WRITE OF `explicit` OR `sports`.** Those two are a fact about a
+  RECORDING, judged one track at a time from its own tick box, and a button
+  setting fifteen at once was offering to be wrong fifteen times in a press. They
+  are still editable on every row and still filterable from the header.
+- **THE SELECTION IS PRUNED TO WHAT IS DRAWN, ON EVERY RENDER.** The filter and
+  the pager both change what is on screen, and **a batch press that reached a
+  hidden row would be silent and would land on somebody else's work.** Stepping
+  to another tape drops the selection, and unticking the last track closes the
+  dialog -- it paints from state on every render, so it cannot be open about a
+  selection that has since changed.
+- **ONE REQUEST FOR THE LOT**, `id=in.(...)`, not a loop, with
+  `return=representation`: PostgREST answers 200 with an empty array when RLS
+  refuses, and **a short reply is reported rather than rounded up** -- saying "12
+  updated" about 9 is the quiet sort of lie this room has been caught by before.
+- **THE DELETE QUESTION IS IN PLAIN WORDS.** It said the tracks *"take their
+  do-not-rescrape tombstones with them"*, which is our schema talking. It now
+  says the bot may find them and file them again, which is the consequence a
+  person decides with. **The `tgb-agent-context` block keeps the precise term**,
+  being read by an AI that needs the mechanism.
+- **ESCAPE CLOSES THIS DIALOG FIRST**, being the one on top when it is open.
+- **THE GRID WENT FROM ELEVEN COLUMNS TO TWELVE**, which moved six things at
+  once: both `--track-cols` declarations, the built header's cell list, its
+  `--mid` and `--tiny` indices, the `fill()` positions, and the popup's static
+  markup. **Miss one and every label sits a column from the field it names.**
+
+### ONE FILTER AT A TIME: LIVE, EXPLICIT OR SPORTS (2026-08-26)
+
+The Explicit and Sports column headers are buttons that filter on their own
+column, and **they are standalone**: choosing one clears the Status switch and
+the other flag, so exactly one question is ever narrowing the list.
+
+- **WHY STANDALONE.** With three filters that could combine, a short list has up
+  to three reasons and you have to check three controls to find out which. One
+  at a time means the answer is always the one control that is lit.
+- **`trackPassesFilters(song)` IS THE ONE TEST**, and both `renderTrackArchive`
+  and the popup's `renderTracks` call it. **Two readers of "what is visible" is
+  exactly how the air switch was silently inert once**: it painted the state and
+  then built its list from an unfiltered array a few lines away.
+- **TWO VARIABLES, NOT ONE.** `trackAirFilter` is a tri-state with its own
+  painter; the flags are plain toggles. The two setters clear each other, which
+  is where "standalone" actually lives.
+- **THEY ARE REAL BUTTONS with `aria-pressed`**, not labels with a click
+  handler: a word that silently does something when you click it is not a
+  control. At rest they look like the column labels they replaced, because that
+  is still what they are.
+- **THE EMPTY STATE NAMES THE FILTER THAT EMPTIED IT**, whichever of the three it
+  was, rather than assuming it was the air switch.
+- **PROVED ON A TAPE THAT HAS SOME.** The first tape has no explicit tracks, so
+  "0 of 5" is the right answer **and is also what an inert filter would give**.
+  The test walks to a tape with a mix and checks the count there, and checks the
+  press sends no PATCH, POST or DELETE.
+
 ### TICK TRACKS, AND THE HEADER ACTS ON ALL OF THEM (2026-08-26)
 
 A twelfth column, first on the row, holding a tick per track and a select-all in

@@ -361,6 +361,18 @@
        above theirs. The header is column labels again -- a strip above them was
        a tape header by another name. */
 
+
+    /* THE DELETE DIALOG. It borrows the room's own panel; only its own two
+       pieces are set here. `section.tool-modal-panel:not([hidden])` elsewhere in
+       this sheet is what makes `hidden` win over the panel's `display: flex` --
+       without the `:not`, this dialog would be open on load. */
+    .bulk-words { margin: 0; font-size: 0.95rem; line-height: 1.45; }
+
+    /* THE IRREVERSIBLE BUTTON IS THE RED ONE, and it is never the primary. */
+    #bulkCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
+    #bulkCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
+    #bulkCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+
     /* ── THE SELECTION ──────────────────────────────────────────────────── */
 
     .track-pick,
@@ -376,57 +388,26 @@
        than as chrome bolted to the side of it. */
     .track-pick-box { cursor: pointer; }
 
-    /* THE BULK BAR, ACROSS THE HEADER, ONLY WHEN SOMETHING IS SELECTED. It is
-       drawn in the room's primary ink rather than the muted grey of the labels
-       above it: these are things that WRITE, and the bar beside them filters. */
-    .track-bulk {
-      grid-column: 1 / -1;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--control-line);
-      font-size: 0.72rem;
-      letter-spacing: normal;
-      text-transform: none;
+    /* THE BATCH BUTTON, BESIDE THE HEADER'S TICK. It is positioned against the
+       tick's own cell and sits OVER the two columns after it, which are empty in
+       the header -- so a selection appearing changes no width and nothing under
+       it moves. A bar that came and went changed the height of the thing you
+       were reading. */
+    .track-head-label--pick { position: relative; }
+
+    .track-batch {
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 6px;
+      z-index: 3;
+      min-height: 24px;
+      padding: 0 8px;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18);
     }
 
-    .track-bulk-count {
-      margin-right: 4px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--ink);
-    }
-
-    .track-bulk-sep {
-      width: 1px;
-      height: 18px;
-      margin: 0 4px;
-      background: var(--control-line);
-    }
-
-    /* DESTRUCTIVE HARD RIGHT OF THE SETTERS, with the way out after it: the
-       irreversible button belongs as far as the row goes from the ones you
-       actually came to press. */
-    .track-bulk .btn.warn {
-      margin-left: auto;
-      border-color: var(--bic-red);
-      color: var(--bic-red);
-    }
-
-    .track-bulk .btn.warn.is-armed {
-      background: var(--bic-red);
-      border-color: var(--bic-red);
-      color: #fff;
-    }
-
-    .track-bulk .btn.ghost { border-color: transparent; color: var(--muted); }
-    .track-bulk .btn.ghost:hover { color: var(--ink); }
 
     .track-head-label--tapeair,
     .track-head-label--tapedel {
@@ -1566,6 +1547,28 @@
         <button class="btn" type="button" data-bot-close>Cancel</button>
         <button class="btn primary" id="botGoBtn" type="button">Copy and open</button>
       </div>
+    </section>
+
+
+    <!-- THE DELETE QUESTION IS A DIALOG, NOT A STRIP UNDER THE HEADER. It was
+         appended into the header, which put an irreversible question inside a
+         bar you scan past; a modal is the room's own shape for a decision and it
+         cannot be missed or scrolled off. -->
+    <div class="tool-backdrop" id="bulkBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="bulkCard" role="dialog"
+             aria-modal="true" aria-labelledby="bulkTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="bulkTitle">Delete tracks</h2>
+        </div>
+        <button class="btn small" type="button" data-bulk-close>Close</button>
+      </div>
+      <div class="prompt-body">
+        <p class="bulk-words" id="bulkWords"></p>
+      </div>
+      <!-- THE FOOT IS BUILT, because the buttons depend on the state the panel
+           is in and on what the selection actually holds. -->
+      <div class="prompt-foot" id="bulkFoot"></div>
     </section>
 
     <div class="tool-backdrop" id="tracksBackdrop" hidden></div>
@@ -2756,8 +2759,6 @@
           tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
             + counts.SHELVED + ' shelved, ' + total + ' in all.';
 
-          var delBtn = buildSelectionDelete();
-
           // BOTH ARROWS AT THE FAR LEFT, SIDE BY SIDE. Split to the two ends
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
@@ -2781,15 +2782,15 @@
             cell.appendChild(node);
           }
           fill(0, buildSelectAll(shown));
+          var batch = buildBatchButton();
+          if (batch) head.children[0].appendChild(batch);
           fill(8, buildFlagFilter('explicit', 'Explicit', 'Marked explicit on Spotify.'));
           fill(9, buildFlagFilter('sports', 'Sports',
             'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'));
           fill(1, newCell);
           fill(10, buildAirFilter(tape));
-          fill(11, delBtn);
           head.children[0].classList.add('track-head-label--pick');
           head.children[10].classList.add('track-head-label--tapeair');
-          head.children[11].classList.add('track-head-label--tapedel');
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
           // catalogue's figures. Those are standing readings rather than
@@ -2797,11 +2798,10 @@
           // stay on one line, and a bar of their own is the tape header again.
           paintTapeStats(tape, tracksCell);
 
-          var bulk = buildBulkBar(tape);
-          if (bulk) head.appendChild(bulk);
-
-          var confirmStrip = renderSelectionConfirm(tape);
-          if (confirmStrip) head.appendChild(confirmStrip);
+          // THE QUESTION IS A DIALOG NOW, so the header carries the bar and
+          // nothing else. `paintBulkDialog` opens or closes it from the same
+          // `bulkPendingDelete` the bar's Delete sets.
+          paintBulkDialog(tape);
 
           // THE HEADER GOES IN FIRST, ahead of the rows it heads.
           trackArchiveList.appendChild(head);
@@ -3235,129 +3235,113 @@
         function () { return trackAirFilter; },
         setTrackAir);
 
-      // THE X IN THE HEADER DELETES WHAT IS TICKED, AND NOTHING ELSE.
-      //
-      // It deleted the whole TAPE until 2026-08-26, and it does not any more:
-      // it removes the ticked tracks and touches nothing else. THERE IS NO
-      // TAPE-LEVEL DELETE NOW, which is a real capability removed rather than
-      // relocated -- do not describe this button as the same thing reached a
-      // different way.
-      //
-      // IT IS OFF, NOT ABSENT, WHEN NOTHING IS TICKED. A control that vanished
-      // would move the two beside it, so the position of the one you want would
-      // depend on the state of the selection. `aria-disabled` rather than
-      // `disabled`, because a disabled button dispatches no click at all and on
-      // a touch screen the reason it is off would be unreachable.
-      function buildSelectionDelete() {
-        var n = selectedCount();
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'track-del' + (bulkPendingDelete ? ' is-armed' : '')
-          + (n ? '' : ' is-off');
-        btn.textContent = '\u00d7';
-        btn.setAttribute('aria-label', n
-          ? ('Delete ' + n + (n === 1 ? ' selected track' : ' selected tracks'))
-          : 'Delete selected tracks');
-        btn.setAttribute('aria-disabled', n ? 'false' : 'true');
-        btn.title = !n
-          ? 'Tick the tracks you want to delete first. This acts on the selection only.'
-          : (bulkPendingDelete
-              ? 'Put the question away'
-              : 'Delete the ' + n + (n === 1 ? ' selected track' : ' selected tracks'));
-        btn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          if (!n) {
-            setNotice('tick the tracks you want to delete first', 'error');
-            return;
-          }
-          bulkPendingDelete = !bulkPendingDelete;
-          renderTrackArchive();
-        });
-        return btn;
-      }
+      // THERE IS NO X ON THE HEADER. It deleted the tape, then the selection,
+      // and now nothing: deleting is the bulk bar's Delete and nowhere else.
+      // The Del column's header is a plain label again, naming the column of
+      // per-row delete buttons under it.
 
-      // THE QUESTION, IN THE HEADER, WITH THE CONSEQUENCE NOBODY EXPECTS IN IT.
-      // That the rows go is obvious. That the BOT CAN FILE THEM AGAIN is not,
-      // and it is the reason shelving is almost always the right answer: a
-      // shelved row is what stops the routine re-picking that track for that
-      // tape, and deleting throws it away.
-      function renderSelectionConfirm(tape) {
-        var n = selectedCount();
-        if (!bulkPendingDelete || !n) return null;
+      // THE DELETE QUESTION, AS A DIALOG. It was a strip appended into the
+      // header, which put an irreversible question inside a bar you scan past.
+      //
+      // ONE STATE DRIVES IT. `bulkPendingDelete` is set by the bar's Delete and
+      // cleared by every way out, and this paints from it on every render, so
+      // the dialog cannot be open about a selection that has since changed.
+      // THE BATCH DIALOG, IN TWO STATES.
+      //
+      // First it offers what a selection can be made to do; pressing Delete
+      // turns it into the question about deleting, in the same panel, because a
+      // second dialog over a dialog is worse than a panel that changes its mind.
+      //
+      // IT PAINTS FROM STATE ON EVERY RENDER, so it cannot be open about a
+      // selection that has since changed underneath it.
+      function paintBulkDialog(tape) {
+        var card = document.getElementById('bulkCard');
+        var backdrop = document.getElementById('bulkBackdrop');
+        var words = document.getElementById('bulkWords');
+        var title = document.getElementById('bulkTitle');
+        var foot = document.getElementById('bulkFoot');
+        if (!card || !backdrop || !words || !title || !foot) return;
 
-        // SHELVING IS ONLY OFFERED WHEN IT WOULD DO SOMETHING. It is the gentle
-        // answer to "delete these", and on a selection that is already shelved
-        // it is no answer at all: the button would write `archived = true` over
-        // `archived = true` and report a success that changed nothing.
-        //
-        // REMOVED RATHER THAN GREYED, which departs from this room's usual rule
-        // that a button holds its place so the others do not move. That rule is
-        // for a ROW, where the same four verbs sit in the same order on every
-        // one of them and the position is what you aim at. This is a question
-        // you read before you answer it, and an answer that cannot apply is
-        // better not offered.
+        var n = selectedCount();
+        if (!bulkOpen || !n) {
+          card.hidden = true;
+          backdrop.hidden = true;
+          return;
+        }
+
+        var tracks = n + (n === 1 ? ' track' : ' tracks');
+        var it = n === 1 ? 'it' : 'them';
+        // SHELVING IS ONLY OFFERED WHEN IT WOULD DO SOMETHING. On a selection
+        // already shelved it would write `archived = true` over `archived = true`
+        // and report a success that changed nothing.
         var anyLive = allSongs(tape).filter(isSelected).some(function (song) {
           return songStatus(song) === 'LIVE';
         });
+        var anyShelved = allSongs(tape).filter(isSelected).some(function (song) {
+          return songStatus(song) !== 'LIVE';
+        });
 
-        var box = document.createElement('div');
-        box.className = 'track-confirm track-confirm--head';
+        foot.textContent = '';
+        function btn(label, cls, onClick, tip) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn ' + cls;
+          b.textContent = label;
+          if (tip) b.title = tip;
+          b.addEventListener('click', onClick);
+          foot.appendChild(b);
+          return b;
+        }
 
-        var words = document.createElement('p');
-        var lead = document.createElement('strong');
-        lead.textContent = 'Delete ' + n + (n === 1 ? ' track' : ' tracks') + ' for good? ';
-        words.appendChild(lead);
-        // PLAIN WORDS. It said the tracks "take their do-not-rescrape tombstones
-        // with them", which is our schema talking: `tombstone` is the name for a
-        // shelved row and nobody standing at this screen has any reason to know
-        // it. What a person needs is the CONSEQUENCE -- the bot can find a
-        // deleted track and file it again, and a shelved one it leaves alone.
-        var it = n === 1 ? 'it' : 'them';
-        words.appendChild(document.createTextNode(
-          'This cannot be undone, and the bot may find ' + it + ' and file '
-          + it + ' again.'
-          // THE SENTENCE GOES WITH THE BUTTON. Recommending shelving while not
-          // offering it is the page telling you to press something that is not
-          // there.
-          + (anyLive ? ' Shelving keeps ' + it + ' off /soundtracks/ and stops that.' : '')));
-
-        var shelveBtn = null;
-        if (anyLive) {
-          shelveBtn = document.createElement('button');
-          shelveBtn.type = 'button';
-          shelveBtn.className = 'btn small primary';
-          shelveBtn.textContent = 'Shelve instead';
-          shelveBtn.addEventListener('click', function (event) {
-            event.stopPropagation();
+        if (!bulkPendingDelete) {
+          title.textContent = tracks + ' selected';
+          words.textContent = 'Everything here acts on all ' + n + ' at once.';
+          // ONLY THE MOVES THAT WOULD CHANGE SOMETHING. A selection that is
+          // already live has nothing to gain from Live.
+          if (anyShelved) {
+            btn('Put live', 'primary', function () {
+              applyToSelection(tape, { archived: false }, 'Live');
+            }, 'Put every selected track on /soundtracks/.');
+          }
+          if (anyLive) {
+            btn('Shelve', 'primary', function () {
+              applyToSelection(tape, { archived: true }, 'Shelve');
+            }, 'Take every selected track off /soundtracks/.');
+          }
+          btn('Delete', 'warn', function () {
+            bulkPendingDelete = true;
+            renderTrackArchive();
+          }, 'Delete every selected track.');
+          btn('Cancel', '', closeBulkDialog);
+        } else {
+          title.textContent = 'Delete ' + tracks + ' for good?';
+          // PLAIN WORDS. What a person needs is the consequence: the bot can
+          // find a deleted track and file it again, and a shelved one it leaves
+          // alone.
+          words.textContent = 'This cannot be undone, and the bot may find ' + it
+            + ' and file ' + it + ' again.'
+            + (anyLive ? ' Shelving keeps ' + it + ' off /soundtracks/ and stops that.' : '');
+          if (anyLive) {
+            btn('Shelve instead', 'primary', function () {
+              bulkPendingDelete = false;
+              applyToSelection(tape, { archived: true }, 'Shelve');
+            });
+          }
+          var go = btn('Delete ' + tracks, 'warn', async function () {
+            go.disabled = true;
+            await deleteSelection(tape);
+          });
+          // BACK, NOT CANCEL. The panel changed its mind rather than opening a
+          // new dialog, so the way out of this state is the way back to the one
+          // before it.
+          btn('Back', '', function () {
             bulkPendingDelete = false;
-            applyToSelection(tape, { archived: true }, 'Shelve');
+            renderTrackArchive();
           });
         }
 
-        var reallyBtn = document.createElement('button');
-        reallyBtn.type = 'button';
-        reallyBtn.className = 'btn small';
-        reallyBtn.textContent = 'Delete anyway';
-        reallyBtn.addEventListener('click', async function (event) {
-          event.stopPropagation();
-          reallyBtn.disabled = true;
-          await deleteSelection(tape);
-        });
-
-        var cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'btn small';
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          bulkPendingDelete = false;
-          renderTrackArchive();
-        });
-
-        box.appendChild(words);
-        if (shelveBtn) box.appendChild(shelveBtn);
-        box.append(reallyBtn, cancelBtn);
-        return box;
+        backdrop.hidden = false;
+        card.hidden = false;
       }
 
       // `tapePendingDelete`, `renderTapeConfirm` and `deleteTape` went here on
@@ -4190,73 +4174,46 @@
 
       // ── WHAT THE HEADER DOES TO A SELECTION ─────────────────────────────
       //
-      // A BAR, NOT THE FILTER. The Status header is a filter and must stay one:
-      // this room has already had the most destructive act in it hiding inside
-      // its quietest control, and a header switch that sometimes filtered and
-      // sometimes wrote would be that again. These are separate controls, they
-      // are worded as verbs, and they appear only when something is selected,
-      // so they can never be mistaken for a filter.
+      // ONE BUTTON BESIDE THE HEADER'S TICK, and everything it can do is behind
+      // it. It was a bar of verbs across the header; a bar that appears and
+      // disappears changes the height of the thing you are reading, and it put
+      // four writes and a delete permanently in the corner of your eye.
+      //
+      // `bulkOpen` is the dialog, `bulkPendingDelete` is the second question
+      // inside it. Both are cleared by every way out.
+      var bulkOpen = false;
       var bulkPendingDelete = false;
 
-      function buildBulkBar(tape) {
+      function openBulkDialog() {
+        bulkOpen = true;
+        bulkPendingDelete = false;
+        renderTrackArchive();
+      }
+
+      function closeBulkDialog() {
+        bulkOpen = false;
+        bulkPendingDelete = false;
+        renderTrackArchive();
+      }
+
+      // IT SITS OVER THE COLUMNS BESIDE THE TICK, not in them: the tick's own
+      // column is 30px and the two after it are empty in the header. Absolutely
+      // positioned, so a selection appearing does not change a single width and
+      // nothing under it moves.
+      function buildBatchButton() {
         var n = selectedCount();
-        if (!n) { bulkPendingDelete = false; return null; }
-
-        var bar = document.createElement('div');
-        bar.className = 'track-bulk';
-
-        var count = document.createElement('strong');
-        count.className = 'track-bulk-count';
-        count.textContent = n + (n === 1 ? ' track selected' : ' tracks selected');
-        bar.appendChild(count);
-
-        function act(word, title, patch) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn small';
-          btn.textContent = word;
-          btn.title = title;
-          btn.addEventListener('click', function () { applyToSelection(tape, patch, word); });
-          bar.appendChild(btn);
-        }
-        function rule() {
-          var el = document.createElement('span');
-          el.className = 'track-bulk-sep';
-          el.setAttribute('aria-hidden', 'true');
-          bar.appendChild(el);
-        }
-
-        // TWO VERBS, AND THEY ARE THE ONES A SELECTION IS FOR. Explicit, Not
-        // explicit, Sports and Not sports were here and are gone: those two
-        // columns are a fact about a RECORDING, decided one track at a time from
-        // its own tick box, and a button that set fifteen of them at once was
-        // offering to be wrong fifteen times in a press. Live and Shelve are the
-        // editorial decision this room exists to make, and the one that used to
-        // cost a press per track.
-        //
-        // THE FLAGS ARE STILL EDITABLE ON EVERY ROW and still filterable from
-        // the header. What went is only the bulk WRITE.
-        act('Live', 'Put every selected track on /soundtracks/.', { archived: false });
-        act('Shelve', 'Take every selected track off /soundtracks/.', { archived: true });
-        rule();
-
-        // NO DELETE ON THIS BAR. The X at the end of the header is the one
-        // control that deletes a selection; a second button doing the same
-        // thing a few inches away is the duplication this room keeps removing.
-
-        var clear = document.createElement('button');
-        clear.type = 'button';
-        clear.className = 'btn small ghost track-bulk-clear';
-        clear.textContent = 'Clear';
-        clear.title = 'Untick everything.';
-        clear.addEventListener('click', function () {
-          selectedTracks = {};
-          bulkPendingDelete = false;
-          repaintAfterSelection();
+        if (!n) return null;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn small primary track-batch';
+        btn.textContent = 'Batch edit ' + n;
+        btn.title = 'Act on the ' + n + (n === 1 ? ' selected track' : ' selected tracks')
+          + ' at once.';
+        btn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          openBulkDialog();
         });
-        bar.appendChild(clear);
-
-        return bar;
+        return btn;
       }
 
       // ONE REQUEST FOR THE WHOLE SELECTION, and the rows are read back.
@@ -4767,11 +4724,26 @@
       loadLastRun();
 
       if (botCityInput) botCityInput.addEventListener('input', paintBotDialog);
+      // EVERY WAY OUT CLEARS THE STATE, or a reload would reopen a question you
+      // had already put away.
+      Array.prototype.forEach.call(document.querySelectorAll('[data-bulk-close]'),
+        function (btn) { btn.addEventListener('click', closeBulkDialog); });
+      var bulkBackdropEl = document.getElementById('bulkBackdrop');
+      if (bulkBackdropEl) bulkBackdropEl.addEventListener('click', closeBulkDialog);
+
       if (botBackdrop) botBackdrop.addEventListener('click', closeBotDialog);
       Array.prototype.forEach.call(document.querySelectorAll('[data-bot-close]'), function (btn) {
         btn.addEventListener('click', closeBotDialog);
       });
       document.addEventListener('keydown', function (event) {
+        // THE DELETE DIALOG TAKES ESCAPE FIRST. It is the one on top when it is
+        // open, and dismissing the thing under it while an irreversible question
+        // is on screen would be the wrong order.
+        var bulkCardEl = document.getElementById('bulkCard');
+        if (event.key === 'Escape' && bulkCardEl && !bulkCardEl.hidden) {
+          closeBulkDialog();
+          return;
+        }
         if (event.key === 'Escape' && botCard && !botCard.hidden) closeBotDialog();
       });
       if (botCityInput) botCityInput.addEventListener('keydown', function (event) {
