@@ -479,6 +479,32 @@ still meant to be run, just by a person pressing Run at claude.ai.
     `Number.isFinite(r.bot.stale)` a hand-run routine would go red the minute
     after it ran. Every other routine's threshold is unchanged.
 
+### TGB SOUNDTRACK BOT OPENS IN A POPUP WINDOW (2026-08-25)
+
+The button in the Tape Room's ADD bar. **The routine has no schedule any more,
+so this button IS how it runs**, and you come straight back here to see what it
+filed: a tab buries the room behind it, a window sits over it and closing it
+puts you back where you were.
+
+- **IT IS STILL AN `<a>` WITH A REAL `href`.** Middle-click, ctrl-click and a
+  browser that refuses the popup all still reach the routine.
+- **`preventDefault` HAPPENS ONLY AFTER `window.open` RETURNS A WINDOW.** It
+  returns null when a blocker refuses, and preventing the default before
+  checking is how a button ends up doing nothing at all. Both paths are tested:
+  blocked leaves the default alone, allowed prevents it.
+- **`noopener` MUST NOT GO IN THE FEATURES STRING**, and this is the trap. With
+  it, `window.open` returns **null even when it succeeded**, which is
+  indistinguishable from a blocked popup, so the anchor's default fires too and
+  **you get a window AND a tab**. The opener is cut afterwards with
+  `win.opener = null`, once the handle has been used. The anchor keeps its
+  `rel="noopener noreferrer"` for the fallback path.
+- **THE WINDOW IS NAMED**, so pressing the button twice reuses it rather than
+  stacking two, and it is focused in case it is already behind this one.
+- **THE SIZE IS CLAMPED TO THE SCREEN**, not a flat 1180x900: on a laptop
+  narrower than that the window would open with its own controls off the edge.
+  Centred on `screen.availWidth/Height` rather than the viewport, so a second
+  monitor does not throw it off.
+
 ### THE HEADER'S SHELVED / LIVE SWITCH IS A FILTER (2026-08-25)
 
 Both of them: the one in the tape head, and the one in an open tape's track

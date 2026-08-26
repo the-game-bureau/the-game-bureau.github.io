@@ -4148,9 +4148,50 @@
         return days + (days === 1 ? ' day ago' : ' days ago');
       }
 
+      // THE BOT OPENS IN A POPUP WINDOW, NOT A TAB. Running it is now a
+      // deliberate act taken from this room -- the routine has no schedule, so
+      // this button IS how it runs -- and you come straight back here to see
+      // what it filed. A tab buries the room behind it; a window sits over it
+      // and closing it puts you back where you were.
+      //
+      // IT STAYS AN <a> WITH A REAL href, so middle-click, ctrl-click and a
+      // browser that refuses the popup all still reach the routine. The default
+      // is only prevented once `window.open` has actually returned a window:
+      // it returns null when a blocker refuses, and preventing the default
+      // before checking is how a button ends up doing nothing at all.
+      function openBotWindow(event) {
+        var link = event.currentTarget;
+        // CLAMPED TO THE SCREEN, not a flat 1180x900. On a laptop that is
+        // wider than the display, and a window bigger than the screen opens
+        // with its own controls off the edge.
+        var availW = screen.availWidth || screen.width || 1180;
+        var availH = screen.availHeight || screen.height || 900;
+        var w = Math.min(1180, Math.max(640, availW - 80));
+        var h = Math.min(900, Math.max(480, availH - 80));
+        // Centred on the SCREEN the browser is on, not on the viewport, so a
+        // second monitor does not throw it off the edge.
+        var left = Math.max(0, Math.round((availW - w) / 2));
+        var top = Math.max(0, Math.round((availH - h) / 2));
+        // `noopener` MUST NOT GO IN THE FEATURES STRING. With it, window.open
+        // returns null even when it succeeded, which is indistinguishable from
+        // a blocked popup here -- so the default would fire as well and you
+        // would get a window AND a tab. The opener is cut below instead, once
+        // the handle has done its job.
+        var win = window.open(link.href, 'tgbSoundtrackBot',
+          'popup=yes,width=' + w + ',height=' + h + ',left=' + left + ',top=' + top
+          + ',resizable=yes,scrollbars=yes');
+        if (!win) return;                 // blocked: let the href do its job
+        event.preventDefault();
+        // A NAMED WINDOW IS REUSED, so pressing the button twice does not stack
+        // two of them. It may already be behind this one, hence the focus.
+        try { win.focus(); } catch (error) {}
+        try { win.opener = null; } catch (error) {}
+      }
+
       async function loadLastRun() {
         var botBtn = document.getElementById('soundtrackBotBtn');
         if (!botBtn) return;
+        botBtn.addEventListener('click', openBotWindow);
 
         // NO STALENESS ON A GAP ANY MORE. TGB SOUNDTRACK BOT has no schedule
         // as of 2026-08-25: it is run by hand, so a quiet week is a decision
