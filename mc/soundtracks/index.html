@@ -350,7 +350,6 @@
        columns they act on: the switch above the tracks' switches, the delete
        above theirs. The header is column labels again -- a strip above them was
        a tape header by another name. */
-    .track-head-label--tapeair,
     .track-head-label--tapedel {
       display: flex;
       align-items: center;
@@ -358,8 +357,6 @@
       overflow: visible;
       padding: 0;
     }
-
-    .track-head-label--tapeair .tape-air { transform: scale(0.86); transform-origin: center; }
 
     .track-confirm--head { margin-top: 8px; }
 
@@ -373,15 +370,6 @@
       min-width: 42px;
     }
 
-    /* WHERE THE TAPE IS. Two boxed columns once, because 113 lines had to line
-       up with each other; one quiet cell beside the name now. */
-    .tape-line-geo {
-      min-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
-      font-size: var(--col-text);
-      color: var(--muted);
-    }
 
     .tape-line-name {
       min-width: 0;
@@ -435,7 +423,7 @@
     .track-head,
     .track-lines {
 
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -852,7 +840,7 @@
        and would otherwise resolve to nothing out here and collapse every
        column to zero. */
     .track-line--in-list {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
       margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
@@ -876,6 +864,40 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* ONE SIZE FOR EVERY WORD ON A TRACK ROW. The row had collected five type
+       sizes -- the fields, the position, the tape tag at 0.5rem, the status
+       words, the delete -- each set for its own reasons and none of them for
+       the row. `--track-text` is the one knob; change it here and the whole row
+       follows, in the popup and on the main list alike.
+       THE UNIVERSAL SELECTOR IS THE POINT: several children set their own size,
+       so anything narrower leaves one of them behind and the row goes back to
+       being two sizes. */
+    .track-line { --track-text: 14pt; }
+    .track-line,
+    .track-line * { font-size: var(--track-text); }
+    /* `.tape-air-word` is one class and so is `.track-line *`; it is declared
+       later in the sheet and won the tie, which left the two status words at
+       0.66rem while everything beside them was 14pt. */
+    .track-line .tape-air-word { font-size: var(--track-text); }
+
+    /* WHERE THE TAPE IS, ABOVE ITS NAME. Quiet, because it is the same address
+       on every row of the tape and you read it once. */
+    .track-tapegeo {
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0.75;
+    }
+
+    /* NOT IN THE POPUP, for the reason the tape tag is not: there the tape's
+       name is the dialog's own title and this would be the same thing said
+       twice a few pixels apart. */
+    .track-lines .track-tapegeo { display: none; }
 
     /* THE TAG IS THE NAME EDITOR NOW, so it is a flex row rather than a line of
        text -- and everything inside it inherits the tag's own tiny mono rather
@@ -957,7 +979,6 @@
     /* THE TAPE'S OWN LINE, quieter than the catalogue's above it: the same kind
        of figure at a narrower scope, and it must not compete with the room's. */
     .room-stats--tape { opacity: 0.9; }
-    .room-stats--tape .tape-line-geo,
     .room-stats--tape .tape-line-counts {
       font: inherit;
       text-transform: uppercase;
@@ -972,7 +993,7 @@
        `.track-head, .track-lines`, which live inside the popup, so out here it
        would resolve to nothing and collapse every column to zero. */
     .track-head--main {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
       margin-left: 22px;
       margin-bottom: 4px;
     }
@@ -1066,9 +1087,6 @@
       color: var(--muted);
     }
 
-    /* A SHELVED TAPE DIMS THE TAPE TAG ON EVERY TRACK ROW, which is where its
-       name lives now. */
-    .track-head--main.is-shelved { opacity: 0.85; }
 
     .app { max-width: 1180px; margin: 0 auto; padding: 16px; }
     .bar-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
@@ -2270,7 +2288,7 @@
       // THE TAPE'S OWN READING, under the catalogue's. Both are standing
       // figures about what you are looking at, which is what this part of the
       // head is for; the difference is scope, and the label says which.
-      function paintTapeStats(tape, geo, counts) {
+      function paintTapeStats(tape, counts) {
         var line = document.getElementById('tapeStats');
         if (!line) return;
         line.textContent = '';
@@ -2279,7 +2297,10 @@
         word.className = 'room-stats-word';
         word.textContent = 'this tape';
         line.appendChild(word);
-        if (geo && geo.textContent) line.appendChild(geo);
+        // NO GEOGRAPHY HERE ANY MORE. Every track row carries the tape's own
+        // country / state / city above its name, so this line said the same
+        // thing a second time a few pixels away. What it still answers is the
+        // one question the rows cannot: how much of the tape is live.
         if (counts) line.appendChild(counts);
       }
 
@@ -2358,15 +2379,6 @@
           newCell.className = 'tape-line-new';
           if (isNewTape(tape)) newCell.appendChild(newBadge(tape));
 
-          // WHERE THE TAPE IS, IN ONE QUIET CELL RATHER THAN TWO. It was two
-          // boxed columns because 113 lines had to align; with one tape on
-          // screen they are the tape's own address and belong beside its name.
-          // This catalogue holds two Alexandrias and two Portlands, so a city
-          // alone is ambiguous often enough to be worth the words.
-          var geo = document.createElement('span');
-          geo.className = 'tape-line-geo';
-          geo.textContent = [cityStateLabel(slug), cityCountryLabel(slug)]
-            .filter(Boolean).join(', ');
 
           // THE NAME IS EDITABLE ON THE LINE. It was read-only here and
           // editable only as the tracks popup's title, so renaming a tape or
@@ -2377,84 +2389,15 @@
           name.classList.add('tape-line-name');
 
 
-          var shelved = truthyFlag(tape && tape.archived);
-
-          var air = document.createElement('label');
-          air.className = 'tape-air';
-
-          var input = document.createElement('input');
-          input.className = 'tape-air-input';
-          input.type = 'checkbox';
-          input.setAttribute('aria-label', 'On air: ' + tapeFullName(tape));
-
-          var track = document.createElement('span');
-          track.className = 'tape-air-track';
-          track.setAttribute('aria-hidden', 'true');
-
-          var wordOff = document.createElement('span');
-          wordOff.className = 'tape-air-word tape-air-word--off';
-          wordOff.textContent = 'Shelved';
-
-          var wordOn = document.createElement('span');
-          wordOn.className = 'tape-air-word tape-air-word--on';
-          wordOn.textContent = 'Live';
-
-          function paintAir(isShelved) {
-            input.checked = !isShelved;
-            wordOff.classList.toggle('is-current', isShelved);
-            wordOn.classList.toggle('is-current', !isShelved);
-            head.classList.toggle('is-shelved', isShelved);
-            input.title = isShelved
-              ? 'Shelved. Switch on to put this tape back on /soundtracks/, restoring the tracks it took down with it. A track shelved on its own stays shelved.'
-              : 'Live on /soundtracks/. Switch off to take the whole city tape down, hiding every track on it.';
-          }
-
-          input.addEventListener('change', async function () {
-            var want = !input.checked;
-            var label = cityFullLabel(slug);
-            input.disabled = true;
-            try {
-              await callRpc('tgb_set_tape_archived', {
-                p_city: tape.city_slug, p_tape: tape.spine_tag || '', p_archived: want
-              });
-            } catch (error) {
-              console.error(error);
-              setNotice((want ? 'could not shelve ' : 'could not restore ') + label, 'error');
-              paintAir(!want);
-              input.disabled = false;
-              return;
-            }
-            // SHELVING A TAPE SHELVES ITS TRACKS, so the page has to be
-            // reloaded rather than the tape's own flag flipped in memory.
-            // `tgb_set_tape_archived` writes every row of the tape; this
-            // handler used to update `tape.archived` alone, which was invisible
-            // while the tracks lived in a popup and is plainly wrong now they
-            // are on the page: the tape read SHELVED with fifteen LIVE tracks
-            // under it until something else forced a reload.
-            if (tape) tape.archived = want;
-            shelved = want;
-            paintAir(want);
-            try {
-              await loadSoundtrackArchive();
-            } catch (error) {
-              console.error(error);
-              setNotice('shelved ' + label + ' in the database, but the page could not '
-                + 'reload. Press Reload to see its tracks.', 'error');
-              input.disabled = false;
-              return;
-            }
-            input.disabled = false;
-            setNotice((want ? 'shelved ' : 'back on air, ') + label
-              + (want ? ', with its live tracks'
-                      : ', with the tracks it took down. A track shelved on its own stays shelved.'),
-              'success');
-          });
-
-          paintAir(shelved);
-
-          head.repaintAir = paintAir;
-
-          air.append(wordOff, input, track, wordOn);
+          // A TAPE HAS NO STATE OF ITS OWN ANY MORE. Live and shelved are facts
+          // about a TRACK; a tape is simply the tracks that carry its name, and
+          // /soundtracks/ shows it when at least one of them is live. The
+          // switch that used to sit here wrote every row of the tape at once.
+          //
+          // WHAT THAT COSTS, PLAINLY: taking a whole city off /soundtracks/ is
+          // now one press per track rather than one press. `tgb_set_tape_archived`
+          // still exists in the database and still carries the shelve cascade,
+          // so the one-press version is a call away if it is wanted back.
 
           // THE COUNTS IN WORDS, which is what the tracks popup said about the
           // tape. `10/55` needed the header to be read before it meant anything,
@@ -2533,16 +2476,14 @@
             cell.appendChild(node);
           }
           fill(0, newCell);
-          fill(9, air);
           fill(10, delBtn);
-          head.children[9].classList.add('track-head-label--tapeair');
           head.children[10].classList.add('track-head-label--tapedel');
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
           // catalogue's figures. Those are standing readings rather than
           // controls, and the alternatives were both worse: the VIEW bar has to
           // stay on one line, and a bar of their own is the tape header again.
-          paintTapeStats(tape, geo, tracksCell);
+          paintTapeStats(tape, tracksCell);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) head.appendChild(confirmStrip);
@@ -2674,34 +2615,6 @@
         if (fields.explicit) song.explicit = true; else delete song.explicit;
         renderTrackArchive('saved — ' + songDisplay(song), 'success');
         return { ok: true };
-      }
-
-      async function setTapeArchived(tapeIndex, archived) {
-        var tape = soundtracks()[tapeIndex];
-        var slug = text(tape && tape.city_slug);
-        var label = trackCityLabel(tape);
-        if (!slug) return false;
-        try {
-          await callRpc('tgb_set_tape_archived', {
-            p_city: slug, p_tape: tape.spine_tag || '', p_archived: !!archived
-          });
-          await loadSoundtrackArchive();
-        } catch (error) {
-          console.error(error);
-          setNotice((archived ? 'could not shelve the ' : 'could not restore the ')
-            + label + ' tape', 'error');
-          return false;
-        }
-        var counts = tapeCounts(tapeById(issue.tape_id) || tapesInCity(slug)[0]);
-        renderTrackArchive(
-          archived
-            ? ('shelved the whole ' + label + ' tape — ' + counts.archived
-              + ' track' + (counts.archived === 1 ? '' : 's') + ' off the site')
-            : ('restored ' + label + ' — ' + counts.LIVE + ' live'
-              + (counts.SHELVED ? ', ' + counts.SHELVED + ' stayed shelved' : '')),
-          'success'
-        );
-        return true;
       }
 
       function tapeById(id) {
@@ -3015,17 +2928,9 @@
           + 'routine is free to propose every one of them again. Shelving keeps all '
           + 'of it and simply takes the tape off /soundtracks/.'));
 
-        var shelveBtn = document.createElement('button');
-        shelveBtn.type = 'button';
-        shelveBtn.className = 'btn small primary';
-        shelveBtn.textContent = 'Shelve instead';
-        shelveBtn.disabled = truthyFlag(tape.archived);
-        shelveBtn.title = shelveBtn.disabled ? 'This tape is already shelved.' : '';
-        shelveBtn.addEventListener('click', async function (event) {
-          event.stopPropagation();
-          tapePendingDelete = null;
-          await setTapeArchived(tapeIndexById(tape.id), true);
-        });
+        // NO "SHELVE INSTEAD" BUTTON. There is no tape-level shelve to offer;
+        // the gentler answer is now shelving the tracks, which the rows below
+        // do one at a time.
 
         var reallyBtn = document.createElement('button');
         reallyBtn.type = 'button';
@@ -3047,7 +2952,7 @@
           renderTrackArchive();
         });
 
-        box.append(words, shelveBtn, reallyBtn, cancelBtn);
+        box.append(words, reallyBtn, cancelBtn);
         return box;
       }
 
@@ -3093,7 +2998,10 @@
         bits.push(total + (total === 1 ? ' track' : ' tracks'));
         bits.push(counts.LIVE + ' live');
         if (counts.SHELVED) bits.push(counts.SHELVED + ' shelved');
-        if (truthyFlag(tape.archived)) bits.push('tape shelved');
+        // NOT "TAPE SHELVED". A tape has no state; what is true of one with no
+        // live track is that /soundtracks/ does not draw it, which is the thing
+        // somebody standing here wants to know.
+        if (!counts.LIVE) bits.push('not on /soundtracks/');
         tracksSub.textContent = bits.join('  ·  ');
 
         var songs = allSongs(tape).slice().sort(function (a, b) {
@@ -3455,6 +3363,19 @@
         // would be the same thing said twice. One builder, no argument.
         var titleCell = document.createElement('span');
         titleCell.className = 'track-titlecell';
+        var slugOfTape = text(tape && tape.city_slug);
+
+        // WHERE THE TAPE IS, ABOVE ITS NAME, AS A PATH. Country to city, widest
+        // first, so it reads as one address narrowing rather than three facts.
+        // An empty part is dropped rather than left as an empty segment: most
+        // of the world has no state, and "United Kingdom / / London" reads as a
+        // fault.
+        var geoLine = document.createElement('span');
+        geoLine.className = 'track-tapegeo';
+        geoLine.textContent = [cityCountryLabel(slugOfTape), cityStateLabel(slugOfTape),
+          soundCityLabel(slugOfTape)].filter(Boolean).join(' / ');
+        geoLine.title = 'Where this tape is.';
+
         // THE TAPE'S NAME IS EDITED HERE, ON THE ROW. This tag has always said
         // which tape a track is on; it is the editor now, so the name and the
         // swap are on the track row rather than on a header above it.
@@ -3465,7 +3386,7 @@
         var tapeTag = buildTapeNameEditor(tape.id);
         tapeTag.className = 'track-tapetag';
         tapeTag.title = 'The tape this track is on. Rename it, move it to another city, or swap the two halves.';
-        titleCell.append(tapeTag, titleEl);
+        titleCell.append(geoLine, tapeTag, titleEl);
 
         // THE BADGE LEADS THE TRACK ROW TOO, at the same left edge as the
         // tape's, so a new track and a new tape are marked the same way in the
@@ -3629,19 +3550,25 @@
           trackTotalEl.appendChild(el);
         }
 
-        part('tapes', t.live, 'is-live');
-        sep('live /');
-        part('', t.shelved, '');
-        sep('shelved');
+        // TAPES ARE COUNTED, NOT STATED. "113 tapes, 1 with a live track" is a
+        // fact about tracks; "1 live / 112 shelved" would be the tape state this
+        // room no longer has.
+        // THREE GROUPS SEPARATED BY PIPES, never a comma. `.room-stats` is a
+        // flex row, so the space around a bare separator comes from the row's
+        // gap: "113 , 1" is what a comma renders as here.
+        part('tapes', t.total, '');
+        sep('|');
+        part('', t.onAir, t.onAir ? 'is-live' : '');
+        sep('with a live track');
         sep('|');
         part('tracks', live, 'is-live');
         sep('live /');
         part('', shelved, '');
         sep('shelved');
 
-        trackTotalEl.title = t.live + ' live tapes and ' + t.shelved + ' shelved, '
-          + live + ' live tracks and ' + shelved + ' shelved. The whole catalogue, '
-          + 'whatever the filters are set to.';
+        trackTotalEl.title = t.total + ' tapes, ' + t.onAir + ' with at least one live '
+          + 'track and so on /soundtracks/. ' + live + ' live tracks and ' + shelved
+          + ' shelved. The whole catalogue, whatever the filters are set to.';
       }
 
       // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
@@ -3698,12 +3625,16 @@
         return true;
       }
 
+      // A TAPE HAS NO STATE, so this counts the only thing that is true of one:
+      // how many hold at least one live track, which is exactly the test
+      // /soundtracks/ applies when it decides whether to draw a card.
       function airCounts() {
-        var live = 0, shelved = 0;
+        var onAir = 0, total = 0;
         soundtracks().forEach(function (tape) {
-          if (truthyFlag(tape && tape.archived)) shelved += 1; else live += 1;
+          total += 1;
+          if (tapeCounts(tape).LIVE > 0) onAir += 1;
         });
-        return { live: live, shelved: shelved, total: live + shelved };
+        return { onAir: onAir, total: total };
       }
 
       // THE TRACK COLUMN HEADER, built rather than written in the markup
@@ -3749,27 +3680,12 @@
         el.style.width = Math.ceil(need + borders + 2) + 'px';
       }
 
-      var TEXT_FLOOR_PX = 9;
-
-      function fitText(el) {
-        if (!el || !el.isConnected) return;
-        el.style.fontSize = '';
-        if (el.scrollWidth <= el.clientWidth) return;
-        var size = parseFloat(window.getComputedStyle(el).fontSize);
-        while (el.scrollWidth > el.clientWidth && size > TEXT_FLOOR_PX) {
-          size -= 0.5;
-          el.style.fontSize = size + 'px';
-        }
-      }
-
       var fontsFitted = false;
 
       function fitRowInputs() {
         if (!trackArchiveList) return;
         Array.prototype.forEach.call(
           trackArchiveList.querySelectorAll('.city-input, .spine-input'), fitInput);
-        Array.prototype.forEach.call(
-          trackArchiveList.querySelectorAll('.tape-line-geo'), fitText);
       }
 
       var refitTimer = 0;

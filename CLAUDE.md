@@ -637,6 +637,74 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### A TAPE HAS NO STATE. LIVE AND SHELVED ARE FACTS ABOUT A TRACK. (2026-08-26)
+
+The tape-level Shelved/Live switch is gone, and with it `setTapeArchived` and
+the "Shelve instead" button on the tape's delete confirmation. **A tape is
+simply the tracks that carry its name**, and `/soundtracks/` draws it when at
+least one of them is live.
+
+- **THE PUBLIC PAGE ALREADY DID EXACTLY THIS, and it was verified rather than
+  assumed.** It fetches `archived=eq.false`, so a tape with nothing live returns
+  no rows at all, and `setCityEntries` skips a tape whose track count is 0.
+  **Rendered against the live table it draws 1 card and a hero reading
+  "1 Soundtrack"** -- New Orleans, the only tape with a live track.
+- **WHAT IT COSTS, PLAINLY: taking a whole city off `/soundtracks/` is now one
+  press per track rather than one press.** `tgb_set_tape_archived` is still in
+  the database and still carries the shelve cascade, so the one-press version is
+  a call away if it turns out to be wanted.
+- **`archived_with_tape` STILL MEANS WHAT IT MEANT.** The 1,514 rows shelved
+  together on 2026-08-26 carry it, so a future restore of one of those tapes
+  would still leave a track shelved on its own down. Nothing on the page writes
+  it now.
+- **THE CATALOGUE LINE COUNTS TAPES RATHER THAN STATING THEM**: `TAPES 113 | 1
+  WITH A LIVE TRACK | TRACKS 15 LIVE / 1628 SHELVED`. "1 with a live track" is a
+  fact about tracks; "1 live / 112 shelved" would be the tape state this room no
+  longer has, and it is also the exact test `/soundtracks/` applies.
+  - **NEVER A COMMA AS A SEPARATOR HERE.** `.room-stats` is a flex row, so the
+    space around a bare separator comes from the row's `gap`, and a comma
+    renders as `113 , 1`. Pipes.
+- **THE TRACKS POPUP SAYS `not on /soundtracks/`** where it said `tape shelved`.
+  Same row, honest wording: what is true of a tape with no live track is that
+  the public page does not draw it.
+- **`setTapeArchived` WAS ALSO ARMED.** Its success path read `issue.tape_id`
+  with no `issue` in scope, so shelving a tape from anywhere would have thrown a
+  ReferenceError. **Second landmine of exactly this shape in this file this
+  week**; both were left by passes that removed the findings UI.
+
+### ONE SIZE FOR EVERY WORD ON A TRACK ROW (2026-08-26)
+
+`--track-text: 14pt` on `.track-line`, with `.track-line *` following it. The row
+had collected five sizes -- the fields, the position, the tape tag at 0.5rem,
+the status words, the delete -- each set for its own reason and none of them for
+the row.
+
+- **THE UNIVERSAL SELECTOR IS THE POINT.** Several children set their own size,
+  so anything narrower leaves one behind and the row is two sizes again. **It
+  still lost one tie**: `.tape-air-word` is one class, same as `.track-line *`,
+  and is declared later in the sheet, so the two status words stayed at 0.66rem
+  beside 14pt neighbours. Named explicitly now.
+- **THE STATUS COLUMN HAD TO GROW, 122px to 172px**, in all three `--track-cols`
+  definitions. "Shelved" and "Live" either side of a 34px switch do not fit
+  122px at 14pt, and the column is shared with the header.
+- **`fitText` WENT WITH ITS ONE CALLER.** It shrank text to fit a fixed column,
+  which is the opposite of what one declared size is for.
+- **A test reads the size off the stylesheet** rather than writing 14pt down
+  again, and lists any element that disagrees.
+
+### WHERE THE TAPE IS, ON EVERY TRACK ROW (2026-08-26)
+
+`.track-tapegeo`, above the tape's name in the title cell:
+`COUNTRY / STATE / CITY`.
+
+- **AN EMPTY PART IS DROPPED, NOT LEFT AS AN EMPTY SEGMENT.** Most of the world
+  has no state, and `United Kingdom / / London` reads as a fault.
+- **IT REPLACED THE ROOM HEAD'S COPY.** That line carried the same geography one
+  scroll away; it now carries only what the rows cannot say, which is how much
+  of the tape is live.
+- **NOT IN THE POPUP**, for the reason the tape tag is not: there the tape's name
+  is the dialog's own title.
+
 ### THE TAPE'S NAME IS EDITED ON THE TRACK ROW (2026-08-26)
 
 The tape had a bordered card above a bordered column header, two stacked bars
