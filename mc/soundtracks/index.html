@@ -1449,25 +1449,6 @@
             <span class="head-count" id="newTotal"></span>
           </label>
 
-          <!-- TWO PILLS, NOT A SWITCH, AND THAT IS THE WHOLE POINT. This
-               filters the catalogue; the switch a few inches to the right
-               shelves the tape in front of you. As two identical Shelved/Live
-               toggles in one header there was nothing but a divider telling
-               them apart. It matches Issues and New because it does what they
-               do. -->
-          <label class="btn head-figure--filter" id="liveOnlyPill"
-                 title="Show only tapes that are live on /soundtracks/">
-            <input type="checkbox" id="liveOnly">
-            <span class="head-word">Live</span>
-            <span class="head-count" id="liveTotal"></span>
-          </label>
-
-          <label class="btn head-figure--filter" id="shelvedOnlyPill"
-                 title="Show only tapes that are shelved">
-            <input type="checkbox" id="shelvedOnly">
-            <span class="head-word">Shelved</span>
-            <span class="head-count" id="shelvedTotal"></span>
-          </label>
         </div>
       </fieldset>
     </div>
@@ -1690,7 +1671,6 @@
       // whatever moved into its place instead of on nothing.
       var tapeAt = 0;
 
-      var airFilter = 'all';          // the tape list
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
       var pageNotice = document.getElementById('pageNotice');
@@ -1887,13 +1867,7 @@
       var newOnlyBox = document.getElementById('newOnly');
 
       function paintFilterPills() {
-        // ALL FOUR BADGES, not two. The Live and Shelved pair were added later
-        // and were never given their filled state, so pressing one narrowed the
-        // list and left the badge looking untouched.
-        var pairs = [['newTotalPill', newOnly],
-                     ['issueTotalPill', flaggedOnly],
-                     ['liveOnlyPill', airFilter === 'live'],
-                     ['shelvedOnlyPill', airFilter === 'shelved']];
+        var pairs = [['newTotalPill', newOnly], ['issueTotalPill', flaggedOnly]];
         pairs.forEach(function (pair) {
           var el = document.getElementById(pair[0]);
           if (el) el.classList.toggle('is-on', !!pair[1]);
@@ -2687,11 +2661,6 @@
             return issuesForTape(tape).length > 0;
           });
         }
-        if (airFilter !== 'all') {
-          tapes = tapes.filter(function (tape) {
-            return airMatches(airFilter, truthyFlag(tape && tape.archived));
-          });
-        }
 
         // ONE ORDER: by city, A to Z. The three sort buttons are gone, and
         // with one tape on screen a sort was choosing the order you PAGE
@@ -2706,18 +2675,13 @@
         if (!tapes.length) {
 
           trackArchiveList.appendChild(emptyNode(
-            airFilter !== 'all'
-              ? ('No ' + airFilter + ' tapes'
-                  + (newOnly || flaggedOnly ? ' match the other filters.' : '.')
-                  + ' Press ' + (airFilter === 'live' ? 'Live' : 'Shelved') + ' again to show both.')
-              : newOnly && flaggedOnly
+            newOnly && flaggedOnly
                 ? 'No tape from the last ' + NEW_FOR_HOURS + ' hours has an open issue.'
                 : newOnly
                   ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. TGB SOUNDTRACK BOT runs twice a day.'
                   : flaggedOnly
                     ? 'No open issues on any tape. The daily audit reports here when it finds something.'
                     : 'No tapes yet.'));
-          paintMasterAir();
           setArchiveStatus('', '');
           return;
         }
@@ -2953,9 +2917,7 @@
           // the popup uses, so there is one track row in this project and not
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
-          var songsHere = allSongs(tape).filter(function (song) {
-            return airMatches(airFilter, songStatus(song) !== 'LIVE');
-          });
+          var songsHere = allSongs(tape);
 
           // THE COLUMN HEADER GOES HERE, between the tape and its tracks, not
           // in the page's static markup above the pager: up there it named
@@ -2964,7 +2926,6 @@
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
           }).forEach(function (song) {
-            if (!airMatches(airFilter, songStatus(song) !== 'LIVE')) return;
             var line = renderTrackLine(tape, tapeIndex, song);
             line.classList.add('track-line--in-list');
             trackArchiveList.appendChild(line);
@@ -2978,7 +2939,6 @@
           document.fonts.ready.then(function () { fontsFitted = true; fitRowInputs(); });
         }
 
-        paintMasterAir();
         paintFilterPills();
         paintNewTotal();
         paintTrackTotal();
@@ -4199,8 +4159,6 @@
           + ' across every tape. Press to see only the tapes carrying them.';
       }
 
-      var liveOnlyBox = document.getElementById('liveOnly');
-      var shelvedOnlyBox = document.getElementById('shelvedOnly');
 
       // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
       // `indeterminate` by a user click, so the label's own click is taken over
@@ -4306,40 +4264,6 @@
         // reading is left alone.
       }
 
-      // TWO PILLS, ONE STATE. Neither ticked and both ticked mean the same
-      // thing, which is the honest reading of "show live" and "show shelved"
-      // asked together, and it means the pair can never express a filter that
-      // shows nothing.
-      function readAirPills() {
-        var live = !!(liveOnlyBox && liveOnlyBox.checked);
-        var shelved = !!(shelvedOnlyBox && shelvedOnlyBox.checked);
-        if (live === shelved) return 'all';
-        return live ? 'live' : 'shelved';
-      }
-
-      function paintMasterAir() {
-        // THE BOXES ARE THE STATE; this paints the counts and nothing else.
-        // Writing the boxes back from `airFilter` made ticking BOTH untick them
-        // both on the next render, because both ticked derives to 'all' and
-        // 'all' derives back to neither. The meaning was right and the controls
-        // jumped under the pointer.
-        var n = airCounts();
-        var liveTotal = document.getElementById('liveTotal');
-        var shelvedTotal = document.getElementById('shelvedTotal');
-        // COUNTED OVER THE WHOLE CATALOGUE, never over what is on screen: a
-        // figure that shrank as you filtered would read as the filter breaking.
-        if (liveTotal) liveTotal.textContent = String(n.live);
-        if (shelvedTotal) shelvedTotal.textContent = String(n.shelved);
-      }
-
-      function onAirPill() {
-        airFilter = readAirPills();
-        tapeAt = 0;
-        paintFilterPills();
-        renderTrackArchive();
-      }
-      if (liveOnlyBox) liveOnlyBox.addEventListener('change', onAirPill);
-      if (shelvedOnlyBox) shelvedOnlyBox.addEventListener('change', onAirPill);
 
       function fitInput(el) {
 

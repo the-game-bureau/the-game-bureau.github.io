@@ -662,6 +662,15 @@ head, so pressing Next at rest made the page jump away from you.
 were a bar of their own below them, which made the room read as two layers of
 chrome before you reached a tape.
 
+- **THERE ARE TWO OF THEM, ISSUES AND NEW.** Live and Shelved were removed on
+  2026-08-26 and everything behind them went too: `airFilter`, `readAirPills`,
+  `onAirPill`, `paintMasterAir` and the tape and track filtering they drove.
+  **The line under the room's title already says how many tapes and tracks are
+  live and shelved**, and that is the question those two answered.
+  - **`airCounts()` STAYS**, because that line is what reads it now.
+  - **`airMatches()` STAYS TOO**, and this is the one to be careful with: the
+    tracks popup's own Shelved/Live switch still filters the tracks of the open
+    tape through it. Deleting it as dead would break that.
 - **THEY ARE `.btn`, THE ROOM'S OWN BUTTON.** Everything else in those tabs is
   one, so a rounded badge in there read as a different kind of control. They add
   only what a filter needs on top of it: the count, and a pressed state.
