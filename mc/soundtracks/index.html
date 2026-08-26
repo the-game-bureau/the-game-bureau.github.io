@@ -338,57 +338,55 @@
 
     a { color: var(--accent); }
 
-    .tape-head,
-
-    .tape-lines { --tape-cols: 11ch 13ch minmax(0, 1fr) 17ch 84px 72px minmax(12ch, 0.5fr) 30px; }
-
     .tape-lines { display: grid; gap: 6px; }
 
-    .tape-head,
     .tape-lines {
       --col-label: 0.68rem;
       --col-value: 0.78rem;
       --col-text: 0.78rem;
     }
 
-    .tape-line { cursor: pointer; }
-
-    .tape-line:hover {
-      border-color: var(--accent);
-      box-shadow: 0 1px 4px rgba(16, 24, 40, 0.1);
-    }
-
-    .tape-line .tape-air,
-    .tape-line .tape-air * { cursor: pointer; }
-
-    /* A FLEX BAR, NOT A GRID. It was eight fixed columns because there were
-       113 of these and they had to line up; there is one now, so the columns
-       bought nothing and cost the name editor its room -- two inputs and a flip
-       button squeezed into `minmax(0, 1fr)` while `11ch` sat half empty beside
-       it. Everything that was on the row is still on it. */
-    .tape-line {
+    /* THE TAPE'S OWN LINE, WHICH IS THE TRACK HEADER'S FIRST ROW. The tape had
+       a bordered card of its own directly above a bordered column header, two
+       stacked bars describing the same tape. There is one object now: this line
+       is the tape -- its name, where it is, what it holds and its two controls
+       -- and the column labels underneath are the header's second row.
+       IT SPANS THE GRID rather than sitting in a column: the name editor is two
+       inputs and a flip button and has never fitted inside one, which is why
+       the tape line stopped being a grid in the first place. */
+    .track-head-tape {
+      grid-column: 1 / -1;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 6px 10px;
-      padding: 7px 10px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: #fff;
+      margin-bottom: 7px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--control-line);
+      /* THE HEADER'S OWN TYPE IS A COLUMN LABEL'S: 0.62rem, uppercase, wide
+         letter-spacing. That is right for the labels and wrong for a tape's
+         name, so this line takes its type back. */
+      font-size: 0.78rem;
+      font-weight: 400;
+      letter-spacing: normal;
+      text-transform: none;
+      color: var(--ink);
     }
 
     /* THE NAME TAKES THE SLACK so everything after it stays put. */
-    .tape-line > .tape-line-name { flex: 1 1 240px; min-width: 0; }
+    .track-head-tape > .tape-line-name { flex: 1 1 240px; min-width: 0; }
 
-    /* The place, quiet and first, at their own width rather than a fixed one. */
-    .tape-line > .tape-line-country,
-    .tape-line > .tape-line-state { flex: 0 1 auto; max-width: 14ch; }
+    .track-head-tape > .tape-line-geo { flex: 0 1 auto; min-width: 0; }
+    .track-head-tape > .tape-line-counts { flex: 0 0 auto; }
+    .track-head-tape > .tape-line-del { flex: 0 0 auto; }
 
-    .tape-line > .tape-line-num { flex: 0 0 auto; }
+    /* THE TWO CONTROLS GO TO THE FAR END, away from the name you are reading.
+       `.tape-air` carries `justify-self: end`, which a flex parent ignores. */
+    .track-head-tape > .tape-air { flex: 0 0 auto; margin-left: auto; }
 
     /* THE BADGE LEADS THE ROW and holds a fixed width whether or not it has a
        badge in it, so the rows below it line up down the left edge. */
-    .tape-line > .tape-line-new,
+    .track-head-tape > .tape-line-new,
     .track-line-new {
       flex: 0 0 auto;
       display: inline-flex;
@@ -397,18 +395,12 @@
       min-width: 42px;
     }
 
-    /* `grid-column` MEANS NOTHING IN A FLEX BOX, so the two full-width blocks
-       are given a basis instead. This is the fault that made the finding line
-       invisible the first time it shipped. */
-    .tape-line > .tape-line-findings,
-    .tape-line > .track-confirm { flex: 1 0 100%; }
-
-    .tape-line-state,
-    .tape-line-country {
+    /* WHERE THE TAPE IS. Two boxed columns once, because 113 lines had to line
+       up with each other; one quiet cell beside the name now. */
+    .tape-line-geo {
       min-width: 0;
       overflow: hidden;
       white-space: nowrap;
-
       font-size: var(--col-text);
       color: var(--muted);
     }
@@ -422,10 +414,6 @@
       overflow-wrap: normal;
       word-break: keep-all;
     }
-
-    /* The city is the half you scan down, so it holds its line whatever
-       happens; the spine phrase is what gives way. */
-    .tape-line-city { white-space: nowrap; }
 
     .tape-new {
       flex: 0 0 auto;
@@ -445,30 +433,6 @@
       white-space: nowrap;
     }
 
-    .tape-head > :nth-child(4),
-    .tape-line > :nth-child(4) { border-radius: 6px 0 0 6px; }
-
-    .tape-head > :nth-child(6),
-    .tape-line > :nth-child(6) { border-radius: 0 6px 6px 0; }
-
-    .tape-head-label--num,
-    .tape-line-num {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      align-self: center;
-      min-width: 0;
-      font-family: "IBM Plex Mono", monospace;
-
-      font-size: var(--col-value);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-      color: var(--muted);
-    }
-
-    .tape-line-num strong { font-weight: 700; color: var(--ink); }
-    .tape-line-num.is-empty,
-    .tape-line-num.is-empty strong { color: var(--muted); font-weight: 500; }
 
     /* THE FILTERS ARE BUTTONS. They sit in a folder tab beside ADD and VIEW,
        whose contents are all `.btn`, so anything else in there reads as a
@@ -746,8 +710,6 @@
       color: #fff;
     }
 
-    .tape-line .track-confirm { grid-column: 1 / -1; }
-
     .track-confirm {
       grid-column: 1 / -1;
       display: flex;
@@ -891,9 +853,6 @@
 
     .bot-hint b { color: var(--ink); font-weight: 700; }
 
-    /* `display: block` BEATS `.tape-line-num`'s flex, and it has to. In a flex
-       box the three pieces of "55 tracks, 10 live" become separate flex items
-       and the spaces between them are dropped. */
     /* WHAT THE TAPE HOLDS, right after its name. Sized to its content so it
        sits with the name rather than being pushed away from it. */
     .tape-line-counts {
@@ -967,16 +926,6 @@
        controls. -6px pulls them together without a wrapper element. */
     .tape-step + .tape-step { margin-left: -6px; }
 
-    /* THE TAPE'S OWN FINDINGS, under its line and spanning the whole row. Its
-       own, not its tracks': those are drawn on the track rows below. */
-    .tape-line-findings {
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed var(--control-line);
-    }
-
     /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
        header; with one tape on screen there is nothing up here to align to. */
     /* THE CATALOGUE, UNDER THE ROOM'S NAME. Small mono, one line, the two
@@ -1006,14 +955,6 @@
       --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 122px 28px;
       margin-left: 22px;
       margin-bottom: 4px;
-    }
-
-    /* THE TAPE'S BAR IS THE ONE YOU ACT ON, so it keeps the white card. */
-    .tape-bar {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      margin-bottom: 8px;
     }
 
     .tape-air {
@@ -1105,17 +1046,13 @@
       color: var(--muted);
     }
 
-    .tape-line.is-shelved .tape-line-name,
-    .tape-line.is-shelved .tape-line-city { opacity: 0.55; }
+    .track-head--main.is-shelved .tape-line-name,
+    .track-head--main.is-shelved .tape-line-geo { opacity: 0.55; }
 
     @media (max-width: 700px) {
-
-      .tape-line {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        gap: 2px 8px;
-      }
-      .tape-line-name { grid-column: 1; }
-      .tape-air { grid-column: 2 / -1; justify-self: end; }
+      /* THE TWO CONTROLS TAKE A LINE OF THEIR OWN rather than being squeezed
+         onto the end of a wrapped name. */
+      .track-head-tape > .tape-air { flex: 1 0 100%; margin-left: 0; }
     }
 
     .app { max-width: 1180px; margin: 0 auto; padding: 16px; }
@@ -2341,16 +2278,23 @@
 
         tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
-          var row = document.createElement('div');
-          row.className = 'tape-line';
-          if (slug) row.dataset.slug = slug;
-          row.dataset.tapeId = String(tape.id);
-          row.title = 'Open ' + cityFullLabel(slug);
+          // THE TAPE HAS NO LINE OF ITS OWN. Its name, what it holds and its
+          // two controls sit on the track header, which is now the only object
+          // between the command bars and the tracks. `head` stands where the
+          // tape line's `row` stood: it is what `paintAir` dims and what the
+          // delete confirmation hangs off.
+          var head = buildTrackHead();
+          if (slug) head.dataset.slug = slug;
+          head.dataset.tapeId = String(tape.id);
 
-          row.addEventListener('click', function (event) {
-            if (event.target.closest('input, button, label, a, select, textarea')) return;
-            openTracks(tape.id);
-          });
+          // THE TAPE'S OWN LINE, FIRST CHILD AND FULL WIDTH. The column labels
+          // under it are the header's second row.
+          var tapeStrip = document.createElement('div');
+          tapeStrip.className = 'track-head-tape';
+
+          // NO CLICK-TO-OPEN ANY MORE. The row that carried it is gone, and the
+          // popup shows the same tracks this page already has under the header.
+          // It is still reached by `#tape=` and from a finding.
 
           // THE NEW BADGE LEADS THE ROW. It sat among the numbers on the
           // right, where it was one more figure to read past; at the left edge
@@ -2359,13 +2303,15 @@
           newCell.className = 'tape-line-new';
           if (isNewTape(tape)) newCell.appendChild(newBadge(tape));
 
-          var country = document.createElement('span');
-          country.className = 'tape-line-country';
-          country.textContent = cityCountryLabel(slug);
-
-          var state = document.createElement('span');
-          state.className = 'tape-line-state';
-          state.textContent = cityStateLabel(slug);
+          // WHERE THE TAPE IS, IN ONE QUIET CELL RATHER THAN TWO. It was two
+          // boxed columns because 113 lines had to align; with one tape on
+          // screen they are the tape's own address and belong beside its name.
+          // This catalogue holds two Alexandrias and two Portlands, so a city
+          // alone is ambiguous often enough to be worth the words.
+          var geo = document.createElement('span');
+          geo.className = 'tape-line-geo';
+          geo.textContent = [cityStateLabel(slug), cityCountryLabel(slug)]
+            .filter(Boolean).join(', ');
 
           // THE NAME IS EDITABLE ON THE LINE. It was read-only here and
           // editable only as the tracks popup's title, so renaming a tape or
@@ -2402,7 +2348,7 @@
             input.checked = !isShelved;
             wordOff.classList.toggle('is-current', isShelved);
             wordOn.classList.toggle('is-current', !isShelved);
-            row.classList.toggle('is-shelved', isShelved);
+            head.classList.toggle('is-shelved', isShelved);
             input.title = isShelved
               ? 'Shelved. Switch on to put this tape back on /soundtracks/, restoring the tracks it took down with it. A track shelved on its own stays shelved.'
               : 'Live on /soundtracks/. Switch off to take the whole city tape down, hiding every track on it.';
@@ -2451,7 +2397,7 @@
 
           paintAir(shelved);
 
-          row.repaintAir = paintAir;
+          head.repaintAir = paintAir;
 
           air.append(wordOff, input, track, wordOn);
 
@@ -2469,7 +2415,7 @@
           if (!total) tracksCell.classList.add('is-empty');
           // EVERY PIECE IS AN ELEMENT AND EVERY SPACE IS NON-BREAKING, so this
           // reads the same whether the cell ends up a block or a flex box.
-          // `.tape-line-num` sets `display: flex`, and in a flex container a
+          // A flex container turns a bare text node into an anonymous item, and
           // BARE TEXT NODE becomes an anonymous flex item with its whitespace
           // stripped: that is what rendered "15tracks" on screen while
           // ", 15 live", being inside a span, kept its own space. The cell also
@@ -2522,16 +2468,14 @@
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
-          row.append(newCell, country, state, name, tracksCell, air, delCell);
+          tapeStrip.append(newCell, name, geo, tracksCell, air, delCell);
+          head.insertBefore(tapeStrip, head.firstChild);
 
           var confirmStrip = renderTapeConfirm(tape);
-          if (confirmStrip) row.appendChild(confirmStrip);
+          if (confirmStrip) head.appendChild(confirmStrip);
 
-          // THE TAPE'S OWN LINE GOES IN FIRST. It used to be appended after
-          // its tracks, which put the heading UNDER the rows it heads: the
-          // track block below is appended to the list, and the row was not
-          // added until the end of this loop.
-          trackArchiveList.appendChild(row);
+          // THE HEADER GOES IN FIRST, ahead of the rows it heads.
+          trackArchiveList.appendChild(head);
 
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
           // is the tape's own line and still carries its counts, its findings
@@ -2540,12 +2484,6 @@
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
           var songsHere = allSongs(tape);
-          // THE HEADER IS DRAWN WHENEVER THE TAPE HAS TRACKS AT ALL, not when
-          // the filter has left some: it carries the filter, so hiding it when
-          // the filter empties the list would take away the only way to undo
-          // that.
-          if (allSongs(tape).length) trackArchiveList.appendChild(buildTrackHead());
-
           songsHere.slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
@@ -2978,6 +2916,17 @@
 
         var counts = tapeCounts(tape);
         var total = counts.LIVE + counts.SHELVED;
+
+        // COUNTED OFF `soundtrackIssues`, THE FLAT ARRAY THIS ROOM STILL BUILDS
+        // AND NO LONGER DRAWS. This line read a bare `findings`, which is
+        // defined nowhere: pressing the tape's delete button raised a
+        // ReferenceError inside `renderTapeConfirm`, which took
+        // `renderTrackArchive` down with it and blanked the room. A leftover
+        // from the pass that moved the findings UI to /mc/issues.html -- the
+        // DATA is untouched, and deleting a tape still deletes its findings, so
+        // the sentence is still true and now has a number behind it.
+        var findings = (Array.isArray(soundtrackIssues) ? soundtrackIssues : [])
+          .filter(function (f) { return String(f.tape_id) === String(tape.id); }).length;
 
         var box = document.createElement('div');
         box.className = 'track-confirm';
@@ -3740,7 +3689,7 @@
         Array.prototype.forEach.call(
           trackArchiveList.querySelectorAll('.city-input, .spine-input'), fitInput);
         Array.prototype.forEach.call(
-          trackArchiveList.querySelectorAll('.tape-line-country, .tape-line-state'), fitText);
+          trackArchiveList.querySelectorAll('.tape-line-geo'), fitText);
       }
 
       var refitTimer = 0;

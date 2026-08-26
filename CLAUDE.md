@@ -637,6 +637,47 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### THE TAPE HAS NO LINE OF ITS OWN (2026-08-26)
+
+The room drew a bordered tape card and, directly under it, a bordered column
+header: two stacked bars describing the same tape. **There is one object above
+the tracks now.** `.track-head--main`'s first row is the tape -- its NEW badge,
+its name editor with the swap button, where it is, what it holds, its
+Shelved/Live switch and its delete -- and the column labels are its second row.
+
+- **THE TAPE'S LINE SPANS THE GRID, IT DOES NOT SIT IN A COLUMN.** The name
+  editor is two inputs and a flip button; **that is why the tape line stopped
+  being a grid in the first place**, and it would not fit inside the Title
+  column any better now. `grid-column: 1 / -1` on `.track-head-tape`.
+- **THE HEADER'S OWN TYPE HAD TO BE TAKEN BACK.** `.track-head` is 0.62rem,
+  uppercase, wide letter-spacing and muted, which is right for a column label
+  and wrong for a tape's name; the strip resets all four.
+- **THE DELETE CONFIRMATION IS LIVE AGAIN BY ACCIDENT OF THE MOVE.**
+  `.track-confirm` carries `grid-column: 1 / -1`, which was **inert** inside the
+  flex tape line and needed a flex basis; hung off the header it is a grid child
+  and the declaration works. The flex-basis rule went with the line.
+- **`.tape-air` CARRIES `justify-self: end`, WHICH A FLEX PARENT IGNORES**, so
+  the switch takes `margin-left: auto` to reach the far end. Third time this
+  project has moved a control between a grid and a flex box and had to move its
+  alignment property with it.
+- **STATE AND COUNTRY ARE ONE QUIET CELL**, not two boxed columns. They were
+  columns because 113 lines had to align with each other; with one tape they are
+  the tape's own address and belong beside its name. Kept rather than dropped
+  because this catalogue holds two Alexandrias and two Portlands.
+- **CLICKING THE TAPE NO LONGER OPENS THE TRACKS POPUP**, the row that carried
+  that handler being gone. No loss worth naming while the popup shows the same
+  tracks already under the header, and it is still reached by `#tape=` and from
+  a finding.
+
+**AND IT FOUND A LIVE ReferenceError THAT HAD BEEN ARMED FOR A DAY.**
+`renderTapeConfirm` counted a bare **`findings`**, which is defined nowhere --
+a leftover from the pass that moved the findings UI to `/mc/issues.html`. So
+**pressing a tape's delete button threw, took `renderTrackArchive` down with it
+and blanked the room.** It counts off `soundtrackIssues` now, the flat array
+this room still builds and no longer draws. **Found by a test that presses the
+button**, not by reading: nothing renders a confirmation until somebody asks for
+one, so no amount of loading the page reaches that line.
+
 ### A TRACK CAN BE MARKED SPORTS (2026-08-26)
 
 `public.soundtrack.sports`, a plain boolean, false by default. [2026082601](mc/supabase/migrations/2026082601_soundtrack_sports.sql),
