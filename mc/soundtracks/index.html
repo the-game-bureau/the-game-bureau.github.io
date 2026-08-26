@@ -1174,6 +1174,12 @@
 
     .tape-pager-where strong { font-weight: 700; }
 
+    .tape-pager-place {
+      margin-left: 8px;
+      font: 500 0.82rem/1.2 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted);
+    }
+
     .tape-pager-of {
       margin-left: 10px;
       font: 500 0.72rem/1 "IBM Plex Mono", monospace;
@@ -4325,10 +4331,33 @@
         where.textContent = '';
         var nameEl = document.createElement('strong');
         nameEl.textContent = tapeFullName(tape);
+        where.appendChild(nameEl);
+
+        // WHERE THE TAPE IS, on the tape's own headline. With one tape on
+        // screen this line is the tape's identity, and a city on its own is
+        // ambiguous often enough to be worth the words: there are two
+        // Alexandrias and two Portlands in this catalogue.
+        // A STATE THAT REPEATS THE CITY IS DROPPED. Several places genuinely
+        // share a name with the division around them -- Algiers is in Algiers
+        // Province, Luxembourg is in Luxembourg -- and the catalogue is right
+        // to hold both. "Algiers, Algiers, Algeria" is still the line saying it
+        // twice.
+        var cityWord = soundCityLabel(tape.city_slug);
+        var stateWord = text(cityStateLabel(tape.city_slug));
+        if (stateWord.toLowerCase() === text(cityWord).toLowerCase()) stateWord = '';
+        var whereBits = [stateWord, cityCountryLabel(tape.city_slug)]
+          .map(text).filter(Boolean);
+        if (whereBits.length) {
+          var placeEl = document.createElement('span');
+          placeEl.className = 'tape-pager-place';
+          placeEl.textContent = whereBits.join(', ');
+          where.appendChild(placeEl);
+        }
+
         var ofEl = document.createElement('span');
         ofEl.className = 'tape-pager-of';
         ofEl.textContent = (tapeAt + 1) + ' of ' + n;
-        where.append(nameEl, ofEl);
+        where.appendChild(ofEl);
         prev.disabled = tapeAt <= 0;
         next.disabled = tapeAt >= n - 1;
         prev.title = prev.disabled ? 'This is the first tape.' : 'Back to ' + tapeFullName(tapes[tapeAt - 1]);

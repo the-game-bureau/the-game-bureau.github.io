@@ -568,6 +568,16 @@ the tracks indented under the tape they belong to.
     buttons grey out to say why instead.
   - **A FILTER RESETS TO THE TOP.** Keeping the position would land you on
     whatever happens to be 50th in a completely different list.
+  - **THE TAPE'S HEADLINE CARRIES ITS STATE AND COUNTRY**, off the row's own
+    `state_name` / `country_name`. With one tape on screen that line is the
+    tape's identity, and a city alone is ambiguous often enough to be worth the
+    words: this catalogue holds two Alexandrias and two Portlands.
+  - **A STATE THAT REPEATS THE CITY IS DROPPED.** Several places genuinely share
+    a name with the division around them, and the catalogue is right to hold
+    both: Algiers is in Algiers Province, New York is in New York. *Algiers,
+    Algiers, Algeria* is still the line saying it twice. Checked across the real
+    rows: London reads `England, United Kingdom`, Toronto `Ontario, Canada`,
+    Algiers `Algeria`, New York `United States`.
 
 ### THE TAPE LINE CARRIES WHAT THE POPUP SAID ABOUT THE TAPE (2026-08-25)
 
