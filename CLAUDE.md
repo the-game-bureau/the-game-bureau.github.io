@@ -669,13 +669,23 @@ when there genuinely is not enough.
 - **THE TAPE LINE KEEPS NO CARD OF ITS OWN** inside the panel: no border, no
   radius, no background.
 
-**AND THIS BREAKS A RULE THIS FILE ALREADY STATES.** *"A switch on a ROW is a
-status changer, a switch in a HEADER is a filter."* Both Shelved/Live switches
-are in the header now and they look identical: the one in the SHOW group filters
-the catalogue, the one after the divider shelves the tape in front of you.
-**What keeps them apart today is the SHOW label and the divider, which is
-weaker than the rule was.** If that ever bites, the answer is to label the tape's
-own switch rather than to move it back out.
+**IT BROKE A RULE THIS FILE STATES, AND THE FILTER CHANGED SHAPE RATHER THAN
+MOVING BACK OUT.** *"A switch on a ROW is a status changer, a switch in a HEADER
+is a filter"* stopped working when both Shelved/Live switches ended up in one
+header looking identical. **The catalogue filter is now two pills, `Live 97` and
+`Shelved 16`, matching Issues and New**, because that is what it does. There is
+exactly **one toggle switch left in the header and it is inside the tape's row**,
+which a test asserts.
+
+- **NEITHER TICKED AND BOTH TICKED MEAN THE SAME THING**, which is the honest
+  reading of "show live" and "show shelved" asked together, and it means the
+  pair can never express a filter that shows nothing.
+- **`paintMasterAir` MUST NOT WRITE THE BOXES BACK.** It did, and ticking both
+  then unticked both on the next render: both ticked derives to `all`, and `all`
+  derives back to neither. The meaning was right and the controls jumped under
+  the pointer. **The boxes are the state; the painter paints counts.**
+- **The counts are over the whole catalogue**, never over what the filter has
+  left, so they do not shrink as you narrow.
 
 ### THE CATALOGUE COUNT SITS WITH THE ROOM'S NAME (2026-08-26)
 

@@ -1569,12 +1569,24 @@
               <span class="head-count" id="newTotal"></span>
             </label>
 
-            <label class="tape-air tape-air--all" id="tapeAirAll">
-              <span class="tape-air-word tape-air-word--off">Shelved</span>
-              <input class="tape-air-input" id="tapeAirAllInput" type="checkbox"
-                     aria-label="Show shelved tapes, live tapes, or both">
-              <span class="tape-air-track" aria-hidden="true"></span>
-              <span class="tape-air-word tape-air-word--on">Live</span>
+            <!-- TWO PILLS, NOT A SWITCH, AND THAT IS THE WHOLE POINT. This
+                 filters the catalogue; the switch a few inches to the right
+                 shelves the tape in front of you. As two identical Shelved/Live
+                 toggles in one header there was nothing but a divider telling
+                 them apart. It matches Issues and New because it does what they
+                 do. -->
+            <label class="head-figure head-figure--filter" id="liveOnlyPill"
+                   title="Show only tapes that are live on /soundtracks/">
+              <input type="checkbox" id="liveOnly">
+              <span class="head-word">Live</span>
+              <span class="head-count" id="liveTotal"></span>
+            </label>
+
+            <label class="head-figure head-figure--filter" id="shelvedOnlyPill"
+                   title="Show only tapes that are shelved">
+              <input type="checkbox" id="shelvedOnly">
+              <span class="head-word">Shelved</span>
+              <span class="head-count" id="shelvedTotal"></span>
             </label>
           </span>
 
@@ -4317,8 +4329,8 @@
           + ' across every tape. Press to see only the tapes carrying them.';
       }
 
-      var tapeAirAll = document.getElementById('tapeAirAll');
-      var tapeAirAllInput = document.getElementById('tapeAirAllInput');
+      var liveOnlyBox = document.getElementById('liveOnly');
+      var shelvedOnlyBox = document.getElementById('shelvedOnly');
 
       // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
       // `indeterminate` by a user click, so the label's own click is taken over
@@ -4424,13 +4436,39 @@
         // reading is left alone.
       }
 
-      function paintMasterAir() {
-        paintAirSwitch(tapeAirAll, tapeAirAllInput, airFilter, airCounts(), 'tapes');
+      // TWO PILLS, ONE STATE. Neither ticked and both ticked mean the same
+      // thing, which is the honest reading of "show live" and "show shelved"
+      // asked together, and it means the pair can never express a filter that
+      // shows nothing.
+      function readAirPills() {
+        var live = !!(liveOnlyBox && liveOnlyBox.checked);
+        var shelved = !!(shelvedOnlyBox && shelvedOnlyBox.checked);
+        if (live === shelved) return 'all';
+        return live ? 'live' : 'shelved';
       }
 
-      wireAirSwitch(tapeAirAll, tapeAirAllInput,
-        function () { return airFilter; },
-        function (value) { airFilter = value; tapeAt = 0; renderTrackArchive(); });
+      function paintMasterAir() {
+        // THE BOXES ARE THE STATE; this paints the counts and nothing else.
+        // Writing the boxes back from `airFilter` made ticking BOTH untick them
+        // both on the next render, because both ticked derives to 'all' and
+        // 'all' derives back to neither. The meaning was right and the controls
+        // jumped under the pointer.
+        var n = airCounts();
+        var liveTotal = document.getElementById('liveTotal');
+        var shelvedTotal = document.getElementById('shelvedTotal');
+        // COUNTED OVER THE WHOLE CATALOGUE, never over what is on screen: a
+        // figure that shrank as you filtered would read as the filter breaking.
+        if (liveTotal) liveTotal.textContent = String(n.live);
+        if (shelvedTotal) shelvedTotal.textContent = String(n.shelved);
+      }
+
+      function onAirPill() {
+        airFilter = readAirPills();
+        tapeAt = 0;
+        renderTrackArchive();
+      }
+      if (liveOnlyBox) liveOnlyBox.addEventListener('change', onAirPill);
+      if (shelvedOnlyBox) shelvedOnlyBox.addEventListener('change', onAirPill);
 
       function fitInput(el) {
 
