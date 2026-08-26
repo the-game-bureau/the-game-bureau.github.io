@@ -1148,6 +1148,40 @@
       margin-bottom: 4px;
     }
 
+    .tape-pager {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      padding: 7px 12px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: var(--cut-panel-bg);
+    }
+
+    /* THE NAME TAKES THE SLACK, so the two buttons stay pinned to the ends
+       whatever the tape is called. */
+    .tape-pager-where {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: center;
+      font: 500 0.9rem/1.2 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tape-pager-where strong { font-weight: 700; }
+
+    .tape-pager-of {
+      margin-left: 10px;
+      font: 500 0.72rem/1 "IBM Plex Mono", monospace;
+      color: var(--muted);
+    }
+
+    .tape-pager .btn[disabled] { opacity: 0.4; cursor: default; }
+
     .tape-air {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -1505,6 +1539,12 @@
           </label>
         </div>
 
+        <div class="tape-pager">
+          <button class="btn small" id="tapePrev" type="button" aria-label="Previous tape">&#8249; Back</button>
+          <span class="tape-pager-where" id="tapeWhere" aria-live="polite"></span>
+          <button class="btn small" id="tapeNext" type="button" aria-label="Next tape">Next &#8250;</button>
+        </div>
+
         <!-- THE COLUMN HEADER FOR THE TRACK ROWS. The row above it is the
              tape-level control bar, which aligns with the tape lines; this one
              aligns with the tracks, and one of it serves all of them because
@@ -1743,6 +1783,13 @@
       //
       // 'all' is the NEUTRAL middle and is what the knob rests on. Per-row
       // switches are untouched: those are the status changers.
+      // ONE TAPE AT A TIME. The room showed all 113 tapes and all 1,643 track
+      // rows at once, which is 27,000 nodes and 10,000 form controls on one
+      // page. It is a position into the FILTERED, SORTED list rather than a
+      // tape id, so a filter that removes the tape you were on lands you on
+      // whatever moved into its place instead of on nothing.
+      var tapeAt = 0;
+
       var airFilter = 'all';          // the tape list
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
@@ -1950,6 +1997,7 @@
 
       if (newOnlyBox) newOnlyBox.addEventListener('change', function () {
         newOnly = !!newOnlyBox.checked;
+        tapeAt = 0;
         paintFilterPills();
         renderTrackArchive();
       });
@@ -1957,6 +2005,7 @@
       var flaggedOnlyBox = document.getElementById('flaggedOnly');
       if (flaggedOnlyBox) flaggedOnlyBox.addEventListener('change', function () {
         flaggedOnly = !!flaggedOnlyBox.checked;
+        tapeAt = 0;
         paintFilterPills();
         renderTrackArchive();
       });
@@ -2799,11 +2848,19 @@
                     ? 'No open issues on any tape. The daily audit reports here when it finds something.'
                     : 'No tapes yet.'));
           paintMasterAir();
+          paintTapePager([]);
           setArchiveStatus('', '');
           return;
         }
 
-        tapes.forEach(function (tape) {
+        // CLAMPED, NEVER WRAPPED. Running off the end onto the first tape
+        // makes a long list feel like it has no end; stopping is honest, and
+        // the buttons grey out to say why.
+        if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
+        if (tapeAt < 0) tapeAt = 0;
+        paintTapePager(tapes);
+
+        tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           var row = document.createElement('div');
           row.className = 'tape-line';
@@ -4249,13 +4306,52 @@
         return { live: live, shelved: shelved, total: live + shelved };
       }
 
+      // THE PAGER. It reads the list it is given rather than recomputing one,
+      // so it can never disagree with what is on screen about how many there
+      // are or which one this is.
+      function paintTapePager(tapes) {
+        var prev = document.getElementById('tapePrev');
+        var next = document.getElementById('tapeNext');
+        var where = document.getElementById('tapeWhere');
+        if (!prev || !next || !where) return;
+        var n = tapes.length;
+        if (!n) {
+          where.textContent = 'no tapes';
+          prev.disabled = true;
+          next.disabled = true;
+          return;
+        }
+        var tape = tapes[tapeAt];
+        where.textContent = '';
+        var nameEl = document.createElement('strong');
+        nameEl.textContent = tapeFullName(tape);
+        var ofEl = document.createElement('span');
+        ofEl.className = 'tape-pager-of';
+        ofEl.textContent = (tapeAt + 1) + ' of ' + n;
+        where.append(nameEl, ofEl);
+        prev.disabled = tapeAt <= 0;
+        next.disabled = tapeAt >= n - 1;
+        prev.title = prev.disabled ? 'This is the first tape.' : 'Back to ' + tapeFullName(tapes[tapeAt - 1]);
+        next.title = next.disabled ? 'This is the last tape.' : 'On to ' + tapeFullName(tapes[tapeAt + 1]);
+      }
+
+      function stepTape(by) {
+        tapeAt += by;
+        renderTrackArchive();
+        // The list is rebuilt, so bring the top of it back into view rather
+        // than leaving you halfway down the tape you just left.
+        if (trackArchiveList && trackArchiveList.scrollIntoView) {
+          trackArchiveList.scrollIntoView({ block: 'start' });
+        }
+      }
+
       function paintMasterAir() {
         paintAirSwitch(tapeAirAll, tapeAirAllInput, airFilter, airCounts(), 'tapes');
       }
 
       wireAirSwitch(tapeAirAll, tapeAirAllInput,
         function () { return airFilter; },
-        function (value) { airFilter = value; renderTrackArchive(); });
+        function (value) { airFilter = value; tapeAt = 0; renderTrackArchive(); });
 
       function fitInput(el) {
 
@@ -4566,6 +4662,11 @@
             'Could not read public.soundtrack. Open the routine to check directly.', true);
         }
       }
+
+      var tapePrevBtn = document.getElementById('tapePrev');
+      var tapeNextBtn = document.getElementById('tapeNext');
+      if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
+      if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
 
       loadLastRun();
 

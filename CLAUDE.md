@@ -554,11 +554,20 @@ the tracks indented under the tape they belong to.
   serves all 1,643**, because every track row carries the same fixed
   `--track-cols` and the same indent. A test asserts the header's column
   template and its child count both equal the row's.
-- **THE COST IS REAL AND IS NOT CAPPED.** 27,672 nodes and about 10,000 form
-  controls on one page. Nothing is truncated, per the no-silent-caps rule, and
-  the filters in the header are what narrow it. If it ever needs to be lighter,
-  the answer is the Anchor Events shape: build a row's fields only when it is
-  opened, never a top-N.
+- **ONE TAPE AT A TIME, WITH BACK AND NEXT.** Showing all of them was **27,672
+  nodes and about 10,000 form controls**; one tape is **274**. A hundredfold,
+  and it is what makes a fully editable row per track affordable at all.
+  - **THIS IS NOT A SILENT CAP, WHICH IS THE RULE IT HAD TO SATISFY.** Nothing
+    is truncated and nothing is dropped: the pager says *3 of 113* and every
+    tape is two presses away. A top-N that quietly stops at 60 is the thing this
+    project has deleted before.
+  - **`tapeAt` IS A POSITION IN THE FILTERED, SORTED LIST, NOT A TAPE ID.** So a
+    filter that removes the tape you were on lands you on whatever moved into
+    its place rather than on nothing. It is **clamped, never wrapped**: running
+    off the end onto the first tape makes a long list feel endless, and the
+    buttons grey out to say why instead.
+  - **A FILTER RESETS TO THE TOP.** Keeping the position would land you on
+    whatever happens to be 50th in a completely different list.
 
 ### THE TAPE LINE CARRIES WHAT THE POPUP SAID ABOUT THE TAPE (2026-08-25)
 
