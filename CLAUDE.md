@@ -637,6 +637,38 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### EVERYTHING SHELVED, NO FILTERS, BADGES LEAD THE ROW (2026-08-26)
+
+- **EVERY TAPE AND TRACK IS SHELVED.** `update public.soundtrack set archived =
+  true, archived_with_tape = true where not archived` -- 1,514 rows. **The stamp
+  is the point**: this is exactly what shelving each tape one at a time would
+  have done, so it is undoable a tape at a time rather than 1,514 tombstones
+  nothing can lift. The 129 already shelved on their own keep
+  `archived_with_tape = false` and stay down through any restore.
+  - **`/soundtracks/` IS NOW EMPTY.** 0 live tracks, 0 live tapes.
+- **BOTH FILTERS ARE GONE**, and the FILTER folder tab with them: the bar row is
+  ADD and VIEW again. The track header's own Shelved/Live went too. **The
+  popup's `#trackAirAll` is untouched** -- it is a different control on a
+  different surface.
+- **THE NEW BADGE LEADS THE ROW**, on tapes and on tracks, in a fixed 42px cell
+  so the rows line up down the left edge whether or not they carry one. **A
+  track is new on its OWN `created_at`**, not its tape's, which is what makes a
+  top-up show five new tracks on an old tape.
+- **THE TAPE'S COUNTS SIT IMMEDIATELY AFTER ITS NAME** and read `0 LIVE / 30
+  SHELVED`. It read "55 tracks, 10 live", which needed subtracting to learn the
+  number you actually act on.
+- **THE TRACK GRID GAINED A COLUMN, AND ALL FOUR PLACES HAD TO MOVE TOGETHER**:
+  the popup's `--track-cols`, the main list's, the main header's, and the
+  popup's static header markup. Miss one and every label sits a column left of
+  the field it names.
+
+**AND A CALL SURVIVED ITS FUNCTION.** `paintFilterPills` went with the filters
+and `renderTrackArchive` still called it, so **the whole room rendered empty**.
+It surfaced as *"public.soundtrack did not load. Check the Supabase project."* --
+the fetch and the render share one `try`, so a drawing bug accused the database.
+**The message now says which it was**, and sends you to the console rather than
+to Supabase.
+
 ### THE ISSUES UI IS OUT OF THE TAPE ROOM (2026-08-26)
 
 Findings are going on a page of their own. Nothing in this room draws one now:

@@ -191,8 +191,6 @@
     /* ADD TAKES THE SLACK; the two on its right stay their own width. */
     .command-bar--view,
     .command-bar--filter { flex: 0 0 auto; }
-
-    .command-bar--filter .command-bar-inner { gap: 6px; }
     @media (max-width: 720px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
@@ -345,6 +343,17 @@
 
     .tape-line > .tape-line-num { flex: 0 0 auto; }
 
+    /* THE BADGE LEADS THE ROW and holds a fixed width whether or not it has a
+       badge in it, so the rows below it line up down the left edge. */
+    .tape-line > .tape-line-new,
+    .track-line-new {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-width: 42px;
+    }
+
     /* `grid-column` MEANS NOTHING IN A FLEX BOX, so the two full-width blocks
        are given a basis instead. This is the fault that made the finding line
        invisible the first time it shipped. */
@@ -418,35 +427,6 @@
     .tape-line-num.is-empty,
     .tape-line-num.is-empty strong { color: var(--muted); font-weight: 500; }
 
-    .head-figure {
-      display: inline-flex;
-      flex-direction: column;
-
-      align-items: center;
-
-      gap: 0;
-      font-family: "IBM Plex Mono", monospace;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      line-height: 1.5;
-      text-transform: uppercase;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .head-word {
-      font-size: var(--col-label);
-
-      letter-spacing: 0.1em;
-    }
-
-    .head-count {
-      font-size: var(--col-value);
-      letter-spacing: 0;
-      font-variant-numeric: tabular-nums;
-      text-transform: none;
-    }
-
     /* THE FILTERS ARE BUTTONS. They sit in a folder tab beside ADD and VIEW,
        whose contents are all `.btn`, so anything else in there reads as a
        different kind of control. They take `.btn` itself and add only what a
@@ -455,28 +435,6 @@
       position: relative;
       gap: 7px;
       font-size: 0.72rem;
-    }
-
-    .head-figure--filter .head-word {
-      font-size: inherit;
-      letter-spacing: 0.12em;
-    }
-
-    .head-figure--filter .head-count {
-      font-size: inherit;
-      font-weight: 800;
-      letter-spacing: 0;
-      opacity: 0.62;
-    }
-
-    .head-figure--filter:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-    .head-figure--filter input {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
     }
 
     /* PRESSED IS THE ROOM'S OWN PRIMARY FILL, the same one Save and Add wear,
@@ -489,15 +447,10 @@
       color: #fff;
     }
 
-    .head-figure--filter.is-on .head-count { opacity: 0.8; }
-
-    .head-figure--new.is-zero { color: var(--muted); }
-    .head-figure--new.is-zero { color: var(--muted); }
-
     .track-head,
     .track-lines {
 
-      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -898,30 +851,35 @@
     /* `display: block` BEATS `.tape-line-num`'s flex, and it has to. In a flex
        box the three pieces of "55 tracks, 10 live" become separate flex items
        and the spaces between them are dropped. */
+    /* WHAT THE TAPE HOLDS, right after its name. Sized to its content so it
+       sits with the name rather than being pushed away from it. */
     .tape-line-counts {
-      display: block;
-      justify-self: start;
-      align-self: center;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: baseline;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font: 500 0.78rem/1.2 "IBM Plex Mono", monospace;
+      font: 500 0.74rem/1.2 "IBM Plex Mono", monospace;
       color: var(--muted);
     }
 
+    .tape-line-figure { font-weight: 700; color: var(--muted); }
+
+    /* THE LIVE FIGURE IS THE ONE YOU ACT ON, so it is the only one in ink, and
+       a live count of zero is not good news and does not wear the green. */
+    .tape-line-figure.is-live { color: var(--success); }
+    .tape-line-figure.is-none { color: var(--muted); }
+    .tape-line-figure-word { opacity: 0.75; }
+    .tape-line-figure-sep { opacity: 0.5; }
+
     .tape-line-counts strong { color: var(--ink); font-weight: 700; }
 
-    .tape-line-live { color: var(--success); font-weight: 700; }
-
-    /* A LIVE COUNT OF ZERO IS NOT GOOD NEWS, so it does not wear the green. */
-    .tape-line-live.is-none { color: var(--muted); font-weight: 500; }
 
     /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row, so it needs the
        popup's column widths, which were scoped to `.track-head, .track-lines`
        and would otherwise resolve to nothing out here and collapse every
        column to zero. */
     .track-line--in-list {
-      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
       margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
@@ -1002,7 +960,7 @@
        `.track-head, .track-lines`, which live inside the popup, so out here it
        would resolve to nothing and collapse every column to zero. */
     .track-head--main {
-      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
       margin-left: 22px;
       margin-bottom: 4px;
     }
@@ -1307,23 +1265,6 @@
           <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">ABOUT</a>
         </div>
       </fieldset>
-      <!-- FILTER IS THE THIRD FOLDER TAB, beside ADD and VIEW, because it is
-           the same kind of thing: a labelled group of controls about the room.
-           It was a bar of its own below them, which made the room read as two
-           layers of chrome before you reached a tape. -->
-      <fieldset class="command-bar command-bar--filter" id="tapeHead">
-        <legend>Filter</legend>
-        <div class="command-bar-inner">
-
-          <label class="btn head-figure--filter head-figure--new" id="newTotalPill"
-                 title="Show only tapes added, or added to, in the last 72 hours">
-            <input type="checkbox" id="newOnly">
-            <span class="head-word">New</span>
-            <span class="head-count" id="newTotal"></span>
-          </label>
-
-        </div>
-      </fieldset>
     </div>
 
     <div class="prompt-layout">
@@ -1377,6 +1318,11 @@
 
         <div class="track-head" id="trackHead" role="row">
 
+          <!-- THE LEADING CELL IS THE NEW BADGE'S COLUMN, added 2026-08-26. The
+               popup and the main list share the row builder, so they share its
+               columns: this header has to gain one too or every label sits one
+               column left of the field it names. -->
+          <span class="track-head-label"></span>
           <span class="track-head-label"></span>
           <span class="track-head-label" title="Play order on the cassette. Edit it to reorder.">#</span>
           <span class="track-head-label">Title</span>
@@ -1523,7 +1469,6 @@
 
       var citySearchTerm = '';
 
-      var newOnly = false;
 
       // THE SHELVED / LIVE SWITCH IN A HEADER IS A FILTER, NOT A STATUS
       // CHANGER. It used to rewrite every row it summarised, which is the most
@@ -1726,21 +1671,6 @@
 
       document.addEventListener('keydown', trackKeydown);
 
-      var newOnlyBox = document.getElementById('newOnly');
-
-      function paintFilterPills() {
-        var pairs = [['newTotalPill', newOnly]];
-        pairs.forEach(function (pair) {
-          var el = document.getElementById(pair[0]);
-          if (el) el.classList.toggle('is-on', !!pair[1]);
-        });
-      }
-
-      if (newOnlyBox) newOnlyBox.addEventListener('change', function () {
-        newOnly = !!newOnlyBox.checked;
-        paintFilterPills();
-        renderTrackArchive();
-      });
 
 
       function syncArchiveExpandBtn() {
@@ -1956,10 +1886,18 @@
           console.error(error);
           soundtrackArchiveData = null;
           setArchiveStatus('Nothing loaded.', '');
-          setNotice('could not load the tables', 'error');
+          // THE FETCH AND THE RENDER ARE BOTH INSIDE THIS TRY, so a bug in the
+          // drawing surfaced as "the database did not load", which sends the
+          // next person to check Supabase about a fault in this file. The
+          // message says which it was.
+          var wasFetch = /Supabase \d|Failed to fetch|NetworkError/i.test((error && error.message) || '');
+          setNotice(wasFetch ? 'could not read the tapes' : 'the tapes loaded but the page could not draw them, see the console',
+            'error');
           if (trackArchiveList) {
             trackArchiveList.innerHTML = '';
-            trackArchiveList.appendChild(emptyNode('public.soundtrack did not load. Check the Supabase project.'));
+            trackArchiveList.appendChild(emptyNode(wasFetch
+              ? 'public.soundtrack did not load. Check the Supabase project.'
+              : 'The tapes loaded and the page could not draw them. The console has the error.'));
           }
           throw error;
         }
@@ -2280,9 +2218,6 @@
         }
         var tapes = soundtracks().slice();
 
-        if (newOnly) {
-          tapes = tapes.filter(isNewTape);
-        }
 
         // ONE ORDER: by city, A to Z. The three sort buttons are gone, and
         // with one tape on screen a sort was choosing the order you PAGE
@@ -2297,9 +2232,7 @@
         if (!tapes.length) {
 
           trackArchiveList.appendChild(emptyNode(
-            newOnly
-              ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. Run TGB SOUNDTRACK BOT to add some.'
-              : 'No tapes yet.'));
+            'No tapes yet.'));
           setArchiveStatus('', '');
           return;
         }
@@ -2320,8 +2253,11 @@
             openTracks(tape.id);
           });
 
+          // THE NEW BADGE LEADS THE ROW. It sat among the numbers on the
+          // right, where it was one more figure to read past; at the left edge
+          // it is the first thing about a row you did not have yesterday.
           var newCell = document.createElement('span');
-          newCell.className = 'tape-line-num tape-line-new';
+          newCell.className = 'tape-line-new';
           if (isNewTape(tape)) newCell.appendChild(newBadge(tape));
 
           var country = document.createElement('span');
@@ -2423,8 +2359,12 @@
           // THE COUNTS IN WORDS, which is what the tracks popup said about the
           // tape. `10/55` needed the header to be read before it meant anything,
           // and then still left you working out which number was which.
+          // WHAT THE TAPE HOLDS, immediately after its name: N LIVE / N
+          // SHELVED. It read "55 tracks, 10 live", which needed subtracting to
+          // learn the thing you actually act on, which is how many are still
+          // waiting.
           var tracksCell = document.createElement('span');
-          tracksCell.className = 'tape-line-num tape-line-counts';
+          tracksCell.className = 'tape-line-counts';
           var counts = tapeCounts(tape);
           var total = counts.LIVE + counts.SHELVED;
           if (!total) tracksCell.classList.add('is-empty');
@@ -2436,23 +2376,29 @@
           // ", 15 live", being inside a span, kept its own space. The cell also
           // sets `display: block` to win that cascade, but nothing here depends
           // on it any more.
+          // EVERY SPACE IS NON-BREAKING and every piece is an element. This
+          // cell can end up in a flex box, where a bare text node becomes an
+          // anonymous flex item and its whitespace is dropped: that is what
+          // once rendered "15tracks" on screen.
           var NB = String.fromCharCode(160);
-          var totalEl = document.createElement('strong');
-          totalEl.textContent = String(total);
-          tracksCell.appendChild(totalEl);
-
-          var unitEl = document.createElement('span');
-          unitEl.textContent = NB + (total === 1 ? 'track' : 'tracks');
-          tracksCell.appendChild(unitEl);
-
-          if (total) {
-            var liveEl = document.createElement('span');
-            liveEl.className = 'tape-line-live' + (counts.LIVE ? '' : ' is-none');
-            liveEl.textContent = ',' + NB + counts.LIVE + NB + 'live';
-            tracksCell.appendChild(liveEl);
+          function figure(n, word, cls) {
+            var v = document.createElement('strong');
+            v.className = 'tape-line-figure' + (cls ? ' ' + cls : '');
+            v.textContent = String(n);
+            var w = document.createElement('span');
+            w.className = 'tape-line-figure-word';
+            w.textContent = NB + word;
+            tracksCell.append(v, w);
           }
+          figure(counts.LIVE, 'live', counts.LIVE ? 'is-live' : 'is-none');
+          var slash = document.createElement('span');
+          slash.className = 'tape-line-figure-sep';
+          slash.textContent = NB + '/' + NB;
+          tracksCell.appendChild(slash);
+          figure(counts.SHELVED, 'shelved', '');
+
           tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
-            + counts.SHELVED + ' shelved.';
+            + counts.SHELVED + ' shelved, ' + total + ' in all.';
 
           var delCell = document.createElement('span');
           delCell.className = 'tape-line-del';
@@ -2477,7 +2423,7 @@
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
-          row.append(country, state, name, tracksCell, newCell, air, delCell);
+          row.append(newCell, country, state, name, tracksCell, air, delCell);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) row.appendChild(confirmStrip);
@@ -2494,14 +2440,12 @@
           // the popup uses, so there is one track row in this project and not
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
-          var songsHere = allSongs(tape).filter(function (song) {
-            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
-          });
+          var songsHere = allSongs(tape);
           // THE HEADER IS DRAWN WHENEVER THE TAPE HAS TRACKS AT ALL, not when
           // the filter has left some: it carries the filter, so hiding it when
           // the filter empties the list would take away the only way to undo
           // that.
-          if (allSongs(tape).length) trackArchiveList.appendChild(buildTrackHead(tape));
+          if (allSongs(tape).length) trackArchiveList.appendChild(buildTrackHead());
 
           songsHere.slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
@@ -2512,11 +2456,6 @@
             trackArchiveList.appendChild(line);
           });
 
-          if (!songsHere.length && allSongs(tape).length) {
-            trackArchiveList.appendChild(emptyNode(
-              'No ' + trackAirFilter + ' tracks on this tape. Press '
-              + (trackAirFilter === 'live' ? 'Live' : 'Shelved') + ' again to show both.'));
-          }
 
 
         });
@@ -2530,8 +2469,6 @@
           document.fonts.ready.then(function () { fontsFitted = true; fitRowInputs(); growBlurbs(); });
         }
 
-        paintFilterPills();
-        paintNewTotal();
         paintTrackTotal();
         setArchiveStatus(tapes.length + (tapes.length === 1 ? ' tape' : ' tapes'), '');
         if (message) setNotice(message, tone);
@@ -3383,7 +3320,14 @@
         tapeTag.title = 'The tape this track is on.';
         titleCell.append(tapeTag, titleEl);
 
-        line.append(playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, air, del);
+        // THE BADGE LEADS THE TRACK ROW TOO, at the same left edge as the
+        // tape's, so a new track and a new tape are marked the same way in the
+        // same place.
+        var newCell = document.createElement('span');
+        newCell.className = 'track-line-new';
+        if (isNewTrack(song)) newCell.appendChild(trackNewBadge(song));
+
+        line.append(newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, air, del);
 
         if (isFocused) {
           var stage = document.createElement('div');
@@ -3503,22 +3447,6 @@
 
 
 
-      var newTotalEl = document.getElementById('newTotal');
-
-      function paintNewTotal() {
-        if (!newTotalEl) return;
-        var n = soundtracks().filter(isNewTape).length;
-
-        newTotalEl.textContent = String(n);
-
-        var pill = document.getElementById('newTotalPill');
-        if (pill) pill.classList.toggle('is-zero', n === 0);
-        newTotalEl.title = n
-          ? (n + (n === 1 ? ' tape' : ' tapes') + ' added, or added to, in the last '
-             + NEW_FOR_HOURS + ' hours. Tick to see only those.')
-          : ('Nothing added in the last ' + NEW_FOR_HOURS + ' hours.');
-      }
-
       var trackTotalEl = document.getElementById('roomStats');
 
       // TAPES ## LIVE / ## SHELVED  |  TRACKS #### LIVE / #### SHELVED
@@ -3636,6 +3564,7 @@
       // popup's own header, cell for cell, so the two lists read the same.
       var TRACK_HEAD_CELLS = [
         ['', ''],
+        ['', ''],
         ['#', 'Play order on the cassette. Edit it to reorder.'],
         ['Title', ''],
         ['Artist', ''],
@@ -3646,58 +3575,14 @@
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
 
-      // A SHELVED / LIVE FILTER, BUILT PER HEADER RATHER THAN BY ID. The
-      // popup's own is `#trackAirAll`; this one is emitted once per tape shown,
-      // so it can carry no id. Both drive `trackAirFilter`, which is the same
-      // question about the same tape asked from two places.
-      function buildTrackAirFilter(tape) {
-        var label = document.createElement('label');
-        label.className = 'tape-air track-air tape-air--all';
-
-        var off = document.createElement('span');
-        off.className = 'tape-air-word tape-air-word--off';
-        off.textContent = 'Shelved';
-
-        var input = document.createElement('input');
-        input.className = 'tape-air-input';
-        input.type = 'checkbox';
-        input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
-
-        var track = document.createElement('span');
-        track.className = 'tape-air-track';
-        track.setAttribute('aria-hidden', 'true');
-
-        var on = document.createElement('span');
-        on.className = 'tape-air-word tape-air-word--on';
-        on.textContent = 'Live';
-
-        label.append(off, input, track, on);
-
-        var live = 0, shelved = 0;
-        allSongs(tape).forEach(function (song) {
-          if (songStatus(song) === 'LIVE') live += 1; else shelved += 1;
-        });
-        paintAirSwitch(label, input, trackAirFilter,
-          { live: live, shelved: shelved, total: live + shelved }, 'tracks');
-
-        wireAirSwitch(label, input,
-          function () { return trackAirFilter; },
-          function (value) { trackAirFilter = value; renderTrackArchive(); });
-
-        // The row under it opens the tracks popup on click; this must not.
-        label.addEventListener('click', function (event) { event.stopPropagation(); });
-        return label;
-      }
-
-      function buildTrackHead(tape) {
+      function buildTrackHead() {
         var head = document.createElement('div');
         head.className = 'track-head track-head--main';
         head.setAttribute('role', 'row');
         TRACK_HEAD_CELLS.forEach(function (cell, i) {
-          if (i === 7) { head.appendChild(buildTrackAirFilter(tape)); return; }
           var el = document.createElement('span');
           el.className = 'track-head-label'
-            + (i === 6 || i === 8 ? ' track-head-label--mid' : '');
+            + (i === 7 || i === 9 ? ' track-head-label--mid' : '');
           el.textContent = cell[0];
           if (cell[1]) el.title = cell[1];
           head.appendChild(el);
@@ -3825,6 +3710,20 @@
           if (at && (!newest || at > newest)) newest = at;
         });
         return newest;
+      }
+
+      function isNewTrack(song) {
+        var at = songDate(song);
+        return !!at && (Date.now() - at.getTime()) < NEW_FOR_HOURS * 3600 * 1000;
+      }
+
+      function trackNewBadge(song) {
+        var badge = document.createElement('span');
+        badge.className = 'tape-new';
+        badge.textContent = 'New';
+        badge.title = 'Filed ' + relativeTime(songDate(song), new Date())
+          + '. The badge clears itself after ' + NEW_FOR_HOURS + ' hours.';
+        return badge;
       }
 
       function newBadge(tape) {
