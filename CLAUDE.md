@@ -715,6 +715,45 @@ The `x` at the end of the track header deleted the whole tape. It now deletes
   not, and it is the reason **Shelve instead** sits on the confirmation as the
   first button.
 
+### NO HEADER ROW, AND THREE BOXES: ADD, NAV, VIEW (2026-08-26)
+
+The row above the tracks is gone. The list is track rows and nothing else.
+
+- **WHAT IT CARRIED AND WHERE THAT WENT.** The select-all tick is in **NAV**; the
+  Batch edit button **floats**; the twelve column labels are **gone**.
+- **WHAT THAT COSTS, PLAINLY: a FILLED field no longer shows its column name
+  unless you hover it.** An empty one still does -- every input carries a
+  placeholder naming its column, and the checkboxes and the switch carry titles
+  -- so the loss is *which column is this VALUE in*, answered by position now.
+  **This room has made that trade once before and reversed it**; if the labels
+  come back they come back as `buildTrackHead`, which the popup still uses.
+- **THE POPUP KEEPS ITS HEADER**, which is why `.track-head` and its label rules
+  are still live: that list is inside a dialog with room for a legend.
+
+**THREE BOXES, EACH ANSWERING ONE QUESTION:**
+
+| box | question |
+|---|---|
+| **ADD** | where tracks come FROM |
+| **NAV** | what you are looking at: which tape, and which of its tracks |
+| **VIEW** | where you GO |
+
+- **IT WAS TWO BOXES WITH A HAIRLINE INSIDE THE SECOND DOING NAV'S JOB**, and
+  that second box was so full that ADD's buttons clipped to nothing.
+- **THE SELECT-ALL LEADS NAV.** It is not navigation; it is there because it acts
+  on exactly the list the rest of that box decides -- the tape the arrows landed
+  on, narrowed by the filters beside it.
+- **EACH BOX KEEPS ITS OWN ITEMS ON ONE LINE; THE ROW MAY BREAK BETWEEN BOXES.**
+  That was the rule and it still holds. Three boxes of real controls do not fit
+  1,368px, and the alternative is clipping ADD to nothing again.
+- **A test asserts VIEW holds only anchors** -- if a control ever lands in it,
+  that check fails.
+
+**THE BATCH BUTTON FLOATS**, fixed to the bottom-right corner, so it costs
+neither bar any width and cannot be scrolled away from. It appears only while
+there is a selection. **`[hidden]` had to be re-asserted over `.btn`'s author
+`display: inline-flex` -- the SEVENTH time this project has hit that rule.**
+
 ### EVERY TRACK FILTER IS IN THE VIEW BAR (2026-08-26)
 
 The Shelved/Live switch and the Explicit and Sports buttons were built into the
