@@ -518,6 +518,28 @@ supplying them, so nothing looks different.
 - **THE HARNESS NOW REFUSES `public.cities` OUTRIGHT** and fails the run if
   either page asks for it, which is the only way this stays cut.
 
+### THE TAPE LINE CARRIES WHAT THE POPUP SAID ABOUT THE TAPE (2026-08-25)
+
+Two of the three things the tracks popup's header told you are on the main list
+now, so you can decide whether a tape is worth opening without opening it.
+
+- **THE COUNTS ARE IN WORDS: `55 tracks, 10 live`.** It read `10/55`, which
+  needed the column header to be found before it meant anything and then still
+  left you working out which number was which. **A live count of zero does not
+  wear the green** (`.tape-line-live.is-none`): zero live is not good news.
+- **THE FINDING'S OWN WORDS ARE ON THE LINE**, first one, with `(+N more)` when
+  there are others. The pips stay as the thing you spot while scrolling, but a
+  pip says only THAT something is wrong, so acting on one meant opening the tape
+  to find out whether it was worth opening. 29 of the 113 tapes carry one.
+- **THE FULL CITY LABEL WAS DELIBERATELY NOT ADDED, and that departs from what
+  was asked.** The line already carries the whole geography spelled out, in its
+  own sortable columns: `United Kingdom | England | London | Late Night`. Adding
+  `London, United Kingdom` beside them would be the row saying the country twice,
+  which is the repetition this room has already been cleaned of twice. **Say so
+  if it should go on anyway.**
+- The counts column widened to `19ch` and the pips column narrowed to `96px` to
+  pay for it; the finding line spans the full grid under the name.
+
 ### THE BOT BUTTON ASKS FOR A FOCUS CITY, THEN OPENS THE ROUTINE (2026-08-25)
 
 Pressing TGB SOUNDTRACK BOT in the Tape Room opens a small dialog with one

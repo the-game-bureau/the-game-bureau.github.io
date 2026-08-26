@@ -294,7 +294,7 @@
 
     .tape-head,
 
-    .tape-lines { --tape-cols: 12ch 15ch minmax(0, 1fr) 132px 132px 84px minmax(13ch, 0.58fr) 30px; }
+    .tape-lines { --tape-cols: 12ch 15ch minmax(0, 1fr) 19ch 96px 84px minmax(13ch, 0.58fr) 30px; }
 
     .tape-lines { display: grid; gap: 6px; }
 
@@ -1065,6 +1065,31 @@
     }
 
     .bot-hint b { color: var(--ink); font-weight: 700; }
+
+    .tape-line-counts {
+      justify-self: start;
+      white-space: nowrap;
+      font: 500 0.78rem/1.2 var(--mono);
+      color: var(--muted);
+    }
+
+    .tape-line-counts strong { color: var(--ink); font-weight: 700; }
+
+    .tape-line-live { color: var(--success); font-weight: 700; }
+
+    /* A LIVE COUNT OF ZERO IS NOT GOOD NEWS, so it does not wear the green. */
+    .tape-line-live.is-none { color: var(--muted); font-weight: 500; }
+
+    .tape-line-finding {
+      grid-column: 1 / -1;
+      display: block;
+      margin-top: 2px;
+      font: 500 0.8rem/1.35 var(--sans);
+      color: var(--bic-red);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .tape-air {
       display: grid;
@@ -2777,6 +2802,19 @@
             }
 
             issues.title = issueScopeSummary(tapeFlags, trackFlags);
+
+            // WHAT THE FINDING SAYS, ON THE LINE. The pips are a marker you can
+            // spot while scrolling and say nothing about what is wrong, so
+            // acting on one meant opening the tape to find out whether it was
+            // worth opening. The first finding's own words go here, with a
+            // count when there are more.
+            var note = document.createElement('span');
+            note.className = 'tape-line-finding';
+            var first = flags[0];
+            note.textContent = humaniseIssueText(text(first && first.detail))
+              + (flags.length > 1 ? '  (+' + (flags.length - 1) + ' more)' : '');
+            note.title = issueScopeSummary(tapeFlags, trackFlags);
+            name.appendChild(note);
           }
 
           var shelved = truthyFlag(tape && tape.archived);
@@ -2839,17 +2877,26 @@
 
           air.append(wordOff, input, track, wordOn);
 
+          // THE COUNTS IN WORDS, which is what the tracks popup said about the
+          // tape. `10/55` needed the header to be read before it meant anything,
+          // and then still left you working out which number was which.
           var tracksCell = document.createElement('span');
-          tracksCell.className = 'tape-line-num';
+          tracksCell.className = 'tape-line-num tape-line-counts';
           var counts = tapeCounts(tape);
           var total = counts.LIVE + counts.SHELVED;
           if (!total) tracksCell.classList.add('is-empty');
-          var liveEl = document.createElement('strong');
-          liveEl.textContent = String(counts.LIVE);
-          tracksCell.appendChild(liveEl);
-          tracksCell.appendChild(document.createTextNode('/' + total));
-
-          tracksCell.title = counts.LIVE + ' LIVE, ' + counts.SHELVED + ' SHELVED';
+          var totalEl = document.createElement('strong');
+          totalEl.textContent = String(total);
+          tracksCell.appendChild(totalEl);
+          tracksCell.appendChild(document.createTextNode(total === 1 ? ' track' : ' tracks'));
+          if (total) {
+            var liveEl = document.createElement('span');
+            liveEl.className = 'tape-line-live' + (counts.LIVE ? '' : ' is-none');
+            liveEl.textContent = ', ' + counts.LIVE + ' live';
+            tracksCell.appendChild(liveEl);
+          }
+          tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
+            + counts.SHELVED + ' shelved.';
 
           var delCell = document.createElement('span');
           delCell.className = 'tape-line-del';
