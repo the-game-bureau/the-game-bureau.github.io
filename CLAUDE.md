@@ -721,14 +721,20 @@ split is back and this is the settled shape:
 `1514/1643` moved out of the controls bar and onto the `TAPE ROOM` heading's own
 line, small and quiet in mono.
 
+- **IT IS UNDER THE HEADING AND IT IS THE WHOLE PICTURE**, not one ratio:
+
+      TAPES 97 LIVE / 16 SHELVED  |  TRACKS 1514 LIVE / 129 SHELVED
+
+  Both halves sum to what the catalogue holds, 113 and 1,643, so the line can be
+  checked against itself.
 - **IT IS THE ONE FIGURE IN THE ROOM THAT IS NOT ABOUT THE TAPE IN FRONT OF
-  YOU.** Everything else on that bar sorts, filters or acts; among them a bare
-  number read as a fourth thing to press, which is why it had needed
-  `margin-left: auto` to be shoved away from them in the first place.
-- **SMALL, BESIDE THE HEADING RATHER THAN UNDER IT.** A standing figure, not
-  news, so it must not compete with the room's name: 0.72rem mono, muted, with
-  only the number itself in ink.
-- The controls bar is now two groups and the tape's row, and nothing else.
+  YOU.** Among the controls a bare number read as one more thing to press, which
+  is why it had needed `margin-left: auto` to shove it away from them.
+- **COUNTED OVER EVERYTHING, never over what the filters have left**, and a test
+  asserts the line does not move when one is pressed. The FILTER tab's own
+  figures narrow; this one is the standing measure of the room.
+- **SMALL AND QUIET**: 0.72rem mono, uppercase, with only the two LIVE figures in
+  ink. A standing figure is not news and must not compete with the room's name.
 
 ### ONE HEADER, NOT THREE (2026-08-26)
 

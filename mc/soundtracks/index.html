@@ -1106,6 +1106,26 @@
 
     /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
        header; with one tape on screen there is nothing up here to align to. */
+    /* THE CATALOGUE, UNDER THE ROOM'S NAME. Small mono, one line, the two
+       live figures in ink and everything else muted: it is a standing figure,
+       read at a glance and not news.
+       COUNTED OVER EVERYTHING, never over what the filters have left. */
+    .room-stats {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0 6px;
+      margin: 3px 0 0;
+      font: 500 0.72rem/1.4 "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .room-stats-count { font-weight: 700; }
+    .room-stats-count.is-live { color: var(--ink); }
+    .room-stats-sep { opacity: 0.7; }
+
     /* THE TAPE'S BAR IS THE ONE YOU ACT ON, so it keeps the white card. */
     .tape-bar {
       position: sticky;
@@ -1372,17 +1392,13 @@
 
       <div class="room-titlecol">
 
-        <!-- THE CATALOGUE-WIDE COUNT SITS WITH THE ROOM'S NAME. It is the one
-             figure in this room that is about the whole catalogue rather than
-             the tape in front of you, so it belongs with the room rather than
-             among the controls, where it read as a fourth thing to press. -->
-        <div class="room-titlerow">
-          <h1 class="room-title" id="pageTitle">TAPE ROOM</h1>
-          <span class="room-total" title="Live of every track in the catalogue">
-            <span class="room-total-word">tracks</span>
-            <span class="room-total-count" id="trackTotal"></span>
-          </span>
-        </div>
+        <h1 class="room-title" id="pageTitle">TAPE ROOM</h1>
+
+        <!-- WHAT THE WHOLE CATALOGUE HOLDS, under the room's name. It is the
+             only place in the room that counts everything: the FILTER tab's
+             figures narrow what you are looking at, and the tape's own line
+             counts one tape. -->
+        <p class="room-stats" id="roomStats"></p>
 
         <p class="room-blurb" id="pageTagline" data-room-blurb="tape-room"></p>
         <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
@@ -4120,18 +4136,54 @@
           : ('Nothing added in the last ' + NEW_FOR_HOURS + ' hours.');
       }
 
-      var trackTotalEl = document.getElementById('trackTotal');
+      var trackTotalEl = document.getElementById('roomStats');
 
+      // TAPES ## LIVE / ## SHELVED  |  TRACKS #### LIVE / #### SHELVED
+      //
+      // COUNTED OVER THE WHOLE CATALOGUE, never over what the filters have
+      // left. It is the standing figure the room is measured by, and one that
+      // shrank as you narrowed would be answering a different question from the
+      // one it asks.
       function paintTrackTotal() {
         if (!trackTotalEl) return;
-        var live = 0, all = 0;
+        var live = 0, shelved = 0;
         soundtracks().forEach(function (tape) {
           var c = tapeCounts(tape);
           live += c.LIVE;
-          all += c.LIVE + c.SHELVED;
+          shelved += c.SHELVED;
         });
-        trackTotalEl.textContent = live + '/' + all;
-        trackTotalEl.title = live + ' LIVE, ' + (all - live) + ' SHELVED, across every tape';
+        var t = airCounts();
+        trackTotalEl.textContent = '';
+
+        function part(word, n, cls) {
+          var w = document.createElement('span');
+          w.className = 'room-stats-word';
+          w.textContent = word;
+          var v = document.createElement('span');
+          v.className = 'room-stats-count' + (cls ? ' ' + cls : '');
+          v.textContent = String(n);
+          trackTotalEl.append(w, v);
+        }
+        function sep(text) {
+          var el = document.createElement('span');
+          el.className = 'room-stats-sep';
+          el.textContent = text;
+          trackTotalEl.appendChild(el);
+        }
+
+        part('tapes', t.live, 'is-live');
+        sep('live /');
+        part('', t.shelved, '');
+        sep('shelved');
+        sep('|');
+        part('tracks', live, 'is-live');
+        sep('live /');
+        part('', shelved, '');
+        sep('shelved');
+
+        trackTotalEl.title = t.live + ' live tapes and ' + t.shelved + ' shelved, '
+          + live + ' live tracks and ' + shelved + ' shelved. The whole catalogue, '
+          + 'whatever the filters are set to.';
       }
 
       function paintIssueTotal() {
