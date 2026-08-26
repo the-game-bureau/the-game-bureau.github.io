@@ -479,6 +479,35 @@ still meant to be run, just by a person pressing Run at claude.ai.
     `Number.isFinite(r.bot.stale)` a hand-run routine would go red the minute
     after it ran. Every other routine's threshold is unchanged.
 
+### THE BOT BUTTON ASKS FOR A FOCUS CITY, THEN OPENS THE ROUTINE (2026-08-25)
+
+Pressing TGB SOUNDTRACK BOT in the Tape Room opens a small dialog with one
+field, **Focus city**, and then opens the routine in a popup window.
+
+- **THE CITY TRAVELS ON THE CLIPBOARD, because it cannot travel any other way.**
+  The routine takes no parameters: it reads its brief out of
+  [soundtracks.md](mc/soundtracks/soundtracks.md) every run, and **a static page cannot
+  parameterise a cloud trigger.** So GO copies *"Work Tulsa, Oklahoma this
+  run."* and a human pastes it into the run. That constraint is stated on the
+  dialog rather than left for somebody to discover.
+- **THE BRIEF HAD TO LEARN TO OBEY IT, or the whole thing is decoration.**
+  Section 4 now opens with *if the run named a city, use it and skip the
+  ladder*, with two facts about the catalogue still applying: the city must
+  exist and must not be hidden. A named city that fails either is reported and
+  the ladder is worked instead.
+- **BLANK IS A REAL ANSWER AND IS THE DEFAULT.** It means work the tier ladder,
+  which is what the brief does unaided, so **an untouched dialog copies nothing
+  at all** and the button reads `Open` rather than `Copy and open`. Same shape
+  as the deleted PROMPT dialog's city picker.
+- **THE COPY IS STARTED BEFORE THE WINDOW AND NEITHER IS AWAITED.** Both need
+  the user gesture the click carries, and awaiting the clipboard would push the
+  open into a later task, which is exactly what a popup blocker refuses.
+- **A BLOCKED WINDOW LEAVES THE DIALOG OPEN** and says so, so the clipboard is
+  not wasted and there is still a way through. Tested.
+- **Middle-click and ctrl-click skip the dialog** and go straight to the
+  routine, which is the escape hatch for somebody who does not want to name a
+  city. The handler returns early on those rather than preventing the default.
+
 ### TGB SOUNDTRACK BOT OPENS IN A POPUP WINDOW (2026-08-25)
 
 The button in the Tape Room's ADD bar. **The routine has no schedule any more,

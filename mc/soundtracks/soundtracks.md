@@ -102,8 +102,20 @@ list.**
 
 ### The new city, down this ladder
 
-Stop at the first tier that still has a city wanting a tape. Do not skip a tier
-because a lower one looks more interesting.
+**IF THE RUN NAMED A CITY, USE IT AND SKIP THE LADDER.** A line like *"Work
+Tulsa, Oklahoma this run."* is a human choosing, and it beats everything below.
+The Tape Room's TGB SOUNDTRACK BOT button puts that line on the clipboard, so it
+is the ordinary way this routine is pointed at a city. Say which city you were
+given, in one line, before the SQL.
+
+**Two things still apply to a named city**, because they are facts about the
+catalogue rather than preferences: it must be in `public.cities`, and it must
+not carry `hide_from_soundtracks`. If the named city fails either, say so
+plainly, work the ladder instead, and name the city you fell back to.
+
+Otherwise, pick one yourself down this ladder. Stop at the first tier that still
+has a city wanting a tape. Do not skip a tier because a lower one looks more
+interesting.
 
 | tier | |
 |---|---|

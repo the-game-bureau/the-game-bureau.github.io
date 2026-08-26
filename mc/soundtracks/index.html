@@ -1037,6 +1037,35 @@
 
     .spine-input::placeholder { color: var(--muted); opacity: 0.5; font-style: italic; }
 
+    .bot-field { display: grid; gap: 4px; }
+
+    .bot-field > span {
+      font: 700 0.72rem/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .bot-input {
+      font: 500 0.98rem/1.3 var(--sans);
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      width: 100%;
+    }
+
+    .bot-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    .bot-hint {
+      margin: 10px 0 0;
+      font: 500 0.86rem/1.45 var(--sans);
+      color: var(--muted);
+    }
+
+    .bot-hint b { color: var(--ink); font-weight: 700; }
+
     .tape-air {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -1397,6 +1426,31 @@
         <datalist id="cityOptions"></datalist>
         <div class="tape-lines" id="trackArchiveList"></div>
       </div>
+
+    <div class="tool-backdrop" id="botBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="botCard" role="dialog"
+             aria-modal="true" aria-labelledby="botTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="botTitle">TGB SOUNDTRACK BOT</h2>
+        </div>
+        <button class="btn small" type="button" data-bot-close>Close</button>
+      </div>
+      <div class="prompt-body">
+        <label class="bot-field">
+          <span>Focus city</span>
+          <input class="bot-input" id="botCity" type="text" list="cityOptions"
+                 placeholder="Leave blank to work the tier ladder"
+                 aria-describedby="botHint">
+        </label>
+        <p class="bot-hint" id="botHint"></p>
+      </div>
+      <div class="prompt-foot">
+        <span class="issue-foot-note" id="botFootNote"></span>
+        <button class="btn" type="button" data-bot-close>Cancel</button>
+        <button class="btn primary" id="botGoBtn" type="button">Copy and open</button>
+      </div>
+    </section>
 
     <div class="tool-backdrop" id="tracksBackdrop" hidden></div>
     <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="tracksCard"
@@ -4148,19 +4202,73 @@
         return days + (days === 1 ? ' day ago' : ' days ago');
       }
 
-      // THE BOT OPENS IN A POPUP WINDOW, NOT A TAB. Running it is now a
-      // deliberate act taken from this room -- the routine has no schedule, so
-      // this button IS how it runs -- and you come straight back here to see
-      // what it filed. A tab buries the room behind it; a window sits over it
-      // and closing it puts you back where you were.
+      // PRESSING THE BOT ASKS WHICH CITY FIRST, THEN OPENS THE ROUTINE.
       //
-      // IT STAYS AN <a> WITH A REAL href, so middle-click, ctrl-click and a
-      // browser that refuses the popup all still reach the routine. The default
-      // is only prevented once `window.open` has actually returned a window:
-      // it returns null when a blocker refuses, and preventing the default
-      // before checking is how a button ends up doing nothing at all.
-      function openBotWindow(event) {
-        var link = event.currentTarget;
+      // The routine takes no parameters: it reads its brief out of
+      // mc/soundtracks/soundtracks.md every run, and a static page cannot
+      // parameterise a cloud trigger. So the city travels on the CLIPBOARD and
+      // a human pastes it into the run. That is the same bargain every prompt
+      // door in this project makes, and it is stated on the dialog rather than
+      // left for somebody to discover.
+      //
+      // BLANK IS A REAL ANSWER and is the default: it means work the tier
+      // ladder, which is what the brief does unaided. So an untouched dialog
+      // copies NOTHING and simply opens the routine.
+      var botCard = document.getElementById('botCard');
+      var botBackdrop = document.getElementById('botBackdrop');
+      var botCityInput = document.getElementById('botCity');
+      var botHint = document.getElementById('botHint');
+      var botFootNote = document.getElementById('botFootNote');
+      var botGoBtn = document.getElementById('botGoBtn');
+
+      function botDirective() {
+        var city = text(botCityInput && botCityInput.value);
+        return city ? ('Work ' + city + ' this run.') : '';
+      }
+
+      function paintBotDialog() {
+        var said = botDirective();
+        if (!botHint) return;
+        botHint.textContent = '';
+        if (!said) {
+          botHint.textContent = 'No city named, so the run works the tier ladder '
+            + 'in mc/soundtracks/soundtracks.md: a club city first, then a college town, '
+            + 'then any other US city.';
+        } else {
+          botHint.appendChild(document.createTextNode('Copies '));
+          var b = document.createElement('b');
+          b.textContent = '"' + said + '"';
+          botHint.appendChild(b);
+          botHint.appendChild(document.createTextNode(
+            ' to the clipboard. Paste it into the routine when you run it, or the '
+            + 'run picks its own city.'));
+        }
+        if (botGoBtn) botGoBtn.textContent = said ? 'Copy and open' : 'Open';
+      }
+
+      function openBotDialog() {
+        if (!botCard || !botBackdrop) return;
+        if (botCityInput) botCityInput.value = '';
+        if (botFootNote) botFootNote.textContent = '';
+        paintCityOptions();
+        paintBotDialog();
+        botBackdrop.hidden = false;
+        botCard.hidden = false;
+        document.body.style.overflow = 'hidden';
+        if (botCityInput) botCityInput.focus();
+      }
+
+      function closeBotDialog() {
+        if (!botCard || !botBackdrop) return;
+        botBackdrop.hidden = true;
+        botCard.hidden = true;
+        var tracks = document.getElementById('tracksCard');
+        if (!tracks || tracks.hidden) document.body.style.overflow = '';
+      }
+
+      // THE WINDOW, OPENED FROM THE DIALOG'S OWN CLICK so it keeps the user
+      // gesture a popup blocker requires. Returns the window, or null.
+      function openBotWindow(url) {
         // CLAMPED TO THE SCREEN, not a flat 1180x900. On a laptop that is
         // wider than the display, and a window bigger than the screen opens
         // with its own controls off the edge.
@@ -4168,30 +4276,32 @@
         var availH = screen.availHeight || screen.height || 900;
         var w = Math.min(1180, Math.max(640, availW - 80));
         var h = Math.min(900, Math.max(480, availH - 80));
-        // Centred on the SCREEN the browser is on, not on the viewport, so a
-        // second monitor does not throw it off the edge.
         var left = Math.max(0, Math.round((availW - w) / 2));
         var top = Math.max(0, Math.round((availH - h) / 2));
         // `noopener` MUST NOT GO IN THE FEATURES STRING. With it, window.open
         // returns null even when it succeeded, which is indistinguishable from
-        // a blocked popup here -- so the default would fire as well and you
-        // would get a window AND a tab. The opener is cut below instead, once
-        // the handle has done its job.
-        var win = window.open(link.href, 'tgbSoundtrackBot',
+        // a blocked popup -- and this function's caller decides what to say
+        // from exactly that. The opener is cut below instead.
+        var win = window.open(url, 'tgbSoundtrackBot',
           'popup=yes,width=' + w + ',height=' + h + ',left=' + left + ',top=' + top
           + ',resizable=yes,scrollbars=yes');
-        if (!win) return;                 // blocked: let the href do its job
-        event.preventDefault();
-        // A NAMED WINDOW IS REUSED, so pressing the button twice does not stack
-        // two of them. It may already be behind this one, hence the focus.
+        if (!win) return null;
         try { win.focus(); } catch (error) {}
         try { win.opener = null; } catch (error) {}
+        return win;
       }
 
       async function loadLastRun() {
         var botBtn = document.getElementById('soundtrackBotBtn');
         if (!botBtn) return;
-        botBtn.addEventListener('click', openBotWindow);
+        // ASK FIRST. The href stays real, so middle-click and ctrl-click go
+        // straight to the routine without the dialog, which is the escape
+        // hatch for somebody who does not want to name a city.
+        botBtn.addEventListener('click', function (event) {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          openBotDialog();
+        });
 
         // NO STALENESS ON A GAP ANY MORE. TGB SOUNDTRACK BOT has no schedule
         // as of 2026-08-25: it is run by hand, so a quiet week is a decision
@@ -4236,6 +4346,58 @@
       }
 
       loadLastRun();
+
+      if (botCityInput) botCityInput.addEventListener('input', paintBotDialog);
+      if (botBackdrop) botBackdrop.addEventListener('click', closeBotDialog);
+      Array.prototype.forEach.call(document.querySelectorAll('[data-bot-close]'), function (btn) {
+        btn.addEventListener('click', closeBotDialog);
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && botCard && !botCard.hidden) closeBotDialog();
+      });
+      if (botCityInput) botCityInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && botGoBtn) { event.preventDefault(); botGoBtn.click(); }
+      });
+
+      if (botGoBtn) botGoBtn.addEventListener('click', function () {
+        var said = botDirective();
+        var href = document.getElementById('soundtrackBotBtn');
+        href = href ? href.href : '';
+
+        // THE COPY IS STARTED BEFORE THE WINDOW AND NEITHER IS AWAITED. Both
+        // need the user gesture this click carries, and awaiting the clipboard
+        // would push the open into a later task, which is exactly what a popup
+        // blocker refuses.
+        var copied = null;
+        if (said && navigator.clipboard && navigator.clipboard.writeText) {
+          copied = navigator.clipboard.writeText(said);
+        }
+        var win = openBotWindow(href);
+
+        if (!win) {
+          // A BLOCKED WINDOW IS SAID OUT LOUD and the dialog stays open, so the
+          // clipboard is not wasted and there is still a way through.
+          if (botFootNote) {
+            botFootNote.textContent = 'The browser blocked the window. '
+              + (said ? 'The line is on your clipboard. ' : '')
+              + 'Open the routine from the button behind this dialog.';
+          }
+          return;
+        }
+        closeBotDialog();
+        if (!said) { setNotice('opened TGB SOUNDTRACK BOT', 'success'); return; }
+        if (!copied) {
+          setNotice('opened TGB SOUNDTRACK BOT, but this browser has no clipboard access. '
+            + 'Tell the run: ' + said, 'hold');
+          return;
+        }
+        copied.then(function () {
+          setNotice('opened TGB SOUNDTRACK BOT, and "' + said + '" is on the clipboard', 'success');
+        }, function () {
+          setNotice('opened TGB SOUNDTRACK BOT, but the clipboard refused. Tell the run: '
+            + said, 'hold');
+        });
+      });
 
 
       if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
