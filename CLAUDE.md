@@ -745,9 +745,17 @@ the other flag, so exactly one question is ever narrowing the list.
 ### TICK TRACKS, AND THE HEADER ACTS ON ALL OF THEM (2026-08-26)
 
 A twelfth column, first on the row, holding a tick per track and a select-all in
-the header. Tick anything and a **bulk bar** appears across the header: **Live ·
-Shelve | Explicit · Not explicit · Sports · Not sports | Delete · Clear**.
+the header. Tick anything and a **bulk bar** appears across the header: **Live · Shelve |
+Clear**.
 
+- **TWO VERBS, AND THEY ARE THE ONES A SELECTION IS FOR.** Explicit, Not
+  explicit, Sports and Not sports were on this bar and are gone (2026-08-26).
+  Those two columns are a fact about a RECORDING, decided one track at a time
+  from its own tick box, and **a button that set fifteen of them at once was
+  offering to be wrong fifteen times in a press.** Live and Shelve are the
+  editorial decision this room exists to make, and the one that used to cost a
+  press per track. **The flags are still editable on every row and still
+  filterable from the header; only the bulk WRITE went.**
 - **A BAR, NOT THE FILTER, AND THAT IS THE WHOLE DESIGN.** The Status header is
   a filter and must stay one. **This room has already had the most destructive
   act in it hiding inside its quietest control** -- a switch that read like a
