@@ -393,30 +393,6 @@
       white-space: nowrap;
     }
 
-    .issue-pip {
-      flex: 0 0 auto;
-      box-sizing: border-box;
-      width: 12px;
-      height: 12px;
-      border-radius: 999px;
-      background: var(--bic-red, #c23737);
-    }
-
-    .issue-pip.is-tape {
-      background: #fff;
-      border: 3px solid var(--bic-red, #c23737);
-    }
-
-    .tape-line-issues { gap: 6px; }
-
-    .issue-pip-more {
-      flex: 0 0 auto;
-      margin-left: 1px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--bic-red, #c23737);
-    }
-
     .tape-head > :nth-child(4),
     .tape-line > :nth-child(4) { border-radius: 6px 0 0 6px; }
 
@@ -517,27 +493,6 @@
 
     .head-figure--new.is-zero { color: var(--muted); }
     .head-figure--new.is-zero { color: var(--muted); }
-
-    .tape-findings {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding-bottom: 12px;
-      border-bottom: 1px dashed var(--control-line);
-    }
-
-    .tape-findings[hidden] { display: none; }
-
-    .track-issues {
-      grid-column: 1 / -1;
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed var(--control-line);
-    }
-
-    .track-issues .issue-item { margin: 0; }
 
     .track-head,
     .track-lines {
@@ -721,8 +676,6 @@
       color: var(--muted);
     }
 
-    .track-line.is-flagged { box-shadow: inset 3px 0 0 var(--bic-red, #c23737); }
-
     .track-input {
       width: 100%;
       min-width: 0;
@@ -815,72 +768,6 @@
 
     .track-confirm p { margin: 0; flex: 1 1 260px; min-width: 0; }
     .track-confirm strong { color: var(--bic-red, #c23737); }
-
-
-    .issue-item {
-      display: grid;
-      gap: 6px;
-      padding: 11px 12px;
-      border: 1px solid var(--control-line);
-      border-left: 4px solid var(--muted);
-      border-radius: 8px;
-      background: rgba(194, 55, 55, 0.035);
-    }
-
-    .issue-item[data-severity] { border-left-color: var(--control-line); }
-
-    .issue-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-
-    .issue-scope-chip {
-      border-color: var(--accent);
-      background: var(--accent);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    .issue-item-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 6px;
-      margin-top: 2px;
-    }
-
-    .btn.small.is-copied {
-      border-color: var(--success, #2f855a);
-      background: var(--success, #2f855a);
-      color: #fff;
-    }
-
-    .issue-item.is-kept {
-      opacity: 0.5;
-      border-left-color: var(--muted);
-    }
-
-    .issue-kept-note {
-      align-self: center;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.66rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .issue-text {
-      margin: 0;
-      font-size: 0.95rem;
-      line-height: 1.5;
-      color: var(--ink);
-    }
-
-    .issue-fix {
-      margin: 0;
-      font-size: 0.86rem;
-      line-height: 1.5;
-      color: var(--muted);
-    }
-
-    .issue-fix b { color: var(--ink); }
 
     .issue-foot-note {
       flex: 1 1 100%;
@@ -1088,8 +975,6 @@
       padding-top: 8px;
       border-top: 1px dashed var(--control-line);
     }
-
-    .tape-line-findings .issue-item { margin: 0; }
 
     /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
        header; with one tape on screen there is nothing up here to align to. */
@@ -1429,12 +1314,6 @@
       <fieldset class="command-bar command-bar--filter" id="tapeHead">
         <legend>Filter</legend>
         <div class="command-bar-inner">
-          <label class="btn head-figure--filter" id="issueTotalPill"
-                 title="Show only tapes with an open issue">
-            <input type="checkbox" id="flaggedOnly">
-            <span class="head-word">Issues</span>
-            <span class="head-count" id="issueTotal"></span>
-          </label>
 
           <label class="btn head-figure--filter head-figure--new" id="newTotalPill"
                  title="Show only tapes added, or added to, in the last 72 hours">
@@ -1496,7 +1375,6 @@
       </div>
       <div class="prompt-body tracks-body">
 
-        <div class="tape-findings" id="tapeFindings" hidden></div>
         <div class="track-head" id="trackHead" role="row">
 
           <span class="track-head-label"></span>
@@ -1645,7 +1523,6 @@
 
       var citySearchTerm = '';
 
-      var flaggedOnly = false;
       var newOnly = false;
 
       // THE SHELVED / LIVE SWITCH IN A HEADER IS A FILTER, NOT A STATUS
@@ -1852,7 +1729,7 @@
       var newOnlyBox = document.getElementById('newOnly');
 
       function paintFilterPills() {
-        var pairs = [['newTotalPill', newOnly], ['issueTotalPill', flaggedOnly]];
+        var pairs = [['newTotalPill', newOnly]];
         pairs.forEach(function (pair) {
           var el = document.getElementById(pair[0]);
           if (el) el.classList.toggle('is-on', !!pair[1]);
@@ -1865,12 +1742,6 @@
         renderTrackArchive();
       });
 
-      var flaggedOnlyBox = document.getElementById('flaggedOnly');
-      if (flaggedOnlyBox) flaggedOnlyBox.addEventListener('change', function () {
-        flaggedOnly = !!flaggedOnlyBox.checked;
-        paintFilterPills();
-        renderTrackArchive();
-      });
 
       function syncArchiveExpandBtn() {
         if (!archiveExpandBtn) return;
@@ -1974,10 +1845,6 @@
         facts: 'Facts'
       };
 
-      function openIssues() {
-        return Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
-      }
-
       // A SLUG FROM A TYPED LABEL. With no catalogue to look one up in, a city
       // this room has never held has to be derived, and the rule is the one
       // `public.cities` itself uses: the city NAME only, lowercased, hyphenated.
@@ -2056,191 +1923,6 @@
         return true;
       }
 
-      function issueAsPrompt(issue) {
-        var NL = String.fromCharCode(10);
-        var song = songById(issue.song_id);
-
-        var tape = tapeById(issue.tape_id) || tapesInCity(issue.city_slug)[0];
-        var kind = ISSUE_KIND_LABEL[issue.kind] || issue.kind;
-        var L = [];
-
-        L.push('You are fixing one flagged item on The Game Bureau city soundtracks.');
-        L.push('Verify everything by web search FIRST, then answer with ONE ```sql block and nothing else.');
-        L.push('');
-        L.push('## THE FINDING');
-        L.push(kind + ', severity ' + (text(issue.severity) || 'unset'));
-        L.push(humaniseIssueText(issue.detail));
-        if (text(issue.suggestion)) {
-          L.push('Suggested by the auditor, unverified: ' + humaniseIssueText(issue.suggestion));
-        }
-        L.push('');
-        L.push('## THE ROW');
-        L.push('Tape: ' + cityFullLabel(issue.city_slug) + ', city_slug ' + text(issue.city_slug)
-          + (tape && tape.spine_tag ? ', spine phrase "' + text(tape.spine_tag) + '"' : ''));
-
-        if (song) {
-          L.push('Track: ' + text(song.title) + ' by ' + text(song.artist));
-          L.push('soundtrack.id = ' + song.id + '  <- the only row you may change');
-          L.push('spotify_id: ' + (text(song.spotifyId)
-            ? text(song.spotifyId) + '  (https://open.spotify.com/track/' + text(song.spotifyId) + ')'
-            : 'none, which is allowed'));
-          L.push('blurb: ' + (text(song.blurb) || 'MISSING, and a blurb is required'));
-          L.push('');
-          L.push('## WHAT TO DO');
-          L.push('1. Check the claim against a real source before changing anything. If the finding is');
-          L.push('   WRONG, say so in one line and return no SQL at all. That is a valid answer and');
-          L.push('   more useful than a confident edit.');
-          L.push('2. If it is right, write ONE update against that id:');
-          L.push('');
-          L.push('   update public.soundtrack');
-          L.push('      set <only the columns that are actually wrong>');
-          L.push('    where id = ' + song.id + ';');
-          L.push('');
-          L.push('## RULES, ALL OF WHICH ARE ENFORCED SOMEWHERE');
-          L.push('- Editable columns are title, artist, blurb, spotify_id, explicit, position. NOTHING ELSE.');
-          L.push('- NEVER write archived, certified_at or rejected_at. Whether a track is live or shelved');
-          L.push('  is a human decision made in the Tape Room, and setting archived = false here would');
-          L.push('  publish a track nobody approved.');
-          L.push('- NEVER invent a spotify_id. It is 22 characters and a fabricated one passes the CHECK');
-          L.push('  constraint and then silently plays nothing. Copy it from a real open.spotify.com');
-          L.push('  track page you actually opened, or set it to null. Null is always allowed and always');
-          L.push('  better than a guess: the player falls back to a search.');
-          L.push('- A blurb is REQUIRED, 10 words or fewer, no trailing period. There is no minimum');
-          L.push('  LENGTH: four true words beat eight padded ones. Never lengthen a blurb that is fine.');
-          L.push('- explicit is true only when Spotify marks the track explicit.');
-          L.push('- The track must have a genuine tie to ' + cityFullLabel(issue.city_slug) + '. If it has');
-          L.push('  none, the fix is not an edit: say the track should be shelved by a human and return');
-          L.push('  no SQL.');
-          L.push('- Never propose a track with the word KARAOKE anywhere in it, in any field or casing.');
-        } else {
-          var tapeTally = tape ? tapeCounts(tape) : { LIVE: 0, SHELVED: 0 };
-          var liveCount = tapeTally.LIVE;
-          var wantCount = liveCount === 0 ? 5 : Math.max(0, 15 - liveCount);
-          L.push('Scope: the whole tape, not one track.');
-          L.push('It currently holds ' + liveCount + ' live '
-            + (liveCount === 1 ? 'song' : 'songs')
-            + (tapeTally.SHELVED ? ' and ' + tapeTally.SHELVED + ' shelved, which do not count' : ''));
-          L.push('');
-          L.push('## WHAT TO DO');
-          L.push('1. Read what is already on the tape, so you do not propose a duplicate. This URL is');
-          L.push('   public and openable as it stands:');
-          L.push('   https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack'
-            + '?select=title,artist,archived&city_slug=eq.' + text(issue.city_slug)
-            + '&order=position.asc&apikey=' + SUPABASE_CONFIG.publishableKey);
-          L.push('2. WORK OUT WHAT THE FIX ACTUALLY IS. A tape finding is not always "add songs":');
-          L.push('   it can be about one row that is in the wrong state, a spine phrase that is wrong');
-          L.push('   for the city, or a tape that should be shelved rather than filled. Read the');
-          L.push('   finding again and answer THAT. If the finding names a specific row and asks for');
-          L.push('   a change to it, one narrow update against that id is the right answer and the');
-          L.push('   rest of the counting rules below do not apply.');
-          L.push('');
-          L.push('   BUT NEVER WRITE archived, certified_at OR rejected_at. Whether a track is live');
-          L.push('   or shelved is a human decision made in the Tape Room. certified_at and');
-          L.push('   rejected_at are RETIRED as of 2026-08-16 and no longer mean anything: archived');
-          L.push('   alone is the status, true is shelved and false is live. A finding that reasons');
-          L.push('   about either timestamp is stale, and the correct answer is to say so and return');
-          L.push('   no SQL.');
-          L.push('');
-          L.push('3. If the fix IS adding songs, research them and return a call to the RPC. Do NOT');
-          L.push('   write an INSERT: the function is what guarantees a new track arrives shelved');
-          L.push('   rather than straight onto the public page, and it refuses a hidden city.');
-          L.push('');
-
-          L.push('   select public.tgb_pull_soundtrack_songs(\'[{"city_slug":"'
-            + text(issue.city_slug) + '","songs":[');
-          L.push('     {"title":"...","artist":"...","spotify_id":"...","blurb":"...","explicit":false}');
-          L.push('   ]}]\'::jsonb);');
-          L.push('');
-          L.push('   The argument is a BARE ARRAY. Do not wrap it in {"payload": [...]}: that is the');
-          L.push('   PostgREST spelling, where a top-level key names a parameter over HTTP. In SQL');
-          L.push('   the call is positional, and the wrapper makes the function stop with');
-          L.push('   "Expected a JSON array of tape objects".');
-          L.push('');
-          L.push('   OMIT tape. Sending one addresses a DIFFERENT tape by that name and would');
-          L.push('   create a second tape for this city rather than topping this one up.');
-          L.push('');
-          L.push('## RULES, ALL OF WHICH ARE ENFORCED SOMEWHERE');
-
-          var isEmpty = liveCount === 0;
-          L.push(isEmpty
-            ? '- PROPOSE EXACTLY 5 SONGS. This tape has no live songs, and an empty tape gets five'
-            : ('- PROPOSE EXACTLY ' + wantCount + ' SONGS, which is what takes this tape from '
-                + liveCount + ' live to 15'));
-          L.push(isEmpty
-            ? '  rather than fifteen, so a human can judge whether the city is worth filling before'
-            : '  live. Songs still shelved do not count toward that figure, so do not read the tape');
-          L.push(isEmpty
-            ? '  reading fifteen blurbs. Not 6, not 15. This overrides every other count here.'
-            : '  as fuller than the number above says.');
-          L.push('- Every song needs a real tie to ' + cityFullLabel(issue.city_slug) + ': named in the');
-          L.push('  lyrics, a hometown artist, recorded there, or genuinely used by the city\'s teams.');
-          L.push('  Verify a stadium or fight song is actually that team\'s before claiming it.');
-          L.push('- Max 2 songs per artist across the tape, counting what is already there.');
-          L.push('- Every song needs a blurb: 10 words or fewer, no trailing period, city-specific.');
-          L.push('- NEVER invent a spotify_id. Omit the field entirely rather than guess; a fabricated');
-          L.push('  22-character id passes every check and then plays nothing.');
-          L.push('- Never propose a track with the word KARAOKE anywhere in it, in any field or casing.');
-          L.push('- Real commercial recordings only. No tribute, sped-up, slowed or re-recorded versions.');
-        }
-
-        L.push('- NO EM DASHES anywhere in what you hand back, in the SQL or around it. Not the');
-        L.push('  character and not the entity. Use a comma, a colon, a semicolon or brackets. It is');
-        L.push('  the clearest single tell that a machine wrote the line, and this text goes on a');
-        L.push('  public page under our name.');
-        L.push('');
-        L.push('Return the SQL only. A human runs it in the Supabase SQL editor; you have no access.');
-        return L.join(NL);
-      }
-
-      function issueScopeSummary(tapeFlags, trackFlags) {
-        return tapeFlags + (tapeFlags === 1 ? ' TAPE ISSUE, ' : ' TAPE ISSUES, ')
-          + trackFlags + (trackFlags === 1 ? ' TRACK ISSUE' : ' TRACK ISSUES');
-      }
-
-      function tapeIssues(tape) {
-        if (!tape) return [];
-        var firstInCity = tapesInCity(tape.city_slug)[0];
-        var isFirst = !!firstInCity && String(firstInCity.id) === String(tape.id);
-        return openIssues().filter(function (issue) {
-          if (issue.song_id != null) return false;
-          if (issue.tape_id != null) return String(issue.tape_id) === String(tape.id);
-          return isFirst && text(issue.city_slug) === text(tape.city_slug);
-        });
-      }
-
-      function issuesForTape(tape) {
-        if (!tape) return [];
-        var mine = tapeIssues(tape);
-        var songIds = {};
-        (tape.songs || []).forEach(function (song) {
-          if (song && song.id != null) songIds[String(song.id)] = true;
-        });
-        openIssues().forEach(function (issue) {
-          if (issue.song_id != null && songIds[String(issue.song_id)]) mine.push(issue);
-        });
-        return mine;
-      }
-
-      function songIssues(song) {
-        if (!song || song.id == null) return [];
-        var key = String(song.id);
-        var all = Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
-        return all.filter(function (issue) {
-          return issue.song_id != null && String(issue.song_id) === key;
-        });
-      }
-
-      function songById(id) {
-        if (id == null) return null;
-        var found = null;
-        soundtracks().forEach(function (tape) {
-          (tape.songs || []).forEach(function (song) {
-            if (song && String(song.id) === String(id)) found = song;
-          });
-        });
-        return found;
-      }
-
       function locateSong(id) {
         if (id == null) return null;
         var hit = null;
@@ -2250,23 +1932,6 @@
           });
         });
         return hit;
-      }
-
-      async function resolveIssue(issue, status, quiet) {
-        try {
-          await patchFindingStatus(issue, status || 'fixed');
-        } catch (error) {
-          console.error(error);
-          setNotice('Could not skip that finding. ' + error.message, 'error');
-          return false;
-        }
-
-        soundtrackIssues = (Array.isArray(soundtrackIssues) ? soundtrackIssues : [])
-          .filter(function (row) { return row.id !== issue.id; });
-        if (!quiet) setNotice('Skipped. If it is still a problem, the next audit reports it again.', 'success');
-
-        renderTrackArchive();
-        return true;
       }
 
       async function loadSoundtrackArchive() {
@@ -2314,8 +1979,10 @@
       // A finding carrying "scope":"tape" is about the LIST rather than the
       // track it happens to be stored on, so it comes back with song_id null,
       // which is exactly what the old tape-level rows looked like. Everything
-      // downstream -- songIssues(), the FLAGGED filter, renderFindings() -- is
-      // untouched.
+      // NOTHING IN THIS ROOM DRAWS A FINDING ANY MORE (2026-08-26): the issues
+      // UI was removed and is going on a page of its own. This is kept because
+      // the data is still read on every load and the future page will want the
+      // same flat shape; it costs one pass over rows already in memory.
       function collectFindings(trackRows) {
         var out = [];
         (Array.isArray(trackRows) ? trackRows : []).forEach(function (row) {
@@ -2379,26 +2046,6 @@
       // safe against a stale page**: the array that goes back is the one the
       // database holds now, with one element changed, not the one this page
       // loaded some minutes ago.
-      async function patchFindingStatus(issue, status) {
-        // `stored_on` AND NOT `song_id`. A tape-scope finding is ABOUT the list
-        // and is STORED on the tape's lowest-position track, so writing by
-        // song_id would look for a row that is null.
-        var table = 'soundtrack';
-        var id = issue.stored_on != null ? issue.stored_on : issue.song_id;
-        var rows = await fetchAllRows(table + '?select=id,findings&id=eq.' + encodeURIComponent(id), true);
-        var row = Array.isArray(rows) ? rows[0] : null;
-        if (!row) throw new Error('That row is no longer there, so the finding could not be updated.');
-        var next = (Array.isArray(row.findings) ? row.findings : []).map(function (f) {
-          if (!f || String(f.id) !== String(issue.id)) return f;
-          var copy = {};
-          Object.keys(f).forEach(function (k) { copy[k] = f[k]; });
-          copy.status = status;
-          copy.resolved_at = status === 'open' ? null : new Date().toISOString();
-          return copy;
-        });
-        await patchRow(table + '?id=eq.' + encodeURIComponent(id), { findings: next });
-      }
-
       async function fetchSoundtrackTables() {
         var results = await Promise.all([
           // ONE TABLE, ONE READ. public.soundtrack is one row per TRACK; the
@@ -2413,10 +2060,7 @@
           Promise.resolve([]),
           Promise.resolve([])
         ]);
-        // Rebuilt from the rows, flattened back into the flat list the rest of
-        // this page expects: each finding carries the song_id / tape_id /
-        // city_slug it used to have as columns, so songIssues(), the FLAGGED
-        // filter and renderFindings() all keep working unchanged.
+        // Read but not drawn: see collectFindings.
         soundtrackIssues = collectFindings(results[0]);
         rebuildCityMap(results[0]);
 
@@ -2639,11 +2283,6 @@
         if (newOnly) {
           tapes = tapes.filter(isNewTape);
         }
-        if (flaggedOnly) {
-          tapes = tapes.filter(function (tape) {
-            return issuesForTape(tape).length > 0;
-          });
-        }
 
         // ONE ORDER: by city, A to Z. The three sort buttons are gone, and
         // with one tape on screen a sort was choosing the order you PAGE
@@ -2658,13 +2297,9 @@
         if (!tapes.length) {
 
           trackArchiveList.appendChild(emptyNode(
-            newOnly && flaggedOnly
-                ? 'No tape from the last ' + NEW_FOR_HOURS + ' hours has an open issue.'
-                : newOnly
-                  ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. TGB SOUNDTRACK BOT runs twice a day.'
-                  : flaggedOnly
-                    ? 'No open issues on any tape. The daily audit reports here when it finds something.'
-                    : 'No tapes yet.'));
+            newOnly
+              ? 'Nothing added in the last ' + NEW_FOR_HOURS + ' hours. Run TGB SOUNDTRACK BOT to add some.'
+              : 'No tapes yet.'));
           setArchiveStatus('', '');
           return;
         }
@@ -2705,57 +2340,6 @@
           var name = buildTapeNameEditor(tape.id);
           name.classList.add('tape-line-name');
 
-          var issues = document.createElement('span');
-          issues.className = 'tape-line-num tape-line-issues';
-
-          // IT GOES ON THE ROW, NOT IN THE NAME CELL, and that is the whole
-          // reason the first cut of this was invisible: `.tape-line-name` is a
-          // `display: flex; flex-wrap: nowrap` box, so a child of it became a
-          // flex item squeezed onto the same line, and its `grid-column` was
-          // inert because its parent is a flex container rather than the grid.
-          var findingNote = null;
-
-          var flags = issuesForTape(tape);
-          if (flags.length) {
-            var tapeFlags = tapeIssues(tape).length;
-            var trackFlags = flags.length - tapeFlags;
-
-            var MAX_PIPS = 8;
-            var shown = Math.min(flags.length, MAX_PIPS);
-            for (var pi = 0; pi < shown; pi++) {
-              var pip = document.createElement('span');
-              pip.className = 'issue-pip' + (pi < tapeFlags ? ' is-tape' : '');
-              issues.appendChild(pip);
-            }
-
-            if (flags.length > MAX_PIPS) {
-              var more = document.createElement('span');
-              more.className = 'issue-pip-more';
-              more.textContent = '+' + (flags.length - MAX_PIPS);
-              issues.appendChild(more);
-            }
-
-            issues.title = issueScopeSummary(tapeFlags, trackFlags);
-
-            // THE TAPE'S OWN FINDINGS, AS FULL ITEMS YOU CAN ACT ON. A finding
-            // about the LIST (short of 15, over 15, a hidden city) names no
-            // track, so it has nowhere else on this page to live. It used to be
-            // a single red sentence here with no buttons, which meant opening
-            // the popup to clear it.
-            //
-            // TRACK FINDINGS ARE NOT REPEATED HERE. They are drawn on the track
-            // row itself, a few pixels below, by the same builder.
-            var tapeOwn = tapeIssues(tape);
-            if (tapeOwn.length) {
-              findingNote = document.createElement('div');
-              findingNote.className = 'tape-line-findings';
-              tapeOwn.forEach(function (issue) {
-                findingNote.appendChild(buildIssueItem(issue, {
-                  onDone: function () { renderTrackArchive(); repaintTracks(); }
-                }));
-              });
-            }
-          }
 
           var shelved = truthyFlag(tape && tape.archived);
 
@@ -2893,8 +2477,7 @@
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
-          row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
-          if (findingNote) row.appendChild(findingNote);
+          row.append(country, state, name, tracksCell, newCell, air, delCell);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) row.appendChild(confirmStrip);
@@ -2950,9 +2533,7 @@
         paintFilterPills();
         paintNewTotal();
         paintTrackTotal();
-        paintIssueTotal();
-        setArchiveStatus(tapes.length + (tapes.length === 1 ? ' tape' : ' tapes')
-          + (flaggedOnly ? ' with issues' : ''), '');
+        setArchiveStatus(tapes.length + (tapes.length === 1 ? ' tape' : ' tapes'), '');
         if (message) setNotice(message, tone);
       }
 
@@ -3099,146 +2680,6 @@
       }
 
       var ISSUE_SEVERITY_LABEL = { high: 'Breaks for a visitor', warn: 'Wrong', info: 'Nitpick' };
-
-      function humaniseIssueText(str) {
-        var out = text(str);
-        if (!out) return '';
-
-        out = out.replace(/\b(song|song_id|track)\s*#?\s*=?\s*(\d+)/gi,
-          function (whole, word, id) {
-            var song = songById(id);
-            return song ? ('"' + text(song.title) + '" by ' + text(song.artist)) : whole;
-          });
-
-        out = out.replace(/\b(tape|tape_id|id)\s*#?\s*=?\s*(\d+)/gi,
-          function (whole, word, id, offset, source) {
-
-            var sql = /\b(delete|update|insert|select)\b[\s\S]{0,60}\b(from|into|where|set)\b/i.test(source);
-            var before = String(source).slice(Math.max(0, offset - 10), offset).toLowerCase();
-            if (sql && /\b(where|and|or)\s*$/.test(before)) return whole;
-            var tape = tapeById(id);
-            return tape ? ('the ' + tapeNameOf(tape) + ' tape') : whole;
-          });
-
-        return out;
-      }
-
-      function buildIssueItem(issue, opts) {
-        opts = opts || {};
-        var onDone = typeof opts.onDone === 'function' ? opts.onDone : function () {};
-        var item = document.createElement('article');          var item = document.createElement('article');
-          item.className = 'issue-item';
-          item.setAttribute('data-severity', text(issue.severity) || 'warn');
-
-          var tags = document.createElement('div');
-          tags.className = 'issue-tags';
-
-          var scope = chip(issue.song_id == null ? 'Tape issue' : 'Track issue');
-          scope.classList.add('issue-scope-chip');
-          scope.title = issue.song_id == null
-            ? 'About the tape as a whole: how many tracks it has, whether the city should be published at all.'
-            : 'About one track on this tape.';
-          tags.appendChild(scope);
-
-          if (opts.showCity) {
-            var cityChip = chip(cityFullLabel(issue.city_slug));
-            cityChip.classList.add('issue-city-chip');
-            tags.appendChild(cityChip);
-          }
-          var song = songById(issue.song_id);
-          if (song) {
-            var scope = chip(songDisplay(song));
-            scope.title = 'An issue with this one track.';
-            tags.appendChild(scope);
-          }
-          var kind = chip(ISSUE_KIND_LABEL[issue.kind] || issue.kind);
-          kind.classList.add('track-flag');
-          tags.appendChild(kind);
-          tags.appendChild(chip(ISSUE_SEVERITY_LABEL[issue.severity] || text(issue.severity),
-            ''));
-
-          var body = document.createElement('p');
-          body.className = 'issue-text';
-          body.textContent = humaniseIssueText(issue.detail);
-          item.append(tags, body);
-
-          if (text(issue.suggestion)) {
-            var fix = document.createElement('p');
-            fix.className = 'issue-fix';
-            var lead = document.createElement('b');
-            lead.textContent = 'Suggested: ';
-            fix.append(lead, document.createTextNode(humaniseIssueText(issue.suggestion)));
-            item.appendChild(fix);
-          }
-
-          var acts = document.createElement('div');
-          acts.className = 'issue-item-actions';
-
-          var keptNote = document.createElement('span');
-          keptNote.className = 'issue-kept-note';
-          keptNote.hidden = true;
-          keptNote.textContent = 'Kept';
-
-          var copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'btn small';
-
-          copyBtn.textContent = 'Copy fix prompt';
-          copyBtn.title = 'Copy this issue as a ready-to-paste prompt: the finding, the exact row, what to verify, and the rules. It asks for one SQL statement you run in the Supabase SQL editor.';
-          copyBtn.addEventListener('click', function () {
-            var said = issueAsPrompt(issue);
-
-            var done = function () {
-              copyBtn.textContent = 'Copied';
-              copyBtn.classList.add('is-copied');
-              setTimeout(function () {
-                copyBtn.textContent = 'Copy fix prompt';
-                copyBtn.classList.remove('is-copied');
-              }, 1800);
-            };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(said).then(done, function () {
-
-                setNotice('could not reach the clipboard, the issue is in the console', 'error');
-                console.log(said);
-              });
-            } else {
-              setNotice('this browser has no clipboard access, the issue is in the console', 'error');
-              console.log(said);
-            }
-          });
-
-          var delBtn = document.createElement('button');
-          delBtn.type = 'button';
-          delBtn.className = 'btn small';
-
-          delBtn.textContent = 'Delete issue';
-          delBtn.title = 'Take this issue off the list. Nothing is fixed by it, and the next audit reports it again if it is still true.';
-          delBtn.addEventListener('click', async function () {
-            delBtn.disabled = true;
-            var ok = await resolveIssue(issue, 'fixed', true);
-            if (!ok) { delBtn.disabled = false; return; }
-            setNotice('deleted one issue on ' + cityFullLabel(issue.city_slug)
-              + ', it returns if the next audit still sees it', 'success');
-            onDone();
-          });
-
-          var keepBtn = document.createElement('button');
-          keepBtn.type = 'button';
-          keepBtn.className = 'btn small primary';
-          keepBtn.textContent = 'Keep issue';
-          keepBtn.title = 'Leave this one alone. Nothing is written and it stays open.';
-          keepBtn.addEventListener('click', function () {
-            item.classList.add('is-kept');
-            delBtn.hidden = true;
-            keepBtn.hidden = true;
-            keptNote.hidden = false;
-          });
-
-          acts.append(keptNote, copyBtn, delBtn, keepBtn);
-          item.appendChild(acts);
-        return item;
-      }
 
       function buildTapeNameEditor(tapeId) {
         var tape = tapeById(tapeId);
@@ -3393,7 +2834,6 @@
       var tracksSub = document.getElementById('tracksSub');
       var tracksFoot = document.getElementById('tracksFoot');
       var trackLines = document.getElementById('trackLines');
-      var tapeFindings = document.getElementById('tapeFindings');
 
       var tracksTapeId = null;
       var tracksOnlySongId = null;
@@ -3502,7 +2942,6 @@
 
         var counts = tapeCounts(tape);
         var total = counts.LIVE + counts.SHELVED;
-        var findings = issuesForTape(tape).length;
 
         var box = document.createElement('div');
         box.className = 'track-confirm';
@@ -3613,16 +3052,6 @@
           });
         }
 
-        var tapeOwn = tapeIssues(tape);
-        if (tapeFindings) {
-          tapeFindings.textContent = '';
-          tapeFindings.hidden = tapeOwn.length === 0;
-          tapeOwn.forEach(function (issue) {
-            tapeFindings.appendChild(buildIssueItem(issue, {
-              onDone: function () { renderTrackArchive(); renderTracks(); }
-            }));
-          });
-        }
 
         trackLines.textContent = '';
 
@@ -3684,7 +3113,6 @@
         line.className = 'track-line';
         var status = songStatus(song);
         line.classList.toggle('is-shelved', status === 'SHELVED');
-        line.classList.toggle('is-flagged', songIssues(song).length > 0);
         line.classList.toggle('is-live', status === 'LIVE');
         line.dataset.songId = String(song.id);
         var isFocused = focusTrackId != null && String(focusTrackId) === String(song.id);
@@ -3964,18 +3392,6 @@
           line.appendChild(stage);
         }
 
-        var mine = songIssues(song);
-        if (mine.length) {
-          var box = document.createElement('div');
-          box.className = 'track-issues';
-          mine.forEach(function (issue) {
-            box.appendChild(buildIssueItem(issue, {
-              onDone: function () { renderTrackArchive(); repaintTracks(); }
-            }));
-          });
-          line.appendChild(box);
-        }
-
         if (trackPendingDelete === song.id) {
           var confirmEl = document.createElement('div');
           confirmEl.className = 'track-confirm';
@@ -4086,7 +3502,6 @@
       }
 
 
-      var issueTotalBtn = document.getElementById('issueTotal');
 
       var newTotalEl = document.getElementById('newTotal');
 
@@ -4153,20 +3568,6 @@
           + live + ' live tracks and ' + shelved + ' shelved. The whole catalogue, '
           + 'whatever the filters are set to.';
       }
-
-      function paintIssueTotal() {
-        if (!issueTotalBtn) return;
-        var all = openIssues();
-
-        var tapeFlags = all.filter(function (i) { return i.song_id == null; }).length;
-        var trackFlags = all.length - tapeFlags;
-        issueTotalBtn.textContent = String(all.length);
-
-        var pill = document.getElementById('issueTotalPill');
-        if (pill) pill.title = issueScopeSummary(tapeFlags, trackFlags)
-          + ' across every tape. Press to see only the tapes carrying them.';
-      }
-
 
       // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
       // `indeterminate` by a user click, so the label's own click is taken over

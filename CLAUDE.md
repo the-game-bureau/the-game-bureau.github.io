@@ -637,6 +637,25 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### THE ISSUES UI IS OUT OF THE TAPE ROOM (2026-08-26)
+
+Findings are going on a page of their own. Nothing in this room draws one now:
+the ISSUES filter button, the pips on the tape line, the tape's own findings
+block, the track's findings block, the popup's `#tapeFindings`, and every helper
+behind them -- `buildIssueItem`, `issueAsPrompt`, `issueScopeSummary`,
+`humaniseIssueText`, `resolveIssue`, `patchFindingStatus`, `openIssues`,
+`tapeIssues`, `issuesForTape`, `songIssues` -- 2.5KB of CSS with them.
+
+- **THE DATA IS UNTOUCHED.** `soundtrack.findings` still holds all 285, the two
+  RPCs still write and clear them, and the hub still counts and lists them
+  through `soundtrack_findings`.
+- **`collectFindings` IS KEPT DELIBERATELY.** It still flattens the findings out
+  of the rows on every load, because the page they are going to will want the
+  same flat shape and it costs one pass over rows already in memory. It is the
+  one thing here that is read and not drawn.
+- **DELETING A TRACK STILL PRUNES ITS FINDINGS** from that array, so nothing
+  goes stale while it sits unused.
+
 ### EVERY TAPE ON THE PAGE, AND THE PAGER IS GONE (2026-08-26)
 
 113 tape lines, 113 track headers, 1,643 editable track rows, all at once. The
