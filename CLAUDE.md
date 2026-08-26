@@ -432,11 +432,10 @@ drops an empty tape silently, and 0 is what made the shape safe.
 - **`renderTracks` handed a tape id to `cityStateLabel`/`cityCountryLabel`,
   which take a SLUG**, so the state and country have never drawn on that
   subtitle. Silently, since an unknown slug returns `''`. Fixed in the same pass.
-- **The tenth and eleventh escaping scars landed here.** ` ` reached the
-  file as a real NUL and `
-` as a real newline, both inside a JS string, in a
-  heredoc through python. **Both keys are `JSON.stringify([a, b])` now**, which
-  needs no escape at all. `grep` calling an HTML file binary is the tell.
+- **The tenth and eleventh escaping scars landed here.** A NUL escape reached
+  the file as a real NUL byte, and a newline escape as a real newline, both
+  inside a JS string, in a heredoc through python. **Both keys are
+  `JSON.stringify([a, b])` now**, which needs no escape at all. `grep` calling an HTML file binary is the tell.
 
 **PROVED BY RENDERING BOTH PAGES against the live 1,643 rows in jsdom**, not by
 reading the diff. The Tape Room builds 113 tape lines, opens a flagged tape to
@@ -750,7 +749,7 @@ The two rooms had shared a palette since 2026-08-06 — `--cut-panel-bg`, `--cut
 - **`tapeCounts()` and `archiveSummary()` now return five numbers, not two.** `active`/`archived` are the `archived` column (what `/soundtracks/` filters on, what `setTapeArchived` reports in); `REVIEW`/`LIVE`/`SHELVED` are the review states. **They are not two views of one split** — a REVIEW candidate is `archived = true`, so the old tape chip called three songs awaiting a decision "3 shelved tracks", and the header counts line said "13 shelved" while the Skipped tab said 8 **from the same data**. The header now reads the three states in the tab strip's own words and numbers.
 - **Status reads off the card, not only off the chip.** `.track-row` takes `.is-review` / `.is-live` / `.is-shelved` — the internal names, see the rename note: a KEPT track gets a green left edge at 0.85 opacity (done, not turned down), a SKIPPED one goes 0.6 and dashed and clears on hover, REVIEW keeps full contrast and takes the red edge. A tape holding any candidate gets `.has-review` and the same red edge. This replaced a single dashed `.is-archived` treatment that drew a skipped track and a fresh candidate identically.
 - **Folder-tab legends.** `legend::before` draws an arch over the top half of the legend box so the panel border runs into the label and back out. Copied verbatim from the Socializer, `isolation: isolate` and all — the note there explains why it cannot be a border on the legend itself.
-- **The command bar split into ADD and VIEW** on one `.bar-row`, the Socializer's own two labels: where tracks come from on the left (PROMPT, TGB SOUNDTRACK BOT, EMAILED SUGGESTIONS), where they end up and what you consult on the right (SOUNDTRACKS, LISTENERS, ABOUT).
+- **The command bar split into ADD and VIEW** on one `.bar-row`, the Socializer's own two labels: where tracks come from on the left (PROMPT, TGB SOUNDTRACK BOT, EMAILED SUGGESTIONS), where they end up and what you consult on the right (SOUNDTRACKS, LISTENER STATS, ABOUT).
 - **The PROMPT dialog is the room's only modal, and it is the Socializer's dialog part for part** — same classes, same foot, same wiring, so the two cannot drift by somebody restyling one of them. It brought `.tool-backdrop` / `.tool-modal-panel--wide` / the ruled-notepad `.prompt` sheet with it. **Only the prompt text differs; keep everything else in step.**
   - **A CITY PICKER sits above the sheet, and blank is a real answer** (2026-08-14) — it means "work the tier ladder", which is what the prompt does unaided. Choosing a city **prepends a directive** rather than editing the ladder section, because that section already opens with *"If I have already named a city, use it"*: a named city is the path the text supports, not a special case bolted on. The authored prompt is captured once as `BASE_PROMPT` and every rebuild starts from it, so clearing the picker restores the text exactly instead of stacking directives. The list loads on **first open**, not page load — most visits never touch the dialog and `public.cities` is 1300-odd rows — reads `select=*` and filters `hide_from_soundtracks` client-side (a column list 400s against a database that has not run the migration), pages because the catalogue is past the 1000-row cap, and **fails soft**: a list that will not load says so and leaves blank, which still works.
   - **THE HEAD SAYS WHAT TO DO WITH THE TEXT** (2026-08-19): eyebrow `AI prompt`, title `Five Post Candidates`, then four sentences under it — **edit**, copy and paste the prompt into your AI, paste the result into Supabase, the two common failures, and `adminhelp@thegamebureau.com`. It opens on *Edit* because the textarea became editable the same day and nothing else on the dialog says so. **The foot's buttons are those steps in order and read as obvious only once you already know the routine**, and **both common failures happen after you leave the page**, so somebody meeting one has nothing on screen connecting it back. The eyebrow was `Paste-ready prompt`, which described the text rather than naming what it is for.
@@ -2970,7 +2969,7 @@ build step and without proxying the domain through Cloudflare.
   exist yet. Don't try to squeeze play counts out of a page-view tool.
 - **The numbers are not on our pages, and can't be.** Reading Web Analytics means
   Cloudflare's GraphQL API with a *secret* API token, and every admin page here is
-  public HTML on GitHub Pages — so the Tape Room offers a **LISTENERS** link in
+  public HTML on GitHub Pages — so the Tape Room offers a **LISTENER STATS** link in
   its VIEW bar, deep into the Cloudflare dashboard, with the caveats on its
   tooltip, rather than counts. (It was a **Viewer Statistics** card carrying
   those links plus a live *beacon-installed* check that fetched
