@@ -650,8 +650,13 @@ apart: the tape's name, its state and its country were on both. One row now:
   says where you are.
 - **THEY MUST `stopPropagation`.** The row's own click opens the tracks popup,
   so without it stepping would page the list AND open a dialog over it.
-- **THE `1 of 113` CELL SITS BEFORE THE FORWARD BUTTON**, not centred: the row
-  is read left to right and the count belongs next to the control it governs.
+- **BOTH ARROWS SIT AT THE FAR LEFT, TOUCHING.** Split to the two ends of the
+  row they were a long way apart for one job, and changing direction meant
+  crossing the whole row. `.tape-step + .tape-step` pulls the pair together with
+  a negative margin rather than a wrapper element, so they read as one control
+  with two ends.
+- **THE `1 of 113` CELL GOES WITH THEM**, immediately after: it is the pager's
+  own reading and reads as orphaned anywhere else on the row.
 
 **REMOVING THE PAGER TOOK `buildTrackHead` WITH IT.** The slice ran from the
 pager's doc comment to `stepTape`, and `buildTrackHead` had been inserted
