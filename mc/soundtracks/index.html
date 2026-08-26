@@ -3277,12 +3277,28 @@
       }
 
       // THE QUESTION, IN THE HEADER, WITH THE CONSEQUENCE NOBODY EXPECTS IN IT.
-      // That the rows go is obvious. That the tracks take their do-not-rescrape
-      // tombstones with them is not, and it is the reason shelving is almost
-      // always the right answer instead.
+      // That the rows go is obvious. That the BOT CAN FILE THEM AGAIN is not,
+      // and it is the reason shelving is almost always the right answer: a
+      // shelved row is what stops the routine re-picking that track for that
+      // tape, and deleting throws it away.
       function renderSelectionConfirm(tape) {
         var n = selectedCount();
         if (!bulkPendingDelete || !n) return null;
+
+        // SHELVING IS ONLY OFFERED WHEN IT WOULD DO SOMETHING. It is the gentle
+        // answer to "delete these", and on a selection that is already shelved
+        // it is no answer at all: the button would write `archived = true` over
+        // `archived = true` and report a success that changed nothing.
+        //
+        // REMOVED RATHER THAN GREYED, which departs from this room's usual rule
+        // that a button holds its place so the others do not move. That rule is
+        // for a ROW, where the same four verbs sit in the same order on every
+        // one of them and the position is what you aim at. This is a question
+        // you read before you answer it, and an answer that cannot apply is
+        // better not offered.
+        var anyLive = allSongs(tape).filter(isSelected).some(function (song) {
+          return songStatus(song) === 'LIVE';
+        });
 
         var box = document.createElement('div');
         box.className = 'track-confirm track-confirm--head';
@@ -3291,20 +3307,32 @@
         var lead = document.createElement('strong');
         lead.textContent = 'Delete ' + n + (n === 1 ? ' track' : ' tracks') + ' for good? ';
         words.appendChild(lead);
+        // PLAIN WORDS. It said the tracks "take their do-not-rescrape tombstones
+        // with them", which is our schema talking: `tombstone` is the name for a
+        // shelved row and nobody standing at this screen has any reason to know
+        // it. What a person needs is the CONSEQUENCE -- the bot can find a
+        // deleted track and file it again, and a shelved one it leaves alone.
+        var it = n === 1 ? 'it' : 'them';
         words.appendChild(document.createTextNode(
-          'This cannot be undone. They take their do-not-rescrape tombstones with '
-          + 'them, so the routine is free to propose every one of them again. '
-          + 'Shelving keeps all of it and simply takes them off /soundtracks/.'));
+          'This cannot be undone, and the bot may find ' + it + ' and file '
+          + it + ' again.'
+          // THE SENTENCE GOES WITH THE BUTTON. Recommending shelving while not
+          // offering it is the page telling you to press something that is not
+          // there.
+          + (anyLive ? ' Shelving keeps ' + it + ' off /soundtracks/ and stops that.' : '')));
 
-        var shelveBtn = document.createElement('button');
-        shelveBtn.type = 'button';
-        shelveBtn.className = 'btn small primary';
-        shelveBtn.textContent = 'Shelve instead';
-        shelveBtn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          bulkPendingDelete = false;
-          applyToSelection(tape, { archived: true }, 'Shelve');
-        });
+        var shelveBtn = null;
+        if (anyLive) {
+          shelveBtn = document.createElement('button');
+          shelveBtn.type = 'button';
+          shelveBtn.className = 'btn small primary';
+          shelveBtn.textContent = 'Shelve instead';
+          shelveBtn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            bulkPendingDelete = false;
+            applyToSelection(tape, { archived: true }, 'Shelve');
+          });
+        }
 
         var reallyBtn = document.createElement('button');
         reallyBtn.type = 'button';
@@ -3326,7 +3354,9 @@
           renderTrackArchive();
         });
 
-        box.append(words, shelveBtn, reallyBtn, cancelBtn);
+        box.appendChild(words);
+        if (shelveBtn) box.appendChild(shelveBtn);
+        box.append(reallyBtn, cancelBtn);
         return box;
       }
 
@@ -3772,9 +3802,8 @@
           lead.textContent = 'Delete this row for good? ';
           words.appendChild(lead);
           words.appendChild(document.createTextNode(
-            'Shelving keeps it here as a do-not-rescrape tombstone, so the routine never picks it '
-            + 'for this tape again. Deleting throws that away, and the song can come straight back '
-            + 'on the next run.'));
+            'This cannot be undone, and the bot may find it and file it again. '
+            + 'Shelving keeps it off /soundtracks/ and stops that.'));
           var shelveBtn = document.createElement('button');
           shelveBtn.type = 'button';
           shelveBtn.className = 'btn small primary';
@@ -3832,7 +3861,7 @@
 
         renderTrackArchive('deleted ' + songDisplay(song)
           + (dropped ? ', and its ' + dropped + (dropped === 1 ? ' issue' : ' issues') : '')
-          + ', its tombstone went with it, so the routine may propose it again', 'hold');
+          + '. The bot may find it and file it again; shelving would have stopped that.', 'hold');
         return true;
       }
 

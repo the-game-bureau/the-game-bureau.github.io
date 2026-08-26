@@ -655,6 +655,38 @@ The two checkbox columns read **Explicit** and **Sports** rather than `E` and
   and the standing warning is that missing one puts every label a column away
   from the field it names.
 
+### THE DELETE QUESTION IS IN PLAIN WORDS (2026-08-26)
+
+Every delete confirmation in this room said the tracks *"take their
+do-not-rescrape tombstones with them"*. **That is our schema talking.**
+`tombstone` is the name for a shelved row and nobody standing at that screen has
+any reason to know it. All three messages now read:
+
+> Delete 2 tracks for good? This cannot be undone, and the bot may find them and
+> file them again. Shelving keeps them off /soundtracks/ and stops that.
+
+- **THE CONSEQUENCE, NOT THE MECHANISM.** What a person needs to decide is that
+  a deleted track can come back on the next run and a shelved one cannot. How
+  that works is the unique index's business.
+- **SWEPT ACROSS ALL THREE**: the selection confirmation, the single-row
+  confirmation, and the notice after a single delete. **The `tgb-agent-context`
+  JSON block keeps the precise term** -- that block is read by an AI, which does
+  need the mechanism.
+- **SHELVE INSTEAD IS ONLY OFFERED WHEN IT WOULD DO SOMETHING**, and the
+  sentence recommending it goes with the button. On a selection that is already
+  shelved the button would write `archived = true` over `archived = true` and
+  report a success that changed nothing; recommending it while not offering it
+  is the page telling you to press something that is not there.
+  - **REMOVED RATHER THAN GREYED**, which departs from this room's usual rule
+    that a button holds its place so the others do not move. **That rule is for
+    a ROW**, where the same verbs sit in the same order on every one and the
+    position is what you aim at. This is a question you read before you answer
+    it, and an answer that cannot apply is better not offered.
+  - **PROVED BOTH WAYS.** Everything but New Orleans is shelved, so the
+    "offered" branch is never reached on the first tape and the button could be
+    missing everywhere without a test noticing; the check walks to a live track
+    and asserts it is there.
+
 ### THE HEADER'S X DELETES THE SELECTION, AND THERE IS NO TAPE DELETE (2026-08-26)
 
 The `x` at the end of the track header deleted the whole tape. It now deletes
