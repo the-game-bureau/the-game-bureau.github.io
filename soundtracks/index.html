@@ -2050,13 +2050,6 @@
         return SUPABASE_URL + '/rest/v1/' + table + (pairs.length ? '?' + pairs.join('&') : '');
       }
 
-      function fetchJson(url, options) {
-        return fetch(url, options || {}).then(function (response) {
-          if (!response.ok) throw new Error('Request failed: ' + response.status + ' ' + url);
-          return response.json();
-        });
-      }
-
       function slugify(value) {
         return String(value || '')
           .toLowerCase()
@@ -2300,21 +2293,6 @@
         else openNoSoundtrack(displayLabel || cityStr);
       }
 
-      var CITY_FILTER_MAX_SLUGS = 300;
-
-      function fetchCities(slugs) {
-        var params = { select: '*', order: 'city.asc' };
-        var list = (Array.isArray(slugs) ? slugs : []).filter(Boolean);
-        if (list.length && list.length <= CITY_FILTER_MAX_SLUGS) {
-
-          params.slug = 'in.(' + list.join(',') + ')';
-        }
-        return fetchJson(buildSupabaseUrl('cities', params), {
-          headers: SB_HEADERS,
-          cache: 'no-store'
-        });
-      }
-
       function displayNameFromSlug(slug) {
         var special = {
           'rio-de-janeiro': 'Rio de Janeiro',
@@ -2332,17 +2310,26 @@
           .join(' ');
       }
 
-      function fallbackCityRowsFromSoundtracks(soundtracks) {
+      // THE CITY ROWS ARE BUILT FROM THE TAPES. `public.soundtrack` carries its
+      // own `city`, `state_code` and `country_code` as of 2026-08-25, so this
+      // page reads no city table at all: one fewer request, and a tape can name
+      // a city the catalogue has never held.
+      //
+      // `displayNameFromSlug` is the last resort only, for a row filed before
+      // the label existed. A stored label always wins.
+      function cityRowsFromSoundtracks(soundtracks) {
         return (soundtracks || [])
           .filter(function (tracklist) { return tracklist && tracklist.city_slug && soundtrackTrackCount(tracklist) > 0; })
           .map(function (tracklist, index) {
-            var label = displayNameFromSlug(tracklist.city_slug);
+            var label = String((tracklist && tracklist.city) || '').trim()
+              || displayNameFromSlug(tracklist.city_slug);
             return {
-
               slug: tapeKey(tracklist),
               city: label,
               label: label,
               city_name: label,
+              state_code: tracklist.state_code || '',
+              country_code: tracklist.country_code || '',
               sort_order: index + 1
             };
           });
@@ -2449,7 +2436,7 @@
           //
           // **Do not put `*` back.** Add a column here when the page needs one.
           fetchAllRows(buildSupabaseUrl('soundtrack', {
-            select: 'id,city_slug,tape,tape_label_position,position,title,artist,blurb,spotify_id,explicit,archived',
+            select: 'id,city_slug,city,state_code,country_code,tape,tape_label_position,position,title,artist,blurb,spotify_id,explicit,archived',
             // A SHELVED TRACK NEVER LEAVES THE DATABASE, so the filter is here
             // rather than in the grouping: it halves what crosses the wire and
             // a tape with nothing live then has no rows at all.
@@ -2494,8 +2481,10 @@
         var rowsWithSoundtracks = [];
         rowsList.forEach(function (row) {
 
-          if (row && row.hide_from_soundtracks === true) return;
-          if (row && row.hide_from_soundtracks === undefined && row.ignored === true) return;
+          // NO `hide_from_soundtracks` TEST. That flag lives on public.cities,
+          // which this page no longer reads. Nothing is lost in practice: a tape
+          // only reaches this page when a human has put a track live on it, so
+          // the decision is already made by hand further upstream.
           var slug = citySlug(row);
           if (!slug || seen[slug]) return;
           seen[slug] = true;
@@ -2539,21 +2528,8 @@
           .then(function (data) {
             var soundtracks = indexSoundtracks(data || {});
 
-            var citySlugs = {};
-            soundtracks.forEach(function (tape) {
-              var slug = slugify(tape && tape.city_slug);
-              if (slug) citySlugs[slug] = true;
-            });
-            return fetchCities(Object.keys(citySlugs))
-              .catch(function (error) {
-                console.warn('City catalog unavailable; rendering soundtrack slug fallback.', error);
-                return fallbackCityRowsFromSoundtracks(soundtracks);
-              })
-              .then(function (rows) {
-                var hasCityCatalog = Array.isArray(rows) && rows.length > 0;
-                var cityRows = hasCityCatalog ? rows : fallbackCityRowsFromSoundtracks(soundtracks);
-                setCityEntries(cityRows, !hasCityCatalog);
-              });
+            // NO SECOND REQUEST. Everything the rail needs is on the tracks.
+            setCityEntries(cityRowsFromSoundtracks(soundtracks), true);
           })
           .catch(function (error) {
             console.error(error);

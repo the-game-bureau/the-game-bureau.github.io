@@ -42,7 +42,9 @@ the track.
 
 | column | |
 |---|---|
-| `city_slug` | must exist in `public.cities` and not be `hide_from_soundtracks` |
+| `city_slug` | the tape's key half, ordinary text: `baton-rouge` |
+| `city` | the label a reader sees: `Baton Rouge, Louisiana` |
+| `state_code` `state_name` `country_code` `country_name` | the parts, for badges |
 | `tape` | the name printed down the spine |
 | `position` `title` `artist` `blurb` `spotify_id` `explicit` | the track |
 | `archived` | `true` SHELVED, `false` LIVE. **That is the whole state model.** |
@@ -52,6 +54,18 @@ the track.
 until a human puts it live in the Tape Room. Write each tape as though it were
 publishing tomorrow anyway: a candidate you would not defend is not worth
 filing.
+
+**THE TABLE HAS NO TIE TO `public.cities` AS OF 2026-08-25, AND THAT PUTS A
+RULE ON YOU THAT THE DATABASE USED TO ENFORCE.** It no longer refuses a city
+that is unknown or flagged `hide_from_soundtracks`. **The venue-town rule in
+section 4 is now the only thing standing between us and a Foxborough tape**, so
+read it as a hard rule rather than advice.
+
+**SEND `city` WITH EVERY TAPE**, the canonical composite: `Tulsa, Oklahoma`
+inside the US, `Dublin, Ireland` outside it. Send `state_code`, `state_name`,
+`country_code` and `country_name` too when you know them. **A city that already
+holds tracks keeps the label it has** and yours is ignored, so one city can
+never end up wearing two names.
 
 **A shelved row is also a do-not-rescrape tombstone.** It stays on the tape so
 the same title and artist is never picked for it again. The tombstone is scoped
@@ -74,7 +88,9 @@ B=https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1
 # how full every tape is, one row per TAPE (a city may hold several)
 curl -sS "$B/soundtrack_stats?select=city_slug,tape,active_songs,archived_songs,archived&order=city_slug.asc&apikey=$KEY"
 
-# the US cities allowed a tape
+# the US cities allowed a tape. THIS IS THE ONLY READ OF public.cities LEFT,
+# and it is here for PICKING, not for validation: nothing downstream checks it,
+# so a city you choose badly is filed exactly as given.
 curl -sS "$B/cities?select=slug,city&country_code=eq.USA&hide_from_soundtracks=is.false&order=city.asc&apikey=$KEY"
 
 # clubs, for the tier ladder below
@@ -108,10 +124,11 @@ The Tape Room's TGB SOUNDTRACK BOT button puts that line on the clipboard, so it
 is the ordinary way this routine is pointed at a city. Say which city you were
 given, in one line, before the SQL.
 
-**Two things still apply to a named city**, because they are facts about the
-catalogue rather than preferences: it must be in `public.cities`, and it must
-not carry `hide_from_soundtracks`. If the named city fails either, say so
-plainly, work the ladder instead, and name the city you fell back to.
+**Two things still apply to a named city**, and **nothing enforces them but
+you**: it should be in `public.cities`, and it must not carry
+`hide_from_soundtracks`. If the named city carries that flag, refuse it, say so
+plainly, and work the ladder instead. A city merely absent from the catalogue is
+allowed now, so file it with the right `city` label and say you did.
 
 Otherwise, pick one yourself down this ladder. Stop at the first tier that still
 has a city wanting a tape. Do not skip a tier because a lower one looks more
@@ -142,7 +159,10 @@ city. Say which tier you picked from and why, in one line.
 - **THE TWO TABLES SPELL A CITY DIFFERENTLY.** `teams` say "Buffalo, NY";
   `cities` say "Buffalo, New York". Match on the city name, never the whole
   string.
-- **A city with `hide_from_soundtracks` is off limits at every tier.**
+- **A city with `hide_from_soundtracks` is off limits at every tier, and the
+  database will NOT stop you any more.** That check was dropped when the tie to
+  `public.cities` was cut, so this line is the whole guard. Read the flag from
+  the cities URL above and obey it.
 
 ### The top-up
 
@@ -238,7 +258,7 @@ One insert-only function, called with the same publishable key.
 curl -sS -X POST "$B/rpc/tgb_pull_soundtrack_songs" \
   -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
-  -d '{"payload":[{"city_slug":"example-city","tape":"Soundtrack","songs":[{"title":"Song Title","artist":"Artist Name","spotify_id":"22CharacterSpotifyId","blurb":"Short reason this belongs here","explicit":false}]}]}'
+  -d '{"payload":[{"city_slug":"tulsa","city":"Tulsa, Oklahoma","state_code":"OK","state_name":"Oklahoma","country_code":"USA","country_name":"United States","tape":"Soundtrack","songs":[{"title":"Song Title","artist":"Artist Name","spotify_id":"22CharacterSpotifyId","blurb":"Short reason this belongs here","explicit":false}]}]}'
 ```
 
 - **The reply is `{"added": N, "skipped": M}`.** A skipped song is one the tape

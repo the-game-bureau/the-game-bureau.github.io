@@ -479,6 +479,45 @@ still meant to be run, just by a person pressing Run at claude.ai.
     `Number.isFinite(r.bot.stale)` a hand-run routine would go red the minute
     after it ran. Every other routine's threshold is unchanged.
 
+### SOUNDTRACK HAS NO TIE TO `public.cities` (2026-08-25)
+
+[2026082514](mc/supabase/migrations/2026082514_soundtrack_carries_its_city.sql) and [2026082515](mc/supabase/migrations/2026082515_rename_tape_carries_label.sql), **applied**. Three ties went
+together: the foreign key, the pull RPC's catalogue check, and both pages'
+`cities` read. **The row carries `city`, `state_code`, `state_name`,
+`country_code` and `country_name` now**, backfilled from the catalogue that was
+supplying them, so nothing looks different.
+
+- **`city_slug` STAYS. It is the tape's other half** -- the tape is
+  `(city_slug, tape)`, it leads the unique index, and `/soundtracks/#denver` is
+  a slug. It simply stopped being a foreign key.
+- **`hide_from_soundtracks` NO LONGER STOPS ANYTHING, and it cost something the
+  same afternoon.** The public page went from **96 cards to 97**: **Glendale,
+  Arizona** is a venue town with 14 live tracks that the flag had been hiding,
+  and it is now on `/soundtracks/`. **`archived` is the only mechanism left**,
+  so shelving that tape is the fix if it is wanted off. The flag still governs
+  the gift shop and the games rails; it governs nothing here.
+- **THE RULE MOVED INTO THE BRIEF, which is now the whole guard.** Section 4 of
+  [soundtracks.md](mc/soundtracks/soundtracks.md) says in as many words that the database will not
+  stop you any more. That is a real weakening and is recorded rather than
+  glossed.
+- **A COLUMN ADDED AFTER A PER-COLUMN GRANT IS NOT COVERED BY IT.** The table's
+  SELECT grant to `anon` excludes `findings`, so it is enumerated -- and five
+  new columns would have been unreadable, which would 401 the public page,
+  because that page names its columns. The migration re-issues the grant.
+- **THE LABEL TRAVELS WITH THE SLUG ON A MOVE.** `tgb_rename_tape` gained
+  `p_new_label` and the four parts; without it a moved tape would keep the old
+  city's NAME on every row, which is the half a human actually reads. **The
+  five-argument signature was DROPPED rather than left beside the new one**:
+  PostgREST matches an RPC by the names it is sent, and two overloads that both
+  accept the same five make it refuse to choose with a 300 that reads like the
+  function is missing.
+- **THE PICKER CAN ONLY SUGGEST A CITY THAT ALREADY HAS A TAPE**, since the map
+  is built from the tracks. The box is free text, so a new city is typed rather
+  than offered, and `slugFromLabel` derives its slug the way the catalogue does:
+  city name only, lowercased, hyphenated.
+- **THE HARNESS NOW REFUSES `public.cities` OUTRIGHT** and fails the run if
+  either page asks for it, which is the only way this stays cut.
+
 ### THE BOT BUTTON ASKS FOR A FOCUS CITY, THEN OPENS THE ROUTINE (2026-08-25)
 
 Pressing TGB SOUNDTRACK BOT in the Tape Room opens a small dialog with one

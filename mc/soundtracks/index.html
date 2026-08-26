@@ -1998,6 +1998,17 @@
         return Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
       }
 
+      // A SLUG FROM A TYPED LABEL. With no catalogue to look one up in, a city
+      // this room has never held has to be derived, and the rule is the one
+      // `public.cities` itself uses: the city NAME only, lowercased, hyphenated.
+      // "St. Louis, Missouri" gives `st-louis`, which is the slug already filed.
+      function slugFromLabel(label) {
+        var name = text(label).split(',')[0];
+        return name.toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+
       function cityByLabel(label) {
         var want = text(label).toLowerCase();
         if (!want) return null;
@@ -2017,7 +2028,10 @@
         list.innerHTML = '';
         Object.keys(cityMap).sort().forEach(function (slug) {
           var row = cityMap[slug];
-          if (truthyFlag(row.hide_from_soundtracks)) return;
+          // NO `hide_from_soundtracks` TEST ANY MORE. That flag lives on
+          // public.cities, which this room no longer reads, and every city in
+          // this map already holds a tape -- so a venue town could only appear
+          // here by already having one.
 
           var opt = document.createElement('option');
           opt.value = text(row.city);
@@ -2028,7 +2042,7 @@
         });
       }
 
-      async function moveTapeToCity(tapeId, toSlug) {
+      async function moveTapeToCity(tapeId, toSlug, label) {
         var tape = tapeById(tapeId);
         if (!tape) return false;
         var fromSlug = text(tape.city_slug);
@@ -2036,9 +2050,18 @@
 
           // A TAPE IS EVERY ROW OF IT NOW, so moving one is a write across all
           // of them and goes through the function that scopes it.
+          // THE LABEL TRAVELS WITH THE SLUG. `city` lives on the row now, so a
+          // move that sent only the slug would leave every row wearing the old
+          // city's name, which is the half a human actually reads.
+          var to = (label && label.city) ? label : cityMap[toSlug];
           await callRpc('tgb_rename_tape', {
             p_city: fromSlug, p_tape: tape.spine_tag || '',
-            p_new_city: toSlug, p_new_tape: null
+            p_new_city: toSlug, p_new_tape: null,
+            p_new_label: to && to.city ? to.city : toSlug,
+            p_state_code: to ? (to.state_code || null) : null,
+            p_state_name: to ? (to.state_name || null) : null,
+            p_country_code: to ? (to.country_code || null) : null,
+            p_country_name: to ? (to.country_name || null) : null
           });
         } catch (error) {
           console.error(error);
@@ -2408,20 +2431,14 @@
           // so it reads as the signed-in admin rather than naming its columns.
           fetchAllRows('soundtrack?select=*&order=city_slug.asc,tape.asc,position.asc,id.asc', true),
           Promise.resolve([]),
-          Promise.resolve([]),
-
-          fetchAllRows('cities?select=*&order=city.asc')
-            .catch(function (error) {
-              console.warn('cities unavailable, falling back to slugs', error);
-              return [];
-            })
+          Promise.resolve([])
         ]);
         // Rebuilt from the rows, flattened back into the flat list the rest of
         // this page expects: each finding carries the song_id / tape_id /
         // city_slug it used to have as columns, so songIssues(), the FLAGGED
         // filter and renderFindings() all keep working unchanged.
         soundtrackIssues = collectFindings(results[0]);
-        rebuildCityMap(results[3]);
+        rebuildCityMap(results[0]);
 
         // THE TAPES ARE GROUPED OUT OF THE TRACKS, in the SAME SHAPE this page
         // has always held one, so everything downstream is untouched. The only
@@ -3181,11 +3198,19 @@
         async function commitCity() {
           var typed = cityHalf.value.trim();
           if (typed === cityWas) { cityHalf.value = cityWas; sizeCity(); return; }
+          // A CITY THIS ROOM HAS NEVER HELD IS ACCEPTED NOW, because there is
+          // no catalogue left to refuse it against. What it cannot be is
+          // unusable: a label that yields no slug is refused, since the slug is
+          // half the tape's key.
           var target = cityByLabel(typed);
           if (!target) {
-            setNotice('no city called "' + typed + '" in the catalogue', 'error');
-            cityHalf.value = cityWas; sizeCity();
-            return;
+            var madeSlug = slugFromLabel(typed);
+            if (!madeSlug) {
+              setNotice('"' + typed + '" does not give a usable city name', 'error');
+              cityHalf.value = cityWas; sizeCity();
+              return;
+            }
+            target = { slug: madeSlug, city: typed, isNew: true };
           }
 
           var wanted = text(tape.spine_tag).toLowerCase();
@@ -3202,7 +3227,7 @@
           }
           cityHalf.disabled = true;
           cityHalf.classList.add('is-saving');
-          var ok = await moveTapeToCity(tape.id, target.slug);
+          var ok = await moveTapeToCity(tape.id, target.slug, target);
           cityHalf.disabled = false;
           cityHalf.classList.remove('is-saving');
           if (!ok) { cityHalf.value = cityWas; sizeCity(); return; }
@@ -4090,12 +4115,29 @@
         refitTimer = window.setTimeout(fitRowInputs, 120);
       });
 
+      // THE ROOM READS NO CITY TABLE. `public.soundtrack` carries its own
+      // `city`, `state_code`, `state_name`, `country_code` and `country_name`,
+      // so this map is built from the tracks themselves and there is one entry
+      // per city that actually holds a tape.
+      //
+      // WHAT THAT COSTS, said plainly: the picker can only OFFER a city that
+      // already has one. The box is free text, so a new city is still typed in;
+      // it simply is not suggested. That is the trade for the tie being cut.
       var cityMap = Object.create(null);
 
       function rebuildCityMap(rows) {
         var map = Object.create(null);
         (Array.isArray(rows) ? rows : []).forEach(function (row) {
-          if (row && row.slug) map[String(row.slug)] = row;
+          var slug = row && text(row.city_slug);
+          if (!slug || map[slug]) return;
+          map[slug] = {
+            slug: slug,
+            city: text(row.city),
+            state_code: text(row.state_code),
+            state_name: text(row.state_name),
+            country_code: text(row.country_code),
+            country_name: text(row.country_name)
+          };
         });
         cityMap = map;
       }
@@ -4111,8 +4153,6 @@
         var row = cityRow(s);
         var canonical = row ? text(row.city) : '';
         if (canonical) return canonical.split(',')[0].trim();
-        var named = row ? text(row.city_name) : '';
-        if (named) return named;
 
         return s.split('-').map(function (part) {
           return part ? part.charAt(0).toUpperCase() + part.slice(1) : '';
