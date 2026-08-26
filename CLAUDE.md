@@ -655,6 +655,33 @@ The two checkbox columns read **Explicit** and **Sports** rather than `E` and
   and the standing warning is that missing one puts every label a column away
   from the field it names.
 
+### ONE FILTER AT A TIME: LIVE, EXPLICIT OR SPORTS (2026-08-26)
+
+The Explicit and Sports column headers are buttons that filter on their own
+column, and **they are standalone**: choosing one clears the Status switch and
+the other flag, so exactly one question is ever narrowing the list.
+
+- **WHY STANDALONE.** With three filters that could combine, a short list has up
+  to three reasons and you have to check three controls to find out which. One
+  at a time means the answer is always the one control that is lit.
+- **`trackPassesFilters(song)` IS THE ONE TEST**, and both `renderTrackArchive`
+  and the popup's `renderTracks` call it. **Two readers of "what is visible" is
+  exactly how the air switch was silently inert once**: it painted the state and
+  then built its list from an unfiltered array a few lines away.
+- **TWO VARIABLES, NOT ONE.** `trackAirFilter` is a tri-state with its own
+  painter; the flags are plain toggles. The two setters clear each other, which
+  is where "standalone" actually lives.
+- **THEY ARE REAL BUTTONS with `aria-pressed`**, not labels with a click
+  handler: a word that silently does something when you click it is not a
+  control. At rest they look like the column labels they replaced, because that
+  is still what they are.
+- **THE EMPTY STATE NAMES THE FILTER THAT EMPTIED IT**, whichever of the three it
+  was, rather than assuming it was the air switch.
+- **PROVED ON A TAPE THAT HAS SOME.** The first tape has no explicit tracks, so
+  "0 of 5" is the right answer **and is also what an inert filter would give**.
+  The test walks to a tape with a mix and checks the count there, and checks the
+  press sends no PATCH, POST or DELETE.
+
 ### TICK TRACKS, AND THE HEADER ACTS ON ALL OF THEM (2026-08-26)
 
 A twelfth column, first on the row, holding a tick per track and a select-all in

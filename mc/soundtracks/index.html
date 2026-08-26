@@ -607,6 +607,35 @@
 
     .track-head-label--mid { padding: 0; text-align: center; }
 
+
+    /* A COLUMN HEADER THAT FILTERS ON ITS OWN COLUMN. It has to look like the
+       labels beside it at rest -- it IS the column's label -- and say plainly
+       when it is on. */
+    .track-head-filter {
+      min-width: 0;
+      padding: 1px 3px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      font: inherit;
+      font-size: 0.5rem;
+      letter-spacing: 0.04em;
+      text-transform: inherit;
+      color: inherit;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .track-head-filter:hover { border-color: var(--control-line); color: var(--ink); }
+
+    .track-head-filter.is-on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
     /* LITTLE BITTY. These are the two narrowest columns on the row and they now
        hold a word rather than a letter, so the label is set below the rest of
        the header. It is not something you read, it is something you glance at
@@ -2740,9 +2769,7 @@
           // WHAT THE SELECT-ALL AND THE BULK BAR ACT ON: the rows actually on
           // screen, which is the tape's tracks after the header's own filter.
           // Anything else would tick rows nobody can see.
-          var shown = allSongs(tape).filter(function (song) {
-            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
-          });
+          var shown = allSongs(tape).filter(trackPassesFilters);
           pruneSelection(shown);
 
           // THE TAPE'S TWO CONTROLS SIT AT THE TOP OF THE COLUMNS THEY ACT ON.
@@ -2758,6 +2785,9 @@
             cell.appendChild(node);
           }
           fill(0, buildSelectAll(shown));
+          fill(8, buildFlagFilter('explicit', 'Explicit', 'Marked explicit on Spotify.'));
+          fill(9, buildFlagFilter('sports', 'Sports',
+            'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'));
           fill(1, newCell);
           fill(10, buildAirFilter(tape));
           fill(11, delBtn);
@@ -2796,9 +2826,8 @@
             // THE EMPTY STATE NAMES THE WAY OUT. The filter lives in the header
             // above, so a bare "nothing here" would leave somebody looking at a
             // tape they know has tracks with no idea what hid them.
-            var none = emptyNode('No ' + (trackAirFilter === 'live' ? 'live' : 'shelved')
-              + ' tracks on this tape. Press ' + (trackAirFilter === 'live' ? 'Live' : 'Shelved')
-              + ' in the header again to show both.');
+            var none = emptyNode('No ' + activeFilterName() + ' tracks on this tape. '
+              + 'Press that word in the header again to show them all.');
             none.classList.add('track-line--in-list');
             trackArchiveList.appendChild(none);
           }
@@ -3176,10 +3205,9 @@
         if (tracksOnlySongId != null) {
           return songs.filter(function (song) { return String(song.id) === String(tracksOnlySongId); });
         }
-        if (trackAirFilter === 'all') return songs;
-        return songs.filter(function (song) {
-          return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
-        });
+        // ONE TEST, SHARED WITH THE MAIN LIST. Two readers of "what is visible"
+        // is how the air switch ended up silently inert once already.
+        return songs.filter(trackPassesFilters);
       }
 
       function paintTrackMasterAir() {
@@ -3202,6 +3230,8 @@
       // has cost them something.
       function setTrackAir(value) {
         trackAirFilter = value;
+        // CHOOSING ONE CLEARS THE OTHERS. See `setTrackFlag` for the argument.
+        if (value !== 'all') trackFlagFilter = '';
         renderTrackArchive();
         if (tracksOpen()) renderTracks();
       }
@@ -3324,14 +3354,12 @@
         });
         if (tracksOnlySongId != null) {
           songs = songs.filter(function (song) { return String(song.id) === String(tracksOnlySongId); });
-        } else if (trackAirFilter !== 'all') {
-          // THE HEADER SWITCH IS A FILTER. `visibleTrackSongs` says the same
+        } else {
+          // THE HEADER'S CONTROLS ARE FILTERS. `visibleTrackSongs` says the same
           // thing for the keyboard and the counts, but this list is built here,
-          // so the filter has to be applied here too or the switch does
-          // nothing and says nothing about why.
-          songs = songs.filter(function (song) {
-            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
-          });
+          // so the test has to run here too or the switch does nothing and says
+          // nothing about why.
+          songs = songs.filter(trackPassesFilters);
         }
 
 
@@ -4054,6 +4082,67 @@
           repaintAfterSelection();
         });
         return box;
+      }
+
+      // ── ONE FILTER AT A TIME ────────────────────────────────────────────
+      //
+      // Three questions can narrow the track list: is it live, is it explicit,
+      // is it sports. They are STANDALONE: choosing one clears the others, so
+      // the header can never be showing an intersection nobody asked for and
+      // there is never more than one control to look at to know why a list is
+      // short.
+      //
+      // `trackAirFilter` holds the first ('all' when off) and `trackFlagFilter`
+      // the other two (''), and the two setters clear each other. Two variables
+      // rather than one because the air switch is a tri-state with its own
+      // painter and the flags are plain toggles.
+      var trackFlagFilter = '';
+
+      function setTrackFlag(kind) {
+        trackFlagFilter = (trackFlagFilter === kind) ? '' : kind;
+        // CHOOSING ONE CLEARS THE OTHER. `all` is the air switch's own resting
+        // value, so this is the same as switching it off.
+        if (trackFlagFilter) trackAirFilter = 'all';
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
+      // THE ONE TEST EVERY LIST OF TRACKS RUNS. `renderTracks` and
+      // `renderTrackArchive` both call it, so the popup and the page cannot
+      // disagree about what is visible -- which is exactly how the air switch
+      // was silently inert for a while.
+      function trackPassesFilters(song) {
+        if (trackFlagFilter === 'explicit') return !!(song && song.explicit);
+        if (trackFlagFilter === 'sports') return !!(song && song.sports);
+        return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+      }
+
+      // WHY THE LIST IS SHORT, IN WORDS, for the empty state to say.
+      function activeFilterName() {
+        if (trackFlagFilter) return trackFlagFilter;
+        if (trackAirFilter !== 'all') return trackAirFilter;
+        return '';
+      }
+
+      // A COLUMN HEADER THAT FILTERS ON ITS OWN COLUMN. It is a real button, so
+      // it is focusable and says `aria-pressed`; the label alone would have been
+      // a word that silently did something when clicked.
+      function buildFlagFilter(kind, label, tip) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'track-head-filter';
+        btn.textContent = label;
+        var on = trackFlagFilter === kind;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.classList.toggle('is-on', on);
+        btn.title = tip + (on
+          ? ' Showing only these. Press again to show all.'
+          : ' Press to show only these.');
+        btn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          setTrackFlag(kind);
+        });
+        return btn;
       }
 
       // ── WHAT THE HEADER DOES TO A SELECTION ─────────────────────────────
