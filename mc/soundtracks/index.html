@@ -13,7 +13,13 @@
   <style>
 
     :root {
-      --mc-shell-width: 1180px;
+      /* 1,400px, NOT 1,180. Measured rather than felt: the VIEW bar now carries
+         the pager, four filters and four doors, which need about 1,089px, and
+         ADD's two buttons want about 380 more. At 1,180 the row left ADD 47px
+         and clipped both its buttons to nothing. This is the room with the
+         widest table on the site -- twelve columns at 14pt -- and it is the one
+         page here that has earned a frame of its own. */
+      --mc-shell-width: 1400px;
 
       --stack-gap: 14px;
       --paper-base: #fefef9;
@@ -356,22 +362,6 @@
       --col-text: 0.78rem;
     }
 
-    /* THE TAPE'S TWO CONTROLS SIT IN THE HEADER'S OWN CELLS, at the top of the
-       columns they act on: the switch above the tracks' switches, the delete
-       above theirs. The header is column labels again -- a strip above them was
-       a tape header by another name. */
-
-
-    /* THE DELETE DIALOG. It borrows the room's own panel; only its own two
-       pieces are set here. `section.tool-modal-panel:not([hidden])` elsewhere in
-       this sheet is what makes `hidden` win over the panel's `display: flex` --
-       without the `:not`, this dialog would be open on load. */
-    .bulk-words { margin: 0; font-size: 0.95rem; line-height: 1.45; }
-
-    /* THE IRREVERSIBLE BUTTON IS THE RED ONE, and it is never the primary. */
-    #bulkCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
-    #bulkCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
-    #bulkCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
 
     /* ── THE SELECTION ──────────────────────────────────────────────────── */
 
@@ -390,8 +380,8 @@
       padding: 0;
     }
 
-    /* THE TICK IS THE ROW'S OWN SIZE, so it reads as part of the row rather
-       than as chrome bolted to the side of it. */
+    .track-head .track-head-label--pick { position: relative; }
+
     .track-pick-box { cursor: pointer; }
 
     /* THE BATCH BUTTON, BESIDE THE HEADER'S TICK. It is positioned against the
@@ -399,8 +389,6 @@
        the header -- so a selection appearing changes no width and nothing under
        it moves. A bar that came and went changed the height of the thing you
        were reading. */
-    .track-head .track-head-label--pick { position: relative; overflow: visible; }
-
     .track-batch {
       position: absolute;
       left: 100%;
@@ -414,24 +402,22 @@
       box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18);
     }
 
+    /* THE BATCH DIALOG. It borrows the room's own panel; only its own pieces are
+       set here. `section.tool-modal-panel:not([hidden])` elsewhere in this sheet
+       is what makes `hidden` win over the panel's `display: flex` -- without the
+       `:not`, this dialog would be open on load. */
+    .bulk-words { margin: 0; font-size: 0.95rem; line-height: 1.45; }
 
-    .track-head-label--tapeair,
-    .track-head-label--tapedel {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: visible;
-      padding: 0;
-    }
+    /* THE IRREVERSIBLE BUTTON IS THE RED ONE, and it is never the primary. */
+    #bulkCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
+    #bulkCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
+    #bulkCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
 
-    /* THE FILTER IS THE HEADER'S OWN SIZE, not the row's. It sits among column
-       labels, so at 14pt it would be the loudest thing in a bar of 0.62rem
-       words; the switches it filters keep the row's size. */
-    .track-head-label--tapeair .tape-air-word { font-size: 0.62rem; }
-    .track-head-label--tapeair .tape-air { transform: none; }
+    /* THE HEADER'S OWN CONTROL CELLS WENT ON 2026-08-26, with the tape switch,
+       the X and then the two flag filters. It labels its columns and holds the
+       tick and the batch button; it narrows and writes nothing.
 
-    .track-confirm--head { margin-top: 8px; }
-
+*/
     /* THE BADGE LEADS THE ROW and holds a fixed width whether or not it has a
        badge in it, so the rows below it line up down the left edge. */
     .track-line-new {
@@ -595,33 +581,34 @@
     .track-head-label--mid { padding: 0; text-align: center; }
 
 
-    /* A COLUMN HEADER THAT FILTERS ON ITS OWN COLUMN. It has to look like the
-       labels beside it at rest -- it IS the column's label -- and say plainly
-       when it is on. */
-    .track-head-filter {
-      min-width: 0;
-      padding: 1px 3px;
-      border: 1px solid transparent;
-      border-radius: 5px;
-      background: transparent;
-      font: inherit;
-      font-size: 0.5rem;
-      letter-spacing: 0.04em;
-      text-transform: inherit;
-      color: inherit;
-      cursor: pointer;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
 
-    .track-head-filter:hover { border-color: var(--control-line); color: var(--ink); }
-
-    .track-head-filter.is-on {
+    /* THE TWO FLAG FILTERS IN THE VIEW BAR. They are `.btn`, like everything
+       else on that bar, and say when they are on the way every pressed control
+       in this room does. */
+    .btn--flagfilter.is-on {
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
     }
+
+    /* THE AIR SWITCH IN THE VIEW BAR. It was sized for a 196px column and this
+       bar has to stay on one line, so its words come down to the bar's own type
+       and the whole control is only as wide as it needs to be. */
+    #viewAir {
+      flex: 0 0 auto;
+      display: inline-grid;
+      grid-template-columns: auto auto auto;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px;
+      min-height: 42px;
+    }
+
+    #viewAir .tape-air-word {
+      font-size: 0.62rem;
+      white-space: nowrap;
+    }
+
 
     /* LITTLE BITTY. These are the two narrowest columns on the row and they now
        hold a word rather than a letter, so the label is set below the rest of
@@ -1126,7 +1113,7 @@
        and the widest option must not be able to push the doors off the end. */
     .tape-filter {
       flex: 0 1 auto;
-      max-width: 30ch;
+      max-width: 26ch;
       padding: 0 26px 0 10px;
       font: inherit;
       font-family: "IBM Plex Mono", monospace;
@@ -1292,7 +1279,7 @@
     }
 
 
-    .app { max-width: 1180px; margin: 0 auto; padding: 16px; }
+    .app { max-width: var(--mc-shell-width); margin: 0 auto; padding: 16px; }
     .bar-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
     .command-bar { flex: 1 1 240px; margin: 0; padding: 8px; }
     .command-bar-inner { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1520,6 +1507,17 @@
                   title="Show only the tapes in one country, state or city. The arrows then step through those.">
             <option value="">ALL TAPES</option>
           </select>
+          <!-- EVERY FILTER IN ONE PLACE. The Shelved/Live switch and the
+               Explicit and Sports buttons were on the track header, which put
+               three controls that narrow the list inside the bar that labels its
+               columns. They are all filters, they are all standalone, and they
+               belong next to the one that picks a place. -->
+          <span class="tape-air track-air tape-air--all" id="viewAir" role="group"
+                aria-label="Show shelved tracks, live tracks, or both"></span>
+          <button class="btn btn--flagfilter" id="viewExplicit" type="button"
+                  aria-pressed="false">Explicit</button>
+          <button class="btn btn--flagfilter" id="viewSports" type="button"
+                  aria-pressed="false">Sports</button>
           <span class="bar-sep" aria-hidden="true"></span>
           <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only live tracks appear there.">SOUNDTRACKS</a>
 
@@ -2669,6 +2667,7 @@
         });
 
         paintTapeFilter();
+        paintViewFilters();
         // NARROWED AFTER THE SORT, so the order inside a filter is the order the
         // whole catalogue has: city, A to Z.
         tapes = tapes.filter(tapeMatchesFilter);
@@ -2803,13 +2802,8 @@
           fill(0, buildSelectAll(shown));
           var batch = buildBatchButton();
           if (batch) head.children[0].appendChild(batch);
-          fill(8, buildFlagFilter('explicit', 'Explicit', 'Marked explicit on Spotify.'));
-          fill(9, buildFlagFilter('sports', 'Sports',
-            'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'));
           fill(1, newCell);
-          fill(10, buildAirFilter(tape));
           head.children[0].classList.add('track-head-label--pick');
-          head.children[10].classList.add('track-head-label--tapeair');
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
           // catalogue's figures. Those are standing readings rather than
@@ -4037,9 +4031,10 @@
         // checkboxes side by side with a single letter each: you had to hover
         // one to learn which was which, every time. A word is unambiguous at
         // any size, and these two do not need to be read, only recognised.
+        // THEY ARE LABELS AGAIN, not filters: the filters moved to the VIEW bar.
         ['Explicit', 'Marked explicit on Spotify'],
         ['Sports', 'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'],
-        ['', 'Live on /soundtracks/, or shelved off it.'],
+        ['Status', 'Live on /soundtracks/, or shelved off it. Filter by it in the VIEW bar.'],
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
 
@@ -4161,25 +4156,69 @@
         return '';
       }
 
-      // A COLUMN HEADER THAT FILTERS ON ITS OWN COLUMN. It is a real button, so
-      // it is focusable and says `aria-pressed`; the label alone would have been
-      // a word that silently did something when clicked.
-      function buildFlagFilter(kind, label, tip) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'track-head-filter';
-        btn.textContent = label;
-        var on = trackFlagFilter === kind;
-        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        btn.classList.toggle('is-on', on);
-        btn.title = tip + (on
-          ? ' Showing only these. Press again to show all.'
-          : ' Press to show only these.');
-        btn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          setTrackFlag(kind);
-        });
-        return btn;
+      // ── THE THREE TRACK FILTERS, IN THE VIEW BAR ────────────────────────
+      //
+      // They were built into the track header, one per column, which read well
+      // and was wrong: a header labels the columns under it, and these three
+      // narrow the LIST. They sit with the place filter now, so every control
+      // that decides what you are looking at is in one bar.
+      //
+      // THEY ARE PAINTED FROM STATE, NEVER READ FROM. `trackAirFilter` and
+      // `trackFlagFilter` are the truth and the controls are drawn from them, so
+      // the popup's own switch and these cannot disagree.
+      function paintViewFilters() {
+        var air = document.getElementById('viewAir');
+        var ex = document.getElementById('viewExplicit');
+        var sp = document.getElementById('viewSports');
+        if (!air || !ex || !sp) return;
+
+        if (!air.dataset.wired) {
+          air.dataset.wired = '1';
+          var off = document.createElement('span');
+          off.className = 'tape-air-word tape-air-word--off';
+          off.textContent = 'Shelved';
+          var input = document.createElement('input');
+          input.className = 'tape-air-input';
+          input.type = 'checkbox';
+          input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
+          var knob = document.createElement('span');
+          knob.className = 'tape-air-track';
+          knob.setAttribute('aria-hidden', 'true');
+          var on = document.createElement('span');
+          on.className = 'tape-air-word tape-air-word--on';
+          on.textContent = 'Live';
+          air.append(off, input, knob, on);
+          wireAirSwitch(air, input,
+            function () { return trackAirFilter; }, setTrackAir);
+          air.dataset.input = '1';
+        }
+
+        var box = air.querySelector('.tape-air-input');
+        var counts = airTrackCounts();
+        paintAirSwitch(air, box, trackAirFilter, counts, 'tracks');
+
+        function paintFlag(btn, kind, tip) {
+          var isOn = trackFlagFilter === kind;
+          btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+          btn.classList.toggle('is-on', isOn);
+          btn.title = tip + (isOn
+            ? ' Showing only these. Press again to show all.'
+            : ' Press to show only these.');
+        }
+        paintFlag(ex, 'explicit', 'Marked explicit on Spotify.');
+        paintFlag(sp, 'sports',
+          'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.');
+      }
+
+      // WHAT THE SWITCH COUNTS. It is in the room's own bar now rather than on a
+      // tape's header, so it reports the tape ON SCREEN: that is the list it
+      // narrows, and a catalogue-wide figure beside a control acting on one tape
+      // would be the bar answering a question nobody asked.
+      function airTrackCounts() {
+        var tapes = soundtracks().slice().filter(tapeMatchesFilter);
+        var tape = tapes[Math.min(Math.max(tapeAt, 0), Math.max(tapes.length - 1, 0))];
+        var counts = tape ? tapeCounts(tape) : { LIVE: 0, SHELVED: 0 };
+        return { live: counts.LIVE, shelved: counts.SHELVED };
       }
 
       // ── WHAT THE HEADER DOES TO A SELECTION ─────────────────────────────
@@ -4317,36 +4356,9 @@
       // IT CARRIES NO id. The popup's own copy is `#trackAirAll`, and a second
       // element with that id would make `getElementById` answer for whichever
       // came first.
-      function buildAirFilter(tape) {
-        var label = document.createElement('label');
-        label.className = 'tape-air track-air tape-air--all';
-
-        var off = document.createElement('span');
-        off.className = 'tape-air-word tape-air-word--off';
-        off.textContent = 'Shelved';
-
-        var input = document.createElement('input');
-        input.className = 'tape-air-input';
-        input.type = 'checkbox';
-        input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
-
-        var knob = document.createElement('span');
-        knob.className = 'tape-air-track';
-        knob.setAttribute('aria-hidden', 'true');
-
-        var on = document.createElement('span');
-        on.className = 'tape-air-word tape-air-word--on';
-        on.textContent = 'Live';
-
-        label.append(off, input, knob, on);
-
-        var counts = tapeCounts(tape);
-        paintAirSwitch(label, input, trackAirFilter,
-          { live: counts.LIVE, shelved: counts.SHELVED }, 'tracks');
-        wireAirSwitch(label, input,
-          function () { return trackAirFilter; }, setTrackAir);
-        return label;
-      }
+      // `buildAirFilter` went with the header's own switch on 2026-08-26. The
+      // one in the VIEW bar is markup plus `paintViewFilters`, because there is
+      // one of it and it is not rebuilt per tape.
 
       function buildTrackHead() {
         var head = document.createElement('div');
@@ -4723,6 +4735,15 @@
       var tapeNextBtn = document.getElementById('tapeNext');
       if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
       if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
+
+      var viewExplicitEl = document.getElementById('viewExplicit');
+      if (viewExplicitEl) viewExplicitEl.addEventListener('click', function () {
+        setTrackFlag('explicit');
+      });
+      var viewSportsEl = document.getElementById('viewSports');
+      if (viewSportsEl) viewSportsEl.addEventListener('click', function () {
+        setTrackFlag('sports');
+      });
 
       var tapeFilterEl = document.getElementById('tapeFilter');
       if (tapeFilterEl) tapeFilterEl.addEventListener('change', function () {
