@@ -3618,7 +3618,13 @@
           name.textContent = clubName(row, 'away') + ' at ' + clubName(row, 'home');
           if (row.neutral_site) name.appendChild(badge('neutral site', 'neutral'));
           if (dupe) name.appendChild(badge('in catalog'));
-          if (!row.__cityKnown) name.appendChild(badge('new city', 'warn'));
+          // IT WILL BE ADDED, so the badge says what is about to happen rather
+          // than asking for an errand somebody has to remember.
+          if (!row.__cityKnown) {
+            const b = badge('new city', 'warn');
+            b.title = 'Not in the city catalogue yet. Importing this will add it.';
+            name.appendChild(b);
+          }
           if (!row.__tzKnown) name.appendChild(badge('no local time', 'warn'));
           const sub = document.createElement('div');
           sub.className = 'sched-sub';
@@ -3706,6 +3712,45 @@
         schedProgressBar.style.width = Math.round(Math.min(i + CHUNK, picked.length) / picked.length * 100) + '%';
       }
 
+      // EVERY CITY THE IMPORT NAMED, ADDED. This used to badge a row `new city`
+      // and leave it: a bulk import quietly creating dozens of cities was a
+      // different decision from one event bringing one city, and the badge was
+      // the prompt to go and add it. **That was overruled on 2026-08-25** -- a
+      // city named by any writer is added -- so the badge is now a statement
+      // about what WILL happen rather than an errand.
+      //
+      // AFTER THE EVENTS, NEVER BEFORE. The rows are already in; a catalogue
+      // write that fails is a smaller problem than an import that looks like it
+      // did not happen. Deduped first, because one import is routinely twenty
+      // events in the same handful of towns.
+      const newCities = [...new Set(picked
+        .filter((r) => !r.__cityKnown)
+        .map((r) => clean(r.venue_city))
+        .filter(Boolean))];
+      let cityAdded = 0;
+      for (const city of newCities) {
+        try {
+          // The same doorway the bots use, so a city arriving from the importer
+          // is the same row as one arriving from a routine: it writes only
+          // `city` and lets the table's triggers fill the slug and the geo, and
+          // it refuses anything that does not parse as a place.
+          const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/rpc/tgb_ensure_city', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ p_city: city })
+          });
+          if (res.ok && (await res.json()) === true) cityAdded++;
+        } catch (err) {
+          // Not fatal and not silent: the events are filed either way.
+          console.error('could not add ' + city, err);
+        }
+      }
+      if (cityAdded && window.TgbCities && typeof TgbCities.load === 'function') {
+        // Or knownCity() and the City datalist both go on not knowing, and the
+        // next render would still badge the row `new city`.
+        TgbCities.load({ force: true }).then(refreshCityOptions).catch((err) => console.error(err));
+      }
+
       schedState.busy = false;
       if (inserted.length) {
         // Merge into the page's own rows so the catalog behind the dialog is
@@ -3719,6 +3764,7 @@
       }
       const skipped = picked.length - inserted.length - failures.length;
       const parts = [inserted.length + ' imported'];
+      if (cityAdded) parts.push(cityAdded + ' new ' + (cityAdded === 1 ? 'city' : 'cities') + ' added');
       if (skipped > 0) parts.push(skipped + ' already there');
       if (failures.length) parts.push(failures.length + ' refused');
       setSchedStatus(parts.join(', ') + '.'

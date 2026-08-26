@@ -60,7 +60,10 @@ range; inside three weeks, only take it if it is genuinely notable.
    "coming soon". If the page does not state the day, skip it.
 2. **A future date.** The RPC refuses a past one, which is the sign you have
    scraped an archive page.
-3. **A city that is already in `public.cities`.** Read the catalogue first (see
+3. **A properly formed city.** A city the catalogue does not hold is created
+   for you when the date is filed, so a town nobody has entered no longer costs
+   you the pick; a string that does not parse as `"City, StateOrCountry"` is
+   still refused. Read the catalogue first (see
    below). **The RPC refuses a city it does not know**, and that refusal is not
    a bug to work around: the catalogue is the one city list the whole site
    reads, and a tour date in a town nothing else knows about cannot be shopped,
@@ -154,8 +157,10 @@ nothing; asking for them to become parameters is the one change to refuse.
   announced this week.
 - **`invalid` means you sent something the row could not be built from** — no
   title, no usable date, a date already gone. Say which in the summary.
-- **`unknown_city` is the one to report by name**, every time. It is the only
-  outcome a human can act on, and acting on it makes the next run better.
+- **`unknown_city` NOW MEANS THE STRING WAS NOT A CITY**, not that the catalogue
+  was missing one. A real `"City, State"` is added and the date is filed; this
+  outcome is what you get for a bare city name or a placeholder. **Report it by
+  name**: it means you sent something wrong.
 
 **IF THE CALL COMES BACK `PGRST202`, the function is not installed.** Say so,
 name the file — `mc/supabase/migrations/2026082401_concert_tour_pull_rpc.sql` —
@@ -169,7 +174,9 @@ Plain prose, no em dashes, and it must carry:
 
 - how many you filed, and out of how many you looked at;
 - the cities and acts, so it reads as a list of what arrived;
-- **every `unknown_city`, named**, with the town, so somebody can add it;
+- **every `unknown_city`, named**, since each is a string you sent that was not
+  a usable city;
+- **every city you caused to be created**, named;
 - anything you had to drop and why;
 - **if you filed fewer than ten, why** — that is a fact about the source or the
   rules, and it is the most useful line in the report.

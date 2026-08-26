@@ -127,14 +127,26 @@ Both are anon-readable with the publishable key
 2. **A future date.** The RPC refuses a past one, which is the sign you have
    scraped an archive page.
 3. **A venue holding 10,000 or more.** See above.
-4. **A city already in `public.cities`, spelled EXACTLY as the catalogue spells
+4. **A properly formed city, spelled as the catalogue spells it where it has
    it.** `"Chicago, Illinois"`, never `"Chicago, IL"` and never `"Chicago"`.
+   **A city the catalogue does not hold is created for you**, so a town nobody
+   has entered no longer costs you the event; but a string that does not parse
+   as `"City, StateOrCountry"` is still refused, and takes the event with it.
 5. **THE VENUE CITY, NOT THE CLUB'S HOME MARKET.** The Chargers play in
    Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. The row
    records where the event physically happens.
 6. **No em dash**, anywhere in anything you write. Use a comma, a colon or
    brackets. It is the clearest single tell that a machine wrote the line, and
    the ban is site-wide.
+
+**THE CATALOGUE IS ADDED TO, NOT CHECKED AGAINST** (2026-08-25). A city the
+catalogue does not hold is created for you when the event is filed, so an event
+in a town nobody has entered is no longer dropped. **This does NOT license a
+loose city string**: the doorway refuses anything that does not parse as
+`"City, StateOrCountry"`, so a bare `"Chicago"` or a club market like
+`"New England"` is still refused and takes the event down with it. Send the
+catalogue's exact spelling where it has one, and a properly formed
+`"City, State"` where it does not.
 
 ## Filing them
 
@@ -192,8 +204,11 @@ nothing; asking for it to become a parameter is the one change to refuse.
   means the dedupe read above was not done properly.
 - **`invalid` means the row could not be built** — no title, no usable date, a
   date already gone, a kind that is not one of the six. Say which in the summary.
-- **`unknown_city` is the one to report BY NAME, every time.** It is the only
-  outcome a human can act on, and acting on it makes the next run better.
+- **`unknown_city` NOW MEANS THE STRING WAS NOT A CITY**, not that the catalogue
+  was missing one. A real `"City, State"` is added and the event is filed; this
+  outcome is what you get for a bare city name, a club market, or a placeholder.
+  **Report it by name**: it is the one outcome that means you sent something
+  wrong.
 
 **IF THE CALL COMES BACK `PGRST202`, the function is not installed.** Say so,
 name the file — `mc/supabase/migrations/2026082503_anchor_event_pull_rpc.sql` —
@@ -207,7 +222,10 @@ Plain prose, no em dashes, and it must carry:
 
 - how many you filed, and out of how many you looked at;
 - the spread: how many sports, concerts, conventions, and across how many cities;
-- **every `unknown_city`, named**, with the town, so somebody can add it;
+- **every `unknown_city`, named**, since each one is a string you sent that was
+  not a usable city;
+- **every city you caused to be created**, named, so somebody can look at what
+  arrived;
 - **anything you dropped for capacity**, and the venue, since that is the rule
   most likely to be worth arguing with;
 - anything else you had to drop and why.

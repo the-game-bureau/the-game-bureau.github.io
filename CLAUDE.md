@@ -842,6 +842,57 @@ They are the room's two ways in, so they are built to be read together: **MANUAL
 - **IT IS NOT A HISTORY.** If an audit trail is ever wanted, that is an events table, not a wider column.
 - **It takes the accent, not the red pen**: a row that has been round before is context, not a warning. It wears the origin chip's shape because it is the same kind of fact — what the candidate *is*, rather than what it says.
 
+## A CITY NAMED BY ANY WRITER IS ADDED TO `public.cities` (2026-08-25)
+
+[2026082505](mc/supabase/migrations/2026082505_auto_add_cities.sql), **applied**. `tgb_ensure_city(text)` is the one doorway, and
+all three writers now go through it or its equivalent.
+
+| how an event arrives | before | now |
+|---|---|---|
+| MANUAL, in the room | added the city | unchanged |
+| SCHEDULE, the ESPN import | badged `new city`, added nothing | adds every city it named |
+| the bots, through the pull RPCs | **refused the event** | creates the city, files the event |
+
+**THIS REVERSES THE ADVICE IN 2026082503's OWN COMMENT**, which said the
+catalogue should not be writable by an anon-callable function. **The concern was
+raised and overruled, which is a decision and not an oversight.** What is below
+is the narrowest version that still does what was asked.
+
+- **`tgb_ensure_city` IS INSERT-ONLY.** It can create a row and can never update
+  or delete one, so no existing city can be renamed, hidden, unhidden or removed
+  through it.
+- **IT REFUSES A STRING THAT IS NOT A CITY**, and this is the guard that carries
+  the whole design: `tgb_parse_geo` must yield a `city_name` **and** either a
+  state or a country. `"Chicago, Illinois"` and `"Dublin, Ireland"` pass;
+  **`"Chicago"`, `"New England"`, `"TBD"` and `""` do not.** That is what stops
+  a club market becoming a catalogue row — the same thing the room's own
+  `ensureCitiesExist` refuses to invent.
+- **IT WRITES ONLY `city`.** The slug and every structured column come from the
+  table's triggers, so a row that arrives this way is the same row as one added
+  on the Cities page. Verified: `Nowheresville, Nebraska` came out
+  `nowheresville / Nowheresville / NE / USA`.
+- **`unknown_city` CHANGED MEANING**, and both prompts were rewritten to say so.
+  It no longer means the catalogue was missing a town; it means **the string was
+  not a usable city**. Both routines are now told to report it as *something you
+  sent wrong*, and to name every city they caused to be created.
+- **THE VISIBILITY FLAGS ARE LEFT AT THEIR DEFAULTS.** A new city arrives
+  visible and is harmless: the three public rails are driven by what a city HAS
+  — games, tapes, gift listings — and a city just created has none, so it shows
+  nothing anywhere. Pre-hiding would mean every good city arrived switched off
+  and had to be found and switched on.
+- **WHAT THE BOTS ADD IS FINDABLE**, with no new column, because
+  `cities.created_at` already existed:
+  `select city, created_at from public.cities where created_at > now() - interval '7 days' order by created_at desc;`
+- **THE TWO RPCs WERE PATCHED IN PLACE FROM THEIR LIVE DEFINITIONS**, one branch
+  swapped, rather than re-pasted. **A `create or replace` rewrites the whole
+  body** and this project has already lost a column that way.
+
+**PROVED BY CALLS THAT MADE IT DO ITS JOB.** The helper refused a market, a bare
+city name, a placeholder and a blank, and created a real one with its triggers
+firing. An event in a town nobody had entered came back **`inserted`** with the
+city created alongside it; the same event in `"New England"` still came back
+`unknown_city`. Probes deleted; 4,181 events and 1,461 cities after.
+
 ## THE HUB ANSWERS "WHAT IS WAITING ON ME" AND "ARE THE BOTS ALIVE" (2026-08-25)
 
 Two tables at the top of [mc/index.html](mc/index.html), above Ancillary Things.
