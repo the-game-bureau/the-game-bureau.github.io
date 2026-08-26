@@ -614,6 +614,27 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### THE TAPE LINE IS A FLEX BAR, NOT A GRID (2026-08-25)
+
+Eight fixed columns made sense over 113 tape lines that had to align with each
+other. **There is one now**, so the columns bought nothing and cost the name
+editor its room: two inputs and a flip button squeezed into `minmax(0, 1fr)`
+while `11ch` sat half empty beside it.
+
+- **NOTHING WAS DROPPED.** In order: country, state, the name editor, the
+  counts, the issue dots, the NEW badge, the Shelved/Live switch, delete, and
+  the findings block. A check reads the children in sequence rather than
+  asserting any one of them exists.
+- **THE NAME TAKES THE SLACK** (`flex: 1 1 240px`) and everything after it holds
+  its own width, so the row does not reflow as a tape name gets longer.
+- **`grid-column` MEANS NOTHING IN A FLEX BOX**, which is the fault that made
+  the finding line invisible the first time it shipped. The two full-width
+  blocks, the findings and the delete confirmation, are `flex: 1 0 100%`.
+  - **THE CONFIRMATION'S CLASS IS `track-confirm`, NOT `tape-confirm`.** Written
+    from memory it was the second, which matches nothing: the tape's delete
+    confirmation reuses the track one. Caught by grepping for the class rather
+    than trusting the name.
+
 ### THE TAPE NAME IS EDITED ON ITS LINE (2026-08-25)
 
 `buildTapeNameEditor` is the tape line's name cell now, the SAME editor the

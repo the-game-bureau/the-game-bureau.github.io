@@ -394,16 +394,36 @@
     .tape-line .tape-air,
     .tape-line .tape-air * { cursor: pointer; }
 
+    /* A FLEX BAR, NOT A GRID. It was eight fixed columns because there were
+       113 of these and they had to line up; there is one now, so the columns
+       bought nothing and cost the name editor its room -- two inputs and a flip
+       button squeezed into `minmax(0, 1fr)` while `11ch` sat half empty beside
+       it. Everything that was on the row is still on it. */
     .tape-line {
-      display: grid;
-      grid-template-columns: var(--tape-cols);
-      gap: 4px 8px;
-      align-items: baseline;
-      padding: 9px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      padding: 7px 10px;
       border: 1px solid var(--control-line);
       border-radius: 8px;
       background: #fff;
     }
+
+    /* THE NAME TAKES THE SLACK so everything after it stays put. */
+    .tape-line > .tape-line-name { flex: 1 1 240px; min-width: 0; }
+
+    /* The place, quiet and first, at their own width rather than a fixed one. */
+    .tape-line > .tape-line-country,
+    .tape-line > .tape-line-state { flex: 0 1 auto; max-width: 14ch; }
+
+    .tape-line > .tape-line-num { flex: 0 0 auto; }
+
+    /* `grid-column` MEANS NOTHING IN A FLEX BOX, so the two full-width blocks
+       are given a basis instead. This is the fault that made the finding line
+       invisible the first time it shipped. */
+    .tape-line > .tape-line-findings,
+    .tape-line > .track-confirm { flex: 1 0 100%; }
 
     .tape-line-state,
     .tape-line-country {
@@ -1180,7 +1200,6 @@
     /* THE TAPE'S OWN FINDINGS, under its line and spanning the whole row. Its
        own, not its tracks': those are drawn on the track rows below. */
     .tape-line-findings {
-      grid-column: 1 / -1;
       display: grid;
       gap: 8px;
       margin-top: 8px;
