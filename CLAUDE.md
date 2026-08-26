@@ -579,6 +579,30 @@ the tracks indented under the tape they belong to.
     rows: London reads `England, United Kingdom`, Toronto `Ontario, Canada`,
     Algiers `Algeria`, New York `United States`.
 
+### THE HEADERS, ONCE THE ROOM SHOWED ONE TAPE (2026-08-25)
+
+The room had three bars stacked above a list, and two of them were describing
+columns they were nowhere near.
+
+- **`.tape-head` IS A SORT AND FILTER BAR NOW, NOT A COLUMN HEADER.** It was a
+  grid on `--tape-cols` with labelled columns, which made sense over a list of
+  113 tape lines and stopped making sense the moment one tape showed and the
+  pager sat between them. It is `.room-controls`: a flex bar with a **SORT**
+  group (Country, State, Tape) and a **SHOW** group (Issues, New, Shelved/Live),
+  with the catalogue-wide Tracks figure pushed to the far end by `margin-left:
+  auto` **so it does not read as a fourth thing to press**.
+- **THE TRACK COLUMN HEADER IS EMITTED PER TAPE, between the tape's line and its
+  tracks.** In the static markup it sat above the pager, naming columns three
+  bars away from the rows they belonged to. `buildTrackHead()` builds it.
+- **THE TAPE LINE WAS RENDERING UNDER ITS OWN TRACKS**, and had been since the
+  track rows were added. `trackArchiveList.appendChild(row)` is the LAST
+  statement of the tape loop, so the track block appended before it went in
+  first. The row goes in before its tracks now. **Order in a loop like this is
+  not visible in a diff and is not visible in a `textContent` assertion; the
+  check reads the list's children in order.**
+- **The issue dots stay on the tape line** and are unaffected: 3 of them on
+  Baton Rouge, in the same cell they were always in.
+
 ### BOTH KINDS OF FINDING ARE ACTIONABLE ON THE MAIN LIST (2026-08-25)
 
 A finding is about a TRACK or about the TAPE, and both now draw where they

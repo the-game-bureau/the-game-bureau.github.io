@@ -1190,6 +1190,36 @@
 
     .tape-line-findings .issue-item { margin: 0; }
 
+    /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
+       header; with one tape on screen there is nothing up here to align to. */
+    .room-controls {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-bottom: 6px;
+      padding: 8px 12px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: var(--cut-panel-bg);
+    }
+
+    .ctl-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .ctl-label {
+      font: 700 0.62rem/1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* THE ONE FIGURE THAT IS NOT A FILTER sits at the far end, away from the
+       three controls, so it does not read as a fourth thing to press. */
+    .ctl-total { margin-left: auto; }
+
     .tape-air {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -1500,24 +1530,24 @@
 
       <div class="work-panel" id="roomBody">
 
-        <div class="tape-head" id="tapeHead" role="row">
+        <!-- NOT A COLUMN HEADER ANY MORE. With one tape on screen there is a
+             single tape line to align to, and it sits below the pager, so
+             labelled columns up here would be pointing at nothing. It is what
+             it always really was: the room's sort and filter controls. -->
+        <div class="room-controls" id="tapeHead">
 
-          <button class="tape-head-btn" type="button" data-sort="country"
-                  title="Sort by country. Press to cycle: off, A to Z, Z to A.">Country<span class="sort-rank"></span></button>
-          <button class="tape-head-btn" type="button" data-sort="state"
-                  title="Sort by state. Press to cycle: off, A to Z, Z to A.">State<span class="sort-rank"></span></button>
-
-          <button class="tape-head-btn" type="button" data-sort="city"
-                  title="Sort by CITY, wherever the city sits in the name. Press to cycle: off, A to Z, Z to A.">Tape<span class="sort-rank"></span></button>
-
-          <span class="tape-head-label tape-head-label--num tape-head-label--tracks-cell">
-
-            <span class="head-figure">
-              <span class="head-word">Tracks</span>
-              <span class="head-count" id="trackTotal"></span>
-            </span>
+          <span class="ctl-group">
+            <span class="ctl-label">Sort</span>
+            <button class="tape-head-btn" type="button" data-sort="country"
+                    title="Sort by country. Press to cycle: off, A to Z, Z to A.">Country<span class="sort-rank"></span></button>
+            <button class="tape-head-btn" type="button" data-sort="state"
+                    title="Sort by state. Press to cycle: off, A to Z, Z to A.">State<span class="sort-rank"></span></button>
+            <button class="tape-head-btn" type="button" data-sort="city"
+                    title="Sort by CITY, wherever the city sits in the name. Press to cycle: off, A to Z, Z to A.">Tape<span class="sort-rank"></span></button>
           </span>
-          <span class="tape-head-label tape-head-label--num tape-head-label--issues-cell">
+
+          <span class="ctl-group">
+            <span class="ctl-label">Show</span>
 
             <label class="head-figure head-figure--filter" id="issueTotalPill"
                    title="Show only tapes with an open issue">
@@ -1525,26 +1555,27 @@
               <span class="head-word">Issues</span>
               <span class="head-count" id="issueTotal"></span>
             </label>
-          </span>
 
-          <span class="tape-head-label tape-head-label--num tape-head-label--new-cell">
             <label class="head-figure head-figure--filter head-figure--new" id="newTotalPill"
                    title="Show only tapes added, or added to, in the last 72 hours">
               <input type="checkbox" id="newOnly">
               <span class="head-word">New</span>
               <span class="head-count" id="newTotal"></span>
             </label>
+
+            <label class="tape-air tape-air--all" id="tapeAirAll">
+              <span class="tape-air-word tape-air-word--off">Shelved</span>
+              <input class="tape-air-input" id="tapeAirAllInput" type="checkbox"
+                     aria-label="Show shelved tapes, live tapes, or both">
+              <span class="tape-air-track" aria-hidden="true"></span>
+              <span class="tape-air-word tape-air-word--on">Live</span>
+            </label>
           </span>
 
-          <span class="tape-head-label"></span>
-
-          <label class="tape-air tape-air--all" id="tapeAirAll">
-            <span class="tape-air-word tape-air-word--off">Shelved</span>
-            <input class="tape-air-input" id="tapeAirAllInput" type="checkbox"
-                   aria-label="Show shelved tapes, live tapes, or both">
-            <span class="tape-air-track" aria-hidden="true"></span>
-            <span class="tape-air-word tape-air-word--on">Live</span>
-          </label>
+          <span class="head-figure ctl-total" title="Live of every track in the catalogue">
+            <span class="head-word">Tracks</span>
+            <span class="head-count" id="trackTotal"></span>
+          </span>
         </div>
 
         <div class="tape-pager">
@@ -1553,21 +1584,33 @@
           <button class="btn small" id="tapeNext" type="button" aria-label="Next tape">Next &#8250;</button>
         </div>
 
-        <!-- THE COLUMN HEADER FOR THE TRACK ROWS. The row above it is the
-             tape-level control bar, which aligns with the tape lines; this one
-             aligns with the tracks, and one of it serves all of them because
-             every track row carries the same fixed `--track-cols`. -->
-        <div class="track-head track-head--main" role="row">
-          <span class="track-head-label"></span>
-          <span class="track-head-label" title="Play order on the cassette. Edit it to reorder.">#</span>
-          <span class="track-head-label">Title</span>
-          <span class="track-head-label">Artist</span>
-          <span class="track-head-label">Blurb</span>
-          <span class="track-head-label" title="The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.">Spotify</span>
-          <span class="track-head-label track-head-label--mid" title="Marked explicit on Spotify">E</span>
-          <span class="track-head-label">Status</span>
-          <span class="track-head-label track-head-label--mid" title="Delete the row outright. Shelving is almost always what you want instead.">Del</span>
+</div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+
+
+          <a class="btn" id="soundtrackBotBtn" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Checking last run…">TGB SOUNDTRACK BOT</a>
+          <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer" title="Track ideas emailed to soundtrack@thegamebureau.com">EMAILED SUGGESTIONS</a>
         </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--view">
+        <legend>View</legend>
+        <div class="command-bar-inner">
+          <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only live tracks appear there.">SOUNDTRACKS</a>
+
+          <a class="btn" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Cloudflare Web Analytics. Add a filter on path = /soundtracks/ to see this page. Counts arrivals, not plays — a page view cannot tell you whether anyone pressed play.">LISTENER STATS</a>
+          <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">ABOUT</a>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="prompt-layout">
+
+      <div class="work-panel" id="roomBody">
 
         <datalist id="cityOptions"></datalist>
         <div class="tape-lines" id="trackArchiveList"></div>
@@ -3084,12 +3127,30 @@
           row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
           if (findingNote) row.appendChild(findingNote);
 
+          var confirmStrip = renderTapeConfirm(tape);
+          if (confirmStrip) row.appendChild(confirmStrip);
+
+          // THE TAPE'S OWN LINE GOES IN FIRST. It used to be appended after
+          // its tracks, which put the heading UNDER the rows it heads: the
+          // track block below is appended to the list, and the row was not
+          // added until the end of this loop.
+          trackArchiveList.appendChild(row);
+
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
           // is the tape's own line and still carries its counts, its findings
           // and its air switch; these are the tracks, drawn by the SAME builder
           // the popup uses, so there is one track row in this project and not
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
+          var songsHere = allSongs(tape).filter(function (song) {
+            return airMatches(airFilter, songStatus(song) !== 'LIVE');
+          });
+
+          // THE COLUMN HEADER GOES HERE, between the tape and its tracks, not
+          // in the page's static markup above the pager: up there it named
+          // columns that were three bars away from the rows they belonged to.
+          if (songsHere.length) trackArchiveList.appendChild(buildTrackHead());
+
           allSongs(tape).slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
@@ -3100,9 +3161,7 @@
             trackArchiveList.appendChild(line);
           });
 
-          var confirmStrip = renderTapeConfirm(tape);
-          if (confirmStrip) row.appendChild(confirmStrip);
-          trackArchiveList.appendChild(row);
+
         });
 
         fitRowInputs();
@@ -4324,6 +4383,35 @@
       // THE PAGER. It reads the list it is given rather than recomputing one,
       // so it can never disagree with what is on screen about how many there
       // are or which one this is.
+      // THE TRACK COLUMN HEADER. Built rather than written in the markup,
+      // because it is emitted once per tape shown, under that tape's own line.
+      var TRACK_HEAD_CELLS = [
+        ['', ''],
+        ['#', 'Play order on the cassette. Edit it to reorder.'],
+        ['Title', ''],
+        ['Artist', ''],
+        ['Blurb', ''],
+        ['Spotify', 'The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.'],
+        ['E', 'Marked explicit on Spotify'],
+        ['Status', 'Live on /soundtracks/, or shelved off it.'],
+        ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
+      ];
+
+      function buildTrackHead() {
+        var head = document.createElement('div');
+        head.className = 'track-head track-head--main';
+        head.setAttribute('role', 'row');
+        TRACK_HEAD_CELLS.forEach(function (cell, i) {
+          var el = document.createElement('span');
+          el.className = 'track-head-label'
+            + (i === 6 || i === 8 ? ' track-head-label--mid' : '');
+          el.textContent = cell[0];
+          if (cell[1]) el.title = cell[1];
+          head.appendChild(el);
+        });
+        return head;
+      }
+
       function paintTapePager(tapes) {
         var prev = document.getElementById('tapePrev');
         var next = document.getElementById('tapeNext');
