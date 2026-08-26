@@ -1119,6 +1119,30 @@
       border-color: var(--cut-panel-line);
     }
 
+    .track-titlecell { display: grid; gap: 1px; min-width: 0; align-content: center; }
+
+    /* TINY, AND QUIET. It is context for the line below it, not a heading: at
+       any weight it would compete with the title it sits over. */
+    .track-tapetag {
+      font: 600 0.62rem/1.15 var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* NOT IN THE POPUP. There the tape's name is the dialog's own title, so
+       this would be the same thing said twice a few pixels apart. */
+    .track-lines .track-tapetag { display: none; }
+
+    .track-head--main {
+      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      margin-left: 22px;
+      margin-bottom: 4px;
+    }
+
     .tape-air {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -1474,6 +1498,22 @@
             <span class="tape-air-track" aria-hidden="true"></span>
             <span class="tape-air-word tape-air-word--on">Live</span>
           </label>
+        </div>
+
+        <!-- THE COLUMN HEADER FOR THE TRACK ROWS. The row above it is the
+             tape-level control bar, which aligns with the tape lines; this one
+             aligns with the tracks, and one of it serves all of them because
+             every track row carries the same fixed `--track-cols`. -->
+        <div class="track-head track-head--main" role="row">
+          <span class="track-head-label"></span>
+          <span class="track-head-label" title="Play order on the cassette. Edit it to reorder.">#</span>
+          <span class="track-head-label">Title</span>
+          <span class="track-head-label">Artist</span>
+          <span class="track-head-label">Blurb</span>
+          <span class="track-head-label" title="The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.">Spotify</span>
+          <span class="track-head-label track-head-label--mid" title="Marked explicit on Spotify">E</span>
+          <span class="track-head-label">Status</span>
+          <span class="track-head-label track-head-label--mid" title="Delete the row outright. Shelving is almost always what you want instead.">Del</span>
         </div>
 
         <datalist id="cityOptions"></datalist>
@@ -3947,7 +3987,23 @@
           repaintTracks();
         });
 
-        line.append(playBtn, posEl, titleEl, artistEl, blurbEl, idEl, explicitWrap, air, del);
+        // WHICH TAPE THIS TRACK IS ON, above its title. On the main list the
+        // rows run past 1,643 of them and the tape heading scrolls away, so a
+        // row that says only "Abilene / George Hamilton IV" leaves you scrolling
+        // back to find out where it belongs.
+        //
+        // IT IS HIDDEN INSIDE THE POPUP by CSS rather than by a branch here,
+        // because there the tape's name is the dialog's own title and this
+        // would be the same thing said twice. One builder, no argument.
+        var titleCell = document.createElement('span');
+        titleCell.className = 'track-titlecell';
+        var tapeTag = document.createElement('span');
+        tapeTag.className = 'track-tapetag';
+        tapeTag.textContent = tapeFullName(tape);
+        tapeTag.title = 'The tape this track is on.';
+        titleCell.append(tapeTag, titleEl);
+
+        line.append(playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, air, del);
 
         if (isFocused) {
           var stage = document.createElement('div');

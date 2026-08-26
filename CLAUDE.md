@@ -538,6 +538,22 @@ the tracks indented under the tape they belong to.
   live: the counts, the findings, the shelve switch and the delete. A flat list
   with the city repeated on every row would have deleted all four. **Say so if
   it should be flat.**
+- **EVERY TRACK ROW SAYS WHICH TAPE IT IS ON**, in tiny mono above the title.
+  Past 1,643 rows the tape heading scrolls away, so a row reading only
+  "Abilene / George Hamilton IV" left you scrolling back to find out where it
+  belonged. **It is hidden inside the popup by CSS rather than by a branch in
+  the builder** (`.track-lines .track-tapetag { display: none }`), because there
+  the tape's name is the dialog's own title and it would be the same thing said
+  twice. One builder, no argument to pass.
+  - The title cell became a **wrapper** (`.track-titlecell`), since text cannot
+    go inside an `<input>`. The wrapper is the grid child now, not the input.
+- **THERE ARE TWO HEADERS, ONE PER ROW TYPE, AND THAT IS THE POINT.** The tape
+  head carries the sorts, the three figures and the master filter, and aligns
+  with the tape lines. The new `.track-head--main` carries **# Title Artist
+  Blurb Spotify E Status Del** and aligns with the track rows. **One of it
+  serves all 1,643**, because every track row carries the same fixed
+  `--track-cols` and the same indent. A test asserts the header's column
+  template and its child count both equal the row's.
 - **THE COST IS REAL AND IS NOT CAPPED.** 27,672 nodes and about 10,000 form
   controls on one page. Nothing is truncated, per the no-silent-caps rule, and
   the filters in the header are what narrow it. If it ever needs to be lighter,
