@@ -4406,11 +4406,14 @@
       function stepTape(by) {
         tapeAt += by;
         renderTrackArchive();
-        // The list is rebuilt, so bring the top of it back into view rather
-        // than leaving you halfway down the tape you just left.
-        if (trackArchiveList && trackArchiveList.scrollIntoView) {
-          trackArchiveList.scrollIntoView({ block: 'start' });
-        }
+        // NO SCROLLING. This used to call `scrollIntoView` on the list to bring
+        // its top back after the rebuild, which is wrong in the common case:
+        // from the top of the page it scrolls DOWN, past the room's own head,
+        // so pressing Next at rest made the page jump away from you.
+        //
+        // The arrows live in the sticky header, so they are on screen wherever
+        // you are and there is nothing to bring back into view. Where you were
+        // reading is left alone.
       }
 
       function paintMasterAir() {

@@ -638,6 +638,24 @@ or three lines tall, and trimming the row's padding moved almost nothing.
   0, so the grow path measures 26px there whatever the text. The resting state,
   the uniformity and the tooltip are all checked; the expansion is not.
 
+### STEPPING TO THE NEXT TAPE DOES NOT MOVE THE PAGE (2026-08-26)
+
+`stepTape` called `scrollIntoView` on the list to bring its top back after the
+rebuild. **From the top of the page that scrolls DOWN**, past the room's own
+head, so pressing Next at rest made the page jump away from you.
+
+- **THERE IS NOTHING TO BRING BACK INTO VIEW.** The arrows live in the sticky
+  header, so they are on screen wherever you are reading. Where you were is left
+  alone.
+- **`focusSong`'s `scrollIntoView` STAYS and is a different thing**: it is
+  `block: 'nearest'`, so it moves only when the focused row is actually off
+  screen, and it is opt-in through that function's `scroll` argument. Keyboard
+  navigation would be unusable without it.
+- The check **spies on `Element.prototype.scrollIntoView`, `window.scrollTo` and
+  `scrollBy`** and asserts that stepping either way, and changing a filter, make
+  no call at all. jsdom does no layout, so counting the calls is the only thing
+  that can be asserted headlessly here.
+
 ### THE CATALOGUE COUNT SITS WITH THE ROOM'S NAME (2026-08-26)
 
 `1514/1643` moved out of the controls bar and onto the `TAPE ROOM` heading's own
