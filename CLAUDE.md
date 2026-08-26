@@ -579,6 +579,26 @@ the tracks indented under the tape they belong to.
     rows: London reads `England, United Kingdom`, Toronto `Ontario, Canada`,
     Algiers `Algeria`, New York `United States`.
 
+### BOTH KINDS OF FINDING ARE ACTIONABLE ON THE MAIN LIST (2026-08-25)
+
+A finding is about a TRACK or about the TAPE, and both now draw where they
+belong, as the same full item the popup builds: kind chip, the words, and
+**Copy fix prompt / Delete issue / Keep issue**.
+
+- **A TRACK FINDING WAS ALREADY RIGHT**: `renderTrackLine` draws it in
+  `.track-issues`, which carries `grid-column: 1 / -1` and is unscoped, so it
+  spanned the row out here without a change.
+- **A TAPE FINDING WAS ONLY A SENTENCE**, red text with no buttons, so clearing
+  one meant opening the popup. It is `.tape-line-findings` now, built by the
+  same `buildIssueItem`. **A finding about the LIST names no track** -- short of
+  15, over 15, a city now hidden -- so the tape line is the only place it can
+  live.
+- **TRACK FINDINGS ARE NOT REPEATED ON THE TAPE LINE.** The line used to show
+  the first of ALL of them, which was reasonable when the tracks were behind a
+  popup and became the same thing twice a few pixels apart once they were
+  expanded underneath. `tapeIssues(tape)`, not `issuesForTape(tape)`.
+- **The pips stay**, being the thing you spot while scrolling.
+
 ### THE TAPE LINE CARRIES WHAT THE POPUP SAID ABOUT THE TAPE (2026-08-25)
 
 Two of the three things the tracks popup's header told you are on the main list

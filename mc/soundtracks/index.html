@@ -1097,17 +1097,6 @@
     /* A LIVE COUNT OF ZERO IS NOT GOOD NEWS, so it does not wear the green. */
     .tape-line-live.is-none { color: var(--muted); font-weight: 500; }
 
-    .tape-line-finding {
-      grid-column: 1 / -1;
-      display: block;
-      margin-top: 2px;
-      font: 500 0.8rem/1.35 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: var(--bic-red);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
     /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row, so it needs the
        popup's column widths, which were scoped to `.track-head, .track-lines`
        and would otherwise resolve to nothing out here and collapse every
@@ -1187,6 +1176,19 @@
     }
 
     .tape-pager .btn[disabled] { opacity: 0.4; cursor: default; }
+
+    /* THE TAPE'S OWN FINDINGS, under its line and spanning the whole row. Its
+       own, not its tracks': those are drawn on the track rows below. */
+    .tape-line-findings {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--control-line);
+    }
+
+    .tape-line-findings .issue-item { margin: 0; }
 
     .tape-air {
       display: grid;
@@ -2946,17 +2948,24 @@
 
             issues.title = issueScopeSummary(tapeFlags, trackFlags);
 
-            // WHAT THE FINDING SAYS, ON THE LINE. The pips are a marker you can
-            // spot while scrolling and say nothing about what is wrong, so
-            // acting on one meant opening the tape to find out whether it was
-            // worth opening. The first finding's own words go here, with a
-            // count when there are more.
-            findingNote = document.createElement('span');
-            findingNote.className = 'tape-line-finding';
-            var first = flags[0];
-            findingNote.textContent = humaniseIssueText(text(first && first.detail))
-              + (flags.length > 1 ? '  (+' + (flags.length - 1) + ' more)' : '');
-            findingNote.title = issueScopeSummary(tapeFlags, trackFlags);
+            // THE TAPE'S OWN FINDINGS, AS FULL ITEMS YOU CAN ACT ON. A finding
+            // about the LIST (short of 15, over 15, a hidden city) names no
+            // track, so it has nowhere else on this page to live. It used to be
+            // a single red sentence here with no buttons, which meant opening
+            // the popup to clear it.
+            //
+            // TRACK FINDINGS ARE NOT REPEATED HERE. They are drawn on the track
+            // row itself, a few pixels below, by the same builder.
+            var tapeOwn = tapeIssues(tape);
+            if (tapeOwn.length) {
+              findingNote = document.createElement('div');
+              findingNote.className = 'tape-line-findings';
+              tapeOwn.forEach(function (issue) {
+                findingNote.appendChild(buildIssueItem(issue, {
+                  onDone: function () { renderTrackArchive(); repaintTracks(); }
+                }));
+              });
+            }
           }
 
           var shelved = truthyFlag(tape && tape.archived);
