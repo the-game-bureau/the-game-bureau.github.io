@@ -365,22 +365,13 @@
 
     /* ── THE SELECTION ──────────────────────────────────────────────────── */
 
-    .track-pick,
-    /* SCOPED, AND IT HAS TO BE. `.track-head-label` is one class and so is
-       `.track-head-label--pick`, and it is declared LATER in this sheet, so it
-       won the tie and put `overflow: hidden` back on the cell -- which clipped
-       the absolutely positioned batch button clean out of existence. It was in
-       the DOM, the tests found it, and nothing was on screen. `.track-head`
-       makes it (0,2,0) so nothing below can take it back. */
-    .track-head .track-head-label--pick {
-      display: flex;
+    /* THE TICK ON A BADGE. Its header twin went with the header row; the
+       select-all lives in NAV and is styled there. */
+    .track-pick {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      overflow: visible;
-      padding: 0;
     }
-
-    .track-head .track-head-label--pick { position: relative; }
 
     .track-pick-box { cursor: pointer; }
 
@@ -635,17 +626,203 @@
        TRIMMED AROUND THE BLURB, NOT INSTEAD OF IT. The blurb still grows to its
        content, which is what a row's height really follows; everything around
        it is as tight as it can be without the fields becoming hard to hit. */
-    .track-line {
-      display: grid;
-      grid-template-columns: var(--track-cols);
-      gap: 2px 8px;
+    /* ── THE BADGE ───────────────────────────────────────────────────────────
+       A track is a CARD, not a row in a grid. Twelve columns gave a title, a
+       checkbox and a delete button the same weight, and the whole thing was only
+       legible against a header that no longer exists.
 
+       THREE PARTS, EACH ANSWERING ONE QUESTION:
+         RAIL   what you do with it
+         BODY   what it IS
+         TAIL   what we know about it                                       */
+    .track-line {
+      position: relative;
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) minmax(0, 330px);
       align-items: center;
-      padding: 3px 9px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
+      gap: 0 16px;
+      padding: 12px 16px 12px 12px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 14px;
       background: #fff;
+      /* THE LEFT EDGE IS THE STATE. Four pixels of colour, so a shelved track
+         and a live one are told apart down the whole list without reading a
+         word. It is an inset shadow rather than a border so the radius stays
+         round at the corner. */
+      box-shadow: inset 4px 0 0 0 var(--control-line),
+                  0 1px 2px rgba(16, 24, 40, 0.05);
+      transition: box-shadow 140ms ease, transform 140ms ease, border-color 140ms ease;
     }
+
+    .track-line.is-live {
+      box-shadow: inset 4px 0 0 0 var(--success),
+                  0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+
+    .track-line:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.45);
+      box-shadow: inset 4px 0 0 0 var(--accent),
+                  0 6px 16px -8px rgba(16, 24, 40, 0.35);
+    }
+
+    /* A SHELVED BADGE IS QUIETER, NOT HIDDEN. It is most of the catalogue, so
+       it has to stay readable; what it loses is prominence. */
+    .track-line.is-shelved { background: #fcfcfd; }
+    .track-line.is-shelved .badge-body { opacity: 0.82; }
+    .track-line.is-shelved:hover .badge-body { opacity: 1; }
+
+    /* ── RAIL: tick, play, position ── */
+    .badge-rail {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    /* THE PLAY BUTTON IS THE BADGE'S ONE ROUND THING, which is what makes it
+       findable at a glance in a list of squares. 38px is a comfortable target
+       and still smaller than the title beside it. */
+    .badge-play {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid var(--control-line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--accent);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease,
+                  border-color 140ms ease, transform 140ms ease;
+    }
+
+    .badge-play svg { width: 20px; height: 20px; display: block; }
+
+    .badge-play:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      transform: scale(1.06);
+    }
+
+    .badge-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* PLAYING IS FILLED AND STAYS FILLED, so the one track making a noise is
+       obvious without opening anything. */
+    .badge-play.is-playing {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* THE POSITION IS THE TRACK NUMBER ON THE TAPE, so it is set like one:
+       tabular, quiet, and it does not look like a field until you reach it. */
+    .track-input--num {
+      flex: 0 0 auto;
+      width: 34px;
+      padding: 2px 0;
+      text-align: center;
+      font-family: "IBM Plex Mono", monospace;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+
+    /* ── BODY: what the track is ── */
+    .badge-body {
+      display: grid;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    /* THE TITLE IS THE BADGE'S HEADLINE and is set like one. Everything else in
+       the body is context for it. */
+    .track-input--title {
+      font-size: 1.02rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .track-input--artist { font-size: 0.86rem; color: var(--muted); }
+
+    textarea.track-input--blurb {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ── TAIL: what we know about it ── */
+    .badge-tail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: end;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .badge-flags { display: flex; align-items: center; gap: 6px; }
+
+    /* THE TWO FLAGS ARE PILLS, so an unticked one is a quiet outline and a
+       ticked one is a filled mark you can see from across the list. */
+    .track-explicit {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px 3px 7px;
+      border: 1px solid var(--control-line);
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .track-explicit:hover { border-color: var(--accent); }
+    .track-explicit:has(input:checked) {
+      background: rgba(var(--bic-blue-rgb), 0.1);
+      border-color: var(--accent);
+    }
+    .track-explicit:has(input:checked) .track-flagword { color: var(--accent); }
+
+    .track-flagword {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.56rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* THE SPOTIFY ID IS THE QUIETEST THING ON THE BADGE. It is 22 characters of
+       machine text nobody reads; it is here to be pasted into and checked. */
+    .track-input--id {
+      width: 100%;
+      max-width: 260px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .track-input--id:focus { text-align: left; }
+
+    /* THE NEW BADGE PINS TO THE CORNER, because it is news about the row rather
+       than a column that is empty on 1,600 of 1,643 of them. */
+    .track-line-new {
+      position: absolute;
+      top: -8px;
+      left: 12px;
+      z-index: 2;
+    }
+
+    /* ── THE PLAYER DIALOG ── */
+    .player-stage { min-height: 152px; }
+    .player-stage iframe { width: 100%; height: 152px; border: 0; border-radius: 12px; }
+
 
     .track-line.is-shelved {
       border-style: dashed;
@@ -656,64 +833,31 @@
 
     .track-line.is-live { box-shadow: inset 3px 0 0 var(--success, #2f855a); }
 
-    .track-play {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      padding: 0;
-      border: 1px solid var(--control-line);
-      border-radius: 999px;
-      background: #fff;
-      /* NO SIZE OF ITS OWN, like every other child of a track row: the row sets
-         one and this inherits it. */
-      line-height: 1;
-      color: var(--muted);
-      cursor: pointer;
-      align-self: center;
-    }
-
-    .track-play:hover {
-      border-color: var(--success, #2f855a);
-      color: var(--success, #2f855a);
-    }
-
-    .track-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-    .track-play.is-playing {
-      border-color: var(--success, #2f855a);
-      background: var(--success, #2f855a);
-      color: #fff;
-    }
 
     .track-line.is-focused {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.18);
     }
 
-    .track-stage {
-      grid-column: 1 / -1;
-      margin-top: 8px;
-    }
-
-    .track-stage .queue-player {
+    /* THE INLINE STAGE WENT WITH THE INLINE PLAYER on 2026-08-26. `trackPlayer`
+       still builds `.queue-player` and `.queue-noplayer`; they are drawn in the
+       DIALOG now, so their rules moved with them and are scoped to it. */
+    #playerStage .queue-player {
       display: block;
       width: 100%;
-      height: 80px;
+      height: 152px;
       border: 0;
-      border-radius: 10px;
+      border-radius: 12px;
     }
 
-    .track-stage .queue-noplayer {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
+    #playerStage .queue-noplayer {
+      display: grid;
       gap: 8px;
-      padding: 8px 10px;
+      justify-items: start;
+      padding: 16px;
       border: 1px dashed var(--control-line);
-      border-radius: 8px;
-      font-size: 0.85rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
       color: var(--muted);
     }
 
@@ -1017,14 +1161,6 @@
     /* `overflow: hidden` IS WHAT KEEPS THE CELL IN ITS COLUMN. The tape's name
        and its country line are both wider than this column at the row's size,
        and without it they ran straight across the artist beside them. */
-    .track-titlecell {
-      display: grid;
-      gap: 0;
-      min-width: 0;
-      overflow: hidden;
-      align-content: center;
-    }
-
     /* TINY, AND QUIET. It is context for the line below it, not a heading: at
        any weight it would compete with the title it sits over. */
     .track-tapetag {
@@ -1650,6 +1786,24 @@
          full. Fixed to the corner it costs no width at all, cannot be scrolled
          away from, and appears only while there is a selection to act on. -->
     <button class="btn primary batch-float" id="batchBtn" type="button" hidden></button>
+
+
+    <!-- THE PLAYER IS A DIALOG. It opened under the row, which pushed every
+         badge below it down and moved the one you were looking at. -->
+    <div class="tool-backdrop" id="playerBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="playerCard" role="dialog"
+             aria-modal="true" aria-labelledby="playerTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="playerTitle">Track</h2>
+          <p class="tracks-sub" id="playerSub"></p>
+        </div>
+        <button class="btn small" type="button" data-player-close>Close</button>
+      </div>
+      <div class="prompt-body">
+        <div class="player-stage" id="playerStage"></div>
+      </div>
+    </section>
 
     <div class="tool-backdrop" id="bulkBackdrop" hidden></div>
     <section class="prompt-panel tool-modal-panel" id="bulkCard" role="dialog"
@@ -2512,6 +2666,90 @@
         return '';
       }
 
+      // A DRAWN TRIANGLE AND A DRAWN SQUARE, in one SVG each, rotated by
+      // nothing and sized by the box. The four arrows on the Path Builder were
+      // characters until it turned out no face this project loads carries the
+      // horizontal pair; a play triangle is the same risk at a bigger size, and
+      // an SVG takes its colour from `currentColor` so a hovered or pressed
+      // button paints it without a second rule.
+      function playGlyph(isPlaying) {
+        var NS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+        var shape = document.createElementNS(NS, 'path');
+        shape.setAttribute('fill', 'currentColor');
+        shape.setAttribute('d', isPlaying
+          ? 'M7 6h4v12H7zm6 0h4v12h-4z'
+          : 'M9 5.5v13l10-6.5z');
+        svg.appendChild(shape);
+        return svg;
+      }
+
+      // ── THE PLAYER IS A DIALOG ──────────────────────────────────────────
+      //
+      // It used to open under the row, which pushed every badge below it down
+      // by 152px and meant judging a track moved the one you were looking at.
+      // In a dialog the list stays where it is, the player is the same size
+      // whatever the card looks like, and closing it puts you back exactly
+      // where you were.
+      //
+      // ONE PLAYER AT A TIME, WHICH IS THE POINT. `playingTrackId` is the state
+      // and the dialog is painted from it, so the card's own button and the
+      // dialog cannot disagree about what is playing.
+      var playingTrackId = null;
+
+      function openPlayer(song) {
+        playingTrackId = song && song.id != null ? song.id : null;
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
+      function closePlayer() {
+        playingTrackId = null;
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
+      function paintPlayerDialog() {
+        var card = document.getElementById('playerCard');
+        var backdrop = document.getElementById('playerBackdrop');
+        var stage = document.getElementById('playerStage');
+        var title = document.getElementById('playerTitle');
+        var sub = document.getElementById('playerSub');
+        if (!card || !backdrop || !stage) return;
+
+        // `locateSong` ANSWERS WITH INDICES, not the row, so this walks them.
+        var at = playingTrackId == null ? null : locateSong(playingTrackId);
+        var tape = at ? soundtracks()[at.tapeIndex] : null;
+        var song = tape && tape.songs ? tape.songs[at.songIndex] : null;
+        if (!song) {
+          card.hidden = true;
+          backdrop.hidden = true;
+          // THE IFRAME IS TORN DOWN, NOT HIDDEN. A hidden Spotify embed keeps
+          // playing, which is a room that makes a noise with nothing on screen
+          // to explain it.
+          stage.textContent = '';
+          return;
+        }
+
+        if (title) title.textContent = text(song.title) || 'Untitled track';
+        if (sub) sub.textContent = [text(song.artist), tapeFullName(tape)]
+          .filter(Boolean).join('  \u00b7  ');
+
+        // REBUILT ONLY WHEN THE TRACK CHANGES. Rebuilding on every render would
+        // restart the track under whoever is listening to it.
+        if (stage.dataset.songId !== String(song.id)) {
+          stage.dataset.songId = String(song.id);
+          stage.textContent = '';
+          stage.appendChild(trackPlayer(song));
+        }
+
+        backdrop.hidden = false;
+        card.hidden = false;
+      }
+
       function trackPlayer(song) {
         var id = text(song && song.spotify_id) || text(song && song.spotifyId);
         if (id) {
@@ -2858,6 +3096,7 @@
           paintTapeStats(tape, tracksCell);
 
           paintBulkDialog(tape);
+          paintPlayerDialog();
 
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
           // is the tape's own line and still carries its counts, its findings
@@ -3657,22 +3896,29 @@
           return area;
         }
 
+        // THE PLAY BUTTON OPENS THE PLAYER DIALOG. It used to open a stage
+        // under the row, which pushed every badge below it down by 152px and
+        // moved the one you were looking at.
+        var isPlaying = playingTrackId != null && String(playingTrackId) === String(song.id);
         var playBtn = document.createElement('button');
         playBtn.type = 'button';
-        playBtn.className = 'track-play' + (isFocused ? ' is-playing' : '');
-        playBtn.textContent = isFocused ? '\u25a0' : '\u25b6';
-        playBtn.setAttribute('aria-label', (isFocused ? 'Close the player for ' : 'Play ')
+        playBtn.className = 'badge-play' + (isPlaying ? ' is-playing' : '');
+        // A DRAWN TRIANGLE, NOT A GLYPH. This project has already found that no
+        // face it loads carries the four arrows it wanted; a play triangle is
+        // the same risk at a bigger size, and an SVG takes its colour from
+        // `currentColor` so hover and pressed need no second rule.
+        playBtn.appendChild(playGlyph(isPlaying));
+        playBtn.setAttribute('aria-label', (isPlaying ? 'Stop playing ' : 'Play ')
           + songDisplay(song));
-        playBtn.setAttribute('aria-pressed', isFocused ? 'true' : 'false');
-        playBtn.title = isFocused
+        playBtn.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+        playBtn.title = isPlaying
           ? 'Close the player'
           : (text(song.spotifyId)
               ? 'Play this track'
               : 'No Spotify id on this track, so this opens a Spotify search instead');
         playBtn.addEventListener('click', function (event) {
           event.stopPropagation();
-          focusTrackId = isFocused ? null : song.id;
-          repaintTracks();
+          if (isPlaying) closePlayer(); else openPlayer(song);
         });
 
         var posEl = field('track-input--num', String(Number(song.position) || 0), '#', 'Position');
@@ -3788,8 +4034,9 @@
         // IT IS HIDDEN INSIDE THE POPUP by CSS rather than by a branch here,
         // because there the tape's name is the dialog's own title and this
         // would be the same thing said twice. One builder, no argument.
-        var titleCell = document.createElement('span');
-        titleCell.className = 'track-titlecell';
+        // `titleCell` IS GONE. It existed to stack three things inside one grid
+        // column; the badge's body IS that stack, so the wrapper is one box
+        // fewer between the fields and the card.
         var slugOfTape = text(tape && tape.city_slug);
 
         // WHERE THE TAPE IS, ABOVE ITS NAME, AS A PATH. Country to city, widest
@@ -3813,23 +4060,50 @@
         var tapeTag = buildTapeNameEditor(tape.id);
         tapeTag.className = 'track-tapetag';
         tapeTag.title = 'The tape this track is on. Rename it, move it to another city, or swap the two halves.';
-        titleCell.append(geoLine, tapeTag, titleEl);
+
 
         // THE BADGE LEADS THE TRACK ROW TOO, at the same left edge as the
         // tape's, so a new track and a new tape are marked the same way in the
         // same place.
+        // ── THE BADGE ───────────────────────────────────────────────────────
+        //
+        // A track is a CARD, not a row in a grid. Twelve columns made every
+        // field the same weight as every other, so a title, a checkbox and a
+        // delete button all read as equally important, and the whole thing was
+        // only legible against a header that no longer exists.
+        //
+        // THE SHAPE IS THREE PARTS, and each answers one question:
+        //
+        //   RAIL   what you do with it: tick, play, position
+        //   BODY   what it IS: the tape it is on, its title, artist, blurb
+        //   TAIL   what we know about it: spotify id, the two flags, its state
+        //
+        // Every field is still editable in place and nothing was dropped.
+        var body = document.createElement('div');
+        body.className = 'badge-body';
+        body.append(geoLine, tapeTag, titleEl, artistEl, blurbEl);
+
+        var rail = document.createElement('div');
+        rail.className = 'badge-rail';
+        rail.append(buildSelectBox(song), playBtn, posEl);
+
+        var flags = document.createElement('div');
+        flags.className = 'badge-flags';
+        flags.append(explicitWrap, sportsWrap);
+
+        var tail = document.createElement('div');
+        tail.className = 'badge-tail';
+        tail.append(idEl, flags, air, del);
+
         var newCell = document.createElement('span');
         newCell.className = 'track-line-new';
         if (isNewTrack(song)) newCell.appendChild(trackNewBadge(song));
+        // THE NEW BADGE PINS TO THE CARD'S CORNER rather than taking a column.
+        // It is news about the row, and news belongs on the corner of the thing
+        // it is about, not in a fixed slot that is empty on 1,600 of 1,643 rows.
+        if (newCell.firstChild) line.appendChild(newCell);
 
-        line.append(buildSelectBox(song), newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, sportsWrap, air, del);
-
-        if (isFocused) {
-          var stage = document.createElement('div');
-          stage.className = 'track-stage';
-          stage.appendChild(trackPlayer(song));
-          line.appendChild(stage);
-        }
+        line.append(rail, body, tail);
 
         if (trackPendingDelete === song.id) {
           var confirmEl = document.createElement('div');
@@ -4066,26 +4340,11 @@
       // THE TRACK COLUMN HEADER, built rather than written in the markup
       // because it is emitted under the tape whose tracks it names. It is the
       // popup's own header, cell for cell, so the two lists read the same.
-      var TRACK_HEAD_CELLS = [
-        // THE TICK COLUMN. Its header cell is replaced by the select-all box.
-        ['', ''],
-        ['', ''],
-        ['', ''],
-        ['#', 'Play order on the cassette. Edit it to reorder.'],
-        ['Title', ''],
-        ['Artist', ''],
-        ['Blurb', 'The sentence under this track on /soundtracks/. Ten words or fewer.'],
-        ['Spotify', 'The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.'],
-        // SPELLED OUT, IN LITTLE BITTY TEXT. `E` and `S` were two unlabelled
-        // checkboxes side by side with a single letter each: you had to hover
-        // one to learn which was which, every time. A word is unambiguous at
-        // any size, and these two do not need to be read, only recognised.
-        // THEY ARE LABELS AGAIN, not filters: the filters moved to the VIEW bar.
-        ['Explicit', 'Marked explicit on Spotify'],
-        ['Sports', 'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.'],
-        ['Status', 'Live on /soundtracks/, or shelved off it. Filter by it in the VIEW bar.'],
-        ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
-      ];
+      // `TRACK_HEAD_CELLS`, `buildTrackHead`, `newBadge` and `isNewTape` went on
+      // 2026-08-26 with the header row and the tape line. **The popup's header
+      // is static markup**, not built, so nothing left needs a cell list; and a
+      // TAPE has no NEW badge any more, only a track.
+
 
       // ── THE SELECTION ───────────────────────────────────────────────────
       //
@@ -4407,26 +4666,6 @@
       // one in the VIEW bar is markup plus `paintViewFilters`, because there is
       // one of it and it is not rebuilt per tape.
 
-      function buildTrackHead() {
-        var head = document.createElement('div');
-        head.className = 'track-head track-head--main';
-        head.setAttribute('role', 'row');
-        TRACK_HEAD_CELLS.forEach(function (cell, i) {
-          var el = document.createElement('span');
-          el.className = 'track-head-label'
-            // A LABEL IS CENTRED WHEN THE FIELD UNDER IT IS. `#` is a
-            // `text-align: center` input, so a left-aligned label over it sat
-            // half a column away from the number it names.
-            + (i === 0 || i === 3 || i === 8 || i === 9 || i === 11 ? ' track-head-label--mid' : '')
-            // The two spelled-out columns are the narrowest on the row, so
-            // their labels are set smaller than the rest of the header.
-            + (i === 8 || i === 9 ? ' track-head-label--tiny' : '');
-          el.textContent = cell[0];
-          if (cell[1]) el.title = cell[1];
-          head.appendChild(el);
-        });
-        return head;
-      }
 
       function fitInput(el) {
 
@@ -4590,24 +4829,7 @@
         return badge;
       }
 
-      function newBadge(tape) {
-        var madeAt = tape && tape.created_at ? new Date(tape.created_at) : null;
-        var tapeIsNew = madeAt && Number.isFinite(madeAt.getTime())
-          && (Date.now() - madeAt.getTime()) < NEW_FOR_HOURS * 3600 * 1000;
-        var badge = document.createElement('span');
-        badge.className = 'tape-new';
-        badge.textContent = 'New';
-        badge.title = (tapeIsNew ? 'This tape was added ' : 'A track was added to this tape ')
-          + relativeTime(tapeNewsAt(tape), new Date())
-          + '. The badge clears itself after ' + NEW_FOR_HOURS + ' hours.';
-        return badge;
-      }
 
-      function isNewTape(tape) {
-        var at = tapeNewsAt(tape);
-        if (!at) return false;
-        return (Date.now() - at.getTime()) < NEW_FOR_HOURS * 3600 * 1000;
-      }
 
       function tapeFullName(tape) {
         var city = soundCityLabel(tape && tape.city_slug);
@@ -4783,6 +5005,11 @@
       if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
       if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
 
+      Array.prototype.forEach.call(document.querySelectorAll('[data-player-close]'),
+        function (btn) { btn.addEventListener('click', closePlayer); });
+      var playerBackdropEl = document.getElementById('playerBackdrop');
+      if (playerBackdropEl) playerBackdropEl.addEventListener('click', closePlayer);
+
       var batchBtnEl = document.getElementById('batchBtn');
       if (batchBtnEl) batchBtnEl.addEventListener('click', openBulkDialog);
 
@@ -4813,6 +5040,12 @@
         // THE DELETE DIALOG TAKES ESCAPE FIRST. It is the one on top when it is
         // open, and dismissing the thing under it while an irreversible question
         // is on screen would be the wrong order.
+        // THE PLAYER TAKES ESCAPE FIRST WHEN IT IS OPEN, being the thing on top.
+        var playerCardEl = document.getElementById('playerCard');
+        if (event.key === 'Escape' && playerCardEl && !playerCardEl.hidden) {
+          closePlayer();
+          return;
+        }
         var bulkCardEl = document.getElementById('bulkCard');
         if (event.key === 'Escape' && bulkCardEl && !bulkCardEl.hidden) {
           closeBulkDialog();

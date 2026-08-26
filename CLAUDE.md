@@ -715,6 +715,61 @@ The `x` at the end of the track header deleted the whole tape. It now deletes
   not, and it is the reason **Shelve instead** sits on the confirmation as the
   first button.
 
+### A TRACK IS A BADGE, AND THE PLAYER IS A DIALOG (2026-08-26)
+
+Twelve columns became a card. **A grid gave a title, a checkbox and a delete
+button the same weight**, and the whole thing was only legible against a header
+that no longer exists.
+
+**THREE PARTS, EACH ANSWERING ONE QUESTION:**
+
+| part | question |
+|---|---|
+| **rail** (92px) | what you DO with it: tick, play, position |
+| **body** (1fr) | what it IS: its tape, its title, its artist, its blurb |
+| **tail** (330px) | what we KNOW about it: spotify id, the two flags, its state |
+
+- **NOTHING WAS DROPPED AND EVERY FIELD IS STILL EDITABLE IN PLACE.** What
+  changed is weight: the title is 1.02rem at 700, the artist and blurb are
+  muted, and the spotify id is the quietest thing on the card because it is 22
+  characters of machine text nobody reads.
+- **THE STATE IS THE LEFT EDGE**, four pixels of colour as an INSET SHADOW rather
+  than a border, so the corner stays round. Green live, grey shelved, accent on
+  hover. **A shelved badge is quieter, not hidden** -- it is most of the
+  catalogue and has to stay readable.
+- **THE TWO FLAGS ARE PILLS.** Unticked is a quiet outline; ticked is filled and
+  the word takes the accent, so `EXPLICIT` reads from across the list without
+  hunting for a checkbox.
+- **THE NEW BADGE PINS TO THE CARD'S CORNER**, because it is news about the row
+  rather than a column that is empty on 1,600 of 1,643 of them. A TAPE has no NEW
+  badge any more; `newBadge` and `isNewTape` went with the tape line.
+- **`titleCell` IS GONE.** It existed to stack three things inside one grid
+  column; the body IS that stack, so it is one box fewer between the fields and
+  the card.
+
+**THE PLAYER IS A DIALOG.** It opened under the row, which pushed every badge
+below it down by 152px and **moved the one you were looking at**.
+
+- **THE IFRAME IS TORN DOWN, NOT HIDDEN.** A hidden Spotify embed keeps playing,
+  which is a room making a noise with nothing on screen to explain it.
+- **REBUILT ONLY WHEN THE TRACK CHANGES**, or every render would restart the
+  track under whoever is listening to it.
+- **ONE `playingTrackId`, AND THE CARD IS PAINTED FROM IT**, so a badge and the
+  dialog cannot disagree about what is playing. A playing badge keeps its button
+  filled.
+- **THE PLAY MARK IS A DRAWN SVG, NOT A GLYPH.** This project has already found
+  that no face it loads carries the four arrows it wanted; a triangle at 20px is
+  the same risk, and an SVG takes `currentColor` so hover and pressed need no
+  second rule. It swaps to a stop mark while playing.
+- **IT IS THE BADGE'S ONE ROUND THING**, 38px, which is what makes it findable at
+  a glance in a list of squares.
+- **ESCAPE CLOSES THE PLAYER FIRST** when it is open, being the thing on top.
+
+**SWEPT WITH IT**: `.track-play`, `.track-stage`, `.track-titlecell`, the
+header's tick-cell rules, `buildTrackHead` and `TRACK_HEAD_CELLS`. `trackPlayer`
+still builds `.queue-player` and `.queue-noplayer`; their rules moved into the
+dialog and are scoped to `#playerStage`.
+
 ### THE TRACK FILTERS ARE ONE LABELLED RADIO GROUP (2026-08-26)
 
 **All · Live · Shelved · Explicit · Sports**, in NAV, exactly one on.
