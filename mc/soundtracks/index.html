@@ -338,7 +338,17 @@
 
     a { color: var(--accent); }
 
-    .tape-lines { display: grid; gap: 6px; }
+    /* THE COLUMNS ARE DECLARED ON THE LIST, ONCE, AND BOTH THE HEADER AND THE
+       ROWS READ THEM FROM HERE. They used to be written out on `.track-head`,
+       on `.track-line--in-list` and on `.track-lines` -- three copies of one
+       string, and this file already warned that missing one puts every label a
+       column away from the field it names. Inherited from the container they
+       cannot differ, because there is only one of them. */
+    .tape-lines {
+      display: grid;
+      gap: 6px;
+      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px 196px 32px;
+    }
 
     .tape-lines {
       --col-label: 0.68rem;
@@ -420,10 +430,14 @@
       color: #fff;
     }
 
-    .track-head,
-    .track-lines {
-
-      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px 168px 32px;
+    /* THE POPUP'S OWN DECLARATION, ON THE ONE ELEMENT THAT CONTAINS BOTH its
+       header and its rows. It was on `.track-head, .track-lines`, which also
+       matched the MAIN list's header -- so that header took its columns from
+       here while the rows under it took theirs from `.tape-lines`, two copies
+       that had to be kept identical by hand. There is now one declaration per
+       list and neither header can drift from its own rows. */
+    .tracks-body {
+      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px 196px 32px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -486,10 +500,14 @@
       z-index: 2;
       display: grid;
       grid-template-columns: var(--track-cols);
+      /* THE SAME HORIZONTAL PADDING AND THE SAME COLUMN GAP AS A TRACK ROW.
+         `.track-line` is `3px 9px` with an 8px gap; at 10px and a 4px gap the
+         header's eleven columns started a pixel out and drifted from there. The
+         VERTICAL padding is still the header's own -- it is a bar, not a row. */
       gap: 4px 8px;
       align-items: center;
       margin-bottom: 6px;
-      padding: 8px 10px;
+      padding: 8px 9px;
       border: 1px solid var(--cut-panel-line);
       border-radius: 8px;
       background: var(--cut-panel-bg);
@@ -848,12 +866,9 @@
     .tape-line-counts strong { color: var(--ink); font-weight: 700; }
 
 
-    /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row, so it needs the
-       popup's column widths, which were scoped to `.track-head, .track-lines`
-       and would otherwise resolve to nothing out here and collapse every
-       column to zero. */
+    /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row; its columns come
+       from `.tape-lines`, the same declaration the header above it reads. */
     .track-line--in-list {
-      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px 168px 32px;
       margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
@@ -1056,11 +1071,9 @@
     .room-stats-count.is-live { color: var(--ink); }
     .room-stats-sep { opacity: 0.7; }
 
-    /* THE TRACK HEADER ON THE MAIN LIST. `--track-cols` is scoped to
-       `.track-head, .track-lines`, which live inside the popup, so out here it
-       would resolve to nothing and collapse every column to zero. */
+    /* THE TRACK HEADER ON THE MAIN LIST. It takes its columns from `.tape-lines`
+       above it, like the rows do, so the two cannot drift. */
     .track-head--main {
-      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px 168px 32px;
       margin-left: 22px;
       margin-bottom: 4px;
     }
@@ -1146,6 +1159,10 @@
     .tape-air-word--off.is-current { color: var(--ink); }
 
     .tape-air-word {
+      /* ONE WORD EACH, SO THEY CANNOT WRAP; what they do instead is shrink,
+         through the row's own fit pass. Without `nowrap` a narrow cell would
+         break SHELVED across two lines and double the row's height. */
+      white-space: nowrap;
       font-family: "IBM Plex Mono", monospace;
       font-weight: 700;
       letter-spacing: 0.08em;

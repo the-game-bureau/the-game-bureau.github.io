@@ -756,46 +756,48 @@ at a time.
   not be able to push the doors off the end. **The ADD bar is what gives way**,
   per the one-line rule.
 
-### COLUMNS SIZED TO WHAT THEY HOLD, AND NO OFFSET (2026-08-26)
+### ONE COLUMN DECLARATION PER LIST, AND THE HEADER IS MEASURED LIKE A ROW (2026-08-26)
 
-Eleven equal columns were tried for one pass and reversed on sight. At 14pt in a
-1,180px shell they gave a 90px blurb scrolling one word to a line, the tape's
-name written straight across the artist beside it, and SHELVED laid over the S
-column. **Equal is not the same as right**: these eleven cells hold a 13px
-checkbox and a sentence.
+`--track-cols` is declared **once on the list**, `.tape-lines` for the main one
+and `.tracks-body` for the popup, and the header and the rows both inherit it.
 
-`48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px
-168px 32px`, in all three definitions.
+- **IT WAS THREE COPIES OF ONE STRING**, on `.track-head, .track-lines`, on
+  `.track-line--in-list` and on `.track-head--main`, and this file already warned
+  that missing one puts every label a column away from the field it names.
+- **THE MAIN HEADER WAS READING THE POPUP'S COPY.** `.track-head, .track-lines`
+  matches `.track-head--main` too, and a DECLARED value beats an inherited one --
+  so the header on the main list took its columns from the popup's rule while
+  the rows beneath it took theirs from `.tape-lines`. Two copies that had to
+  agree by hand, in the one place where disagreeing is invisible until you look
+  at a screenshot. **The popup's declaration moved onto `.tracks-body`**, the one
+  element that contains both its header and its rows, and now nothing but that
+  container declares it.
+- **A test asserts the header and the row each declare NOTHING**, and that the
+  list declares eleven tracks. That is the check that would have caught it.
 
-- **`minmax(0, …)` ON ALL THREE FLEXIBLE COLUMNS.** A bare `2fr` has an `auto`
-  minimum, so one long unbroken value pushes its column past its share and the
-  whole row overflows the panel. This is the declaration that makes a share a
-  share.
-- **THE TITLE COLUMN TAKES THE MOST** because it holds three things stacked: the
-  country line, the tape's name editor and the title itself. The status column
-  is 168px because `SHELVED` and `LIVE` either side of a 34px switch are as wide
-  as they are at the row's size.
+**THE HEADER IS INSET LIKE A ROW.** `.track-line` is `padding: 3px 9px` with an
+8px column gap; the header was `8px 10px` with a 4px gap, so its eleven columns
+started a pixel out and drifted from there. Horizontal padding and column gap now
+match; **the vertical padding is still the header's own**, it being a bar rather
+than a row.
 
-**NO OFFSET, WHICH IS THREE SEPARATE FIXES:**
+- **THE GAP CHECK HAD TO READ THE STYLESHEET.** jsdom reports `columnGap` as
+  `normal` whenever it came from the `gap` shorthand, so comparing the computed
+  value is a check that cannot fail. It parses the declarations instead -- and
+  walks **every** block for a selector, since `.track-head` has a one-line
+  box-shadow rule before its real one.
 
-- **A LABEL CARRIES THE FIELD'S PADDING.** `.track-input` is `2px 6px` and the
-  labels were `0 7px`, so every one sat a pixel off the value under it. **Over
-  eleven columns one pixel reads as the header being out of step**, not as a
-  rounding difference.
-- **A CENTRED FIELD GETS A CENTRED LABEL.** `#` is a `text-align: center` input
-  and its label was left-aligned, which put it half a column from the number it
-  names. The `--mid` set is now `2, 7, 8, 10`.
-- **NOTHING SPILLS OUT OF ITS COLUMN.** `.track-titlecell` and `.track-tapetag`
-  are `overflow: hidden` -- the tape name and the country line are both wider
-  than that column at 14pt and ran clean across the artist. `.track-air` is
-  `justify-self: center; max-width: 100%; overflow: hidden`, which is what put
-  SHELVED back inside the status column instead of over the S beside it.
+**THE STATUS COLUMN IS 196px.** At 14pt `SHELVED` and `LIVE` either side of a
+34px switch need it; at 168 the words overflowed their cells and `.track-air`'s
+`overflow: hidden` clipped `LIVE` to `LIV`. `.tape-air-word` is `nowrap` so a
+narrow cell shrinks the word through the row's fit pass rather than breaking it
+across two lines and doubling the row's height.
 
 **WHAT IS STILL TIGHT, said rather than glossed.** Eleven columns at 14pt in
-1,084px of row is about 98px each on average. The tape name editor and the
-country line both clip on a long value -- the country line ellipses and carries
-a tooltip, the editor's two inputs simply scroll. **If that bites, the answer is
-a wider shell for this room**, not narrower type.
+about 1,084px of row is roughly 98px each. The tape name editor and the country
+line both clip on a long value -- the country line ellipses and carries a
+tooltip, the editor's two inputs scroll. **If that bites, the answer is a wider
+shell for this room**, not narrower type.
 
 ### WHERE THE TAPE IS, ON EVERY TRACK ROW (2026-08-26)
 
