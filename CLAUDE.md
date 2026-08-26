@@ -637,46 +637,68 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
-### THE TAPE HAS NO LINE OF ITS OWN (2026-08-26)
+### THE TAPE'S NAME IS EDITED ON THE TRACK ROW (2026-08-26)
 
-The room drew a bordered tape card and, directly under it, a bordered column
-header: two stacked bars describing the same tape. **There is one object above
-the tracks now.** `.track-head--main`'s first row is the tape -- its NEW badge,
-its name editor with the swap button, where it is, what it holds, its
-Shelved/Live switch and its delete -- and the column labels are its second row.
+The tape had a bordered card above a bordered column header, two stacked bars
+about the same tape. **Both are gone as a place the tape lives.** The name
+editor and its swap button are on the TRACK ROW, as the tiny tape tag that has
+always sat above each track's title; the header is column labels again, with the
+tape's two controls in the cells of the columns they act on.
 
-- **THE TAPE'S LINE SPANS THE GRID, IT DOES NOT SIT IN A COLUMN.** The name
-  editor is two inputs and a flip button; **that is why the tape line stopped
-  being a grid in the first place**, and it would not fit inside the Title
-  column any better now. `grid-column: 1 / -1` on `.track-head-tape`.
-- **THE HEADER'S OWN TYPE HAD TO BE TAKEN BACK.** `.track-head` is 0.62rem,
-  uppercase, wide letter-spacing and muted, which is right for a column label
-  and wrong for a tape's name; the strip resets all four.
-- **THE DELETE CONFIRMATION IS LIVE AGAIN BY ACCIDENT OF THE MOVE.**
-  `.track-confirm` carries `grid-column: 1 / -1`, which was **inert** inside the
-  flex tape line and needed a flex basis; hung off the header it is a grid child
-  and the declaration works. The flex-basis rule went with the line.
-- **`.tape-air` CARRIES `justify-self: end`, WHICH A FLEX PARENT IGNORES**, so
-  the switch takes `margin-left: auto` to reach the far end. Third time this
-  project has moved a control between a grid and a flex box and had to move its
-  alignment property with it.
-- **STATE AND COUNTRY ARE ONE QUIET CELL**, not two boxed columns. They were
-  columns because 113 lines had to align with each other; with one tape they are
-  the tape's own address and belong beside its name. Kept rather than dropped
-  because this catalogue holds two Alexandrias and two Portlands.
+- **IT WENT ONTO THE HEADER FIRST AND THAT WAS WRONG.** Folding the tape line
+  into the track header as its first row is a tape header by another name: one
+  bordered object instead of two, saying the same things in the same order.
+- **THE TAG WAS ALREADY THE TAPE'S NAME ON THE ROW.** It is `buildTapeNameEditor`
+  now, the SAME builder the tracks popup uses as its title, so there is one tape
+  name editor in this project and not two.
+- **THE COST, PLAINLY: one editor per track row, thirty of them, all the same
+  tape.** Editing any changes all, and a rename repaints the lot. That is what
+  putting it on the row means, and it is the trade rather than an oversight.
+- **EVERYTHING INSIDE THE TAG INHERITS THE TAG'S TYPE.** It is 0.5rem mono;
+  left at the input default, thirty rows would each have grown by a line. A test
+  asserts the input's computed size equals the tag's.
+- **NO BORDER UNTIL YOU REACH FOR IT.** Thirty outlined boxes over thirty titles
+  is a form, not a list, so the boxes are transparent until hover or focus.
+- **THE TAPE'S TWO CONTROLS SIT AT THE TOP OF THEIR OWN COLUMNS.** The Status
+  cell was an empty label and now carries the switch that shelves the whole
+  column, directly above the tracks' own switches; the Del cell carries the
+  tape's delete above theirs; the leading cell carries its NEW badge. **No extra
+  row** -- the header is still eleven cells.
+- **WHERE THE TAPE IS AND WHAT IT HOLDS MOVED TO THE ROOM HEAD**, one quiet line
+  under the catalogue's own figures. Both are standing readings about what you
+  are looking at, which is what that part of the head is for. The other two
+  places were worse: the VIEW bar has to stay on one line, and a bar of their
+  own is the tape header again.
 - **CLICKING THE TAPE NO LONGER OPENS THE TRACKS POPUP**, the row that carried
-  that handler being gone. No loss worth naming while the popup shows the same
-  tracks already under the header, and it is still reached by `#tape=` and from
-  a finding.
+  that handler being gone. The popup shows the same tracks already on the page
+  and is still reached by `#tape=` and from a finding.
+- **THE DELETE CONFIRMATION HANGS OFF THE HEADER**, where `grid-column: 1 / -1`
+  is live. Inside the flex tape line that declaration was **inert** and needed a
+  flex basis; the flex-basis rule went with the line.
 
 **AND IT FOUND A LIVE ReferenceError THAT HAD BEEN ARMED FOR A DAY.**
-`renderTapeConfirm` counted a bare **`findings`**, which is defined nowhere --
-a leftover from the pass that moved the findings UI to `/mc/issues.html`. So
+`renderTapeConfirm` counted a bare **`findings`**, which is defined nowhere -- a
+leftover from the pass that moved the findings UI to `/mc/issues.html`. So
 **pressing a tape's delete button threw, took `renderTrackArchive` down with it
 and blanked the room.** It counts off `soundtrackIssues` now, the flat array
 this room still builds and no longer draws. **Found by a test that presses the
-button**, not by reading: nothing renders a confirmation until somebody asks for
-one, so no amount of loading the page reaches that line.
+button**: nothing renders a confirmation until somebody asks for one, so no
+amount of loading the page reaches that line.
+
+### THE TWO COMMAND BARS STAY ON ONE LINE (2026-08-26)
+
+`.bar-row` and both `.command-bar-inner`s are `flex-wrap: nowrap`.
+
+- **VIEW HOLDS ITS WIDTH; ADD GIVES WAY.** VIEW is the bar you aim at -- the
+  tape nav and the four doors out of the room -- so it is `flex: 0 0 auto` and
+  sized to its contents. ADD is `flex: 1 1 auto; min-width: 0` and its two
+  buttons narrow rather than dropping onto a second line, **which would push the
+  whole room down by a row.**
+- **THE RULES HAVE TO COME AFTER THE SECOND `.command-bar-inner` BLOCK.** This
+  page declares that selector twice and the later one wins on source order; a
+  `nowrap` written beside the first declaration does nothing at all.
+- **THE PHONE IS THE ESCAPE HATCH.** Under 720px both bars go full width and
+  wrap as they always did: two bars on one line is not something 390px holds.
 
 ### A TRACK CAN BE MARKED SPORTS (2026-08-26)
 

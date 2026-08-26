@@ -346,47 +346,25 @@
       --col-text: 0.78rem;
     }
 
-    /* THE TAPE'S OWN LINE, WHICH IS THE TRACK HEADER'S FIRST ROW. The tape had
-       a bordered card of its own directly above a bordered column header, two
-       stacked bars describing the same tape. There is one object now: this line
-       is the tape -- its name, where it is, what it holds and its two controls
-       -- and the column labels underneath are the header's second row.
-       IT SPANS THE GRID rather than sitting in a column: the name editor is two
-       inputs and a flip button and has never fitted inside one, which is why
-       the tape line stopped being a grid in the first place. */
-    .track-head-tape {
-      grid-column: 1 / -1;
+    /* THE TAPE'S TWO CONTROLS SIT IN THE HEADER'S OWN CELLS, at the top of the
+       columns they act on: the switch above the tracks' switches, the delete
+       above theirs. The header is column labels again -- a strip above them was
+       a tape header by another name. */
+    .track-head-label--tapeair,
+    .track-head-label--tapedel {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: 6px 10px;
-      margin-bottom: 7px;
-      padding-bottom: 7px;
-      border-bottom: 1px solid var(--control-line);
-      /* THE HEADER'S OWN TYPE IS A COLUMN LABEL'S: 0.62rem, uppercase, wide
-         letter-spacing. That is right for the labels and wrong for a tape's
-         name, so this line takes its type back. */
-      font-size: 0.78rem;
-      font-weight: 400;
-      letter-spacing: normal;
-      text-transform: none;
-      color: var(--ink);
+      justify-content: center;
+      overflow: visible;
+      padding: 0;
     }
 
-    /* THE NAME TAKES THE SLACK so everything after it stays put. */
-    .track-head-tape > .tape-line-name { flex: 1 1 240px; min-width: 0; }
+    .track-head-label--tapeair .tape-air { transform: scale(0.86); transform-origin: center; }
 
-    .track-head-tape > .tape-line-geo { flex: 0 1 auto; min-width: 0; }
-    .track-head-tape > .tape-line-counts { flex: 0 0 auto; }
-    .track-head-tape > .tape-line-del { flex: 0 0 auto; }
-
-    /* THE TWO CONTROLS GO TO THE FAR END, away from the name you are reading.
-       `.tape-air` carries `justify-self: end`, which a flex parent ignores. */
-    .track-head-tape > .tape-air { flex: 0 0 auto; margin-left: auto; }
+    .track-confirm--head { margin-top: 8px; }
 
     /* THE BADGE LEADS THE ROW and holds a fixed width whether or not it has a
        badge in it, so the rows below it line up down the left edge. */
-    .track-head-tape > .tape-line-new,
     .track-line-new {
       flex: 0 0 auto;
       display: inline-flex;
@@ -697,13 +675,6 @@
 
     .track-air { transform: scale(0.86); transform-origin: center; }
 
-    .tape-line-del {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      align-self: center;
-    }
-
     .track-del.is-armed {
       border-color: var(--bic-red, #c23737);
       background: var(--bic-red, #c23737);
@@ -906,6 +877,45 @@
       text-overflow: ellipsis;
     }
 
+    /* THE TAG IS THE NAME EDITOR NOW, so it is a flex row rather than a line of
+       text -- and everything inside it inherits the tag's own tiny mono rather
+       than the input default, or a track row doubles in height. */
+    .track-tapetag {
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+      overflow: visible;
+    }
+
+    .track-tapetag .city-input,
+    .track-tapetag .spine-input,
+    .track-tapetag .spine-flip {
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      min-height: 0;
+      height: auto;
+      padding: 0 2px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+      color: inherit;
+    }
+
+    /* THE BORDER ONLY APPEARS WHEN YOU REACH FOR IT. Thirty outlined boxes over
+       thirty titles is a form, not a list. */
+    .track-tapetag .city-input:hover,
+    .track-tapetag .spine-input:hover,
+    .track-tapetag .city-input:focus,
+    .track-tapetag .spine-input:focus {
+      border-color: var(--control-line);
+      background: #fff;
+      outline: none;
+    }
+
+    .track-tapetag .spine-flip { cursor: pointer; opacity: 0.5; }
+    .track-tapetag .spine-flip:hover { opacity: 1; color: var(--accent); }
+
     /* NOT IN THE POPUP. There the tape's name is the dialog's own title, so
        this would be the same thing said twice a few pixels apart. */
     .track-lines .track-tapetag { display: none; }
@@ -942,6 +952,16 @@
       letter-spacing: 0.06em;
       color: var(--muted);
       text-transform: uppercase;
+    }
+
+    /* THE TAPE'S OWN LINE, quieter than the catalogue's above it: the same kind
+       of figure at a narrower scope, and it must not compete with the room's. */
+    .room-stats--tape { opacity: 0.9; }
+    .room-stats--tape .tape-line-geo,
+    .room-stats--tape .tape-line-counts {
+      font: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     .room-stats-count { font-weight: 700; }
@@ -1046,19 +1066,39 @@
       color: var(--muted);
     }
 
-    .track-head--main.is-shelved .tape-line-name,
-    .track-head--main.is-shelved .tape-line-geo { opacity: 0.55; }
-
-    @media (max-width: 700px) {
-      /* THE TWO CONTROLS TAKE A LINE OF THEIR OWN rather than being squeezed
-         onto the end of a wrapped name. */
-      .track-head-tape > .tape-air { flex: 1 0 100%; margin-left: 0; }
-    }
+    /* A SHELVED TAPE DIMS THE TAPE TAG ON EVERY TRACK ROW, which is where its
+       name lives now. */
+    .track-head--main.is-shelved { opacity: 0.85; }
 
     .app { max-width: 1180px; margin: 0 auto; padding: 16px; }
     .bar-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
     .command-bar { flex: 1 1 240px; margin: 0; padding: 8px; }
     .command-bar-inner { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    /* ONE LINE EACH, AND VIEW IS THE ONE THAT HOLDS ITS WIDTH. It is the bar you
+       aim at -- the tape nav and the four doors out of the room -- so it is
+       sized to its contents and never wraps. ADD gives way instead: its two
+       buttons narrow rather than dropping onto a second line, which would push
+       the whole room down by a row. */
+    .bar-row { flex-wrap: nowrap; }
+    .bar-row .command-bar-inner { flex-wrap: nowrap; }
+    .bar-row .command-bar--view { flex: 0 0 auto; }
+    .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
+    .bar-row .command-bar:first-child .command-bar-inner { min-width: 0; }
+    .bar-row .command-bar:first-child .btn {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    /* THE PHONE IS THE ESCAPE HATCH. Two bars on one line is not something
+       390px can hold, so there they stack and wrap as they did. */
+    @media (max-width: 720px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar-inner { flex-wrap: wrap; }
+      .bar-row .command-bar--view { flex: 1 1 100%; }
+    }
     .queue-tab.is-active { font-weight: 700; }
     .queue-tab-count { margin-left: 4px; }
     .key-legend { display: flex; gap: 10px; }
@@ -1216,6 +1256,10 @@
              figures narrow what you are looking at, and the tape's own line
              counts one tape. -->
         <p class="room-stats" id="roomStats"></p>
+        <!-- THE TAPE'S OWN READING, under the catalogue's: where it is and what
+             it holds. It was a bar of its own above the tracks, which is a tape
+             header, and the VIEW bar has to stay on one line. -->
+        <p class="room-stats room-stats--tape" id="tapeStats"></p>
 
         <p class="room-blurb" id="pageTagline" data-room-blurb="tape-room"></p>
         <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
@@ -2223,6 +2267,22 @@
         next.title = next.disabled ? 'This is the last tape.' : 'On to ' + tapeFullName(tapes[tapeAt + 1]);
       }
 
+      // THE TAPE'S OWN READING, under the catalogue's. Both are standing
+      // figures about what you are looking at, which is what this part of the
+      // head is for; the difference is scope, and the label says which.
+      function paintTapeStats(tape, geo, counts) {
+        var line = document.getElementById('tapeStats');
+        if (!line) return;
+        line.textContent = '';
+        if (!tape) return;
+        var word = document.createElement('span');
+        word.className = 'room-stats-word';
+        word.textContent = 'this tape';
+        line.appendChild(word);
+        if (geo && geo.textContent) line.appendChild(geo);
+        if (counts) line.appendChild(counts);
+      }
+
       function stepTape(by) {
         tapeAt += by;
         renderTrackArchive();
@@ -2286,11 +2346,6 @@
           var head = buildTrackHead();
           if (slug) head.dataset.slug = slug;
           head.dataset.tapeId = String(tape.id);
-
-          // THE TAPE'S OWN LINE, FIRST CHILD AND FULL WIDTH. The column labels
-          // under it are the header's second row.
-          var tapeStrip = document.createElement('div');
-          tapeStrip.className = 'track-head-tape';
 
           // NO CLICK-TO-OPEN ANY MORE. The row that carried it is gone, and the
           // popup shows the same tracks this page already has under the header.
@@ -2445,8 +2500,6 @@
           tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
             + counts.SHELVED + ' shelved, ' + total + ' in all.';
 
-          var delCell = document.createElement('span');
-          delCell.className = 'tape-line-del';
           var armed = String(tapePendingDelete) === String(tape.id);
           var delBtn = document.createElement('button');
           delBtn.type = 'button';
@@ -2462,17 +2515,38 @@
             tapePendingDelete = armed ? null : tape.id;
             renderTrackArchive();
           });
-          delCell.appendChild(delBtn);
 
           // BOTH ARROWS AT THE FAR LEFT, SIDE BY SIDE. Split to the two ends
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
-          tapeStrip.append(newCell, name, geo, tracksCell, air, delCell);
-          head.insertBefore(tapeStrip, head.firstChild);
+          // THE TAPE'S TWO CONTROLS SIT AT THE TOP OF THE COLUMNS THEY ACT ON.
+          // The header is column labels and nothing else again -- the strip
+          // above them was a tape header by another name. The Status cell was
+          // an empty label and now carries the switch that shelves the whole
+          // column; the Del cell carries the delete; the leading cell carries
+          // the tape's NEW badge, over the tracks' own badges.
+          function fill(i, node) {
+            var cell = head.children[i];
+            if (!cell) return;
+            cell.textContent = '';
+            cell.appendChild(node);
+          }
+          fill(0, newCell);
+          fill(9, air);
+          fill(10, delBtn);
+          head.children[9].classList.add('track-head-label--tapeair');
+          head.children[10].classList.add('track-head-label--tapedel');
+
+          // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
+          // catalogue's figures. Those are standing readings rather than
+          // controls, and the alternatives were both worse: the VIEW bar has to
+          // stay on one line, and a bar of their own is the tape header again.
+          paintTapeStats(tape, geo, tracksCell);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) head.appendChild(confirmStrip);
+          if (confirmStrip) confirmStrip.classList.add('track-confirm--head');
 
           // THE HEADER GOES IN FIRST, ahead of the rows it heads.
           trackArchiveList.appendChild(head);
@@ -3381,10 +3455,16 @@
         // would be the same thing said twice. One builder, no argument.
         var titleCell = document.createElement('span');
         titleCell.className = 'track-titlecell';
-        var tapeTag = document.createElement('span');
+        // THE TAPE'S NAME IS EDITED HERE, ON THE ROW. This tag has always said
+        // which tape a track is on; it is the editor now, so the name and the
+        // swap are on the track row rather than on a header above it.
+        // IT IS THE SAME BUILDER the tracks popup uses as its title, so there is
+        // one tape name editor in this project and not two.
+        // THE COST, PLAINLY: one editor per row, all of them the same tape, so
+        // editing any changes all. That is what putting it on the row means.
+        var tapeTag = buildTapeNameEditor(tape.id);
         tapeTag.className = 'track-tapetag';
-        tapeTag.textContent = tapeFullName(tape);
-        tapeTag.title = 'The tape this track is on.';
+        tapeTag.title = 'The tape this track is on. Rename it, move it to another city, or swap the two halves.';
         titleCell.append(tapeTag, titleEl);
 
         // THE BADGE LEADS THE TRACK ROW TOO, at the same left edge as the
