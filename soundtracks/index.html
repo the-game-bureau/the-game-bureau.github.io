@@ -2149,6 +2149,14 @@
         return position === 'before' ? (tag + ' ' + title).trim() : (title + ' ' + tag).trim();
       }
 
+      function tapeUrlId(soundtrack) {
+        if (!soundtrack) return '';
+        return JSON.stringify([
+          String(soundtrack.city_slug || ''),
+          String(soundtrack.spine_tag || '')
+        ]);
+      }
+
       function createTapeCard(city, soundtrack) {
         var slug = citySlug(city);
         var label = cityLabel(city);
@@ -2158,6 +2166,7 @@
         article.className = 'playlist-card';
         article.id = slug;
         article.dataset.citySlug = slug;
+        article.dataset.tapeId = tapeUrlId(soundtrack);
         article.dataset.location = label;
         article._tgbSongs = soundtrackTracks(soundtrack).map(normalizedSong);
 
@@ -2202,9 +2211,11 @@
           var byTitle = normCityKey(title ? title.textContent : '');
           var byLocation = normCityKey(card.getAttribute('data-location') || '');
           var bySlug = String(card.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          var byTapeId = String(card.dataset.tapeId || '').toLowerCase();
           if (byTitle && !cardByCity[byTitle]) cardByCity[byTitle] = card;
           if (byLocation && !cardByCity[byLocation]) cardByCity[byLocation] = card;
           if (bySlug && !cardByCity[bySlug]) cardByCity[bySlug] = card;
+          if (byTapeId && !cardByCity[byTapeId]) cardByCity[byTapeId] = card;
         });
       }
 
@@ -2520,7 +2531,7 @@
         renderSoundGrid(cityEntries);
         setupListenCityPanel();
 
-        if (!openCardFromHash()) openRandomCard();
+        if (!openCardFromUrlTarget()) openRandomCard();
       }
 
       function loadSoundPageData() {
@@ -2709,11 +2720,7 @@
         return raw;
       }
 
-      function openCardFromHash() {
-        var wanted = citySlugFromHash();
-        if (!wanted) return false;
-
-        var card = cardForCity(wanted);
+      function openResolvedCard(card) {
         if (!card) return false;
         try {
           card.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -2721,6 +2728,29 @@
           card.scrollIntoView();
         }
         openCard(card);
+        return true;
+      }
+
+      function openCardFromHash() {
+        var wanted = citySlugFromHash();
+        if (!wanted) return false;
+        return openResolvedCard(cardForCity(wanted));
+      }
+
+      function tapeUrlIdFromSearch() {
+        try {
+          return String(new URLSearchParams(window.location.search).get('tape') || '').trim();
+        } catch (error) {
+          return '';
+        }
+      }
+
+      function openCardFromUrlTarget() {
+        var wanted = tapeUrlIdFromSearch();
+        if (!wanted) return openCardFromHash();
+
+        if (openResolvedCard(cardForTapeKey(wanted) || cardForCity(wanted))) return true;
+        if (openCardFromHash()) return true;
         return true;
       }
 

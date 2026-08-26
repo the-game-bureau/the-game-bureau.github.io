@@ -239,12 +239,14 @@
     }
 
     .command-bar--view,
-    .command-bar--filter { flex: 0 0 auto; }
+    .command-bar--filter,
+    .command-bar--nav { flex: 0 0 auto; }
     @media (max-width: 720px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
       .bar-row .command-bar--view,
-      .bar-row .command-bar--filter { flex: 1 1 100%; }
+      .bar-row .command-bar--filter,
+      .bar-row .command-bar--nav { flex: 1 1 100%; }
     }
 
     .chip {
@@ -671,7 +673,7 @@
     .track-line.is-shelved .badge-body { opacity: 0.82; }
     .track-line.is-shelved:hover .badge-body { opacity: 1; }
 
-    /* ── RAIL: tick, play, position ── */
+    /* ── RAIL: tick, play, and the popup's tape position ── */
     .badge-rail {
       display: flex;
       align-items: center;
@@ -1151,11 +1153,319 @@
     .tape-line-counts strong { color: var(--ink); font-weight: 700; }
 
 
-    /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row; its columns come
-       from `.tape-lines`, the same declaration the header above it reads. */
+    /* THE TRACK BADGES ON THE MAIN LIST. The popup still uses the wider editor
+       row; this surface is for scanning a tape at web size. */
+    #trackArchiveList.tape-lines {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 14px;
+    }
+
+    #trackArchiveList > .empty {
+      grid-column: 1 / -1;
+      padding: 18px 20px;
+      border: 1px dashed var(--control-line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-weight: 700;
+    }
+
     .track-line--in-list {
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list {
+      --track-text: 0.86rem;
+      --badge-state: var(--control-line);
+      --badge-warm: #d99a36;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      /* FOUR ROWS NOW: the tape's name, the rail, the body, the tail. */
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      align-items: stretch;
+      gap: 10px;
+      min-height: 258px;
+      margin: 0;
+      padding: 15px 14px 13px;
+      overflow: visible;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.26);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(var(--bic-blue-rgb), 0.11) 0 22%, transparent 22% 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(var(--bic-blue-rgb), 0.045));
+      box-shadow:
+        inset 0 6px 0 var(--badge-state),
+        0 10px 22px rgba(var(--bic-blue-rgb), 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list::before {
+      content: "";
+      position: absolute;
+      inset: 6px 0 auto;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--badge-warm), transparent);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list.is-live {
+      --badge-state: var(--success);
+      border-color: rgba(39, 103, 64, 0.34);
+      box-shadow:
+        inset 0 6px 0 var(--badge-state),
+        0 12px 24px rgba(39, 103, 64, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list.is-shelved {
+      --badge-state: rgba(var(--bic-blue-rgb), 0.32);
+      border-style: dashed;
+      opacity: 0.76;
+      background:
+        linear-gradient(135deg, rgba(var(--bic-blue-rgb), 0.07) 0 22%, transparent 22% 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(var(--bic-blue-rgb), 0.035));
+    }
+
+    #trackArchiveList .track-line.track-line--in-list:hover,
+    #trackArchiveList .track-line.track-line--in-list:focus-within {
+      opacity: 1;
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow:
+        inset 0 6px 0 var(--badge-state),
+        0 16px 30px rgba(var(--bic-blue-rgb), 0.18),
+        0 0 0 2px rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list.is-focused {
+      border-color: var(--accent);
+      box-shadow:
+        inset 0 6px 0 var(--badge-state),
+        0 0 0 3px rgba(var(--bic-blue-rgb), 0.16),
+        0 16px 30px rgba(var(--bic-blue-rgb), 0.16);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-rail {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      padding-bottom: 9px;
+      border-bottom: 1px dashed rgba(var(--bic-blue-rgb), 0.22);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-play {
+      width: 34px;
+      height: 34px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(var(--bic-blue-rgb), 0.1);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-input--num {
+      display: none;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-body {
+      align-content: start;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-tapegeo,
+    #trackArchiveList .track-line.track-line--in-list .track-tapetag {
+      font-size: 0.62rem;
+    }
+
+    /* THE MASTHEAD: the track title and artist, with DELETE on the same row. */
+    #trackArchiveList .track-line.track-line--in-list .badge-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title del";
+      align-items: center;
+      column-gap: 8px;
+      gap: 1px;
+      min-width: 0;
+      margin: -15px -14px 0;
+      padding: 12px 14px 10px;
+      border-radius: 7px 7px 0 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.24);
+      background: linear-gradient(135deg, var(--accent), #203d78);
+      color: #fff;
+      box-shadow: inset 0 -1px 0 rgba(var(--bic-blue-rgb), 0.24);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-title-line {
+      grid-area: title;
+      min-width: 0;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-input {
+      color: #fff;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-input::placeholder {
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-input:hover {
+      border-color: rgba(255, 255, 255, 0.42);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-input:focus {
+      border-color: rgba(255, 255, 255, 0.88);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    /* THE NAME IS THE LOUDER HALF and the address the quieter one, which is the
+       order you read them in. */
+    #trackArchiveList .track-line.track-line--in-list .badge-body .track-tapetag {
+      font-size: 0.68rem;
+      color: var(--ink);
+      opacity: 1;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-body .track-tapegeo {
+      font-size: 0.56rem;
+      opacity: 0.7;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-tapegeo {
+      margin-top: 4px;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-title-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      min-height: 32px;
+      overflow: hidden;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-input--title {
+      flex: 0 1 auto;
+      width: auto;
+      max-width: 64%;
+      min-height: 32px;
+      padding-inline: 0;
+      padding-block: 0;
+      font-size: 1.08rem;
+      line-height: 1.16;
+      field-sizing: content;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-input--artist {
+      flex: 0 1 auto;
+      width: auto;
+      max-width: 36%;
+      min-height: 25px;
+      padding-inline: 0;
+      padding-block: 0;
+      font-size: 0.95rem;
+      text-align: left;
+      field-sizing: content;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list textarea.track-input--blurb {
+      min-height: 58px;
+      margin-top: 2px;
+      border-color: rgba(var(--bic-blue-rgb), 0.12);
+      background: rgba(255, 255, 255, 0.52);
+      font-size: 0.84rem;
+      line-height: 1.3;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-tail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "flags air";
+      align-items: center;
+      justify-items: stretch;
+      gap: 6px;
+      min-width: 0;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(var(--bic-blue-rgb), 0.22);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-input--id {
+      grid-column: auto;
+      align-self: center;
+      max-width: none;
+      min-height: 34px;
+      border-color: rgba(var(--bic-blue-rgb), 0.14);
+      background: rgba(255, 255, 255, 0.64);
+      text-align: left;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .badge-flags {
+      grid-area: flags;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-explicit {
+      padding: 3px 8px 3px 6px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-air {
+      grid-area: air;
+      grid-column: auto;
+      justify-self: end;
+      transform: scale(0.82);
+      transform-origin: right center;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-del {
+      grid-area: del;
+      align-self: center;
+      justify-self: end;
+      z-index: 3;
+      width: auto;
+      min-width: 58px;
+      height: 26px;
+      margin: 0;
+      padding: 0 8px;
+      border-color: rgba(194, 55, 55, 0.24);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--bic-red);
+      font: 800 0.58rem/1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-line-new {
+      top: -8px;
+      right: auto;
+      left: 12px;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-confirm {
+      grid-column: 1;
+      margin-top: 0;
+    }
+
+    @media (max-width: 1100px) {
+      #trackArchiveList.tape-lines {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      #trackArchiveList.tape-lines {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      #trackArchiveList .track-line.track-line--in-list {
+        min-height: 0;
+      }
     }
 
     /* `overflow: hidden` IS WHAT KEEPS THE CELL IN ITS COLUMN. The tape's name
@@ -1200,8 +1510,8 @@
        and a very long one is readable at 11 rather than clipped at 14. */
     .track-line { --track-text: 14pt; font-size: var(--track-text); }
 
-    /* WHERE THE TAPE IS, ABOVE ITS NAME. Quiet, because it is the same address
-       on every row of the tape and you read it once. */
+    /* WHERE THE TAPE IS. Quiet, because it is the same address on every row of
+       the tape and you read it once after the song name leads. */
     .track-tapegeo {
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
@@ -1456,16 +1766,19 @@
     .command-bar { flex: 1 1 240px; margin: 0; padding: 8px; }
     .command-bar-inner { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* THREE BOXES ON ONE ROW, AND THE ROW MAY WRAP BETWEEN THEM. Each box keeps
+/* FOUR BOXES ON ONE ROW, AND THE ROW MAY WRAP BETWEEN THEM. Each box keeps
        its own items on one line -- that was the rule and it still holds -- but
-       the row itself is allowed to break, because three boxes of real controls
+       the row itself is allowed to break, because four boxes of real controls
        do not fit 1,368px and the alternative is clipping ADD to nothing again.
-       ADD takes the slack; NAV and VIEW are sized to what they hold. */
+       ADD takes the slack; VIEW, FILTER, and NAV are sized to what they hold. */
     .bar-row { flex-wrap: wrap; }
     .bar-row .command-bar-inner { flex-wrap: nowrap; }
     .bar-row .command-bar--add { flex: 1 1 320px; min-width: 0; }
+    .bar-row .command-bar--filter,
     .bar-row .command-bar--nav,
     .bar-row .command-bar--view { flex: 0 0 auto; }
+    .bar-row .command-bar--filter .command-bar-inner { flex-wrap: wrap; }
+    .bar-row .command-bar--nav .command-bar-inner { flex-wrap: nowrap; }
     .bar-row .command-bar--add .command-bar-inner { min-width: 0; }
     .bar-row .command-bar--add .btn {
       flex: 0 1 auto;
@@ -1474,8 +1787,8 @@
       white-space: nowrap;
     }
 
-    /* SELECT ALL, IN THE NAV BOX. 30px, and it leads because it acts on exactly
-       the list the rest of that box decides. */
+    /* SELECT ALL, IN THE FILTER BOX. 30px, and it leads because it acts on
+       exactly the list the rest of that box decides. */
     .view-pick {
       flex: 0 0 auto;
       display: inline-flex;
@@ -1506,7 +1819,10 @@
     @media (max-width: 720px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar-inner { flex-wrap: wrap; }
-      .bar-row .command-bar--view { flex: 1 1 100%; }
+      .bar-row .command-bar--view,
+      .bar-row .command-bar--filter,
+      .bar-row .command-bar--nav { flex: 1 1 100%; }
+      .bar-row .command-bar--nav .command-bar-inner { flex-wrap: nowrap; }
     }
     .queue-tab.is-active { font-weight: 700; }
     .queue-tab-count { margin-left: 4px; }
@@ -1678,11 +1994,10 @@
     </div>
 
     <div class="bar-row">
-      <!-- THREE BOXES, EACH ANSWERING ONE QUESTION. ADD is where tracks come
-           FROM. NAV is what you are looking at: which tape, and which of its
-           tracks. VIEW is where you GO. They were two boxes with a hairline
-           inside the second doing NAV's job, and the second was so full that
-           ADD's buttons clipped to nothing. -->
+      <!-- FOUR BOXES, EACH ANSWERING ONE QUESTION. ADD is where tracks come
+           FROM. VIEW is where you GO. FILTER is what is on screen: which tape,
+           and which of its tracks. NAV is how you step through the filtered
+           tapes without making Filter carry another job. -->
       <fieldset class="command-bar command-bar--add">
         <legend>Add</legend>
         <div class="command-bar-inner">
@@ -1694,7 +2009,7 @@
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner">
-          <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only live tracks appear there.">SOUNDTRACKS</a>
+          <a class="btn" id="publicSoundtracksBtn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page for the tape currently on screen. Only live tracks appear there.">SOUNDTRACKS</a>
 
           <a class="btn" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Cloudflare Web Analytics. Add a filter on path = /soundtracks/ to see this page. Counts arrivals, not plays — a page view cannot tell you whether anyone pressed play.">LISTENER STATS</a>
           <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">ABOUT</a>
@@ -1706,21 +2021,19 @@
              title="What the daily audit found wrong with the tapes. It used to be drawn on the rows here.">ISSUES</a>
         </div>
       </fieldset>
-      <fieldset class="command-bar command-bar--nav">
-        <legend>Nav</legend>
+      <!-- FILTER, NOT NAV. Everything in this box narrows what is on screen:
+           which tape, and which of its tracks. -->
+      <fieldset class="command-bar command-bar--filter">
+        <legend>Filter</legend>
         <div class="command-bar-inner">
-          <!-- SELECT ALL LEADS IT. It is not navigation, and it is here because
-               it acts on exactly the list the rest of this box decides: the
-               tape the arrows landed on, narrowed by the filters beside it.
-               The header column it used to live in is gone. -->
+          <!-- SELECT ALL LEADS IT. It is not a filter, and it is here because
+               it acts on exactly the list the rest of this box decides: the tape
+               the filter landed on, narrowed by the track filters beside it. -->
           <label class="view-pick" id="viewPickWrap">
             <input class="track-pick-box" id="viewPick" type="checkbox"
                    aria-label="Select every track shown">
             <span class="view-pick-word">All</span>
           </label>
-          <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
-          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
-          <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
           <select class="btn tape-filter" id="tapeFilter"
                   aria-label="Show only tapes in one country, state or city"
                   title="Show only the tapes in one country, state or city. The arrows then step through those.">
@@ -1738,6 +2051,15 @@
                is part of the control rather than a caption beside it. -->
           <span class="track-filters" id="trackFilters" role="radiogroup"
                 aria-label="Which tracks to show"></span>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--nav">
+        <legend>Nav</legend>
+        <div class="command-bar-inner">
+          <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
+          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
+          <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
         </div>
       </fieldset>
 
@@ -2011,6 +2333,7 @@
       // than a tape id, so if the list ever changes under it you land on
       // whatever moved into that place instead of on nothing.
       var tapeAt = 0;
+      var requestedTapeUrlId = readTapeUrlId();
 
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
@@ -2492,6 +2815,65 @@
       function tapeKey(citySlug, tapeName) {
         return JSON.stringify([String(citySlug || ''), String(tapeName || '')]);
       }
+
+      function tapeUrlId(tape) {
+        if (!tape) return '';
+        var city = text(tape.city_slug);
+        var spine = text(tape.spine_tag);
+        if (city || spine) return tapeKey(city, spine);
+        return text(tape.id || tape.key);
+      }
+
+      function readTapeUrlId() {
+        try {
+          return text(new URLSearchParams(location.search).get('tape'));
+        } catch (error) {
+          return '';
+        }
+      }
+
+      function writeTapeUrlId(tape) {
+        if (!window.history || !history.replaceState) return;
+        var nextId = tapeUrlId(tape);
+        var params;
+        try {
+          params = new URLSearchParams(location.search);
+        } catch (error) {
+          return;
+        }
+
+        if (nextId) params.set('tape', nextId);
+        else params.delete('tape');
+
+        var query = params.toString();
+        var next = location.pathname + (query ? '?' + query : '') + location.hash;
+        var here = location.pathname + location.search + location.hash;
+        if (next !== here) history.replaceState(null, '', next);
+      }
+
+      function paintPublicSoundtracksLink(tape) {
+        var link = document.getElementById('publicSoundtracksBtn');
+        if (!link) return;
+        var id = tapeUrlId(tape);
+        link.href = id ? ('/soundtracks/?tape=' + encodeURIComponent(id)) : '/soundtracks/';
+        link.title = id
+          ? 'Open this tape on the public Soundtracks page. Only live tracks appear there.'
+          : 'The public Soundtracks page. Only live tracks appear there.';
+      }
+
+      function applyTapeUrlId(tapes) {
+        if (!requestedTapeUrlId) return;
+        var wanted = requestedTapeUrlId;
+        requestedTapeUrlId = '';
+        for (var i = 0; i < tapes.length; i++) {
+          if (String(tapeUrlId(tapes[i])) === wanted
+              || String(tapes[i] && tapes[i].id) === wanted
+              || String(tapes[i] && tapes[i].key) === wanted) {
+            tapeAt = i;
+            return;
+          }
+        }
+      }
       // A TAPE-WIDE WRITE GOES THROUGH A FUNCTION, never a PATCH. With one
       // table a tape IS every row of it, so a filter somebody forgets to scope
       // rewrites the whole city -- and the shelve cascade has to stay in the
@@ -2961,6 +3343,7 @@
 
         if (!soundtrackArchiveData) {
           trackArchiveList.appendChild(emptyNode('Sign in to see the tapes.'));
+          paintPublicSoundtracksLink(null);
           return;
         }
 
@@ -2989,11 +3372,14 @@
         // NARROWED AFTER THE SORT, so the order inside a filter is the order the
         // whole catalogue has: city, A to Z.
         tapes = tapes.filter(tapeMatchesFilter);
+        applyTapeUrlId(tapes);
 
         if (!tapes.length) {
 
           trackArchiveList.appendChild(emptyNode(
             'No tapes yet.'));
+          writeTapeUrlId(null);
+          paintPublicSoundtracksLink(null);
           paintTapeNav([]);
           setArchiveStatus('', '');
           return;
@@ -3007,6 +3393,8 @@
         // the buttons grey out to say why.
         if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
         if (tapeAt < 0) tapeAt = 0;
+        writeTapeUrlId(tapes[tapeAt]);
+        paintPublicSoundtracksLink(tapes[tapeAt]);
         paintTapeNav(tapes);
 
         tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
@@ -3123,8 +3511,7 @@
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
           }).forEach(function (song) {
-            var line = renderTrackLine(tape, tapeIndex, song);
-            line.classList.add('track-line--in-list');
+            var line = renderTrackLine(tape, tapeIndex, song, { inArchiveList: true });
             trackArchiveList.appendChild(line);
           });
 
@@ -3738,9 +4125,10 @@
         renderTracks();
       }
 
-      function renderTrackLine(tape, tapeIndex, song) {
+      function renderTrackLine(tape, tapeIndex, song, options) {
+        var inArchiveList = !!(options && options.inArchiveList);
         var line = document.createElement('div');
-        line.className = 'track-line';
+        line.className = 'track-line' + (inArchiveList ? ' track-line--in-list' : '');
         var status = songStatus(song);
         line.classList.toggle('is-shelved', status === 'SHELVED');
         line.classList.toggle('is-live', status === 'LIVE');
@@ -4018,7 +4406,7 @@
         var del = document.createElement('button');
         del.type = 'button';
         del.className = 'track-del';
-        del.textContent = '×';
+        del.textContent = inArchiveList ? 'DELETE' : '×';
         del.setAttribute('aria-label', 'Delete ' + songDisplay(song));
         del.title = 'Delete this row outright. Shelving is almost always what you want instead.';
         del.addEventListener('click', function () {
@@ -4039,8 +4427,8 @@
         // fewer between the fields and the card.
         var slugOfTape = text(tape && tape.city_slug);
 
-        // WHERE THE TAPE IS, ABOVE ITS NAME, AS A PATH. Country to city, widest
-        // first, so it reads as one address narrowing rather than three facts.
+        // WHERE THE TAPE IS, AS A PATH. Country to city, widest first, so it
+        // reads as one address narrowing rather than three facts.
         // An empty part is dropped rather than left as an empty segment: most
         // of the world has no state, and "United Kingdom / / London" reads as a
         // fault.
@@ -4074,18 +4462,34 @@
         //
         // THE SHAPE IS THREE PARTS, and each answers one question:
         //
-        //   RAIL   what you do with it: tick, play, position
-        //   BODY   what it IS: the tape it is on, its title, artist, blurb
-        //   TAIL   what we know about it: spotify id, the two flags, its state
+        //   RAIL   what you do with it: tick and play; the main badge also
+        //          carries the Spotify id here, while the popup keeps position
+        //   TOP    what it IS: title and artist, plus row delete
+        //   BODY   tape context, then blurb
+        //   TAIL   what we know about it: the two flags, its state
         //
-        // Every field is still editable in place and nothing was dropped.
+        // Every field is still editable in the popup; the main badge drops the
+        // number pill because the rail needs the Spotify id more.
         var body = document.createElement('div');
         body.className = 'badge-body';
-        body.append(geoLine, tapeTag, titleEl, artistEl, blurbEl);
+        var top = null;
+        if (inArchiveList) {
+          top = document.createElement('div');
+          top.className = 'badge-top';
+          var titleLine = document.createElement('div');
+          titleLine.className = 'track-title-line';
+          titleLine.append(titleEl, artistEl);
+          top.append(titleLine, del);
+          body.append(tapeTag, geoLine, blurbEl);
+        } else {
+          body.append(titleEl, artistEl, blurbEl);
+        }
 
         var rail = document.createElement('div');
         rail.className = 'badge-rail';
-        rail.append(buildSelectBox(song), playBtn, posEl);
+        rail.append(buildSelectBox(song), playBtn);
+        if (inArchiveList) rail.appendChild(idEl);
+        else rail.appendChild(posEl);
 
         var flags = document.createElement('div');
         flags.className = 'badge-flags';
@@ -4093,7 +4497,8 @@
 
         var tail = document.createElement('div');
         tail.className = 'badge-tail';
-        tail.append(idEl, flags, air, del);
+        if (inArchiveList) tail.append(flags, air);
+        else tail.append(idEl, flags, air, del);
 
         var newCell = document.createElement('span');
         newCell.className = 'track-line-new';
@@ -4103,7 +4508,8 @@
         // it is about, not in a fixed slot that is empty on 1,600 of 1,643 rows.
         if (newCell.firstChild) line.appendChild(newCell);
 
-        line.append(rail, body, tail);
+        if (inArchiveList) line.append(top, rail, body, tail);
+        else line.append(rail, body, tail);
 
         if (trackPendingDelete === song.id) {
           var confirmEl = document.createElement('div');
