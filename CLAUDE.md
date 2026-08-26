@@ -672,25 +672,55 @@ least one of them is live.
   ReferenceError. **Second landmine of exactly this shape in this file this
   week**; both were left by passes that removed the findings UI.
 
-### ONE SIZE FOR EVERY WORD ON A TRACK ROW (2026-08-26)
+### ONE SIZE, INHERITED, THEN SHRUNK TO FIT (2026-08-26)
 
-`--track-text: 14pt` on `.track-line`, with `.track-line *` following it. The row
-had collected five sizes -- the fields, the position, the tape tag at 0.5rem,
-the status words, the delete -- each set for its own reason and none of them for
-the row.
+`.track-line { --track-text: 14pt; font-size: var(--track-text) }` and **no
+blanket rule**. Every child of a track row has had its own `font-size` deleted,
+so the row's size is simply inherited.
 
-- **THE UNIVERSAL SELECTOR IS THE POINT.** Several children set their own size,
-  so anything narrower leaves one behind and the row is two sizes again. **It
-  still lost one tie**: `.tape-air-word` is one class, same as `.track-line *`,
-  and is declared later in the sheet, so the two status words stayed at 0.66rem
-  beside 14pt neighbours. Named explicitly now.
-- **THE STATUS COLUMN HAD TO GROW, 122px to 172px**, in all three `--track-cols`
-  definitions. "Shelved" and "Live" either side of a 34px switch do not fit
-  122px at 14pt, and the column is shared with the header.
-- **`fitText` WENT WITH ITS ONE CALLER.** It shrank text to fit a fixed column,
-  which is the opposite of what one declared size is for.
-- **A test reads the size off the stylesheet** rather than writing 14pt down
-  again, and lists any element that disagrees.
+- **`.track-line *` WAS THE FIRST ANSWER AND IT WAS THE WRONG SHAPE.** A blanket
+  rule has to out-specify every child that has an opinion, and **it lost one tie**
+  -- `.tape-air-word` is one class, same weight, declared later -- so the two
+  status words sat at 0.66rem beside 14pt neighbours until somebody looked. A
+  child that declares nothing cannot lose a tie, because there is nothing to tie
+  with. **A test now fails on any child of a track row that declares a size.**
+- **SIX DECLARATIONS WENT**: `.track-input`'s 0.86rem, `.track-input--id`'s
+  0.74rem, `.track-tapetag`'s `font: 700 0.5rem/1` shorthand, `.tape-air-word`'s
+  0.66rem, `.track-del`'s 0.9rem and `.track-play`'s 0.6rem.
+- **BIG BY DEFAULT, SMALLER WHEN THE CONTENT NEEDS IT.** `shrinkToFit` steps a
+  field down half a pixel at a time until it fits its column. A long title is
+  readable at 11px where it would otherwise be a readable 14pt with its end cut
+  off.
+  - **IT CLEARS THE INLINE SIZE FIRST.** A field edited shorter goes back up;
+    setting a number and never clearing it is how a column ends up permanently
+    small because of a value that is no longer in it.
+  - **THERE IS A FLOOR, 10px.** Past it the answer is a shorter value or a wider
+    column, not a smaller font.
+  - **THE BLURB IS DELIBERATELY OUT OF THE SWEEP.** It is a textarea that wraps,
+    so it never overflows its width, and shrinking it would make a paragraph
+    smaller for no reason.
+  - **`.track-input--artist` HAD TO BE NAMED.** It was the one field on the row
+    with no class of its own, which is exactly how a field gets left out of a
+    sweep and nobody notices.
+- **WHAT THE HARNESS CANNOT CHECK, said plainly: jsdom does no layout**, so
+  `scrollWidth` is always 0 and no field ever actually shrinks there. What is
+  asserted is that **no one-line field is left out of the sweep** -- the failure
+  that would be silent -- and the resting size. **The shrinking itself is
+  unverified from here.**
+
+### EVERY COLUMN THE SAME WIDTH (2026-08-26)
+
+`--track-cols: repeat(11, minmax(0, 1fr))`, in all three definitions.
+
+- **`minmax(0, 1fr)` AND NOT `1fr`.** A bare `1fr` has a min of `auto`, so a long
+  unbroken value pushes its column past its share and the row overflows the
+  panel. This is what makes eleven equal columns actually equal.
+- **THE BLURB IS NOW A ELEVENTH OF THE ROW, and that is the cost.** It was the
+  widest column at `1.45fr`; it wraps and grows in height, so a long blurb makes
+  a tall row rather than a clipped one. **Say so if the blurb should keep more
+  room** -- it is the one column where equal width is genuinely worse.
+- The checkbox, play and delete columns are now as wide as the title's. Their
+  contents are centred, so the width is white space rather than anything drawn.
 
 ### WHERE THE TAPE IS, ON EVERY TRACK ROW (2026-08-26)
 

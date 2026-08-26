@@ -423,7 +423,7 @@
     .track-head,
     .track-lines {
 
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
+      --track-cols: repeat(11, minmax(0, 1fr));
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -552,7 +552,8 @@
       border: 1px solid var(--control-line);
       border-radius: 999px;
       background: #fff;
-      font-size: 0.6rem;
+      /* NO SIZE OF ITS OWN, like every other child of a track row: the row sets
+         one and this inherits it. */
       line-height: 1;
       color: var(--muted);
       cursor: pointer;
@@ -611,7 +612,6 @@
       border-radius: 6px;
       background: transparent;
       font: inherit;
-      font-size: 0.86rem;
       color: var(--ink);
     }
 
@@ -619,7 +619,7 @@
     .track-input:focus { border-color: var(--accent); background: #fff; outline: none; }
 
     .track-input--num { text-align: center; font-family: "IBM Plex Mono", monospace; }
-    .track-input--id { font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; }
+    .track-input--id { font-family: "IBM Plex Mono", monospace; }
     .track-input--title { font-weight: 700; }
 
     .track-input--blurb::placeholder { color: var(--bic-red, #c23737); opacity: 0.8; }
@@ -652,7 +652,6 @@
       border: 1px solid transparent;
       border-radius: 6px;
       background: transparent;
-      font-size: 0.9rem;
       line-height: 1;
       color: var(--muted);
       cursor: pointer;
@@ -840,7 +839,7 @@
        and would otherwise resolve to nothing out here and collapse every
        column to zero. */
     .track-line--in-list {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
+      --track-cols: repeat(11, minmax(0, 1fr));
       margin-left: 22px;
       margin-bottom: 2px;
       border-color: var(--cut-panel-line);
@@ -856,7 +855,11 @@
          because it is UPPERCASE MONO at weight 700, it is one short line, and
          it is not something you read, it is something you glance at to place a
          row you are already looking at. */
-      font: 700 0.5rem/1 "IBM Plex Mono", monospace;
+      /* NO SIZE OF ITS OWN. It was 0.5rem, set when this was a glance-at tag
+         rather than the tape's name editor; it takes the row's size now. */
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 700;
+      line-height: 1.1;
       letter-spacing: 0.09em;
       text-transform: uppercase;
       color: var(--muted);
@@ -873,13 +876,15 @@
        THE UNIVERSAL SELECTOR IS THE POINT: several children set their own size,
        so anything narrower leaves one of them behind and the row goes back to
        being two sizes. */
-    .track-line { --track-text: 14pt; }
-    .track-line,
-    .track-line * { font-size: var(--track-text); }
-    /* `.tape-air-word` is one class and so is `.track-line *`; it is declared
-       later in the sheet and won the tie, which left the two status words at
-       0.66rem while everything beside them was 14pt. */
-    .track-line .tape-air-word { font-size: var(--track-text); }
+    /* ONE SIZE, SET ONCE AND INHERITED. It was `.track-line *`, a blanket rule
+       reaching past every child that had an opinion -- which meant it had to
+       out-specify each of them, and it lost one tie to `.tape-air-word` and left
+       two words behind. The row declares the size and the children simply do not
+       declare one, which cannot lose a tie because there is nothing to tie with.
+       BIG BY DEFAULT, SMALLER WHEN THE CONTENT NEEDS IT. `shrinkToFit` steps a
+       field down until it fits its column, so a long title is readable at 14pt
+       and a very long one is readable at 11 rather than clipped at 14. */
+    .track-line { --track-text: 14pt; font-size: var(--track-text); }
 
     /* WHERE THE TAPE IS, ABOVE ITS NAME. Quiet, because it is the same address
        on every row of the tape and you read it once. */
@@ -993,7 +998,7 @@
        `.track-head, .track-lines`, which live inside the popup, so out here it
        would resolve to nothing and collapse every column to zero. */
     .track-head--main {
-      --track-cols: 42px 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 28px 172px 28px;
+      --track-cols: repeat(11, minmax(0, 1fr));
       margin-left: 22px;
       margin-bottom: 4px;
     }
@@ -1080,7 +1085,6 @@
 
     .tape-air-word {
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.66rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -3267,7 +3271,10 @@
         // placeholder an empty Title field would be an unmarked white box.
         var titleEl = field('track-input--title', text(song.title), 'Title', 'Title');
         titleEl.title = 'Title. Enter saves, Escape cancels.';
-        var artistEl = field('', text(song.artist), 'Artist', 'Artist');
+        // NAMED SO THE SHRINK PASS CAN FIND IT. It was the one field on the row
+        // with no class of its own, which is exactly how a field gets left out
+        // of a sweep and nobody notices.
+        var artistEl = field('track-input--artist', text(song.artist), 'Artist', 'Artist');
         artistEl.title = 'Artist. Enter saves, Escape cancels.';
 
         var blurbEl = blurbField(text(song.blurb));
@@ -3680,12 +3687,53 @@
         el.style.width = Math.ceil(need + borders + 2) + 'px';
       }
 
+      // BIG BY DEFAULT, SMALLER WHEN THE CONTENT NEEDS IT.
+      //
+      // The row declares one size and every field inherits it. A field whose
+      // value is too long for its column then steps DOWN until it fits, rather
+      // than clipping at the row's size -- so a long title is readable at 11px
+      // where it would otherwise be a readable 14pt with its end cut off.
+      //
+      // IT CLEARS THE INLINE SIZE FIRST, so a field that has been edited shorter
+      // goes back up. Setting a number and never clearing it is how a column
+      // ends up permanently small because of a value that is no longer in it.
+      //
+      // THERE IS A FLOOR. Past it the answer is not a smaller font, it is a
+      // shorter value or a wider column, and 8px of a track title helps nobody.
+      var TRACK_TEXT_FLOOR_PX = 10;
+
+      function shrinkToFit(el) {
+        if (!el || !el.isConnected) return;
+        el.style.fontSize = '';
+        if (el.scrollWidth <= el.clientWidth) return;
+        var size = parseFloat(window.getComputedStyle(el).fontSize);
+        while (el.scrollWidth > el.clientWidth && size > TRACK_TEXT_FLOOR_PX) {
+          size -= 0.5;
+          el.style.fontSize = size + 'px';
+        }
+      }
+
+      // WHAT IS SHRUNK: the fields that hold a value on one line, plus the two
+      // words of the status switch and the two lines above a title. The BLURB is
+      // deliberately absent -- it is a textarea that wraps, so it never overflows
+      // its width and shrinking it would make a paragraph smaller for no reason.
+      var SHRINK_SELECTOR = [
+        '.track-input--num',
+        '.track-input--title',
+        '.track-input--artist',
+        '.track-input--id',
+        '.track-tapegeo',
+        '.tape-air-word'
+      ].join(', .track-line ');
+
       var fontsFitted = false;
 
       function fitRowInputs() {
         if (!trackArchiveList) return;
         Array.prototype.forEach.call(
           trackArchiveList.querySelectorAll('.city-input, .spine-input'), fitInput);
+        Array.prototype.forEach.call(
+          trackArchiveList.querySelectorAll('.track-line ' + SHRINK_SELECTOR), shrinkToFit);
       }
 
       var refitTimer = 0;
