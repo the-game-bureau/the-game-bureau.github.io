@@ -376,7 +376,13 @@
     /* ── THE SELECTION ──────────────────────────────────────────────────── */
 
     .track-pick,
-    .track-head-label--pick {
+    /* SCOPED, AND IT HAS TO BE. `.track-head-label` is one class and so is
+       `.track-head-label--pick`, and it is declared LATER in this sheet, so it
+       won the tie and put `overflow: hidden` back on the cell -- which clipped
+       the absolutely positioned batch button clean out of existence. It was in
+       the DOM, the tests found it, and nothing was on screen. `.track-head`
+       makes it (0,2,0) so nothing below can take it back. */
+    .track-head .track-head-label--pick {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -393,7 +399,7 @@
        the header -- so a selection appearing changes no width and nothing under
        it moves. A bar that came and went changed the height of the thing you
        were reading. */
-    .track-head-label--pick { position: relative; }
+    .track-head .track-head-label--pick { position: relative; overflow: visible; }
 
     .track-batch {
       position: absolute;
@@ -4206,7 +4212,9 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn small primary track-batch';
-        btn.textContent = 'Batch edit ' + n;
+        // `.btn` uppercases, so this reads BATCH EDIT 30 TRACKS. The noun is
+        // worth the width: "Batch edit 30" leaves you working out 30 of what.
+        btn.textContent = 'Batch edit ' + n + (n === 1 ? ' track' : ' tracks');
         btn.title = 'Act on the ' + n + (n === 1 ? ' selected track' : ' selected tracks')
           + ' at once.';
         btn.addEventListener('click', function (event) {

@@ -755,7 +755,16 @@ pressing it opens a dialog with everything a selection can be made to do.
 - **THE BUTTON IS POSITIONED, NOT PLACED.** The tick's column is 30px; the
   button is absolute against that cell and sits OVER the two columns after it,
   which are empty in the header. **So a selection appearing changes no width and
-  nothing under it moves.**
+  nothing under it moves.** It reads **BATCH EDIT 30 TRACKS** -- the noun earns
+  its width, since "Batch edit 30" leaves you working out 30 of what.
+  - **IT SHIPPED INVISIBLE, AND EVERY TEST FOUND IT.** `.track-head-label`
+    carries `overflow: hidden`; it is ONE class, `.track-head-label--pick` is one
+    class, and the label rule is declared **later in the sheet**, so it won the
+    tie and clipped an absolutely positioned child clean out of existence. The
+    button was in the DOM, `querySelector` found it, and there was nothing on
+    screen. **The rule is `.track-head .track-head-label--pick` now**, (0,2,0), so
+    nothing below can take it back -- and a test reads the cell's computed
+    `overflow` and `position` rather than trusting the declaration.
 - **THE DIALOG HAS TWO STATES, IN ONE PANEL.** First the moves, then -- if you
   press Delete -- the question about deleting, in the same panel. **A second
   dialog over a dialog is worse than a panel that changes its mind**, and the way
