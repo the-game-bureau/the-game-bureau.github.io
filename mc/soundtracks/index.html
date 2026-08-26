@@ -1892,6 +1892,34 @@
 
     .batch-float[hidden] { display: none; }
 
+
+    /* BLACK TEXT IN THE BADGE. Everything here inherited `--ink`, which is the
+       room's navy: right for chrome, and on a white card it reads as a tint
+       rather than as text. The quiet lines stay quiet by being GREY, not by
+       being a lighter blue -- a badge should look printed, not skinned. */
+    #trackArchiveList .track-line.track-line--in-list,
+    #trackArchiveList .track-line.track-line--in-list .track-input,
+    #trackArchiveList .track-line.track-line--in-list .geo-input,
+    #trackArchiveList .track-line.track-line--in-list .city-input,
+    #trackArchiveList .track-line.track-line--in-list .spine-input {
+      color: #000;
+    }
+
+    /* THE THREE QUIET LINES: the tape's name, its address, the blurb. Neutral
+       grey rather than the muted blue, so the card has one hue in it and it is
+       black. */
+    #trackArchiveList .track-line.track-line--in-list .track-tapetag,
+    #trackArchiveList .track-line.track-line--in-list .track-tapegeo,
+    #trackArchiveList .track-line.track-line--in-list .geo-input,
+    #trackArchiveList .track-line.track-line--in-list textarea.track-input--blurb,
+    #trackArchiveList .track-line.track-line--in-list .track-input--artist {
+      color: #3f3f46;
+    }
+
+    #trackArchiveList .track-line.track-line--in-list .track-input--title { color: #000; }
+
+    #trackArchiveList .track-line.track-line--in-list .track-flagword { color: #52525b; }
+
     /* THE PHONE IS THE ESCAPE HATCH. Two bars on one line is not something
        390px can hold, so there they stack and wrap as they did. */
     @media (max-width: 720px) {
@@ -2181,6 +2209,15 @@
           <span>Focus city</span>
           <input class="bot-input" id="botCity" type="text" list="cityOptions"
                  placeholder="Leave blank to work the tier ladder"
+                 aria-describedby="botHint">
+        </label>
+        <!-- A SECOND WAY IN. A city is where the run looks; this is WHAT it
+             looks for, and the two are independent: a named artist with no city
+             lets the run put that artist wherever it genuinely belongs. -->
+        <label class="bot-field">
+          <span>Focus artist or song</span>
+          <input class="bot-input" id="botLook" type="text"
+                 placeholder="Leave blank and the run picks"
                  aria-describedby="botHint">
         </label>
         <p class="bot-hint" id="botHint"></p>
@@ -5578,13 +5615,28 @@
       var botCard = document.getElementById('botCard');
       var botBackdrop = document.getElementById('botBackdrop');
       var botCityInput = document.getElementById('botCity');
+      var botLookInput = document.getElementById('botLook');
       var botHint = document.getElementById('botHint');
       var botFootNote = document.getElementById('botFootNote');
       var botGoBtn = document.getElementById('botGoBtn');
 
+      // WHAT GOES ON THE CLIPBOARD. Two sentences at most, and each is a plain
+      // instruction rather than a field name: what is pasted has to read as
+      // something a person said to the run.
+      //
+      // THE ROUTINE TAKES NO PARAMETERS, which is why this is a clipboard at
+      // all: it reads its brief out of mc/soundtracks/soundtracks.md every run,
+      // and a static page cannot parameterise a cloud trigger.
       function botDirective() {
         var city = text(botCityInput && botCityInput.value);
-        return city ? ('Work ' + city + ' this run.') : '';
+        var look = text(botLookInput && botLookInput.value);
+        var said = [];
+        if (city) said.push('Work ' + city + ' this run.');
+        if (look) {
+          said.push('Look for ' + look
+            + '. If it does not genuinely belong on the tape you are working, say so and pick normally.');
+        }
+        return said.join(' ');
       }
 
       function paintBotDialog() {
@@ -5592,9 +5644,9 @@
         if (!botHint) return;
         botHint.textContent = '';
         if (!said) {
-          botHint.textContent = 'No city named, so the run works the tier ladder '
+          botHint.textContent = 'Nothing named, so the run works the tier ladder '
             + 'in mc/soundtracks/soundtracks.md: a club city first, then a college town, '
-            + 'then any other US city.';
+            + 'then any other US city, and picks its own songs.';
         } else {
           botHint.appendChild(document.createTextNode('Copies '));
           var b = document.createElement('b');
@@ -5610,6 +5662,7 @@
       function openBotDialog() {
         if (!botCard || !botBackdrop) return;
         if (botCityInput) botCityInput.value = '';
+        if (botLookInput) botLookInput.value = '';
         if (botFootNote) botFootNote.textContent = '';
         paintCityOptions();
         paintBotDialog();

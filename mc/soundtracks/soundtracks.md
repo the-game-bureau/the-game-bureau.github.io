@@ -223,9 +223,13 @@ Keep the mix varied across eras and genres where the city supports it.
   artist, not the album, not the blurb, not any field Spotify shows for it, in
   any casing and any language. This is a string test, not a judgement call: if
   the word is there the track is out. You are already opening the Spotify page.
-- **At most 2 songs per artist on one tape**, counting what is already there.
+- **ONE SONG PER ARTIST ON A TAPE.** Not two. Counting what is already there,
+  so read the tape before you pick. A fifteen-track city soundtrack that leans
+  twice on the same act is a shorter list of acts pretending to be a longer one,
+  and the whole point of the tape is the spread.
   Watch for one act spelled two ways (`Los Tigres del Norte` against `Los Tigres
-  Del Norte`): that is one artist.
+  Del Norte`): that is one artist. A featured credit counts as the lead artist's
+  track, not a different one.
 - **No duplicate title and artist on one tape.** A unique index enforces it, so
   a duplicate is silently dropped and the tape ends up short.
 - **Every song needs a title, an artist and a city-specific blurb.** Ten words
@@ -329,8 +333,16 @@ The `kind` string drives the filter in the Tape Room, so it matters.
 - **`facts`** wrong year, wrong album, a wrong claim about the artist. Also: a
   duplicate on the same tape, a missing blurb, a blurb over ten words or ending
   in a period, an `explicit` flag that disagrees with Spotify, an artist
-  appearing more than twice among the live tracks, the word karaoke anywhere, a
+  appearing MORE THAN ONCE on the tape at all (shelved tracks included, since
+  the routine's own picks all land shelved), the word karaoke anywhere, a
   tape whose city is now hidden, or a tape **over 15**.
+
+**THE ONE-PER-ARTIST RULE IS NEW AND THE CATALOGUE PREDATES IT.** Counted on
+2026-08-26: **186 repeated artists across 80 of the 113 tapes.** So the first
+audits under this rule will file a lot, and that is the point rather than a
+fault. File it against the TRACK you would drop, not the tape, and name the
+other one so a human can compare the two at a glance. A tape with the same act
+three times gets two findings, not one.
 
 **NEVER report a tape for being SHORT of fifteen, and never report an empty
 tape.** A short tape is a job, not a defect: the Tape Room carries a FILL PROMPT
@@ -403,7 +415,8 @@ Re-read `soundtrack_stats` and say, out loud:
 - Every song you added is accounted for in `added`, and you dealt with every
   `skipped`.
 - Exactly 5 for the new city, exactly enough to reach 15 for the top-up.
-- No artist more than twice on either tape.
+- **No artist twice on either tape**, counting the tracks already there and not
+  only the ones you added.
 - **Neither city gained a tape it should not have.** A top-up must land on the
   tape already there; if `soundtrack_stats` now shows an extra row for that
   city, you sent a `tape` on a top-up. Say so, so a human can merge them.

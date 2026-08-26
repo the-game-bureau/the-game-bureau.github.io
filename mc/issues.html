@@ -140,7 +140,82 @@
       background: var(--cut-panel-bg);
     }
 
-    .issue-lines { display: grid; gap: 4px; }
+    .issue-lines { display: grid; gap: 8px; }
+
+/* ── ONE FINDING, ONE CARD ──────────────────────────────────────────── */
+    .issue-item {
+      display: grid;
+      gap: 6px;
+      padding: 12px 14px;
+      border: 1px solid var(--control-line);
+      border-radius: 10px;
+      background: #fff;
+      /* THE LEFT EDGE IS THE SEVERITY, four pixels of it, so a page of findings
+         is triaged by looking down it rather than by reading every chip. */
+      box-shadow: inset 4px 0 0 0 var(--control-line);
+    }
+
+    .issue-item.is-high { box-shadow: inset 4px 0 0 0 var(--bic-red); }
+    .issue-item.is-warn { box-shadow: inset 4px 0 0 0 #d99a36; }
+
+    /* A CLEARED ONE STAYS PUT AND GOES QUIET. Removing it would shift every row
+       under the pointer, so the next press lands on something else. */
+    .issue-item.is-cleared { opacity: 0.5; }
+    .issue-item.is-cleared:hover { opacity: 1; }
+
+    .issue-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* THE SOUNDTRACK LABEL LEADS, and it is the loudest thing on the card: it
+       is what tells you which of 113 tapes this is about. */
+    .issue-tape {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .issue-chip {
+      padding: 1px 7px;
+      border: 1px solid var(--control-line);
+      border-radius: 999px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .issue-chip--spotify { border-color: var(--bic-red); color: var(--bic-red); }
+
+    .issue-about {
+      margin-left: auto;
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .issue-detail { margin: 0; font-size: 0.92rem; line-height: 1.45; color: var(--ink); }
+
+    /* THE SUGGESTION IS THE BOT'S, not ours, so it is set apart from the
+       statement above it rather than reading as part of it. */
+    .issue-suggestion {
+      margin: 0;
+      padding-left: 10px;
+      border-left: 2px solid var(--control-line);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .issue-acts { display: flex; gap: 8px; }
+    .issue-acts .btn { min-height: 30px; padding: 0 10px; font-size: 0.66rem; }
 
     .empty-note {
       padding: 22px 12px;
@@ -285,6 +360,163 @@
         part('open', open, open ? 'is-open' : '');
       }
 
+      // ── ONE FINDING, ONE ITEM ───────────────────────────────────────────
+      //
+      // A finding is a fact about a TRACK on a TAPE, so a list of them has to
+      // carry both -- that is the cost the Tape Room paid to get findings off
+      // its rows, and the label is how this page pays it back. Every item says
+      // which soundtrack it is about, and offers the only two things this page
+      // can honestly do: take you to it, or clear it.
+      function findingItem(f) {
+        var item = document.createElement('article');
+        item.className = 'issue-item is-' + (text(f.severity) || 'info');
+        item.dataset.findingId = String(f.id);
+
+        var head = document.createElement('div');
+        head.className = 'issue-head';
+
+        // THE SOUNDTRACK LABEL LEADS IT. `city_slug` is a slug, so it is
+        // written out: a list keyed by `baton-rouge` is a list you have to
+        // translate before you can read it.
+        var label = document.createElement('span');
+        label.className = 'issue-tape';
+        label.textContent = cityLabel(f.city_slug) + '  ·  ' + (text(f.tape) || 'no tape name');
+        head.appendChild(label);
+
+        var kind = document.createElement('span');
+        kind.className = 'issue-chip issue-chip--' + (text(f.kind) || 'facts');
+        kind.textContent = text(f.kind) || 'facts';
+        head.appendChild(kind);
+
+        var sev = document.createElement('span');
+        sev.className = 'issue-chip issue-chip--sev';
+        sev.textContent = text(f.severity) || 'info';
+        head.appendChild(sev);
+
+        // A TAPE-SCOPE FINDING NAMES NO TRACK, and several of them are
+        // statements about the LIST rather than about a song. Saying so is what
+        // stops it reading as a finding whose track went missing.
+        var about = document.createElement('span');
+        about.className = 'issue-about';
+        about.textContent = text(f.scope) === 'tape'
+          ? 'about the whole tape'
+          : (text(f.song_title) || 'track ' + text(f.song_id));
+        head.appendChild(about);
+
+        item.appendChild(head);
+
+        var detail = document.createElement('p');
+        detail.className = 'issue-detail';
+        detail.textContent = text(f.detail);
+        item.appendChild(detail);
+
+        if (text(f.suggestion)) {
+          var sug = document.createElement('p');
+          sug.className = 'issue-suggestion';
+          sug.textContent = text(f.suggestion);
+          item.appendChild(sug);
+        }
+
+        var acts = document.createElement('div');
+        acts.className = 'issue-acts';
+
+        // GO TO IS A REAL LINK, not a button that navigates. Middle-click and
+        // ctrl-click work, and it survives this page's JavaScript failing.
+        var go = document.createElement('a');
+        go.className = 'btn small';
+        go.textContent = 'Go to';
+        go.href = tapeRoomHref(f);
+        go.title = text(f.scope) === 'tape'
+          ? 'Open this tape in the Tape Room.'
+          : 'Open this track in the Tape Room.';
+        acts.appendChild(go);
+
+        var clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'btn small';
+        clear.textContent = 'Clear issue';
+        // CLEARING EMPTIES THE QUEUE; IT DOES NOT SILENCE THE FINDING. The
+        // audit re-reports an open one whose fingerprint it has seen, so a
+        // cleared finding comes straight back on the next run if the problem is
+        // still there. That recurrence is the only check that a fix landed.
+        clear.title = 'Mark this as dealt with. If the problem is still there, the '
+          + 'next audit files it again, which is the only check that a fix landed.';
+        clear.addEventListener('click', function () { clearFinding(f, clear); });
+        acts.appendChild(clear);
+
+        item.appendChild(acts);
+        return item;
+      }
+
+      // THE TAPE ROOM'S OWN HASH CONTRACT, and this page must not invent a
+      // second one: `#track=` opens the track, `#tape=` the tape it is on. A
+      // tape has no id of its own -- it is `(city_slug, tape)` -- so the key is
+      // that pair, exactly as the room builds it.
+      function tapeRoomHref(f) {
+        var room = '/mc/soundtracks/';
+        if (text(f.scope) !== 'tape' && f.song_id != null) {
+          return room + '#track=' + encodeURIComponent(String(f.song_id));
+        }
+        var key = JSON.stringify([text(f.city_slug), text(f.tape)]);
+        return room + '#tape=' + encodeURIComponent(key);
+      }
+
+      // A SLUG IS NOT A LABEL. `baton-rouge` reads as data; the list is read by
+      // a person deciding what to work on next.
+      function cityLabel(slug) {
+        var s = text(slug);
+        if (!s) return '(unknown city)';
+        return s.split('-').map(function (part) {
+          return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
+        }).join(' ');
+      }
+
+      // CLEARING WRITES `fixed`, NEVER `dismissed`. `dismissed` is a permanent
+      // silence: a decision nobody can see afterwards, and one a wrong press
+      // cannot take back without SQL. This page refuses to write it.
+      async function clearFinding(f, btn) {
+        btn.disabled = true;
+        var was = btn.textContent;
+        btn.textContent = 'Clearing';
+        var ok = false;
+        try {
+          var res = await fetch(restUrl('rpc/tgb_resolve_soundtrack_finding'), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ p_id: f.id, p_status: 'fixed' })
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status
+            + ((await res.text().catch(function () { return ''; })).slice(0, 160)));
+          // THE FUNCTION ANSWERS TRUE OR FALSE, and false means it matched no
+          // open finding. Reporting that as success would leave a row on screen
+          // that a reload brings straight back.
+          ok = await res.json().catch(function () { return false; });
+        } catch (error) {
+          console.error(error);
+          setNotice('could not clear that finding: ' + ((error && error.message) || 'write failed'), 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        if (!ok) {
+          setNotice('that finding was already cleared by somebody else', 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        // THE ITEM STAYS PUT AND GOES QUIET. Removing it would shift every row
+        // under the pointer, so the next press lands on something else, and
+        // after three you would not know what you had just done.
+        var item = document.querySelector('[data-finding-id="' + f.id + '"]');
+        if (item) {
+          item.classList.add('is-cleared');
+          btn.textContent = 'Cleared';
+        }
+        f.status = 'fixed';
+        paintStats();
+        setNotice('cleared', 'success');
+      }
+
       function render() {
         if (!issueList) return;
         issueList.textContent = '';
@@ -299,18 +531,22 @@
           return;
         }
 
-        // STANDING BY FOR THE REST. The room, its chrome, its auth, its error
-        // channel and its read are all real and proved; what a finding looks
-        // like on this page is the part still to be decided, so it is one
-        // honest line each rather than a guess at a layout.
-        findings.forEach(function (f) {
-          var line = document.createElement('div');
-          line.className = 'empty-note';
-          line.style.textAlign = 'left';
-          line.textContent = [text(f.kind).toUpperCase(), text(f.severity),
-            text(f.city_slug), text(f.song_title), text(f.detail)]
-            .filter(Boolean).join('  ·  ');
-          issueList.appendChild(line);
+        // OPEN ONES FIRST, THEN BY SEVERITY. A cleared finding stays on the
+        // page rather than vanishing under the pointer, so it has to sink or it
+        // would sit among the work.
+        var rank = { high: 0, warn: 1, info: 2 };
+        findings.slice().sort(function (a, b) {
+          var ao = text(a.status) === 'open' ? 0 : 1;
+          var bo = text(b.status) === 'open' ? 0 : 1;
+          if (ao !== bo) return ao - bo;
+          var as = rank[text(a.severity)] == null ? 3 : rank[text(a.severity)];
+          var bs = rank[text(b.severity)] == null ? 3 : rank[text(b.severity)];
+          if (as !== bs) return as - bs;
+          return String(b.created_at).localeCompare(String(a.created_at));
+        }).forEach(function (f) {
+          var item = findingItem(f);
+          if (text(f.status) !== 'open') item.classList.add('is-cleared');
+          issueList.appendChild(item);
         });
       }
 
