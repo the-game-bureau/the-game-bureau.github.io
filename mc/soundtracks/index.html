@@ -987,6 +987,45 @@
        controls. -6px pulls them together without a wrapper element. */
     .tape-step + .tape-step { margin-left: -6px; }
 
+    /* IT WEARS `.btn` AND HAS TO UNDO WHAT A `select` BRINGS. A native control
+       carries its own font and its own chrome, so without these it reads as a
+       different kind of thing from the buttons either side of it.
+       CAPPED, BECAUSE THE BAR DOES NOT WRAP. A country name is as long as it is
+       and the widest option must not be able to push the doors off the end. */
+    .tape-filter {
+      flex: 0 1 auto;
+      max-width: 22ch;
+      padding: 0 26px 0 10px;
+      font: inherit;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-overflow: ellipsis;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position: calc(100% - 15px) calc(50% + 1px), calc(100% - 10px) calc(50% + 1px);
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    /* THE OPEN LIST IS DRAWN BY THE BROWSER and inherits none of the above, so
+       its own type is set here or the options come back at the page default. */
+    .tape-filter option,
+    .tape-filter optgroup {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    /* A CHOSEN FILTER IS A STATE, so it says so the way every pressed control in
+       this room says so. */
+    .tape-filter:not([data-all]) { border-color: var(--accent); color: var(--accent); }
+
     /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
        header; with one tape on screen there is nothing up here to align to. */
     /* THE CATALOGUE, UNDER THE ROOM'S NAME. Small mono, one line, the two
@@ -1336,6 +1375,14 @@
           <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
           <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
           <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
+          <!-- NARROWS WHAT THE ARROWS STEP THROUGH, so it belongs beside them
+               and before the separator: everything left of that rule is about
+               the tape you are on, everything right of it is somewhere to go. -->
+          <select class="btn tape-filter" id="tapeFilter"
+                  aria-label="Show only tapes in one country, state or city"
+                  title="Show only the tapes in one country, state or city. The arrows then step through those.">
+            <option value="">ALL TAPES</option>
+          </select>
           <span class="bar-sep" aria-hidden="true"></span>
           <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only live tracks appear there.">SOUNDTRACKS</a>
 
@@ -2294,6 +2341,103 @@
       // IT READS THE LIST IT IS GIVEN rather than recomputing one, so it can
       // never disagree with what is on screen about how many there are or which
       // one this is.
+      // WHICH TAPES THE ARROWS STEP THROUGH.
+      //
+      // `kind:value`, so a city called Luxembourg and a country called
+      // Luxembourg cannot be the same option. Empty is every tape, and it is the
+      // resting state.
+      var tapeFilter = '';
+      var tapeFilterSig = '';
+
+      function tapeFilterKey(tape) {
+        var slug = text(tape && tape.city_slug);
+        return {
+          country: cityCountryLabel(slug),
+          state: cityStateLabel(slug),
+          city: soundCityLabel(slug)
+        };
+      }
+
+      function tapeMatchesFilter(tape) {
+        if (!tapeFilter) return true;
+        var at = tapeFilter.indexOf(':');
+        if (at < 0) return true;
+        var kind = tapeFilter.slice(0, at);
+        var want = tapeFilter.slice(at + 1);
+        var have = tapeFilterKey(tape);
+        return text(have[kind]) === want;
+      }
+
+      // THE OPTIONS ARE BUILT FROM THE CATALOGUE, so the list can only offer a
+      // choice that has tapes behind it. An empty result is therefore not a
+      // state this control can produce.
+      function paintTapeFilter() {
+        var sel = document.getElementById('tapeFilter');
+        if (!sel) return;
+        var groups = { country: {}, state: {}, city: {} };
+        soundtracks().forEach(function (tape) {
+          var k = tapeFilterKey(tape);
+          ['country', 'state', 'city'].forEach(function (kind) {
+            var v = text(k[kind]);
+            if (v) groups[kind][v] = (groups[kind][v] || 0) + 1;
+          });
+        });
+
+        var order = [
+          ['country', 'Country'],
+          ['state', 'State'],
+          ['city', 'City']
+        ];
+        var sig = JSON.stringify(groups);
+        // REBUILT ONLY WHEN THE CATALOGUE CHANGES. Rebuilding on every render
+        // would close the list under the pointer while somebody is reading it.
+        if (sig === tapeFilterSig) { sel.value = tapeFilter; markAll(sel); return; }
+        tapeFilterSig = sig;
+
+        sel.textContent = '';
+        var all = document.createElement('option');
+        all.value = '';
+        all.textContent = 'ALL TAPES';
+        sel.appendChild(all);
+
+        order.forEach(function (pair) {
+          var kind = pair[0];
+          var names = Object.keys(groups[kind]).sort(function (a, b) {
+            return a.localeCompare(b);
+          });
+          if (!names.length) return;
+          var group = document.createElement('optgroup');
+          group.label = pair[1];
+          names.forEach(function (name) {
+            var opt = document.createElement('option');
+            opt.value = kind + ':' + name;
+            // THE COUNT IS THE POINT OF SHOWING IT. A closed list cannot say
+            // that Texas holds nine tapes, which is the question you open it to
+            // ask.
+            opt.textContent = name + '  (' + groups[kind][name] + ')';
+            group.appendChild(opt);
+          });
+          sel.appendChild(group);
+        });
+
+        // A FILTER WHOSE VALUE HAS GONE takes the list back to everything rather
+        // than sitting on a choice the catalogue no longer holds.
+        var found = Array.prototype.some.call(sel.options, function (o) {
+          return o.value === tapeFilter;
+        });
+        if (!found) tapeFilter = '';
+        sel.value = tapeFilter;
+        markAll(sel);
+      }
+
+      // `data-all` IS THE RESTING STATE, and the CSS colours its absence. An
+      // attribute rather than a class because there is exactly one of these and
+      // the question it answers is binary.
+      function markAll(sel) {
+        if (tapeFilter) sel.removeAttribute('data-all');
+        else sel.setAttribute('data-all', '');
+      }
+
       function paintTapeNav(tapes) {
         var prev = document.getElementById('tapePrev');
         var next = document.getElementById('tapeNext');
@@ -2365,6 +2509,11 @@
           var sa = text(a && a.city_slug), sb = text(b && b.city_slug);
           return byLabel(soundCityLabel(sa), soundCityLabel(sb), 1) || byLabel(sa, sb, 1);
         });
+
+        paintTapeFilter();
+        // NARROWED AFTER THE SORT, so the order inside a filter is the order the
+        // whole catalogue has: city, A to Z.
+        tapes = tapes.filter(tapeMatchesFilter);
 
         if (!tapes.length) {
 
@@ -4057,6 +4206,15 @@
       var tapeNextBtn = document.getElementById('tapeNext');
       if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
       if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
+
+      var tapeFilterEl = document.getElementById('tapeFilter');
+      if (tapeFilterEl) tapeFilterEl.addEventListener('change', function () {
+        tapeFilter = tapeFilterEl.value || '';
+        // A FILTER RESETS TO THE TOP. Keeping the position would land you on
+        // whatever happens to be fiftieth in a completely different list.
+        tapeAt = 0;
+        renderTrackArchive();
+      });
 
       loadLastRun();
 

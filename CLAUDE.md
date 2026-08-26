@@ -708,6 +708,43 @@ so the row's size is simply inherited.
   that would be silent -- and the resting size. **The shrinking itself is
   unverified from here.**
 
+### THE VIEW BAR HAS A COUNTRY / STATE / CITY FILTER (2026-08-26)
+
+One `<select>` between the pager and the doors: **ALL TAPES**, then three
+optgroups, **Country**, **State**, **City**, each option carrying its tape count.
+Choosing one narrows what the arrows step through; the room still shows **one
+tape at a time**.
+
+- **IT SITS BEFORE THE `.bar-sep`, AND THAT RULE IS THE ARGUMENT.** Everything
+  left of it is about the tape you are on; everything right of it is somewhere to
+  go. A filter that decides which tapes the arrows walk is the first kind.
+- **`kind:value`, NEVER A BARE VALUE.** Luxembourg is a country and a city, and
+  two options that both read `Luxembourg` and mean different things is the sort
+  of bug nobody reports because it looks like it worked.
+- **THE OPTIONS ARE BUILT FROM THE CATALOGUE**, so the list can only offer a
+  choice with tapes behind it: an empty result is not a state this control can
+  produce. **A stored value the catalogue no longer holds falls back to ALL**
+  rather than leaving the room on a filter that matches nothing.
+- **THE COUNT IS THE POINT OF SHOWING IT.** A closed list cannot say Texas holds
+  nine tapes, which is the question you open it to ask. Same argument as the
+  filter strips this room has had before.
+- **REBUILT ONLY WHEN THE CATALOGUE CHANGES**, keyed on a signature of the
+  option set. Rebuilding on every render would close the list under the pointer
+  while somebody is reading it.
+- **A FILTER RESETS TO THE TOP.** Keeping `tapeAt` would land you on whatever
+  happens to be fiftieth in a completely different list.
+- **THE CATALOGUE LINE DOES NOT NARROW WITH IT**, and a test asserts that. It is
+  the standing measure of the room, and a figure that shrank as you filtered
+  would read as the filter breaking.
+- **IT UNDOES WHAT A NATIVE `select` BRINGS.** `appearance: none` plus two
+  gradients for the arrow, and its own font, or it reads as a different kind of
+  thing from the `.btn`s either side. **The open list inherits none of that** --
+  the browser draws it -- so `option` and `optgroup` set their own type.
+- **CAPPED AT 22ch BECAUSE THE BAR DOES NOT WRAP.** A country name is as long as
+  it is, and the widest option must not be able to push the doors off the end.
+  **The ADD bar is what gives way**, per the one-line rule, so at the 1,180px
+  shell its two buttons now clip a little.
+
 ### COLUMNS SIZED TO WHAT THEY HOLD, AND NO OFFSET (2026-08-26)
 
 Eleven equal columns were tried for one pass and reversed on sight. At 14pt in a
