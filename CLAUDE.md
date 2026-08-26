@@ -669,6 +669,27 @@ the fetch and the render share one `try`, so a drawing bug accused the database.
 **The message now says which it was**, and sends you to the console rather than
 to Supabase.
 
+### `/mc/issues.html` IS THE ROOM FINDINGS MOVED TO (2026-08-26)
+
+A shell, deliberately: the chrome, the sign-in, the error channel and the read
+are all real and proved, and **what a finding LOOKS like on this page is still to
+be decided**, so each is one honest line rather than a guess at a layout.
+
+- **IT IS THE TAPE ROOM'S SIBLING AND WEARS ITS CHROME.** Same tokens, same
+  folder-tab command bars with the `::before` arch, same room head, same red-pen
+  scribble as the only error channel. **When either room's chrome changes,
+  change both.**
+- **IT READS `soundtrack_findings`, THE VIEW, NEVER THE TABLE.** Findings are a
+  jsonb array on `public.soundtrack`, which PostgREST cannot count or list. The
+  view is `security_invoker` and granted to `authenticated` only, because a
+  finding is an internal editorial note.
+- **THE READ PAGES.** 285 findings today, which is exactly the size that grows
+  past PostgREST's silent 1,000-row cap without anybody noticing.
+- **THE DOOR IS A RED `ISSUES` BUTTON after ABOUT in the Tape Room's VIEW bar**,
+  the only red button in that room, and outlined rather than filled: it is a
+  door, not the action the room is for. There is also a nav entry, so the room
+  can be found by name.
+
 ### THE ISSUES UI IS OUT OF THE TAPE ROOM (2026-08-26)
 
 Findings are going on a page of their own. Nothing in this room draws one now:

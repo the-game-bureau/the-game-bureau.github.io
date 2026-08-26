@@ -216,6 +216,14 @@
           href: '/mc/socializer/',
           label: 'Socializer',
           description: 'Review AI-scouted stories and open prefilled composers for The Game Bureau social channels.'
+        },
+        {
+          // Reached from the Tape Room's own VIEW bar as well, by the one red
+          // button in that room. This entry is here so somebody looking for it
+          // by name finds it in a list, the same reason Socializer has one.
+          href: '/mc/issues.html',
+          label: 'Issues',
+          description: 'What the daily audit found wrong with the tapes. Drawn on the rows in the Tape Room until 2026-08-26.'
         }
       ]
     },

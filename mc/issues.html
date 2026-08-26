@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>ISSUES | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/soundtracks/soundtracks.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+
+    /* THE TAPE ROOM'S OWN TOKENS AND CHROME. This room is its sibling: the
+       findings that used to be drawn inside it live here now, so the two have
+       to read as one product. When either changes, change both. */
+    :root {
+      --mc-shell-width: 1180px;
+      --stack-gap: 14px;
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: #1b2438;
+      --muted: #6b7280;
+      --line: rgba(27, 36, 56, 0.16);
+      --accent: var(--bic-blue);
+      --success: #1f7a44;
+      --danger: #a03f2d;
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0 0 60px;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .app {
+      max-width: var(--mc-shell-width);
+      margin: 0 auto;
+      padding: 0 18px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.small { min-height: 30px; padding: 0 10px; font-size: 0.66rem; }
+    .btn[disabled] { opacity: 0.45; cursor: default; }
+
+    /* ── The command bars, folder tabs like every other room ────────────── */
+    .bar-row { display: flex; gap: 12px; margin-bottom: var(--stack-gap); }
+
+    .command-bar {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      padding: 8px 12px 10px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 8px;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar--view { flex: 0 0 auto; }
+
+    .command-bar > legend {
+      position: relative;
+      isolation: isolate;
+      margin-left: 4px;
+      padding: 0 8px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* The arch that cuts the panel border around the label. Copied from the
+       Socializer verbatim, `isolation: isolate` and all: it cannot be a border
+       on the legend itself. */
+    .command-bar > legend::before {
+      content: "";
+      position: absolute;
+      inset: -1px -1px 50% -1px;
+      z-index: -1;
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar-inner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Room head ──────────────────────────────────────────────────────── */
+    .room-stats {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0 6px;
+      margin: 3px 0 0;
+      font: 500 0.72rem/1.4 "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .room-stats-count { font-weight: 700; }
+    .room-stats-count.is-open { color: var(--bic-red); }
+    .room-stats-sep { opacity: 0.7; }
+
+    .work-panel {
+      padding: 12px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      background: var(--cut-panel-bg);
+    }
+
+    .issue-lines { display: grid; gap: 4px; }
+
+    .empty-note {
+      padding: 22px 12px;
+      border: 1px dashed var(--control-line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: center;
+    }
+
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="pageTitle">ISSUES</h1>
+        <p class="room-blurb" id="pageTagline"></p>
+        <p class="room-stats" id="roomStats"></p>
+        <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <a class="btn" id="soundtrackBotBtn"
+             href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
+             target="_blank" rel="noopener noreferrer"
+             title="The routine that files these findings. It audits five tapes a run.">TGB SOUNDTRACK BOT</a>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--view">
+        <legend>View</legend>
+        <div class="command-bar-inner">
+          <a class="btn" href="/mc/soundtracks/"
+             title="The room these findings are about.">TAPE ROOM</a>
+          <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer"
+             title="The public page. Only live tracks appear on it.">SOUNDTRACKS</a>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="work-panel" id="roomBody">
+      <div class="issue-lines" id="issueList"></div>
+    </div>
+
+  </main>
+
+  <script src="/mc/js/room-blurbs.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      var pageNotice = document.getElementById('pageNotice');
+      var issueList = document.getElementById('issueList');
+      var roomStats = document.getElementById('roomStats');
+      var tagline = document.getElementById('pageTagline');
+
+      if (tagline) {
+        tagline.textContent = 'What the daily audit found wrong with the tapes, '
+          + 'and the one place to deal with it.';
+      }
+
+      function text(value) { return String(value == null ? '' : value).trim(); }
+
+      // ONE ERROR CHANNEL, the red pen beside the room name. A success clears
+      // itself after six seconds because a stale confirmation is a lie about
+      // what is currently true; an error stays until the next action.
+      var noticeTimer = 0;
+      function setNotice(message, tone) {
+        if (!pageNotice) return;
+        clearTimeout(noticeTimer);
+        pageNotice.textContent = message || '';
+        pageNotice.classList.toggle('is-error', tone === 'error');
+        if (message && tone === 'success') {
+          noticeTimer = setTimeout(function () { pageNotice.textContent = ''; }, 6000);
+        }
+      }
+
+      function restUrl(path) { return SUPABASE_CONFIG.url + '/rest/v1/' + path; }
+
+      function authHeaders(extra) {
+        var session = adminAuth.getSession ? adminAuth.getSession() : null;
+        var token = session && session.access_token;
+        if (!token) throw new Error('Sign in with an admin account.');
+        return Object.assign({
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/json'
+        }, extra || {});
+      }
+
+      // PostgREST CAPS A RESPONSE AT 1000 ROWS AND TRUNCATES SILENTLY, so every
+      // whole-table read here pages. There are 285 findings today and that is
+      // exactly the sort of number that grows past the cap unnoticed.
+      async function fetchAllRows(path) {
+        var PAGE = 1000;
+        var all = [];
+        for (var from = 0; ; from += PAGE) {
+          var res = await fetch(restUrl(path), {
+            headers: authHeaders({ Range: from + '-' + (from + PAGE - 1) }),
+            cache: 'no-store'
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status + ' for ' + path);
+          var rows = await res.json();
+          if (!Array.isArray(rows)) throw new Error('Unexpected response for ' + path);
+          all = all.concat(rows);
+          if (rows.length < PAGE) return all;
+        }
+      }
+
+      var findings = [];
+
+      function paintStats() {
+        if (!roomStats) return;
+        var open = findings.filter(function (f) { return text(f.status) === 'open'; }).length;
+        roomStats.textContent = '';
+        function part(word, n, cls) {
+          var w = document.createElement('span');
+          w.className = 'room-stats-word';
+          w.textContent = word;
+          var v = document.createElement('span');
+          v.className = 'room-stats-count' + (cls ? ' ' + cls : '');
+          v.textContent = String(n);
+          roomStats.append(w, v);
+        }
+        part('findings', findings.length, '');
+        var sep = document.createElement('span');
+        sep.className = 'room-stats-sep';
+        sep.textContent = '|';
+        roomStats.appendChild(sep);
+        part('open', open, open ? 'is-open' : '');
+      }
+
+      function render() {
+        if (!issueList) return;
+        issueList.textContent = '';
+        paintStats();
+
+        if (!findings.length) {
+          var note = document.createElement('div');
+          note.className = 'empty-note';
+          note.textContent = 'No findings on file. TGB SOUNDTRACK BOT audits five tapes a run '
+            + 'and reports what it finds here.';
+          issueList.appendChild(note);
+          return;
+        }
+
+        // STANDING BY FOR THE REST. The room, its chrome, its auth, its error
+        // channel and its read are all real and proved; what a finding looks
+        // like on this page is the part still to be decided, so it is one
+        // honest line each rather than a guess at a layout.
+        findings.forEach(function (f) {
+          var line = document.createElement('div');
+          line.className = 'empty-note';
+          line.style.textAlign = 'left';
+          line.textContent = [text(f.kind).toUpperCase(), text(f.severity),
+            text(f.city_slug), text(f.song_title), text(f.detail)]
+            .filter(Boolean).join('  ·  ');
+          issueList.appendChild(line);
+        });
+      }
+
+      async function load() {
+        try {
+          // THE VIEW, NOT THE TABLE. Findings live in a jsonb array on
+          // public.soundtrack, which PostgREST cannot count or list;
+          // soundtrack_findings flattens them to one row each. It is
+          // security_invoker and granted to `authenticated` only, because a
+          // finding is an internal editorial note.
+          findings = await fetchAllRows(
+            'soundtrack_findings?select=*&order=created_at.desc');
+          render();
+          setNotice('');
+        } catch (error) {
+          console.error(error);
+          findings = [];
+          render();
+          setNotice((error && error.message) || 'could not read the findings', 'error');
+        }
+      }
+
+      var adminAuth = window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: function () {
+          load().catch(function (error) {
+            console.error(error);
+            setNotice('could not read the findings', 'error');
+          });
+        },
+        onSignedOut: function () {
+          findings = [];
+          if (issueList) issueList.textContent = '';
+          if (roomStats) roomStats.textContent = '';
+        }
+      });
+
+      if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+      adminAuth.init();
+    }());
+  </script>
+</body>
+</html>
