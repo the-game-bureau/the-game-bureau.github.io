@@ -978,6 +978,41 @@ function**, where `arguments` belongs to the enclosing scope — so it never
 matched and every decision fell through to a generic reply that read as the
 database refusing the write.
 
+### `mc/data/cities.html` IS DELETED (2026-08-25)
+
+The hub's Cities panel is now **the only city editor there is**. A hard break
+with no redirect, as always here: `/mc/data/cities.html` 404s. Every door went
+in the same commit — the Cities entry in [mc/js/admin-nav-menu.js](mc/js/admin-nav-menu.js), the card in
+[mc/data/index.html](mc/data/index.html), and the hub's own Add fallback, which had pointed there.
+
+**WHAT WENT WITH IT, STATED PLAINLY RATHER THAN DISCOVERED LATER.** These are
+SQL now, until somebody asks for them back:
+
+| gone | why it mattered |
+|---|---|
+| **Delete a city** | the only way to remove one |
+| **Rename a city** | with its three-sentence warning about the string key |
+| `city_name` / `state_name` / `state_code` / country | the structured geo fields |
+| continent / country / visibility filters | browsing 1,451 rows by anything but name |
+| the bulk AI import prompt | adding cities in batches |
+| `?add=<city>` deep link | its last caller went with the ERRORS dialog |
+
+**DELETE IS THE ONE THAT BITES, AND IT BITES HARDER BECAUSE OF THE OTHER CHANGE
+MADE THE SAME DAY.** Cities are now created automatically by every writer, and
+there is no longer any screen that can remove one. **A bad city added by a bot
+is `delete from public.cities where slug = '…'` and nothing else.** If that
+turns out to be a real problem, the fix is a Delete on the hub panel guarded by
+a reference count, not the room coming back.
+
+**The `?add=` handling in [mc/assets/city-picker.js](mc/assets/city-picker.js) is untouched** — that module
+owns the add dialog, is loaded by the hub and by `mc/events/index.html`, and is
+what both use to create a city. Only the PAGE went.
+
+**`addcity-test` was retired with it**, its subject being that page's `?add=`
+flow. **Its one still-live case moved into `cities-test`**: `isKnownCity` must
+compare case-insensitively, which is the bug that once made a row UNKNOWN on one
+page and ALREADY THERE on the other.
+
 ### CITIES — one city at a time, on the hub (2026-08-25)
 
 A panel showing **one** city with its three visibility flags, a search, and

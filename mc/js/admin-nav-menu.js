@@ -83,12 +83,6 @@
           action: 'GO TO THE GREEN ROOM'
         },
         {
-          href: '/mc/data/cities.html',
-          label: 'Cities',
-          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.',
-          action: 'GO TO CITIES'
-        },
-        {
           href: '/mc/events/',
           // Absorbed /mc/get_games.html ("Sports Games Research") and
           // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
