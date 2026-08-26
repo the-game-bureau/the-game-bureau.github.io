@@ -218,7 +218,8 @@
       line-height: 1;
     }
 
-    .tape-step + .tape-step { margin-left: -6px; }
+    /* NO PULL BETWEEN THE ARROWS. They stopped being adjacent when the count
+       moved between them; a negative margin would drag it under one. */
     .tape-step[disabled] { opacity: 0.35; cursor: default; }
 
     .tape-where {
@@ -386,7 +387,10 @@
     /* THE IRREVERSIBLE BUTTON IS THE RED ONE, and it is never the primary. */
     #bulkCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
     #bulkCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
-    #bulkCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+    #bulkCard .prompt-foot,
+    #trackDelCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+    #trackDelCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
+    #trackDelCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
 
     /* THE HEADER'S OWN CONTROL CELLS WENT ON 2026-08-26, with the tape switch,
        the X and then the two flag filters. It labels its columns and holds the
@@ -1184,7 +1188,11 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       /* FOUR ROWS NOW: the tape's name, the rail, the body, the tail. */
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      /* FIVE ROWS: the header, the blurb, the rail, the tape line, the tail.
+         THE BLURB TAKES THE FLEXIBLE ONE, being the only field that grows: slack
+         in a 258px badge goes to the sentence rather than to white space under
+         the buttons. */
+      grid-template-rows: auto minmax(0, 1fr) auto auto auto;
       align-items: stretch;
       gap: 10px;
       min-height: 258px;
@@ -1284,9 +1292,9 @@
     /* THE MASTHEAD: the track title and artist, with DELETE on the same row. */
     #trackArchiveList .track-line.track-line--in-list .badge-top {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-areas:
-        "title del";
+        "pick title del";
       align-items: center;
       column-gap: 8px;
       gap: 1px;
@@ -1298,6 +1306,24 @@
       background: linear-gradient(135deg, var(--accent), #203d78);
       color: #fff;
       box-shadow: inset 0 -1px 0 rgba(var(--bic-blue-rgb), 0.24);
+    }
+
+    /* THE TICK'S CELL. Named rather than positional, so adding a third thing to
+       this header cannot silently push the title into the delete's place. */
+    #trackArchiveList .track-line.track-line--in-list .badge-top .track-pick {
+      grid-area: pick;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* THE BLURB IS ITS OWN ROW, hard under the header, and the only field on the
+       badge that grows. It carries no label because the sentence IS the label:
+       nothing else on the card is prose. */
+    #trackArchiveList .track-line.track-line--in-list > textarea.track-input--blurb {
+      align-self: stretch;
+      width: 100%;
+      margin: 0;
     }
 
     #trackArchiveList .track-line.track-line--in-list .badge-top .track-title-line {
@@ -1512,6 +1538,42 @@
 
     /* WHERE THE TAPE IS. Quiet, because it is the same address on every row of
        the tape and you read it once after the song name leads. */
+/* THE PLACE LINE IS THREE BOXES. They look like the text they replaced until
+       you reach for one -- no border, no fill at rest -- because a tape's own
+       address is read far more often than it is corrected. */
+    .geo-input {
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      color: inherit;
+      min-width: 2ch;
+      padding: 0 2px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+    }
+
+    .geo-input:hover,
+    .geo-input:focus {
+      border-color: var(--control-line);
+      background: #fff;
+      outline: none;
+    }
+
+    .geo-input::placeholder { opacity: 0.5; }
+
+    .geo-sep { opacity: 0.45; padding: 0 1px; }
+
+    /* THE CITY IN THE TAPE'S NAME IS LOCKED. It is edited on the place line,
+       where changing it is plainly a move; a box that looks editable and is not
+       is worse than one that says so. */
+    .city-input.is-locked {
+      cursor: default;
+      opacity: 0.75;
+      border-color: transparent;
+      background: transparent;
+    }
+
     .track-tapegeo {
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
@@ -1586,7 +1648,8 @@
 
     /* The gap between the pair is the row's gap otherwise, which reads as two
        controls. -6px pulls them together without a wrapper element. */
-    .tape-step + .tape-step { margin-left: -6px; }
+    /* NO PULL BETWEEN THE ARROWS. They stopped being adjacent when the count
+       moved between them; a negative margin would drag it under one. */
 
     /* IT WEARS `.btn` AND HAS TO UNDO WHAT A `select` BRINGS. A native control
        carries its own font and its own chrome, so without these it reads as a
@@ -1774,9 +1837,24 @@
     .bar-row { flex-wrap: wrap; }
     .bar-row .command-bar-inner { flex-wrap: nowrap; }
     .bar-row .command-bar--add { flex: 1 1 320px; min-width: 0; }
+
+    /* THE WORKING ROW. Select and Filter hold their width; NAV is pushed to the
+       far end, so it stays pinned however wide the two before it turn out to be.
+       FILTER TAKES THE SLACK, being the box whose one long control -- the place
+       picker -- is the only thing here that wants room. */
+    .bar-row--work .command-bar--filter { flex: 1 1 auto; min-width: 0; }
+    .bar-row--work .command-bar--select { flex: 0 0 auto; }
     .bar-row .command-bar--filter,
     .bar-row .command-bar--nav,
+    .bar-row .command-bar--select,
+    .bar-row .command-bar--filter,
     .bar-row .command-bar--view { flex: 0 0 auto; }
+
+    /* NAV SITS AT THE FAR END. It is the one box you leave the tape by, and the
+       row reads left to right as: put things in, go somewhere, pick, narrow --
+       then step. `margin-left: auto` pushes it there, so it stays pinned however
+       wide the boxes before it turn out to be. */
+    .bar-row .command-bar--nav { margin-left: auto; }
     .bar-row .command-bar--filter .command-bar-inner { flex-wrap: wrap; }
     .bar-row .command-bar--nav .command-bar-inner { flex-wrap: nowrap; }
     .bar-row .command-bar--add .command-bar-inner { min-width: 0; }
@@ -2023,17 +2101,30 @@
       </fieldset>
       <!-- FILTER, NOT NAV. Everything in this box narrows what is on screen:
            which tape, and which of its tracks. -->
+      <!-- SELECT IS ITS OWN BOX, BEFORE FILTER. It sat inside Filter, leading
+           it, which put a control that PICKS things among the controls that
+           narrow what there is to pick from. One box, one job. -->
+    </div>
+
+    <!-- TWO ROWS, SPLIT BY HOW OFTEN YOU TOUCH THEM. The first row is where
+         tracks come from and where you go: pressed once a session, if at all.
+         The second is the working row -- pick, narrow, step -- and it is the one
+         your hand returns to. -->
+    <div class="bar-row bar-row--work">
+      <fieldset class="command-bar command-bar--select">
+        <legend>Select</legend>
+        <div class="command-bar-inner">
+          <label class="view-pick" id="viewPickWrap">
+            <span class="view-pick-word">All</span>
+            <input class="track-pick-box" id="viewPick" type="checkbox"
+                   aria-label="Select every track shown">
+          </label>
+        </div>
+      </fieldset>
+
       <fieldset class="command-bar command-bar--filter">
         <legend>Filter</legend>
         <div class="command-bar-inner">
-          <!-- SELECT ALL LEADS IT. It is not a filter, and it is here because
-               it acts on exactly the list the rest of this box decides: the tape
-               the filter landed on, narrowed by the track filters beside it. -->
-          <label class="view-pick" id="viewPickWrap">
-            <input class="track-pick-box" id="viewPick" type="checkbox"
-                   aria-label="Select every track shown">
-            <span class="view-pick-word">All</span>
-          </label>
           <select class="btn tape-filter" id="tapeFilter"
                   aria-label="Show only tapes in one country, state or city"
                   title="Show only the tapes in one country, state or city. The arrows then step through those.">
@@ -2057,9 +2148,12 @@
       <fieldset class="command-bar command-bar--nav">
         <legend>Nav</legend>
         <div class="command-bar-inner">
+          <!-- THE COUNT SITS BETWEEN THE ARROWS. It is the pager's own reading,
+               so it belongs inside the control rather than trailing it: back,
+               where you are, forward, read in the order you use them. -->
           <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
-          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
           <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
+          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
         </div>
       </fieldset>
 
@@ -2127,6 +2221,25 @@
       </div>
     </section>
 
+
+    <!-- THE SINGLE-TRACK DELETE QUESTION. Its own dialog rather than a mode of
+         the batch one: they read almost the same, which is the argument for
+         keeping them apart -- one acts on a selection you built, the other on
+         the row your finger is on. -->
+    <div class="tool-backdrop" id="trackDelBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="trackDelCard" role="dialog"
+             aria-modal="true" aria-labelledby="trackDelTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="trackDelTitle">Delete track</h2>
+        </div>
+      </div>
+      <div class="prompt-body">
+        <p class="bulk-words" id="trackDelWords"></p>
+      </div>
+      <div class="prompt-foot" id="trackDelFoot"></div>
+    </section>
+
     <div class="tool-backdrop" id="bulkBackdrop" hidden></div>
     <section class="prompt-panel tool-modal-panel" id="bulkCard" role="dialog"
              aria-modal="true" aria-labelledby="bulkTitle" hidden>
@@ -2134,7 +2247,9 @@
         <div class="prompt-headline">
           <h2 class="panel-title" id="bulkTitle">Delete tracks</h2>
         </div>
-        <button class="btn small" type="button" data-bulk-close>Close</button>
+        <!-- NO CLOSE HERE. The foot's Cancel is the way out, and two controls
+             that do the same thing a few inches apart is what this room keeps
+             deleting. The backdrop and Escape still work. -->
       </div>
       <div class="prompt-body">
         <p class="bulk-words" id="bulkWords"></p>
@@ -3397,6 +3512,13 @@
         paintPublicSoundtracksLink(tapes[tapeAt]);
         paintTapeNav(tapes);
 
+        // WHAT IS ON SCREEN, HOISTED OUT OF THE LOOP. `paintSelectAll` and
+        // `paintBatchButton` used to be called inside it, which meant that on a
+        // render where the loop did not run -- a filter leaving no tape -- the
+        // two controls kept whatever they last said. The loop fills this in and
+        // the painters run after it, once, always.
+        var shownNow = [];
+
         tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           // THERE IS NO HEADER ROW. It labelled the twelve columns and carried
@@ -3474,8 +3596,7 @@
           // filters. Anything else would tick rows nobody can see.
           var shown = allSongs(tape).filter(trackPassesFilters);
           pruneSelection(shown);
-          paintSelectAll(shown);
-          paintBatchButton();
+          shownNow = shown;
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
           // catalogue's figures. Those are standing readings rather than
@@ -3484,6 +3605,7 @@
           paintTapeStats(tape, tracksCell);
 
           paintBulkDialog(tape);
+          paintTrackDeleteDialog();
           paintPlayerDialog();
 
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
@@ -3518,6 +3640,9 @@
 
 
         });
+
+        paintSelectAll(shownNow);
+        paintBatchButton();
 
         fitRowInputs();
         // THE BLURBS HAVE TO BE GROWN HERE TOO. `growBlurbs` was called only by
@@ -3649,6 +3774,158 @@
 
       var ISSUE_SEVERITY_LABEL = { high: 'Breaks for a visitor', warn: 'Wrong', info: 'Nitpick' };
 
+      // ── THE TAPE'S PLACE IS EDITABLE, AND IT IS THE WHOLE TAPE ──────────
+      //
+      // Country, state and city, each its own box, on the badge's tape line.
+      // They are columns on EVERY ROW of the tape, so editing one is a tape-wide
+      // write -- and this room's standing rule is that a tape-wide write goes
+      // through a FUNCTION, never a PATCH: a filter somebody forgets to scope
+      // rewrites a whole city.
+      //
+      // `tgb_rename_tape` IS THAT FUNCTION and already takes the four parts. It
+      // only writes them on a MOVE, though, the geo following the slug -- so a
+      // country or state edit passes the tape's OWN slug as `p_new_city`, which
+      // takes the same branch and leaves the key exactly where it is.
+      async function saveTapeGeo(tape, parts) {
+        var slug = text(tape && tape.city_slug);
+        if (!slug) return false;
+        var label = [text(parts.city) || soundCityLabel(slug),
+                     text(parts.state_name), text(parts.country_name)]
+          .filter(Boolean).join(', ');
+        try {
+          await callRpc('tgb_rename_tape', {
+            p_city: slug, p_tape: tape.spine_tag || '',
+            p_new_city: slug,
+            p_new_tape: null,
+            p_new_label: label,
+            p_state_code: parts.state_code || null,
+            p_state_name: text(parts.state_name) || null,
+            p_country_code: parts.country_code || null,
+            p_country_name: text(parts.country_name) || null
+          });
+        } catch (error) {
+          console.error(error);
+          setNotice(friendlyWriteError(error, cityFullLabel(slug)), 'error');
+          return false;
+        }
+        try {
+          await loadSoundtrackArchive();
+        } catch (error) {
+          console.error(error);
+          setNotice('saved, but the page could not reload. Press Reload.', 'error');
+          return false;
+        }
+        renderTrackArchive('saved the place for every track on this tape', 'success');
+        return true;
+      }
+
+      // COUNTRY / STATE / CITY, EACH ITS OWN BOX. It was one span of text.
+      function buildTapeGeoEditor(tape) {
+        var wrap = document.createElement('span');
+        wrap.className = 'track-tapegeo';
+        if (!tape) return wrap;
+        var slug = text(tape.city_slug);
+        var row = (tape.songs && tape.songs[0]) || {};
+
+        function box(value, placeholder, label, commit) {
+          var input = document.createElement('input');
+          input.className = 'geo-input';
+          input.type = 'text';
+          input.value = value;
+          input.placeholder = placeholder;
+          input.setAttribute('aria-label', label + ' for this tape');
+          input.title = label + '. Editing it writes every track on this tape.';
+          function size() { fitInput(input); }
+          size();
+          input.addEventListener('input', size);
+          var was = input.value;
+          input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') { event.preventDefault(); input.blur(); return; }
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              input.value = was;
+              size();
+              input.blur();
+            }
+          });
+          // ON BLUR, NOT ON KEYDOWN. Worth knowing before writing a check against
+          // these: a test that fires Enter sees nothing happen and reads as a
+          // broken write path when the path is fine.
+          input.addEventListener('blur', function () {
+            var now = input.value.trim();
+            if (now === was.trim()) { input.value = was; size(); return; }
+            commit(now, function () { input.value = was; size(); });
+          });
+          return input;
+        }
+
+        var countryBox = box(cityCountryLabel(slug), 'Country', 'Country', function (value, undo) {
+          // A CHANGED NAME MAKES THE OLD CODE A LIE. Clearing it is honest;
+          // keeping `USA` beside `France` is not, and this page has no catalogue
+          // left to look the right one up in.
+          var keep = text(value).toLowerCase() === text(cityCountryLabel(slug)).toLowerCase();
+          saveTapeGeo(tape, {
+            city: soundCityLabel(slug),
+            state_name: cityStateLabel(slug),
+            state_code: text(row.state_code) || null,
+            country_name: value,
+            country_code: keep ? (text(row.country_code) || null) : null
+          }).then(function (ok) { if (!ok) undo(); });
+        });
+
+        var stateBox = box(cityStateLabel(slug), 'State', 'State or province', function (value, undo) {
+          var keep = text(value).toLowerCase() === text(cityStateLabel(slug)).toLowerCase();
+          saveTapeGeo(tape, {
+            city: soundCityLabel(slug),
+            state_name: value,
+            state_code: keep ? (text(row.state_code) || null) : null,
+            country_name: cityCountryLabel(slug),
+            country_code: text(row.country_code) || null
+          }).then(function (ok) { if (!ok) undo(); });
+        });
+
+        // THE CITY IS A MOVE, NOT A RELABEL, and that is why editing it here
+        // replaces the box in the tape's name rather than duplicating it.
+        // `city_slug` is the tape's key and half of what identifies it, so
+        // changing the city has to change the slug too -- which is exactly what
+        // `moveTapeToCity` does, clash check and all.
+        var cityBox = box(soundCityLabel(slug), 'City', 'City', function (value, undo) {
+          var target = cityByLabel(value);
+          if (!target) {
+            var made = slugFromLabel(value);
+            if (!made) {
+              setNotice('"' + value + '" does not give a usable city name', 'error');
+              undo();
+              return;
+            }
+            target = { slug: made, city: value, isNew: true };
+          }
+          var wanted = text(tape.spine_tag).toLowerCase();
+          var clash = soundtracks().filter(function (other) {
+            return other !== tape && text(other.city_slug) === target.slug
+              && text(other.spine_tag).toLowerCase() === wanted;
+          })[0];
+          if (clash) {
+            setNotice(cityFullLabel(target.slug) + ' already has a tape called "'
+              + (text(clash.spine_tag) || 'no spine phrase') + '", rename this one first', 'error');
+            undo();
+            return;
+          }
+          moveTapeToCity(tape.id, target.slug, target).then(function (ok) { if (!ok) undo(); });
+        });
+
+        function sep() {
+          var el = document.createElement('span');
+          el.className = 'geo-sep';
+          el.textContent = '/';
+          return el;
+        }
+
+        wrap.append(countryBox, sep(), stateBox, sep(), cityBox);
+        return wrap;
+      }
+
       function buildTapeNameEditor(tapeId) {
         var tape = tapeById(tapeId);
         var slug = text(tape && tape.city_slug);
@@ -3656,69 +3933,27 @@
         name.className = 'tape-line-name tape-name-editor';
         if (!tape) return name;
 
+        // THE CITY IS READ-ONLY HERE. It is edited on the tape's place line,
+        // where it sits with the state and the country it belongs to, and where
+        // it is plainly a MOVE rather than a rename. Two boxes that both change
+        // the tape's key is two ways to get that wrong.
         var cityHalf = document.createElement('input');
-        cityHalf.className = 'city-input';
+        cityHalf.className = 'city-input is-locked';
         cityHalf.type = 'text';
-        cityHalf.setAttribute('list', 'cityOptions');
+        cityHalf.readOnly = true;
+        cityHalf.tabIndex = -1;
         cityHalf.value = soundCityLabel(slug);
-        cityHalf.setAttribute('aria-label', 'City for this tape');
-        cityHalf.title = 'Which city this tape belongs to. Pick from the catalogue; a city that already has a tape is not offered. Enter saves, Escape cancels.';
+        cityHalf.setAttribute('aria-label', 'City for this tape, edited on the place line');
+        cityHalf.title = 'Which city this tape belongs to. Edit it on the place line above, where changing it moves the tape and every track on it.';
         function sizeCity() { fitInput(cityHalf); }
         sizeCity();
         cityHalf.addEventListener('input', sizeCity);
 
-        var cityWas = cityHalf.value;
-        async function commitCity() {
-          var typed = cityHalf.value.trim();
-          if (typed === cityWas) { cityHalf.value = cityWas; sizeCity(); return; }
-          // A CITY THIS ROOM HAS NEVER HELD IS ACCEPTED NOW, because there is
-          // no catalogue left to refuse it against. What it cannot be is
-          // unusable: a label that yields no slug is refused, since the slug is
-          // half the tape's key.
-          var target = cityByLabel(typed);
-          if (!target) {
-            var madeSlug = slugFromLabel(typed);
-            if (!madeSlug) {
-              setNotice('"' + typed + '" does not give a usable city name', 'error');
-              cityHalf.value = cityWas; sizeCity();
-              return;
-            }
-            target = { slug: madeSlug, city: typed, isNew: true };
-          }
+        // `commitCity` WENT WITH THE BOX'S EDITABILITY. A read-only input with
+        // a live blur handler is a locked control that is not locked.
 
-          var wanted = text(tape.spine_tag).toLowerCase();
-          var clash = soundtracks().filter(function (other) {
-            return other !== tape
-              && text(other.city_slug) === target.slug
-              && text(other.spine_tag).toLowerCase() === wanted;
-          })[0];
-          if (clash) {
-            setNotice(cityFullLabel(target.slug) + ' already has a tape called "'
-              + (text(clash.spine_tag) || 'no spine phrase') + '", rename this one first', 'error');
-            cityHalf.value = cityWas; sizeCity();
-            return;
-          }
-          cityHalf.disabled = true;
-          cityHalf.classList.add('is-saving');
-          var ok = await moveTapeToCity(tape.id, target.slug, target);
-          cityHalf.disabled = false;
-          cityHalf.classList.remove('is-saving');
-          if (!ok) { cityHalf.value = cityWas; sizeCity(); return; }
 
-          if (tracksOpen()) renderTracks();
 
-        }
-
-        cityHalf.addEventListener('keydown', function (event) {
-          if (event.key === 'Enter') { event.preventDefault(); cityHalf.blur(); return; }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            cityHalf.value = cityWas;
-            sizeCity();
-            cityHalf.blur();
-          }
-        });
-        cityHalf.addEventListener('blur', commitCity);
 
         var spine = document.createElement('input');
         spine.className = 'spine-input';
@@ -3925,6 +4160,79 @@
       // ONE STATE DRIVES IT. `bulkPendingDelete` is set by the bar's Delete and
       // cleared by every way out, and this paints from it on every render, so
       // the dialog cannot be open about a selection that has since changed.
+      // THE SINGLE-TRACK DELETE QUESTION, AS A DIALOG.
+      //
+      // It was a strip appended inside the badge, which changed the card's
+      // height and shoved the grid around it -- and it asked an irreversible
+      // question in the middle of a list you were scanning.
+      //
+      // IT IS ITS OWN DIALOG rather than a mode of the batch one. They read
+      // almost the same, and that is the argument FOR keeping them apart: one
+      // acts on a selection you built, the other on the row your finger is on,
+      // and a panel that silently means either is a panel you have to read twice
+      // before answering.
+      function paintTrackDeleteDialog() {
+        var card = document.getElementById('trackDelCard');
+        var backdrop = document.getElementById('trackDelBackdrop');
+        var words = document.getElementById('trackDelWords');
+        var title = document.getElementById('trackDelTitle');
+        var foot = document.getElementById('trackDelFoot');
+        if (!card || !backdrop || !words || !title || !foot) return;
+
+        var at = trackPendingDelete == null ? null : locateSong(trackPendingDelete);
+        var tape = at ? soundtracks()[at.tapeIndex] : null;
+        var song = tape && tape.songs ? tape.songs[at.songIndex] : null;
+        if (!song) {
+          card.hidden = true;
+          backdrop.hidden = true;
+          return;
+        }
+
+        title.textContent = 'Delete ' + (text(song.title) || 'this track') + '?';
+        // PLAIN WORDS, the same ones the batch question uses: what a person
+        // decides with is that a deleted track can come back on the next run and
+        // a shelved one cannot.
+        var isLive = songStatus(song) === 'LIVE';
+        words.textContent = 'This cannot be undone, and the bot may find it and file it again.'
+          + (isLive ? ' Shelving keeps it off /soundtracks/ and stops that.' : '');
+
+        foot.textContent = '';
+        function btn(label, cls, onClick) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn ' + cls;
+          b.textContent = label;
+          b.addEventListener('click', onClick);
+          foot.appendChild(b);
+          return b;
+        }
+
+        // SHELVING IS ONLY OFFERED WHEN IT WOULD DO SOMETHING, exactly as on the
+        // batch question: on an already shelved track it would write
+        // `archived = true` over `archived = true`.
+        if (isLive) {
+          btn('Shelve instead', 'primary', function () {
+            var songIndex = (tape.songs || []).indexOf(song);
+            trackPendingDelete = null;
+            if (songIndex < 0) { repaintTracks(); return; }
+            setTrackStatus(at.tapeIndex, songIndex, 'SHELVED').then(function () { repaintTracks(); });
+          });
+        }
+        var go = btn('Delete anyway', 'warn', function () {
+          go.disabled = true;
+          deleteTrack(at.tapeIndex, song).then(function () { repaintTracks(); });
+        });
+        btn('Cancel', '', closeTrackDelete);
+
+        backdrop.hidden = false;
+        card.hidden = false;
+      }
+
+      function closeTrackDelete() {
+        trackPendingDelete = null;
+        repaintTracks();
+      }
+
       // THE BATCH DIALOG, IN TWO STATES.
       //
       // First it offers what a selection can be made to do; pressing Delete
@@ -3991,7 +4299,10 @@
             bulkPendingDelete = true;
             renderTrackArchive();
           }, 'Delete every selected track.');
-          btn('Cancel', '', closeBulkDialog);
+          // DONE, NOT CANCEL. Every button above it acts at once and closes the
+          // panel, so by the time you reach this one there is nothing to undo --
+          // you are finished. `Cancel` promised to take something back.
+          btn('Done', '', closeBulkDialog);
         } else {
           title.textContent = 'Delete ' + tracks + ' for good?';
           // PLAIN WORDS. What a person needs is the consequence: the bot can
@@ -4432,11 +4743,10 @@
         // An empty part is dropped rather than left as an empty segment: most
         // of the world has no state, and "United Kingdom / / London" reads as a
         // fault.
-        var geoLine = document.createElement('span');
-        geoLine.className = 'track-tapegeo';
-        geoLine.textContent = [cityCountryLabel(slugOfTape), cityStateLabel(slugOfTape),
-          soundCityLabel(slugOfTape)].filter(Boolean).join(' / ');
-        geoLine.title = 'Where this tape is.';
+        // THE PLACE IS THREE BOXES NOW, not a line of text. It was
+        // `COUNTRY / STATE / CITY` read-only, which meant the tape's own address
+        // was the one thing on the badge you could see and not correct.
+        var geoLine = buildTapeGeoEditor(tape);
 
         // THE TAPE'S NAME IS EDITED HERE, ON THE ROW. This tag has always said
         // which tape a track is on; it is the editor now, so the name and the
@@ -4479,15 +4789,26 @@
           var titleLine = document.createElement('div');
           titleLine.className = 'track-title-line';
           titleLine.append(titleEl, artistEl);
-          top.append(titleLine, del);
-          body.append(tapeTag, geoLine, blurbEl);
+          // THE TICK IS IN THE HEADER, LEFT OF THE TITLE. It sat in the rail
+          // with the play button, which put "is this one of the ones I am acting
+          // on" among the things you DO with a track rather than beside its
+          // name. Left of the title it is where a list of things to pick from
+          // puts it, and it lines up down the column.
+          top.append(buildSelectBox(song), titleLine, del);
+          // THE BLURB IS THE FIRST ROW AFTER THE HEADER. It is the only thing on
+          // the badge a stranger will read -- the sentence printed under this
+          // track on /soundtracks/ -- and it was the last field on the card,
+          // under the tape's own name, where the one piece of writing here got
+          // the least attention.
+          body.append(tapeTag, geoLine);
         } else {
           body.append(titleEl, artistEl, blurbEl);
         }
 
         var rail = document.createElement('div');
         rail.className = 'badge-rail';
-        rail.append(buildSelectBox(song), playBtn);
+        rail.append(playBtn);
+        if (!inArchiveList) rail.insertBefore(buildSelectBox(song), playBtn);
         if (inArchiveList) rail.appendChild(idEl);
         else rail.appendChild(posEl);
 
@@ -4508,45 +4829,15 @@
         // it is about, not in a fixed slot that is empty on 1,600 of 1,643 rows.
         if (newCell.firstChild) line.appendChild(newCell);
 
-        if (inArchiveList) line.append(top, rail, body, tail);
+        if (inArchiveList) line.append(top, blurbEl, rail, body, tail);
         else line.append(rail, body, tail);
 
-        if (trackPendingDelete === song.id) {
-          var confirmEl = document.createElement('div');
-          confirmEl.className = 'track-confirm';
-          var words = document.createElement('p');
-          var lead = document.createElement('strong');
-          lead.textContent = 'Delete this row for good? ';
-          words.appendChild(lead);
-          words.appendChild(document.createTextNode(
-            'This cannot be undone, and the bot may find it and file it again. '
-            + 'Shelving keeps it off /soundtracks/ and stops that.'));
-          var shelveBtn = document.createElement('button');
-          shelveBtn.type = 'button';
-          shelveBtn.className = 'btn small primary';
-          shelveBtn.textContent = 'Shelve instead';
-          shelveBtn.addEventListener('click', function () {
-            var songIndex = (tape.songs || []).indexOf(song);
-            trackPendingDelete = null;
-            if (songIndex < 0) { repaintTracks(); return; }
-            setTrackStatus(tapeIndex, songIndex, 'SHELVED').then(function () { repaintTracks(); });
-          });
-          var reallyBtn = document.createElement('button');
-          reallyBtn.type = 'button';
-          reallyBtn.className = 'btn small';
-          reallyBtn.textContent = 'Delete anyway';
-          reallyBtn.addEventListener('click', function () {
-            reallyBtn.disabled = true;
-            deleteTrack(tapeIndex, song).then(function () { repaintTracks(); });
-          });
-          var cancelBtn = document.createElement('button');
-          cancelBtn.type = 'button';
-          cancelBtn.className = 'btn small';
-          cancelBtn.textContent = 'Cancel';
-          cancelBtn.addEventListener('click', function () { trackPendingDelete = null; repaintTracks(); });
-          confirmEl.append(words, shelveBtn, reallyBtn, cancelBtn);
-          line.appendChild(confirmEl);
-        }
+        // THE SINGLE-TRACK DELETE IS A DIALOG, like the batch one. It was a
+        // strip appended INSIDE the badge, which made the card change height and
+        // pushed the grid around it -- and it asked an irreversible question in
+        // the middle of a list you were scanning. `paintTrackDeleteDialog` draws
+        // it from `trackPendingDelete`, so the badge just marks itself.
+        line.classList.toggle('is-deleting', trackPendingDelete === song.id);
 
         return line;
       }
@@ -4800,6 +5091,11 @@
         box.addEventListener('click', function (event) { event.stopPropagation(); });
         box.addEventListener('change', function () {
           toggleSelection(song, box.checked);
+          // PAINTED HERE, BEFORE THE RE-RENDER. The button is a fixed element
+          // outside the list, so it does not need the list rebuilt to show --
+          // and this way its appearing cannot depend on the ordering of a
+          // render that also destroys the checkbox being clicked.
+          paintBatchButton();
           repaintAfterSelection();
         });
         cell.appendChild(box);
@@ -4840,8 +5136,12 @@
         var btn = document.getElementById('batchBtn');
         if (!btn) return;
         var n = selectedCount();
-        btn.hidden = !n;
-        if (!n) return;
+        // TWO OR MORE. One selected track has every control it needs on its own
+        // badge -- the switch, the flags, its delete -- so a batch button for a
+        // selection of one offers a second way to do what is already in front of
+        // you. Batch begins where doing it by hand stops being reasonable.
+        btn.hidden = n < 2;
+        if (n < 2) return;
         // `.btn` uppercases, so this reads BATCH EDIT 30 TRACKS. The noun is
         // worth the width: "Batch edit 30" leaves you working out 30 of what.
         btn.textContent = 'Batch edit ' + n + (n === 1 ? ' track' : ' tracks');
@@ -5413,6 +5713,9 @@
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-player-close]'),
         function (btn) { btn.addEventListener('click', closePlayer); });
+      var trackDelBackdropEl = document.getElementById('trackDelBackdrop');
+      if (trackDelBackdropEl) trackDelBackdropEl.addEventListener('click', closeTrackDelete);
+
       var playerBackdropEl = document.getElementById('playerBackdrop');
       if (playerBackdropEl) playerBackdropEl.addEventListener('click', closePlayer);
 
@@ -5447,6 +5750,11 @@
         // open, and dismissing the thing under it while an irreversible question
         // is on screen would be the wrong order.
         // THE PLAYER TAKES ESCAPE FIRST WHEN IT IS OPEN, being the thing on top.
+        var trackDelCardEl = document.getElementById('trackDelCard');
+        if (event.key === 'Escape' && trackDelCardEl && !trackDelCardEl.hidden) {
+          closeTrackDelete();
+          return;
+        }
         var playerCardEl = document.getElementById('playerCard');
         if (event.key === 'Escape' && playerCardEl && !playerCardEl.hidden) {
           closePlayer();
