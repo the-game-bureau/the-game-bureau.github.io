@@ -298,91 +298,12 @@
 
     .tape-lines { display: grid; gap: 6px; }
 
-    .tape-head {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      display: grid;
-      grid-template-columns: var(--tape-cols);
-      gap: 4px 8px;
-
-      align-items: center;
-
-      margin-bottom: 6px;
-      padding: 9px 12px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: var(--cut-panel-bg);
-    }
-
     .tape-head,
     .tape-lines {
       --col-label: 0.68rem;
       --col-value: 0.78rem;
       --col-text: 0.78rem;
     }
-
-    .tape-head-btn,
-    .tape-head-label {
-      padding: 0;
-      border: 0;
-      background: none;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: var(--col-label);
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      text-align: left;
-
-      line-height: 21px;
-      color: var(--muted);
-    }
-
-    .tape-head-btn { cursor: pointer; }
-    .tape-head-btn:hover { color: var(--ink); text-decoration: underline; }
-    .tape-head-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-    .tape-head-btn[data-dir="ascending"]::after { content: ' \25b2'; font-size: 0.62rem; }
-    .tape-head-btn[data-dir="descending"]::after { content: ' \25bc'; font-size: 0.62rem; }
-
-    .tape-head-btn::after { margin-left: 4px; }
-
-    .tape-head-btn { justify-content: flex-start; }
-
-    .tape-head-btn[data-dir="off"]::after { content: none; }
-    .tape-head-btn[data-dir="off"] { color: var(--muted); }
-
-    .tape-head-btn[data-dir="ascending"],
-    .tape-head-btn[data-dir="descending"] { color: var(--ink); }
-
-    .sort-rank {
-      display: none;
-      flex: 0 0 auto;
-      width: 15px;
-      height: 15px;
-      margin-left: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 2px var(--cut-panel-bg);
-      color: #fff;
-      font-size: 0.58rem;
-      font-weight: 700;
-      letter-spacing: 0;
-      line-height: 15px;
-      text-align: center;
-
-      font-variant-numeric: tabular-nums;
-      cursor: help;
-    }
-
-    .tape-head-btn[data-dir="ascending"],
-    .tape-head-btn[data-dir="descending"] {
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .tape-head-btn[data-dir="ascending"] .sort-rank,
-    .tape-head-btn[data-dir="descending"] .sort-rank { display: inline-block; }
 
     .tape-line { cursor: pointer; }
 
@@ -545,14 +466,33 @@
       text-transform: none;
     }
 
+    /* LITTLE FILTER BADGES. Word and count side by side in one small rounded
+       chip rather than stacked over an underline: stacked they were as tall as
+       the bar and read as headings, and the underline that marked one as ON was
+       the quietest possible way to say so. */
     .head-figure--filter {
       cursor: pointer;
       position: relative;
-      border-bottom: 2px solid transparent;
+      flex-direction: row;
+      align-items: baseline;
+      gap: 5px;
+      padding: 2px 8px;
+      border: 1px solid var(--control-line);
+      border-radius: 999px;
+      background: #fff;
+      line-height: 1.4;
     }
 
-    .head-figure--filter:hover { color: var(--ink); }
-    .head-figure--filter:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .head-figure--filter .head-word,
+    .head-figure--filter .head-count { font-size: 0.66rem; }
+
+    .head-figure--filter .head-count {
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .head-figure--filter:hover { color: var(--ink); border-color: var(--accent); }
+    .head-figure--filter:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .head-figure--filter input {
       position: absolute;
@@ -562,9 +502,16 @@
       pointer-events: none;
     }
 
+    /* ON IS A FILLED BADGE. A badge you have pressed should not need looking
+       at twice to tell from one you have not. */
+    .head-figure--filter.is-on,
+    .head-figure--filter.is-on .head-count {
+      color: #fff;
+    }
+
     .head-figure--filter.is-on {
-      color: var(--ink);
-      border-bottom-color: var(--ink);
+      background: var(--accent);
+      border-color: var(--accent);
     }
 
     .head-figure--new.is-zero { color: var(--muted); }
@@ -1312,16 +1259,6 @@
       }
       .tape-line-name { grid-column: 1; }
       .tape-air { grid-column: 2 / -1; justify-self: end; }
-
-      .tape-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 10px 14px;
-      }
-
-      .tape-head .tape-air--all { margin-left: auto; }
     }
 
     .app { max-width: 1180px; margin: 0 auto; padding: 16px; }
@@ -1529,18 +1466,9 @@
              it always really was: the room's sort and filter controls. -->
         <div class="room-controls" id="tapeHead">
 
-          <span class="ctl-group">
-            <span class="ctl-label">Sort</span>
-            <button class="tape-head-btn" type="button" data-sort="country"
-                    title="Sort by country. Press to cycle: off, A to Z, Z to A.">Country<span class="sort-rank"></span></button>
-            <button class="tape-head-btn" type="button" data-sort="state"
-                    title="Sort by state. Press to cycle: off, A to Z, Z to A.">State<span class="sort-rank"></span></button>
-            <button class="tape-head-btn" type="button" data-sort="city"
-                    title="Sort by CITY, wherever the city sits in the name. Press to cycle: off, A to Z, Z to A.">Tape<span class="sort-rank"></span></button>
-          </span>
 
           <span class="ctl-group">
-            <span class="ctl-label">Show</span>
+            <span class="ctl-label">Filter</span>
 
             <label class="head-figure head-figure--filter" id="issueTotalPill"
                    title="Show only tapes with an open issue">
@@ -1782,23 +1710,6 @@
 
       var citySearchTerm = '';
 
-      var sortKeys = [{ key: 'country', dir: -1 }, { key: 'city', dir: 1 }];
-
-      function sortEntry(key) {
-        for (var i = 0; i < sortKeys.length; i++) {
-          if (sortKeys[i].key === key) return sortKeys[i];
-        }
-        return null;
-      }
-
-      function cycleSort(key) {
-        var at = -1;
-        for (var i = 0; i < sortKeys.length; i++) if (sortKeys[i].key === key) at = i;
-        if (at === -1) sortKeys.push({ key: key, dir: 1 });
-        else if (sortKeys[at].dir === 1) sortKeys[at].dir = -1;
-        else sortKeys.splice(at, 1);
-      }
-
       var flaggedOnly = false;
       var newOnly = false;
 
@@ -1983,7 +1894,6 @@
       }
 
       paintKeyLegend();
-      paintSortHeaders();
 
       bindTabs(trackStatusTabs, function (value) {
         if (value === trackStatusFilter) return;
@@ -2015,7 +1925,13 @@
       var newOnlyBox = document.getElementById('newOnly');
 
       function paintFilterPills() {
-        var pairs = [['newTotalPill', newOnly], ['issueTotalPill', flaggedOnly]];
+        // ALL FOUR BADGES, not two. The Live and Shelved pair were added later
+        // and were never given their filled state, so pressing one narrowed the
+        // list and left the badge looking untouched.
+        var pairs = [['newTotalPill', newOnly],
+                     ['issueTotalPill', flaggedOnly],
+                     ['liveOnlyPill', airFilter === 'live'],
+                     ['shelvedOnlyPill', airFilter === 'shelved']];
         pairs.forEach(function (pair) {
           var el = document.getElementById(pair[0]);
           if (el) el.classList.toggle('is-on', !!pair[1]);
@@ -2034,35 +1950,6 @@
         flaggedOnly = !!flaggedOnlyBox.checked;
         tapeAt = 0;
         paintFilterPills();
-        renderTrackArchive();
-      });
-
-      function paintSortHeaders() {
-        var head = document.getElementById('tapeHead');
-        if (!head) return;
-        Array.prototype.forEach.call(head.querySelectorAll('.tape-head-btn'), function (el) {
-          var key = el.dataset.sort;
-          var entry = sortEntry(key);
-          var rank = entry ? (sortKeys.indexOf(entry) + 1) : 0;
-          var dir = !entry ? 'off' : (entry.dir === 1 ? 'ascending' : 'descending');
-          el.setAttribute('data-dir', dir);
-
-          el.setAttribute('aria-sort', rank === 1 ? dir : 'none');
-          var badge = el.querySelector('.sort-rank');
-          if (badge) {
-            badge.textContent = rank ? String(rank) : '';
-
-            badge.title = 'SORT ORDER';
-          }
-        });
-      }
-
-      var tapeHead = document.getElementById('tapeHead');
-      if (tapeHead) tapeHead.addEventListener('click', function (event) {
-        var btn = event.target.closest ? event.target.closest('.tape-head-btn') : null;
-        if (!btn || !tapeHead.contains(btn)) return;
-        cycleSort(btn.dataset.sort || 'city');
-        paintSortHeaders();
         renderTrackArchive();
       });
 
@@ -2844,20 +2731,14 @@
           });
         }
 
+        // ONE ORDER: by city, A to Z. The three sort buttons are gone, and
+        // with one tape on screen a sort was choosing the order you PAGE
+        // through rather than the order you read, which is not what a column
+        // header looks like it does. Alphabetical is the order you can predict
+        // and the one you can find a city in.
         tapes = tapes.sort(function (a, b) {
           var sa = text(a && a.city_slug), sb = text(b && b.city_slug);
-          var valueOf = {
-            country: cityCountryLabel,
-            state: cityStateLabel,
-            city: soundCityLabel
-          };
-          for (var i = 0; i < sortKeys.length; i++) {
-            var k = sortKeys[i];
-            var cmp = byLabel(valueOf[k.key](sa), valueOf[k.key](sb), k.dir);
-            if (cmp) return cmp;
-          }
-
-          return byLabel(sa, sb, 1);
+          return byLabel(soundCityLabel(sa), soundCityLabel(sb), 1) || byLabel(sa, sb, 1);
         });
 
         if (!tapes.length) {
@@ -4456,6 +4337,7 @@
       function onAirPill() {
         airFilter = readAirPills();
         tapeAt = 0;
+        paintFilterPills();
         renderTrackArchive();
       }
       if (liveOnlyBox) liveOnlyBox.addEventListener('change', onAirPill);

@@ -656,6 +656,26 @@ head, so pressing Next at rest made the page jump away from you.
   no call at all. jsdom does no layout, so counting the calls is the only thing
   that can be asserted headlessly here.
 
+### NO SORTS, AND THE FILTERS ARE BADGES (2026-08-26)
+
+- **THE THREE SORT BUTTONS ARE DELETED**, and so is every trace of them:
+  `sortKeys`, `sortEntry`, `cycleSort`, `paintSortHeaders`, the header's click
+  handler and 17 CSS rules, 2.4KB.
+  - **THEY HAD STOPPED MEANING WHAT THEY LOOKED LIKE.** Column headers that sort
+    a list are one thing; with ONE tape on screen they were choosing the order
+    you PAGE THROUGH, which is not what pressing a column header suggests.
+  - **THE ORDER IS NOW CITY, A TO Z, and nothing else.** It is the order you can
+    predict and the one you can find a city in. The first tape is Aachen.
+- **THE LABEL READS FILTER**, not Show, and there is one control group left.
+- **THE FOUR FILTERS ARE LITTLE BADGES**: word and count side by side in a small
+  rounded chip. Stacked over an underline they were as tall as the bar and read
+  as headings, and the underline marking one as ON was the quietest possible way
+  to say so. **On is a filled badge now.**
+- **`paintFilterPills` ONLY KNEW ABOUT TWO OF THE FOUR.** Live and Shelved were
+  added later and never given their filled state, so pressing one narrowed the
+  list and left the badge looking untouched. All four are painted, and
+  `onAirPill` calls the painter.
+
 ### TWO BARS, AND EACH MEANS ONE THING (2026-08-26)
 
 Merging the room's controls into the tape's line was tried and reversed the same
