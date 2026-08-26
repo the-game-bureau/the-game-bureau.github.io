@@ -637,6 +637,40 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### THE STATUS HEADER IS A FILTER AGAIN (2026-08-26)
+
+The Status column's header cell carries a Shelved / Live tri-state that narrows
+which track rows are drawn. **It is not the tape switch coming back**: that one
+wrote every row of the tape and is gone with tape state. **A switch on a ROW
+changes that track; a switch in a HEADER narrows the list. The position is what
+tells them apart**, which is the rule this room already settled once.
+
+- **ONE QUESTION ASKED FROM TWO PLACES.** The popup's `#trackAirAll` and this one
+  both drive `trackAirFilter`, and both now go through `setTrackAir`, which
+  repaints **both** surfaces. Setting it in the popup and finding the list behind
+  it unchanged is the sort of disagreement nobody notices until it costs
+  something.
+- **IT CARRIES NO id.** The popup owns `#trackAirAll`, and a second element with
+  that id would make `getElementById` answer for whichever came first.
+- **THE LIST IS BUILT FROM WHAT THE FILTER LEAVES.** `renderTracks` learned this
+  the hard way once -- it painted the switch and then built its list from an
+  unfiltered array a few lines away, so the control was silently inert. **Two
+  readers of "what is visible" is how that happens.**
+- **THE EMPTY RESULT NAMES THE WAY OUT.** The filter is in the header above, so a
+  bare "nothing here" would leave somebody looking at a tape they know has tracks
+  with no idea what hid them.
+- **IT IS THE HEADER'S SIZE, NOT THE ROW'S.** It sits among 0.62rem column
+  labels; at the row's 14pt it would be the loudest thing in the bar. The
+  switches it filters keep the row's size.
+- **THE CATALOGUE LINE DOES NOT MOVE WITH IT**, and a test asserts that, as it
+  does for the place filter.
+- **PROVED ON A TAPE THAT HOLDS BOTH.** Everything but New Orleans is shelved, so
+  on any other tape "Shelved" is the whole list and **the filter could be inert
+  without a single assertion noticing.** The test walks to the tape with live
+  tracks and checks the count there. It also checks the press sends **no PATCH
+  and no POST**, which is the whole difference between this control and the one
+  on a row.
+
 ### A TAPE HAS NO STATE. LIVE AND SHELVED ARE FACTS ABOUT A TRACK. (2026-08-26)
 
 The tape-level Shelved/Live switch is gone, and with it `setTapeArchived` and

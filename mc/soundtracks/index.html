@@ -360,6 +360,7 @@
        columns they act on: the switch above the tracks' switches, the delete
        above theirs. The header is column labels again -- a strip above them was
        a tape header by another name. */
+    .track-head-label--tapeair,
     .track-head-label--tapedel {
       display: flex;
       align-items: center;
@@ -367,6 +368,12 @@
       overflow: visible;
       padding: 0;
     }
+
+    /* THE FILTER IS THE HEADER'S OWN SIZE, not the row's. It sits among column
+       labels, so at 14pt it would be the loudest thing in a bar of 0.62rem
+       words; the switches it filters keep the row's size. */
+    .track-head-label--tapeair .tape-air-word { font-size: 0.62rem; }
+    .track-head-label--tapeair .tape-air { transform: none; }
 
     .track-confirm--head { margin-top: 8px; }
 
@@ -2660,7 +2667,9 @@
             cell.appendChild(node);
           }
           fill(0, newCell);
+          fill(9, buildAirFilter(tape));
           fill(10, delBtn);
+          head.children[9].classList.add('track-head-label--tapeair');
           head.children[10].classList.add('track-head-label--tapedel');
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
@@ -2683,7 +2692,25 @@
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
           var songsHere = allSongs(tape);
-          songsHere.slice().sort(function (a, b) {
+          // THE HEADER SWITCH IS A FILTER, so the list is built from what it
+          // leaves. `renderTracks` learned this once already; a second reader of
+          // "what is visible" is how a control ends up silently inert.
+          var shown = songsHere.filter(function (song) {
+            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+          });
+
+          if (songsHere.length && !shown.length) {
+            // THE EMPTY STATE NAMES THE WAY OUT. The filter lives in the header
+            // above, so a bare "nothing here" would leave somebody looking at a
+            // tape they know has tracks with no idea what hid them.
+            var none = emptyNode('No ' + (trackAirFilter === 'live' ? 'live' : 'shelved')
+              + ' tracks on this tape. Press ' + (trackAirFilter === 'live' ? 'Live' : 'Shelved')
+              + ' in the header again to show both.');
+            none.classList.add('track-line--in-list');
+            trackArchiveList.appendChild(none);
+          }
+
+          shown.slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
           }).forEach(function (song) {
@@ -3075,9 +3102,20 @@
           { live: live, shelved: shelved, total: songs.length }, 'tracks');
       }
 
+      // ONE QUESTION ASKED FROM TWO PLACES. The popup's switch and the one on
+      // the main list's header are the same filter, so both go through here and
+      // both surfaces repaint: setting it in the popup and finding the list
+      // behind it unchanged is the sort of disagreement nobody notices until it
+      // has cost them something.
+      function setTrackAir(value) {
+        trackAirFilter = value;
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
       wireAirSwitch(trackAirAll, trackAirAllInput,
         function () { return trackAirFilter; },
-        function (value) { trackAirFilter = value; renderTracks(); });
+        setTrackAir);
 
       var tapePendingDelete = null;
 
@@ -3840,6 +3878,44 @@
         ['', 'Live on /soundtracks/, or shelved off it.'],
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
+
+      // THE STATUS COLUMN'S HEADER IS A FILTER, NOT A LABEL. A switch on a ROW
+      // changes that track's state; a switch in a HEADER narrows what the list
+      // shows. Same shape, and the position is what tells them apart.
+      //
+      // IT CARRIES NO id. The popup's own copy is `#trackAirAll`, and a second
+      // element with that id would make `getElementById` answer for whichever
+      // came first.
+      function buildAirFilter(tape) {
+        var label = document.createElement('label');
+        label.className = 'tape-air track-air tape-air--all';
+
+        var off = document.createElement('span');
+        off.className = 'tape-air-word tape-air-word--off';
+        off.textContent = 'Shelved';
+
+        var input = document.createElement('input');
+        input.className = 'tape-air-input';
+        input.type = 'checkbox';
+        input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
+
+        var knob = document.createElement('span');
+        knob.className = 'tape-air-track';
+        knob.setAttribute('aria-hidden', 'true');
+
+        var on = document.createElement('span');
+        on.className = 'tape-air-word tape-air-word--on';
+        on.textContent = 'Live';
+
+        label.append(off, input, knob, on);
+
+        var counts = tapeCounts(tape);
+        paintAirSwitch(label, input, trackAirFilter,
+          { live: counts.LIVE, shelved: counts.SHELVED }, 'tracks');
+        wireAirSwitch(label, input,
+          function () { return trackAirFilter; }, setTrackAir);
+        return label;
+      }
 
       function buildTrackHead() {
         var head = document.createElement('div');
