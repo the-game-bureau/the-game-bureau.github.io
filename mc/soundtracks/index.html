@@ -1118,12 +1118,6 @@
        this would be the same thing said twice a few pixels apart. */
     .track-lines .track-tapetag { display: none; }
 
-    .track-head--main {
-      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
-      margin-left: 22px;
-      margin-bottom: 4px;
-    }
-
     .tape-pager-of {
       flex: 0 0 auto;
       margin-right: 4px;
@@ -1191,6 +1185,22 @@
     /* THE ONE FIGURE THAT IS NOT A FILTER sits at the far end, away from the
        three controls, so it does not read as a fourth thing to press. */
     .ctl-total { margin-left: auto; }
+
+    /* THE TAPE'S LINE IS THE HEADER'S SECOND ROW, so it takes the full width
+       and loses the white card it wore as a standalone bar: inside a panel
+       that is a box within a box. */
+    .ctl-taperow { flex: 1 0 100%; }
+
+    .ctl-taperow > .tape-line {
+      border: 0;
+      border-top: 1px solid var(--control-line);
+      border-radius: 0;
+      background: transparent;
+      padding: 6px 0 0;
+      margin-top: 2px;
+    }
+
+    .ctl-taperow > .tape-line:hover { box-shadow: none; border-color: var(--control-line); }
 
     .tape-air {
       display: grid;
@@ -1539,6 +1549,12 @@
             <span class="head-word">Tracks</span>
             <span class="head-count" id="trackTotal"></span>
           </span>
+
+          <!-- THE TAPE'S OWN LINE IS RENDERED IN HERE, so the room has ONE
+               header rather than three stacked bars. The controls above are
+               about the CATALOGUE and this line is about the tape in front of
+               you; they are two rows of one object, not two objects. -->
+          <div class="ctl-taperow" id="tapeHeadRow"></div>
         </div>
 
         <datalist id="cityOptions"></datalist>
@@ -2837,6 +2853,9 @@
         // the buttons grey out to say why.
         if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
         if (tapeAt < 0) tapeAt = 0;
+        var headRow = document.getElementById('tapeHeadRow');
+        if (headRow) headRow.textContent = '';
+
         tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           var row = document.createElement('div');
@@ -3051,7 +3070,8 @@
           // its tracks, which put the heading UNDER the rows it heads: the
           // track block below is appended to the list, and the row was not
           // added until the end of this loop.
-          trackArchiveList.appendChild(row);
+          // INTO THE HEADER, not the list. The list below is tracks only.
+          (document.getElementById('tapeHeadRow') || trackArchiveList).appendChild(row);
 
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
           // is the tape's own line and still carries its counts, its findings
@@ -3066,8 +3086,6 @@
           // THE COLUMN HEADER GOES HERE, between the tape and its tracks, not
           // in the page's static markup above the pager: up there it named
           // columns that were three bars away from the rows they belonged to.
-          if (songsHere.length) trackArchiveList.appendChild(buildTrackHead());
-
           allSongs(tape).slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
@@ -4004,13 +4022,19 @@
           repaintTracks();
         });
 
-        var posEl = field('track-input--num', String(Number(song.position) || 0), '', 'Position');
-        var titleEl = field('track-input--title', text(song.title), '', 'Title');
-        var artistEl = field('', text(song.artist), '', 'Artist');
+        var posEl = field('track-input--num', String(Number(song.position) || 0), '#', 'Position');
+        posEl.title = 'Play order on the cassette. Edit it to reorder.';
+        // THE PLACEHOLDER IS THE COLUMN LABEL NOW. The legend row above the
+        // tracks was the room's third stacked header and went; without a
+        // placeholder an empty Title field would be an unmarked white box.
+        var titleEl = field('track-input--title', text(song.title), 'Title', 'Title');
+        titleEl.title = 'Title. Enter saves, Escape cancels.';
+        var artistEl = field('', text(song.artist), 'Artist', 'Artist');
+        artistEl.title = 'Artist. Enter saves, Escape cancels.';
 
         var blurbEl = blurbField(text(song.blurb));
 
-        var idEl = field('track-input--id', text(song.spotifyId), 'none', 'Spotify id');
+        var idEl = field('track-input--id', text(song.spotifyId), 'Spotify id', 'Spotify id');
         idEl.title = 'Paste the Spotify share link straight in and the 22-character id is taken out of it.'
           + ' A raw id or a spotify:track: URI works too. Blank is always allowed and is better than a guess:'
           + ' a made-up id passes every check and silently plays nothing.';
@@ -4328,35 +4352,6 @@
           if (truthyFlag(tape && tape.archived)) shelved += 1; else live += 1;
         });
         return { live: live, shelved: shelved, total: live + shelved };
-      }
-
-      // THE TRACK COLUMN HEADER. Built rather than written in the markup,
-      // because it is emitted once per tape shown, under that tape's own line.
-      var TRACK_HEAD_CELLS = [
-        ['', ''],
-        ['#', 'Play order on the cassette. Edit it to reorder.'],
-        ['Title', ''],
-        ['Artist', ''],
-        ['Blurb', ''],
-        ['Spotify', 'The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.'],
-        ['E', 'Marked explicit on Spotify'],
-        ['Status', 'Live on /soundtracks/, or shelved off it.'],
-        ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
-      ];
-
-      function buildTrackHead() {
-        var head = document.createElement('div');
-        head.className = 'track-head track-head--main';
-        head.setAttribute('role', 'row');
-        TRACK_HEAD_CELLS.forEach(function (cell, i) {
-          var el = document.createElement('span');
-          el.className = 'track-head-label'
-            + (i === 6 || i === 8 ? ' track-head-label--mid' : '');
-          el.textContent = cell[0];
-          if (cell[1]) el.title = cell[1];
-          head.appendChild(el);
-        });
-        return head;
       }
 
       // THE PAGER IS PART OF THE TAPE LINE, NOT A BAR ABOVE IT. As two bars

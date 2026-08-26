@@ -638,6 +638,28 @@ or three lines tall, and trimming the row's padding moved almost nothing.
   0, so the grow path measures 26px there whatever the text. The resting state,
   the uniformity and the tooltip are all checked; the expansion is not.
 
+### ONE HEADER, NOT THREE (2026-08-26)
+
+The room had three bars stacked over the tracks: the sort and filter controls,
+the tape's own line, and a column legend for the track fields. There is one.
+
+- **THE TAPE'S LINE IS THE HEADER'S SECOND ROW.** `renderTrackArchive` appends
+  it into `#tapeHeadRow` inside `.room-controls` rather than into the list, and
+  it sheds its border, radius and white ground there: **a card inside a panel is
+  a box within a box.** The controls above are about the CATALOGUE and this line
+  is about the tape in front of you, which makes them two rows of one object.
+- **THE LIST BELOW IS NOW TRACKS AND NOTHING ELSE.** Checked by reading the
+  distinct class names of its children: `track-line`.
+- **THE COLUMN LEGEND WENT, AND ITS LABELS MOVED ONTO THE FIELDS.** Every input
+  gained a placeholder that names its column (`#`, `Title`, `Artist`, `no
+  blurb`, `Spotify id`) plus a `title`. **Title and Artist had NO placeholder
+  before**, so deleting the legend without this would have left an empty track
+  as a row of unmarked white boxes.
+  - **WHAT IS LOST, plainly: a FILLED field no longer shows its column name**
+    unless you hover it. That is the trade for one header. The two unlabelled
+    cells are the explicit checkbox and delete, which are marked by their own
+    glyphs.
+
 ### THE PAGER IS THE TAPE LINE (2026-08-25)
 
 They were two bars and **they said the same three things twice**, a few pixels
