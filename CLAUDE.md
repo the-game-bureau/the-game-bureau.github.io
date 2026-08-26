@@ -602,6 +602,17 @@ columns they were nowhere near.
   check reads the list's children in order.**
 - **The issue dots stay on the tape line** and are unaffected: 3 of them on
   Baton Rouge, in the same cell they were always in.
+- **THAT REBUILD SHIPPED THE WHOLE ADD / VIEW BAR TWICE, AND A SECOND
+  `#roomBody` WITH IT.** The edit inserted the new controls bar and then failed
+  to remove the old markup, so the room drew two identical command bars and the
+  panel was split in half around them. **Two elements shared an id and nothing
+  complained**: `getElementById` returns the first, which happened to be the
+  right one, so every control still worked and only the eye caught it.
+  - **The duplicate was compared byte for byte before being deleted**, rather
+    than assuming which copy was the good one.
+  - **The check now looks for repeated ids**, which is the cheap thing that
+    would have caught it: `id="roomBody"` twice was the tell, and the standing
+    id check only asks the opposite question, whether a wired id is missing.
 
 ### BOTH KINDS OF FINDING ARE ACTIONABLE ON THE MAIN LIST (2026-08-25)
 
