@@ -347,7 +347,7 @@
     .tape-lines {
       display: grid;
       gap: 6px;
-      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
+      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
     }
 
     .tape-lines {
@@ -360,6 +360,74 @@
        columns they act on: the switch above the tracks' switches, the delete
        above theirs. The header is column labels again -- a strip above them was
        a tape header by another name. */
+
+    /* ── THE SELECTION ──────────────────────────────────────────────────── */
+
+    .track-pick,
+    .track-head-label--pick {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      padding: 0;
+    }
+
+    /* THE TICK IS THE ROW'S OWN SIZE, so it reads as part of the row rather
+       than as chrome bolted to the side of it. */
+    .track-pick-box { cursor: pointer; }
+
+    /* THE BULK BAR, ACROSS THE HEADER, ONLY WHEN SOMETHING IS SELECTED. It is
+       drawn in the room's primary ink rather than the muted grey of the labels
+       above it: these are things that WRITE, and the bar beside them filters. */
+    .track-bulk {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--control-line);
+      font-size: 0.72rem;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    .track-bulk-count {
+      margin-right: 4px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .track-bulk-sep {
+      width: 1px;
+      height: 18px;
+      margin: 0 4px;
+      background: var(--control-line);
+    }
+
+    /* DESTRUCTIVE HARD RIGHT OF THE SETTERS, with the way out after it: the
+       irreversible button belongs as far as the row goes from the ones you
+       actually came to press. */
+    .track-bulk .btn.warn {
+      margin-left: auto;
+      border-color: var(--bic-red);
+      color: var(--bic-red);
+    }
+
+    .track-bulk .btn.warn.is-armed {
+      background: var(--bic-red);
+      border-color: var(--bic-red);
+      color: #fff;
+    }
+
+    .track-bulk .btn.ghost { border-color: transparent; color: var(--muted); }
+    .track-bulk .btn.ghost:hover { color: var(--ink); }
+
     .track-head-label--tapeair,
     .track-head-label--tapedel {
       display: flex;
@@ -444,7 +512,7 @@
        that had to be kept identical by hand. There is now one declaration per
        list and neither header can drift from its own rows. */
     .tracks-body {
-      --track-cols: 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
+      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -1480,6 +1548,12 @@
       <div class="prompt-body tracks-body">
 
         <div class="track-head" id="trackHead" role="row">
+
+          <!-- THE TICK COLUMN. The popup has no select-all of its own: the
+               selection is shared with the list behind it, so a box ticked here
+               is ticked there, and the bulk bar lives on the one header that can
+               show it without covering the tracks. -->
+          <span class="track-head-label track-head-label--mid"></span>
 
           <!-- THE LEADING CELL IS THE NEW BADGE'S COLUMN, added 2026-08-26. The
                popup and the main list share the row builder, so they share its
@@ -2663,6 +2737,14 @@
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
+          // WHAT THE SELECT-ALL AND THE BULK BAR ACT ON: the rows actually on
+          // screen, which is the tape's tracks after the header's own filter.
+          // Anything else would tick rows nobody can see.
+          var shown = allSongs(tape).filter(function (song) {
+            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+          });
+          pruneSelection(shown);
+
           // THE TAPE'S TWO CONTROLS SIT AT THE TOP OF THE COLUMNS THEY ACT ON.
           // The header is column labels and nothing else again -- the strip
           // above them was a tape header by another name. The Status cell was
@@ -2675,17 +2757,22 @@
             cell.textContent = '';
             cell.appendChild(node);
           }
-          fill(0, newCell);
-          fill(9, buildAirFilter(tape));
-          fill(10, delBtn);
-          head.children[9].classList.add('track-head-label--tapeair');
-          head.children[10].classList.add('track-head-label--tapedel');
+          fill(0, buildSelectAll(shown));
+          fill(1, newCell);
+          fill(10, buildAirFilter(tape));
+          fill(11, delBtn);
+          head.children[0].classList.add('track-head-label--pick');
+          head.children[10].classList.add('track-head-label--tapeair');
+          head.children[11].classList.add('track-head-label--tapedel');
 
           // WHERE THE TAPE IS AND WHAT IT HOLDS, on the room's own head with the
           // catalogue's figures. Those are standing readings rather than
           // controls, and the alternatives were both worse: the VIEW bar has to
           // stay on one line, and a bar of their own is the tape header again.
           paintTapeStats(tape, tracksCell);
+
+          var bulk = buildBulkBar(tape);
+          if (bulk) head.appendChild(bulk);
 
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) head.appendChild(confirmStrip);
@@ -2701,13 +2788,10 @@
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
           var songsHere = allSongs(tape);
-          // THE HEADER SWITCH IS A FILTER, so the list is built from what it
-          // leaves. `renderTracks` learned this once already; a second reader of
-          // "what is visible" is how a control ends up silently inert.
-          var shown = songsHere.filter(function (song) {
-            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
-          });
-
+          // `shown` is computed above, before the header is built: the
+          // select-all and the bulk bar have to know what is on screen, and a
+          // second reader of "what is visible" is how a control ends up
+          // silently inert.
           if (songsHere.length && !shown.length) {
             // THE EMPTY STATE NAMES THE WAY OUT. The filter lives in the header
             // above, so a bare "nothing here" would leave somebody looking at a
@@ -3629,7 +3713,7 @@
         newCell.className = 'track-line-new';
         if (isNewTrack(song)) newCell.appendChild(trackNewBadge(song));
 
-        line.append(newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, sportsWrap, air, del);
+        line.append(buildSelectBox(song), newCell, playBtn, posEl, titleCell, artistEl, blurbEl, idEl, explicitWrap, sportsWrap, air, del);
 
         if (isFocused) {
           var stage = document.createElement('div');
@@ -3875,6 +3959,8 @@
       // because it is emitted under the tape whose tracks it names. It is the
       // popup's own header, cell for cell, so the two lists read the same.
       var TRACK_HEAD_CELLS = [
+        // THE TICK COLUMN. Its header cell is replaced by the select-all box.
+        ['', ''],
         ['', ''],
         ['', ''],
         ['#', 'Play order on the cassette. Edit it to reorder.'],
@@ -3891,6 +3977,245 @@
         ['', 'Live on /soundtracks/, or shelved off it.'],
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
+
+      // ── THE SELECTION ───────────────────────────────────────────────────
+      //
+      // Ticked track ids, so a header control can act on many rows at once. It
+      // is an object rather than an array because every question asked of it is
+      // "is this one in", and because a re-render must repaint a hundred boxes
+      // without a hundred scans.
+      var selectedTracks = {};
+
+      function selectedIds() { return Object.keys(selectedTracks); }
+      function selectedCount() { return selectedIds().length; }
+      function isSelected(song) { return !!(song && selectedTracks[String(song.id)]); }
+
+      // A TICK ON A ROW NOBODY CAN SEE IS A TRAP. The filter and the pager both
+      // change what is on screen, and a bulk press that reached a hidden row
+      // would be the worst kind of surprise: silent, and to somebody else's
+      // work. The selection is pruned to what is drawn, on every render.
+      function pruneSelection(shown) {
+        var live = {};
+        (shown || []).forEach(function (song) {
+          var id = String(song.id);
+          if (selectedTracks[id]) live[id] = true;
+        });
+        selectedTracks = live;
+      }
+
+      function toggleSelection(song, on) {
+        var id = String(song.id);
+        if (on) selectedTracks[id] = true; else delete selectedTracks[id];
+      }
+
+      function repaintAfterSelection() {
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
+      // THE TICK ON A TRACK ROW. It selects; it changes nothing about the track.
+      function buildSelectBox(song) {
+        var cell = document.createElement('span');
+        cell.className = 'track-pick';
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'track-pick-box';
+        box.checked = isSelected(song);
+        box.setAttribute('aria-label', 'Select ' + songDisplay(song));
+        box.title = 'Select this track. The bar at the top of the header acts on everything selected at once.';
+        box.addEventListener('click', function (event) { event.stopPropagation(); });
+        box.addEventListener('change', function () {
+          toggleSelection(song, box.checked);
+          repaintAfterSelection();
+        });
+        cell.appendChild(box);
+        return cell;
+      }
+
+      // SELECT ALL, IN THE HEADER'S OWN TICK COLUMN. Indeterminate when some are
+      // ticked, which is the only honest third state for a box answering "are
+      // all of these in".
+      function buildSelectAll(shown) {
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'track-pick-box';
+        var n = (shown || []).length;
+        var picked = (shown || []).filter(isSelected).length;
+        box.checked = n > 0 && picked === n;
+        box.indeterminate = picked > 0 && picked < n;
+        box.disabled = !n;
+        box.setAttribute('aria-label', 'Select every track shown');
+        box.title = !n ? 'Nothing to select.'
+          : (picked === n ? 'All ' + n + ' selected. Press to clear.'
+                          : 'Select all ' + n + ' tracks shown.');
+        box.addEventListener('change', function () {
+          var on = picked !== n;
+          (shown || []).forEach(function (song) { toggleSelection(song, on); });
+          repaintAfterSelection();
+        });
+        return box;
+      }
+
+      // ── WHAT THE HEADER DOES TO A SELECTION ─────────────────────────────
+      //
+      // A BAR, NOT THE FILTER. The Status header is a filter and must stay one:
+      // this room has already had the most destructive act in it hiding inside
+      // its quietest control, and a header switch that sometimes filtered and
+      // sometimes wrote would be that again. These are separate controls, they
+      // are worded as verbs, and they appear only when something is selected,
+      // so they can never be mistaken for a filter.
+      var bulkPendingDelete = false;
+
+      function buildBulkBar(tape) {
+        var n = selectedCount();
+        if (!n) { bulkPendingDelete = false; return null; }
+
+        var bar = document.createElement('div');
+        bar.className = 'track-bulk';
+
+        var count = document.createElement('strong');
+        count.className = 'track-bulk-count';
+        count.textContent = n + (n === 1 ? ' track selected' : ' tracks selected');
+        bar.appendChild(count);
+
+        function act(word, title, patch) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn small';
+          btn.textContent = word;
+          btn.title = title;
+          btn.addEventListener('click', function () { applyToSelection(tape, patch, word); });
+          bar.appendChild(btn);
+        }
+        function rule() {
+          var el = document.createElement('span');
+          el.className = 'track-bulk-sep';
+          el.setAttribute('aria-hidden', 'true');
+          bar.appendChild(el);
+        }
+
+        act('Live', 'Put every selected track on /soundtracks/.', { archived: false });
+        act('Shelve', 'Take every selected track off /soundtracks/.', { archived: true });
+        rule();
+        act('Explicit', 'Mark every selected track explicit.', { explicit: true });
+        act('Not explicit', 'Clear explicit on every selected track.', { explicit: false });
+        act('Sports', 'Mark every selected track as sports music.', { sports: true });
+        act('Not sports', 'Clear sports on every selected track.', { sports: false });
+        rule();
+
+        // IT ASKS, AND EVERYTHING ELSE HERE DOES NOT. The rest set a column
+        // somebody can set back; this one cannot be undone and takes the tracks'
+        // do-not-rescrape tombstones with them, so the routine is free to
+        // propose every one of them again.
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn small warn' + (bulkPendingDelete ? ' is-armed' : '');
+        del.textContent = bulkPendingDelete ? ('Delete ' + n + ' for good') : 'Delete';
+        del.title = bulkPendingDelete
+          ? 'This cannot be undone, and the tracks take their do-not-rescrape tombstones with them.'
+          : 'Delete every selected track. Shelving is almost always what you want instead.';
+        del.addEventListener('click', function () {
+          if (!bulkPendingDelete) { bulkPendingDelete = true; renderTrackArchive(); return; }
+          deleteSelection(tape);
+        });
+        bar.appendChild(del);
+
+        var clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'btn small ghost track-bulk-clear';
+        clear.textContent = 'Clear';
+        clear.title = 'Untick everything.';
+        clear.addEventListener('click', function () {
+          selectedTracks = {};
+          bulkPendingDelete = false;
+          repaintAfterSelection();
+        });
+        bar.appendChild(clear);
+
+        return bar;
+      }
+
+      // ONE REQUEST FOR THE WHOLE SELECTION, and the rows are read back.
+      // PostgREST answers 200 with an EMPTY ARRAY when RLS refuses a write, so
+      // without checking the reply a refused bulk press reports success and the
+      // page shows a state the database never took.
+      async function writeSelection(method, body) {
+        var ids = selectedIds();
+        var path = 'soundtrack?id=in.(' + ids.map(encodeURIComponent).join(',') + ')';
+        var headers = { Prefer: 'return=representation' };
+        var opts = { method: method, headers: null };
+        if (body) headers['Content-Type'] = 'application/json';
+        opts.headers = authHeaders(headers);
+        if (body) opts.body = JSON.stringify(body);
+        var res = await fetch(restUrl(path), opts);
+        if (!res.ok) {
+          var detail = await res.text().catch(function () { return ''; });
+          throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''));
+        }
+        var rows = await res.json().catch(function () { return []; });
+        return Array.isArray(rows) ? rows : [];
+      }
+
+      async function applyToSelection(tape, patch, word) {
+        var ids = selectedIds();
+        if (!ids.length) return;
+        var rows;
+        try {
+          rows = await writeSelection('PATCH', patch);
+        } catch (error) {
+          console.error(error);
+          setNotice('could not set ' + word.toLowerCase() + ' on ' + ids.length
+            + (ids.length === 1 ? ' track: ' : ' tracks: ')
+            + friendlyWriteError(error, trackCityLabel(tape)), 'error');
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          return;
+        }
+        // A SHORT REPLY IS REPORTED, NOT ROUNDED UP. It means some rows were
+        // refused, and saying "12 updated" about 9 is the quiet sort of lie this
+        // room has been caught by before.
+        var short = rows.length < ids.length
+          ? (' (' + (ids.length - rows.length) + ' were refused)') : '';
+        try {
+          await loadSoundtrackArchive();
+        } catch (error) {
+          console.error(error);
+          setNotice('wrote ' + rows.length + ', but the page could not reload. Press Reload.', 'error');
+          return;
+        }
+        setNotice(word.toLowerCase() + ' on ' + rows.length
+          + (rows.length === 1 ? ' track' : ' tracks') + short, short ? 'error' : 'success');
+      }
+
+      async function deleteSelection(tape) {
+        var ids = selectedIds();
+        if (!ids.length) return;
+        var rows;
+        try {
+          rows = await writeSelection('DELETE', null);
+        } catch (error) {
+          console.error(error);
+          setNotice('could not delete those tracks: '
+            + friendlyWriteError(error, trackCityLabel(tape)), 'error');
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          return;
+        }
+        selectedTracks = {};
+        bulkPendingDelete = false;
+        try {
+          await loadSoundtrackArchive();
+        } catch (error) {
+          console.error(error);
+          setNotice('deleted ' + rows.length + ', but the page could not reload. Press Reload.', 'error');
+          return;
+        }
+        setNotice('deleted ' + rows.length + (rows.length === 1 ? ' track' : ' tracks'), 'success');
+      }
 
       // THE STATUS COLUMN'S HEADER IS A FILTER, NOT A LABEL. A switch on a ROW
       // changes that track's state; a switch in a HEADER narrows what the list
@@ -3940,10 +4265,10 @@
             // A LABEL IS CENTRED WHEN THE FIELD UNDER IT IS. `#` is a
             // `text-align: center` input, so a left-aligned label over it sat
             // half a column away from the number it names.
-            + (i === 2 || i === 7 || i === 8 || i === 10 ? ' track-head-label--mid' : '')
+            + (i === 0 || i === 3 || i === 8 || i === 9 || i === 11 ? ' track-head-label--mid' : '')
             // The two spelled-out columns are the narrowest on the row, so
             // their labels are set smaller than the rest of the header.
-            + (i === 7 || i === 8 ? ' track-head-label--tiny' : '');
+            + (i === 8 || i === 9 ? ' track-head-label--tiny' : '');
           el.textContent = cell[0];
           if (cell[1]) el.title = cell[1];
           head.appendChild(el);

@@ -655,6 +655,44 @@ The two checkbox columns read **Explicit** and **Sports** rather than `E` and
   and the standing warning is that missing one puts every label a column away
   from the field it names.
 
+### TICK TRACKS, AND THE HEADER ACTS ON ALL OF THEM (2026-08-26)
+
+A twelfth column, first on the row, holding a tick per track and a select-all in
+the header. Tick anything and a **bulk bar** appears across the header: **Live ·
+Shelve | Explicit · Not explicit · Sports · Not sports | Delete · Clear**.
+
+- **A BAR, NOT THE FILTER, AND THAT IS THE WHOLE DESIGN.** The Status header is
+  a filter and must stay one. **This room has already had the most destructive
+  act in it hiding inside its quietest control** -- a switch that read like a
+  filter and took 96 tapes off `/soundtracks/` in one press. A header switch that
+  sometimes filtered and sometimes wrote would be that again. These are separate
+  controls, worded as verbs, and **they exist only while something is selected**,
+  so they cannot be mistaken for a filter. A test asserts the Status cell holds
+  no button.
+- **IT IS WHAT MAKES A TAPE LIVE IN ONE PRESS.** When tape state went, this file
+  recorded the cost: one press per track. Select all, press Live.
+- **THE SELECTION IS PRUNED TO WHAT IS DRAWN, ON EVERY RENDER.** The filter and
+  the pager both change what is on screen, and **a bulk press that reached a
+  hidden row would be silent and would land on somebody else's work.** Stepping
+  to another tape therefore drops the selection, which a test checks.
+- **ONE REQUEST FOR THE LOT**, `id=in.(...)`, not a loop. A loop can half-finish
+  with nothing saying which half.
+- **`return=representation`, AND A SHORT REPLY IS REPORTED RATHER THAN ROUNDED
+  UP.** PostgREST answers 200 with an empty array when RLS refuses, so without
+  reading the rows back a refused press reports success; and saying "12 updated"
+  about 9 is the quiet sort of lie this room has been caught by before.
+- **DELETE ARMS FIRST AND SITS HARD RIGHT.** Everything else on the bar sets a
+  column somebody can set back; this one cannot be undone and takes the tracks'
+  do-not-rescrape tombstones with them, so the routine is free to propose every
+  one of them again.
+- **THE POPUP HAS TICKS BUT NO SELECT-ALL AND NO BAR.** The selection is shared,
+  so a box ticked there is ticked on the list behind it; the bar lives on the one
+  header that can show it without covering the tracks.
+- **THE GRID WENT FROM ELEVEN COLUMNS TO TWELVE**, which moved six things at
+  once: both `--track-cols` declarations, the built header's cell list, its
+  `--mid` and `--tiny` indices, the `fill()` positions, and the popup's static
+  markup. **Miss one and every label sits a column from the field it names.**
+
 ### THE STATUS HEADER IS A FILTER AGAIN (2026-08-26)
 
 The Status column's header cell carries a Shelved / Live tri-state that narrows
