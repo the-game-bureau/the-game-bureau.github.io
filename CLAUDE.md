@@ -614,6 +614,27 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### THE TAPE NAME IS EDITED ON ITS LINE (2026-08-25)
+
+`buildTapeNameEditor` is the tape line's name cell now, the SAME editor the
+tracks popup uses as its title, so there is one of it and not two.
+
+- **THE FLIP CAME WITH IT.** The `⇄` between the two boxes swaps
+  `spine_tag_position`, so a tape reads *Abilene The Key City Mix* or *The Key
+  City Mix Abilene*. It was already inside that builder, which is why moving the
+  builder brought it along rather than needing rebuilding.
+- **AND SO DID MOVING A TAPE TO ANOTHER CITY.** The city box carries
+  `list="cityOptions"`, and committing it goes through `moveTapeToCity`, which
+  since the `cities` tie was cut also accepts a city the room has never held.
+- **BOTH BOXES COMMIT ON `blur`, NOT ON `keydown`.** Worth knowing before
+  writing a check against them: a test that fires Enter sees nothing happen and
+  reads as a broken write path when the path is fine.
+- **CLICKING THE NAME NO LONGER OPENS THE POPUP**, because the row's click
+  handler bails on anything inside an `input`, and the name is two inputs now.
+  The rest of the row still opens it. That is the right trade while the popup
+  shows the same tracks the line already has under it, but **if the popup ever
+  becomes the only place something lives, this is the thing that will hide it.**
+
 ### BOTH KINDS OF FINDING ARE ACTIONABLE ON THE MAIN LIST (2026-08-25)
 
 A finding is about a TRACK or about the TAPE, and both now draw where they
