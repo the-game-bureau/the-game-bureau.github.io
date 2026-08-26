@@ -203,6 +203,35 @@
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
     /* ADD TAKES THE SLACK; the two on its right stay their own width. */
+    /* THE TAPE NAV IN THE VIEW BAR. Square end caps and the count between
+       them, so the pair reads as one control with two ends. */
+    .tape-step {
+      min-width: 34px;
+      padding: 0 8px;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .tape-step + .tape-step { margin-left: -6px; }
+    .tape-step[disabled] { opacity: 0.35; cursor: default; }
+
+    .tape-where {
+      font: 500 0.72rem/1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* A hairline marking where the room's own navigation stops and the places
+       you leave for begin. */
+    .bar-sep {
+      width: 1px;
+      align-self: stretch;
+      min-height: 26px;
+      margin: 0 2px;
+      background: var(--control-line);
+    }
+
     .command-bar--view,
     .command-bar--filter { flex: 0 0 auto; }
     @media (max-width: 720px) {
@@ -1273,6 +1302,14 @@
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner">
+          <!-- THE TAPE NAV LEADS THE VIEW BAR. It is the control used most in
+               this room, and VIEW is where the room keeps the things you GO to.
+               It sat on the tape's own row, which meant the row carried both
+               what a tape IS and how to leave it. -->
+          <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
+          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
+          <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           <a class="btn" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="The public page these tapes are published to. Only live tracks appear there.">SOUNDTRACKS</a>
 
           <a class="btn" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Cloudflare Web Analytics. Add a filter on path = /soundtracks/ to see this page. Counts arrivals, not plays — a page view cannot tell you whether anyone pressed play.">LISTENER STATS</a>
@@ -1498,6 +1535,11 @@
       //
       // 'all' is the NEUTRAL middle and is what the knob rests on. Per-row
       // switches are untouched: those are the status changers.
+      // ONE TAPE AT A TIME. A position into the FILTERED, SORTED list rather
+      // than a tape id, so if the list ever changes under it you land on
+      // whatever moved into that place instead of on nothing.
+      var tapeAt = 0;
+
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
       var pageNotice = document.getElementById('pageNotice');
@@ -2220,6 +2262,33 @@
 
       var refocusing = false;
 
+      // IT READS THE LIST IT IS GIVEN rather than recomputing one, so it can
+      // never disagree with what is on screen about how many there are or which
+      // one this is.
+      function paintTapeNav(tapes) {
+        var prev = document.getElementById('tapePrev');
+        var next = document.getElementById('tapeNext');
+        var where = document.getElementById('tapeWhere');
+        if (!prev || !next || !where) return;
+        var n = tapes.length;
+        if (!n) {
+          where.textContent = 'no tapes';
+          prev.disabled = true;
+          next.disabled = true;
+          return;
+        }
+        where.textContent = (tapeAt + 1) + ' of ' + n;
+        prev.disabled = tapeAt <= 0;
+        next.disabled = tapeAt >= n - 1;
+        prev.title = prev.disabled ? 'This is the first tape.' : 'Back to ' + tapeFullName(tapes[tapeAt - 1]);
+        next.title = next.disabled ? 'This is the last tape.' : 'On to ' + tapeFullName(tapes[tapeAt + 1]);
+      }
+
+      function stepTape(by) {
+        tapeAt += by;
+        renderTrackArchive();
+      }
+
       function renderTrackArchive(message, tone) {
         if (!trackArchiveList) return;
         trackArchiveList.innerHTML = '';
@@ -2253,6 +2322,7 @@
 
           trackArchiveList.appendChild(emptyNode(
             'No tapes yet.'));
+          paintTapeNav([]);
           setArchiveStatus('', '');
           return;
         }
@@ -2260,7 +2330,14 @@
         // CLAMPED, NEVER WRAPPED. Running off the end onto the first tape
         // makes a long list feel like it has no end; stopping is honest, and
         // the buttons grey out to say why.
-        tapes.forEach(function (tape) {
+        // CLAMPED, NEVER WRAPPED. Running off the end onto the first tape
+        // makes a long list feel like it has no end; stopping is honest, and
+        // the buttons grey out to say why.
+        if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
+        if (tapeAt < 0) tapeAt = 0;
+        paintTapeNav(tapes);
+
+        tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           var row = document.createElement('div');
           row.className = 'tape-line';
@@ -3933,6 +4010,11 @@
             'Could not read public.soundtrack. Open the routine to check directly.', true);
         }
       }
+
+      var tapePrevBtn = document.getElementById('tapePrev');
+      var tapeNextBtn = document.getElementById('tapeNext');
+      if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
+      if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
 
       loadLastRun();
 
