@@ -715,6 +715,44 @@ The `x` at the end of the track header deleted the whole tape. It now deletes
   not, and it is the reason **Shelve instead** sits on the confirmation as the
   first button.
 
+### THE TRACK FILTERS ARE ONE LABELLED RADIO GROUP (2026-08-26)
+
+**All · Live · Shelved · Explicit · Sports**, in NAV, exactly one on.
+
+- **A RADIO GROUP IS WHAT "ONE FILTER AT A TIME" MEANS.** It was a tri-state
+  switch plus two toggle buttons, and *choosing one clears the others* was a rule
+  **three controls enforced on each other**. Here the control says it, and the
+  browser keeps it.
+- **THE LABEL WRAPS THE INPUT**, so the word is part of the control rather than a
+  caption beside it: clicking either picks the option. A test asserts every word
+  is inside a label that holds a radio.
+- **THE TWO STATE VARIABLES STAY.** `trackAirFilter` is read by the popup's own
+  switch and `trackFlagFilter` by the row test, so `currentTrackFilter()` maps
+  them to one answer and `chooseTrackFilter()` sets them. Collapsing them into
+  one string would mean touching both readers.
+- **`setTrackFlag` AND THE AIR SWITCH'S BAR STYLING WENT WITH THE BUTTONS.** The
+  popup keeps its own switch, which is why `.tape-air` is still live.
+
+### ALL THREE CHECKBOXES CARRY A WORD (2026-08-26)
+
+- **THE TWO ON A ROW.** The header that named those columns is gone, so an
+  unlabelled checkbox beside another unlabelled checkbox was a coin toss you had
+  to hover to settle, **on every row**. `Explicit` and `Sports` at 0.5rem, the
+  size the header's own labels were: not something you read, something you glance
+  at to tell two boxes apart. Their columns went 48px to 82 and 74.
+- **THE SELECT-ALL.** One tick in a bar of worded buttons is a control with no
+  name; **All** is the shortest true one, and it is inside the `<label>` so it
+  toggles the box.
+- **THE FLAG WORDS ARE THE SECOND EXCEPTION** to the rule that no child of a
+  track row declares its own size, and the test names them: they are labels, not
+  fields.
+
+### VIEW COMES BEFORE NAV (2026-08-26)
+
+`ADD | VIEW | NAV`. **The row wraps between boxes**, so the order decides what
+shares a line with what: ADD and VIEW are short and stable, NAV is long and is
+the one that drops to a second line when the window narrows.
+
 ### NO HEADER ROW, AND THREE BOXES: ADD, NAV, VIEW (2026-08-26)
 
 The row above the tracks is gone. The list is track rows and nothing else.

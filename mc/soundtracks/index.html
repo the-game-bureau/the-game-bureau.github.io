@@ -353,7 +353,7 @@
     .tape-lines {
       display: grid;
       gap: 6px;
-      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
+      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 82px 74px 196px 32px;
     }
 
     .tape-lines {
@@ -467,7 +467,7 @@
        that had to be kept identical by hand. There is now one declaration per
        list and neither header can drift from its own rows. */
     .tracks-body {
-      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 48px 48px 196px 32px;
+      --track-cols: 30px 48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 82px 74px 196px 32px;
     }
 
     section.tool-modal-panel#tracksCard:not([hidden]) {
@@ -564,32 +564,56 @@
 
 
 
-    /* THE TWO FLAG FILTERS IN THE VIEW BAR. They are `.btn`, like everything
-       else on that bar, and say when they are on the way every pressed control
-       in this room does. */
-    .btn--flagfilter.is-on {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-
-    /* THE AIR SWITCH IN THE VIEW BAR. It was sized for a 196px column and this
-       bar has to stay on one line, so its words come down to the bar's own type
-       and the whole control is only as wide as it needs to be. */
-    #viewAir {
+/* THE FILTER RADIOS. Five labelled options, exactly one on, which is what
+       "one filter at a time" means said in the control rather than enforced
+       between three of them. */
+    .track-filters {
       flex: 0 0 auto;
-      display: inline-grid;
-      grid-template-columns: auto auto auto;
-      align-items: center;
-      gap: 6px;
-      padding: 0 8px;
-      min-height: 42px;
+      display: inline-flex;
+      align-items: stretch;
+      gap: 0;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
     }
 
-    #viewAir .tape-air-word {
-      font-size: 0.62rem;
-      white-space: nowrap;
+    .track-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 9px;
+      min-height: 42px;
+      cursor: pointer;
+      border-right: 1px solid var(--control-line);
+      background: #fff;
+      transition: background 120ms ease, color 120ms ease;
     }
+
+    .track-filter:last-child { border-right: 0; }
+    .track-filter:hover { background: rgba(var(--bic-blue-rgb), 0.06); }
+
+    /* THE CHOSEN ONE IS THE ROOM'S PRIMARY FILL, the same one Save and Add wear,
+       so a filter that is ON reads the way every pressed control here does. */
+    .track-filter.is-on { background: var(--accent); }
+    .track-filter.is-on .track-filter-word { color: #fff; }
+
+    .track-filter-word {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* THE DOT STAYS VISIBLE. A radio drawn only as a filled segment is a
+       segmented button, and this is a radio group: the input is what says so to
+       a screen reader and it should say so on screen too. */
+    .track-filter input { margin: 0; cursor: pointer; }
+
 
 
     /* LITTLE BITTY. These are the two narrowest columns on the row and they now
@@ -740,6 +764,36 @@
     .track-input--id::placeholder { color: var(--muted); opacity: 0.75; }
 
     .track-explicit { display: flex; align-items: center; justify-content: center; }
+
+    /* THE WORD BESIDE THE BOX. The header that named these two columns is gone,
+       so each box carries its own name -- little bitty, because it is not
+       something you read, it is something you glance at to tell two checkboxes
+       apart. It is the size the header's own labels were. */
+    .track-flagword {
+      font-size: 0.5rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .track-explicit { gap: 4px; justify-content: flex-start; padding-left: 4px; }
+
+    /* SELECT ALL SAYS WHAT IT SELECTS. One tick in a bar of worded buttons is a
+       control with no name; `All` is the shortest true one. */
+    .view-pick { gap: 5px; }
+
+    .view-pick-word {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      user-select: none;
+    }
+
 
     .track-del {
       display: flex;
@@ -1501,37 +1555,6 @@
         </div>
       </fieldset>
 
-      <fieldset class="command-bar command-bar--nav">
-        <legend>Nav</legend>
-        <div class="command-bar-inner">
-          <!-- SELECT ALL LEADS IT. It is not navigation, and it is here because
-               it acts on exactly the list the rest of this box decides: the
-               tape the arrows landed on, narrowed by the filters beside it.
-               The header column it used to live in is gone. -->
-          <label class="view-pick" id="viewPickWrap">
-            <input class="track-pick-box" id="viewPick" type="checkbox"
-                   aria-label="Select every track shown">
-          </label>
-          <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
-          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
-          <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
-          <select class="btn tape-filter" id="tapeFilter"
-                  aria-label="Show only tapes in one country, state or city"
-                  title="Show only the tapes in one country, state or city. The arrows then step through those.">
-            <option value="">ALL TAPES</option>
-          </select>
-          <!-- EVERY TRACK FILTER IS IN ONE PLACE, and it is this one. They were
-               built into the track header, which put three controls that narrow
-               the list inside the bar that labelled its columns. -->
-          <span class="tape-air track-air tape-air--all" id="viewAir" role="group"
-                aria-label="Show shelved tracks, live tracks, or both"></span>
-          <button class="btn btn--flagfilter" id="viewExplicit" type="button"
-                  aria-pressed="false">Explicit</button>
-          <button class="btn btn--flagfilter" id="viewSports" type="button"
-                  aria-pressed="false">Sports</button>
-        </div>
-      </fieldset>
-
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner">
@@ -1547,6 +1570,41 @@
              title="What the daily audit found wrong with the tapes. It used to be drawn on the rows here.">ISSUES</a>
         </div>
       </fieldset>
+      <fieldset class="command-bar command-bar--nav">
+        <legend>Nav</legend>
+        <div class="command-bar-inner">
+          <!-- SELECT ALL LEADS IT. It is not navigation, and it is here because
+               it acts on exactly the list the rest of this box decides: the
+               tape the arrows landed on, narrowed by the filters beside it.
+               The header column it used to live in is gone. -->
+          <label class="view-pick" id="viewPickWrap">
+            <input class="track-pick-box" id="viewPick" type="checkbox"
+                   aria-label="Select every track shown">
+            <span class="view-pick-word">All</span>
+          </label>
+          <button class="btn tape-step" id="tapePrev" type="button" aria-label="Previous tape">&#8249;</button>
+          <button class="btn tape-step" id="tapeNext" type="button" aria-label="Next tape">&#8250;</button>
+          <span class="tape-where" id="tapeWhere" aria-live="polite"></span>
+          <select class="btn tape-filter" id="tapeFilter"
+                  aria-label="Show only tapes in one country, state or city"
+                  title="Show only the tapes in one country, state or city. The arrows then step through those.">
+            <option value="">ALL TAPES</option>
+          </select>
+          <!-- EVERY TRACK FILTER IS IN ONE PLACE, and it is this one. They were
+               built into the track header, which put three controls that narrow
+               the list inside the bar that labelled its columns. -->
+          <!-- ONE RADIO GROUP, BECAUSE ONE FILTER AT A TIME IS WHAT A RADIO
+               GROUP MEANS. It was a tri-state switch plus two toggle buttons,
+               and "choosing one clears the others" was a rule three controls
+               enforced on each other. Here the control says it: five options,
+               exactly one on, All the resting state.
+               EVERY ONE IS LABELLED and the label WRAPS the input, so the word
+               is part of the control rather than a caption beside it. -->
+          <span class="track-filters" id="trackFilters" role="radiogroup"
+                aria-label="Which tracks to show"></span>
+        </div>
+      </fieldset>
+
     </div>
 
     <div class="prompt-layout">
@@ -3220,7 +3278,7 @@
       // has cost them something.
       function setTrackAir(value) {
         trackAirFilter = value;
-        // CHOOSING ONE CLEARS THE OTHERS. See `setTrackFlag` for the argument.
+        // CHOOSING ONE CLEARS THE OTHERS. See `chooseTrackFilter`.
         if (value !== 'all') trackFlagFilter = '';
         renderTrackArchive();
         if (tracksOpen()) renderTracks();
@@ -3639,6 +3697,12 @@
 
         var explicitWrap = document.createElement('span');
         explicitWrap.className = 'track-explicit';
+        // THE BOX SAYS WHAT IT IS. The header that named these two columns is
+        // gone, so an unlabelled checkbox beside another unlabelled checkbox was
+        // a coin toss you had to hover to settle, on every row.
+        var explicitWord = document.createElement('span');
+        explicitWord.className = 'track-flagword';
+        explicitWord.textContent = 'Explicit';
         var explicitEl = document.createElement('input');
         explicitEl.type = 'checkbox';
         explicitEl.checked = !!song.explicit;
@@ -3647,7 +3711,7 @@
         explicitEl.addEventListener('change', function () {
           commit(null, null, function (f) { f.explicit = !!explicitEl.checked; });
         });
-        explicitWrap.appendChild(explicitEl);
+        explicitWrap.append(explicitEl, explicitWord);
 
         // SPORTS. A fight song, a victory anthem, a stadium walk-up or goal
         // song, something a crowd sings outside the ground. Per TRACK, because
@@ -3656,6 +3720,9 @@
         // in a game.
         var sportsWrap = document.createElement('span');
         sportsWrap.className = 'track-explicit track-sports';
+        var sportsWord = document.createElement('span');
+        sportsWord.className = 'track-flagword';
+        sportsWord.textContent = 'Sports';
         var sportsEl = document.createElement('input');
         sportsEl.type = 'checkbox';
         sportsEl.checked = !!song.sports;
@@ -3665,7 +3732,7 @@
         sportsEl.addEventListener('change', function () {
           commit(null, null, function (f) { f.sports = !!sportsEl.checked; });
         });
-        sportsWrap.appendChild(sportsEl);
+        sportsWrap.append(sportsEl, sportsWord);
 
         var air = document.createElement('label');
         air.className = 'tape-air track-air';
@@ -4131,14 +4198,9 @@
       // painter and the flags are plain toggles.
       var trackFlagFilter = '';
 
-      function setTrackFlag(kind) {
-        trackFlagFilter = (trackFlagFilter === kind) ? '' : kind;
-        // CHOOSING ONE CLEARS THE OTHER. `all` is the air switch's own resting
-        // value, so this is the same as switching it off.
-        if (trackFlagFilter) trackAirFilter = 'all';
-        renderTrackArchive();
-        if (tracksOpen()) renderTracks();
-      }
+      // `setTrackFlag` went with the two toggle buttons on 2026-08-26.
+      // `chooseTrackFilter` is the one setter now, and it is the radio group's.
+
 
       // THE ONE TEST EVERY LIST OF TRACKS RUNS. `renderTracks` and
       // `renderTrackArchive` both call it, so the popup and the page cannot
@@ -4157,69 +4219,75 @@
         return '';
       }
 
-      // ── THE THREE TRACK FILTERS, IN THE VIEW BAR ────────────────────────
+      // ── ONE FILTER AT A TIME, SAID BY THE CONTROL ───────────────────────
       //
-      // They were built into the track header, one per column, which read well
-      // and was wrong: a header labels the columns under it, and these three
-      // narrow the LIST. They sit with the place filter now, so every control
-      // that decides what you are looking at is in one bar.
+      // Five labelled radios: All, Live, Shelved, Explicit, Sports. Exactly one
+      // is on, which is what "standalone" has always meant here -- it used to be
+      // a rule a tri-state switch and two toggle buttons enforced on each other,
+      // and a radio group simply is that rule.
       //
-      // THEY ARE PAINTED FROM STATE, NEVER READ FROM. `trackAirFilter` and
-      // `trackFlagFilter` are the truth and the controls are drawn from them, so
-      // the popup's own switch and these cannot disagree.
-      function paintViewFilters() {
-        var air = document.getElementById('viewAir');
-        var ex = document.getElementById('viewExplicit');
-        var sp = document.getElementById('viewSports');
-        if (!air || !ex || !sp) return;
+      // THE LABEL WRAPS THE INPUT, so the word is part of the control rather
+      // than a caption beside it: clicking either picks the option.
+      var TRACK_FILTERS = [
+        ['all', 'All', 'Every track on this tape.'],
+        ['live', 'Live', 'Only tracks on /soundtracks/.'],
+        ['shelved', 'Shelved', 'Only tracks off /soundtracks/.'],
+        ['explicit', 'Explicit', 'Only tracks marked explicit on Spotify.'],
+        ['sports', 'Sports', 'Only sports music: a fight song, a victory anthem, a stadium walk-up or goal song.']
+      ];
 
-        if (!air.dataset.wired) {
-          air.dataset.wired = '1';
-          var off = document.createElement('span');
-          off.className = 'tape-air-word tape-air-word--off';
-          off.textContent = 'Shelved';
-          var input = document.createElement('input');
-          input.className = 'tape-air-input';
-          input.type = 'checkbox';
-          input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
-          var knob = document.createElement('span');
-          knob.className = 'tape-air-track';
-          knob.setAttribute('aria-hidden', 'true');
-          var on = document.createElement('span');
-          on.className = 'tape-air-word tape-air-word--on';
-          on.textContent = 'Live';
-          air.append(off, input, knob, on);
-          wireAirSwitch(air, input,
-            function () { return trackAirFilter; }, setTrackAir);
-          air.dataset.input = '1';
-        }
-
-        var box = air.querySelector('.tape-air-input');
-        var counts = airTrackCounts();
-        paintAirSwitch(air, box, trackAirFilter, counts, 'tracks');
-
-        function paintFlag(btn, kind, tip) {
-          var isOn = trackFlagFilter === kind;
-          btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-          btn.classList.toggle('is-on', isOn);
-          btn.title = tip + (isOn
-            ? ' Showing only these. Press again to show all.'
-            : ' Press to show only these.');
-        }
-        paintFlag(ex, 'explicit', 'Marked explicit on Spotify.');
-        paintFlag(sp, 'sports',
-          'Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.');
+      // THE TWO VARIABLES STAY, and this is the one place that maps them to a
+      // single answer. `trackAirFilter` is read by the popup's own switch and
+      // `trackFlagFilter` by the row filter; collapsing them into one string
+      // would mean touching both, and they are what `trackPassesFilters` reads.
+      function currentTrackFilter() {
+        if (trackFlagFilter) return trackFlagFilter;
+        return trackAirFilter === 'all' ? 'all' : trackAirFilter;
       }
 
-      // WHAT THE SWITCH COUNTS. It is in the room's own bar now rather than on a
-      // tape's header, so it reports the tape ON SCREEN: that is the list it
-      // narrows, and a catalogue-wide figure beside a control acting on one tape
-      // would be the bar answering a question nobody asked.
-      function airTrackCounts() {
-        var tapes = soundtracks().slice().filter(tapeMatchesFilter);
-        var tape = tapes[Math.min(Math.max(tapeAt, 0), Math.max(tapes.length - 1, 0))];
-        var counts = tape ? tapeCounts(tape) : { LIVE: 0, SHELVED: 0 };
-        return { live: counts.LIVE, shelved: counts.SHELVED };
+      function chooseTrackFilter(value) {
+        if (value === 'explicit' || value === 'sports') {
+          trackFlagFilter = value;
+          trackAirFilter = 'all';
+        } else {
+          trackFlagFilter = '';
+          trackAirFilter = value;
+        }
+        renderTrackArchive();
+        if (tracksOpen()) renderTracks();
+      }
+
+      function paintViewFilters() {
+        var wrap = document.getElementById('trackFilters');
+        if (!wrap) return;
+
+        if (!wrap.dataset.wired) {
+          wrap.dataset.wired = '1';
+          TRACK_FILTERS.forEach(function (opt) {
+            var label = document.createElement('label');
+            label.className = 'track-filter';
+            label.title = opt[2];
+            var input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'trackFilter';
+            input.value = opt[0];
+            input.addEventListener('change', function () {
+              if (input.checked) chooseTrackFilter(opt[0]);
+            });
+            var word = document.createElement('span');
+            word.className = 'track-filter-word';
+            word.textContent = opt[1];
+            label.append(input, word);
+            wrap.appendChild(label);
+          });
+        }
+
+        var now = currentTrackFilter();
+        Array.prototype.forEach.call(wrap.querySelectorAll('input'), function (input) {
+          var on = input.value === now;
+          input.checked = on;
+          input.parentElement.classList.toggle('is-on', on);
+        });
       }
 
       // ── WHAT THE HEADER DOES TO A SELECTION ─────────────────────────────
@@ -4717,15 +4785,6 @@
 
       var batchBtnEl = document.getElementById('batchBtn');
       if (batchBtnEl) batchBtnEl.addEventListener('click', openBulkDialog);
-
-      var viewExplicitEl = document.getElementById('viewExplicit');
-      if (viewExplicitEl) viewExplicitEl.addEventListener('click', function () {
-        setTrackFlag('explicit');
-      });
-      var viewSportsEl = document.getElementById('viewSports');
-      if (viewSportsEl) viewSportsEl.addEventListener('click', function () {
-        setTrackFlag('sports');
-      });
 
       var tapeFilterEl = document.getElementById('tapeFilter');
       if (tapeFilterEl) tapeFilterEl.addEventListener('change', function () {
