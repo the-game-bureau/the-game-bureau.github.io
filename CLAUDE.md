@@ -631,8 +631,18 @@ they had drifted into two different sizes.
   `--track-cols` equals the row's, because that variable is scoped to
   `.track-head, .track-lines` inside the popup and out here would resolve to
   nothing and collapse every column to zero.
-- **THE STATUS COLUMN'S LABEL IS BLANK.** The switch reads SHELVED and LIVE
-  itself; a word above it would be that column saying what it is a third time.
+- **THE STATUS COLUMN CARRIES A SHELVED / LIVE FILTER**, not a label. It is the
+  popup's own control, and both drive `trackAirFilter`: the same question about
+  the same tape, asked from two places.
+  - **BUILT PER HEADER, SO IT CARRIES NO id.** The popup's is `#trackAirAll`;
+    this one is emitted once per tape shown, and a second element with that id
+    would make `getElementById` answer for whichever came first.
+  - **IT STOPS ITS OWN CLICK.** The tape row beneath opens the tracks popup, so
+    without that, filtering would also open a dialog over the list.
+  - **THE HEADER IS DRAWN WHENEVER THE TAPE HAS TRACKS AT ALL**, not when the
+    filter has left some. It carries the filter, so hiding it on an empty result
+    would take away the only way to undo that; the empty state says which word
+    to press instead.
 
 **THIS REVERSES THE ROW-HEIGHT TRIM RECORDED BELOW**, and knowingly: shown both,
 the popup's proportions were the ones wanted. The note below is kept for the one

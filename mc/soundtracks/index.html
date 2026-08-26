@@ -2920,13 +2920,16 @@
           // the popup uses, so there is one track row in this project and not
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
-          var songsHere = allSongs(tape);
-          if (songsHere.length) trackArchiveList.appendChild(buildTrackHead());
+          var songsHere = allSongs(tape).filter(function (song) {
+            return airMatches(trackAirFilter, songStatus(song) !== 'LIVE');
+          });
+          // THE HEADER IS DRAWN WHENEVER THE TAPE HAS TRACKS AT ALL, not when
+          // the filter has left some: it carries the filter, so hiding it when
+          // the filter empties the list would take away the only way to undo
+          // that.
+          if (allSongs(tape).length) trackArchiveList.appendChild(buildTrackHead(tape));
 
-          // THE COLUMN HEADER GOES HERE, between the tape and its tracks, not
-          // in the page's static markup above the pager: up there it named
-          // columns that were three bars away from the rows they belonged to.
-          allSongs(tape).slice().sort(function (a, b) {
+          songsHere.slice().sort(function (a, b) {
             return (Number(a.position) || 0) - (Number(b.position) || 0)
               || (Number(a.id) - Number(b.id));
           }).forEach(function (song) {
@@ -2934,6 +2937,12 @@
             line.classList.add('track-line--in-list');
             trackArchiveList.appendChild(line);
           });
+
+          if (!songsHere.length && allSongs(tape).length) {
+            trackArchiveList.appendChild(emptyNode(
+              'No ' + trackAirFilter + ' tracks on this tape. Press '
+              + (trackAirFilter === 'live' ? 'Live' : 'Shelved') + ' again to show both.'));
+          }
 
 
         });
@@ -4245,11 +4254,55 @@
         ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
       ];
 
-      function buildTrackHead() {
+      // A SHELVED / LIVE FILTER, BUILT PER HEADER RATHER THAN BY ID. The
+      // popup's own is `#trackAirAll`; this one is emitted once per tape shown,
+      // so it can carry no id. Both drive `trackAirFilter`, which is the same
+      // question about the same tape asked from two places.
+      function buildTrackAirFilter(tape) {
+        var label = document.createElement('label');
+        label.className = 'tape-air track-air tape-air--all';
+
+        var off = document.createElement('span');
+        off.className = 'tape-air-word tape-air-word--off';
+        off.textContent = 'Shelved';
+
+        var input = document.createElement('input');
+        input.className = 'tape-air-input';
+        input.type = 'checkbox';
+        input.setAttribute('aria-label', 'Show shelved tracks, live tracks, or both');
+
+        var track = document.createElement('span');
+        track.className = 'tape-air-track';
+        track.setAttribute('aria-hidden', 'true');
+
+        var on = document.createElement('span');
+        on.className = 'tape-air-word tape-air-word--on';
+        on.textContent = 'Live';
+
+        label.append(off, input, track, on);
+
+        var live = 0, shelved = 0;
+        allSongs(tape).forEach(function (song) {
+          if (songStatus(song) === 'LIVE') live += 1; else shelved += 1;
+        });
+        paintAirSwitch(label, input, trackAirFilter,
+          { live: live, shelved: shelved, total: live + shelved }, 'tracks');
+
+        wireAirSwitch(label, input,
+          function () { return trackAirFilter; },
+          function (value) { trackAirFilter = value; renderTrackArchive(); });
+
+        // The row under it opens the tracks popup on click; this must not.
+        label.addEventListener('click', function (event) { event.stopPropagation(); });
+        return label;
+      }
+
+      function buildTrackHead(tape) {
         var head = document.createElement('div');
         head.className = 'track-head track-head--main';
         head.setAttribute('role', 'row');
         TRACK_HEAD_CELLS.forEach(function (cell, i) {
+          if (i === 7) { head.appendChild(buildTrackAirFilter(tape)); return; }
           var el = document.createElement('span');
           el.className = 'track-head-label'
             + (i === 6 || i === 8 ? ' track-head-label--mid' : '');
