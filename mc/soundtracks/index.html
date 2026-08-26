@@ -1108,6 +1108,17 @@
       white-space: nowrap;
     }
 
+    /* THE TRACK ROW ON THE MAIN LIST. It is the popup's row, so it needs the
+       popup's column widths, which were scoped to `.track-head, .track-lines`
+       and would otherwise resolve to nothing out here and collapse every
+       column to zero. */
+    .track-line--in-list {
+      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      margin-left: 22px;
+      margin-bottom: 4px;
+      border-color: var(--cut-panel-line);
+    }
+
     .tape-air {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -2956,6 +2967,22 @@
           row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
           if (findingNote) row.appendChild(findingNote);
 
+          // THE TRACKS THEMSELVES, under the tape they belong to. The row above
+          // is the tape's own line and still carries its counts, its findings
+          // and its air switch; these are the tracks, drawn by the SAME builder
+          // the popup uses, so there is one track row in this project and not
+          // two to keep in step.
+          var tapeIndex = tapeIndexById(tape.id);
+          allSongs(tape).slice().sort(function (a, b) {
+            return (Number(a.position) || 0) - (Number(b.position) || 0)
+              || (Number(a.id) - Number(b.id));
+          }).forEach(function (song) {
+            if (!airMatches(airFilter, songStatus(song) !== 'LIVE')) return;
+            var line = renderTrackLine(tape, tapeIndex, song);
+            line.classList.add('track-line--in-list');
+            trackArchiveList.appendChild(line);
+          });
+
           var confirmStrip = renderTapeConfirm(tape);
           if (confirmStrip) row.appendChild(confirmStrip);
           trackArchiveList.appendChild(row);
@@ -3683,6 +3710,16 @@
           function (area) { if (typeof area.growToFit === 'function') area.growToFit(); });
       }
 
+      // A TRACK IS DRAWN IN TWO PLACES NOW: the main list and the tracks
+      // popup. `renderTracks()` returns early when the popup is shut, so every
+      // repaint inside a track row went through this instead -- otherwise
+      // saving, shelving or deleting a track on the main list would change the
+      // database and leave the row on screen showing the old value.
+      function repaintTracks() {
+        renderTrackArchive();
+        renderTracks();
+      }
+
       function renderTrackLine(tape, tapeIndex, song) {
         var line = document.createElement('div');
         line.className = 'track-line';
@@ -3698,7 +3735,7 @@
           var el = event.target;
           if (el.closest('input, textarea, button, select, label, a')) return;
           focusTrackId = isFocused ? null : song.id;
-          renderTracks();
+          repaintTracks();
         });
 
         function commit(input, original, apply) {
@@ -3728,7 +3765,7 @@
             return;
           }
           saveTrackFields(tapeIndex, songIndex, fields).then(function (result) {
-            if (result && result.ok) renderTracks();
+            if (result && result.ok) repaintTracks();
             else {
               if (input && 'value' in input) input.value = original;
               setNotice((result && result.message) || 'could not save that track', 'error');
@@ -3838,7 +3875,7 @@
         playBtn.addEventListener('click', function (event) {
           event.stopPropagation();
           focusTrackId = isFocused ? null : song.id;
-          renderTracks();
+          repaintTracks();
         });
 
         var posEl = field('track-input--num', String(Number(song.position) || 0), '', 'Position');
@@ -3894,7 +3931,7 @@
           setTrackStatus(tapeIndex, songIndex, box.checked ? 'LIVE' : 'SHELVED').then(function (ok) {
             box.disabled = false;
             if (!ok) box.checked = !box.checked;
-            renderTracks();
+            repaintTracks();
           });
         });
         air.append(off, box, switchTrack, on);
@@ -3907,7 +3944,7 @@
         del.title = 'Delete this row outright. Shelving is almost always what you want instead.';
         del.addEventListener('click', function () {
           trackPendingDelete = trackPendingDelete === song.id ? null : song.id;
-          renderTracks();
+          repaintTracks();
         });
 
         line.append(playBtn, posEl, titleEl, artistEl, blurbEl, idEl, explicitWrap, air, del);
@@ -3925,7 +3962,7 @@
           box.className = 'track-issues';
           mine.forEach(function (issue) {
             box.appendChild(buildIssueItem(issue, {
-              onDone: function () { renderTrackArchive(); renderTracks(); }
+              onDone: function () { renderTrackArchive(); repaintTracks(); }
             }));
           });
           line.appendChild(box);
@@ -3949,8 +3986,8 @@
           shelveBtn.addEventListener('click', function () {
             var songIndex = (tape.songs || []).indexOf(song);
             trackPendingDelete = null;
-            if (songIndex < 0) { renderTracks(); return; }
-            setTrackStatus(tapeIndex, songIndex, 'SHELVED').then(function () { renderTracks(); });
+            if (songIndex < 0) { repaintTracks(); return; }
+            setTrackStatus(tapeIndex, songIndex, 'SHELVED').then(function () { repaintTracks(); });
           });
           var reallyBtn = document.createElement('button');
           reallyBtn.type = 'button';
@@ -3958,13 +3995,13 @@
           reallyBtn.textContent = 'Delete anyway';
           reallyBtn.addEventListener('click', function () {
             reallyBtn.disabled = true;
-            deleteTrack(tapeIndex, song).then(function () { renderTracks(); });
+            deleteTrack(tapeIndex, song).then(function () { repaintTracks(); });
           });
           var cancelBtn = document.createElement('button');
           cancelBtn.type = 'button';
           cancelBtn.className = 'btn small';
           cancelBtn.textContent = 'Cancel';
-          cancelBtn.addEventListener('click', function () { trackPendingDelete = null; renderTracks(); });
+          cancelBtn.addEventListener('click', function () { trackPendingDelete = null; repaintTracks(); });
           confirmEl.append(words, shelveBtn, reallyBtn, cancelBtn);
           line.appendChild(confirmEl);
         }

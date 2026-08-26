@@ -518,6 +518,32 @@ supplying them, so nothing looks different.
 - **THE HARNESS NOW REFUSES `public.cities` OUTRIGHT** and fails the run if
   either page asks for it, which is the only way this stays cut.
 
+### THE MAIN LIST IS TRACKS, NOT TAPES (2026-08-25)
+
+Every track is on the room's main list: **113 tape lines and 1,643 track rows**,
+the tracks indented under the tape they belong to.
+
+- **IT IS THE POPUP'S ROW, NOT A SECOND ONE.** `renderTrackLine` builds both, so
+  there is one track row in this project and not two to keep in step. It is the
+  fully editable row: position, title, artist, blurb, spotify id, explicit, the
+  status switch and delete, all working from the main list.
+- **`--track-cols` HAD TO BE RE-DECLARED ON `.track-line--in-list`.** It was
+  scoped to `.track-head, .track-lines`, which are inside the popup, so out here
+  it would have resolved to nothing and **collapsed every column to zero width**.
+- **`repaintTracks()` EXISTS BECAUSE `renderTracks()` RETURNS EARLY WHEN THE
+  POPUP IS SHUT.** Every repaint inside a track row went through it, or saving,
+  shelving or deleting a track on the main list would change the database and
+  leave the row on screen showing the old value. Ten call sites.
+- **THE TAPE LINE STAYS, AS A HEADING.** It is where the tape's own controls
+  live: the counts, the findings, the shelve switch and the delete. A flat list
+  with the city repeated on every row would have deleted all four. **Say so if
+  it should be flat.**
+- **THE COST IS REAL AND IS NOT CAPPED.** 27,672 nodes and about 10,000 form
+  controls on one page. Nothing is truncated, per the no-silent-caps rule, and
+  the filters in the header are what narrow it. If it ever needs to be lighter,
+  the answer is the Anchor Events shape: build a row's fields only when it is
+  opened, never a top-N.
+
 ### THE TAPE LINE CARRIES WHAT THE POPUP SAID ABOUT THE TAPE (2026-08-25)
 
 Two of the three things the tracks popup's header told you are on the main list
