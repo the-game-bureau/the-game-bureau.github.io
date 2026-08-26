@@ -634,16 +634,16 @@
 
     .track-lines { display: grid; gap: 6px; }
 
-    /* SHORTER ROWS. There are 15 to 55 of these under a tape and every pixel
-       is paid 55 times, so the row is trimmed rather than the type: the fields
-       are still the same size to read and to hit. */
+    /* ONE TRACK ROW, ONE SIZE. The main list and the popup draw the same row,
+       so they are measured the same: trimming this for the list made the two
+       disagree about how tall a track is. */
     .track-line {
       display: grid;
       grid-template-columns: var(--track-cols);
-      gap: 2px 8px;
+      gap: 4px 8px;
 
       align-items: center;
-      padding: 2px 8px;
+      padding: 7px 10px;
       border: 1px solid var(--control-line);
       border-radius: 8px;
       background: #fff;
@@ -723,10 +723,8 @@
     .track-input {
       width: 100%;
       min-width: 0;
-      /* 30px WAS THE ROW'S REAL FLOOR, not the padding. 26px is still a
-         comfortable hit target and takes 4px off every row. */
-      min-height: 26px;
-      padding: 2px 6px;
+      min-height: 30px;
+      padding: 3px 6px;
       border: 1px solid transparent;
       border-radius: 6px;
       background: transparent;
@@ -746,14 +744,10 @@
 
     textarea.track-input--blurb {
       resize: vertical;
-      /* CLIPPED AT REST, so a wrapping blurb cannot push the row taller. It is
-         `auto` while focused, or you could not scroll a long one you are
-         editing. */
       overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.3;
-      padding-top: 3px;
-      padding-bottom: 3px;
+      line-height: 1.35;
+      padding-top: 5px;
+      padding-bottom: 5px;
 
       min-height: 30px;
     }
@@ -1039,11 +1033,11 @@
     .track-line--in-list {
       --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
       margin-left: 22px;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       border-color: var(--cut-panel-line);
     }
 
-    .track-titlecell { display: grid; gap: 0; min-width: 0; align-content: center; }
+    .track-titlecell { display: grid; gap: 1px; min-width: 0; align-content: center; }
 
     /* TINY, AND QUIET. It is context for the line below it, not a heading: at
        any weight it would compete with the title it sits over. */
@@ -1125,6 +1119,15 @@
     .room-stats-count { font-weight: 700; }
     .room-stats-count.is-live { color: var(--ink); }
     .room-stats-sep { opacity: 0.7; }
+
+    /* THE TRACK HEADER ON THE MAIN LIST. `--track-cols` is scoped to
+       `.track-head, .track-lines`, which live inside the popup, so out here it
+       would resolve to nothing and collapse every column to zero. */
+    .track-head--main {
+      --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
+      margin-left: 22px;
+      margin-bottom: 4px;
+    }
 
     /* THE TAPE'S BAR IS THE ONE YOU ACT ON, so it keeps the white card. */
     .tape-bar {
@@ -2918,6 +2921,7 @@
           // two to keep in step.
           var tapeIndex = tapeIndexById(tape.id);
           var songsHere = allSongs(tape);
+          if (songsHere.length) trackArchiveList.appendChild(buildTrackHead());
 
           // THE COLUMN HEADER GOES HERE, between the tape and its tracks, not
           // in the page's static markup above the pager: up there it named
@@ -2935,8 +2939,12 @@
         });
 
         fitRowInputs();
+        // THE BLURBS HAVE TO BE GROWN HERE TOO. `growBlurbs` was called only by
+        // the popup's render, so the same track was two lines tall in the popup
+        // and one on the main list.
+        growBlurbs();
         if (document.fonts && document.fonts.ready && !fontsFitted) {
-          document.fonts.ready.then(function () { fontsFitted = true; fitRowInputs(); });
+          document.fonts.ready.then(function () { fontsFitted = true; fitRowInputs(); growBlurbs(); });
         }
 
         paintFilterPills();
@@ -3648,11 +3656,17 @@
         }
       }
 
+      // BOTH LISTS. This swept `trackLines` alone, which is the popup, so the
+      // main list's blurbs stayed clipped at one line while the popup's grew to
+      // two: the same row rendered two different heights depending on where you
+      // were looking at it.
       function growBlurbs() {
-        if (!trackLines) return;
-        Array.prototype.forEach.call(
-          trackLines.querySelectorAll('textarea.track-input--blurb'),
-          function (area) { if (typeof area.growToFit === 'function') area.growToFit(); });
+        [trackLines, trackArchiveList].forEach(function (root) {
+          if (!root) return;
+          Array.prototype.forEach.call(
+            root.querySelectorAll('textarea.track-input--blurb'),
+            function (area) { if (typeof area.growToFit === 'function') area.growToFit(); });
+        });
       }
 
       // A TRACK IS DRAWN IN TWO PLACES NOW: the main list and the tracks
@@ -3760,7 +3774,7 @@
           // NOTHING IS HIDDEN THAT YOU CANNOT GET AT: the box grows the moment
           // it takes focus, its tooltip carries the full text, and a blurb that
           // fits on one line looks no different from before.
-          var COMPACT_H = 26;
+          var MIN_H = 30;
 
           // THE TOOLTIP IS SET WHATEVER HAPPENS, and outside `grow()`: that
           // function returns early when the box is not yet in the document,
@@ -3777,17 +3791,11 @@
             if (manual) return;
             if (!area.isConnected) return;
 
-            // AT REST THE HEIGHT IS NOT SET AT ALL: `rows="1"` plus the CSS
-            // min-height give one line, and clearing the inline height is what
-            // lets the box shrink back after it has been grown. An explicit
-            // COMPACT_H here would fight a future change to that min-height.
-            if (area !== document.activeElement) {
-              area.style.height = '';
-              applied = COMPACT_H;
-              return;
-            }
+            // IT GROWS TO ITS CONTENT, wherever it is drawn. It was one line at
+            // rest, which made a track row on the main list a different height
+            // from the same row in the popup.
             area.style.height = 'auto';
-            applied = Math.max(COMPACT_H, area.scrollHeight);
+            applied = Math.max(MIN_H, area.scrollHeight);
             area.style.height = applied + 'px';
           }
           grow();
@@ -4220,6 +4228,36 @@
           if (truthyFlag(tape && tape.archived)) shelved += 1; else live += 1;
         });
         return { live: live, shelved: shelved, total: live + shelved };
+      }
+
+      // THE TRACK COLUMN HEADER, built rather than written in the markup
+      // because it is emitted under the tape whose tracks it names. It is the
+      // popup's own header, cell for cell, so the two lists read the same.
+      var TRACK_HEAD_CELLS = [
+        ['', ''],
+        ['#', 'Play order on the cassette. Edit it to reorder.'],
+        ['Title', ''],
+        ['Artist', ''],
+        ['Blurb', 'The sentence under this track on /soundtracks/. Ten words or fewer.'],
+        ['Spotify', 'The 22-character Spotify track id. Blank is fine and better than a guess: the player falls back to a search.'],
+        ['E', 'Marked explicit on Spotify'],
+        ['', 'Live on /soundtracks/, or shelved off it.'],
+        ['Del', 'Delete the row outright. Shelving is almost always what you want instead.']
+      ];
+
+      function buildTrackHead() {
+        var head = document.createElement('div');
+        head.className = 'track-head track-head--main';
+        head.setAttribute('role', 'row');
+        TRACK_HEAD_CELLS.forEach(function (cell, i) {
+          var el = document.createElement('span');
+          el.className = 'track-head-label'
+            + (i === 6 || i === 8 ? ' track-head-label--mid' : '');
+          el.textContent = cell[0];
+          if (cell[1]) el.title = cell[1];
+          head.appendChild(el);
+        });
+        return head;
       }
 
       // THE PAGER IS PART OF THE TAPE LINE, NOT A BAR ABOVE IT. As two bars

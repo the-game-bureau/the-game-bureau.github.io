@@ -614,6 +614,30 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### ONE TRACK ROW, ONE SIZE, WITH ITS HEADER (2026-08-26)
+
+The main list and the popup draw the same row through `renderTrackLine`, and
+they had drifted into two different sizes.
+
+- **`growBlurbs()` SWEPT `trackLines` ONLY, WHICH IS THE POPUP.** So a blurb
+  grew to two lines there and stayed clipped at one on the main list: the same
+  track, two heights, depending where you looked at it. It sweeps both roots
+  now, and `renderTrackArchive` calls it.
+- **THE ROW'S METRICS ARE BACK TO THE POPUP'S** -- 7/10 padding, a 30px field
+  floor, the blurb's 5px. They had been trimmed for the main list alone, which
+  is exactly what made the two disagree.
+- **THE COLUMN HEADER IS BACK ON THE MAIN LIST**, emitted under the tape whose
+  tracks it names, cell for cell the popup's own. A test asserts its
+  `--track-cols` equals the row's, because that variable is scoped to
+  `.track-head, .track-lines` inside the popup and out here would resolve to
+  nothing and collapse every column to zero.
+- **THE STATUS COLUMN'S LABEL IS BLANK.** The switch reads SHELVED and LIVE
+  itself; a word above it would be that column saying what it is a third time.
+
+**THIS REVERSES THE ROW-HEIGHT TRIM RECORDED BELOW**, and knowingly: shown both,
+the popup's proportions were the ones wanted. The note below is kept for the one
+thing in it that still holds, which is WHAT sets a track row's height.
+
 ### WHAT ACTUALLY SETS A TRACK ROW'S HEIGHT (2026-08-25)
 
 Not the padding. **The blurb textarea.** `grow()` sized it to `scrollHeight`, so
