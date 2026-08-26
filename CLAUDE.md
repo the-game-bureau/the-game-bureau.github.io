@@ -623,9 +623,14 @@ they had drifted into two different sizes.
   grew to two lines there and stayed clipped at one on the main list: the same
   track, two heights, depending where you looked at it. It sweeps both roots
   now, and `renderTrackArchive` calls it.
-- **THE ROW'S METRICS ARE BACK TO THE POPUP'S** -- 7/10 padding, a 30px field
-  floor, the blurb's 5px. They had been trimmed for the main list alone, which
-  is exactly what made the two disagree.
+- **THE ROW IS TRIMMED AROUND THE BLURB, NOT INSTEAD OF IT.** 3/9 padding, a
+  2px row gap, a 26px field floor and 2px on the blurb, with its line-height at
+  1.28. **The blurb still grows to its content**, which is what a row's height
+  really follows; everything around it is as tight as it goes without the fields
+  becoming hard to hit.
+  - **BOTH LISTS ARE MEASURED THE SAME, and a test asserts it.** The earlier
+    trim applied to the main list alone, which is precisely what made a track
+    two heights depending where you looked at it.
 - **THE COLUMN HEADER IS BACK ON THE MAIN LIST**, emitted under the tape whose
   tracks it names, cell for cell the popup's own. A test asserts its
   `--track-cols` equals the row's, because that variable is scoped to
