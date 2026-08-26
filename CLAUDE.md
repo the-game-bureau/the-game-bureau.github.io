@@ -614,6 +614,30 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### WHAT ACTUALLY SETS A TRACK ROW'S HEIGHT (2026-08-25)
+
+Not the padding. **The blurb textarea.** `grow()` sized it to `scrollHeight`, so
+a ten-word blurb wrapping to two or three lines in its column made every row two
+or three lines tall, and trimming the row's padding moved almost nothing.
+
+- **ONE LINE AT REST, THE WHOLE THING WHEN YOU ARE IN IT.** On blur the inline
+  height is CLEARED rather than set to a number: `rows="1"` plus the CSS
+  `min-height` give one line, and clearing it is what lets a grown box shrink
+  back. A hardcoded height here would fight any later change to that min-height.
+- **NOTHING IS HIDDEN THAT YOU CANNOT GET AT.** The box grows on focus, and its
+  **tooltip carries the blurb itself** rather than the standing instruction,
+  which is the escape hatch for a clipped line.
+- **THAT TOOLTIP IS SET OUTSIDE `grow()`, and it had to be.** `grow()` returns
+  early when the box is not in the document, which it never is while the row is
+  being built, so a title set in there would only appear after some later
+  resize. It was wrong for one commit and the check caught it.
+- The rest is genuinely just trimming: row padding 7/10 to 2/8, gaps 4 to 2,
+  field `min-height` 30 to 26 (**that 30 was the real floor**, not the padding),
+  and the gap in the two-line title cell to 0.
+- **jsdom CANNOT CONFIRM THE FOCUSED EXPANSION.** Its `scrollHeight` is always
+  0, so the grow path measures 26px there whatever the text. The resting state,
+  the uniformity and the tooltip are all checked; the expansion is not.
+
 ### THE TAPE LINE IS A FLEX BAR, NOT A GRID (2026-08-25)
 
 Eight fixed columns made sense over 113 tape lines that had to align with each

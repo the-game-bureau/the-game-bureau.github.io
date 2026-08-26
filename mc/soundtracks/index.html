@@ -704,13 +704,16 @@
 
     .track-lines { display: grid; gap: 6px; }
 
+    /* SHORTER ROWS. There are 15 to 55 of these under a tape and every pixel
+       is paid 55 times, so the row is trimmed rather than the type: the fields
+       are still the same size to read and to hit. */
     .track-line {
       display: grid;
       grid-template-columns: var(--track-cols);
-      gap: 4px 8px;
+      gap: 2px 8px;
 
       align-items: center;
-      padding: 7px 10px;
+      padding: 2px 8px;
       border: 1px solid var(--control-line);
       border-radius: 8px;
       background: #fff;
@@ -790,8 +793,10 @@
     .track-input {
       width: 100%;
       min-width: 0;
-      min-height: 30px;
-      padding: 3px 6px;
+      /* 30px WAS THE ROW'S REAL FLOOR, not the padding. 26px is still a
+         comfortable hit target and takes 4px off every row. */
+      min-height: 26px;
+      padding: 2px 6px;
       border: 1px solid transparent;
       border-radius: 6px;
       background: transparent;
@@ -811,15 +816,20 @@
 
     textarea.track-input--blurb {
       resize: vertical;
+      /* CLIPPED AT REST, so a wrapping blurb cannot push the row taller. It is
+         `auto` while focused, or you could not scroll a long one you are
+         editing. */
       overflow: hidden;
-      line-height: 1.35;
-      padding-top: 5px;
-      padding-bottom: 5px;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+      padding-top: 3px;
+      padding-bottom: 3px;
 
       min-height: 30px;
     }
 
-    textarea.track-input--blurb.is-manual { overflow: auto; }
+    textarea.track-input--blurb.is-manual,
+    textarea.track-input--blurb:focus { overflow: auto; }
 
     .track-input--id::placeholder { color: var(--muted); opacity: 0.75; }
 
@@ -1124,11 +1134,11 @@
     .track-line--in-list {
       --track-cols: 30px 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.45fr) 130px 28px 122px 28px;
       margin-left: 22px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       border-color: var(--cut-panel-line);
     }
 
-    .track-titlecell { display: grid; gap: 1px; min-width: 0; align-content: center; }
+    .track-titlecell { display: grid; gap: 0; min-width: 0; align-content: center; }
 
     /* TINY, AND QUIET. It is context for the line below it, not a heading: at
        any weight it would compete with the title it sits over. */
@@ -1138,7 +1148,7 @@
          because it is UPPERCASE MONO at weight 700, it is one short line, and
          it is not something you read, it is something you glance at to place a
          row you are already looking at. */
-      font: 700 0.5rem/1.1 "IBM Plex Mono", monospace;
+      font: 700 0.5rem/1 "IBM Plex Mono", monospace;
       letter-spacing: 0.09em;
       text-transform: uppercase;
       color: var(--muted);
@@ -3959,13 +3969,42 @@
 
           var applied = 0;
 
+          // ONE LINE AT REST, THE WHOLE BLURB WHEN YOU ARE IN IT. This is what
+          // actually sets a track row's height: a ten-word blurb wraps to two or
+          // three lines in its column, so every row was two or three lines tall
+          // and trimming the padding moved almost nothing.
+          //
+          // NOTHING IS HIDDEN THAT YOU CANNOT GET AT: the box grows the moment
+          // it takes focus, its tooltip carries the full text, and a blurb that
+          // fits on one line looks no different from before.
+          var COMPACT_H = 26;
+
+          // THE TOOLTIP IS SET WHATEVER HAPPENS, and outside `grow()`: that
+          // function returns early when the box is not yet in the document,
+          // which it never is when the row is being built, so a tooltip set in
+          // there would only ever appear after a later resize.
+          function paintBlurbTitle() {
+            area.title = text(area.value)
+              ? area.value
+              : 'The sentence under this track on /soundtracks/. Ten words or fewer, no trailing period. Required: a missing one is reported by the audit.';
+          }
+          paintBlurbTitle();
+
           function grow() {
             if (manual) return;
-
             if (!area.isConnected) return;
 
+            // AT REST THE HEIGHT IS NOT SET AT ALL: `rows="1"` plus the CSS
+            // min-height give one line, and clearing the inline height is what
+            // lets the box shrink back after it has been grown. An explicit
+            // COMPACT_H here would fight a future change to that min-height.
+            if (area !== document.activeElement) {
+              area.style.height = '';
+              applied = COMPACT_H;
+              return;
+            }
             area.style.height = 'auto';
-            applied = Math.max(30, area.scrollHeight);
+            applied = Math.max(COMPACT_H, area.scrollHeight);
             area.style.height = applied + 'px';
           }
           grow();
@@ -3986,7 +4025,11 @@
             ro.observe(area);
           }
 
-          area.addEventListener('focus', function () { was = area.value; trackPendingDelete = null; });
+          area.addEventListener('focus', function () {
+            was = area.value; trackPendingDelete = null;
+            grow();
+          });
+          area.addEventListener('blur', function () { paintBlurbTitle(); grow(); });
           area.addEventListener('input', function () {
 
             var NL = String.fromCharCode(10);
