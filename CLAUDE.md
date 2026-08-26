@@ -369,7 +369,89 @@ Kevin can settle them.
 
 ---
 
+## SOUNDTRACKS — ONE TABLE, ONE PROMPT (2026-08-25)
+
+**`public.soundtrack` is one row per TRACK, and the tape is `(city_slug, tape)`.**
+There is no tape table, no `soundtrack_songs`, no `soundtrack_issues`, no tape id
+and no cascade trigger. Migrations [2026082508](mc/supabase/migrations/2026082508_soundtrack_one_table.sql),
+[2026082509](mc/supabase/migrations/2026082509_soundtrack_write_paths.sql),
+[2026082510](mc/supabase/migrations/2026082510_tape_archive_cascade.sql),
+[2026082511](mc/supabase/migrations/2026082511_soundtrack_spotify_check.sql). **All applied.**
+
+**WHY THE PAIR COULD GO:** checked before relying on it, **113 tapes and 113
+distinct `(city_slug, spine_tag)` pairs, no blank spine tag, and no tape with
+zero songs**. That last count is the one that mattered: a track-per-row table
+drops an empty tape silently, and 0 is what made the shape safe.
+
+- **A TAPE-WIDE WRITE GOES THROUGH A FUNCTION, NEVER A PATCH.** A tape is every
+  row of it, so a filter somebody forgets to scope rewrites the whole city.
+  `tgb_set_tape_archived`, `tgb_set_all_tapes_archived` and `tgb_rename_tape` are
+  `SECURITY INVOKER` -- they are there for the RULE, not for privilege, which is
+  the opposite of the six pulls.
+- **THE SHELVE CASCADE HAD TO STAY IN THE DATABASE.** It was a trigger on the
+  tape row and there is no tape row now. In a function it still holds for psql
+  and the table editor, and a client that dies between two requests cannot leave
+  a tape shelved with its tracks live. **`archived_with_tape` is still the whole
+  mechanism**: restoring only un-shelves what the tape took down, so a track
+  shelved on its own stays shelved, that row being a do-not-rescrape tombstone.
+  Proved by a shelve-then-restore round trip that left **0 rows** different.
+- **A TAPE IS SHELVED WHEN EVERY TRACK ON IT IS.** `soundtrack_stats.archived`
+  is `bool_and(archived)`, and both pages derive it the same way. There is no
+  flag to carry.
+- **`findings` IS A jsonb COLUMN ON A PUBLICLY READABLE TABLE**, which is a leak
+  waiting to happen and was one for a few minutes on 2026-08-25. **A table's
+  privacy is a property of the TABLE**, so folding a private table into a public
+  one publishes it. Shut with **per-column grants**, because a column-level
+  REVOKE cannot override a table-level grant. **`select=*` as `anon` now answers
+  42501; both pages name their columns. Do not put `*` back.**
+- **A TAPE-SCOPE FINDING SITS ON THE TAPE'S LOWEST-POSITION TRACK**, carrying
+  `"scope":"tape"`. It draws above the tracks exactly where it always did. The
+  writer keys on `stored_on`, never `song_id`, which is null for those.
+- **`soundtrack_findings` is the view** the hub reads: PostgREST cannot count or
+  list a jsonb array. `security_invoker`, `authenticated` only.
+- **The spotify CHECK was LOST in the flatten and put back** by 2026082511. A
+  fabricated 22-character id passes every eye and silently plays nothing.
+
+### THE TAPE ROOM HAS NO MANUAL AND NO PROMPT BUTTON (2026-08-25)
+
+- **MANUAL created an EMPTY tape, which cannot exist any more**, a tape being
+  its tracks. It could not have worked, so it and its dialog and its CSS went.
+- **PROMPT is gone because the prompt data moved into the bot.** There is now
+  **one** soundtrack prompt: [mc/soundtracks/soundtracks.md](mc/soundtracks/soundtracks.md).
+  The stored trigger says only "open that file and follow it", the pattern TGB
+  CONCERT BOT already uses, **so there is no pair to keep in step by hand any
+  more** and no second copy of the editorial rules to drift. Editing the file
+  changes the next run.
+  - **What the bot GAINED from the page prompt**: the four-tier US city ladder,
+    the fanbase-not-venue trap, the school-not-city trap, the two-tables-spell-a-
+    city-differently trap and the 1000-row cliff. Its old rule was "alphabetically
+    first empty city", which was cruder.
+  - **What is LOST, plainly:** there is no in-room button that hands a human a
+    paste-ready prompt. They open the file. The FILL PROMPT on a short tape and
+    the per-finding fix prompt both survive and are unaffected.
+- **`renderTracks` handed a tape id to `cityStateLabel`/`cityCountryLabel`,
+  which take a SLUG**, so the state and country have never drawn on that
+  subtitle. Silently, since an unknown slug returns `''`. Fixed in the same pass.
+- **The tenth and eleventh escaping scars landed here.** ` ` reached the
+  file as a real NUL and `
+` as a real newline, both inside a JS string, in a
+  heredoc through python. **Both keys are `JSON.stringify([a, b])` now**, which
+  needs no escape at all. `grep` calling an HTML file binary is the tell.
+
+**PROVED BY RENDERING BOTH PAGES against the live 1,643 rows in jsdom**, not by
+reading the diff. The Tape Room builds 113 tape lines, opens a flagged tape to
+30 track lines reading "30 tracks, 30 live", and draws its finding. The public
+page builds 96 cards, a hero count of 96, and opens a random tape on a real
+track. Both write paths were proved by calls that made them do their job.
+
 ## SOUNDTRACKS — sound / city playlists
+
+> **MUCH OF THE SECTION BELOW DESCRIBES THE THREE-TABLE SHAPE AND IS HISTORY.**
+> It is kept for the reasoning, which mostly still holds: the two states, the
+> tombstone, the blurb rule, the four finding kinds, the room's four verbs. Where
+> it names `soundtrack_songs`, `soundtrack_issues`, a tape id, `spine_tag` or the
+> PROMPT dialog, **the note above wins.**
+
 
 > **"TAPE ROOM" means [mc/soundtracks/index.html](mc/soundtracks/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the TAPE ROOM"*, *"the TAPE ROOM is showing the wrong counts"* — is an instruction about that one file, with no other page to check first.
 >

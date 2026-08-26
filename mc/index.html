@@ -997,14 +997,15 @@
           // cannot drift into disagreeing about what "new" means.
           path: function () {
             const since = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
-            return 'soundtrack_songs?select=id&archived=eq.true&created_at=gte.' + encodeURIComponent(since);
+            return 'soundtrack?select=id&archived=eq.true&created_at=gte.' + encodeURIComponent(since);
           } },
         { key: 'issues', room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
           what: 'open findings from the audit',
-          // THE VIEW, NOT THE TABLE. soundtrack_issues was retired on
-          // 2026-08-25 when findings were folded onto the row each is about.
-          // It still HOLDS its 285 rows, so reading it would show a count that
-          // never moves again however many findings get cleared.
+          // THE VIEW, NOT THE TABLE. Findings live in soundtrack.findings, a
+          // jsonb array, which PostgREST cannot count or list; the view flattens
+          // it to one row per finding. It is security_invoker and granted to
+          // `authenticated` only, because a finding is an internal editorial
+          // note and public.soundtrack is publicly readable.
           path: 'soundtrack_findings?select=id&status=eq.open' }
       ];
 
@@ -1021,7 +1022,7 @@
         { name: 'TGB GIFT SHOP BOT', id: 'trig_01H7cKJ4fk5bA1NWSqPZi4ah', cron: '3am + 3pm',
           filed: 'gift_shop_items?select=created_at&order=created_at.desc&limit=1', stale: 26 },
         { name: 'TGB SOUNDTRACK BOT', id: 'trig_014sqaUyU7557svq9mGA1E4a', cron: '3am + 3pm',
-          filed: 'soundtrack_songs?select=created_at&order=created_at.desc&limit=1', stale: 26 },
+          filed: 'soundtrack?select=created_at&order=created_at.desc&limit=1', stale: 26 },
         { name: 'TGB SOCIALIZER BOT', id: 'trig_01KDYndJhZ9ymgUgX5Xx6LsL', cron: '3am + 3pm',
           filed: 'socials?select=created_at&order=created_at.desc&limit=1', stale: 26 },
         { name: 'TGB PATH BOT', id: 'trig_01HqDJy6BzpU7n23VXv8D1gW', cron: '3am + 3pm',
@@ -1248,7 +1249,7 @@
                    patch: { rejected_at: 'NOW', certified_at: null } }]
         },
         tracks: {
-          list: 'soundtrack_songs?select=id,title,artist,city_slug&archived=eq.true&order=created_at.desc',
+          list: 'soundtrack?select=id,title,artist,city_slug&archived=eq.true&order=created_at.desc',
           since: 'created_at',
           line: function (r) { return [[r.title, r.artist].filter(Boolean).join(' — '), r.city_slug || '']; },
           open: function () { return '/mc/soundtracks/'; },

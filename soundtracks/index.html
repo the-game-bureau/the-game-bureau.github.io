@@ -2596,33 +2596,37 @@
         return page(0);
       }
 
-      function soundtracksFromRows(tapeRows, songRows) {
+      function soundtracksFromRows(tapeRows) {
+        // ONE TABLE, ONE ROW PER TRACK. The tape is (city_slug, tape) and the
+        // cards are grouped out of the tracks here.
+        //
+        // A TAPE IS SHELVED WHEN EVERY TRACK ON IT IS. There is no tape row to
+        // carry the flag; a tape whose tracks are all archived simply produces
+        // no live songs and is dropped below, which is what shelving did.
         var byTape = {};
         var order = [];
         var seenCity = {};
         (Array.isArray(tapeRows) ? tapeRows : []).forEach(function (row) {
           var slug = slugify(row && row.city_slug);
-          if (!slug || truthyFlag(row && row.archived)) return;
-
-          var key = seenCity[slug] ? (slug + '--' + row.id) : slug;
-          seenCity[slug] = true;
-          if (byTape[key]) return;
-          byTape[key] = {
-            key: key,
-            tape_id: row.id,
-            city_slug: row.city_slug,
-            spine_tag: row.spine_tag || '',
-            spine_tag_position: row.spine_tag_position || '',
-            songs: []
-          };
-          order.push(key);
-        });
-
-        var byTapeId = {};
-        order.forEach(function (key) { byTapeId[byTape[key].tape_id] = byTape[key]; });
-        (Array.isArray(songRows) ? songRows : []).forEach(function (row) {
-          var tape = byTapeId[row && row.tape_id];
-          if (!tape) return;
+          if (!slug) return;
+          var name = String((row && row.tape) || '').trim();
+          var pairKey = JSON.stringify([slug, name]);
+          var tape = byTape[pairKey];
+          if (!tape) {
+            // A CITY'S FIRST TAPE KEEPS THE BARE CITY SLUG, so /soundtracks/#denver
+            // still lands. Later tapes take the tape's own name, which is stable
+            // and readable -- the surrogate id it used to borrow is gone.
+            var key = seenCity[slug] ? (slug + '--' + slugify(name)) : slug;
+            seenCity[slug] = true;
+            tape = byTape[pairKey] = {
+              key: key,
+              city_slug: row.city_slug,
+              spine_tag: name,
+              spine_tag_position: row.tape_label_position || '',
+              songs: []
+            };
+            order.push(pairKey);
+          }
           tape.songs.push({
             position: Number(row.position) || 0,
             id: row.id,
@@ -2635,12 +2639,12 @@
           });
         });
 
-        order.forEach(function (slug) {
-          byTape[slug].songs.sort(function (a, b) {
+        order.forEach(function (pairKey) {
+          byTape[pairKey].songs.sort(function (a, b) {
             return (a.position - b.position) || (Number(a.id) - Number(b.id));
           });
         });
-        return { soundtracks: order.map(function (slug) { return byTape[slug]; }) };
+        return { soundtracks: order.map(function (pairKey) { return byTape[pairKey]; }) };
       }
 
       function fetchSoundtracks() {
@@ -2656,15 +2660,15 @@
           //
           // **Do not put `*` back.** Add a column here when the page needs one.
           fetchAllRows(buildSupabaseUrl('soundtrack', {
-            select: 'id,city_slug,spine_tag,spine_tag_position,archived',
-            order: 'city_slug.asc,id.asc'
-          })),
-          fetchAllRows(buildSupabaseUrl('soundtrack_songs', {
-            select: 'id,tape_id,city_slug,position,title,artist,blurb,spotify_id,explicit,archived,archived_with_tape',
-            order: 'tape_id.asc,position.asc,id.asc'
+            select: 'id,city_slug,tape,tape_label_position,position,title,artist,blurb,spotify_id,explicit,archived',
+            // A SHELVED TRACK NEVER LEAVES THE DATABASE, so the filter is here
+            // rather than in the grouping: it halves what crosses the wire and
+            // a tape with nothing live then has no rows at all.
+            archived: 'eq.false',
+            order: 'city_slug.asc,tape.asc,position.asc,id.asc'
           }))
         ]).then(function (results) {
-          var data = soundtracksFromRows(results[0], results[1]);
+          var data = soundtracksFromRows(results[0]);
           if (!data.soundtracks.length) throw new Error('No soundtrack rows returned.');
           return data;
         });

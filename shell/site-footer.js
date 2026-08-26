@@ -445,10 +445,15 @@
   // They only ever parsed the shape of the committed soundtracks.json, so they
   // died with it.
 
-  // Tapes live in public.soundtracks / public.soundtrack_songs as of 2026-07-29.
-  // soundtrack_stats already has the per-tape active count, so the stat is one
-  // HEAD-shaped request: filter to tapes with at least one active song and read
-  // the exact count off Content-Range.
+  // ONE TABLE as of 2026-08-25: public.soundtrack, one row per track, and the
+  // tape is (city_slug, tape). `soundtrack_stats` is rebuilt over it and still
+  // carries the per-tape active count, so the stat is still one HEAD-shaped
+  // request reading the exact count off Content-Range.
+  //
+  // `archived` on the VIEW is bool_and over the tape's tracks, so it is true
+  // only when every track is shelved -- which is what a shelved tape means now
+  // that there is no tape row to carry the flag. `active_songs=gt.0` already
+  // implies it, and it is kept because the stat is "tapes a visitor can play".
   function fetchSoundtrackCount() {
     var url = SB_URL + '/rest/v1/soundtrack_stats?select=city_slug'
       + '&archived=is.false&active_songs=gt.0&limit=1&apikey=' + SB_KEY;
