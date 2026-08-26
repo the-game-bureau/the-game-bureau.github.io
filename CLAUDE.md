@@ -412,6 +412,47 @@ drops an empty tape silently, and 0 is what made the shape safe.
 - **The spotify CHECK was LOST in the flatten and put back** by 2026082511. A
   fabricated 22-character id passes every eye and silently plays nothing.
 
+### THE CLEANUP, AND THE ESCAPING SCAR'S ROOT CAUSE (2026-08-25)
+
+[2026082512](mc/supabase/migrations/2026082512_soundtrack_cleanup.sql), **applied**. The database now holds
+**one table, two views, seven functions and one trigger** for soundtracks, and
+nothing else.
+
+- **`tgb_resolve_soundtrack_finding` WAS BROKEN AND NOTHING SAID SO.** It still
+  wrote `soundtrack_songs` and the old tapes table, so **the hub's Clear button
+  on a finding raised `42P01` the moment an admin pressed it**. A plpgsql body
+  is stored as TEXT and resolved at runtime, so a rename breaks it silently
+  until something calls it. **Third time this project has been bitten by that.**
+- **THREE TABLES WERE DROPPED, WHICH THIS PROJECT NORMALLY REFUSES TO DO.**
+  `soundtrack_issues`, `soundtrack_songs_retired`, `soundtrack_tapes_retired`.
+  The rule is retire-in-place because a drop is irreversible; **these were
+  duplicates rather than history**, proved before the file was written: 0 songs
+  missing, 0 differing, 0 tapes unrepresented, 285 findings against 285 issues.
+  A duplicate nothing reads is what makes the next reader ask which copy is true.
+  - **THE DROP ORDER IS THE DEPENDENCY ORDER and the first run failed on it.**
+    `soundtrack_issues.song_id` is a FK into the songs table. Dropped innermost
+    first so **no `cascade` is needed**, which is the point: cascade would
+    silently take anything else that happened to depend on them.
+- **FIVE DEAD TRIGGER FUNCTIONS WENT.** A trigger function with no trigger is
+  what makes somebody re-attach it to the wrong table.
+- **`certified_at` AND `rejected_at` STAY.** Unread, since `archived` is the
+  whole state model, but `rejected_at` is the only record of which tracks a
+  HUMAN turned down as against the ones a routine filed and nobody reached.
+  Their comments say they are retired.
+- **The pages lost 12.5KB and 7.7KB** of CSS and JS that referenced nothing:
+  the deleted queue view's rules, and on the public page the **scrolling
+  cassette shelf's entire stylesheet**, which had outlived its markup. Nine
+  uncalled functions in the room and three on the public page went with them.
+
+**THE ESCAPING SCAR HAS A ROOT CAUSE, FOUND ON THE TWELFTH INSTANCE.** **A
+quoted heredoc in this environment still eats one level of backslash.** So
+a backslash-b written into a `<<'EOF'` block reaches the file as a literal
+**backspace byte**, not a word boundary. That is why a NUL, a newline and
+several word boundaries have all landed as control characters here, and why a
+detector written that way **found nothing and looked like a clean codebase**. **Write tooling with no backslashes at all** -- `split()`
+instead of a regex, `String.fromCharCode`, `JSON.stringify` for a compound key.
+`cat -A` is what shows it, since these are invisible in a normal diff.
+
 ### THE TAPE ROOM HAS NO MANUAL AND NO PROMPT BUTTON (2026-08-25)
 
 - **MANUAL created an EMPTY tape, which cannot exist any more**, a tape being
