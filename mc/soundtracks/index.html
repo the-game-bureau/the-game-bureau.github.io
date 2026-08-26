@@ -435,11 +435,6 @@
       color: var(--muted);
     }
 
-    .tape-line-city {
-      font-weight: 700;
-      overflow-wrap: anywhere;
-    }
-
     .tape-line-name {
       min-width: 0;
       color: var(--muted);
@@ -471,9 +466,6 @@
       cursor: help;
       white-space: nowrap;
     }
-
-    .tape-line-city { font-weight: 700; color: var(--ink); }
-    .tape-line-phrase { font-weight: 500; color: var(--ink); opacity: 0.82; }
 
     .issue-pip {
       flex: 0 0 auto;
@@ -577,16 +569,6 @@
 
     .head-figure--new.is-zero { color: var(--muted); }
     .head-figure--new.is-zero { color: var(--muted); }
-
-    .tape-head-label--new {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      align-self: center;
-
-      gap: 7px;
-      white-space: nowrap;
-    }
 
     .tape-findings {
       display: grid;
@@ -889,31 +871,6 @@
     .track-confirm p { margin: 0; flex: 1 1 260px; min-width: 0; }
     .track-confirm strong { color: var(--bic-red, #c23737); }
 
-    .tape-head-label--tracks {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      align-self: center;
-    }
-
-    .tape-head-label--issues {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 7px;
-      align-self: center;
-      white-space: nowrap;
-    }
-
-    .tape-head-label--issues input {
-      margin: 0;
-      cursor: pointer;
-
-      width: 13px;
-      height: 13px;
-      accent-color: var(--accent);
-    }
-
 
     .issue-item {
       display: grid;
@@ -1167,45 +1124,24 @@
       margin-bottom: 4px;
     }
 
-    .tape-pager {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-      padding: 7px 12px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: var(--cut-panel-bg);
-    }
-
-    /* THE NAME TAKES THE SLACK, so the two buttons stay pinned to the ends
-       whatever the tape is called. */
-    .tape-pager-where {
-      flex: 1 1 auto;
-      min-width: 0;
-      text-align: center;
-      font: 500 0.9rem/1.2 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: var(--ink);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .tape-pager-where strong { font-weight: 700; }
-
-    .tape-pager-place {
-      margin-left: 8px;
-      font: 500 0.82rem/1.2 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: var(--muted);
-    }
-
     .tape-pager-of {
-      margin-left: 10px;
+      flex: 0 0 auto;
       font: 500 0.72rem/1 "IBM Plex Mono", monospace;
       color: var(--muted);
+      white-space: nowrap;
     }
 
-    .tape-pager .btn[disabled] { opacity: 0.4; cursor: default; }
+    /* THE TWO STEP BUTTONS ARE THE ROW'S END CAPS. Square, so they read as
+       one control each rather than as two more labelled things to consider. */
+    .tape-step {
+      flex: 0 0 auto;
+      min-width: 26px;
+      padding: 0 7px;
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+
+    .tape-step[disabled] { opacity: 0.35; cursor: default; }
 
     /* THE TAPE'S OWN FINDINGS, under its line and spanning the whole row. Its
        own, not its tracks': those are drawn on the track rows below. */
@@ -1356,15 +1292,6 @@
         align-items: center;
         justify-content: flex-start;
         gap: 10px 14px;
-      }
-      .tape-head-label { display: none; }
-
-      .tape-head-label--tracks-cell,
-      .tape-head-label--issues-cell,
-      .tape-head-label--new-cell {
-        display: flex;
-        flex: 0 0 auto;
-        justify-content: flex-start;
       }
 
       .tape-head .tape-air--all { margin-left: auto; }
@@ -1605,12 +1532,6 @@
             <span class="head-word">Tracks</span>
             <span class="head-count" id="trackTotal"></span>
           </span>
-        </div>
-
-        <div class="tape-pager">
-          <button class="btn small" id="tapePrev" type="button" aria-label="Previous tape">&#8249; Back</button>
-          <span class="tape-pager-where" id="tapeWhere" aria-live="polite"></span>
-          <button class="btn small" id="tapeNext" type="button" aria-label="Next tape">Next &#8250;</button>
         </div>
 
         <datalist id="cityOptions"></datalist>
@@ -2900,7 +2821,6 @@
                     ? 'No open issues on any tape. The daily audit reports here when it finds something.'
                     : 'No tapes yet.'));
           paintMasterAir();
-          paintTapePager([]);
           setArchiveStatus('', '');
           return;
         }
@@ -2910,8 +2830,6 @@
         // the buttons grey out to say why.
         if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
         if (tapeAt < 0) tapeAt = 0;
-        paintTapePager(tapes);
-
         tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           var row = document.createElement('div');
@@ -3110,7 +3028,9 @@
           });
           delCell.appendChild(delBtn);
 
-          row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
+          row.append(buildPagerCell('back', tapes),
+                     country, state, name, tracksCell, issues, newCell, air, delCell,
+                     buildPagerCell('of', tapes), buildPagerCell('next', tapes));
           if (findingNote) row.appendChild(findingNote);
 
           var confirmStrip = renderTapeConfirm(tape);
@@ -4399,9 +4319,6 @@
         return { live: live, shelved: shelved, total: live + shelved };
       }
 
-      // THE PAGER. It reads the list it is given rather than recomputing one,
-      // so it can never disagree with what is on screen about how many there
-      // are or which one this is.
       // THE TRACK COLUMN HEADER. Built rather than written in the markup,
       // because it is emitted once per tape shown, under that tape's own line.
       var TRACK_HEAD_CELLS = [
@@ -4431,53 +4348,33 @@
         return head;
       }
 
-      function paintTapePager(tapes) {
-        var prev = document.getElementById('tapePrev');
-        var next = document.getElementById('tapeNext');
-        var where = document.getElementById('tapeWhere');
-        if (!prev || !next || !where) return;
+      // THE PAGER IS PART OF THE TAPE LINE, NOT A BAR ABOVE IT. As two bars
+      // they said the same three things twice: the tape's name, its state and
+      // its country were on both, a few pixels apart.
+      function buildPagerCell(which, tapes) {
         var n = tapes.length;
-        if (!n) {
-          where.textContent = 'no tapes';
-          prev.disabled = true;
-          next.disabled = true;
-          return;
+        if (which === 'of') {
+          var of = document.createElement('span');
+          of.className = 'tape-pager-of';
+          of.textContent = (tapeAt + 1) + ' of ' + n;
+          return of;
         }
-        var tape = tapes[tapeAt];
-        where.textContent = '';
-        var nameEl = document.createElement('strong');
-        nameEl.textContent = tapeFullName(tape);
-        where.appendChild(nameEl);
-
-        // WHERE THE TAPE IS, on the tape's own headline. With one tape on
-        // screen this line is the tape's identity, and a city on its own is
-        // ambiguous often enough to be worth the words: there are two
-        // Alexandrias and two Portlands in this catalogue.
-        // A STATE THAT REPEATS THE CITY IS DROPPED. Several places genuinely
-        // share a name with the division around them -- Algiers is in Algiers
-        // Province, Luxembourg is in Luxembourg -- and the catalogue is right
-        // to hold both. "Algiers, Algiers, Algeria" is still the line saying it
-        // twice.
-        var cityWord = soundCityLabel(tape.city_slug);
-        var stateWord = text(cityStateLabel(tape.city_slug));
-        if (stateWord.toLowerCase() === text(cityWord).toLowerCase()) stateWord = '';
-        var whereBits = [stateWord, cityCountryLabel(tape.city_slug)]
-          .map(text).filter(Boolean);
-        if (whereBits.length) {
-          var placeEl = document.createElement('span');
-          placeEl.className = 'tape-pager-place';
-          placeEl.textContent = whereBits.join(', ');
-          where.appendChild(placeEl);
-        }
-
-        var ofEl = document.createElement('span');
-        ofEl.className = 'tape-pager-of';
-        ofEl.textContent = (tapeAt + 1) + ' of ' + n;
-        where.appendChild(ofEl);
-        prev.disabled = tapeAt <= 0;
-        next.disabled = tapeAt >= n - 1;
-        prev.title = prev.disabled ? 'This is the first tape.' : 'Back to ' + tapeFullName(tapes[tapeAt - 1]);
-        next.title = next.disabled ? 'This is the last tape.' : 'On to ' + tapeFullName(tapes[tapeAt + 1]);
+        var back = which === 'back';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn small tape-step';
+        btn.textContent = back ? '‹' : '›';
+        btn.setAttribute('aria-label', back ? 'Previous tape' : 'Next tape');
+        btn.disabled = back ? tapeAt <= 0 : tapeAt >= n - 1;
+        btn.title = btn.disabled
+          ? (back ? 'This is the first tape.' : 'This is the last tape.')
+          : ((back ? 'Back to ' : 'On to ') + tapeFullName(tapes[tapeAt + (back ? -1 : 1)]));
+        // The row opens the tracks popup on click; these must not.
+        btn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          stepTape(back ? -1 : 1);
+        });
+        return btn;
       }
 
       function stepTape(by) {
@@ -4807,11 +4704,6 @@
             'Could not read public.soundtrack. Open the routine to check directly.', true);
         }
       }
-
-      var tapePrevBtn = document.getElementById('tapePrev');
-      var tapeNextBtn = document.getElementById('tapeNext');
-      if (tapePrevBtn) tapePrevBtn.addEventListener('click', function () { stepTape(-1); });
-      if (tapeNextBtn) tapeNextBtn.addEventListener('click', function () { stepTape(1); });
 
       loadLastRun();
 

@@ -638,6 +638,29 @@ or three lines tall, and trimming the row's padding moved almost nothing.
   0, so the grow path measures 26px there whatever the text. The resting state,
   the uniformity and the tooltip are all checked; the expansion is not.
 
+### THE PAGER IS THE TAPE LINE (2026-08-25)
+
+They were two bars and **they said the same three things twice**, a few pixels
+apart: the tape's name, its state and its country were on both. One row now:
+
+    <  United States  Texas  [The Key City Mix] ⇄ [Abilene]  15 tracks, 15 live  ●●  Shelved|Live  ×  1 of 113  >
+
+- **THE STEP BUTTONS ARE BUILT PER ROW, so they carry no id.** They are `‹` and
+  `›` end caps rather than worded buttons, since the tape between them is what
+  says where you are.
+- **THEY MUST `stopPropagation`.** The row's own click opens the tracks popup,
+  so without it stepping would page the list AND open a dialog over it.
+- **THE `1 of 113` CELL SITS BEFORE THE FORWARD BUTTON**, not centred: the row
+  is read left to right and the count belongs next to the control it governs.
+
+**REMOVING THE PAGER TOOK `buildTrackHead` WITH IT.** The slice ran from the
+pager's doc comment to `stepTape`, and `buildTrackHead` had been inserted
+BETWEEN that comment and the function it documented, so it was inside the range.
+The call survived, the definition did not, and **every render would have thrown**.
+Caught by the uncalled-function check, which found the opposite -- a call with no
+definition -- purely because it enumerates both. **A slice keyed on a comment is
+keyed on something another edit can move code underneath.**
+
 ### THE TAPE LINE IS A FLEX BAR, NOT A GRID (2026-08-25)
 
 Eight fixed columns made sense over 113 tape lines that had to align with each
