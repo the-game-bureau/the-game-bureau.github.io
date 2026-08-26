@@ -637,6 +637,24 @@ SHELVED with fifteen LIVE tracks under it until something else forced a refresh.
   catalogue's live count by exactly 30; restoring brought them back and returned
   the count to where it started.
 
+### EXPLICIT AND SPORTS ARE SPELLED OUT (2026-08-26)
+
+The two checkbox columns read **Explicit** and **Sports** rather than `E` and
+`S`, at 0.5rem, and their columns went from 30px to 48px to hold a word.
+
+- **TWO UNLABELLED CHECKBOXES SIDE BY SIDE, ONE LETTER EACH.** You had to hover
+  one to learn which was which, every time. A word is unambiguous at any size,
+  and these are not something you read, they are something you glance at to tell
+  two boxes apart.
+- **SET BELOW THE REST OF THE HEADER**, which is 0.62rem. They are the two
+  narrowest columns on the row and a word in them at the header's own size would
+  be the widest thing in the bar.
+- **BOTH HEADERS CHANGED TOGETHER**: the built one on the main list and the
+  popup's static markup. **Four places move when this grid changes** -- the two
+  `--track-cols` declarations, the built header's cell list, and that markup --
+  and the standing warning is that missing one puts every label a column away
+  from the field it names.
+
 ### THE STATUS HEADER IS A FILTER AGAIN (2026-08-26)
 
 The Status column's header cell carries a Shelved / Live tri-state that narrows
