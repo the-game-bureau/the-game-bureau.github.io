@@ -1063,14 +1063,6 @@
        this would be the same thing said twice a few pixels apart. */
     .track-lines .track-tapetag { display: none; }
 
-    .tape-pager-of {
-      flex: 0 0 auto;
-      margin-right: 4px;
-      font: 500 0.72rem/1 "IBM Plex Mono", monospace;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
     /* THE TWO STEP BUTTONS ARE THE ROW'S END CAPS. Square, so they read as
        one control each rather than as two more labelled things to consider. */
     /* THE PAIR TOUCHES. Two buttons doing one job, so they read as one
@@ -1082,8 +1074,6 @@
       font-size: 0.95rem;
       line-height: 1;
     }
-
-    .tape-step[disabled] { opacity: 0.35; cursor: default; }
 
     /* The gap between the pair is the row's gap otherwise, which reads as two
        controls. -6px pulls them together without a wrapper element. */
@@ -1139,8 +1129,6 @@
       z-index: 2;
       margin-bottom: 8px;
     }
-
-    .tape-bar > .tape-line { margin: 0; }
 
     .tape-air {
       display: grid;
@@ -1463,8 +1451,6 @@
 
       <div class="work-panel" id="roomBody">
 
-        <div class="tape-bar" id="tapeHeadRow"></div>
-
         <datalist id="cityOptions"></datalist>
         <div class="tape-lines" id="trackArchiveList"></div>
       </div>
@@ -1670,13 +1656,6 @@
       //
       // 'all' is the NEUTRAL middle and is what the knob rests on. Per-row
       // switches are untouched: those are the status changers.
-      // ONE TAPE AT A TIME. The room showed all 113 tapes and all 1,643 track
-      // rows at once, which is 27,000 nodes and 10,000 form controls on one
-      // page. It is a position into the FILTERED, SORTED list rather than a
-      // tape id, so a filter that removes the tape you were on lands you on
-      // whatever moved into its place instead of on nothing.
-      var tapeAt = 0;
-
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
       var pageNotice = document.getElementById('pageNotice');
@@ -1882,7 +1861,6 @@
 
       if (newOnlyBox) newOnlyBox.addEventListener('change', function () {
         newOnly = !!newOnlyBox.checked;
-        tapeAt = 0;
         paintFilterPills();
         renderTrackArchive();
       });
@@ -1890,7 +1868,6 @@
       var flaggedOnlyBox = document.getElementById('flaggedOnly');
       if (flaggedOnlyBox) flaggedOnlyBox.addEventListener('change', function () {
         flaggedOnly = !!flaggedOnlyBox.checked;
-        tapeAt = 0;
         paintFilterPills();
         renderTrackArchive();
       });
@@ -2695,12 +2672,7 @@
         // CLAMPED, NEVER WRAPPED. Running off the end onto the first tape
         // makes a long list feel like it has no end; stopping is honest, and
         // the buttons grey out to say why.
-        if (tapeAt >= tapes.length) tapeAt = tapes.length - 1;
-        if (tapeAt < 0) tapeAt = 0;
-        var headRow = document.getElementById('tapeHeadRow');
-        if (headRow) headRow.textContent = '';
-
-        tapes.slice(tapeAt, tapeAt + 1).forEach(function (tape) {
+        tapes.forEach(function (tape) {
           var slug = text(tape && tape.city_slug);
           var row = document.createElement('div');
           row.className = 'tape-line';
@@ -2902,9 +2874,7 @@
           // they were a long way apart for one job, and you had to cross the
           // whole row to change direction. The count goes with them: it is the
           // pager's own reading and reads as orphaned anywhere else.
-          row.append(buildPagerCell('back', tapes), buildPagerCell('next', tapes),
-                     buildPagerCell('of', tapes),
-                     country, state, name, tracksCell, issues, newCell, air, delCell);
+          row.append(country, state, name, tracksCell, issues, newCell, air, delCell);
           if (findingNote) row.appendChild(findingNote);
 
           var confirmStrip = renderTapeConfirm(tape);
@@ -2914,8 +2884,7 @@
           // its tracks, which put the heading UNDER the rows it heads: the
           // track block below is appended to the list, and the row was not
           // added until the end of this loop.
-          // INTO THE HEADER, not the list. The list below is tracks only.
-          (document.getElementById('tapeHeadRow') || trackArchiveList).appendChild(row);
+          trackArchiveList.appendChild(row);
 
           // THE TRACKS THEMSELVES, under the tape they belong to. The row above
           // is the tape's own line and still carries its counts, its findings
@@ -4315,49 +4284,6 @@
         });
         return head;
       }
-
-      // THE PAGER IS PART OF THE TAPE LINE, NOT A BAR ABOVE IT. As two bars
-      // they said the same three things twice: the tape's name, its state and
-      // its country were on both, a few pixels apart.
-      function buildPagerCell(which, tapes) {
-        var n = tapes.length;
-        if (which === 'of') {
-          var of = document.createElement('span');
-          of.className = 'tape-pager-of';
-          of.textContent = (tapeAt + 1) + ' of ' + n;
-          return of;
-        }
-        var back = which === 'back';
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn small tape-step';
-        btn.textContent = back ? '‹' : '›';
-        btn.setAttribute('aria-label', back ? 'Previous tape' : 'Next tape');
-        btn.disabled = back ? tapeAt <= 0 : tapeAt >= n - 1;
-        btn.title = btn.disabled
-          ? (back ? 'This is the first tape.' : 'This is the last tape.')
-          : ((back ? 'Back to ' : 'On to ') + tapeFullName(tapes[tapeAt + (back ? -1 : 1)]));
-        // The row opens the tracks popup on click; these must not.
-        btn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          stepTape(back ? -1 : 1);
-        });
-        return btn;
-      }
-
-      function stepTape(by) {
-        tapeAt += by;
-        renderTrackArchive();
-        // NO SCROLLING. This used to call `scrollIntoView` on the list to bring
-        // its top back after the rebuild, which is wrong in the common case:
-        // from the top of the page it scrolls DOWN, past the room's own head,
-        // so pressing Next at rest made the page jump away from you.
-        //
-        // The arrows live in the sticky header, so they are on screen wherever
-        // you are and there is nothing to bring back into view. Where you were
-        // reading is left alone.
-      }
-
 
       function fitInput(el) {
 

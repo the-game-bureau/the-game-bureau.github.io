@@ -614,6 +614,25 @@ columns they were nowhere near.
     would have caught it: `id="roomBody"` twice was the tell, and the standing
     id check only asks the opposite question, whether a wired id is missing.
 
+### EVERY TAPE ON THE PAGE, AND THE PAGER IS GONE (2026-08-26)
+
+113 tape lines, 113 track headers, 1,643 editable track rows, all at once. The
+one-tape-at-a-time pager and everything behind it -- `tapeAt`, `stepTape`,
+`buildPagerCell`, the `#tapeHeadRow` bar -- are deleted.
+
+- **THE TAPE LINE IS BACK IN THE LIST**, so the list reads tape, header, tracks,
+  repeating. A test asserts exactly that set of child classes and nothing else.
+- **THE SHELVED / LIVE FILTER IN THE TRACK HEADER IS NOW GLOBAL.** Every tape's
+  header carries one and they all drive `trackAirFilter`, so pressing any of
+  them filters the whole page: 1,643 rows to 1,514 live, and 129 shelved, which
+  sums. That is a change of meaning from the one-tape view, where it filtered
+  the tape in front of you.
+- **THE WEIGHT IS BACK AND IS NOT CAPPED.** Around 27,000 nodes and 10,000 form
+  controls. **The pager was introduced to fix exactly this and has been removed
+  deliberately**, so if it ever needs to be lighter the answer is the Anchor
+  Events shape -- build a row's fields only when it is opened -- and **never a
+  top-N**, which would hide tapes without saying so.
+
 ### ONE TRACK ROW, ONE SIZE, WITH ITS HEADER (2026-08-26)
 
 The main list and the popup draw the same row through `renderTrackLine`, and
