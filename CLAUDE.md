@@ -708,19 +708,46 @@ so the row's size is simply inherited.
   that would be silent -- and the resting size. **The shrinking itself is
   unverified from here.**
 
-### EVERY COLUMN THE SAME WIDTH (2026-08-26)
+### COLUMNS SIZED TO WHAT THEY HOLD, AND NO OFFSET (2026-08-26)
 
-`--track-cols: repeat(11, minmax(0, 1fr))`, in all three definitions.
+Eleven equal columns were tried for one pass and reversed on sight. At 14pt in a
+1,180px shell they gave a 90px blurb scrolling one word to a line, the tape's
+name written straight across the artist beside it, and SHELVED laid over the S
+column. **Equal is not the same as right**: these eleven cells hold a 13px
+checkbox and a sentence.
 
-- **`minmax(0, 1fr)` AND NOT `1fr`.** A bare `1fr` has a min of `auto`, so a long
-  unbroken value pushes its column past its share and the row overflows the
-  panel. This is what makes eleven equal columns actually equal.
-- **THE BLURB IS NOW A ELEVENTH OF THE ROW, and that is the cost.** It was the
-  widest column at `1.45fr`; it wraps and grows in height, so a long blurb makes
-  a tall row rather than a clipped one. **Say so if the blurb should keep more
-  room** -- it is the one column where equal width is genuinely worse.
-- The checkbox, play and delete columns are now as wide as the title's. Their
-  contents are centred, so the width is white space rather than anything drawn.
+`48px 32px 48px minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.5fr) 130px 30px 30px
+168px 32px`, in all three definitions.
+
+- **`minmax(0, …)` ON ALL THREE FLEXIBLE COLUMNS.** A bare `2fr` has an `auto`
+  minimum, so one long unbroken value pushes its column past its share and the
+  whole row overflows the panel. This is the declaration that makes a share a
+  share.
+- **THE TITLE COLUMN TAKES THE MOST** because it holds three things stacked: the
+  country line, the tape's name editor and the title itself. The status column
+  is 168px because `SHELVED` and `LIVE` either side of a 34px switch are as wide
+  as they are at the row's size.
+
+**NO OFFSET, WHICH IS THREE SEPARATE FIXES:**
+
+- **A LABEL CARRIES THE FIELD'S PADDING.** `.track-input` is `2px 6px` and the
+  labels were `0 7px`, so every one sat a pixel off the value under it. **Over
+  eleven columns one pixel reads as the header being out of step**, not as a
+  rounding difference.
+- **A CENTRED FIELD GETS A CENTRED LABEL.** `#` is a `text-align: center` input
+  and its label was left-aligned, which put it half a column from the number it
+  names. The `--mid` set is now `2, 7, 8, 10`.
+- **NOTHING SPILLS OUT OF ITS COLUMN.** `.track-titlecell` and `.track-tapetag`
+  are `overflow: hidden` -- the tape name and the country line are both wider
+  than that column at 14pt and ran clean across the artist. `.track-air` is
+  `justify-self: center; max-width: 100%; overflow: hidden`, which is what put
+  SHELVED back inside the status column instead of over the S beside it.
+
+**WHAT IS STILL TIGHT, said rather than glossed.** Eleven columns at 14pt in
+1,084px of row is about 98px each on average. The tape name editor and the
+country line both clip on a long value -- the country line ellipses and carries
+a tooltip, the editor's two inputs simply scroll. **If that bites, the answer is
+a wider shell for this room**, not narrower type.
 
 ### WHERE THE TAPE IS, ON EVERY TRACK ROW (2026-08-26)
 
