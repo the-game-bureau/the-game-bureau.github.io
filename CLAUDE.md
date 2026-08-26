@@ -551,6 +551,17 @@ now, so you can decide whether a tape is worth opening without opening it.
     what the first check did, and it reported success twice. The check now reads
     **`getComputedStyle`** for `display`, `grid-column` and the parent, which is
     the only thing that could have caught either fault.
+  - **AND `textContent` CANNOT SEE THE FLEX WHITESPACE FAULT AT ALL**, because
+    stripping it is a RENDERING effect and jsdom does no layout: the string
+    reads `15 tracks, 15 live` in the DOM while the screen says `15tracks`.
+    So the counts cell is no longer built from bare text nodes. **Every piece is
+    an element and every space is `String.fromCharCode(160)`**, which survives
+    either display mode, and the check asserts the non-breaking space is present
+    rather than asserting how it looks.
+  - **DO NOT BLAME A CACHE FOR THIS.** It was reported as still wrong, the
+    reply was that the page must be stale, and it was not: the deployed CSS was
+    correct and the DOM was still built in a way that rendered wrong. **The
+    screenshot was evidence and the assumption was not.**
 
 ### THE BOT BUTTON ASKS FOR A FOCUS CITY, THEN OPENS THE ROUTINE (2026-08-25)
 
