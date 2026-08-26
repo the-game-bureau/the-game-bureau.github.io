@@ -188,11 +188,16 @@
 
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
-    .command-bar--view { flex: 0 0 auto; }
+    /* ADD TAKES THE SLACK; the two on its right stay their own width. */
+    .command-bar--view,
+    .command-bar--filter { flex: 0 0 auto; }
+
+    .command-bar--filter .command-bar-inner { gap: 6px; }
     @media (max-width: 720px) {
       .bar-row { flex-wrap: wrap; }
       .bar-row .command-bar:first-child { flex: 1 1 100%; }
-      .bar-row .command-bar--view { flex: 1 1 100%; }
+      .bar-row .command-bar--view,
+      .bar-row .command-bar--filter { flex: 1 1 100%; }
     }
 
     .chip {
@@ -466,32 +471,28 @@
       text-transform: none;
     }
 
-    /* LITTLE FILTER BADGES. Word and count side by side in one small rounded
-       chip rather than stacked over an underline: stacked they were as tall as
-       the bar and read as headings, and the underline that marked one as ON was
-       the quietest possible way to say so. */
+    /* THE FILTERS ARE BUTTONS. They sit in a folder tab beside ADD and VIEW,
+       whose contents are all `.btn`, so anything else in there reads as a
+       different kind of control. They take `.btn` itself and add only what a
+       filter needs: the count, and a pressed state. */
     .head-figure--filter {
-      cursor: pointer;
       position: relative;
-      flex-direction: row;
-      align-items: baseline;
-      gap: 5px;
-      padding: 2px 8px;
-      border: 1px solid var(--control-line);
-      border-radius: 999px;
-      background: #fff;
-      line-height: 1.4;
+      gap: 7px;
+      font-size: 0.72rem;
     }
 
-    .head-figure--filter .head-word,
-    .head-figure--filter .head-count { font-size: 0.66rem; }
+    .head-figure--filter .head-word {
+      font-size: inherit;
+      letter-spacing: 0.12em;
+    }
 
     .head-figure--filter .head-count {
-      font-weight: 700;
-      color: var(--ink);
+      font-size: inherit;
+      font-weight: 800;
+      letter-spacing: 0;
+      opacity: 0.62;
     }
 
-    .head-figure--filter:hover { color: var(--ink); border-color: var(--accent); }
     .head-figure--filter:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .head-figure--filter input {
@@ -502,17 +503,17 @@
       pointer-events: none;
     }
 
-    /* ON IS A FILLED BADGE. A badge you have pressed should not need looking
-       at twice to tell from one you have not. */
-    .head-figure--filter.is-on,
-    .head-figure--filter.is-on .head-count {
-      color: #fff;
-    }
-
+    /* PRESSED IS THE ROOM'S OWN PRIMARY FILL, the same one Save and Add wear,
+       so a filter that is on is unmistakable at a glance. `aria-pressed` is not
+       available on a label, so the state is the class plus the checkbox inside
+       it, which is what a screen reader reads. */
     .head-figure--filter.is-on {
       background: var(--accent);
       border-color: var(--accent);
+      color: #fff;
     }
+
+    .head-figure--filter.is-on .head-count { opacity: 0.8; }
 
     .head-figure--new.is-zero { color: var(--muted); }
     .head-figure--new.is-zero { color: var(--muted); }
@@ -1105,50 +1106,6 @@
 
     /* THE ROOM'S SORT AND FILTER BAR. It was a grid pretending to be a column
        header; with one tape on screen there is nothing up here to align to. */
-    /* THE ROOM'S BAR IS THE QUIET ONE. It is reference: you set it once and
-       read past it, so it is not sticky and it is a shade smaller. The TAPE's
-       bar below is the one worth pinning. */
-    .room-controls {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px 14px;
-      margin-bottom: 6px;
-      padding: 6px 10px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-      background: var(--cut-panel-bg);
-      font-size: 0.92em;
-    }
-
-    .ctl-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-    .ctl-label {
-      font: 700 0.62rem/1 "IBM Plex Mono", monospace;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    /* THE ONE FIGURE THAT IS NOT A FILTER sits at the far end, away from the
-       three controls, so it does not read as a fourth thing to press. */
-    .room-titlerow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-
-    /* SMALL AND QUIET, beside a heading rather than under it. It is a standing
-       figure, not news, so it must not compete with the room's name. */
-    .room-total {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 5px;
-      font: 500 0.72rem/1 "IBM Plex Mono", monospace;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .room-total-word { text-transform: uppercase; }
-    .room-total-count { font-weight: 700; color: var(--ink); }
-
     /* THE TAPE'S BAR IS THE ONE YOU ACT ON, so it keeps the white card. */
     .tape-bar {
       position: sticky;
@@ -1445,6 +1402,7 @@
         </div>
       </fieldset>
 
+
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner">
@@ -1454,66 +1412,54 @@
           <a class="btn" href="https://github.com/the-game-bureau/the-game-bureau.github.io/blob/main/mc/soundtracks/soundtracks.md" target="_blank" rel="noopener noreferrer" title="Editorial rules, how the daily routine works, and what to do when something looks wrong">ABOUT</a>
         </div>
       </fieldset>
+      <!-- FILTER IS THE THIRD FOLDER TAB, beside ADD and VIEW, because it is
+           the same kind of thing: a labelled group of controls about the room.
+           It was a bar of its own below them, which made the room read as two
+           layers of chrome before you reached a tape. -->
+      <fieldset class="command-bar command-bar--filter" id="tapeHead">
+        <legend>Filter</legend>
+        <div class="command-bar-inner">
+          <label class="btn head-figure--filter" id="issueTotalPill"
+                 title="Show only tapes with an open issue">
+            <input type="checkbox" id="flaggedOnly">
+            <span class="head-word">Issues</span>
+            <span class="head-count" id="issueTotal"></span>
+          </label>
+
+          <label class="btn head-figure--filter head-figure--new" id="newTotalPill"
+                 title="Show only tapes added, or added to, in the last 72 hours">
+            <input type="checkbox" id="newOnly">
+            <span class="head-word">New</span>
+            <span class="head-count" id="newTotal"></span>
+          </label>
+
+          <!-- TWO PILLS, NOT A SWITCH, AND THAT IS THE WHOLE POINT. This
+               filters the catalogue; the switch a few inches to the right
+               shelves the tape in front of you. As two identical Shelved/Live
+               toggles in one header there was nothing but a divider telling
+               them apart. It matches Issues and New because it does what they
+               do. -->
+          <label class="btn head-figure--filter" id="liveOnlyPill"
+                 title="Show only tapes that are live on /soundtracks/">
+            <input type="checkbox" id="liveOnly">
+            <span class="head-word">Live</span>
+            <span class="head-count" id="liveTotal"></span>
+          </label>
+
+          <label class="btn head-figure--filter" id="shelvedOnlyPill"
+                 title="Show only tapes that are shelved">
+            <input type="checkbox" id="shelvedOnly">
+            <span class="head-word">Shelved</span>
+            <span class="head-count" id="shelvedTotal"></span>
+          </label>
+        </div>
+      </fieldset>
     </div>
 
     <div class="prompt-layout">
 
       <div class="work-panel" id="roomBody">
 
-        <!-- NOT A COLUMN HEADER ANY MORE. With one tape on screen there is a
-             single tape line to align to, and it sits below the pager, so
-             labelled columns up here would be pointing at nothing. It is what
-             it always really was: the room's sort and filter controls. -->
-        <div class="room-controls" id="tapeHead">
-
-
-          <span class="ctl-group">
-            <span class="ctl-label">Filter</span>
-
-            <label class="head-figure head-figure--filter" id="issueTotalPill"
-                   title="Show only tapes with an open issue">
-              <input type="checkbox" id="flaggedOnly">
-              <span class="head-word">Issues</span>
-              <span class="head-count" id="issueTotal"></span>
-            </label>
-
-            <label class="head-figure head-figure--filter head-figure--new" id="newTotalPill"
-                   title="Show only tapes added, or added to, in the last 72 hours">
-              <input type="checkbox" id="newOnly">
-              <span class="head-word">New</span>
-              <span class="head-count" id="newTotal"></span>
-            </label>
-
-            <!-- TWO PILLS, NOT A SWITCH, AND THAT IS THE WHOLE POINT. This
-                 filters the catalogue; the switch a few inches to the right
-                 shelves the tape in front of you. As two identical Shelved/Live
-                 toggles in one header there was nothing but a divider telling
-                 them apart. It matches Issues and New because it does what they
-                 do. -->
-            <label class="head-figure head-figure--filter" id="liveOnlyPill"
-                   title="Show only tapes that are live on /soundtracks/">
-              <input type="checkbox" id="liveOnly">
-              <span class="head-word">Live</span>
-              <span class="head-count" id="liveTotal"></span>
-            </label>
-
-            <label class="head-figure head-figure--filter" id="shelvedOnlyPill"
-                   title="Show only tapes that are shelved">
-              <input type="checkbox" id="shelvedOnly">
-              <span class="head-word">Shelved</span>
-              <span class="head-count" id="shelvedTotal"></span>
-            </label>
-          </span>
-
-        </div>
-
-        <!-- TWO BARS, AND EACH MEANS ONE THING. The bar above is about the
-             CATALOGUE: how it is sorted and which of its 113 tapes are shown.
-             This one is the TAPE IN FRONT OF YOU: where it is, what it is
-             called, how full it is, whether it is live, and the way to the next
-             one. Merged into a single row they were eleven controls of two
-             different kinds, and the two Shelved/Live toggles ended up side by
-             side meaning different things. -->
         <div class="tape-bar" id="tapeHeadRow"></div>
 
         <datalist id="cityOptions"></datalist>

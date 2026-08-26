@@ -656,7 +656,25 @@ head, so pressing Next at rest made the page jump away from you.
   no call at all. jsdom does no layout, so counting the calls is the only thing
   that can be asserted headlessly here.
 
-### NO SORTS, AND THE FILTERS ARE BADGES (2026-08-26)
+### FILTER IS THE THIRD FOLDER TAB, AND ITS FILTERS ARE BUTTONS (2026-08-26)
+
+`ADD | VIEW | FILTER`, three folder-tab fieldsets on one bar-row. The filters
+were a bar of their own below them, which made the room read as two layers of
+chrome before you reached a tape.
+
+- **THEY ARE `.btn`, THE ROOM'S OWN BUTTON.** Everything else in those tabs is
+  one, so a rounded badge in there read as a different kind of control. They add
+  only what a filter needs on top of it: the count, and a pressed state.
+- **PRESSED IS THE ROOM'S PRIMARY FILL**, the same one Save and Add wear.
+  `aria-pressed` is not available on a `<label>`, so the state is the class plus
+  the checkbox inside it, which is what a screen reader reads.
+- **ADD TAKES THE SLACK**; VIEW and FILTER are `flex: 0 0 auto` and keep their
+  own width. Under 720px all three go full width, as VIEW already did.
+- A test asserts the filters' `min-height` and `border-radius` **equal the ADD
+  and VIEW buttons' own**, computed rather than declared, so they cannot drift
+  into looking like something else.
+
+### NO SORTS (2026-08-26)
 
 - **THE THREE SORT BUTTONS ARE DELETED**, and so is every trace of them:
   `sortKeys`, `sortEntry`, `cycleSort`, `paintSortHeaders`, the header's click
@@ -667,10 +685,6 @@ head, so pressing Next at rest made the page jump away from you.
   - **THE ORDER IS NOW CITY, A TO Z, and nothing else.** It is the order you can
     predict and the one you can find a city in. The first tape is Aachen.
 - **THE LABEL READS FILTER**, not Show, and there is one control group left.
-- **THE FOUR FILTERS ARE LITTLE BADGES**: word and count side by side in a small
-  rounded chip. Stacked over an underline they were as tall as the bar and read
-  as headings, and the underline marking one as ON was the quietest possible way
-  to say so. **On is a filled badge now.**
 - **`paintFilterPills` ONLY KNEW ABOUT TWO OF THE FOUR.** Live and Shelved were
   added later and never given their filled state, so pressing one narrowed the
   list and left the badge looking untouched. All four are painted, and
