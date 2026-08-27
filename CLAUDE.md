@@ -444,6 +444,39 @@ gone away, it has been accepted.** What follows from it is not optional:
   **Check that again if a public read of this table is ever added.**
 - **DELETING THE ROW IS THE DELETION REQUEST**, and the Issues room can do it.
 
+## THE CASE THAT IS PLAYING IS LIT (2026-08-27)
+
+On `/soundtracks/`, the tape case on the shelf whose tape the deck is playing.
+
+- **`is-playing` USED TO MEAN "OPEN", WHICH ON THIS PAGE IS NEARLY ALWAYS
+  WRONG.** The deck is permanent and picks a tape on arrival **without playing
+  it**, so a case was marked the moment somebody landed and stayed marked while
+  the room was silent. `.is-open` carries that job now; `.is-playing` means
+  playing.
+- **IT HAD NO LOOK OF ITS OWN EITHER.** It shared the hover and focus rule, so
+  the playing case was indistinguishable from whichever one the pointer happened
+  to be over.
+- **PAINTED INSIDE `updatePlaybackUi`, FROM THE SAME `isPlaying` THE CASSETTE IS
+  PAINTED FROM.** That is what stops the shelf and the deck disagreeing about
+  what is playing, which is the failure this project has already had twice with
+  a control painted in one place and read in another.
+- **ITS RULE IS DECLARED AFTER THE HOVER RULE.** Both are one class, so source
+  order decides the tie, and a playing case under the pointer must not fall back
+  to looking merely hovered.
+- **IT SAYS `NOW PLAYING` IN WORDS.** A glow alone is a guess on a shelf of
+  ninety-odd cases, and it is drawn in the same stripe colour the hover state
+  uses. The word is unambiguous, and it is what a screenshot and a screen reader
+  both keep.
+- **THE GLOW IS ON THE CASE, NOT ONLY AROUND IT.** A ring around an object still
+  as dark as its neighbours reads as an outline; `filter: brightness()` on the
+  case is what makes it look lit. Two spreads plus a white core carry it at a
+  glance, and it pulses -- **stopped under `prefers-reduced-motion`**, which is
+  what that setting is for.
+- **THE TRANSITION ITSELF IS UNVERIFIED FROM jsdom**, since starting playback
+  needs a real Spotify iframe. What is asserted is the arrival state, that
+  opening marks a case OPEN and never PLAYING, and **structurally** that the
+  shelf is painted from the cassette's own `isPlaying`.
+
 ## A VISITOR SUGGESTS A TRACK, AND IT BECOMES A ROW (2026-08-27)
 
 [2026082704_track_suggestions.sql](mc/supabase/migrations/2026082704_track_suggestions.sql), **applied**. The cassette on

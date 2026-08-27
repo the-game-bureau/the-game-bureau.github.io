@@ -133,7 +133,7 @@
 
     body.home-page .playlist-card:hover,
     body.home-page .playlist-card:focus-visible,
-    body.home-page .playlist-card.is-playing {
+    body.home-page .playlist-card.is-open {
       border-color: var(--case-stripe);
       box-shadow:
         2px 3px 0 rgba(3, 5, 13, 0.95),
@@ -144,6 +144,77 @@
       outline: none;
       transform: translate(calc(var(--case-offset) - 1px), -1px) rotate(var(--case-tilt));
     }
+
+    /* ── THE CASE THAT IS PLAYING ────────────────────────────────────────
+       LOUDER THAN HOVER, because hover is where it used to live and the two
+       were indistinguishable. A ring in the tape's own stripe colour, lifted
+       further off the shelf, and it holds that state whether or not the
+       pointer is anywhere near it.
+
+       DECLARED AFTER the hover rule so it wins on source order at equal
+       specificity: a playing case under the pointer must not fall back to
+       looking merely hovered. */
+    body.home-page .playlist-card.is-playing {
+      border-color: var(--case-stripe);
+      box-shadow:
+        3px 5px 0 rgba(3, 5, 13, 0.95),
+        0 0 0 2px var(--case-stripe),
+        0 0 0 4px rgba(255, 255, 255, 0.34),
+        0 0 26px 4px var(--case-stripe),
+        0 0 60px 10px var(--case-stripe),
+        0 14px 26px rgba(2, 4, 12, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      outline: none;
+      /* THE CASE ITSELF LIFTS OUT OF THE SHELF'S GLOOM. A ring around a case
+         that is still as dark as its neighbours reads as an outline; brightness
+         on the object is what makes it look lit. */
+      filter: brightness(1.14) saturate(1.12);
+      z-index: 2;
+      transform: translate(calc(var(--case-offset) - 2px), -3px) rotate(var(--case-tilt));
+    }
+
+    /* IT SAYS SO IN WORDS AS WELL AS IN LIGHT. A ring alone is a guess on a
+       shelf of ninety-odd cases, and it is the same colour the hover state
+       uses; the word is unambiguous, and it is the thing a screen reader and a
+       screenshot both keep. */
+    body.home-page .playlist-card.is-playing .playlist-body::after {
+      content: "NOW PLAYING";
+      display: block;
+      margin-top: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: #fff;
+      text-shadow: 0 0 8px var(--case-stripe), 0 0 16px var(--case-stripe);
+    }
+
+    /* THE SPOOLS TURN ON THE SHELF TOO, at a slower rate than the deck's, so a
+       glance down the page finds the moving one. It stops dead under
+       `prefers-reduced-motion`, which is what that setting is for. */
+    @media (prefers-reduced-motion: no-preference) {
+      body.home-page .playlist-card.is-playing { animation: tgbCasePulse 2.4s ease-in-out infinite; }
+    }
+
+    @keyframes tgbCasePulse {
+      0%, 100% { box-shadow:
+        3px 5px 0 rgba(3, 5, 13, 0.95),
+        0 0 0 2px var(--case-stripe),
+        0 0 0 4px rgba(255, 255, 255, 0.34),
+        0 0 26px 4px var(--case-stripe),
+        0 0 60px 10px var(--case-stripe),
+        0 14px 26px rgba(2, 4, 12, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34); }
+      50% { box-shadow:
+        3px 5px 0 rgba(3, 5, 13, 0.95),
+        0 0 0 2px var(--case-stripe),
+        0 0 0 5px rgba(255, 255, 255, 0.5),
+        0 0 40px 8px var(--case-stripe),
+        0 0 84px 18px var(--case-stripe),
+        0 14px 26px rgba(2, 4, 12, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+    }
+
 
     body.home-page .playlist-body {
       position: relative;
@@ -1722,6 +1793,22 @@
         document.body.appendChild(script);
       }
 
+      // WHICH CASE IS PLAYING.
+      //
+      // `is-playing` USED TO MEAN "OPEN", which on this page is nearly always
+      // wrong: the deck is permanent and picks a tape on arrival WITHOUT
+      // playing it, so a card was marked the moment you landed and stayed
+      // marked while the room was silent. It means playing now.
+      //
+      // AND IT NEEDED A LOOK OF ITS OWN. It shared the hover and focus rule, so
+      // the playing case was indistinguishable from whichever one your pointer
+      // happened to be over.
+      function paintNowPlaying(card) {
+        cards.forEach(function (item) {
+          item.classList.toggle('is-playing', item === card);
+        });
+      }
+
       function updatePlaybackUi() {
         if (!modal) return;
         var wrap = modal.querySelector('.tgb-cass');
@@ -1735,6 +1822,12 @@
         }
         if (wrap) wrap.classList.toggle('is-playing', isPlaying);
         if (panel) panel.classList.toggle('is-playing', isPlaying);
+        // THE CASE ON THE SHELF FOLLOWS THE DECK. Painted from the same
+        // `isPlaying` the cassette itself is painted from, in the same
+        // function, so the shelf and the deck cannot disagree about what is
+        // playing -- which is the failure this room has already had twice with
+        // a control painted from one place and read from another.
+        paintNowPlaying(isPlaying ? state.card : null);
 
         saveCassetteSession(false);
       }
@@ -2203,7 +2296,12 @@
 
         state.playing = false;
         state.wantAutoplay = !(opts && opts.silent);
-        cards.forEach(function (item) { item.classList.toggle('is-playing', item === card); });
+        // OPENING IS NOT PLAYING, and on this page the difference is most of
+        // the time: a tape is chosen for you on arrival and sits on Play.
+        // `.is-open` marks the case the deck is holding; `.is-playing` is
+        // painted by `updatePlaybackUi` when it actually starts.
+        cards.forEach(function (item) { item.classList.toggle('is-open', item === card); });
+        paintNowPlaying(null);
         modal.hidden = false;
 
         if (window.TgbCassette) window.TgbCassette.handoff();
@@ -2224,7 +2322,10 @@
         destroyActivePlayer();
         state.playing = false;
         state.wantAutoplay = false;
-        cards.forEach(function (item) { item.classList.remove('is-playing'); });
+        cards.forEach(function (item) {
+          item.classList.remove('is-playing');
+          item.classList.remove('is-open');
+        });
         document.body.style.overflow = '';
         updatePlaybackUi();
 
@@ -2581,7 +2682,10 @@
         state.index = 0;
         state.playing = false;
         state.pendingCity = cityLabel || '';
-        cards.forEach(function (item) { item.classList.remove('is-playing'); });
+        cards.forEach(function (item) {
+          item.classList.remove('is-playing');
+          item.classList.remove('is-open');
+        });
         panel.classList.add('sx-empty');
 
         clearPreload();
