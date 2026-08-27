@@ -369,6 +369,33 @@ Kevin can settle them.
 
 ---
 
+## THE SELECT BOX IS BATCH EDIT, AND IT HOLDS THE BUTTON (2026-08-27)
+
+The second bar row reads **ADD | VIEW** then **BATCH EDIT | FILTER | NAV**. The
+box was called Select and held one tick, while the button it fed floated in the
+bottom-right corner.
+
+- **NAMED FOR THE JOB, NOT THE GESTURE.** Ticking is how you get there; acting
+  on the lot is what you came for. Both halves of that job are in one box now.
+- **THE BUTTON IS GREYED, NOT REMOVED, UNDER TWO TICKS.** This reverses the
+  floating version's rule and the reason is the position: floating, it moved
+  nothing when it appeared, and in a bar it sits beside the select-all, so a
+  control that vanished would shift the tick and **the thing you are aiming at
+  would depend on the state of the selection**.
+- **`aria-disabled`, NEVER `disabled`.** A disabled button dispatches no click
+  at all, so on a touch screen -- no hover, therefore no tooltip -- the reason it
+  is off would be completely unreachable. Pressing it writes *tick two or more
+  tracks first* to the scribble. Same rule the track header's x already keeps.
+- **THE FACE KEEPS THE NOUN WHEN IT IS OFF** (`Batch edit`, then `Batch edit 30
+  tracks`), so the button does not change width the moment a second track is
+  ticked and shove the row about.
+- **TWO OR MORE IS UNCHANGED.** One selected track has every control it needs on
+  its own badge, so a batch button for a selection of one is a second way to do
+  what is already in front of you.
+- **`.batch-float` AND ITS `[hidden]` RE-ASSERTION WENT WITH IT**, per the
+  standing rule that a control and its CSS go in the same pass. The hiding rule
+  is not needed now: the button is never hidden.
+
 ## A NEW TRACK NEEDS A SPOTIFY ID, AND NO TAPE MAY CARRY ONE TWICE (2026-08-27)
 
 [2026082702_soundtrack_spotify_id_required.sql](mc/supabase/migrations/2026082702_soundtrack_spotify_id_required.sql), **applied**.

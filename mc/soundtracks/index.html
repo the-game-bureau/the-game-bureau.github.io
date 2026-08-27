@@ -1877,20 +1877,21 @@
       cursor: pointer;
     }
 
-    /* THE BATCH BUTTON FLOATS, so it costs neither bar any width and cannot be
-       scrolled away from. `[hidden]` HAS TO BE RE-ASSERTED: `.btn` carries an
-       author `display: inline-flex` and `[hidden]` is only a UA-sheet
-       `display: none`, so the author rule wins and hiding it silently does
-       nothing. SEVENTH time this project has hit that rule. */
-    .batch-float {
-      position: fixed;
-      right: 22px;
-      bottom: 22px;
-      z-index: 40;
-      box-shadow: 0 6px 18px -6px rgba(16, 24, 40, 0.5);
-    }
+    /* IT IS OFF, NOT ABSENT, WITH FEWER THAN TWO TICKED, and that is the
+       change from the floating version. A button that appeared and disappeared
+       moved the tick beside it, so the control you were aiming at depended on
+       the state of the selection; holding its place costs the bar a fixed width
+       and nothing else.
 
-    .batch-float[hidden] { display: none; }
+       `aria-disabled`, NEVER `disabled`. A disabled button dispatches no click
+       at all, so on a touch screen -- where there is no hover and therefore no
+       tooltip -- the reason it is off would be completely unreachable. Pressing
+       it says what to do instead. Same rule the track header's x already keeps. */
+    #batchBtn[aria-disabled="true"] {
+      opacity: 0.5;
+      cursor: help;
+      box-shadow: none;
+    }
 
 
     /* BLACK TEXT IN THE BADGE. Everything here inherited `--ink`, which is the
@@ -2168,14 +2169,18 @@
          The second is the working row -- pick, narrow, step -- and it is the one
          your hand returns to. -->
     <div class="bar-row bar-row--work">
+      <!-- BATCH EDIT, not Select. The box is named for the JOB rather than for
+           the gesture that starts it: ticking is how you get there, and acting
+           on the lot is what you came for. Both controls now live in it. -->
       <fieldset class="command-bar command-bar--select">
-        <legend>Select</legend>
+        <legend>Batch edit</legend>
         <div class="command-bar-inner">
           <label class="view-pick" id="viewPickWrap">
             <span class="view-pick-word">All</span>
             <input class="track-pick-box" id="viewPick" type="checkbox"
                    aria-label="Select every track shown">
           </label>
+          <button class="btn primary" id="batchBtn" type="button"></button>
         </div>
       </fieldset>
 
@@ -2267,7 +2272,6 @@
          gone; neither bar has room, measuring having shown they are already
          full. Fixed to the corner it costs no width at all, cannot be scrolled
          away from, and appears only while there is a selection to act on. -->
-    <button class="btn primary batch-float" id="batchBtn" type="button" hidden></button>
 
 
     <!-- THE PLAYER IS A DIALOG. It opened under the row, which pushed every
@@ -5211,13 +5215,22 @@
         // badge -- the switch, the flags, its delete -- so a batch button for a
         // selection of one offers a second way to do what is already in front of
         // you. Batch begins where doing it by hand stops being reasonable.
-        btn.hidden = n < 2;
-        if (n < 2) return;
+        var ready = n >= 2;
+        // GREYED, NOT GONE. It sits in the bar now rather than floating, so a
+        // control that vanished would move the tick beside it and the thing you
+        // were aiming at would depend on the state of the selection.
+        btn.setAttribute('aria-disabled', ready ? 'false' : 'true');
         // `.btn` uppercases, so this reads BATCH EDIT 30 TRACKS. The noun is
         // worth the width: "Batch edit 30" leaves you working out 30 of what.
-        btn.textContent = 'Batch edit ' + n + (n === 1 ? ' track' : ' tracks');
-        btn.title = 'Act on the ' + n + (n === 1 ? ' selected track' : ' selected tracks')
-          + ' at once.';
+        //
+        // THE FACE KEEPS THE NOUN WHEN IT IS OFF, so the button does not change
+        // width the moment a second track is ticked and shove the row about.
+        btn.textContent = ready
+          ? 'Batch edit ' + n + ' tracks'
+          : 'Batch edit';
+        btn.title = ready
+          ? 'Act on the ' + n + ' selected tracks at once.'
+          : 'Tick two or more tracks to act on them together.';
       }
 
       // ── ONE FILTER AT A TIME ────────────────────────────────────────────
@@ -5807,7 +5820,19 @@
       if (playerBackdropEl) playerBackdropEl.addEventListener('click', closePlayer);
 
       var batchBtnEl = document.getElementById('batchBtn');
-      if (batchBtnEl) batchBtnEl.addEventListener('click', openBulkDialog);
+      if (batchBtnEl) {
+        batchBtnEl.addEventListener('click', function () {
+          // IT IS PRESSABLE WHILE OFF, AND WHAT IT DOES IS EXPLAIN ITSELF.
+          // `aria-disabled` rather than `disabled` is what makes that possible;
+          // a disabled button dispatches no click, so on a phone the reason
+          // would be unreachable.
+          if (batchBtnEl.getAttribute('aria-disabled') === 'true') {
+            setNotice('tick two or more tracks first, then press Batch edit', 'error');
+            return;
+          }
+          openBulkDialog();
+        });
+      }
 
       var tapeFilterEl = document.getElementById('tapeFilter');
       if (tapeFilterEl) tapeFilterEl.addEventListener('change', function () {
