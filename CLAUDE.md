@@ -479,6 +479,24 @@ gone away, it has been accepted.** What follows from it is not optional:
   a reply is ever wanted that is a decision with consequences, not a column.**
 - **THE CITY IS THE ONE ON THE DECK, not something typed.** The visitor is
   looking at a tape; a city field would be a way to get it wrong.
+- **AND SO IS THE TAPE** ([2026082706](mc/supabase/migrations/2026082706_suggestion_keeps_its_tape.sql), applied). The function derived
+  `group_label` as the city's FIRST tape, which is right by luck on a one-tape
+  city and **quietly wrong everywhere else**: New Orleans has four. The row
+  looked perfectly correct -- a real tape, in the right city -- and the only
+  person who could tell was the visitor, who never sees it.
+  - **SENT, THEN CHECKED.** `tape` is a caller-supplied string on a public write
+    path like every other field, so the pair is verified against the catalogue
+    before it reaches the row.
+  - **AN UNKNOWN TAPE FALLS BACK RATHER THAN REFUSING.** A rename between the
+    page loading and Send must not cost somebody the track and the reason they
+    just typed.
+  - **THE FINGERPRINT DOES NOT INCLUDE THE TAPE, deliberately.** Two people
+    suggesting one song for two tapes of one city are suggesting one song.
+  - **THE CARD CALLS IT `spine_tag`, NOT `tape`.** The column is `tape`;
+    `soundtracksFromRows` copies it onto a key that predates the rename, so the
+    first cut read `.tape`, got `undefined`, and **the tape travelled as an
+    empty string** -- with the form still sending and the row still filing
+    against the first tape. Caught by asserting the request body, not the form.
 - **A SUGGESTION CARD OFFERS GO TO AND CLEAR, AND NOTHING ELSE.** There is no
   track to delete -- the whole point is that we do not hold it yet. Adding it is
   a decision taken in the Tape Room with a Spotify id in hand.

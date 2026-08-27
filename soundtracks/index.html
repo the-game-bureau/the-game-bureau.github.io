@@ -1016,6 +1016,10 @@
              aria-labelledby="suggestHead" hidden>
       <h2 class="suggest-head" id="suggestHead">Suggest a track</h2>
       <input type="hidden" id="suggestSlug">
+      <!-- THE TAPE IT CAME FROM. Not shown -- the head already says which city,
+           and a visitor has no use for the spine phrase -- but a city may hold
+           several tapes and the suggestion belongs to the one on the deck. -->
+      <input type="hidden" id="suggestTape">
       <label class="suggest-field">
         <span>Track title</span>
         <input id="suggestTitleInput" type="text" maxlength="200" autocomplete="off">
@@ -1462,6 +1466,11 @@
         return key || String(state.pendingCity || '').split('--')[0] || '';
       }
 
+      function currentSuggestTape() {
+        var card = state.card;
+        return card ? String(card.dataset.tapeName || '').trim() : '';
+      }
+
       function openSuggestForm(slug) {
         var back = document.getElementById('suggestBackdrop');
         var card = document.getElementById('suggestCard');
@@ -1469,6 +1478,7 @@
         var name = currentCityName() || 'this city';
         document.getElementById('suggestHead').textContent = 'Suggest a track for ' + name;
         document.getElementById('suggestSlug').value = slug;
+        document.getElementById('suggestTape').value = currentSuggestTape();
         document.getElementById('suggestTitleInput').value = '';
         document.getElementById('suggestArtist').value = '';
         document.getElementById('suggestWhy').value = '';
@@ -1513,6 +1523,7 @@
           },
           body: JSON.stringify({ payload: {
             city_slug: document.getElementById('suggestSlug').value,
+            tape: document.getElementById('suggestTape').value,
             title: title,
             artist: document.getElementById('suggestArtist').value.trim(),
             why: document.getElementById('suggestWhy').value.trim(),
@@ -2463,6 +2474,17 @@
         article.id = slug;
         article.dataset.citySlug = slug;
         article.dataset.tapeId = tapeUrlId(soundtrack);
+        // THE TAPE'S OWN NAME, for the suggestion form. A city may hold more
+        // than one tape, and `dataset.tapeId` is a composite key rather than
+        // the name a person reads. Without this the suggestion is filed against
+        // whichever of the city's tapes happens to sort first.
+        // `spine_tag` IS WHAT THE GROUPED OBJECT CALLS IT. The COLUMN is
+        // `tape`; `soundtracksFromRows` copies it onto a key that predates the
+        // rename, so reading `.tape` here comes back undefined and the tape
+        // travels as an empty string -- silently, with the form still sending
+        // and the row still filing against the city's first tape.
+        article.dataset.tapeName =
+          String((soundtrack && (soundtrack.spine_tag || soundtrack.tape)) || '').trim();
         article.dataset.location = label;
         article._tgbSongs = soundtrackTracks(soundtrack).map(normalizedSong);
 
