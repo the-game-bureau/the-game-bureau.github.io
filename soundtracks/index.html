@@ -591,6 +591,11 @@
 
     .sx-modal[hidden] { display: none; }
 
+    /* THE DECK'S ONE LINE OF NEWS. Empty almost always, and it collapses when
+       it is: a permanent blank line under a cassette is furniture. */
+    .sx-note { margin: 6px 0 0; font-size: 0.82rem; line-height: 1.35; color: #b23; text-align: center; }
+    .sx-note:empty { display: none; }
+
     /* ── THE SUGGESTION FORM ────────────────────────────────────────────────
        Its own small dialog rather than the cassette modal: that one is a
        player, sized and coloured for a tape, and a form inside it would be a
@@ -1848,11 +1853,20 @@
 
       function playSpotifyPlayer() {
         if (!playerController) return;
+        // ASKING IS WHAT ARMS THE WATCHDOG. A track sitting on Play has not
+        // been asked for anything and must not be accused of failing.
+        armPlayWatchdog(state.songs[state.index]);
         try {
           if (typeof playerController.play === 'function') playerController.play();
           else if (typeof playerController.resume === 'function') playerController.resume();
           else if (typeof playerController.togglePlay === 'function') playerController.togglePlay();
-        } catch (error) {}
+        } catch (error) {
+          // WAS AN EMPTY CATCH. A refused play is the one thing on this deck a
+          // listener cannot work out for themselves.
+          console.error('Spotify refused to play', error);
+          window.clearTimeout(playWatchdog);
+          setDeckNote('Spotify would not start that one. Try the next.');
+        }
       }
 
       function pauseSpotifyPlayer() {
@@ -1883,10 +1897,44 @@
         }, 240);
       }
 
+      // A LINE ON THE DECK, and it clears itself: a stale complaint about a
+      // track you have since skipped is worse than none.
+      var deckNoteTimer = null;
+      function setDeckNote(message) {
+        var el = document.getElementById('deckNote');
+        if (!el) return;
+        window.clearTimeout(deckNoteTimer);
+        el.textContent = message || '';
+        if (message) deckNoteTimer = window.setTimeout(function () { el.textContent = ''; }, 9000);
+      }
+
+      // ── THE WATCHDOG ──────────────────────────────────────────────────────
+      //
+      // THE LIKELIER FAILURE THROWS NOTHING. `loadUri` returns, the controller
+      // accepts it, and then no sound arrives: the track is unavailable in this
+      // market, the embed declines, autoplay is refused. Nothing is raised, so
+      // a `catch` cannot see it and the deck sits there looking ready.
+      //
+      // So: having ASKED it to play, if no `playback_started` arrives within a
+      // few seconds, say so. **It is the asking that arms this**, not the
+      // loading -- a track sitting on Play has not been asked for anything and
+      // must not be accused.
+      var playWatchdog = null;
+      function armPlayWatchdog(song) {
+        window.clearTimeout(playWatchdog);
+        playWatchdog = window.setTimeout(function () {
+          if (state.playing) return;
+          setDeckNote((song && song.title ? song.title : 'That track')
+            + ' did not start. Spotify may not have it in your country; the next one may be fine.');
+        }, 6000);
+      }
+
       function attachPlayerEvents(controller) {
         if (!controller || typeof controller.addListener !== 'function') return;
         controller.addListener('playback_started', function () {
           state.playing = true;
+          window.clearTimeout(playWatchdog);
+          setDeckNote('');
           updatePlaybackUi();
 
           schedulePreloadNext();
@@ -1956,10 +2004,25 @@
 
         if (playerController && playerEntity !== song.href) {
           playerEntity = song.href;
+          // AN EMPTY CATCH HERE MADE A DEAD PLAYER UNEXPLAINABLE. If Spotify
+          // refuses to load a track, this is the only place that hears about
+          // it, and it used to swallow the reason and leave a player on screen
+          // that would never play -- indistinguishable from a track that simply
+          // has not been pressed yet. That is the failure reported as "it plays
+          // in the Tape Room but not here".
+          //
+          // THE TAPE ROOM CANNOT HIT THIS, which is why the two rooms differ:
+          // it drops a plain <iframe> on the page and you press play inside
+          // Spotify's own UI. This deck drives the iframe API through a
+          // controller, and a controller can decline.
           try {
             if (typeof playerController.loadEntity === 'function') playerController.loadEntity(song.href);
             else if (typeof playerController.loadUri === 'function') playerController.loadUri(spotifyUri);
-          } catch (error) {}
+          } catch (error) {
+            console.error('Spotify refused to load ' + song.href, error);
+            setDeckNote('Spotify would not load ' + (song.title || 'this track')
+              + '. Try the next one, or open it on Spotify.');
+          }
           if (state.playing || state.wantAutoplay) window.setTimeout(playSpotifyPlayer, 250);
           state.wantAutoplay = false;
           updatePlaybackUi();
@@ -2118,6 +2181,10 @@
               '<div class="sx-player-host" aria-hidden="true"></div>' +
               '<div class="sx-player-host sx-player-host--pre" aria-hidden="true"></div>' +
             '</div>' +
+            // THE DECK'S ERROR CHANNEL. It is built with the deck rather than
+            // put in the page's static markup because the deck is built by
+            // script and may be mounted in the hero or on the body.
+            '<p class="sx-note" id="deckNote" role="status" aria-live="polite"></p>' +
           '</div>';
 
         var deck = document.getElementById('heroDeck');
