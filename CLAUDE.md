@@ -369,6 +369,52 @@ Kevin can settle them.
 
 ---
 
+## A BATCH DELETE SETTLED CARDS IT HAD NOT TOUCHED (2026-08-27)
+
+Reported as *"batch edit didn't work, only one deleted"*. Three separate faults,
+and the first is the one that outlives this page.
+
+- **DELETING A TRACK STOPPED DELETING ITS FINDINGS, AND NOTHING SAID SO.**
+  Findings lived in a jsonb column ON the track, so a delete took them with it
+  for free and both pages said so in a comment. [2026082701](mc/supabase/migrations/2026082701_issues_table.sql) moved them to a
+  table and **nothing replaced that**. The card went quiet, the row stayed on
+  file, and a reload brought the finding back naming a track that no longer
+  existed. **2 of the 7 findings on the live table were already orphaned.**
+  - **[2026082703](mc/supabase/migrations/2026082703_issues_follow_their_subject.sql) puts it in a TRIGGER, and that is the point.** The
+    **Tape Room deletes tracks too and knows nothing about `public.issues`**, so
+    a fix in the issues page would have left every Tape Room delete orphaning
+    findings silently and forever. Same reasoning that put the soundtrack shelve
+    cascade in the database.
+  - **NOT A FOREIGN KEY.** `issues.subject_id` is TEXT and generic: a track id
+    today, a gift id tomorrow, with no one table to reference. The trigger keys
+    on `area` so each area gets its own.
+- **`gone` WAS BUILT FROM THE IDS ASKED FOR, NOT THE ROWS RETURNED.** So a
+  delete that reached one of three **settled all three cards**, and two of them
+  sat there claiming work nobody had done. It reads `rows` now.
+  - **AND THE SHORTFALL IS NAMED, NOT COUNTED.** *"2 were refused"* leaves you
+    hunting a list where every card looks alike; the ones still there are
+    exactly the ones you have to go and deal with.
+- **`clearFinding` DID NOT GO THROUGH `markSettled`.** It added the class,
+  relabelled the button and wrote `f.status = 'fixed'` where every other path
+  writes `'settled'` -- **two implementations of one act, and they had drifted.**
+  The inline one repainted neither the selection nor the batch button, so a
+  finding cleared by its own button **stayed in the count**: the button offered
+  to batch-edit four things that the popup would then act on three of.
+- **THE BUTTON COUNTED `pickedIds()` AND THE POPUP ACTED ON `pickedFindings()`.**
+  Two ideas of what is selected is how a control ends up describing something it
+  cannot do. Both read `pickedFindings()` now, which also excludes anything
+  already settled.
+- **`markSettled` REPAINTS THE COUNTERS ITSELF, synchronously, at the end.** It
+  was a `setTimeout` at the top for one pass and never ran. Its early `return`
+  when the card is not on screen went too: a finding settled while another tab
+  is showing still has to leave the selection.
+
+**THE TEST HAD TO REFUSE PART OF A WRITE.** A stub that always succeeds cannot
+produce this at all, which is why nothing caught it. `shortdel.js` short-changes
+the track delete only -- crippling the `issues` delete as well buried the case
+under a second failure -- and was run against the unfixed file, where it settled
+3 cards on a delete of 1.
+
 ## THE ISSUES ROOM HAS TABS, AND THEY ARE THE KINDS (2026-08-27)
 
 `ALL 40` then one per kind on file: `SPOTIFY 16` `FACTS 11` `RELEVANCE 11`

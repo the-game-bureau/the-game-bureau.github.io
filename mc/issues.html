@@ -782,16 +782,20 @@
           btn.textContent = was;
           return;
         }
-        // THE ITEM STAYS PUT AND GOES QUIET. Removing it would shift every row
-        // under the pointer, so the next press lands on something else, and
-        // after three you would not know what you had just done.
-        var item = document.querySelector('[data-finding-id="' + f.id + '"]');
-        if (item) {
-          item.classList.add('is-cleared');
-          btn.textContent = 'Cleared';
-        }
-        f.status = 'fixed';
-        paintStats();
+        // THROUGH `markSettled`, WHICH IS THE ONE WAY A CARD GOES QUIET.
+        //
+        // THIS FUNCTION USED TO DO IT ITSELF: add the class, relabel the button,
+        // and write `f.status = 'fixed'` where every other path writes
+        // 'settled'. Two implementations of one act, and they had drifted -- the
+        // inline one repainted neither the selection nor the batch button, so a
+        // finding cleared by its own button stayed in the count and the button
+        // offered to batch-edit four things the popup would then act on three
+        // of. It also wrote a second word for one in-memory state.
+        //
+        // The item stays put and goes quiet either way: removing it would shift
+        // every row under the pointer, so the next press lands on something else
+        // and after three you would not know what you had just done.
+        markSettled(f, 'cleared');
         setNotice('cleared', 'success');
       }
 
@@ -913,10 +917,13 @@
           closeTrackDelete();
           return;
         }
-        // THE FINDING WENT WITH THE ROW. Findings are a jsonb column ON the
-        // track, so deleting the track deletes them: there is nothing left to
-        // clear, and the card says so rather than keeping a button that would
-        // now match no open finding.
+        // THE FINDING WENT WITH THE ROW, and since 2026-08-27 that is a
+        // TRIGGER rather than a property of where findings are stored. They
+        // lived in a jsonb column ON the track and moved to a table of their
+        // own, which left this line true only by habit for a day: the card went
+        // quiet and the row stayed on file, so a reload brought the finding
+        // back naming a track that no longer existed.
+        // `soundtrack_drop_issues` is what makes it true again.
         markSettled(f, 'track deleted');
         closeTrackDelete();
         setNotice('deleted ' + (text(f.subject_label) || 'the track') + ', and its findings with it', 'success');
@@ -950,17 +957,33 @@
       function markSettled(f, why) {
         f.status = 'settled';
         var item = document.querySelector('[data-finding-id="' + f.id + '"]');
-        if (!item) return;
-        item.classList.add('is-cleared');
-        var acts = item.querySelector('.issue-acts');
-        if (acts) {
-          acts.textContent = '';
-          var said = document.createElement('span');
-          said.className = 'issue-settled';
-          said.textContent = why;
-          acts.appendChild(said);
+        if (item) {
+          item.classList.add('is-cleared');
+          var acts = item.querySelector('.issue-acts');
+          if (acts) {
+            acts.textContent = '';
+            var said = document.createElement('span');
+            said.className = 'issue-settled';
+            said.textContent = why;
+            acts.appendChild(said);
+          }
         }
         paintStats();
+        // THE COUNTERS FOLLOW IT AT ONCE, and SYNCHRONOUSLY, at the end.
+        //
+        // `prunePicked` only runs on render, and nothing renders between
+        // deciding one card and pressing Batch edit, so without this the
+        // selection goes on counting a card that is done -- the button offered
+        // to batch-edit four things and the popup would then act on three.
+        //
+        // IT WAS A `setTimeout` AT THE TOP OF THIS FUNCTION FOR ONE PASS AND
+        // NEVER RAN. The early `return` below the DOM lookup is gone with it:
+        // a card that is not on screen still has to update the counters, and
+        // returning before them meant a finding settled while another tab was
+        // showing left the selection counting it.
+        paintPickAll();
+        paintBatchButton();
+        paintBatch();
       }
 
 
@@ -976,8 +999,15 @@
       var picked = Object.create(null);
 
       function pickedIds() { return Object.keys(picked); }
+      // OPEN ONES ONLY, WHATEVER `picked` STILL HOLDS. `prunePicked` runs on
+      // render and nothing renders between deciding one card and pressing Batch
+      // edit, so a finding settled by its own button a moment ago was still in
+      // the selection and still being counted -- and the batch then tried to
+      // delete a track that had just gone.
       function pickedFindings() {
-        return findings.filter(function (f) { return picked[String(f.id)]; });
+        return findings.filter(function (f) {
+          return picked[String(f.id)] && text(f.status) === 'open';
+        });
       }
 
       // PRUNED TO WHAT IS DRAWN, on every render. A tick on a card nobody can
@@ -1015,7 +1045,12 @@
       function paintBatchButton() {
         var btn = document.getElementById('issueBatchBtn');
         if (!btn) return;
-        var n = pickedIds().length;
+        // THE SAME LIST THE POPUP WILL ACT ON, never the raw tick map. It
+        // counted `pickedIds()`, which keeps a finding settled a moment ago by
+        // its own button, so the button offered to batch-edit four things and
+        // the popup would then act on three. **Two ideas of what is selected is
+        // how a control ends up describing something it cannot do.**
+        var n = pickedFindings().length;
         // TWO OR MORE. One finding has every decision it needs on its own card,
         // so a popup for a selection of one is a second way to do what is
         // already in front of you.
@@ -1273,10 +1308,15 @@
           closeBatch();
           return;
         }
-        // THE FINDINGS WENT WITH THE ROWS, findings being a jsonb column on the
-        // track itself, so every card naming one of these tracks is settled --
-        // including the ones that were not selected.
-        var gone = ids.reduce(function (m, id) { m[String(id)] = 1; return m; }, {});
+        // THE FINDINGS WENT WITH THE ROWS THAT ACTUALLY WENT, and that is the
+        // fix: `gone` was built from the ids ASKED FOR rather than from the rows
+        // the database returned, so a delete that reached one of three marked
+        // all three settled and two cards lied about work nobody had done.
+        //
+        // The findings themselves are removed by `soundtrack_drop_issues`, a
+        // trigger on the track. Before it, deleting a track left its finding on
+        // file and a reload brought it straight back.
+        var gone = rows.reduce(function (m, r) { m[String(r.id)] = 1; return m; }, {});
         findings.forEach(function (f) {
           if (f.subject_id != null && gone[String(f.subject_id)]) markSettled(f, 'track deleted');
         });
@@ -1288,8 +1328,17 @@
 
         closeBatch();
         letGo();
-        var missed = ids.length - rows.length;
-        var short = missed ? ' (' + missed + (missed === 1 ? ' was' : ' were') + ' refused)' : '';
+        // WHAT SURVIVED IS NAMED, not counted. "2 were refused" leaves you with
+        // no idea which two, on a list where every card looks alike, and the
+        // ones still there are exactly the ones you have to go and deal with.
+        var left = withTrack.filter(function (f) {
+          return f.subject_id != null && !gone[String(f.subject_id)];
+        }).map(function (f) { return text(f.subject_label) || 'track ' + f.subject_id; });
+        var short = left.length
+          ? ' (' + left.slice(0, 3).join(', ')
+            + (left.length > 3 ? ' and ' + (left.length - 3) + ' more' : '')
+            + (left.length === 1 ? ' was' : ' were') + ' refused)'
+          : '';
         var said = 'deleted ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + short
           + ', and their findings with them';
         if (tally.done) {
