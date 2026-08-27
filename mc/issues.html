@@ -172,13 +172,17 @@
 
     /* THE SOUNDTRACK LABEL LEADS, and it is the loudest thing on the card: it
        is what tells you which of 113 tapes this is about. */
+    /* BLUE, NOT BLACK. It was `--ink`, which is this project's near-black navy
+       and reads as text like any other; the soundtrack label is the one thing on
+       a card that is a NAME, and the room's own blue is what marks a name here.
+       It is also the thing you scan for down a page of forty findings. */
     .issue-tape {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.74rem;
       font-weight: 800;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: var(--ink);
+      color: var(--bic-blue);
     }
 
     .issue-chip {
@@ -213,6 +217,45 @@
       font-size: 0.85rem;
       color: var(--muted);
     }
+
+
+    /* ── SELECTING SEVERAL ──────────────────────────────────────────────── */
+    .issue-pick {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .issue-pick--all { min-height: 42px; }
+
+    .issue-pick-word {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    /* IT FLOATS, so it costs the bar no width and cannot be scrolled away from.
+       `[hidden]` HAS TO BE RE-ASSERTED: `.btn` carries an author
+       `display: inline-flex` and `[hidden]` is only a UA-sheet `display: none`,
+       so the author rule wins and hiding it silently does nothing. */
+    .issue-batch-float {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 40;
+      box-shadow: 0 6px 18px -6px rgba(16, 24, 40, 0.5);
+    }
+
+    .issue-batch-float[hidden] { display: none; }
+
+    #issueBatchCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
+    #issueBatchCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
+    #issueBatchCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
 
     .issue-acts { display: flex; gap: 8px; }
 
@@ -278,6 +321,18 @@
         </div>
       </fieldset>
 
+      <!-- SELECT IS ITS OWN BOX, as in the Tape Room: VIEW holds doors and
+           nothing else, and a control that PICKS things is not a door. -->
+      <fieldset class="command-bar command-bar--select">
+        <legend>Select</legend>
+        <div class="command-bar-inner">
+          <label class="issue-pick issue-pick--all" title="Select every open finding.">
+            <span class="issue-pick-word">All</span>
+            <input id="issuePickAll" type="checkbox" aria-label="Select every open finding">
+          </label>
+        </div>
+      </fieldset>
+
       <fieldset class="command-bar command-bar--view">
         <legend>View</legend>
         <div class="command-bar-inner">
@@ -288,6 +343,25 @@
         </div>
       </fieldset>
     </div>
+
+    <!-- IT FLOATS, so it costs the bar no width and cannot be scrolled away
+         from, and it appears only once there are two findings to act on.
+         `[hidden]` has to be re-asserted over `.btn`'s author `display`. -->
+    <button class="btn primary issue-batch-float" id="issueBatchBtn" type="button" hidden></button>
+
+    <div class="tool-backdrop" id="issueBatchBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="issueBatchCard" role="dialog"
+             aria-modal="true" aria-labelledby="issueBatchTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="issueBatchTitle">Findings</h2>
+        </div>
+      </div>
+      <div class="prompt-body">
+        <p class="bulk-words" id="issueBatchWords"></p>
+      </div>
+      <div class="prompt-foot" id="issueBatchFoot"></div>
+    </section>
 
     <!-- THE DELETE QUESTION. Its own dialog, because it is the one thing this
          page does that cannot be undone. -->
@@ -412,6 +486,9 @@
 
         var head = document.createElement('div');
         head.className = 'issue-head';
+        // THE TICK LEADS THE HEADER, left of the label, where a list of things
+        // to pick from puts it.
+        if (text(f.status) === 'open') head.appendChild(pickBox(f));
 
         // THE SOUNDTRACK LABEL LEADS IT. `city_slug` is a slug, so it is
         // written out: a list keyed by `baton-rouge` is a list you have to
@@ -740,6 +817,273 @@
         paintStats();
       }
 
+
+      // ── SELECTING SEVERAL FINDINGS ──────────────────────────────────────
+      //
+      // A run files forty at a time and many of them have the same answer, so
+      // clearing them one press each is the thing this page is for and also the
+      // thing that makes it tedious.
+      //
+      // TWO OR MORE, like the Tape Room. One selected finding has every control
+      // it needs on its own card, so a batch button for a selection of one
+      // offers a second way to do what is already in front of you.
+      var picked = Object.create(null);
+
+      function pickedIds() { return Object.keys(picked); }
+      function pickedFindings() {
+        return findings.filter(function (f) { return picked[String(f.id)]; });
+      }
+
+      // PRUNED TO WHAT IS DRAWN, on every render. A tick on a card nobody can
+      // see is a batch press that lands somewhere silent.
+      function prunePicked() {
+        var live = Object.create(null);
+        findings.forEach(function (f) {
+          var id = String(f.id);
+          if (picked[id] && text(f.status) === 'open') live[id] = true;
+        });
+        picked = live;
+      }
+
+      function pickBox(f) {
+        var wrap = document.createElement('label');
+        wrap.className = 'issue-pick';
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = !!picked[String(f.id)];
+        box.setAttribute('aria-label', 'Select this finding');
+        box.title = 'Select this finding. Two or more brings up the batch button.';
+        box.addEventListener('change', function () {
+          if (box.checked) picked[String(f.id)] = true;
+          else delete picked[String(f.id)];
+          paintPickAll();
+          paintBatchButton();
+        });
+        wrap.appendChild(box);
+        return wrap;
+      }
+
+      function paintBatchButton() {
+        var btn = document.getElementById('issueBatchBtn');
+        if (!btn) return;
+        var n = pickedIds().length;
+        btn.hidden = n < 2;
+        if (n < 2) return;
+        btn.textContent = 'Batch edit ' + n + (n === 1 ? ' finding' : ' findings');
+        btn.title = 'Act on the ' + n + ' selected findings at once.';
+      }
+
+      function paintPickAll() {
+        var box = document.getElementById('issuePickAll');
+        if (!box) return;
+        var open = findings.filter(function (f) { return text(f.status) === 'open'; });
+        var n = open.length;
+        var got = open.filter(function (f) { return picked[String(f.id)]; }).length;
+        box.checked = n > 0 && got === n;
+        box.indeterminate = got > 0 && got < n;
+        box.disabled = !n;
+        // `onchange`, NOT `addEventListener`: this element is not rebuilt, so a
+        // listener added on every paint would stack up one per render.
+        box.onchange = function () {
+          var on = got !== n;
+          open.forEach(function (f) {
+            if (on) picked[String(f.id)] = true; else delete picked[String(f.id)];
+          });
+          render();
+        };
+      }
+
+      // ── THE BATCH DIALOG, IN TWO STATES ─────────────────────────────────
+      //
+      // First what a selection can be made to do, then the question about
+      // deleting, in the same panel: a second dialog over a dialog is worse
+      // than a panel that changes its mind, and the way back is Back.
+      var batchOpen = false;
+      var batchPendingDelete = false;
+
+      function openBatch() { batchOpen = true; batchPendingDelete = false; paintBatch(); }
+      function closeBatch() { batchOpen = false; batchPendingDelete = false; paintBatch(); }
+
+      function paintBatch() {
+        var card = document.getElementById('issueBatchCard');
+        var backdrop = document.getElementById('issueBatchBackdrop');
+        var title = document.getElementById('issueBatchTitle');
+        var words = document.getElementById('issueBatchWords');
+        var foot = document.getElementById('issueBatchFoot');
+        if (!card || !backdrop || !title || !words || !foot) return;
+
+        var list = pickedFindings();
+        var n = list.length;
+        if (!batchOpen || n < 2) {
+          card.hidden = true;
+          backdrop.hidden = true;
+          return;
+        }
+
+        // ONLY THE FINDINGS THAT NAME A TRACK CAN HAVE THEIR TRACK TOUCHED, and
+        // several of a run's findings are about the LIST. Counting them is what
+        // lets the buttons say how many they will really reach instead of
+        // implying all of them.
+        var withTrack = list.filter(function (f) {
+          return text(f.scope) !== 'tape' && f.song_id != null;
+        });
+        var trackIds = withTrack.map(function (f) { return String(f.song_id); });
+        // ONE TRACK MAY CARRY SEVERAL FINDINGS, so the count of tracks is not
+        // the count of findings and saying otherwise would overstate the act.
+        var uniqueTracks = Object.keys(trackIds.reduce(function (m, id) { m[id] = 1; return m; }, {}));
+
+        foot.textContent = '';
+        function btn(label, cls, onClick) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn small ' + cls;
+          b.textContent = label;
+          b.addEventListener('click', onClick);
+          foot.appendChild(b);
+          return b;
+        }
+
+        if (!batchPendingDelete) {
+          title.textContent = n + ' findings selected';
+          words.textContent = uniqueTracks.length
+            ? ('They name ' + uniqueTracks.length
+               + (uniqueTracks.length === 1 ? ' track' : ' distinct tracks') + '.'
+               + (uniqueTracks.length < n ? ' The rest are about a tape rather than a track.' : ''))
+            : 'All of them are about a tape rather than a track, so only clearing applies.';
+          btn('Clear all', 'primary', function () { batchClear(list); });
+          if (uniqueTracks.length) {
+            btn('Shelve tracks', '', function () { batchShelve(uniqueTracks, list); });
+            btn('Delete tracks', 'warn', function () { batchPendingDelete = true; paintBatch(); });
+          }
+          btn('Done', '', closeBatch);
+        } else {
+          title.textContent = 'Delete ' + uniqueTracks.length
+            + (uniqueTracks.length === 1 ? ' track' : ' tracks') + ' for good?';
+          words.textContent = 'This cannot be undone, and the bot may find them and file '
+            + 'them again. Their findings go with them. Shelving keeps them off '
+            + '/soundtracks/ and stops that.';
+          btn('Shelve instead', 'primary', function () {
+            batchPendingDelete = false;
+            batchShelve(uniqueTracks, list);
+          });
+          var go = btn('Delete ' + uniqueTracks.length
+            + (uniqueTracks.length === 1 ? ' track' : ' tracks'), 'warn', function () {
+            go.disabled = true;
+            batchDelete(uniqueTracks, withTrack);
+          });
+          btn('Back', '', function () { batchPendingDelete = false; paintBatch(); });
+        }
+
+        backdrop.hidden = false;
+        card.hidden = false;
+      }
+
+      // CLEARING IS ONE CALL PER FINDING, because `tgb_resolve_soundtrack_finding`
+      // takes ONE id: a finding lives inside a jsonb array on its track, so there
+      // is no filter that reaches several at once. The count of successes is
+      // reported rather than assumed -- the function answers false when it
+      // matched no OPEN finding, and calling that a success would leave rows on
+      // screen that a reload brings straight back.
+      async function batchClear(list) {
+        var done = 0, refused = 0;
+        for (var i = 0; i < list.length; i++) {
+          var f = list[i];
+          try {
+            var res = await fetch(restUrl('rpc/tgb_resolve_soundtrack_finding'), {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ p_id: f.id, p_status: 'fixed' })
+            });
+            if (!res.ok) throw new Error('Supabase ' + res.status);
+            var ok = await res.json().catch(function () { return false; });
+            if (ok) { markSettled(f, 'cleared'); done += 1; } else refused += 1;
+          } catch (error) {
+            console.error(error);
+            refused += 1;
+          }
+        }
+        closeBatch();
+        picked = Object.create(null);
+        paintPickAll();
+        paintBatchButton();
+        setNotice('cleared ' + done + (refused ? ', ' + refused + ' were refused' : ''),
+          refused ? 'error' : 'success');
+      }
+
+      // ONE REQUEST FOR THE LOT, `id=in.(...)`, not a loop: a loop can
+      // half-finish with nothing saying which half.
+      async function batchWriteTracks(ids, method, body) {
+        var headers = { Prefer: 'return=representation' };
+        if (body) headers['Content-Type'] = 'application/json';
+        var opts = { method: method, headers: authHeaders(headers) };
+        if (body) opts.body = JSON.stringify(body);
+        var res = await fetch(restUrl('soundtrack?id=in.('
+          + ids.map(encodeURIComponent).join(',') + ')'), opts);
+        if (!res.ok) {
+          var detail = await res.text().catch(function () { return ''; });
+          throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
+        }
+        var rows = await res.json().catch(function () { return []; });
+        return Array.isArray(rows) ? rows : [];
+      }
+
+      async function batchShelve(ids, list) {
+        var rows;
+        try {
+          rows = await batchWriteTracks(ids, 'PATCH', { archived: true });
+        } catch (error) {
+          console.error(error);
+          setNotice('could not shelve those tracks: ' + ((error && error.message) || 'write failed'), 'error');
+          closeBatch();
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          closeBatch();
+          return;
+        }
+        // SHELVING IS NOT CLEARING, so the findings stay open and selected: the
+        // track is off /soundtracks/ and whether each note is dealt with is
+        // still a judgement somebody has to make.
+        closeBatch();
+        var missed = ids.length - rows.length;
+        var short = missed ? ' (' + missed + (missed === 1 ? ' was' : ' were') + ' refused)' : '';
+        setNotice('shelved ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + short
+          + '. Their findings are still open.', short ? 'error' : 'success');
+      }
+
+      async function batchDelete(ids, withTrack) {
+        var rows;
+        try {
+          rows = await batchWriteTracks(ids, 'DELETE', null);
+        } catch (error) {
+          console.error(error);
+          setNotice('could not delete those tracks: ' + ((error && error.message) || 'write failed'), 'error');
+          closeBatch();
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          closeBatch();
+          return;
+        }
+        // THE FINDINGS WENT WITH THE ROWS, findings being a jsonb column on the
+        // track itself, so every card naming one of these tracks is settled --
+        // including the ones that were not selected.
+        var gone = ids.reduce(function (m, id) { m[String(id)] = 1; return m; }, {});
+        findings.forEach(function (f) {
+          if (f.song_id != null && gone[String(f.song_id)]) markSettled(f, 'track deleted');
+        });
+        closeBatch();
+        picked = Object.create(null);
+        paintPickAll();
+        paintBatchButton();
+        var missed = ids.length - rows.length;
+        var short = missed ? ' (' + missed + (missed === 1 ? ' was' : ' were') + ' refused)' : '';
+        setNotice('deleted ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + short
+          + ', and their findings with them', short ? 'error' : 'success');
+      }
+
       function render() {
         if (!issueList) return;
         issueList.textContent = '';
@@ -757,6 +1101,7 @@
         // OPEN ONES FIRST, THEN BY SEVERITY. A cleared finding stays on the
         // page rather than vanishing under the pointer, so it has to sink or it
         // would sit among the work.
+        prunePicked();
         var rank = { high: 0, warn: 1, info: 2 };
         findings.slice().sort(function (a, b) {
           var ao = text(a.status) === 'open' ? 0 : 1;
@@ -771,6 +1116,10 @@
           if (text(f.status) !== 'open') item.classList.add('is-cleared');
           issueList.appendChild(item);
         });
+
+        paintPickAll();
+        paintBatchButton();
+        paintBatch();
       }
 
       async function load() {
@@ -791,6 +1140,23 @@
           setNotice((error && error.message) || 'could not read the findings', 'error');
         }
       }
+
+      var issueBatchBtnEl = document.getElementById('issueBatchBtn');
+      if (issueBatchBtnEl) issueBatchBtnEl.addEventListener('click', openBatch);
+      var issueBatchBackdropEl = document.getElementById('issueBatchBackdrop');
+      if (issueBatchBackdropEl) issueBatchBackdropEl.addEventListener('click', closeBatch);
+      var issueDelBackdropEl = document.getElementById('issueDelBackdrop');
+      if (issueDelBackdropEl) issueDelBackdropEl.addEventListener('click', closeTrackDelete);
+
+      // THE DELETE QUESTION TAKES ESCAPE FIRST, being the thing on top when it
+      // is open.
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        var del = document.getElementById('issueDelCard');
+        if (del && !del.hidden) { closeTrackDelete(); return; }
+        var batch = document.getElementById('issueBatchCard');
+        if (batch && !batch.hidden) closeBatch();
+      });
 
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
