@@ -369,6 +369,49 @@ Kevin can settle them.
 
 ---
 
+## THE ISSUES ROOM HAS TABS, AND THEY ARE THE KINDS (2026-08-27)
+
+`ALL 40` then one per kind on file: `SPOTIFY 16` `FACTS 11` `RELEVANCE 11`
+`SPELLING 2`, each carrying its count and, where it has one, a red
+high-severity figure.
+
+- **BY KIND, BECAUSE THAT IS WHAT DECIDES THE ERRAND.** A `spotify` finding
+  sends you to Spotify to find an id; a `spelling` one is a typo you fix in the
+  Tape Room; a `relevance` one is an editorial judgement about whether the song
+  belongs to the city at all. Doing twelve of one kind in a row is the work,
+  alternating between three is not, and the batch button is right beside it.
+- **NOT REVIEW / DONE, which was the pair suggested and no longer maps onto
+  anything.** Clearing a finding DELETES it, so there is no settled state for a
+  tab to hold. A card that goes quiet is doing so in memory for this session
+  only, and **a tab that empties on reload is not a tab.**
+- **NOT BY SEVERITY.** The card already says it twice, in its border colour and
+  its chip, and the list is sorted by it, so a severity tab would restate the
+  order you are looking at. It survives as the red figure ON each tab, which is
+  the thing that decides which tab you press first.
+- **NOT BY AREA YET, AND THAT IS THE ONE TO ADD NEXT.** `public.issues` is a
+  table for every area of the site and area is the axis that will matter, but
+  one area files today, so an area strip would be a strip of one. **Add it above
+  this strip, not instead of it**, the day a second area files.
+- **A SEGMENTED STRIP, NOT A DROPDOWN, AND THE COUNTS ARE THE WHOLE REASON.** A
+  closed picker cannot say that sixteen of the forty are about a Spotify id,
+  which is the question you ask before deciding what to do with the next ten
+  minutes. Same argument as the Tape Room's own filter strip.
+- **NO STRIP AT ALL BELOW TWO KINDS.** One tab reading ALL narrows nothing, and
+  a strip of one implies there are others.
+- **THE COUNTS ARE OVER THE WHOLE FILE, never over what the tab has left**, and
+  a test asserts the room's own figures do not move when a tab is pressed. A
+  number that shrank as you filtered would read as the filter breaking.
+- **THE RED FIGURE IS DRAWN ONLY WHERE THERE IS ONE.** A red 0 on every tab is a
+  warning nobody reads.
+- **A CHANGE OF TAB DROPS THE SELECTION OUTRIGHT.** Pruning to what is drawn was
+  the first cut and it is not enough: a tick stays alive across facts to spotify
+  and back, so the batch button returns counting a selection built two tabs ago.
+  Same rule the Tape Room keeps when you step to another tape.
+- **A KIND THAT NO LONGER HAS ANYTHING CANNOT STAY SELECTED**, or clearing the
+  last spotify finding leaves an empty room with a tab lit that explains
+  nothing. **The empty state names the tab that emptied it** rather than saying
+  the room is clear while the other tabs are full.
+
 ## TAGGING A TRACK SPORTS DID NOT STICK, AND THE WRITE WAS ALWAYS FINE (2026-08-27)
 
 The box flicked back to unticked the instant it was ticked.

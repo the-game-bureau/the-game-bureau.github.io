@@ -158,6 +158,63 @@
       background: var(--cut-panel-bg);
     }
 
+    /* ── THE TABS ────────────────────────────────────────────────────────
+       A SEGMENTED STRIP, NOT A DROPDOWN, AND THE COUNTS ARE THE WHOLE REASON.
+       A closed picker cannot say that eleven of the fourteen findings are about
+       a missing Spotify id, which is the question you ask before deciding what
+       to do with your next ten minutes. Same argument as the Tape Room's own
+       filter strip. */
+    .issue-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 10px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 999px;
+      background: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .issue-tab:hover { border-color: var(--bic-blue); color: var(--bic-blue); }
+
+    .issue-tab[aria-selected="true"] {
+      border-color: var(--bic-blue);
+      background: var(--bic-blue);
+      color: #fff;
+    }
+
+    .issue-tab-count {
+      font-weight: 800;
+      opacity: 0.85;
+    }
+
+    /* THE HIGH-SEVERITY COUNT IS THE ONE THING WORTH A COLOUR HERE. It is what
+       decides which tab you press first, and it is drawn only where there is
+       one, so a tab with none is not quietly saying zero. */
+    .issue-tab-hot {
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--bic-red);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .issue-tab[aria-selected="true"] .issue-tab-hot { background: #fff; color: var(--bic-red); }
+
     .issue-lines { display: grid; gap: 8px; }
 
 /* ── ONE FINDING, ONE CARD ──────────────────────────────────────────── */
@@ -441,6 +498,8 @@
     </section>
 
     <div class="work-panel" id="roomBody">
+      <!-- ONE TAB PER KIND OF ERRAND, built from what is actually on file. -->
+      <div class="issue-tabs" id="issueTabs" role="tablist" aria-label="Kind of finding"></div>
       <div class="issue-lines" id="issueList"></div>
     </div>
 
@@ -924,9 +983,12 @@
 
       // PRUNED TO WHAT IS DRAWN, on every render. A tick on a card nobody can
       // see is a batch press that lands somewhere silent.
+      // PRUNED TO WHAT IS DRAWN, and the tab is now part of what that means.
+      // A tick surviving a change of tab is a batch press that reaches a card
+      // nobody can see, landing on work somebody else is in the middle of.
       function prunePicked() {
         var live = Object.create(null);
-        findings.forEach(function (f) {
+        visibleFindings().forEach(function (f) {
           var id = String(f.id);
           if (picked[id] && text(f.status) === 'open') live[id] = true;
         });
@@ -964,7 +1026,9 @@
       function paintPickAll() {
         var box = document.getElementById('issuePickAll');
         if (!box) return;
-        var open = findings.filter(function (f) { return text(f.status) === 'open'; });
+        // THE TAB DECIDES WHAT ALL MEANS. It reaches the open findings ON
+        // SCREEN, which is the list the batch button then acts on.
+        var open = visibleFindings().filter(function (f) { return text(f.status) === 'open'; });
         var n = open.length;
         var got = open.filter(function (f) { return picked[String(f.id)]; }).length;
         box.checked = n > 0 && got === n;
@@ -1230,10 +1294,112 @@
         setNotice(said, (short || tally.refused) ? 'error' : 'success');
       }
 
+      // -- THE TABS ---------------------------------------------------------
+      //
+      // BY KIND, because that is what decides the ERRAND rather than the words
+      // on the card. A `spotify` finding sends you to Spotify to find an id; a
+      // `spelling` one is a typo you fix in the Tape Room; a `relevance` one is
+      // an editorial judgement about whether the song belongs to the city at
+      // all. Doing twelve of one kind in a row is the work; alternating between
+      // three kinds is not, and the batch button is right there.
+      //
+      // NOT BY SEVERITY, which the card already says twice -- its border colour
+      // and its chip -- and which the list is already sorted by, so a severity
+      // tab would restate the order you are looking at.
+      //
+      // NOT BY AREA YET. `public.issues` is a table for every area of the site
+      // and that IS the axis that will matter, but one area is filing today, so
+      // an area strip would be a strip of one. ADD IT THE DAY A SECOND AREA
+      // FILES, above this strip and not instead of it.
+      //
+      // NOT REVIEW / DONE, which was the obvious pair and no longer maps onto
+      // anything: clearing a finding DELETES it, so there is no settled state
+      // for a tab to hold. A card that goes quiet is doing so in memory, for
+      // this session only, and a tab that empties on reload is not a tab.
+      var kindFilter = 'all';
+
+      function kindCounts() {
+        var out = Object.create(null);
+        findings.forEach(function (f) {
+          var k = text(f.kind) || 'other';
+          if (!out[k]) out[k] = { all: 0, high: 0 };
+          out[k].all += 1;
+          if (text(f.severity) === 'high') out[k].high += 1;
+        });
+        return out;
+      }
+
+      function visibleFindings() {
+        if (kindFilter === 'all') return findings;
+        return findings.filter(function (f) { return (text(f.kind) || 'other') === kindFilter; });
+      }
+
+      function paintTabs() {
+        var wrap = document.getElementById('issueTabs');
+        if (!wrap) return;
+        var counts = kindCounts();
+        var kinds = Object.keys(counts).sort();
+        wrap.textContent = '';
+        // NO STRIP AT ALL BELOW TWO KINDS. One tab reading ALL is a control that
+        // narrows nothing, and a strip of one implies there are others.
+        if (kinds.length < 2) { wrap.hidden = true; kindFilter = 'all'; return; }
+        wrap.hidden = false;
+        // A KIND THAT NO LONGER HAS ANYTHING CANNOT STAY SELECTED, or clearing
+        // the last spotify finding would leave you looking at an empty room with
+        // a tab lit that explains nothing.
+        if (kindFilter !== 'all' && !counts[kindFilter]) kindFilter = 'all';
+
+        function tab(key, label, n, hot) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'issue-tab';
+          b.setAttribute('role', 'tab');
+          b.setAttribute('aria-selected', kindFilter === key ? 'true' : 'false');
+          b.dataset.kind = key;
+          var word = document.createElement('span');
+          word.textContent = label;
+          var count = document.createElement('span');
+          count.className = 'issue-tab-count';
+          count.textContent = String(n);
+          b.append(word, count);
+          // ONLY WHERE THERE IS ONE. A red 0 on every tab is a warning nobody
+          // reads; drawn on the two that have one, it is where to start.
+          if (hot) {
+            var h = document.createElement('span');
+            h.className = 'issue-tab-hot';
+            h.textContent = String(hot);
+            h.title = hot + ' of these are high severity.';
+            b.appendChild(h);
+          }
+          b.title = key === 'all'
+            ? 'Every finding on file.'
+            : n + ' ' + label + (n === 1 ? ' finding' : ' findings') + '.';
+          b.addEventListener('click', function () {
+            if (kindFilter === key) return;
+            kindFilter = key;
+            // A CHANGE OF TAB DROPS THE SELECTION OUTRIGHT, rather than keeping
+            // whatever happens to still be on screen. Pruning alone would leave
+            // a tick alive across facts -> spotify -> facts, so the batch button
+            // would come back counting a selection you built two tabs ago and
+            // have no reason to remember. Same rule the Tape Room keeps when you
+            // step to another tape.
+            picked = Object.create(null);
+            render();
+          });
+          wrap.appendChild(b);
+          return b;
+        }
+
+        var allHigh = kinds.reduce(function (n, k) { return n + counts[k].high; }, 0);
+        tab('all', 'All', findings.length, allHigh);
+        kinds.forEach(function (k) { tab(k, k, counts[k].all, counts[k].high); });
+      }
+
       function render() {
         if (!issueList) return;
         issueList.textContent = '';
         paintStats();
+        paintTabs();
 
         if (!findings.length) {
           var note = document.createElement('div');
@@ -1248,8 +1414,21 @@
         // page rather than vanishing under the pointer, so it has to sink or it
         // would sit among the work.
         prunePicked();
+        var shown = visibleFindings();
+        if (!shown.length) {
+          var none = document.createElement('div');
+          none.className = 'empty-note';
+          // IT NAMES THE TAB THAT EMPTIED IT, rather than saying the room is
+          // clear when the other tabs are full.
+          none.textContent = 'No ' + kindFilter + ' findings. Press All to see the rest.';
+          issueList.appendChild(none);
+          paintPickAll();
+          paintBatchButton();
+          paintBatch();
+          return;
+        }
         var rank = { high: 0, warn: 1, info: 2 };
-        findings.slice().sort(function (a, b) {
+        shown.slice().sort(function (a, b) {
           var ao = text(a.status) === 'open' ? 0 : 1;
           var bo = text(b.status) === 'open' ? 0 : 1;
           if (ao !== bo) return ao - bo;
