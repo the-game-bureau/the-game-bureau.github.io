@@ -311,6 +311,14 @@ deciding is not. Your job is to notice precisely.
 morning they are introduced, plus the **3 that have gone longest without a
 look**. `last_audit_at` is the clock and null sorts first:
 
+> **THE CLOCK IS NOT BEING WOUND (found 2026-08-27).** Nothing writes
+> `last_audit_at` any more: the stamping lived in the first version of
+> `tgb_report_soundtrack_issues` and did not survive a later rewrite. 112 of the
+> 114 tapes carry an old stamp, so **this query returns the same three tapes
+> every run** and the rest of the catalogue is never swept. It fails silently:
+> the run works and reports success. **Until it is fixed, say in your summary
+> which tapes you audited so a human can see the rotation is stuck.**
+
 ```bash
 curl -sS "$B/soundtrack_stats?select=city_slug,tape,last_audit_at&order=last_audit_at.asc.nullsfirst&limit=3&apikey=$KEY"
 ```

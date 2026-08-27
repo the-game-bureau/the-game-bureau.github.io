@@ -369,6 +369,73 @@ Kevin can settle them.
 
 ---
 
+## THE SOUNDTRACK AND ISSUES ROOMS, AUDITED END TO END (2026-08-27)
+
+Asked for after a week of rapid change: is any of this solid. Most of it is,
+and three things are not. Everything below was checked against production or by
+rendering the page, never by reading the diff.
+
+### WHAT IS SOLID
+
+| checked | result |
+|---|---|
+| catalogue | 1,572 tracks, 114 tapes, 109 live across 9 tapes |
+| orphan findings | **0** (the trigger holds) |
+| one recording twice on a tape | **0** (the partial unique index holds) |
+| triggers | `soundtrack_touch` and `soundtrack_drop_issues`, both enabled |
+| functions naming a dropped object | **none** |
+| pages parse | all four, no repeated ids |
+| test suites | **284 assertions**, all passing |
+
+**PRIVACY HOLDS, AND IT WAS PROBED AS `anon` RATHER THAN ASSUMED.** `issues`
+401, `soundtrack.findings` 401, `soundtrack?select=*` 401, `soundtrack_findings`
+401, and the public page's own named-column read 200. A write is refused with
+42501 and the row is unchanged.
+
+- **BUT A REFUSED WRITE ANSWERED `204` WITH NO `Prefer` HEADER.** Only when
+  `return=representation` was asked for did it say 42501. **A client that does
+  not read the row back cannot tell a refusal from a success**, which is the
+  house rule about the empty array wearing a different hat. Every write in both
+  rooms already asks; anything new must.
+
+### THREE THINGS THAT ARE NOT
+
+**1. THE AUDIT ROTATION CLOCK IS FROZEN, AND NOTHING SAYS SO.**
+`soundtrack.last_audit_at` is what [soundtracks.md](mc/soundtracks/soundtracks.md) orders "the 3 tapes that have
+gone longest without a look" by. **112 of 114 tapes carry a stamp and nothing
+writes it any more.** The stamping lived in the original
+`tgb_report_soundtrack_issues` (2026073002) and did not survive a later rewrite
+of that function; the version replaced on 2026-08-27 had already lost it. So
+**every run picks the same three tapes, forever**, and the catalogue is never
+swept. Nothing errors and the run reports success, which is why it has gone
+unnoticed. The `tgb-agent-context` block still describes an `audited` payload key
+as "what advances the rotation" and that key is not implemented. **The fix is a
+few lines in the reporter; it has not been made, because this was an audit.**
+
+**2. THE `tgb-agent-context` BLOCK IS STALE, AND HAS NEVER PARSED.**
+`JSON.parse` fails at line 89 on an unescaped quote around *"song 177"* -- a
+fault this file already recorded and which is still there, so **an agent that
+tries to read the block gets nothing at all.** Its contents are also out of date
+in four ways: findings are `public.issues` and not `soundtrack.findings`; the
+pull replies with four keys and not two; "always status = open" describes a
+column that no longer exists; and it does not mention that a new track with no
+Spotify id is now refused outright.
+
+**3. FIVE DEAD IDS IN THE TAPE ROOM.** `trackArchiveStatus`,
+`archiveExpandBtn`, `trackStatusTabs`, `keyLegend` and `citySearch` are wired in
+JavaScript and absent from the markup. **Nothing crashes**, because every one is
+guarded with `if (!x) return` -- but `setArchiveStatus`, `syncArchiveExpandBtn`
+and `paintKeyLegend` are all still CALLED and can never do anything. Leftovers
+from controls removed without their code. **They predate this week**, and the
+standing id check finds them on every run, which is how they were spotted.
+
+### AND THE STANDING PARSE CHECK IN THIS FILE IS WRONG
+
+It excludes `src=` and not `type=`, so it treats the Tape Room's
+`tgb-agent-context` JSON block as script and reports a syntax error that is its
+own. **Skip any block whose `type` is not javascript**, or the check cries wolf
+on the one page it matters most for.
+
 ## A BATCH DELETE SETTLED CARDS IT HAD NOT TOUCHED (2026-08-27)
 
 Reported as *"batch edit didn't work, only one deleted"*. Three separate faults,
