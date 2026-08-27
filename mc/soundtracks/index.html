@@ -1920,6 +1920,27 @@
 
     #trackArchiveList .track-line.track-line--in-list .track-flagword { color: #52525b; }
 
+/* THE BADGE YOU WERE SENT TO. Transient, and it rings rather than fills:
+       arriving on a track should say WHICH one without changing what it looks
+       like, since the next thing you do is read it. */
+    #trackArchiveList .track-line.track-line--in-list.is-arrived {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      animation: arrivedPulse 2.6s ease-out 1;
+    }
+
+    @keyframes arrivedPulse {
+      0%   { outline-color: var(--accent); }
+      70%  { outline-color: var(--accent); }
+      100% { outline-color: transparent; }
+    }
+
+    /* A LINK MUST NOT BE THE ONE THING THAT MOVES. Somebody who has asked for
+       less motion still gets the ring, just not the fade. */
+    @media (prefers-reduced-motion: reduce) {
+      #trackArchiveList .track-line.track-line--in-list.is-arrived { animation: none; }
+    }
+
     /* THE PHONE IS THE ESCAPE HATCH. Two bars on one line is not something
        390px can hold, so there they stack and wrap as they did. */
     @media (max-width: 720px) {
@@ -3013,6 +3034,66 @@
           : 'The public Soundtracks page. Only live tracks appear there.';
       }
 
+      // A LINK LANDS YOU ON THE TAPE, NOT IN A DIALOG.
+      //
+      // `?tape=` already did this: it positions the PAGER, so you arrive with
+      // the tape in front of you and the room in its normal state. `?track=`
+      // does the same and then marks the badge, because a link that says "this
+      // track" and drops you at the top of a fifteen-badge tape has not
+      // finished the job.
+      //
+      // THE OLD `#tape=` AND `#track=` OPENED THE POPUP, which is the one place
+      // an arriving link should not put you: a dialog over a list you have not
+      // seen, with no sense of where you are in it.
+      var requestedTrackId = readTrackUrlId();
+      var arrivedTrackId = null;
+
+      function readTrackUrlId() {
+        try {
+          return text(new URLSearchParams(location.search).get('track'));
+        } catch (error) {
+          return '';
+        }
+      }
+
+      // A REQUESTED TRACK CLEARS THE FILTERS FIRST. Arriving from a link with a
+      // filter left on from last time would land on a tape whose track is
+      // hidden, which reads as the link being broken.
+      function applyTrackUrlId() {
+        if (!requestedTrackId) return false;
+        var wanted = requestedTrackId;
+        var at = locateSong(wanted);
+        if (!at) {
+          requestedTrackId = '';
+          setNotice('no track ' + wanted + ' in the catalogue', 'error');
+          return false;
+        }
+        requestedTrackId = '';
+        arrivedTrackId = String(wanted);
+        tapeFilter = '';
+        trackAirFilter = 'all';
+        trackFlagFilter = '';
+        // `locateSong` ANSWERS WITH AN INDEX INTO `soundtracks()`, the UNSORTED
+        // catalogue. Indexing the sorted list with it lands on whatever tape
+        // happens to sit at that position, which is a wrong answer that looks
+        // like a right one: you arrive on a real tape, just not this track's.
+        requestedTapeUrlId = tapeUrlId(soundtracks()[at.tapeIndex]);
+        return true;
+      }
+
+      // THE MARK IS TRANSIENT AND IT SCROLLS. `block: 'center'` because the
+      // badge you were sent to should be the one under your eye, not the one
+      // just above the fold.
+      function markArrivedTrack() {
+        if (!arrivedTrackId || !trackArchiveList) return;
+        var el = trackArchiveList.querySelector('[data-song-id="' + arrivedTrackId + '"]');
+        if (!el) return;
+        arrivedTrackId = null;
+        el.classList.add('is-arrived');
+        if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        setTimeout(function () { el.classList.remove('is-arrived'); }, 2600);
+      }
+
       function applyTapeUrlId(tapes) {
         if (!requestedTapeUrlId) return;
         var wanted = requestedTapeUrlId;
@@ -3519,6 +3600,12 @@
           return byLabel(soundCityLabel(sa), soundCityLabel(sb), 1) || byLabel(sa, sb, 1);
         });
 
+        // A REQUESTED TRACK IS RESOLVED BEFORE THE FILTERS ARE PAINTED, because
+        // it clears them: arriving from a link with last time's filter still on
+        // would land on a tape whose track is hidden, which reads as the link
+        // being broken.
+        applyTrackUrlId();
+
         paintTapeFilter();
         paintViewFilters();
         // NARROWED AFTER THE SORT, so the order inside a filter is the order the
@@ -3680,6 +3767,7 @@
 
         paintSelectAll(shownNow);
         paintBatchButton();
+        markArrivedTrack();
 
         fitRowInputs();
         // THE BLURBS HAVE TO BE GROWN HERE TOO. `growBlurbs` was called only by

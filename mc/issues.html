@@ -427,8 +427,8 @@
         go.textContent = 'Go to';
         go.href = tapeRoomHref(f);
         go.title = text(f.scope) === 'tape'
-          ? 'Open this tape in the Tape Room.'
-          : 'Open this track in the Tape Room.';
+          ? 'Open the Tape Room on this tape.'
+          : 'Open the Tape Room on this track, and ring it.';
         acts.appendChild(go);
 
         var clear = document.createElement('button');
@@ -448,17 +448,23 @@
         return item;
       }
 
-      // THE TAPE ROOM'S OWN HASH CONTRACT, and this page must not invent a
-      // second one: `#track=` opens the track, `#tape=` the tape it is on. A
-      // tape has no id of its own -- it is `(city_slug, tape)` -- so the key is
-      // that pair, exactly as the room builds it.
+      // THE TAPE ROOM'S OWN QUERY CONTRACT, and this page must not invent a
+      // second one. `?tape=` positions the room's PAGER, so you arrive with the
+      // tape in front of you; `?track=` does the same and then rings the badge.
+      //
+      // NOT `#tape=` / `#track=`, WHICH OPEN THE TRACKS POPUP. A dialog over a
+      // list you have not seen, with no sense of where you are in it, is the one
+      // place an arriving link should not put you.
+      //
+      // A TAPE HAS NO id OF ITS OWN -- it is `(city_slug, tape)` -- so the key
+      // is that pair, built exactly as the room builds it.
       function tapeRoomHref(f) {
         var room = '/mc/soundtracks/';
         if (text(f.scope) !== 'tape' && f.song_id != null) {
-          return room + '#track=' + encodeURIComponent(String(f.song_id));
+          return room + '?track=' + encodeURIComponent(String(f.song_id));
         }
         var key = JSON.stringify([text(f.city_slug), text(f.tape)]);
-        return room + '#tape=' + encodeURIComponent(key);
+        return room + '?tape=' + encodeURIComponent(key);
       }
 
       // A SLUG IS NOT A LABEL. `baton-rouge` reads as data; the list is read by
