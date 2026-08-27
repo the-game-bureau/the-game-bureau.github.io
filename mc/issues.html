@@ -367,19 +367,20 @@
       user-select: none;
     }
 
-    /* IT FLOATS, so it costs the bar no width and cannot be scrolled away from.
-       `[hidden]` HAS TO BE RE-ASSERTED: `.btn` carries an author
-       `display: inline-flex` and `[hidden]` is only a UA-sheet `display: none`,
-       so the author rule wins and hiding it silently does nothing. */
-    .issue-batch-float {
-      position: fixed;
-      right: 22px;
-      bottom: 22px;
-      z-index: 40;
-      box-shadow: 0 6px 18px -6px rgba(16, 24, 40, 0.5);
-    }
+    /* IT IS OFF, NOT ABSENT, UNDER TWO TICKS. It floated in the corner before,
+       where appearing moved nothing; in a bar it sits beside the select-all, so
+       a control that vanished would shift the tick and the thing you are aiming
+       at would depend on the state of the selection.
 
-    .issue-batch-float[hidden] { display: none; }
+       `aria-disabled`, NEVER `disabled`. A disabled button dispatches no click
+       at all, so on a touch screen -- no hover, therefore no tooltip -- the
+       reason it is off would be unreachable. Pressing it says what to do
+       instead. */
+    #issueBatchBtn[aria-disabled="true"] {
+      opacity: 0.5;
+      cursor: help;
+      box-shadow: none;
+    }
 
     #issueBatchCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
     #issueBatchCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
@@ -439,15 +440,18 @@
     </div>
 
     <div class="bar-row">
-      <!-- SELECT IS ITS OWN BOX, as in the Tape Room: VIEW holds doors and
-           nothing else, and a control that PICKS things is not a door. -->
+      <!-- BATCH EDIT, not Select, as in the Tape Room: the box is named for
+           the JOB rather than for the gesture that starts it. Ticking is how
+           you get there; acting on the lot is what you came for, so both halves
+           live in one box. VIEW still holds doors and nothing else. -->
       <fieldset class="command-bar command-bar--select">
-        <legend>Select</legend>
+        <legend>Batch edit</legend>
         <div class="command-bar-inner">
           <label class="issue-pick issue-pick--all" title="Select every open finding.">
             <span class="issue-pick-word">All</span>
             <input id="issuePickAll" type="checkbox" aria-label="Select every open finding">
           </label>
+          <button class="btn primary" id="issueBatchBtn" type="button"></button>
         </div>
       </fieldset>
 
@@ -461,11 +465,6 @@
         </div>
       </fieldset>
     </div>
-
-    <!-- IT FLOATS, so it costs the bar no width and cannot be scrolled away
-         from, and it appears only once there are two findings to act on.
-         `[hidden]` has to be re-asserted over `.btn`'s author `display`. -->
-    <button class="btn primary issue-batch-float" id="issueBatchBtn" type="button" hidden></button>
 
     <div class="tool-backdrop" id="issueBatchBackdrop" hidden></div>
     <section class="prompt-panel tool-modal-panel" id="issueBatchCard" role="dialog"
@@ -1017,10 +1016,18 @@
         var btn = document.getElementById('issueBatchBtn');
         if (!btn) return;
         var n = pickedIds().length;
-        btn.hidden = n < 2;
-        if (n < 2) return;
-        btn.textContent = 'Batch edit ' + n + (n === 1 ? ' finding' : ' findings');
-        btn.title = 'Act on the ' + n + ' selected findings at once.';
+        // TWO OR MORE. One finding has every decision it needs on its own card,
+        // so a popup for a selection of one is a second way to do what is
+        // already in front of you.
+        var ready = n >= 2;
+        // GREYED, NOT GONE, now that it sits in the bar rather than floating.
+        btn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+        // THE FACE KEEPS THE NOUN WHEN IT IS OFF, so the button does not change
+        // width the moment a second finding is ticked and shove the row about.
+        btn.textContent = ready ? 'Batch edit ' + n + ' findings' : 'Batch edit';
+        btn.title = ready
+          ? 'Act on the ' + n + ' selected findings at once.'
+          : 'Tick two or more findings to act on them together.';
       }
 
       function paintPickAll() {
@@ -1473,7 +1480,17 @@
       }
 
       var issueBatchBtnEl = document.getElementById('issueBatchBtn');
-      if (issueBatchBtnEl) issueBatchBtnEl.addEventListener('click', openBatch);
+      if (issueBatchBtnEl) {
+        issueBatchBtnEl.addEventListener('click', function () {
+          // IT IS PRESSABLE WHILE OFF, AND WHAT IT DOES IS EXPLAIN ITSELF.
+          // `aria-disabled` rather than `disabled` is what makes that possible.
+          if (issueBatchBtnEl.getAttribute('aria-disabled') === 'true') {
+            setNotice('tick two or more findings first, then press Batch edit', 'error');
+            return;
+          }
+          openBatch();
+        });
+      }
       var issueBatchBackdropEl = document.getElementById('issueBatchBackdrop');
       if (issueBatchBackdropEl) issueBatchBackdropEl.addEventListener('click', closeBatch);
       var issueDelBackdropEl = document.getElementById('issueDelBackdrop');

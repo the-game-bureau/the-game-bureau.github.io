@@ -437,9 +437,11 @@ The box flicked back to unticked the instant it was ticked.
 
 ## THE SELECT BOX IS BATCH EDIT, AND IT HOLDS THE BUTTON (2026-08-27)
 
-The second bar row reads **ADD | VIEW** then **BATCH EDIT | FILTER | NAV**. The
-box was called Select and held one tick, while the button it fed floated in the
-bottom-right corner.
+**BOTH ROOMS, and they are kept the same on purpose.** The Tape Room's second
+bar row reads **ADD | VIEW** then **BATCH EDIT | FILTER | NAV**; the issues room
+reads **BATCH EDIT | VIEW**. Each box was called Select and held one tick, while
+the button it fed floated in the bottom-right corner. **When either changes,
+change both.**
 
 - **NAMED FOR THE JOB, NOT THE GESTURE.** Ticking is how you get there; acting
   on the lot is what you came for. Both halves of that job are in one box now.
@@ -458,9 +460,14 @@ bottom-right corner.
 - **TWO OR MORE IS UNCHANGED.** One selected track has every control it needs on
   its own badge, so a batch button for a selection of one is a second way to do
   what is already in front of you.
-- **`.batch-float` AND ITS `[hidden]` RE-ASSERTION WENT WITH IT**, per the
-  standing rule that a control and its CSS go in the same pass. The hiding rule
-  is not needed now: the button is never hidden.
+- **`.batch-float` / `.issue-batch-float` AND THEIR `[hidden]` RE-ASSERTIONS
+  WENT WITH THEM**, per the standing rule that a control and its CSS go in the
+  same pass. The hiding rule is not needed now: neither button is ever hidden.
+- **THE TESTS HAD TO STOP ASKING `hidden`.** Every assertion about availability
+  read `btn.hidden`, which is now always false, so six of them failed the moment
+  the button moved into the bar. They read the `aria-disabled` attribute
+  instead, plus the computed `position`, which is what would catch a future
+  regression to a floating button.
 
 ## A NEW TRACK NEEDS A SPOTIFY ID, AND NO TAPE MAY CARRY ONE TWICE (2026-08-27)
 
