@@ -615,6 +615,31 @@
           && f.subject_id != null && text(f.subject_id) !== '';
       }
 
+      // A SUGGESTION OFFERS GO TO AND CLEAR, AND NOTHING ELSE.
+      //
+      // There is no track to delete: the whole point of a suggestion is that we
+      // do not hold the track yet. Adding it is a decision taken in the Tape
+      // Room with a Spotify id in hand, so this room sends you there and then
+      // gets out of the way.
+      function suggestionActs(f) {
+        var acts = document.createElement('div');
+        acts.className = 'issue-acts';
+        var go = document.createElement('a');
+        go.className = 'btn small';
+        go.textContent = 'Go to';
+        go.href = tapeRoomHref(f);
+        go.title = 'Open the tape this was suggested for.';
+        acts.appendChild(go);
+        var clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'btn small';
+        clear.textContent = 'Clear issue';
+        clear.title = 'Dealt with, one way or the other. The row is deleted.';
+        clear.addEventListener('click', function () { clearFinding(f, clear); });
+        acts.appendChild(clear);
+        return acts;
+      }
+
       function findingItem(f) {
         var item = document.createElement('article');
         item.className = 'issue-item is-' + (text(f.severity) || 'info');
@@ -649,6 +674,27 @@
         // stops it reading as a finding whose track went missing.
         var about = document.createElement('span');
         about.className = 'issue-about';
+        // A SUGGESTION NAMES THE TRACK SOMEBODY ASKED FOR, which is the thing
+        // you decide about; the generic branch below would call it "about the
+        // whole tape", which is true of its scope and useless to read.
+        if (text(f.area) === 'suggestion') {
+          about.textContent = text(f.subject_label) || 'a track';
+          about.title = 'Suggested by a visitor from /soundtracks/.';
+          head.appendChild(about);
+          item.appendChild(head);
+          var said = document.createElement('p');
+          said.className = 'issue-detail';
+          said.textContent = text(f.detail);
+          item.appendChild(said);
+          if (text(f.suggestion)) {
+            var whyEl = document.createElement('p');
+            whyEl.className = 'issue-suggestion';
+            whyEl.textContent = text(f.suggestion);
+            item.appendChild(whyEl);
+          }
+          item.appendChild(suggestionActs(f));
+          return item;
+        }
         about.textContent = text(f.scope) === 'group'
           ? 'about the whole tape'
           : (text(f.subject_label) || 'track ' + text(f.subject_id));
@@ -1448,7 +1494,14 @@
 
         var allHigh = kinds.reduce(function (n, k) { return n + counts[k].high; }, 0);
         tab('all', 'All', findings.length, allHigh);
-        kinds.forEach(function (k) { tab(k, k, counts[k].all, counts[k].high); });
+        // SUGGESTIONS LAST, whatever the alphabet says. The other tabs are
+        // faults the audit found; this one is post from visitors, and it is a
+        // different errand rather than a more urgent one.
+        kinds.filter(function (k) { return k !== 'suggestion'; })
+          .forEach(function (k) { tab(k, k, counts[k].all, counts[k].high); });
+        if (counts.suggestion) {
+          tab('suggestion', 'Suggestions', counts.suggestion.all, counts.suggestion.high);
+        }
       }
 
       function render() {

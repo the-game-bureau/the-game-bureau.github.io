@@ -519,6 +519,92 @@
     body.home-page .sx-panel.sx-empty .tgb-cass-suggest { opacity: 2; pointer-events: auto; }
 
     .sx-modal[hidden] { display: none; }
+
+    /* ── THE SUGGESTION FORM ────────────────────────────────────────────────
+       Its own small dialog rather than the cassette modal: that one is a
+       player, sized and coloured for a tape, and a form inside it would be a
+       second thing wearing the first one's clothes. */
+    .suggest-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(17, 24, 32, 0.5);
+    }
+
+    .suggest-backdrop[hidden], .suggest-card[hidden] { display: none; }
+
+    .suggest-card {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 210;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: min(420px, calc(100vw - 32px));
+      max-height: calc(100dvh - 48px);
+      overflow: auto;
+      padding: 18px;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 18px 40px rgba(17, 24, 32, 0.28);
+      font-family: inherit;
+    }
+
+    .suggest-head { margin: 0; font-size: 1.05rem; font-weight: 800; color: #000; }
+
+    .suggest-field { display: grid; gap: 4px; }
+
+    .suggest-field > span {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6b7280;
+    }
+
+    .suggest-field input, .suggest-field textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid rgba(17, 24, 32, 0.24);
+      border-radius: 8px;
+      background: #fff;
+      color: #000;
+      font: inherit;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+
+    .suggest-field input:focus, .suggest-field textarea:focus {
+      outline: none;
+      border-color: #2d4880;
+    }
+
+    /* IT COLLAPSES WHEN EMPTY, so the form does not carry a blank line waiting
+       for news that has not happened. */
+    .suggest-note { margin: 0; font-size: 0.85rem; color: #6b7280; }
+    .suggest-note:empty { display: none; }
+    .suggest-note.is-error { color: #c23737; }
+    .suggest-note.is-success { color: #1f7a4d; }
+
+    .suggest-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+    .suggest-btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid rgba(17, 24, 32, 0.24);
+      border-radius: 8px;
+      background: #fff;
+      color: #000;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .suggest-btn.is-go { border-color: #2d4880; background: #2d4880; color: #fff; }
+    .suggest-btn[disabled] { opacity: 0.6; cursor: progress; }
     .sx-modal {
       position: fixed;
       inset: 0;
@@ -1291,15 +1377,126 @@
           : 'Suggest a track';
       }
 
+      // ── SUGGESTING A TRACK ────────────────────────────────────────────
+      //
+      // IT WAS A `mailto:`, AND THAT IS WHY THIS CHANGED. It opened whatever
+      // mail client the visitor happens to have configured -- on a phone,
+      // often none -- with a template in the body, so the suggestion arrived as
+      // free prose in an inbox nothing else on this site can read. A form
+      // writes a row the Issues room can act on.
+      //
+      // THE CITY IS THE ONE ON THE DECK, not something typed. The visitor is
+      // looking at a tape; suggesting a track is about THAT tape, and a city
+      // field would be a way to get it wrong.
       function suggestSong() {
-        var city = (state.card && (state.card.getAttribute('data-location')
-          || (state.card.querySelector('.playlist-title') || {}).textContent))
-          || state.pendingCity || '';
-        var subject = 'Track suggestion' + (city ? ' for ' + city : '');
-        var body = 'Suggested track for ' + city + '\n\nTrack title:\nArtist:\nWhy it fits the city:\n';
-        window.location.href = 'mailto:soundtrack@thegamebureau.com?subject='
-          + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+        var slug = currentSuggestSlug();
+        if (!slug) return;
+        openSuggestForm(slug);
       }
+
+      function currentSuggestSlug() {
+        var card = state.card;
+        // `dataset.citySlug` IS WHAT THE CARD ACTUALLY CARRIES. The first cut
+        // read `data-city` and `data-key`, which no card has, so the slug came
+        // back empty and the form silently refused to open -- the failure a
+        // test that only poked the form would have missed.
+        var key = card ? (card.dataset.citySlug || '') : '';
+        // A CARD KEY MAY BE `denver--204` FOR A CITY'S SECOND TAPE; the slug is
+        // the half before the surrogate id, which is what the RPC keys on.
+        key = String(key || '').split('--')[0];
+        return key || String(state.pendingCity || '').split('--')[0] || '';
+      }
+
+      function openSuggestForm(slug) {
+        var back = document.getElementById('suggestBackdrop');
+        var card = document.getElementById('suggestCard');
+        if (!back || !card) return;
+        var name = currentCityName() || 'this city';
+        document.getElementById('suggestHead').textContent = 'Suggest a track for ' + name;
+        document.getElementById('suggestSlug').value = slug;
+        document.getElementById('suggestTitleInput').value = '';
+        document.getElementById('suggestArtist').value = '';
+        document.getElementById('suggestWhy').value = '';
+        setSuggestNote('');
+        back.hidden = false;
+        card.hidden = false;
+        document.getElementById('suggestTitleInput').focus();
+      }
+
+      function closeSuggestForm() {
+        var back = document.getElementById('suggestBackdrop');
+        var card = document.getElementById('suggestCard');
+        if (back) back.hidden = true;
+        if (card) card.hidden = true;
+      }
+
+      function setSuggestNote(message, tone) {
+        var el = document.getElementById('suggestNote');
+        if (!el) return;
+        el.textContent = message || '';
+        el.className = 'suggest-note' + (tone ? ' is-' + tone : '');
+      }
+
+      function sendSuggestion() {
+        var go = document.getElementById('suggestSend');
+        var title = document.getElementById('suggestTitleInput').value.trim();
+        if (!title) {
+          setSuggestNote('A track title is needed.', 'error');
+          document.getElementById('suggestTitleInput').focus();
+          return;
+        }
+        go.disabled = true;
+        var was = go.textContent;
+        go.textContent = 'Sending';
+        fetch(SUPABASE_URL + '/rest/v1/rpc/tgb_submit_suggestion', {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ payload: {
+            city_slug: document.getElementById('suggestSlug').value,
+            title: title,
+            artist: document.getElementById('suggestArtist').value.trim(),
+            why: document.getElementById('suggestWhy').value.trim()
+          } })
+        }).then(function (res) {
+          if (!res.ok) throw new Error('Request failed');
+          return res.json();
+        }).then(function (out) {
+          if (!out || out.ok !== true) throw new Error((out && out.error) || 'Could not send that.');
+          // A REPEAT IS A SUCCESS AND READS AS ONE. The function answers
+          // `filed: false` when somebody has already suggested the same track,
+          // and saying so would turn the form into a way of asking what is in
+          // our queue -- and would make a visitor feel they had failed at
+          // something that worked.
+          setSuggestNote('Thank you. Somebody will read it.', 'success');
+          go.textContent = 'Sent';
+          setTimeout(closeSuggestForm, 1400);
+        }).catch(function (error) {
+          // THE REASON IS SHOWN, because the two that can happen are both the
+          // visitor's to fix: no title, or a tape we do not hold.
+          setSuggestNote((error && error.message) || 'Could not send that.', 'error');
+          go.disabled = false;
+          go.textContent = was;
+        });
+      }
+
+      (function wireSuggestForm() {
+        var cancel = document.getElementById('suggestCancel');
+        var send = document.getElementById('suggestSend');
+        var back = document.getElementById('suggestBackdrop');
+        if (cancel) cancel.addEventListener('click', closeSuggestForm);
+        if (send) send.addEventListener('click', sendSuggestion);
+        if (back) back.addEventListener('click', closeSuggestForm);
+        // ESCAPE CLOSES THE FORM FIRST, being the thing on top when it is open.
+        document.addEventListener('keydown', function (event) {
+          if (event.key !== 'Escape') return;
+          var card = document.getElementById('suggestCard');
+          if (card && !card.hidden) { event.stopPropagation(); closeSuggestForm(); }
+        }, true);
+      })();
 
       function currentSoundtrackName() {
         var el = state.card && state.card.querySelector('.playlist-title');
@@ -2759,5 +2956,32 @@
       loadSoundPageData();
     })();
   </script>
+    <!-- THE SUGGESTION FORM. Three fields and nothing else: no name, no email,
+         no contact of any kind. A suggestion is a track and a reason; collecting
+         a contact would mean a privacy policy, a retention rule and somewhere to
+         honour a deletion request, for a field nobody would read. -->
+    <div class="suggest-backdrop" id="suggestBackdrop" hidden></div>
+    <section class="suggest-card" id="suggestCard" role="dialog" aria-modal="true"
+             aria-labelledby="suggestHead" hidden>
+      <h2 class="suggest-head" id="suggestHead">Suggest a track</h2>
+      <input type="hidden" id="suggestSlug">
+      <label class="suggest-field">
+        <span>Track title</span>
+        <input id="suggestTitleInput" type="text" maxlength="200" autocomplete="off">
+      </label>
+      <label class="suggest-field">
+        <span>Artist</span>
+        <input id="suggestArtist" type="text" maxlength="200" autocomplete="off">
+      </label>
+      <label class="suggest-field">
+        <span>Why it belongs here</span>
+        <textarea id="suggestWhy" rows="3" maxlength="1000"></textarea>
+      </label>
+      <p class="suggest-note" id="suggestNote"></p>
+      <div class="suggest-foot">
+        <button class="suggest-btn" id="suggestCancel" type="button">Cancel</button>
+        <button class="suggest-btn is-go" id="suggestSend" type="button">Send</button>
+      </div>
+    </section>
 </body>
 </html>

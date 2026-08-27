@@ -369,6 +369,55 @@ Kevin can settle them.
 
 ---
 
+## A VISITOR SUGGESTS A TRACK, AND IT BECOMES A ROW (2026-08-27)
+
+[2026082704_track_suggestions.sql](mc/supabase/migrations/2026082704_track_suggestions.sql), **applied**. The cassette on
+`/soundtracks/` opens a form; it files into `public.issues` with
+`area = 'suggestion'`; the Issues room draws it under a **Suggestions** tab.
+
+- **IT WAS A `mailto:`, AND THAT IS WHY IT CHANGED.** The control opened
+  whatever mail client the visitor happens to have configured -- on a phone,
+  often none -- with a template in the body, so a suggestion arrived as free
+  prose in an inbox nothing else on this site can read, and the Tape Room's
+  EMAILED SUGGESTIONS button was a door into Gmail. **A prompt whose output is
+  an email is a prompt whose output is lost**, which is the lesson this repo
+  learned four times with research pages writing to files.
+- **NO NEW TABLE, and that is a deliberate reading of the ask.** `public.issues`
+  was built three days earlier for exactly this shape: one row per thing that
+  needs somebody to look at it, across every area, with `area` as the
+  discriminator. A second table would mean a second room, a second read and a
+  second set of grants.
+- **THE FIRST PUBLIC WRITE PATH ON THIS PROJECT**, so it is the tightest.
+  `area`, `kind`, `severity`, `scope` and `source` are all constants; a title is
+  required; every field is trimmed and length-capped; and **the city must be one
+  the catalogue holds a tape for**, which is what stops the form being an open
+  write channel with a free-text key. **Anon may CALL it and still cannot READ
+  the table**, so a suggestion goes in and nothing comes back out.
+- **A REPEAT IS REPORTED AS A SUCCESS.** The function answers `filed: false`
+  when the same track has already been suggested, and the page does not say so:
+  telling a visitor that somebody beat them to it turns the form into a way of
+  asking what is in our queue, and makes them feel they failed at something that
+  worked.
+- **NO NAME, NO EMAIL, NO CONTACT OF ANY KIND.** A suggestion is a track and a
+  reason. A contact field would mean a privacy policy, a retention rule and
+  somewhere to honour a deletion request, for something nobody would read. **If
+  a reply is ever wanted that is a decision with consequences, not a column.**
+- **THE CITY IS THE ONE ON THE DECK, not something typed.** The visitor is
+  looking at a tape; a city field would be a way to get it wrong.
+- **A SUGGESTION CARD OFFERS GO TO AND CLEAR, AND NOTHING ELSE.** There is no
+  track to delete -- the whole point is that we do not hold it yet. Adding it is
+  a decision taken in the Tape Room with a Spotify id in hand.
+- **THE TAB IS LAST, whatever the alphabet says.** The others are faults the
+  audit found; this one is post from visitors, a different errand rather than a
+  more urgent one.
+
+**AND THE FIRST CUT READ TWO ATTRIBUTES NO CARD HAS.** `data-city` and
+`data-key`; the cards carry `dataset.citySlug`. So the slug came back empty, and
+`suggestSong` **returned early and the form never opened** -- silently, with the
+control looking exactly as it should. Caught only because the check presses the
+cassette rather than poking the form: a test that opened the dialog directly
+passed every other assertion over a form that could not be reached.
+
 ## THE TRACK FILTER DECIDES WHICH TAPES ARE LISTED (2026-08-27)
 
 **ALL and LIVE list only the tapes carrying a live track**, which makes both of
