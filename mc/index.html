@@ -964,7 +964,7 @@
       // ── TO REVIEW, and THE ROUTINES ────────────────────────────────────
       //
       // Both read under the signed-in admin's own session. `socials` and
-      // `soundtrack_findings` are admin-read only, so the publishable key alone
+      // `issues` are admin-read only, so the publishable key alone
       // would answer with an empty list rather than a refusal -- which is
       // exactly the shape of bug this panel must not have, since an empty list
       // and "nothing waiting" look identical. See countOf() for how a refused
@@ -1001,12 +1001,11 @@
           } },
         { key: 'issues', room: 'Tape Room', queue: 'findings', href: '/mc/soundtracks/',
           what: 'open findings from the audit',
-          // THE VIEW, NOT THE TABLE. Findings live in soundtrack.findings, a
-          // jsonb array, which PostgREST cannot count or list; the view flattens
-          // it to one row per finding. It is security_invoker and granted to
-          // `authenticated` only, because a finding is an internal editorial
-          // note and public.soundtrack is publicly readable.
-          path: 'soundtrack_findings?select=id&status=eq.open' }
+          // `public.issues`, ONE ROW PER FINDING. There is no status to filter
+          // on: a finding is only ever open, because clearing one deletes it.
+          // Admin-read only, with no anon policy at all, so a lapsed session is
+          // a refusal rather than an empty list -- see countOf().
+          path: 'issues?select=id' }
       ];
 
       // EVERY TGB ROUTINE. The trigger ids are the addresses; a stale one 404s
@@ -1269,16 +1268,24 @@
                    patch: { archived: true } }]
         },
         issues: {
-          list: 'soundtrack_findings?select=id,kind,severity,detail,city_slug&status=eq.open&order=created_at.desc',
-          line: function (r) { return [r.detail || r.kind, [r.city_slug, r.kind, r.severity].filter(Boolean).join(' · ')]; },
-          open: function () { return '/mc/soundtracks/'; },
-          // A VIEW IS NOT UPDATABLE THROUGH PostgREST, so clearing goes through
-          // an RPC that finds the finding by id in whichever row carries it.
-          // `fixed`, NEVER `dismissed`: a cleared finding comes straight back on
-          // the next audit if the problem is still there, and that recurrence is
-          // the only check a fix landed.
-          acts: [{ label: 'Clear', title: 'Mark it dealt with. If the problem is still there the next audit files it again, which is the only check that a fix landed.',
-                   rpc: 'tgb_resolve_soundtrack_finding', args: function (row) { return { p_id: row.id, p_status: 'fixed' }; } }]
+          list: 'issues?select=id,kind,severity,detail,group_key,area&order=created_at.desc',
+          line: function (r) { return [r.detail || r.kind, [r.group_key, r.kind, r.severity].filter(Boolean).join(' · ')]; },
+          // THE ISSUES ROOM, not the Tape Room. Findings left that room in
+          // August and the room they went to is where the rest of the decision
+          // lives -- the finding's own words, the track it names, and a way to
+          // delete that track.
+          open: function () { return '/mc/issues.html'; },
+          // CLEARING IS A DELETE. A finding has no cleared state to be in: the
+          // row going is what says it is dealt with, and it is what frees the
+          // fingerprint so the next audit files it again if the problem is
+          // still there. That recurrence is the only check a fix landed.
+          //
+          // THIS BUTTON WAS BROKEN BEFORE THIS. It carried `rpc:` and `args:`,
+          // and `decideWork` reads neither -- it only ever PATCHes -- so the
+          // first line of that function ran `Object.keys(undefined)` and threw
+          // before the try block, leaving the buttons disabled with nothing on
+          // screen saying why.
+          acts: [{ label: 'Clear', del: true, title: 'Delete the finding. If the problem is still there the next audit files it again, which is the only check that a fix landed.' }]
         }
       };
 
@@ -1410,20 +1417,24 @@
         // 'NOW' is a marker rather than a value, so the timestamp is stamped at
         // the moment of the press rather than when the page was drawn.
         const body = {};
-        Object.keys(act.patch).forEach(function (k) {
-          body[k] = act.patch[k] === 'NOW' ? new Date().toISOString() : act.patch[k];
-        });
+        if (act.patch) {
+          Object.keys(act.patch).forEach(function (k) {
+            body[k] = act.patch[k] === 'NOW' ? new Date().toISOString() : act.patch[k];
+          });
+        }
         try {
           const table = q.list.split('?')[0];
           const res = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + table +
               '?id=eq.' + encodeURIComponent(row.id), {
-            method: 'PATCH',
+            method: act.del ? 'DELETE' : 'PATCH',
             // return=representation IS NOT DECORATION. PostgREST answers 200
             // with an EMPTY ARRAY when RLS refuses a write, so without reading
             // the row back a refused decision reports success and the item
             // vanishes until a reload brings it straight back.
             headers: Object.assign(accessHeaders(session0()), { Prefer: 'return=representation' }),
-            body: JSON.stringify(body)
+            // A DELETE CARRIES NO BODY. Sending one is not merely pointless:
+            // some fetch stacks refuse the request outright.
+            body: act.del ? undefined : JSON.stringify(body)
           });
           if (!res.ok) throw new Error('Request failed (' + res.status + ')');
           const saved = await res.json();

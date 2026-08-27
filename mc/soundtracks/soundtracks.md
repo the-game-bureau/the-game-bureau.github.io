@@ -48,7 +48,7 @@ the track.
 | `tape` | the name printed down the spine |
 | `position` `title` `artist` `blurb` `spotify_id` `explicit` | the track |
 | `archived` | `true` SHELVED, `false` LIVE. **That is the whole state model.** |
-| `findings` | what an audit found. Admin-read only; you write it through an RPC |
+
 
 **Everything you file arrives SHELVED** and is invisible on `/soundtracks/`
 until a human puts it live in the Tape Room. Write each tape as though it were
@@ -282,8 +282,9 @@ curl -sS -X POST "$B/rpc/tgb_pull_soundtrack_songs" \
 
 ## 8. Audit five tapes
 
-**You cannot fix anything.** Putting a track live, shelving it, editing it and
-clearing a finding are human actions in the Tape Room. Noticing is automatable;
+**You cannot fix anything.** Putting a track live, shelving it and editing it
+are human actions in the Tape Room; a finding is read and cleared at
+`/mc/issues.html`, and clearing one DELETES it. Noticing is automatable;
 deciding is not. Your job is to notice precisely.
 
 **Which tapes:** the two you just wrote to, errors being cheapest to catch the
@@ -382,9 +383,8 @@ The reply is `{"added": N, "skipped": M}`.
 
 - **IF YOUR DETAIL NAMES A TRACK, SEND ITS `song_id`.** Not a preference: it is
   what makes the finding reachable. A finding with no `song_id` is filed against
-  the TAPE and renders above the track list rather than on the track, and the
-  fingerprint collapses to one per tape per kind, so a second real finding of
-  that kind is silently deduped away. Omit `song_id` only when the finding has
+  the TAPE, and the fingerprint collapses to one per tape per kind, so a second
+  real finding of that kind is silently deduped away. Omit `song_id` only when the finding has
   no single track: over 15, or a city now hidden.
 - **WRITE NAMES, NOT IDS, in `detail` and `suggestion`.** A person reading a
   finding does not know a track by its id, so "song 177" tells them nothing they

@@ -2519,7 +2519,6 @@
       var trackAirFilter = 'all';     // the tracks inside an open tape
 
       var pageNotice = document.getElementById('pageNotice');
-      var soundtrackIssues = [];
 
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
@@ -2802,7 +2801,6 @@
         }
         setArchiveStatus('Waiting for sign-in.', '');
         setNotice('', '');
-        soundtrackIssues = [];
         focusSongId = null;
       }
 
@@ -2943,53 +2941,6 @@
 
       // ── Findings, folded onto their row (2026-08-25) ────────────────────
       //
-      // `soundtrack_issues` is retired in place: nothing reads it any more. A
-      // finding lives in the `findings` jsonb array of the row it is about,
-      // which is a track when it names one and the TAPE otherwise -- 66 of the
-      // 285 name no track, being statements about the list itself.
-      //
-      // AN ARRAY AND NOT COLUMNS, because a row can carry more than one: three
-      // tracks hold three findings each today, and the four kinds are
-      // independent.
-      // ONE LIST OF TRACKS IN, THE FLAT ARRAY THIS PAGE HAS ALWAYS HELD OUT.
-      // A finding carrying "scope":"tape" is about the LIST rather than the
-      // track it happens to be stored on, so it comes back with song_id null,
-      // which is exactly what the old tape-level rows looked like. Everything
-      // NOTHING IN THIS ROOM DRAWS A FINDING ANY MORE (2026-08-26): the issues
-      // UI was removed and is going on a page of its own. This is kept because
-      // the data is still read on every load and the future page will want the
-      // same flat shape; it costs one pass over rows already in memory.
-      function collectFindings(trackRows) {
-        var out = [];
-        (Array.isArray(trackRows) ? trackRows : []).forEach(function (row) {
-          if (!Array.isArray(row.findings)) return;
-          row.findings.forEach(function (f) {
-            if (!f || f.status !== 'open') return;
-            var onTape = f.scope === 'tape';
-            out.push({
-              id: f.id,
-              kind: f.kind,
-              severity: f.severity,
-              detail: f.detail,
-              suggestion: f.suggestion,
-              status: f.status,
-              fingerprint: f.fingerprint,
-              created_at: f.created_at,
-              resolved_at: f.resolved_at,
-              scope: f.scope || 'track',
-              // The row it is STORED on, which the writer needs and which is not
-              // the same as the row it is ABOUT when scope is tape.
-              stored_on: row.id,
-              song_id: onTape ? null : row.id,
-              tape_id: tapeKey(row.city_slug, row.tape),
-              city_slug: row.city_slug
-            });
-          });
-        });
-        out.sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
-        return out;
-      }
-
       // THE TAPE HAS NO id ANY MORE. It is (city_slug, tape), and this is the
       // string the page uses wherever it used to hold a tape id -- as a map key
       // and as a row's tape_id.
@@ -3157,8 +3108,6 @@
           Promise.resolve([]),
           Promise.resolve([])
         ]);
-        // Read but not drawn: see collectFindings.
-        soundtrackIssues = collectFindings(results[0]);
         rebuildCityMap(results[0]);
 
         // THE TAPES ARE GROUPED OUT OF THE TRACKS, in the SAME SHAPE this page
@@ -4988,20 +4937,9 @@
         var at = (tape.songs || []).indexOf(song);
         if (at >= 0) tape.songs.splice(at, 1);
 
-        var dropped = 0;
-        if (Array.isArray(soundtrackIssues)) {
-          for (var i = soundtrackIssues.length - 1; i >= 0; i--) {
-            if (String(soundtrackIssues[i].song_id) === String(song.id)) {
-              soundtrackIssues.splice(i, 1);
-              dropped += 1;
-            }
-          }
-        }
-
         trackPendingDelete = null;
 
         renderTrackArchive('deleted ' + songDisplay(song)
-          + (dropped ? ', and its ' + dropped + (dropped === 1 ? ' issue' : ' issues') : '')
           + '. The bot may find it and file it again; shelving would have stopped that.', 'hold');
         return true;
       }

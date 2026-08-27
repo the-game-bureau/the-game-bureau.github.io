@@ -369,6 +369,82 @@ Kevin can settle them.
 
 ---
 
+## FINDINGS ARE `public.issues`, AND CLEARING ONE DELETES IT (2026-08-27)
+
+[2026082701_issues_table.sql](mc/supabase/migrations/2026082701_issues_table.sql), **applied**. A finding was a jsonb
+element inside `soundtrack.findings` with a `status` in it; it is a row in
+`public.issues` now, and there is no status column at all.
+
+- **DELETING IS SAFE HERE, WHICH IS NOT THIS PROJECT'S USUAL ANSWER.** The rule
+  that made `status` worth keeping was the dedupe: the reporter skipped a
+  fingerprint it already held OPEN, so a finding cleared to `fixed` became
+  reportable again and **that recurrence is the only check a fix landed**. A
+  deleted row says the same thing in one less step. **What is given up is the
+  record that somebody looked**; if that matters it wants an events table, not
+  `status` coming back.
+- **NOTHING WAS CARRIED ACROSS, AND THAT WAS COUNTED RATHER THAN ASSUMED.** 204
+  findings sat in the array and **not one was open**: 202 `fixed`, 2
+  `dismissed`. In a model where clearing deletes, a cleared finding does not
+  exist, so there was nothing to migrate.
+- **SO THE ROOM IS EMPTY UNTIL THE BOT RUNS.** TGB SOUNDTRACK BOT has no
+  schedule and is run by hand, so `/mc/issues.html` shows nothing until somebody
+  presses Run. That is a real consequence of the cut, not a fault.
+- **IT IS NOT A SOUNDTRACK TABLE.** `area` is the discriminator and the columns
+  are named for any of them: `subject_id` / `subject_label` for the thing,
+  `group_key` / `group_label` for what it belongs to. The room's own sentence
+  now says "from soundtracks to the Gift Shop".
+- **THE FINGERPRINT IS UNIQUE PER `(area, fingerprint)`, never globally.** Two
+  areas computing the same md5 is not a duplicate, and a global index would
+  silently drop the second.
+- **A TABLE OF ITS OWN CANNOT LEAK THE WAY THE COLUMN COULD.** `anon` has no
+  policy at all, so `select` answers **42501** rather than 200 with `[]`. The
+  old arrangement kept `findings` out of a per-column grant on a publicly
+  readable table, which had to be re-issued for every new column and did leak
+  for a few minutes in August.
+- **`tgb_report_soundtrack_issues` KEEPS ITS NAME AND ITS PAYLOAD**, so the
+  brief needed no edit and a run in flight could not land on a function that had
+  changed shape under it. Only the destination moved. Its constants are still
+  the security: `area` is always `soundtrack`, the kind must be one of four, the
+  city must hold a track, 40 a call.
+  - **`found` AFTER `insert ... on conflict do nothing` IS NOT RELIABLE for
+    this.** The row count is read with `get diagnostics`, or a deduped row would
+    be counted as added.
+- **`subject_label` IS THE NAME AT FILING TIME** and is not kept in step with a
+  rename. The table cannot join to every area. The links are built from the
+  keys.
+- **THE HUB'S CLEAR BUTTON WAS BROKEN AND NOTHING SAID SO.** It carried `rpc:`
+  and `args:`, and `decideWork` reads neither -- it only ever PATCHes -- so the
+  press ran `Object.keys(undefined)` and threw **before the try block**, leaving
+  the buttons disabled with nothing on screen. It is `del: true` now, and the
+  runner sends a DELETE with **no body**: some fetch stacks refuse a DELETE that
+  carries one.
+- **THE HUB'S ISSUES ROW OPENS `/mc/issues.html`**, not the Tape Room. Findings
+  left that room in August.
+- **`collectFindings` AND `soundtrackIssues` ARE DELETED FROM THE TAPE ROOM.**
+  That function was kept deliberately while the column was still filled; with
+  findings out of it, it returned an empty array on every load and the delete
+  path pruned nothing. The "and its N issues" clause went from the delete notice
+  with it.
+- **RETIRED IN PLACE, NOT DROPPED:** `soundtrack.findings`, the
+  `soundtrack_findings` view and `tgb_resolve_soundtrack_finding`. The drops sit
+  commented at the bottom of the migration. The column still holds its 204
+  cleared findings.
+- **A SLICE KEYED ON A COMMENT BIT AGAIN.** Removing `collectFindings` took a
+  neighbouring block with it, because three comment paragraphs had run together
+  above it and the anchor matched the last one. Restored and redone with exact
+  bounds **plus an assertion on what the slice actually contained** -- the
+  function names inside it, and its length.
+- **THE STANDING PARSE CHECK REPORTS A FALSE FAILURE ON THE TAPE ROOM.** That
+  page carries a `tgb-agent-context` JSON block, and the check in this file
+  excludes `src=` but not `type=`. Skip any block whose `type` is not
+  javascript, or it reports a syntax error that is the checker's own.
+
+**PROVED BY CALLS THAT MADE IT DO ITS JOB.** An empty payload answers
+`{"added": 0}` and looks healthy while the body is broken. Verified live: two
+real findings filed with their labels and scopes resolved, a bad kind and an
+unknown city refused, a reworded repeat deduped to `added 0`, `anon` refused
+both select and delete with 42501, and the probes deleted afterwards.
+
 ## SOUNDTRACKS — ONE TABLE, ONE PROMPT (2026-08-25)
 
 **`public.soundtrack` is one row per TRACK, and the tape is `(city_slug, tape)`.**

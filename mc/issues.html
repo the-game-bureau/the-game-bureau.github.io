@@ -540,6 +540,23 @@
       // its rows, and the label is how this page pays it back. Every item says
       // which soundtrack it is about, and offers the only two things this page
       // can honestly do: take you to it, or clear it.
+      // CAN THIS PAGE DELETE THE THING THE FINDING IS ABOUT?
+      //
+      // ONLY A SOUNDTRACK TRACK, TODAY. `public.issues` is a table for every
+      // area, and the only write path this room holds is against
+      // `public.soundtrack`. A Gift Shop finding therefore offers Clear and Go
+      // to and nothing else, which is honest: deleting a gift is the Gift
+      // Shop's own decision, with its own listings to take down with it.
+      //
+      // IT IS ONE FUNCTION so the card, the batch popup and the writes cannot
+      // disagree about which findings are deletable -- a batch press that
+      // reached a row the card would not offer is a write nobody authorised.
+      function deletableSubject(f) {
+        return text(f.area) === 'soundtrack'
+          && text(f.scope) !== 'group'
+          && f.subject_id != null && text(f.subject_id) !== '';
+      }
+
       function findingItem(f) {
         var item = document.createElement('article');
         item.className = 'issue-item is-' + (text(f.severity) || 'info');
@@ -556,7 +573,7 @@
         // translate before you can read it.
         var label = document.createElement('span');
         label.className = 'issue-tape';
-        label.textContent = cityLabel(f.city_slug) + '  ·  ' + (text(f.tape) || 'no tape name');
+        label.textContent = cityLabel(f.group_key) + '  ·  ' + (text(f.group_label) || 'no tape name');
         head.appendChild(label);
 
         var kind = document.createElement('span');
@@ -574,9 +591,9 @@
         // stops it reading as a finding whose track went missing.
         var about = document.createElement('span');
         about.className = 'issue-about';
-        about.textContent = text(f.scope) === 'tape'
+        about.textContent = text(f.scope) === 'group'
           ? 'about the whole tape'
-          : (text(f.song_title) || 'track ' + text(f.song_id));
+          : (text(f.subject_label) || 'track ' + text(f.subject_id));
         head.appendChild(about);
 
         item.appendChild(head);
@@ -602,14 +619,16 @@
         go.className = 'btn small';
         go.textContent = 'Go to';
         go.href = tapeRoomHref(f);
-        go.title = text(f.scope) === 'tape'
+        go.title = text(f.scope) === 'group'
           ? 'Open the Tape Room on this tape.'
           : 'Open the Tape Room on this track, and ring it.';
         acts.appendChild(go);
 
-        // ONLY WHERE THERE IS A TRACK TO DELETE. A tape-scope finding names
-        // none, so the button is absent rather than greyed.
-        if (text(f.scope) !== 'tape' && f.song_id != null) {
+        // ONLY WHERE THERE IS SOMETHING THIS PAGE CAN DELETE. A finding about
+        // the list names nothing, and a Gift Shop finding names something this
+        // room has no write path to. Absent rather than greyed: a greyed button
+        // on most of a list is furniture.
+        if (deletableSubject(f)) {
           var del = document.createElement('button');
           del.type = 'button';
           del.className = 'btn small issue-del';
@@ -649,10 +668,10 @@
       // is that pair, built exactly as the room builds it.
       function tapeRoomHref(f) {
         var room = '/mc/soundtracks/';
-        if (text(f.scope) !== 'tape' && f.song_id != null) {
-          return room + '?track=' + encodeURIComponent(String(f.song_id));
+        if (text(f.scope) !== 'group' && f.subject_id != null) {
+          return room + '?track=' + encodeURIComponent(String(f.subject_id));
         }
-        var key = JSON.stringify([text(f.city_slug), text(f.tape)]);
+        var key = JSON.stringify([text(f.group_key), text(f.group_label)]);
         return room + '?tape=' + encodeURIComponent(key);
       }
 
@@ -675,17 +694,22 @@
         btn.textContent = 'Clearing';
         var ok = false;
         try {
-          var res = await fetch(restUrl('rpc/tgb_resolve_soundtrack_finding'), {
-            method: 'POST',
-            headers: authHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ p_id: f.id, p_status: 'fixed' })
+          // CLEARING IS A DELETE. A finding has no cleared state to be in: the
+          // row going is what says it is dealt with, and it is also what frees
+          // the fingerprint so the next audit can file it again if the problem
+          // is still there. That recurrence is the only check a fix landed.
+          var res = await fetch(restUrl('issues?id=eq.' + encodeURIComponent(f.id)), {
+            method: 'DELETE',
+            headers: authHeaders({ Prefer: 'return=representation' })
           });
           if (!res.ok) throw new Error('Supabase ' + res.status
             + ((await res.text().catch(function () { return ''; })).slice(0, 160)));
-          // THE FUNCTION ANSWERS TRUE OR FALSE, and false means it matched no
-          // open finding. Reporting that as success would leave a row on screen
-          // that a reload brings straight back.
-          ok = await res.json().catch(function () { return false; });
+          // THE ROW IS READ BACK. PostgREST answers 200 with an EMPTY ARRAY
+          // when RLS refuses a write, so without this a refused clear reports
+          // success and the card vanishes until a reload brings it straight
+          // back.
+          var rows = await res.json().catch(function () { return []; });
+          ok = Array.isArray(rows) && rows.length > 0;
         } catch (error) {
           console.error(error);
           setNotice('could not clear that finding: ' + ((error && error.message) || 'write failed'), 'error');
@@ -694,7 +718,8 @@
           return;
         }
         if (!ok) {
-          setNotice('that finding was already cleared by somebody else', 'error');
+          setNotice('nothing was cleared. Either somebody else cleared it, or '
+            + 'the database refused the write -- sign in again and retry.', 'error');
           btn.disabled = false;
           btn.textContent = was;
           return;
@@ -750,7 +775,7 @@
           return;
         }
 
-        title.textContent = 'Delete ' + (text(f.song_title) || 'this track') + '?';
+        title.textContent = 'Delete ' + (text(f.subject_label) || 'this track') + '?';
         words.textContent = 'This cannot be undone, and the bot may find it and file it '
           + 'again. The finding goes with it.';
         foot.textContent = '';
@@ -758,14 +783,14 @@
         card.hidden = false;
 
         // WHETHER SHELVING WOULD DO ANYTHING IS A FACT THIS PAGE DOES NOT HOLD.
-        // `soundtrack_findings` carries no `archived`, so the state is asked for
+        // `public.issues` carries no `archived`, so the state is asked for
         // when the question opens rather than guessed: offering Shelve instead
         // on an already shelved track would write true over true and report a
         // success that changed nothing.
         var isLive = null;
         try {
           var res = await fetch(restUrl('soundtrack?select=archived&id=eq.'
-            + encodeURIComponent(String(f.song_id))), { headers: authHeaders(), cache: 'no-store' });
+            + encodeURIComponent(String(f.subject_id))), { headers: authHeaders(), cache: 'no-store' });
           if (res.ok) {
             var rows = await res.json().catch(function () { return []; });
             if (Array.isArray(rows) && rows.length) isLive = rows[0].archived === false;
@@ -806,7 +831,7 @@
         var opts = { method: method, headers: authHeaders(headers) };
         if (body) opts.body = JSON.stringify(body);
         var res = await fetch(restUrl('soundtrack?id=eq.'
-          + encodeURIComponent(String(f.song_id))), opts);
+          + encodeURIComponent(String(f.subject_id))), opts);
         if (!res.ok) {
           var detail = await res.text().catch(function () { return ''; });
           throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
@@ -836,7 +861,7 @@
         // now match no open finding.
         markSettled(f, 'track deleted');
         closeTrackDelete();
-        setNotice('deleted ' + (text(f.song_title) || 'the track') + ', and its findings with it', 'success');
+        setNotice('deleted ' + (text(f.subject_label) || 'the track') + ', and its findings with it', 'success');
       }
 
       async function shelveTrack(f) {
@@ -858,12 +883,14 @@
         // finding is dealt with is a separate judgement, so the card keeps its
         // Clear button and simply says what happened.
         closeTrackDelete();
-        setNotice('shelved ' + (text(f.song_title) || 'the track')
+        setNotice('shelved ' + (text(f.subject_label) || 'the track')
           + '. Clear the finding too if it is dealt with.', 'success');
       }
 
+      // SETTLED IS AN IN-MEMORY STATE. The row it describes has been deleted;
+      // this only keeps the card in place saying what happened to it.
       function markSettled(f, why) {
-        f.status = 'fixed';
+        f.status = 'settled';
         var item = document.querySelector('[data-finding-id="' + f.id + '"]');
         if (!item) return;
         item.classList.add('is-cleared');
@@ -985,18 +1012,14 @@
         // several of a run's findings are about the LIST. Counting them is what
         // lets the buttons say how many they will really reach instead of
         // implying all of them.
-        var withTrack = list.filter(function (f) {
-          return text(f.scope) !== 'tape' && f.song_id != null;
-        });
-        var trackIds = withTrack.map(function (f) { return String(f.song_id); });
+        var withTrack = list.filter(deletableSubject);
+        var trackIds = withTrack.map(function (f) { return String(f.subject_id); });
         // ONE TRACK MAY CARRY SEVERAL FINDINGS, so the count of tracks is not
         // the count of findings and saying otherwise would overstate the act.
         var uniqueTracks = Object.keys(trackIds.reduce(function (m, id) { m[id] = 1; return m; }, {}));
         // THE OTHER HALF OF A MIXED SELECTION: the findings with no track to
         // act on, which only clearing can settle.
-        var tapeOnly = list.filter(function (f) {
-          return text(f.scope) === 'tape' || f.song_id == null;
-        });
+        var tapeOnly = list.filter(function (f) { return !deletableSubject(f); });
         var mixed = uniqueTracks.length > 0 && tapeOnly.length > 0;
         // THE LABEL SAYS BOTH HALVES, because on a mixed selection one press
         // does two different things to two different sets of rows and a button
@@ -1062,34 +1085,35 @@
         card.hidden = false;
       }
 
-      // CLEARING IS ONE CALL PER FINDING, because `tgb_resolve_soundtrack_finding`
-      // takes ONE id: a finding lives inside a jsonb array on its track, so there
-      // is no filter that reaches several at once. The count of successes is
-      // reported rather than assumed -- the function answers false when it
-      // matched no OPEN finding, and calling that a success would leave rows on
-      // screen that a reload brings straight back.
-      // ONE RPC PER FINDING, because `tgb_resolve_soundtrack_finding` takes one
-      // id. Shared by Clear all and by the mixed delete below, so there is one
-      // idea of what clearing a finding does and one place it is counted.
+      // ONE REQUEST FOR THE LOT, `id=in.(...)`, because clearing is a plain
+      // DELETE now rather than a function taking one id. Shared by Clear all
+      // and by the mixed delete below, so there is one idea of what clearing a
+      // finding does and one place it is counted.
       async function clearEach(list) {
-        var done = 0, refused = 0;
-        for (var i = 0; i < list.length; i++) {
-          var f = list[i];
-          try {
-            var res = await fetch(restUrl('rpc/tgb_resolve_soundtrack_finding'), {
-              method: 'POST',
-              headers: authHeaders({ 'Content-Type': 'application/json' }),
-              body: JSON.stringify({ p_id: f.id, p_status: 'fixed' })
-            });
-            if (!res.ok) throw new Error('Supabase ' + res.status);
-            var ok = await res.json().catch(function () { return false; });
-            if (ok) { markSettled(f, 'cleared'); done += 1; } else refused += 1;
-          } catch (error) {
-            console.error(error);
-            refused += 1;
-          }
+        if (!list.length) return { done: 0, refused: 0 };
+        var ids = list.map(function (f) { return encodeURIComponent(f.id); });
+        var rows;
+        try {
+          var res = await fetch(restUrl('issues?id=in.(' + ids.join(',') + ')'), {
+            method: 'DELETE',
+            headers: authHeaders({ Prefer: 'return=representation' })
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          rows = await res.json().catch(function () { return []; });
+        } catch (error) {
+          console.error(error);
+          return { done: 0, refused: list.length };
         }
-        return { done: done, refused: refused };
+        if (!Array.isArray(rows)) rows = [];
+        // WHAT CAME BACK IS WHAT WENT, not what was asked for. A short reply is
+        // reported rather than rounded up: saying "cleared 12" about 9 is the
+        // quiet sort of lie this project has been caught by before.
+        var gone = rows.reduce(function (m, r) { m[String(r.id)] = 1; return m; }, {});
+        var done = 0;
+        list.forEach(function (f) {
+          if (gone[String(f.id)]) { markSettled(f, 'cleared'); done += 1; }
+        });
+        return { done: done, refused: list.length - done };
       }
 
       function letGo() {
@@ -1183,7 +1207,7 @@
         // including the ones that were not selected.
         var gone = ids.reduce(function (m, id) { m[String(id)] = 1; return m; }, {});
         findings.forEach(function (f) {
-          if (f.song_id != null && gone[String(f.song_id)]) markSettled(f, 'track deleted');
+          if (f.subject_id != null && gone[String(f.subject_id)]) markSettled(f, 'track deleted');
         });
         // THE OTHER HALF, and only the ones the deletes did not already settle:
         // a tape-scope finding cannot be, but a re-read of the list is cheaper
@@ -1246,13 +1270,19 @@
 
       async function load() {
         try {
-          // THE VIEW, NOT THE TABLE. Findings live in a jsonb array on
-          // public.soundtrack, which PostgREST cannot count or list;
-          // soundtrack_findings flattens them to one row each. It is
-          // security_invoker and granted to `authenticated` only, because a
-          // finding is an internal editorial note.
-          findings = await fetchAllRows(
-            'soundtrack_findings?select=*&order=created_at.desc');
+          // `public.issues`, ONE ROW PER FINDING, and every row in it is open
+          // by definition: clearing one DELETES it. There is no status column
+          // and nothing to filter on.
+          //
+          // ADMIN-READ ONLY. `anon` has no policy at all, so a lapsed session
+          // is a 401 rather than an empty list -- which matters, because an
+          // empty list and "nothing is wrong" look identical.
+          findings = await fetchAllRows('issues?select=*&order=created_at.desc');
+          // A LOCAL FLAG, NOT A COLUMN. The row is gone from the database the
+          // moment it is cleared; this is what keeps its card on screen and
+          // quiet, so three decisions in a row do not shuffle the list under
+          // the pointer.
+          findings.forEach(function (f) { f.status = 'open'; });
           render();
           setNotice('');
         } catch (error) {
