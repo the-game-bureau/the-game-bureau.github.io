@@ -878,12 +878,114 @@ async function postX(row: any): Promise<Outcome> {
   }
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+// ── THE SWEEP ───────────────────────────────────────────────────────────────
+//
+// Claims what is due and sends it down the SAME path a human press takes, so a
+// scheduled post and a pressed one cannot behave differently. The claim is one
+// SQL statement (`tgb_claim_due_socials`), which is what stops two overlapping
+// sweeps posting the same candidate twice -- and a post that goes out twice
+// cannot be taken back.
+async function runSweep(): Promise<Response> {
+  const { data: due, error: claimErr } = await supa.rpc('tgb_claim_due_socials', { p_limit: 5 });
+  if (claimErr) return json(500, { error: 'claim failed: ' + claimErr.message });
+  const rows: Array<{ id: string; platforms: string[] | null }> = Array.isArray(due) ? due : [];
+  if (!rows.length) return json(200, { sweep: true, claimed: 0 });
+
+  const done: unknown[] = [];
+  for (const claimed of rows) {
+    // WHAT WAS AGREED AT SCHEDULING TIME, not re-derived now. A candidate that
+    // gains an image between then and now must not silently acquire Instagram.
+    const wanted = (Array.isArray(claimed.platforms) ? claimed.platforms : [])
+      .map((p) => String(p).toLowerCase().trim())
+      .filter((p) => p === 'facebook' || p === 'instagram' || p === 'threads' || p === 'x');
+
+    if (!wanted.length) {
+      await supa.from('socials').update({
+        scheduled_state: 'failed',
+        scheduled_error: 'no machine account was recorded when this was scheduled',
+      }).eq('id', claimed.id);
+      done.push({ id: claimed.id, posted: [], error: 'no platforms' });
+      continue;
+    }
+
+    const { data: row, error: rowErr } = await supa
+      .from('socials').select('*').eq('id', claimed.id).maybeSingle();
+    if (rowErr || !row) {
+      await supa.from('socials').update({
+        scheduled_state: 'failed',
+        scheduled_error: 'the candidate could not be read: ' + (rowErr?.message ?? 'not found'),
+      }).eq('id', claimed.id);
+      done.push({ id: claimed.id, posted: [], error: 'lookup failed' });
+      continue;
+    }
+
+    const results: Outcome[] = [];
+    if (wanted.includes('facebook'))  results.push(await postFacebook(row));
+    if (wanted.includes('instagram')) results.push(await postInstagram(row));
+    if (wanted.includes('threads'))   results.push(await postThreads(row));
+    if (wanted.includes('x'))         results.push(await postX(row));
+
+    const posted = results.filter((r) => r.ok).map((r) => r.platform);
+    const PLATFORM_LABEL: Record<string, string> = {
+      facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', x: 'X',
+    };
+
+    if (posted.length) {
+      const existing: string[] = Array.isArray(row.posted_platforms) ? row.posted_platforms : [];
+      const merged = Array.from(new Set([...existing, ...posted.map((p) => PLATFORM_LABEL[p] ?? p)]));
+      await supa.from('socials').update({
+        status: 'posted',
+        posted_platforms: merged,
+        // THE SCHEDULE IS SPENT, so the state goes back to null rather than to
+        // a fourth value. `status = posted` is the record that it went.
+        scheduled_state: null,
+        scheduled_error: null,
+      }).eq('id', claimed.id);
+    } else {
+      // FAILED, NOT RETRIED. Every failure here is a credential or a refusal
+      // from the platform, and a sweep that retries every minute turns one bad
+      // token into a thousand refused requests. It waits for a person.
+      await supa.from('socials').update({
+        scheduled_state: 'failed',
+        scheduled_error: results.map((r) => r.platform + ': ' + (r.error ?? 'refused')).join('; ').slice(0, 500),
+      }).eq('id', claimed.id);
+    }
+    done.push({ id: claimed.id, posted, results });
+  }
+
+  return json(200, { sweep: true, claimed: rows.length, done });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST')    return json(405, { error: 'POST only' });
 
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader) return json(401, { error: 'missing Authorization' });
+
+  // ── THE SECOND DOOR: THE SCHEDULER ────────────────────────────────────
+  //
+  // `pg_cron` has no JWT, so the admin gate below is unreachable to it. A
+  // shared secret in `x-tgb-scheduler` lets the sweep in and NOTHING ELSE:
+  // this branch takes no id, no platform list and no body worth speaking of,
+  // so it cannot be used to post an arbitrary payload to our accounts. What it
+  // can do is exactly what a due row already says.
+  //
+  // THE SECRET IS COMPARED IN CONSTANT TIME. A timing oracle on a 64-character
+  // hex string is not a realistic attack here, but the comparison costs
+  // nothing and the alternative is a footnote explaining why it is fine.
+  const schedHeader = req.headers.get('x-tgb-scheduler') ?? '';
+  const schedSecret = Deno.env.get('TGB_SCHEDULER_SECRET') ?? '';
+  const isScheduler = !!schedSecret && !!schedHeader && timingSafeEqual(schedHeader, schedSecret);
+
+  if (isScheduler) return await runSweep();
 
   // Admin gate, same shape as upload-guide-image: the caller's own JWT is used
   // for the check so the answer is about them, not about the service role.

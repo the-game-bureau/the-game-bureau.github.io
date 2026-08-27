@@ -854,6 +854,40 @@
        destination at all; it simply must not wear the paint of the accounts
        that are actually go, or a card reading `Both` shows three identical
        buttons. The dashed edge is the room's existing idiom for provisional. */
+    /* LATER IS NOT AN ACCOUNT, so it does not wear the filled blue that means
+       "this account is a destination for this candidate". It is the one control
+       in the row that decides WHEN rather than WHERE. */
+    .post-platform--later { border-style: dashed; }
+
+    .post-platform--later.is-queued {
+      border-style: solid;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* A REFUSED SEND IS THE ONE STATE WORTH A COLOUR. Nothing is queued any
+       more and somebody has to look at it. */
+    .post-platform--later.is-failed { border-color: var(--bic-red); color: var(--bic-red); }
+
+    .sched-field { display: grid; gap: 4px; margin: 0 0 10px; }
+    .sched-field > span {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .sched-field input {
+      padding: 8px 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      font: inherit;
+    }
+    .sched-note:empty { display: none; }
+    .sched-note { color: var(--bic-red); }
+
     .post-platform.is-fallback {
       border-style: dashed;
       border-color: rgba(var(--bic-blue-rgb), 0.55);
@@ -3172,6 +3206,34 @@ Finish with the SQL block and that link, then a short summary below them: the fi
   <script src="/mc/js/follow-reel.js"></script>
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
+    <!-- ── SCHEDULE ────────────────────────────────────────────────────────
+         ABOVE THE SCRIPT THAT WIRES IT. An inline script runs as the parser
+         reaches it, so a dialog below it does not exist at wiring time and its
+         buttons attach to nothing -- silently, with the form looking right.
+         That cost an afternoon on /soundtracks/ yesterday. -->
+    <div class="tool-backdrop" id="schedBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel tool-modal-panel--ask" id="schedCard"
+             role="dialog" aria-modal="true" aria-labelledby="schedTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="schedTitle">Send it later</h2>
+        </div>
+      </div>
+      <div class="confirm-body">
+        <label class="sched-field">
+          <span>When</span>
+          <input id="schedWhen" type="datetime-local">
+        </label>
+        <p class="confirm-text">Going to <strong id="schedWhere"></strong>.
+          Nothing else about the candidate changes; you can call it off until it goes.</p>
+        <p class="confirm-text sched-note" id="schedNote"></p>
+        <div class="confirm-actions">
+          <button class="btn" id="schedCancel" type="button">Cancel</button>
+          <button class="btn primary" id="schedGo" type="button">Schedule it</button>
+        </div>
+      </div>
+    </section>
+
   <script>
     (function () {
       'use strict';
@@ -3213,6 +3275,49 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       var manualForm = document.getElementById('manualPostForm');
       var manualStatus = document.getElementById('manualStatus');
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
+      // ── THE SCHEDULE DIALOG ───────────────────────────────────────────
+      (function wireSchedule() {
+        var card = document.getElementById('schedCard');
+        var go = document.getElementById('schedGo');
+        var cancel = document.getElementById('schedCancel');
+        var back = document.getElementById('schedBackdrop');
+        if (!card || !go) return;
+        if (cancel) cancel.addEventListener('click', closeScheduleDialog);
+        if (back) back.addEventListener('click', closeScheduleDialog);
+        go.addEventListener('click', function () {
+          var when = document.getElementById('schedWhen').value;
+          var note = document.getElementById('schedNote');
+          if (!when) { note.textContent = 'Pick a time first.'; return; }
+          var at = new Date(when);
+          if (isNaN(at.getTime())) { note.textContent = 'That is not a time.'; return; }
+          // A TIME ALREADY PAST IS REFUSED IN FRONT OF YOU. The sweep would take
+          // it on its next pass, a minute later, which is not what "later"
+          // means and is indistinguishable from pressing the account button.
+          if (at.getTime() <= Date.now()) {
+            note.textContent = 'That is in the past. Post it now instead, or pick a later time.';
+            return;
+          }
+          var row = currentRow(card.dataset.rowId, null);
+          if (!row) { note.textContent = 'That candidate is no longer loaded. Reload and try again.'; return; }
+          var keys = String(card.dataset.keys || '').split(',').filter(Boolean);
+          writeSchedule(row, {
+            scheduled_for: at.toISOString(),
+            // THE ACCOUNTS ARE FIXED NOW, not re-derived at send time: what a
+            // person agreed to send is what goes.
+            scheduled_platforms: keys,
+            scheduled_state: 'queued',
+            scheduled_error: null
+          }, go, null).then(function (saved) {
+            if (saved) closeScheduleDialog();
+          });
+        });
+        // ESCAPE CLOSES IT FIRST, being the thing on top when it is open.
+        document.addEventListener('keydown', function (event) {
+          if (event.key !== 'Escape') return;
+          if (!card.hidden) { event.stopPropagation(); closeScheduleDialog(); }
+        }, true);
+      })();
+
       var confirmCard = document.getElementById('confirmCard');
       var confirmBackdrop = document.getElementById('confirmBackdrop');
       var postCloseBtn = document.querySelector('[data-post-close]');
@@ -7342,6 +7447,126 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         });
       }
 
+      // ── SCHEDULING ────────────────────────────────────────────────────────
+      //
+      // `scheduled_state` is the truth and the page never guesses it: the sweep
+      // in the database moves it, so a card that worked it out for itself would
+      // disagree with what actually went out.
+      function scheduledState(row) {
+        return row && row.scheduled_state ? String(row.scheduled_state) : '';
+      }
+
+      function scheduledWhen(row) {
+        if (!row || !row.scheduled_for) return '';
+        var d = new Date(row.scheduled_for);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleString(undefined, {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit'
+        });
+      }
+
+      function paintLaterBtn(btn, row) {
+        var state = scheduledState(row);
+        btn.classList.toggle('is-queued', state === 'queued');
+        btn.classList.toggle('is-failed', state === 'failed');
+        if (state === 'queued') {
+          btn.textContent = 'Scheduled';
+          btn.title = 'Going out ' + (scheduledWhen(row) || 'shortly')
+            + ' to ' + (row.scheduled_platforms || []).join(', ')
+            + '. Press to call it off.';
+          return;
+        }
+        if (state === 'failed') {
+          // FAILED IS NOT RETRIED BY THE SWEEP, deliberately: every failure here
+          // is a credential or a refusal, and retrying every minute turns one
+          // bad token into a thousand refused requests. It waits for a person.
+          btn.textContent = 'Later';
+          btn.title = 'The last scheduled send was refused: '
+            + (row.scheduled_error || 'no reason recorded')
+            + '. Nothing is queued; press to try again.';
+          return;
+        }
+        btn.textContent = 'Later';
+        btn.title = 'Send it at a time you choose instead of now.';
+      }
+
+      async function writeSchedule(row, patch, btn, feedbackEl) {
+        var was = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Saving';
+        var rows;
+        try {
+          var res = await fetch(restUrl('socials?id=eq.' + encodeURIComponent(row.id)), {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json',
+              Prefer: 'return=representation' }),
+            body: JSON.stringify(patch)
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          rows = await res.json().catch(function () { return []; });
+        } catch (error) {
+          console.error(error);
+          stick(feedbackEl, (error && error.message) || 'could not save that');
+          btn.disabled = false;
+          btn.textContent = was;
+          return null;
+        }
+        // READ BACK. PostgREST answers 200 with an empty array when RLS refuses
+        // a write, so without this a refused schedule reports success and the
+        // card claims a post that will never go.
+        if (!Array.isArray(rows) || !rows.length) {
+          stick(feedbackEl, 'the database refused that. Sign in again and retry.');
+          btn.disabled = false;
+          btn.textContent = was;
+          return null;
+        }
+        btn.disabled = false;
+        Object.assign(row, rows[0]);
+        renderQueue();
+        return rows[0];
+      }
+
+      function cancelSchedule(row, btn, feedbackEl) {
+        writeSchedule(row, {
+          scheduled_for: null, scheduled_platforms: null,
+          scheduled_state: null, scheduled_error: null
+        }, btn, feedbackEl).then(function (saved) {
+          if (saved) stick(feedbackEl, 'called off. Nothing is queued for this one.');
+        });
+      }
+
+      function openScheduleDialog(row, keys, feedbackEl) {
+        var back = document.getElementById('schedBackdrop');
+        var card = document.getElementById('schedCard');
+        if (!back || !card) return;
+        // A DEFAULT AN HOUR OUT, rounded to the next five minutes. An empty box
+        // makes somebody do arithmetic to answer "later".
+        var when = new Date(Date.now() + 60 * 60 * 1000);
+        when.setSeconds(0, 0);
+        when.setMinutes(Math.ceil(when.getMinutes() / 5) * 5);
+        var pad = function (n) { return String(n).padStart(2, '0'); };
+        document.getElementById('schedWhen').value =
+          when.getFullYear() + '-' + pad(when.getMonth() + 1) + '-' + pad(when.getDate())
+          + 'T' + pad(when.getHours()) + ':' + pad(when.getMinutes());
+        document.getElementById('schedWhere').textContent = keys.map(function (k) {
+          return WIRE_LABELS[k] || k;
+        }).join(', ');
+        document.getElementById('schedNote').textContent = '';
+        card.dataset.rowId = row.id;
+        card.dataset.keys = keys.join(',');
+        back.hidden = false;
+        card.hidden = false;
+        document.getElementById('schedWhen').focus();
+      }
+
+      function closeScheduleDialog() {
+        var back = document.getElementById('schedBackdrop');
+        var card = document.getElementById('schedCard');
+        if (back) back.hidden = true;
+        if (card) card.hidden = true;
+      }
+
       function buildPostControls(post, feedbackEl, onDone, stableId) {
         var stateKey = stableId || postId(post);
 
@@ -7414,6 +7639,35 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           flushOpenEdit().then(function () { postKeys(keys, allBtn); });
         });
         group.appendChild(allBtn);
+
+        // ── LATER ────────────────────────────────────────────────────────────
+        //
+        // NOW IS THE DEFAULT AND STAYS THE DEFAULT. Every account button posts
+        // immediately, exactly as it did; this is one more control beside them
+        // rather than a question asked before any of them.
+        //
+        // IT IS THE SAME DECISION, DEFERRED. The human-in-the-loop rule this
+        // room is built on is about the BOT not choosing what goes out -- that
+        // is untouched. Here a person has chosen the candidate and the accounts;
+        // only the moment moves.
+        var laterBtn = document.createElement('button');
+        laterBtn.type = 'button';
+        laterBtn.className = 'btn small post-platform post-platform--later';
+        laterBtn.addEventListener('click', function () {
+          if (postingLock) return;
+          clearNotice(feedbackEl);
+          var row = currentRow(stateKey, post);
+          if (scheduledState(row) === 'queued') { cancelSchedule(row, laterBtn, feedbackEl); return; }
+          var keys = machineTargets(row);
+          if (!keys.length) {
+            stick(feedbackEl, 'Nothing here can be posted by machine, so there is nothing to '
+              + 'schedule. X, YouTube and Notes are done by hand.');
+            return;
+          }
+          openScheduleDialog(row, keys, feedbackEl);
+        });
+        group.appendChild(laterBtn);
+        paintLaterBtn(laterBtn, currentRow(stateKey, post));
 
         // ── the account options ─────────────────────────────────────────────
         PLATFORM_ROW.forEach(function (key) {

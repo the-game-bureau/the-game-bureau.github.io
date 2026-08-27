@@ -3407,6 +3407,66 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 - **Auth is the same gate `socials-post` uses**: the caller's own JWT against `is_photo_admin()`. Not because a public meta tag is secret, but because an open URL-fetcher on our project is a thing other people will find.
 - **The button fills the box; it does not save.** You look at the picture and then decide, which is why the dialog shows one. It is greyed with an explanatory tooltip on a candidate with no link.
 
+### POST NOW, OR AT A TIME YOU CHOOSE (2026-08-27)
+
+A **Later** button beside the account buttons. [2026082707_socials_scheduling.sql](mc/supabase/migrations/2026082707_socials_scheduling.sql),
+**applied**, plus a change to `socials-post` and a **deploy**.
+
+- **DOES THIS BREAK THE HUMAN-IN-THE-LOOP RULE? NO, AND THE DISTINCTION MATTERS.**
+  That rule is about the BOT deciding what goes out, and it is untouched: TGB
+  SOCIALIZER BOT still files candidates and still cannot post one. What is
+  scheduled here is a decision a HUMAN has already taken -- this candidate, to
+  these accounts -- and merely deferred. **Nothing chooses; something waits.**
+  If that stops being true, check that `scheduled_*` is only ever written by an
+  admin in the room and never by a routine.
+- **NOW IS STILL THE DEFAULT.** Every account button posts on the press exactly
+  as it did. Later is one more control beside them, not a question asked before
+  any of them.
+- **`pg_cron` EVERY MINUTE, NOT A CLAUDE ROUTINE.** The six routines run twice a
+  day at fixed minutes, so a post scheduled for 3:47pm would go out at 3am. The
+  cron calls `socials-post` through `pg_net`, and that function already runs as
+  the service role, so **the path is identical from the moment it is called**.
+- **THE CREDENTIAL PROBLEM, SOLVED WITHOUT A SERVICE KEY.** `socials-post` gates
+  on the caller's own JWT and a cron has none; this project has no service-role
+  key either. So the function has a SECOND door: a shared secret in
+  `x-tgb-scheduler`, which reaches **only** the sweep and cannot post an
+  arbitrary payload. The secret is in Vault (for the cron) and in the function's
+  secrets (for the check); neither is reachable from the public page.
+  - **THE GATEWAY REJECTS A NON-KEY BEARER BEFORE THE FUNCTION RUNS.**
+    `Authorization: Bearer scheduler` came back `UNAUTHORIZED_INVALID_JWT_FORMAT`
+    from the platform, not from our code. The cron sends the **publishable key**
+    -- which is public and authorises nothing here -- and the scheduler secret is
+    what actually lets it through.
+  - **THE SECRET IS NOT IN THE CRON COMMAND.** `cron.job` is readable by anything
+    that can read the catalog, so the command is one function call and the
+    function reads Vault.
+- **THE CLAIM IS ONE SQL STATEMENT.** `tgb_claim_due_socials` is an
+  `update ... where scheduled_state = 'queued' returning`, atomic per row, so
+  two overlapping sweeps cannot take the same candidate. **A select-then-update
+  would post twice, and a post that goes out twice cannot be taken back.**
+- **THE ACCOUNTS ARE FIXED AT SCHEDULING TIME, not re-derived at send time.** A
+  candidate that gains an image between now and then must not silently acquire
+  Instagram. What a person agreed to send is what goes.
+- **A CANDIDATE POSTED OR SKIPPED IN THE MEANTIME IS DROPPED.** Somebody changed
+  their mind, and the schedule must not overrule them.
+- **A FAILED SEND IS NOT RETRIED.** Every failure here is a credential or a
+  refusal, and a sweep retrying every minute turns one bad token into a thousand
+  refused requests. It records why and waits for a person.
+- **THE SWEEP CALLS NOTHING WHEN NOTHING IS DUE.** A request a minute against an
+  empty queue is a request a minute.
+- **A TIME IN THE PAST IS REFUSED IN THE FORM.** The sweep would take it on its
+  next pass, which is not what "later" means and is indistinguishable from
+  pressing the account button.
+
+**PROVED END TO END WITHOUT POSTING ANYTHING.** A probe queued a minute in the
+past with an EMPTY platform list: pg_cron took it within seconds, the sweep
+claimed it, found no accounts and marked it `failed` with *"no machine account
+was recorded when this was scheduled"*. That exercises cron, Vault, pg_net, the
+gateway, the scheduler door, the atomic claim and the state transition, and
+sends nothing. The deploy itself was proved by a call, per the standing rule:
+anon gets `not authorized` rather than `BOOT_ERROR`, a WRONG secret falls
+through to the admin gate, and the real one answers `{"sweep":true,"claimed":0}`.
+
 ### Posting: three accounts, two credentials, one that expires
 
 **Post** calls the [socials-post](mc/supabase/functions/socials-post/index.ts) Edge Function, which holds every token. The page holds none and never will — it is static HTML in a public repo, so a token in it is a published token. `PLATFORM_AUTOPOST` in [mc/socializer/index.html](mc/socializer/index.html) is only a flag saying whether the function can genuinely post there; flipping one on without its secret turns Post into a button that reports a failure the page could have predicted.
