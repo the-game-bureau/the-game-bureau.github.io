@@ -44,7 +44,13 @@
     // ITS OWN ROOM SINCE 2026-08-26. The tape-room sentence above used to end
     // "turn tapes live, edit them and fix issues", which stopped being true the
     // day the findings came out of that room.
-    'issues': 'What the daily audit found wrong with the tapes. Every finding the soundtrack bot has filed, in one place.',
+    //
+    // IT DESCRIBES WHAT THE ROOM IS FOR, NOT WHAT IS CURRENTLY IN IT. The
+    // sentence was "what the daily audit found wrong with the tapes", which
+    // names soundtracks as the whole subject and the bot as the only writer.
+    // Both are true today and neither is the point of the room: it is where a
+    // person decides, and the Gift Shop's findings belong here too.
+    'issues': "We all have issues! This is where you'll find things that need correcting, from soundtracks to the Gift Shop. This is where you add the human element to what we do.",
     'socializer': 'Social media posts are added here manually or through ai. Edit then skip or post each one.'
   };
 
