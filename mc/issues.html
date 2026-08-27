@@ -992,6 +992,18 @@
         // ONE TRACK MAY CARRY SEVERAL FINDINGS, so the count of tracks is not
         // the count of findings and saying otherwise would overstate the act.
         var uniqueTracks = Object.keys(trackIds.reduce(function (m, id) { m[id] = 1; return m; }, {}));
+        // THE OTHER HALF OF A MIXED SELECTION: the findings with no track to
+        // act on, which only clearing can settle.
+        var tapeOnly = list.filter(function (f) {
+          return text(f.scope) === 'tape' || f.song_id == null;
+        });
+        var mixed = uniqueTracks.length > 0 && tapeOnly.length > 0;
+        // THE LABEL SAYS BOTH HALVES, because on a mixed selection one press
+        // does two different things to two different sets of rows and a button
+        // reading "Delete tracks" would be describing half of what it does.
+        var doLabel = 'Delete ' + uniqueTracks.length
+          + (uniqueTracks.length === 1 ? ' track' : ' tracks')
+          + (mixed ? ', clear ' + tapeOnly.length : '');
 
         foot.textContent = '';
         function btn(label, cls, onClick) {
@@ -1006,31 +1018,42 @@
 
         if (!batchPendingDelete) {
           title.textContent = n + ' findings selected';
-          words.textContent = uniqueTracks.length
-            ? ('They name ' + uniqueTracks.length
+          words.textContent = !uniqueTracks.length
+            ? 'All of them are about a tape rather than a track, so only clearing applies.'
+            : ('They name ' + uniqueTracks.length
                + (uniqueTracks.length === 1 ? ' track' : ' distinct tracks') + '.'
-               + (uniqueTracks.length < n ? ' The rest are about a tape rather than a track.' : ''))
-            : 'All of them are about a tape rather than a track, so only clearing applies.';
+               + (mixed
+                  ? (tapeOnly.length === 1
+                     ? ' The other one is about a tape, so there is nothing to delete for '
+                       + 'it: deleting clears it instead.'
+                     : ' The other ' + tapeOnly.length + ' are about a tape, so there is '
+                       + 'nothing to delete for them: deleting clears those instead.')
+                  : ''));
           btn('Clear all', 'primary', function () { batchClear(list); });
           if (uniqueTracks.length) {
             btn('Shelve tracks', '', function () { batchShelve(uniqueTracks, list); });
-            btn('Delete tracks', 'warn', function () { batchPendingDelete = true; paintBatch(); });
+            btn(doLabel, 'warn', function () { batchPendingDelete = true; paintBatch(); });
           }
           btn('Done', '', closeBatch);
         } else {
-          title.textContent = 'Delete ' + uniqueTracks.length
-            + (uniqueTracks.length === 1 ? ' track' : ' tracks') + ' for good?';
+          title.textContent = doLabel + '?';
           words.textContent = 'This cannot be undone, and the bot may find them and file '
             + 'them again. Their findings go with them. Shelving keeps them off '
-            + '/soundtracks/ and stops that.';
+            + '/soundtracks/ and stops that.'
+            + (mixed
+               ? (tapeOnly.length === 1
+                  ? ' The one about a tape has no track to delete, so it is cleared '
+                    + 'instead. Shelving does not touch it.'
+                  : ' The ' + tapeOnly.length + ' about a tape have no track to delete, '
+                    + 'so they are cleared instead. Shelving does not touch them.')
+               : '');
           btn('Shelve instead', 'primary', function () {
             batchPendingDelete = false;
             batchShelve(uniqueTracks, list);
           });
-          var go = btn('Delete ' + uniqueTracks.length
-            + (uniqueTracks.length === 1 ? ' track' : ' tracks'), 'warn', function () {
+          var go = btn(doLabel, 'warn', function () {
             go.disabled = true;
-            batchDelete(uniqueTracks, withTrack);
+            batchDelete(uniqueTracks, withTrack, tapeOnly);
           });
           btn('Back', '', function () { batchPendingDelete = false; paintBatch(); });
         }
@@ -1045,7 +1068,10 @@
       // reported rather than assumed -- the function answers false when it
       // matched no OPEN finding, and calling that a success would leave rows on
       // screen that a reload brings straight back.
-      async function batchClear(list) {
+      // ONE RPC PER FINDING, because `tgb_resolve_soundtrack_finding` takes one
+      // id. Shared by Clear all and by the mixed delete below, so there is one
+      // idea of what clearing a finding does and one place it is counted.
+      async function clearEach(list) {
         var done = 0, refused = 0;
         for (var i = 0; i < list.length; i++) {
           var f = list[i];
@@ -1063,10 +1089,20 @@
             refused += 1;
           }
         }
-        closeBatch();
+        return { done: done, refused: refused };
+      }
+
+      function letGo() {
         picked = Object.create(null);
         paintPickAll();
         paintBatchButton();
+      }
+
+      async function batchClear(list) {
+        var tally = await clearEach(list);
+        var done = tally.done, refused = tally.refused;
+        closeBatch();
+        letGo();
         setNotice('cleared ' + done + (refused ? ', ' + refused + ' were refused' : ''),
           refused ? 'error' : 'success');
       }
@@ -1113,7 +1149,17 @@
           + '. Their findings are still open.', short ? 'error' : 'success');
       }
 
-      async function batchDelete(ids, withTrack) {
+      // A MIXED SELECTION IS ONE DECISION, so it takes one press: the tracks
+      // that are named get deleted, and the findings that name no track get
+      // cleared. `tapeOnly` is the second half.
+      //
+      // WHY THE TWO HALVES ARE DIFFERENT ACTS AT ALL. A finding lives in a
+      // jsonb column on the track it is about, so deleting the row settles it
+      // for free. A finding about the LIST -- short of 15, an artist twice --
+      // has no track to delete, and the only thing that settles it is somebody
+      // saying it is dealt with.
+      async function batchDelete(ids, withTrack, tapeOnly) {
+        tapeOnly = tapeOnly || [];
         var rows;
         try {
           rows = await batchWriteTracks(ids, 'DELETE', null);
@@ -1124,6 +1170,10 @@
           return;
         }
         if (!rows.length) {
+          // THE CLEARING HALF IS NOT ATTEMPTED. A refused delete is almost
+          // always a lapsed session, so the second half would be refused too --
+          // and clearing findings after failing to delete the tracks would
+          // leave the room saying the work is done when none of it is.
           setNotice('the database refused that. Sign in again and retry.', 'error');
           closeBatch();
           return;
@@ -1135,14 +1185,25 @@
         findings.forEach(function (f) {
           if (f.song_id != null && gone[String(f.song_id)]) markSettled(f, 'track deleted');
         });
+        // THE OTHER HALF, and only the ones the deletes did not already settle:
+        // a tape-scope finding cannot be, but a re-read of the list is cheaper
+        // to guard than to explain.
+        var left = tapeOnly.filter(function (f) { return text(f.status) === 'open'; });
+        var tally = left.length ? await clearEach(left) : { done: 0, refused: 0 };
+
         closeBatch();
-        picked = Object.create(null);
-        paintPickAll();
-        paintBatchButton();
+        letGo();
         var missed = ids.length - rows.length;
         var short = missed ? ' (' + missed + (missed === 1 ? ' was' : ' were') + ' refused)' : '';
-        setNotice('deleted ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + short
-          + ', and their findings with them', short ? 'error' : 'success');
+        var said = 'deleted ' + rows.length + (rows.length === 1 ? ' track' : ' tracks') + short
+          + ', and their findings with them';
+        if (tally.done) {
+          said += '; cleared ' + tally.done + ' about a tape'
+            + (tally.refused ? ', ' + tally.refused + ' refused' : '');
+        } else if (tally.refused) {
+          said += '; could not clear ' + tally.refused + ' about a tape';
+        }
+        setNotice(said, (short || tally.refused) ? 'error' : 'success');
       }
 
       function render() {
