@@ -369,6 +369,29 @@ Kevin can settle them.
 
 ---
 
+## TAGGING A TRACK SPORTS DID NOT STICK, AND THE WRITE WAS ALWAYS FINE (2026-08-27)
+
+The box flicked back to unticked the instant it was ticked.
+
+- **THE PATCH LANDED EVERY TIME.** `commit` put `sports` in `fields`, the
+  request carried `"sports":true`, and the database took it. What was missing
+  was one line in `saveTrackFields`: after a successful write that function
+  copies each field back onto the **in-memory** song, and `sports` was not among
+  them. The repaint then rebuilt the row from a song that still said false.
+- **SO IT WAS A DISPLAY BUG WEARING A WRITE BUG'S CLOTHES**, and reloading the
+  page would have shown the tag was there all along.
+- **NO WRITE-PATH TEST COULD HAVE CAUGHT IT.** Asserting the request was sent
+  passes. Reading the row back from the database passes. **Only reading the
+  CHECKBOX after the repaint fails**, which is what the new check does -- and it
+  was run against the unfixed file to prove it fails there.
+- **`explicit` WAS HANDLED AND `sports` WAS NOT**, which is the shape to watch:
+  the two are drawn side by side and written together, so the missing one looks
+  present. **`fields` and that copy-back are two lists that have to agree; add a
+  column to both.**
+- **THE FILTER IS THE SECOND HALF OF THE PROOF.** `trackPassesFilters` reads the
+  same in-memory `song.sports`, so choosing Sports after tagging finds the track
+  only if the row really moved. Before the fix it found nothing.
+
 ## THE SELECT BOX IS BATCH EDIT, AND IT HOLDS THE BUTTON (2026-08-27)
 
 The second bar row reads **ADD | VIEW** then **BATCH EDIT | FILTER | NAV**. The

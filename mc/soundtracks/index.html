@@ -3831,6 +3831,19 @@
         if (fields.blurb) song.blurb = fields.blurb; else delete song.blurb;
         if (fields.spotify_id) song.spotifyId = fields.spotify_id; else delete song.spotifyId;
         if (fields.explicit) song.explicit = true; else delete song.explicit;
+        // SPORTS WAS MISSING HERE AND THE WRITE WAS ALWAYS FINE. The PATCH
+        // carried `"sports":true` and landed; this loop then rebuilt the row
+        // from the in-memory song, which still said false, so the box flicked
+        // back the instant it was ticked and the tag read as not sticking.
+        //
+        // THE FAILURE IS INVISIBLE TO A WRITE-PATH TEST. Anything that asserts
+        // the request was sent, or reads the row back from the database, passes.
+        // Only a check that reads the CHECKBOX after the repaint catches it.
+        //
+        // EVERY FIELD ON `fields` HAS TO BE COPIED BACK, and this is the second
+        // list that has to agree with it. If a column is ever added here, add it
+        // in both places.
+        if (fields.sports) song.sports = true; else delete song.sports;
         renderTrackArchive('saved — ' + songDisplay(song), 'success');
         return { ok: true };
       }
