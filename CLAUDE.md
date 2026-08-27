@@ -369,6 +369,37 @@ Kevin can settle them.
 
 ---
 
+## THE TRACK FILTER DECIDES WHICH TAPES ARE LISTED (2026-08-27)
+
+**ALL and LIVE list only the tapes carrying a live track**, which makes both of
+them "the tapes a visitor can actually see": `/soundtracks/` draws a tape when at
+least one of its tracks is live, and this is the same test.
+
+- **SO ALL DOES NOT MEAN EVERY TAPE, and the naming tension is real.** **9 of the
+  114 qualify today.** It is the right trade because the room is for working on
+  tapes that are up; a fully shelved tape reached under ALL is a page of rows
+  with nothing at stake.
+- **THE OTHER THREE ARE HOW YOU REACH THE REST.** Shelved lists every tape
+  holding a shelved track, which is all of them. Explicit and Sports list the
+  tapes holding one. **Nothing is unreachable**, and a tape you cannot find under
+  ALL is one press away.
+- **AND NO FILTER CAN LAND YOU ON AN EMPTY TAPE ANY MORE**, which is the older
+  fault this fixes: stepping through Live used to walk you across tapes with
+  nothing on them, and the pager counted them.
+- **CHOOSING A TRACK FILTER RESETS TO THE TOP**, the same rule the place picker
+  keeps. It decides which tapes are listed now, so holding the position would
+  land you on whatever happens to be third in a completely different list.
+- **CHOOSING ALL TAPES GIVES THE BARE URL.** `?tape=` records which tape you are
+  on; going back to ALL TAPES is a return to the catalogue, so the address is
+  the catalogue. **A ONE-SHOT FLAG, not a rule about position** -- writing no
+  `?tape=` while on the first tape would make the first tape the one page in
+  this room nobody can link to, which is worse than the thing it fixes.
+
+**THE SUITE HAD TO LEARN THE RULE, AND THAT EXPOSED THREE BAD CHECKS.** Ten
+assertions failed, all of them measuring one tape and then comparing against
+another after a filter press. They read the tape they land on now. One was
+**vacuous** and is deleted: see the padding note above.
+
 ## THE SOUNDTRACK AND ISSUES ROOMS, AUDITED END TO END (2026-08-27)
 
 Asked for after a week of rapid change: is any of this solid. Most of it is,
@@ -1721,7 +1752,11 @@ they had drifted into two different sizes.
   1.28. **The blurb still grows to its content**, which is what a row's height
   really follows; everything around it is as tight as it goes without the fields
   becoming hard to hit.
-  - **BOTH LISTS ARE MEASURED THE SAME, and a test asserts it.** The earlier
+  - **BOTH LISTS ARE MEASURED THE SAME.** ~~and a test asserts it~~ -- **that
+    test was VACUOUS and is deleted (2026-08-27)**: it compared the first
+    `.track-line` in the document with `tr`, which IS the first `.track-line`,
+    so it compared an element with itself. Pointed at the popup's own row it
+    fails, because the badge and the dialog row now carry different padding. The earlier
     trim applied to the main list alone, which is precisely what made a track
     two heights depending where you looked at it.
 - **THE COLUMN HEADER IS BACK ON THE MAIN LIST**, emitted under the tape whose

@@ -2968,8 +2968,21 @@
         }
       }
 
+      // CHOOSING ALL TAPES GIVES THE BARE URL, ONCE.
+      //
+      // `?tape=` records which tape you are on. Going back to ALL TAPES is
+      // stepping back to the catalogue, so the address should be the catalogue:
+      // /mc/soundtracks/ with nothing on it.
+      //
+      // A ONE-SHOT FLAG, not a rule about position. The obvious alternative --
+      // write no `?tape=` while sitting on the first tape -- would make the
+      // first tape the one page in this room you cannot link to, which is worse
+      // than the thing it fixes. Stepping with the arrows writes the id again.
+      var suppressTapeUrlOnce = false;
+
       function writeTapeUrlId(tape) {
         if (!window.history || !history.replaceState) return;
+        if (suppressTapeUrlOnce) { suppressTapeUrlOnce = false; tape = null; }
         var nextId = tapeUrlId(tape);
         var params;
         try {
@@ -3424,9 +3437,37 @@
           .map(text).filter(Boolean).join(', ');
       }
 
+      // A TAPE IS ON THE LIST WHEN IT HAS A TRACK WORTH SHOWING.
+      //
+      // UNDER ALL AND LIVE THAT MEANS A LIVE TRACK, which makes both of them
+      // "the tapes a visitor can actually see": `/soundtracks/` draws a tape
+      // when at least one of its tracks is live, and that is the same test.
+      // **ALL therefore does not mean every tape in the catalogue** -- 9 of the
+      // 114 qualify today -- and the naming tension is real. It is the right
+      // trade because the room is for working on tapes that are up: a fully
+      // shelved tape reached under ALL is a page of rows with nothing at stake.
+      //
+      // THE OTHER THREE ARE HOW YOU REACH THE REST. Shelved lists the tapes
+      // holding a shelved track, which is all of them; Explicit and Sports list
+      // the tapes holding one. So nothing is unreachable, and a tape you cannot
+      // find under ALL is one press away.
+      //
+      // AND NO FILTER CAN NOW LAND YOU ON AN EMPTY TAPE, which is the older
+      // fault this fixes: stepping through Live used to walk you across tapes
+      // with nothing on them, and the pager counted them.
+      function tapeHasAnythingToShow(tape) {
+        var songs = allSongs(tape);
+        for (var i = 0; i < songs.length; i++) {
+          if (currentTrackFilter() === 'all') {
+            if (songStatus(songs[i]) === 'LIVE') return true;
+          } else if (trackPassesFilters(songs[i])) return true;
+        }
+        return false;
+      }
+
       function tapeMatchesFilter(tape) {
-        if (!tapeFilter) return true;
-        return tapePlaceLabel(tape) === tapeFilter;
+        if (tapeFilter && tapePlaceLabel(tape) !== tapeFilter) return false;
+        return tapeHasAnythingToShow(tape);
       }
 
       // THE OPTIONS ARE BUILT FROM THE CATALOGUE, so the list can only offer a
@@ -5315,6 +5356,11 @@
           trackFlagFilter = '';
           trackAirFilter = value;
         }
+        // A FILTER RESETS TO THE TOP, the same rule the place picker keeps. The
+        // track filter now decides which TAPES are listed as well as which
+        // tracks, so holding the position would land you on whatever happens to
+        // be third in a completely different list.
+        tapeAt = 0;
         renderTrackArchive();
         if (tracksOpen()) renderTracks();
       }
@@ -5850,6 +5896,9 @@
       var tapeFilterEl = document.getElementById('tapeFilter');
       if (tapeFilterEl) tapeFilterEl.addEventListener('change', function () {
         tapeFilter = tapeFilterEl.value || '';
+        // ALL TAPES IS A RETURN TO THE CATALOGUE, so it takes the query string
+        // off. Choosing a place still writes the tape it lands on.
+        if (!tapeFilter) suppressTapeUrlOnce = true;
         // A FILTER RESETS TO THE TOP. Keeping the position would land you on
         // whatever happens to be fiftieth in a completely different list.
         tapeAt = 0;
