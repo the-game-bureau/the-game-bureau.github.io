@@ -439,6 +439,19 @@ rather than covered by a check that proves nothing.
   audit found; this one is post from visitors, a different errand rather than a
   more urgent one.
 
+**AND THE FORM WAS APPENDED BELOW THE SCRIPT THAT WIRES IT, so Send did
+nothing.** An inline script runs as the parser reaches it; the dialog sat before
+`</body>` and the wiring is a thousand lines above, so `getElementById` found
+nothing and no listener was attached. **The markup is above the script now** --
+the dialog is fixed-position, so its place in the source changes nothing else.
+
+- **jsdom DOES NOT REPRODUCE THIS.** With external resources loading it ran the
+  inline script *after* the markup existed, so the button posted, the visitor
+  was thanked, and **every assertion passed over a page that could not work in a
+  browser**. The order is asserted from the SOURCE now, which is the only thing
+  that can catch it from in here. **Any inline wiring on these pages needs the
+  same check.**
+
 **AND THE FIRST CUT READ TWO ATTRIBUTES NO CARD HAS.** `data-city` and
 `data-key`; the cards carry `dataset.citySlug`. So the slug came back empty, and
 `suggestSong` **returned early and the form never opened** -- silently, with the
