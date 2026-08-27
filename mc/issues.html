@@ -215,6 +215,28 @@
     }
 
     .issue-acts { display: flex; gap: 8px; }
+
+    /* THE ONE IRREVERSIBLE BUTTON ON THE CARD, and it wears the red pen so it
+       cannot be pressed by mistake for the one beside it. Outlined rather than
+       filled: it is not the action you came for. */
+    .issue-del { border-color: var(--bic-red); color: var(--bic-red); }
+    .issue-del:hover { background: var(--bic-red); border-color: var(--bic-red); color: #fff; }
+
+    #issueDelCard .btn.warn { border-color: var(--bic-red); color: var(--bic-red); }
+    #issueDelCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
+    #issueDelCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* WHAT HAPPENED, WHERE THE BUTTONS WERE. A settled card keeps its place in
+       the list and says what settled it, rather than leaving an empty row. */
+    .issue-settled {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
     .issue-acts .btn { min-height: 30px; padding: 0 10px; font-size: 0.66rem; }
 
     .empty-note {
@@ -266,6 +288,22 @@
         </div>
       </fieldset>
     </div>
+
+    <!-- THE DELETE QUESTION. Its own dialog, because it is the one thing this
+         page does that cannot be undone. -->
+    <div class="tool-backdrop" id="issueDelBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="issueDelCard" role="dialog"
+             aria-modal="true" aria-labelledby="issueDelTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="issueDelTitle">Delete track</h2>
+        </div>
+      </div>
+      <div class="prompt-body">
+        <p class="bulk-words" id="issueDelWords"></p>
+      </div>
+      <div class="prompt-foot" id="issueDelFoot"></div>
+    </section>
 
     <div class="work-panel" id="roomBody">
       <div class="issue-lines" id="issueList"></div>
@@ -431,6 +469,19 @@
           : 'Open the Tape Room on this track, and ring it.';
         acts.appendChild(go);
 
+        // ONLY WHERE THERE IS A TRACK TO DELETE. A tape-scope finding names
+        // none, so the button is absent rather than greyed.
+        if (text(f.scope) !== 'tape' && f.song_id != null) {
+          var del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'btn small issue-del';
+          del.textContent = 'Delete track';
+          del.title = 'Delete the track this finding is about. It asks first, and '
+            + 'offers shelving instead while the track is still live.';
+          del.addEventListener('click', function () { openTrackDelete(f); });
+          acts.appendChild(del);
+        }
+
         var clear = document.createElement('button');
         clear.type = 'button';
         clear.className = 'btn small';
@@ -521,6 +572,172 @@
         f.status = 'fixed';
         paintStats();
         setNotice('cleared', 'success');
+      }
+
+
+      // ── DELETE THE TRACK A FINDING IS ABOUT ─────────────────────────────
+      //
+      // Some findings have only one answer: a track with no genuine tie to the
+      // city, a duplicate, a karaoke recording. Reading the finding here and
+      // then walking to the Tape Room to delete it is two rooms for one
+      // decision.
+      //
+      // NOT OFFERED ON A TAPE-SCOPE FINDING. Those name no track, being
+      // statements about the LIST, so there is nothing for this button to act
+      // on and a greyed one would be a promise the finding cannot keep.
+      var pendingDelete = null;
+
+      function openTrackDelete(f) {
+        pendingDelete = f;
+        paintTrackDelete();
+      }
+
+      function closeTrackDelete() {
+        pendingDelete = null;
+        paintTrackDelete();
+      }
+
+      async function paintTrackDelete() {
+        var card = document.getElementById('issueDelCard');
+        var backdrop = document.getElementById('issueDelBackdrop');
+        var words = document.getElementById('issueDelWords');
+        var title = document.getElementById('issueDelTitle');
+        var foot = document.getElementById('issueDelFoot');
+        if (!card || !backdrop || !words || !title || !foot) return;
+
+        var f = pendingDelete;
+        if (!f) {
+          card.hidden = true;
+          backdrop.hidden = true;
+          return;
+        }
+
+        title.textContent = 'Delete ' + (text(f.song_title) || 'this track') + '?';
+        words.textContent = 'This cannot be undone, and the bot may find it and file it '
+          + 'again. The finding goes with it.';
+        foot.textContent = '';
+        backdrop.hidden = false;
+        card.hidden = false;
+
+        // WHETHER SHELVING WOULD DO ANYTHING IS A FACT THIS PAGE DOES NOT HOLD.
+        // `soundtrack_findings` carries no `archived`, so the state is asked for
+        // when the question opens rather than guessed: offering Shelve instead
+        // on an already shelved track would write true over true and report a
+        // success that changed nothing.
+        var isLive = null;
+        try {
+          var res = await fetch(restUrl('soundtrack?select=archived&id=eq.'
+            + encodeURIComponent(String(f.song_id))), { headers: authHeaders(), cache: 'no-store' });
+          if (res.ok) {
+            var rows = await res.json().catch(function () { return []; });
+            if (Array.isArray(rows) && rows.length) isLive = rows[0].archived === false;
+          }
+        } catch (error) {
+          console.error(error);
+        }
+        if (pendingDelete !== f) return;
+
+        if (isLive) {
+          words.textContent = 'This cannot be undone, and the bot may find it and file it '
+            + 'again. Shelving keeps it off /soundtracks/ and stops that. The finding '
+            + 'goes either way.';
+        }
+
+        function btn(label, cls, onClick) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn small ' + cls;
+          b.textContent = label;
+          b.addEventListener('click', onClick);
+          foot.appendChild(b);
+          return b;
+        }
+
+        if (isLive) btn('Shelve instead', 'primary', function () { shelveTrack(f); });
+        var go = btn('Delete anyway', 'warn', function () { go.disabled = true; deleteTrack(f); });
+        btn('Cancel', '', closeTrackDelete);
+      }
+
+      // `return=representation` ON BOTH. PostgREST answers 200 with an EMPTY
+      // ARRAY when RLS refuses a write, so without reading the row back a
+      // refused delete reports success and the card settles until a reload
+      // brings it straight back.
+      async function writeTrack(f, method, body) {
+        var headers = { Prefer: 'return=representation' };
+        if (body) headers['Content-Type'] = 'application/json';
+        var opts = { method: method, headers: authHeaders(headers) };
+        if (body) opts.body = JSON.stringify(body);
+        var res = await fetch(restUrl('soundtrack?id=eq.'
+          + encodeURIComponent(String(f.song_id))), opts);
+        if (!res.ok) {
+          var detail = await res.text().catch(function () { return ''; });
+          throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
+        }
+        var rows = await res.json().catch(function () { return []; });
+        return Array.isArray(rows) ? rows : [];
+      }
+
+      async function deleteTrack(f) {
+        var rows;
+        try {
+          rows = await writeTrack(f, 'DELETE', null);
+        } catch (error) {
+          console.error(error);
+          setNotice('could not delete that track: ' + ((error && error.message) || 'write failed'), 'error');
+          closeTrackDelete();
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          closeTrackDelete();
+          return;
+        }
+        // THE FINDING WENT WITH THE ROW. Findings are a jsonb column ON the
+        // track, so deleting the track deletes them: there is nothing left to
+        // clear, and the card says so rather than keeping a button that would
+        // now match no open finding.
+        markSettled(f, 'track deleted');
+        closeTrackDelete();
+        setNotice('deleted ' + (text(f.song_title) || 'the track') + ', and its findings with it', 'success');
+      }
+
+      async function shelveTrack(f) {
+        var rows;
+        try {
+          rows = await writeTrack(f, 'PATCH', { archived: true });
+        } catch (error) {
+          console.error(error);
+          setNotice('could not shelve that track: ' + ((error && error.message) || 'write failed'), 'error');
+          closeTrackDelete();
+          return;
+        }
+        if (!rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          closeTrackDelete();
+          return;
+        }
+        // SHELVING IS NOT CLEARING. The track is off /soundtracks/; whether the
+        // finding is dealt with is a separate judgement, so the card keeps its
+        // Clear button and simply says what happened.
+        closeTrackDelete();
+        setNotice('shelved ' + (text(f.song_title) || 'the track')
+          + '. Clear the finding too if it is dealt with.', 'success');
+      }
+
+      function markSettled(f, why) {
+        f.status = 'fixed';
+        var item = document.querySelector('[data-finding-id="' + f.id + '"]');
+        if (!item) return;
+        item.classList.add('is-cleared');
+        var acts = item.querySelector('.issue-acts');
+        if (acts) {
+          acts.textContent = '';
+          var said = document.createElement('span');
+          said.className = 'issue-settled';
+          said.textContent = why;
+          acts.appendChild(said);
+        }
+        paintStats();
       }
 
       function render() {
