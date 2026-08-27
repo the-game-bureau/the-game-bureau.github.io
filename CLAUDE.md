@@ -397,6 +397,53 @@ STRUCTURAL assertion now (one guard, before every transport branch, and no tag
 allowlist), and **the arrow behaviour itself is stated as unverified from here**
 rather than covered by a check that proves nothing.
 
+## A SUGGESTION IS PROCESSED, NOT DELETED, AND MAY CARRY AN EMAIL (2026-08-27)
+
+[2026082705_suggestions_are_kept.sql](mc/supabase/migrations/2026082705_suggestions_are_kept.sql), **applied**.
+`issues.processed_at` (null is open) and `issues.contact_email`.
+
+- **THIS IS NOT A CONTRADICTION OF "CLEARING DELETES", AND THE REASON IS THE
+  DEDUPE.** A finding deletes because **deleting is what frees its fingerprint
+  for the next audit**, and that recurrence is the only check a fix landed. **A
+  suggestion is the opposite case on every point**: nothing re-files it, there
+  is no fix to check for, and **the fingerprint SHOULD stay claimed** so the
+  same song is not offered again and read as new. Findings still delete.
+- **`processed_at`, NOT A `status`.** A status invites a third value and then a
+  fourth, which is the column this project spent a week taking back out of the
+  soundtrack tables. A timestamp also records WHEN, which is the question
+  anybody asks of a suggestion queue.
+- **THE UPDATE GRANT IS ON ONE COLUMN.** `grant update (processed_at)`, so the
+  room can file a suggestion and cannot rewrite a finding's own words: what the
+  audit said is a record of what the audit said. Verified in
+  `information_schema.column_privileges`.
+- **PROCESSED IS ITS OWN TAB AND APPEARS IN NO OTHER**, or the queue would never
+  look empty. ALL counts the OPEN ones, since it is the tab you land on.
+  - **THE "EMPTY KIND" GUARD RESET IT THE INSTANT IT WAS PRESSED.** `processed`
+    is not a kind, so it is not in `counts`, and the guard that clears a filter
+    whose kind has emptied fired on it: the tab appeared, the press registered,
+    and the list came back showing ALL. **Anything added to that strip that is
+    not a kind needs naming there.**
+- **A PROCESSED CARD IS QUIETER, NOT HIDDEN, and has a Put back.** The whole
+  reason to keep a suggestion rather than delete it is so it can be read later.
+
+### THE EMAIL REVERSES YESTERDAY'S DECISION, DELIBERATELY
+
+2026082704 collected no contact of any kind and said why: personal data means a
+retention rule and somewhere to honour a deletion request. **That cost has not
+gone away, it has been accepted.** What follows from it is not optional:
+
+- **OPTIONAL, AND THE LABEL SAYS SO** rather than fine print underneath. It is
+  the only personal datum this site collects from a visitor, so what it is for
+  has to be legible in the moment somebody decides whether to type it.
+- **IT IS THE ONLY ONE, AND THERE IS NOWHERE ELSE TO PUT ONE.** Do not add a
+  name, and do not start writing one into `detail`.
+- **A MALFORMED ADDRESS IS REFUSED, NOT STORED.** Something typed into that box
+  is meant to be an address; keeping a broken one would be keeping personal data
+  that cannot do the job it was collected for.
+- **`public.issues` HAS NO ANON POLICY**, so an address is admin-read only.
+  **Check that again if a public read of this table is ever added.**
+- **DELETING THE ROW IS THE DELETION REQUEST**, and the Issues room can do it.
+
 ## A VISITOR SUGGESTS A TRACK, AND IT BECOMES A ROW (2026-08-27)
 
 [2026082704_track_suggestions.sql](mc/supabase/migrations/2026082704_track_suggestions.sql), **applied**. The cassette on

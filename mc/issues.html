@@ -386,6 +386,14 @@
     #issueBatchCard .btn.warn:hover { background: var(--bic-red); color: #fff; }
     #issueBatchCard .prompt-foot { display: flex; flex-wrap: wrap; gap: 8px; }
 
+    /* A PROCESSED CARD IS QUIETER, NOT HIDDEN. It is a record of what was
+       dealt with, and the whole reason a suggestion is kept rather than deleted
+       is so it can be read later. */
+    .issue-item.is-processed { opacity: 0.72; }
+    .issue-item.is-processed .issue-tape { color: var(--muted); }
+
+    .issue-contact a { color: var(--bic-blue); }
+
     .issue-acts { display: flex; gap: 8px; }
 
     /* THE ONE IRREVERSIBLE BUTTON ON THE CARD, and it wears the red pen so it
@@ -572,7 +580,11 @@
 
       function paintStats() {
         if (!roomStats) return;
-        var open = findings.filter(function (f) { return text(f.status) === 'open'; }).length;
+        // OPEN MEANS NOT SETTLED IN THIS SESSION AND NOT PROCESSED. A kept
+        // suggestion is on file and is not waiting on anybody.
+        var open = findings.filter(function (f) {
+          return text(f.status) === 'open' && !isProcessed(f);
+        }).length;
         roomStats.textContent = '';
         function part(word, n, cls) {
           var w = document.createElement('span');
@@ -630,14 +642,72 @@
         go.href = tapeRoomHref(f);
         go.title = 'Open the tape this was suggested for.';
         acts.appendChild(go);
-        var clear = document.createElement('button');
-        clear.type = 'button';
-        clear.className = 'btn small';
-        clear.textContent = 'Clear issue';
-        clear.title = 'Dealt with, one way or the other. The row is deleted.';
-        clear.addEventListener('click', function () { clearFinding(f, clear); });
-        acts.appendChild(clear);
+
+        // A SUGGESTION IS PROCESSED, NOT CLEARED, AND THE ROW IS KEPT.
+        //
+        // A FINDING deletes because deleting is what frees its fingerprint for
+        // the next audit. Nothing re-files a suggestion -- a visitor typed it
+        // once -- so there is nothing to free, and the fingerprint SHOULD stay
+        // claimed: it is what stops the same song being offered again and read
+        // as new.
+        if (isProcessed(f)) {
+          var back = document.createElement('button');
+          back.type = 'button';
+          back.className = 'btn small';
+          back.textContent = 'Put back';
+          back.title = 'Back into the queue, as though nobody had looked at it.';
+          back.addEventListener('click', function () { setProcessed(f, back, false); });
+          acts.appendChild(back);
+          return acts;
+        }
+
+        var done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'btn small';
+        done.textContent = 'Mark processed';
+        done.title = 'Dealt with, one way or the other. The suggestion is kept and '
+          + 'moves to the Processed tab.';
+        done.addEventListener('click', function () { setProcessed(f, done, true); });
+        acts.appendChild(done);
         return acts;
+      }
+
+      function isProcessed(f) { return !!(f && f.processed_at); }
+
+      async function setProcessed(f, btn, on) {
+        btn.disabled = true;
+        var was = btn.textContent;
+        btn.textContent = on ? 'Filing' : 'Restoring';
+        var rows;
+        try {
+          var res = await fetch(restUrl('issues?id=eq.' + encodeURIComponent(f.id)), {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json',
+              Prefer: 'return=representation' }),
+            body: JSON.stringify({ processed_at: on ? new Date().toISOString() : null })
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          rows = await res.json().catch(function () { return []; });
+        } catch (error) {
+          console.error(error);
+          setNotice('could not file that: ' + ((error && error.message) || 'write failed'), 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        // THE ROW IS READ BACK. PostgREST answers 200 with an EMPTY ARRAY when
+        // RLS refuses a write, so without this a refused press reports success
+        // and the card moves tabs until a reload puts it back.
+        if (!Array.isArray(rows) || !rows.length) {
+          setNotice('the database refused that. Sign in again and retry.', 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        f.processed_at = rows[0].processed_at;
+        render();
+        setNotice(on ? 'filed under Processed. The suggestion is kept.'
+                     : 'back in the queue', 'success');
       }
 
       function findingItem(f) {
@@ -649,7 +719,7 @@
         head.className = 'issue-head';
         // THE TICK LEADS THE HEADER, left of the label, where a list of things
         // to pick from puts it.
-        if (text(f.status) === 'open') head.appendChild(pickBox(f));
+        if (text(f.status) === 'open' && !isProcessed(f)) head.appendChild(pickBox(f));
 
         // THE SOUNDTRACK LABEL LEADS IT. `city_slug` is a slug, so it is
         // written out: a list keyed by `baton-rouge` is a list you have to
@@ -692,6 +762,19 @@
             whyEl.textContent = text(f.suggestion);
             item.appendChild(whyEl);
           }
+          // THE ADDRESS IS DRAWN ONLY WHERE THERE IS ONE, and it is a real
+          // mailto: it is optional, given so somebody could reply, and a person
+          // reading the card is the somebody.
+          if (text(f.contact_email)) {
+            var mail = document.createElement('p');
+            mail.className = 'issue-suggestion issue-contact';
+            var link = document.createElement('a');
+            link.href = 'mailto:' + text(f.contact_email);
+            link.textContent = text(f.contact_email);
+            mail.append(document.createTextNode('Reply to '), link);
+            item.appendChild(mail);
+          }
+          if (isProcessed(f)) item.classList.add('is-processed');
           item.appendChild(suggestionActs(f));
           return item;
         }
@@ -1052,7 +1135,7 @@
       // delete a track that had just gone.
       function pickedFindings() {
         return findings.filter(function (f) {
-          return picked[String(f.id)] && text(f.status) === 'open';
+          return picked[String(f.id)] && text(f.status) === 'open' && !isProcessed(f);
         });
       }
 
@@ -1065,7 +1148,7 @@
         var live = Object.create(null);
         visibleFindings().forEach(function (f) {
           var id = String(f.id);
-          if (picked[id] && text(f.status) === 'open') live[id] = true;
+          if (picked[id] && text(f.status) === 'open' && !isProcessed(f)) live[id] = true;
         });
         picked = live;
       }
@@ -1116,7 +1199,9 @@
         if (!box) return;
         // THE TAB DECIDES WHAT ALL MEANS. It reaches the open findings ON
         // SCREEN, which is the list the batch button then acts on.
-        var open = visibleFindings().filter(function (f) { return text(f.status) === 'open'; });
+        var open = visibleFindings().filter(function (f) {
+          return text(f.status) === 'open' && !isProcessed(f);
+        });
         var n = open.length;
         var got = open.filter(function (f) { return picked[String(f.id)]; }).length;
         box.checked = n > 0 && got === n;
@@ -1422,7 +1507,10 @@
 
       function kindCounts() {
         var out = Object.create(null);
-        findings.forEach(function (f) {
+        // OPEN ONES ONLY. A processed suggestion is history and has its own
+        // tab; counting it among the kinds would make every figure on the strip
+        // say something other than "waiting on you".
+        findings.filter(function (f) { return !isProcessed(f); }).forEach(function (f) {
           var k = text(f.kind) || 'other';
           if (!out[k]) out[k] = { all: 0, high: 0 };
           out[k].all += 1;
@@ -1432,8 +1520,13 @@
       }
 
       function visibleFindings() {
-        if (kindFilter === 'all') return findings;
-        return findings.filter(function (f) { return (text(f.kind) || 'other') === kindFilter; });
+        // PROCESSED IS ITS OWN TAB AND APPEARS IN NO OTHER. It is a record of
+        // what has been dealt with; leaving it in ALL would mean the queue never
+        // looks empty.
+        if (kindFilter === 'processed') return findings.filter(isProcessed);
+        var open = findings.filter(function (f) { return !isProcessed(f); });
+        if (kindFilter === 'all') return open;
+        return open.filter(function (f) { return (text(f.kind) || 'other') === kindFilter; });
       }
 
       function paintTabs() {
@@ -1441,15 +1534,28 @@
         if (!wrap) return;
         var counts = kindCounts();
         var kinds = Object.keys(counts).sort();
+        var processed = findings.filter(isProcessed);
+        var open = findings.length - processed.length;
         wrap.textContent = '';
         // NO STRIP AT ALL BELOW TWO KINDS. One tab reading ALL is a control that
-        // narrows nothing, and a strip of one implies there are others.
-        if (kinds.length < 2) { wrap.hidden = true; kindFilter = 'all'; return; }
+        // narrows nothing, and a strip of one implies there are others. A
+        // Processed tab counts towards that: with one kind open and a shelf of
+        // processed ones there are two places to be.
+        if (kinds.length + (processed.length ? 1 : 0) < 2) {
+          wrap.hidden = true; kindFilter = 'all'; return;
+        }
         wrap.hidden = false;
+        if (kindFilter === 'processed' && !processed.length) kindFilter = 'all';
         // A KIND THAT NO LONGER HAS ANYTHING CANNOT STAY SELECTED, or clearing
         // the last spotify finding would leave you looking at an empty room with
         // a tab lit that explains nothing.
-        if (kindFilter !== 'all' && !counts[kindFilter]) kindFilter = 'all';
+        // PROCESSED IS NOT A KIND, so it is not in `counts` and would be reset
+        // by this guard the instant it was chosen -- which is exactly what it
+        // did: the tab appeared, the press registered, and the list came back
+        // showing ALL.
+        if (kindFilter !== 'all' && kindFilter !== 'processed' && !counts[kindFilter]) {
+          kindFilter = 'all';
+        }
 
         function tab(key, label, n, hot) {
           var b = document.createElement('button');
@@ -1493,7 +1599,9 @@
         }
 
         var allHigh = kinds.reduce(function (n, k) { return n + counts[k].high; }, 0);
-        tab('all', 'All', findings.length, allHigh);
+        // ALL COUNTS THE OPEN ONES. It is the tab you land on, so its figure is
+        // the size of the queue rather than the size of the table.
+        tab('all', 'All', open, allHigh);
         // SUGGESTIONS LAST, whatever the alphabet says. The other tabs are
         // faults the audit found; this one is post from visitors, and it is a
         // different errand rather than a more urgent one.
@@ -1502,6 +1610,9 @@
         if (counts.suggestion) {
           tab('suggestion', 'Suggestions', counts.suggestion.all, counts.suggestion.high);
         }
+        // PROCESSED IS LAST, AFTER SUGGESTIONS. It is not a kind of work, it is
+        // the shelf the work goes on when it is finished.
+        if (processed.length) tab('processed', 'Processed', processed.length, 0);
       }
 
       function render() {

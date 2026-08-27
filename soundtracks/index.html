@@ -556,6 +556,14 @@
 
     .suggest-field { display: grid; gap: 4px; }
 
+    .suggest-field > span em {
+      font-style: normal;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      opacity: 0.75;
+    }
+
     .suggest-field > span {
       font-size: 0.68rem;
       font-weight: 800;
@@ -1020,6 +1028,15 @@
         <span>Why it belongs here</span>
         <textarea id="suggestWhy" rows="3" maxlength="1000"></textarea>
       </label>
+      <!-- OPTIONAL, AND IT SAYS SO ON THE LABEL rather than in fine print
+           underneath. It is the only personal datum this site collects from a
+           visitor, so what it is for has to be legible in the moment somebody
+           decides whether to type it. -->
+      <label class="suggest-field">
+        <span>Email <em>optional, only if you want a reply</em></span>
+        <input id="suggestEmail" type="email" maxlength="200" autocomplete="email"
+               inputmode="email">
+      </label>
       <p class="suggest-note" id="suggestNote"></p>
       <div class="suggest-foot">
         <button class="suggest-btn" id="suggestCancel" type="button">Cancel</button>
@@ -1455,6 +1472,7 @@
         document.getElementById('suggestTitleInput').value = '';
         document.getElementById('suggestArtist').value = '';
         document.getElementById('suggestWhy').value = '';
+        document.getElementById('suggestEmail').value = '';
         setSuggestNote('');
         back.hidden = false;
         card.hidden = false;
@@ -1497,7 +1515,13 @@
             city_slug: document.getElementById('suggestSlug').value,
             title: title,
             artist: document.getElementById('suggestArtist').value.trim(),
-            why: document.getElementById('suggestWhy').value.trim()
+            why: document.getElementById('suggestWhy').value.trim(),
+            // BLANK IS SENT AS BLANK AND THE FUNCTION TREATS IT AS ABSENT. A
+            // malformed one is refused there rather than stored: something typed
+            // into that box is meant to be an address, so keeping a broken one
+            // would be keeping personal data that cannot do the job it was
+            // collected for.
+            email: document.getElementById('suggestEmail').value.trim()
           } })
         }).then(function (res) {
           if (!res.ok) throw new Error('Request failed');
