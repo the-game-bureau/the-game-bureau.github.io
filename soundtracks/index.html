@@ -1993,12 +1993,43 @@
 
         document.addEventListener('keydown', function (event) {
           if (node.hidden) return;
+          // NOT WHILE SOMEBODY IS TYPING. These are transport keys on a
+          // DOCUMENT-level listener, so they reach every field on the page.
+          //
+          // SPACE WAS THE ONE THAT BIT, and the guard it had was an ALLOWLIST
+          // OF THREE TAGS -- BUTTON, A, INPUT -- which does not include
+          // TEXTAREA. So a space typed into the suggestion form's "why it
+          // belongs here" box was swallowed and played the tape instead, and
+          // the words ran together with nothing on screen explaining it. The
+          // arrows had the same reach and no guard at all: they stepped to
+          // another track while the caret moved through a sentence.
+          //
+          // A DENYLIST OF EDITABLE TARGETS, NOT AN ALLOWLIST OF PRESSABLE ONES.
+          // An allowlist has to name every element a key may safely reach and is
+          // wrong the moment a new kind of control appears; this asks the one
+          // question that matters, which is whether the keystroke belongs to
+          // something the visitor is typing in. Same test the Tape Room's own
+          // shortcut handler makes.
+          if (isTypingTarget(event.target)) return;
           if (event.key === 'Escape') closeModal();
           if (event.key === 'ArrowLeft') { pulseTransport('rewind'); step(-1); }
           if (event.key === 'ArrowRight') { pulseTransport('forward'); step(1); }
-          if (event.key === ' ' && !/^(BUTTON|A|INPUT)$/.test((event.target.tagName || ''))) { event.preventDefault(); togglePlayback(); }
+          if (event.key === ' ') { event.preventDefault(); togglePlayback(); }
         });
         return node;
+      }
+
+      // IS THE VISITOR TYPING INTO THIS?
+      //
+      // INPUT, TEXTAREA, SELECT or anything contenteditable. A page-wide key
+      // handler that does not ask this eats keystrokes out of every field on the
+      // page, and the symptom -- a spacebar that does nothing -- looks like a
+      // broken form rather than like a shortcut firing somewhere else.
+      function isTypingTarget(target) {
+        if (!target || target.nodeType !== 1) return false;
+        var tag = String(target.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        return !!(target.isContentEditable || target.closest('[contenteditable="true"]'));
       }
 
       function readVar(el, name) {

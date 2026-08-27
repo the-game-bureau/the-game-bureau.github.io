@@ -369,6 +369,34 @@ Kevin can settle them.
 
 ---
 
+## THE SPACEBAR DID NOT WORK IN THE SUGGESTION FORM (2026-08-27)
+
+`/soundtracks/` runs its cassette transport off a **document-level** keydown
+listener, so it reaches every field on the page. Space was guarded by an
+**ALLOWLIST OF THREE TAGS -- BUTTON, A, INPUT -- which does not include
+TEXTAREA**, so a space typed into *why it belongs here* was swallowed and played
+the tape instead. The words ran together with nothing on screen to explain it.
+
+- **A DENYLIST OF EDITABLE TARGETS, NOT AN ALLOWLIST OF PRESSABLE ONES.** An
+  allowlist has to name every element a key may safely reach and is wrong the
+  moment a new kind of control appears; `isTypingTarget()` asks the one question
+  that matters -- INPUT, TEXTAREA, SELECT or contenteditable -- which is the same
+  test the Tape Room's own shortcut handler makes.
+- **THE ARROWS HAD THE SAME REACH AND NO GUARD AT ALL.** They do not
+  `preventDefault`, so the symptom was different and worse: the caret moved
+  through the sentence **and the tape stepped to another track**. One guard now
+  covers Escape, both arrows and space.
+- **THIS IS THE THIRD TIME THIS REPO HAS EATEN A SPACEBAR.** The Socializer's
+  editable spans did it with an Enter/Space handler on the parent, and the fix
+  there was the same shape. **Any page-wide key handler needs this test.**
+
+**AND THE FIRST ARROW CHECK WAS VACUOUS.** `defaultPrevented` cannot see a
+handler that does not prevent anything, so it read the cassette's SVG title
+instead -- matched the wrong node, and passed on the unfixed file too. It is a
+STRUCTURAL assertion now (one guard, before every transport branch, and no tag
+allowlist), and **the arrow behaviour itself is stated as unverified from here**
+rather than covered by a check that proves nothing.
+
 ## A VISITOR SUGGESTS A TRACK, AND IT BECOMES A ROW (2026-08-27)
 
 [2026082704_track_suggestions.sql](mc/supabase/migrations/2026082704_track_suggestions.sql), **applied**. The cassette on
