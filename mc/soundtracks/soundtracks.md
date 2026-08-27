@@ -170,11 +170,16 @@ Among tapes with 1 to 14 live songs, in a city that is not hidden, pick the one
 with the fewest live songs; break ties alphabetically. It must not be the new
 city.
 
-Then read what is already on it, **shelved rows included**, so you do not
-propose something that is there:
+**YOU DO NOT HAVE TO LIST THE TAPE TO AVOID REPEATING A TRACK.** The database
+holds that rule now: one recording once per tape, on its Spotify id, and a
+repeat is simply refused and counted back to you as `duplicate_spotify_id`.
+Propose freely and read the reply.
+
+The one thing still worth a look is the **artists**, since one song per artist
+per tape is an editorial rule the database does not hold:
 
 ```bash
-curl -sS "$B/soundtrack?select=title,artist,archived&city_slug=eq.SLUG&tape=eq.TAPENAME&order=position.asc&apikey=$KEY"
+curl -sS "$B/soundtrack?select=artist&city_slug=eq.SLUG&tape=eq.TAPENAME&apikey=$KEY"
 ```
 
 Print both choices before continuing.
@@ -236,11 +241,19 @@ Keep the mix varied across eras and genres where the city supports it.
   at most, no trailing period. **There is no minimum LENGTH**, only the
   requirement that there IS one: four words that say something true beat eight
   padded out to hit a count, and no blurb is ever too short.
-- **`spotify_id` is 22 characters and must be VERIFIED** against a real
-  `open.spotify.com/track` page you actually opened. **OMIT IT rather than
-  guess.** A fabricated id passes every format check and then silently plays
-  nothing, which is the worst outcome available here. Ids are case-sensitive and
-  search snippets disagree on capitalisation, so copy it from the page.
+- **`spotify_id` IS REQUIRED, is 22 characters, and must be VERIFIED** against
+  a real `open.spotify.com/track` page you actually opened. Ids are
+  case-sensitive and search snippets disagree on capitalisation, so copy it from
+  the page.
+  - **A TRACK WITH NO ID IS REFUSED, and so is one whose id is malformed.** It
+    does not reach the tape. The refusal is filed as a `spotify` finding naming
+    the title and artist, so a human can find the id and add it by hand.
+  - **STILL OMIT IT RATHER THAN GUESS.** A fabricated id passes every format
+    check and then silently plays nothing, which is the worst outcome available
+    here. What changed is only what an omission COSTS: the track is not filed,
+    rather than filed unplayable. **Guessing is worse than both.**
+  - **So a song you cannot find on Spotify is a song to replace.** Pick another
+    and keep the count.
 - **`explicit` is true only if Spotify itself says so.**
 
 ### No em dashes
@@ -265,9 +278,16 @@ curl -sS -X POST "$B/rpc/tgb_pull_soundtrack_songs" \
   -d '{"payload":[{"city_slug":"tulsa","city":"Tulsa, Oklahoma","state_code":"OK","state_name":"Oklahoma","country_code":"USA","country_name":"United States","tape":"Soundtrack","songs":[{"title":"Song Title","artist":"Artist Name","spotify_id":"22CharacterSpotifyId","blurb":"Short reason this belongs here","explicit":false}]}]}'
 ```
 
-- **The reply is `{"added": N, "skipped": M}`.** A skipped song is one the tape
-  already holds, live or shelved, so **the tape is now short by that many**:
-  pick replacements and call again.
+- **The reply is `{"added": N, "skipped": M, "no_spotify_id": A,
+  "duplicate_spotify_id": B}`.** Every skipped song leaves **the tape short by
+  one**: pick replacements and call again. The last two figures say WHY, which
+  is what decides what to do next:
+  - `no_spotify_id` -- you sent no id, or a malformed one. The track was not
+    filed and a `spotify` finding names it. Find another song.
+  - `duplicate_spotify_id` -- that recording is already on this tape. Find
+    another song.
+  - whatever is left of `skipped` is the title+artist tombstone: the tape has
+    held that song before, possibly shelved, and will not take it again.
 - **`tape` ADDRESSES the tape as well as naming it.** Send it and you mean the
   tape with that name; **omit it and you mean whatever tape the city already
   has**, which is what a top-up wants. Sending a NEW name for a city that
@@ -401,10 +421,11 @@ The reply is `{"added": N, "skipped": M}`.
   You never have to check what is already known, and `skipped` is not a failure.
 
 The one thing you may fix yourself is a song **you added this run** that you
-then find fault with. And never propose retiring a song merely because you could
-not verify its Spotify id: the song stays, the id is simply absent, and **the
-audit files that absence as a `spotify` finding at `warn`** so a human can go and
-find it.
+then find fault with. And never propose retiring an EXISTING song merely because
+you could not verify its Spotify id: the song stays, the id is simply absent, and
+**the audit files that absence as a `spotify` finding at `warn`** so a human can
+go and find it. That is a rule about the 202 tracks already filed without one; a
+NEW track with no id never reaches the tape at all.
 
 ---
 
@@ -436,7 +457,7 @@ asked to.
 
 Then a short summary: which two cities and why, the titles you added, which are
 the sports picks and how you confirmed each pairing, every `skipped` and what
-you did about it, any song whose Spotify id you could not verify (each of which
-is also a `spotify` finding at `warn`, filed against the track), and which five
+you did about it, any song you had to drop for want of a Spotify id and what you
+replaced it with, and which five
 tapes you audited with how many findings filed. **A clean tape is a result worth
 stating.** Nobody is watching this run, so the summary is the only record of it.

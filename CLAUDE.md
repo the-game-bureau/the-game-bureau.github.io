@@ -369,6 +369,57 @@ Kevin can settle them.
 
 ---
 
+## A NEW TRACK NEEDS A SPOTIFY ID, AND NO TAPE MAY CARRY ONE TWICE (2026-08-27)
+
+[2026082702_soundtrack_spotify_id_required.sql](mc/supabase/migrations/2026082702_soundtrack_spotify_id_required.sql), **applied**.
+
+- **THE ROUTINE NO LONGER ENUMERATES A TAPE TO AVOID REPEATING A TRACK.** It was
+  told to read every row of a tape, shelved included, before proposing anything.
+  That is a burden on the routine for a rule the database can hold, and a run
+  that has to enumerate before it can act spends itself on bookkeeping. It
+  proposes; the database refuses a repeat and says so as
+  `duplicate_spotify_id`.
+  - **THE ARTIST READ SURVIVES, and it is a smaller one.** One song per artist
+    per tape is editorial and the database does not hold it, so the brief still
+    asks for `select=artist` on the tape. That is the only reason left to look.
+- **THE UNIQUE IS PER TAPE, AND THAT WAS MEASURED RATHER THAN ARGUED.** On the
+  live table: **17 spotify ids sit on more than one tape (35 rows), and 0 sit
+  twice on one tape.** So a global index could not be created without deleting
+  35 real rows, and the per-tape one applied to the catalogue as it stood. It is
+  the same reasoning that has always kept the title+artist tombstone scoped to
+  the tape, and the reason the room has a Copy at all. **A global rule is a
+  product decision, not a tidy-up.**
+- **THE INDEX IS PARTIAL, `where spotify_id is not null`.** 202 of 1,594 tracks
+  carry no id and are real rows a human may have typed; the public page falls
+  back to a Spotify search for them. Several nulls on one tape are not a
+  duplicate.
+- **A NEW TRACK WITH NO ID, OR A MALFORMED ONE, IS REFUSED AND THE REFUSAL IS
+  FILED.** A `spotify` finding at `warn` names the title and artist, so a human
+  can find the id and add it by hand. **Counted alone it would be a number in a
+  reply nobody reads afterwards.**
+  - **THE FINGERPRINT IS PER SONG**, `md5(slug:nospotify:title:artist)`, or five
+    refusals on one tape would collapse into one finding and four would be lost.
+  - **VERIFY-OR-OMIT IS UNCHANGED AND STILL OUTRANKS THIS.** A fabricated
+    22-character id passes every check and silently plays nothing. What changed
+    is what an omission COSTS: the track is not filed, rather than filed
+    unplayable. **Guessing is worse than both.**
+  - **IT IS A RULE ABOUT ARRIVALS ONLY.** The 202 existing tracks with no id
+    stay, and the audit still files that absence as a finding. Never propose
+    retiring one for it.
+- **`found` AFTER `insert ... on conflict do nothing` WAS WRONG HERE TOO.** The
+  old pull counted a row refused by the title+artist tombstone as **added**. It
+  reads `get diagnostics` now. Third instance of this exact trap in two days.
+- **`added` AND `skipped` ARE UNCHANGED**, so nothing reading them broke; the
+  two new figures only say why.
+
+**PROVED BY A CALL THAT MADE IT DO ITS JOB.** Four songs against a real tape:
+one good id filed, one with no id refused and filed as a finding, one with a
+malformed id treated the same way, one repeating an id already on the tape
+refused as a duplicate -- `{"added":1,"skipped":3,"no_spotify_id":2,
+"duplicate_spotify_id":1}`. A direct INSERT of a repeat raised 23505 against the
+index, two nulls on one tape were accepted, and the same refusal filed twice
+added no second finding. Probes removed.
+
 ## FINDINGS ARE `public.issues`, AND CLEARING ONE DELETES IT (2026-08-27)
 
 [2026082701_issues_table.sql](mc/supabase/migrations/2026082701_issues_table.sql), **applied**. A finding was a jsonb
