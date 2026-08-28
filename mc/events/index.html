@@ -1452,6 +1452,31 @@
       { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
     ];
 
+    // ── FOUR FIELDS ARE OFF SCREEN, ON BOTH SURFACES (2026-08-28) ───────
+    //
+    // The two scores and the two tgbids. The manual form has skipped them since
+    // it was built -- a score is filled in after the event and this dialog
+    // creates one that has not happened -- and they are now off the card too.
+    //
+    // **SO THEY ARE EDITABLE NOWHERE, AND THAT IS THE COST.** A finished score
+    // goes in with SQL until they come back. That is the same bargain the room
+    // already makes with `url`, `headline` and the rest of the socials capture
+    // fields, and it is recorded rather than discovered: `assertBandsCoverFields`
+    // would otherwise report all four as unreachable, which is exactly what they
+    // are, so it is told about them here rather than being silenced.
+    //
+    // THE TGBIDS TIE A ROW TO `public.teams` for the builder's team auto-fill
+    // and the fandom palette. An event is complete without them: the clubs are
+    // stored split, geo and nickname, so a sports row describes itself.
+    //
+    // ONE LIST, NOT TWO. It was `MANUAL_SKIP`, which the card knew nothing
+    // about, and a second copy here would have drifted the first time either
+    // was edited.
+    const OFF_SCREEN_FIELDS = [
+      'away_team_score', 'home_team_score',
+      'away_team_tgbid', 'home_team_tgbid'
+    ];
+
     // ONE ORDER, TWO SURFACES. The opened row and the manual form both read
     // down this sequence, so an event looks the same whether you are creating
     // it or correcting it: what it is, when, where, who is playing, and last
@@ -1470,6 +1495,12 @@
         .filter(Boolean);
     }
 
+    // WHAT A GROUP ACTUALLY DRAWS. Both surfaces ask this rather than reading
+    // `group.fields` directly, so a field taken off screen leaves both at once.
+    function shownFields(group) {
+      return group.fields.filter((f) => OFF_SCREEN_FIELDS.indexOf(f) === -1);
+    }
+
     // A FIELD IN NO BAND IS A FIELD YOU CANNOT EDIT, and nothing would say so:
     // the card would simply not draw it and the column would quietly stop being
     // maintained. Cheap to check, so it is checked on load.
@@ -1479,7 +1510,11 @@
     const HEADER_FIELDS = ['title'];
 
     (function assertBandsCoverFields() {
-      const covered = FIELD_GROUPS.reduce((acc, g) => acc.concat(g.fields), []).concat(HEADER_FIELDS);
+      // OFF_SCREEN_FIELDS IS THE ONLY WAY A FIELD MAY BE ABSENT, and naming it
+      // here is what keeps the check meaning what it says: anything else
+      // missing is a column nobody can edit with nothing saying so.
+      const covered = FIELD_GROUPS.reduce((acc, g) => acc.concat(g.fields), [])
+        .concat(HEADER_FIELDS).concat(OFF_SCREEN_FIELDS);
       const missing = EDITABLE_FIELDS.filter((f) => covered.indexOf(f) === -1);
       const stray = covered.filter((f) => EDITABLE_FIELDS.indexOf(f) === -1);
       if (missing.length) console.error('events: editable fields with no control, so unreachable on the card:', missing);
@@ -2141,7 +2176,7 @@
         const fields = document.createElement('div');
         fields.className = 'event-fields';
         orderedGroups().forEach((group) => {
-          group.fields.forEach((f) => fields.appendChild(fieldControl(row, f, markDirty)));
+          shownFields(group).forEach((f) => fields.appendChild(fieldControl(row, f, markDirty)));
         });
         body.appendChild(fields);
 
@@ -4116,18 +4151,8 @@
     // THIS IS A DELIBERATE OMISSION, NOT A GAP, which is why it is a named list
     // rather than a field quietly missing from a band. The check below reads it,
     // so a field dropped by accident is still reported and this one is not.
-    const MANUAL_SKIP = [
-      // A SCORE IS FILLED IN AFTER THE EVENT, and this dialog creates one that
-      // has not happened.
-      'away_team_score', 'home_team_score',
-      // THE TGBIDS ARE OPTIONAL AND NOBODY HAS ONE TO HAND. They tie a row to
-      // `public.teams` for the builder's team auto-fill and the fandom palette,
-      // and an event is complete without them: the clubs are stored split, geo
-      // and nickname, so a sports row describes itself. Asking for an id you
-      // would have to go and look up, on the one form where you are typing
-      // fast, is two fields of friction for something nothing here needs yet.
-      'away_team_tgbid', 'home_team_tgbid'
-    ];
+    // THE SAME FOUR THE CARD LEAVES OFF, named once. See OFF_SCREEN_FIELDS.
+    const MANUAL_SKIP = OFF_SCREEN_FIELDS;
 
     // ── THE FORM'S OWN BAND ORDER ─────────────────────────────────────────
     //

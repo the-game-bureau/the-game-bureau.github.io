@@ -4690,6 +4690,27 @@ every `data-band` attribute, the per-band grids for Who and What, and the five
 fixture, and a filled club field never folding. 25 assertions; **14 fail against
 the previous commit.**
 
+### THE SCORES AND THE TGBIDS ARE OFF SCREEN (2026-08-28)
+
+`OFF_SCREEN_FIELDS`: `away_team_score`, `home_team_score`, `away_team_tgbid`,
+`home_team_tgbid`. The manual form had skipped them since it was built; they are
+off the card too now.
+
+- **SO THEY ARE EDITABLE NOWHERE, AND THAT IS THE COST.** A finished score goes
+  in with SQL until they come back. The same bargain the Socializer already
+  makes with `url` and `headline`.
+- **`assertBandsCoverFields` IS TOLD ABOUT THEM RATHER THAN SILENCED.** That
+  check exists to shout when a column becomes unreachable, and these four are
+  exactly that, deliberately -- so the list is named in the check instead of the
+  check being weakened.
+- **ONE LIST, BOTH SURFACES.** It was `MANUAL_SKIP`, which the card knew nothing
+  about; `MANUAL_SKIP` is now that list, and `shownFields(group)` is what both
+  builders ask.
+- **A SAVE CANNOT NULL THEM.** `readForm` skips an input that is not in the
+  DOM, so the columns are simply absent from the PATCH. **Asserted**, because
+  nulling a real score because its box was taken off the card is the failure
+  this change could plausibly have.
+
 ### ONE PLURALISER (2026-08-28)
 
 `plural(n, one, many)`. There were eleven hand-written `+ ' events'`, and
