@@ -27,10 +27,6 @@
       --danger: #a03f2d;
       --success: #2f6b3d;
       --stack-gap: 14px;
-      /* The Socializer's cut-panel tokens, ported verbatim. The Tape Room and
-         the Gift Shop carry the same three; the Socializer is the reference and
-         this is a copy, so when any one of them changes, change them all. A
-         neutral grey here read as a faint box rather than a defined panel. */
       --cut-panel-bg: #e4ecfa;
       --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
       --control-line: rgba(var(--bic-blue-rgb), 0.3);
@@ -51,7 +47,6 @@
     }
     button, input, select, textarea { font: inherit; }
 
-    /* ── Buttons ───────────────────────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; min-height: 38px;
       padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
@@ -67,61 +62,19 @@
     .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
     .btn:disabled { opacity: 0.5; cursor: default; }
 
-    /* THE BLURB WRAPS, AND THE 62ch CLAMP IS RIGHT FOR IT. It was one short
-       sentence held on a single line with `nowrap` and the shared clamp lifted,
-       because a two-line orphan under a display-sized title reads badly. **The
-       sentence is a paragraph now** -- two sentences and about 200 characters --
-       and `nowrap` on that would run it off the side of the room. So both
-       halves of the old rule are gone and `admin-shell.css` governs it again,
-       which is what that shared sheet is for. */
-    /* THE SCRIBBLE IS A RED PEN WHATEVER THE NEWS IS. #pageStatus keeps its id
-       so every setStatus() call still lands, but it is the margin note now, not
-       a line under the title -- and its own .error / .success tones would
-       otherwise recolour the pen. Same override the Gift Shop makes on
-       #shopStatus and the Path Builder on its own status element. */
     .room-scribble.error,
     .room-scribble.success { color: inherit; }
 
-    /* == Command bars, the Socializer's folder tabs ======================== */
-    /* ADD and SEARCH EXISTING share a line, ADD FIRST. The Socializer puts ADD
-       hard left for the same reason: it is where a row comes FROM, and where
-       things come from belongs at the start of the line. SEARCH EXISTING acts
-       on what is already here, so it follows.
-
-       ADD is only as wide as its three buttons; SEARCH EXISTING takes the rest.
-       .command-bar centres itself and caps at the shell width, which is right
-       for a room with one bar sitting alone, so both are cleared HERE rather
-       than in that rule. Left in place, width:100% makes both panels demand the
-       full row and they overlap.
-
-       THE FLEX IS KEYED OFF THE CLASSES, NOT OFF :first-child, and that is the
-       whole cost of this swap. `.bar-row .command-bar:first-child` meant "the
-       one on the left grows" -- true while the search was on the left and
-       exactly wrong the moment ADD moved there, since it would have stretched
-       ADD's three buttons across the row and squeezed the search into its own
-       width. Named, the rule survives another reorder. */
     .bar-row {
       display: flex; gap: 8px; align-items: flex-start;
       width: 100%; max-width: var(--mc-shell-width); margin: 0 auto var(--stack-gap);
     }
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
-    /* ── ONE ROW: ADD, SEARCH & FILTER, VIEW ───────────────────────────────
-       Left to right in the order you work: put a row in, find the one you
-       want, then go somewhere or audit the lot.
-
-       EXACTLY ONE BOX MAY GROW, and it is the middle one. The search is the
-       widest thing on the bar, and its growing is what pins ADD to the left and
-       VIEW to the right -- neither needs an auto margin, and two flexible boxes
-       would split the slack so neither end stayed put. */
     .command-bar--add { flex: 0 0 auto; }
     .command-bar--check { flex: 0 0 auto; }
 
     .command-bar--find { flex: 1 1 auto; min-width: 0; }
 
-    /* THE HAIRLINE BETWEEN THE TWO HALVES OF ONE BOX. Everything left of it is
-       text you TYPE; everything right of it is a state you TICK. They answer one
-       question by two means, which is why they share a box, and the rule is what
-       stops the row reading as one undifferentiated strip of controls. */
     .command-bar--find .bar-sep {
       flex: 0 0 auto;
       align-self: stretch;
@@ -133,8 +86,6 @@
     @media (max-width: 760px) {
       .bar-row { flex-wrap: wrap; }
       .command-bar--find { flex: 1 1 100%; }
-      /* A PHONE WRAPS THE BOX, so a vertical rule between wrapped lines would
-         sit in the middle of nothing. */
       .command-bar--find .bar-sep { display: none; }
     }
 
@@ -149,25 +100,6 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
     }
-    /* THE FOLDER TAB, ported verbatim from the Socializer. The legend cuts the
-       panel's top border and the line used to just stop either side of it; it
-       now wears a tab, so the border runs into the label and back out again.
-
-       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
-       things wanted here are incompatible on one box. The word has to sit
-       centred on the horizontal line, which is the legend's default position.
-       But the tab's sides must stop AT that line rather than carrying on into
-       the panel, and a bordered box whose bottom edge is the line cannot also
-       have its text centred on the line.
-
-       So the box stays put and the outline is drawn only over the half above
-       the line -- `inset: 0 0 50%`, since the legend's midpoint IS the line.
-       The word's lower half hangs into the panel, invisibly, because the tab
-       fill and the panel are the same colour with no edge between them.
-
-       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
-       behind the text, and without a stacking context of its own that -1 drops
-       it behind the fieldset's own background and it vanishes. */
     .command-bar > legend,
     .panel > legend {
       float: none;
@@ -192,15 +124,10 @@
       inset: 0 0 50%;              /* the legend's midpoint is the border line */
       border: 1px solid var(--cut-panel-line);
       border-bottom: 0;
-      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
-         wider radius would curve the whole way across and read as a dome
-         instead of a tab. */
       border-radius: 5px 5px 0 0;
       background: var(--cut-panel-bg);
     }
 
-    /* A PICKER AND ITS WORD ARE ONE CONTROL, so the label cannot wrap away from
-       the select it names when the bar narrows. */
     .bar-pick {
       display: inline-flex;
       align-items: center;
@@ -214,91 +141,41 @@
       color: var(--muted);
     }
 
-    /* THE WORD IS A LABEL AND THE SELECT IS A CONTROL, so they are deliberately
-       different sizes: the label matches the room's other small mono labels,
-       and the select matches the buttons and the search box on the same bar.
-       `.command-bar-select` sets the size; this only undoes what the LABEL's
-       own rule would otherwise pass down. */
-    /* THE WORD IS A LABEL AND THE SELECT IS A CONTROL, so they are deliberately
-       different: the label matches the room's other small mono labels, and the
-       select matches the buttons and the search box on the same bar.
-       `.command-bar-select` sets the type; this only undoes the uppercasing and
-       tracking the LABEL would otherwise pass down to it. */
     .bar-pick select { text-transform: none; }
 
     .command-bar-inner {
       display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
     }
-    /* 42px to match the Socializer's bars, so a button here and a button there
-       are the same object. The page's own .btn is 38px and still is everywhere
-       outside a command bar -- the row buttons on a card are deliberately
-       smaller than the room's controls. */
     .command-bar .btn {
       min-width: 0; padding: 0 11px; min-height: 36px;
       border-color: var(--control-line);
       box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
       font-size: 0.78rem; letter-spacing: 0.02em; white-space: nowrap;
     }
-    /* A FORM CONTROL DOES NOT INHERIT THE PAGE'S FONT, and neither of these
-       declared one -- so the search box and both pickers were rendering in the
-       browser's default face at its default size, beside buttons set in the
-       page's own at 0.78rem. Three type sizes and two families on one bar.
-       Named here so they match the `.command-bar .btn` they sit against. */
     .command-bar input[type="search"],
     .command-bar-select {
       min-height: 36px; padding: 0 9px; border: 1px solid var(--control-line);
       border-radius: 8px; background: #fff; color: var(--ink); min-width: 0;
       box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
-      /* THE STACK BY NAME, NEVER `inherit`. A picker sits inside its own
-         `<label>`, which is set in mono, so `inherit` there means the LABEL and
-         not the page: the two selects came out in a different face from the
-         search box and the buttons beside them. */
       font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 0.78rem;
       font-weight: 500;
       letter-spacing: 0.01em;
     }
 
-    /* The placeholder is the one thing here that should read as absent rather
-       than as a value, so it keeps the muted ink at the same size. */
     .command-bar input[type="search"]::placeholder { color: var(--muted); }
     .command-bar input[type="search"] { flex: 1 1 200px; max-width: 320px; }
 
     .command-bar--check { flex: 0 0 auto; }
-    /* FILTER does not grow. Only SEARCH EXISTING may take the slack, or two
-       flexible tabs would split it and neither end would be pinned. */
-    /* Waiting for the rest of the table. Not `disabled`, so a press still
-       reaches the handler and can say why. */
-    /* THE CHECK BUTTON IS WIDER THAN ITS WORD. Its face changes between `Check`
-       and `Check (43)` as the sweep finds things, and sized to its content it
-       grew and shrank under the pointer. A floor wide enough for a three-figure
-       count holds it still, and gives the one control in this bar something
-       nearer the weight of the tab above it.
-
-       **IT HAS TO COME AFTER `.command-bar .btn`**, which sets `min-width: 0`.
-       Both are (0,2,0), so source order is the only thing deciding it, and
-       declared above that rule this one silently did nothing. The same
-       specificity trap the Socializer's reel button hit with padding. */
     .command-bar--check .btn { min-width: 11ch; justify-content: center; }
 
     .command-bar .btn.is-waiting { opacity: 0.55; cursor: progress; }
-    /* The Go control is a <button> for most findings and an <a> for the ones
-       that send you to another room, so it is styled by position rather than by
-       tag -- otherwise the two read as different kinds of control. */
 
-    /* WHERE A FINDING LANDS YOU. A report that names a broken row and gives you
-       no way to reach it is a report you then have to search by hand, which on
-       a table this size is the whole cost of running the check. */
     .event-row.is-found {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), 0.18);
     }
 
-    /* The list wears the same cut panel as the bars above it, with its own
-       folder tab, so the room reads as one set of tagged folders rather than a
-       tinted toolbar sitting on an unrelated white box. The tint is also what
-       lets the white cards inside read as objects on it; both were near-white
-       before, leaving the cards to separate on a 1px border alone. */
     .panel {
       width: 100%;
       max-width: var(--mc-shell-width);
@@ -311,26 +188,6 @@
       box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.1);
     }
 
-    /* The panel's own controls, above the list. Right-aligned because the
-       legend is a tab on the left and the two would otherwise collide at narrow
-       widths -- and because it acts on the whole list below it rather than on
-       anything beside it. */
-    /* BATCH EDIT LEFT, EXPAND ALL RIGHT. The row reads as the bar above it
-       does: what you DO to the list on the left, and the one control that only
-       changes how you are LOOKING at it pushed to the far end.
-       `justify-content` went with the change -- the batch bar's own
-       `margin-left: auto` was what pushed it right, and with the order swapped
-       that margin now does the pushing for Expand all instead. */
-    /* THE PAGER AND EXPAND ALL SHARE ONE LINE. Neither writes anything: they
-       only change what you are looking at, so they are the same kind of thing
-       and belong together.
-
-       A GRID OF THREE COLUMNS, NOT A FLEX ROW, and that is the whole reason it
-       is a grid. Flex with the pager taking the slack centres it in **what is
-       left beside the button**, so the pager would sit slightly left of centre
-       and would MOVE as that button's label changed between Expand all and
-       Collapse all. An empty first column the same width as the third puts the
-       pager on the panel's own centre and keeps it there. */
     .panel-head {
       display: grid; grid-template-columns: 1fr auto 1fr;
       align-items: center; gap: 8px; margin: 0 0 6px;
@@ -338,46 +195,21 @@
     .panel-head > .pager { grid-column: 2; justify-content: center; padding: 0; }
     .panel-head > #toggleAllBtn { grid-column: 3; justify-self: end; }
 
-    /* A HIDDEN PAGER MUST NOT HOLD THE LINE OPEN. `.pager` is `display: flex`,
-       an author rule, and `[hidden]` is only the UA sheet's `display: none`, so
-       the author rule wins and a one-page list would keep an empty gap where
-       the pager would be. **Tenth time this project has hit that.** */
     .pager[hidden] { display: none; }
 
-    /* ── Event cards ───────────────────────────────────────────────────────── */
-    /* A ROW IS ONE LINE UNTIL YOU OPEN IT. Every card used to be its whole
-       editor, so fifty rows meant fifty copies of a 22-field form and the list
-       was unscrollable -- you could not see three events at once, let alone
-       scan a week. Closed, fifty rows fit on a screen and a half; open, you get
-       the same banded editor as before, on the one row you are actually working
-       on.
-
-       THE FIELDS ARE NOT BUILT UNTIL THE ROW IS OPENED. Building them anyway
-       and merely hiding them would put 1,100 inputs in the document for a page
-       of fifty and cost that on every keystroke in the search box, which is what
-       re-renders the list. */
     .event-list { display: grid; gap: 4px; }
 
-    /* A WEEK HEADING IS A RULE WITH A LABEL ON IT, not a card. It separates the
-       rows rather than being one of them, so it has no border, no fill and no
-       box: another framed object in a list of framed objects would read as an
-       event you cannot open. Same reasoning as the Tape Room's "a tape is a
-       heading, not a box". */
     .week-head {
       display: flex; align-items: baseline; gap: 8px;
       margin: 8px 2px 2px; padding-bottom: 3px;
       border-bottom: 1px solid var(--cut-panel-line);
     }
-    /* No gap above the first one: it is already sitting under the panel's own
-       top padding, and a heading pushed down from that reads as detached. */
     .week-head:first-child { margin-top: 2px; }
     .week-head-label {
       font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 800;
       letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
     }
     .week-head-span { font-size: 0.72rem; color: var(--muted); }
-    /* Pushed to the far right, where the id sits on the rows below, so the
-       column of numbers lines up. */
     .week-head-count {
       margin-left: auto;
       font-family: "IBM Plex Mono", monospace; font-size: 0.64rem; color: var(--muted);
@@ -388,9 +220,6 @@
     }
     .event-row.is-dirty { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.1); }
 
-    /* ── The closed row ────────────────────────────────────────────────────── */
-    /* A <div>, because it contains the title input and an <input> may not sit
-       inside a <button>. The caret below carries the button semantics. */
     .event-head {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       width: 100%; padding: 5px 9px; margin: 0;
@@ -401,8 +230,6 @@
       border-bottom: 1px solid var(--line);
       border-radius: 8px 8px 0 0;
     }
-    /* Points down when the row is open. A rotation rather than two glyphs, so
-       there is nothing to keep in step. */
     .event-caret {
       flex: 0 0 auto; padding: 2px 4px; margin: -2px 0;
       border: 0; background: none; color: var(--muted);
@@ -412,14 +239,6 @@
     .event-caret:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
     .event-row.is-open .event-caret { transform: rotate(90deg); }
 
-    /* IT LEADS THE ROW, AND IT IS THE TITLE BOX. Drawn as text at rest -- no
-       border, no fill, inheriting the row's font -- so a closed list still reads
-       as a list rather than as fifty forms. The border appears on hover and
-       focus, which is where "you can change this" needs saying and nowhere
-       else.
-
-       `flex: 1 1 auto` with `min-width: 0` is what lets it take the middle of
-       the row and still shrink rather than pushing the chips off the end. */
     .event-name {
       flex: 1 1 auto; min-width: 0;
       padding: 2px 5px; margin: -2px 0;
@@ -432,28 +251,11 @@
       border-color: var(--accent); background: #fff;
       outline: 2px solid var(--accent); outline-offset: -1px;
     }
-    /* The derived name a sports row falls back to. Lighter and italic so it
-       cannot be mistaken for a title somebody typed. */
     .event-name::placeholder { color: var(--muted); font-weight: 500; font-style: italic; opacity: 1; }
-    /* THE CITY EARNS ITS PLACE ON THE CLOSED ROW and the venue does not: a game
-       is built around a city, so "where is this" is the question you ask of a
-       list of events. The stadium is a detail you open the row for. */
     .event-where {
       font-size: 0.78rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere;
     }
-    /* NOTHING IN THE HEAD CARRIES `margin-left: auto` ANY MORE, and nothing
-       should. The push used to live on the id, then on the date box, then back
-       on the id, and was missed on one of those hops. With `.event-name` at
-       `flex: 1 1 auto` the title takes the slack itself and everything after it
-       is held right for free -- one fewer thing to move the next time an
-       element leaves the head. */
 
-    /* THE ID, at the foot of the opened body. It sits with the actions because
-       it is provenance rather than a field: what the record IS, at the edge of
-       the form, not among the things you change. */
-    /* ONE META LINE at the foot of the body, carrying the id and every pill.
-       They are the same kind of fact -- what this RECORD is, as against what
-       the event is -- so they share a line rather than each getting one. */
     .event-meta {
       display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
       padding-top: 6px; border-top: 1px solid var(--line);
@@ -467,31 +269,15 @@
       color: var(--muted); overflow-wrap: anywhere; user-select: all;
     }
 
-    /* ── A ROW IN REVIEW IS RED, ALL OF IT ──────────────────────────────────
-       Not a chip on it: the row IS the thing that is wrong, so the row is what
-       turns red. Border, fill and a heavy left edge, so it is unmissable down a
-       page of fifty and needs nothing opened to be seen.
-
-       THE FILL IS 0.05 AND THE EDGE IS 3px, deliberately that way round. A wash
-       strong enough to spot from across the card would make the words in it
-       harder to read than the words in a healthy row, which is backwards: the
-       rows you must read carefully are exactly these. The edge does the
-       spotting; the wash only says the row is grouped with the edge. */
     .event-row.is-review {
       border-color: rgba(160, 63, 45, 0.55);
       border-left: 3px solid var(--danger);
       background: rgba(160, 63, 45, 0.05);
     }
     .event-row.is-review .event-head:hover { background: rgba(160, 63, 45, 0.07); }
-    /* The title box sits on the row's fill, so it needs its own ground back or
-       it reads as a red field rather than a white box on a red row. */
     .event-row.is-review .event-name:hover,
     .event-row.is-review .event-name:focus { background: #fff; }
 
-    /* THE ANNOTATION, under the name and above the body, so it is on the CLOSED
-       row. This is what the row is being pulled up for; putting it behind a
-       tooltip or inside the body would be hiding the answer inside the
-       question. */
     .event-annotation {
       padding: 0 10px 7px 9px;
       display: grid; gap: 2px;
@@ -502,37 +288,14 @@
       color: var(--danger);
       font-size: 0.78rem; line-height: 1.35;
     }
-    /* A bullet only from the second line, so a single reason reads as a
-       sentence rather than as a list of one. */
     .event-annotation-line + .event-annotation-line::before {
       content: "·  "; font-weight: 700;
     }
-    /* A NOTE, NOT A FAULT. `no-time` and `multi-day` report without accusing, so
-       they are drawn in the muted pen. Sharing the red one would undo the whole
-       point of `noReview`: 524 rows would look wrong for a slot the source has
-       simply not announced yet. */
     .event-annotation-line--note { color: var(--muted); }
 
-    /* ── The opened row ────────────────────────────────────────────────────── */
     .event-body { padding: 7px 9px 8px; display: grid; gap: 7px; }
     .event-body[hidden] { display: none; }
 
-    /* ── THE OPENED ROW IS THE MANUAL FORM ─────────────────────────
-       ONE FIELD PER ROW, FULL WIDTH, LABEL ABOVE THE BOX. It was five coloured
-       folder-tab fieldsets, each a bordered panel inside a bordered card inside
-       a bordered list -- three frames deep before you reached a value, with a
-       hue to learn per group. **Editing an event and creating one are the same
-       job and now look it.**
-
-       WHAT THE COLOURS BOUGHT, and what losing them costs: you could aim at the
-       amber band for the dates without reading anything. What they cost was a
-       card that read as five objects. The fields are in the FORM'S order now --
-       what, when, where, who, why -- so the same sequence carries the same
-       meaning whichever way you arrived at the event.
-
-       IT IS NOT A COPY OF `.manual-form`. Sharing that selector would tie a
-       list of 4,000 rows to a dialog's metrics, and the two differ where they
-       should: a row inside a card is tighter than a form on its own. */
     .event-fields {
       display: grid; grid-template-columns: 1fr;
       gap: 8px; min-width: 0;
@@ -543,7 +306,6 @@
       font-size: 0.62rem; font-weight: 800;
       letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
     }
-    /* A HIDDEN FIELD IS HIDDEN OUTRIGHT, not left as an empty row. */
     .event-fields label[hidden] { display: none; }
     .event-fields input,
     .event-fields select,
@@ -560,36 +322,16 @@
     .event-fields textarea:focus-visible {
       outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
     }
-    /* THE ONE FIELD THAT WRAPS, so it is the one that gets room and a grip. */
     .event-fields textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
-    /* The box keeps the room; the action takes only what its word needs. */
     .event-fields .field-with-action { display: flex; gap: 6px; min-width: 0; }
     .event-fields .field-with-action > input { flex: 1 1 auto; min-width: 0; }
     .event-fields .field-action {
       flex: 0 0 auto; min-height: 32px; padding: 0 10px; font-size: 0.72rem;
       text-decoration: none;
     }
-    /* NOT `disabled`: an anchor cannot be, and the greying has to be visual
-       plus aria. It keeps its place rather than being removed, so the box
-       beside it does not change width the moment you type into it. */
     .event-fields .field-action.is-off {
       opacity: 0.45; pointer-events: none; cursor: default;
     }
-    /* THE CHECKBOX IS LABEL-ABOVE-CONTROL LIKE EVERYTHING ELSE. It was a
-       two-column grid -- box then words, both on one line -- which put the whole
-       field up on the LABEL row of its neighbours, floating above two inputs
-       with nothing under it. Every other field in the band reads label, then
-       control; this one now does too, so the labels line up across the row and
-       so do the controls.
-
-       THE 8.5px IS THE ALIGNMENT, and it is exact rather than rounded. An input
-       is 32px tall, so its middle sits 16px down; the box is 15px, so it needs
-       (32 - 15) / 2 = 8.5 to put its own middle on 16 too. Change the input
-       height or the box size and this changes with them. */
-    /* THE CHECKBOX IS THE ONE LABEL THAT READS BESIDE ITS BOX, exactly as it
-       does on the manual form and for the same reason: a word on its own line
-       above a 16px tick spends two rows on one field, and in a single column
-       there are no neighbouring controls for it to line up with. */
     .event-fields label.field--check {
       grid-template-columns: auto 1fr;
       align-items: center;
@@ -602,34 +344,19 @@
       accent-color: var(--accent);
     }
 
-    /* THE SPAN CLASSES ARE NEUTRALISED, NOT REMOVED. `grid-column: span 2` in a
-       one-column grid FORCES AN IMPLICIT SECOND COLUMN and everything else
-       squeezes into the first -- the exact trap the manual form documents. The
-       classes stay because `FIELD_META` sets them and other surfaces read them. */
     .event-fields .field--wide,
     .event-fields .field--full { grid-column: 1 / -1; }
 
-    /* DESTRUCTIVE HARD LEFT, as far from the button you came to press as the row
-       goes. Delete used to sit against Save, which is one misclick from losing a
-       row every game pointing at it depends on. Same arrangement the waypoint
-       editor's foot uses. */
     .event-actions {
       display: flex; gap: 6px; align-items: center;
       padding-top: 6px; border-top: 1px solid var(--line);
     }
-    /* The meta line already drew the rule that separates the foot from the form,
-       so the actions directly under it must not draw a second one three pixels
-       below the first. */
     .event-meta + .event-actions { border-top: 0; padding-top: 4px; }
     .event-actions .event-actions-gap { flex: 1 1 auto; }
-    /* .btn carries an author `display: inline-flex` and [hidden] is only a
-       UA-sheet `display: none`, so the author rule wins and setting .hidden
-       silently does nothing. SIXTH time this project has hit that rule. */
     .event-actions .btn[hidden] { display: none; }
 
     .empty { padding: 22px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
 
-    /* ── Prompt lightbox (same lockup as the Cities page) ──────────────────── */
     .prompt-lightbox {
       position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
       padding: 20px; background: rgba(17, 24, 32, 0.5); z-index: 1200;
@@ -652,22 +379,8 @@
       margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
     }
     .prompt-dialog-body { padding: 12px; overflow: auto; }
-    /* ── THE MANUAL FORM ──────────────────────────────────────────────────
-       ONE FIELD PER ROW, FULL WIDTH. `.event-fields` on a card is an auto-fit
-       grid because a card is wide and shallow; a creation form is the opposite.
-       You read down it once, in order, and anything side by side makes "what
-       comes next" a question you answer with your eyes rather than by reading
-       on.
-
-       THESE RULES WERE LOST AND ARE RESTORED. A pass that removed the band CSS
-       took the label and input rules with it, because they sat between the
-       block being cut and the marker it was cut to -- so every field rendered
-       as a bare browser default. Same trap as a slice keyed on a comment. */
     .manual-form { display: grid; grid-template-columns: 1fr; gap: 10px; }
 
-    /* THE LABEL SITS ABOVE ITS BOX, both the full width of the dialog. Quiet,
-       small and uppercase: it names the box rather than competing with what you
-       type into it. */
     .manual-form label {
       display: grid;
       gap: 4px;
@@ -680,29 +393,11 @@
       color: var(--muted);
     }
 
-    /* A HIDDEN FIELD IS HIDDEN OUTRIGHT, not left as an empty row. */
     .manual-form label[hidden] { display: none; }
 
-    /* ── THE SPAN CLASSES MEAN NOTHING HERE, AND THAT IS THE WHOLE FIX ─────
-       `.field--wide` is `grid-column: span 2`, written for the CARD, where the
-       fields sit in an auto-fit grid several columns wide. In this form's
-       single explicit column it **forced an implicit second column** -- and
-       once that existed the ordinary fields packed TWO PER ROW, so the form was
-       never one-per-row at all despite saying so.
-
-       `.field--full` is `grid-column: 1 / -1`, and `-1` is the last line of the
-       EXPLICIT grid, which is line 2. So the description spanned column one and
-       a neighbour sat beside it: the one field that most needs a line to itself
-       was sharing one.
-
-       Both are pinned to the full row here. A card is wide and shallow; a
-       creation form is read straight down. */
     .manual-form .field--wide,
     .manual-form .field--full { grid-column: 1 / -1; }
 
-    /* FULL WIDTH, EVERY ONE. `width: 100%` with `min-width: 0` so a long value
-       cannot push the box past the dialog, and `box-sizing` inherited from the
-       page so the padding is inside that width rather than added to it. */
     .manual-form input,
     .manual-form select,
     .manual-form textarea {
@@ -721,7 +416,6 @@
       text-transform: none;
     }
 
-    /* THE ONE FIELD THAT WRAPS, so it is the one that gets room and a grip. */
     .manual-form textarea { min-height: 64px; resize: vertical; line-height: 1.4; }
 
     .manual-form input:focus-visible,
@@ -732,11 +426,6 @@
       border-color: var(--accent);
     }
 
-
-    /* THE CHECKBOX IS THE ONE LABEL THAT READS BESIDE ITS BOX. A word on its own
-       line above a 15px tick would spend two rows on one field, and there are no
-       neighbouring controls for it to line up with -- which is the whole reason
-       the CARD's version stacks and this one does not. */
     .manual-form label.field--check {
       grid-template-columns: auto 1fr;
       align-items: center;
@@ -752,9 +441,6 @@
       order: -1;
     }
 
-    /* ── THE SEATGEEK LIST ────────────────────────────────────
-       Bounded and scrolling, because a busy city over three months is hundreds
-       of rows and the dialog must not grow to hold them. */
     .sg-toolbar { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
     .sg-count { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted); }
     .sg-list {
@@ -768,9 +454,6 @@
     .sg-item:last-child { border-bottom: 0; }
     .sg-item:hover { background: rgba(var(--bic-blue-rgb), 0.04); }
     .sg-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex: 0 0 auto; }
-    /* ALREADY FILED ROWS ARE SHOWN, DIMMED AND UNTICKED, rather than filtered
-       out: seeing that a week is already in is the answer to "did I import this
-       yet", which an empty list cannot give. */
     .sg-item.is-dupe { opacity: 0.5; }
     .sg-name { font-size: 0.86rem; font-weight: 700; min-width: 0; }
     .sg-sub { font-size: 0.74rem; color: var(--muted); min-width: 0; }
@@ -779,31 +462,12 @@
       font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
 
-    /* ── BATCH EDIT ─────────────────────────────────────────
-       The controls are always there and go quiet with nothing ticked, rather
-       than appearing: a bar that grows when you tick something moves the list
-       underneath it, so the row you were aiming at is no longer where it was. */
-    /* ── THE BATCH ROW ─────────────────────────────────────
-       AN EVENT ROW'S OWN GEOMETRY, deliberately: `.event-head` is
-       `padding: 5px 9px` with an 8px gap and a 15px tick leading it, and this
-       matches all three. **That is what puts the select-all directly above the
-       column of ticks** rather than a few pixels off it, which is the whole
-       reason it is shaped this way and the thing that will break if either is
-       restyled alone.
-       It is quieter than a row: no border, no white ground, and the type is the
-       small mono the rest of the chrome uses. It is the head of the list, not
-       one of its entries. */
     .batch-row {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       padding: 5px 9px; margin: 0 0 4px;
       border-bottom: 1px solid var(--control-line);
     }
     .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
-    /* THEY SAT IN ONE TYPE AND READ AS ONE PHRASE: "SELECT ALL NONE SELECTED".
-       One of them is a CONTROL you press and the other is a READING of what you
-       have pressed, so they are told apart the way this room tells anything
-       apart -- ink against muted, and a hairline between them, which is the
-       same separator the Search & filter bar puts between its two halves. */
     .batch-all, .batch-count {
       font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
       letter-spacing: 0.06em; text-transform: uppercase;
@@ -814,8 +478,6 @@
       padding-left: 10px;
       border-left: 1px solid var(--control-line);
     }
-    /* THE TICK IS THE ROW'S OWN, 15px with the same 2px of right margin, so
-       the two line up down the left edge. */
     .batch-all { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
     .batch-all input {
       width: 15px; height: 15px; margin: 0 2px 0 0;
@@ -827,15 +489,8 @@
       background: #fff; color: var(--ink); font-size: 0.78rem;
     }
     .batch-row input[type="text"] { width: 13ch; }
-    /* `aria-disabled`, NEVER `disabled`. A disabled button dispatches no click
-       at all, so on a touch screen -- no hover, therefore no tooltip -- the
-       reason it is off would be unreachable. Pressing it says what to do. */
     .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
 
-    /* `.bar-sep` IS DECLARED ONLY UNDER `.command-bar--find`, so it draws
-       nothing here without this. Same 1px of `--control-line`, stretched to the
-       row, and a little more air either side because it stands between two
-       buttons rather than between a box and a picker. */
     .batch-row .bar-sep {
       flex: 0 0 auto;
       align-self: stretch;
@@ -844,30 +499,15 @@
       background: var(--control-line);
     }
 
-    /* THE TICK, leading every row. 15px so it matches the batch bar's own. */
     .event-pick {
       flex: 0 0 auto; width: 15px; height: 15px; margin: 0 2px 0 0;
       accent-color: var(--accent); cursor: pointer;
     }
 
-    /* THE CITY PICKER'S + BUTTON MATCHES THE BOX IT SITS BESIDE. The shared
-       module draws it at 30px, which is right in the compact rows it was written
-       for and one short of this form's 36px boxes, so it would sit a little high
-       against the field. Height only: the module owns everything else about it,
-       and restating its look here would be a second copy to keep in step. */
-    /* A FIELD WITH AN ACTION BESIDE IT, the url's Open. The box takes the room
-       and the button takes only what its word needs. */
     .manual-form .field-with-action { display: flex; gap: 6px; align-items: center; }
     .manual-form .field-with-action input { flex: 1 1 auto; }
     .manual-form .field-with-action .btn { flex: 0 0 auto; }
 
-    /* THE ERRAND PARAGRAPH, PORTED FROM THE SOCIALIZER RATHER THAN INVENTED.
-       That room's prompt dialog has carried these four sentences since August
-       and this is the fifth room to wear its chrome, so the words and the
-       metrics both come from there: when either changes, change both.
-       58ch and 0.82rem, quiet blue rather than the muted grey, because it is
-       read once on a first visit and must not compete with the prompt it is
-       describing. */
     .prompt-howto {
       margin: 0 0 10px;
       max-width: 58ch;
@@ -876,14 +516,6 @@
       line-height: 1.45;
     }
 
-    /* THE SEATGEEK BOXES ARE THEIR OWN CLASS. They wore `--scope`, borrowed
-       from the AI prompt's own control, and made
-       `querySelector('.prompt-options--scope')` ambiguous across the document:
-       this dialog is earlier in the source, so it answered for the wrong one.
-       **A class named for one control must not be worn by another.** The prompt
-       is deleted and its rules with it; `.prompt-options`, `.prompt-option`,
-       `.prompt-options-label` and `.prompt-copy-status` survive because THIS
-       dialog wears them. */
     .prompt-options--sg { margin: 0 0 8px; }
     .prompt-options--sg input[type="text"] { flex: 1 1 180px; min-width: 0; }
 
@@ -914,10 +546,6 @@
       min-height: 1.2em; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
 
-    /* ── Schedule importer ─────────────────────────────────────────────────── */
-    /* Rides the .prompt-lightbox lockup so the two dialogs are the same object;
-       only the body differs — controls, a checkbox list, and a progress bar. */
-
     .pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 0; flex-wrap: wrap; }
     .pager-info { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted); }
 
@@ -933,98 +561,30 @@
     <header class="admin-site-nav" data-admin-site-nav></header>
     <script src="/mc/js/admin-site-nav.js"></script>
 
-    <!-- The shared room header out of mc/js/admin-shell.css, the same one the
-         Socializer, the Tape Room and the Gift Shop wear. The blurb is the
-         standing description of the room and is NOT a status line; the scribble
-         beside it is the error channel. Keeping them separate is the whole
-         point: this page used one element for both, so a failed save wiped the
-         only description of the room and left nothing to restore it. -->
     <div class="room-head">
       <div class="room-titlecol">
         <h1 class="room-title" id="eventTitle">? ANCHOR EVENTS</h1>
         <p class="room-blurb">Each game we build is based on a real-world event, an Anchor Event! It could be a sporting event, a historical moment, a concert, a convention, or anything else that attracts an audience and is game-worthy.</p>
       </div>
-      <!-- A DIRECT CHILD OF .room-head, and it has to be. .room-scribble is
-           absolute against its nearest positioned ancestor; nested inside the
-           title column its `right: 0` would be the right edge of the TITLE
-           rather than of the header, and every notice would land on the name. -->
       <span class="room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
     </div>
 
     <div class="bar-row">
-      <!-- ADD SITS HARD LEFT, where a row comes FROM. Three ways in, and the
-           tooltips end the same way so the only thing to read is who does the
-           work: you, a league feed, or any AI. The Socializer's own two labels
-           are ADD and VIEW; there is nowhere to GO from this table, so the
-           other half searches what is already filed instead. -->
       <fieldset class="command-bar command-bar--add">
         <legend>Add</legend>
         <div class="command-bar-inner">
           <button class="btn" id="addEventBtn" type="button"
                   title="Add one event yourself, straight onto this page.">MANUAL</button>
-          <!-- SEATGEEK PULLS REAL DATES FOR A CITY AND A WINDOW, straight into
-               this table. It is the third way in: MANUAL is one you type,
-               PROMPT is a batch an AI researches, this is a feed you filter.
-
-               IT READS `api.seatgeek.com` FROM THE BROWSER, WITH NO SERVER.
-               Measured before it was built: that host answers
-               `access-control-allow-origin: *`, so the page can call it
-               directly, exactly as the deleted ESPN importer read ESPN.
-
-               **SEATGEEK.COM ITSELF CANNOT BE READ THIS WAY AND NEVER WILL BE.**
-               Its public pages sit behind a DataDome bot wall: a plain fetch
-               gets 403 and a JavaScript challenge, from a browser, a script or
-               an Edge Function alike. Only a real browser passes it, which is
-               why the PROMPT route -- an AI with a browser -- is told to read
-               those pages and this button reads the API instead. **Do not
-               "fix" this by scraping the site.** -->
           <button class="btn" id="seatgeekBtn" type="button"
                   title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
         </div>
       </fieldset>
 
-      <!-- THREE WAYS IN AND NO ROUTINE. TGB ANCHOR EVENT BOT filled this table
-           twice a day and its door lived in this bar; both were deleted on
-           2026-08-28. What replaced it is SEATGEEK, which reads the same kind
-           of thing on demand for a city and a window, with a person choosing
-           the rows -- so the table is filled deliberately rather than
-           accumulating. **Nothing writes to `public.events` unattended now.** -->
-
-      <!-- SEARCH EXISTING narrows what is already here, so it follows ADD and
-           takes the rest of the line. It reads as the pair to ADD: one puts a
-           row in, the other goes looking through the rows already there. The
-           CLASS stays .command-bar--find -- an identifier, not visible copy,
-           the same bargain the Tape Room made through four renames of its
-           verbs without the column following. -->
-
-      <!-- SEARCH AND FILTER ARE ONE BOX, ON THEIR OWN ROW. They were two
-           fieldsets sharing a line with ADD, which made three labels for two
-           ideas and squeezed the search box by a bar it has nothing to do with.
-
-           They belong together because they answer the SAME question -- what am
-           I looking at -- by two means: text you type, and states you tick.
-           Neither changes the table; both change the view, and the row sits
-           directly above the list it narrows.
-
-           THE CLASSES STAY `--find` AND `--filter` on the controls inside, so
-           the CSS and every test that names them still hold. Identifiers do not
-           follow visible copy. -->
       <fieldset class="command-bar command-bar--find">
         <legend>Search &amp; filter</legend>
         <div class="command-bar-inner">
-        <!-- ONE BOX. It carried three dropdowns beside it -- kind, league and a
-             date window -- and the box already searches every one of those
-             fields: typing "concert", "NFL" or "Chicago" narrows the list the
-             same way the pickers did, without three controls sitting there on
-             every visit for the sake of it. What is genuinely lost is the DATE
-             window, which is not a text match; the `past` pill and the week
-             headings are what answer that question now. -->
           <input type="search" id="searchInput" placeholder="Search title, team, league, venue, city, kind…" autocomplete="off">
           <span class="bar-sep" aria-hidden="true"></span>
-          <!-- TWO PICKERS, AND EACH REACHES SOMETHING YOU CANNOT TYPE. The
-               search box already matches kind, league, team, venue, city and
-               source, so a picker for any of those would be a second way to do
-               what typing does. A date RANGE and a stored FLAG are not text. -->
           <label class="bar-pick">When
             <select id="whenFilter" class="command-bar-select">
               <option value="any">any date</option>
@@ -1041,51 +601,11 @@
               <option value="no">clean</option>
             </select>
           </label>
-          <!-- CLEAR PUTS THE WHOLE BOX BACK, all three controls at once. Three
-               narrowings can be on together and only two of them are visible as
-               a value -- a search you typed a while ago reads as an empty list
-               rather than as a filter -- so one press that undoes the lot is
-               worth its width.
-
-               IT IS GREYED WHEN THERE IS NOTHING TO CLEAR, `aria-disabled`
-               rather than `disabled`: a disabled button dispatches no click, so
-               on a touch screen the reason it is off would be unreachable.
-               Pressing it says so instead.
-
-               IT DOES NOT TOUCH THE SELECTION. Clearing a filter widens the
-               list, so nothing ticked stops matching and nothing is dropped --
-               which is the opposite of narrowing and needs no warning. -->
           <button class="btn small" id="clearFiltersBtn" type="button"
                   aria-disabled="true">Clear</button>
         </div>
       </fieldset>
 
-      <!-- ISSUES SITS HARD RIGHT, at the far end of the bar from ADD. The row
-           reads left to right as the order you work in: put events in, find
-           them, narrow them, and then -- last, and only when you want it -- ask
-           what is wrong with the whole table.
-
-           It is its own tab rather than a button inside SEARCH EXISTING because
-           narrowing a list and auditing it are different jobs, and a control
-           that reads every row does not belong in a bar labelled for finding
-           one.
-
-           THE BOX IS THE SUBJECT AND THE BUTTON IS THE VERB, which is the way
-           round the other tabs already read: ADD holds MANUAL and PROMPT,
-           SEARCH & FILTER holds a box you type in. This held **VIEW / Issues**,
-           which was a place-you-go label over a thing-that-happens control --
-           and VIEW means doors in the Tape Room, the Socializer and the issues
-           room, none of which is what this button does. It is **ISSUES /
-           Check** now: the box says what the tab is about, the button says what
-           pressing it does.
-
-           **IT HAS BEEN CHECK BEFORE.** The box was called CHECK until
-           2026-08-28 and the word has now moved from the box to the button,
-           which is a rename worth knowing about before reading old commits.
-
-           THE CLASS IS STILL `--check`, deliberately: identifiers do not move
-           with visible copy, the same bargain the Tape Room made through four
-           renames of its verbs without the column following. -->
       <fieldset class="command-bar command-bar--check">
         <legend>Issues</legend>
         <div class="command-bar-inner">
@@ -1095,33 +615,13 @@
       </fieldset>
     </div>
 
-
     <fieldset class="panel">
       <legend>Events</legend>
-      <!-- ONE BUTTON THAT NAMES WHAT IT WILL DO, not a pair. Expand all and
-           Collapse all are never both useful: whatever the list is, one of them
-           is a no-op. The face reads the state it produces, the way the Tape
-           Room's verbs do. -->
-      <!-- ONE LINE OF CHROME, THEN THE BATCH ROW, THEN THE LIST.
-           It was three stacked things and the middle one was a form: Expand
-           all, then a pager on its own line, then a bar of selects and buttons
-           that looked like nothing else in the room.
-           THE PAGER SITS WITH EXPAND ALL because they are the same kind of
-           control: neither writes anything, and both only change what you are
-           looking at. -->
       <div class="panel-head">
         <div class="pager pager--top" id="pagerTop" hidden></div>
         <button class="btn small" id="toggleAllBtn" type="button">Expand all</button>
       </div>
 
-      <!-- ── THE BATCH ROW IS SHAPED LIKE AN EVENT ROW ─────────────────
-           It sits directly above the list and wears the list's own head: the
-           same padding, the same gap, the same 15px tick leading it. **So the
-           select-all lines up with the column of ticks under it**, which is what
-           makes it read as the head of the list rather than as a toolbar
-           floating above one.
-           IT IS BELOW THE PAGER, not above it, because it acts on the rows and
-           the pager decides which rows there are. -->
       <div class="batch-row" id="batchBar">
         <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
         <span class="batch-count" id="batchCount">none selected</span>
@@ -1137,12 +637,6 @@
           </select>
           <input type="text" id="batchSource" placeholder="Set source…" autocomplete="off">
           <button class="btn small" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
-          <!-- A HAIRLINE BEFORE DELETE. Apply and Delete are not two options of
-               one kind: one writes two fields and the other destroys the rows.
-               Sitting flush together they read as a pair you choose between,
-               which is how a misclick happens.
-               THE SAME SEPARATOR THE SEARCH & FILTER BAR USES between its two
-               halves, and the same one between Select all and the count. -->
           <span class="bar-sep" aria-hidden="true"></span>
           <button class="btn small warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
         </span>
@@ -1151,13 +645,6 @@
       <div class="pager pager--bottom" id="pagerBottom" hidden></div>
     </fieldset>
 
-    <!-- MANUAL — one event, typed by hand. A POPUP rather than a card unshifted
-         into the list: creating a row and editing one are different jobs, and
-         doing the first inside the list meant a half-built event sitting among
-         603 real ones, disappearing the moment anything re-rendered.
-         A PLAIN FORM, one field per line, in the order somebody describes an
-         event: what it is, when, where, who is playing, how it went, where we
-         got it. -->
     <div class="prompt-lightbox" id="manualLightbox" role="dialog" aria-modal="true" aria-labelledby="manualDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
@@ -1174,7 +661,6 @@
       </div>
     </div>
 
-    <!-- SEATGEEK: a city, a window, a list you tick, and an import. -->
     <div class="prompt-lightbox" id="sgLightbox" role="dialog" aria-modal="true" aria-labelledby="sgDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
@@ -1187,12 +673,6 @@
             Tick the ones worth building a game around and press Import selected.
           </p>
 
-          <!-- THE CLIENT ID IS ASKED FOR ONCE AND KEPT IN THIS BROWSER.
-               **IT IS NOT IN THE REPOSITORY AND MUST NOT BE PUT THERE**: this
-               page is public HTML on GitHub Pages, so a key committed here is a
-               key published to the web, and anyone could spend our rate limit.
-               localStorage is the same bargain the prompt's own edits make.
-               It is free: seatgeek.com/account/develop. -->
           <fieldset class="prompt-options prompt-options--sg" id="sgKeyBox" aria-label="SeatGeek client ID">
             <legend class="prompt-options-label">SeatGeek client ID</legend>
             <input type="text" id="sgClientId" placeholder="paste it once, it stays in this browser" autocomplete="off" spellcheck="false">
@@ -1223,11 +703,6 @@
 
   </main>
 
-  <!-- ONE MODULE, PLUS THE NAV. `admin-shell.js` binds `[data-mc-back]` and
-       `[data-mc-home]` buttons and this page has neither; `supabase-rest.js`
-       supplied `TgbRest.fetchAll`, which the loader stopped using when it
-       started paging with its own Range headers so the first fifty rows could
-       paint immediately. Both were loaded and read by nothing. -->
   <script src="/mc/js/admin-auth.js"></script>
   <script>
     const SUPABASE_CONFIG = {
@@ -1235,42 +710,8 @@
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    // public.events. It was `anchor_events` until 2026-08-25 -- see
-    // mc/supabase/migrations/2026082501_anchor_events_becomes_events.sql. The
-    // qualifier was distinguishing the table from a thing that does not exist:
-    // nothing else in the database calls itself an event. GAMES are built on top
-    // of these rows and are their own table.
-    //
-    // `games.anchor_event_id` KEPT ITS NAME and still points here. The column
-    // describes what it holds, and renaming it would touch public.games, which
-    // both engines read at play time and which is the paid product.
-    //
-    // THE FILE MOVED THREE TIMES IN THREE DAYS and the rename is what stopped
-    // it: mc/data/events.html, then mc/anchor_events.html on 2026-08-23 to name
-    // the table, then mc/events/index.html on 2026-08-24 to follow the folder
-    // convention. Each move traded one rule against the other because the room
-    // and the table were called different things. Now they are not. Every move
-    // was a hard break with no redirect, so all three old paths 404.
-    //
-    // The older editor at mc/anchor-events.html was deleted on 2026-08-01; this
-    // is the only editor over these rows.
     const TABLE = 'events';
-    // The standing sentence lives in the markup as .room-blurb now, so there is
-    // nothing for setStatus to fall back TO: an empty message clears the pen.
-    // Printing the description in red every time a write finished was the old
-    // bug this arrangement exists to prevent.
 
-    // Writable columns, in the order the row editor lays them out. `id` is the
-    // text primary key and is edited only on a row that has not been saved yet:
-    // changing it later would orphan every game pointing at it.
-    // Each club is two fields, not one string: the locale is where they are from
-    // (a city, sometimes a region — "New England") and the mascot is what the
-    // copy calls them. A game uses those halves separately, and storing them
-    // split means an event is complete on its own, with no join to public.teams.
-    //
-    // away_team_name / home_team_name are deliberately absent: a database trigger
-    // rebuilds them from these two halves on every write, so they stay correct
-    // for the builder's event picker without anyone editing them here.
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
       'away_team_geo', 'away_team_nickname', 'home_team_geo', 'home_team_nickname',
@@ -1283,210 +724,59 @@
 
     const FIELD_META = {
       kind:            { label: 'Kind',       type: 'select', options: ['sports', 'concert', 'convention', 'festival', 'expo', 'other'] },
-      // ONE EXAMPLE, NOT TWO JOINED BY A MIDDOT. It read as a single title
-      // with both in it, which is a shape nobody would type, and showing the
-      // shape is a placeholder's only job.
-      //
-      // A CONCERT, BECAUSE THAT IS WHEN THE FIELD IS ACTUALLY NEEDED: a sports
-      // row's title is derived from its two clubs and the header box already
-      // shows that derived name as its own placeholder, so "Bears at Panthers"
-      // was demonstrating the case where you leave this box empty.
       title:           { label: 'Title',      type: 'text',   span: 'wide', placeholder: 'Olivia Rodrigo, GUTS World Tour' },
       league:          { label: 'League',     type: 'text',   placeholder: 'NFL' },
       sport:           { label: 'Sport',      type: 'text',   placeholder: 'Football' },
-      // START DATE, not Date. It sits next to End date and the pair has to read
-      // as a pair: a bare "Date" beside "End date" invites the reading that one
-      // is the event and the other is something about it, when they are the two
-      // ends of the same thing. The COLUMN stays start_date — visible copy only,
-      // the same bargain the Tape Room made through four renames of its verbs.
       start_date:      { label: 'Start date', type: 'date' },
       end_date:        { label: 'End date',   type: 'date' },
-      // "Start (local)" was unambiguous while the date beside it was called
-      // "Date". With that renamed to Start date the band read "Start date | End
-      // date | Start (local)" — two labels opening on the same word for two
-      // different things. "(local)" stays and is load-bearing: this column holds
-      // the clock a player standing outside the venue reads, not the broadcast
-      // time the league publishes, and the two differ for most of the schedule.
       start_time:      { label: 'Start time (local)', type: 'time' },
-      // THESE READ AS A SENTENCE ACROSS THE ROW AND AS NONSENSE ON THEIR OWN,
-      // which is the wrong way round for a form label. They were `Away from`,
-      // `Away are`, `Home from`, `Home are` -- built so the row scanned as
-      // "Away, from Chicago, are Bears". That works while you read left to
-      // right along one club's row and falls apart the moment you look at a
-      // single box, which is what somebody does when they are filling one in.
-      //
-      // A LABEL NAMES ITS OWN FIELD. `geo` and `nickname` say what goes in the
-      // box; `Away team` says whose. The four columns of a club's row now share
-      // one shape, so the band reads down as well as across.
       away_team_geo:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
       away_team_nickname:     { label: 'Away team nickname', type: 'text', placeholder: 'Bears' },
       home_team_geo:     { label: 'Home team geo',      type: 'text', placeholder: 'Carolina' },
       home_team_nickname:     { label: 'Home team nickname', type: 'text', placeholder: 'Panthers' },
-      // Optional. Nothing on this page needs them — they exist only so the
-      // builder can pull the fandom color palette off the away club.
       away_team_tgbid: { label: 'Away team tgbid (opt)', type: 'number' },
       home_team_tgbid: { label: 'Home team tgbid (opt)', type: 'number' },
-      // VENUE NAME, not Venue. Beside `Venue city` a bare "Venue" reads as
-      // the category the pair belongs to rather than as the box's own field.
       venue:      { label: 'Venue name', type: 'text',   span: 'wide' },
-      // ── THE VENUE CITY IS A PLAIN STRING (2026-08-28) ───────────────
-      //
-      // Where the event physically happens, which is not always a club's home
-      // market: Bears at Panthers is Charlotte, the Chargers play in Inglewood,
-      // the Giants in East Rutherford.
-      //
-      // **IT IS NO LONGER TIED TO `public.cities`.** It was picked from that
-      // catalogue, marked red when it was not in it, filed as an `unknown-city`
-      // finding, and added to the catalogue automatically when an event was
-      // created. All four are gone: **what is entered or scraped is what is
-      // stored.**
-      //
-      // WHAT THAT COSTS, plainly. Nothing now stops two spellings of one town
-      // sitting in this column -- "Inglewood, California" and "Inglewood, CA"
-      // are two cities as far as anything reading this table is concerned --
-      // and nothing tells you the venue town is somewhere the rest of the site
-      // has never heard of. **The `no-city` rule survives**, so a BLANK is
-      // still a fault; only the CATALOGUE test went.
       venue_city:      { label: 'Venue city',  type: 'text', span: 'wide', placeholder: 'Chicago, Illinois' },
-      // Neither club at home — the international series, a Super Bowl, a bowl
-      // game. Deliberately not inferred by comparing the home locale to the city:
-      // a Bills home game is in Orchard Park and a Giants home game is in East
-      // Rutherford, so string comparison would call half the league neutral.
       neutral_site:    { label: 'Neutral', type: 'checkbox' },
-      // REVIEW SITS SECOND, next to scheduled, because it is the one a human
-      // reaches for: putting a row into review by hand is the whole reason it
-      // is a status rather than a flag only the check can set.
-      // `Away team score`, not `Away score`, so all four columns of a club's row
-      // in the WHO band open the same way. These two are the only fields in that
-      // band that were already readable on their own, and they are renamed
-      // anyway: a row where three labels say "Away team" and the fourth says
-      // "Away" reads as an oversight.
       away_team_score:      { label: 'Away team score', type: 'number' },
       home_team_score:      { label: 'Home team score', type: 'number' },
-      // OPEN sits beside this box because a url is the one field on the card you
-      // cannot check by reading it: a tickets page that has moved, a 404 and a
-      // perfectly good address all look identical in a text input.
       url:             { label: 'URL',        type: 'url',    span: 'wide', action: 'open', placeholder: 'https://…' },
       source:          { label: 'Source',     type: 'text',   span: 'wide' },
       description:     { label: 'Description', type: 'textarea', span: 'full' }
     };
 
-    // THE CARD'S SIX BANDS, in the order somebody reads an event: what it is,
-    // when, where, who is playing, how it ended, where we got it. EDITABLE_FIELDS
-    // above is still the column list -- the write path reads that, not this --
-    // and these two must between them cover it, which assertBandsCoverFields()
-    // below checks out loud rather than leaving a field silently unreachable.
-    //
-    // `sportsOnly` is the point of the whole arrangement. A concert row carried
-    // eight blank club and tgbid boxes, which is most of the card given over to
-    // saying "not applicable" twenty-one times.
-    // THE FIVE Ws. An anchor event is a real thing that happened somewhere, so
-    // the questions a person asks of one are the questions they ask of any
-    // event -- and naming the bands that way means nobody has to learn our
-    // vocabulary to read the form.
-    //
-    // THREE JUDGEMENT CALLS IN THE MAPPING, all of them arguable:
-    //
-    // SCORES ARE UNDER WHO. They are per-club columns -- away_team_score sits beside
-    // away_team_nickname -- and "who won" is a question about the clubs, not a sixth
-    // category. A Result band of its own held three fields that only ever apply
-    // to the same rows the club fields do.
-    //
-    // STATUS IS UNDER WHEN. scheduled / postponed / cancelled are statements
-    // about whether and when this happens, which is what the dates answer.
-    //
-    // WHY IS THE EVIDENCE: where the event came from and where to read about
-    // it. That is the honest reading of `source` and `url` -- why we believe
-    // this is a real event worth building a game around. Same job
-    // `waypoints.source_url` does, named for the question rather than the
-    // format.
-    //
-    // NO PER-BAND EXPLANATORY NOTE. Each band carried one, which is five extra
-    // sentences to read on a form whose labels already say what the fields are.
     const FIELD_GROUPS = [
-      // AWAY'S FOUR, THEN HOME'S FOUR, each side on its own line. The tgbids
-      // used to trail after both clubs, so `home_team_score` wrapped onto a second
-      // row beside them and a club's four facts were split across two lines
-      // while the other club's sat whole on one. Ordered by SIDE, the band is a
-      // two-row table -- from | are | score | tgbid -- read down the columns.
       { key: 'who',   label: 'Who',   sportsOnly: true,
         fields: ['league', 'sport',
                  'away_team_geo', 'away_team_nickname', 'away_team_score', 'away_team_tgbid',
                  'home_team_geo', 'home_team_nickname', 'home_team_score', 'home_team_tgbid'] },
-      // NO `title` HERE: it is the card's header box, and a second control for
-      // it would be the same value in two places.
       { key: 'what',  label: 'What',  fields: ['kind', 'description'] },
-      // NO `box` FLAG ANY MORE. Every band is a panel in its own colour, so
-      // singling one out would say it is the only group that is a group. When
-      // is still the one most often reached for -- a fixture moves, a kickoff
-      // slot lands, a festival turns out to run three days -- and it says so
-      // now by being the amber one rather than the boxed one.
       { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time'] },
       { key: 'where', label: 'Where', fields: ['venue', 'venue_city', 'neutral_site'] },
       { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
     ];
 
-    // ── FOUR FIELDS ARE OFF SCREEN, ON BOTH SURFACES (2026-08-28) ───────
-    //
-    // The two scores and the two tgbids. The manual form has skipped them since
-    // it was built -- a score is filled in after the event and this dialog
-    // creates one that has not happened -- and they are now off the card too.
-    //
-    // **SO THEY ARE EDITABLE NOWHERE, AND THAT IS THE COST.** A finished score
-    // goes in with SQL until they come back. That is the same bargain the room
-    // already makes with `url`, `headline` and the rest of the socials capture
-    // fields, and it is recorded rather than discovered: `assertBandsCoverFields`
-    // would otherwise report all four as unreachable, which is exactly what they
-    // are, so it is told about them here rather than being silenced.
-    //
-    // THE TGBIDS TIE A ROW TO `public.teams` for the builder's team auto-fill
-    // and the fandom palette. An event is complete without them: the clubs are
-    // stored split, geo and nickname, so a sports row describes itself.
-    //
-    // ONE LIST, NOT TWO. It was `MANUAL_SKIP`, which the card knew nothing
-    // about, and a second copy here would have drifted the first time either
-    // was edited.
     const OFF_SCREEN_FIELDS = [
       'away_team_score', 'home_team_score',
       'away_team_tgbid', 'home_team_tgbid'
     ];
 
-    // ONE ORDER, TWO SURFACES. The opened row and the manual form both read
-    // down this sequence, so an event looks the same whether you are creating
-    // it or correcting it: what it is, when, where, who is playing, and last
-    // the evidence you were reading while you filled the rest in.
-    //
-    // IT IS NOT `FIELD_GROUPS`' OWN ORDER. That put Who first, which is the
-    // order a fixture is announced in and not the order anybody fills a form.
     const GROUP_ORDER = ['what', 'when', 'where', 'who', 'why'];
 
-    // THE FIELDS IN THAT ORDER, FLAT. The bands are gone from the card, so the
-    // groups survive as an ORDER and as the `sportsOnly` flag, which is still
-    // the only statement of which fields belong to a fixture.
     function orderedGroups() {
       return GROUP_ORDER
         .map((k) => FIELD_GROUPS.find((g) => g.key === k))
         .filter(Boolean);
     }
 
-    // WHAT A GROUP ACTUALLY DRAWS. Both surfaces ask this rather than reading
-    // `group.fields` directly, so a field taken off screen leaves both at once.
     function shownFields(group) {
       return group.fields.filter((f) => OFF_SCREEN_FIELDS.indexOf(f) === -1);
     }
 
-    // A FIELD IN NO BAND IS A FIELD YOU CANNOT EDIT, and nothing would say so:
-    // the card would simply not draw it and the column would quietly stop being
-    // maintained. Cheap to check, so it is checked on load.
-    // Fields with a control of their own OUTSIDE the bands. `title` is the
-    // card's header box. Anything added here still has to exist somewhere, or
-    // the check below stops meaning what it says.
     const HEADER_FIELDS = ['title'];
 
     (function assertBandsCoverFields() {
-      // OFF_SCREEN_FIELDS IS THE ONLY WAY A FIELD MAY BE ABSENT, and naming it
-      // here is what keeps the check meaning what it says: anything else
-      // missing is a column nobody can edit with nothing saying so.
       const covered = FIELD_GROUPS.reduce((acc, g) => acc.concat(g.fields), [])
         .concat(HEADER_FIELDS).concat(OFF_SCREEN_FIELDS);
       const missing = EDITABLE_FIELDS.filter((f) => covered.indexOf(f) === -1);
@@ -1535,48 +825,17 @@
     const sgStatus = document.getElementById('sgStatus');
     const sgImportBtn = document.getElementById('sgImportBtn');
 
-    // THE ORDER IS OLDEST FIRST AND THERE IS NO PICKER (2026-08-24). This is a
-    // forward-looking catalogue: a game is played the day before its anchor
-    // event, so the row you want is the next one coming up. The list is also
-    // separated by numbered weeks, which only reads as a calendar in one
-    // direction -- a control offering to run the weeks backwards, or to group by
-    // type instead, was offering to make the page worse.
-    //
-    // `sort` IS GONE FROM state. Nothing chooses any more, so nothing has to be
-    // remembered; compareRows is simply the order.
-    // THERE IS NO ARCHIVED STATE. Delete deletes, so every row in the table is
-    // on the list. The filters reach the two things the search box cannot:
-    // WHEN, and whether the audit objected.
-    // THERE IS NO REVIEW VIEW. The Issues button opens a report; it does not
-    // narrow the list, so nothing here remembers that it was pressed.
     const state = { rows: [], authed: false, page: 1, q: '',
                     loaded: false, total: null, when: 'any', issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
-    // ── BATCH EDIT ────────────────────────────────────────────
-    //
-    // IDS, NOT ROWS. Every write reloads or replaces the row objects, so a
-    // remembered object is a stale object -- the same rule the Tape Room's
-    // focused track keeps.
     const picked = new Set();
 
-    // ONE PLURALISER, AND EVERY COUNT ON THIS PAGE GOES THROUGH IT. There were
-    // eleven hand-written `+ ' events'`, and "Checked 1 events" is what you get
-    // the first time one of them is reached with a one. It is not a typo in one
-    // message: it is the same mistake available eleven times, so the fix is one
-    // function rather than eleven corrections.
-    //
-    // IT TAKES THE SINGULAR AND MAKES THE PLURAL, since every noun this page
-    // counts is regular. A noun that is not can pass its own.
     function plural(n, one, many) {
       return n + ' ' + (n === 1 ? one : (many || one + 's'));
     }
 
-    // THE RED-PEN SCRIBBLE, beside the room name. A success clears itself after
-    // six seconds -- a stale "saved" an hour later is a lie about what is
-    // currently true -- and an ERROR STAYS until the next action, because the
-    // thing that went wrong has not gone away just because time passed.
     let statusTimer = null;
     function setStatus(text, kind) {
       if (!pageStatus) return;
@@ -1610,39 +869,10 @@
       } catch (e) { return fallback; }
     }
 
-    // ── Display helpers ───────────────────────────────────────────────────────
-    // A sports row can leave `title` empty and read as "<away> at <home>"; every
-    // other kind has no team columns to fall back on, so it needs one.
     function clubName(row, side) {
-      // BUILT BY CONCATENATION, WHICH IS WHY THE 2026-08-25 COLUMN RENAME MISSED
-      // IT. A word-boundary sweep over the file cannot see `_locale` inside
-      // `side + '_locale'`, so this function went on reading three columns that
-      // no longer existed and quietly returned nothing -- every untitled sports
-      // row lost its derived name. Caught by rendering the page, not by reading
-      // the diff. **If these columns are ever renamed again, look here first.**
       const joined = [clean(row[side + '_team_geo']), clean(row[side + '_team_nickname'])].filter(Boolean).join(' ');
-      // Fall back to the one-string column for a row written before the split,
-      // or one whose trigger-rebuilt name has not come back from a save yet.
       return joined || clean(row[side + '_team_name']);
     }
-
-    // effectiveKind() was deleted with the type sort and its chip, which were
-    // its only two readers. It derived a kind for a row whose `kind` column is
-    // blank but which carries two clubs -- what the old importers left behind.
-    //
-    // The places that still ask "is this a sports row" use the plainer test
-    // `!kind || kind === 'sports'`: syncBands, for whether to draw the Clubs
-    // band, and the two club rules in CHECK_RULES. They treat a blank kind as
-    // sports WITHOUT looking at the clubs, which is the right reading there --
-    // a row with no kind and no clubs is one the Clubs band should be offered
-    // for, not hidden from.
-
-    // isPast() WAS DELETED WITH THE PILLS. Its only reader was the `past` chip,
-    // which said an event had happened -- a fact rather than a fault, and one
-    // the card had no business reporting once every state moved onto the row
-    // itself. THE CASE THAT IS A FAULT SURVIVES: the `past-but-scheduled` rule
-    // still catches a row that has been and gone while claiming to be
-    // scheduled, and that one turns the row red like any other error.
 
     function displayTitle(row) {
       const t = clean(row.title);
@@ -1653,13 +883,6 @@
       return clean(row.id) || '(untitled event)';
     }
 
-
-
-
-
-    // ── Filters ───────────────────────────────────────────────────────────────
-    // TODAY PLUS N, IN LOCAL DAYS. `todayIso()` is local, so this has to be
-    // too, or a window would be a day out for half of every day.
     function isoPlusDays(days) {
       const d = new Date();
       d.setDate(d.getDate() + days);
@@ -1673,30 +896,11 @@
       return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
     };
 
-    // ONE FILTER: the search box. The kind, league and date pickers beside it
-    // were removed because the box already searches kind, league, team, venue,
-    // city, status and source -- typing "concert" or "NFL" narrowed the list
-    // exactly as the pickers did, and three controls sat on screen every visit
-    // to duplicate it.
-    //
-    // WHAT IS GENUINELY LOST IS THE DATE WINDOW. Upcoming / Past / No date is
-    // not a text match, so it is gone rather than folded in. The `past` pill and
-    // the week headings are what answer that question now, and if a real date
-    // filter is ever wanted back it is a filter, not a search term.
     function matches(row) {
-      // FIRST, because it is the only test that hides a row you did not ask
-      // about. Everything below narrows what you CAN see; this decides what
-      // is on the list at all.
 
-      // WHEN. Measured against `end_date` where there is one, so a festival
-      // running across today counts as upcoming rather than past on its first
-      // morning.
       if (state.when !== 'any') {
         const last = clean(row.end_date) || clean(row.start_date);
         const first = clean(row.start_date) || clean(row.end_date);
-        // A ROW WITH NO DATE AT ALL IS SHOWN UNDER EVERY WINDOW. It is exactly
-        // the row somebody has to fix, and a date filter that hid it would hide
-        // the fault along with it.
         if (last || first) {
           const today = todayIso();
           if (state.when === 'past') {
@@ -1711,8 +915,6 @@
         }
       }
 
-      // ISSUES. The stored flag, not a recomputation: it is what the last audit
-      // said, which is the thing a reader outside this page can also see.
       if (state.issues === 'yes' && clean(row.issues) !== 'YES') return false;
       if (state.issues === 'no' && clean(row.issues) === 'YES') return false;
       if (state.q) {
@@ -1725,11 +927,6 @@
       return true;
     }
 
-    // fillSelect() and rebuildFilters() were deleted with the three pickers they
-    // filled. They walked every row on every load to count kinds and leagues for
-    // dropdown labels; nothing reads those counts now.
-
-    // ── Row editor ────────────────────────────────────────────────────────────
     function fieldControl(row, name, onDirty) {
       const meta = FIELD_META[name] || { label: name, type: 'text' };
       const label = document.createElement('label');
@@ -1746,8 +943,6 @@
         input.appendChild(blank);
         const current = clean(row[name]);
         const options = meta.options.slice();
-        // Keep a value the database already has even when it is off the list,
-        // so opening a row never silently rewrites it on the next Save.
         if (current && !options.includes(current)) options.push(current);
         options.forEach((v) => {
           const o = document.createElement('option');
@@ -1768,17 +963,12 @@
         input = document.createElement('input');
         input.type = meta.type || 'text';
         if (meta.placeholder) input.placeholder = meta.placeholder;
-        // <input type="time"> wants HH:MM; Postgres hands back HH:MM:SS.
         input.value = meta.type === 'time' ? clean(row[name]).slice(0, 5) : clean(row[name]);
       }
       input.dataset.field = name;
       input.addEventListener('input', onDirty);
       input.addEventListener('change', onDirty);
 
-      // AN ACTION SITS BESIDE THE BOX, NOT IN THE CARD'S FOOT. It acts on this
-      // one value; the foot acts on the whole row. Same arrangement the waypoint
-      // editor uses for its Source field, and `action` is generic so any other
-      // field can grow one the same way.
       if (meta.action === 'open') {
         const wrap = document.createElement('div');
         wrap.className = 'field-with-action';
@@ -1787,13 +977,9 @@
         const open = document.createElement('a');
         open.className = 'btn small field-action';
         open.target = '_blank';
-        // noreferrer as well as noopener: the destination is somebody else's
-        // site and there is no reason to tell it where the link came from.
         open.rel = 'noopener noreferrer';
         open.textContent = 'Open';
 
-        // A BORDERED .btn, NOT A BARE LINK. Borderless reads as a stray word
-        // beside a text box, and this is a control.
         const syncOpen = () => {
           const v = clean(input.value);
           let ok = false;
@@ -1803,12 +989,6 @@
               ok = u.protocol === 'http:' || u.protocol === 'https:';
             } catch (e) { ok = false; }
           }
-          // DEAD UNTIL THE BOX HOLDS SOMETHING THAT PARSES, and the two states
-          // are different elements' worth of behaviour rather than a class: an
-          // anchor with no href is not focusable and cannot be followed, which
-          // is exactly what is wanted. A url that will not parse is one nobody
-          // can check, and opening it would put the browser somewhere strange
-          // rather than saying so.
           if (ok) {
             open.href = v;
             open.removeAttribute('aria-disabled');
@@ -1842,8 +1022,6 @@
         const input = el.querySelector('[data-field="' + name + '"]');
         if (!input) return;
         if (BOOLEAN_FIELDS.includes(name)) {
-          // NOT NULL with a default in the database — always send a real boolean,
-          // never null, or the column's not-null constraint rejects the row.
           payload[name] = !!input.checked;
           return;
         }
@@ -1859,18 +1037,6 @@
       return payload;
     }
 
-    // A SINGLE-DAY EVENT ENDS THE DAY IT STARTS, so end_date is filled from
-    // start_date when it is left blank rather than stored null.
-    //
-    // WHAT THIS CHANGES: null used to MEAN "one day" -- the column comment in
-    // 2026080101 says so -- and now every row carries a real last day, so the
-    // two readers that had to spell the fallback out (`matches()` and the
-    // CHECK rule) get the right answer without it. They keep their `|| d`
-    // anyway, because the 272 rows filed before this still hold null and a
-    // reader that assumes otherwise would call every one of them undated.
-    //
-    // IT DOES NOT INVENT A RANGE. displayWhen only prints "start - end" when
-    // the two differ, so a filled-in same-day end shows exactly as it did.
     function withDefaults(payload) {
       const out = Object.assign({}, payload);
       if (clean(out.start_date) && !clean(out.end_date)) out.end_date = clean(out.start_date);
@@ -1880,22 +1046,8 @@
     function buildRow(row) {
       const el = document.createElement('article');
       el.className = 'event-row';
-      // The card's own id, so CHECK's Go button can find the row it named
-      // without matching on a title two events may share.
       el.dataset.rowId = clean(row.id);
 
-      // THE HEAD IS A <div> AGAIN, AND IT HAD TO BE. It was a <button> so that
-      // expanding was focusable and announced; the title is editable in it now,
-      // and **an <input> inside a <button> is invalid HTML** -- interactive
-      // content is not allowed in a button's content model, and browsers
-      // disagree about what to do with it. Same class of problem as the hub's
-      // button-inside-an-anchor.
-      //
-      // WHAT REPLACES THE BUTTON'S SEMANTICS: the caret is now a real <button>
-      // carrying aria-expanded, so the keyboard and a screen reader still have
-      // one proper control that says what it does. The rest of the head keeps a
-      // click handler, so a mouse can still open a row by hitting anywhere on
-      // it -- which is the affordance a caret alone would have lost.
       const head = document.createElement('div');
       head.className = 'event-head';
 
@@ -1906,38 +1058,14 @@
       caret.setAttribute('aria-expanded', 'false');
       caret.setAttribute('aria-label', 'Expand this event');
 
-      // THE TITLE IS ALWAYS AN INPUT, not a span that swaps for one on click.
-      // Two elements holding one value is two things to keep in step, and the
-      // Socializer has already paid for the click-to-edit version: its span
-      // carried an Enter/Space handler that swallowed the SPACE key inside the
-      // box it had just opened, so "The Local Herald" could only be typed as
-      // one word. An input that is simply always there cannot have that bug.
-      //
-      // IT LOOKS LIKE TEXT UNTIL YOU REACH FOR IT -- no border and no fill at
-      // rest -- so a closed row still reads as a row rather than as a form.
-      //
-      // `data-field="title"` IS LOAD-BEARING. readForm() searches the whole
-      // card, head included, so Save and Create pick this up with no special
-      // case, and there is exactly one place the title lives.
       const name = document.createElement('input');
       name.type = 'text';
       name.className = 'event-name';
       name.dataset.field = 'title';
       name.value = clean(row.title);
-      // A sports row may legitimately have no title and be named from its two
-      // clubs. Showing an empty box there would hide a name the row really has,
-      // so the derived one is the placeholder.
       name.placeholder = displayTitle(Object.assign({}, row, { title: '' }));
       name.setAttribute('aria-label', 'Event title');
 
-      // ── THE TICK LEADS THE ROW ───────────────────────────────
-      //
-      // BEFORE THE CARET, so the column of ticks runs straight down the left
-      // edge whether a row is open or shut. It carries its own label for a
-      // screen reader, since a bare checkbox in a list of fifty says nothing.
-      //
-      // IT STOPS ITS OWN CLICK. The head opens the row, so without this,
-      // ticking a box would also expand the card underneath it.
       const pick = document.createElement('input');
       pick.type = 'checkbox';
       pick.className = 'event-pick';
@@ -1951,66 +1079,20 @@
 
       head.append(pick, caret, name);
 
-      // NO DATE OR TIME IN THE HEAD. They sat in a box upper right for a day.
-      // With the When band boxed directly under the collapse row, an opened card
-      // said the same three facts twice a few pixels apart, and the head's copy
-      // was the one you could not act on.
-      //
-      // WHAT THIS COSTS, stated plainly: a CLOSED row no longer says when the
-      // event is, so a list sorted by date is ordered on something invisible --
-      // the same objection that brought the kind chip back under a type sort.
-      // The date is one click away in the When box. If it is wanted back it
-      // belongs on the closed row ONLY, hidden the moment the row opens.
-      //
-      // `displayDate`, `displayTime` and `displayWhen` went with it in the
-      // end, nothing reading them once the head stopped drawing a date. The
-      // report and its copied text still say when an event is.
-
-      // The CITY, never the venue: a game is built around a city, so "where is
-      // this" is the question you ask of a list of events, and the stadium is a
-      // detail you open the row for. It is the LAST thing in the head now --
-      // every pill has left.
       const where = document.createElement('span');
       where.className = 'event-where';
       where.textContent = clean(row.venue_city);
       head.appendChild(where);
 
-      // ── NO PILLS. THE ROW ITSELF IS THE SIGNAL ────────────────────────────
-      // The head had collected five kinds of chip and a row could wear four at
-      // once; moving them into the body then hid every one of them on a CLOSED
-      // row, which is where you actually scan. Both shapes were wrong in the
-      // same way: a state worth knowing was being said in a small object beside
-      // the thing rather than by the thing.
-      //
-      // A ROW IN REVIEW IS RED, ALL OF IT -- border, fill, and the annotation
-      // under its name. You cannot miss it down a page of fifty and you do not
-      // have to open anything to see it.
-      //
-      // WHAT WENT, and none of it is mourned: `past` (a fact, not a fault, and
-      // the past-but-scheduled rule covers the case that IS a fault),
-      // `neutral site` (a field in WHERE, and the card is not a report of its
-      // own fields), `update needed` (this is that, said louder) and `unsaved`
-      // (the accent border already says it, and now says it alone).
       const annotation = document.createElement('div');
       annotation.className = 'event-annotation';
 
       const paintReview = (r) => {
         const reasons = reviewReasons(r);
-        // NO HAND-FLAGGED ROW ANY MORE, so the "in review with nothing here for
-        // a rule to object to" line has nothing left to describe.
         const manual = false;
         el.classList.toggle('is-review', reasons.length > 0 || manual);
-        // ONE LINE PER REASON, in full. The old chip put four of them on a
-        // tooltip, which is a paragraph nobody hovers; this is the annotation
-        // the row is being pulled up for, so it is the thing to read.
         annotation.textContent = '';
         if (manual) {
-          // IT MUST NOT SAY "by hand", WHICH IT DID AND WHICH WAS WRONG HALF
-          // THE TIME. A row in review with nothing for a rule to object to is
-          // either one somebody flagged themselves OR one whose fault has been
-          // fixed and whose status nobody has cleared -- and the row records
-          // which nowhere, because the sweep never writes a row back out of
-          // review. So the line says what is true of both and names the action.
           const p = document.createElement('p');
           p.className = 'event-annotation-line';
           p.textContent = 'Flagged, but nothing is wrong with it now.';
@@ -2022,8 +1104,6 @@
           p.textContent = why;
           annotation.appendChild(p);
         });
-        // NOTES LAST, and quieter. What is wrong with the row comes before what
-        // is merely worth knowing about it.
         noteReasons(r).forEach((why) => {
           const p = document.createElement('p');
           p.className = 'event-annotation-line event-annotation-line--note';
@@ -2043,39 +1123,22 @@
 
       paintReview(row);
 
-      // Typing in the header title marks the row unsaved exactly as a field in
-      // the body does. It is bound here rather than in buildBody because the
-      // box exists on a CLOSED row too, which is the whole point of it.
       name.addEventListener('input', () => markDirty());
       name.addEventListener('change', () => markDirty());
 
       const markDirty = () => {
         el.classList.add('is-dirty');
         const preview = readFormPreview(el, row);
-        // NOT the title: it IS the box, and writing displayTitle() back into it
-        // would overwrite what you are typing with a fallback derived from it.
-        // The placeholder is refreshed instead, so clearing the title on a
-        // sports row immediately shows the club-derived name it will fall back
-        // to rather than an empty row.
         name.placeholder = displayTitle(Object.assign({}, preview, { title: '' }));
         where.textContent = clean(preview.venue_city);
-        // Typing a fix repaints the row: correct the fault and the red goes
-        // while you are still looking at it, without a save or a re-check.
         paintReview(preview);
       };
 
-      // THE EDITOR IS BUILT ON FIRST OPEN AND NEVER AGAIN. Building it anyway
-      // and merely hiding it would put 22 controls per row in the document, 1,100
-      // for a page of fifty, and pay that on every keystroke in the search box,
-      // which is what re-renders the list.
       let built = false;
       function buildBody() {
         if (built) return;
         built = true;
 
-        // ONE COLUMN, NO BANDS. The five fieldsets are gone: a bordered panel
-        // inside a bordered card inside a bordered list was three frames before
-        // you reached a value.
         const fields = document.createElement('div');
         fields.className = 'event-fields';
         orderedGroups().forEach((group) => {
@@ -2083,32 +1146,13 @@
         });
         body.appendChild(fields);
 
-        // The Clubs band appears and disappears as Kind changes, so switching a
-        // row from concert to sports opens it without a reload.
         const kindSelect = body.querySelector('[data-field="kind"]');
         if (kindSelect) kindSelect.addEventListener('change', () => syncBands(el));
         syncBands(el);
 
-        // THE END DATE FILLS ITSELF IN FRONT OF YOU. withDefaults() would apply
-        // it at save time regardless, but then the box would sit empty while a
-        // value went to the database -- a card showing something the row does
-        // not hold, which is the disagreement nobody notices until later. Doing
-        // it here means what you see is what is written.
-        //
-        // IT ONLY EVER FILLS A BLANK. A real range you typed is never
-        // overwritten by changing the start date, and clearing the end date
-        // leaves it clear until you touch the start again.
         const startEl = body.querySelector('[data-field="start_date"]');
         const endEl = body.querySelector('[data-field="end_date"]');
         if (startEl && endEl) {
-          // THE MIRROR OWNS WHAT IT WROTE. Listening to `input` alone filled the
-          // end date MID-KEYSTROKE: typing a year digit by digit makes the start
-          // briefly valid at `0002-01-01`, that got copied, and from then on the
-          // end date was not blank so nothing corrected it. Listening to
-          // `change` alone left the box empty while you looked at a date you had
-          // already picked. So it remembers its own value: while the end date
-          // still holds it, it is ours to update; the moment somebody types
-          // their own, it is theirs.
           let mirrored = '';
           const mirror = () => {
             const start = clean(startEl.value);
@@ -2124,16 +1168,6 @@
           startEl.addEventListener('change', mirror);
         }
 
-        // THE ID, AT THE END OF THE BODY. It was in the head, where it was the
-        // only thing on a closed row nobody reads while scanning: a 20-character
-        // mono key beside the event's name, competing with it for the eye.
-        //
-        // IT SITS WITH THE ACTIONS BECAUSE IT IS PROVENANCE, not a field. Same
-        // call the waypoint editor makes with `wpid` and `created_at`: what a
-        // record IS goes at the edge of the form, not among the things you
-        // change. A NEW row's id is a different object -- a required input at
-        // the TOP of the body, because nothing can be stored until it is filled
-        // -- and it is drawn there instead.
         const meta = document.createElement('div');
         meta.className = 'event-meta';
         const idLabel = document.createElement('span');
@@ -2142,8 +1176,6 @@
         const idVal = document.createElement('span');
         idVal.className = 'event-idline-value';
         idVal.textContent = clean(row.id);
-        // Selectable on purpose: copying an id is the one thing anybody does
-        // with it, and it is what a SQL fix or a stored link needs.
         idVal.title = 'Permanent. Every game pointing at this event uses it, so it cannot be changed.';
         meta.append(idLabel, idVal);
         body.appendChild(meta);
@@ -2153,25 +1185,12 @@
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'btn small warn';
-        // DELETE IS A REAL DELETE (2026-08-28). For three days the face said
-        // Delete and the act was an archive -- `archived_at` set, the row kept,
-        // the difference explained on a tooltip. That is gone: the button does
-        // what it says.
-        //
-        // WHAT IT COSTS IS IN THE QUESTION, not hidden on a tooltip. Both pull
-        // RPCs dedupe against this table, so THE ROW IS THE TOMBSTONE: delete
-        // it and the bots may file the same event again on their next run.
         delBtn.textContent = 'Delete';
         delBtn.title = 'Delete this event for good. This cannot be undone, and the bots may find it and file it again.';
         delBtn.addEventListener('click', () => deleteRow(row, delBtn));
         const gap = document.createElement('span');
         gap.className = 'event-actions-gap';
 
-        // SPLIT IS DRAWN ONLY WHEN THERE IS A SPAN TO SPLIT, and it re-decides
-        // that as the dates change, so widening an event's end date makes the
-        // button appear without a reload. It is not greyed-when-inactive like
-        // the buttons on a socials card: those five are a fixed set you learn
-        // the position of, and this is one control on a row of three.
         const splitBtn = document.createElement('button');
         splitBtn.type = 'button';
         splitBtn.className = 'btn small';
@@ -2202,27 +1221,16 @@
         if (open) buildBody();
         el.classList.toggle('is-open', open);
         body.hidden = !open;
-        // Opening the last shut row makes the page fully open, which changes
-        // what the panel button should say. Without this it can offer to expand
-        // a list that is already expanded.
         syncToggleAll();
         caret.setAttribute('aria-expanded', open ? 'true' : 'false');
         caret.setAttribute('aria-label', (open ? 'Collapse' : 'Expand') + ' this event');
       }
       el.__setOpen = setOpen;
 
-      // THE TITLE BOX IS NOT A TOGGLE. Without this guard, clicking into the
-      // title to fix a typo would also open or close the row underneath it,
-      // and every click that landed while you were already typing would flip
-      // it again. The id is exempt for the same reason: it is text you select
-      // and copy, and a selection drag ending on it should not collapse the
-      // row you were reading.
       head.addEventListener('click', (event) => {
         if (event.target.closest('.event-name, .event-id')) return;
         setOpen(body.hidden);
       });
-      // The caret is inside the head, so its own click would reach the handler
-      // above and toggle a second time, landing back where it started.
       caret.addEventListener('click', (event) => {
         event.stopPropagation();
         setOpen(body.hidden);
@@ -2231,20 +1239,6 @@
       return el;
     }
 
-    // A SPORTS-ONLY BAND IS HIDDEN ONLY WHEN IT IS ALSO EMPTY, and that second
-    // half is what keeps this honest. Hiding a band that holds values would put
-    // data on the row that nothing on screen can reach or correct -- the exact
-    // failure mode of a field in no band at all. So a concert row that somehow
-    // carries a mascot still shows Clubs, and you can see it and clear it.
-    // FIELD BY FIELD, since there is no band to hide any more -- the same shape
-    // the manual form already uses. The list still comes from the group marked
-    // `sportsOnly`, so the card and the form cannot disagree about which fields
-    // belong to a fixture.
-    //
-    // AND ONLY WHEN THE GROUP IS EMPTY. Hiding fields that hold something would
-    // put data on the row that nothing on screen can reach or correct, so a
-    // concert carrying a mascot still shows the club fields and you can clear
-    // them.
     function syncBands(el) {
       const kindEl = el.querySelector('[data-field="kind"]');
       const kind = clean(kindEl && kindEl.value).toLowerCase();
@@ -2264,20 +1258,11 @@
       });
     }
 
-    // Header text follows the inputs while you type, without touching the row.
     function readFormPreview(el, row) {
       return Object.assign({}, row, readForm(el));
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
     function updateTitle() {
-      // THE SERVER'S COUNT, NOT WHAT HAS ARRIVED. Counting up from 50 to 4,123 as
-      // chunks land reads as the number being unstable rather than as loading.
-      //
-      // AND `?` UNTIL A COUNT EXISTS AT ALL. It read 0 ANCHOR EVENTS while the
-      // first request was still in the air, which is a STATEMENT -- and a wrong
-      // one, and the one number on this page somebody might act on. A question
-      // mark says the same thing honestly: we do not know yet.
       if (titleEl) {
         const known = state.loaded || state.total !== null;
         const n = (state.total !== null && !state.loaded) ? state.total : state.rows.length;
@@ -2306,53 +1291,22 @@
       el.append(mk('‹ Prev', state.page - 1, state.page <= 1), info, mk('Next ›', state.page + 1, state.page >= pages));
     }
 
-    // ── Sort ──────────────────────────────────────────────────────────────────
-    // AN UNDATED ROW SINKS TO THE END IN BOTH DIRECTIONS, and that is not the
-    // same as sorting it. `nullslast` is what the server does on load, and it is
-    // the right answer here for the same reason: a row with no date has no
-    // position on a timeline, so putting it at the top of "oldest first" would
-    // be the list asserting something it does not know. Sunk, it is always in
-    // the one place you can look for it.
-    //
-    // TIES BREAK ON id, which is what makes the order STABLE. Twelve fixtures
-    // share a Sunday, and without a second key their order comes from whatever
-    // Array.prototype.sort did last -- so a row could move under you when you
-    // typed in the search box, which is the sort of thing nobody reports and
-    // everybody distrusts.
     function compareRows(a, b) {
       const da = clean(a.start_date);
       const db = clean(b.start_date);
       if (da && !db) return -1;
       if (!da && db) return 1;
       if (da !== db) {
-        // ISO dates compare correctly as strings, which is the whole reason
-        // this column is a date rather than something formatted.
         return da < db ? -1 : 1;
       }
       return clean(a.id).localeCompare(clean(b.id));
     }
 
-    // ── Weeks ─────────────────────────────────────────────────────────────────
-    // ISO-8601 WEEK NUMBERS, not "day of year over seven". Week 1 is the week
-    // holding the first Thursday of January, weeks run Monday to Sunday, and a
-    // year has 52 or 53 of them. Anything simpler disagrees with every calendar,
-    // every league's own week numbering and every colleague's, at the turn of
-    // the year, which is exactly when an NFL schedule is busiest.
-    //
-    // UTC, like the split maths and for the same reason: these are calendar
-    // dates, and a local Date crossing a DST boundary lands on 23 or 25 hours
-    // and can be pushed into the neighbouring week. (The `past-but-scheduled`
-    // rule is deliberately LOCAL, via todayIso() -- "has this happened where I
-    // am" is a different question with a different right answer, and getting
-    // the two the same way round is the mistake.)
     function isoWeek(iso) {
       const p = clean(iso).split('-');
       if (p.length !== 3) return null;
       const d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
       if (!Number.isFinite(d.getTime())) return null;
-      // Shift to the Thursday of this week: the ISO year is whichever year that
-      // Thursday falls in, which is what makes 2026-12-31 read as week 53 of
-      // 2026 and 2027-01-01 as the same week rather than week 1 of 2027.
       const day = (d.getUTCDay() + 6) % 7;          // Monday = 0
       d.setUTCDate(d.getUTCDate() - day + 3);
       const isoYear = d.getUTCFullYear();
@@ -2363,8 +1317,6 @@
       return { year: isoYear, week: week, key: isoYear + '-W' + String(week).padStart(2, '0') };
     }
 
-    // The Monday and Sunday of a week, so the heading can say which days it is
-    // rather than making somebody count.
     function weekSpan(iso) {
       const p = clean(iso).split('-');
       if (p.length !== 3) return null;
@@ -2422,11 +1374,6 @@
         return;
       }
 
-      // A COPY, then sorted. state.rows is the loaded table and other things
-      // read it by index -- saveRow and deleteRow both splice it -- so sorting
-      // it in place would reorder the thing every other reader is holding.
-      // Before matches() runs, because matches() asks isInReview() which asks
-      // reviewReasons() which reads the set.
       rebuildDuplicates();
       const filtered = state.rows.filter(matches).sort(compareRows);
       const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -2436,19 +1383,6 @@
       if (!filtered.length) {
         listEl.appendChild(emptyNode(state.rows.length ? 'No events match those filters.' : 'No events yet.'));
       } else {
-        // SEPARATED BY WEEK, always. It used to be conditional, because a type
-        // sort would have had two groupings fighting over one list; with the
-        // sort picker gone there is only ever this one.
-        //
-        // THE HEADINGS ARE PER PAGE, not per filtered set. A week split across a
-        // page boundary gets its heading again at the top of the next page,
-        // which is right: you are reading the page in front of you, and a run of
-        // rows with no heading above them is a run you cannot place. The count
-        // on the heading is that PAGE's count for the same reason.
-        //
-        // A NEW ROW IS UNDATED AND PINNED FIRST, so it lands under "No date" at
-        // the top rather than wherever an empty date sorts. That is the honest
-        // heading for it and it is the row you are about to fill in.
         let openKey = null;
         slice.forEach((row) => {
           const head = weekHeading(row);
@@ -2462,31 +1396,13 @@
       }
       renderPager(pagerTopEl, filtered.length, pages);
       renderPager(pagerBottomEl, filtered.length, pages);
-      // The count on Issues is a fact about the loaded rows, so it is repainted
-      // whenever they change: a save that clears the last fault takes the
-      // number down without a re-check.
       syncErrorsBtn();
-      // Every render rebuilds the cards closed, so the button has to be
-      // repainted with them or it goes on offering to collapse a shut list.
       syncToggleAll();
-      // THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render, and the bar
-      // is painted from what survives. A tick that outlived its row would be a
-      // batch press landing on something you cannot see.
       prunePicked();
       paintBatchBar();
-      // PAINTED FROM THE STATE, on every render, so the button cannot disagree
-      // with the controls beside it however a filter was changed.
       paintClearBtn();
     }
 
-    // ── Expand / collapse everything on the page ──────────────────────────────
-    // IT ACTS ON THE PAGE, NOT THE TABLE, and the tooltip says so. `render()`
-    // only builds the fifty rows of the current page, so there is nothing else
-    // on screen to open -- and opening all 603 would mean building 13,000
-    // controls, which is precisely what closing the rows by default avoided.
-    //
-    // EXPANDING FIFTY IS STILL 1,100 CONTROLS. That is the deliberate cost of
-    // pressing it, and it is why this is a button rather than a default.
     function openRows() {
       return listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
     }
@@ -2496,11 +1412,6 @@
       const rows = openRows();
       const anyClosed = rows.some((r) => !r.classList.contains('is-open'));
       toggleAllBtn.disabled = rows.length === 0;
-      // THE FACE READS THE STATE IT PRODUCES, so pressing it is never a
-      // surprise. With nothing open it says Expand all; with everything open it
-      // says Collapse all; with a mixture it says Expand all, because that is
-      // what it will do -- one press to a known state rather than a toggle
-      // whose outcome depends on what you happened to leave open.
       toggleAllBtn.textContent = anyClosed ? 'Expand all' : 'Collapse all';
       toggleAllBtn.title = rows.length === 0
         ? 'Nothing on this page to open.'
@@ -2515,16 +1426,9 @@
       syncToggleAll();
     }
 
-    // WHERE A ROW IS. Restored after being deleted with the errors dialog, whose
-    // Go button was its other caller -- `submitManual` still needs it, and the
-    // deletion left an uncaught ReferenceError on the one path that adds an
-    // event. Found by the tests, not by reading the diff.
     function focusEventRow(id) {
       const wanted = clean(id);
       if (!wanted) return;
-      // The search is set to the id first: a row reached from the report or
-      // just added has to be findable whatever the list was narrowed to, and it
-      // may well be on another page of it.
       state.q = wanted.toLowerCase();
       state.page = 1;
       if (searchInput) searchInput.value = wanted;
@@ -2532,8 +1436,6 @@
       const rows = listEl ? Array.from(listEl.querySelectorAll('.event-row')) : [];
       const el = rows.find((node) => clean(node.dataset.rowId) === wanted);
       if (!el) { setStatus('No row on screen for ' + wanted + '.', 'error'); return; }
-      // scrollIntoView is not universal -- jsdom has none -- and a missing
-      // scroll is no reason for anything to throw.
       if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el.classList.add('is-found');
       setTimeout(() => el.classList.remove('is-found'), 2400);
@@ -2546,44 +1448,8 @@
       return d;
     }
 
-    /* ── CHECK: read the whole table and say what looks wrong ──────────────
-       IT REPORTS AND NEVER EDITS. Same split every routine in this project
-       makes: a finding is a statement about a row, and a human decides. An
-       audit that quietly "fixed" a date or invented a city would be the one
-       thing nobody could review afterwards.
-
-       IT READS state.rows, WHICH IS THE WHOLE TABLE. loadEvents() pulls through
-       its own Range-paged loop, which walks past PostgREST's silent 1000-row cap, so
-       the check covers every row and not the 50 on screen. If that ever goes
-       back to a single unpaged fetch, this button starts quietly auditing the
-       first thousand rows and reporting a clean bill for the rest.
-
-       TWO TIERS, AND THE DIFFERENCE IS WHETHER WE ARE SURE. `error` is broken:
-       a non-sports row with no title has nothing to render as a name, and an
-       end date before its start date is not a date range. `check` is worth a
-       look and may be perfectly fine -- a venue city the catalog has never
-       heard of is usually just a city nobody has added yet. One colour for both
-       would make the red mean nothing, which is how a report stops being read. */
     const KIND_VALUES = ['sports', 'concert', 'convention', 'festival', 'expo', 'other'];
-    // `review` IS A STATUS, AND IT HAS TO BE IN THIS LIST. The bad-status rule
-    // reports any value not here, so without it every row put into review would
-    // immediately be an error BECAUSE it was in review -- a loop that never
-    // settles and whose cause is invisible from the report.
 
-    // todayIso() is already defined above, for the Upcoming / Past filter, and
-    // the past-but-scheduled rule reuses it. Two of them would be two ideas of
-    // what "today" is the moment one grew a timezone.
-    // CASE- AND SPACE-INSENSITIVE, and it has to be. This was `=== v`, an exact
-    // match, while the Cities page's own "is it already here" check lowercases
-    // -- so a row holding "foxborough, Massachusetts" was UNKNOWN here and
-    // ALREADY THERE over there. The `Add city` button then opened the Cities
-    // page and no form appeared, because both pages were right by their own
-    // rule and the rules disagreed.
-    //
-    // The comparison is the same shape in both places now. It is deliberately
-    // not doing anything cleverer than trim + lowercase: `city` is a canonical
-    // string with one spelling, and a fuzzy match here would start hiding real
-    // typos, which is the whole point of the finding.
     function parsesAsUrl(v) {
       try {
         const u = new URL(v);
@@ -2593,14 +1459,6 @@
       }
     }
 
-    // WHAT A PLACEHOLDER CLUB LOOKS LIKE. Deliberately narrow: a false positive
-    // here puts UPDATE NEEDED on a finished row, and a chip that cries wolf is
-    // one people stop reading, which costs more than the flag was worth.
-    //
-    // The last pattern is the bracket case -- a conference or division name
-    // standing in for a club that is not decided yet ("AFC", "NFC East"). It is
-    // anchored to the WHOLE value, so a real club whose name merely contains one
-    // of those words is untouched.
     const PLACEHOLDER_CLUB = [
       /^(tbd|tba|to be determined|n\/a|unknown|\?+|-+)$/i,
       /\b(tbd|tba|to be determined)\b/i,
@@ -2618,14 +1476,10 @@
       return PLACEHOLDER_CLUB.some((re) => re.test(v));
     }
 
-    // The label the database trigger should have written from the two halves.
-    // Used only to tell whether that trigger is actually installed.
     function rebuiltLabel(locale, mascot) {
       return [clean(locale), clean(mascot)].filter(Boolean).join(' ');
     }
 
-    // Each rule answers ONE question about ONE row and returns a sentence or
-    // nothing. Adding a check is adding an entry here and nothing else.
     const CHECK_RULES = [
       {
         key: 'no-title',
@@ -2635,14 +1489,6 @@
           : ''
       },
       {
-        // TWO RULES OUT OF WHAT WAS ONE, because half a club is two different
-        // problems and the single rule could only report the first.
-        //
-        // This one is about the NAME: a sports row with no title is rendered
-        // from its two clubs, so missing one leaves it with nothing to be
-        // called. A titled row is fine on that count, which is why the old rule
-        // bailed on a title -- and that bail is exactly what made it useless as
-        // an UPDATE NEEDED signal, since a bracket row usually has a title.
         key: 'no-name',
         level: 'error',
         test: (r) => {
@@ -2654,18 +1500,12 @@
         }
       },
       {
-        // And this one is about the GAME. A fandom game takes its palette and
-        // its copy from the away club, so a half-entered fixture is unusable
-        // whatever it is called. Title or no title.
         key: 'club-missing',
         level: 'check',
         test: (r) => {
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
           if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
-          // SHORT (2026-08-28). It ran to two sentences, the second explaining
-          // what the away club is FOR, which is a thing to know once and not a
-          // thing to read on every row it fires on.
           const missing = [!clean(r.away_team_nickname) && 'Away',
                            !clean(r.home_team_nickname) && 'Home'].filter(Boolean);
           return missing.length === 1
@@ -2695,19 +1535,6 @@
           : ''
       },
 {
-        // THE ONE SCHEMA FINDING, and the most useful thing this button can
-        // tell you. A trigger rebuilds away_team_name / home_team_name from the two
-        // halves on every write, and the builder's event picker falls back to
-        // them. A row where they disagree does not mean the row is wrong -- it
-        // means the trigger is not installed on this database.
-        // WHAT TO DO ABOUT IT IS HERE, NOT IN THE MESSAGE. This is the one
-        // finding that is a statement about our SCHEMA rather than about the
-        // row: the stored name is rebuilt from geo + nickname by a trigger, so
-        // a disagreement means **`tgb_events_sync_team_names` is not
-        // installed** -- run
-        // mc/supabase/migrations/2026082502_events_columns_match_the_page.sql.
-        // The message says the symptom; a migration filename on a row somebody
-        // is trying to read is not something they can act on there.
         key: 'label-drift',
         level: 'error',
         test: (r) => {
@@ -2721,48 +1548,16 @@
             bad.push('home_team_name "' + clean(r.home_team_name) + '" against "' + home + '"');
           }
           return bad.length
-            // IT NAMED A TRIGGER THAT NO LONGER EXISTS. 2026082502 renamed the
-            // whole family to tgb_events_*, and this message went on telling
-            // people to run a migration that would not fix it and to look for
-            // an object that is not there -- the exact failure the
-            // translate-errors-into-sentences rule exists to prevent.
             ? 'Team name is out of step with its parts.'
             : '';
         }
       },
       {
-        // NOT A FAULT, WHICH IS WHY IT CARRIES `noReview`. A missing start time
-        // almost always means the SOURCE has not announced the slot yet, and
-        // that is a gap which fills itself: the league or the promoter publishes
-        // it, the next run picks it up. Forcing a row into review for it puts
-        // 524 events -- most of the concert catalogue -- into a list of things
-        // somebody is supposed to act on, and there is nothing to act on.
-        //
-        // IT IS STILL REPORTED, on the row, because "which of these has no time
-        // yet" is a real question. It just is not an accusation. Same standing
-        // as `multi-day`.
-        //
-        // AN EXPLICIT TBD IS DIFFERENT and still forces review: that is scraped
-        // text sitting in the description which will go stale and wants
-        // clearing out, and the row usually carries a meaningless zoned time
-        // beside it. See the `tbd` rule.
-        //
-        // "THE SOURCE", NOT "THE LEAGUE". It said league, which was true while
-        // the table was 603 NFL and NCAAF fixtures and became wrong the morning
-        // TGB ANCHOR BOT filed 524 concerts.
         key: 'no-time',
         level: 'check', noReview: true,
         test: (r) => clean(r.start_time) ? '' : 'Add a Start Time.'
       },
 {
-        // THE PLAYOFF CASE. A bracket fixture is filed with the slot known and
-        // the clubs not: "TBD at TBD", "AFC #2", "Winner Game 3". Those are
-        // perfectly good rows to hold -- the date and the venue are real -- and
-        // they are useless for building a game until the seeding lands.
-        //
-        // IT READS THE CLUB FIELDS ONLY, NEVER THE TITLE. "AFC Championship" is
-        // a real and finished title for a row whose two clubs are known, and
-        // matching it there would flag every playoff game forever.
         key: 'placeholder-club',
         level: 'check',
         test: (r) => {
@@ -2777,14 +1572,6 @@
         }
       },
       {
-        // FINDABLE WITHOUT OPENING FIFTY ROWS. The Split button only exists on
-        // an opened card, so without this a multi-day event is invisible until
-        // somebody happens to expand it.
-        //
-        // NOT FORCED. Nothing is missing from a multi-day row and
-        // nobody has to go and find anything out -- it is a suggestion, and
-        // UPDATE NEEDED means the world has not told us something yet. Putting
-        // it there would put a red chip on every festival in the table forever.
         key: 'multi-day',
         level: 'check', noReview: true,
         test: (r) => {
@@ -2802,12 +1589,6 @@
           : 'Add a Venue Name.'
       },
       {
-        // A TBD ANYWHERE ON THE ROW IS THE ROW SAYING IT IS NOT FINISHED.
-        // It was caught in the club fields only, by isPlaceholderClub, which
-        // misses the case that actually occurs: the ESPN importer writes
-        // "ESPN listing: TBD." into the description when a kickoff has not been
-        // published, and then stores the zone conversion of that placeholder as
-        // a real start_time. 43 rows read 00:00:00 or 21:00:00 and mean nothing.
         key: 'tbd',
         level: 'check',
         test: (r) => {
@@ -2832,24 +1613,6 @@
       },
 ];
 
-    // ── WHAT PUTS A ROW INTO REVIEW ───────────────────────────────────────────
-    // AN ERROR OF ANY KIND FORCES `status = 'review'`. Not a marker beside the
-    // status, and not a column of its own: the status IS the answer to "is
-    // something wrong with this row", so a human can put one into review by
-    // hand from the same dropdown the check writes to, and there is one place
-    // to look rather than two that can disagree.
-    //
-    // WHAT IT COSTS, and it is real: `review` overwrites whatever the row said
-    // before -- usually `scheduled` -- and nothing records what that was. Fixing
-    // the fault does not restore it; somebody sets the status back. That is the
-    // price of one column holding both a real-world state and a workflow one,
-    // and it is the thing to revisit first if this ever needs undoing.
-    //
-    // EVERY RULE FORCES IT EXCEPT THOSE MARKED `noReview`. Today that is
-    // `multi-day` (a suggestion: split this festival if you like) and `no-time`
-    // (the source has not announced the slot yet). Both would otherwise put
-    // thousands of rows into review forever for nothing anybody can act on.
-    // Their findings are still drawn, by noteReasons() below, in the muted pen.
     function reviewReasons(row) {
       const reasons = CHECK_RULES
         .filter((rule) => !rule.noReview)
@@ -2860,32 +1623,11 @@
         .filter(Boolean);
       const twin = duplicateIds.get(clean(row.id));
       if (twin) {
-        // THE ID IS THE PART THAT SURVIVED THE SHORTENING, deliberately: it is
-        // the only thing that lets you go and look at the other row. `what`
-        // recorded which parts matched and no longer has a reader, but it is
-        // left on the key because it is what makes the match explicable if this
-        // message ever needs to grow back.
         reasons.push('Check against ' + twin.twin + '.');
       }
-      // TWO RULES CAN SAY ONE SENTENCE. `placeholder-club` and `tbd` both read
-      // "TBD info needs to be replaced...", so a row whose club is TBD trips
-      // both and drew it twice. Deduped here rather than in either rule,
-      // because this is the only place that can see both.
       return reasons.filter((why, at) => reasons.indexOf(why) === at);
     }
 
-    // A row is in review if the CHECK says so or if a human said so. The second
-    // half is the point of the change: `status === 'review'` with no findings is
-    // somebody flagging a row for a reason no rule knows about.
-    // THE RULES THAT REPORT WITHOUT ACCUSING. `reviewReasons` filters these out
-    // by design, which meant their findings were computed and then shown
-    // NOWHERE -- `multi-day` had been silent since it was written, and
-    // `no-time` joined it. A rule whose message no eye ever reaches is a rule
-    // that is not doing anything.
-    //
-    // They are drawn on the same annotation, in the muted pen rather than the
-    // red one: a note, not a fault. That difference is the whole reason these
-    // two carry `noReview` in the first place.
     function noteReasons(row) {
       return CHECK_RULES
         .filter((rule) => rule.noReview)
@@ -2896,28 +1638,10 @@
         .filter(Boolean);
     }
 
-    // WHAT THE RULES SAY, AND NOTHING ELSE. It was `status = 'review'` OR a
-    // finding, so a person could flag a row by hand and a row whose fault was
-    // fixed stayed red until somebody cleared the status. With no status there
-    // is no hand flag and nothing to clear: a row is in review while the rules
-    // object to it and stops being the moment they do not.
     function isInReview(row) {
       return reviewReasons(row).length > 0;
     }
 
-    // CROSS-ROW, so it cannot live in CHECK_RULES: two rows describing one
-    // fixture is a duplicate the primary key cannot catch, because the ids
-    // differ. A doubleheader suffix or a re-import under a new id shape both
-    // land here.
-    // ── DUPLICATES ARE CROSS-ROW, so they cannot be a CHECK_RULES entry ──────
-    // Two rows describing one fixture is a duplicate the primary key cannot
-    // catch, because the ids differ: a doubleheader suffix, a re-import under a
-    // new id shape. A rule sees one row at a time, so the set is computed once
-    // over the whole table and consulted per row.
-    //
-    // IT IS RECOMPUTED IN render(), not cached forever: a save or a delete
-    // changes the answer, and a stale set would keep a row red after its twin
-    // was removed.
     let duplicateIds = new Map();
 
     function rebuildDuplicates() {
@@ -2931,17 +1655,10 @@
           clean(r.away_team_name) || clean(r.away_team_nickname),
           clean(r.home_team_name) || clean(r.home_team_nickname)
         ];
-        // Nothing identifying beyond the date: two concerts on one night are not
-        // a duplicate, so say nothing rather than guess.
         if (!parts[2] && !parts[3] && !clean(r.title)) return;
         const key = parts.concat(clean(r.title)).map((v) => v.toLowerCase()).join('|');
         const first = seen.get(key);
         if (first) {
-          // THE MESSAGE NAMES WHAT ACTUALLY MATCHED, and this is why it is built
-          // here rather than written as one sentence at the finding. It used to
-          // read "Same league, date and clubs" on EVERY duplicate -- which is
-          // right for a fixture and nonsense on a concert, where the league is
-          // null and there are no clubs. The table is 524 concerts deep now.
           const what = [];
           if (parts[0]) what.push('league');
           if (clean(r.title)) what.push('title');
@@ -2953,70 +1670,18 @@
       duplicateIds = found;
     }
 
-    // runChecks(), unsavedFindings() and the three-tier grouping went with the
-    // dialog. Nothing tiers findings any more: a row is in review or it is not,
-    // and an unsaved edit is said by the accent border rather than by a report.
-
-    // FINDING_GOTO AND CHECK_GROUPS WENT WITH THE DIALOG. The first carried a
-    // finding to the page that could answer it; the second grouped findings
-    // into Errors / Worth a look / Unsaved. Neither has a reader now that a
-    // finding is a line on its own row rather than an entry in a list.
-    // (The `unknown-city` finding FINDING_GOTO was written for is itself gone:
-    // this room no longer checks a venue city against `public.cities`.)
-
-    // ── ERRORS: run the checks, then pull the review rows up ─────────────────
-    // THE CHECK IS A WRITER NOW, and that reverses what this report used to be.
-    // It reported and never edited, on the argument that a finding is a
-    // statement and a human decides. What it does instead is make the finding
-    // STICK: a row with a fault goes to `status = 'review'` and stays there
-    // until somebody deals with it, so the queue survives a reload, is visible
-    // to anything else reading the table, and can be added to by hand.
-    //
-    // IT WRITES TWO COLUMNS, AND THEY BEHAVE DIFFERENTLY ON PURPOSE.
-    //
-    //   `status = 'review'`   A HUMAN'S FLAG. Only ever set, never cleared: the
-    //                         check cannot know whether the underlying thing was
-    //                         dealt with or merely made to stop matching, and
-    //                         clearing it would undo somebody's own flag.
-    //
-    //   `issues = YES / NO`   THE MACHINE'S ANSWER, and it moves both ways. It
-    //                         is what the rules said the LAST TIME THEY RAN, so
-    //                         fixing a date and re-running turns it back to NO.
-    //
-    // Keeping them apart is what lets a row be `review` with `issues = NO`:
-    // somebody flagged it by hand and the rules have nothing to say about it.
-    //
-    // NOTHING HERE WRITES `public.issues`. That table holds soundtrack findings
-    // filed by a routine that ran hours ago; these findings are recomputed on
-    // every render and drawn on the row, so a copy in a table would go stale the
-    // moment somebody fixed the date.
     async function runErrorSweep() {
       if (!errorsBtn) return;
       errorsBtn.disabled = true;
       const orig = errorsBtn.textContent;
       errorsBtn.textContent = 'Checking…';
       try {
-        // WHAT THE RULES SAY NOW, per row, WITH THE WORDS. Computed once so
-        // the writes below cannot disagree about which rows are which, and so
-        // the flag and its detail come from one evaluation rather than two.
-        //
-        // THE FORCING REASONS ONLY. `reviewReasons` already excludes the muted
-        // notes -- a missing start time means the SOURCE has not announced the
-        // slot, which is a gap that fills itself -- and including them would put
-        // text on rows whose flag says NO, which the database now refuses.
         const faulty = new Map();
         state.rows.forEach((r) => {
           const why = reviewReasons(r);
           if (why.length) faulty.set(clean(r.id), why.join(String.fromCharCode(10)));
         });
 
-        // THE FLAG IS RESTATED ON EVERY RUN, in both directions, and only where
-        // it would actually change. A row whose fault was fixed goes back to
-        // NO; a row that is already YES and still faulty is not rewritten.
-        // THE DETAIL IS PART OF THE COMPARISON, not just the flag. A row whose
-        // fault CHANGED -- one rule stopped objecting and another started -- is
-        // still YES, and without this its words would be left describing the old
-        // fault forever.
         const flagChanges = state.rows.filter((r) => {
           const want = faulty.has(clean(r.id)) ? 'YES' : 'NO';
           const wantWhy = faulty.get(clean(r.id)) || null;
@@ -3024,12 +1689,6 @@
             || clean(r.issues_detail || '') !== clean(wantWhy || '');
         });
 
-        // ── THE FLAG, AND IT IS THE WHOLE WRITE ──────────────────────────
-        // The sweep used to write `status = 'review'` as well, which was the
-        // same answer twice by two mechanisms with different rules: one-way
-        // against two-way, a human's flag against the machine's. With no status
-        // the pair IS the answer, and a row is in review exactly while the
-        // rules object to it.
         let flagged = 0;
         let flagFailed = 0;
         for (const row of flagChanges) {
@@ -3038,17 +1697,12 @@
             const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
               method: 'PATCH',
               headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-              // ONE PATCH FOR THE PAIR. The database refuses a flag without
-              // words and words without a flag, so sending them separately
-              // would fail on whichever went first.
               body: JSON.stringify({
                 issues: want,
                 issues_detail: faulty.get(clean(row.id)) || null
               })
             });
             const saved = res.ok ? await res.json() : null;
-            // READ BACK, because PostgREST answers 200 with an empty array when
-            // RLS refuses and a flag nobody checked is worse than no flag.
             if (Array.isArray(saved) && saved.length) {
               Object.assign(row, saved[0]);
               flagged += 1;
@@ -3066,17 +1720,6 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        // ── AND THEN IT NARROWS THE PAGE ─────────────────────────
-        //
-        // **THROUGH THE ISSUES FILTER THAT ALREADY EXISTS**, not through a
-        // state of its own. That picker reads the stored flag, which is exactly
-        // what the sweep has just written, so pressing Check is the same as
-        // running the checks and then choosing "has issues" by hand.
-        //
-        // ONE STATE, TWO CONTROLS, AND THAT IS THE WHOLE REASON IT IS DONE THIS
-        // WAY. A second `reviewOnly` would be a second idea of one filter, and
-        // this page has already paid for that shape once. It also means **the
-        // way out is obvious and already on screen**: set Issues back to `any`.
         state.issues = 'yes';
         const issuesPicker = document.getElementById('issuesFilter');
         if (issuesPicker) issuesPicker.value = 'yes';
@@ -3084,10 +1727,6 @@
         render();
         if (!flagFailed) {
           const inReview = state.rows.filter(isInReview).length;
-          // THE FLAG MOVES EVEN WHEN THE REVIEW QUEUE DOES NOT, which is the
-          // whole point of it being the machine's own answer: a fault fixed
-          // since the last run turns YES back to NO and nothing goes into
-          // review. Saying nothing here would make that write invisible.
           const flagNote = flagged
             ? ' Issues flag updated on ' + plural(flagged, 'row') + '.'
             : '';
@@ -3103,18 +1742,11 @@
       }
     }
 
-    // THE FACE IS THE VERB, AND IT COUNTS. `Check` says what pressing it does;
-    // the count is how many the last press found, and it sits on the button
-    // rather than on the tab because the tab is a heading and a heading that
-    // changed as you worked would read as a control.
     function syncErrorsBtn() {
       if (!errorsBtn) return;
       const n = state.rows.filter(isInReview).length;
       errorsBtn.textContent = n ? 'Check (' + n + ')' : 'Check';
       if (!state.loaded) {
-        // NOT `disabled`. A disabled button dispatches no click, so on a phone
-        // the reason would be unreachable -- the same argument the greyed
-        // platform buttons in the Socializer settle the same way.
         errorsBtn.classList.add('is-waiting');
         errorsBtn.title = 'Waiting for the whole table. The check reads every row, so it cannot run on a partial load.';
         return;
@@ -3124,11 +1756,6 @@
     }
 
     function toggleErrors() {
-      // IT REFUSES ON A PARTIAL TABLE, and this is the one control where that
-      // matters. Every other feature degrades to "incomplete" while rows are
-      // still arriving; the audit degrades to WRONG -- it would sweep what has
-      // landed, write the flag on some of it, and report a clean bill for
-      // thousands of rows it has never seen.
       if (!state.loaded) {
         setStatus('Still loading (' + state.rows.length +
           (state.total ? ' of ' + state.total : '') +
@@ -3138,39 +1765,6 @@
       runErrorSweep();
     }
 
-    // THE ERRORS DIALOG IS GONE, and with it renderCheckReport, checkReportText,
-    // openCheckDialog, closeCheckDialog, refreshCheckReport and copyCheckReport.
-    // THE FINDINGS ARE DRAWN ON THE ROW THEY ARE ABOUT NOW, which is where the
-    // Tape Room ended up with its own issues view for the same reason: a finding
-    // in a separate list has to repeat the row's name just to say what it is
-    // talking about, and then offer a way back to it. On the row it inherits
-    // both for free, and it is visible without opening anything.
-    //
-    // WHAT WAS LOST, stated plainly. **Copy report** has no home now that there
-    // is no report to copy. **The `Add city` button** that carried an unknown
-    // town to the Cities page prefilled is the one worth rebuilding if it is
-    // missed: the annotation names the town, and naming it is not the same as
-    // getting you there. `?add=` on the Cities page still works and is still
-    // tested, so it is one link away from coming back.
-
-
-    // ── SEATGEEK ─────────────────────────────────────────────────
-    //
-    // A city and a window in, real announced events out, and the ones you tick
-    // are inserted. The third way into this table: MANUAL is one you type,
-    // PROMPT is a batch an AI researches, this is a feed you filter.
-    //
-    // TWO THINGS WERE MEASURED BEFORE ANY OF THIS WAS WRITTEN, and both decide
-    // its shape:
-    //
-    //   * `api.seatgeek.com` answers `access-control-allow-origin: *`, so THE
-    //     BROWSER CAN CALL IT DIRECTLY. No Edge Function, no server, no build
-    //     step -- the same thing that made the ESPN importer possible.
-    //   * `seatgeek.com` ITSELF IS BEHIND A DATADOME BOT WALL. A plain fetch
-    //     gets 403 and a JavaScript challenge, and that is true of a browser,
-    //     a script and an Edge Function alike. **Do not "fix" this by scraping
-    //     the site.** Reading those pages is the PROMPT route's job, because an
-    //     AI with a real browser is the only thing that passes.
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
     const sgState = { rows: [], checked: new Set(), busy: false };
 
@@ -3181,11 +1775,6 @@
         : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
     }
 
-    // THE ID LIVES IN THIS BROWSER AND NOWHERE ELSE. A key committed to this
-    // page is a key published to the web -- it is public HTML on GitHub Pages
-    // -- so it is asked for once and kept in localStorage, which is the same
-    // bargain the prompt's own edits make. Wrapped, because a browser with site
-    // data blocked THROWS on the accessor itself rather than returning null.
     function sgClientId() {
       const typed = clean(sgClientIdEl && sgClientIdEl.value);
       if (typed) return typed;
@@ -3200,11 +1789,6 @@
       } catch (e) { /* a browser that refuses storage still works, per fetch */ }
     }
 
-    // SEATGEEK'S KINDS ARE NOT OURS, so they are mapped rather than stored raw:
-    // this table's `kind` is one of six and the Kind dropdown cannot show
-    // anything else. Anything unrecognised becomes `other` rather than being
-    // dropped -- a real event with a kind we have no word for is still a real
-    // event.
     function sgKind(type) {
       const t = clean(type).toLowerCase();
       if (!t) return 'other';
@@ -3213,17 +1797,12 @@
       if (t.indexOf('festival') !== -1) return 'festival';
       if (t === 'expo') return 'expo';
       if (t === 'convention' || t === 'comedy_con' || t.indexOf('comic') !== -1) return 'convention';
-      // Everything SeatGeek files under a league or a sport.
       if (t.indexOf('sport') !== -1 || /nfl|nba|mlb|nhl|ncaa|soccer|mls|wnba|golf|tennis|racing|fighting|wrestling/.test(t)) {
         return 'sports';
       }
       return 'other';
     }
 
-    // THE LOCAL DATE AND TIME, NOT THE UTC ONE. SeatGeek gives both, and
-    // `datetime_local` is the clock a person standing outside the venue reads,
-    // which is exactly what `start_time` means in this table. Taking the UTC
-    // one would put a late show on the following day for half the country.
     function sgRow(ev) {
       const local = clean(ev && ev.datetime_local);
       const date = local.slice(0, 10);
@@ -3239,11 +1818,6 @@
       const row = {
         id: sgId(ev, kind, date, city),
         kind: kind,
-        // LEAGUE AND SPORT COME FROM `taxonomies`, NOT FROM `type`. SeatGeek
-        // answers an MLB fixture with `taxonomies: [sports, baseball, mlb]`,
-        // which is exactly the pair `public.leagues` holds: MLB / Baseball. A
-        // concert answers `[concert]` and gets neither, which is right -- those
-        // two columns are sports rows only.
         league: tax.league,
         sport: tax.sport,
         description: sgDescription(ev, tax),
@@ -3253,41 +1827,21 @@
         start_time: time || null,
         venue: clean(venue.name) || null,
         venue_city: city || null,
-        // THE SEATGEEK PAGE, which is where this row came from and the only
-        // page we can point at: the API answers with a `url` per event.
         url: clean(ev && ev.url) || null,
         source: 'SeatGeek',
         neutral_site: false,
         issues: 'NO'
       };
-      // ── EVERY ROW CARRIES THE SAME KEYS ─────────────────────────
-      //
-      // **PostgREST REFUSES A BULK INSERT WHOSE OBJECTS DIFFER IN THEIR KEYS**,
-      // with "All object keys must match". A sports row carries four club
-      // fields and a concert row does not, so a window holding both was refused
-      // outright -- and the refusal names nothing you can act on.
-      //
-      // So the four are ALWAYS present and null when they do not apply. A null
-      // is what an empty club field already stores, so nothing about the row
-      // changes; only the shape of the request does.
       row.away_team_geo = null;
       row.away_team_nickname = null;
       row.home_team_geo = null;
       row.home_team_nickname = null;
 
-      // A SPORTS ROW CARRIES ITS TWO CLUBS SPLIT, geo and nickname, never
-      // joined -- the table's own rule, and what the derived name is rebuilt
-      // from. SeatGeek gives a performer's short name, which is the nickname.
       if (kind === 'sports') {
         const split = (perfRow) => {
           if (!perfRow) return { geo: null, nick: null };
           const full = clean(perfRow.name);
           const short = clean(perfRow.short_name);
-          // SeatGeek gives "Chicago Bears" and "Bears", so the geo is what is
-          // left when the nickname is taken off the end. If the two do not
-          // line up, the nickname is kept and the geo is left for a human --
-          // **a guessed geo is worse than a blank one**, since nothing
-          // downstream could tell it from a real one.
           if (short && full.length > short.length && full.slice(-short.length) === short) {
             return { geo: clean(full.slice(0, full.length - short.length)) || null, nick: short };
           }
@@ -3302,28 +1856,12 @@
       return row;
     }
 
-    // ── LEAGUE AND SPORT, FROM THE TAXONOMY ───────────────────────
-    //
-    // `taxonomies` is a coarse-to-fine list: `[sports, baseball, mlb]`. The
-    // SPORT is the middle one and the LEAGUE is the last, which is the same
-    // pair `public.leagues` holds -- Baseball / MLB, Football / NFL.
-    //
-    // A LEAGUE KEEPS ITS CAPITALS AND A SPORT IS TITLE CASE, because that is
-    // how both tables already spell them: `teams.league` is `NFL` and
-    // `events.sport` is `Football`. Getting this wrong would not error, it
-    // would quietly file a second spelling of a league we already have.
-    //
-    // ANYTHING THAT IS NOT SPORT GETS NEITHER. A concert answers `[concert]`,
-    // and those two columns are for fixtures.
     function sgTaxonomy(ev) {
       const names = ((ev && ev.taxonomies) || [])
         .map((t) => clean(t && t.name).toLowerCase())
         .filter(Boolean);
       if (names.indexOf('sports') === -1) return { league: null, sport: null, genre: sgGenre(ev) };
       const rest = names.filter((n) => n !== 'sports');
-      // ORDERED COARSE TO FINE, so the last is the league and the one before it
-      // is the sport. With only one left there is no sport to name, and a guess
-      // would be worse than a blank.
       const league = rest.length ? rest[rest.length - 1].toUpperCase() : null;
       const sport = rest.length > 1 ? titleCase(rest[rest.length - 2]) : null;
       return { league: league, sport: sport, genre: null };
@@ -3334,40 +1872,16 @@
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
-    // A CONCERT'S GENRE, which is the one thing a listing says about it that
-    // the title does not. SeatGeek carries it on the performer.
     function sgGenre(ev) {
       const perf = ((ev && ev.performers) || [])[0];
       const g = (perf && perf.genres) || [];
       return g.length ? clean(g[0] && g[0].name) || null : null;
     }
 
-    // ── THE DESCRIPTION ────────────────────────────────────
-    //
-    // WHAT THE LISTING SAYS AND NOTHING MORE. The column asks for a plain
-    // sentence about what the event is and why somebody would travel; a feed
-    // cannot answer the second half, so this writes only what it actually
-    // knows and leaves the rest to whoever opens the row.
-    //
-    // THE FULL TITLE IS THE POINT OF IT. The row stores `short_title` ("Orioles
-    // at Rockies") because that is what reads on a list; the description keeps
-    // SeatGeek's full one ("Baltimore Orioles at Colorado Rockies"), which is
-    // the version that names both clubs properly.
-    //
-    // NO EM DASHES, per the standing rule, and no invented enthusiasm.
     function sgDescription(ev, tax) {
-      // ONE SENTENCE: what it is and where. Assembled rather than concatenated,
-      // because the first cut joined pieces that each ended (or did not end) in
-      // their own full stop and produced "Orioles at Rockies At Coors Field."
-      // and, for a concert whose title is its act, a description that opened
-      // with the venue.
       const full = clean(ev && ev.title) || clean(ev && ev.short_title);
       const venue = clean(((ev && ev.venue) || {}).name);
       const lines = [];
-      // THE TITLE SOMETIMES ALREADY CARRIES THE VENUE. SeatGeek answers plenty
-      // of shows as "Big Act at Ball Arena", and appending the venue to that
-      // gives "Big Act at Ball Arena at Ball Arena." Checked case-insensitively,
-      // because the two spellings do not always match in case.
       const saysVenue = !!(venue && full.toLowerCase().indexOf(venue.toLowerCase()) !== -1);
       if (full && venue && !saysVenue) lines.push(full + ' at ' + venue + '.');
       else if (full) lines.push(full + '.');
@@ -3377,10 +1891,6 @@
       return lines.join(' ');
     }
 
-    // A READABLE, COLLISION-PROOF ID, the same shape the manual form composes:
-    // KIND-DATE-NAME-CITY, upper case, no spaces. **It is permanent once
-    // stored**, which is why it is derived from the event rather than from
-    // SeatGeek's own numeric id -- a number tells a later reader nothing.
     function sgId(ev, kind, date, city) {
       const name = String(clean(ev && (ev.short_title || ev.title)) || '').split(/\s+/)[0];
       const parts = [idPart(kind, 10), date, idPart(name, 10), idPart(String(city).split(',')[0], 3)];
@@ -3407,20 +1917,6 @@
       sgFetchBtn.textContent = 'Fetching\u2026';
       sgSet('Reading SeatGeek\u2026');
       try {
-        // ── EVERY PAGE, NOT THE FIRST ──────────────────────────────
-        //
-        // It read one page of 50 and said "of 1,557", which is **a silent cap
-        // wearing a number**: the thing you asked for was a city and a window,
-        // and what you got was whatever fitted. It pages until the window is
-        // exhausted now.
-        //
-        // **PROGRESS IS REPORTED WHILE IT RUNS.** A year of a busy city is a
-        // dozen or more requests, and a dialog that sits still for ten seconds
-        // reads as broken.
-        //
-        // THE COST, PLAINLY: a wide window is a long list and a lot of DOM.
-        // That is the trade asked for -- show everything found -- and the
-        // window is the control that makes it smaller.
         const PER_PAGE = 100;
         const all = [];
         let total = 0;
@@ -3444,14 +1940,10 @@
           if (body && body.meta && body.meta.total) total = body.meta.total;
           Array.prototype.push.apply(all, events);
           sgSet('Reading SeatGeek\u2026 ' + all.length + (total ? ' of ' + total : ''));
-          // A SHORT PAGE IS THE END, and the count is the belt: a feed that
-          // ignored `page` would otherwise answer the same rows forever.
           if (events.length < PER_PAGE) break;
           if (total && all.length >= total) break;
         }
 
-        // A ROW WITH NO DATE IS DROPPED HERE rather than filed and flagged: it
-        // is not a candidate, it is a listing we could not read.
         sgState.rows = all.map(sgRow).filter((r) => r.start_date);
         const have = new Set(state.rows.map((r) => clean(r.id)));
         sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
@@ -3465,8 +1957,6 @@
           sgState.rows.length ? 'success' : null);
       } catch (err) {
         console.error(err);
-        // A NETWORK ERROR HERE IS USUALLY THE KEY OR THE CITY, not the code, so
-        // the message says what to try rather than printing a stack.
         sgSet(err && err.message ? err.message : 'Could not reach SeatGeek.', 'error');
       } finally {
         sgFetchBtn.disabled = false;
@@ -3532,9 +2022,6 @@
       try {
         const res = await fetch(restUrl(TABLE, {}), {
           method: 'POST',
-          // resolution=ignore-duplicates, because two fetches of one window
-          // overlap by design and a second import should be a no-op rather
-          // than a 23505 naming a constraint.
           headers: authHeaders({
             'Content-Type': 'application/json',
             Prefer: 'return=representation,resolution=ignore-duplicates'
@@ -3543,18 +2030,11 @@
         });
         if (!res.ok) {
           const raw = await readError(res, 'The import was refused.');
-          // PGRST102 IS A SHAPE PROBLEM, NOT A DATA ONE, and its own wording
-          // ("All object keys must match") says nothing about which rows or
-          // which key. If it ever comes back, a field has been added to some
-          // rows and not others in sgRow().
           throw new Error(/all object keys must match/i.test(raw)
             ? 'The rows in this batch do not carry the same fields, so PostgREST refused the lot. That is a bug in the importer, not in what you ticked.'
             : raw);
         }
         const saved = await res.json();
-        // READ BACK. PostgREST answers 200 with an empty array when RLS
-        // refuses, so without this a refused import reports success and the
-        // rows are gone on the next reload.
         if (!Array.isArray(saved) || !saved.length) {
           throw new Error('Nothing was saved. Check you are signed in as an admin.');
         }
@@ -3565,8 +2045,6 @@
         if (state.total != null) state.total += saved.length;
         render();
         renderSg();
-        // THE SHORTFALL IS NAMED, NOT COUNTED. "12 imported" about 9 is the
-        // quiet sort of lie this project has been caught by before.
         const short = picked.length - saved.length;
         sgSet('Imported ' + plural(saved.length, 'event') + '.' +
           (short ? ' ' + short + ' were already filed and were skipped.' : ''), 'success');
@@ -3583,18 +2061,8 @@
 
     function openSgDialog() {
       if (!sgLightbox) return;
-      // THE WINDOW OPENS ON TODAY AND RUNS 366 DAYS.
-      //
-      // TODAY, for the reason the prompt's own `from` does: a past event is the
-      // one thing this table can never use, since our game is played the day
-      // before its anchor and there is no day before a date that has gone.
-      //
-      // **366, NOT 365**, so a window opened on the 29th of February reaches the
-      // same date next year rather than stopping a day short, and so a whole
-      // year is always covered whichever side of a leap day you are on.
       if (sgFromEl && !sgFromEl.value) sgFromEl.value = todayIso();
       if (sgToEl && !sgToEl.value) sgToEl.value = isoPlusDays(366);
-      // The stored key, if this browser has one.
       try {
         const saved = clean(window.localStorage.getItem(SG_KEY_STORE));
         if (saved && sgClientIdEl && !sgClientIdEl.value) sgClientIdEl.value = saved;
@@ -3614,69 +2082,11 @@
       if (seatgeekBtn) seatgeekBtn.focus();
     }
 
-    // ── MANUAL: one event, typed by hand, in a popup ──────────────────────────
-    // A DIALOG RATHER THAN A CARD UNSHIFTED INTO THE LIST. Creating a row and
-    // editing one are different jobs, and doing the first inside the list put a
-    // half-built event among 603 real ones -- sorted with them, counted with
-    // them, and thrown away the moment anything re-rendered, because an unsaved
-    // row lives in the DOM and render() rebuilds from the stored rows.
-    //
-    // THE ORDER IS THE ORDER SOMEBODY DESCRIBES AN EVENT: what it is, when,
-    // where, who is playing, how it went, where we got it. The id leads because
-    // it is the one field the save refuses without, and because that is where
-    // the card puts it too.
-    //
-    // IT REUSES fieldControl(), SO THERE IS ONE DEFINITION OF EVERY FIELD.
-    // Building a second set of inputs here is how a form and a card start
-    // disagreeing about which values are legal -- the city picker, the time
-    // trimming, the select that keeps an off-list value would all have to be
-    // written twice.
-    // THE SAME FIVE QUESTIONS AS THE CARD, in the same order, so learning one
-    // form teaches the other. Derived from FIELD_GROUPS rather than listed
-    // again: two hand-kept orders would drift the first time a field moved.
-    //
-    // `title` IS INJECTED INTO WHAT. On a card it is the header box, so it is
-    // in no band; this dialog has no header box, so it has to appear somewhere
-    // -- and it belongs next to the kind and the description, not tacked onto
-    // the end of the form.
     const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
 
-    // ── WHAT THE MANUAL FORM LEAVES OUT ───────────────────────────────────
-    //
-    // A SCORE IS FILLED IN AFTER THE EVENT, and you are creating one that has
-    // not happened: nobody has ever typed a score into this dialog and nobody
-    // ever should. **They are still on the CARD**, which is where a result is
-    // added once there is one.
-    //
-    // THIS IS A DELIBERATE OMISSION, NOT A GAP, which is why it is a named list
-    // rather than a field quietly missing from a band. The check below reads it,
-    // so a field dropped by accident is still reported and this one is not.
-    // THE SAME FOUR THE CARD LEAVES OFF, named once. See OFF_SCREEN_FIELDS.
     const MANUAL_SKIP = OFF_SCREEN_FIELDS;
 
-    // ── THE FORM'S OWN BAND ORDER ─────────────────────────────────────────
-    //
-    // THE CARD AND THE FORM WANT DIFFERENT ORDERS, and using one for both is
-    // what made this awkward. On a CARD you are reading an event that exists,
-    // and the clubs are its identity: "Chicago Bears at Carolina Panthers" is
-    // the thing, so WHO leads. In the FORM you are creating one that does not
-    // exist yet, and you cannot start with the clubs, because:
-    //
-    //   * **KIND DECIDES WHETHER THERE ARE ANY.** The Who band folds away on a
-    //     concert. Leading with it meant the first band you filled in could
-    //     vanish once you reached the third, which is the wrong way round: you
-    //     say what the thing IS, and the form then shows what that needs.
-    //   * **WHY IS EVIDENCE AND COMES LAST.** The url and the source are what
-    //     you were reading while you filled the rest in.
-    //
-    // ASSERTED AGAINST `FIELD_GROUPS` BELOW, so this cannot fall out of step by
-    // naming a band that no longer exists or missing one that does.
-    // THE SAME ORDER THE CARD USES, named once. It was a second copy of this
-    // list and the two would have drifted the first time either was reordered.
     const MANUAL_GROUP_ORDER = GROUP_ORDER;
-    // WHAT ONE BAND OF THE MANUAL FORM HOLDS. The builder calls this and so
-    // does the check below, so the thing being asserted is the thing being
-    // built -- not a second list that happens to agree today.
     function manualBandFields(g) {
       const extra = MANUAL_EXTRA[g.key];
       const fields = g.fields.filter((f) => MANUAL_SKIP.indexOf(f) === -1);
@@ -3687,33 +2097,15 @@
       return fields;
     }
 
-    // THE FORM'S GROUPS ARE THE CARD'S GROUPS. Kept as its own name because the
-    // check below asserts against it and reads better for it.
     function manualGroups() { return orderedGroups(); }
 
-    // THE ID IS LAST NOW, AND THAT IS THE OTHER HALF OF THE REORDER. It is
-    // composed FROM the rest -- `NFL-2026-W1-CAR-CHI` needs the league, the
-    // year, the week and both clubs -- so asking for it first asked for
-    // something you could not yet know. It is permanent once saved, which is
-    // why its hint stays loud.
-    // NO `id` HERE ANY MORE: it is composed from the other fields when you
-    // press ADD, so there is nothing to type and nothing to check for.
     const MANUAL_ORDER = manualGroups()
       .reduce((acc, g) => acc.concat(manualBandFields(g)), []);
 
-    // Every editable column must appear on this form too, or a field is
-    // reachable when editing and not when creating -- which is worse than
-    // either, because the row arrives missing something nobody was asked for.
     (function assertManualCoversFields() {
       const named = MANUAL_ORDER.slice();
-      // MANUAL_SKIP IS THE ONLY WAY A FIELD MAY BE ABSENT. Anything else
-      // missing is a column reachable when editing and not when creating, which
-      // is worse than either: the row arrives without something nobody was
-      // asked for.
       const missing = EDITABLE_FIELDS.filter(
         (f) => named.indexOf(f) === -1 && MANUAL_SKIP.indexOf(f) === -1);
-      // THE FORM'S BAND ORDER MUST NAME EVERY BAND AND NO OTHERS, or a whole
-      // group silently stops being offered.
       const cardKeys = FIELD_GROUPS.map((g) => g.key).slice().sort().join(',');
       const formKeys = MANUAL_GROUP_ORDER.slice().sort().join(',');
       if (cardKeys !== formKeys) {
@@ -3722,59 +2114,25 @@
       }
       const twice = named.filter((f, i) => named.indexOf(f) !== i);
       if (missing.length) console.error('events: MANUAL form is missing editable fields:', missing);
-      // A field injected into a group that already lists it would render two
-      // boxes for one column, and readForm would take whichever it found first.
       if (twice.length) console.error('events: MANUAL form lists a field twice:', twice);
     }());
 
     function buildManualForm() {
       if (!manualForm) return;
       manualForm.innerHTML = '';
-      // A fresh draft each time the dialog opens. The defaults are the two the
-      // database would otherwise be given by hand on nearly every row.
       const draft = { kind: 'sports', status: 'scheduled' };
 
-      // ── ONE FIELD PER ROW, IN ONE COLUMN ─────────────────────────────────
-      //
-      // The five bands are gone. A creation form is one you read DOWN once, in
-      // order, and anything that puts two fields side by side makes "what comes
-      // next" a question you have to answer with your eyes instead of by
-      // reading on.
-      //
-      // THE ORDER IS STILL THE FORM'S OWN, not the card's -- what, when, where,
-      // who, why -- because that is the order you fill it in. Only the boxes
-      // around the groups have gone; the sequence has not moved.
       MANUAL_ORDER.forEach((f) => {
-        // onDirty is a no-op here: there is no row to mark unsaved, because
-        // nothing exists until Add is pressed.
         manualForm.appendChild(fieldControl(draft, f, function () {}));
       });
 
-      // ── THE CLUBS ONLY WHEN THERE ARE CLUBS ──────────────────────────────
-      //
-      // The single biggest compaction available, and it costs nothing: a
-      // concert has no league, no sport and no two teams, so ten of the
-      // twenty-three fields are blanks somebody has to scroll past. The card
-      // already folds this band away on a non-sports row; the form now does the
-      // same, live, as the Kind dropdown changes.
       const kindEl = manualForm.querySelector('[data-field="kind"]');
-      // FIELD BY FIELD, since there is no band to hide any more. The list comes
-      // from the group that was marked `sportsOnly`, so it cannot fall out of
-      // step with the card's own rule about which fields those are.
       const whoFields = FIELD_GROUPS
         .filter((g) => g.sportsOnly)
         .reduce((acc, g) => acc.concat(manualBandFields(g)), [])
         .map((f) => manualForm.querySelector('[data-field="' + f + '"]'))
         .filter(Boolean)
         .map((el) => el.closest('label') || el);
-      // THE TITLE'S SAMPLE FOLLOWS THE KIND. One placeholder cannot be right
-      // for six kinds: a tour name shown while Kind says sports is a sample of
-      // the wrong shape entirely, and the shape is the only thing a sample is
-      // for. **A PLACEHOLDER, NEVER A VALUE** -- it is drawn lighter and is
-      // never read by `readForm`, so a title left blank stays blank.
-      //
-      // ONLY THE TWO NAMED KINDS HAVE ONE. The other four keep the field's own
-      // sample rather than being given an invented example each.
       const titleEl = manualForm.querySelector('[data-field="title"]');
       const titleSample = titleEl ? titleEl.placeholder : '';
       function syncManualWho() {
@@ -3786,28 +2144,14 @@
       if (kindEl) kindEl.addEventListener('change', syncManualWho);
       syncManualWho();
 
-      // THE END DATE MIRRORS THE START, IN FRONT OF YOU. `withDefaults` fills a
-      // blank one on the way out regardless, and the database has a trigger for
-      // it as well -- but a box sitting empty while a value goes to the row is
-      // the form showing something the row does not hold, which is the thing
-      // this rule exists to prevent.
-      //
-      // `input` AND `change`: a date input fires `input` as the picker moves and
-      // as you type, and `change` only on commit.
       const startEl = manualForm.querySelector('[data-field="start_date"]');
       const endEl = manualForm.querySelector('[data-field="end_date"]');
       if (startEl && endEl) {
-        // SEE THE CARD'S COPY for why this tracks its own value rather than
-        // testing for blank: a date typed digit by digit is briefly valid at a
-        // year like 0002, and a mirror that fires on that then never corrects
-        // itself.
         let mirrored = '';
         const mirror = () => {
           const start = clean(startEl.value);
           const end = clean(endEl.value);
           if (!start) return;
-          // A REAL RANGE IS NEVER OVERWRITTEN: once the end date holds something
-          // the mirror did not put there, it belongs to whoever typed it.
           if (end && end !== mirrored) return;
           if (end === start) return;
           endEl.value = start;
@@ -3831,18 +2175,9 @@
       manualLightbox.hidden = false;
       manualLightbox.classList.add('is-open');
 
-      // IT OPENED SCROLLED TO THE BOTTOM, and moving the ID field last is what
-      // did it: this focused `#manualId`, which was the first control and is
-      // now the last, so the browser scrolled the body down to reveal it.
-      //
-      // FOCUS THE FIRST FIELD, which is Kind, and it is the right one on its
-      // own merits: it decides whether the Who band is even shown, so it is
-      // where filling the form actually starts.
       const body = manualLightbox.querySelector('.prompt-dialog-body');
       const first = manualForm && manualForm.querySelector('[data-field], input, select, textarea');
       if (first) first.focus();
-      // AFTER THE FOCUS, NOT BEFORE. Focusing scrolls, so resetting first would
-      // be undone by the very next line.
       if (body) body.scrollTop = 0;
     }
 
@@ -3853,26 +2188,12 @@
       if (addEventBtn) addEventBtn.focus();
     }
 
-    // A SAMPLE PER KIND, for the Title box on the manual form. A sports row
-    // reads as two clubs and a concert reads as an act, and a sample of the
-    // wrong shape is worse than none: the shape is the whole thing it teaches.
     const TITLE_SAMPLES = {
       sports: 'The New Orleans Night vs The Chicago Blitz',
       concert: 'Led Zeppelin in Concert',
       convention: 'WEFTEC Conference'
     };
 
-    // ── COMPOSING AN ID ───────────────────────────────────────────────────
-    //
-    // The shape the brief has always asked for: `NFL-2026-09-07-CHI-CAR` for a
-    // fixture, `CONCERT-2027-07-04-OLIVIA-DEN` otherwise. Upper case, no
-    // spaces, and every part taken from a field on the form, so the id
-    // describes the row rather than being a number.
-    //
-    // IT IS PERMANENT ONCE SAVED, which is exactly why it should not be typed:
-    // a field you can never correct is a bad thing to leave to a person filling
-    // a form quickly, and the parts it is built from are all in front of them
-    // anyway.
     function idPart(value, max) {
       const t = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       return t.slice(0, max);
@@ -3883,21 +2204,14 @@
       const date = clean(row.start_date) || clean(row.end_date);
       const parts = [];
 
-      // THE LEAGUE LEADS A FIXTURE AND THE KIND LEADS EVERYTHING ELSE, which is
-      // what makes an id readable at a glance: NFL- says what it is as well as
-      // any word could.
       parts.push(kind === 'sports' && clean(row.league)
         ? idPart(row.league, 8) : idPart(kind, 10));
       if (date) parts.push(date);
 
       if (kind === 'sports' && (clean(row.away_team_geo) || clean(row.home_team_geo))) {
-        // AWAY THEN HOME, the order the title reads in.
         parts.push(idPart(row.away_team_geo || row.away_team_nickname, 3));
         parts.push(idPart(row.home_team_geo || row.home_team_nickname, 3));
       } else {
-        // THE FIRST WORD OF THE TITLE, which is the act or the name, plus the
-        // city. Neither is unique on its own and the date in front of them
-        // does most of the work.
         const first = String(clean(row.title) || '').split(/\s+/)[0];
         if (first) parts.push(idPart(first, 10));
         const city = String(clean(row.venue_city) || '').split(',')[0];
@@ -3907,10 +2221,6 @@
       return parts.filter(Boolean).join('-') || 'EVENT';
     }
 
-    // A COLLISION IS SUFFIXED RATHER THAN REFUSED. Two events of one kind in
-    // one city on one day is ordinary -- a double-header, two halls of one
-    // convention -- and refusing the second would send somebody off to invent
-    // an id by hand, which is the thing this removes.
     function uniqueEventId(base) {
       const taken = (v) => state.rows.some((r) => clean(r.id) === v);
       if (!taken(base)) return base;
@@ -3939,9 +2249,6 @@
         });
         if (!res.ok) throw new Error(await readError(res, 'Could not add the event.'));
         const saved = await res.json();
-        // PostgREST answers 200 with an empty array when RLS refuses a write, so
-        // the row has to be read back or a refused insert reports success and
-        // the event vanishes on the next reload.
         if (!Array.isArray(saved) || !saved.length) {
           throw new Error('Nothing was saved — the database refused the write. Check you are signed in as an admin.');
         }
@@ -3954,51 +2261,14 @@
         manualSaveBtn.textContent = orig;
       }
 
-      // ONCE THE WRITE HAS LANDED, NOTHING AFTER IT MAY REPORT FAILURE. This
-      // was inside the try, so anything that threw while tidying up -- a
-      // scrollIntoView an environment does not implement, a render fault --
-      // was caught by the same handler and told you the event could not be
-      // added, about an event that is now in the database. The row is saved;
-      // the rest is presentation.
       if (!added) return;
       state.rows.push(added);
       closeManualDialog();
       render();
       setStatus('Added ' + displayTitle(added) + ' as ' + clean(added.id) + '.', 'success');
-      // AFTER the plain confirmation, never before it. This writes its own
-      // richer message over the top when it has something to say, and it can
-      // answer SYNCHRONOUSLY -- a club market it refuses to invent needs no
-      // round trip. Called first, that message was overwritten a line later by
-      // the bare "Added X." and the whole report vanished. The old
-      // ensureCityExists always went through a promise, which hid the ordering.
-      // Land on it: a row added to a 600-row table sorted by date is not
-      // necessarily anywhere you can see.
       focusEventRow(clean(added.id));
     }
 
-    // ── Data ──────────────────────────────────────────────────────────────────
-    // select=* on purpose, never a column list: a database that has not run
-    // 2026080101_anchor_events_general_columns.sql lacks kind/title/description/
-    // url/end_date, and PostgREST 400s on an unknown column in a select list.
-    // Reading * degrades to "those fields are blank" instead of a dead page.
-    // ── Loading: the first 50 paint, the rest arrives behind them ────────────
-    //
-    // The table passed 4,000 rows the morning TGB ANCHOR BOT first ran, and
-    // pulling all of it before drawing anything meant five sequential round
-    // trips of a thousand rows each before the screen showed a single event.
-    //
-    // WHY NOT JUST PAGE THE SERVER 50 AT A TIME. Because `state.rows` is not the
-    // page, it is THE TABLE, and five separate things read it that way: the
-    // ERRORS audit, the cross-row duplicate check, the two filter counts, the
-    // search box, and the "already in the catalog" list the PROMPT embeds.
-    // **An audit that has only seen 50 rows and reports a clean bill is the
-    // worst shape a bug can take here**, and this file already carries that
-    // warning about the 1000-row cap. So the whole table is still loaded; what
-    // changed is that the screen no longer waits for it.
-    //
-    // `state.loaded` IS THE HONEST FLAG. Until it is true the room says so, and
-    // ERRORS refuses to run: it is the one control whose answer would be wrong
-    // rather than merely incomplete.
     async function loadEvents() {
       if (listEl) { listEl.innerHTML = ''; listEl.appendChild(emptyNode('Loading events…')); }
       setStatus('Loading events…');
@@ -4008,17 +2278,8 @@
         if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
           try { await adminAuth.ensureFreshSession(); } catch (e) {}
         }
-        // Warm the shared city catalog before the rows render, so the City
-        // datalist is populated on first paint rather than one interaction late.
-        // A failure here is not fatal — the field stays a plain text box.
-        // The same order compareRows applies, so the first paint and the sorted
-        // list agree and there is no moment where one is drawn and re-sorted
-        // into the other. Kept in step by hand; nothing checks that they are.
         const url = restUrl(TABLE, { select: '*', order: 'start_date.asc.nullslast,id.asc' });
 
-        // FIRST PAGE, WITH THE TRUE TOTAL. `count=exact` costs one header and
-        // means the title can say 4,123 from the first round trip instead of
-        // counting up as chunks land, which reads as the number being unstable.
         const first = await fetch(url, {
           headers: authHeaders({ Accept: 'application/json', Range: '0-' + (PAGE_SIZE - 1), Prefer: 'count=exact' }),
           cache: 'no-store'
@@ -4028,9 +2289,6 @@
           try { text = await first.text(); } catch (e) {}
           throw new Error(text || ('Request failed (' + first.status + ')'));
         }
-        // Defensive on `headers`: a Response always has them, but this page is
-        // also driven by test harnesses and proxies, and a missing count simply
-        // leaves `total` null, which every reader below already handles.
         const head = (first.headers && first.headers.get('content-range')) || '';
         const total = Number(head.split('/')[1]);
         state.total = Number.isFinite(total) ? total : null;
@@ -4054,9 +2312,6 @@
       }
     }
 
-    // The remainder, a thousand at a time, appended without redrawing: a list
-    // that rebuilds itself under you while you are reading it is worse than one
-    // that takes a moment to finish.
     async function loadRest(url) {
       try {
         for (let from = state.rows.length; ; from += 1000) {
@@ -4067,12 +2322,6 @@
           if (!res.ok) throw new Error('Request failed (' + res.status + ')');
           const batch = await res.json();
           if (!Array.isArray(batch) || !batch.length) break;
-          // DEDUPED BY ID ON THE WAY IN, and this is not belt and braces. If
-          // anything between here and Postgres ignored the Range header, every
-          // chunk would return the same rows and this loop would append them
-          // forever -- a page that grows without bound and a duplicate check
-          // that then finds thousands of collisions with itself. Keying on the
-          // id makes the loop safe against a server that does not page.
           const seen = new Set(state.rows.map((r) => clean(r.id)));
           const fresh = batch.filter((r) => !seen.has(clean(r.id)));
           if (!fresh.length) break;
@@ -4084,9 +2333,6 @@
         }
         finishLoad();
       } catch (err) {
-        // A PARTIAL LOAD IS NOT A SILENT ONE. Everything already on screen is
-        // real; what is not safe is anything that reads the whole table, and
-        // `state.loaded` staying false is what keeps ERRORS switched off.
         console.error(err);
         setStatus('Loaded ' + state.rows.length +
           (state.total ? ' of ' + state.total : '') +
@@ -4098,9 +2344,6 @@
     function finishLoad() {
       state.loaded = true;
       rebuildDuplicates();
-      // REDRAW ONLY IF NOTHING WOULD BE THROWN AWAY. An open card, a half-typed
-      // edit or a search someone is in the middle of are all worth more than a
-      // tidy repaint; the counts and the pager are updated either way.
       const busy = !!(listEl && listEl.querySelector('.event-row.is-open, .event-row.is-dirty'));
       if (busy) {
         syncErrorsBtn();
@@ -4111,9 +2354,6 @@
       setStatus('Loaded ' + plural(state.rows.length, 'event') + '.', 'success');
     }
 
-    // UPDATE ONLY. Creating an event is the MANUAL dialog's job, so this no
-    // longer branches on whether the row exists -- every card on the list is a
-    // row the database already has.
     async function saveRow(row, el, btn) {
       const payload = withDefaults(readForm(el));
       const id = clean(row.id);
@@ -4144,20 +2384,6 @@
       }
     }
 
-    // ── SPLIT A MULTI-DAY EVENT INTO ONE EVENT PER DAY ────────────────────────
-    // A GAME IS PLAYED THE DAY BEFORE ITS ANCHOR EVENT, and that is the whole
-    // reason this exists. A convention that runs Friday to Sunday is not one
-    // opportunity, it is three: somebody arriving for Saturday wants a game on
-    // Friday, and a single row spanning the weekend cannot express that. Split,
-    // each day is its own anchorable event with its own date.
-    //
-    // THE ORIGINAL ROW SURVIVES AND BECOMES DAY 1. It is not deleted and
-    // re-created, because `games.anchor_event_id` is a foreign key pointing at
-    // that id: deleting the row would either fail on the constraint or orphan
-    // every game built on it. Days 2..N are new rows; day 1 keeps the id
-    // anything already points at, and a game anchored to the old span stays
-    // anchored to the first day of it, which is the closest true answer.
-
     const DAY_MS = 86400000;
 
     function isoToUtc(iso) {
@@ -4167,10 +2393,6 @@
       return Number.isFinite(t) ? t : null;
     }
 
-    // UTC THROUGHOUT, deliberately. These are calendar dates, not moments: a
-    // local-time Date crossing a DST boundary lands on 23 or 25 hours and the
-    // day arithmetic drifts by one, which on a nine-day festival is a real
-    // wrong answer rather than a rounding error.
     function utcToIso(ms) {
       const d = new Date(ms);
       const p = (n) => String(n).padStart(2, '0');
@@ -4184,20 +2406,13 @@
       return Math.round((b - a) / DAY_MS) + 1;
     }
 
-    // NO EM DASH, per the standing rule in CLAUDE.md, and the separator is a
-    // constant so a fifth opinion about it is one edit rather than four.
     const DAY_SUFFIX = (n, total) => ' (Day ' + n + ' of ' + total + ')';
-    // Matches a suffix this function wrote, so splitting a row twice does not
-    // produce "X (Day 1 of 3) (Day 1 of 2)".
     const DAY_SUFFIX_RE = /\s*\(Day \d+ of \d+\)\s*$/;
 
     function dayTitle(base, n, total) {
       return clean(base).replace(DAY_SUFFIX_RE, '') + DAY_SUFFIX(n, total);
     }
 
-    // `<id>-D2`, `-D3`... Day 1 keeps the bare id. An id already in the table
-    // gets a letter rather than being overwritten: two rows cannot share a
-    // primary key, and silently clobbering somebody's row is the worse failure.
     function dayId(baseId, n, taken) {
       if (n === 1) return clean(baseId);
       let candidate = clean(baseId) + '-D' + n;
@@ -4210,14 +2425,6 @@
       return candidate;
     }
 
-    // Builds every row the split will write. Pure, so it can be reasoned about
-    // and tested without a database: the caller does the PATCH and the POSTs.
-    // EVERY ID THE TABLE ALREADY HOLDS. It lived in the ESPN importer, which
-    // was deleted on 2026-08-28, and `splitRow` was left calling it -- so
-    // **Split threw a ReferenceError on the one path that uses it**, silently,
-    // because nothing renders a split until somebody asks for one. Found by the
-    // uncalled-function check, which enumerates BOTH directions precisely
-    // because this is what the other one looks like.
     const existingIds = () => new Set(state.rows.map((r) => clean(r.id)));
 
     function planSplit(row, taken) {
@@ -4238,10 +2445,6 @@
     }
 
     async function splitRow(row, el, btn) {
-      // READS THE FORM, NOT THE STORED ROW, so a span you have just typed splits
-      // the way it looks on screen. withDefaults() then collapses a blank end
-      // date exactly as a save would, which is what makes "no range" impossible
-      // to reach by accident here.
       const current = Object.assign({}, row, withDefaults(readForm(el)));
       const plan = planSplit(current, existingIds());
       if (!plan) {
@@ -4261,10 +2464,6 @@
       const orig = btn.textContent;
       btn.textContent = 'Splitting…';
       try {
-        // DAY 1 FIRST. If the inserts fail afterwards you are left with a
-        // one-day event and a clear message, which is a state somebody can act
-        // on. The other order leaves duplicate days 2..N sitting beside a row
-        // that still claims the whole span.
         const first = plan.days[0];
         const patch = Object.assign({}, readForm(el), {
           start_date: first.start_date, end_date: first.end_date, title: first.title
@@ -4276,8 +2475,6 @@
         });
         if (!res.ok) throw new Error(await readError(res, 'Could not update day 1.'));
         const savedFirst = await res.json();
-        // PostgREST answers 200 with an empty array when RLS refuses a write,
-        // so the row has to be read back or a refused split reports success.
         if (!Array.isArray(savedFirst) || !savedFirst.length) {
           throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
         }
@@ -4311,21 +2508,6 @@
       }
     }
 
-
-    // ── BATCH EDIT: THE SELECTION, AND WHAT IT CAN BE MADE TO DO ────────
-    //
-    // ── WHAT `ALL` MEANS, AND IT IS NOT "THIS PAGE" ──────────────────
-    //
-    // **EVERY ROW THE FILTERS LEAVE, across every page.** The list pages at 50
-    // and a filtered set is routinely hundreds, so a select-all that meant the
-    // fifty in front of you would turn a batch of 300 into six presses with a
-    // pager between them, and would do it silently, since the count would look
-    // right each time.
-    //
-    // THE FILTERS ARE STILL THE FENCE. A row the filters exclude can never be
-    // selected and is dropped the moment it stops matching, so a batch press
-    // reaches exactly what the list says it holds. **What changed is that "the
-    // list" means the whole filtered set rather than the visible slice.**
     function matchingIds() {
       return state.rows.filter(matches).map((r) => clean(r.id)).filter(Boolean);
     }
@@ -4335,9 +2517,6 @@
         .map((el) => clean(el.dataset.rowId)).filter(Boolean) : [];
     }
 
-    // PRUNED TO WHAT MATCHES, NOT TO WHAT IS DRAWN. Pruning to the page would
-    // undo the select-all on the very next render: everything off-screen would
-    // be dropped before you could press anything.
     function prunePicked() {
       const on = new Set(matchingIds());
       Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
@@ -4347,23 +2526,17 @@
       return state.rows.filter((r) => picked.has(clean(r.id)));
     }
 
-    // PAINTED FROM THE SELECTION, never from the last press. Nothing here
-    // remembers a state of its own, so the bar cannot disagree with the ticks.
     function paintBatchBar() {
       const n = picked.size;
       const all = matchingIds().length;
       const shown = visibleIds().length;
       if (batchCount) {
-        // IT SAYS WHEN THE SELECTION REACHES PAST THE PAGE, because a count of
-        // 300 above a list of 50 is otherwise a number you cannot check.
         batchCount.textContent = n
           ? plural(n, 'event') + ' selected' + (n > shown ? ', ' + shown + ' on this page' : '')
           : 'none selected';
       }
       if (batchAllBox) {
         batchAllBox.checked = all > 0 && n === all;
-        // INDETERMINATE WHEN SOME ARE TICKED, which is the honest third state
-        // and the only one a plain checkbox cannot be put into by a click.
         batchAllBox.indeterminate = n > 0 && n < all;
       }
       [batchApplyBtn, batchDeleteBtn].forEach((btn) => {
@@ -4377,15 +2550,6 @@
           : 'Tick some events first.';
       }
       if (batchDeleteBtn) {
-        // IT CARRIES THE COUNT TOO, and on this button that matters more than
-        // on Apply: **Delete is the irreversible one**, and the number is the
-        // last thing you read before pressing it. A face that said only
-        // "Delete" beside an "Apply to 300" was the quieter half of the pair
-        // being the dangerous half.
-        //
-        // THE NOUN STAYS ON BOTH FACES WHEN THE SELECTION IS EMPTY, so neither
-        // button changes width the moment a first row is ticked and shoves the
-        // other one along the row.
         batchDeleteBtn.textContent = n ? 'Delete ' + n : 'Delete';
         batchDeleteBtn.title = n
           ? 'Delete the ' + plural(n, 'selected event') + ' for good.'
@@ -4393,11 +2557,6 @@
       }
     }
 
-    // ONE REQUEST FOR THE LOT, `id=in.(...)`, not a loop -- and
-    // `return=representation`, because PostgREST answers 200 with an empty
-    // array when RLS refuses. **A SHORT REPLY IS REPORTED, NEVER ROUNDED UP**:
-    // saying "12 updated" about 9 is the quiet sort of lie this project has
-    // been caught by before.
     function inFilter(ids) {
       return 'in.(' + ids.map((id) => '"' + String(id).replace(/"/g, '""') + '"').join(',') + ')';
     }
@@ -4410,9 +2569,6 @@
       const rows = pickedRows();
       if (!rows.length) return;
 
-      // ONLY THE FIELDS YOU FILLED IN. An empty control means "leave it alone",
-      // never "clear it" -- clearing a column on a selection is not something
-      // an empty box should be able to do by accident.
       const payload = {};
       const kind = clean(batchKind && batchKind.value);
       const source = clean(batchSource && batchSource.value);
@@ -4446,7 +2602,6 @@
           if (i !== -1) state.rows[i] = r;
         });
         render();
-        // THE SHORTFALL IS NAMED, NOT COUNTED.
         const short = ids.length - saved.length;
         setStatus('Updated ' + plural(saved.length, 'event') + '.' +
           (short ? ' ' + plural(short, 'event') + (short === 1 ? ' was' : ' were')
@@ -4468,9 +2623,6 @@
       }
       const ids = pickedRows().map((r) => clean(r.id));
       if (!ids.length) return;
-      // THE SAME QUESTION A SINGLE DELETE ASKS, in the plural: the row is the
-      // tombstone, so a deleted event may be filed again by anything that reads
-      // this table, and a referenced one is refused by the database.
       if (!window.confirm('Delete ' + plural(ids.length, 'event') + ' for good?' + '\n\n' +
             'This cannot be undone. Any event a game is built on will refuse to be deleted.')) return;
 
@@ -4492,9 +2644,6 @@
         if (!Array.isArray(gone) || !gone.length) {
           throw new Error('The database refused that delete, so nothing changed. Check you are signed in as an admin.');
         }
-        // BUILT FROM THE ROWS RETURNED, NOT THE IDS ASKED FOR. A delete that
-        // reached three of five must not clear five cards -- the exact bug the
-        // issues room shipped and had to fix.
         const removed = new Set(gone.map((r) => clean(r.id)));
         state.rows = state.rows.filter((r) => !removed.has(clean(r.id)));
         removed.forEach((id) => picked.delete(id));
@@ -4514,22 +2663,6 @@
       }
     }
 
-    // ── DELETING AN EVENT ───────────────────────────────────
-    //
-    // A REAL DELETE. `setArchived`, `purgeArchived` and everything they needed
-    // are gone with it: there is no archived state, no Restore, and no
-    // housekeeping job sweeping past archived rows, because nothing is kept.
-    //
-    // TWO CONSEQUENCES, AND THE QUESTION CARRIES THE ONE NOBODY EXPECTS.
-    // That the row goes is obvious. That THE ROW IS THE TOMBSTONE is not:
-    // `tgb_pull_anchor_events` and `tgb_pull_concert_tours` both dedupe against
-    // this table, so deleting an event tells the bots only that they have never
-    // seen it, and the next run is free to file it again.
-    //
-    // THE OTHER IS THE DATABASE'S OWN. `games.anchor_event_id` is a foreign key
-    // with no `on delete` clause, which is NO ACTION, so deleting a referenced
-    // event fails outright rather than orphaning a game. That is a good safety
-    // net and a terrible error message, so 23503 is translated into a sentence.
     async function deleteRow(row, btn) {
       const id = clean(row.id);
       if (!id) return;
@@ -4543,18 +2676,10 @@
       try {
         const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
           method: 'DELETE',
-          // return=representation IS NOT DECORATION. PostgREST answers 200 with
-          // an EMPTY ARRAY when RLS refuses a write, so without reading the row
-          // back a refused delete reports success and the card vanishes until a
-          // reload brings it straight back.
           headers: authHeaders({ Prefer: 'return=representation' })
         });
         if (!res.ok) {
           const raw = await readError(res, 'Could not delete it.');
-          // 23503 IS THE FOREIGN KEY, AND IT IS THE ONE FAILURE WORTH NAMING.
-          // A raw \"violates foreign key constraint\" is a statement about
-          // our schema; what the person at the keyboard needs to know is that a
-          // game is built on this event.
           throw new Error(/23503|foreign key/i.test(raw)
             ? 'A game is built on ' + id + ', so it cannot be deleted. Repoint or delete that game first.'
             : raw);
@@ -4576,7 +2701,6 @@
       }
     }
 
-    // ── Wiring ────────────────────────────────────────────────────────────────
     if (searchInput) {
       searchInput.addEventListener('input', () => {
         state.q = clean(searchInput.value).toLowerCase();
@@ -4584,10 +2708,6 @@
         render();
       });
     }
-    // ── CLEAR ───────────────────────────────────────────────────
-    //
-    // WHAT COUNTS AS "FILTERED" IS ASKED IN ONE PLACE, so the button's own
-    // state and what pressing it does cannot drift apart.
     function anyFilterOn() {
       return !!(clean(state.q) || state.when !== 'any' || state.issues !== 'any');
     }
@@ -4619,12 +2739,6 @@
       setStatus('Filters cleared.', 'success');
     }
 
-    // ONE LOOP, so a third picker is one entry rather than a copy of this with
-    // two words changed.
-    //
-    // CHANGING A FILTER RESETS TO THE FIRST PAGE, for the same reason typing
-    // does: holding the position lands you on whatever happens to be fiftieth
-    // in a completely different list.
     [['whenFilter', 'when'], ['issuesFilter', 'issues']].forEach(([id, key]) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -4652,25 +2766,16 @@
 
     if (errorsBtn) {
       errorsBtn.addEventListener('click', () => {
-        // Nothing is loaded when signed out, so a sweep would check a clean
-        // table of nothing -- the most misleading answer available -- and would
-        // then have nothing to write to.
         if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
         toggleErrors();
       });
     }
 
-    // OPENS ON THE PROMPT PANE. It is the one that works for anything, and the
-    // schedule feed only covers the big four leagues -- so the general answer is
-    // the default and the specialised one is a click away, not the reverse.
     if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
     if (batchApplyBtn) batchApplyBtn.addEventListener('click', batchApply);
     if (batchDeleteBtn) batchDeleteBtn.addEventListener('click', batchDelete);
     if (batchAllBox) {
       batchAllBox.addEventListener('change', () => {
-        // ALL MEANS EVERY ROW THE FILTERS LEAVE, across every page -- never the
-        // whole table, because a filter is the narrowing somebody did on
-        // purpose before pressing it.
         const ids = matchingIds();
         if (batchAllBox.checked) ids.forEach((id) => picked.add(id));
         else picked.clear();
@@ -4685,9 +2790,6 @@
     if (sgClientIdEl) sgClientIdEl.addEventListener('change', sgRememberKey);
     if (sgAllBtn) {
       sgAllBtn.addEventListener('click', () => {
-        // EVERY ROW FETCHED, not the ones scrolled into view -- `sgState.rows`
-        // is the whole window now that the fetch pages through it.
-        // NEVER A ROW ALREADY FILED, which the import would skip anyway.
         const have = new Set(state.rows.map((r) => clean(r.id)));
         sgState.rows.forEach((r) => { if (!have.has(r.id)) sgState.checked.add(r.id); });
         renderSg();
@@ -4703,8 +2805,6 @@
     }
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
-      // THE DIALOG ON TOP GOES FIRST. SeatGeek is the only one that can be
-      // opened over another here.
       if (sgLightbox && !sgLightbox.hidden) { closeSgDialog(); return; }
       if (manualLightbox && !manualLightbox.hidden) { closeManualDialog(); return; }
     });

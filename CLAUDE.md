@@ -1020,6 +1020,107 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE EVENTS ROOM CARRIES NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-28)
+
+[mc/events/index.html](mc/events/index.html) was stripped of **every** comment -- 1,540 lines of
+1,343 `//`, 160 `/* */` and 37 `<!-- -->`, a THIRD of the file. The reasoning
+that lived in them lives here.
+
+**SO THE USUAL BARGAIN IS INVERTED FOR THIS FILE**, exactly as it is for the two
+soundtrack pages. Everywhere else a load-bearing reason sits beside the code and
+this file carries the summary. Here there is nothing beside the code at all: **a
+rule that is not written down in this section is a rule the next person will
+delete by accident**, because the file gives them no reason not to.
+
+**WHEN YOU CHANGE THAT PAGE, UPDATE THIS SECTION IN THE SAME COMMIT** -- and
+when you add code to it, resist adding the comment back. Put the sentence here.
+
+### THE MECHANICS THAT ARE NOT OBVIOUS FROM THE CODE
+
+- **`select=*`, NEVER A COLUMN LIST.** A database that has not run
+  `2026080101_anchor_events_general_columns.sql` lacks `kind` / `title` /
+  `description` / `url` / `end_date`, and **PostgREST 400s on an unknown column
+  in a select list**. Reading `*` degrades to "those fields are blank" instead
+  of a dead page.
+- **THE FIRST 50 PAINT AND THE REST ARRIVES BEHIND THEM**, but **`state.rows` is
+  still the WHOLE TABLE**. Five things read it that way: the Check audit, the
+  cross-row duplicate check, the two filter counts, and the search box. **An
+  audit that has seen 50 rows and reports a clean bill is the worst shape a bug
+  can take here.** `state.loaded` is the honest flag, and Check refuses to run
+  until it is true -- it is the one control whose answer would be WRONG rather
+  than merely incomplete.
+- **EDITABLE_FIELDS IS IN THE ORDER THE EDITOR LAYS THEM OUT.** `id` is the text
+  primary key and is editable only on a row not yet saved: changing it later
+  orphans every game pointing at it. **`away_team_name` / `home_team_name` are
+  deliberately absent** -- a trigger rebuilds them from geo + nickname on every
+  write, so they stay correct for the builder's event picker without anyone
+  editing them here.
+- **A CLUB IS TWO FIELDS, NEVER ONE STRING.** The geo is where they are from (a
+  city, sometimes a region: "New England") and the nickname is what the copy
+  calls them. A game uses the halves separately, and storing them split means
+  **an event is complete on its own, with no join to `public.teams`**.
+- **THE ROW HEAD IS A `<div>`, AND IT HAS TO BE.** It was a `<button>` so that
+  expanding was focusable and announced. The title is an `<input>` in it now,
+  and **an `<input>` inside a `<button>` is invalid HTML** -- interactive content
+  is not allowed in a button's content model and browsers disagree about what to
+  do with it. The same class of problem as the hub's button-inside-an-anchor.
+  **The caret is a real `<button>` carrying `aria-expanded`**, so the keyboard
+  and a screen reader keep one proper control; the rest of the head keeps a
+  click handler so a mouse can still open a row anywhere on it.
+- **THE SORT SINKS AN UNDATED ROW IN BOTH DIRECTIONS**, which is not the same as
+  sorting it: a row with no date has no position on a timeline, so putting it
+  at the top of "oldest first" would be the list asserting something it does not
+  know. **TIES BREAK ON `id`**, which is what makes the order stable -- twelve
+  fixtures share a Sunday, and without a second key a row could move under you
+  as you typed in the search box.
+- **WEEK HEADINGS ARE ISO-8601**, not "day of year over seven": week 1 holds the
+  first Thursday of January, weeks run Monday to Sunday, and a year has 52 or
+  53. Anything simpler disagrees with every calendar and every league's own
+  numbering **at the turn of the year, which is when an NFL schedule is
+  busiest**. Computed in **UTC**, like the split maths, because these are
+  calendar dates and a local `Date` crossing DST lands on 23 or 25 hours.
+- **BUT `todayIso()` IS LOCAL, AND THAT ASYMMETRY IS DELIBERATE.** "Has this
+  happened where I am" is a different question from "which calendar week is
+  this", and doing both the same way round is the mistake. **There is one
+  `todayIso()`** -- two would be two ideas of what today is, the moment one grew
+  a timezone.
+- **THE DUPLICATE CHECK IS CROSS-ROW, so it cannot be a `CHECK_RULES` entry.**
+  Two rows describing one fixture is a fact about the pair, and no per-row test
+  can see it.
+- **A SPORTS-ONLY GROUP FOLDS ONLY WHEN IT IS ALSO EMPTY.** Hiding fields that
+  hold something would put data on the row that nothing on screen can reach or
+  correct, so a concert carrying a mascot still shows the club fields.
+- **`isKnownCity` WAS CASE- AND SPACE-INSENSITIVE FOR A REASON**, and the room
+  no longer has it -- but the lesson outlives it: it was `=== v` while the
+  Cities page lowercased, so a row was UNKNOWN here and ALREADY THERE over
+  there, **both pages right by their own rule**. If any comparison against that
+  catalogue ever returns, trim and lowercase, and nothing cleverer: a fuzzy
+  match hides the typos the check exists to find.
+
+### AND THE STANDING CHECKS FOR THIS FILE
+
+Run all four after touching it. The first two are the room-wide ones at the top
+of this file; the last two exist because a third of this page was comment and
+the sweep that removed it could have broken either.
+
+```bash
+# 3. The stylesheet's braces balance -- a selector-matching sweep once ate a
+#    @media closing brace and left the page parsing perfectly.
+node -e "const s=require('fs').readFileSync('mc/events/index.html','utf8');
+const c=[...s.matchAll(/<style[^>]*>([sS]*?)<\/style>/g)].map(x=>x[1]).join('');
+const o=(c.match(/{/g)||[]).length,x=(c.match(/}/g)||[]).length;
+console.log(o===x?'balanced':'UNBALANCED '+o+'/'+x);"
+
+# 4. Nothing is defined and unused, and nothing is called that is not defined.
+#    The second half is what caught `existingIds()` surviving its own deletion.
+```
+
+**THE DEAD-CODE CHECK MUST NOT BUILD ITS PATTERNS WITH BACKSLASHES.** A quoted
+heredoc in this environment eats one level, so a word boundary reaches the file
+as a literal **backspace** and every name comes back "unused" -- which reads as
+a codebase made entirely of dead code. **Split on non-identifier characters and
+count; no regex escapes at all.**
+
 ## EVERY FINDING IS A CALL TO ACTION (2026-08-28)
 
 Gone through one at a time. They were sentences that explained the PRODUCT --
@@ -1049,10 +1150,15 @@ paragraph to read before they can do anything.
   City* points at a box on the form; *add a venue city* is a sentence about
   cities.
 - **ONE IS DELIBERATELY NOT A CALL TO ACTION.** `label-drift` is a statement
-  about our SCHEMA rather than about the row -- the stored team name disagrees
-  with the parts it is rebuilt from, which means `tgb_events_sync_team_names` is
-  not installed. **Nobody can run a migration from a card**, so it says the
-  symptom and the migration to run is in the comment above the rule.
+  about our SCHEMA rather than about the row: *"Team name is out of step with
+  its parts."* **Nobody can run a migration from a card**, so it names the
+  symptom and nothing else.
+  - **WHAT TO DO ABOUT IT IS HERE, AND ONLY HERE.** The stored name is rebuilt
+    from geo + nickname by a trigger, so a disagreement means
+    **`tgb_events_sync_team_names` is not installed**: run
+    [2026082502_events_columns_match_the_page.sql](mc/supabase/migrations/2026082502_events_columns_match_the_page.sql).
+    It used to be in the comment above the rule; that page carries no comments
+    now, so this line is the whole record.
 - **TWO RULES NOW SAY ONE SENTENCE.** `placeholder-club` and `tbd` both read
   *"Replace the TBD..."*, so a row whose club is TBD trips both and drew it
   twice. **Deduped where the reasons are collected**, because that is the only
