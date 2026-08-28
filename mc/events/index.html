@@ -3985,6 +3985,25 @@
     // rather than a field quietly missing from a band. The check below reads it,
     // so a field dropped by accident is still reported and this one is not.
     const MANUAL_SKIP = ['away_team_score', 'home_team_score'];
+
+    // ── THE FORM'S OWN BAND ORDER ─────────────────────────────────────────
+    //
+    // THE CARD AND THE FORM WANT DIFFERENT ORDERS, and using one for both is
+    // what made this awkward. On a CARD you are reading an event that exists,
+    // and the clubs are its identity: "Chicago Bears at Carolina Panthers" is
+    // the thing, so WHO leads. In the FORM you are creating one that does not
+    // exist yet, and you cannot start with the clubs, because:
+    //
+    //   * **KIND DECIDES WHETHER THERE ARE ANY.** The Who band folds away on a
+    //     concert. Leading with it meant the first band you filled in could
+    //     vanish once you reached the third, which is the wrong way round: you
+    //     say what the thing IS, and the form then shows what that needs.
+    //   * **WHY IS EVIDENCE AND COMES LAST.** The url and the source are what
+    //     you were reading while you filled the rest in.
+    //
+    // ASSERTED AGAINST `FIELD_GROUPS` BELOW, so this cannot fall out of step by
+    // naming a band that no longer exists or missing one that does.
+    const MANUAL_GROUP_ORDER = ['what', 'when', 'where', 'who', 'why'];
     // WHAT ONE BAND OF THE MANUAL FORM HOLDS. The builder calls this and so
     // does the check below, so the thing being asserted is the thing being
     // built -- not a second list that happens to agree today.
@@ -3998,9 +4017,21 @@
       return fields;
     }
 
-    const MANUAL_ORDER = ['id'].concat(
-      FIELD_GROUPS.reduce((acc, g) => acc.concat(manualBandFields(g)), [])
-    );
+    // THE BANDS IN THE FORM'S ORDER, not the card's.
+    function manualGroups() {
+      return MANUAL_GROUP_ORDER
+        .map((k) => FIELD_GROUPS.find((g) => g.key === k))
+        .filter(Boolean);
+    }
+
+    // THE ID IS LAST NOW, AND THAT IS THE OTHER HALF OF THE REORDER. It is
+    // composed FROM the rest -- `NFL-2026-W1-CAR-CHI` needs the league, the
+    // year, the week and both clubs -- so asking for it first asked for
+    // something you could not yet know. It is permanent once saved, which is
+    // why its hint stays loud.
+    const MANUAL_ORDER = manualGroups()
+      .reduce((acc, g) => acc.concat(manualBandFields(g)), [])
+      .concat(['id']);
 
     // Every editable column must appear on this form too, or a field is
     // reachable when editing and not when creating -- which is worse than
@@ -4013,6 +4044,14 @@
       // asked for.
       const missing = EDITABLE_FIELDS.filter(
         (f) => named.indexOf(f) === -1 && MANUAL_SKIP.indexOf(f) === -1);
+      // THE FORM'S BAND ORDER MUST NAME EVERY BAND AND NO OTHERS, or a whole
+      // group silently stops being offered.
+      const cardKeys = FIELD_GROUPS.map((g) => g.key).slice().sort().join(',');
+      const formKeys = MANUAL_GROUP_ORDER.slice().sort().join(',');
+      if (cardKeys !== formKeys) {
+        console.error('events: MANUAL_GROUP_ORDER does not match FIELD_GROUPS:',
+          formKeys, 'vs', cardKeys);
+      }
       const twice = named.filter((f, i) => named.indexOf(f) !== i);
       if (missing.length) console.error('events: MANUAL form is missing editable fields:', missing);
       // A field injected into a group that already lists it would render two
@@ -4036,6 +4075,7 @@
       //
       // The ID keeps its place at the top, outside any band. It is the one
       // field that can never be changed afterwards.
+      function appendIdField() {
       const idLabel = document.createElement('label');
       idLabel.append(document.createTextNode('ID (permanent)'));
       const idInput = document.createElement('input');
@@ -4048,8 +4088,9 @@
       idHint.textContent = 'Every game points at this, so it can never be changed. Shape: LEAGUE-YEAR-Wweek-HOME-AWAY, or KIND-YEAR-MM-DD-NAME.';
       idLabel.appendChild(idHint);
       manualForm.appendChild(idLabel);
+      }
 
-      FIELD_GROUPS.forEach((g) => {
+      manualGroups().forEach((g) => {
         const band = document.createElement('fieldset');
         band.className = 'manual-band';
         band.dataset.band = g.key;
@@ -4064,6 +4105,8 @@
         });
         manualForm.appendChild(band);
       });
+
+      appendIdField();
 
       // ── THE CLUBS ONLY WHEN THERE ARE CLUBS ──────────────────────────────
       //
