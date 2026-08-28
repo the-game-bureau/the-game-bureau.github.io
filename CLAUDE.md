@@ -1020,6 +1020,77 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE EVENTS ROOM, CLEANED UP (2026-08-28)
+
+Two detectors, run against the rendered page rather than grepped:
+
+### WHAT THEY FOUND
+
+- **A LIVE ReferenceError.** `existingIds()` lived in the ESPN importer, which
+  was deleted, and `splitRow` was left calling it: **Split threw on the one path
+  that uses it**, silently, because nothing renders a split until somebody asks
+  for one. Found by the half of the check that looks for **calls with no
+  definition**, which exists precisely because that is what the other direction
+  looks like.
+- **Four helpers nothing read**: `displayWhen` lost its reader when the head
+  stopped drawing a date, `displayDate` and `displayTime` were its only readers,
+  and `shortDate` was theirs. One constant, `TBA_TIME`, written only by the
+  deleted importer.
+- **23 CSS rules that matched nothing.** Dead **by construction**: every class
+  appeared only inside its own rule.
+
+### AND THE TWO TRAPS IN DOING IT
+
+- **A SELECTOR-MATCHING SWEEPER IS THE WRONG TOOL.** The first attempt cut by
+  selector, left every comment welded to its neighbour, and **ate a `@media`
+  closing brace**. Redone by hand, block by block, with each comment. **A brace
+  count over the style block is the check that catches it.**
+- **A RULE THAT IS STATE-DEPENDENT LOOKS EXACTLY LIKE A DEAD ONE.** `.is-dirty`,
+  `.event-body[hidden]`, `.sg-item` and 19 others match nothing until something
+  happens. **The test is the count in the SOURCE, not the query**: a class that
+  appears only in its own rule is dead; one a JS line writes is not.
+- **AND A RENAME LEAVES ITS OWN LEFTOVERS.** `.batch-bar` became `.batch-row`
+  and three rules kept the old name, so the selects and the greyed buttons lost
+  their styling silently. The dead-CSS pass is what turned them up.
+
+### THE HEADER
+
+It was three things stacked and **the middle one was a form**. Now:
+
+1. **The pager shares a line with Expand all.** Neither writes anything, both
+   only change what you are looking at.
+2. **The batch row sits below them, directly above the list**, wearing the list
+   head's own `padding: 5px 9px`, 8px gap and 15px tick, **so the select-all
+   lines up with the column of ticks under it**. That is the whole reason it is
+   shaped that way, and it breaks if either is restyled alone.
+3. **`.pager[hidden]` HAD TO BE DECLARED.** `.pager` is `display: flex`, an
+   author rule, and `[hidden]` is only the UA sheet's `display: none`, so a
+   one-page list would have kept an empty gap open. **Tenth time.**
+
+### SEATGEEK FILLS LEAGUE, SPORT AND DESCRIPTION
+
+- **FROM `taxonomies`, NOT FROM `type`.** It is coarse to fine:
+  `[sports, baseball, mlb]` gives **MLB / Baseball**, which is the pair
+  `public.leagues` holds. A league keeps its capitals and a sport is title case,
+  because that is how `teams.league` and `events.sport` already spell them --
+  getting it wrong would not error, it would file a second spelling of a league
+  we have.
+- **A CONCERT ANSWERS `[concert]` AND GETS NEITHER**, which is right: those two
+  columns are for fixtures.
+- **THE DESCRIPTION IS ONE ASSEMBLED SENTENCE**, and it does not repeat a venue
+  the title already names -- SeatGeek answers plenty of shows as "Big Act at
+  Ball Arena", which appended gave "at Ball Arena at Ball Arena". A concert also
+  carries its genre, which is the one thing a listing says that the title does
+  not.
+- **VERIFIED AGAINST THE LIVE API**, end to end: an Orioles fixture came out
+  `sports / MLB / Baseball` with *"Baltimore Orioles at Colorado Rockies at
+  Coors Field. Listed on SeatGeek."*
+
+**AND A HAND-WRITTEN PLURAL, AGAIN.** *"The away and home team is missing"* is
+what a joined list plus a hardcoded singular gives you. The club finding is also
+three words now rather than two sentences: what the away club is FOR is a thing
+to know once, not to read on every row it fires on.
+
 ## SELECT ALL MEANS ALL, AND THE ROOM STANDS ALONE (2026-08-28)
 
 ### `ALL` IS EVERY MATCHING ROW, ACROSS EVERY PAGE
