@@ -1006,14 +1006,6 @@
         <div class="command-bar-inner">
           <button class="btn" id="addEventBtn" type="button"
                   title="Add one event yourself, straight onto this page.">MANUAL</button>
-          <!-- SCHEDULE FOLDED INTO PROMPT. Two buttons answered one question --
-               fill this table with a lot of events at once -- and made you pick
-               a mechanism before opening anything. Which one applies is a fact
-               about what you are looking for, not a preference: a league feed
-               exists for the big four and does not exist for a concert. The
-               dialog now says that and lets you switch. -->
-          <button class="btn" id="openPromptBtn" type="button"
-                  title="Fill the table in bulk: copy a prompt into any AI and paste back the SQL it returns.">PROMPT</button>
           <!-- SEATGEEK PULLS REAL DATES FOR A CITY AND A WINDOW, straight into
                this table. It is the third way in: MANUAL is one you type,
                PROMPT is a batch an AI researches, this is a feed you filter.
@@ -1093,6 +1085,22 @@
               <option value="no">clean</option>
             </select>
           </label>
+          <!-- CLEAR PUTS THE WHOLE BOX BACK, all three controls at once. Three
+               narrowings can be on together and only two of them are visible as
+               a value -- a search you typed a while ago reads as an empty list
+               rather than as a filter -- so one press that undoes the lot is
+               worth its width.
+
+               IT IS GREYED WHEN THERE IS NOTHING TO CLEAR, `aria-disabled`
+               rather than `disabled`: a disabled button dispatches no click, so
+               on a touch screen the reason it is off would be unreachable.
+               Pressing it says so instead.
+
+               IT DOES NOT TOUCH THE SELECTION. Clearing a filter widens the
+               list, so nothing ticked stops matching and nothing is dropped --
+               which is the opposite of narrowing and needs no warning. -->
+          <button class="btn small" id="clearFiltersBtn" type="button"
+                  aria-disabled="true">Clear</button>
         </div>
       </fieldset>
 
@@ -1242,206 +1250,14 @@
       </div>
     </div>
 
-    <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
-      <div class="prompt-dialog">
-        <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="promptDialogTitle">Add Anchor Events with AI</h2>
-          <button class="btn small" id="closePromptBtn" type="button">Close</button>
-        </div>
-        <div class="prompt-dialog-body">
-          <div id="panePrompt">
-          <!-- THE ERRAND, BEFORE THE TEXT. Three sentences saying what to do
-               with what follows, because the foot's buttons are that errand in
-               order and read as obvious ONLY ONCE YOU ALREADY KNOW IT.
-
-               IT IS IN THE PANE RATHER THAN THE DIALOG'S HEAD, which mattered
-               while there were two panes and costs nothing now that there is
-               one: it sits directly under the title either way.
-
-               THE LAST STEP IS THE ONE THAT HAPPENS SOMEWHERE ELSE. You run
-               the SQL in Supabase, not back in this dialog, and nothing else on
-               screen says so -- which is exactly why it is written down rather
-               than left to be discovered.
-
-               IT NAMES NO BUTTON, WHICH IS WHY IT SURVIVES A CHANGE OF ONE.
-               A draft named "Insert results" -- the Tape Room's and the
-               Socializer's door into the SQL editor, which does not exist in
-               this room -- and copy naming a control that is not on screen is
-               worse than saying nothing, since somebody goes looking for it.
-               The four sentences name the ACTS instead: edit, copy, paste,
-               and who to ask when it goes wrong. -->
-          <p class="prompt-howto">
-            Edit, copy and paste the prompt below into your choice of AI providers.
-            Copy and paste the results you get into the website's database (Supabase).
-            Common errors include malformed AI results and no Supabase access.
-            Contact <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a> for help.
-          </p>
-          <!-- HOW MANY, ABOVE THE PROMPT. This is the one knob that is a
-               QUESTION rather than an adjustment: you know how many events you
-               want before you have read a word of the text, and the number is
-               written into the prompt's first line. Scope and focus follow
-               it for the same reason, so ALL THREE are above the text now.
-               **THAT RETIRES THE "options sit under the text" RULE OUTRIGHT**
-               rather than one control at a time: a knob here is a question you
-               answer before you read, and the prompt is what they produce. -->
-          <fieldset class="prompt-options prompt-options--count" aria-label="How many anchor events">
-            <legend class="prompt-options-label">How many anchor events?</legend>
-            <label class="prompt-option"><input type="radio" name="promptCount" value="10" checked>10</label>
-            <label class="prompt-option"><input type="radio" name="promptCount" value="25">25</label>
-            <label class="prompt-option"><input type="radio" name="promptCount" value="50">50</label>
-            <label class="prompt-option"><input type="radio" name="promptCount" value="500">500</label>
-          </fieldset>
-
-          <!-- SCOPE SITS UNDER THE COUNT, ABOVE THE PROMPT, for the same reason
-               the count does: what kind of event and over what window is a
-               question you answer before you read a word, and both are written
-               into the prompt's first lines. Focus follows it, being the
-               third question of the three.
-
-               A REAL <fieldset><legend>, so the browser cuts the box's top
-               border for the word. It was a <div> with a <span> inside, which
-               put the label INSIDE the border while the count beside it cut
-               through -- two boxes doing the same job two ways, a few pixels
-               apart.
-
-               League + window is the scoping mc/get_games.html existed to
-               provide. It covers everything now: the ESPN schedule importer
-               that used to be the better answer for NFL / MLB / NBA / NHL was
-               deleted on 2026-08-28, so a fixture is researched the same way a
-               concert is. -->
-          <fieldset class="prompt-options prompt-options--scope" aria-label="Scope">
-            <legend class="prompt-options-label">Scope</legend>
-            <!-- MULTI-SELECT, SO A RUN CAN ASK FOR TWO KINDS. Concerts and
-                 festivals is an ordinary thing to want and the single picker
-                 made it two runs.
-                 NOTHING SELECTED MEANS ANY KIND, which is why the "Any kind"
-                 option went: with a multiple select it would have been a
-                 selectable value meaning the same as selecting nothing, and two
-                 ways to say one thing is how they end up disagreeing.
-                 **NOTHING ON SCREEN SAYS SO**, and that is the accepted cost: a
-                 hint beside the box read as clutter on a control most people
-                 will leave alone. The scope line in the prompt is where it
-                 shows -- select nothing and no restriction is written at all.
-                 `size="4"` keeps it four rows tall -- enough to see that it is
-                 a list you can pick several from, short enough to sit in a bar. -->
-            <select id="promptLeague" class="command-bar-select" multiple size="4" aria-label="Kinds and leagues">
-              <option value="concert">Concerts</option>
-              <option value="convention">Conventions</option>
-              <option value="festival">Festivals</option>
-              <option value="expo">Expos</option>
-              <option value="NFL">NFL</option>
-              <option value="MLB">MLB</option>
-              <option value="NBA">NBA</option>
-              <option value="NHL">NHL</option>
-              <option value="MLS">MLS</option>
-              <option value="NCAA Football">NCAA Football</option>
-            </select>
-            <!-- FROM IS FILLED WITH TODAY when the dialog opens; see
-                 setPromptMode. It is a real box, so it can still be cleared or
-                 moved, and clearing it means no lower bound at all. -->
-            <label class="prompt-option">from <input type="date" id="promptFrom"></label>
-            <label class="prompt-option">to <input type="date" id="promptTo"></label>
-          </fieldset>
-
-          <!-- FOCUS, THE THIRD AND LAST QUESTION: how many, what kind, and
-               anything else worth narrowing to. All three are now above the
-               prompt, which reverses this dialog's "options sit under the text"
-               rule outright rather than for one control at a time -- **the rule
-               is dead, and what replaced it is that a knob is a question you
-               answer before you read**. The prompt is what they produce.
-
-               THE SAME OBJECT AS SCOPE: a <fieldset> with a real <legend>, so
-               the browser cuts its top border for the word. It was a <div> with
-               a <span> inside, which is what SCOPE was before it moved up --
-               a label sitting INSIDE the border next to two that cut through.
-
-               `.prompt-knobs` WENT WITH IT. Focus was the last thing in that
-               wrapper, and a wrapper whose only job was a rule above the
-               remaining knobs would have drawn a rule above nothing. -->
-          <fieldset class="prompt-options prompt-options--focus" aria-label="Focus">
-            <legend class="prompt-options-label">Focus</legend>
-            <input type="text" id="promptFocus" placeholder="optional — e.g. arena tours in Denver, fall conventions" autocomplete="off">
-          </fieldset>
-
-          <!-- EDITABLE, AND EDITS SURVIVE THE CONTROLS BELOW. Being able to
-               strike a rule for one run, or add a line about a city, is the
-               whole reason to show the text rather than a summary of it. -->
-          <textarea class="prompt-text" id="eventPromptText" spellcheck="false"></textarea>
-
-          <!-- SAID ONLY ONCE THE TEXT HAS BEEN TOUCHED. A permanent warning
-               about a state you are not in is one nobody reads. -->
-          <p class="prompt-edited" id="promptEditedNote" hidden>
-            You have edited this prompt, so the options no longer rewrite it.
-            <button class="btn small" type="button" id="promptResetBtn">Reset</button>
-          </p>
-          </div>
-        </div>
-        <div class="prompt-dialog-foot">
-          <div class="prompt-foot-pane" id="footPrompt">
-            <div class="prompt-copy-status" id="promptCopyStatus" aria-live="polite"></div>
-
-            <!-- THE ERRAND IN THE ORDER YOU DO IT, ported from the Socializer,
-                 which is the reference for this chrome and has run this foot
-                 since August. It replaced a lone `Copy`: every one of these
-                 three copies BEFORE it opens, so Copy was the same act minus
-                 the useful half.
-
-                 WHAT IS LOST is copying WITHOUT opening anything, which the
-                 textarea still allows by hand and which the failure message
-                 names.
-
-                 THEY ARE ANCHORS AND THE COPY IS NOT AWAITED. The new tab has
-                 to come from the browser's own handling of a click on a link or
-                 the popup blocker eats it, so there is no preventDefault and no
-                 await before the navigation -- awaiting would push it into a
-                 later task, which is exactly what "not user-initiated" means.
-
-                 THEY OPEN BLANK. None of these takes a prompt this long through
-                 a query string reliably, and a half-truncated pre-fill is worse
-                 than an empty box with the whole thing on the clipboard.
-
-                 FENCED AS ONE CONTROL so the three do not read as three peers
-                 of the door beside them. -->
-            <div class="prompt-ai" role="group" aria-label="Copy the prompt and open an AI">
-              <span class="prompt-ctl-label">COPY PROMPT TO CLIPBOARD &amp; OPEN</span>
-              <span class="prompt-ai-row" id="promptAiRow">
-                <a class="btn small" target="_blank" rel="noopener" href="https://chatgpt.com/"
-                   title="Copy the prompt and open ChatGPT">ChatGPT</a>
-                <a class="btn small" target="_blank" rel="noopener" href="https://grok.com/"
-                   title="Copy the prompt and open Grok">Grok</a>
-                <a class="btn small" target="_blank" rel="noopener" href="https://claude.ai/new"
-                   title="Copy the prompt and open Claude">Claude</a>
-              </span>
-            </div>
-
-            <!-- WHERE THE ANSWER GOES. An <a>, not a fetch: this page holds only
-                 the publishable key, and running arbitrary SQL needs the service
-                 role, which cannot live in a public HTML file.
-
-                 /sql/new?skip=true, NOT /sql/. `new` opens a BLANK query rather
-                 than whatever was last run in this project, and `skip=true`
-                 stops it asking. Pasting a script over somebody's half-written
-                 query is the accident that avoids. -->
-            <a class="btn prompt-sql-btn" id="sqlEditorBtn" target="_blank" rel="noopener noreferrer"
-               href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
-               title="Open the Supabase SQL editor and run the statement the AI gave you">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M14 3h7v7"></path>
-                <path d="M21 3l-9 9"></path>
-                <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
-              </svg>
-              <span>Insert results</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
   </main>
 
+  <!-- ONE MODULE, PLUS THE NAV. `admin-shell.js` binds `[data-mc-back]` and
+       `[data-mc-home]` buttons and this page has neither; `supabase-rest.js`
+       supplied `TgbRest.fetchAll`, which the loader stopped using when it
+       started paging with its own Range headers so the first fifty rows could
+       paint immediately. Both were loaded and read by nothing. -->
   <script src="/mc/js/admin-auth.js"></script>
-  <script src="/mc/js/admin-shell.js"></script>
-  <script src="/mc/js/supabase-rest.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1718,19 +1534,13 @@
     const pagerBottomEl = document.getElementById('pagerBottom');
     const addEventBtn = document.getElementById('addEventBtn');
     const toggleAllBtn = document.getElementById('toggleAllBtn');
-    const openPromptBtn = document.getElementById('openPromptBtn');
-    const closePromptBtn = document.getElementById('closePromptBtn');
-    const promptAiRow = document.getElementById('promptAiRow');
     const manualLightbox = document.getElementById('manualLightbox');
     const manualForm = document.getElementById('manualForm');
     const manualStatus = document.getElementById('manualStatus');
     const manualSaveBtn = document.getElementById('manualSaveBtn');
     const closeManualBtn = document.getElementById('closeManualBtn');
-    const promptLightbox = document.getElementById('promptLightbox');
-    const promptDialogTitle = document.getElementById('promptDialogTitle');
-    const panePrompt = document.getElementById('panePrompt');
-    const footPrompt = document.getElementById('footPrompt');
     const errorsBtn = document.getElementById('errorsBtn');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const batchBar = document.getElementById('batchBar');
     const batchAllBox = document.getElementById('batchAllBox');
     const batchCount = document.getElementById('batchCount');
@@ -1753,13 +1563,6 @@
     const sgList = document.getElementById('sgList');
     const sgStatus = document.getElementById('sgStatus');
     const sgImportBtn = document.getElementById('sgImportBtn');
-    const eventPromptText = document.getElementById('eventPromptText');
-    const promptCopyStatus = document.getElementById('promptCopyStatus');
-    const promptFocus = document.getElementById('promptFocus');
-    const promptLeague = document.getElementById('promptLeague');
-    const promptFrom = document.getElementById('promptFrom');
-    const promptTo = document.getElementById('promptTo');
-    const promptCountRadios = Array.from(document.querySelectorAll('input[name="promptCount"]'));
 
     // THE ORDER IS OLDEST FIRST AND THERE IS NO PICKER (2026-08-24). This is a
     // forward-looking catalogue: a game is played the day before its anchor
@@ -2730,6 +2533,9 @@
       // batch press landing on something you cannot see.
       prunePicked();
       paintBatchBar();
+      // PAINTED FROM THE STATE, on every render, so the button cannot disagree
+      // with the controls beside it however a filter was changed.
+      paintClearBtn();
     }
 
     // ── Expand / collapse everything on the page ──────────────────────────────
@@ -2799,311 +2605,6 @@
       return d;
     }
 
-    // ── Event Finder prompt ───────────────────────────────────────────────────
-    // Copies a prompt into an AI that researches real upcoming events and hands
-    // back ONE Supabase SQL block to paste into the dashboard. Same shape as the
-    // City Finder prompt next door and the waypoint prompts: the model does the
-    // research, a human runs the SQL, and nothing writes to the database from
-    // here.
-    //
-    // Everything this page and the schema know has to be restated in the prompt,
-    // because the model cannot see either: the id format, the kind vocabulary,
-    // the locale + mascot split, that start_time is venue-local, that away_team_name
-    // and home_team_name are trigger-derived and must NOT be written, and what
-    // shape a venue city should take -- which is now a matter of FORM rather
-    // than of matching a catalogue, since this room no longer checks one.
-    // The scope line, from the League + from/to controls that came over from
-    // mc/get_games.html. It is prose rather than a parameter block because the
-    // reader is a chat model, and "NFL games between X and Y" is the sentence it
-    // acts on most reliably.
-    function promptScopeLine() {
-      // EVERY SELECTED KIND, not just the first. `select.value` is the first
-      // selected option, so reading it on a multiple select silently threw away
-      // the rest -- the kind of bug that looks like the control not working.
-      const kinds = promptLeague
-        ? Array.from(promptLeague.selectedOptions || []).map((o) => clean(o.value)).filter(Boolean)
-        : [];
-      const from = clean(promptFrom && promptFrom.value);
-      const to = clean(promptTo && promptTo.value);
-      const bits = [];
-      if (kinds.length) {
-        // A LEAGUE KEEPS ITS CAPITALS AND TAKES `games`; a kind is lower case
-        // and takes a plural. Joined with `or`, and with a comma before the
-        // last one only when there are three or more, which is how the sentence
-        // reads aloud.
-        const named = kinds.map((k) => (/^[A-Z]/.test(k) ? k + ' games' : k + 's'));
-        bits.push(named.length === 1
-          ? named[0]
-          : named.slice(0, -1).join(', ') + ' or ' + named[named.length - 1]);
-      }
-      if (from && to) bits.push('taking place between ' + from + ' and ' + to + ' inclusive');
-      else if (from) bits.push('taking place on or after ' + from);
-      else if (to) bits.push('taking place on or before ' + to);
-      return bits.length ? 'Restrict this run to ' + bits.join(', ') + '.' : '';
-    }
-
-    function buildEventImportPrompt(limit, focus) {
-      // 500 is the top of the radio row: a whole NFL regular season is 272 games,
-      // so a full-season pull has to fit in one prompt.
-      const n = Math.max(1, Math.min(500, parseInt(limit, 10) || 10));
-      const hint = clean(focus);
-
-      // Existing ids and titles, so the model does not re-suggest what we have.
-      // Venue and current flag are included so the audit task below has enough
-      // to judge each row without another round trip.
-      const existing = state.rows
-        .map((r) => [
-          clean(r.id),
-          displayTitle(r),
-          clean(r.start_date) || 'undated',
-          [clean(r.venue), clean(r.venue_city)].filter(Boolean).join(', ') || 'venue unknown',
-          r.neutral_site === true ? 'neutral=YES' : 'neutral=no'
-        ].join('  |  '))
-        .sort();
-      return [
-        'You are researching real, scheduled, real-world events for The Game Bureau, which builds location-based games around them. Our game is played in the host city on the day BEFORE the event, while visiting fans are already in town with an afternoon free, so every row has to be a real event with a real date and a real venue.',
-        '',
-        'Task: find ' + plural(n, 'event') + ' and return them as ONE Supabase SQL script that inserts into public.events.'
-          + (hint ? ' Focus on: ' + hint + '.' : ''),
-        promptScopeLine(),
-        '',
-        'What counts as an event:',
-        '- kind is exactly one of: sports, concert, convention, festival, expo, other.',
-        '- It must be scheduled and publicly announced, with a date you can verify. Do not invent a date, a venue, or a matchup, and do not pad the list to reach ' + n + '. A shorter verified batch is the correct answer.',
-        '- It must be in a real, named venue in a real city. "Somewhere in Chicago in the fall" is not an event.',
-        '- Prefer events that draw visiting fans into a city centre: a home game, a stadium or arena tour date, a convention with a badge, a city festival. Skip anything ticketless, private, or purely local-interest.',
-        '',
-        'Where to look:',
-        '- SEATGEEK, https://seatgeek.com/ . Browse it the way a person would: their concert, tour and sports listings are public pages and need no account.',
-        '- NO API KEY, AND DO NOT GO LOOKING FOR ONE. There is no SeatGeek key in this project and none is needed; the public pages carry the act, the venue, the city and the date, which is everything a row here needs.',
-        '- READ THE PAGE, NOT A SUMMARY OF IT. If your browsing tool hands back a cleaned-up article instead of the listing, ask it for the page SOURCE. A summariser will happily invent a plausible date, and a date is the one field nothing here works without.',
-        '- PREFER A TOUR OR A SEASON PAGE over a single event page: one of them gives you several cities at once, and several cities is what we want.',
-        '- SeatGeek also lists RESALE for events that have already been announced elsewhere, so treat a listing as evidence that something is scheduled, not as evidence of who is promoting it.',
-        '- Beyond SeatGeek: the league\'s own schedule, the venue\'s calendar, the promoter or the organiser. A convention or an expo is usually only on its own site.',
-        '',
-        'Research instructions:',
-        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
-        '- FINDING AND VERIFYING ARE TWO DIFFERENT STEPS. A listings site like SeatGeek is a good way to FIND what is on; where the venue, league, promoter or organiser has published the same date, verify against that and put THAT page in `url`. Where the listing is the only public statement of the date, the listing is an honest url and `source` says SeatGeek.',
-        '- NEVER FROM MEMORY. If you cannot open a page that states the date, leave the event out.',
-        '',
-        'Hard requirements for every row:',
-        '',
-        'id: a text primary key you compose yourself, and it is PERMANENT: a game will point at it, so it can never be renamed. Use a readable, collision-proof shape, upper case, no spaces:',
-        '  sports:  LEAGUE-YEAR-Wweek-HOMEABBR-AWAYABBR   e.g. NFL-2026-W1-CAR-CHI',
-        '  other:   KIND-YEAR-MM-DD-SHORTNAME             e.g. CONCERT-2026-09-19-ERAS-CHI',
-        '',
-        'kind: from the list above. Use `sports` only when there are two clubs.',
-        '',
-        'title: how a person would say it. For a sports row this is optional (it falls back to the two clubs), but fill it anyway. For every other kind it is REQUIRED, because the team columns are empty.',
-        '',
-        'THE TWO CLUBS, on a sports row, are stored SPLIT INTO TWO COLUMNS EACH:',
-        '  away_team_geo / home_team_geo: where the club is from: "Chicago", "New England", "Green Bay".',
-        '  away_team_nickname / home_team_nickname: the nickname alone: "Bears", "Patriots", "Packers".',
-        '  Never put "Chicago Bears" in one column. The locale is a place and the mascot is what the game copy calls them, and they are used separately.',
-        '  DO NOT write away_team_name or home_team_name at all. A database trigger rebuilds those from the two halves; writing them by hand is overwritten and wrong.',
-        '  Leave all four null on a non-sports row.',
-        '',
-        'league / sport: e.g. "NFL" / "Football". Null on a non-sports row.',
-        '',
-        'start_date: the date AT THE VENUE, as YYYY-MM-DD. For an event broadcast across time zones this is the local date, which can differ from the date on a US listing: an NFL game played in Melbourne at 8:35 p.m. ET Thursday is Friday morning locally, and the row takes the Friday.',
-        '',
-        'end_date: the LAST day. For something that runs more than one day (a convention, a festival) that is the closing date; for a single-day event it is the SAME VALUE as start_date. Never null when start_date is set: the page fills it in the same way, so a null here is the one row in the table that disagrees with the rest.',
-        '',
-        'start_time: VENUE-LOCAL 24-hour HH:MM. Leagues and promoters publish in Eastern, so convert, and note the published time in the description so the two can be reconciled later. This is the time a player standing outside the venue experiences.',
-        '',
-        'venue: the venue as it is currently named. Use the current sponsor name.',
-        '',
-        'venue_city: the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. Write it as "City, State" in full for a US city ("Inglewood, California", never "Inglewood, CA") and "City, Country" everywhere else ("Manchester, United Kingdom"). Nothing checks this against a list, so the spelling you give is the spelling that is stored: use the same form every time.',
-        '',
-        'neutral_site: true / false, and READ THIS CAREFULLY because it is the field most often got wrong:',
-        '- true means NEITHER club is at home. Both fanbases are travelling and the host city has no home team in it.',
-        '- Set it true for: any international game (the NFL\'s London / Dublin / Madrid / Munich / Berlin / São Paulo / Melbourne / Mexico City series, and the equivalent in any other league), a Super Bowl or championship final at a pre-chosen venue, a college bowl game, a neutral-site kickoff or classic, a game relocated by weather, fire, stadium damage or a scheduling conflict, and any event billed as being at a neutral site.',
-        '- Set it FALSE for an ordinary home game even when the stadium is in a differently-named town. A Bills home game is in Orchard Park, a Giants or Jets home game is in East Rutherford, a Cowboys home game is in Arlington, a 49ers home game is in Santa Clara, a Cardinals home game is in Glendale, a Dolphins home game is in Miami Gardens, a Patriots home game is in Foxborough, a Commanders home game is in Summerfield, a Chargers or Rams home game is in Inglewood. These are NOT neutral sites; the club plays there every year.',
-        '- So do not decide this by comparing the home locale to the city string. Decide it from what the league actually calls the game.',
-        '- An international game is still assigned a nominal "home" club by the league. Keep that club in home_team_geo / home_team_nickname AND set neutral_site true: both facts are true at once, and the flag is what stops the host city being treated as that club\'s home market.',
-        '- false on every non-sports row.',
-        '',
-        'status: "scheduled" for anything upcoming.',
-        '',
-        'description: one or two plain sentences: what the event is, plus the published start time you converted from.',
-        '',
-        'url: the page you verified the event against.',
-        '',
-        'source: where you got it, e.g. "NFL.com 2026 schedule release".',
-        '',
-        'Leave alone entirely: away_team_tgbid, home_team_tgbid, away_team_score, home_team_score, away_team_name, home_team_name. Do not include them in the column list.',
-        '',
-        'Output requirements:',
-        'NO EM DASHES anywhere in what you return, and not the `&mdash;` entity either. Use a comma, a colon, a semicolon, a full stop or brackets; one of them always fits. An em dash is the single clearest tell that a machine wrote the line.',
-        '- Output SQL only: no prose, headings, or commentary before, after, or inside the block. Put any notes AFTER the block.',
-        '- ONE fenced ```sql code block. Do not split it across several.',
-        '- End with `on conflict (id) do nothing;` so a re-run is safe.',
-        '- CRITICAL for copy-paste: plain ASCII only. Straight apostrophes and straight double quotes, never smart/curly quotes, en/em dashes, or non-breaking spaces. Escape an apostrophe inside a value by doubling it.',
-        '- Do not re-add anything in the "already in the catalog" list below.',
-        '',
-        'Use this exact SQL shape (replace the sample rows with your ' + n + '):',
-        'insert into public.events',
-        '  (id, kind, title, description, league, sport, start_date, end_date, start_time,',
-        '   away_team_geo, away_team_nickname, home_team_geo, home_team_nickname, venue, venue_city, neutral_site, status, url, source)',
-        'values',
-        "  ('NFL-2026-W1-CAR-CHI', 'sports', 'Chicago Bears at Carolina Panthers', 'Week 1; published as 1:00 p.m. ET.', 'NFL', 'Football', '2026-09-13', null, '13:00', 'Chicago', 'Bears', 'Carolina', 'Panthers', 'Bank of America Stadium', 'Charlotte, North Carolina', false, 'scheduled', 'https://www.nfl.com/schedules/2026/REG1/', 'NFL.com 2026 schedule release'),",
-        "  ('NFL-2026-W5-JAX-LAR', 'sports', 'Los Angeles Rams at Jacksonville Jaguars', 'International Series; published as 9:30 a.m. ET, 2:30 p.m. London time.', 'NFL', 'Football', '2026-10-11', null, '14:30', 'Los Angeles', 'Rams', 'Jacksonville', 'Jaguars', 'Wembley Stadium', 'London, United Kingdom', true, 'scheduled', 'https://www.nfl.com/international/', 'NFL.com international series'),",
-        "  ('CONCERT-2026-09-19-EXAMPLE-DEN', 'concert', 'Example Artist at Ball Arena', 'Arena show; doors 6:30 p.m. local.', null, null, '2026-09-19', null, '19:30', null, null, null, null, 'Ball Arena', 'Denver, Colorado', false, 'scheduled', 'https://example.com/tour', 'Artist tour page')",
-        'on conflict (id) do nothing;',
-        '',
-        'SECOND TASK: audit what is already in the catalog for neutral-site mistakes.',
-        'The list of existing events at the bottom of this prompt shows each row\'s venue and its current neutral-site flag. Check every one of them against what you know and can verify:',
-        '- an international, championship, bowl, classic or relocated game flagged `neutral=no` is WRONG and needs fixing;',
-        '- an ordinary home game flagged `neutral=YES` is also wrong; remember the suburb stadiums listed above;',
-        '- a non-sports row should be `neutral=no`.',
-        'If you find any, append a SECOND fenced ```sql block after the first containing only UPDATE statements, one per id, and nothing else:',
-        "  update public.events set neutral_site = true  where id = 'NFL-2026-W1-LAR-SF';",
-        "  update public.events set neutral_site = false where id = 'SOME-OTHER-ID';",
-        'Then, after that block, list in plain prose which rows you changed and why. If nothing needs fixing, say "no neutral-site corrections" and omit the second block entirely. Never guess; only correct a row you can actually verify.',
-        '',
-        'Already in the catalog. Do not re-add any of these, and audit their neutral-site flags as described above.',
-        'Format: id | title | date | venue, city | current flag',
-        existing.length ? existing.join('\n') : '(none yet)',
-      ].join('\n');
-    }
-
-    function selectedPromptCount() {
-      const checked = promptCountRadios.find((r) => r.checked);
-      const n = Number(checked ? checked.value : 10);
-      return Number.isFinite(n) && n > 0 ? n : 10;
-    }
-
-    // THE PROMPT IS BUILT FROM THE CONTROLS, AND IT IS ALSO EDITABLE, WHICH
-    // IS A CONTRADICTION UNLESS ONE OF THEM GIVES WAY.
-    //
-    // Rebuilding on every knob would throw away whatever you typed the moment
-    // you changed the date -- the exact failure the Socializer's platform
-    // toggles were built to avoid, where rebuilding from the authored text on
-    // each press destroyed the edit. So: **the knobs drive the text until you
-    // touch it, and then they stop.** Reset hands it back to them.
-    //
-    // It is said on screen, once you are in that state, rather than being a
-    // rule somebody has to infer from the text not changing.
-    var promptEdited = false;
-
-    function paintPromptEdited() {
-      var note = document.getElementById('promptEditedNote');
-      if (note) note.hidden = !promptEdited;
-    }
-
-    function generatedPromptText() {
-      return buildEventImportPrompt(selectedPromptCount(), promptFocus && promptFocus.value);
-    }
-
-    function refreshPromptText(force) {
-      if (!eventPromptText) return;
-      if (promptEdited && !force) return;
-      if (force) promptEdited = false;
-      eventPromptText.value = generatedPromptText();
-      paintPromptEdited();
-    }
-
-    function setPromptCopyStatus(text, isSuccess) {
-      if (!promptCopyStatus) return;
-      promptCopyStatus.textContent = text || '';
-      promptCopyStatus.style.color = isSuccess ? 'var(--success)' : 'var(--muted)';
-    }
-
-    // ── ONE DIALOG, ONE PANE ────────────────────────────────────
-    //
-    // It held two behind a strip: a LEAGUE SCHEDULE read straight from ESPN's
-    // public scoreboard feed, and this prompt. **The schedule is deleted**, and
-    // what that costs is worth knowing before anybody rebuilds it:
-    //
-    //   * `neutral_site` WAS PUBLISHED PER GAME by the feed, so an international
-    //     game arrived flagged and an ordinary home game in a suburb stadium
-    //     arrived false. That was the single strongest reason to prefer it over
-    //     a prompt for the big four, and the prompt now spends its longest
-    //     passage explaining a distinction the feed simply knew.
-    //   * IT IMPORTED WITHOUT A COPY-PASTE, straight into this table, with a
-    //     per-row error report.
-    //   * It read the feed IN THE BROWSER -- no key, no server, no build step.
-    //
-    // Everything it needed went with it: the mode strip, both panes' switching,
-    // the timezone maps, the ESPN league config and the import loop. **Rebuild
-    // it as a new thing if it is wanted, not by reviving this**, and read the
-    // ESPN section in CLAUDE.md first.
-    //
-    // BUILT FROM THE CONTROLS ON THE WAY IN -- unless you have edited it, in
-    // which case your text survives the dialog being closed and reopened.
-    // `refreshPromptText()` without a force is the thing that respects that.
-    function setPromptMode() {
-      if (promptDialogTitle) promptDialogTitle.textContent = 'Add Anchor Events with AI';
-      // FROM DEFAULTS TO TODAY. An empty `from` writes no window at all, so the
-      // prompt was free to come back with events that have already happened --
-      // which is the one thing this table can never use, since our game is
-      // played the day BEFORE its anchor and there is no day before a date that
-      // has gone.
-      //
-      // `todayIso()`, WHICH IS LOCAL. Built from UTC it would be a day out for
-      // half of every day, and "on or after today" is a claim about the day the
-      // person at the keyboard is having.
-      //
-      // ONLY WHEN IT IS BLANK. A window somebody has typed is theirs, and
-      // resetting it every time the dialog opened would throw it away on the
-      // second visit -- the same rule the prompt text itself keeps.
-      if (promptFrom && !promptFrom.value) promptFrom.value = todayIso();
-      refreshPromptText();
-    }
-
-    function openPromptLightbox(mode) {
-      if (!promptLightbox) return;
-      setPromptMode(mode || 'prompt');
-      promptLightbox.hidden = false;
-      promptLightbox.classList.add('is-open');
-      setPromptCopyStatus('');
-      if (mode === 'schedule') {
-        if (schedFetchBtn) schedFetchBtn.focus();
-      } else if (eventPromptText) {
-        eventPromptText.focus();
-      }
-    }
-
-    function closePromptLightbox() {
-      if (!promptLightbox) return;
-      promptLightbox.classList.remove('is-open');
-      promptLightbox.hidden = true;
-      if (openPromptBtn) openPromptBtn.focus();
-    }
-
-    async function copyPromptText() {
-      if (!eventPromptText) return;
-      const text = eventPromptText.value || '';
-      if (!text) return;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(text);
-        } else {
-          // THE readonly JUGGLING WENT WITH readonly. The box is editable now,
-          // so putting the attribute back after a fallback copy would lock it
-          // for good -- and only on the browsers that take this branch, which
-          // is the worst way to find a bug.
-          eventPromptText.select();
-          document.execCommand('copy');
-        }
-        setPromptCopyStatus('Copied.', true);
-      } catch (err) {
-        console.error(err);
-        setPromptCopyStatus('Could not copy automatically. Select and copy manually.', false);
-      }
-    }
-
-    // ── Schedule importer (ESPN) ──────────────────────────────────────────────
-    // Where the matchups come from. ESPN's public scoreboard feed answers a date
-    // RANGE in one request and sends `Access-Control-Allow-Origin: *`, so the
-    // browser can read it directly — no key, no server, no build step. That is
-    // what let this page absorb mc/mlb.html (which needed a Node run, a 22 MB
-    // mc/data/mlb.jsonl, and a file upload to do the same job) and mc/get_games.html
-    // (which asked an AI to recall schedules into a .jsonl nothing imported).
-    //
-    // The feed also settles the field this page's prompt spends the most words
-    // on: `neutralSite` is published per game, so an international or
-    // championship fixture arrives already flagged instead of being inferred.
     /* ── CHECK: read the whole table and say what looks wrong ──────────────
        IT REPORTS AND NEVER EDITS. Same split every routine in this project
        makes: a finding is a statement about a row, and a human decides. An
@@ -3111,7 +2612,7 @@
        thing nobody could review afterwards.
 
        IT READS state.rows, WHICH IS THE WHOLE TABLE. loadEvents() pulls through
-       TgbRest.fetchAll, which pages past PostgREST's silent 1000-row cap, so
+       its own Range-paged loop, which walks past PostgREST's silent 1000-row cap, so
        the check covers every row and not the 50 on screen. If that ever goes
        back to a single unpaged fetch, this button starts quietly auditing the
        first thousand rows and reporting a clean bill for the rest.
@@ -3872,37 +3373,59 @@
       sgFetchBtn.textContent = 'Fetching\u2026';
       sgSet('Reading SeatGeek\u2026');
       try {
-        // ONE PAGE OF 50, NOT EVERY PAGE. A busy city over three months is
-        // hundreds of events, and this is a list somebody reads and ticks --
-        // paging it all in would produce a scroll nobody works through. The
-        // count says how many there were, so a narrower window is the answer
-        // rather than a longer list.
-        const url = new URL('https://api.seatgeek.com/2/events');
-        url.searchParams.set('client_id', key);
-        url.searchParams.set('venue.city', city);
-        url.searchParams.set('datetime_local.gte', from + 'T00:00:00');
-        if (to) url.searchParams.set('datetime_local.lte', to + 'T23:59:59');
-        url.searchParams.set('per_page', '50');
-        url.searchParams.set('sort', 'datetime_local.asc');
+        // ── EVERY PAGE, NOT THE FIRST ──────────────────────────────
+        //
+        // It read one page of 50 and said "of 1,557", which is **a silent cap
+        // wearing a number**: the thing you asked for was a city and a window,
+        // and what you got was whatever fitted. It pages until the window is
+        // exhausted now.
+        //
+        // **PROGRESS IS REPORTED WHILE IT RUNS.** A year of a busy city is a
+        // dozen or more requests, and a dialog that sits still for ten seconds
+        // reads as broken.
+        //
+        // THE COST, PLAINLY: a wide window is a long list and a lot of DOM.
+        // That is the trade asked for -- show everything found -- and the
+        // window is the control that makes it smaller.
+        const PER_PAGE = 100;
+        const all = [];
+        let total = 0;
+        for (let page = 1; ; page += 1) {
+          const url = new URL('https://api.seatgeek.com/2/events');
+          url.searchParams.set('client_id', key);
+          url.searchParams.set('venue.city', city);
+          url.searchParams.set('datetime_local.gte', from + 'T00:00:00');
+          if (to) url.searchParams.set('datetime_local.lte', to + 'T23:59:59');
+          url.searchParams.set('per_page', String(PER_PAGE));
+          url.searchParams.set('page', String(page));
+          url.searchParams.set('sort', 'datetime_local.asc');
 
-        const res = await fetch(url.toString());
-        if (res.status === 403 || res.status === 401) {
-          throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+          const res = await fetch(url.toString());
+          if (res.status === 403 || res.status === 401) {
+            throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+          }
+          if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
+          const body = await res.json();
+          const events = (body && body.events) || [];
+          if (body && body.meta && body.meta.total) total = body.meta.total;
+          Array.prototype.push.apply(all, events);
+          sgSet('Reading SeatGeek\u2026 ' + all.length + (total ? ' of ' + total : ''));
+          // A SHORT PAGE IS THE END, and the count is the belt: a feed that
+          // ignored `page` would otherwise answer the same rows forever.
+          if (events.length < PER_PAGE) break;
+          if (total && all.length >= total) break;
         }
-        if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
-        const body = await res.json();
-        const events = (body && body.events) || [];
-        const total = (body && body.meta && body.meta.total) || events.length;
 
         // A ROW WITH NO DATE IS DROPPED HERE rather than filed and flagged: it
         // is not a candidate, it is a listing we could not read.
-        sgState.rows = events.map(sgRow).filter((r) => r.start_date);
+        sgState.rows = all.map(sgRow).filter((r) => r.start_date);
         const have = new Set(state.rows.map((r) => clean(r.id)));
         sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
         renderSg();
+        const dropped = all.length - sgState.rows.length;
         sgSet(sgState.rows.length
-          ? 'Found ' + plural(sgState.rows.length, 'event') +
-            (total > events.length ? ' of ' + total + '. Narrow the window to see the rest.' : '.') +
+          ? 'Found ' + plural(sgState.rows.length, 'event') + '.' +
+            (dropped ? ' ' + dropped + ' had no readable date and were left out.' : '') +
             ' Untick anything you do not want.'
           : 'Nothing in that window. Try another city spelling or a wider range.',
           sgState.rows.length ? 'success' : null);
@@ -4481,7 +4004,6 @@
         if (!Array.isArray(state.rows)) state.rows = [];
         state.page = 1;
         render();
-        refreshPromptText();
 
         if (state.total !== null && state.rows.length >= state.total) {
           finishLoad();
@@ -4552,7 +4074,6 @@
       } else {
         render();
       }
-      refreshPromptText();
       setStatus('Loaded ' + plural(state.rows.length, 'event') + '.', 'success');
     }
 
@@ -4751,17 +4272,32 @@
 
     // ── BATCH EDIT: THE SELECTION, AND WHAT IT CAN BE MADE TO DO ────────
     //
-    // THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render. The filters
-    // and the pager both change what is on screen, and **a batch press that
-    // reached a hidden row would be silent and would land on somebody else's
-    // work.** Same rule the Tape Room keeps.
+    // ── WHAT `ALL` MEANS, AND IT IS NOT "THIS PAGE" ──────────────────
+    //
+    // **EVERY ROW THE FILTERS LEAVE, across every page.** The list pages at 50
+    // and a filtered set is routinely hundreds, so a select-all that meant the
+    // fifty in front of you would turn a batch of 300 into six presses with a
+    // pager between them, and would do it silently, since the count would look
+    // right each time.
+    //
+    // THE FILTERS ARE STILL THE FENCE. A row the filters exclude can never be
+    // selected and is dropped the moment it stops matching, so a batch press
+    // reaches exactly what the list says it holds. **What changed is that "the
+    // list" means the whole filtered set rather than the visible slice.**
+    function matchingIds() {
+      return state.rows.filter(matches).map((r) => clean(r.id)).filter(Boolean);
+    }
+
     function visibleIds() {
       return listEl ? Array.from(listEl.querySelectorAll('.event-row'))
         .map((el) => clean(el.dataset.rowId)).filter(Boolean) : [];
     }
 
+    // PRUNED TO WHAT MATCHES, NOT TO WHAT IS DRAWN. Pruning to the page would
+    // undo the select-all on the very next render: everything off-screen would
+    // be dropped before you could press anything.
     function prunePicked() {
-      const on = new Set(visibleIds());
+      const on = new Set(matchingIds());
       Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
     }
 
@@ -4773,17 +4309,20 @@
     // remembers a state of its own, so the bar cannot disagree with the ticks.
     function paintBatchBar() {
       const n = picked.size;
+      const all = matchingIds().length;
       const shown = visibleIds().length;
       if (batchCount) {
+        // IT SAYS WHEN THE SELECTION REACHES PAST THE PAGE, because a count of
+        // 300 above a list of 50 is otherwise a number you cannot check.
         batchCount.textContent = n
-          ? plural(n, 'event') + ' selected'
+          ? plural(n, 'event') + ' selected' + (n > shown ? ', ' + shown + ' on this page' : '')
           : 'none selected';
       }
       if (batchAllBox) {
-        batchAllBox.checked = shown > 0 && n === shown;
+        batchAllBox.checked = all > 0 && n === all;
         // INDETERMINATE WHEN SOME ARE TICKED, which is the honest third state
         // and the only one a plain checkbox cannot be put into by a click.
-        batchAllBox.indeterminate = n > 0 && n < shown;
+        batchAllBox.indeterminate = n > 0 && n < all;
       }
       [batchApplyBtn, batchDeleteBtn].forEach((btn) => {
         if (!btn) return;
@@ -4993,6 +4532,41 @@
         render();
       });
     }
+    // ── CLEAR ───────────────────────────────────────────────────
+    //
+    // WHAT COUNTS AS "FILTERED" IS ASKED IN ONE PLACE, so the button's own
+    // state and what pressing it does cannot drift apart.
+    function anyFilterOn() {
+      return !!(clean(state.q) || state.when !== 'any' || state.issues !== 'any');
+    }
+
+    function paintClearBtn() {
+      if (!clearFiltersBtn) return;
+      const on = anyFilterOn();
+      clearFiltersBtn.setAttribute('aria-disabled', on ? 'false' : 'true');
+      clearFiltersBtn.title = on
+        ? 'Put the search box and both pickers back to everything.'
+        : 'Nothing is filtered.';
+    }
+
+    function clearFilters() {
+      if (!anyFilterOn()) {
+        setStatus('Nothing is filtered.', 'error');
+        return;
+      }
+      state.q = '';
+      state.when = 'any';
+      state.issues = 'any';
+      state.page = 1;
+      if (searchInput) searchInput.value = '';
+      const whenEl = document.getElementById('whenFilter');
+      const issuesEl = document.getElementById('issuesFilter');
+      if (whenEl) whenEl.value = 'any';
+      if (issuesEl) issuesEl.value = 'any';
+      render();
+      setStatus('Filters cleared.', 'success');
+    }
+
     // ONE LOOP, so a third picker is one entry rather than a copy of this with
     // two words changed.
     //
@@ -5037,70 +4611,17 @@
     // OPENS ON THE PROMPT PANE. It is the one that works for anything, and the
     // schedule feed only covers the big four leagues -- so the general answer is
     // the default and the specialised one is a click away, not the reverse.
-    if (openPromptBtn) {
-      openPromptBtn.addEventListener('click', () => {
-        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
-        openPromptLightbox('prompt');
-      });
-    }
-    if (closePromptBtn) closePromptBtn.addEventListener('click', closePromptLightbox);
-    // ONE LISTENER ON THE ROW, not three on the anchors: a fourth AI is then
-    // one line of markup. **NO preventDefault** -- the navigation has to stay
-    // the browser's own or the popup blocker eats the tab, and the copy is
-    // fired from the same click without being awaited.
-    if (promptAiRow) {
-      promptAiRow.addEventListener('click', (event) => {
-        const link = event.target && event.target.closest ? event.target.closest('a') : null;
-        if (!link || !promptAiRow.contains(link)) return;
-        copyPromptText();
-      });
-    }
-    // TYPING IN THE BOX IS WHAT MAKES IT YOURS. `input` rather than `change`,
-    // so the note appears on the first keystroke rather than when focus leaves.
-    if (eventPromptText) {
-      eventPromptText.addEventListener('input', function () {
-        promptEdited = true;
-        paintPromptEdited();
-      });
-    }
-
-    var promptResetBtn = document.getElementById('promptResetBtn');
-    if (promptResetBtn) {
-      promptResetBtn.addEventListener('click', function () {
-        refreshPromptText(true);
-        if (eventPromptText) eventPromptText.focus();
-      });
-    }
-
-    // WRAPPED, NEVER PASSED DIRECTLY. `addEventListener('input', refreshPromptText)`
-    // hands the EVENT to the function's first argument, which is `force` -- so
-    // every knob was a forced rebuild and the guard that protects an edited
-    // prompt could never fire. It looked correct and did the opposite.
-    var reprompt = function () { refreshPromptText(); };
-    if (promptFocus) promptFocus.addEventListener('input', reprompt);
-    [promptLeague, promptFrom, promptTo].forEach((el) => {
-      if (el) el.addEventListener('change', reprompt);
-    });
-    promptCountRadios.forEach((radio) => {
-      radio.addEventListener('change', () => {
-        refreshPromptText();
-        setPromptCopyStatus('Prompt updated for ' + plural(selectedPromptCount(), 'event') + '.', false);
-      });
-    });
-    if (promptLightbox) {
-      promptLightbox.addEventListener('click', (event) => {
-        if (event.target === promptLightbox) closePromptLightbox();
-      });
-    }
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
     if (batchApplyBtn) batchApplyBtn.addEventListener('click', batchApply);
     if (batchDeleteBtn) batchDeleteBtn.addEventListener('click', batchDelete);
     if (batchAllBox) {
       batchAllBox.addEventListener('change', () => {
-        // ALL MEANS WHAT IS ON SCREEN, not the whole table: a filter or a page
-        // is exactly the narrowing somebody did on purpose before pressing it.
-        const ids = visibleIds();
+        // ALL MEANS EVERY ROW THE FILTERS LEAVE, across every page -- never the
+        // whole table, because a filter is the narrowing somebody did on
+        // purpose before pressing it.
+        const ids = matchingIds();
         if (batchAllBox.checked) ids.forEach((id) => picked.add(id));
-        else ids.forEach((id) => picked.delete(id));
+        else picked.clear();
         render();
       });
     }
@@ -5112,6 +4633,8 @@
     if (sgClientIdEl) sgClientIdEl.addEventListener('change', sgRememberKey);
     if (sgAllBtn) {
       sgAllBtn.addEventListener('click', () => {
+        // EVERY ROW FETCHED, not the ones scrolled into view -- `sgState.rows`
+        // is the whole window now that the fetch pages through it.
         // NEVER A ROW ALREADY FILED, which the import would skip anyway.
         const have = new Set(state.rows.map((r) => clean(r.id)));
         sgState.rows.forEach((r) => { if (!have.has(r.id)) sgState.checked.add(r.id); });
@@ -5132,7 +4655,6 @@
       // opened over another here.
       if (sgLightbox && !sgLightbox.hidden) { closeSgDialog(); return; }
       if (manualLightbox && !manualLightbox.hidden) { closeManualDialog(); return; }
-      if (promptLightbox && !promptLightbox.hidden) closePromptLightbox();
     });
 
     const adminAuth = window.TgbMcAdminAuth.create({

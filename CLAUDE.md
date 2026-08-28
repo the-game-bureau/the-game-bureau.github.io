@@ -1020,6 +1020,75 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## SELECT ALL MEANS ALL, AND THE ROOM STANDS ALONE (2026-08-28)
+
+### `ALL` IS EVERY MATCHING ROW, ACROSS EVERY PAGE
+
+The list pages at 50 and a filtered set is routinely hundreds, so a select-all
+that meant the fifty in front of you turned a batch of 300 into six presses with
+a pager between them -- **and did it silently**, since the count looked right
+each time.
+
+- **THE FILTERS ARE STILL THE FENCE.** A row the filters exclude can never be
+  selected and is dropped the moment it stops matching, so a batch press reaches
+  exactly what the list says it holds. What changed is that "the list" now means
+  the whole filtered set rather than the visible slice.
+- **`prunePicked` HAD TO CHANGE WITH IT.** Pruning to the page would have undone
+  the select-all on the very next render: everything off-screen would be dropped
+  before you could press anything.
+- **THE COUNT SAYS WHEN THE SELECTION REACHES PAST THE PAGE** -- "120 events
+  selected, 50 on this page" -- because a count of 120 above a list of 50 is
+  otherwise a number you cannot check.
+- **PROVED ON 120 ROWS**: All selects 120, narrowing to "alpha" drops it to 60,
+  and one PATCH carries all 60 ids including rows from page two.
+
+**AND IT CAUGHT A LIVE BREAK.** The first attempt at this aborted on an
+assertion **after** its follow-up patch had already been applied, so the page
+called `matchingIds()` and never defined it: **select-all threw**. That is the
+standing rule in this file -- *after a failed edit, verify what actually
+landed* -- and what found it was a test pressing the button.
+
+### SEATGEEK FETCHES EVERY PAGE
+
+It read one page of 50 and reported "of 1,557", which is **a silent cap wearing
+a number**: you asked for a city and a window and got whatever fitted. It pages
+until the window is exhausted, reports progress while it runs, and says how many
+listings it dropped for having no readable date. **The cost is a long list on a
+wide window**, and the window is the control that makes it shorter.
+
+### CLEAR
+
+One press in Search & filter that puts the search box and both pickers back.
+Three narrowings can be on at once and **only two of them show as a value** -- a
+search typed a while ago reads as an empty list rather than as a filter.
+
+- **`anyFilterOn()` IS ASKED IN ONE PLACE**, so the button's own greyed state
+  and what pressing it does cannot drift apart.
+- **IT DOES NOT TOUCH THE SELECTION.** Clearing a filter widens the list, so
+  nothing ticked stops matching and nothing is dropped. That is the opposite of
+  narrowing and needs no warning.
+
+### THE PAGE IS VERY NEARLY STANDALONE
+
+Asked outright. What it loads now, and why:
+
+| loaded | what for |
+|---|---|
+| `admin-shell.css` | the shared room chrome, four rooms deep |
+| `admin-site-nav.js` | the TGB / MISSION CONTROL bar and the sign-in padlock |
+| `admin-auth.js` | the admin gate itself, which is Supabase auth |
+| Google Fonts | IBM Plex Mono and Space Grotesk |
+
+**TWO SCRIPT TAGS WERE LOADED AND READ BY NOTHING**, and went in this pass:
+`admin-shell.js` binds `[data-mc-back]` and `[data-mc-home]` buttons and this
+page has neither, and `supabase-rest.js` supplied `TgbRest.fetchAll`, which the
+loader stopped using when it started paging with its own `Range` headers so the
+first fifty rows could paint immediately.
+
+**SO EVERYTHING ELSE IS IN THE ONE FILE**: the markup, the CSS, the checks, the
+importer, batch edit and the row editor. `geo.js` and `city-picker.js` went with
+the city catalogue earlier today.
+
 ## THE EVENTS ROOM PULLS SEATGEEK ITSELF, AND HAS NO ROUTINE (2026-08-28)
 
 A **SEATGEEK** button in the ADD bar: a city, a date range, a list you tick, and
@@ -1138,7 +1207,22 @@ dialog**, because this one is earlier in the source. They are
 `.prompt-options--sg` now. Caught by a test that had been asserting the AI
 prompt's layout and suddenly could not find it.
 
-## THE PROMPT SAYS WHERE TO LOOK, AND IT IS SEATGEEK (2026-08-28)
+## THE PROMPT IS DELETED. THIS IS WHAT IT KNEW. (2026-08-28)
+
+**The PROMPT button, its dialog and `buildEventImportPrompt` are gone**, along
+with the four knobs, the three AI doors and the SQL editor link. What replaced
+it is the SeatGeek importer: a real feed, filtered by a person, rather than a
+batch an AI researched and a human pasted back as SQL.
+
+**WHAT IS LOST, and it is not nothing:** a prompt could find a convention, an
+expo or a festival that no ticketing feed carries, and it could be pointed at a
+kind of event rather than a city. **SeatGeek covers what SeatGeek sells.**
+
+The section below is kept because the sourcing reasoning in it is what any
+replacement would need, and because it records the day the prompt was told
+where to look.
+
+### WHAT THE PROMPT SAID ABOUT SOURCES (2026-08-28, superseded)
 
 Asked whether SeatGeek can be read without an API key. **It already is, twice**:
 TGB CONCERT BOT and TGB ANCHOR BOT both browse its public pages, and neither
