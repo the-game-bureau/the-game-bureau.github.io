@@ -1020,6 +1020,54 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## SUPABASE SAID WE WERE EXHAUSTING RESOURCES. THE DATABASE IS NEARLY IDLE. (2026-08-28)
+
+Measured before changing anything, against production, over the 116 days
+`pg_stat_statements` has been collecting:
+
+| asked | answer |
+|---|---|
+| database size | **36 MB** |
+| replication slots | **none** (a stale one is the usual cause of disk pressure) |
+| connections | 11, one active |
+| total execution time | ~7,900 s, which is **68 SECONDS OF CPU A DAY** |
+
+**SO THERE IS NO EXPENSIVE-QUERY PROBLEM TO FIND**, and the advice in the
+banner does not fit this project. What the numbers do say is worth more:
+
+- **A FULLY-CACHED SCAN OF 224 PAGES TOOK 131 ms.** `explain (analyze,
+  buffers)` on the most expensive statement showed every buffer a cache HIT and
+  still 131 ms. **That is a starved CPU, not a bad plan** -- the same query is
+  0.675 ms once it stops touching the heap. **If the banner is about anything,
+  it is about the size of the compute, or a plan-level quota (egress, function
+  invocations, MAUs) that SQL cannot see from in here.**
+- **~22% OF ALL DATABASE TIME IS THE SUPABASE DASHBOARD ITSELF.** Listing
+  extensions 776 s, listing functions 416 s, `pg_timezone_names` 360 s, table
+  and column metadata 198 s -- **1,750 s of 7,900**. That is a Studio tab left
+  open polling. **Closing it is worth more than any index in this repo.**
+
+### WHAT WAS ACTUALLY CHANGED
+
+[2026082803_covering_index_for_the_city_rail.sql](mc/supabase/migrations/2026082803_covering_index_for_the_city_rail.sql), **applied**.
+
+- **`games_city_archived_idx`.** `select city, archived from games` is the city
+  rail on `/games/` and `/gifts/`: 4,730 calls, 138 ms each, **8% of this
+  project's entire database time**. It scanned 224 heap pages to return two
+  small columns from 395 rows. **Seq Scan 224 buffers 131.7 ms became Index Only
+  Scan, 2 buffers, Heap Fetches 0, 0.675 ms** -- 195x, and on a starved instance
+  the cheapest thing available is asking it to do less.
+- **A SECOND INDEX WAS BUILT, MEASURED, REFUSED BY THE PLANNER AND DROPPED.**
+  The shop's live-items read looked like the same shape at 252 s, but **690 of
+  the 829 rows match its predicate**, so the "narrow" partial index covered 83%
+  of the table and a 52-page sequential scan beat it. Postgres was right and the
+  index was dropped in the same sitting: **an index nothing uses is written on
+  every insert forever in exchange for nothing.** Re-measure before re-adding
+  it; the answer changes if live items ever become a minority.
+
+**`guides` AVERAGES 68 kB A ROW**, 2.8 MB across 41 rows, because the portraits
+are base64 in the column. Nothing was done about it here, but any `select=*` on
+that table ships the lot, and it is the biggest single payload in this database.
+
 ## THE EVENT ROUTINES ARE ONE, AND THE TOUR BUILDER IS CALLED WHAT IT IS (2026-08-28)
 
 Three routines had event-shaped names and only two filed events.
