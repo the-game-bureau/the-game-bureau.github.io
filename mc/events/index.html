@@ -624,18 +624,16 @@
         <div class="command-bar-inner">
           <input type="search" id="searchInput" placeholder="Search title, team, league, venue, city, kind…" autocomplete="off">
           <span class="bar-sep" aria-hidden="true"></span>
-          <label class="bar-pick">When
-            <select id="whenFilter" class="command-bar-select">
-              <option value="any">any date</option>
-              <option value="upcoming" selected>upcoming</option>
-              <option value="30">next 30 days</option>
-              <option value="90">next 90 days</option>
-              <option value="past">past</option>
-            </select>
-          </label>
           <label class="bar-pick">Kind
             <select id="kindFilter" class="command-bar-select">
               <option value="any">any kind</option>
+            </select>
+          </label>
+          <label class="bar-pick">Issues
+            <select id="issuesFilter" class="command-bar-select">
+              <option value="any" selected>any</option>
+              <option value="yes">has issues</option>
+              <option value="no">clean</option>
             </select>
           </label>
           <button class="btn small" id="clearFiltersBtn" type="button"
@@ -786,7 +784,20 @@
 
     const TABLE = 'events';
 
-    const WHEN_DEFAULT = 'upcoming';
+    // THE WHEN FILTER IS GONE, replaced by Issues on 2026-08-28.
+    //
+    // WHAT THAT COSTS, and it is real: the room used to open on `upcoming`,
+    // because a past event is the one thing this table can never use -- our
+    // game is played the day BEFORE its anchor and there is no day before a
+    // date that has gone. Nothing narrows by date now, so every past row is
+    // on the list. The date is still on the row and the order is still oldest
+    // first, so a past event is visible rather than hidden; what is gone is
+    // the ability to take them off the list in one press.
+    //
+    // ISSUES IS NOT A SECOND IDEA OF ONE FILTER, which is the trap this page
+    // has paid for before. The Check button and this picker drive the SAME
+    // `state.issues`: pressing Check runs the sweep and then sets it to `yes`,
+    // and putting the picker back to `any` is what Show all does.
 
     const KIND_VALUES = [
       'sports', 'sports-nonteam', 'sports-tournament',
@@ -930,8 +941,8 @@
     const sgImportBtn = document.getElementById('sgImportBtn');
 
     const state = { rows: [], authed: false, page: 1, q: '',
-                    loaded: false, total: null, when: WHEN_DEFAULT,
-                    kind: 'any', reviewOnly: false };
+                    loaded: false, total: null,
+                    kind: 'any', issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1003,28 +1014,22 @@
 
     function matches(row) {
 
-      if (state.when !== 'any') {
-        const last = clean(row.end_date) || clean(row.start_date);
-        const first = clean(row.start_date) || clean(row.end_date);
-        if (last || first) {
-          const today = todayIso();
-          if (state.when === 'past') {
-            if (!(last && last < today)) return false;
-          } else {
-            if (!(last && last >= today)) return false;
-            if (state.when !== 'upcoming') {
-              const days = Number(state.when);
-              if (Number.isFinite(days) && first && first > isoPlusDays(days)) return false;
-            }
-          }
-        }
-      }
-
       if (state.kind !== 'any' && clean(row.kind) !== state.kind) return false;
-      // CHECK NARROWS THROUGH ITS OWN FLAG, not through a picker. It had the
-      // Issues picker to write into and that picker is gone; with only one
-      // control reading this there is no second idea of one filter to drift.
-      if (state.reviewOnly && !isInReview(row)) return false;
+      // ONE STATE, TWO CONTROLS: the Issues picker and the Check button both
+      // write `state.issues`, so they cannot drift into two ideas of one
+      // filter -- which is the shape this page has already been caught by.
+      //
+      // IT READS `isInReview`, THE LIVE ANSWER, NOT THE STORED `issues`
+      // COLUMN. The findings drawn on a card are recomputed on every render,
+      // so a picker reading the stored flag would list a row as faulty while
+      // its own card said nothing was wrong. The column is the snapshot for
+      // anything reading this table from OUTSIDE the page; in here the live
+      // answer is the one you can see.
+      if (state.issues !== 'any') {
+        const bad = isInReview(row);
+        if (state.issues === 'yes' && !bad) return false;
+        if (state.issues === 'no' && bad) return false;
+      }
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_team_geo, row.away_team_nickname, row.home_team_geo, row.home_team_nickname,
@@ -1894,7 +1899,7 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        state.reviewOnly = true;
+        setIssuesFilter('yes');
         state.page = 1;
         render();
         if (!flagFailed) {
@@ -1921,7 +1926,7 @@
       const n = state.rows.filter(isInReview).length;
       // THE FACE NAMES WHAT THE PRESS WILL DO, which while the narrowing is on
       // is to take it off again.
-      errorsBtn.textContent = state.reviewOnly ? 'Show all'
+      errorsBtn.textContent = state.issues === 'yes' ? 'Show all'
         : (n ? 'Check (' + n + ')' : 'Check');
       if (!state.loaded) {
         errorsBtn.classList.add('is-waiting');
@@ -1935,8 +1940,8 @@
     function toggleErrors() {
       // WHILE THE NARROWING IS ON, THE PRESS TAKES IT OFF. One control, two
       // states, and the face says which -- Check, then Show all.
-      if (state.reviewOnly) {
-        state.reviewOnly = false;
+      if (state.issues === 'yes') {
+        setIssuesFilter('any');
         state.page = 1;
         render();
         syncErrorsBtn();
@@ -1955,12 +1960,9 @@
       // row, and a search left in the box hid more. A check that reports on
       // the whole table has to SHOW the whole table.
       state.q = '';
-      state.when = 'any';
       state.kind = 'any';
       if (searchInput) searchInput.value = '';
-      const whenEl = document.getElementById('whenFilter');
       const kindEl = document.getElementById('kindFilter');
-      if (whenEl) whenEl.value = 'any';
       if (kindEl) kindEl.value = 'any';
       runErrorSweep();
     }
@@ -3437,9 +3439,17 @@
         render();
       });
     }
+    /** Writes the picker and the state together, so the control on screen can
+     *  never disagree with what the list is doing. Every setter goes through
+     *  here -- the sweep, Show all and Clear included. */
+    function setIssuesFilter(value) {
+      state.issues = value;
+      const el = document.getElementById('issuesFilter');
+      if (el) el.value = value;
+    }
+
     function anyFilterOn() {
-      return !!(clean(state.q) || state.when !== WHEN_DEFAULT
-        || state.kind !== 'any' || state.reviewOnly);
+      return !!(clean(state.q) || state.kind !== 'any' || state.issues !== 'any');
     }
 
     function paintClearBtn() {
@@ -3457,26 +3467,26 @@
         return;
       }
       state.q = '';
-      state.when = WHEN_DEFAULT;
       state.kind = 'any';
-      state.reviewOnly = false;
+      setIssuesFilter('any');
       state.page = 1;
       if (searchInput) searchInput.value = '';
-      const whenEl = document.getElementById('whenFilter');
       const kindEl = document.getElementById('kindFilter');
-      if (whenEl) whenEl.value = WHEN_DEFAULT;
       if (kindEl) kindEl.value = 'any';
       syncErrorsBtn();
       render();
       setStatus('Filters cleared.', 'success');
     }
 
-    [['whenFilter', 'when'], ['kindFilter', 'kind']].forEach(([id, key]) => {
+    [['kindFilter', 'kind'], ['issuesFilter', 'issues']].forEach(([id, key]) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('change', () => {
         state[key] = clean(el.value) || 'any';
         state.page = 1;
+        // The Check button's face reads this state, so it has to be repainted
+        // when the picker is what changed it.
+        if (key === 'issues') syncErrorsBtn();
         render();
       });
     });
