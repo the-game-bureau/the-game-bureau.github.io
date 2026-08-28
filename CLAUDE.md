@@ -1020,6 +1020,61 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE EVENTS ROOM IS OFF THE CITY CATALOGUE (2026-08-28)
+
+`events.venue_city` is a plain string now. **What is entered or scraped is what
+is stored**, and nothing on this page reads, checks against, or writes to
+`public.cities`.
+
+**FOUR TIES WENT, AND EACH IS A CAPABILITY:**
+
+| gone | what it did |
+|---|---|
+| the shared datalist on every card | offered the catalogue's cities as you typed |
+| `TgbCities.attach` on the manual form | the same, plus a **+ add-a-city** button |
+| the `unknown-city` rule | filed a finding when a venue city was not in the catalogue |
+| `ensureCitiesExist` | **added the city to `public.cities` when an event was created** |
+
+**WHAT IT COSTS, PLAINLY, because none of it is recoverable by accident:**
+
+- **NOTHING STOPS TWO SPELLINGS OF ONE TOWN.** "Inglewood, California" and
+  "Inglewood, CA" are two different cities as far as anything reading this
+  column is concerned, and no screen will tell you.
+- **NOTHING SAYS THE VENUE TOWN IS ONE THE REST OF THE SITE HAS NEVER HEARD
+  OF.** `/games/`, `/gifts/` and `/soundtracks/` all key off `cities.city`; a
+  venue city that does not match one is now silently unjoinable.
+- **`no-city` SURVIVES.** A BLANK venue city is still a fault, and still forces
+  review. Only the CATALOGUE test went.
+- **The prompt was rewritten to match.** It said the city had to match a row in
+  `public.cities`; it now describes the FORM to use -- "City, State" spelled out
+  for a US city, "City, Country" elsewhere -- and says outright that nothing
+  checks it, so the spelling given is the spelling stored.
+
+**`geo.js` AND `city-picker.js` ARE NO LONGER LOADED BY THIS PAGE**, and a test
+asserts the room renders with neither module present. **The catalogue itself is
+untouched** and every other room still uses it: this is one room leaving, not
+`public.cities` being retired.
+
+**`citychk.js` WAS RETIRED**, its whole subject being the picker this removed.
+`evcity.js` replaces it and asserts the opposite.
+
+### AND THE VIEW BOX IS ISSUES, THE BUTTON IS CHECK (2026-08-28)
+
+**THE BOX IS THE SUBJECT AND THE BUTTON IS THE VERB**, which is how the other
+tabs already read: ADD holds MANUAL and PROMPT, SEARCH & FILTER holds a box you
+type in. This was **VIEW / Issues** -- a place-you-go label over a
+thing-that-happens control -- and VIEW means DOORS in the Tape Room, the
+Socializer and the issues room, which is not what this button does.
+
+- **THE COUNT IS ON THE BUTTON, NOT THE TAB.** `Check (3)`. A heading that
+  changed as you worked would read as a control.
+- **THE CLASS IS STILL `--check`.** Identifiers do not move with visible copy,
+  and this box has now been called CHECK, VIEW and ISSUES.
+
+**`no-venue` NOW READS `Venue name missing.`** It said the venue city was enough
+to anchor a game and this was a gap in the record rather than a fault -- true,
+and a sentence of reasoning on a row that only needed naming.
+
 ## SUPABASE SAID WE WERE EXHAUSTING RESOURCES. THE DATABASE IS NEARLY IDLE. (2026-08-28)
 
 Measured before changing anything, against production, over the 116 days

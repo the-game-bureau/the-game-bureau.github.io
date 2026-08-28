@@ -548,8 +548,6 @@
     .event-fields .field-action.is-off {
       opacity: 0.45; pointer-events: none; cursor: default;
     }
-    /* A city that isn't in public.cities — kept, but visibly not from the catalog. */
-    .event-fields input.is-unknown-city { border-color: rgba(160, 63, 45, 0.55); color: var(--danger); }
     /* THE CHECKBOX IS LABEL-ABOVE-CONTROL LIKE EVERYTHING ELSE. It was a
        two-column grid -- box then words, both on one line -- which put the whole
        field up on the LABEL row of its neighbours, floating above two inputs
@@ -707,10 +705,6 @@
       border-color: var(--accent);
     }
 
-    .manual-form input.is-unknown-city {
-      border-color: rgba(160, 63, 45, 0.55);
-      color: var(--danger);
-    }
 
     /* THE CHECKBOX IS THE ONE LABEL THAT READS BESIDE ITS BOX. A word on its own
        line above a 15px tick would spend two rows on one field, and there are no
@@ -1055,7 +1049,7 @@
         </div>
       </fieldset>
 
-      <!-- VIEW SITS HARD RIGHT, at the far end of the bar from ADD. The row
+      <!-- ISSUES SITS HARD RIGHT, at the far end of the bar from ADD. The row
            reads left to right as the order you work in: put events in, find
            them, narrow them, and then -- last, and only when you want it -- ask
            what is wrong with the whole table.
@@ -1065,20 +1059,27 @@
            that reads every row does not belong in a bar labelled for finding
            one.
 
-           IT WAS CALLED CHECK UNTIL 2026-08-28, AND THE NAME NOW MEANS
-           SOMETHING ELSE HERE THAN IT DOES NEXT DOOR. In the Tape Room, the
-           Socializer and the issues room, VIEW holds DOORS -- places you go.
-           Here it holds a control that reads the table and changes rows. Worth
-           knowing before copying either room's bar into the other.
+           THE BOX IS THE SUBJECT AND THE BUTTON IS THE VERB, which is the way
+           round the other tabs already read: ADD holds MANUAL and PROMPT,
+           SEARCH & FILTER holds a box you type in. This held **VIEW / Issues**,
+           which was a place-you-go label over a thing-that-happens control --
+           and VIEW means doors in the Tape Room, the Socializer and the issues
+           room, none of which is what this button does. It is **ISSUES /
+           Check** now: the box says what the tab is about, the button says what
+           pressing it does.
+
+           **IT HAS BEEN CHECK BEFORE.** The box was called CHECK until
+           2026-08-28 and the word has now moved from the box to the button,
+           which is a rename worth knowing about before reading old commits.
 
            THE CLASS IS STILL `--check`, deliberately: identifiers do not move
            with visible copy, the same bargain the Tape Room made through four
            renames of its verbs without the column following. -->
       <fieldset class="command-bar command-bar--check">
-        <legend>View</legend>
+        <legend>Issues</legend>
         <div class="command-bar-inner">
           <button class="btn" id="errorsBtn" type="button"
-                  title="Check every row, put anything wrong into review, and list what is in review.">Issues</button>
+                  title="Check every row and list what is wrong, in a popup.">Check</button>
         </div>
       </fieldset>
     </div>
@@ -1341,8 +1342,6 @@
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script src="/mc/js/supabase-rest.js"></script>
-  <script src="/mc/assets/geo.js"></script>
-  <script src="/mc/assets/city-picker.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1443,12 +1442,25 @@
       // VENUE NAME, not Venue. Beside `Venue city` a bare "Venue" reads as
       // the category the pair belongs to rather than as the box's own field.
       venue:      { label: 'Venue name', type: 'text',   span: 'wide' },
-      // The VENUE city — where the event physically happens, which is not always
-      // a club's home market: Bears at Panthers is Charlotte, the Chargers play
-      // in Inglewood, the Giants in East Rutherford. Picked from public.cities
-      // via TgbCities so the string matches the catalog exactly; see cityPicker
-      // below for why it includes the hidden ones.
-      venue_city:      { label: 'Venue city',  type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
+      // ── THE VENUE CITY IS A PLAIN STRING (2026-08-28) ───────────────
+      //
+      // Where the event physically happens, which is not always a club's home
+      // market: Bears at Panthers is Charlotte, the Chargers play in Inglewood,
+      // the Giants in East Rutherford.
+      //
+      // **IT IS NO LONGER TIED TO `public.cities`.** It was picked from that
+      // catalogue, marked red when it was not in it, filed as an `unknown-city`
+      // finding, and added to the catalogue automatically when an event was
+      // created. All four are gone: **what is entered or scraped is what is
+      // stored.**
+      //
+      // WHAT THAT COSTS, plainly. Nothing now stops two spellings of one town
+      // sitting in this column -- "Inglewood, California" and "Inglewood, CA"
+      // are two cities as far as anything reading this table is concerned --
+      // and nothing tells you the venue town is somewhere the rest of the site
+      // has never heard of. **The `no-city` rule survives**, so a BLANK is
+      // still a fault; only the CATALOGUE test went.
+      venue_city:      { label: 'Venue city',  type: 'text', span: 'wide', placeholder: 'Chicago, Illinois' },
       // Neither club at home — the international series, a Super Bowl, a bowl
       // game. Deliberately not inferred by comparing the home locale to the city:
       // a Bills home game is in Orchard Park and a Giants home game is in East
@@ -1952,75 +1964,7 @@
         label.appendChild(input);
       }
 
-      if (meta.picker === 'city') bindCityInput(input);
       return label;
-    }
-
-    // ── City picker ───────────────────────────────────────────────────────────
-    // Cities come from public.cities, the one catalog the whole site shares, so
-    // the string stored here matches what /games/ and /gifts/ key off.
-    //
-    // This binds a SHARED datalist rather than calling TgbCities.attach() per
-    // input. attach() registers a controller per control and never releases it;
-    // this page rebuilds every visible row on each keystroke in the search box,
-    // so attaching per row would pile up thousands of controllers pointing at
-    // detached inputs. One datalist for the page has no such cost.
-    //
-    // READ-ONLY on the catalog: there is no + city button here, deliberately.
-    // Adding a city is the Cities page's job, and an event needing a town we do
-    // not have is rare enough that the trip is cheap. The field still ACCEPTS an
-    // unknown city and marks it, so an import is never blocked by a missing row —
-    // it is only made visible.
-    //
-    // Hidden cities are INCLUDED, and that is the whole point for this field: a
-    // venue city is exactly the town the catalog flags hidden. Inglewood, East
-    // Rutherford and Orchard Park are stadium towns rather than places we sell
-    // games in, and leaving them out would make the picker unable to describe
-    // half the NFL.
-    const CITY_LIST_ID = 'event-city-options';
-
-    function cityDatalist() {
-      let list = document.getElementById(CITY_LIST_ID);
-      if (!list) {
-        list = document.createElement('datalist');
-        list.id = CITY_LIST_ID;
-        document.body.appendChild(list);
-      }
-      return list;
-    }
-
-    function refreshCityOptions() {
-      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return;
-      const list = cityDatalist();
-      list.innerHTML = '';
-      TgbCities.all().forEach((row) => {
-        const city = clean(row && row.city);
-        if (!city) return;
-        const opt = document.createElement('option');
-        opt.value = city;
-        // Same signal the other admin pickers use: grey / annotated means the
-        // city is hidden from at least one public surface.
-        if (row.ignored) opt.label = city + ' — hidden somewhere';
-        list.appendChild(opt);
-      });
-    }
-
-    function bindCityInput(input) {
-      input.setAttribute('list', CITY_LIST_ID);
-      const flag = () => {
-        // A value the catalog does not know is kept, not corrected — the venue
-        // may genuinely be somewhere we have never listed. It is only marked, so
-        // a typo is visible rather than silently becoming a new city string.
-        const v = clean(input.value);
-        const known = !v || !(window.TgbCities && typeof TgbCities.isIgnored === 'function')
-          ? true
-          : TgbCities.all().some((r) => clean(r && r.city) === v);
-        input.classList.toggle('is-unknown-city', !!v && !known);
-        input.title = (v && !known) ? 'Not in the shared city catalog. Add it on the Cities page.' : '';
-      };
-      input.addEventListener('input', flag);
-      input.addEventListener('change', flag);
-      flag();
     }
 
     function readForm(el) {
@@ -2716,8 +2660,9 @@
     // Everything this page and the schema know has to be restated in the prompt,
     // because the model cannot see either: the id format, the kind vocabulary,
     // the locale + mascot split, that start_time is venue-local, that away_team_name
-    // and home_team_name are trigger-derived and must NOT be written, and that the
-    // city has to match public.cities exactly.
+    // and home_team_name are trigger-derived and must NOT be written, and what
+    // shape a venue city should take -- which is now a matter of FORM rather
+    // than of matching a catalogue, since this room no longer checks one.
     // The scope line, from the League + from/to controls that came over from
     // mc/get_games.html. It is prose rather than a parameter block because the
     // reader is a chat model, and "NFL games between X and Y" is the sentence it
@@ -2811,7 +2756,7 @@
         '',
         'venue: the venue as it is currently named. Use the current sponsor name.',
         '',
-        'venue_city: the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. Write it as "City, State" in full for a US city ("Inglewood, California", never "Inglewood, CA") and "City, Country" everywhere else ("Manchester, United Kingdom"). It has to match a row in public.cities, and anything that does not is flagged in the room afterwards and added on the Cities page, so give the correct city rather than the nearest one you recognise.',
+        'venue_city: the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. Write it as "City, State" in full for a US city ("Inglewood, California", never "Inglewood, CA") and "City, Country" everywhere else ("Manchester, United Kingdom"). Nothing checks this against a list, so the spelling you give is the spelling that is stored: use the same form every time.',
         '',
         'neutral_site: true / false, and READ THIS CAREFULLY because it is the field most often got wrong:',
         '- true means NEITHER club is at home. Both fanbases are travelling and the host city has no home team in it.',
@@ -3040,20 +2985,6 @@
     // not doing anything cleverer than trim + lowercase: `city` is a canonical
     // string with one spelling, and a fuzzy match here would start hiding real
     // typos, which is the whole point of the finding.
-    function cityKey(v) {
-      return clean(v).toLowerCase();
-    }
-
-    function isKnownCity(v) {
-      if (!v) return true;
-      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return true;
-      const all = TgbCities.all();
-      // Catalog not loaded: say nothing rather than calling every city unknown.
-      if (!all || !all.length) return true;
-      const key = cityKey(v);
-      return all.some((r) => cityKey(r && r.city) === key);
-    }
-
     function parsesAsUrl(v) {
       try {
         const u = new URL(v);
@@ -3262,7 +3193,7 @@
         level: 'check',
         test: (r) => clean(r.venue)
           ? ''
-          : 'No venue named. The venue city is enough to anchor a game, so this is a gap in the record rather than a fault.'
+          : 'Venue name missing.'
       },
       {
         // A TBD ANYWHERE ON THE ROW IS THE ROW SAYING IT IS NOT FINISHED.
@@ -3287,13 +3218,6 @@
         test: (r) => clean(r.venue_city)
           ? ''
           : 'No venue city, so nothing can place this event. The city is also what any game anchored to it would be set in.'
-      },
-      {
-        key: 'unknown-city',
-        level: 'check',
-        test: (r) => (clean(r.venue_city) && !isKnownCity(clean(r.venue_city)))
-          ? '"' + clean(r.venue_city) + '" is not in the shared city catalog. Either it is a typo, or it is a real venue town nobody has added on the Cities page yet.'
-          : ''
       },
       {
         key: 'bad-url',
@@ -3425,12 +3349,12 @@
     // dialog. Nothing tiers findings any more: a row is in review or it is not,
     // and an unsaved edit is said by the accent border rather than by a report.
 
-    // FINDING_GOTO AND CHECK_GROUPS WENT WITH THE DIALOG. The first sent an
-    // `unknown-city` finding to the Cities page with the town already in the
-    // add form; the second grouped findings into Errors / Worth a look /
-    // Unsaved. Neither has a reader now that a finding is a line on its own row
-    // rather than an entry in a list. See the note above the sweep for what
-    // that costs.
+    // FINDING_GOTO AND CHECK_GROUPS WENT WITH THE DIALOG. The first carried a
+    // finding to the page that could answer it; the second grouped findings
+    // into Errors / Worth a look / Unsaved. Neither has a reader now that a
+    // finding is a line on its own row rather than an entry in a list.
+    // (The `unknown-city` finding FINDING_GOTO was written for is itself gone:
+    // this room no longer checks a venue city against `public.cities`.)
 
     // ── ERRORS: run the checks, then pull the review rows up ─────────────────
     // THE CHECK IS A WRITER NOW, and that reverses what this report used to be.
@@ -3464,14 +3388,6 @@
       const orig = errorsBtn.textContent;
       errorsBtn.textContent = 'Checking…';
       try {
-        // A row can only be judged against the catalogue it is judged against,
-        // and the city half of that lives in another table somebody may have
-        // just added to. Best-effort: a catalogue that will not reload is no
-        // reason to refuse to check the events.
-        if (window.TgbCities && typeof TgbCities.load === 'function') {
-          await TgbCities.load({ force: true }).catch((err) => console.error(err));
-        }
-
         // WHAT THE RULES SAY NOW, per row, WITH THE WORDS. Computed once so
         // the writes below cannot disagree about which rows are which, and so
         // the flag and its detail come from one evaluation rather than two.
@@ -3667,12 +3583,14 @@
       if (errorsBtn) errorsBtn.focus();
     }
 
-    // THE FACE COUNTS AND NOTHING ELSE. It has no second state to paint now
-    // that pressing it does not change the page.
+    // THE FACE IS THE VERB, AND IT COUNTS. `Check` says what pressing it does;
+    // the count is how many the last press found, and it sits on the button
+    // rather than on the tab because the tab is a heading and a heading that
+    // changed as you worked would read as a control.
     function syncErrorsBtn() {
       if (!errorsBtn) return;
       const n = state.rows.filter(isInReview).length;
-      errorsBtn.textContent = n ? 'Issues (' + n + ')' : 'Issues';
+      errorsBtn.textContent = n ? 'Check (' + n + ')' : 'Check';
       if (!state.loaded) {
         // NOT `disabled`. A disabled button dispatches no click, so on a phone
         // the reason would be unreachable -- the same argument the greyed
@@ -3887,31 +3805,6 @@
       if (kindEl) kindEl.addEventListener('change', syncManualWho);
       syncManualWho();
 
-      // ── THE REAL CITY PICKER, ON THIS FORM ONLY ──────────────────────────
-      //
-      // The card's fields get a shared `<datalist>`, and that is deliberate:
-      // `TgbCities.attach()` registers a controller per control and never
-      // releases it, and this page rebuilds every visible row on each keystroke
-      // in the search box, so attaching per row would pile up thousands of them
-      // pointing at detached inputs.
-      //
-      // **THE MANUAL FORM IS THE ONE PLACE THAT DOES NOT APPLY.** There is a
-      // single city input and it is built once per opening of the dialog, so
-      // the real picker is affordable exactly here -- and it is worth having,
-      // because a datalist is indistinguishable from a plain text box until you
-      // start typing, and it offers no way to add a city the catalogue is
-      // missing. That is what every other admin room gives you.
-      const cityEl = manualForm.querySelector('[data-field="venue_city"]');
-      if (cityEl && window.TgbCities && typeof TgbCities.attach === 'function') {
-        // `includeIgnored` because this is an admin surface: a venue town hidden
-        // from the public rails is still where an event happens, and Foxborough
-        // is exactly the kind of city this form needs to offer.
-        //
-        // `authHeaders` IS WHAT MAKES THE + BUTTON APPEAR. Without it the picker
-        // hides it, since adding a city needs an admin session.
-        TgbCities.attach(cityEl, { includeIgnored: true, authHeaders: authHeaders });
-      }
-
       // THE END DATE MIRRORS THE START, IN FRONT OF YOU. `withDefaults` fills a
       // blank one on the way out regardless, and the database has a trigger for
       // it as well -- but a box sitting empty while a value goes to the row is
@@ -3942,159 +3835,6 @@
         startEl.addEventListener('input', mirror);
         startEl.addEventListener('change', mirror);
       }
-    }
-
-    // ── The venue city follows the event into the catalogue ──────────────────
-    // A new event routinely names a town the catalogue has never held -- a
-    // stadium suburb, a festival site -- and until now that produced an
-    // `unknown-city` finding, a trip to the Cities page, and a form to fill in
-    // by hand. The event has just told us the city; adding it is the obvious
-    // thing to do with that.
-    //
-    // IT NEVER BLOCKS AND NEVER FAILS THE EVENT. The event is already saved by
-    // the time this runs; a catalogue write that is refused is reported to the
-    // red pen and nothing else. **A city that could not be added is a smaller
-    // problem than an event that looks like it did not save.**
-    //
-    // IT IS NOT A GUESS. `TgbCities.add` is handed the canonical string and the
-    // geo parsed from it by TgbGeo -- exactly what the add dialog sends -- so a
-    // city arriving this way is the same row as one added by hand.
-    // `eventName` is passed IN rather than read from a variable in submitManual:
-    // `added` is local to that function, and reaching for it from here would
-    // have been a ReferenceError the first time somebody added an event with a
-    // new city -- inside a .then(), so it would have surfaced as a rejected
-    // promise blaming the catalogue write.
-    // ── Every city a new event needs, added or reported ──────────────────────
-    //
-    // A new event routinely names a town the catalogue has never held, and until
-    // this existed that produced an `unknown-city` finding, a trip to the Cities
-    // page and a form to fill in by hand. The event has just told us the city;
-    // adding it is the obvious thing to do with that.
-    //
-    // THREE CITIES CAN BE INVOLVED and they are NOT the same kind of value:
-    //
-    //   venue_city      CANONICAL. "Charlotte, North Carolina". It comes from
-    //                   the picker or from the ESPN importer via TgbGeo, so it
-    //                   carries its state and can be added outright.
-    //
-    //   away_team_geo   A MARKET, not a city, and this is the whole reason the
-    //   home_team_geo   two halves behave differently. "Chicago" is a city;
-    //                   "New England", "Carolina", "Tampa Bay" and "Minnesota"
-    //                   are not, and none of the four carries a state.
-    //
-    // SO A CLUB GEO IS NEVER INVENTED INTO A CATALOGUE ROW. Writing "New
-    // England" into public.cities would put a thing that is not a city into the
-    // one city list the whole site reads, and writing "Chicago" without a state
-    // would sit beside the real "Chicago, Illinois" as a near-duplicate nobody
-    // can tell apart later. Both are worse than the gap they fill. It is
-    // reported by name instead, which is the same bargain every other guess in
-    // this project refuses: never approximate a coordinate, never derive a ZIP
-    // from a city, never invent a location.
-    //
-    // WHAT IT CAN DO is check. A club geo that already matches a catalogue city
-    // is silent, because the common case is not news.
-    function cityBareName(value) {
-      const v = clean(value);
-      const comma = v.indexOf(',');
-      return (comma === -1 ? v : v.slice(0, comma)).trim().toLowerCase();
-    }
-
-    // Exactly one catalogue city whose own name matches, or nothing. Portland
-    // matches two and is therefore NOT resolved: an ambiguous answer is a guess
-    // wearing a number.
-    function catalogueMatchesForGeo(geoRaw) {
-      const key = cityBareName(geoRaw);
-      if (!key) return [];
-      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return [];
-      return TgbCities.all()
-        .map((r) => clean(r && r.city))
-        .filter((c) => c && cityBareName(c) === key);
-    }
-
-    function addCanonicalCity(wanted) {
-      const geo = (window.TgbGeo && typeof TgbGeo.parseGeo === 'function')
-        ? TgbGeo.parseGeo(wanted) : null;
-      const payload = geo ? {
-        city_name: geo.cityName || null,
-        state_code: geo.stateCode || null,
-        state_name: geo.stateName || null,
-        country_code: geo.countryCode || null,
-        country_name: geo.countryName || null
-      } : null;
-      return TgbCities.add(wanted, { authHeaders: authHeaders, geo: payload });
-    }
-
-    // IT NEVER BLOCKS AND NEVER FAILS THE EVENT. The row is already saved by the
-    // time this runs, so a refused catalogue write is reported and nothing else:
-    // a city that could not be added is a smaller problem than an event that
-    // looks like it did not save.
-    function ensureCitiesExist(row, eventName) {
-      if (!row) return;
-      if (!(window.TgbCities && typeof TgbCities.add === 'function')) return;
-
-      const venue = clean(row.venue_city);
-      const geos = [clean(row.away_team_geo), clean(row.home_team_geo)].filter(Boolean);
-
-      const toAdd = (venue && !isKnownCity(venue)) ? [venue] : [];
-      const unresolved = [];
-      const ambiguous = [];
-
-      geos.forEach((g) => {
-        // A club geo that IS a canonical string (it carries a comma) is treated
-        // like the venue city: it can be added, because it brought its state.
-        if (g.indexOf(',') !== -1) {
-          if (!isKnownCity(g) && toAdd.indexOf(g) === -1) toAdd.push(g);
-          return;
-        }
-        const matches = catalogueMatchesForGeo(g);
-        if (matches.length === 1) return;                  // already there
-        if (matches.length > 1) { ambiguous.push(g); return; }
-        unresolved.push(g);
-      });
-
-      const report = () => {
-        const notes = [];
-        if (unresolved.length) {
-          notes.push(unresolved.join(' and ') + (unresolved.length === 1 ? ' is' : ' are') +
-            ' not in the city catalogue, and there is no state on the row to add ' +
-            (unresolved.length === 1 ? 'it' : 'them') + ' with. Add on the Cities page if wanted.');
-        }
-        if (ambiguous.length) {
-          notes.push(ambiguous.join(' and ') + ' matches more than one city in the catalogue, so nothing was added.');
-        }
-        return notes.join(' ');
-      };
-
-      if (!toAdd.length) {
-        const note = report();
-        if (note) setStatus('Added ' + eventName + '. ' + note, 'success');
-        return;
-      }
-
-      Promise.all(toAdd.map((c) => addCanonicalCity(c).then(
-        (r) => ({ ok: true, name: (r && r.city) || c }),
-        (err) => ({ ok: false, name: c, err: err })
-      ))).then((results) => {
-        const added = results.filter((r) => r.ok).map((r) => r.name);
-        const failed = results.filter((r) => !r.ok);
-        const note = report();
-        if (added.length) {
-          setStatus('Added ' + eventName + ', and put ' +
-            added.map((n) => '"' + n + '"').join(' and ') +
-            ' in the city catalogue.' + (note ? ' ' + note : ''), 'success');
-        }
-        if (failed.length) {
-          failed.forEach((f) => console.error(f.err));
-          setStatus('Event saved, but ' + failed.map((f) => '"' + f.name + '"').join(' and ') +
-            ' could not be added to the city catalogue. Add on the Cities page.', 'error');
-        }
-        // FORCE THE RELOAD, or isKnownCity and the City datalist both go on not
-        // knowing, and the ERRORS sweep still calls the city unknown -- both
-        // halves working and the errand looking broken.
-        if (added.length && typeof TgbCities.load === 'function') {
-          TgbCities.load({ force: true }).then(refreshCityOptions).catch((err) => console.error(err));
-        }
-      });
     }
 
     function setManualStatus(text, isError) {
@@ -4250,7 +3990,6 @@
       // round trip. Called first, that message was overwritten a line later by
       // the bare "Added X." and the whole report vanished. The old
       // ensureCityExists always went through a promise, which hid the ordering.
-      ensureCitiesExist(added, displayTitle(added));
       // Land on it: a row added to a 600-row table sorted by date is not
       // necessarily anywhere you can see.
       focusEventRow(clean(added.id));
@@ -4291,9 +4030,6 @@
         // Warm the shared city catalog before the rows render, so the City
         // datalist is populated on first paint rather than one interaction late.
         // A failure here is not fatal — the field stays a plain text box.
-        if (window.TgbCities && typeof TgbCities.load === 'function') {
-          try { await TgbCities.load(); refreshCityOptions(); } catch (e) { console.error(e); }
-        }
         // The same order compareRows applies, so the first paint and the sorted
         // list agree and there is no moment where one is drawn and re-sorted
         // into the other. Kept in step by hand; nothing checks that they are.
