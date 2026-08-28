@@ -1020,6 +1020,116 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE EVENTS ROOM PULLS SEATGEEK ITSELF, AND HAS NO ROUTINE (2026-08-28)
+
+A **SEATGEEK** button in the ADD bar: a city, a date range, a list you tick, and
+an import. `MANUAL | PROMPT | SEATGEEK` is the whole of ADD now.
+
+**TWO THINGS WERE MEASURED BEFORE ANY OF IT WAS BUILT, and both decide its
+shape:**
+
+- **`api.seatgeek.com` ANSWERS `access-control-allow-origin: *`**, so the page
+  calls it directly. No Edge Function, no server, no build step, which is the
+  same thing that made the deleted ESPN importer possible.
+- **`seatgeek.com` ITSELF IS BEHIND A DATADOME BOT WALL.** A plain fetch gets
+  **403 and a JavaScript challenge**, and that is true of a browser, a script
+  and an Edge Function alike. Only a real browser passes it, which is why the
+  PROMPT route (an AI with a browser) is told to read those pages and this
+  button reads the API. **Do not "fix" this by scraping the site.**
+
+**THE CLIENT ID IS ASKED FOR ONCE AND KEPT IN `localStorage`.** It is free from
+`seatgeek.com/account/develop`, and it is **not in the repository**: this page is
+public HTML on GitHub Pages, so a key committed here is published. **A SEATGEEK
+API SECRET IS NOT NEEDED AND MUST NOT GO IN.** The id alone authenticates a read
+of the public catalogue, verified against the live API, and the secret's only
+use is a higher rate limit, which would mean Basic auth from a browser and a
+secret sitting in a page anyone can open. If it is ever wanted, it belongs in an
+Edge Function beside the Meta and Threads tokens.
+
+**VERIFIED AGAINST THE LIVE API, not a fixture**: Denver from 2026-09-01 answers
+1,557 events, `type: "mlb"` maps to `sports`, `type: "concert"` to `concert`,
+`datetime_local` gives the venue-local date and time, and a performer's
+`name` / `short_name` pair splits into geo and nickname (`"Colorado Rockies"`
+becomes `Colorado` + `Rockies`).
+
+- **`venue.capacity` IS 0 ON EVERY ROW**, so the 10,000-seat rule the routine
+  carried **cannot be applied here**. A person ticking the list is the filter.
+- **THE LIST IS THE FIRST 50 BY DATE** and says so when there are more. A year
+  of a busy city is over a thousand events; a narrower window is the answer,
+  not a longer list.
+- **`start_time` IS THE LOCAL CLOCK.** Taking the UTC one would put a late show
+  on the following day for half the country.
+- **THE WINDOW DEFAULTS TO TODAY PLUS 366 DAYS.** Today, because a past event is
+  the one thing this table can never use; **366 rather than 365** so a whole
+  year is covered whichever side of a leap day you open it on.
+
+### "ALL OBJECT KEYS MUST MATCH", AND WHAT IT REALLY MEANS
+
+**PostgREST refuses a bulk INSERT whose objects differ in their keys.** A sports
+row carried the four club fields and a concert row did not, so **one import of a
+window holding both was refused outright**, and the message names no row and no
+key. The four are always present and null now. The importer also translates that
+error, since if it ever returns it is a bug in the mapping rather than in what
+somebody ticked.
+
+### AND THERE IS NO ROUTINE ANY MORE
+
+**TGB ANCHOR EVENT BOT is retired and its door is deleted**, a day after TGB
+CONCERT BOT was folded into it. **Nothing writes `public.events` unattended.**
+
+- **WHAT REPLACED IT is this button**: the same kind of pull, on demand, for a
+  city and a window, **with a person choosing the rows**, so the table is filled
+  deliberately rather than accumulating twice a day.
+- **WHAT IS LOST**: nothing sweeps for events while you are not looking, and the
+  venue-capacity rule went with the brief.
+- Both specs (`anchor-bot.prompt.md`, `anchor-event-bot.prompt.md`) are deleted,
+  the hub's row is gone, and nothing holds `trig_01HKMKbnCyH6WLKuw7ZstY5b`.
+  **The routine is disabled and renamed "delete me"**; this tooling has no
+  delete, so it is removed at claude.ai.
+- **`tgb_pull_anchor_events` AND `tgb_pull_concert_tours` STAY, retired in
+  place.** Nothing calls either. Dropping is the one irreversible move.
+
+### CHECK NARROWS THE PAGE. THERE IS NO POPUP.
+
+**This reverses this morning's popup outright**, and the reasoning that put it
+there is what makes the reversal cheap: the findings were always drawn on the
+row, so the report was only ever a second place to read them.
+
+- **IT NARROWS THROUGH THE ISSUES FILTER THAT ALREADY EXISTS**, not a state of
+  its own. That picker reads the stored flag, which is exactly what the sweep
+  has just written, so pressing Check is running the checks and then choosing
+  "has issues" by hand. **One state, two controls**: a second `reviewOnly` would
+  be a second idea of one filter, and this page has paid for that shape before.
+- **THE WAY OUT IS ON SCREEN AND THE MESSAGE NAMES IT**: set Issues back to any.
+
+### BATCH EDIT
+
+A tick on every row, and a bar in the panel head beside Expand all.
+
+- **SET KIND AND SET SOURCE, THEN APPLY. AND DELETE.** Those two fields are the
+  ones a batch can be right about: a date, a venue or a title is per event.
+- **AN EMPTY CONTROL MEANS LEAVE IT ALONE, never clear it.** Clearing a column
+  across a selection is not something an empty box should do by accident.
+- **ONE REQUEST FOR THE LOT**, `id=in.(...)`, with `return=representation`, and
+  **the shortfall is named, not counted**: "12 updated" about 9 is the quiet
+  sort of lie this project has been caught by before. The delete builds its
+  removed set **from the rows returned, not the ids asked for**, which is the
+  exact bug the issues room shipped and had to fix.
+- **THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render.** A tick that
+  outlived its row would be a batch press landing on something you cannot see.
+- **`aria-disabled`, NEVER `disabled`**, so a press on the off state can say what
+  to do first. It would be unreachable on a touch screen otherwise.
+- **THE TICK STOPS ITS OWN CLICK**, or ticking a box would open the row under it.
+
+### A CLASS NAMED FOR ONE CONTROL MUST NOT BE WORN BY ANOTHER
+
+The SeatGeek dialog's two fieldsets borrowed `.prompt-options--scope` from the
+AI prompt's own scope box. Nothing looked wrong, and
+`querySelector('.prompt-options--scope')` **started answering for the wrong
+dialog**, because this one is earlier in the source. They are
+`.prompt-options--sg` now. Caught by a test that had been asserting the AI
+prompt's layout and suddenly could not find it.
+
 ## THE PROMPT SAYS WHERE TO LOOK, AND IT IS SEATGEEK (2026-08-28)
 
 Asked whether SeatGeek can be read without an API key. **It already is, twice**:

@@ -725,40 +725,60 @@
       order: -1;
     }
 
-    /* ── THE ISSUES REPORT ───────────────────────────────────
-       ONE BLOCK PER EVENT, and it has to repeat the event's name to say what it
-       is talking about -- which is exactly the cost the row annotations avoid
-       and the reason this was a view for three days. A report pays it because
-       it is a LIST OF WHAT IS WRONG, read once and dismissed, rather than
-       something you work in. */
-    .issue-report { display: grid; gap: 10px; }
-
-    .issue-item {
-      display: grid;
-      gap: 5px;
-      padding: 9px 11px;
-      border: 1px solid rgba(160, 63, 45, 0.35);
-      border-left: 3px solid var(--danger);
-      border-radius: 8px;
-      background: rgba(160, 63, 45, 0.045);
+    /* ── THE SEATGEEK LIST ────────────────────────────────────
+       Bounded and scrolling, because a busy city over three months is hundreds
+       of rows and the dialog must not grow to hold them. */
+    .sg-toolbar { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+    .sg-count { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted); }
+    .sg-list {
+      max-height: 46vh; overflow: auto;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    }
+    .sg-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-bottom: 1px solid var(--line);
+    }
+    .sg-item:last-child { border-bottom: 0; }
+    .sg-item:hover { background: rgba(var(--bic-blue-rgb), 0.04); }
+    .sg-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex: 0 0 auto; }
+    /* ALREADY FILED ROWS ARE SHOWN, DIMMED AND UNTICKED, rather than filtered
+       out: seeing that a week is already in is the answer to "did I import this
+       yet", which an empty list cannot give. */
+    .sg-item.is-dupe { opacity: 0.5; }
+    .sg-name { font-size: 0.86rem; font-weight: 700; min-width: 0; }
+    .sg-sub { font-size: 0.74rem; color: var(--muted); min-width: 0; }
+    .sg-when {
+      margin-left: auto; flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
 
-    /* THE NAME LEADS AND THE ID FOLLOWS IT, the same order the row's head
-       reads in, so a block here and a row down the page are recognisably the
-       same event. */
-    .issue-item-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .issue-item-name { font-weight: 700; color: var(--ink); }
-    .issue-item-id {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.68rem;
-      color: var(--muted);
+    /* ── BATCH EDIT ─────────────────────────────────────────
+       The controls are always there and go quiet with nothing ticked, rather
+       than appearing: a bar that grows when you tick something moves the list
+       underneath it, so the row you were aiming at is no longer where it was. */
+    .batch-bar { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
     }
-    /* GO SITS AT THE END OF THE HEAD, pushed there rather than placed, so its
-       position does not move with the length of the name beside it. */
-    .issue-item-go { margin-left: auto; }
+    .batch-all { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .batch-all input { width: 15px; height: 15px; accent-color: var(--accent); }
+    .batch-bar select, .batch-bar input[type="text"] {
+      min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--control-line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    .batch-bar input[type="text"] { width: 13ch; }
+    /* `aria-disabled`, NEVER `disabled`. A disabled button dispatches no click
+       at all, so on a touch screen -- no hover, therefore no tooltip -- the
+       reason it is off would be unreachable. Pressing it says what to do. */
+    .batch-bar .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
 
-    .issue-item-why { display: grid; gap: 2px; }
-    .issue-item-line { font-size: 0.86rem; color: var(--danger); }
+    /* THE TICK, leading every row. 15px so it matches the batch bar's own. */
+    .event-pick {
+      flex: 0 0 auto; width: 15px; height: 15px; margin: 0 2px 0 0;
+      accent-color: var(--accent); cursor: pointer;
+    }
 
     /* THE CITY PICKER'S + BUTTON MATCHES THE BOX IT SITS BESIDE. The shared
        module draws it at 30px, which is right in the compact rows it was written
@@ -830,6 +850,14 @@
        sets both -- so the two boxes only match because that rule reaches the
        fieldset as well as the div. Nothing here re-states them. */
     .prompt-options--scope { margin: 0 0 6px; }
+
+    /* THE SEATGEEK BOXES ARE THEIR OWN CLASS, not scope's borrowed. They wore
+       `--scope` for an hour and made `querySelector('.prompt-options--scope')`
+       ambiguous across the document: this dialog is earlier in the source, so
+       it answered for the AI prompt's own control. **A class named for one
+       control must not be worn by another.** */
+    .prompt-options--sg { margin: 0 0 8px; }
+    .prompt-options--sg input[type="text"] { flex: 1 1 180px; min-width: 0; }
 
     /* FOCUS IS THE LAST OF THE THREE, so it carries the gap down to the prompt
        -- the same 10px the count carries between itself and scope. Its box is
@@ -979,21 +1007,33 @@
                dialog now says that and lets you switch. -->
           <button class="btn" id="openPromptBtn" type="button"
                   title="Fill the table in bulk: copy a prompt into any AI and paste back the SQL it returns.">PROMPT</button>
-          <!-- A DOOR, NOT A CONTROL. The routine cannot be fired from here: that
-               is a POST to the claude.ai trigger API with an OAuth bearer, and
-               this page is public HTML on GitHub Pages, so a token in it is a
-               published token. It opens the routine where Run is.
+          <!-- SEATGEEK PULLS REAL DATES FOR A CITY AND A WINDOW, straight into
+               this table. It is the third way in: MANUAL is one you type,
+               PROMPT is a batch an AI researches, this is a feed you filter.
 
-               THE ID IN THIS HREF IS LOAD-BEARING AND A STALE ONE 404s
-               SILENTLY. It is TGB ANCHOR EVENT BOT, which kept TGB ANCHOR BOT's
-               id through the 2026-08-28 merge precisely so links like this one
-               did not have to be repointed. -->
-          <a class="btn" id="anchorBotBtn"
-             href="https://claude.ai/code/routines/trig_01HKMKbnCyH6WLKuw7ZstY5b"
-             target="_blank" rel="noopener noreferrer"
-             title="The routine that fills this table twice a day: sport, concerts, conventions, festivals and expos, at venues holding 10,000 or more. Opens at claude.ai, where Run is.">ANCHOR BOT</a>
+               IT READS `api.seatgeek.com` FROM THE BROWSER, WITH NO SERVER.
+               Measured before it was built: that host answers
+               `access-control-allow-origin: *`, so the page can call it
+               directly, exactly as the deleted ESPN importer read ESPN.
+
+               **SEATGEEK.COM ITSELF CANNOT BE READ THIS WAY AND NEVER WILL BE.**
+               Its public pages sit behind a DataDome bot wall: a plain fetch
+               gets 403 and a JavaScript challenge, from a browser, a script or
+               an Edge Function alike. Only a real browser passes it, which is
+               why the PROMPT route -- an AI with a browser -- is told to read
+               those pages and this button reads the API instead. **Do not
+               "fix" this by scraping the site.** -->
+          <button class="btn" id="seatgeekBtn" type="button"
+                  title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
         </div>
       </fieldset>
+
+      <!-- THREE WAYS IN AND NO ROUTINE. TGB ANCHOR EVENT BOT filled this table
+           twice a day and its door lived in this bar; both were deleted on
+           2026-08-28. What replaced it is SEATGEEK, which reads the same kind
+           of thing on demand for a city and a window, with a person choosing
+           the rows -- so the table is filled deliberately rather than
+           accumulating. **Nothing writes to `public.events` unattended now.** -->
 
       <!-- SEARCH EXISTING narrows what is already here, so it follows ADD and
            takes the rest of the line. It reads as the pair to ADD: one puts a
@@ -1093,6 +1133,27 @@
            Room's verbs do. -->
       <div class="panel-head">
         <button class="btn small" id="toggleAllBtn" type="button">Expand all</button>
+
+        <!-- BATCH EDIT LIVES IN THE PANEL HEAD, beside Expand all, because both
+             act on the list rather than on a row. It was a floating button in
+             the Tape Room for a while and was moved into the bar there for the
+             same reason. -->
+        <span class="batch-bar" id="batchBar">
+          <label class="batch-all"><input type="checkbox" id="batchAllBox">All</label>
+          <span class="batch-count" id="batchCount">none selected</span>
+          <select id="batchKind" class="command-bar-select" aria-label="Set kind">
+            <option value="">Set kind…</option>
+            <option value="sports">sports</option>
+            <option value="concert">concert</option>
+            <option value="convention">convention</option>
+            <option value="festival">festival</option>
+            <option value="expo">expo</option>
+            <option value="other">other</option>
+          </select>
+          <input type="text" id="batchSource" placeholder="Set source…" autocomplete="off">
+          <button class="btn small" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
+          <button class="btn small warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
+        </span>
       </div>
       <div class="pager pager--top" id="pagerTop" hidden></div>
       <div class="event-list" id="eventList"></div>
@@ -1122,22 +1183,51 @@
       </div>
     </div>
 
-    <!-- ISSUES IS A POPUP, NOT A VIEW OF THE PAGE. Pressing it used to narrow
-         the list in place and turn the button into "Show all", so the room you
-         were working in silently became a different room and the way out was
-         the same control that got you in. A report is a thing you read and
-         dismiss; the list underneath stays where you left it. -->
-    <div class="prompt-lightbox" id="issuesLightbox" role="dialog" aria-modal="true" aria-labelledby="issuesDialogTitle" hidden>
+    <!-- SEATGEEK: a city, a window, a list you tick, and an import. -->
+    <div class="prompt-lightbox" id="sgLightbox" role="dialog" aria-modal="true" aria-labelledby="sgDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="issuesDialogTitle">Issues</h2>
-          <button class="btn small" id="closeIssuesBtn" type="button">Close</button>
+          <h2 class="prompt-dialog-title" id="sgDialogTitle">Add Anchor Events from SeatGeek</h2>
+          <button class="btn small" id="closeSgBtn" type="button">Close</button>
         </div>
         <div class="prompt-dialog-body">
-          <div class="issue-report" id="issuesReport"></div>
+          <p class="prompt-howto">
+            Give it a city and a date range and it reads SeatGeek for real, announced events.
+            Tick the ones worth building a game around and press Import; every row is editable
+            afterwards, like any other.
+          </p>
+
+          <!-- THE CLIENT ID IS ASKED FOR ONCE AND KEPT IN THIS BROWSER.
+               **IT IS NOT IN THE REPOSITORY AND MUST NOT BE PUT THERE**: this
+               page is public HTML on GitHub Pages, so a key committed here is a
+               key published to the web, and anyone could spend our rate limit.
+               localStorage is the same bargain the prompt's own edits make.
+               It is free: seatgeek.com/account/develop. -->
+          <fieldset class="prompt-options prompt-options--sg" id="sgKeyBox" aria-label="SeatGeek client ID">
+            <legend class="prompt-options-label">SeatGeek client ID</legend>
+            <input type="text" id="sgClientId" placeholder="paste it once, it stays in this browser" autocomplete="off" spellcheck="false">
+            <a class="btn small" href="https://seatgeek.com/account/develop" target="_blank" rel="noopener noreferrer">Get one</a>
+          </fieldset>
+
+          <fieldset class="prompt-options prompt-options--sg" aria-label="Where and when">
+            <legend class="prompt-options-label">Where and when</legend>
+            <input type="text" id="sgCity" placeholder="Denver" autocomplete="off">
+            <label class="prompt-option">from <input type="date" id="sgFrom"></label>
+            <label class="prompt-option">to <input type="date" id="sgTo"></label>
+            <button class="btn small primary" id="sgFetchBtn" type="button">Fetch</button>
+          </fieldset>
+
+          <div class="sg-toolbar">
+            <button class="btn small" id="sgAllBtn" type="button">All</button>
+            <button class="btn small" id="sgNoneBtn" type="button">None</button>
+            <span class="sg-count" id="sgCount">nothing fetched yet</span>
+          </div>
+          <div class="sg-list" id="sgList"></div>
+          <p class="prompt-copy-status" id="sgStatus" aria-live="polite"></p>
         </div>
         <div class="prompt-dialog-foot">
-          <div class="prompt-copy-status" id="issuesStatus" aria-live="polite"></div>
+          <div class="sg-count" id="sgFootNote">Every row is editable after import.</div>
+          <button class="btn small primary" id="sgImportBtn" type="button" disabled>Import selected</button>
         </div>
       </div>
     </div>
@@ -1631,10 +1721,28 @@
     const panePrompt = document.getElementById('panePrompt');
     const footPrompt = document.getElementById('footPrompt');
     const errorsBtn = document.getElementById('errorsBtn');
-    const issuesLightbox = document.getElementById('issuesLightbox');
-    const issuesReport = document.getElementById('issuesReport');
-    const issuesStatus = document.getElementById('issuesStatus');
-    const closeIssuesBtn = document.getElementById('closeIssuesBtn');
+    const batchBar = document.getElementById('batchBar');
+    const batchAllBox = document.getElementById('batchAllBox');
+    const batchCount = document.getElementById('batchCount');
+    const batchKind = document.getElementById('batchKind');
+    const batchSource = document.getElementById('batchSource');
+    const batchApplyBtn = document.getElementById('batchApplyBtn');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const seatgeekBtn = document.getElementById('seatgeekBtn');
+    const sgLightbox = document.getElementById('sgLightbox');
+    const closeSgBtn = document.getElementById('closeSgBtn');
+    const sgKeyBox = document.getElementById('sgKeyBox');
+    const sgClientIdEl = document.getElementById('sgClientId');
+    const sgCityEl = document.getElementById('sgCity');
+    const sgFromEl = document.getElementById('sgFrom');
+    const sgToEl = document.getElementById('sgTo');
+    const sgFetchBtn = document.getElementById('sgFetchBtn');
+    const sgAllBtn = document.getElementById('sgAllBtn');
+    const sgNoneBtn = document.getElementById('sgNoneBtn');
+    const sgCount = document.getElementById('sgCount');
+    const sgList = document.getElementById('sgList');
+    const sgStatus = document.getElementById('sgStatus');
+    const sgImportBtn = document.getElementById('sgImportBtn');
     const eventPromptText = document.getElementById('eventPromptText');
     const promptCopyStatus = document.getElementById('promptCopyStatus');
     const promptFocus = document.getElementById('promptFocus');
@@ -1661,6 +1769,13 @@
                     loaded: false, total: null, when: 'any', issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
+
+    // ── BATCH EDIT ────────────────────────────────────────────
+    //
+    // IDS, NOT ROWS. Every write reloads or replaces the row objects, so a
+    // remembered object is a stale object -- the same rule the Tape Room's
+    // focused track keeps.
+    const picked = new Set();
 
     // ONE PLURALISER, AND EVERY COUNT ON THIS PAGE GOES THROUGH IT. There were
     // eleven hand-written `+ ' events'`, and "Checked 1 events" is what you get
@@ -2061,7 +2176,26 @@
       name.placeholder = displayTitle(Object.assign({}, row, { title: '' }));
       name.setAttribute('aria-label', 'Event title');
 
-      head.append(caret, name);
+      // ── THE TICK LEADS THE ROW ───────────────────────────────
+      //
+      // BEFORE THE CARET, so the column of ticks runs straight down the left
+      // edge whether a row is open or shut. It carries its own label for a
+      // screen reader, since a bare checkbox in a list of fifty says nothing.
+      //
+      // IT STOPS ITS OWN CLICK. The head opens the row, so without this,
+      // ticking a box would also expand the card underneath it.
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'event-pick';
+      pick.checked = picked.has(clean(row.id));
+      pick.setAttribute('aria-label', 'Select ' + displayTitle(row));
+      pick.addEventListener('click', (e) => e.stopPropagation());
+      pick.addEventListener('change', () => {
+        if (pick.checked) picked.add(clean(row.id)); else picked.delete(clean(row.id));
+        paintBatchBar();
+      });
+
+      head.append(pick, caret, name);
 
       // NO DATE OR TIME IN THE HEAD. They sat in a box upper right for a day.
       // With the When band boxed directly under the collapse row, an opened card
@@ -2581,6 +2715,11 @@
       // Every render rebuilds the cards closed, so the button has to be
       // repainted with them or it goes on offering to collapse a shut list.
       syncToggleAll();
+      // THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render, and the bar
+      // is painted from what survives. A tick that outlived its row would be a
+      // batch press landing on something you cannot see.
+      prunePicked();
+      paintBatchBar();
     }
 
     // ── Expand / collapse everything on the page ──────────────────────────────
@@ -3466,12 +3605,22 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        // THE LIST UNDERNEATH IS NOT TOUCHED. It is re-rendered because the
-        // flag and its words have changed on some of these rows and the row
-        // annotations are drawn from them, but nothing is filtered: the report
-        // opens over the page you were already on.
+        // ── AND THEN IT NARROWS THE PAGE ─────────────────────────
+        //
+        // **THROUGH THE ISSUES FILTER THAT ALREADY EXISTS**, not through a
+        // state of its own. That picker reads the stored flag, which is exactly
+        // what the sweep has just written, so pressing Check is the same as
+        // running the checks and then choosing "has issues" by hand.
+        //
+        // ONE STATE, TWO CONTROLS, AND THAT IS THE WHOLE REASON IT IS DONE THIS
+        // WAY. A second `reviewOnly` would be a second idea of one filter, and
+        // this page has already paid for that shape once. It also means **the
+        // way out is obvious and already on screen**: set Issues back to `any`.
+        state.issues = 'yes';
+        const issuesPicker = document.getElementById('issuesFilter');
+        if (issuesPicker) issuesPicker.value = 'yes';
+        state.page = 1;
         render();
-        openIssuesDialog();
         if (!flagFailed) {
           const inReview = state.rows.filter(isInReview).length;
           // THE FLAG MOVES EVEN WHEN THE REVIEW QUEUE DOES NOT, which is the
@@ -3482,113 +3631,15 @@
             ? ' Issues flag updated on ' + plural(flagged, 'row') + '.'
             : '';
           setStatus((inReview
-            ? 'Nothing new. ' + inReview + ' in review.'
-            : 'Checked ' + plural(state.rows.length, 'event') + '. Nothing to review.') + flagNote, 'success');
+            ? 'Showing the ' + plural(inReview, 'event') + ' with something wrong. Set Issues back to any for the rest.'
+            : 'Checked ' + plural(state.rows.length, 'event') + '. Nothing wrong with any of them.') + flagNote,
+            'success');
         }
       } finally {
         errorsBtn.disabled = false;
         errorsBtn.textContent = orig;
         syncErrorsBtn();
       }
-    }
-
-    // ── THE REPORT ──────────────────────────────────────────
-    //
-    // ISSUES IS A POPUP AND `state.reviewOnly` IS GONE. The button used to
-    // narrow the list in place and rename itself Show all, so one control was
-    // the way in and the way out of a view you had not asked to be in, and the
-    // room you were working in quietly became a different room.
-    //
-    // THE COST OF A REPORT, stated because it is what deleted the last one: a
-    // block in a list has to repeat the event's name just to say what it is
-    // talking about, and then offer a way back to it. **The row annotations
-    // stay** -- the findings are still drawn on the row they belong to, where
-    // they inherit both for free -- so this is the sweep's answer collected in
-    // one place, not the only place a finding appears.
-    function renderIssuesReport() {
-      if (!issuesReport) return;
-      issuesReport.textContent = '';
-      const rows = state.rows.filter(isInReview);
-      if (!rows.length) {
-        issuesReport.appendChild(emptyNode(state.rows.length
-          ? 'Nothing to report. ' + (state.rows.length === 1
-              ? 'The one event on file passed the checks.'
-              : 'All ' + plural(state.rows.length, 'event') + ' passed the checks.')
-          : 'No events yet.'));
-        return;
-      }
-      rows.forEach((row) => {
-        const item = document.createElement('div');
-        item.className = 'issue-item';
-
-        const head = document.createElement('div');
-        head.className = 'issue-item-head';
-        const name = document.createElement('span');
-        name.className = 'issue-item-name';
-        name.textContent = displayTitle(row);
-        const id = document.createElement('span');
-        id.className = 'issue-item-id';
-        id.textContent = clean(row.id);
-        // GO CLOSES THE REPORT AND TAKES YOU TO THE ROW, because the report
-        // cannot fix anything: every finding is answered by editing a field.
-        const go = document.createElement('button');
-        go.type = 'button';
-        go.className = 'btn small issue-item-go';
-        go.textContent = 'Go';
-        go.title = 'Close this and show ' + clean(row.id) + ' on the list.';
-        go.addEventListener('click', () => {
-          closeIssuesDialog();
-          focusEventRow(row.id);
-        });
-        head.appendChild(name);
-        head.appendChild(id);
-        head.appendChild(go);
-        item.appendChild(head);
-
-        // THE FORCING REASONS, THE SAME ONES THE ROW DRAWS. `reviewReasons` is
-        // the single reader, so the report and the annotation cannot disagree
-        // about what is wrong with a row.
-        const why = document.createElement('div');
-        why.className = 'issue-item-why';
-        const reasons = reviewReasons(row);
-        if (!reasons.length) {
-          // A ROW CAN BE IN REVIEW WITH NOTHING OBJECTING, and saying nothing
-          // here would make it look like the report had failed to load.
-          const line = document.createElement('div');
-          line.className = 'issue-item-line';
-          line.textContent = 'Flagged, with nothing here for a rule to object to.';
-          why.appendChild(line);
-        }
-        reasons.forEach((text) => {
-          const line = document.createElement('div');
-          line.className = 'issue-item-line';
-          line.textContent = text;
-          why.appendChild(line);
-        });
-        item.appendChild(why);
-        issuesReport.appendChild(item);
-      });
-    }
-
-    function openIssuesDialog() {
-      if (!issuesLightbox) return;
-      renderIssuesReport();
-      if (issuesStatus) {
-        const n = state.rows.filter(isInReview).length;
-        issuesStatus.textContent = n
-          ? plural(n, 'event') + (n === 1 ? ' needs a look.' : ' need a look.')
-          : 'Checked ' + plural(state.rows.length, 'event') + '.';
-      }
-      issuesLightbox.hidden = false;
-      issuesLightbox.classList.add('is-open');
-      if (closeIssuesBtn) closeIssuesBtn.focus();
-    }
-
-    function closeIssuesDialog() {
-      if (!issuesLightbox) return;
-      issuesLightbox.classList.remove('is-open');
-      issuesLightbox.hidden = true;
-      if (errorsBtn) errorsBtn.focus();
     }
 
     // THE FACE IS THE VERB, AND IT COUNTS. `Check` says what pressing it does;
@@ -3640,6 +3691,361 @@
     // missed: the annotation names the town, and naming it is not the same as
     // getting you there. `?add=` on the Cities page still works and is still
     // tested, so it is one link away from coming back.
+
+
+    // ── SEATGEEK ─────────────────────────────────────────────────
+    //
+    // A city and a window in, real announced events out, and the ones you tick
+    // are inserted. The third way into this table: MANUAL is one you type,
+    // PROMPT is a batch an AI researches, this is a feed you filter.
+    //
+    // TWO THINGS WERE MEASURED BEFORE ANY OF THIS WAS WRITTEN, and both decide
+    // its shape:
+    //
+    //   * `api.seatgeek.com` answers `access-control-allow-origin: *`, so THE
+    //     BROWSER CAN CALL IT DIRECTLY. No Edge Function, no server, no build
+    //     step -- the same thing that made the ESPN importer possible.
+    //   * `seatgeek.com` ITSELF IS BEHIND A DATADOME BOT WALL. A plain fetch
+    //     gets 403 and a JavaScript challenge, and that is true of a browser,
+    //     a script and an Edge Function alike. **Do not "fix" this by scraping
+    //     the site.** Reading those pages is the PROMPT route's job, because an
+    //     AI with a real browser is the only thing that passes.
+    const SG_KEY_STORE = 'tgb_seatgeek_client_id';
+    const sgState = { rows: [], checked: new Set(), busy: false };
+
+    function sgSet(text, kind) {
+      if (!sgStatus) return;
+      sgStatus.textContent = text || '';
+      sgStatus.style.color = kind === 'error' ? 'var(--danger)'
+        : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
+    }
+
+    // THE ID LIVES IN THIS BROWSER AND NOWHERE ELSE. A key committed to this
+    // page is a key published to the web -- it is public HTML on GitHub Pages
+    // -- so it is asked for once and kept in localStorage, which is the same
+    // bargain the prompt's own edits make. Wrapped, because a browser with site
+    // data blocked THROWS on the accessor itself rather than returning null.
+    function sgClientId() {
+      const typed = clean(sgClientIdEl && sgClientIdEl.value);
+      if (typed) return typed;
+      try { return clean(window.localStorage.getItem(SG_KEY_STORE)); } catch (e) { return ''; }
+    }
+
+    function sgRememberKey() {
+      try {
+        const v = clean(sgClientIdEl && sgClientIdEl.value);
+        if (v) window.localStorage.setItem(SG_KEY_STORE, v);
+        else window.localStorage.removeItem(SG_KEY_STORE);
+      } catch (e) { /* a browser that refuses storage still works, per fetch */ }
+    }
+
+    // SEATGEEK'S KINDS ARE NOT OURS, so they are mapped rather than stored raw:
+    // this table's `kind` is one of six and the Kind dropdown cannot show
+    // anything else. Anything unrecognised becomes `other` rather than being
+    // dropped -- a real event with a kind we have no word for is still a real
+    // event.
+    function sgKind(type) {
+      const t = clean(type).toLowerCase();
+      if (!t) return 'other';
+      if (t === 'concert' || t === 'music_festival') return 'concert';
+      if (t === 'comedy' || t === 'theater' || t === 'broadway_tickets_national') return 'other';
+      if (t.indexOf('festival') !== -1) return 'festival';
+      if (t === 'expo') return 'expo';
+      if (t === 'convention' || t === 'comedy_con' || t.indexOf('comic') !== -1) return 'convention';
+      // Everything SeatGeek files under a league or a sport.
+      if (t.indexOf('sport') !== -1 || /nfl|nba|mlb|nhl|ncaa|soccer|mls|wnba|golf|tennis|racing|fighting|wrestling/.test(t)) {
+        return 'sports';
+      }
+      return 'other';
+    }
+
+    // THE LOCAL DATE AND TIME, NOT THE UTC ONE. SeatGeek gives both, and
+    // `datetime_local` is the clock a person standing outside the venue reads,
+    // which is exactly what `start_time` means in this table. Taking the UTC
+    // one would put a late show on the following day for half the country.
+    function sgRow(ev) {
+      const local = clean(ev && ev.datetime_local);
+      const date = local.slice(0, 10);
+      const time = local.slice(11, 16);
+      const venue = (ev && ev.venue) || {};
+      const city = [clean(venue.city), clean(venue.state) || clean(venue.country)]
+        .filter(Boolean).join(', ');
+      const kind = sgKind((ev && ev.type) || '');
+      const perf = (ev && ev.performers) || [];
+      const home = perf.filter((x) => x && x.home_team)[0];
+      const away = perf.filter((x) => x && x.away_team)[0];
+      const row = {
+        id: sgId(ev, kind, date, city),
+        kind: kind,
+        title: clean(ev && ev.short_title) || clean(ev && ev.title),
+        start_date: date || null,
+        end_date: date || null,
+        start_time: time || null,
+        venue: clean(venue.name) || null,
+        venue_city: city || null,
+        // THE SEATGEEK PAGE, which is where this row came from and the only
+        // page we can point at: the API answers with a `url` per event.
+        url: clean(ev && ev.url) || null,
+        source: 'SeatGeek',
+        neutral_site: false,
+        issues: 'NO'
+      };
+      // ── EVERY ROW CARRIES THE SAME KEYS ─────────────────────────
+      //
+      // **PostgREST REFUSES A BULK INSERT WHOSE OBJECTS DIFFER IN THEIR KEYS**,
+      // with "All object keys must match". A sports row carries four club
+      // fields and a concert row does not, so a window holding both was refused
+      // outright -- and the refusal names nothing you can act on.
+      //
+      // So the four are ALWAYS present and null when they do not apply. A null
+      // is what an empty club field already stores, so nothing about the row
+      // changes; only the shape of the request does.
+      row.away_team_geo = null;
+      row.away_team_nickname = null;
+      row.home_team_geo = null;
+      row.home_team_nickname = null;
+
+      // A SPORTS ROW CARRIES ITS TWO CLUBS SPLIT, geo and nickname, never
+      // joined -- the table's own rule, and what the derived name is rebuilt
+      // from. SeatGeek gives a performer's short name, which is the nickname.
+      if (kind === 'sports') {
+        const split = (perfRow) => {
+          if (!perfRow) return { geo: null, nick: null };
+          const full = clean(perfRow.name);
+          const short = clean(perfRow.short_name);
+          // SeatGeek gives "Chicago Bears" and "Bears", so the geo is what is
+          // left when the nickname is taken off the end. If the two do not
+          // line up, the nickname is kept and the geo is left for a human --
+          // **a guessed geo is worse than a blank one**, since nothing
+          // downstream could tell it from a real one.
+          if (short && full.length > short.length && full.slice(-short.length) === short) {
+            return { geo: clean(full.slice(0, full.length - short.length)) || null, nick: short };
+          }
+          return { geo: null, nick: short || full || null };
+        };
+        const a2 = split(away), h2 = split(home);
+        row.away_team_geo = a2.geo;
+        row.away_team_nickname = a2.nick;
+        row.home_team_geo = h2.geo;
+        row.home_team_nickname = h2.nick;
+      }
+      return row;
+    }
+
+    // A READABLE, COLLISION-PROOF ID, the same shape the manual form composes:
+    // KIND-DATE-NAME-CITY, upper case, no spaces. **It is permanent once
+    // stored**, which is why it is derived from the event rather than from
+    // SeatGeek's own numeric id -- a number tells a later reader nothing.
+    function sgId(ev, kind, date, city) {
+      const name = String(clean(ev && (ev.short_title || ev.title)) || '').split(/\s+/)[0];
+      const parts = [idPart(kind, 10), date, idPart(name, 10), idPart(String(city).split(',')[0], 3)];
+      return parts.filter(Boolean).join('-') || 'EVENT';
+    }
+
+    async function sgFetch() {
+      const key = sgClientId();
+      if (!key) {
+        sgSet('Paste a SeatGeek client ID first. It is free, from seatgeek.com/account/develop, and it stays in this browser.', 'error');
+        if (sgClientIdEl) sgClientIdEl.focus();
+        return;
+      }
+      const city = clean(sgCityEl && sgCityEl.value);
+      const from = clean(sgFromEl && sgFromEl.value);
+      const to = clean(sgToEl && sgToEl.value);
+      if (!city) { sgSet('Which city?', 'error'); if (sgCityEl) sgCityEl.focus(); return; }
+      if (!from) { sgSet('Pick a start date.', 'error'); return; }
+      if (to && to < from) { sgSet('The end date is before the start date.', 'error'); return; }
+
+      sgRememberKey();
+      sgFetchBtn.disabled = true;
+      const orig = sgFetchBtn.textContent;
+      sgFetchBtn.textContent = 'Fetching\u2026';
+      sgSet('Reading SeatGeek\u2026');
+      try {
+        // ONE PAGE OF 50, NOT EVERY PAGE. A busy city over three months is
+        // hundreds of events, and this is a list somebody reads and ticks --
+        // paging it all in would produce a scroll nobody works through. The
+        // count says how many there were, so a narrower window is the answer
+        // rather than a longer list.
+        const url = new URL('https://api.seatgeek.com/2/events');
+        url.searchParams.set('client_id', key);
+        url.searchParams.set('venue.city', city);
+        url.searchParams.set('datetime_local.gte', from + 'T00:00:00');
+        if (to) url.searchParams.set('datetime_local.lte', to + 'T23:59:59');
+        url.searchParams.set('per_page', '50');
+        url.searchParams.set('sort', 'datetime_local.asc');
+
+        const res = await fetch(url.toString());
+        if (res.status === 403 || res.status === 401) {
+          throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+        }
+        if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
+        const body = await res.json();
+        const events = (body && body.events) || [];
+        const total = (body && body.meta && body.meta.total) || events.length;
+
+        // A ROW WITH NO DATE IS DROPPED HERE rather than filed and flagged: it
+        // is not a candidate, it is a listing we could not read.
+        sgState.rows = events.map(sgRow).filter((r) => r.start_date);
+        const have = new Set(state.rows.map((r) => clean(r.id)));
+        sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
+        renderSg();
+        sgSet(sgState.rows.length
+          ? 'Found ' + plural(sgState.rows.length, 'event') +
+            (total > events.length ? ' of ' + total + '. Narrow the window to see the rest.' : '.') +
+            ' Untick anything you do not want.'
+          : 'Nothing in that window. Try another city spelling or a wider range.',
+          sgState.rows.length ? 'success' : null);
+      } catch (err) {
+        console.error(err);
+        // A NETWORK ERROR HERE IS USUALLY THE KEY OR THE CITY, not the code, so
+        // the message says what to try rather than printing a stack.
+        sgSet(err && err.message ? err.message : 'Could not reach SeatGeek.', 'error');
+      } finally {
+        sgFetchBtn.disabled = false;
+        sgFetchBtn.textContent = orig;
+      }
+    }
+
+    function renderSg() {
+      if (!sgList) return;
+      sgList.textContent = '';
+      const have = new Set(state.rows.map((r) => clean(r.id)));
+      sgState.rows.forEach((row) => {
+        const item = document.createElement('label');
+        item.className = 'sg-item' + (have.has(row.id) ? ' is-dupe' : '');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = sgState.checked.has(row.id);
+        cb.disabled = have.has(row.id);
+        cb.addEventListener('change', () => {
+          if (cb.checked) sgState.checked.add(row.id); else sgState.checked.delete(row.id);
+          paintSgCount();
+        });
+        const name = document.createElement('span');
+        name.className = 'sg-name';
+        name.textContent = row.title || row.id;
+        const sub = document.createElement('span');
+        sub.className = 'sg-sub';
+        sub.textContent = [row.venue, row.venue_city, row.kind].filter(Boolean).join(' \u00b7 ')
+          + (have.has(row.id) ? ' \u00b7 already filed' : '');
+        const when = document.createElement('span');
+        when.className = 'sg-when';
+        when.textContent = [row.start_date, row.start_time].filter(Boolean).join(' ');
+        item.appendChild(cb);
+        item.appendChild(name);
+        item.appendChild(sub);
+        item.appendChild(when);
+        sgList.appendChild(item);
+      });
+      paintSgCount();
+    }
+
+    function paintSgCount() {
+      const have = new Set(state.rows.map((r) => clean(r.id)));
+      const dupes = sgState.rows.filter((r) => have.has(r.id)).length;
+      const n = sgState.checked.size;
+      if (sgCount) {
+        sgCount.textContent = sgState.rows.length
+          ? n + ' selected of ' + sgState.rows.length + (dupes ? ' \u00b7 ' + dupes + ' already filed' : '')
+          : 'nothing fetched yet';
+      }
+      if (sgImportBtn) sgImportBtn.disabled = !n || sgState.busy;
+    }
+
+    async function sgImport() {
+      const have = new Set(state.rows.map((r) => clean(r.id)));
+      const picked = sgState.rows.filter((r) => sgState.checked.has(r.id) && !have.has(r.id));
+      if (!picked.length) return;
+      sgState.busy = true;
+      sgImportBtn.disabled = true;
+      const orig = sgImportBtn.textContent;
+      sgImportBtn.textContent = 'Importing\u2026';
+      sgSet('Importing ' + plural(picked.length, 'event') + '\u2026');
+      try {
+        const res = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          // resolution=ignore-duplicates, because two fetches of one window
+          // overlap by design and a second import should be a no-op rather
+          // than a 23505 naming a constraint.
+          headers: authHeaders({
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation,resolution=ignore-duplicates'
+          }),
+          body: JSON.stringify(picked)
+        });
+        if (!res.ok) {
+          const raw = await readError(res, 'The import was refused.');
+          // PGRST102 IS A SHAPE PROBLEM, NOT A DATA ONE, and its own wording
+          // ("All object keys must match") says nothing about which rows or
+          // which key. If it ever comes back, a field has been added to some
+          // rows and not others in sgRow().
+          throw new Error(/all object keys must match/i.test(raw)
+            ? 'The rows in this batch do not carry the same fields, so PostgREST refused the lot. That is a bug in the importer, not in what you ticked.'
+            : raw);
+        }
+        const saved = await res.json();
+        // READ BACK. PostgREST answers 200 with an empty array when RLS
+        // refuses, so without this a refused import reports success and the
+        // rows are gone on the next reload.
+        if (!Array.isArray(saved) || !saved.length) {
+          throw new Error('Nothing was saved. Check you are signed in as an admin.');
+        }
+        saved.forEach((r) => {
+          state.rows.push(r);
+          sgState.checked.delete(clean(r.id));
+        });
+        if (state.total != null) state.total += saved.length;
+        render();
+        renderSg();
+        // THE SHORTFALL IS NAMED, NOT COUNTED. "12 imported" about 9 is the
+        // quiet sort of lie this project has been caught by before.
+        const short = picked.length - saved.length;
+        sgSet('Imported ' + plural(saved.length, 'event') + '.' +
+          (short ? ' ' + short + ' were already filed and were skipped.' : ''), 'success');
+        setStatus('Imported ' + plural(saved.length, 'event') + ' from SeatGeek.', 'success');
+      } catch (err) {
+        console.error(err);
+        sgSet(err && err.message ? err.message : 'The import failed.', 'error');
+      } finally {
+        sgState.busy = false;
+        sgImportBtn.textContent = orig;
+        paintSgCount();
+      }
+    }
+
+    function openSgDialog() {
+      if (!sgLightbox) return;
+      // THE WINDOW OPENS ON TODAY AND RUNS 366 DAYS.
+      //
+      // TODAY, for the reason the prompt's own `from` does: a past event is the
+      // one thing this table can never use, since our game is played the day
+      // before its anchor and there is no day before a date that has gone.
+      //
+      // **366, NOT 365**, so a window opened on the 29th of February reaches the
+      // same date next year rather than stopping a day short, and so a whole
+      // year is always covered whichever side of a leap day you are on.
+      if (sgFromEl && !sgFromEl.value) sgFromEl.value = todayIso();
+      if (sgToEl && !sgToEl.value) sgToEl.value = isoPlusDays(366);
+      // The stored key, if this browser has one.
+      try {
+        const saved = clean(window.localStorage.getItem(SG_KEY_STORE));
+        if (saved && sgClientIdEl && !sgClientIdEl.value) sgClientIdEl.value = saved;
+      } catch (e) { /* storage refused; the box is simply empty */ }
+      if (sgKeyBox) sgKeyBox.hidden = !!sgClientId();
+      sgSet(sgClientId() ? '' : 'Paste a SeatGeek client ID to begin. It is free and stays in this browser.');
+      sgLightbox.hidden = false;
+      sgLightbox.classList.add('is-open');
+      const first = sgClientId() ? sgCityEl : sgClientIdEl;
+      if (first) first.focus();
+    }
+
+    function closeSgDialog() {
+      if (!sgLightbox) return;
+      sgLightbox.classList.remove('is-open');
+      sgLightbox.hidden = true;
+      if (seatgeekBtn) seatgeekBtn.focus();
+    }
 
     // ── MANUAL: one event, typed by hand, in a popup ──────────────────────────
     // A DIALOG RATHER THAN A CARD UNSHIFTED INTO THE LIST. Creating a row and
@@ -4332,6 +4738,181 @@
       }
     }
 
+
+    // ── BATCH EDIT: THE SELECTION, AND WHAT IT CAN BE MADE TO DO ────────
+    //
+    // THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render. The filters
+    // and the pager both change what is on screen, and **a batch press that
+    // reached a hidden row would be silent and would land on somebody else's
+    // work.** Same rule the Tape Room keeps.
+    function visibleIds() {
+      return listEl ? Array.from(listEl.querySelectorAll('.event-row'))
+        .map((el) => clean(el.dataset.rowId)).filter(Boolean) : [];
+    }
+
+    function prunePicked() {
+      const on = new Set(visibleIds());
+      Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
+    }
+
+    function pickedRows() {
+      return state.rows.filter((r) => picked.has(clean(r.id)));
+    }
+
+    // PAINTED FROM THE SELECTION, never from the last press. Nothing here
+    // remembers a state of its own, so the bar cannot disagree with the ticks.
+    function paintBatchBar() {
+      const n = picked.size;
+      const shown = visibleIds().length;
+      if (batchCount) {
+        batchCount.textContent = n
+          ? plural(n, 'event') + ' selected'
+          : 'none selected';
+      }
+      if (batchAllBox) {
+        batchAllBox.checked = shown > 0 && n === shown;
+        // INDETERMINATE WHEN SOME ARE TICKED, which is the honest third state
+        // and the only one a plain checkbox cannot be put into by a click.
+        batchAllBox.indeterminate = n > 0 && n < shown;
+      }
+      [batchApplyBtn, batchDeleteBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.setAttribute('aria-disabled', n ? 'false' : 'true');
+      });
+      if (batchApplyBtn) {
+        batchApplyBtn.textContent = n ? 'Apply to ' + n : 'Apply';
+        batchApplyBtn.title = n
+          ? 'Write the fields set beside this to the ' + plural(n, 'selected event') + '.'
+          : 'Tick some events first.';
+      }
+      if (batchDeleteBtn) {
+        batchDeleteBtn.title = n
+          ? 'Delete the ' + plural(n, 'selected event') + ' for good.'
+          : 'Tick some events first.';
+      }
+    }
+
+    // ONE REQUEST FOR THE LOT, `id=in.(...)`, not a loop -- and
+    // `return=representation`, because PostgREST answers 200 with an empty
+    // array when RLS refuses. **A SHORT REPLY IS REPORTED, NEVER ROUNDED UP**:
+    // saying "12 updated" about 9 is the quiet sort of lie this project has
+    // been caught by before.
+    function inFilter(ids) {
+      return 'in.(' + ids.map((id) => '"' + String(id).replace(/"/g, '""') + '"').join(',') + ')';
+    }
+
+    async function batchApply() {
+      if (batchApplyBtn && batchApplyBtn.getAttribute('aria-disabled') === 'true') {
+        setStatus('Tick some events first.', 'error');
+        return;
+      }
+      const rows = pickedRows();
+      if (!rows.length) return;
+
+      // ONLY THE FIELDS YOU FILLED IN. An empty control means "leave it alone",
+      // never "clear it" -- clearing a column on a selection is not something
+      // an empty box should be able to do by accident.
+      const payload = {};
+      const kind = clean(batchKind && batchKind.value);
+      const source = clean(batchSource && batchSource.value);
+      if (kind) payload.kind = kind;
+      if (source) payload.source = source;
+      if (!Object.keys(payload).length) {
+        setStatus('Nothing to apply: set a kind or a source first.', 'error');
+        return;
+      }
+
+      const ids = rows.map((r) => clean(r.id));
+      if (!window.confirm('Set ' + Object.keys(payload).join(' and ') + ' on ' +
+            plural(ids.length, 'event') + '?')) return;
+
+      batchApplyBtn.disabled = true;
+      const orig = batchApplyBtn.textContent;
+      batchApplyBtn.textContent = 'Applying\u2026';
+      try {
+        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'The change was refused.'));
+        const saved = await res.json();
+        if (!Array.isArray(saved) || !saved.length) {
+          throw new Error('The database refused that write, so nothing changed. Check you are signed in as an admin.');
+        }
+        saved.forEach((r) => {
+          const i = state.rows.findIndex((x) => clean(x.id) === clean(r.id));
+          if (i !== -1) state.rows[i] = r;
+        });
+        render();
+        // THE SHORTFALL IS NAMED, NOT COUNTED.
+        const short = ids.length - saved.length;
+        setStatus('Updated ' + plural(saved.length, 'event') + '.' +
+          (short ? ' ' + plural(short, 'event') + (short === 1 ? ' was' : ' were')
+            + ' refused and is unchanged.' : ''), 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'That did not work.', 'error');
+      } finally {
+        batchApplyBtn.disabled = false;
+        batchApplyBtn.textContent = orig;
+        paintBatchBar();
+      }
+    }
+
+    async function batchDelete() {
+      if (batchDeleteBtn && batchDeleteBtn.getAttribute('aria-disabled') === 'true') {
+        setStatus('Tick some events first.', 'error');
+        return;
+      }
+      const ids = pickedRows().map((r) => clean(r.id));
+      if (!ids.length) return;
+      // THE SAME QUESTION A SINGLE DELETE ASKS, in the plural: the row is the
+      // tombstone, so a deleted event may be filed again by anything that reads
+      // this table, and a referenced one is refused by the database.
+      if (!window.confirm('Delete ' + plural(ids.length, 'event') + ' for good?' + '\n\n' +
+            'This cannot be undone. Any event a game is built on will refuse to be deleted.')) return;
+
+      batchDeleteBtn.disabled = true;
+      const orig = batchDeleteBtn.textContent;
+      batchDeleteBtn.textContent = 'Deleting\u2026';
+      try {
+        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) {
+          const raw = await readError(res, 'The delete was refused.');
+          throw new Error(/23503|foreign key/i.test(raw)
+            ? 'A game is built on one of those events, so none of them were deleted. Delete them one at a time to find it.'
+            : raw);
+        }
+        const gone = await res.json();
+        if (!Array.isArray(gone) || !gone.length) {
+          throw new Error('The database refused that delete, so nothing changed. Check you are signed in as an admin.');
+        }
+        // BUILT FROM THE ROWS RETURNED, NOT THE IDS ASKED FOR. A delete that
+        // reached three of five must not clear five cards -- the exact bug the
+        // issues room shipped and had to fix.
+        const removed = new Set(gone.map((r) => clean(r.id)));
+        state.rows = state.rows.filter((r) => !removed.has(clean(r.id)));
+        removed.forEach((id) => picked.delete(id));
+        if (state.total != null) state.total = Math.max(0, state.total - removed.size);
+        render();
+        const short = ids.length - removed.size;
+        setStatus('Deleted ' + plural(removed.size, 'event') + '.' +
+          (short ? ' ' + plural(short, 'event') + (short === 1 ? ' was' : ' were')
+            + ' refused and is still here.' : ''), 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'That did not work.', 'error');
+      } finally {
+        batchDeleteBtn.disabled = false;
+        batchDeleteBtn.textContent = orig;
+        paintBatchBar();
+      }
+    }
+
     // ── DELETING AN EVENT ───────────────────────────────────
     //
     // A REAL DELETE. `setArchived`, `purgeArchived` and everything they needed
@@ -4501,17 +5082,45 @@
         if (event.target === promptLightbox) closePromptLightbox();
       });
     }
-    if (closeIssuesBtn) closeIssuesBtn.addEventListener('click', closeIssuesDialog);
-    if (issuesLightbox) {
-      issuesLightbox.addEventListener('click', (event) => {
-        if (event.target === issuesLightbox) closeIssuesDialog();
+    if (batchApplyBtn) batchApplyBtn.addEventListener('click', batchApply);
+    if (batchDeleteBtn) batchDeleteBtn.addEventListener('click', batchDelete);
+    if (batchAllBox) {
+      batchAllBox.addEventListener('change', () => {
+        // ALL MEANS WHAT IS ON SCREEN, not the whole table: a filter or a page
+        // is exactly the narrowing somebody did on purpose before pressing it.
+        const ids = visibleIds();
+        if (batchAllBox.checked) ids.forEach((id) => picked.add(id));
+        else ids.forEach((id) => picked.delete(id));
+        render();
+      });
+    }
+
+    if (seatgeekBtn) seatgeekBtn.addEventListener('click', openSgDialog);
+    if (closeSgBtn) closeSgBtn.addEventListener('click', closeSgDialog);
+    if (sgFetchBtn) sgFetchBtn.addEventListener('click', sgFetch);
+    if (sgImportBtn) sgImportBtn.addEventListener('click', sgImport);
+    if (sgClientIdEl) sgClientIdEl.addEventListener('change', sgRememberKey);
+    if (sgAllBtn) {
+      sgAllBtn.addEventListener('click', () => {
+        // NEVER A ROW ALREADY FILED, which the import would skip anyway.
+        const have = new Set(state.rows.map((r) => clean(r.id)));
+        sgState.rows.forEach((r) => { if (!have.has(r.id)) sgState.checked.add(r.id); });
+        renderSg();
+      });
+    }
+    if (sgNoneBtn) {
+      sgNoneBtn.addEventListener('click', () => { sgState.checked = new Set(); renderSg(); });
+    }
+    if (sgLightbox) {
+      sgLightbox.addEventListener('click', (event) => {
+        if (event.target === sgLightbox) closeSgDialog();
       });
     }
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
-      // THE REPORT IS THE ONE ON TOP whenever it is open, and it is the only
-      // dialog here that can be opened over another.
-      if (issuesLightbox && !issuesLightbox.hidden) { closeIssuesDialog(); return; }
+      // THE DIALOG ON TOP GOES FIRST. SeatGeek is the only one that can be
+      // opened over another here.
+      if (sgLightbox && !sgLightbox.hidden) { closeSgDialog(); return; }
       if (manualLightbox && !manualLightbox.hidden) { closeManualDialog(); return; }
       if (promptLightbox && !promptLightbox.hidden) closePromptLightbox();
     });
