@@ -4690,6 +4690,57 @@ every `data-band` attribute, the per-band grids for Who and What, and the five
 fixture, and a filled club field never folding. 25 assertions; **14 fail against
 the previous commit.**
 
+### THE ESPN SCHEDULE IMPORTER IS DELETED (2026-08-28)
+
+The prompt dialog held two panes behind a **League schedule / AI prompt** strip.
+The strip and the schedule are gone; the dialog is the prompt box.
+
+**WHAT WENT WITH IT, and it is worth knowing before anybody rebuilds it:**
+
+- **`neutral_site` WAS PUBLISHED PER GAME by the feed.** An international game
+  arrived flagged and an ordinary home game in a suburb stadium arrived false --
+  the single strongest reason to prefer it over a prompt for the big four, and
+  the distinction the prompt now spends its longest passage explaining.
+- **IT IMPORTED WITHOUT A COPY-PASTE**, straight into the table, chunked, with a
+  per-row error report and a retry that named the row the database refused.
+- **IT READ THE FEED IN THE BROWSER.** No key, no server, no build step, because
+  `site.api.espn.com` sends `Access-Control-Allow-Origin: *`.
+- The venue-local timezone maps (`STATE_TZ`, `COUNTRY_TZ`, `COUNTRY_ALIAS`), the
+  UTC-vs-local date re-filter, and the id shapes went too.
+
+**REBUILD IT AS A NEW THING IF IT IS WANTED, not by reviving this**, and read
+the SCHEDULE section further down first -- the reasoning in it is still true,
+it just describes something that is no longer there.
+
+**THE THREE PAGES IT ABSORBED ARE STILL DELETED.** `mc/get_games.html` and
+`mc/mlb.html` went in 2026-08-07 and nothing brings them back; what replaced
+them is now the prompt alone.
+
+### SCOPE IS MULTI-SELECT, AND THE CITY LIST LEFT THE PROMPT (2026-08-28)
+
+- **THE KIND PICKER TAKES SEVERAL.** Concerts *and* festivals is an ordinary
+  thing to want and the single picker made it two runs. `promptScopeLine` reads
+  `selectedOptions`, not `.value` -- **`select.value` is the first selected
+  option**, so reading it on a multiple select silently throws the rest away,
+  which looks exactly like the control not working.
+- **NOTHING SELECTED MEANS ANY KIND**, which is why the `Any kind` option went:
+  on a multiple select it would be a value meaning the same as selecting
+  nothing, and two ways to say one thing is how they end up disagreeing. A hint
+  beside the box says so, since an empty list box cannot.
+- **SCOPE MOVED ABOVE THE PROMPT, under the count**, for the count's own reason:
+  which kinds and over what window are questions you answer before reading a
+  word. **Focus is the only knob left below the text.**
+- **IT IS A REAL `<fieldset><legend>`**, so the browser cuts the box's top
+  border for the word. It was a `<div>` with a `<span>` inside, which put the
+  label INSIDE the border while the count beside it cut through -- two boxes
+  doing one job two ways, a few pixels apart.
+- **THE 1,451-LINE CITY LIST IS OUT OF THE PROMPT.** It was appended verbatim to
+  every copy so `venue_city` would land on a real row. The instruction now
+  describes the FORM instead -- "City, State" spelled out for a US city, "City,
+  Country" elsewhere -- and the room's own `unknown-city` finding catches what
+  gets through. **The prompt is 9.5KB instead of ~40KB**, which is the
+  difference between a prompt a model reads and a prompt it skims.
+
 ### THE AI PROMPT DIALOG IS THE SOCIALIZER'S, FOOT AND ALL (2026-08-28)
 
 It had a blurb of my own writing and a lone **Copy** button; it now carries the
