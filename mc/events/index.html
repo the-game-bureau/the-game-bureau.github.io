@@ -3973,12 +3973,24 @@
     // -- and it belongs next to the kind and the description, not tacked onto
     // the end of the form.
     const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
+
+    // ── WHAT THE MANUAL FORM LEAVES OUT ───────────────────────────────────
+    //
+    // A SCORE IS FILLED IN AFTER THE EVENT, and you are creating one that has
+    // not happened: nobody has ever typed a score into this dialog and nobody
+    // ever should. **They are still on the CARD**, which is where a result is
+    // added once there is one.
+    //
+    // THIS IS A DELIBERATE OMISSION, NOT A GAP, which is why it is a named list
+    // rather than a field quietly missing from a band. The check below reads it,
+    // so a field dropped by accident is still reported and this one is not.
+    const MANUAL_SKIP = ['away_team_score', 'home_team_score'];
     // WHAT ONE BAND OF THE MANUAL FORM HOLDS. The builder calls this and so
     // does the check below, so the thing being asserted is the thing being
     // built -- not a second list that happens to agree today.
     function manualBandFields(g) {
       const extra = MANUAL_EXTRA[g.key];
-      const fields = g.fields.slice();
+      const fields = g.fields.filter((f) => MANUAL_SKIP.indexOf(f) === -1);
       if (extra) {
         const at = fields.indexOf(extra.after);
         fields.splice(at < 0 ? fields.length : at + 1, 0, extra.field);
@@ -3995,7 +4007,12 @@
     // either, because the row arrives missing something nobody was asked for.
     (function assertManualCoversFields() {
       const named = MANUAL_ORDER.filter((f) => f !== 'id');
-      const missing = EDITABLE_FIELDS.filter((f) => named.indexOf(f) === -1);
+      // MANUAL_SKIP IS THE ONLY WAY A FIELD MAY BE ABSENT. Anything else
+      // missing is a column reachable when editing and not when creating, which
+      // is worse than either: the row arrives without something nobody was
+      // asked for.
+      const missing = EDITABLE_FIELDS.filter(
+        (f) => named.indexOf(f) === -1 && MANUAL_SKIP.indexOf(f) === -1);
       const twice = named.filter((f, i) => named.indexOf(f) !== i);
       if (missing.length) console.error('events: MANUAL form is missing editable fields:', missing);
       // A field injected into a group that already lists it would render two
