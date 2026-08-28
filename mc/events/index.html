@@ -2205,15 +2205,24 @@
         const startEl = body.querySelector('[data-field="start_date"]');
         const endEl = body.querySelector('[data-field="end_date"]');
         if (startEl && endEl) {
-          // `input` AND `change`. A date input fires `input` as the picker moves
-          // and as you type, and `change` only on commit, so listening to
-          // `change` alone left the end date empty while you were looking at a
-          // start date you had already chosen.
+          // THE MIRROR OWNS WHAT IT WROTE. Listening to `input` alone filled the
+          // end date MID-KEYSTROKE: typing a year digit by digit makes the start
+          // briefly valid at `0002-01-01`, that got copied, and from then on the
+          // end date was not blank so nothing corrected it. Listening to
+          // `change` alone left the box empty while you looked at a date you had
+          // already picked. So it remembers its own value: while the end date
+          // still holds it, it is ours to update; the moment somebody types
+          // their own, it is theirs.
+          let mirrored = '';
           const mirror = () => {
-            if (clean(startEl.value) && !clean(endEl.value)) {
-              endEl.value = startEl.value;
-              markDirty();
-            }
+            const start = clean(startEl.value);
+            const end = clean(endEl.value);
+            if (!start) return;
+            if (end && end !== mirrored) return;
+            if (end === start) return;
+            endEl.value = start;
+            mirrored = start;
+            markDirty();
           };
           startEl.addEventListener('input', mirror);
           startEl.addEventListener('change', mirror);
@@ -4204,10 +4213,21 @@
       const startEl = manualForm.querySelector('[data-field="start_date"]');
       const endEl = manualForm.querySelector('[data-field="end_date"]');
       if (startEl && endEl) {
+        // SEE THE CARD'S COPY for why this tracks its own value rather than
+        // testing for blank: a date typed digit by digit is briefly valid at a
+        // year like 0002, and a mirror that fires on that then never corrects
+        // itself.
+        let mirrored = '';
         const mirror = () => {
-          // A REAL RANGE IS NEVER OVERWRITTEN. Only a blank end date is filled,
-          // so a festival you have typed two dates for keeps them.
-          if (clean(startEl.value) && !clean(endEl.value)) endEl.value = startEl.value;
+          const start = clean(startEl.value);
+          const end = clean(endEl.value);
+          if (!start) return;
+          // A REAL RANGE IS NEVER OVERWRITTEN: once the end date holds something
+          // the mirror did not put there, it belongs to whoever typed it.
+          if (end && end !== mirrored) return;
+          if (end === start) return;
+          endEl.value = start;
+          mirrored = start;
         };
         startEl.addEventListener('input', mirror);
         startEl.addEventListener('change', mirror);
