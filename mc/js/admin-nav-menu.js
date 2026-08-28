@@ -49,7 +49,7 @@
       // full cards of scrolling.
       items: [
         {
-          href: '/mc/pathbuilder.html',
+          href: '/mc/waypoints/',
           // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
           // waypoints and nothing else -- no game, no challenges, no pricing --
           // so it is a part a game is assembled FROM, which is what this group
@@ -61,14 +61,19 @@
           // room that actually assembles a walk below four catalogues you
           // consult; a Path is the thing being built and the others are what it
           // is built out of.
-          label: 'Path Builder',
-          // ONE ROOM, ONE NAME. The waypoint catalogue and the paths built from
-          // it were folded into this page on 2026-08-09, but the doorways kept
+          label: 'Waypoints',
+          // ONE ROOM, ONE NAME, AND THE NAME IS NOW THE ONE THE DOORWAYS
+          // ALREADY USED. The waypoint catalogue and the paths built from it
+          // were folded into this page on 2026-08-09, but the doorways kept
           // calling it two things -- "Waypoints" from the Data Warehouse and
           // Daily Review, "Path Builder" here -- so it read as two rooms that
-          // happened to share a URL. The description now says both jobs.
+          // happened to share a URL. That was settled in favour of Path Builder
+          // and settled the other way on 2026-08-28: WAYPOINTS is what the room
+          // is called now, and mc/pathbuilder.html moved to /mc/waypoints/ with
+          // it. The description still says both jobs, because the room still
+          // does both.
           description: 'The catalog of real places, the nightly scout, and the walking paths built from them.',
-          action: 'GO TO THE PATH BUILDER'
+          action: 'GO TO WAYPOINTS'
         },
         {
           // This card was WAYPOINTS until 2026-08-09 — it pointed at
@@ -76,7 +81,10 @@
           // Path Builder it became a second door to a room the Game Builder
           // group below already lists. Guides took the slot, then became the
           // Green Room the same day when mc/guides.html was rebuilt as
-          // mc/greenroom.html against public.guides.
+          // mc/greenroom.html against public.guides. The card ABOVE is called
+          // Waypoints again as of 2026-08-28, and it is NOT this card coming
+          // back: the old one was a second door to the same room, this is the
+          // room itself, renamed.
           href: '/mc/greenroom.html',
           label: 'Guide Green Room',
           description: 'Where the narrators are made — add, write, illustrate and retire the guides.',

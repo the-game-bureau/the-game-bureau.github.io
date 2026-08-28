@@ -30,7 +30,7 @@
  *
  * Five prompts and the SQL they lean on, lifted verbatim out of
  * mc/data/waypoints.html on 2026-08-09 when that page was folded into the
- * Path Builder. THE TEXT IS THE PRODUCT here: every clause in these prompts
+ * WAYPOINTS room. THE TEXT IS THE PRODUCT here: every clause in these prompts
  * was paid for by a bad run - the address rule, the do-not-repeat list, the
  * loop's five-minute finish, the commercial start and end, the description
  * voice. It is moved, not rewritten, and it should keep being moved rather

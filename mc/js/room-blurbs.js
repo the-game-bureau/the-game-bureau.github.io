@@ -30,10 +30,11 @@
  * Partners joined on 2026-08-20 and left the same day: the room was folded
  * into the Path Builder, because a partner is a waypoint and it was a second
  * list of the same rows. A key nothing renders is exactly the stale copy
- * this file exists to prevent. The Path Builder and the Green
- * Room have blurbs and no Ancillary Things card, so their sentence is written once,
- * on the room, and has nothing to drift against. Add them here the day they get
- * a card, not before.
+ * this file exists to prevent. (That room was renamed WAYPOINTS on 2026-08-28;
+ * the fold is what matters here, not what it was called on the day.) WAYPOINTS
+ * and the Green Room have blurbs and no Ancillary Things card, so their
+ * sentence is written once, on the room, and has nothing to drift against. Add
+ * them here the day they get a card, not before.
  */
 (function () {
   'use strict';

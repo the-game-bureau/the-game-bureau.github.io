@@ -182,7 +182,7 @@ Whichever route got you here, the facts are yours to check. Wikipedia and a hist
 
 ## 5. ZIP and coordinates on every NEW stop
 
-A waypoint with no point cannot be drawn on the Path Builder's map. You have the address in front of you, so you are the cheapest place to look it up. Use `addressdetails=1` and take the ZIP from `address.postcode` on an accepted result, so one call answers both.
+A waypoint with no point cannot be drawn on the WAYPOINTS room's map. You have the address in front of you, so you are the cheapest place to look it up. Use `addressdetails=1` and take the ZIP from `address.postcode` on an accepted result, so one call answers both.
 
 Re-read the geocoder rules at the top before you start. **A stop you are reusing from the library already has its point and ZIP; leave it alone and do not spend a call on it.** **A stop that came off a Wikipedia article with coordinates already has its point too**; it may still need one call for the ZIP if it has a street address and you want the postal code, and that is the right thing to spend the budget on.
 

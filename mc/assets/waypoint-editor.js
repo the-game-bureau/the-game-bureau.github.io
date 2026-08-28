@@ -2,9 +2,14 @@
 //
 // window.TgbWaypointEditor
 //
-// WHY THIS FILE EXISTS. The editor lived inside mc/pathbuilder.html and the Waypoint
+// THE ROOM IS CALLED WAYPOINTS AND LIVES AT mc/waypoints/index.html. It was
+// the PATH BUILDER at mc/pathbuilder.html until 2026-08-28, which is the name
+// most of the comments below were written under; where one says Path Builder
+// it means that room, and nothing about this module changed with the rename.
+//
+// WHY THIS FILE EXISTS. The editor lived inside that room's page and the Waypoint
 // Finder had a five-field form of its own, so the same job was done two ways in
-// two rooms: the Path Builder could geocode, search OpenStreetMap, run a Plus
+// two rooms: WAYPOINTS could geocode, search OpenStreetMap, run a Plus
 // Code, warn about a near-duplicate and shelve a place, and the Finder could
 // type five boxes. They edit the SAME ROW of the same table. Keeping them in
 // step by hand is the arrangement this repo has already lost to twice, with the
@@ -28,7 +33,7 @@
 //                                                 and kept in step after a write
 //     removeWaypoint(wpid)                        optional, drop one locally
 //     onChanged()                                 optional, repaint the room
-//     path: {                                     optional, PATH BUILDER ONLY
+//     path: {                                     optional, WAYPOINTS ROOM ONLY
 //       isOpen() -> boolean,
 //       has(wpid) -> boolean,
 //       add(wpid)
@@ -81,7 +86,7 @@
 
 
   // ---- helpers the editor used to borrow from its host page -------------------
-  // Each of these lived in mc/pathbuilder.html and is pulled in here so the module
+  // Each of these lived in the WAYPOINTS room's page and is pulled in here so the module
   // stands alone. They are small and have no page state in them.
 
   // COLUMN PROBING, NOT ASSUMING. Naming a column PostgREST does not have 400s
@@ -92,9 +97,9 @@
 
   // THE COLUMNS wpPayload ALWAYS WRITES.
   //
-  // THIS LIVED IN mc/pathbuilder.html UNTIL 2026-08-20 AND THE MODULE READ IT
-  // AS A GLOBAL. It worked, because a top-level `const` in a classic script
-  // is visible to every other script on the page, and the Path Builder was
+  // THIS LIVED IN THE WAYPOINTS ROOM'S PAGE UNTIL 2026-08-20 AND THE MODULE
+  // READ IT AS A GLOBAL. It worked, because a top-level `const` in a classic
+  // script is visible to every other script on the page, and that room was
   // the only host. The moment a SECOND room mounted this editor, wpPayload
   // threw `WP_FIELDS is not defined` on the first write -- which surfaced as
   // Fill quietly failing on mc/partners.html, with the ReferenceError caught
@@ -126,7 +131,7 @@
   // stored, required by three prompts, filled by Fill and read by nothing: the
   // rooms printed the name as dead text and the URL not at all.
   //
-  // ONE HELPER RATHER THAN FOUR COPIES, because it appears in the Path Builder's
+  // ONE HELPER RATHER THAN FOUR COPIES, because it appears in the WAYPOINTS room's
   // library rows, its path rows and its map popup, and on the Partners card, and
   // four hand-written anchors is how three of them end up missing `rel=noopener`
   // and the fourth swallows a drag.
@@ -136,7 +141,7 @@
   // the first thing in this file that is not.
   //
   // THREE THINGS IT MUST DO, each of them a bug if left out:
-  //   * draggable = false. The Path Builder's rows are dragged BY THE WHOLE ROW,
+  //   * draggable = false. The WAYPOINTS room's rows are dragged BY THE WHOLE ROW,
   //     and a browser starts its own link-drag from an anchor inside one, which
   //     hijacks the gesture the room is built on.
   //   * stopPropagation on click. A row click focuses or selects; following a
@@ -181,7 +186,7 @@
     a.addEventListener('click', function (e) { e.stopPropagation(); });
     // NO dragstart HANDLER, AND THAT IS THE POINT OF draggable = false ABOVE.
     // preventDefault here would cancel the drag ENTIRELY, not just the link's:
-    // dragstart bubbles, and the Path Builder's rows are dragged BY THE WHOLE
+    // dragstart bubbles, and the WAYPOINTS room's rows are dragged BY THE WHOLE
     // ROW, so killing it on the name would make the middle of every row dead to
     // the one gesture the room is built on. With the anchor not a drag source,
     // the browser walks up to the row and drags that instead, which is exactly
@@ -205,7 +210,7 @@
     return host.waypoints().find(function (w) { return String(w.wpid) === String(id); });
   }
 
-  // The city a NEW waypoint is born in. The Path Builder answers with the open
+  // The city a NEW waypoint is born in. The WAYPOINTS room answers with the open
   // path's city; a room with no path answers with whatever it is filtered to,
   // and '' is a fine answer -- the field is editable and required.
   function pathCity() { return host.defaultCity ? cleanText(host.defaultCity()) : ''; }
@@ -313,7 +318,7 @@
     '.find-row.is-dupe { border-color: var(--warn); }',
     '.find-row-dupe { font-size: 0.72rem; color: var(--warn); font-weight: 700; }',
     /* The dialog shell, for a room that has no .dlg of its own. A host that
-       already styles .dlg (the Path Builder does) overrides these from its own
+       already styles .dlg (the WAYPOINTS room does) overrides these from its own
        sheet, which loads later. */
     '.dlg { position: fixed; inset: 0; z-index: 1100; display: none; place-items: center; padding: 24px; background: rgba(2, 6, 23, 0.55); }',
     '.dlg.is-open { display: grid; }',
@@ -333,7 +338,7 @@
        read as a pair without a rule, a box or a label. */
     '.dlg-spacer { flex: 1 1 auto; }',
     /* THE EDITOR'S BUTTONS ARE THE EDITOR'S, and they are ID-SCOPED so they
-       win. Every room defines .btn its own way: the Path Builder uppercases at
+       win. Every room defines .btn its own way: WAYPOINTS uppercases at
        3px radius, the Waypoint Finder does not at 6px, so the same dialog was
        reading as two different dialogs depending which door you came through,
        which is the whole thing this module exists to stop. A page's own sheet
@@ -560,7 +565,7 @@
   // whole room for this (mc/partners.html) and it is gone: once the columns
   // moved onto public.waypoints, that page was a second list of the same rows
   // with a second set of boxes writing the same table, reachable from a second
-  // door. Everything it did is here and in the Path Builder's library filter.
+  // door. Everything it did is here and in the WAYPOINTS room's library filter.
   //
   // COLLAPSED UNTIL IT APPLIES. 475 of 480 waypoints are not partners, and a
   // dozen empty contact boxes under every museum and statue would make the
@@ -1340,7 +1345,7 @@
     host = applyHostDefaults(opts);
 
     // FIRST IN <head>, so a host page's own sheet still wins on a tie. The
-    // Path Builder styles .dlg itself and must keep doing so.
+    // The WAYPOINTS room styles .dlg itself and must keep doing so.
     var style = document.createElement('style');
     style.id = 'tgb-waypoint-editor-css';
     style.textContent = CSS;
