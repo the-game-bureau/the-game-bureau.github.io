@@ -1777,7 +1777,14 @@
         .filter(Boolean);
       const twin = duplicateIds.get(clean(row.id));
       if (twin) {
-        reasons.push('Check against ' + twin.twin + '.');
+        // `what` was computed and then thrown away, so every duplicate read
+        // "Check against X" and left you to work out what matched. It says
+        // which parts agree now, which is what tells a real double-filing
+        // from a fixture that merely looks like one.
+        const what = (twin.what || []).join(', ').replace(/, ([^,]*)$/, ' and $1');
+        reasons.push(what
+          ? 'Same ' + what + ' as ' + twin.twin + '. Check against it.'
+          : 'Check against ' + twin.twin + '.');
       }
       return reasons.filter((why, at) => reasons.indexOf(why) === at);
     }
@@ -1798,26 +1805,39 @@
 
     let duplicateIds = new Map();
 
+    /** The cross-row duplicate check: one fixture, filed twice.
+     *
+     *  IT KEYS ON THE CLUBS OR ON THE TITLE, NEVER BOTH AT ONCE. A fixture's
+     *  title is OPTIONAL -- the row reads as its two clubs -- so a key that
+     *  concatenated both was blind to the same game filed once titled and
+     *  once not. Eight NFL fixtures sat duplicated in the live table and the
+     *  room never said a word. Full reasoning in CLAUDE.md. */
     function rebuildDuplicates() {
       const seen = new Map();
       const found = new Map();
       state.rows.forEach((r) => {
         if (!clean(r.start_date)) return;   // undated is its own finding
-        const parts = [
-          clean(r.league),
-          clean(r.start_date),
-          clean(r.away_team_name) || clean(r.away_team_nickname),
-          clean(r.home_team_name) || clean(r.home_team_nickname)
-        ];
-        if (!parts[2] && !parts[3] && !clean(r.title)) return;
-        const key = parts.concat(clean(r.title)).map((v) => v.toLowerCase()).join('|');
+        const league = clean(r.league);
+        const date = clean(r.start_date);
+        const away = clean(r.away_team_name) || clean(r.away_team_nickname);
+        const home = clean(r.home_team_name) || clean(r.home_team_nickname);
+        const title = clean(r.title);
+        const hasClubs = !!(away || home);
+        if (!hasClubs && !title) return;    // nothing names this row
+
+        const key = (hasClubs
+          ? ['clubs', league, date, away, home]
+          : ['title', date, title, clean(r.venue_city)]
+        ).map((v) => v.toLowerCase()).join('|');
+
         const first = seen.get(key);
         if (first) {
-          const what = [];
-          if (parts[0]) what.push('league');
-          if (clean(r.title)) what.push('title');
-          what.push('date');
-          if (parts[2] || parts[3]) what.push('clubs');
+          // THE WORDS ARE BUILT FROM WHAT ACTUALLY MATCHED. "Same league,
+          // date and clubs" is right for a fixture and nonsense on a concert,
+          // which has neither -- and this table is mostly concerts.
+          const what = hasClubs
+            ? (league ? ['league', 'date', 'clubs'] : ['date', 'clubs'])
+            : ['title', 'date', 'venue city'];
           found.set(clean(r.id), { twin: clean(first.id), what: what });
         } else seen.set(key, r);
       });

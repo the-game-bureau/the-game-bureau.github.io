@@ -1566,6 +1566,26 @@ when you add code to it, resist adding the comment back. Put the sentence here.
   this", and doing both the same way round is the mistake. **There is one
   `todayIso()`** -- two would be two ideas of what today is, the moment one grew
   a timezone.
+### THE DUPLICATE CHECK WAS BLIND TO EIGHT REAL DUPLICATES (2026-08-28)
+
+Reported as *"greyed out items due to dupes but not reporting them in issues"*. The greyed rows are the SeatGeek list's `already filed` ones, which are correct and are not faults. **The real fault was underneath: `public.events` held EIGHT NFL fixtures filed twice and the room said nothing about any of them.**
+
+- **THE KEY CONCATENATED THE TITLE, AND A FIXTURE'S TITLE IS OPTIONAL.** The key was `league|date|away|home|title`, and this file's own prompt rule says a fixture's title is NULL because the row reads as its two clubs. So one game filed once titled and once not built TWO different keys:
+
+      NFL-2026-09-27-LV-NO            league=NFL  title=(null)              Caesars Superdome
+      SPORTS-2026-09-27-RAIDERS-NEW   league=NFL  title="Raiders at Saints"  Caesars Superdome
+
+  **It was blind to precisely the case it exists to catch**, and the case is not hypothetical: those are the two id shapes this file already records, `sgId` before it was deleted and `composeEventId` after, so every fixture imported across that change is a candidate.
+- **IT KEYS ON THE CLUBS OR ON THE TITLE NOW, NEVER BOTH.** The test is *what names this row*: with clubs, the clubs name it and the title is decoration; without clubs, the title is the only name there is. **That is the same either/or `tgb_pull_anchor_events`'s natural key already used** -- the page had quietly drifted into requiring both, which is stricter than the database and therefore silent.
+- **THE TITLE BRANCH INCLUDES `venue_city` AND THE CLUB BRANCH DOES NOT.** Two concerts on one night under one tour's name are two shows in two cities; two clubs cannot play each other twice on one day in two places. **Nothing in the table matches either way today**, so this changes no current finding and stops a future false one.
+- **`what` WAS COMPUTED AND THROWN AWAY.** `found.set(id, {twin, what})` has always carried it and `reviewReasons` read only `twin.twin`, so every duplicate read *"Check against X."* and left you to work out what matched. It now reads **"Same league, date and clubs as NFL-2026-09-27-LV-NO. Check against it."**, and on a concert **"Same title, date and venue city as CON-C."** -- the finding fits the row, which is the rule this file already sets for the club-missing message.
+- **ONLY THE SECOND ROW CARRIES THE FINDING**, unchanged. The message names the first, so the pair is reachable from one card; flagging both would put one fact in the room twice.
+- **THE EIGHT ROWS ARE NOT DELETED.** The room now reports them; which of each pair to keep is an editorial call, and `games.anchor_event_id` may point at either. They are all New Orleans home fixtures bar one (Saints at Bears).
+
+**PROVED AGAINST THE LIVE TABLE, ALL 2,558 ROWS PAGED, not against a fixture.** The old key finds **0**; the new one finds **exactly 8** and nothing else, so it invented no false positive across the other 2,550. Then rendered: the duplicate card draws the sentence, the sweep writes `issues=YES` with it in `issues_detail`, two concerts sharing a name and a night in DIFFERENT cities are not flagged, and the same pair in ONE city is.
+
+**AND THIS SECTION'S "NO COMMENTS" RULE NO LONGER DESCRIBES THE FILE.** It says the room was stripped of every comment and that this file is the only record. **The page carried 93 `//` lines and 2 block comments before this change**, reintroduced by the events work of the last few days. The rule is worth keeping as an intention -- the reasoning above is here rather than in the page -- but do not trust the claim that the file has none.
+
 - **THE DUPLICATE CHECK IS CROSS-ROW, so it cannot be a `CHECK_RULES` entry.**
   Two rows describing one fixture is a fact about the pair, and no per-row test
   can see it.
