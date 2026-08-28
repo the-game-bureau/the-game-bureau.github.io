@@ -1020,6 +1020,49 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE EVENT ROUTINES ARE ONE, AND THE TOUR BUILDER IS CALLED WHAT IT IS (2026-08-28)
+
+Three routines had event-shaped names and only two filed events.
+
+- **TGB ANCHOR EVENTS IS `NFL ROUTES`.** Its name said anchor events; its prompt
+  is, and always was, the NFL Tour Builder, which designs a six-stop walking
+  route and commits SQL. **A name-only change** -- `name` is a top-level field,
+  so the prompt, the `claude-sonnet-5` pin, the `11 8,20` cron and the git source
+  all survived, and the reply was read back to confirm it.
+- **TGB ANCHOR BOT + TGB CONCERT BOT = TGB ANCHOR EVENT BOT.** They filed into
+  one table by two doorways on two schedules, and the second was the narrower:
+  concerts only, ten a call, through a function whose payload keys are a legacy
+  contract rather than the column names. The merged spec is
+  [anchor-event-bot.prompt.md](mc/_dev/prompt-tools/anchor-event-bot.prompt.md).
+- **IT KEPT TGB ANCHOR BOT'S TRIGGER ID**, `trig_01HKMKbnCyH6WLKuw7ZstY5b`, and
+  that is the point rather than a convenience: **the new ANCHOR BOT button in the
+  events room holds that id in an `href`, and a stale one 404s silently.** This
+  project lost `trig_01Q5uCitt...` to a delete on 2026-08-20 and had to repoint
+  four places.
+- **CONCERT BOT IS DISABLED, NOT DELETED**, and renamed so the routine list says
+  why. A trigger id does not survive a delete; disabling keeps the id, the
+  prompt and the model pin, and is one flag from running again.
+- **`tgb_pull_concert_tours` IS NOW CALLED BY NOTHING.** It is left in the
+  database, retired in place, and the merged spec says in as many words not to
+  call it. The surviving doorway takes every kind and **its payload keys are the
+  column names**, which is why it was the one to keep.
+- **THE NINE EM DASHES IN THE OLD SPEC WERE FIXED ON THE WAY THROUGH**, each
+  replaced by the punctuation its own sentence wanted rather than by a blanket
+  swap. The rule is not decoration: a prompt littered with them teaches the model
+  to write them back, and this file had been quietly breaking it since it was
+  written.
+
+### THE THIRD ADD BUTTON
+
+`MANUAL | PROMPT | ANCHOR BOT` in the events room.
+
+- **A DOOR, NOT A CONTROL.** Firing a routine is a POST to the claude.ai trigger
+  API with an OAuth bearer, and this page is public HTML on GitHub Pages: **a
+  token in it is a published token.** It opens the routine where Run is, and the
+  tooltip says so rather than leaving somebody pressing it twice.
+- **A REAL `<a>`**, so middle-click and ctrl-click work and it survives this
+  page's JavaScript failing.
+
 ## AN EVENT ROW CARRIES THE AUDIT'S ANSWER (2026-08-28)
 
 `public.events.issues`, `'NO'` by default, `'YES'` on a row the checks object
@@ -2958,11 +3001,11 @@ Set 2026-08-15, and it has been resettled twice since by folding routines togeth
 |---|---|---|
 | TGB GIFT SHOP BOT | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20 * * *` |
 | TGB SOUNDTRACK BOT | `trig_014sqaUyU7557svq9mGA1E4a` | **none, run by hand** |
-| TGB ANCHOR EVENTS | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
+| **NFL ROUTES** (was TGB ANCHOR EVENTS) | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
 | TGB SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 | TGB PATH BOT | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20 * * *` |
-| TGB CONCERT BOT | `trig_01RY2ktLpjXwNUo4mYTncPBe` | `0 17 * * *` (noon Central, once daily) |
-| TGB ANCHOR BOT | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
+| ~~TGB CONCERT BOT~~ | `trig_01RY2ktLpjXwNUo4mYTncPBe` | **disabled 2026-08-28, folded into TGB ANCHOR EVENT BOT** |
+| **TGB ANCHOR EVENT BOT** | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
 
 **THE `:8` SLOT IS TGB ANCHOR BOT'S AS OF 2026-08-25.** It was TGB WAYPOINT BOT's and sat empty after that routine was retired; the stagger exists only so cloud sessions do not provision at the same instant, so a freed minute is simply available. **There is no free slot now.**
 
