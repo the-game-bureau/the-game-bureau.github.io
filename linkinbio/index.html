@@ -400,8 +400,40 @@
       }).then(function (rows) { return Array.isArray(rows) ? rows : []; });
     }
 
+    /** A ROW IS DRAWN AT MOST ONCE, and `seen` is the whole mechanism.
+     *
+     *  OFFSET PAGING RACES AGAINST NEW POSTS. The feed is ordered posted_at
+     *  desc, so a post filed BETWEEN two page requests shifts every older row
+     *  down one and feed_offset=100 hands back the row already drawn at
+     *  position 100. The bot files twice a day and people post by hand, so
+     *  that window is not theoretical -- and it is INVISIBLE FROM A CHECK:
+     *  the data is clean, the ordering is stable (posted_at desc, id desc),
+     *  and the page still shows a story twice. Nothing but the render can
+     *  catch it.
+     *
+     *  KEYED ON THE URL, NOT THE ROW ID, AND THAT IS A DECISION. An id key
+     *  would catch only the race. The url also collapses one story genuinely
+     *  posted twice -- which gifts are expressly allowed to be, since a gift
+     *  url never changes and the shop is meant to come round again. On a
+     *  page whose whole job is "the things you just saw", the same card twice
+     *  reads as a fault whatever it is to us. Say so if a repeat should
+     *  count as news; key on row.id and this reverts to the race alone.
+     *
+     *  `build` already refuses a row with no url, so a blank cannot collide
+     *  with another blank here; the id is the fallback regardless.
+     */
+    var seen = Object.create(null);
+
     function append(rows) {
-      var items = rows.map(build).filter(Boolean);
+      var items = [];
+      rows.forEach(function (row) {
+        var key = String(row.url || row.id || '').trim().toLowerCase();
+        if (key && seen[key]) return;
+        var el = build(row);
+        if (!el) return;
+        if (key) seen[key] = true;
+        items.push(el);
+      });
       items.forEach(function (el) { feed.appendChild(el); });
       return items.length;
     }
@@ -440,6 +472,9 @@
             // A SHORT PAGE IS THE END. Asking for the count separately would be
             // a second request answering a question this one already settles.
             if (rows.length < PAGE) { showBackLink(); return; }
+            // ADVANCE BY WHAT THE SERVER SENT, NEVER BY WHAT WAS DRAWN. The
+            // offset is the server's cursor; stepping it by the deduped count
+            // would walk backwards into the same overlap on every press.
             showMoreButton(nextOffset + rows.length);
             if (!n) showBackLink();
           })
