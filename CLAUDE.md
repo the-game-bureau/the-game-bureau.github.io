@@ -1104,7 +1104,15 @@ row, so the report was only ever a second place to read them.
 
 ### BATCH EDIT
 
-A tick on every row, and a bar in the panel head beside Expand all.
+A tick on every row, and a bar leading the panel head with **Expand all pushed
+to the far end**. Both act on the list rather than on a row, but only one of
+them WRITES: the head reads left to right as what you DO to the list, then the
+one control that merely changes how you are LOOKING at it. Same arrangement as
+the command bar above it.
+
+**THE PUSH MOVED WITH THEM.** It was the batch bar's own `margin-left: auto`;
+with the order swapped that margin would have pushed the wrong thing, so it is
+on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
 
 - **SET KIND AND SET SOURCE, THEN APPLY. AND DELETE.** Those two fields are the
   ones a batch can be right about: a date, a venue or a title is per event.
