@@ -1326,6 +1326,11 @@ on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
   exact bug the issues room shipped and had to fix.
 - **THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render.** A tick that
   outlived its row would be a batch press landing on something you cannot see.
+- **BOTH BUTTONS CARRY THE COUNT**, `Apply to 300` and `Delete 300`. Delete had
+  only its verb, which made **the quieter of the two faces the irreversible
+  one**; the number is the last thing you read before pressing it. Each keeps
+  its bare verb when nothing is ticked, so neither changes width the moment a
+  first row is ticked and shoves the other along the row.
 - **`aria-disabled`, NEVER `disabled`**, so a press on the off state can say what
   to do first. It would be unreachable on a touch screen otherwise.
 - **THE TICK STOPS ITS OWN CLICK**, or ticking a box would open the row under it.
