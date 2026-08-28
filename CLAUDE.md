@@ -4725,8 +4725,10 @@ them is now the prompt alone.
   which looks exactly like the control not working.
 - **NOTHING SELECTED MEANS ANY KIND**, which is why the `Any kind` option went:
   on a multiple select it would be a value meaning the same as selecting
-  nothing, and two ways to say one thing is how they end up disagreeing. A hint
-  beside the box says so, since an empty list box cannot.
+  nothing, and two ways to say one thing is how they end up disagreeing.
+  **NOTHING ON SCREEN SAYS SO**, and that is the accepted cost: a hint beside
+  the box read as clutter on a control most people will leave alone. Where it
+  shows is the prompt -- select nothing and no scope line is written at all.
 - **SCOPE MOVED ABOVE THE PROMPT, under the count**, for the count's own reason:
   which kinds and over what window are questions you answer before reading a
   word. **Focus is the only knob left below the text.**
