@@ -928,6 +928,61 @@ real findings filed with their labels and scopes resolved, a bad kind and an
 unknown city refused, a reworded repeat deduped to `added 0`, `anon` refused
 both select and delete with 42501, and the probes deleted afterwards.
 
+## THE SOUNDTRACK AND ISSUES ROOMS, AUDITED END TO END (2026-08-27)
+
+Asked for after a week of rapid change: is any of this solid. Most of it is,
+and three things are not. Everything below was checked against production or by
+rendering the page, never by reading the diff.
+
+### WHAT IS SOLID
+
+| checked | result |
+|---|---|
+| catalogue | 1,572 tracks, 114 tapes, 119 live across 9 tapes |
+| orphan findings | **0** (the trigger holds) |
+| one recording twice on a tape | **0** (the partial unique index holds) |
+| blurbs missing | **0** |
+| triggers | `soundtrack_touch` and `soundtrack_drop_issues`, both enabled |
+| functions naming a dropped object | **none** |
+| pages parse | all four, no repeated ids |
+| test suites | **317 assertions**, all passing |
+
+**PRIVACY HOLDS, AND IT WAS PROBED AS `anon` RATHER THAN ASSUMED.** `issues`
+401, `issues.contact_email` 401, `soundtrack.findings` 401, `soundtrack?select=*`
+401, and the public page's own named-column read 200.
+
+### THREE THINGS THAT ARE NOT
+
+**1. THE AUDIT ROTATION CLOCK IS FROZEN, AND NOTHING SAYS SO.**
+`soundtrack.last_audit_at` is what [soundtracks.md](mc/soundtracks/soundtracks.md) orders "the 3 tapes that have
+gone longest without a look" by. **1,550 rows carry a stamp, the newest is
+2026-08-25, and `tgb_report_soundtrack_issues` does not mention the column at
+all.** So nothing has wound that clock since the reporter was rewritten, and
+**every run picks the same three tapes, forever**. Nothing errors and the run
+reports success, which is exactly why it has gone unnoticed. **The fix is a few
+lines in the reporter; it has not been made, because this was an audit.**
+
+**2. THE `tgb-agent-context` BLOCK IN THE TAPE ROOM STILL DOES NOT PARSE.**
+`JSON.parse` fails at line 89 on an unescaped quote around *"song 177"*. This
+file has recorded it twice and it is still there. Nothing in the page reads it,
+so nothing fails; **an agent that tries to read it gets nothing at all**, which
+is the whole reason the block exists.
+
+**3. EIGHTEEN EMPTY CATCHES REMAIN IN `/soundtracks/`.** Two on the playback
+path were given a voice on 2026-08-27 and the rest were not. This project's own
+standing rule is that a failure without a voice is a bug in itself, and the
+Katy Perry report is what that costs: a symptom nobody could explain from the
+screen. **The Tape Room has 2 left and the issues room has none.**
+
+### AND A TRAP IN THE HARNESS ITSELF, WORTH MORE THAN ANY OF THEM
+
+**A SUITE THAT CANNOT REACH THE SERVER PRINTS `0 ok, 0 FAIL` AND READS AS
+GREEN.** Four of the nine suites drive the page over `http://127.0.0.1:8791`,
+and when that server was not running they reported nothing and were counted as
+passing. **Zero assertions is not success**, and a summary line that only counts
+failures cannot tell the two apart. Anything that reports on these suites must
+assert a MINIMUM COUNT, not just the absence of failures.
+
 ## SOUNDTRACKS — ONE TABLE, ONE PROMPT (2026-08-25)
 
 **`public.soundtrack` is one row per TRACK, and the tape is `(city_slug, tape)`.**

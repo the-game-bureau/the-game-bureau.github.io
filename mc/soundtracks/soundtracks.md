@@ -311,6 +311,12 @@ deciding is not. Your job is to notice precisely.
 morning they are introduced, plus the **3 that have gone longest without a
 look**. `last_audit_at` is the clock and null sorts first:
 
+> **THAT CLOCK IS CURRENTLY FROZEN (checked 2026-08-27).** Nothing writes
+> `last_audit_at` any more: the reporter was rewritten and the stamping did not
+> survive it, so **this query returns the same three tapes on every run and the
+> catalogue is never swept**. Work them anyway; the ordering is simply not
+> meaningful until the reporter stamps again.
+
 > **THE CLOCK IS NOT BEING WOUND (found 2026-08-27).** Nothing writes
 > `last_audit_at` any more: the stamping lived in the first version of
 > `tgb_report_soundtrack_issues` and did not survive a later rewrite. 112 of the
