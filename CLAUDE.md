@@ -4729,9 +4729,19 @@ them is now the prompt alone.
   **NOTHING ON SCREEN SAYS SO**, and that is the accepted cost: a hint beside
   the box read as clutter on a control most people will leave alone. Where it
   shows is the prompt -- select nothing and no scope line is written at all.
-- **SCOPE MOVED ABOVE THE PROMPT, under the count**, for the count's own reason:
-  which kinds and over what window are questions you answer before reading a
-  word. **Focus is the only knob left below the text.**
+- **EVERY KNOB IS ABOVE THE PROMPT NOW**, in the order you answer them: how
+  many, what kind and over what window, then anything else to narrow to.
+  **THAT RETIRES THE "options sit under the text" RULE OUTRIGHT**, rather than
+  one control at a time as the first two moves did. What replaced it: a knob
+  here is a QUESTION you answer before you read, and the prompt is what they
+  produce.
+- **ALL THREE ARE THE SAME OBJECT**, a `<fieldset>` with a real `<legend>`, so
+  the browser cuts each box's top border for its word. Focus and scope were both
+  a `<div>` with a `<span>` inside -- a label sitting INSIDE the border beside
+  one that cut through.
+- **`.prompt-knobs` WENT WITH FOCUS.** It was the last thing in that wrapper,
+  and a wrapper whose only job was a rule above the remaining knobs would have
+  drawn a rule above nothing.
 - **IT IS A REAL `<fieldset><legend>`**, so the browser cuts the box's top
   border for the word. It was a `<div>` with a `<span>` inside, which put the
   label INSIDE the border while the count beside it cut through -- two boxes
