@@ -1059,6 +1059,32 @@ to. [2026082801_events_issues_column.sql](mc/supabase/migrations/2026082801_even
   "the checks found nothing" rather than "the checks have not run" -- which only
   a run can establish.
 
+### AND WHAT IT FOUND, IN WORDS (2026-08-28)
+
+`public.events.issues_detail`, [2026082802](mc/supabase/migrations/2026082802_events_issues_detail.sql), **applied**. One finding per line, in
+the same sentences the row draws on screen.
+
+- **THE FLAG ALONE ANSWERED NOTHING.** `issues = 'YES'` is readable by anything
+  and says only THAT something is wrong. The findings live in the page and are
+  recomputed on every render, so a person reading this table in the Supabase
+  editor could see a row had been objected to and had no way to learn why but to
+  open the room and press the button again.
+- **NON-EMPTY IF AND ONLY IF `issues` IS 'YES', AND A CHECK CONSTRAINT ENFORCES
+  IT.** A flag with no words, or words with no flag, is the one state a reader
+  could not interpret -- and it is exactly what a half-applied write leaves
+  behind. **They travel in one PATCH**, so sending them separately would fail on
+  whichever went first.
+- **THE FORCING REASONS ONLY, NEVER THE MUTED NOTES.** `no-time` and `multi-day`
+  report without accusing the row, so including them would put text on rows
+  whose flag says NO -- which the constraint now refuses outright.
+- **THE DETAIL IS PART OF THE COMPARISON, NOT JUST THE FLAG.** A row that is YES
+  before and after but for a DIFFERENT fault would be skipped by a flag-only
+  check, and its words would go on describing something that is no longer there.
+  Asserted with a row built to do exactly that.
+- **IT IS A SNAPSHOT AND THE COMMENT SAYS SO.** Fix a date and the row on screen
+  stops saying it immediately; the column keeps saying it until the sweep runs
+  again, when both are rewritten together.
+
 ## THE THREE AUDIT FINDINGS, FIXED, AND THE NFL SHELF FILLED (2026-08-27)
 
 [2026082708_audit_clock_and_spotify_sweep.sql](mc/supabase/migrations/2026082708_audit_clock_and_spotify_sweep.sql), **applied**.

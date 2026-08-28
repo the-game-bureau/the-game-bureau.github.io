@@ -3298,19 +3298,32 @@
           await TgbCities.load({ force: true }).catch((err) => console.error(err));
         }
 
-        // WHAT THE RULES SAY NOW, per row. Computed once so the two writes
-        // below cannot disagree about which rows are which.
-        const faulty = new Set();
+        // WHAT THE RULES SAY NOW, per row, WITH THE WORDS. Computed once so
+        // the writes below cannot disagree about which rows are which, and so
+        // the flag and its detail come from one evaluation rather than two.
+        //
+        // THE FORCING REASONS ONLY. `reviewReasons` already excludes the muted
+        // notes -- a missing start time means the SOURCE has not announced the
+        // slot, which is a gap that fills itself -- and including them would put
+        // text on rows whose flag says NO, which the database now refuses.
+        const faulty = new Map();
         state.rows.forEach((r) => {
-          if (reviewReasons(r).length > 0) faulty.add(clean(r.id));
+          const why = reviewReasons(r);
+          if (why.length) faulty.set(clean(r.id), why.join(String.fromCharCode(10)));
         });
 
         // THE FLAG IS RESTATED ON EVERY RUN, in both directions, and only where
         // it would actually change. A row whose fault was fixed goes back to
         // NO; a row that is already YES and still faulty is not rewritten.
+        // THE DETAIL IS PART OF THE COMPARISON, not just the flag. A row whose
+        // fault CHANGED -- one rule stopped objecting and another started -- is
+        // still YES, and without this its words would be left describing the old
+        // fault forever.
         const flagChanges = state.rows.filter((r) => {
           const want = faulty.has(clean(r.id)) ? 'YES' : 'NO';
-          return clean(r.issues || 'NO') !== want;
+          const wantWhy = faulty.get(clean(r.id)) || null;
+          return clean(r.issues || 'NO') !== want
+            || clean(r.issues_detail || '') !== clean(wantWhy || '');
         });
 
         const needs = state.rows.filter((r) =>
@@ -3327,7 +3340,13 @@
             const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
               method: 'PATCH',
               headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-              body: JSON.stringify({ issues: want })
+              // ONE PATCH FOR THE PAIR. The database refuses a flag without
+              // words and words without a flag, so sending them separately
+              // would fail on whichever went first.
+              body: JSON.stringify({
+                issues: want,
+                issues_detail: faulty.get(clean(row.id)) || null
+              })
             });
             const saved = res.ok ? await res.json() : null;
             // READ BACK, because PostgREST answers 200 with an empty array when
