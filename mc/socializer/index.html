@@ -7848,25 +7848,65 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         doneBtn.className = 'btn primary post-done';
         doneBtn.textContent = 'Done';
 
+        // DONE IS ALWAYS AVAILABLE, AND IT WAS `disabled` UNTIL 2026-08-28.
+        //
+        // THE GAP IT LEAVES OPEN IS REAL: a post made OUTSIDE this room -- on a
+        // phone, in the app, at a desk that is not this one -- had nowhere to be
+        // recorded. The only way to move the row was to press an account button,
+        // which copies a caption and opens a composer for a job already done.
+        // So the row sat in Review looking undecided, and the next person along
+        // could post it a second time.
+        //
+        // IT WAS ALSO BREAKING THIS ROOM'S OWN RULE. `disabled` dispatches NO
+        // click event at all, so on a touch screen -- no hover, therefore no
+        // tooltip -- the reason it was greyed was unreachable. Every platform
+        // button beside it already uses aria-disabled for exactly that reason,
+        // and this one is not even greyed any more.
         function paintDone() {
-          doneBtn.disabled = !used.length;
           doneBtn.title = used.length
             ? 'File this as posted to ' + used.join(', ') + '.'
-            : 'Nothing has been posted yet. Press an account first, or Skip to pass on it.';
+            : 'File this as posted without recording an account, for something you posted elsewhere.';
         }
 
         doneBtn.addEventListener('click', function () {
           if (doneBtn.disabled || postingLock) return;
           clearNotice(feedbackEl);
-          doneBtn.disabled = true;
-          markPosted(used.slice(), false).then(function (err) {
-            if (err) {
-              doneBtn.disabled = false;
-              stick(feedbackEl, namesMissingColumn(err)
-                || ('Could not file it as posted: ' + err.message));
-              return;
-            }
-            flash(queueStatus, 'Posted to ' + used.join(', '));
+
+          // THE EMPTY CASE ASKS, AND THE FULL CASE DOES NOT. With accounts
+          // pressed, DONE is writing down what the room just watched happen --
+          // a recorded fact, and asking permission to record something true
+          // only creates the chance of a false record. With none, it is a
+          // CLAIM about something that happened somewhere this room cannot
+          // see, it cannot be told from a real posting afterwards, and Move to
+          // Review from the Posted tab is the only way back. That asymmetry is
+          // the reason for the question, not caution about the button.
+          var go = used.length
+            ? Promise.resolve(true)
+            : askConfirm(
+                'File as posted?',
+                'No account was pressed, so nothing went out through this room. '
+                  + 'File it as posted anyway, for something you posted elsewhere? '
+                  + 'It will carry no account names, and the bot will not offer this story again.',
+                'File as posted');
+
+          go.then(function (ok) {
+            if (ok !== true) return;
+            doneBtn.disabled = true;
+            // posted_platforms IS A RECEIPT AND STAYS ONE. An empty list is
+            // the honest record of a sitting that reached no account FROM
+            // HERE; it must never be filled in with the accounts the bot
+            // suggested, which is a guess wearing a receipt's clothes.
+            markPosted(used.slice(), false).then(function (err) {
+              if (err) {
+                doneBtn.disabled = false;
+                stick(feedbackEl, namesMissingColumn(err)
+                  || ('Could not file it as posted: ' + err.message));
+                return;
+              }
+              flash(queueStatus, used.length
+                ? 'Posted to ' + used.join(', ')
+                : 'Filed as posted, with no account recorded.');
+            });
           });
         });
 
