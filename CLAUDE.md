@@ -1263,7 +1263,52 @@ halves of the SeatGeek importer.
   harder one: **an id is permanent and every game points at one**, so changing
   how new ids are composed would make two rows for one fixture look unrelated.
 
-## CONVENTIONS READS THE WEB, AND THAT WAS MEASURED FIRST (2026-08-28)
+## `OTHER` IS EVERYTHING NO FEED CARRIES, AND IT READS THE WEB (2026-08-28)
+
+**It was CONVENTIONS for an afternoon.** The button is `OTHER`, sits to the
+RIGHT of SEATGEEK -- the row is worked in that order, the feed first and then
+what the feed does not have -- and it takes **cities OR leagues** in one box,
+labelled in the SeatGeek dialog's own words: *Which cities or leagues, and
+when*.
+
+- **THE IDENTIFIERS DID NOT MOVE.** `conventionsBtn`, `cvLightbox`, `cvCity`,
+  `CV_PROMPT_LINES`. Visible copy is renamed; names are not, which is the same
+  bargain the Tape Room made through four renames of its verbs.
+- **ONE RESOLVER DECIDES CITY OR LEAGUE, FOR BOTH DIALOGS.** `resolveSearchTerm`
+  lost its `sg` prefix when the second caller arrived. **What differs is what
+  is done with the answer**: SeatGeek queries a taxonomy, this one writes a
+  sentence. Two copies of "is this word a league" would drift on the first
+  alias added.
+- **THE ASK IS WRITTEN OUT PER TERM**, so the model is not left working out
+  whether `NFL` is a town:
+
+      Denver -- a CITY. Read its convention centres, expo halls and visitors bureau.
+      NFL -- a LEAGUE. Read its own published schedule.
+      NFL International -- a LEAGUE. Read its own published schedule, and keep
+        only the fixtures played outside the United States.
+
+  - **`international` IS NOT A PLACE**, so it cannot be dropped into "played in
+    ___". `cvWhere()` says *outside the United States* for it, *in the United
+    Kingdom* for `uk`, and *in Europe* for the rest.
+- **A LEAGUE IS SENT TO ITS OWN SCHEDULE, and the clubs' sites after it.** The
+  league page is the authoritative list; a club page is where a kickoff time or
+  a venue change appears first. **A resale site is forbidden as a source for
+  either errand**, and the prompt says why: we already read one separately, and
+  this prompt exists for what it does not have.
+- **THE PROMPT NOW WRITES A FIXTURE AS WELL AS A CONVENTION.** It carries the
+  full column list -- league, sport, both clubs split into geo and nickname,
+  `neutral_site` -- with a worked example of each, plus the rules that are only
+  obvious once: **a fixture's title is NULL** (the row reads as its two clubs),
+  `venue_city` is the VENUE's town so the Chargers are Inglewood, and
+  `start_time` is converted to the clock outside the venue rather than the one
+  the league publishes in.
+- **A CONCERT AT A CONVENTION CENTRE IS A CONCERT.** The clause is kept from the
+  conventions-only version, because the venue is not the category and
+  mislabelling one is the mistake it exists to stop.
+
+### AND THE MEASUREMENT THAT MADE IT A PROMPT
+
+
 
 The CONVENTIONS button builds a **prompt**. It names the cities and the window,
 sends an AI with a browser to the halls' own calendars, and asks for one
@@ -1277,7 +1322,7 @@ Center 0 of 18; San Diego Convention Center 0 of 67 -- Comic-Con itself is not
 there; McCormick Place 0 events at all.** `taxonomies.name=comic_con` returns
 **0 site-wide**.
 
-### WHY IT IS A PROMPT AND NOT A SCRAPER, IN FOUR MEASUREMENTS
+#### WHY IT IS A PROMPT AND NOT A SCRAPER, IN FOUR MEASUREMENTS
 
 Asked for outright as *"scrape from convention centers in entered cities"*. It
 cannot be done from this page, and it cannot be done well from a server either.

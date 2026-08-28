@@ -600,7 +600,7 @@
           <button class="btn" id="seatgeekBtn" type="button"
                   title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
           <button class="btn" id="conventionsBtn" type="button"
-                  title="Build a prompt that reads the convention centres and expo halls in the cities you name. SeatGeek barely carries a convention, so this asks an AI with a browser to read the halls' own calendars.">CONVENTIONS</button>
+                  title="Everything no ticketing feed carries. Name cities or leagues and it builds a prompt for an AI with a browser: a league's own schedule, a city's convention centres and visitors bureau.">OTHER</button>
         </div>
       </fieldset>
 
@@ -682,25 +682,22 @@
     <div class="prompt-lightbox" id="cvLightbox" role="dialog" aria-modal="true" aria-labelledby="cvDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="cvDialogTitle">Add Conventions and Expos with AI</h2>
+          <h2 class="prompt-dialog-title" id="cvDialogTitle">Add Anchor Events with AI</h2>
           <button class="btn small" id="closeCvBtn" type="button">Close</button>
         </div>
         <div class="prompt-dialog-body">
           <p class="prompt-howto">
-            No ticketing feed carries conventions, so this reads the web instead.
-            Name the cities and a window, edit the prompt if you like, then copy it into an AI that can browse.
-            Paste what it hands back into the website's database (Supabase).
+            For everything a ticketing feed does not carry. Name cities or leagues and a window, and it reads the web instead:
+            a league's own schedule, a city's convention centres and visitors bureau.
+            Edit the prompt if you like, copy it into an AI that can browse, then paste what it hands back into the website's database (Supabase).
             If the SQL will not run, or the events come back wrong, mail
             <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
           </p>
 
-          <fieldset class="prompt-options prompt-options--sg" aria-label="Which cities">
-            <legend class="prompt-options-label">Which cities?</legend>
-            <input type="text" id="cvCity" placeholder="Denver, or Denver, Chicago, Tulsa" autocomplete="off">
-          </fieldset>
-
-          <fieldset class="prompt-options prompt-options--sg" aria-label="Over what window">
-            <legend class="prompt-options-label">Over what window?</legend>
+          <fieldset class="prompt-options prompt-options--sg" aria-label="Which cities or leagues, and when">
+            <legend class="prompt-options-label">Which cities or leagues, and when</legend>
+            <input type="text" id="cvCity" placeholder="Denver, Chicago, NFL, Premier League" autocomplete="off"
+                   title="A city, a league, or a mix of both, separated by commas. A city is read as its convention centres and visitors bureau; a league as its own published schedule.">
             <label class="prompt-option">from <input type="date" id="cvFrom"></label>
             <label class="prompt-option">to <input type="date" id="cvTo"></label>
           </fieldset>
@@ -1892,7 +1889,7 @@
       australia: ['AU', 'AUS', 'AUSTRALIA']
     };
 
-    function sgResolveTerm(raw) {
+    function resolveSearchTerm(raw) {
       const term = clean(raw);
       const low = term.toLowerCase();
       if (SG_LEAGUES[low]) return { raw: term, kind: 'league', taxonomy: SG_LEAGUES[low], region: null, regionName: null };
@@ -1918,7 +1915,7 @@
       return clean(sgCityEl && sgCityEl.value).split(',')
         .map((c) => clean(c)).filter(Boolean)
         .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at)
-        .map(sgResolveTerm);
+        .map(resolveSearchTerm);
     }
 
     // A REGION IS A FILTER ON THE VENUE, NOT A QUERY. SeatGeek has no
@@ -2250,26 +2247,31 @@
       "already in town with an afternoon free. So the date is the field nothing works",
       "without.",
       "",
-      "YOUR JOB",
+      "WHAT I AM ASKING FOR",
       "",
-      "Find every CONVENTION, EXPO, TRADE SHOW, CONFERENCE, FAN CONVENTION and",
-      "consumer show happening in the cities and window below.",
+      "__ASK__",
       "",
-      "  Cities: __CITIES__",
       "  Window: __FROM__ to __TO__",
       "",
-      "WHERE TO LOOK, in this order",
+      "WHERE TO LOOK",
       "",
-      "1. The convention centres, expo halls, fairgrounds and civic centres in each",
-      "   city, and READ THEIR OWN EVENT CALENDARS. That is the authoritative list",
-      "   and it is the reason this is a browsing job rather than an API call.",
+      "FOR A LEAGUE, read the league's OWN published schedule, and the clubs' own",
+      "sites for anything it leaves out. The league site is the authoritative list;",
+      "a club site is where a kickoff time and a venue change appear first. Read the",
+      "schedule page itself, not a summary of it and not a preview article.",
+      "",
+      "FOR A CITY, in this order:",
+      "",
+      "1. The convention centres, expo halls, fairgrounds and civic centres in that",
+      "   city, and READ THEIR OWN EVENT CALENDARS.",
       "2. The city's convention and visitors bureau, which publishes a citywide",
       "   calendar that catches events held in hotels rather than the main hall.",
       "3. The event's own website, for the exact dates and the public url.",
       "",
-      "DO NOT use a ticket resale site as your source. It carries a convention only",
-      "when that convention sells seats through it, which is almost never, and it",
-      "will make you think a busy month is empty.",
+      "DO NOT use a ticket resale site as your source, for either. It carries an",
+      "event only when that event sells seats through it, which for a convention is",
+      "almost never, and it will make you think a busy month is empty. We already",
+      "read one of those separately; this prompt exists for what it does not have.",
       "",
       "READ THE PAGE, NOT A SUMMARY OF IT. Ask your tool for the page source if it",
       "hands you back a cleaned-up article. A summariser will invent a plausible date,",
@@ -2277,12 +2279,15 @@
       "",
       "WHAT COUNTS",
       "",
-      "  Yes: trade shows, professional conferences, comic and anime conventions,",
+      "  A LEAGUE: every fixture in the window. Not preseason friendlies nobody",
+      "       travels for, unless the league lists them as part of the season.",
+      "  A CITY:  trade shows, professional conferences, comic and anime conventions,",
       "       gaming conventions, home and garden shows, auto shows, boat shows,",
-      "       craft fairs at scale, expos of any kind.",
-      "  No:  concerts, sports fixtures, theatre and comedy, and anything at a hall",
-      "       that is simply a gig at that address. A concert at a convention centre",
-      "       is a concert.",
+      "       craft fairs at scale, expos and festivals of any kind.",
+      "  A CONCERT AT A CONVENTION CENTRE IS A CONCERT, not a convention. The",
+      "       venue is not the category, and mislabelling one is the mistake this",
+      "       line exists to stop.",
+      "",
       "  No:  a private corporate meeting nobody can attend, and anything with fewer",
       "       than a few thousand attendees. If nobody travelled for it, it is not an",
       "       anchor.",
@@ -2296,62 +2301,96 @@
       "",
       "```sql",
       "insert into public.events",
-      "  (id, kind, title, description, start_date, end_date, start_time,",
-      "   venue, venue_city, url, source)",
+      "  (id, kind, league, sport, title, description,",
+      "   start_date, end_date, start_time,",
+      "   home_team_geo, home_team_nickname, away_team_geo, away_team_nickname,",
+      "   venue, venue_city, neutral_site, url, source)",
       "values",
-      "  ('CONVENTION-2027-03-05-EXAMPLE-DEN', 'convention', 'Example Con 2027',",
+      "  ('NFL-2027-09-12-CHI-DEN', 'sports', 'NFL', 'Football', null,",
+      "   'Chicago Bears at Denver Broncos at Empower Field.',",
+      "   '2027-09-12', '2027-09-12', '14:25',",
+      "   'Denver', 'Broncos', 'Chicago', 'Bears',",
+      "   'Empower Field at Mile High', 'Denver, Colorado', false,",
+      "   'https://www.nfl.com/schedules/', 'NFL published schedule'),",
+      "  ('CONVENTION-2027-03-05-EXAMPLE-DEN', 'convention', null, null,",
+      "   'Example Con 2027',",
       "   'A three day fan convention at the Colorado Convention Center.',",
       "   '2027-03-05', '2027-03-07', null,",
-      "   'Colorado Convention Center', 'Denver, Colorado',",
+      "   null, null, null, null,",
+      "   'Colorado Convention Center', 'Denver, Colorado', false,",
       "   'https://example.com/2027', 'Colorado Convention Center calendar')",
       "on conflict (id) do nothing;",
       "```",
       "",
       "THE COLUMNS, and the rules that are not obvious",
       "",
-      "  id           Upper case, A to Z and 0 to 9 and hyphens only. Compose it as",
-      "               KIND-STARTDATE-FIRSTWORDOFTITLE-CITY, the last two truncated to",
-      "               10 and 3 characters: CONVENTION-2027-03-05-EXAMPLE-DEN. It is",
-      "               PERMANENT once stored, so it must be unique.",
-      "  kind         'convention' or 'expo'. Nothing else from this prompt.",
-      "  title        What the event calls itself, including the year where it uses",
-      "               one. Not the hall's name.",
-      "  description  One or two plain sentences. Say what it is and roughly how big.",
+      "  id           Upper case, A to Z and 0 to 9 and hyphens only, and PERMANENT",
+      "               once stored, so it must be unique. For a fixture compose it as",
+      "               LEAGUE-DATE-AWAY-HOME with the clubs cut to three characters:",
+      "               NFL-2027-09-12-CHI-DEN. For anything else,",
+      "               KIND-DATE-FIRSTWORDOFTITLE-CITY, the last two cut to 10 and 3:",
+      "               CONVENTION-2027-03-05-EXAMPLE-DEN.",
+      "  kind         One of: sports, sports-tournament, sports-nonteam, convention,",
+      "               expo, festival, concert, music_festival, comedy, theater,",
+      "               broadway, classical, dance, family, film, literary, circus,",
+      "               entertainment, other. Two clubs is 'sports'; more than two is",
+      "               'sports-tournament'; a race, a fight or a golf tournament is",
+      "               'sports-nonteam'.",
+      "  league       Upper case, as the league writes it: NFL, NCAAF, MLS. Null for",
+      "               anything that is not a fixture.",
+      "  sport        Title case: Football, Basketball. Null for anything else.",
+      "  title        A convention's own name, including the year where it uses one.",
+      "               LEAVE IT NULL FOR A FIXTURE: the row reads as its two clubs.",
+      "  description  One or two plain sentences.",
       "  start_date   ISO, YYYY-MM-DD. The first public day, not the setup day.",
       "  end_date     ISO. The last public day. Same as start_date for a one day",
       "               event. Never null.",
-      "  start_time   24 hour venue-local clock, HH:MM, or null. Null is correct and",
-      "               ordinary: a three day convention has opening hours rather than",
-      "               a start time. Never invent one.",
-      "  venue        The hall, spelled as the hall spells it.",
+      "  start_time   24 hour VENUE-LOCAL clock, HH:MM, or null. A league publishes in",
+      "               one timezone, so convert it to the clock a person standing",
+      "               outside the venue would read. Null is correct and ordinary for a",
+      "               multi-day convention, which has opening hours rather than a",
+      "               start time. Never invent one.",
+      "  home/away    Two fields each: the geo is where they are from (a city, or a",
+      "               region such as New England) and the nickname is what the copy",
+      "               calls them. Home first. Null for anything that is not a fixture.",
+      "  venue        The stadium or hall, spelled as it spells itself.",
       "  venue_city   'City, State' with the STATE SPELLED OUT for a US city, and",
       "               'City, Country' elsewhere. 'Denver, Colorado', not 'Denver, CO'.",
-      "               Nothing checks this, so the spelling you give is the spelling",
-      "               stored.",
-      "  url          The event's own page where there is one, otherwise the hall's",
-      "               listing for it. It must resolve.",
-      "  source       The site you actually read, in words: 'Colorado Convention",
-      "               Center calendar', 'VISIT DENVER events'.",
+      "               It is the VENUE's town, so the Chargers are Inglewood and the",
+      "               Giants are East Rutherford. Nothing checks this, so the spelling",
+      "               you give is the spelling stored.",
+      "  neutral_site true when NEITHER club is at home: an international series game,",
+      "               a bowl, a championship at a chosen venue. false otherwise, and",
+      "               false for anything that is not a fixture.",
+      "  url          The event's own page where there is one, otherwise the league's",
+      "               or hall's listing for it. It must resolve.",
+      "  source       The site you actually read, in words: 'NFL published schedule',",
+      "               'Colorado Convention Center calendar'.",
       "",
       "HOUSE STYLE",
       "",
       "  Escape an apostrophe in SQL by doubling it: 'Macy''s'.",
       "  No em dashes anywhere, in any field. Use a comma, a colon or a full stop.",
+      "  Every row must carry the same columns in the same order, nulls included.",
       "  Give me every event you can stand behind. A short honest list beats a long",
       "  one with three invented dates in it.",
       "",
       "Then, under the SQL block, print this line so I can run it:",
       "https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true",
       "",
-      "And after that, in two or three lines: which halls and calendars you read,",
-      "how many events you found per city, and anything you deliberately left out",
-      "because you could not pin the date down.",
+      "And after that, in two or three lines: which schedules, halls and calendars",
+      "you read, how many events you found for each thing I asked about, and anything",
+      "you deliberately left out because you could not pin the date down.",
     ];
 
-    function cvCities() {
+    // THE SAME RESOLVER THE SEATGEEK BOX USES, so the two dialogs cannot
+    // disagree about whether a word is a league. What differs is what is done
+    // with the answer: one queries a taxonomy, the other writes a sentence.
+    function cvTerms() {
       return clean(cvCityEl && cvCityEl.value).split(',')
         .map((c) => clean(c)).filter(Boolean)
-        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
+        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at)
+        .map(resolveSearchTerm);
     }
 
     function cvSet(text, kind) {
@@ -2361,12 +2400,34 @@
         : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
     }
 
+    // `international` IS NOT A PLACE, so it cannot be dropped into "played in
+    // ___". The other regions are, and read correctly with `in`.
+    function cvWhere(region) {
+      if (region === 'international' || region === 'abroad' || region === 'overseas') {
+        return 'outside the United States';
+      }
+      const name = region.charAt(0).toUpperCase() + region.slice(1);
+      return 'in ' + (region === 'uk' ? 'the United Kingdom' : name);
+    }
+
     function buildCvPrompt() {
-      const cities = cvCities();
+      const terms = cvTerms();
       const from = clean(cvFromEl && cvFromEl.value);
       const to = clean(cvToEl && cvToEl.value);
+
+      // THE ASK IS WRITTEN OUT PER TERM, naming which errand each one is, so
+      // the model is not left to work out whether `NFL` is a town.
+      const lines = terms.map((t) => (t.kind === 'league'
+        ? '  ' + t.raw + ' -- a LEAGUE. Read its own published schedule'
+          + (t.regionName ? ', and keep only the fixtures played ' + cvWhere(t.regionName) + '.' : '.')
+        : '  ' + t.raw + ' -- a CITY. Read its convention centres, expo halls and visitors bureau.'));
+      const ask = lines.length
+        ? 'Find every event in the window below for each of these:'
+          + String.fromCharCode(10) + String.fromCharCode(10) + lines.join(String.fromCharCode(10))
+        : 'Name at least one city or league above and this will fill itself in.';
+
       return CV_PROMPT_LINES.join(String.fromCharCode(10))
-        .split('__CITIES__').join(cities.length ? cities.join(', ') : 'name at least one city')
+        .split('__ASK__').join(ask)
         .split('__FROM__').join(from || 'today')
         .split('__TO__').join(to || 'a year from today');
     }
@@ -2395,8 +2456,8 @@
     }
 
     function copyCvPrompt() {
-      if (!cvCities().length) {
-        cvSet('Name at least one city first, or the prompt has nowhere to look.', 'error');
+      if (!cvTerms().length) {
+        cvSet('Name at least one city or league first, or the prompt has nowhere to look.', 'error');
         if (cvCityEl) cvCityEl.focus();
         return false;
       }
