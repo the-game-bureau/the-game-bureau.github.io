@@ -1020,6 +1020,42 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE PROMPT SAYS WHERE TO LOOK, AND IT IS SEATGEEK (2026-08-28)
+
+Asked whether SeatGeek can be read without an API key. **It already is, twice**:
+TGB CONCERT BOT and TGB ANCHOR BOT both browse its public pages, and neither
+holds a key -- a cloud routine has no secret store, which is the constraint that
+shaped every write path here. The events room's own prompt is now told the same
+thing.
+
+- **THE PROMPT HAD NEVER SAID WHERE TO LOOK.** It said what an event must BE
+  and how to format it, and left FINDING one to the model's habits.
+- **AND IT ACTIVELY FORBADE THE ANSWER.** *"Verify each event against the
+  league, venue, promoter, or organiser page, NOT A LISTINGS AGGREGATOR"* --
+  which rules out SeatGeek, and most of what a browsing tool can actually open.
+- **FINDING AND VERIFYING ARE TWO STEPS, and that is what resolves it.** A
+  listings site is a good way to FIND what is on; where the venue, league or
+  promoter has published the same date, verify against that and put THAT page in
+  `url`. Where the listing is the only public statement, the listing is an honest
+  url and `source` says SeatGeek.
+- **READ THE PAGE, NOT A SUMMARY OF IT** -- ask the tool for the page SOURCE if
+  it hands back a cleaned-up article. **A summariser will happily invent a
+  plausible date**, and the date is the one field nothing here works without.
+  This is the same failure that made Grok file imageless socials candidates.
+- **PREFER A TOUR OR SEASON PAGE**: one of them gives several cities at once,
+  and a game is built per city.
+- **A SEATGEEK LISTING MAY BE RESALE** for something announced elsewhere, so it
+  is evidence that a date is scheduled, not evidence of who is promoting it.
+
+**NO API KEY, AND THE PROMPT SAYS NOT TO GO LOOKING FOR ONE.** There is no
+SeatGeek key in `.env`, none in the Edge Function secrets, and none is needed.
+
+**THE SEARCH BOX SAYS `team`, NOT `club`.** No field on this page is called a
+club: the columns are `away_team_geo` / `away_team_nickname` and the form labels
+them Away team geo / Away team nickname. `placeholder-club` and the
+`club-missing` finding keep the word, being about a club as an entity rather
+than about a field.
+
 ## THE EVENTS ROOM IS OFF THE CITY CATALOGUE (2026-08-28)
 
 `events.venue_city` is a plain string now. **What is entered or scraped is what
