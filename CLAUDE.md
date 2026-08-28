@@ -968,11 +968,11 @@ file has recorded it twice and it is still there. Nothing in the page reads it,
 so nothing fails; **an agent that tries to read it gets nothing at all**, which
 is the whole reason the block exists.
 
-**3. EIGHTEEN EMPTY CATCHES REMAIN IN `/soundtracks/`.** Two on the playback
-path were given a voice on 2026-08-27 and the rest were not. This project's own
-standing rule is that a failure without a voice is a bug in itself, and the
-Katy Perry report is what that costs: a symptom nobody could explain from the
-screen. **The Tape Room has 2 left and the issues room has none.**
+**3. EIGHTEEN EMPTY CATCHES REMAIN IN `/soundtracks/`.** ~~All of them a
+fault~~ -- **that count was too blunt and is corrected below**: most guard
+teardown, where there is nothing a listener could act on. Four now report
+(load, play, seek, pause) and the rest carry one comment saying why they stay.
+**The test is whether somebody pressed something and is owed an answer.**
 
 ### AND A TRAP IN THE HARNESS ITSELF, WORTH MORE THAN ANY OF THEM
 
@@ -982,6 +982,79 @@ and when that server was not running they reported nothing and were counted as
 passing. **Zero assertions is not success**, and a summary line that only counts
 failures cannot tell the two apart. Anything that reports on these suites must
 assert a MINIMUM COUNT, not just the absence of failures.
+
+## THE THREE AUDIT FINDINGS, FIXED, AND THE NFL SHELF FILLED (2026-08-27)
+
+[2026082708_audit_clock_and_spotify_sweep.sql](mc/supabase/migrations/2026082708_audit_clock_and_spotify_sweep.sql), **applied**.
+
+### 1. THE AUDIT CLOCK IS WOUND AGAIN, BY ITS OWN PAYLOAD KEY
+
+`tgb_report_soundtrack_issues` takes `{"audited": [...], "issues": [...]}` and
+stamps `last_audit_at` on every tape named in the first.
+
+- **IT CANNOT BE INFERRED FROM THE FINDINGS, and that is the whole design.** A
+  clean tape files nothing, so stamping only the tapes that produced a finding
+  would leave a tape in good order looking permanently unaudited and send it to
+  the front of the queue forever -- **the same failure this clock exists to
+  prevent, arrived at from the other side.**
+- **THE `tgb-agent-context` BLOCK HAD DESCRIBED THIS KEY ALL ALONG** and it was
+  never implemented. It is now, and the reply carries `audited_rows_stamped` so
+  a run can see the clock move.
+- Proved by a call that filed nothing: `{"audited":["denver"],"issues":[]}` came
+  back `audited_rows_stamped: 14`.
+
+### 2. THE 198 TRACKS WITH NO ID ARE ALL FILED
+
+`tgb_sweep_missing_spotify_ids(limit)` walks the catalogue oldest-audited first
+and files a `spotify` finding at `warn` for each. **All 198 are on file**, so
+`/mc/issues.html` has a real queue for the first time.
+
+- **IT IS NOT A ONE-OFF SCRIPT AND SHOULD RUN EVERY BOT RUN.** New rows arrive
+  without ids from the Tape Room's own hand-add, and the audit only ever reaches
+  the five tapes a run looks at.
+- **IDEMPOTENT BY THE AUDIT'S OWN FINGERPRINT**, so it never files a second copy
+  of something already open, and the cap counts NEW findings rather than being
+  spent re-checking.
+
+### 3. THE `tgb-agent-context` BLOCK PARSES, AND IT WAS NEVER THE QUOTES
+
+This file has blamed an unescaped quote around *"song 177"* twice. That was real
+and it was not the reason. **One entry in `auditPath` was a bare string with no
+key at all** -- a value where every sibling is a pair -- which is invalid
+whatever the quotes do. It is `writeNamesNotIds` now, the four prose quotes are
+single, and `JSON.parse` returns 12 top-level keys.
+
+- **THREE REPAIR SCRIPTS FAILED BEFORE ONE WORKED**, and each failure is a
+  lesson: a left-to-right scanner cannot tell a closing quote from a prose one
+  inside a value that quotes two words; a parser-guided walk-back destroys the
+  structural quote at the END of a key, because that is what the parser objects
+  to; and a neighbour-based rule must refuse a quote that is **already escaped**,
+  or `\"` followed by a space becomes `\'`, which is not a valid escape at all.
+  **Each script refused to write anything that still would not parse**, which is
+  the only reason none of them left the block worse.
+
+### THE NFL SHELF IS LIVE, AND TWO NUMBERS COME WITH IT
+
+**487 tracks un-shelved across 29 NFL cities and 34 tapes.** The public page
+goes from **9 tapes to 39** and from 119 live tracks to **605**.
+
+- **`archived_with_tape` WAS CLEARED WITH THEM.** That flag means *this track
+  was shelved BY its tape* and is what a later tape-wide restore reads; left set
+  on a row that is now live, the next restore would think it still owned it.
+- **148 OF THE 605 HAVE NO SPOTIFY ID, AND THE DECK SKIPS THEM.** They are drawn
+  in the tracklist and cannot be played, which is the documented fallback and is
+  why each is now a finding.
+- **SIX TAPES ARE ENTIRELY UNPLAYABLE**, every track on them lacking an id:
+  Charlotte *Keeps Pounding* (29), New Orleans *Who Dat* (27), Tampa *Fire the
+  Cannons* (26), Atlanta *Rise Up Rhythms* (24), New Orleans *Brass* (15) and
+  *Trad Jazz* (15). **A visitor opening one gets a cassette that plays nothing.**
+  Re-shelving them is one statement if that is wanted:
+
+      update public.soundtrack set archived = true
+       where (city_slug, tape) in (
+         select city_slug, tape from public.soundtrack where not archived
+          group by city_slug, tape
+         having count(*) filter (where spotify_id is not null) = 0);
 
 ## SOUNDTRACKS — ONE TABLE, ONE PROMPT (2026-08-25)
 
