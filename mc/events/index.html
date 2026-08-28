@@ -855,6 +855,13 @@
       order: -1;
     }
 
+    /* THE CITY PICKER'S + BUTTON MATCHES THE BOX IT SITS BESIDE. The shared
+       module draws it at 30px, which is right in the compact rows it was written
+       for and one short of this form's 36px boxes, so it would sit a little high
+       against the field. Height only: the module owns everything else about it,
+       and restating its look here would be a second copy to keep in step. */
+    .manual-form .tgb-city-add { width: 36px; height: 36px; }
+
     /* A FIELD WITH AN ACTION BESIDE IT, the url's Open. The box takes the room
        and the button takes only what its word needs. */
     .manual-form .field-with-action { display: flex; gap: 6px; align-items: center; }
@@ -4201,6 +4208,31 @@
       }
       if (kindEl) kindEl.addEventListener('change', syncManualWho);
       syncManualWho();
+
+      // ── THE REAL CITY PICKER, ON THIS FORM ONLY ──────────────────────────
+      //
+      // The card's fields get a shared `<datalist>`, and that is deliberate:
+      // `TgbCities.attach()` registers a controller per control and never
+      // releases it, and this page rebuilds every visible row on each keystroke
+      // in the search box, so attaching per row would pile up thousands of them
+      // pointing at detached inputs.
+      //
+      // **THE MANUAL FORM IS THE ONE PLACE THAT DOES NOT APPLY.** There is a
+      // single city input and it is built once per opening of the dialog, so
+      // the real picker is affordable exactly here -- and it is worth having,
+      // because a datalist is indistinguishable from a plain text box until you
+      // start typing, and it offers no way to add a city the catalogue is
+      // missing. That is what every other admin room gives you.
+      const cityEl = manualForm.querySelector('[data-field="venue_city"]');
+      if (cityEl && window.TgbCities && typeof TgbCities.attach === 'function') {
+        // `includeIgnored` because this is an admin surface: a venue town hidden
+        // from the public rails is still where an event happens, and Foxborough
+        // is exactly the kind of city this form needs to offer.
+        //
+        // `authHeaders` IS WHAT MAKES THE + BUTTON APPEAR. Without it the picker
+        // hides it, since adding a city needs an admin session.
+        TgbCities.attach(cityEl, { includeIgnored: true, authHeaders: authHeaders });
+      }
 
       // THE END DATE MIRRORS THE START, IN FRONT OF YOU. `withDefaults` fills a
       // blank one on the way out regardless, and the database has a trigger for
