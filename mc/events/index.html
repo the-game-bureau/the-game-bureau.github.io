@@ -762,6 +762,30 @@
       display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
     }
     .prompt-foot-pane[hidden] { display: none; }
+    /* THE KNOBS SIT UNDER THE TEXT and read as one group rather than three
+       loose bars stacked on the dialog. */
+    .prompt-knobs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--control-line);
+    }
+
+    .prompt-edited {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 0;
+      font-size: 0.82rem;
+      color: var(--bic-red);
+    }
+
+    /* `[hidden]` HAS TO OUT-SPECIFY THE `display: flex` ABOVE, or the note is on
+       screen from the moment the page loads. Ninth time in this repo. */
+    .prompt-edited[hidden] { display: none; }
+
     .prompt-text {
       width: 100%; min-height: 360px; resize: vertical;
       border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
@@ -1095,6 +1119,15 @@
           <p class="sched-status" id="schedStatus" aria-live="polite"></p>
           </div>
           <div id="panePrompt">
+          <!-- EDITABLE, AND EDITS SURVIVE THE CONTROLS BELOW. Being able to
+               strike a rule for one run, or add a line about a city, is the
+               whole reason to show the text rather than a summary of it. -->
+          <textarea class="prompt-text" id="eventPromptText" spellcheck="false"></textarea>
+
+          <!-- THE OPTIONS SIT UNDER THE TEXT. They are knobs on the prompt, and
+               above it they stood between the dialog's title and the thing it
+               is for. -->
+          <div class="prompt-knobs">
           <fieldset class="prompt-options" aria-label="Result count">
             <legend class="prompt-options-label">Events</legend>
             <label class="prompt-option"><input type="radio" name="promptCount" value="10" checked>10</label>
@@ -1133,7 +1166,14 @@
             <span class="prompt-options-label">Focus</span>
             <input type="text" id="promptFocus" placeholder="optional — e.g. arena tours in Denver, fall conventions" autocomplete="off">
           </div>
-          <textarea class="prompt-text" id="eventPromptText" spellcheck="false" readonly></textarea>
+          </div>
+
+          <!-- SAID ONLY ONCE THE TEXT HAS BEEN TOUCHED. A permanent warning
+               about a state you are not in is one nobody reads. -->
+          <p class="prompt-edited" id="promptEditedNote" hidden>
+            You have edited this prompt, so the options below no longer rewrite it.
+            <button class="btn small" type="button" id="promptResetBtn">Reset</button>
+          </p>
           </div>
         </div>
         <div class="prompt-dialog-foot">
@@ -2567,9 +2607,34 @@
       return Number.isFinite(n) && n > 0 ? n : 10;
     }
 
-    function refreshPromptText() {
+    // THE PROMPT IS BUILT FROM THE CONTROLS, AND IT IS ALSO EDITABLE, WHICH
+    // IS A CONTRADICTION UNLESS ONE OF THEM GIVES WAY.
+    //
+    // Rebuilding on every knob would throw away whatever you typed the moment
+    // you changed the date -- the exact failure the Socializer's platform
+    // toggles were built to avoid, where rebuilding from the authored text on
+    // each press destroyed the edit. So: **the knobs drive the text until you
+    // touch it, and then they stop.** Reset hands it back to them.
+    //
+    // It is said on screen, once you are in that state, rather than being a
+    // rule somebody has to infer from the text not changing.
+    var promptEdited = false;
+
+    function paintPromptEdited() {
+      var note = document.getElementById('promptEditedNote');
+      if (note) note.hidden = !promptEdited;
+    }
+
+    function generatedPromptText() {
+      return buildEventImportPrompt(selectedPromptCount(), promptFocus && promptFocus.value);
+    }
+
+    function refreshPromptText(force) {
       if (!eventPromptText) return;
-      eventPromptText.value = buildEventImportPrompt(selectedPromptCount(), promptFocus && promptFocus.value);
+      if (promptEdited && !force) return;
+      if (force) promptEdited = false;
+      eventPromptText.value = generatedPromptText();
+      paintPromptEdited();
     }
 
     function setPromptCopyStatus(text, isSuccess) {
@@ -2595,8 +2660,9 @@
       if (promptDialogTitle) {
         promptDialogTitle.textContent = schedule ? 'Import a league schedule' : 'Event finder prompt';
       }
-      // The prompt text is built from the controls in its own pane, so it is
-      // refreshed on the way in rather than held from a previous opening.
+      // BUILT FROM THE CONTROLS ON THE WAY IN -- unless you have edited it, in
+      // which case your text survives the dialog being closed and reopened.
+      // `refreshPromptText()` without a force is the thing that respects that.
       if (schedule) prepareSchedulePane();
       else refreshPromptText();
     }
@@ -2629,10 +2695,12 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
         } else {
-          eventPromptText.removeAttribute('readonly');
+          // THE readonly JUGGLING WENT WITH readonly. The box is editable now,
+          // so putting the attribute back after a fallback copy would lock it
+          // for good -- and only on the browsers that take this branch, which
+          // is the worst way to find a bug.
           eventPromptText.select();
           document.execCommand('copy');
-          eventPromptText.setAttribute('readonly', 'readonly');
         }
         setPromptCopyStatus('Copied.', true);
       } catch (err) {
@@ -4649,9 +4717,31 @@
     if (modePromptBtn) modePromptBtn.addEventListener('click', () => setPromptMode('prompt'));
     if (closePromptBtn) closePromptBtn.addEventListener('click', closePromptLightbox);
     if (copyPromptBtn) copyPromptBtn.addEventListener('click', copyPromptText);
-    if (promptFocus) promptFocus.addEventListener('input', refreshPromptText);
+    // TYPING IN THE BOX IS WHAT MAKES IT YOURS. `input` rather than `change`,
+    // so the note appears on the first keystroke rather than when focus leaves.
+    if (eventPromptText) {
+      eventPromptText.addEventListener('input', function () {
+        promptEdited = true;
+        paintPromptEdited();
+      });
+    }
+
+    var promptResetBtn = document.getElementById('promptResetBtn');
+    if (promptResetBtn) {
+      promptResetBtn.addEventListener('click', function () {
+        refreshPromptText(true);
+        if (eventPromptText) eventPromptText.focus();
+      });
+    }
+
+    // WRAPPED, NEVER PASSED DIRECTLY. `addEventListener('input', refreshPromptText)`
+    // hands the EVENT to the function's first argument, which is `force` -- so
+    // every knob was a forced rebuild and the guard that protects an edited
+    // prompt could never fire. It looked correct and did the opposite.
+    var reprompt = function () { refreshPromptText(); };
+    if (promptFocus) promptFocus.addEventListener('input', reprompt);
     [promptLeague, promptFrom, promptTo].forEach((el) => {
-      if (el) el.addEventListener('change', refreshPromptText);
+      if (el) el.addEventListener('change', reprompt);
     });
     promptCountRadios.forEach((radio) => {
       radio.addEventListener('change', () => {
