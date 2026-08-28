@@ -705,7 +705,53 @@
     /* ONE FIELD PER LINE. .event-fields is an auto-fit grid because a card is
        wide and shallow; a creation form is the opposite -- you read down it once,
        in order, and a two-column layout makes "what comes next" a question. */
-    .manual-form { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .manual-form { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
+    /* A BAND PER GROUP, the same five the card uses. The form was a flat column
+       of 23 fields separated by bare rules, so the shape of the thing being
+       created was invisible -- you scrolled a list. */
+    .manual-band {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 10px;
+      margin: 0;
+      padding: 8px 10px 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+    }
+
+    .manual-band > legend {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* TWO COLUMNS, AND THE COMMENT THIS REPLACES WAS HALF RIGHT. It argued for
+       one field per line because "a creation form is one you read down once, in
+       order, and two columns make what-comes-next a question". That holds for a
+       flat list of 23. Inside a NAMED band of two to four related fields there
+       is no such question: start and end date, the two scores, the two tgbids
+       are PAIRS, and pairing them is what makes the band read as one thing.
+
+       Anything that is not half of a pair spans, so the reading order down the
+       form is unchanged. */
+    .manual-band > label { grid-column: span 1; }
+    .manual-band > label.field--full,
+    .manual-band > label[data-wide] { grid-column: 1 / -1; }
+
+    /* `[hidden]` HAS TO OUT-SPECIFY THE `display: grid` ABOVE, or the clubs band
+       is on screen for a concert. Tenth time in this repo. */
+    .manual-band[hidden] { display: none; }
+
+    @media (max-width: 560px) {
+      /* A PHONE GETS ONE COLUMN. Half of 340px is a date box with its label
+         wrapped to three lines. */
+      .manual-band { grid-template-columns: 1fr; }
+    }
     .manual-form label {
       display: grid; gap: 3px; font-size: 0.68rem; font-weight: 700;
       letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0;
@@ -733,11 +779,6 @@
       grid-template-columns: auto 1fr; align-items: center; column-gap: 7px;
     }
     .manual-form label.field--check input { min-height: 0; width: 15px; height: 15px; accent-color: var(--accent); order: -1; }
-    /* A quiet rule between the groups, so a 22-field column still reads as
-       sections without needing headings that would double its height. */
-    .manual-form .manual-gap {
-      height: 1px; margin: 4px 0 2px; background: var(--line); border: 0;
-    }
     .manual-hint {
       margin: -1px 0 0; font-size: 0.7rem; font-weight: 500; letter-spacing: 0;
       text-transform: none; color: var(--muted);
@@ -1052,7 +1093,7 @@
     <div class="prompt-lightbox" id="manualLightbox" role="dialog" aria-modal="true" aria-labelledby="manualDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="manualDialogTitle">Add an event</h2>
+          <h2 class="prompt-dialog-title" id="manualDialogTitle">Add an anchor event</h2>
           <button class="btn small" id="closeManualBtn" type="button">Close</button>
         </div>
         <div class="prompt-dialog-body">
@@ -3984,23 +4025,28 @@
     // -- and it belongs next to the kind and the description, not tacked onto
     // the end of the form.
     const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
+    // WHAT ONE BAND OF THE MANUAL FORM HOLDS. The builder calls this and so
+    // does the check below, so the thing being asserted is the thing being
+    // built -- not a second list that happens to agree today.
+    function manualBandFields(g) {
+      const extra = MANUAL_EXTRA[g.key];
+      const fields = g.fields.slice();
+      if (extra) {
+        const at = fields.indexOf(extra.after);
+        fields.splice(at < 0 ? fields.length : at + 1, 0, extra.field);
+      }
+      return fields;
+    }
+
     const MANUAL_ORDER = ['id'].concat(
-      FIELD_GROUPS.reduce(function (acc, g) {
-        const extra = MANUAL_EXTRA[g.key];
-        let fields = g.fields.slice();
-        if (extra) {
-          const at = fields.indexOf(extra.after);
-          fields.splice(at < 0 ? fields.length : at + 1, 0, extra.field);
-        }
-        return acc.concat(['-'], fields);
-      }, [])
+      FIELD_GROUPS.reduce((acc, g) => acc.concat(manualBandFields(g)), [])
     );
 
     // Every editable column must appear on this form too, or a field is
     // reachable when editing and not when creating -- which is worse than
     // either, because the row arrives missing something nobody was asked for.
     (function assertManualCoversFields() {
-      const named = MANUAL_ORDER.filter((f) => f !== '-');
+      const named = MANUAL_ORDER.filter((f) => f !== 'id');
       const missing = EDITABLE_FIELDS.filter((f) => named.indexOf(f) === -1);
       const twice = named.filter((f, i) => named.indexOf(f) !== i);
       if (missing.length) console.error('events: MANUAL form is missing editable fields:', missing);
@@ -4016,30 +4062,60 @@
       // database would otherwise be given by hand on nearly every row.
       const draft = { kind: 'sports', status: 'scheduled' };
 
-      MANUAL_ORDER.forEach((f) => {
-        if (f === '-') {
-          manualForm.appendChild(document.createElement('hr')).className = 'manual-gap';
-          return;
-        }
-        if (f === 'id') {
-          const label = document.createElement('label');
-          label.append(document.createTextNode('ID (permanent)'));
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.id = 'manualId';
-          input.placeholder = 'NFL-2026-W1-CAR-CHI';
-          label.appendChild(input);
-          const hint = document.createElement('span');
-          hint.className = 'manual-hint';
-          hint.textContent = 'Every game points at this, so it can never be changed. Shape: LEAGUE-YEAR-Wweek-HOME-AWAY, or KIND-YEAR-MM-DD-NAME.';
-          label.appendChild(hint);
-          manualForm.appendChild(label);
-          return;
-        }
-        // onDirty is a no-op here: there is no row to mark unsaved, because
-        // nothing exists until Add is pressed.
-        manualForm.appendChild(fieldControl(draft, f, function () {}));
+      // ── ONE BAND PER GROUP, THE SAME FIVE THE CARD USES ──────────────────
+      //
+      // It was a flat column of 23 fields separated by bare rules, so the shape
+      // of the thing being created was invisible: you scrolled a list. The
+      // bands are named and already familiar from the card, and they cost no
+      // reading order -- the fields are in exactly the sequence they were.
+      //
+      // The ID keeps its place at the top, outside any band. It is the one
+      // field that can never be changed afterwards.
+      const idLabel = document.createElement('label');
+      idLabel.append(document.createTextNode('ID (permanent)'));
+      const idInput = document.createElement('input');
+      idInput.type = 'text';
+      idInput.id = 'manualId';
+      idInput.placeholder = 'NFL-2026-W1-CAR-CHI';
+      idLabel.appendChild(idInput);
+      const idHint = document.createElement('span');
+      idHint.className = 'manual-hint';
+      idHint.textContent = 'Every game points at this, so it can never be changed. Shape: LEAGUE-YEAR-Wweek-HOME-AWAY, or KIND-YEAR-MM-DD-NAME.';
+      idLabel.appendChild(idHint);
+      manualForm.appendChild(idLabel);
+
+      FIELD_GROUPS.forEach((g) => {
+        const band = document.createElement('fieldset');
+        band.className = 'manual-band';
+        band.dataset.band = g.key;
+        const legend = document.createElement('legend');
+        legend.textContent = g.label;
+        band.appendChild(legend);
+
+        manualBandFields(g).forEach((f) => {
+          // onDirty is a no-op here: there is no row to mark unsaved, because
+          // nothing exists until Add is pressed.
+          band.appendChild(fieldControl(draft, f, function () {}));
+        });
+        manualForm.appendChild(band);
       });
+
+      // ── THE CLUBS ONLY WHEN THERE ARE CLUBS ──────────────────────────────
+      //
+      // The single biggest compaction available, and it costs nothing: a
+      // concert has no league, no sport and no two teams, so ten of the
+      // twenty-three fields are blanks somebody has to scroll past. The card
+      // already folds this band away on a non-sports row; the form now does the
+      // same, live, as the Kind dropdown changes.
+      const kindEl = manualForm.querySelector('[data-field="kind"]');
+      const whoBand = manualForm.querySelector('.manual-band[data-band="who"]');
+      function syncManualWho() {
+        if (!whoBand) return;
+        const kind = kindEl ? clean(kindEl.value) : 'sports';
+        whoBand.hidden = !(!kind || kind === 'sports');
+      }
+      if (kindEl) kindEl.addEventListener('change', syncManualWho);
+      syncManualWho();
 
       // The end date mirrors the start exactly as it does on a card, so what is
       // written is what you can see before you press Add.
