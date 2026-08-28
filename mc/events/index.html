@@ -355,6 +355,11 @@
     .event-actions .event-actions-gap { flex: 1 1 auto; }
     .event-actions .btn[hidden] { display: none; }
 
+    /* admin-shell.css clamps every room's sentence to 62ch, which is right for
+       a short one and breaks this one after "sporting event". The room is
+       1400px wide; the sentence may use it. */
+    .room-head .room-blurb { max-width: none; }
+
     .empty { padding: 22px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
 
     .prompt-lightbox {
@@ -607,7 +612,7 @@
           <label class="bar-pick">When
             <select id="whenFilter" class="command-bar-select">
               <option value="any">any date</option>
-              <option value="upcoming">upcoming</option>
+              <option value="upcoming" selected>upcoming</option>
               <option value="30">next 30 days</option>
               <option value="90">next 90 days</option>
               <option value="past">past</option>
@@ -649,6 +654,7 @@
             <option value="">Set kind…</option>
             <option value="sports">sports</option>
             <option value="sports-nonteam">sports (non-team)</option>
+            <option value="sports-tournament">sports (tournament)</option>
             <option value="concert">concert</option>
             <option value="convention">convention</option>
             <option value="festival">festival</option>
@@ -743,8 +749,9 @@
           </fieldset>
 
           <fieldset class="prompt-options prompt-options--sg" aria-label="Where and when">
-            <legend class="prompt-options-label">Where and when</legend>
-            <input type="text" id="sgCity" placeholder="Denver, or Denver, Chicago, Tulsa" autocomplete="off">
+            <legend class="prompt-options-label">Which cities or leagues, and when</legend>
+            <input type="text" id="sgCity" placeholder="Denver, Chicago, NFL, NFL International" autocomplete="off"
+                   title="A city, a league, or a mix of both, separated by commas. A league may carry a region: NFL International for every game abroad, or name one: NFL Europe, NFL Mexico, NBA Canada.">
             <label class="prompt-option">from <input type="date" id="sgFrom"></label>
             <label class="prompt-option">to <input type="date" id="sgTo"></label>
             <button class="btn small primary" id="sgFetchBtn" type="button">Fetch</button>
@@ -775,7 +782,10 @@
 
     const TABLE = 'events';
 
-    const KIND_VALUES = ['sports', 'sports-nonteam', 'concert', 'convention', 'festival', 'expo', 'other'];
+    const WHEN_DEFAULT = 'upcoming';
+
+    const KIND_VALUES = ['sports', 'sports-nonteam', 'sports-tournament',
+                         'concert', 'convention', 'festival', 'expo', 'other'];
 
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
@@ -899,7 +909,7 @@
     const sgImportBtn = document.getElementById('sgImportBtn');
 
     const state = { rows: [], authed: false, page: 1, q: '',
-                    loaded: false, total: null, when: 'any', issues: 'any' };
+                    loaded: false, total: null, when: WHEN_DEFAULT, issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1840,10 +1850,77 @@
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
     const sgState = { rows: [], checked: new Set(), busy: false, pauseUntil: 0 };
 
-    function sgCities() {
+    const SG_LEAGUES = {
+      nfl: 'nfl', football: 'nfl',
+      ncaaf: 'ncaa_football', 'ncaa football': 'ncaa_football', 'college football': 'ncaa_football',
+      nba: 'nba',
+      ncaab: 'ncaa_basketball', 'ncaa basketball': 'ncaa_basketball', 'college basketball': 'ncaa_basketball',
+      'womens college basketball': 'ncaa_womens_basketball',
+      wnba: 'wnba',
+      mlb: 'mlb', baseball: 'mlb',
+      nhl: 'nhl', hockey: 'nhl',
+      mls: 'mls', soccer: 'soccer',
+      nascar: 'nascar', indycar: 'indycar',
+      mma: 'mma', ufc: 'mma', boxing: 'boxing', wwe: 'wwe',
+      golf: 'golf', tennis: 'tennis'
+    };
+
+    const SG_REGIONS = {
+      international: null,
+      abroad: null,
+      overseas: null,
+      europe: ['UK', 'IE', 'IRELAND', 'GERMANY', 'SPAIN', 'FRANCE', 'ITALY', 'NETHERLANDS',
+               'SWEDEN', 'NORWAY', 'DENMARK', 'POLAND', 'PORTUGAL', 'SWITZERLAND', 'AUSTRIA',
+               'BELGIUM', 'UNITED KINGDOM', 'ENGLAND', 'SCOTLAND', 'WALES'],
+      uk: ['UK', 'UNITED KINGDOM', 'ENGLAND', 'SCOTLAND', 'WALES'],
+      london: ['UK', 'UNITED KINGDOM', 'ENGLAND'],
+      canada: ['CA', 'CAN', 'CANADA'],
+      mexico: ['MX', 'MEX', 'MEXICO'],
+      germany: ['DE', 'DEU', 'GERMANY'],
+      spain: ['ES', 'ESP', 'SPAIN'],
+      brazil: ['BR', 'BRA', 'BRAZIL'],
+      japan: ['JP', 'JPN', 'JAPAN'],
+      australia: ['AU', 'AUS', 'AUSTRALIA']
+    };
+
+    function sgResolveTerm(raw) {
+      const term = clean(raw);
+      const low = term.toLowerCase();
+      if (SG_LEAGUES[low]) return { raw: term, kind: 'league', taxonomy: SG_LEAGUES[low], region: null, regionName: null };
+
+      // A LEAGUE MAY CARRY A REGION: `NFL Europe`, `NBA Canada`. The region is
+      // the TAIL, since every league alias here is one or two words at the
+      // front and every region name is one word at the end.
+      const words = low.split(/\s+/).filter(Boolean);
+      for (let take = 1; take < words.length; take += 1) {
+        const head = words.slice(0, words.length - take).join(' ');
+        const tail = words.slice(words.length - take).join(' ');
+        if (SG_LEAGUES[head] && Object.prototype.hasOwnProperty.call(SG_REGIONS, tail)) {
+          return {
+            raw: term, kind: 'league', taxonomy: SG_LEAGUES[head],
+            region: SG_REGIONS[tail], regionName: tail
+          };
+        }
+      }
+      return { raw: term, kind: 'city', city: term };
+    }
+
+    function sgTerms() {
       return clean(sgCityEl && sgCityEl.value).split(',')
         .map((c) => clean(c)).filter(Boolean)
-        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
+        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at)
+        .map(sgResolveTerm);
+    }
+
+    // A REGION IS A FILTER ON THE VENUE, NOT A QUERY. SeatGeek has no
+    // `venue.country` filter, and an international fixture is a handful of rows
+    // in a league of nine hundred, so the whole league is read and then sieved.
+    function sgInRegion(ev, term) {
+      if (term.kind !== 'league' || term.regionName === null) return true;
+      const country = clean(ev && ev.venue && ev.venue.country).toUpperCase();
+      if (!country) return false;
+      if (term.region === null) return country !== 'US' && country !== 'USA';
+      return term.region.indexOf(country) !== -1;
     }
 
     function sgSet(text, kind) {
@@ -1869,19 +1946,54 @@
 
     const NON_TEAM_SPORTS = /racing|nascar|formula|motogp|golf|tennis|boxing|ufc|mma|fighting|wrestling|rodeo|track|gymnastics|swimming|cycling|marathon|horse/;
 
+    // MORE THAN TWO CLUBS MEANS A TOURNAMENT, and SeatGeek says so in a shape
+    // worth knowing. An ordinary fixture carries exactly two performers, both
+    // flagged home_team / away_team. A tournament carries NO flags, a `primary`
+    // performer that is the EVENT itself, and one performer per club after it:
+    // the CareSource Invitational lists itself plus Cincinnati, Ohio State,
+    // Dayton and Xavier. The performer COUNT alone cannot be used -- "San Jose
+    // State at #14 USC" has three performers and is one fixture.
+    function sgClubCount(ev) {
+      const perf = (ev && ev.performers) || [];
+      const title = clean(ev && (ev.short_title || ev.title)).toLowerCase();
+      return perf.filter((x) => {
+        const name = clean(x && x.name).toLowerCase();
+        if (!name) return false;
+        // The event standing in as its own performer is not a club.
+        return name !== title && title.indexOf(name) === -1;
+      }).length;
+    }
+
     function sgKind(ev) {
       const names = ((ev && ev.taxonomies) || [])
         .map((t) => clean(t && t.name).toLowerCase()).filter(Boolean);
       const t = clean(ev && ev.type).toLowerCase();
       const all = names.concat([t]).join(' ');
       if (names.indexOf('sports') !== -1 || t.indexOf('sport') !== -1) {
-        return NON_TEAM_SPORTS.test(all) ? 'sports-nonteam' : 'sports';
+        const perf = (ev && ev.performers) || [];
+        const flagged = perf.filter((x) => x && (x.home_team || x.away_team)).length;
+        if (flagged === 2) return 'sports';
+        if (NON_TEAM_SPORTS.test(all)) return 'sports-nonteam';
+        if (sgClubCount(ev) > 2) return 'sports-tournament';
+        return 'sports';
       }
       if (names.indexOf('concert') !== -1 || t === 'concert' || t === 'music_festival') return 'concert';
       if (all.indexOf('comic') !== -1 || all.indexOf('convention') !== -1) return 'convention';
       if (all.indexOf('expo') !== -1) return 'expo';
       if (all.indexOf('festival') !== -1) return 'festival';
       return 'other';
+    }
+
+    // A FIXTURE OUTSIDE THE UNITED STATES IS PLAYED AT A NEUTRAL SITE.
+    // SeatGeek's catalogue is the US leagues, so a game abroad is the
+    // International Series or its equivalent: neither club is at home and both
+    // fanbases travel, which is exactly what the column means. It is set for a
+    // FIXTURE only, because a concert has no home ground to be away from.
+    function sgIsNeutral(kind, venue) {
+      if (String(kind || '').indexOf('sports') !== 0) return false;
+      const country = clean(venue && venue.country).toUpperCase();
+      if (!country) return false;
+      return country !== 'US' && country !== 'USA';
     }
 
     function sgRow(ev) {
@@ -1897,7 +2009,7 @@
       const away = perf.filter((x) => x && x.away_team)[0];
       const tax = sgTaxonomy(ev);
       const row = {
-        id: sgId(ev, kind, date, city),
+        id: '',
         kind: kind,
         league: tax.league,
         sport: tax.sport,
@@ -1910,7 +2022,7 @@
         venue_city: city || null,
         url: clean(ev && ev.url) || null,
         source: 'SeatGeek',
-        neutral_site: false,
+        neutral_site: sgIsNeutral(kind, venue),
         issues: 'NO'
       };
       row.home_team_geo = null;
@@ -1934,6 +2046,9 @@
         row.away_team_geo = a2.geo;
         row.away_team_nickname = a2.nick;
       }
+      // COMPOSED LAST, from the finished row, so it can see the league and
+      // both clubs. That is the one composer this page has.
+      row.id = composeEventId(row);
       return row;
     }
 
@@ -1972,12 +2087,6 @@
       return lines.join(' ');
     }
 
-    function sgId(ev, kind, date, city) {
-      const name = String(clean(ev && (ev.short_title || ev.title)) || '').split(/\s+/)[0];
-      const parts = [idPart(kind, 10), date, idPart(name, 10), idPart(String(city).split(',')[0], 3)];
-      return parts.filter(Boolean).join('-') || 'EVENT';
-    }
-
     async function sgFetch() {
       const key = sgClientId();
       if (!key) {
@@ -1985,10 +2094,10 @@
         if (sgClientIdEl) sgClientIdEl.focus();
         return;
       }
-      const cities = sgCities();
+      const terms = sgTerms();
       const from = clean(sgFromEl && sgFromEl.value);
       const to = clean(sgToEl && sgToEl.value);
-      if (!cities.length) { sgSet('Which city?', 'error'); if (sgCityEl) sgCityEl.focus(); return; }
+      if (!terms.length) { sgSet('Which city or league?', 'error'); if (sgCityEl) sgCityEl.focus(); return; }
       if (!from) { sgSet('Pick a start date.', 'error'); return; }
       if (to && to < from) { sgSet('The end date is before the start date.', 'error'); return; }
 
@@ -2001,28 +2110,35 @@
         const PER_PAGE = 100;
         const all = [];
         const seen = new Set();
-        for (const city of cities) {
+        const empties = [];
+        for (const term of terms) {
           let total = 0;
           let got = 0;
+          let kept = 0;
           for (let page = 1; ; page += 1) {
             const body = await sgApi(key, 'events', Object.assign({
-              'venue.city': city,
               'datetime_local.gte': from + 'T00:00:00',
               per_page: PER_PAGE, page: page, sort: 'datetime_local.asc'
-            }, to ? { 'datetime_local.lte': to + 'T23:59:59' } : {}));
+            }, term.kind === 'league'
+              ? { 'taxonomies.name': term.taxonomy }
+              : { 'venue.city': term.city },
+              to ? { 'datetime_local.lte': to + 'T23:59:59' } : {}));
             const events = (body && body.events) || [];
             if (body && body.meta && body.meta.total) total = body.meta.total;
             events.forEach((ev) => {
+              if (!sgInRegion(ev, term)) return;
+              kept += 1;
               if (seen.has(ev.id)) return;
               seen.add(ev.id);
               all.push(ev);
             });
             got += events.length;
-            sgSet('Reading ' + city + '\u2026 ' + all.length +
-              (cities.length > 1 ? ' across ' + cities.length + ' cities' : (total ? ' of ' + total : '')));
+            sgSet('Reading ' + term.raw + '\u2026 ' + all.length +
+              (terms.length > 1 ? ' across ' + plural(terms.length, 'search') : (total ? ' of ' + total : '')));
             if (events.length < PER_PAGE) break;
             if (total && got >= total) break;
           }
+          if (!kept) empties.push(term.raw);
         }
 
         sgState.rows = all.map(sgRow).filter((r) => r.start_date);
@@ -2030,11 +2146,18 @@
         sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
         renderSg();
         const dropped = all.length - sgState.rows.length;
+        const leagues = terms.filter((t) => t.kind === 'league');
+        const said = leagues.length
+          ? ' Read as ' + leagues.map((t) => t.raw + ' = the ' + t.taxonomy.toUpperCase().split('_').join(' ') +
+              (t.regionName ? ' in ' + t.regionName : '')).join(', ') + '.'
+          : '';
         sgSet(sgState.rows.length
-          ? 'Found ' + plural(sgState.rows.length, 'event') + '.' +
+          ? 'Found ' + plural(sgState.rows.length, 'event') + '.' + said +
+            (empties.length ? ' Nothing for ' + empties.join(' or ') + '.' : '') +
             (dropped ? ' ' + dropped + ' had no readable date and were left out.' : '') +
             ' Untick anything you do not want.'
-          : 'Nothing in that window. Try another city spelling or a wider range.',
+          : 'Nothing in that window.' + said +
+            ' A city is matched on the venue town, so try another spelling or a wider range.',
           sgState.rows.length ? 'success' : null);
       } catch (err) {
         console.error(err);
@@ -3003,7 +3126,7 @@
       });
     }
     function anyFilterOn() {
-      return !!(clean(state.q) || state.when !== 'any' || state.issues !== 'any');
+      return !!(clean(state.q) || state.when !== WHEN_DEFAULT || state.issues !== 'any');
     }
 
     function paintClearBtn() {
@@ -3021,13 +3144,13 @@
         return;
       }
       state.q = '';
-      state.when = 'any';
+      state.when = WHEN_DEFAULT;
       state.issues = 'any';
       state.page = 1;
       if (searchInput) searchInput.value = '';
       const whenEl = document.getElementById('whenFilter');
       const issuesEl = document.getElementById('issuesFilter');
-      if (whenEl) whenEl.value = 'any';
+      if (whenEl) whenEl.value = WHEN_DEFAULT;
       if (issuesEl) issuesEl.value = 'any';
       render();
       setStatus('Filters cleared.', 'success');

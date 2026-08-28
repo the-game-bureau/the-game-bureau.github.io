@@ -1020,6 +1020,112 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## THE SEATGEEK BOX TAKES A LEAGUE AS WELL AS A CITY (2026-08-28)
+
+`Denver, Chicago, NFL, NFL International` -- each comma-separated term is
+resolved as one or the other, and a term nobody recognises is still a city.
+
+- **A LEAGUE IS `taxonomies.name`, NOT A SEARCH.** Verified live:
+  `nfl` 899 events, `nba` 1,296, `mlb` 3,253, `nhl` 1,414, `ncaa_football`
+  1,763, `ncaa_basketball` 2,637, `mls` 311, `wnba` 115, `nascar` 111.
+  **`ufc` returns 0 and the taxonomy is `mma`**; **`ncaa_mens_basketball` and
+  `formula_one` return 0 and do not exist.** Aliases were measured, not
+  guessed.
+- **A REGION IS A SIEVE, NOT A QUERY.** SeatGeek has no `venue.country` filter,
+  and the international NFL games are **6 rows inside a league of 899**, so the
+  whole league is read and then filtered on `venue.country`. That is why a
+  region costs nothing extra in requests.
+- **`NFL INTERNATIONAL` MEANS ANY NON-US VENUE, and it is the form the box
+  offers.** `Europe` still resolves and is the narrower thing it always was:
+  the 2026 series is London, Madrid, **Munich and Mexico City**, so Europe
+  silently drops the Mexico game. **Naming a country works too** -- `NFL
+  Mexico`, `NBA Canada`.
+- **THE REGION IS THE TAIL OF THE TERM**, matched by walking words off the end,
+  because every league alias here is one or two words at the front and every
+  region name is one word at the back.
+- **THE STATUS SAYS HOW IT READ THE TERM** -- *"Read as NFL International = the
+  NFL in international"* -- because a box that silently decides between two
+  meanings has to show which it took. **A term that returns nothing is named**,
+  so a two-term search does not look wholly empty.
+- **AN UNKNOWN TERM IS STILL A CITY.** The box must not start refusing towns
+  for not being leagues, and a city that finds nothing says so in words: it is
+  matched on the venue town.
+
+### A FIXTURE ABROAD IS AT A NEUTRAL SITE
+
+`sgIsNeutral` sets `neutral_site` on import when the venue country is not the
+US.
+
+- **THAT IS WHAT THE COLUMN MEANS**, and this file already said so: the
+  International Series is the worked example of neither club being at home, and
+  **both fanbases travel**, which is the thing a game is built on.
+- **FIXTURES ONLY.** A concert has no home ground to be away from, so the flag
+  is left false for anything that is not a sports kind.
+- **IT ASSUMES A US LEAGUE, and that is the limitation to know.** SeatGeek's
+  catalogue is the US leagues, so "outside the US" and "neutral" coincide. If
+  the importer ever reads a league that plays abroad ordinarily, this becomes
+  wrong and needs the league in the test.
+
+### AND THE IMPORTER HAD ITS OWN ID COMPOSER
+
+`sgId` knew neither the league nor the clubs, so the same fixture came out
+**`SPORTS-2026-10-04-NFL-LON`** from SeatGeek and **`NFL-2026-10-04-IND-WAS`**
+from the manual form. **Two ids for one shape**, and the documented shape is
+`LEAGUE-DATE-AWAY-HOME`.
+
+- **`sgId` IS DELETED. `composeEventId` IS THE ONE COMPOSER**, called LAST in
+  `sgRow` from the finished row, so it can see the league and both clubs.
+- **WHAT IT COSTS, and it is real: a row imported from SeatGeek BEFORE this
+  carries a `SPORTS-...` id and will not be recognised as already filed.** A
+  re-fetch offers it again and importing it makes a second row for one fixture.
+  **The cross-row duplicate check is what catches that** -- same league, date
+  and clubs -- and it is the reason this was worth doing rather than leaving
+  two composers to drift further.
+
+## A SEVENTH KIND: `sports-tournament` (2026-08-28)
+
+More than two clubs playing. **SeatGeek says so in a shape worth knowing**, and
+it was read off the live catalogue rather than assumed:
+
+| shape | what it is |
+|---|---|
+| exactly 2 performers **flagged** `home_team` / `away_team` | an ordinary fixture |
+| no flags, a `primary` performer that **is the event**, then one per club | a tournament |
+
+- **THE PERFORMER COUNT ALONE CANNOT DECIDE IT.** *"San Jose State at #14 USC"*
+  carries **three** performers and is one fixture, the third being a ranked
+  variant. So the test is: two flagged means a fixture, otherwise count the
+  performers whose name is not the event's own.
+- **A NON-TEAM SPORT WINS OVER IT.** A NASCAR race lists three performers and is
+  `sports-nonteam`, not a tournament, because the sport is checked first.
+- **PROVED ON THE LIVE CATALOGUE**: NCAAB and NASCAR over six weeks gave
+  **889 `sports`, 41 `sports-tournament`, 4 `sports-nonteam`** -- the
+  tournaments being the Hall of Fame Series, the Field of 68 marathon and the
+  tip-off classics, which is exactly right.
+
+## THE ROOM OPENS ON UPCOMING (2026-08-28)
+
+`WHEN_DEFAULT = 'upcoming'`, and the `<select>` ships `selected` on it.
+
+- **A PAST EVENT IS THE ONE THING THIS TABLE CAN NEVER USE.** Our game is played
+  the day BEFORE its anchor, and there is no day before a date that has gone.
+- **EVERYTHING IS ONE PRESS AWAY**, `any date`, so nothing is hidden without a
+  way back. This is not a silent cap.
+- **A ROW WITH NO DATE IS STILL SHOWN**, unchanged: it is exactly the row
+  somebody has to fix, and a date filter that hid it would hide the fault too.
+- **CLEAR PUTS IT BACK TO THE DEFAULT, NOT TO `any`.** Clearing means "as I
+  found it" -- and it is also what stops the Clear button reading as lit the
+  moment you arrive, since `anyFilterOn()` compares against the default rather
+  than against `any`.
+
+## THE ROOM'S SENTENCE MAY USE THE ROOM'S WIDTH (2026-08-28)
+
+`admin-shell.css` clamps every `.room-blurb` to **62ch**, which is right for a
+short one and broke this one after *"sporting event"*. `.room-head .room-blurb
+{ max-width: none }` clears it here, **the same one-line override the Tape Room
+already carries and for the same reason**. The shared rule is not changed:
+62ch is the right default for a room whose sentence is short.
+
 ## SEATGEEK'S OWN TAXONOMY DECIDES THE KIND (2026-08-28)
 
 Reported as *"McNeese State Cowgirls at Tulane Green Wave didn't grab away
