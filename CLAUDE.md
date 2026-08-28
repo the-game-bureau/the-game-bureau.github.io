@@ -983,6 +983,43 @@ passing. **Zero assertions is not success**, and a summary line that only counts
 failures cannot tell the two apart. Anything that reports on these suites must
 assert a MINIMUM COUNT, not just the absence of failures.
 
+## FIND: THE SPOTIFY ID IS LOOKED UP FROM THE ROW (2026-08-27)
+
+A small **Find** beside the Spotify box on every track badge. It asks
+[spotify-lookup](mc/supabase/functions/spotify-lookup/index.ts) for the row's title and artist and fills the box.
+
+- **IT FILLS AND DOES NOT SAVE, AND THAT IS THE WHOLE DESIGN.** The oldest rule
+  about this field is verify-or-omit, because **a wrong 22-character id passes
+  every check we have and then silently plays the wrong thing**. A lookup that
+  saved would be a machine guessing, at scale, into the one field nobody can
+  proofread by reading it. The box commits on blur like any other, so the save
+  is a second, deliberate press by somebody who has looked.
+- **ONE ANSWER FILLS THE BOX; SEVERAL OPEN A PICKER.** The picker carries the
+  album and the year AS SPOTIFY HAS THEM, because those are what tell a live
+  cut, a re-recording or a cover from the record somebody meant. Without them
+  every row of a search for a standard reads identically.
+- **THE NOTICE NAMES THE RECORDING, NOT THE ID.** 22 characters of machine text
+  cannot be checked by looking at them; "found X by Y on Z (1994)" can.
+- **IT NEEDS A SPOTIFY APP, WHICH THIS PROJECT DID NOT HAVE.** Two secrets and a
+  deploy: `supabase secrets set SPOTIFY_CLIENT_ID=... SPOTIFY_CLIENT_SECRET=...`
+  then `cd mc && supabase functions deploy spotify-lookup`. **Until both are set
+  the function answers with a sentence naming what is missing**, the button says
+  so, and nothing else changes: the box is still typeable and a pasted share
+  link still works.
+- **CLIENT CREDENTIALS, NOT A USER TOKEN.** It reads the public catalogue and
+  never touches an account, so there is no consent flow and **nothing that
+  expires and has to be renewed by hand** -- this project already carries one
+  such credential in Threads and does not want a second.
+- **THE TOKEN IS CACHED FOR THE LIFE OF THE WORKER**, since a clearing session
+  is a run of lookups and a token lasts an hour. Not persisted: there is nothing
+  here worth storing.
+- **A FIELDED QUERY**, `track:"..." artist:"..."`, so Spotify matches the two
+  separately. A bag of words returns forty covers.
+- **IT IS THE THIRD EXCEPTION** to the rule that no child of a track row
+  declares its own font size, and it is the flag words' exception exactly: a
+  CONTROL carrying a three-letter label rather than a field carrying a value.
+  The harness names it.
+
 ## THE THREE AUDIT FINDINGS, FIXED, AND THE NFL SHELF FILLED (2026-08-27)
 
 [2026082708_audit_clock_and_spotify_sweep.sql](mc/supabase/migrations/2026082708_audit_clock_and_spotify_sweep.sql), **applied**.
