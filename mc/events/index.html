@@ -1965,6 +1965,24 @@
       runErrorSweep();
     }
 
+    // THE SEATGEEK CLIENT ID, IN THE FILE. Hardcoded 2026-08-28 so the room
+    // works on a fresh browser without anyone pasting anything.
+    //
+    // THIS PAGE IS PUBLIC AND THE ADMIN LOGIN DOES NOT COVER IT. The login
+    // gates the DATA -- Supabase RLS -- not the file: /mc/events/ answers 200
+    // with the whole source to anyone who asks, no credentials. So this id IS
+    // published, and that is an accepted cost rather than an oversight.
+    //
+    // WHAT MAKES IT ACCEPTABLE IS THAT IT IS THE ID AND NOT THE SECRET. The id
+    // alone authenticates a read of SeatGeek's public catalogue and nothing
+    // else; the worst somebody can do with it is spend our rate limit. THE
+    // SEATGEEK SECRET MUST NEVER FOLLOW IT HERE -- its only use is a higher
+    // rate limit, it would mean Basic auth from a browser, and it belongs in
+    // an Edge Function beside the Meta and Threads tokens if it is ever wanted.
+    //
+    // TO ROTATE IT: change this line. To use a different one WITHOUT changing
+    // the file, put it in localStorage under the key below, which still wins.
+    const SG_CLIENT_ID = 'MTE4MjQ1NjJ8MTc4NzkzOTYyMy4yMzYyMDc';
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
     const sgState = { rows: [], checked: new Set(), busy: false, pauseUntil: 0 };
 
@@ -2048,10 +2066,17 @@
         : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
     }
 
+    // TYPED BEATS STORED BEATS BUILT IN. The order matters: a key somebody
+    // has deliberately supplied must never be silently overruled by the one in
+    // the file, or rotating away from a bad id would be impossible from here.
     function sgClientId() {
       const typed = clean(sgClientIdEl && sgClientIdEl.value);
       if (typed) return typed;
-      try { return clean(window.localStorage.getItem(SG_KEY_STORE)); } catch (e) { return ''; }
+      try {
+        const saved = clean(window.localStorage.getItem(SG_KEY_STORE));
+        if (saved) return saved;
+      } catch (e) { /* a browser that refuses storage falls through to the built-in */ }
+      return SG_CLIENT_ID;
     }
 
     function sgRememberKey() {
@@ -2688,6 +2713,9 @@
         if (saved && sgClientIdEl && !sgClientIdEl.value) sgClientIdEl.value = saved;
       } catch (e) { /* storage refused; the box is simply empty */ }
       if (sgKeyBox) sgKeyBox.hidden = !!sgClientId();
+      // There is always a key now, so the "paste one to begin" line is
+      // unreachable; it stays as the honest answer if the constant is ever
+      // emptied.
       sgSet(sgClientId() ? '' : 'Paste a SeatGeek client ID to begin. It is free and stays in this browser.');
       sgLightbox.hidden = false;
       sgLightbox.classList.add('is-open');

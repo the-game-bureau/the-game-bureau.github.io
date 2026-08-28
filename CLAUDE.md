@@ -1846,14 +1846,40 @@ shape:**
   PROMPT route (an AI with a browser) is told to read those pages and this
   button reads the API. **Do not "fix" this by scraping the site.**
 
-**THE CLIENT ID IS ASKED FOR ONCE AND KEPT IN `localStorage`.** It is free from
-`seatgeek.com/account/develop`, and it is **not in the repository**: this page is
-public HTML on GitHub Pages, so a key committed here is published. **A SEATGEEK
-API SECRET IS NOT NEEDED AND MUST NOT GO IN.** The id alone authenticates a read
-of the public catalogue, verified against the live API, and the secret's only
-use is a higher rate limit, which would mean Basic auth from a browser and a
-secret sitting in a page anyone can open. If it is ever wanted, it belongs in an
-Edge Function beside the Meta and Threads tokens.
+**THE CLIENT ID IS IN THE FILE AS OF 2026-08-28**, `SG_CLIENT_ID` in
+[mc/events/index.html](mc/events/index.html), so the room works on a fresh browser with nobody
+pasting anything. **This reverses the rule below, which said the id must never
+be committed, and the reversal was asked for knowing the cost.**
+
+- **THE ADMIN LOGIN DOES NOT COVER THE FILE, and that was the reason given for
+  hardcoding it, so it is worth stating plainly: it is not true.** The login
+  gates the DATA through Supabase RLS. **`https://thegamebureau.com/mc/events/`
+  answers 200 with the entire source to anybody who asks, with no
+  credentials** -- checked, not assumed. So the id is on the public web.
+- **WHAT MAKES THAT ACCEPTABLE IS THAT IT IS THE ID AND NOT THE SECRET.** The id
+  alone authenticates a read of SeatGeek's public catalogue and nothing else, so
+  **the worst anybody can do with it is spend our rate limit.**
+- **THE SECRET STILL MUST NOT FOLLOW IT.** Its only use is a higher rate limit,
+  it would mean Basic auth from a browser, and it belongs in an Edge Function
+  beside the Meta and Threads tokens. **The id being published is not a
+  precedent for the secret being published.**
+- **TYPED BEATS STORED BEATS BUILT IN.** A key in the box wins, then
+  `localStorage.tgb_seatgeek_client_id`, then the constant -- so rotating away
+  from a bad id does not need a deploy, and a key somebody deliberately supplied
+  is never silently overruled by the file.
+- **THE KEY BOX IS NOW ALWAYS HIDDEN**, since it hides whenever a key resolves
+  and one always does. That is not a new loss: it was already hidden forever for
+  anybody who had saved one. **To change the id without editing the file, set
+  that localStorage key by hand.**
+- **VERIFIED LIVE BEFORE SHIPPING**: the id answers 200 and 1,578 Denver events,
+  a bogus one answers 403; and in the rendered room a fresh browser sends the
+  built-in id while a stored key overrides it.
+
+**THE RULE IT REPLACED, kept because the second half of it still stands:** the
+id was asked for once and kept in `localStorage`, and it was **not in the
+repository**, because this page is public HTML on GitHub Pages and a key
+committed here is published. **A SEATGEEK API SECRET IS NOT NEEDED AND MUST NOT
+GO IN.**
 
 **VERIFIED AGAINST THE LIVE API, not a fixture**: Denver from 2026-09-01 answers
 1,557 events, `type: "mlb"` maps to `sports`, `type: "concert"` to `concert`,
