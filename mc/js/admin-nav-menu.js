@@ -49,6 +49,23 @@
       // full cards of scrolling.
       items: [
         {
+          href: '/mc/events/',
+          // FIRST IN THE GROUP since 2026-08-28. It is where the work starts:
+          // a game is played the day before its anchor event, so the event is
+          // what decides there is a game to build at all, and everything else
+          // in this group is chosen to fit one. The order of the cards is the
+          // order of the job.
+          //
+          // Absorbed /mc/get_games.html ("Sports Games Research") and
+          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
+          // gathered real schedules the long way round and neither wrote
+          // anchor_events; the SCHEDULE button on this page reads the same ESPN
+          // feed in the browser and imports straight into the table.
+          label: 'Anchor Events',
+          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.',
+          action: 'GO TO ANCHOR EVENTS'
+        },
+        {
           href: '/mc/waypoints/',
           // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
           // waypoints and nothing else -- no game, no challenges, no pricing --
@@ -57,10 +74,13 @@
           // is reusable across games in the same way a Guide, a City and a Team
           // are.
           //
-          // FIRST IN THE GROUP since 2026-08-19. It sat last, which put the
-          // room that actually assembles a walk below four catalogues you
-          // consult; a Path is the thing being built and the others are what it
-          // is built out of.
+          // SECOND IN THE GROUP since 2026-08-28, and first from 2026-08-19
+          // before that. It sat LAST originally, which put the room that
+          // actually assembles a walk below four catalogues you consult; a Path
+          // is the thing being built and the others are what it is built out
+          // of. That argument still holds against the three below it and loses
+          // to Anchor Events, which is the one card here that decides whether
+          // there is a walk to build.
           label: 'Waypoints',
           // ONE ROOM, ONE NAME, AND THE NAME IS NOW THE ONE THE DOORWAYS
           // ALREADY USED. The waypoint catalogue and the paths built from it
@@ -89,17 +109,6 @@
           label: 'Guide Green Room',
           description: 'Where the narrators are made — add, write, illustrate and retire the guides.',
           action: 'GO TO THE GREEN ROOM'
-        },
-        {
-          href: '/mc/events/',
-          // Absorbed /mc/get_games.html ("Sports Games Research") and
-          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
-          // gathered real schedules the long way round and neither wrote
-          // anchor_events; the SCHEDULE button on this page reads the same ESPN
-          // feed in the browser and imports straight into the table.
-          label: 'Anchor Events',
-          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.',
-          action: 'GO TO ANCHOR EVENTS'
         },
         {
           href: '/mc/data/teams.html',
