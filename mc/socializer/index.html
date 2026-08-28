@@ -894,29 +894,43 @@
       background: #fff;
       color: var(--ink);
     }
-    /* USED, NOT DISABLED. A pressed account stays pressable: posting twice is
-       a thing people legitimately do, and greying it out would make a retry
-       after a failure impossible. The tick says where you have got to.
+    /* USED IS SPENT: GREY, AND aria-disabled. Changed 2026-08-28. It was
+       filled GREEN and pressable, on the rule that posting twice is a thing
+       people legitimately do and greying it out would make a retry after a
+       failure impossible.
 
-       IT IS FILLED GREEN AND MUST STAY AFTER .is-ready IN THIS SHEET. Both
-       selectors are (0,2,0), so source order is the only thing deciding an
-       available account you have already pressed. Green text on the blue fill
-       would be the alternative, and it is unreadable.
+       THAT RULE WAS PROTECTING SOMETHING IT DID NOT NEED TO. A retry after a
+       FAILURE was never at risk: `used` is built from the reply, so an account
+       that refused is never marked, stays blue and stays pressable -- which is
+       exactly the case the old comment was worried about. What greying really
+       costs is posting the same account TWICE ON PURPOSE in one sitting, which
+       is rare, and a reload clears the sitting.
 
-       DONE IS GREEN WHATEVER THE ROUTE. A clipboard account and a machine
-       account that have both gone out are in the same state, and the whole
-       point of account buttons is being able to see where you have got to. */
+       WHAT IT BUYS is the thing green could not say: after `All 3` the row
+       reads at a glance as three accounts DONE and two still to do, rather
+       than as five buttons in three colours you have to decode.
+
+       IT MUST STAY AFTER .is-ready AND .is-fallback IN THIS SHEET. All three
+       are (0,2,0), so source order is the only thing deciding an account you
+       have already pressed. */
     .post-platform.is-used,
-    .post-platform.is-ready.is-used {
+    .post-platform.is-ready.is-used,
+    .post-platform.is-fallback.is-used {
       /* solid, explicitly: a used FALLBACK keeps .is-fallback and would
          otherwise stay dashed, so a finished account would look provisional. */
       border-style: solid;
-      border-color: var(--bic-green, #276740);
-      background: var(--bic-green, #276740);
-      color: #fff;
+      border-color: var(--control-line, rgba(27, 36, 56, 0.3));
+      background: #eceef2;
+      color: rgba(27, 36, 56, 0.55);
     }
+    /* NO HOVER LIFT ON A SPENT BUTTON. A control that brightens under the
+       pointer is saying it will do something. */
     .post-platform.is-used:hover:not(:disabled),
-    .post-platform.is-ready.is-used:hover:not(:disabled) { background: #1f5334; }
+    .post-platform.is-ready.is-used:hover:not(:disabled) { background: #eceef2; }
+    /* IT KEEPS FULL CONTRAST DESPITE aria-disabled. The rule below fades an
+       UNAVAILABLE account to 0.42, and a spent one is not unavailable, it is
+       finished -- at 0.42 on a grey fill the word would be unreadable. */
+    .post-platform.is-used[aria-disabled="true"] { opacity: 1; }
     /* THE LITERAL CHARACTER, NOT A CSS ESCAPE. This was written as a
        backslash-2713 escape and reached the file as ' ¹3': it went through a
        heredoc and then Python, which read the first four characters as an
@@ -7587,14 +7601,34 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         var usedIds = {};
         var buttons = {};
 
+        function usedAlready(key) {
+          return used.indexOf(PLATFORM_NAME[key]) !== -1;
+        }
+
+        /** What `All` would still reach: the machine accounts this sitting has
+         *  NOT already posted to.
+         *
+         *  A SPENT ACCOUNT IS OUT OF THE BATCH, or pressing `All 3` and then
+         *  `All 2` would post Facebook twice while the button claimed to be
+         *  doing something new. It also means a partial failure leaves the
+         *  batch holding exactly the accounts that refused, which is what you
+         *  want to press again. */
+        function batchTargets(live) {
+          return machineTargets(live).filter(function (k) { return !usedAlready(k); });
+        }
+
         function noteUsed(key) {
-          if (used.indexOf(PLATFORM_NAME[key]) === -1) used.push(PLATFORM_NAME[key]);
+          if (!usedAlready(key)) used.push(PLATFORM_NAME[key]);
           if (buttons[key]) {
             buttons[key].classList.add('is-used');
-            // The tick is state, not instruction: it says where you have got
-            // to, which is the thing account buttons make easy to lose.
-            buttons[key].title = PLATFORM_NAME[key] + ': done in this sitting. ' +
-                                 'Press again to repeat it.';
+            // SPENT, NOT MERELY MARKED. aria-disabled and never `disabled`:
+            // a disabled button dispatches no click at all, so on a touch
+            // screen -- no hover, therefore no tooltip -- the reason it went
+            // grey would be unreachable. The handler turns a press into the
+            // sentence instead.
+            buttons[key].setAttribute('aria-disabled', 'true');
+            buttons[key].title = PLATFORM_NAME[key] + ': already went out in this sitting. ' +
+                                 'Reload the page if you need to post it again.';
           }
           paintDone();
         }
@@ -7634,7 +7668,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         allBtn.addEventListener('click', function () {
           if (allBtn.disabled || postingLock) return;
           clearNotice(feedbackEl);
-          var keys = machineTargets(currentRow(stateKey, post));
+          var keys = batchTargets(currentRow(stateKey, post));
           if (!keys.length) return;
           flushOpenEdit().then(function () { postKeys(keys, allBtn); });
         });
@@ -7698,7 +7732,13 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             // tooltip does not exist, and a control that ignores a press is
             // indistinguishable from one that is broken.
             if (btn.getAttribute('aria-disabled') === 'true') {
-              stick(feedbackEl, platformBlockedWhy(live, key));
+              // SPENT AND BLOCKED ARE BOTH GREY AND THEY ARE NOT THE SAME
+              // THING. platformBlockedWhy answers "why can this row never go
+              // there", which on an account that has just gone out would be a
+              // flat contradiction of the tick beside it.
+              stick(feedbackEl, usedAlready(key)
+                ? PLATFORM_NAME[key] + ' already went out in this sitting. Reload the page if you need to post it again.'
+                : platformBlockedWhy(live, key));
               return;
             }
 
@@ -7941,13 +7981,18 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             // `disabled` is still what the POSTING LOCK uses, and the two do not
             // collide: the lock sets and clears `.disabled`, sync() owns
             // `aria-disabled`, and sync() runs again after every post.
-            if (mode === 'off') btn.setAttribute('aria-disabled', 'true');
+            // SPENT COUNTS AS UNAVAILABLE HERE. sync() runs after every post,
+            // so without the is-used arm it would strip the attribute noteUsed
+            // had just set and the button would go grey and pressable again --
+            // the failure this whole change exists to avoid, arriving one tick
+            // later.
+            if (mode === 'off' || usedAlready(key)) btn.setAttribute('aria-disabled', 'true');
             else btn.removeAttribute('aria-disabled');
             if (mode === 'off') {
               btn.classList.remove('is-used');
               btn.title = platformBlockedWhy(live, key);
             } else if (btn.classList.contains('is-used')) {
-              btn.title = PLATFORM_NAME[key] + ': done in this sitting. Press again to repeat it.';
+              btn.title = PLATFORM_NAME[key] + ': already went out in this sitting. Reload the page if you need to post it again.';
             } else if (mode === 'machine') {
               btn.title = 'Post this to ' + PLATFORM_NAME[key] + ' now.';
             } else if (key === 'instagram') {
@@ -7964,7 +8009,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             }
           });
 
-          var batch = machineTargets(live);
+          var batch = batchTargets(live);
           // Below two there is nothing to batch, and a button reading `All 1`
           // beside the single account it means is the row saying one thing
           // twice. Hidden rather than disabled: it is not unavailable, it is
