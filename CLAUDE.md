@@ -3202,7 +3202,7 @@ Set 2026-08-15, and it has been resettled twice since by folding routines togeth
 | **NFL ROUTES** (was TGB ANCHOR EVENTS) | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
 | TGB SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 | TGB PATH BOT | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20 * * *` |
-| ~~TGB CONCERT BOT~~ | `trig_01RY2ktLpjXwNUo4mYTncPBe` | **disabled 2026-08-28, folded into TGB ANCHOR EVENT BOT** |
+| ~~TGB CONCERT BOT~~ | `trig_01RY2ktLpjXwNUo4mYTncPBe` | **folded into TGB ANCHOR EVENT BOT and retired 2026-08-28. Its spec file is deleted and nothing in this repo names it; the trigger itself is disabled and can be deleted at claude.ai.** |
 | **TGB ANCHOR EVENT BOT** | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
 
 **THE `:8` SLOT IS TGB ANCHOR BOT'S AS OF 2026-08-25.** It was TGB WAYPOINT BOT's and sat empty after that routine was retired; the stagger exists only so cloud sessions do not provision at the same instant, so a freed minute is simply available. **There is no free slot now.**
@@ -4294,27 +4294,33 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - **All six stops must be distinct places**: not one building's two entrances, not "Union Station" and "the Union Station clock", and the last stop is *near* the first, never the same as it.
 - **Existing waypoints are a DO-NOT-REPEAT LIST and nothing else** (2026-08-07). They were briefly sent as *anchors* to path around; that was withdrawn because the catalog was accumulated from sources of uneven quality and is not trusted stop-by-stop. The prompt now says so explicitly — if the best six stops in a city sit nowhere near anything we hold, that is the correct answer. `existingWaypointAnchors` still supplies the addresses, which the shared `existingWaypointSample` can't — it returns "Name — City", which is right for a do-not-duplicate list and useless for judging distance.
 
-### TGB CONCERT BOT — the routine whose prompt is a file it re-reads every run (2026-08-24)
+### TGB CONCERT BOT IS RETIRED (2026-08-28)
 
-`trig_01RY2ktLpjXwNUo4mYTncPBe`, cron `0 17 * * *` UTC — **noon Central, once daily**, and off the shared `8,20` schedule the other five share because it was asked for at noon. Winter drifts to 11am like everything else here; nobody adjusts.
+Folded into **TGB ANCHOR EVENT BOT**, which now covers concerts: the SeatGeek
+sourcing, the spread across cities and acts, and the lead-time rule are all in
+[anchor-event-bot.prompt.md](mc/_dev/prompt-tools/anchor-event-bot.prompt.md). **`concert-bot.prompt.md` is deleted**, and
+nothing in this repo names the routine any more -- the hub's row and the
+PROMPTS.md entry went with it, because a stale trigger id in an `href` 404s
+silently.
 
-**THE STORED PROMPT IS FOUR PARAGRAPHS AND NONE OF THEM IS THE BRIEF.** It says: open [mc/_dev/prompt-tools/concert-bot.prompt.md](mc/_dev/prompt-tools/concert-bot.prompt.md) and follow it. **Edit that file and the next run behaves differently**, with nothing to redeploy and no second copy to keep in step — which is the thing every other routine here pays for by hand. TGB ANCHOR EVENTS already worked this way against a JS function; this is the same idea with the spec written as prose.
-
-- **IT STOPS RATHER THAN IMPROVISES.** If the file is missing, or does not open with the heading `# TGB CONCERT BOT`, the run reports the path it looked at and files nothing. **A routine that cannot find its spec and carries on writes plausible rows nobody asked for**, and nothing downstream can tell them from real ones. The heading check is deliberate: a file that exists but is something else is the case a bare existence check would miss.
-- **MOVING OR RENAMING THAT FILE BREAKS THE ROUTINE SILENTLY-ish**, in that nothing errors until noon. It is named in the stored prompt, in `PROMPTS.md` and here. **Change all three in the same commit.**
-- **THE STORED PROMPT ADDS EXACTLY TWO THINGS** the file does not: commit nothing, and no em dashes. Everything else would be a second copy of the brief, which is what this arrangement exists to avoid.
-
-**IT WRITES THROUGH `tgb_pull_concert_tours`** ([2026082401](mc/supabase/migrations/2026082401_concert_tour_pull_rpc.sql), **applied 2026-08-24**), the sixth SECURITY DEFINER pull and built to the shape of the other five. `anchor_events` writes are `authenticated` only and a cloud routine has no secret store; without the doorway it could read the table and not write it, which is the "prompt whose output is a file" pattern this repo has deleted four times.
-- **THE CONSTANTS ARE THE SECURITY, as always**: `kind = 'concert'`, `status = 'scheduled'`, `source = 'SeatGeek'`, `end_date = event_date`, at most 10 a call. **Never turn one into a parameter.**
-- **IT REFUSES A CITY NOT IN `public.cities`, and that is a decision rather than an oversight.** The catalogue is the one city list the whole site reads, and a tour date in a town nothing else knows about cannot be shopped, soundtracked or built on. The reply names the town so the run can report it and a human can add it on the Cities page; the next run then picks the date up.
-- **IT REFUSES A DATE ALREADY PAST**, which is the likeliest way a scrape goes wrong: an archive page reads exactly like a listings page.
-- **IT REPORTS PER ROW AND RAISES ON NOTHING** — `inserted` / `duplicate` / `invalid` / `unknown_city`. One bad date in ten must not throw away the nine good ones, which is what `tgb_pull_socials_candidates` learned when a row missing a blurb read as a duplicate story.
-
-**PROVED BY CALLS THAT MADE IT DO ITS JOB, not by an empty payload.** An empty call answers `{"inserted": 0}` and looks healthy while the body is broken; this project has been caught by exactly that twice. Verified live: a real row inserted and came back `concert / scheduled / SeatGeek / end_date = event_date`; the same row a second time came back `duplicate` and wrote nothing; an unknown city and a past date were both refused by name; eleven rows were refused on the cap.
-
-**SEATGEEK IS READ AS PUBLIC PAGES, NOT THROUGH AN API.** A cloud routine has no secret store, so there is nowhere to put a client id — the same constraint that shaped every write path here. The prompt tells the run to ask its browsing tool for page SOURCE when it gets a cleaned-up summary back, which is the failure that made Grok file imageless socials candidates.
-
-**EMAIL IS ON.** The run's only output is rows and a summary, and the summary carries the one thing needing a human: the cities it had to drop. Without a channel that report goes nowhere.
+- **CHECKED BEFORE DELETING THE SPEC, rather than assumed.** Every rule the
+  concert brief carried is in the anchor brief except one, and **that one was
+  deliberately not imported**: *"the fanbase city, never the venue suburb"*
+  contradicts what `venue_city` means here. The anchor spec's own definition is
+  the VENUE city -- the Chargers play in Inglewood, the Giants in East
+  Rutherford -- and importing the concert rule would have made the two halves of
+  one file disagree.
+- **THE ROUTINE ITSELF IS DISABLED, NOT DELETED, AND ONLY BECAUSE THIS TOOLING
+  CANNOT DELETE ONE.** `RemoteTrigger` has list, get, create, update and run,
+  and no delete: a routine is removed at claude.ai/code/routines. **It is safe
+  to delete whenever** -- nothing holds `trig_01RY2ktLpjXwNUo4mYTncPBe`.
+- **AND IT IS ALREADY INERT.** Its stored prompt says to open
+  `concert-bot.prompt.md` and **STOP if it is not there**, filing nothing. That
+  guard was written for a spec that had moved; deleting the spec is what makes
+  an accidental fire harmless.
+- **`tgb_pull_concert_tours` STAYS IN THE DATABASE, retired in place**, called
+  by nothing. Dropping is the one irreversible move; the anchor spec already
+  says in as many words not to call it.
 
 ### TGB ANCHOR BOT — fills `public.events` from anywhere it can (2026-08-25)
 
