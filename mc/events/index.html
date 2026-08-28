@@ -577,6 +577,8 @@
                   title="Add one event yourself, straight onto this page.">MANUAL</button>
           <button class="btn" id="seatgeekBtn" type="button"
                   title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
+          <button class="btn" id="conventionsBtn" type="button"
+                  title="Read the convention centres and expo halls in one city. SeatGeek only carries a convention that sells seats through it, so this list is short.">CONVENTIONS</button>
         </div>
       </fieldset>
 
@@ -629,6 +631,7 @@
           <select id="batchKind" class="command-bar-select" aria-label="Set kind">
             <option value="">Set kind…</option>
             <option value="sports">sports</option>
+            <option value="sports-nonteam">sports (non-team)</option>
             <option value="concert">concert</option>
             <option value="convention">convention</option>
             <option value="festival">festival</option>
@@ -668,7 +671,7 @@
           <button class="btn small" id="closeSgBtn" type="button">Close</button>
         </div>
         <div class="prompt-dialog-body">
-          <p class="prompt-howto">
+          <p class="prompt-howto" id="sgHowto">
             Give it a city and a date range and it reads SeatGeek for real, announced events.
             Tick the ones worth building a game around and press Import selected.
           </p>
@@ -681,7 +684,7 @@
 
           <fieldset class="prompt-options prompt-options--sg" aria-label="Where and when">
             <legend class="prompt-options-label">Where and when</legend>
-            <input type="text" id="sgCity" placeholder="Denver" autocomplete="off">
+            <input type="text" id="sgCity" placeholder="Denver, or Denver, Chicago, Tulsa" autocomplete="off">
             <label class="prompt-option">from <input type="date" id="sgFrom"></label>
             <label class="prompt-option">to <input type="date" id="sgTo"></label>
             <button class="btn small primary" id="sgFetchBtn" type="button">Fetch</button>
@@ -712,35 +715,37 @@
 
     const TABLE = 'events';
 
+    const KIND_VALUES = ['sports', 'sports-nonteam', 'concert', 'convention', 'festival', 'expo', 'other'];
+
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
-      'away_team_geo', 'away_team_nickname', 'home_team_geo', 'home_team_nickname',
-      'venue', 'venue_city', 'neutral_site', 'away_team_score', 'home_team_score',
-      'away_team_tgbid', 'home_team_tgbid',
+      'home_team_geo', 'home_team_nickname', 'away_team_geo', 'away_team_nickname',
+      'venue', 'venue_city', 'neutral_site', 'home_team_score', 'away_team_score',
+      'home_team_tgbid', 'away_team_tgbid',
       'url', 'source', 'description'
     ];
-    const NUMERIC_FIELDS = ['away_team_tgbid', 'home_team_tgbid', 'away_team_score', 'home_team_score'];
+    const NUMERIC_FIELDS = ['home_team_tgbid', 'away_team_tgbid', 'home_team_score', 'away_team_score'];
     const BOOLEAN_FIELDS = ['neutral_site'];
 
     const FIELD_META = {
-      kind:            { label: 'Kind',       type: 'select', options: ['sports', 'concert', 'convention', 'festival', 'expo', 'other'] },
+      kind:            { label: 'Kind',       type: 'select', options: KIND_VALUES },
       title:           { label: 'Title',      type: 'text',   span: 'wide', placeholder: 'Olivia Rodrigo, GUTS World Tour' },
       league:          { label: 'League',     type: 'text',   placeholder: 'NFL' },
       sport:           { label: 'Sport',      type: 'text',   placeholder: 'Football' },
       start_date:      { label: 'Start date', type: 'date' },
       end_date:        { label: 'End date',   type: 'date' },
       start_time:      { label: 'Start time (local)', type: 'time' },
-      away_team_geo:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
-      away_team_nickname:     { label: 'Away team nickname', type: 'text', placeholder: 'Bears' },
       home_team_geo:     { label: 'Home team geo',      type: 'text', placeholder: 'Carolina' },
       home_team_nickname:     { label: 'Home team nickname', type: 'text', placeholder: 'Panthers' },
-      away_team_tgbid: { label: 'Away team tgbid (opt)', type: 'number' },
+      away_team_geo:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
+      away_team_nickname:     { label: 'Away team nickname', type: 'text', placeholder: 'Bears' },
       home_team_tgbid: { label: 'Home team tgbid (opt)', type: 'number' },
+      away_team_tgbid: { label: 'Away team tgbid (opt)', type: 'number' },
       venue:      { label: 'Venue name', type: 'text',   span: 'wide' },
       venue_city:      { label: 'Venue city',  type: 'text', span: 'wide', placeholder: 'Chicago, Illinois' },
       neutral_site:    { label: 'Neutral', type: 'checkbox' },
-      away_team_score:      { label: 'Away team score', type: 'number' },
       home_team_score:      { label: 'Home team score', type: 'number' },
+      away_team_score:      { label: 'Away team score', type: 'number' },
       url:             { label: 'URL',        type: 'url',    span: 'wide', action: 'open', placeholder: 'https://…' },
       source:          { label: 'Source',     type: 'text',   span: 'wide' },
       description:     { label: 'Description', type: 'textarea', span: 'full' }
@@ -749,8 +754,8 @@
     const FIELD_GROUPS = [
       { key: 'who',   label: 'Who',   sportsOnly: true,
         fields: ['league', 'sport',
-                 'away_team_geo', 'away_team_nickname', 'away_team_score', 'away_team_tgbid',
-                 'home_team_geo', 'home_team_nickname', 'home_team_score', 'home_team_tgbid'] },
+                 'home_team_geo', 'home_team_nickname', 'home_team_score', 'home_team_tgbid',
+                 'away_team_geo', 'away_team_nickname', 'away_team_score', 'away_team_tgbid'] },
       { key: 'what',  label: 'What',  fields: ['kind', 'description'] },
       { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time'] },
       { key: 'where', label: 'Where', fields: ['venue', 'venue_city', 'neutral_site'] },
@@ -758,8 +763,8 @@
     ];
 
     const OFF_SCREEN_FIELDS = [
-      'away_team_score', 'home_team_score',
-      'away_team_tgbid', 'home_team_tgbid'
+      'home_team_score', 'away_team_score',
+      'home_team_tgbid', 'away_team_tgbid'
     ];
 
     const GROUP_ORDER = ['what', 'when', 'where', 'who', 'why'];
@@ -810,6 +815,8 @@
     const batchApplyBtn = document.getElementById('batchApplyBtn');
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
     const seatgeekBtn = document.getElementById('seatgeekBtn');
+    const conventionsBtn = document.getElementById('conventionsBtn');
+    const sgHowto = document.getElementById('sgHowto');
     const sgLightbox = document.getElementById('sgLightbox');
     const closeSgBtn = document.getElementById('closeSgBtn');
     const sgKeyBox = document.getElementById('sgKeyBox');
@@ -1244,7 +1251,7 @@
       const kind = clean(kindEl && kindEl.value).toLowerCase();
       FIELD_GROUPS.forEach((group) => {
         if (!group.sportsOnly) return;
-        const applies = !kind || kind === 'sports';
+        const applies = !kind || kind.indexOf('sports') === 0;
         const filled = group.fields.some((f) => {
           const input = el.querySelector('[data-field="' + f + '"]');
           return input && clean(input.value);
@@ -1448,7 +1455,6 @@
       return d;
     }
 
-    const KIND_VALUES = ['sports', 'concert', 'convention', 'festival', 'expo', 'other'];
 
     function parsesAsUrl(v) {
       try {
@@ -1506,8 +1512,8 @@
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
           if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
-          const missing = [!clean(r.away_team_nickname) && 'Away',
-                           !clean(r.home_team_nickname) && 'Home'].filter(Boolean);
+          const missing = [!clean(r.home_team_nickname) && 'Home',
+                           !clean(r.away_team_nickname) && 'Away'].filter(Boolean);
           return missing.length === 1
             ? 'Add ' + (missing[0] === 'Away' ? 'an' : 'a') + ' ' + missing[0] + ' Team.'
             : 'Add both Teams.';
@@ -1539,13 +1545,13 @@
         level: 'error',
         test: (r) => {
           const bad = [];
-          const away = rebuiltLabel(r.away_team_geo, r.away_team_nickname);
           const home = rebuiltLabel(r.home_team_geo, r.home_team_nickname);
-          if (away && clean(r.away_team_name) && clean(r.away_team_name) !== away) {
-            bad.push('away_team_name "' + clean(r.away_team_name) + '" against "' + away + '"');
-          }
+          const away = rebuiltLabel(r.away_team_geo, r.away_team_nickname);
           if (home && clean(r.home_team_name) && clean(r.home_team_name) !== home) {
             bad.push('home_team_name "' + clean(r.home_team_name) + '" against "' + home + '"');
+          }
+          if (away && clean(r.away_team_name) && clean(r.away_team_name) !== away) {
+            bad.push('away_team_name "' + clean(r.away_team_name) + '" against "' + away + '"');
           }
           return bad.length
             ? 'Team name is out of step with its parts.'
@@ -1561,8 +1567,8 @@
         key: 'placeholder-club',
         level: 'check',
         test: (r) => {
-          const fields = ['away_team_geo', 'away_team_nickname', 'away_team_name',
-                          'home_team_geo', 'home_team_nickname', 'home_team_name'];
+          const fields = ['home_team_geo', 'home_team_nickname', 'home_team_name',
+                          'away_team_geo', 'away_team_nickname', 'away_team_name'];
           const hits = fields
             .map((f) => clean(r[f]))
             .filter(Boolean)
@@ -1766,7 +1772,13 @@
     }
 
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
-    const sgState = { rows: [], checked: new Set(), busy: false };
+    const sgState = { rows: [], checked: new Set(), busy: false, mode: 'city', opener: null };
+
+    function sgCities() {
+      return clean(sgCityEl && sgCityEl.value).split(',')
+        .map((c) => clean(c)).filter(Boolean)
+        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
+    }
 
     function sgSet(text, kind) {
       if (!sgStatus) return;
@@ -1789,17 +1801,20 @@
       } catch (e) { /* a browser that refuses storage still works, per fetch */ }
     }
 
-    function sgKind(type) {
-      const t = clean(type).toLowerCase();
-      if (!t) return 'other';
-      if (t === 'concert' || t === 'music_festival') return 'concert';
-      if (t === 'comedy' || t === 'theater' || t === 'broadway_tickets_national') return 'other';
-      if (t.indexOf('festival') !== -1) return 'festival';
-      if (t === 'expo') return 'expo';
-      if (t === 'convention' || t === 'comedy_con' || t.indexOf('comic') !== -1) return 'convention';
-      if (t.indexOf('sport') !== -1 || /nfl|nba|mlb|nhl|ncaa|soccer|mls|wnba|golf|tennis|racing|fighting|wrestling/.test(t)) {
-        return 'sports';
+    const NON_TEAM_SPORTS = /racing|nascar|formula|motogp|golf|tennis|boxing|ufc|mma|fighting|wrestling|rodeo|track|gymnastics|swimming|cycling|marathon|horse/;
+
+    function sgKind(ev) {
+      const names = ((ev && ev.taxonomies) || [])
+        .map((t) => clean(t && t.name).toLowerCase()).filter(Boolean);
+      const t = clean(ev && ev.type).toLowerCase();
+      const all = names.concat([t]).join(' ');
+      if (names.indexOf('sports') !== -1 || t.indexOf('sport') !== -1) {
+        return NON_TEAM_SPORTS.test(all) ? 'sports-nonteam' : 'sports';
       }
+      if (names.indexOf('concert') !== -1 || t === 'concert' || t === 'music_festival') return 'concert';
+      if (all.indexOf('comic') !== -1 || all.indexOf('convention') !== -1) return 'convention';
+      if (all.indexOf('expo') !== -1) return 'expo';
+      if (all.indexOf('festival') !== -1) return 'festival';
       return 'other';
     }
 
@@ -1810,7 +1825,7 @@
       const venue = (ev && ev.venue) || {};
       const city = [clean(venue.city), clean(venue.state) || clean(venue.country)]
         .filter(Boolean).join(', ');
-      const kind = sgKind((ev && ev.type) || '');
+      const kind = sgKind(ev);
       const perf = (ev && ev.performers) || [];
       const home = perf.filter((x) => x && x.home_team)[0];
       const away = perf.filter((x) => x && x.away_team)[0];
@@ -1832,12 +1847,12 @@
         neutral_site: false,
         issues: 'NO'
       };
-      row.away_team_geo = null;
-      row.away_team_nickname = null;
       row.home_team_geo = null;
       row.home_team_nickname = null;
+      row.away_team_geo = null;
+      row.away_team_nickname = null;
 
-      if (kind === 'sports') {
+      if (kind.indexOf('sports') === 0) {
         const split = (perfRow) => {
           if (!perfRow) return { geo: null, nick: null };
           const full = clean(perfRow.name);
@@ -1848,10 +1863,10 @@
           return { geo: null, nick: short || full || null };
         };
         const a2 = split(away), h2 = split(home);
-        row.away_team_geo = a2.geo;
-        row.away_team_nickname = a2.nick;
         row.home_team_geo = h2.geo;
         row.home_team_nickname = h2.nick;
+        row.away_team_geo = a2.geo;
+        row.away_team_nickname = a2.nick;
       }
       return row;
     }
@@ -1904,14 +1919,15 @@
         if (sgClientIdEl) sgClientIdEl.focus();
         return;
       }
-      const city = clean(sgCityEl && sgCityEl.value);
+      const cities = sgCities();
       const from = clean(sgFromEl && sgFromEl.value);
       const to = clean(sgToEl && sgToEl.value);
-      if (!city) { sgSet('Which city?', 'error'); if (sgCityEl) sgCityEl.focus(); return; }
+      if (!cities.length) { sgSet('Which city?', 'error'); if (sgCityEl) sgCityEl.focus(); return; }
       if (!from) { sgSet('Pick a start date.', 'error'); return; }
       if (to && to < from) { sgSet('The end date is before the start date.', 'error'); return; }
 
       sgRememberKey();
+      if (sgState.mode === 'conventions') return sgFetchConventions(key, cities, from, to);
       sgFetchBtn.disabled = true;
       const orig = sgFetchBtn.textContent;
       sgFetchBtn.textContent = 'Fetching\u2026';
@@ -1919,29 +1935,29 @@
       try {
         const PER_PAGE = 100;
         const all = [];
-        let total = 0;
-        for (let page = 1; ; page += 1) {
-          const url = new URL('https://api.seatgeek.com/2/events');
-          url.searchParams.set('client_id', key);
-          url.searchParams.set('venue.city', city);
-          url.searchParams.set('datetime_local.gte', from + 'T00:00:00');
-          if (to) url.searchParams.set('datetime_local.lte', to + 'T23:59:59');
-          url.searchParams.set('per_page', String(PER_PAGE));
-          url.searchParams.set('page', String(page));
-          url.searchParams.set('sort', 'datetime_local.asc');
-
-          const res = await fetch(url.toString());
-          if (res.status === 403 || res.status === 401) {
-            throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+        const seen = new Set();
+        for (const city of cities) {
+          let total = 0;
+          let got = 0;
+          for (let page = 1; ; page += 1) {
+            const body = await sgApi(key, 'events', Object.assign({
+              'venue.city': city,
+              'datetime_local.gte': from + 'T00:00:00',
+              per_page: PER_PAGE, page: page, sort: 'datetime_local.asc'
+            }, to ? { 'datetime_local.lte': to + 'T23:59:59' } : {}));
+            const events = (body && body.events) || [];
+            if (body && body.meta && body.meta.total) total = body.meta.total;
+            events.forEach((ev) => {
+              if (seen.has(ev.id)) return;
+              seen.add(ev.id);
+              all.push(ev);
+            });
+            got += events.length;
+            sgSet('Reading ' + city + '\u2026 ' + all.length +
+              (cities.length > 1 ? ' across ' + cities.length + ' cities' : (total ? ' of ' + total : '')));
+            if (events.length < PER_PAGE) break;
+            if (total && got >= total) break;
           }
-          if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
-          const body = await res.json();
-          const events = (body && body.events) || [];
-          if (body && body.meta && body.meta.total) total = body.meta.total;
-          Array.prototype.push.apply(all, events);
-          sgSet('Reading SeatGeek\u2026 ' + all.length + (total ? ' of ' + total : ''));
-          if (events.length < PER_PAGE) break;
-          if (total && all.length >= total) break;
         }
 
         sgState.rows = all.map(sgRow).filter((r) => r.start_date);
@@ -1955,6 +1971,106 @@
             ' Untick anything you do not want.'
           : 'Nothing in that window. Try another city spelling or a wider range.',
           sgState.rows.length ? 'success' : null);
+      } catch (err) {
+        console.error(err);
+        sgSet(err && err.message ? err.message : 'Could not reach SeatGeek.', 'error');
+      } finally {
+        sgFetchBtn.disabled = false;
+        sgFetchBtn.textContent = orig;
+      }
+    }
+
+    const HALL_NAME = /convention|expo|fairground|fair ground|civic cent|exhibition|trade cent/i;
+    const CONVENTION_TITLE = /\bcon\b|comic|expo|convention|fest\b|summit|fair\b|show\b|symposium|conference|gaming|anime/i;
+
+    async function sgApi(key, path, params) {
+      const url = new URL('https://api.seatgeek.com/2/' + path);
+      url.searchParams.set('client_id', key);
+      Object.keys(params).forEach((k) => url.searchParams.set(k, String(params[k])));
+      const res = await fetch(url.toString());
+      if (res.status === 403 || res.status === 401) {
+        throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+      }
+      if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
+      return res.json();
+    }
+
+    async function sgFetchConventions(key, cities, from, to) {
+      sgFetchBtn.disabled = true;
+      const orig = sgFetchBtn.textContent;
+      sgFetchBtn.textContent = 'Fetching\u2026';
+      sgSet('Looking for halls in ' + cities.join(', ') + '\u2026');
+      try {
+        const halls = new Map();
+        for (const city of cities) {
+          const want = city.toLowerCase();
+          for (const term of ['convention', 'expo', 'fairgrounds', 'civic center']) {
+            const body = await sgApi(key, 'venues', { city: city, q: term, per_page: 30 });
+            ((body && body.venues) || []).forEach((v) => {
+              if (clean(v.city).toLowerCase() !== want) return;
+              if (!HALL_NAME.test(clean(v.name))) return;
+              halls.set(v.id, v);
+            });
+          }
+        }
+        if (!halls.size) {
+          sgState.rows = [];
+          renderSg();
+          sgSet('No convention centre or expo hall in ' + cities.join(' or ') +
+            ' that SeatGeek knows about.', 'error');
+          return;
+        }
+
+        const ids = Array.from(halls.keys()).slice(0, 12 * cities.length);
+        const seen = new Set();
+        const all = [];
+        let done = 0;
+        for (const id of ids) {
+          const params = {
+            'venue.id': id,
+            'datetime_local.gte': from + 'T00:00:00',
+            per_page: 100, sort: 'datetime_local.asc'
+          };
+          if (to) params['datetime_local.lte'] = to + 'T23:59:59';
+          const body = await sgApi(key, 'events', params);
+          ((body && body.events) || []).forEach((ev) => {
+            if (seen.has(ev.id)) return;
+            seen.add(ev.id);
+            all.push(ev);
+          });
+          done += 1;
+          sgSet('Reading ' + done + ' of ' + plural(ids.length, 'hall') + '\u2026 ' + plural(all.length, 'event'));
+        }
+
+        sgState.rows = all.map(sgRow).filter((r) => r.start_date);
+        sgState.rows.forEach((r) => {
+          r.__hall = true;
+          const t = clean(r.title);
+          if (CONVENTION_TITLE.test(t)) {
+            r.__likely = true;
+            if (r.kind === 'other') r.kind = /expo\b/i.test(t) ? 'expo' : 'convention';
+          }
+        });
+        sgState.rows.sort((a, b) => (b.__likely ? 1 : 0) - (a.__likely ? 1 : 0) ||
+          String(a.start_date).localeCompare(String(b.start_date)));
+
+        const have = new Set(state.rows.map((r) => clean(r.id)));
+        sgState.checked = new Set(sgState.rows
+          .filter((r) => r.__likely && !have.has(r.id)).map((r) => r.id));
+        renderSg();
+
+        const likely = sgState.rows.filter((r) => r.__likely).length;
+        if (!sgState.rows.length) {
+          sgSet('Nothing on at ' + plural(halls.size, 'hall') + ' in that window.', 'error');
+        } else if (!likely) {
+          sgSet('Found ' + plural(sgState.rows.length, 'event') + ' at ' +
+            plural(halls.size, 'hall') + ', and none of them looks like a convention. ' +
+            'SeatGeek only carries one that sells seats through it.', 'error');
+        } else {
+          sgSet(plural(likely, 'convention') + ' ticked, out of ' +
+            plural(sgState.rows.length, 'event') + ' at ' + plural(halls.size, 'hall') +
+            '. The rest are concerts at the same address.', 'success');
+        }
       } catch (err) {
         console.error(err);
         sgSet(err && err.message ? err.message : 'Could not reach SeatGeek.', 'error');
@@ -2059,8 +2175,18 @@
       }
     }
 
-    function openSgDialog() {
+    function openSgDialog(mode) {
       if (!sgLightbox) return;
+      sgState.mode = mode === 'conventions' ? 'conventions' : 'city';
+      sgState.opener = sgState.mode === 'conventions' ? conventionsBtn : seatgeekBtn;
+      if (sgHowto) {
+        sgHowto.textContent = sgState.mode === 'conventions'
+          ? 'It reads the convention centres and expo halls in one city. SeatGeek only carries a convention that sells seats through it, so expect a short list with concerts mixed in. The ones that look like conventions are ticked for you.'
+          : 'Give it a city and a date range and it reads SeatGeek for real, announced events. Tick the ones worth building a game around and press Import selected.';
+      }
+      sgState.rows = [];
+      sgState.checked = new Set();
+      renderSg();
       if (sgFromEl && !sgFromEl.value) sgFromEl.value = todayIso();
       if (sgToEl && !sgToEl.value) sgToEl.value = isoPlusDays(366);
       try {
@@ -2079,7 +2205,8 @@
       if (!sgLightbox) return;
       sgLightbox.classList.remove('is-open');
       sgLightbox.hidden = true;
-      if (seatgeekBtn) seatgeekBtn.focus();
+      const back = sgState.opener || seatgeekBtn;
+      if (back) back.focus();
     }
 
     const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
@@ -2783,7 +2910,8 @@
       });
     }
 
-    if (seatgeekBtn) seatgeekBtn.addEventListener('click', openSgDialog);
+    if (seatgeekBtn) seatgeekBtn.addEventListener('click', () => openSgDialog('city'));
+    if (conventionsBtn) conventionsBtn.addEventListener('click', () => openSgDialog('conventions'));
     if (closeSgBtn) closeSgBtn.addEventListener('click', closeSgDialog);
     if (sgFetchBtn) sgFetchBtn.addEventListener('click', sgFetch);
     if (sgImportBtn) sgImportBtn.addEventListener('click', sgImport);

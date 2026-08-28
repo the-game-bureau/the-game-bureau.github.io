@@ -1020,6 +1020,123 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## SEATGEEK'S OWN TAXONOMY DECIDES THE KIND (2026-08-28)
+
+Reported as *"McNeese State Cowgirls at Tulane Green Wave didn't grab away
+team"*, and the away team was never the fault.
+
+- **`sgKind` READ `ev.type`, WHICH IS A LEAF STRING.** It matched `sport` as a
+  substring plus a list of league names, so **`womens_college_basketball` and
+  `womens_college_volleyball` matched neither** and came back `other`. The whole
+  `if (kind === 'sports')` block was then skipped, so **the row got no club
+  fields at all** -- not a wrong away team, no away team.
+- **THE PAGE HAD TWO IDEAS OF "IS THIS A FIXTURE", AND THEY DISAGREED.**
+  `sgTaxonomy` was already reading `taxonomies`, saw `sports` in it, and filled
+  the league and the sport correctly on the very same row that had no clubs.
+  **A row reading `league: WOMENS_COLLEGE_VOLLEYBALL` with both clubs empty is
+  what two sources of truth look like from outside.**
+- **THE TAXONOMY ALREADY SAYS IT**, coarse to fine:
+  `[sports, volleyball, college_volleyball, womens_college_volleyball]`. One
+  reader now, so a sport nobody thought of is a fixture without anybody adding a
+  keyword.
+- **`type` IS STILL CONSULTED, as a fallback only.** A row with no taxonomies at
+  all still resolves.
+- **THE PERFORMERS WERE FINE ALL ALONG.** `home_team` / `away_team` are flagged
+  correctly on college rows; nothing about the split needed changing.
+- **NBA WAS NEVER BROKEN**, checked against live rows: `Wizards at Pelicans`
+  gives `Washington / Wizards` and `New Orleans / Pelicans`. A report that it
+  was is a row imported before this code existed, or one whose performers
+  carried no flags; **the id keeps its `LEAGUE-DATE-AWAY-HOME` shape, so a row
+  filed then is not re-imported by a later fetch.**
+
+### A SIXTH KIND: `sports-nonteam`
+
+For racing, golf, tennis, fighting -- sport with no two clubs in it.
+
+- **`events.kind` HAS NO CHECK CONSTRAINT**, verified before shipping (the table
+  carries only `events_issues_check` and `events_issues_detail_check`), so a new
+  kind needs **no migration**. It needs three lists: `KIND_VALUES`, and the
+  batch row's own `<option>`s, which are markup.
+  - **`FIELD_META` HAD A FOURTH COPY OF THE LIST**, hardcoded rather than reading
+    `KIND_VALUES`, so the row and the form would have gone on offering five
+    kinds while the batch bar offered six. It reads the constant now -- **which
+    meant moving `KIND_VALUES` above `FIELD_META`**, since a `const` is in its
+    temporal dead zone until its own line runs. **The standing parse check did
+    not catch that**: `new vm.Script` only parses, and this fails at run time.
+    Rendering the page is what caught it.
+- **THE `Who` BAND FOLDS FOR BOTH SPORTS KINDS** (`kind.indexOf('sports') === 0`),
+  because a non-team sport still has two named competitors often enough -- tennis,
+  boxing -- to want the fields. A race carrying none simply leaves them blank,
+  which is the existing empty-and-therefore-hidden rule.
+- **`NON_TEAM_SPORTS` IS A LIST OF SPORTS, NOT A LIST OF LEAGUES**, so it is
+  matched against the whole taxonomy chain rather than the leaf.
+
+## HOME COMES BEFORE AWAY (2026-08-28)
+
+Every form and every display lists the home club first. **Ten places moved
+together**: `EDITABLE_FIELDS`, `NUMERIC_FIELDS`, `FIELD_META`'s declaration
+order, the `Who` band, `OFF_SCREEN_FIELDS`, the `club-missing` finding's
+"which side" list, `label-drift`'s two checks and its field list, and both
+halves of the SeatGeek importer.
+
+- **THE MANUAL FORM FOLLOWED FOR FREE**, being derived from `FIELD_GROUPS`. Two
+  hand-kept orders would have drifted on the first change, which is the whole
+  reason it is derived.
+- **`displayTitle` STILL READS `away at home`, and must.** "at" is directional
+  and that is the universal way a fixture is named: *Bears at Panthers* says who
+  is travelling. Reversing it would not reorder a list, it would state something
+  false.
+- **THE ID KEEPS ITS `LEAGUE-DATE-AWAY-HOME` SHAPE** for the same reason plus a
+  harder one: **an id is permanent and every game points at one**, so changing
+  how new ids are composed would make two rows for one fixture look unrelated.
+
+## CONVENTIONS IS A MODE OF THE SEATGEEK DIALOG (2026-08-28)
+
+A second ADD button, reading the convention centres and expo halls in one city.
+
+- **NOT A SECOND DIALOG.** `sgState.mode` switches the fetch and the standing
+  sentence; the key box, the date range, the list, the tick handling and the
+  import are the same code. **A second copy of that is the drift this repo has
+  paid for more than any other.**
+- **SEATGEEK BARELY CARRIES CONVENTIONS, AND THE BUTTON SAYS SO.** It is a
+  resale marketplace, so it lists a convention only when that convention sells
+  seats through it. Measured on 2026-08-28: **Javits 4 of 5 events are New York
+  Comic Con; Ernest N. Morial 2 of 5; Colorado Convention Center 0 of 18; San
+  Diego Convention Center 0 of 67 -- Comic-Con itself is not there; McCormick
+  Place 0 events at all.** `taxonomies.name=comic_con` returns **0 site-wide**.
+  The tooltip and the dialog both warn before the fetch rather than after.
+- **THE HALL IS FOUND BY NAME AND THE CITY IS RE-CHECKED.** SeatGeek's `q` is
+  fuzzy: a `city=New Orleans&q=convention` venue search returns **New Bern
+  Riverfront Convention Center**. Both tests are needed -- the name test alone
+  reads another state's hall, the city test alone reads every Marriott.
+- **EVERY EVENT AT THOSE HALLS IS LISTED; ONLY THE CONVENTION-SHAPED ONES ARE
+  TICKED.** Dropping the concerts outright would hide a real event at that
+  address from somebody who wanted it, and the ticking is the recommendation.
+  The status says in as many words that the rest are concerts at the same
+  address, so a short list does not read as a broken fetch.
+- **A TICKED ROW WHOSE KIND CAME BACK `other` IS SET TO `convention` OR `expo`
+  FROM ITS OWN TITLE.** SeatGeek types New York Comic Con as `entertainment` and
+  the World Oddities Expo as `theater`.
+- **CAPPED AT 12 HALLS PER CITY.** A fuzzy venue search on a big city returns
+  hotels for ever, and each hall costs a request.
+
+## THE CITY BOX TAKES A LIST (2026-08-28)
+
+Both SeatGeek modes split it on commas: `Denver, Chicago, Tulsa`.
+
+- **DEDUPED ON SEATGEEK'S OWN EVENT ID, NOT ON OURS.** A metro area routinely
+  has one venue answering to two city names, so the same fixture comes back
+  under both and would otherwise be listed and imported twice.
+- **EMPTY PIECES ARE DROPPED AND A CITY TYPED TWICE IS ASKED ONCE**, so a
+  trailing comma costs nothing and a slip costs no requests.
+- **A CITY AND ITS STATE TYPED TOGETHER NOW SEARCHES TWO CITIES.** `venue.city`
+  wants a bare city name, so `Denver, Colorado` used to return nothing at all;
+  it now searches `Denver` and then `Colorado`, which finds the Denver events
+  and nothing for the second. **Better than the silent zero it replaced, and
+  worth knowing before somebody reports it as a bug.**
+- **THE HALL CAP IS PER CITY** (`12 * cities.length`), or a two-city convention
+  search would read twelve halls in the first city and none in the second.
+
 ## THE EVENTS ROOM CARRIES NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-28)
 
 [mc/events/index.html](mc/events/index.html) was stripped of **every** comment -- 1,540 lines of
