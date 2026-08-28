@@ -651,15 +651,7 @@
         <span class="batch-count" id="batchCount">none selected</span>
         <span class="batch-actions">
           <select id="batchKind" class="command-bar-select" aria-label="Set kind">
-            <option value="">Set kind…</option>
-            <option value="sports">sports</option>
-            <option value="sports-nonteam">sports (non-team)</option>
-            <option value="sports-tournament">sports (tournament)</option>
-            <option value="concert">concert</option>
-            <option value="convention">convention</option>
-            <option value="festival">festival</option>
-            <option value="expo">expo</option>
-            <option value="other">other</option>
+            <option value="">Set kind</option>
           </select>
           <input type="text" id="batchSource" placeholder="Set source…" autocomplete="off">
           <button class="btn small" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
@@ -784,8 +776,13 @@
 
     const WHEN_DEFAULT = 'upcoming';
 
-    const KIND_VALUES = ['sports', 'sports-nonteam', 'sports-tournament',
-                         'concert', 'convention', 'festival', 'expo', 'other'];
+    const KIND_VALUES = [
+      'sports', 'sports-nonteam', 'sports-tournament',
+      'concert', 'music_festival',
+      'broadway', 'circus', 'cirque_du_soleil', 'classical', 'comedy',
+      'dance', 'entertainment', 'family', 'film', 'literary', 'theater',
+      'convention', 'expo', 'festival', 'other'
+    ];
 
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
@@ -881,6 +878,18 @@
     const batchAllBox = document.getElementById('batchAllBox');
     const batchCount = document.getElementById('batchCount');
     const batchKind = document.getElementById('batchKind');
+
+    // THE BATCH ROW'S KINDS ARE BUILT FROM KIND_VALUES. They were markup, a
+    // fourth hand-kept copy of the list, so the row and the form would have
+    // gone on offering six kinds while the constant held twenty.
+    if (batchKind) {
+      KIND_VALUES.forEach((k) => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        batchKind.appendChild(opt);
+      });
+    }
     const batchSource = document.getElementById('batchSource');
     const batchApplyBtn = document.getElementById('batchApplyBtn');
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
@@ -1969,6 +1978,8 @@
         .map((t) => clean(t && t.name).toLowerCase()).filter(Boolean);
       const t = clean(ev && ev.type).toLowerCase();
       const all = names.concat([t]).join(' ');
+      // SPORTS KEEPS OUR OWN THREE, because they say something SeatGeek does
+      // not: whether two clubs are playing, more than two, or none.
       if (names.indexOf('sports') !== -1 || t.indexOf('sport') !== -1) {
         const perf = (ev && ev.performers) || [];
         const flagged = perf.filter((x) => x && (x.home_team || x.away_team)).length;
@@ -1977,9 +1988,23 @@
         if (sgClubCount(ev) > 2) return 'sports-tournament';
         return 'sports';
       }
-      if (names.indexOf('concert') !== -1 || t === 'concert' || t === 'music_festival') return 'concert';
-      if (all.indexOf('comic') !== -1 || all.indexOf('convention') !== -1) return 'convention';
-      if (all.indexOf('expo') !== -1) return 'expo';
+
+      // OURS BEAT THEIRS FOR A CONVENTION OR AN EXPO, because SeatGeek has no
+      // category for either: New York Comic Con is typed `theater >
+      // entertainment` and the World Oddities Expo the same. So the TITLE is
+      // read as well as the taxonomy -- the words are only ever in the title,
+      // which is why reading the taxonomy alone found neither.
+      const said = (all + ' ' + clean(ev && (ev.short_title || ev.title)).toLowerCase());
+      if (/comic ?con|convention|comiccon/.test(said)) return 'convention';
+      if (/\bexpos?\b/.test(said)) return 'expo';
+
+      // OTHERWISE THEIR CATEGORY IS THE KIND, verbatim: the taxonomy name one
+      // level under the root. `theater > comedy` gives comedy.
+      const theirs = names.filter((n) => n !== 'concert' && n !== 'theater' && n !== 'sports');
+      const cat = theirs.length ? theirs[0] : (names[0] || '');
+      if (KIND_VALUES.indexOf(cat) !== -1) return cat;
+      if (names.indexOf('concert') !== -1) return 'concert';
+      if (names.indexOf('theater') !== -1) return 'theater';
       if (all.indexOf('festival') !== -1) return 'festival';
       return 'other';
     }
@@ -2046,9 +2071,14 @@
         row.away_team_geo = a2.geo;
         row.away_team_nickname = a2.nick;
       }
-      // COMPOSED LAST, from the finished row, so it can see the league and
-      // both clubs. That is the one composer this page has.
-      row.id = composeEventId(row);
+      // SEATGEEK'S OWN EVENT ID, which is permanent on their side and unique
+      // by construction. It is the only id that can still recognise a row on a
+      // later fetch after a club is renamed or a fixture is rescheduled, which
+      // is exactly what a composed id cannot do. Prefixed so it is obvious on
+      // the row where it came from, and so it can never collide with a
+      // composed one.
+      const sgid = clean(ev && ev.id);
+      row.id = sgid ? 'SG-' + sgid : composeEventId(row);
       return row;
     }
 

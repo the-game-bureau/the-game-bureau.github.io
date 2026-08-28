@@ -1020,6 +1020,73 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## SEATGEEK'S CATEGORIES ARE OUR KINDS, AND ITS IDS ARE OUR IDS (2026-08-28)
+
+`KIND_VALUES` went from eight to twenty. Sixteen of them are **SeatGeek's own
+slugs**, read off `/2/taxonomies` rather than invented.
+
+- **THEIR TREE IS FOUR ROOTS DEEP**: `concert`, `sports`, `theater` and
+  `addon` (parking, suites, club passes). **The level UNDER a root is their
+  category level** -- `theater > comedy`, `concert > music_festival`,
+  `sports > football > nfl` -- and that is the one worth borrowing. 163 nodes,
+  four levels.
+- **THE OLD MAPPING THREW THE USEFUL HALF AWAY.** A comedy night is
+  `theater > comedy` and we filed it as `other`. **Measured on New York over
+  six weeks: 2,416 rows, and `other` went from most of them to ZERO** --
+  broadway 1,122, theater 670, concert 392, entertainment 58, family 51,
+  classical 35, dance 38, comedy 24, music_festival 9, literary 2, film 1.
+- **SPORTS KEEPS OUR OWN THREE**, because `sports` / `sports-tournament` /
+  `sports-nonteam` say something SeatGeek does not: whether two clubs are
+  playing, more than two, or none.
+- **OURS ALSO BEAT THEIRS FOR A CONVENTION AND AN EXPO**, because SeatGeek has
+  no category for either.
+  - **AND THE WORDS ARE ONLY IN THE TITLE, WHICH IS WHY THE FIRST CUT MISSED
+    BOTH.** New York Comic Con is typed `theater > entertainment`; so is the
+    World Oddities Expo. A test built from their real shapes caught it: reading
+    the taxonomy alone found neither. **The title is read as well.**
+- **A KIND OUTSIDE `KIND_VALUES` WOULD BE FLAGGED BY `bad-kind` ON EVERY
+  IMPORTED ROW**, which is the room accusing itself, so a test asserts every
+  kind the importer can emit is in the constant.
+- **`KIND_VALUES` IS NOW THE ONLY LIST.** The batch row's `<option>`s were a
+  fourth hand-kept copy and are **built from the constant**; the form was
+  already derived. Adding a kind is one edit.
+
+### AND THE ID IS SEATGEEK'S OWN, PREFIXED `SG-`
+
+- **THIS REVERSES THE READABLE-ID RULE FOR IMPORTED ROWS**, deliberately. A
+  composed id is built from the league, the date and the two clubs, so it
+  **changes when a club is renamed or a fixture is rescheduled** -- and then a
+  later fetch cannot tell it is the row we already hold. SeatGeek's id is
+  permanent on their side and unique by construction.
+- **PREFIXED, so it can never collide with a composed one** and so the row says
+  where it came from at a glance. The number is still plainly readable, which
+  is what lets you look the event up on SeatGeek.
+- **MANUAL ROWS ARE STILL COMPOSED.** `composeEventId` is unchanged and is the
+  fallback here for a row arriving with no SeatGeek id.
+- **WHAT IT COSTS: a row imported before this carries the old composed id**, so
+  a re-fetch will not recognise it and will offer it again. The cross-row
+  duplicate check catches the second copy.
+
+## SEATGEEK CARRIES SIX INTERNATIONAL NFL GAMES AND NO MORE (2026-08-28)
+
+Asked why `NFL International` did not catch a Saints and Steelers game in
+France. **It is not in the feed**, and the filter is not at fault. Every
+non-US NFL row SeatGeek holds, checked by paging the whole league:
+
+    2026-10-04  London, UK        Colts vs Commanders
+    2026-10-11  London, UK        Eagles vs Jaguars
+    2026-10-18  London, UK        Texans vs Jaguars
+    2026-11-08  Madrid, Spain     Bengals vs Falcons
+    2026-11-15  Munich, Germany   Patriots vs Lions
+    2026-11-22  Mexico City       Vikings vs 49ers
+
+**`venue.city=Paris` returns 0 events of ANY kind**, and so do Berlin, Dublin
+and Sao Paulo for `nfl`. **This is the standing limitation of the whole
+importer**: SeatGeek is a US resale marketplace and lists what it sells, so a
+fixture sold through the NFL's own channels or a European ticketer is invisible
+to it. **For a game it does not carry, the answer is MANUAL or a prompt, not a
+better filter.**
+
 ## THE SEATGEEK BOX TAKES A LEAGUE AS WELL AS A CITY (2026-08-28)
 
 `Denver, Chicago, NFL, NFL International` -- each comma-separated term is
