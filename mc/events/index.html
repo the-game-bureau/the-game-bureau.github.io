@@ -2145,12 +2145,18 @@
         const startEl = body.querySelector('[data-field="start_date"]');
         const endEl = body.querySelector('[data-field="end_date"]');
         if (startEl && endEl) {
-          startEl.addEventListener('change', () => {
+          // `input` AND `change`. A date input fires `input` as the picker moves
+          // and as you type, and `change` only on commit, so listening to
+          // `change` alone left the end date empty while you were looking at a
+          // start date you had already chosen.
+          const mirror = () => {
             if (clean(startEl.value) && !clean(endEl.value)) {
               endEl.value = startEl.value;
               markDirty();
             }
-          });
+          };
+          startEl.addEventListener('input', mirror);
+          startEl.addEventListener('change', mirror);
         }
 
         // THE ID, AT THE END OF THE BODY. It was in the head, where it was the
@@ -4127,14 +4133,24 @@
       if (kindEl) kindEl.addEventListener('change', syncManualWho);
       syncManualWho();
 
-      // The end date mirrors the start exactly as it does on a card, so what is
-      // written is what you can see before you press Add.
+      // THE END DATE MIRRORS THE START, IN FRONT OF YOU. `withDefaults` fills a
+      // blank one on the way out regardless, and the database has a trigger for
+      // it as well -- but a box sitting empty while a value goes to the row is
+      // the form showing something the row does not hold, which is the thing
+      // this rule exists to prevent.
+      //
+      // `input` AND `change`: a date input fires `input` as the picker moves and
+      // as you type, and `change` only on commit.
       const startEl = manualForm.querySelector('[data-field="start_date"]');
       const endEl = manualForm.querySelector('[data-field="end_date"]');
       if (startEl && endEl) {
-        startEl.addEventListener('change', () => {
+        const mirror = () => {
+          // A REAL RANGE IS NEVER OVERWRITTEN. Only a blank end date is filled,
+          // so a festival you have typed two dates for keeps them.
           if (clean(startEl.value) && !clean(endEl.value)) endEl.value = startEl.value;
-        });
+        };
+        startEl.addEventListener('input', mirror);
+        startEl.addEventListener('change', mirror);
       }
     }
 
