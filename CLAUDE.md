@@ -1263,6 +1263,82 @@ halves of the SeatGeek importer.
   harder one: **an id is permanent and every game points at one**, so changing
   how new ids are composed would make two rows for one fixture look unrelated.
 
+## THE SECOND PICKER IS KIND, NOT ISSUES (2026-08-28)
+
+`any kind (4,123)` then one line per kind the table actually holds, each with
+its count: `concert (392)`, `broadway (72)`, `sports (102)`.
+
+- **BUILT FROM THE TABLE, NEVER FROM `KIND_VALUES`.** There are twenty kinds
+  and a given table holds eight, so a static list would mostly offer choices
+  with nothing behind them. **An empty result is not a state this control can
+  produce.**
+- **THE COUNTS ARE THE WHOLE REASON IT IS LIVE.** A closed picker that cannot
+  say how many concerts there are is a picker you have to press to learn
+  anything from. Same argument as the Tape Room's place filter.
+- **THE COUNTS ARE OVER THE WHOLE TABLE, never over what is on screen.** A
+  figure that shrank as you typed in the search box would read as the filter
+  breaking.
+- **REBUILT ONLY WHEN THE OPTION SET CHANGES**, keyed on a signature.
+  **Every keystroke in the search box renders**, so rebuilding on each one
+  would shut the list under the pointer while somebody was reading it.
+- **A STORED CHOICE THE TABLE NO LONGER HOLDS FALLS BACK TO ANY**, rather than
+  leaving the picker naming a kind with nothing under it.
+
+### SO CHECK NARROWS THROUGH A FLAG OF ITS OWN
+
+- **THIS REVERSES THE `reviewOnly` OBJECTION, and the reversal is why it is
+  now safe.** The rule was *one state, two controls* -- a `reviewOnly` beside
+  the Issues picker would have been a second idea of one filter. **With that
+  picker gone there is only one reader**, so the flag is the state rather than
+  a duplicate of it.
+- **ONE CONTROL, TWO STATES, AND THE FACE SAYS WHICH**: `Check (43)`, then
+  `Show all`. Pressing it while the narrowing is on takes it off.
+- **IT CLEARS EVERY FILTER BEFORE IT RUNS.** The audit always read `state.rows`
+  and so was never narrowed -- **but its ANSWER was.** With the room open on
+  `upcoming`, a faulty PAST row was counted and then hidden, and a search left
+  in the box hid more, so "the 43 events with something wrong" was a list you
+  could not see all of. It empties the search, and sets Kind and When to
+  **`any date`, not to When's default**, because a past event with a fault is
+  still a fault.
+- **AND IT SAYS SO**: *"Filters cleared, and showing the 43 events with
+  something wrong out of 4,123 events. Press Show all for the rest."*
+- **CLEAR THEN READS `any date` AS FILTERED, correctly.** It is a deliberate
+  widening away from the default, so the button is lit and one press returns
+  the room to `upcoming`.
+
+## A FLOATING SAVE ALL, LOWER RIGHT (2026-08-28)
+
+Fixed to the corner, so it costs the panel no width and cannot be scrolled away
+from while a long list is being edited. Drawn only while something is unsaved.
+
+- **`[hidden]` HAD TO BE RE-ASSERTED over `.btn`'s `display: inline-flex`** --
+  the **ELEVENTH** time this project has hit that rule. Without it the button
+  sits on a clean page offering to save nothing.
+- **THE NOUN STAYS AT ONE** (`Save`, then `Save all 2`), so the button does not
+  change width as rows are edited and jump under the pointer.
+- **IT GOES THROUGH `saveRow` PER ROW**, so a row saved from here takes exactly
+  the path its own Save button takes: the same payload, the same read-back, the
+  same translation of a refusal. Two ways to save one row is how they drift.
+- **A ROW EDITED WHILE CLOSED HAS NO SAVE BUTTON**, because the body is not
+  built until the row is opened -- **and the title is editable on a closed row,
+  so that is the common case rather than the odd one.** The first cut required
+  the real button and therefore skipped every closed row in silence, saving
+  nothing. A detached button stands in; `saveRow` only ever sets its label and
+  its disabled flag.
+- **THE BATCH RENDERS ONCE, AT THE END.** Rendering per row rebuilds the list
+  under the loop and detaches every element it still holds, so the second row
+  would save nothing and say nothing.
+- **AND IT RENDERS ONLY IF EVERYTHING LANDED.** A render rebuilds each row from
+  the stored values, which on a REFUSED row throws away both the mark saying it
+  is unsaved and the words somebody typed -- so a refusal would look exactly
+  like a save.
+- **THE SHORTFALL IS NAMED, NEVER COUNTED**: *"Saved 1 row. 1 row would not
+  save: C."* The rows still unsaved are exactly the ones you have to deal with.
+- **`dirtyRows()` READS THE DOM**, not a set of ids. `.is-dirty` is written by
+  the row on every keystroke and cleared by its own save, so the DOM is the
+  only thing that knows the truth; a parallel set would drift the moment a
+  render rebuilt the list.
+
 ## `OTHER` IS EVERYTHING NO FEED CARRIES, AND IT READS THE WEB (2026-08-28)
 
 **It was CONVENTIONS for an afternoon.** The button is `OTHER`, sits to the

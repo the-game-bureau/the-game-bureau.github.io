@@ -360,6 +360,21 @@
        1400px wide; the sentence may use it. */
     .room-head .room-blurb { max-width: none; }
 
+    /* THE FLOATING SAVE ALL. Fixed, lower right, so it costs the panel no
+       width and cannot be scrolled away from while a long list is being
+       edited. It appears only while something is unsaved.
+
+       `[hidden]` HAS TO BE RE-ASSERTED over `.btn`'s author `display:
+       inline-flex` -- the ELEVENTH time this project has hit that rule. An
+       author declaration beats the UA sheet's `display: none`, so setting
+       `.hidden` would silently do nothing and the button would sit there on a
+       clean page offering to save nothing. */
+    .save-all {
+      position: fixed; right: 18px; bottom: 18px; z-index: 900;
+      box-shadow: 0 6px 18px rgba(17, 24, 32, 0.28);
+    }
+    .save-all[hidden] { display: none; }
+
     .empty { padding: 22px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
 
     .prompt-lightbox {
@@ -618,11 +633,9 @@
               <option value="past">past</option>
             </select>
           </label>
-          <label class="bar-pick">Issues
-            <select id="issuesFilter" class="command-bar-select">
-              <option value="any">any</option>
-              <option value="yes">has issues</option>
-              <option value="no">clean</option>
+          <label class="bar-pick">Kind
+            <select id="kindFilter" class="command-bar-select">
+              <option value="any">any kind</option>
             </select>
           </label>
           <button class="btn small" id="clearFiltersBtn" type="button"
@@ -678,6 +691,8 @@
         </div>
       </div>
     </div>
+
+    <button class="btn primary save-all" id="saveAllBtn" type="button" hidden>Save all</button>
 
     <div class="prompt-lightbox" id="cvLightbox" role="dialog" aria-modal="true" aria-labelledby="cvDialogTitle" hidden>
       <div class="prompt-dialog">
@@ -915,7 +930,8 @@
     const sgImportBtn = document.getElementById('sgImportBtn');
 
     const state = { rows: [], authed: false, page: 1, q: '',
-                    loaded: false, total: null, when: WHEN_DEFAULT, issues: 'any' };
+                    loaded: false, total: null, when: WHEN_DEFAULT,
+                    kind: 'any', reviewOnly: false };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1004,8 +1020,11 @@
         }
       }
 
-      if (state.issues === 'yes' && clean(row.issues) !== 'YES') return false;
-      if (state.issues === 'no' && clean(row.issues) === 'YES') return false;
+      if (state.kind !== 'any' && clean(row.kind) !== state.kind) return false;
+      // CHECK NARROWS THROUGH ITS OWN FLAG, not through a picker. It had the
+      // Issues picker to write into and that picker is gone; with only one
+      // control reading this there is no second idea of one filter to drift.
+      if (state.reviewOnly && !isInReview(row)) return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_team_geo, row.away_team_nickname, row.home_team_geo, row.home_team_nickname,
@@ -1217,6 +1236,7 @@
 
       const markDirty = () => {
         el.classList.add('is-dirty');
+        syncSaveAll();
         const preview = readFormPreview(el, row);
         name.placeholder = displayTitle(Object.assign({}, preview, { title: '' }));
         where.textContent = clean(preview.venue_city);
@@ -1315,6 +1335,7 @@
         caret.setAttribute('aria-label', (open ? 'Collapse' : 'Expand') + ' this event');
       }
       el.__setOpen = setOpen;
+      el.__row = row;
 
       head.addEventListener('click', (event) => {
         if (event.target.closest('.event-name, .event-id')) return;
@@ -1452,6 +1473,49 @@
       return el;
     }
 
+    // THE KIND PICKER IS BUILT FROM THE TABLE, so it can only ever offer a
+    // choice with rows behind it: an empty result is not a state this control
+    // can produce. The counts are the whole reason it is a live list rather
+    // than KIND_VALUES -- twenty kinds, of which a given table holds eight.
+    //
+    // REBUILT ONLY WHEN THE OPTION SET CHANGES, keyed on a signature.
+    // Rebuilding on every render would close the list under the pointer while
+    // somebody is reading it, and every keystroke in the search box renders.
+    let kindSig = null;
+
+    function paintKindFilter() {
+      const el = document.getElementById('kindFilter');
+      if (!el) return;
+      const counts = new Map();
+      state.rows.forEach((r) => {
+        const k = clean(r.kind) || '(none)';
+        counts.set(k, (counts.get(k) || 0) + 1);
+      });
+      const kinds = [...counts.keys()].sort();
+      const sig = kinds.map((k) => k + ':' + counts.get(k)).join('|');
+      if (sig === kindSig) return;
+      kindSig = sig;
+
+      const want = state.kind;
+      el.textContent = '';
+      const any = document.createElement('option');
+      any.value = 'any';
+      any.textContent = 'any kind (' + state.rows.length + ')';
+      el.appendChild(any);
+      kinds.forEach((k) => {
+        const o = document.createElement('option');
+        o.value = k === '(none)' ? '' : k;
+        o.textContent = k + ' (' + counts.get(k) + ')';
+        el.appendChild(o);
+      });
+
+      // A STORED CHOICE THE TABLE NO LONGER HOLDS FALLS BACK TO ANY, rather
+      // than leaving the picker naming a kind and the list showing nothing.
+      const has = [...el.options].some((o) => o.value === want);
+      if (!has && want !== 'any') state.kind = 'any';
+      el.value = state.kind;
+    }
+
     function render() {
       if (!listEl) return;
       listEl.innerHTML = '';
@@ -1464,6 +1528,8 @@
       }
 
       rebuildDuplicates();
+      paintKindFilter();
+      syncSaveAll();
       const filtered = state.rows.filter(matches).sort(compareRows);
       const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       if (state.page > pages) state.page = pages;
@@ -1808,9 +1874,7 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        state.issues = 'yes';
-        const issuesPicker = document.getElementById('issuesFilter');
-        if (issuesPicker) issuesPicker.value = 'yes';
+        state.reviewOnly = true;
         state.page = 1;
         render();
         if (!flagFailed) {
@@ -1819,7 +1883,9 @@
             ? ' Issues flag updated on ' + plural(flagged, 'row') + '.'
             : '';
           setStatus((inReview
-            ? 'Showing the ' + plural(inReview, 'event') + ' with something wrong. Set Issues back to any for the rest.'
+            ? 'Filters cleared, and showing the ' + plural(inReview, 'event')
+              + ' with something wrong out of ' + plural(state.rows.length, 'event')
+              + '. Press Show all for the rest.'
             : 'Checked ' + plural(state.rows.length, 'event') + '. Nothing wrong with any of them.') + flagNote,
             'success');
         }
@@ -1833,7 +1899,10 @@
     function syncErrorsBtn() {
       if (!errorsBtn) return;
       const n = state.rows.filter(isInReview).length;
-      errorsBtn.textContent = n ? 'Check (' + n + ')' : 'Check';
+      // THE FACE NAMES WHAT THE PRESS WILL DO, which while the narrowing is on
+      // is to take it off again.
+      errorsBtn.textContent = state.reviewOnly ? 'Show all'
+        : (n ? 'Check (' + n + ')' : 'Check');
       if (!state.loaded) {
         errorsBtn.classList.add('is-waiting');
         errorsBtn.title = 'Waiting for the whole table. The check reads every row, so it cannot run on a partial load.';
@@ -1844,12 +1913,35 @@
     }
 
     function toggleErrors() {
+      // WHILE THE NARROWING IS ON, THE PRESS TAKES IT OFF. One control, two
+      // states, and the face says which -- Check, then Show all.
+      if (state.reviewOnly) {
+        state.reviewOnly = false;
+        state.page = 1;
+        render();
+        syncErrorsBtn();
+        setStatus('Showing every event again.', 'success');
+        return;
+      }
       if (!state.loaded) {
         setStatus('Still loading (' + state.rows.length +
           (state.total ? ' of ' + state.total : '') +
           '). The check runs over the whole table, so it waits for all of it.', 'error');
         return;
       }
+      // EVERY FILTER COMES OFF FIRST. The audit itself always read `state.rows`
+      // and so was never narrowed -- but its ANSWER was: with the room open on
+      // `upcoming`, "the 43 events with something wrong" hid every faulty past
+      // row, and a search left in the box hid more. A check that reports on
+      // the whole table has to SHOW the whole table.
+      state.q = '';
+      state.when = 'any';
+      state.kind = 'any';
+      if (searchInput) searchInput.value = '';
+      const whenEl = document.getElementById('whenFilter');
+      const kindEl = document.getElementById('kindFilter');
+      if (whenEl) whenEl.value = 'any';
+      if (kindEl) kindEl.value = 'any';
       runErrorSweep();
     }
 
@@ -2862,10 +2954,82 @@
       setStatus('Loaded ' + plural(state.rows.length, 'event') + '.', 'success');
     }
 
-    async function saveRow(row, el, btn) {
+    const saveAllBtn = document.getElementById('saveAllBtn');
+
+    // DRAWN FROM THE DOM, not from a set of ids. `.is-dirty` is written by the
+    // row itself on every keystroke and cleared by its own save, so the DOM is
+    // the only thing that knows the truth; a parallel set would drift the
+    // moment a render rebuilt the list.
+    function dirtyRows() {
+      return listEl ? [...listEl.querySelectorAll('.event-row.is-dirty')] : [];
+    }
+
+    function syncSaveAll() {
+      if (!saveAllBtn) return;
+      const n = dirtyRows().length;
+      saveAllBtn.hidden = n === 0;
+      // THE NOUN STAYS WHEN THERE IS ONE, so the button does not change width
+      // as rows are edited and jump under the pointer.
+      saveAllBtn.textContent = n > 1 ? 'Save all ' + n : 'Save';
+      saveAllBtn.title = n === 1
+        ? 'Save the one row you have changed.'
+        : 'Save all ' + n + ' changed rows.';
+    }
+
+    async function saveAll() {
+      const rows = dirtyRows();
+      if (!rows.length) return;
+      saveAllBtn.disabled = true;
+      const orig = saveAllBtn.textContent;
+      saveAllBtn.textContent = 'Saving\u2026';
+      let done = 0;
+      const failed = [];
+      try {
+        // ONE AT A TIME AND THROUGH `saveRow`, so a row saved from here goes
+        // down exactly the path its own Save button uses -- the same payload,
+        // the same read-back, the same translation of a refusal. Two ways to
+        // save one row is how they drift.
+        for (const el of rows) {
+          const row = el.__row;
+          if (!row) continue;
+          // A ROW EDITED WHILE CLOSED HAS NO SAVE BUTTON, because the body is
+          // not built until it is opened -- and the TITLE is editable on a
+          // closed row, so that is the common case rather than the odd one.
+          // `saveRow` only ever sets the button's label and disabled flag, so
+          // a detached one stands in. Requiring the real button skipped every
+          // closed row in silence, which is how the first cut saved nothing.
+          const btn = el.querySelector('.event-actions .btn.primary')
+            || document.createElement('button');
+          const ok = await saveRow(row, el, btn, { quiet: true });
+          if (ok) done += 1; else failed.push(clean(row.id) || '(no id)');
+        }
+      } finally {
+        saveAllBtn.disabled = false;
+        saveAllBtn.textContent = orig;
+        // A RENDER ONLY WHEN EVERYTHING LANDED. It rebuilds every row from the
+        // stored values, which on a refused row would throw away both the mark
+        // saying it is unsaved AND the words somebody typed -- so a refusal
+        // would look exactly like a save. The rows that did save have already
+        // dropped their own mark.
+        if (!failed.length) render();
+        syncSaveAll();
+      }
+      // THE SHORTFALL IS NAMED, NEVER COUNTED. "12 saved" about 9 is the quiet
+      // sort of lie this page has been caught by before, and the rows still
+      // unsaved are exactly the ones you have to go and deal with.
+      if (failed.length) {
+        setStatus('Saved ' + plural(done, 'row') + '. ' + plural(failed.length, 'row')
+          + ' would not save: ' + failed.join(', ') + '.', 'error');
+      } else {
+        setStatus('Saved ' + plural(done, 'row') + '.', 'success');
+      }
+    }
+
+    async function saveRow(row, el, btn, opts) {
+      const quiet = !!(opts && opts.quiet);
       const payload = withDefaults(readForm(el));
       const id = clean(row.id);
-      if (!id) { setStatus('That row has no ID, so there is nothing to save against.', 'error'); return; }
+      if (!id) { setStatus('That row has no ID, so there is nothing to save against.', 'error'); return false; }
 
       btn.disabled = true;
       const orig = btn.textContent;
@@ -2882,13 +3046,22 @@
           throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
         }
         Object.assign(row, saved[0]);
-        render();
-        setStatus('Saved ' + displayTitle(row) + '.', 'success');
+        // A BATCH RENDERS ONCE, AT THE END. Rendering per row would rebuild
+        // the list under the loop and every element it still held would be
+        // detached -- so the second row would save nothing, silently.
+        if (!quiet) {
+          render();
+          setStatus('Saved ' + displayTitle(row) + '.', 'success');
+        } else {
+          el.classList.remove('is-dirty');
+        }
+        return true;
       } catch (err) {
         console.error(err);
-        setStatus(err && err.message ? err.message : 'Save failed.', 'error');
+        if (!quiet) setStatus(err && err.message ? err.message : 'Save failed.', 'error');
         btn.disabled = false;
         btn.textContent = orig;
+        return false;
       }
     }
 
@@ -3217,7 +3390,8 @@
       });
     }
     function anyFilterOn() {
-      return !!(clean(state.q) || state.when !== WHEN_DEFAULT || state.issues !== 'any');
+      return !!(clean(state.q) || state.when !== WHEN_DEFAULT
+        || state.kind !== 'any' || state.reviewOnly);
     }
 
     function paintClearBtn() {
@@ -3236,18 +3410,20 @@
       }
       state.q = '';
       state.when = WHEN_DEFAULT;
-      state.issues = 'any';
+      state.kind = 'any';
+      state.reviewOnly = false;
       state.page = 1;
       if (searchInput) searchInput.value = '';
       const whenEl = document.getElementById('whenFilter');
-      const issuesEl = document.getElementById('issuesFilter');
+      const kindEl = document.getElementById('kindFilter');
       if (whenEl) whenEl.value = WHEN_DEFAULT;
-      if (issuesEl) issuesEl.value = 'any';
+      if (kindEl) kindEl.value = 'any';
+      syncErrorsBtn();
       render();
       setStatus('Filters cleared.', 'success');
     }
 
-    [['whenFilter', 'when'], ['issuesFilter', 'issues']].forEach(([id, key]) => {
+    [['whenFilter', 'when'], ['kindFilter', 'kind']].forEach(([id, key]) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('change', () => {
@@ -3291,6 +3467,7 @@
       });
     }
 
+    if (saveAllBtn) saveAllBtn.addEventListener('click', saveAll);
     if (seatgeekBtn) seatgeekBtn.addEventListener('click', openSgDialog);
     if (conventionsBtn) conventionsBtn.addEventListener('click', openCvDialog);
     if (closeCvBtn) closeCvBtn.addEventListener('click', closeCvDialog);
