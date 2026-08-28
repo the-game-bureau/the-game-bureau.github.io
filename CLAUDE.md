@@ -1170,6 +1170,18 @@ it was read off the live catalogue rather than assumed:
   tournaments being the Hall of Fame Series, the Field of 68 marathon and the
   tip-off classics, which is exactly right.
 
+## THE WHEN FILTER IS REPLACED BY AN ISSUES FILTER (2026-08-28)
+
+`Search & filter` now reads **search | Kind · Issues · Clear**. The date picker is gone; Issues offers **any / has issues / clean** and sits between Kind and Clear.
+
+- **WHAT IT COSTS, AND IT IS REAL: nothing narrows by date any more.** The section immediately below explains why the room opened on `upcoming` -- a past event is the one thing this table can never use, because our game is played the day BEFORE its anchor and there is no day before a date that has gone. **Every past row is on the list now.** `WHEN_DEFAULT`, `state.when` and the whole date branch of `matches()` are deleted. What softens it: the date is still on every row and the order is still oldest first, so a past event is VISIBLE rather than hidden -- what is gone is taking them off the list in one press. **THE TWO SECTIONS BELOW NOW DESCRIBE A CONTROL THAT NO LONGER EXISTS**, including the two-pickers table; they are kept for the reasoning, which is what makes this trade worth writing down rather than discovering later.
+- **ONE STATE, TWO CONTROLS, WHICH IS THE SHAPE THIS PAGE HAS ALREADY PAID FOR GETTING WRONG.** The picker and the Check button both write `state.issues`: Check runs the sweep and sets it to `yes`, Show all puts it back to `any`, and Clear does too. **`state.reviewOnly` is gone**, so there is no second idea of one filter to drift, and **`setIssuesFilter()` is the only setter** -- it writes the `<select>` and the state together, so the control on screen cannot disagree with the list.
+- **IT READS `isInReview`, THE LIVE ANSWER, NOT THE STORED `issues` COLUMN.** This reverses the old Issues picker's rule, which read the flag deliberately so the room agreed with an outside reader. **The findings drawn on a card are recomputed on every render**, so a picker reading the stored flag would list a row as faulty while its own card said nothing was wrong. The column is still the snapshot for anything reading the table from OUTSIDE the page; in here the live answer is the one you can see.
+- **THE CHECK BUTTON'S FACE IS REPAINTED WHEN THE PICKER IS WHAT CHANGED IT.** It reads `state.issues` to choose between `Check (n)` and `Show all`, so without `syncErrorsBtn()` on the picker's own change it would go on offering to Show all a narrowing somebody had already taken off.
+- **`isoPlusDays` STAYS.** It was the date filter's helper and is still what seeds the SeatGeek and OTHER dialogs' 366-day window. Checked before assuming it was dead.
+
+**PROVED BY DRIVING THE RENDERED ROOM**, on four rows built so two are faulty and two are clean, one of each in the past. The bar reads `search | Kind Issues Clear`, `whenFilter` is gone, the room opens on all four INCLUDING the past ones, `has issues` leaves exactly the two faulty rows and `clean` the two good ones, Clear is greyed at `any` and lit at `yes`, Clear resets the picker, Check sets it to `yes` and the button to `Show all`, and Show all puts both back. No console errors.
+
 ## THE ROOM OPENS ON UPCOMING (2026-08-28)
 
 `WHEN_DEFAULT = 'upcoming'`, and the `<select>` ships `selected` on it.
@@ -2218,7 +2230,7 @@ and a stored FLAG are not text**, which is the whole test.
 
 | picker | options |
 |---|---|
-| **When** | any date, upcoming, next 30 days, next 90 days, past |
+| ~~**When**~~ | ~~any date, upcoming, next 30 days, next 90 days, past~~ -- **DELETED 2026-08-28, see above** |
 | **Issues** | any, has issues, clean |
 
 - **TWO PICKERS AND NOT ONE, because the axes are independent.** "Upcoming AND
