@@ -1120,6 +1120,33 @@ A second ADD button, reading the convention centres and expo halls in one city.
 - **CAPPED AT 12 HALLS PER CITY.** A fuzzy venue search on a big city returns
   hotels for ever, and each hall costs a request.
 
+## A 429 FROM SEATGEEK IS A WAIT, NOT A FAILURE (2026-08-28)
+
+Reported as *"what does SeatGeek returned 429 mean?"*, which is the question a
+raw status code always provokes.
+
+- **THE LIMIT IS 100 REQUESTS A MINUTE, AND SEATGEEK SAYS SO IN ITS HEADERS**:
+  `ratelimit-limit: 100`, `ratelimit-remaining`, and **`ratelimit-reset` in
+  SECONDS** (not a timestamp). Measured on 2026-08-28; fifteen requests in a
+  burst all answered 200, so the wall is the minute and not the burst.
+- **THE CONVENTIONS SWEEP IS WHAT REACHES IT.** Four venue lookups plus up to
+  twelve hall calendars is **16 requests per city**, so three cities plus a
+  re-fetch crosses 100 inside a minute.
+- **SO IT WAITS FOR AS LONG AS SEATGEEK ASKS, AND SAYS IT IS WAITING.** A 429
+  sets `sgState.pauseUntil` from `ratelimit-reset` and the call is retried; the
+  status line says which minute limit was hit and how many seconds are left, or
+  a long sweep looks hung.
+- **IT ALSO SLOWS DOWN BEFORE IT IS REFUSED.** A reply saying two or fewer
+  remain pauses the NEXT call until the reset, so a sweep degrades to slow
+  rather than failing.
+- **IT GIVES UP AFTER THREE WAITS AND NAMES THE FIX** -- narrow the date range
+  or the city list -- rather than retrying for ever.
+- **A MISSING HEADER MEANS UNKNOWN, NOT EXHAUSTED, and the first cut got that
+  wrong.** `Number(null)` is **0** and `isFinite(0)` is **true**, so a reply
+  carrying no rate-limit header read as a spent budget and **paused every fetch
+  for 61 seconds**. Two suites went from green to nineteen failures, which is
+  what found it. **The third time this exact trap has been recorded here.**
+
 ## THE CITY BOX TAKES A LIST (2026-08-28)
 
 Both SeatGeek modes split it on commas: `Denver, Chicago, Tulsa`.

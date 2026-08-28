@@ -1772,7 +1772,7 @@
     }
 
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
-    const sgState = { rows: [], checked: new Set(), busy: false, mode: 'city', opener: null };
+    const sgState = { rows: [], checked: new Set(), busy: false, mode: 'city', opener: null, pauseUntil: 0 };
 
     function sgCities() {
       return clean(sgCityEl && sgCityEl.value).split(',')
@@ -1980,19 +1980,50 @@
       }
     }
 
+    const SG_RETRIES = 3;
+    const SG_HEADROOM = 2;
+
     const HALL_NAME = /convention|expo|fairground|fair ground|civic cent|exhibition|trade cent/i;
     const CONVENTION_TITLE = /\bcon\b|comic|expo|convention|fest\b|summit|fair\b|show\b|symposium|conference|gaming|anime/i;
+
+    const sgWait = (ms) => new Promise((go) => setTimeout(go, ms));
 
     async function sgApi(key, path, params) {
       const url = new URL('https://api.seatgeek.com/2/' + path);
       url.searchParams.set('client_id', key);
       Object.keys(params).forEach((k) => url.searchParams.set(k, String(params[k])));
-      const res = await fetch(url.toString());
-      if (res.status === 403 || res.status === 401) {
-        throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+
+      for (let go = 0; ; go += 1) {
+        if (sgState.pauseUntil > Date.now()) {
+          const left = Math.ceil((sgState.pauseUntil - Date.now()) / 1000);
+          sgSet('SeatGeek allows 100 requests a minute and this sweep has used them. Waiting '
+            + plural(left, 'second') + '\u2026');
+          await sgWait(sgState.pauseUntil - Date.now());
+        }
+
+        const res = await fetch(url.toString());
+        const resetRaw = res.headers.get('ratelimit-reset');
+        const leftRaw = res.headers.get('ratelimit-remaining');
+        const reset = resetRaw === null || resetRaw === '' ? NaN : Number(resetRaw);
+        const left = leftRaw === null || leftRaw === '' ? NaN : Number(leftRaw);
+        const hold = (Number.isFinite(reset) && reset > 0 ? reset : 60) * 1000 + 1000;
+
+        if (res.status === 429) {
+          if (go >= SG_RETRIES) {
+            throw new Error('SeatGeek is still rate limiting after ' + plural(go, 'wait')
+              + '. It allows 100 requests a minute. Narrow the date range or the city list and try again.');
+          }
+          sgState.pauseUntil = Date.now() + hold;
+          continue;
+        }
+        if (res.status === 403 || res.status === 401) {
+          throw new Error('SeatGeek refused that client ID. Check it at seatgeek.com/account/develop.');
+        }
+        if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
+
+        if (Number.isFinite(left) && left <= SG_HEADROOM) sgState.pauseUntil = Date.now() + hold;
+        return res.json();
       }
-      if (!res.ok) throw new Error('SeatGeek returned ' + res.status + '.');
-      return res.json();
     }
 
     async function sgFetchConventions(key, cities, from, to) {
