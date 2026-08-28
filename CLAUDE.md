@@ -1326,6 +1326,11 @@ on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
   exact bug the issues room shipped and had to fix.
 - **THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render.** A tick that
   outlived its row would be a batch press landing on something you cannot see.
+- **A HAIRLINE STANDS BETWEEN APPLY AND DELETE.** They are not two options of
+  one kind: one writes two fields and the other destroys the rows, and flush
+  together they read as a pair you choose between. **`.bar-sep` is declared only
+  under `.command-bar--find`**, so the batch row needs a rule of its own or the
+  span draws nothing.
 - **BOTH BUTTONS CARRY THE COUNT**, `Apply to 300` and `Delete 300`. Delete had
   only its verb, which made **the quieter of the two faces the irreversible
   one**; the number is the last thing you read before pressing it. Each keeps
