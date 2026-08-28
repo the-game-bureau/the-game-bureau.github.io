@@ -727,80 +727,16 @@
     /* ONE FIELD PER LINE. .event-fields is an auto-fit grid because a card is
        wide and shallow; a creation form is the opposite -- you read down it once,
        in order, and a two-column layout makes "what comes next" a question. */
-    .manual-form { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .manual-form { display: grid; grid-template-columns: 1fr; gap: 8px; }
 
-    /* A BAND PER GROUP, the same five the card uses. The form was a flat column
-       of 23 fields separated by bare rules, so the shape of the thing being
-       created was invisible -- you scrolled a list. */
-    .manual-band {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 10px;
-      margin: 0;
-      padding: 8px 10px 10px;
-      border: 1px solid var(--control-line);
-      border-radius: 8px;
-    }
+    /* ONE FIELD PER ROW. `.manual-form` is a single column and every label is
+       a row of it, so the form is read straight down: a creation form is one you
+       read ONCE, in order, and anything side by side makes "what comes next" a
+       question you answer with your eyes rather than by reading on.
 
-    .manual-band > legend {
-      padding: 0 6px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.62rem;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
+       A HIDDEN FIELD IS HIDDEN OUTRIGHT, not left as an empty row. */
+    .manual-form label[hidden] { display: none; }
 
-    /* TWO COLUMNS, AND THE COMMENT THIS REPLACES WAS HALF RIGHT. It argued for
-       one field per line because "a creation form is one you read down once, in
-       order, and two columns make what-comes-next a question". That holds for a
-       flat list of 23. Inside a NAMED band of two to four related fields there
-       is no such question: start and end date, the two scores, the two tgbids
-       are PAIRS, and pairing them is what makes the band read as one thing.
-
-       Anything that is not half of a pair spans, so the reading order down the
-       form is unchanged. */
-    .manual-band > label { grid-column: span 1; }
-    .manual-band > label.field--full,
-    .manual-band > label[data-wide] { grid-column: 1 / -1; }
-
-    /* `[hidden]` HAS TO OUT-SPECIFY THE `display: grid` ABOVE, or the clubs band
-       is on screen for a concert. Tenth time in this repo. */
-    .manual-band[hidden] { display: none; }
-
-    @media (max-width: 560px) {
-      /* A PHONE GETS ONE COLUMN. Half of 340px is a date box with its label
-         wrapped to three lines. */
-      .manual-band { grid-template-columns: 1fr; }
-    }
-    .manual-form label {
-      display: grid; gap: 3px; font-size: 0.68rem; font-weight: 700;
-      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0;
-    }
-    .manual-form input,
-    .manual-form select,
-    .manual-form textarea {
-      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
-      background: #fff; color: var(--ink); font-size: 0.9rem; font-weight: 500; min-width: 0;
-    }
-    .manual-form textarea { min-height: 54px; resize: vertical; }
-    .manual-form input:focus-visible,
-    .manual-form select:focus-visible,
-    .manual-form textarea:focus-visible {
-      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
-    }
-    .manual-form input.is-unknown-city { border-color: rgba(160, 63, 45, 0.55); color: var(--danger); }
-    /* The checkbox is the one field whose label reads better beside it. */
-    /* THE MANUAL FORM KEEPS THE INLINE TREATMENT, deliberately. It is one
-       column, so a label on its own line above a 15px box would spend two rows
-       of a 22-field form on one tick -- and there are no neighbouring controls
-       for it to line up with, which is the whole reason the card's version
-       changed. */
-    .manual-form label.field--check {
-      grid-template-columns: auto 1fr; align-items: center; column-gap: 7px;
-    }
-    .manual-form label.field--check input { min-height: 0; width: 15px; height: 15px; accent-color: var(--accent); order: -1; }
     .manual-hint {
       margin: -1px 0 0; font-size: 0.7rem; font-weight: 500; letter-spacing: 0;
       text-transform: none; color: var(--muted);
@@ -4090,30 +4026,20 @@
       // database would otherwise be given by hand on nearly every row.
       const draft = { kind: 'sports', status: 'scheduled' };
 
-      // ── ONE BAND PER GROUP, THE SAME FIVE THE CARD USES ──────────────────
+      // ── ONE FIELD PER ROW, IN ONE COLUMN ─────────────────────────────────
       //
-      // It was a flat column of 23 fields separated by bare rules, so the shape
-      // of the thing being created was invisible: you scrolled a list. The
-      // bands are named and already familiar from the card, and they cost no
-      // reading order -- the fields are in exactly the sequence they were.
+      // The five bands are gone. A creation form is one you read DOWN once, in
+      // order, and anything that puts two fields side by side makes "what comes
+      // next" a question you have to answer with your eyes instead of by
+      // reading on.
       //
-      // The ID keeps its place at the top, outside any band. It is the one
-      // field that can never be changed afterwards.
-
-      manualGroups().forEach((g) => {
-        const band = document.createElement('fieldset');
-        band.className = 'manual-band';
-        band.dataset.band = g.key;
-        const legend = document.createElement('legend');
-        legend.textContent = g.label;
-        band.appendChild(legend);
-
-        manualBandFields(g).forEach((f) => {
-          // onDirty is a no-op here: there is no row to mark unsaved, because
-          // nothing exists until Add is pressed.
-          band.appendChild(fieldControl(draft, f, function () {}));
-        });
-        manualForm.appendChild(band);
+      // THE ORDER IS STILL THE FORM'S OWN, not the card's -- what, when, where,
+      // who, why -- because that is the order you fill it in. Only the boxes
+      // around the groups have gone; the sequence has not moved.
+      MANUAL_ORDER.forEach((f) => {
+        // onDirty is a no-op here: there is no row to mark unsaved, because
+        // nothing exists until Add is pressed.
+        manualForm.appendChild(fieldControl(draft, f, function () {}));
       });
 
       // ── THE CLUBS ONLY WHEN THERE ARE CLUBS ──────────────────────────────
@@ -4124,11 +4050,19 @@
       // already folds this band away on a non-sports row; the form now does the
       // same, live, as the Kind dropdown changes.
       const kindEl = manualForm.querySelector('[data-field="kind"]');
-      const whoBand = manualForm.querySelector('.manual-band[data-band="who"]');
+      // FIELD BY FIELD, since there is no band to hide any more. The list comes
+      // from the group that was marked `sportsOnly`, so it cannot fall out of
+      // step with the card's own rule about which fields those are.
+      const whoFields = FIELD_GROUPS
+        .filter((g) => g.sportsOnly)
+        .reduce((acc, g) => acc.concat(manualBandFields(g)), [])
+        .map((f) => manualForm.querySelector('[data-field="' + f + '"]'))
+        .filter(Boolean)
+        .map((el) => el.closest('label') || el);
       function syncManualWho() {
-        if (!whoBand) return;
         const kind = kindEl ? clean(kindEl.value) : 'sports';
-        whoBand.hidden = !(!kind || kind === 'sports');
+        const show = !kind || kind === 'sports';
+        whoFields.forEach((el) => { el.hidden = !show; });
       }
       if (kindEl) kindEl.addEventListener('change', syncManualWho);
       syncManualWho();
