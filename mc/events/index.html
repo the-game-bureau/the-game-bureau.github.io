@@ -141,11 +141,37 @@
       width: 100%; max-width: var(--mc-shell-width); margin: 0 auto var(--stack-gap);
     }
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    /* ── TWO ROWS, EACH MEANING ONE THING ──────────────────────────────────
+       The first is what you press to CHANGE the table: put a row in, or ask
+       what is wrong with the lot. The second only changes what you are LOOKING
+       at, and it sits directly above the list it narrows.
+
+       ONE FLEXIBLE BOX PER ROW, or the free space is split between two and
+       neither end stays pinned. The top row has none: ADD is sized to its
+       contents and VIEW is pushed to the far end. The bottom row is a single
+       box, so it simply takes the width. */
     .command-bar--add { flex: 0 0 auto; }
+    .bar-row .command-bar--check { margin-left: auto; }
     .command-bar--find { flex: 1 1 auto; min-width: 0; }
+
+    /* THE HAIRLINE BETWEEN THE TWO HALVES OF ONE BOX. Everything left of it is
+       text you TYPE; everything right of it is a state you TICK. They answer one
+       question by two means, which is why they share a box, and the rule is what
+       stops the row reading as one undifferentiated strip of controls. */
+    .command-bar--find .bar-sep {
+      flex: 0 0 auto;
+      align-self: stretch;
+      width: 1px;
+      margin: 2px 4px;
+      background: var(--control-line);
+    }
+
     @media (max-width: 760px) {
       .bar-row { flex-wrap: wrap; }
       .command-bar--find { flex: 1 1 100%; }
+      /* A PHONE WRAPS THE BOX, so a vertical rule between wrapped lines would
+         sit in the middle of nothing. */
+      .command-bar--find .bar-sep { display: none; }
     }
 
     .command-bar {
@@ -963,7 +989,7 @@
       <span class="room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
     </div>
 
-    <div class="bar-row">
+    <div class="bar-row bar-row--act">
       <!-- ADD SITS HARD LEFT, where a row comes FROM. Three ways in, and the
            tooltips end the same way so the only thing to read is who does the
            work: you, a league feed, or any AI. The Socializer's own two labels
@@ -1004,55 +1030,6 @@
            CLASS stays .command-bar--find -- an identifier, not visible copy,
            the same bargain the Tape Room made through four renames of its
            verbs without the column following. -->
-      <fieldset class="command-bar command-bar--find">
-        <legend>Search existing</legend>
-        <!-- ONE BOX. It carried three dropdowns beside it -- kind, league and a
-             date window -- and the box already searches every one of those
-             fields: typing "concert", "NFL" or "Chicago" narrows the list the
-             same way the pickers did, without three controls sitting there on
-             every visit for the sake of it. What is genuinely lost is the DATE
-             window, which is not a text match; the `past` pill and the week
-             headings are what answer that question now. -->
-        <div class="command-bar-inner">
-          <input type="search" id="searchInput" placeholder="Search title, club, league, venue, city, kind…" autocomplete="off">
-        </div>
-      </fieldset>
-
-      <!-- FILTER SITS BETWEEN THEM, and the order of the four tabs is the order
-           you work in: put rows in, search the text, narrow by state, then ask
-           what is wrong with the whole table.
-
-           A CHECKBOX, NOT A SEARCH TERM. Both of these are facts about a row
-           that its text does not contain: `neutral_site` is a boolean nothing
-           spells out, and being in review is a state. Typing cannot reach
-           either, which is exactly why they are not in the box next door.
-
-           THE COUNTS ARE THE REASON THESE ARE VISIBLE CONTROLS rather than a
-           dropdown. A closed picker cannot say that 43 rows are waiting on you,
-           which is the question the strip exists to answer. Same argument as the
-           Tape Room's filter strip. -->
-      <fieldset class="command-bar command-bar--filter">
-        <legend>Filter</legend>
-        <div class="command-bar-inner">
-          <label class="bar-check" id="reviewFilterLabel">
-            <input type="checkbox" id="reviewFilter">
-            <span>Review <b class="bar-check-n" id="reviewFilterN"></b></span>
-          </label>
-          <label class="bar-check" id="neutralFilterLabel">
-            <input type="checkbox" id="neutralFilter">
-            <span>Neutral <b class="bar-check-n" id="neutralFilterN"></b></span>
-          </label>
-          <!-- NOT A NARROWING LIKE THE OTHER TWO. Review and Neutral pick a
-               subset of what is on screen; this one SWAPS the list for the rows
-               that are otherwise hidden. It reads as a third checkbox because
-               that is what it looks like, and its label says "Removed" rather
-               than "Archived" so it matches the button somebody pressed. -->
-          <label class="bar-check" id="archivedFilterLabel">
-            <input type="checkbox" id="archivedFilter">
-            <span>Removed <b class="bar-check-n" id="archivedFilterN"></b></span>
-          </label>
-        </div>
-      </fieldset>
 
       <!-- VIEW SITS HARD RIGHT, at the far end of the bar from ADD. The row
            reads left to right as the order you work in: put events in, find
@@ -1078,6 +1055,52 @@
         <div class="command-bar-inner">
           <button class="btn" id="errorsBtn" type="button"
                   title="Check every row, put anything wrong into review, and list what is in review.">Issues</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="bar-row bar-row--view">
+      <!-- SEARCH AND FILTER ARE ONE BOX, ON THEIR OWN ROW. They were two
+           fieldsets sharing a line with ADD, which made three labels for two
+           ideas and squeezed the search box by a bar it has nothing to do with.
+
+           They belong together because they answer the SAME question -- what am
+           I looking at -- by two means: text you type, and states you tick.
+           Neither changes the table; both change the view, and the row sits
+           directly above the list it narrows.
+
+           THE CLASSES STAY `--find` AND `--filter` on the controls inside, so
+           the CSS and every test that names them still hold. Identifiers do not
+           follow visible copy. -->
+      <fieldset class="command-bar command-bar--find">
+        <legend>Search &amp; filter</legend>
+        <div class="command-bar-inner">
+        <!-- ONE BOX. It carried three dropdowns beside it -- kind, league and a
+             date window -- and the box already searches every one of those
+             fields: typing "concert", "NFL" or "Chicago" narrows the list the
+             same way the pickers did, without three controls sitting there on
+             every visit for the sake of it. What is genuinely lost is the DATE
+             window, which is not a text match; the `past` pill and the week
+             headings are what answer that question now. -->
+          <input type="search" id="searchInput" placeholder="Search title, club, league, venue, city, kind…" autocomplete="off">
+          <span class="bar-sep" aria-hidden="true"></span>
+          <label class="bar-check" id="reviewFilterLabel">
+            <input type="checkbox" id="reviewFilter">
+            <span>Review <b class="bar-check-n" id="reviewFilterN"></b></span>
+          </label>
+          <label class="bar-check" id="neutralFilterLabel">
+            <input type="checkbox" id="neutralFilter">
+            <span>Neutral <b class="bar-check-n" id="neutralFilterN"></b></span>
+          </label>
+          <!-- NOT A NARROWING LIKE THE OTHER TWO. Review and Neutral pick a
+               subset of what is on screen; this one SWAPS the list for the rows
+               that are otherwise hidden. It reads as a third checkbox because
+               that is what it looks like, and its label says "Removed" rather
+               than "Archived" so it matches the button somebody pressed. -->
+          <label class="bar-check" id="archivedFilterLabel">
+            <input type="checkbox" id="archivedFilter">
+            <span>Removed <b class="bar-check-n" id="archivedFilterN"></b></span>
+          </label>
         </div>
       </fieldset>
     </div>
@@ -1294,7 +1317,7 @@
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
       'away_team_geo', 'away_team_nickname', 'home_team_geo', 'home_team_nickname',
-      'venue', 'venue_city', 'neutral_site', 'status', 'away_team_score', 'home_team_score',
+      'venue', 'venue_city', 'neutral_site', 'away_team_score', 'home_team_score',
       'away_team_tgbid', 'home_team_tgbid',
       'url', 'source', 'description'
     ];
@@ -1353,7 +1376,6 @@
       // REVIEW SITS SECOND, next to scheduled, because it is the one a human
       // reaches for: putting a row into review by hand is the whole reason it
       // is a status rather than a flag only the check can set.
-      status:          { label: 'Status',     type: 'select', options: ['scheduled', 'review', 'final', 'postponed', 'cancelled'] },
       // `Away team score`, not `Away score`, so all four columns of a club's row
       // in the WHO band open the same way. These two are the only fields in that
       // band that were already readable on their own, and they are renamed
@@ -1419,7 +1441,7 @@
       // is still the one most often reached for -- a fixture moves, a kickoff
       // slot lands, a festival turns out to run three days -- and it says so
       // now by being the amber one rather than the boxed one.
-      { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time', 'status'] },
+      { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time'] },
       { key: 'where', label: 'Where', fields: ['venue', 'venue_city', 'neutral_site'] },
       { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
     ];
@@ -1980,7 +2002,9 @@
 
       const paintReview = (r) => {
         const reasons = reviewReasons(r);
-        const manual = clean(r.status) === 'review' && reasons.length === 0;
+        // NO HAND-FLAGGED ROW ANY MORE, so the "in review with nothing here for
+        // a rule to object to" line has nothing left to describe.
+        const manual = false;
         el.classList.toggle('is-review', reasons.length > 0 || manual);
         // ONE LINE PER REASON, in full. The old chip put four of them on a
         // tooltip, which is a paragraph nobody hovers; this is the annotation
@@ -2859,7 +2883,6 @@
     // reports any value not here, so without it every row put into review would
     // immediately be an error BECAUSE it was in review -- a loop that never
     // settles and whose cause is invisible from the report.
-    const STATUS_VALUES = ['scheduled', 'review', 'final', 'postponed', 'cancelled'];
 
     // todayIso() is already defined above, for the Upcoming / Past filter, and
     // the past-but-scheduled rule reuses it. Two of them would be two ideas of
@@ -3000,14 +3023,7 @@
           ? 'kind is "' + clean(r.kind) + '", which is not one of ' + KIND_VALUES.join(', ') + '. The Kind dropdown cannot show it, so editing this row silently changes it.'
           : ''
       },
-      {
-        key: 'bad-status',
-        level: 'error',
-        test: (r) => (clean(r.status) && STATUS_VALUES.indexOf(clean(r.status)) === -1)
-          ? 'status is "' + clean(r.status) + '", which is not one of ' + STATUS_VALUES.join(', ') + '.'
-          : ''
-      },
-      {
+{
         // THE ONE SCHEMA FINDING, and the most useful thing this button can
         // tell you. A trigger rebuilds away_team_name / home_team_name from the two
         // halves on every write, and the builder's event picker falls back to
@@ -3059,17 +3075,7 @@
         level: 'check', noReview: true,
         test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the source has not announced the slot yet.'
       },
-      {
-        // A postponement is a promise of a new date, not a decision. Cancelled
-        // deliberately does NOT flag: that one is settled, and nothing further
-        // is coming.
-        key: 'postponed',
-        level: 'check',
-        test: (r) => clean(r.status) === 'postponed'
-          ? 'Postponed. The replacement date is what this row is waiting for.'
-          : ''
-      },
-      {
+{
         // THE PLAYOFF CASE. A bracket fixture is filed with the slot known and
         // the clubs not: "TBD at TBD", "AFC #2", "Winner Game 3". Those are
         // perfectly good rows to hold -- the date and the venue are real -- and
@@ -3154,40 +3160,7 @@
           ? 'url "' + clean(r.url) + '" does not parse as an http or https address, so nothing can open it.'
           : ''
       },
-      {
-        key: 'score-without-final',
-        level: 'check',
-        test: (r) => {
-          const hasScore = r.away_team_score != null || r.home_team_score != null;
-          return (hasScore && clean(r.status) && clean(r.status) !== 'final')
-            ? 'A score is filled in but the status is "' + clean(r.status) + '". One of the two is out of date.'
-            : '';
-        }
-      },
-      {
-        key: 'final-without-score',
-        level: 'check',
-        test: (r) => (clean(r.status) === 'final' && r.away_team_score == null && r.home_team_score == null)
-          ? 'Marked final with no score on either side.'
-          : ''
-      },
-      {
-        // THE STALENESS SIGNAL. Nothing sweeps this table, so a season of
-        // finished games sits here still reading "scheduled" until somebody
-        // looks, and the Past filter is the only other thing that would surface
-        // it.
-        key: 'past-but-scheduled',
-        level: 'check',
-        test: (r) => {
-          const d = clean(r.end_date) || clean(r.start_date);
-          if (!d) return '';
-          if (clean(r.status) !== 'scheduled') return '';
-          return d < todayIso()
-            ? 'Dated ' + d + ', which has passed, and still marked scheduled.'
-            : '';
-        }
-      }
-    ];
+];
 
     // ── WHAT PUTS A ROW INTO REVIEW ───────────────────────────────────────────
     // AN ERROR OF ANY KIND FORCES `status = 'review'`. Not a marker beside the
@@ -3249,8 +3222,13 @@
         .filter(Boolean);
     }
 
+    // WHAT THE RULES SAY, AND NOTHING ELSE. It was `status = 'review'` OR a
+    // finding, so a person could flag a row by hand and a row whose fault was
+    // fixed stayed red until somebody cleared the status. With no status there
+    // is no hand flag and nothing to clear: a row is in review while the rules
+    // object to it and stops being the moment they do not.
     function isInReview(row) {
-      return clean(row.status) === 'review' || reviewReasons(row).length > 0;
+      return reviewReasons(row).length > 0;
     }
 
     // CROSS-ROW, so it cannot live in CHECK_RULES: two rows describing one
@@ -3380,12 +3358,12 @@
             || clean(r.issues_detail || '') !== clean(wantWhy || '');
         });
 
-        const needs = state.rows.filter((r) =>
-          clean(r.status) !== 'review' && faulty.has(clean(r.id)));
-
-        // ── THE FLAG ─────────────────────────────────────────────────────
-        // Written before the review sweep, so a run that is refused partway
-        // leaves the machine's own answer correct on the rows it reached.
+        // ── THE FLAG, AND IT IS THE WHOLE WRITE ──────────────────────────
+        // The sweep used to write `status = 'review'` as well, which was the
+        // same answer twice by two mechanisms with different rules: one-way
+        // against two-way, a human's flag against the machine's. With no status
+        // the pair IS the answer, and a row is in review exactly while the
+        // rules object to it.
         let flagged = 0;
         let flagFailed = 0;
         for (const row of flagChanges) {
@@ -3422,53 +3400,13 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        if (needs.length) {
-          // ONE PATCH PER ROW rather than one bulk call. PostgREST can update
-          // many rows in a request only by a FILTER, and the filter that would
-          // select exactly these is the list of ids -- which is the same number
-          // of round trips' worth of URL and loses which row failed. Per row,
-          // a refusal names the row.
-          let wrote = 0;
-          const failed = [];
-          for (const row of needs) {
-            try {
-              const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
-                method: 'PATCH',
-                headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-                body: JSON.stringify({ status: 'review' })
-              });
-              const saved = res.ok ? await res.json() : null;
-              // PostgREST answers 200 with an empty array when RLS refuses, so
-              // without reading the row back a refused sweep reports success
-              // and the queue is empty on the next load.
-              if (Array.isArray(saved) && saved.length) {
-                Object.assign(row, saved[0]);
-                wrote += 1;
-              } else {
-                failed.push(clean(row.id));
-              }
-            } catch (err) {
-              console.error(err);
-              failed.push(clean(row.id));
-            }
-          }
-          if (failed.length) {
-            setStatus('Put ' + wrote + ' into review. ' + failed.length +
-              ' could not be written: ' + failed.slice(0, 3).join(', ') +
-              (failed.length > 3 ? '…' : '') + ' Check you are signed in as an admin.', 'error');
-          } else {
-            setStatus('Put ' + wrote + (wrote === 1 ? ' event' : ' events') + ' into review'
-              + (flagged ? ', and set the issues flag on ' + flagged : '') + '.', 'success');
-          }
-        }
-
         // Now pull them up. Counted from the rows rather than from `needs`,
         // because a row somebody flagged BY HAND is in review with no findings
         // and belongs in this view just as much.
         state.reviewOnly = true;
         state.page = 1;
         render();
-        if (!needs.length) {
+        if (!flagFailed) {
           const inReview = state.rows.filter(isInReview).length;
           // THE FLAG MOVES EVEN WHEN THE REVIEW QUEUE DOES NOT, which is the
           // whole point of it being the machine's own answer: a fault fixed
@@ -3653,12 +3591,6 @@
       return TgbCities.all().some((r) => clean(r && r.city) === city);
     }
 
-    const ESPN_STATUS = {
-      STATUS_SCHEDULED: 'scheduled', STATUS_FINAL: 'final',
-      STATUS_POSTPONED: 'postponed', STATUS_CANCELED: 'cancelled',
-      STATUS_SUSPENDED: 'postponed', STATUS_DELAYED: 'scheduled'
-    };
-
     // One feed event -> one events row. Everything the row needs is in
     // the feed except the venue's timezone, which venueZone() supplies.
     function mapEspnEvent(event, cfg, weekNumber) {
@@ -3676,8 +3608,6 @@
       // badged so it gets a human's eye before it anchors a game.
       const eventDate = local ? local.date : clean(event.date).slice(0, 10);
       const city = venueCity(address);
-      const statusName = clean(event.status && event.status.type && event.status.type.name).toUpperCase();
-      const status = ESPN_STATUS[statusName] || 'scheduled';
       const isFinal = status === 'final';
 
       const abbr = (t) => clean(t.team.abbreviation || t.team.shortDisplayName || t.team.name)
@@ -3738,7 +3668,7 @@
         // game in a suburb stadium comes back false and the London game true,
         // which is exactly the distinction the prompt has to spell out at length.
         neutral_site: comp.neutralSite === true,
-        status: status,
+
         away_team_score: score(away),
         home_team_score: score(home),
         url: (cfg.web && clean(event.id))
@@ -4530,7 +4460,6 @@
       // fight the loader.
       purgeArchived();
     }
-
 
     // UPDATE ONLY. Creating an event is the MANUAL dialog's job, so this no
     // longer branches on whether the row exists -- every card on the list is a
