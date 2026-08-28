@@ -1020,6 +1020,67 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## EVERY FINDING IS A CALL TO ACTION (2026-08-28)
+
+Gone through one at a time. They were sentences that explained the PRODUCT --
+*"a game takes its copy and its palette from the away club"*, *"our game is
+played the day before its anchor event"*, *"the city is what any game anchored
+to it would be set in"* -- which on a row somebody is working through is a
+paragraph to read before they can do anything.
+
+| rule | reads |
+|---|---|
+| `no-title` | Add a Title. |
+| `no-name` | Add a Team or Title. |
+| `club-missing` | Add an Away Team. / Add a Home Team. / Add both Teams. |
+| `no-date` | Add a Start Date. |
+| `end-before-start` | Fix the End Date. |
+| `bad-kind` | Pick a valid Kind. |
+| `no-time` | Add a Start Time. |
+| `placeholder-club`, `tbd` | Replace the TBD, or delete this row and reimport it. |
+| `no-venue` | Add a Venue Name. |
+| `no-city` | Add a Venue City. |
+| `bad-url` | Fix the Web Address. |
+| `multi-day` | Split into 4 events. |
+| the duplicate | Check against NFL-2027-A. |
+| flagged, nothing objecting | Flagged, but nothing is wrong with it now. |
+
+- **THE FIELD NAMES ARE CAPITALISED because they are field names.** *Add a Venue
+  City* points at a box on the form; *add a venue city* is a sentence about
+  cities.
+- **ONE IS DELIBERATELY NOT A CALL TO ACTION.** `label-drift` is a statement
+  about our SCHEMA rather than about the row -- the stored team name disagrees
+  with the parts it is rebuilt from, which means `tgb_events_sync_team_names` is
+  not installed. **Nobody can run a migration from a card**, so it says the
+  symptom and the migration to run is in the comment above the rule.
+- **TWO RULES NOW SAY ONE SENTENCE.** `placeholder-club` and `tbd` both read
+  *"Replace the TBD..."*, so a row whose club is TBD trips both and drew it
+  twice. **Deduped where the reasons are collected**, because that is the only
+  place that can see both.
+- **`club-missing` KEPT ITS BRANCH and the others lost theirs.** *"Add an Away
+  Team"* only helps if it is the away side that is missing, so that one still
+  asks; every other rule now says one thing however it fired.
+- **WHAT IS LOST, and it is a real trade.** The old sentences taught the product
+  to whoever read them. **That is a thing to know once**, and it is written down
+  here rather than on 4,000 rows.
+
+**THE TICK SAYS `Select all`, AND IS TOLD APART FROM THE COUNT BESIDE IT** by
+ink against muted and a hairline between them: side by side in one small mono
+they read as one phrase, *"SELECT ALL NONE SELECTED"*. The hairline is the same
+separator the Search & filter bar puts between its two halves.
+
+- **jsdom CANNOT SEE THAT HAIRLINE.** It does not resolve a `var()` inside a
+  shorthand, so `border-left: 1px solid var(--control-line)` comes back as
+  `medium none` and a computed-value assertion would fail against a rule that is
+  perfectly correct. **It is asserted from the stylesheet text**; the padding
+  beside it has no `var()` and is checked the ordinary way.
+
+**AND THE PAGER IS CENTRED ON THE PANEL, WHICH NEEDED A GRID.** A flex row with
+the pager taking the slack centres it in **what is left beside Expand all**, so
+it sits slightly left of centre and **moves as that button's label changes**
+between Expand all and Collapse all. Three columns with an empty first one puts
+it on the panel's own centre and keeps it there.
+
 ## THE EVENTS ROOM, CLEANED UP (2026-08-28)
 
 Two detectors, run against the rendered page rather than grepped:

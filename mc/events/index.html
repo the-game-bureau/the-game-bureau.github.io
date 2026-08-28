@@ -322,11 +322,20 @@
        that margin now does the pushing for Expand all instead. */
     /* THE PAGER AND EXPAND ALL SHARE ONE LINE. Neither writes anything: they
        only change what you are looking at, so they are the same kind of thing
-       and belong together. The pager takes the slack and Expand all is pushed
-       to the end. */
-    .panel-head { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
-    .panel-head > .pager { flex: 1 1 auto; justify-content: flex-start; padding: 0; }
-    .panel-head > #toggleAllBtn { flex: 0 0 auto; margin-left: auto; }
+       and belong together.
+
+       A GRID OF THREE COLUMNS, NOT A FLEX ROW, and that is the whole reason it
+       is a grid. Flex with the pager taking the slack centres it in **what is
+       left beside the button**, so the pager would sit slightly left of centre
+       and would MOVE as that button's label changed between Expand all and
+       Collapse all. An empty first column the same width as the third puts the
+       pager on the panel's own centre and keeps it there. */
+    .panel-head {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 8px; margin: 0 0 6px;
+    }
+    .panel-head > .pager { grid-column: 2; justify-content: center; padding: 0; }
+    .panel-head > #toggleAllBtn { grid-column: 3; justify-self: end; }
 
     /* A HIDDEN PAGER MUST NOT HOLD THE LINE OPEN. `.pager` is `display: flex`,
        an author rule, and `[hidden]` is only the UA sheet's `display: none`, so
@@ -789,9 +798,20 @@
       border-bottom: 1px solid var(--control-line);
     }
     .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    /* THEY SAT IN ONE TYPE AND READ AS ONE PHRASE: "SELECT ALL NONE SELECTED".
+       One of them is a CONTROL you press and the other is a READING of what you
+       have pressed, so they are told apart the way this room tells anything
+       apart -- ink against muted, and a hairline between them, which is the
+       same separator the Search & filter bar puts between its two halves. */
     .batch-all, .batch-count {
       font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
-      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .batch-all { color: var(--ink); font-weight: 700; }
+    .batch-count {
+      color: var(--muted);
+      padding-left: 10px;
+      border-left: 1px solid var(--control-line);
     }
     /* THE TICK IS THE ROW'S OWN, 15px with the same 2px of right margin, so
        the two line up down the left edge. */
@@ -1090,7 +1110,7 @@
            IT IS BELOW THE PAGER, not above it, because it acts on the rows and
            the pager decides which rows there are. -->
       <div class="batch-row" id="batchBar">
-        <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>All</span></label>
+        <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
         <span class="batch-count" id="batchCount">none selected</span>
         <span class="batch-actions">
           <select id="batchKind" class="command-bar-select" aria-label="Set kind">
@@ -1973,8 +1993,7 @@
           // review. So the line says what is true of both and names the action.
           const p = document.createElement('p');
           p.className = 'event-annotation-line';
-          p.textContent = 'In review, with nothing here for a rule to object to. ' +
-            'If the fault has been dealt with, set the status back; if somebody flagged this by hand, the reason is theirs.';
+          p.textContent = 'Flagged, but nothing is wrong with it now.';
           annotation.appendChild(p);
         }
         reasons.forEach((why) => {
@@ -2592,7 +2611,7 @@
         key: 'no-title',
         level: 'error',
         test: (r) => (clean(r.kind) && clean(r.kind) !== 'sports' && !clean(r.title))
-          ? 'A ' + clean(r.kind) + ' row has no title, and only a sports row can fall back to "away at home". This event has nothing to render as a name.'
+          ? 'Add a Title.'
           : ''
       },
       {
@@ -2611,10 +2630,7 @@
           if (!sports) return '';
           if (clean(r.title)) return '';
           if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
-          const missing = [!clean(r.away_team_nickname) && 'away', !clean(r.home_team_nickname) && 'home'].filter(Boolean);
-          return missing.length === 1
-            ? 'A sports row with no title is named from its two clubs, and the ' + missing[0] + ' one is missing.'
-            : 'A sports row with no title is named from its two clubs, and neither is filled in.';
+          return 'Add a Team or Title.';
         }
       },
       {
@@ -2627,16 +2643,14 @@
           const sports = !clean(r.kind) || clean(r.kind) === 'sports';
           if (!sports) return '';
           if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
-          const missing = [!clean(r.away_team_nickname) && 'away', !clean(r.home_team_nickname) && 'home'].filter(Boolean);
           // SHORT (2026-08-28). It ran to two sentences, the second explaining
           // what the away club is FOR, which is a thing to know once and not a
           // thing to read on every row it fires on.
-          // THE NOUN AGREES WITH THE COUNT. "The away and home team is missing"
-          // is what a joined list plus a hardcoded singular gives you, and it
-          // is the same hand-written-plural mistake `plural()` exists to stop.
+          const missing = [!clean(r.away_team_nickname) && 'Away',
+                           !clean(r.home_team_nickname) && 'Home'].filter(Boolean);
           return missing.length === 1
-            ? 'The ' + missing[0] + ' team is missing.'
-            : 'The away and home teams are both missing.';
+            ? 'Add ' + (missing[0] === 'Away' ? 'an' : 'a') + ' ' + missing[0] + ' Team.'
+            : 'Add both Teams.';
         }
       },
       {
@@ -2644,20 +2658,20 @@
         level: 'error',
         test: (r) => clean(r.start_date)
           ? ''
-          : 'No start date, so this event cannot anchor anything: our game is played the day before its anchor event.'
+          : 'Add a Start Date.'
       },
       {
         key: 'end-before-start',
         level: 'error',
         test: (r) => (clean(r.end_date) && clean(r.start_date) && clean(r.end_date) < clean(r.start_date))
-          ? 'End date ' + clean(r.end_date) + ' is before the start date ' + clean(r.start_date) + '.'
+          ? 'Fix the End Date.'
           : ''
       },
       {
         key: 'bad-kind',
         level: 'error',
         test: (r) => (clean(r.kind) && KIND_VALUES.indexOf(clean(r.kind)) === -1)
-          ? 'kind is "' + clean(r.kind) + '", which is not one of ' + KIND_VALUES.join(', ') + '. The Kind dropdown cannot show it, so editing this row silently changes it.'
+          ? 'Pick a valid Kind.'
           : ''
       },
 {
@@ -2666,6 +2680,14 @@
         // halves on every write, and the builder's event picker falls back to
         // them. A row where they disagree does not mean the row is wrong -- it
         // means the trigger is not installed on this database.
+        // WHAT TO DO ABOUT IT IS HERE, NOT IN THE MESSAGE. This is the one
+        // finding that is a statement about our SCHEMA rather than about the
+        // row: the stored name is rebuilt from geo + nickname by a trigger, so
+        // a disagreement means **`tgb_events_sync_team_names` is not
+        // installed** -- run
+        // mc/supabase/migrations/2026082502_events_columns_match_the_page.sql.
+        // The message says the symptom; a migration filename on a row somebody
+        // is trying to read is not something they can act on there.
         key: 'label-drift',
         level: 'error',
         test: (r) => {
@@ -2684,7 +2706,7 @@
             // people to run a migration that would not fix it and to look for
             // an object that is not there -- the exact failure the
             // translate-errors-into-sentences rule exists to prevent.
-            ? 'The stored name disagrees with the geo and nickname it is rebuilt from (' + bad.join('; ') + '). That means tgb_events_sync_team_names is not installed: run 2026082502_events_columns_match_the_page.sql.'
+            ? 'Team name is out of step with its parts.'
             : '';
         }
       },
@@ -2710,7 +2732,7 @@
         // TGB ANCHOR BOT filed 524 concerts.
         key: 'no-time',
         level: 'check', noReview: true,
-        test: (r) => clean(r.start_time) ? '' : 'No start time. Usually means the source has not announced the slot yet.'
+        test: (r) => clean(r.start_time) ? '' : 'Add a Start Time.'
       },
 {
         // THE PLAYOFF CASE. A bracket fixture is filed with the slot known and
@@ -2731,7 +2753,7 @@
             .filter(Boolean)
             .filter((v) => isPlaceholderClub(v));
           if (!hits.length) return '';
-          return 'A club is still a placeholder (' + hits.join(', ') + '). Fill it in once the bracket is decided.';
+          return 'Replace the TBD, or delete this row and reimport it.';
         }
       },
       {
@@ -2748,7 +2770,7 @@
         test: (r) => {
           const total = dayCount(r);
           return total > 1
-            ? 'Runs ' + total + ' days, so it is ' + total + ' anchors rather than one: our game is played the day BEFORE its anchor event, and each of these days has its own day before. Open the row and press Split into ' + total + ' days.'
+            ? 'Split into ' + plural(total, 'event') + '.'
             : '';
         }
       },
@@ -2757,7 +2779,7 @@
         level: 'check',
         test: (r) => clean(r.venue)
           ? ''
-          : 'Venue name missing.'
+          : 'Add a Venue Name.'
       },
       {
         // A TBD ANYWHERE ON THE ROW IS THE ROW SAYING IT IS NOT FINISHED.
@@ -2771,9 +2793,7 @@
         test: (r) => {
           const hits = TEXT_FIELDS.filter((f) => TBD_RE.test(clean(r[f])));
           if (!hits.length) return '';
-          return 'Says TBD in ' + hits.join(', ') + '. Something about this row '
-            + 'is not settled yet, and any value beside it may be a placeholder '
-            + 'rather than a fact.';
+          return 'Replace the TBD, or delete this row and reimport it.';
         }
       },
       {
@@ -2781,13 +2801,13 @@
         level: 'check',
         test: (r) => clean(r.venue_city)
           ? ''
-          : 'No venue city, so nothing can place this event. The city is also what any game anchored to it would be set in.'
+          : 'Add a Venue City.'
       },
       {
         key: 'bad-url',
         level: 'check',
         test: (r) => (clean(r.url) && !parsesAsUrl(clean(r.url)))
-          ? 'url "' + clean(r.url) + '" does not parse as an http or https address, so nothing can open it.'
+          ? 'Fix the Web Address.'
           : ''
       },
 ];
@@ -2820,14 +2840,18 @@
         .filter(Boolean);
       const twin = duplicateIds.get(clean(row.id));
       if (twin) {
-        const what = twin.what || ['date'];
-        const list = what.length > 1
-          ? what.slice(0, -1).join(', ') + ' and ' + what[what.length - 1]
-          : what[0];
-        reasons.push('Same ' + list + ' as ' + twin.twin +
-          '. One of the two is probably a re-import.');
+        // THE ID IS THE PART THAT SURVIVED THE SHORTENING, deliberately: it is
+        // the only thing that lets you go and look at the other row. `what`
+        // recorded which parts matched and no longer has a reader, but it is
+        // left on the key because it is what makes the match explicable if this
+        // message ever needs to grow back.
+        reasons.push('Check against ' + twin.twin + '.');
       }
-      return reasons;
+      // TWO RULES CAN SAY ONE SENTENCE. `placeholder-club` and `tbd` both read
+      // "TBD info needs to be replaced...", so a row whose club is TBD trips
+      // both and drew it twice. Deduped here rather than in either rule,
+      // because this is the only place that can see both.
+      return reasons.filter((why, at) => reasons.indexOf(why) === at);
     }
 
     // A row is in review if the CHECK says so or if a human said so. The second
