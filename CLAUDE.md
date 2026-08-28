@@ -4746,6 +4746,16 @@ them is now the prompt alone.
   border for the word. It was a `<div>` with a `<span>` inside, which put the
   label INSIDE the border while the count beside it cut through -- two boxes
   doing one job two ways, a few pixels apart.
+- **`from` OPENS ON TODAY.** An empty window wrote no bound at all, so the
+  prompt was free to come back with events that have already happened -- the one
+  thing this table can never use, since our game is played the day BEFORE its
+  anchor and there is no day before a date that has gone.
+  - **`todayIso()`, WHICH IS LOCAL.** Built from UTC it would be a day out for
+    half of every day, and "on or after today" is a claim about the day the
+    person at the keyboard is having.
+  - **ONLY WHEN IT IS BLANK.** A window somebody typed is theirs, and reseeding
+    it on every open would throw it away on the second visit -- the same rule
+    the prompt text itself keeps. Clearing the box still means no lower bound.
 - **THE 1,451-LINE CITY LIST IS OUT OF THE PROMPT.** It was appended verbatim to
   every copy so `venue_city` would land on a real row. The instruction now
   describes the FORM instead -- "City, State" spelled out for a US city, "City,

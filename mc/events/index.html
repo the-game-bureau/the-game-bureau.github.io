@@ -1235,6 +1235,9 @@
               <option value="MLS">MLS</option>
               <option value="NCAA Football">NCAA Football</option>
             </select>
+            <!-- FROM IS FILLED WITH TODAY when the dialog opens; see
+                 setPromptMode. It is a real box, so it can still be cleared or
+                 moved, and clearing it means no lower bound at all. -->
             <label class="prompt-option">from <input type="date" id="promptFrom"></label>
             <label class="prompt-option">to <input type="date" id="promptTo"></label>
           </fieldset>
@@ -2929,6 +2932,20 @@
     // `refreshPromptText()` without a force is the thing that respects that.
     function setPromptMode() {
       if (promptDialogTitle) promptDialogTitle.textContent = 'Add Anchor Events with AI';
+      // FROM DEFAULTS TO TODAY. An empty `from` writes no window at all, so the
+      // prompt was free to come back with events that have already happened --
+      // which is the one thing this table can never use, since our game is
+      // played the day BEFORE its anchor and there is no day before a date that
+      // has gone.
+      //
+      // `todayIso()`, WHICH IS LOCAL. Built from UTC it would be a day out for
+      // half of every day, and "on or after today" is a claim about the day the
+      // person at the keyboard is having.
+      //
+      // ONLY WHEN IT IS BLANK. A window somebody has typed is theirs, and
+      // resetting it every time the dialog opened would throw it away on the
+      // second visit -- the same rule the prompt text itself keeps.
+      if (promptFrom && !promptFrom.value) promptFrom.value = todayIso();
       refreshPromptText();
     }
 
