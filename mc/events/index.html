@@ -235,6 +235,23 @@
       background: var(--cut-panel-bg);
     }
 
+    /* A PICKER AND ITS WORD ARE ONE CONTROL, so the label cannot wrap away from
+       the select it names when the bar narrows. */
+    .bar-pick {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .bar-pick select { text-transform: none; letter-spacing: 0; font-weight: 500; }
+
     .command-bar-inner {
       display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
     }
@@ -1063,6 +1080,27 @@
              window, which is not a text match; the `past` pill and the week
              headings are what answer that question now. -->
           <input type="search" id="searchInput" placeholder="Search title, club, league, venue, city, kind…" autocomplete="off">
+          <span class="bar-sep" aria-hidden="true"></span>
+          <!-- TWO PICKERS, AND EACH REACHES SOMETHING YOU CANNOT TYPE. The
+               search box already matches kind, league, club, venue, city and
+               source, so a picker for any of those would be a second way to do
+               what typing does. A date RANGE and a stored FLAG are not text. -->
+          <label class="bar-pick">When
+            <select id="whenFilter" class="command-bar-select">
+              <option value="any">any date</option>
+              <option value="upcoming">upcoming</option>
+              <option value="30">next 30 days</option>
+              <option value="90">next 90 days</option>
+              <option value="past">past</option>
+            </select>
+          </label>
+          <label class="bar-pick">Issues
+            <select id="issuesFilter" class="command-bar-select">
+              <option value="any">any</option>
+              <option value="yes">has issues</option>
+              <option value="no">clean</option>
+            </select>
+          </label>
         </div>
       </fieldset>
     </div>
@@ -1472,16 +1510,16 @@
     // only control now: pressing it narrows to the rows the rules object to and
     // the button's own face becomes "Show all".
     //
-    // `showArchived` HAS NO CONTROL AT ALL, and that is a real loss rather than
-    // a tidy-up: an archived event is unreachable from this room. It is left
-    // here because the filter below still reads it, and because whatever
-    // replaces the three checkboxes has to carry it.
+    // THERE IS NO ARCHIVED/LIVE SPLIT. Every event is on the list, removed or
+    // not, and the row says which by offering Restore instead of Delete. The
+    // filters below reach the two things the search box cannot: WHEN, and
+    // whether the audit objected.
     const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false,
                     loaded: false, total: null,
                     // ARCHIVED ROWS ARE HIDDEN BY DEFAULT. They are kept so a game can
                     // reference them and so a bot cannot re-file them, not so somebody
                     // has to scroll past them.
-                    showArchived: false };
+                    when: 'any', issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -1600,6 +1638,15 @@
     }
 
     // ── Filters ───────────────────────────────────────────────────────────────
+    // TODAY PLUS N, IN LOCAL DAYS. `todayIso()` is local, so this has to be
+    // too, or a window would be a day out for half of every day.
+    function isoPlusDays(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      const p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+
     const todayIso = () => {
       const n = new Date();
       const p = (x) => String(x).padStart(2, '0');
@@ -1620,9 +1667,35 @@
       // FIRST, because it is the only test that hides a row you did not ask
       // about. Everything below narrows what you CAN see; this decides what
       // is on the list at all.
-      if (!state.showArchived && clean(row.archived_at)) return false;
-      if (state.showArchived && !clean(row.archived_at)) return false;
       if (state.reviewOnly && !isInReview(row)) return false;
+
+      // WHEN. Measured against `end_date` where there is one, so a festival
+      // running across today counts as upcoming rather than past on its first
+      // morning.
+      if (state.when !== 'any') {
+        const last = clean(row.end_date) || clean(row.start_date);
+        const first = clean(row.start_date) || clean(row.end_date);
+        // A ROW WITH NO DATE AT ALL IS SHOWN UNDER EVERY WINDOW. It is exactly
+        // the row somebody has to fix, and a date filter that hid it would hide
+        // the fault along with it.
+        if (last || first) {
+          const today = todayIso();
+          if (state.when === 'past') {
+            if (!(last && last < today)) return false;
+          } else {
+            if (!(last && last >= today)) return false;
+            if (state.when !== 'upcoming') {
+              const days = Number(state.when);
+              if (Number.isFinite(days) && first && first > isoPlusDays(days)) return false;
+            }
+          }
+        }
+      }
+
+      // ISSUES. The stored flag, not a recomputation: it is what the last audit
+      // said, which is the thing a reader outside this page can also see.
+      if (state.issues === 'yes' && clean(row.issues) !== 'YES') return false;
+      if (state.issues === 'no' && clean(row.issues) === 'YES') return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_team_geo, row.away_team_nickname, row.home_team_geo, row.home_team_nickname,
@@ -4684,8 +4757,21 @@
         render();
       });
     }
-    // THE CHECKBOXES ARE WIRED BY A LOOP, not one block each, so a third filter
-    // is one entry rather than a copy of this with two words changed.
+    // ONE LOOP, so a third picker is one entry rather than a copy of this with
+    // two words changed.
+    //
+    // CHANGING A FILTER RESETS TO THE FIRST PAGE, for the same reason typing
+    // does: holding the position lands you on whatever happens to be fiftieth
+    // in a completely different list.
+    [['whenFilter', 'when'], ['issuesFilter', 'issues']].forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        state[key] = clean(el.value) || 'any';
+        state.page = 1;
+        render();
+      });
+    });
 
     if (addEventBtn) {
       addEventBtn.addEventListener('click', () => {

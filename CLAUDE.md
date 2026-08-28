@@ -1063,6 +1063,65 @@ Three routines had event-shaped names and only two filed events.
 - **A REAL `<a>`**, so middle-click and ctrl-click work and it survives this
   page's JavaScript failing.
 
+## THE EVENTS ROOM HAS NO STATUS, AND TWO FILTERS (2026-08-28)
+
+### NO STATUS AND NO REVIEW COLUMN
+
+`issues` / `issues_detail` replaced the only job `status = 'review'` was doing.
+What was left was one column carrying two unrelated ideas, which this file has
+recorded as a cost since the sweep started writing it.
+
+Gone with it: the Status field, `STATUS_VALUES`, the sweep's second write, the
+ESPN importer's status mapping, and **five rules that existed only to check a
+status against something** -- `bad-status`, `postponed`, `score-without-final`,
+`final-without-score` and `past-but-scheduled`.
+
+- **`past-but-scheduled` IS THE ONE WORTH REGRETTING.** It was the staleness
+  signal, and nothing sweeps this table. Without a status there is nothing to BE
+  stale: a past event is a past event, which the date says.
+- **THE COLUMN IS RETIRED IN PLACE, not dropped.**
+- **`isInReview` IS NOW ONLY WHAT THE RULES SAY.** There is no hand-flagged row,
+  so a row is in review while the rules object and stops the moment they do not.
+
+### SEARCH AND FILTER ARE ONE BOX, ON THEIR OWN ROW
+
+The first row is what CHANGES the table (Add, View); the second only changes
+what you are LOOKING at, and it sits directly above the list it narrows.
+
+- **ONE FLEXIBLE BOX PER ROW**, or the free space splits between two and neither
+  end stays pinned. `.bar-row .command-bar--check` has to out-specify the
+  `margin: 0` reset at (0,2,0) to stay pinned right.
+
+### THE THREE CHECKBOXES ARE GONE, AND TWO PICKERS REPLACE THEM
+
+**A FILTER EARNS ITS PLACE ONLY BY REACHING SOMETHING YOU CANNOT TYPE.** The
+search box already matches kind, league, club, venue, city and source, so a
+picker for any of those is a second way to do what typing does. **A date RANGE
+and a stored FLAG are not text**, which is the whole test.
+
+| picker | options |
+|---|---|
+| **When** | any date, upcoming, next 30 days, next 90 days, past |
+| **Issues** | any, has issues, clean |
+
+- **TWO PICKERS AND NOT ONE, because the axes are independent.** "Upcoming AND
+  has issues" is a real question and a single select cannot express it.
+- **WHEN IS MEASURED AGAINST `end_date`** where there is one, so a festival
+  running across today is upcoming on its first morning rather than past.
+- **A ROW WITH NO DATE AT ALL IS SHOWN UNDER EVERY WINDOW.** It is exactly the
+  row somebody has to fix, and a date filter that hid it would hide the fault
+  with it.
+- **`isoPlusDays` IS LOCAL, because `todayIso()` is.** Built from UTC the window
+  would be a day out for half of every day.
+- **ISSUES READS THE STORED FLAG, not a recomputation.** It is what the last
+  audit said, which is what a reader outside this page sees too.
+
+### AND THERE IS NO ARCHIVED / LIVE SPLIT
+
+Every event is on the list, removed or not. **A removed row is told apart by its
+own button, which reads Restore instead of Delete** -- and only once the row is
+opened, which is the cost of this: on a closed row nothing distinguishes one.
+
 ## AN EVENT ROW CARRIES THE AUDIT'S ANSWER (2026-08-28)
 
 `public.events.issues`, `'NO'` by default, `'YES'` on a row the checks object
