@@ -724,18 +724,98 @@
       margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
     }
     .prompt-dialog-body { padding: 12px; overflow: auto; }
-    /* ONE FIELD PER LINE. .event-fields is an auto-fit grid because a card is
-       wide and shallow; a creation form is the opposite -- you read down it once,
-       in order, and a two-column layout makes "what comes next" a question. */
-    .manual-form { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    /* ── THE MANUAL FORM ──────────────────────────────────────────────────
+       ONE FIELD PER ROW, FULL WIDTH. `.event-fields` on a card is an auto-fit
+       grid because a card is wide and shallow; a creation form is the opposite.
+       You read down it once, in order, and anything side by side makes "what
+       comes next" a question you answer with your eyes rather than by reading
+       on.
 
-    /* ONE FIELD PER ROW. `.manual-form` is a single column and every label is
-       a row of it, so the form is read straight down: a creation form is one you
-       read ONCE, in order, and anything side by side makes "what comes next" a
-       question you answer with your eyes rather than by reading on.
+       THESE RULES WERE LOST AND ARE RESTORED. A pass that removed the band CSS
+       took the label and input rules with it, because they sat between the
+       block being cut and the marker it was cut to -- so every field rendered
+       as a bare browser default. Same trap as a slice keyed on a comment. */
+    .manual-form { display: grid; grid-template-columns: 1fr; gap: 10px; }
 
-       A HIDDEN FIELD IS HIDDEN OUTRIGHT, not left as an empty row. */
+    /* THE LABEL SITS ABOVE ITS BOX, both the full width of the dialog. Quiet,
+       small and uppercase: it names the box rather than competing with what you
+       type into it. */
+    .manual-form label {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* A HIDDEN FIELD IS HIDDEN OUTRIGHT, not left as an empty row. */
     .manual-form label[hidden] { display: none; }
+
+    /* FULL WIDTH, EVERY ONE. `width: 100%` with `min-width: 0` so a long value
+       cannot push the box past the dialog, and `box-sizing` inherited from the
+       page so the padding is inside that width rather than added to it. */
+    .manual-form input,
+    .manual-form select,
+    .manual-form textarea {
+      width: 100%;
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 9px;
+      border: 1px solid var(--control-line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    /* THE ONE FIELD THAT WRAPS, so it is the one that gets room and a grip. */
+    .manual-form textarea { min-height: 64px; resize: vertical; line-height: 1.4; }
+
+    .manual-form input:focus-visible,
+    .manual-form select:focus-visible,
+    .manual-form textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .manual-form input.is-unknown-city {
+      border-color: rgba(160, 63, 45, 0.55);
+      color: var(--danger);
+    }
+
+    /* THE CHECKBOX IS THE ONE LABEL THAT READS BESIDE ITS BOX. A word on its own
+       line above a 15px tick would spend two rows on one field, and there are no
+       neighbouring controls for it to line up with -- which is the whole reason
+       the CARD's version stacks and this one does not. */
+    .manual-form label.field--check {
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      column-gap: 8px;
+    }
+
+    .manual-form label.field--check input {
+      width: 16px;
+      height: 16px;
+      min-height: 0;
+      padding: 0;
+      accent-color: var(--accent);
+      order: -1;
+    }
+
+    /* A FIELD WITH AN ACTION BESIDE IT, the url's Open. The box takes the room
+       and the button takes only what its word needs. */
+    .manual-form .field-with-action { display: flex; gap: 6px; align-items: center; }
+    .manual-form .field-with-action input { flex: 1 1 auto; }
+    .manual-form .field-with-action .btn { flex: 0 0 auto; }
 
     .manual-hint {
       margin: -1px 0 0; font-size: 0.7rem; font-weight: 500; letter-spacing: 0;
