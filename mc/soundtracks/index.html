@@ -838,6 +838,61 @@
 
     /* THE SPOTIFY ID IS THE QUIETEST THING ON THE BADGE. It is 22 characters of
        machine text nobody reads; it is here to be pasted into and checked. */
+    /* THE BOX AND ITS BUTTON ARE ONE CELL, so the button cannot drift away
+       from the field it fills when the row narrows. */
+    .track-idcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+    .track-idcell .track-input--id { flex: 1 1 auto; min-width: 0; }
+
+    /* QUIET UNTIL IT IS WANTED. It sits on every row and most rows already have
+       an id, so at rest it is an outline and nothing more.
+
+       IT IS THE THIRD EXCEPTION to the rule that no child of a track row
+       declares its own size, and it is the flag words' exception exactly: a
+       CONTROL carrying a three-letter label rather than a field carrying a
+       value. At the row's 14pt it would be the loudest thing on the row sitting
+       beside the quietest. The check in the harness names it. */
+    .track-lookup {
+      flex: 0 0 auto;
+      padding: 2px 6px;
+      border: 1px solid var(--control-line);
+      border-radius: 5px;
+      background: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.56rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .track-lookup:hover,
+    .track-lookup:focus-visible { border-color: var(--bic-blue); color: var(--bic-blue); }
+    .track-lookup[disabled] { opacity: 0.55; cursor: progress; }
+
+    .match-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .match-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px 10px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: #fff;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .match-row:hover,
+    .match-row:focus-visible { border-color: var(--bic-blue); background: rgba(45, 72, 128, 0.05); }
+    .match-main { font-weight: 700; color: #000; }
+    .match-sub {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
     .track-input--id {
       width: 100%;
       max-width: 260px;
@@ -2358,6 +2413,26 @@
          the batch one: they read almost the same, which is the argument for
          keeping them apart -- one acts on a selection you built, the other on
          the row your finger is on. -->
+    <!-- WHICH RECORDING. Only opened when Spotify offers more than one, and it
+         chooses nothing by itself: the album and the year are there because
+         they are what tells a live cut or a cover from the record somebody
+         meant. -->
+    <div class="tool-backdrop" id="matchBackdrop" hidden></div>
+    <section class="prompt-panel tool-modal-panel" id="matchCard" role="dialog"
+             aria-modal="true" aria-labelledby="matchTitle" hidden>
+      <div class="panel-head prompt-head">
+        <div class="prompt-headline">
+          <h2 class="panel-title" id="matchTitle">Which recording?</h2>
+        </div>
+      </div>
+      <div class="prompt-body">
+        <div class="match-list" id="matchList"></div>
+      </div>
+      <div class="prompt-foot">
+        <button class="btn small" type="button" id="matchCancel">Cancel</button>
+      </div>
+    </section>
+
     <div class="tool-backdrop" id="trackDelBackdrop" hidden></div>
     <section class="prompt-panel tool-modal-panel" id="trackDelCard" role="dialog"
              aria-modal="true" aria-labelledby="trackDelTitle" hidden>
@@ -2534,7 +2609,7 @@
     "kinds": "spotify | spelling | relevance | facts, at severity high | warn | info",
     "audited": "every tape looked at, including clean ones: it is what advances the rotation, and an unstamped tape is re-audited forever",
     "limits": "insert-only, always status = open, max 40 findings per call; a song_id not on the named tape is dropped",
-    "WRITE NAMES, NOT IDS, in detail and suggestion. A person reading a finding in the Tape Room does not know a track by its song_id or a tape by its primary key, so "song 177" tells them nothing they can act on: write the title and the artist ("Down in Mississippi (Up to No Good) by Sugarland") and name a tape by its city and spine phrase. The ids still go in the song_id field, which is where a machine reads them; the prose is for a human. This applies to any SQL you suggest as well: say which track it is before you give the statement.",
+    "writeNamesNotIds": "WRITE NAMES, NOT IDS, in detail and suggestion. A person reading a finding in the Tape Room does not know a track by its song_id or a tape by its primary key, so 'song 177' tells them nothing they can act on: write the title and the artist ('Down in Mississippi (Up to No Good) by Sugarland') and name a tape by its city and spine phrase. The ids still go in the song_id field, which is where a machine reads them; the prose is for a human. This applies to any SQL you suggest as well: say which track it is before you give the statement.",
     "songIdIsMandatoryWhenYouNameATrack": "A finding whose detail names a track MUST carry that track's song_id. Without it the finding is filed against the TAPE: it draws above the track list instead of on the track, and the fingerprint md5(city_slug:song_id:kind) collapses to one per tape per kind, so the next real finding of that kind is silently deduped away. Omit song_id only when there is no single track: short of 15, over 15, a hidden city.",
     "cannotFix": "the agent reports and never edits. Hiding, editing and clearing are human actions in this room."
   }
@@ -2610,6 +2685,10 @@
 
       function restUrl(path) {
         return SUPABASE_CONFIG.url + '/rest/v1/' + path;
+      }
+
+      function fnUrl(name) {
+        return SUPABASE_CONFIG.url + '/functions/v1/' + name;
       }
 
       async function fetchAllRows(path, useAuth) {
@@ -4373,6 +4452,116 @@
       // acts on a selection you built, the other on the row your finger is on,
       // and a panel that silently means either is a panel you have to read twice
       // before answering.
+      // ── LOOKING UP A SPOTIFY ID ──────────────────────────────────────────
+      //
+      // The function reads the public catalogue and hands back a shortlist with
+      // the album and the year AS SPOTIFY HAS THEM, because those are the two
+      // things that tell a live cut, a re-recording or a cover from the record
+      // somebody meant. That judgement is the reason a human is still here.
+      //
+      // ONE ANSWER FILLS THE BOX. Several open a picker. Neither saves: the box
+      // commits on blur like any other, so the save is a second, deliberate act
+      // by somebody who has looked at what was found.
+      async function lookupSpotifyId(song, idEl, btn) {
+        var title = text(song.title);
+        if (!title) {
+          setNotice('that track has no title to look up', 'error');
+          return;
+        }
+        var was = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '...';
+        var data;
+        try {
+          var res = await fetch(fnUrl('spotify-lookup'), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ title: title, artist: text(song.artist) })
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          data = await res.json();
+        } catch (error) {
+          console.error(error);
+          // A FUNCTION THAT IS NOT DEPLOYED IS THE LIKELIEST CAUSE and is the
+          // one thing a raw status code will not tell you.
+          setNotice('the Spotify lookup did not answer. It may not be deployed yet: '
+            + 'cd mc && supabase functions deploy spotify-lookup', 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = was;
+
+        var matches = (data && Array.isArray(data.matches)) ? data.matches : [];
+        if (!matches.length) {
+          // THE FUNCTION'S OWN SENTENCE, which names a missing secret or says
+          // Spotify has nothing. Both are things somebody can act on.
+          setNotice((data && data.reason) || 'Spotify found nothing for that track', 'error');
+          return;
+        }
+        if (matches.length === 1) {
+          fillSpotifyId(idEl, matches[0]);
+          return;
+        }
+        openMatchPicker(song, idEl, matches);
+      }
+
+      // FILLED, NOT SAVED, and it says what it filled in. The id itself is 22
+      // characters of machine text nobody can check by looking, so the notice
+      // carries the title, artist, album and year instead.
+      function fillSpotifyId(idEl, match) {
+        idEl.value = match.id;
+        idEl.focus();
+        setNotice('found ' + match.title + ' by ' + match.artist
+          + (match.album ? ' on ' + match.album : '')
+          + (match.year ? ' (' + match.year + ')' : '')
+          + '. Check it is the right recording, then click away to save.', 'hold');
+      }
+
+      var matchPickerOpen = false;
+
+      function openMatchPicker(song, idEl, matches) {
+        var card = document.getElementById('matchCard');
+        var backdrop = document.getElementById('matchBackdrop');
+        var title = document.getElementById('matchTitle');
+        var list = document.getElementById('matchList');
+        if (!card || !backdrop || !title || !list) return;
+        matchPickerOpen = true;
+        title.textContent = 'Which recording?';
+        list.textContent = '';
+        matches.forEach(function (m) {
+          var row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'match-row';
+          var main = document.createElement('span');
+          main.className = 'match-main';
+          main.textContent = m.title + ' - ' + m.artist;
+          var sub = document.createElement('span');
+          sub.className = 'match-sub';
+          // THE ALBUM AND THE YEAR ARE THE WHOLE POINT OF THE LIST. Without
+          // them every row of a search for a standard reads the same.
+          sub.textContent = [m.album, m.year, m.explicit ? 'explicit' : '']
+            .filter(Boolean).join('  |  ');
+          row.append(main, sub);
+          row.addEventListener('click', function () {
+            closeMatchPicker();
+            fillSpotifyId(idEl, m);
+          });
+          list.appendChild(row);
+        });
+        card.hidden = false;
+        backdrop.hidden = false;
+      }
+
+      function closeMatchPicker() {
+        matchPickerOpen = false;
+        var card = document.getElementById('matchCard');
+        var backdrop = document.getElementById('matchBackdrop');
+        if (card) card.hidden = true;
+        if (backdrop) backdrop.hidden = true;
+      }
+
       function paintTrackDeleteDialog() {
         var card = document.getElementById('trackDelCard');
         var backdrop = document.getElementById('trackDelBackdrop');
@@ -4842,6 +5031,31 @@
           + ' A raw id or a spotify:track: URI works too. Blank is always allowed and is better than a guess:'
           + ' a made-up id passes every check and silently plays nothing.';
 
+        // LOOK IT UP. Clearing a missing id is mechanical -- read the title and
+        // artist, find the track, copy 22 characters -- so a server does the
+        // reading and a person still does the deciding.
+        //
+        // **IT FILLS THE BOX AND DOES NOT SAVE.** The oldest rule about this
+        // field is verify-or-omit, because a wrong 22-character id passes every
+        // check we have and then silently plays the wrong thing. A lookup that
+        // saved would be a machine guessing, at scale, into the one field
+        // nobody can proofread by reading it.
+        var lookupBtn = document.createElement('button');
+        lookupBtn.type = 'button';
+        lookupBtn.className = 'track-lookup';
+        lookupBtn.textContent = 'Find';
+        lookupBtn.title = 'Ask Spotify for this title and artist. It fills the box; '
+          + 'it does not save, and it does not choose for you.';
+        lookupBtn.addEventListener('click', function () {
+          lookupSpotifyId(song, idEl, lookupBtn);
+        });
+
+        // THE PAIR IS ONE CELL, so the button cannot drift away from the box it
+        // fills when the row narrows.
+        var idCell = document.createElement('span');
+        idCell.className = 'track-idcell';
+        idCell.append(idEl, lookupBtn);
+
         var explicitWrap = document.createElement('span');
         explicitWrap.className = 'track-explicit';
         // THE BOX SAYS WHAT IT IS. The header that named these two columns is
@@ -5011,7 +5225,7 @@
         rail.className = 'badge-rail';
         rail.append(playBtn);
         if (!inArchiveList) rail.insertBefore(buildSelectBox(song), playBtn);
-        if (inArchiveList) rail.appendChild(idEl);
+        if (inArchiveList) rail.appendChild(idCell);
         else rail.appendChild(posEl);
 
         var flags = document.createElement('div');
@@ -5021,7 +5235,7 @@
         var tail = document.createElement('div');
         tail.className = 'badge-tail';
         if (inArchiveList) tail.append(flags, air);
-        else tail.append(idEl, flags, air, del);
+        else tail.append(idCell, flags, air, del);
 
         var newCell = document.createElement('span');
         newCell.className = 'track-line-new';
@@ -5939,6 +6153,11 @@
 
       var playerBackdropEl = document.getElementById('playerBackdrop');
       if (playerBackdropEl) playerBackdropEl.addEventListener('click', closePlayer);
+
+      var matchCancelEl = document.getElementById('matchCancel');
+      if (matchCancelEl) matchCancelEl.addEventListener('click', closeMatchPicker);
+      var matchBackdropEl = document.getElementById('matchBackdrop');
+      if (matchBackdropEl) matchBackdropEl.addEventListener('click', closeMatchPicker);
 
       var batchBtnEl = document.getElementById('batchBtn');
       if (batchBtnEl) {

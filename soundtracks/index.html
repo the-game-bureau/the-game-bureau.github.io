@@ -1708,7 +1708,15 @@
       function seekByFraction(fraction) {
         if (!playerController || !state.duration) return;
         var target = Math.max(0, Math.min(state.duration, (state.position || 0) + state.duration * fraction));
-        try { if (typeof playerController.seek === 'function') playerController.seek(target); } catch (e) {}
+        try {
+          if (typeof playerController.seek === 'function') playerController.seek(target);
+        } catch (error) {
+          // A REFUSED SEEK IS SOMETHING SOMEBODY ASKED FOR. They moved the
+          // scrubber and the track stayed where it was, which without this
+          // reads as the control being broken.
+          console.error('Spotify refused to seek', error);
+          setDeckNote('That did not scrub. Spotify would not move this track.');
+        }
       }
 
       function songFromLink(link) {
@@ -1871,7 +1879,15 @@
 
       function pauseSpotifyPlayer() {
         if (!playerController || typeof playerController.pause !== 'function') return;
-        try { playerController.pause(); } catch (error) {}
+        try {
+          playerController.pause();
+        } catch (error) {
+          // THE ONE FAILURE NOBODY CAN MISS AND NOBODY CAN EXPLAIN: you pressed
+          // pause and the room kept playing. Stop tears the player down and is
+          // the way out, so the message names it.
+          console.error('Spotify refused to pause', error);
+          setDeckNote('That would not pause. Press Stop to take the tape out.');
+        }
       }
 
       function setPlayerVolume(ratio) {
@@ -2092,6 +2108,17 @@
         if (h) h.textContent = '';
       }
 
+      // ── THE EMPTY CATCHES BELOW THIS LINE ARE DELIBERATE ──────────────────
+      //
+      // They guard TEARDOWN -- destroy, pause on the way out, volume, an
+      // attribute on an iframe that is about to be thrown away. The standing
+      // rule in CLAUDE.md is about a path where somebody asked for something
+      // and it silently did not happen; a teardown that fails is not something
+      // a listener can act on, and a note about it would be noise on the one
+      // surface that has to stay quiet.
+      //
+      // **A NEW EMPTY CATCH ON A PATH SOMEBODY IS WAITING ON IS STILL A BUG.**
+      // The test is whether a person pressed something and is owed an answer.
       function destroyActivePlayer() {
         window.clearTimeout(playerFallbackTimer);
         try { pauseSpotifyPlayer(); } catch (e) {}

@@ -928,6 +928,1409 @@ real findings filed with their labels and scopes resolved, a bad kind and an
 unknown city refused, a reworded repeat deduped to `added 0`, `anon` refused
 both select and delete with 42501, and the probes deleted afterwards.
 
+## THE SOUNDTRACK AND ISSUES ROOMS, AUDITED END TO END (2026-08-27)
+
+Asked for after a week of rapid change: is any of this solid. Most of it is,
+and three things are not. Everything below was checked against production or by
+rendering the page, never by reading the diff.
+
+### WHAT IS SOLID
+
+| checked | result |
+|---|---|
+| catalogue | 1,572 tracks, 114 tapes, 119 live across 9 tapes |
+| orphan findings | **0** (the trigger holds) |
+| one recording twice on a tape | **0** (the partial unique index holds) |
+| blurbs missing | **0** |
+| triggers | `soundtrack_touch` and `soundtrack_drop_issues`, both enabled |
+| functions naming a dropped object | **none** |
+| pages parse | all four, no repeated ids |
+| test suites | **317 assertions**, all passing |
+
+**PRIVACY HOLDS, AND IT WAS PROBED AS `anon` RATHER THAN ASSUMED.** `issues`
+401, `issues.contact_email` 401, `soundtrack.findings` 401, `soundtrack?select=*`
+401, and the public page's own named-column read 200.
+
+### THREE THINGS THAT ARE NOT
+
+**1. THE AUDIT ROTATION CLOCK IS FROZEN, AND NOTHING SAYS SO.**
+`soundtrack.last_audit_at` is what [soundtracks.md](mc/soundtracks/soundtracks.md) orders "the 3 tapes that have
+gone longest without a look" by. **1,550 rows carry a stamp, the newest is
+2026-08-25, and `tgb_report_soundtrack_issues` does not mention the column at
+all.** So nothing has wound that clock since the reporter was rewritten, and
+**every run picks the same three tapes, forever**. Nothing errors and the run
+reports success, which is exactly why it has gone unnoticed. **The fix is a few
+lines in the reporter; it has not been made, because this was an audit.**
+
+**2. THE `tgb-agent-context` BLOCK IN THE TAPE ROOM STILL DOES NOT PARSE.**
+`JSON.parse` fails at line 89 on an unescaped quote around *"song 177"*. This
+file has recorded it twice and it is still there. Nothing in the page reads it,
+so nothing fails; **an agent that tries to read it gets nothing at all**, which
+is the whole reason the block exists.
+
+**3. EIGHTEEN EMPTY CATCHES REMAIN IN `/soundtracks/`.** ~~All of them a
+fault~~ -- **that count was too blunt and is corrected below**: most guard
+teardown, where there is nothing a listener could act on. Four now report
+(load, play, seek, pause) and the rest carry one comment saying why they stay.
+**The test is whether somebody pressed something and is owed an answer.**
+
+### AND A TRAP IN THE HARNESS ITSELF, WORTH MORE THAN ANY OF THEM
+
+**A SUITE THAT CANNOT REACH THE SERVER PRINTS `0 ok, 0 FAIL` AND READS AS
+GREEN.** Four of the nine suites drive the page over `http://127.0.0.1:8791`,
+and when that server was not running they reported nothing and were counted as
+passing. **Zero assertions is not success**, and a summary line that only counts
+failures cannot tell the two apart. Anything that reports on these suites must
+assert a MINIMUM COUNT, not just the absence of failures.
+
+## FIND: THE SPOTIFY ID IS LOOKED UP FROM THE ROW (2026-08-27)
+
+A small **Find** beside the Spotify box on every track badge. It asks
+[spotify-lookup](mc/supabase/functions/spotify-lookup/index.ts) for the row's title and artist and fills the box.
+
+- **IT FILLS AND DOES NOT SAVE, AND THAT IS THE WHOLE DESIGN.** The oldest rule
+  about this field is verify-or-omit, because **a wrong 22-character id passes
+  every check we have and then silently plays the wrong thing**. A lookup that
+  saved would be a machine guessing, at scale, into the one field nobody can
+  proofread by reading it. The box commits on blur like any other, so the save
+  is a second, deliberate press by somebody who has looked.
+- **ONE ANSWER FILLS THE BOX; SEVERAL OPEN A PICKER.** The picker carries the
+  album and the year AS SPOTIFY HAS THEM, because those are what tell a live
+  cut, a re-recording or a cover from the record somebody meant. Without them
+  every row of a search for a standard reads identically.
+- **THE NOTICE NAMES THE RECORDING, NOT THE ID.** 22 characters of machine text
+  cannot be checked by looking at them; "found X by Y on Z (1994)" can.
+- **IT NEEDS A SPOTIFY APP, WHICH THIS PROJECT DID NOT HAVE.** Two secrets and a
+  deploy: `supabase secrets set SPOTIFY_CLIENT_ID=... SPOTIFY_CLIENT_SECRET=...`
+  then `cd mc && supabase functions deploy spotify-lookup`. **Until both are set
+  the function answers with a sentence naming what is missing**, the button says
+  so, and nothing else changes: the box is still typeable and a pasted share
+  link still works.
+- **CLIENT CREDENTIALS, NOT A USER TOKEN.** It reads the public catalogue and
+  never touches an account, so there is no consent flow and **nothing that
+  expires and has to be renewed by hand** -- this project already carries one
+  such credential in Threads and does not want a second.
+- **THE TOKEN IS CACHED FOR THE LIFE OF THE WORKER**, since a clearing session
+  is a run of lookups and a token lasts an hour. Not persisted: there is nothing
+  here worth storing.
+- **A FIELDED QUERY**, `track:"..." artist:"..."`, so Spotify matches the two
+  separately. A bag of words returns forty covers.
+- **IT IS THE THIRD EXCEPTION** to the rule that no child of a track row
+  declares its own font size, and it is the flag words' exception exactly: a
+  CONTROL carrying a three-letter label rather than a field carrying a value.
+  The harness names it.
+
+## SEATGEEK'S CATEGORIES ARE OUR KINDS, AND ITS IDS ARE OUR IDS (2026-08-28)
+
+`KIND_VALUES` went from eight to twenty. Sixteen of them are **SeatGeek's own
+slugs**, read off `/2/taxonomies` rather than invented.
+
+- **THEIR TREE IS FOUR ROOTS DEEP**: `concert`, `sports`, `theater` and
+  `addon` (parking, suites, club passes). **The level UNDER a root is their
+  category level** -- `theater > comedy`, `concert > music_festival`,
+  `sports > football > nfl` -- and that is the one worth borrowing. 163 nodes,
+  four levels.
+- **THE OLD MAPPING THREW THE USEFUL HALF AWAY.** A comedy night is
+  `theater > comedy` and we filed it as `other`. **Measured on New York over
+  six weeks: 2,416 rows, and `other` went from most of them to ZERO** --
+  broadway 1,122, theater 670, concert 392, entertainment 58, family 51,
+  classical 35, dance 38, comedy 24, music_festival 9, literary 2, film 1.
+- **SPORTS KEEPS OUR OWN THREE**, because `sports` / `sports-tournament` /
+  `sports-nonteam` say something SeatGeek does not: whether two clubs are
+  playing, more than two, or none.
+- **OURS ALSO BEAT THEIRS FOR A CONVENTION AND AN EXPO**, because SeatGeek has
+  no category for either.
+  - **AND THE WORDS ARE ONLY IN THE TITLE, WHICH IS WHY THE FIRST CUT MISSED
+    BOTH.** New York Comic Con is typed `theater > entertainment`; so is the
+    World Oddities Expo. A test built from their real shapes caught it: reading
+    the taxonomy alone found neither. **The title is read as well.**
+- **A KIND OUTSIDE `KIND_VALUES` WOULD BE FLAGGED BY `bad-kind` ON EVERY
+  IMPORTED ROW**, which is the room accusing itself, so a test asserts every
+  kind the importer can emit is in the constant.
+- **`KIND_VALUES` IS NOW THE ONLY LIST.** The batch row's `<option>`s were a
+  fourth hand-kept copy and are **built from the constant**; the form was
+  already derived. Adding a kind is one edit.
+
+### AND THE ID IS SEATGEEK'S OWN, PREFIXED `SG-`
+
+- **THIS REVERSES THE READABLE-ID RULE FOR IMPORTED ROWS**, deliberately. A
+  composed id is built from the league, the date and the two clubs, so it
+  **changes when a club is renamed or a fixture is rescheduled** -- and then a
+  later fetch cannot tell it is the row we already hold. SeatGeek's id is
+  permanent on their side and unique by construction.
+- **PREFIXED, so it can never collide with a composed one** and so the row says
+  where it came from at a glance. The number is still plainly readable, which
+  is what lets you look the event up on SeatGeek.
+- **MANUAL ROWS ARE STILL COMPOSED.** `composeEventId` is unchanged and is the
+  fallback here for a row arriving with no SeatGeek id.
+- **WHAT IT COSTS: a row imported before this carries the old composed id**, so
+  a re-fetch will not recognise it and will offer it again. The cross-row
+  duplicate check catches the second copy.
+
+## SEATGEEK CARRIES SIX INTERNATIONAL NFL GAMES AND NO MORE (2026-08-28)
+
+Asked why `NFL International` did not catch a Saints and Steelers game in
+France. **It is not in the feed**, and the filter is not at fault. Every
+non-US NFL row SeatGeek holds, checked by paging the whole league:
+
+    2026-10-04  London, UK        Colts vs Commanders
+    2026-10-11  London, UK        Eagles vs Jaguars
+    2026-10-18  London, UK        Texans vs Jaguars
+    2026-11-08  Madrid, Spain     Bengals vs Falcons
+    2026-11-15  Munich, Germany   Patriots vs Lions
+    2026-11-22  Mexico City       Vikings vs 49ers
+
+**`venue.city=Paris` returns 0 events of ANY kind**, and so do Berlin, Dublin
+and Sao Paulo for `nfl`. **This is the standing limitation of the whole
+importer**: SeatGeek is a US resale marketplace and lists what it sells, so a
+fixture sold through the NFL's own channels or a European ticketer is invisible
+to it. **For a game it does not carry, the answer is MANUAL or a prompt, not a
+better filter.**
+
+## THE SEATGEEK BOX TAKES A LEAGUE AS WELL AS A CITY (2026-08-28)
+
+`Denver, Chicago, NFL, NFL International` -- each comma-separated term is
+resolved as one or the other, and a term nobody recognises is still a city.
+
+- **A LEAGUE IS `taxonomies.name`, NOT A SEARCH.** Verified live:
+  `nfl` 899 events, `nba` 1,296, `mlb` 3,253, `nhl` 1,414, `ncaa_football`
+  1,763, `ncaa_basketball` 2,637, `mls` 311, `wnba` 115, `nascar` 111.
+  **`ufc` returns 0 and the taxonomy is `mma`**; **`ncaa_mens_basketball` and
+  `formula_one` return 0 and do not exist.** Aliases were measured, not
+  guessed.
+- **A REGION IS A SIEVE, NOT A QUERY.** SeatGeek has no `venue.country` filter,
+  and the international NFL games are **6 rows inside a league of 899**, so the
+  whole league is read and then filtered on `venue.country`. That is why a
+  region costs nothing extra in requests.
+- **`NFL INTERNATIONAL` MEANS ANY NON-US VENUE, and it is the form the box
+  offers.** `Europe` still resolves and is the narrower thing it always was:
+  the 2026 series is London, Madrid, **Munich and Mexico City**, so Europe
+  silently drops the Mexico game. **Naming a country works too** -- `NFL
+  Mexico`, `NBA Canada`.
+- **THE REGION IS THE TAIL OF THE TERM**, matched by walking words off the end,
+  because every league alias here is one or two words at the front and every
+  region name is one word at the back.
+- **THE STATUS SAYS HOW IT READ THE TERM** -- *"Read as NFL International = the
+  NFL in international"* -- because a box that silently decides between two
+  meanings has to show which it took. **A term that returns nothing is named**,
+  so a two-term search does not look wholly empty.
+- **AN UNKNOWN TERM IS STILL A CITY.** The box must not start refusing towns
+  for not being leagues, and a city that finds nothing says so in words: it is
+  matched on the venue town.
+
+### A FIXTURE ABROAD IS AT A NEUTRAL SITE
+
+`sgIsNeutral` sets `neutral_site` on import when the venue country is not the
+US.
+
+- **THAT IS WHAT THE COLUMN MEANS**, and this file already said so: the
+  International Series is the worked example of neither club being at home, and
+  **both fanbases travel**, which is the thing a game is built on.
+- **FIXTURES ONLY.** A concert has no home ground to be away from, so the flag
+  is left false for anything that is not a sports kind.
+- **IT ASSUMES A US LEAGUE, and that is the limitation to know.** SeatGeek's
+  catalogue is the US leagues, so "outside the US" and "neutral" coincide. If
+  the importer ever reads a league that plays abroad ordinarily, this becomes
+  wrong and needs the league in the test.
+
+### AND THE IMPORTER HAD ITS OWN ID COMPOSER
+
+`sgId` knew neither the league nor the clubs, so the same fixture came out
+**`SPORTS-2026-10-04-NFL-LON`** from SeatGeek and **`NFL-2026-10-04-IND-WAS`**
+from the manual form. **Two ids for one shape**, and the documented shape is
+`LEAGUE-DATE-AWAY-HOME`.
+
+- **`sgId` IS DELETED. `composeEventId` IS THE ONE COMPOSER**, called LAST in
+  `sgRow` from the finished row, so it can see the league and both clubs.
+- **WHAT IT COSTS, and it is real: a row imported from SeatGeek BEFORE this
+  carries a `SPORTS-...` id and will not be recognised as already filed.** A
+  re-fetch offers it again and importing it makes a second row for one fixture.
+  **The cross-row duplicate check is what catches that** -- same league, date
+  and clubs -- and it is the reason this was worth doing rather than leaving
+  two composers to drift further.
+
+## A SEVENTH KIND: `sports-tournament` (2026-08-28)
+
+More than two clubs playing. **SeatGeek says so in a shape worth knowing**, and
+it was read off the live catalogue rather than assumed:
+
+| shape | what it is |
+|---|---|
+| exactly 2 performers **flagged** `home_team` / `away_team` | an ordinary fixture |
+| no flags, a `primary` performer that **is the event**, then one per club | a tournament |
+
+- **THE PERFORMER COUNT ALONE CANNOT DECIDE IT.** *"San Jose State at #14 USC"*
+  carries **three** performers and is one fixture, the third being a ranked
+  variant. So the test is: two flagged means a fixture, otherwise count the
+  performers whose name is not the event's own.
+- **A NON-TEAM SPORT WINS OVER IT.** A NASCAR race lists three performers and is
+  `sports-nonteam`, not a tournament, because the sport is checked first.
+- **PROVED ON THE LIVE CATALOGUE**: NCAAB and NASCAR over six weeks gave
+  **889 `sports`, 41 `sports-tournament`, 4 `sports-nonteam`** -- the
+  tournaments being the Hall of Fame Series, the Field of 68 marathon and the
+  tip-off classics, which is exactly right.
+
+## THE ROOM OPENS ON UPCOMING (2026-08-28)
+
+`WHEN_DEFAULT = 'upcoming'`, and the `<select>` ships `selected` on it.
+
+- **A PAST EVENT IS THE ONE THING THIS TABLE CAN NEVER USE.** Our game is played
+  the day BEFORE its anchor, and there is no day before a date that has gone.
+- **EVERYTHING IS ONE PRESS AWAY**, `any date`, so nothing is hidden without a
+  way back. This is not a silent cap.
+- **A ROW WITH NO DATE IS STILL SHOWN**, unchanged: it is exactly the row
+  somebody has to fix, and a date filter that hid it would hide the fault too.
+- **CLEAR PUTS IT BACK TO THE DEFAULT, NOT TO `any`.** Clearing means "as I
+  found it" -- and it is also what stops the Clear button reading as lit the
+  moment you arrive, since `anyFilterOn()` compares against the default rather
+  than against `any`.
+
+## THE ROOM'S SENTENCE MAY USE THE ROOM'S WIDTH (2026-08-28)
+
+`admin-shell.css` clamps every `.room-blurb` to **62ch**, which is right for a
+short one and broke this one after *"sporting event"*. `.room-head .room-blurb
+{ max-width: none }` clears it here, **the same one-line override the Tape Room
+already carries and for the same reason**. The shared rule is not changed:
+62ch is the right default for a room whose sentence is short.
+
+## SEATGEEK'S OWN TAXONOMY DECIDES THE KIND (2026-08-28)
+
+Reported as *"McNeese State Cowgirls at Tulane Green Wave didn't grab away
+team"*, and the away team was never the fault.
+
+- **`sgKind` READ `ev.type`, WHICH IS A LEAF STRING.** It matched `sport` as a
+  substring plus a list of league names, so **`womens_college_basketball` and
+  `womens_college_volleyball` matched neither** and came back `other`. The whole
+  `if (kind === 'sports')` block was then skipped, so **the row got no club
+  fields at all** -- not a wrong away team, no away team.
+- **THE PAGE HAD TWO IDEAS OF "IS THIS A FIXTURE", AND THEY DISAGREED.**
+  `sgTaxonomy` was already reading `taxonomies`, saw `sports` in it, and filled
+  the league and the sport correctly on the very same row that had no clubs.
+  **A row reading `league: WOMENS_COLLEGE_VOLLEYBALL` with both clubs empty is
+  what two sources of truth look like from outside.**
+- **THE TAXONOMY ALREADY SAYS IT**, coarse to fine:
+  `[sports, volleyball, college_volleyball, womens_college_volleyball]`. One
+  reader now, so a sport nobody thought of is a fixture without anybody adding a
+  keyword.
+- **`type` IS STILL CONSULTED, as a fallback only.** A row with no taxonomies at
+  all still resolves.
+- **THE PERFORMERS WERE FINE ALL ALONG.** `home_team` / `away_team` are flagged
+  correctly on college rows; nothing about the split needed changing.
+- **NBA WAS NEVER BROKEN**, checked against live rows: `Wizards at Pelicans`
+  gives `Washington / Wizards` and `New Orleans / Pelicans`. A report that it
+  was is a row imported before this code existed, or one whose performers
+  carried no flags; **the id keeps its `LEAGUE-DATE-AWAY-HOME` shape, so a row
+  filed then is not re-imported by a later fetch.**
+
+### A SIXTH KIND: `sports-nonteam`
+
+For racing, golf, tennis, fighting -- sport with no two clubs in it.
+
+- **`events.kind` HAS NO CHECK CONSTRAINT**, verified before shipping (the table
+  carries only `events_issues_check` and `events_issues_detail_check`), so a new
+  kind needs **no migration**. It needs three lists: `KIND_VALUES`, and the
+  batch row's own `<option>`s, which are markup.
+  - **`FIELD_META` HAD A FOURTH COPY OF THE LIST**, hardcoded rather than reading
+    `KIND_VALUES`, so the row and the form would have gone on offering five
+    kinds while the batch bar offered six. It reads the constant now -- **which
+    meant moving `KIND_VALUES` above `FIELD_META`**, since a `const` is in its
+    temporal dead zone until its own line runs. **The standing parse check did
+    not catch that**: `new vm.Script` only parses, and this fails at run time.
+    Rendering the page is what caught it.
+- **THE `Who` BAND FOLDS FOR BOTH SPORTS KINDS** (`kind.indexOf('sports') === 0`),
+  because a non-team sport still has two named competitors often enough -- tennis,
+  boxing -- to want the fields. A race carrying none simply leaves them blank,
+  which is the existing empty-and-therefore-hidden rule.
+- **`NON_TEAM_SPORTS` IS A LIST OF SPORTS, NOT A LIST OF LEAGUES**, so it is
+  matched against the whole taxonomy chain rather than the leaf.
+
+## HOME COMES BEFORE AWAY (2026-08-28)
+
+Every form and every display lists the home club first. **Ten places moved
+together**: `EDITABLE_FIELDS`, `NUMERIC_FIELDS`, `FIELD_META`'s declaration
+order, the `Who` band, `OFF_SCREEN_FIELDS`, the `club-missing` finding's
+"which side" list, `label-drift`'s two checks and its field list, and both
+halves of the SeatGeek importer.
+
+- **THE MANUAL FORM FOLLOWED FOR FREE**, being derived from `FIELD_GROUPS`. Two
+  hand-kept orders would have drifted on the first change, which is the whole
+  reason it is derived.
+- **`displayTitle` STILL READS `away at home`, and must.** "at" is directional
+  and that is the universal way a fixture is named: *Bears at Panthers* says who
+  is travelling. Reversing it would not reorder a list, it would state something
+  false.
+- **THE ID KEEPS ITS `LEAGUE-DATE-AWAY-HOME` SHAPE** for the same reason plus a
+  harder one: **an id is permanent and every game points at one**, so changing
+  how new ids are composed would make two rows for one fixture look unrelated.
+
+## THE SECOND PICKER IS KIND, NOT ISSUES (2026-08-28)
+
+`any kind (4,123)` then one line per kind the table actually holds, each with
+its count: `concert (392)`, `broadway (72)`, `sports (102)`.
+
+- **BUILT FROM THE TABLE, NEVER FROM `KIND_VALUES`.** There are twenty kinds
+  and a given table holds eight, so a static list would mostly offer choices
+  with nothing behind them. **An empty result is not a state this control can
+  produce.**
+- **THE COUNTS ARE THE WHOLE REASON IT IS LIVE.** A closed picker that cannot
+  say how many concerts there are is a picker you have to press to learn
+  anything from. Same argument as the Tape Room's place filter.
+- **THE COUNTS ARE OVER THE WHOLE TABLE, never over what is on screen.** A
+  figure that shrank as you typed in the search box would read as the filter
+  breaking.
+- **REBUILT ONLY WHEN THE OPTION SET CHANGES**, keyed on a signature.
+  **Every keystroke in the search box renders**, so rebuilding on each one
+  would shut the list under the pointer while somebody was reading it.
+- **A STORED CHOICE THE TABLE NO LONGER HOLDS FALLS BACK TO ANY**, rather than
+  leaving the picker naming a kind with nothing under it.
+
+### SO CHECK NARROWS THROUGH A FLAG OF ITS OWN
+
+- **THIS REVERSES THE `reviewOnly` OBJECTION, and the reversal is why it is
+  now safe.** The rule was *one state, two controls* -- a `reviewOnly` beside
+  the Issues picker would have been a second idea of one filter. **With that
+  picker gone there is only one reader**, so the flag is the state rather than
+  a duplicate of it.
+- **ONE CONTROL, TWO STATES, AND THE FACE SAYS WHICH**: `Check (43)`, then
+  `Show all`. Pressing it while the narrowing is on takes it off.
+- **IT CLEARS EVERY FILTER BEFORE IT RUNS.** The audit always read `state.rows`
+  and so was never narrowed -- **but its ANSWER was.** With the room open on
+  `upcoming`, a faulty PAST row was counted and then hidden, and a search left
+  in the box hid more, so "the 43 events with something wrong" was a list you
+  could not see all of. It empties the search, and sets Kind and When to
+  **`any date`, not to When's default**, because a past event with a fault is
+  still a fault.
+- **AND IT SAYS SO**: *"Filters cleared, and showing the 43 events with
+  something wrong out of 4,123 events. Press Show all for the rest."*
+- **CLEAR THEN READS `any date` AS FILTERED, correctly.** It is a deliberate
+  widening away from the default, so the button is lit and one press returns
+  the room to `upcoming`.
+
+## A FLOATING SAVE ALL, LOWER RIGHT (2026-08-28)
+
+Fixed to the corner, so it costs the panel no width and cannot be scrolled away
+from while a long list is being edited. Drawn only while something is unsaved.
+
+- **`[hidden]` HAD TO BE RE-ASSERTED over `.btn`'s `display: inline-flex`** --
+  the **ELEVENTH** time this project has hit that rule. Without it the button
+  sits on a clean page offering to save nothing.
+- **THE NOUN STAYS AT ONE** (`Save`, then `Save all 2`), so the button does not
+  change width as rows are edited and jump under the pointer.
+- **IT GOES THROUGH `saveRow` PER ROW**, so a row saved from here takes exactly
+  the path its own Save button takes: the same payload, the same read-back, the
+  same translation of a refusal. Two ways to save one row is how they drift.
+- **A ROW EDITED WHILE CLOSED HAS NO SAVE BUTTON**, because the body is not
+  built until the row is opened -- **and the title is editable on a closed row,
+  so that is the common case rather than the odd one.** The first cut required
+  the real button and therefore skipped every closed row in silence, saving
+  nothing. A detached button stands in; `saveRow` only ever sets its label and
+  its disabled flag.
+- **THE BATCH RENDERS ONCE, AT THE END.** Rendering per row rebuilds the list
+  under the loop and detaches every element it still holds, so the second row
+  would save nothing and say nothing.
+- **AND IT RENDERS ONLY IF EVERYTHING LANDED.** A render rebuilds each row from
+  the stored values, which on a REFUSED row throws away both the mark saying it
+  is unsaved and the words somebody typed -- so a refusal would look exactly
+  like a save.
+- **THE SHORTFALL IS NAMED, NEVER COUNTED**: *"Saved 1 row. 1 row would not
+  save: C."* The rows still unsaved are exactly the ones you have to deal with.
+- **`dirtyRows()` READS THE DOM**, not a set of ids. `.is-dirty` is written by
+  the row on every keystroke and cleared by its own save, so the DOM is the
+  only thing that knows the truth; a parallel set would drift the moment a
+  render rebuilt the list.
+
+## `OTHER` IS EVERYTHING NO FEED CARRIES, AND IT READS THE WEB (2026-08-28)
+
+**It was CONVENTIONS for an afternoon.** The button is `OTHER`, sits to the
+RIGHT of SEATGEEK -- the row is worked in that order, the feed first and then
+what the feed does not have -- and it takes **cities OR leagues** in one box,
+labelled in the SeatGeek dialog's own words: *Which cities or leagues, and
+when*.
+
+- **THE IDENTIFIERS DID NOT MOVE.** `conventionsBtn`, `cvLightbox`, `cvCity`,
+  `CV_PROMPT_LINES`. Visible copy is renamed; names are not, which is the same
+  bargain the Tape Room made through four renames of its verbs.
+- **ONE RESOLVER DECIDES CITY OR LEAGUE, FOR BOTH DIALOGS.** `resolveSearchTerm`
+  lost its `sg` prefix when the second caller arrived. **What differs is what
+  is done with the answer**: SeatGeek queries a taxonomy, this one writes a
+  sentence. Two copies of "is this word a league" would drift on the first
+  alias added.
+- **THE ASK IS WRITTEN OUT PER TERM**, so the model is not left working out
+  whether `NFL` is a town:
+
+      Denver -- a CITY. Read its convention centres, expo halls and visitors bureau.
+      NFL -- a LEAGUE. Read its own published schedule.
+      NFL International -- a LEAGUE. Read its own published schedule, and keep
+        only the fixtures played outside the United States.
+
+  - **`international` IS NOT A PLACE**, so it cannot be dropped into "played in
+    ___". `cvWhere()` says *outside the United States* for it, *in the United
+    Kingdom* for `uk`, and *in Europe* for the rest.
+- **A LEAGUE IS SENT TO ITS OWN SCHEDULE, and the clubs' sites after it.** The
+  league page is the authoritative list; a club page is where a kickoff time or
+  a venue change appears first. **A resale site is forbidden as a source for
+  either errand**, and the prompt says why: we already read one separately, and
+  this prompt exists for what it does not have.
+- **THE PROMPT NOW WRITES A FIXTURE AS WELL AS A CONVENTION.** It carries the
+  full column list -- league, sport, both clubs split into geo and nickname,
+  `neutral_site` -- with a worked example of each, plus the rules that are only
+  obvious once: **a fixture's title is NULL** (the row reads as its two clubs),
+  `venue_city` is the VENUE's town so the Chargers are Inglewood, and
+  `start_time` is converted to the clock outside the venue rather than the one
+  the league publishes in.
+- **A CONCERT AT A CONVENTION CENTRE IS A CONCERT.** The clause is kept from the
+  conventions-only version, because the venue is not the category and
+  mislabelling one is the mistake it exists to stop.
+
+### AND THE MEASUREMENT THAT MADE IT A PROMPT
+
+
+
+The CONVENTIONS button builds a **prompt**. It names the cities and the window,
+sends an AI with a browser to the halls' own calendars, and asks for one
+`insert into public.events` block back. **It calls nothing.**
+
+**IT WAS A SEATGEEK FETCH FOR ABOUT AN HOUR AND THE NUMBERS KILLED IT.**
+SeatGeek is a resale marketplace, so it lists a convention only when that
+convention sells seats through it. Measured on 2026-08-28: **Javits 4 of 5
+events are New York Comic Con; Ernest N. Morial 2 of 5; Colorado Convention
+Center 0 of 18; San Diego Convention Center 0 of 67 -- Comic-Con itself is not
+there; McCormick Place 0 events at all.** `taxonomies.name=comic_con` returns
+**0 site-wide**.
+
+#### WHY IT IS A PROMPT AND NOT A SCRAPER, IN FOUR MEASUREMENTS
+
+Asked for outright as *"scrape from convention centers in entered cities"*. It
+cannot be done from this page, and it cannot be done well from a server either.
+**Probed rather than assumed**, against McCormick Place, Ernest N. Morial, the
+Colorado Convention Center, Javits and San Diego:
+
+| wall | what was found |
+|---|---|
+| **CORS** | not one of them sends `access-control-allow-origin`. This page is static HTML on GitHub Pages, so the browser cannot read them at all. |
+| **JS-RENDERED** | McCormick Place and Morial serve **zero date strings in their HTML** -- the calendar is drawn after load by a third-party booking widget, so even a server-side fetch gets an empty shell. |
+| **NO STRUCTURED DATA** | no `schema.org/Event` JSON-LD on any of them. |
+| **NO FEED** | both WordPress sites expose `wp-json` and **neither has an events post type** (pages, posts, staff, FAQs). |
+
+**SO A SCRAPER WOULD BE ONE HAND-WRITTEN PARSER PER HALL**, breaking on every
+redesign, and **breaking SILENTLY**: a stale parser returns zero events, which
+is indistinguishable from a quiet month. Javits also answered **429** to a
+plain fetch, so several of them will refuse a server too.
+
+**THIS IS THE SAME WALL AS `seatgeek.com` ITSELF**, which is behind DataDome,
+and the answer this file already recorded there applies here: **an AI with a
+browser can read those pages; a fetch cannot.** That is what the deleted PROMPT
+route was for, and this button is that route brought back for one job.
+
+### WHAT THE PROMPT ITSELF INSISTS ON
+
+The text is the product; every clause is here because getting it wrong is
+silent.
+
+- **THE HALL'S OWN CALENDAR FIRST**, then the city's convention and visitors
+  bureau (which catches an event held in a hotel rather than the main hall),
+  then the event's own site for the dates.
+- **A TICKET RESALE SITE IS FORBIDDEN AS A SOURCE**, with the reason given: it
+  will make a busy month look empty, which is the measurement above.
+- **READ THE PAGE, NOT A SUMMARY OF IT.** A summariser invents a plausible date,
+  and the date is the one field nothing here works without. Same clause the
+  socials prompt carries, for the same failure.
+- **A CONCERT AT A CONVENTION CENTRE IS A CONCERT.** Said explicitly, because
+  the venue is what the AI is looking at.
+- **NO DATE MEANS LEAVE IT OUT**, and `TBD` is refused in any field -- the room
+  has a `tbd` rule that would force every such row into review.
+- **`start_time` MAY BE NULL AND THAT IS ORDINARY.** A three day convention has
+  opening hours, not a start time, and an invented one is worse than a blank:
+  `no-time` is a muted note, a wrong clock is not.
+- **`end_date` IS NEVER NULL**, matching the trigger the database now carries.
+- **THE ID SHAPE IS THE ROOM'S OWN**, `KIND-STARTDATE-FIRSTWORD-CITY` truncated
+  to 10 and 3, because pasted SQL never goes through `composeEventId`.
+- **THE SQL EDITOR LINK IS PRINTED UNDER THE BLOCK** by the AI, and it is
+  `/sql/new?skip=true` -- `new` opens a blank query rather than whatever was
+  last run, and `skip=true` stops it asking. Pasting over somebody's
+  half-written query is the accident that avoids.
+- **NO EM DASH**, per the standing rule, and a test asserts the built prompt
+  contains none.
+
+### THE DIALOG
+
+- **ITS OWN LIGHTBOX, NOT A MODE.** While it fetched, sharing SeatGeek's dialog
+  was right: the key box, the list, the ticking and the import were all the same
+  code. It hands over text now and shares none of that, so a mode flag would be
+  two dialogs wearing one id.
+- **IT IS THE SOCIALIZER'S DIALOG, part for part** -- the four-sentence howto,
+  the ruled `prompt-sheet`, the fenced COPY PROMPT TO CLIPBOARD & OPEN group
+  (ChatGPT / Grok / Claude) and INSERT RESULTS. **Sixth room to wear it; when
+  either changes, change both.**
+- **`.prompt-sheet` AND `.prompt-doors` HAD TO BE RE-DECLARED.** Both went with
+  the PROMPT dialog deleted earlier the same day, per the rule that a control
+  and its CSS go together -- so the markup referenced two classes that matched
+  nothing, and the sheet rendered as a bare textarea.
+- **THE PROMPT REBUILDS ON EVERY KEYSTROKE.** Unlike the Socializer's, it is not
+  persisted and edits do not survive a reopen: this one is generated FROM two
+  fields, so a stored copy would be a stale prompt naming last week's cities.
+- **A DOOR REFUSES WITH NO CITY, and the guard is in `copyCvPrompt`, not in
+  CSS.** Each door copies and then opens a chat window, so without it you would
+  arrive somewhere with a prompt saying "name at least one city" on the
+  clipboard.
+- **THE COPY IS NOT AWAITED.** The new tab has to come from the browser's own
+  handling of a click on a link, so there is no `preventDefault` on the happy
+  path and nothing awaited before the navigation.
+- **A REFUSED CLIPBOARD IS REPORTED, never claimed as a success**, and says to
+  select the prompt and copy it by hand.
+
+### WHAT WENT WITH IT
+
+`sgFetchConventions`, `HALL_NAME`, `CONVENTION_TITLE`, `sgState.mode`,
+`sgState.opener` and `#sgHowto`. **`sgApi` and its rate limiting stayed** -- the
+city-mode fetch goes through it, and that is where the 429 handling lives.
+
+## THE CITY BOX TAKES A LIST (2026-08-28)
+
+Both SeatGeek modes split it on commas: `Denver, Chicago, Tulsa`.
+
+- **DEDUPED ON SEATGEEK'S OWN EVENT ID, NOT ON OURS.** A metro area routinely
+  has one venue answering to two city names, so the same fixture comes back
+  under both and would otherwise be listed and imported twice.
+- **EMPTY PIECES ARE DROPPED AND A CITY TYPED TWICE IS ASKED ONCE**, so a
+  trailing comma costs nothing and a slip costs no requests.
+- **A CITY AND ITS STATE TYPED TOGETHER NOW SEARCHES TWO CITIES.** `venue.city`
+  wants a bare city name, so `Denver, Colorado` used to return nothing at all;
+  it now searches `Denver` and then `Colorado`, which finds the Denver events
+  and nothing for the second. **Better than the silent zero it replaced, and
+  worth knowing before somebody reports it as a bug.**
+- **THE CONVENTIONS PROMPT SPLITS THE SAME BOX**, so its `Cities:` line reads
+  the deduped list rather than whatever was typed.
+
+## THE EVENTS ROOM CARRIES NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-28)
+
+[mc/events/index.html](mc/events/index.html) was stripped of **every** comment -- 1,540 lines of
+1,343 `//`, 160 `/* */` and 37 `<!-- -->`, a THIRD of the file. The reasoning
+that lived in them lives here.
+
+**SO THE USUAL BARGAIN IS INVERTED FOR THIS FILE**, exactly as it is for the two
+soundtrack pages. Everywhere else a load-bearing reason sits beside the code and
+this file carries the summary. Here there is nothing beside the code at all: **a
+rule that is not written down in this section is a rule the next person will
+delete by accident**, because the file gives them no reason not to.
+
+**WHEN YOU CHANGE THAT PAGE, UPDATE THIS SECTION IN THE SAME COMMIT** -- and
+when you add code to it, resist adding the comment back. Put the sentence here.
+
+### THE MECHANICS THAT ARE NOT OBVIOUS FROM THE CODE
+
+- **`select=*`, NEVER A COLUMN LIST.** A database that has not run
+  `2026080101_anchor_events_general_columns.sql` lacks `kind` / `title` /
+  `description` / `url` / `end_date`, and **PostgREST 400s on an unknown column
+  in a select list**. Reading `*` degrades to "those fields are blank" instead
+  of a dead page.
+- **THE FIRST 50 PAINT AND THE REST ARRIVES BEHIND THEM**, but **`state.rows` is
+  still the WHOLE TABLE**. Five things read it that way: the Check audit, the
+  cross-row duplicate check, the two filter counts, and the search box. **An
+  audit that has seen 50 rows and reports a clean bill is the worst shape a bug
+  can take here.** `state.loaded` is the honest flag, and Check refuses to run
+  until it is true -- it is the one control whose answer would be WRONG rather
+  than merely incomplete.
+- **EDITABLE_FIELDS IS IN THE ORDER THE EDITOR LAYS THEM OUT.** `id` is the text
+  primary key and is editable only on a row not yet saved: changing it later
+  orphans every game pointing at it. **`away_team_name` / `home_team_name` are
+  deliberately absent** -- a trigger rebuilds them from geo + nickname on every
+  write, so they stay correct for the builder's event picker without anyone
+  editing them here.
+- **A CLUB IS TWO FIELDS, NEVER ONE STRING.** The geo is where they are from (a
+  city, sometimes a region: "New England") and the nickname is what the copy
+  calls them. A game uses the halves separately, and storing them split means
+  **an event is complete on its own, with no join to `public.teams`**.
+- **THE ROW HEAD IS A `<div>`, AND IT HAS TO BE.** It was a `<button>` so that
+  expanding was focusable and announced. The title is an `<input>` in it now,
+  and **an `<input>` inside a `<button>` is invalid HTML** -- interactive content
+  is not allowed in a button's content model and browsers disagree about what to
+  do with it. The same class of problem as the hub's button-inside-an-anchor.
+  **The caret is a real `<button>` carrying `aria-expanded`**, so the keyboard
+  and a screen reader keep one proper control; the rest of the head keeps a
+  click handler so a mouse can still open a row anywhere on it.
+- **THE SORT SINKS AN UNDATED ROW IN BOTH DIRECTIONS**, which is not the same as
+  sorting it: a row with no date has no position on a timeline, so putting it
+  at the top of "oldest first" would be the list asserting something it does not
+  know. **TIES BREAK ON `id`**, which is what makes the order stable -- twelve
+  fixtures share a Sunday, and without a second key a row could move under you
+  as you typed in the search box.
+- **WEEK HEADINGS ARE ISO-8601**, not "day of year over seven": week 1 holds the
+  first Thursday of January, weeks run Monday to Sunday, and a year has 52 or
+  53. Anything simpler disagrees with every calendar and every league's own
+  numbering **at the turn of the year, which is when an NFL schedule is
+  busiest**. Computed in **UTC**, like the split maths, because these are
+  calendar dates and a local `Date` crossing DST lands on 23 or 25 hours.
+- **BUT `todayIso()` IS LOCAL, AND THAT ASYMMETRY IS DELIBERATE.** "Has this
+  happened where I am" is a different question from "which calendar week is
+  this", and doing both the same way round is the mistake. **There is one
+  `todayIso()`** -- two would be two ideas of what today is, the moment one grew
+  a timezone.
+- **THE DUPLICATE CHECK IS CROSS-ROW, so it cannot be a `CHECK_RULES` entry.**
+  Two rows describing one fixture is a fact about the pair, and no per-row test
+  can see it.
+- **A SPORTS-ONLY GROUP FOLDS ONLY WHEN IT IS ALSO EMPTY.** Hiding fields that
+  hold something would put data on the row that nothing on screen can reach or
+  correct, so a concert carrying a mascot still shows the club fields.
+- **`isKnownCity` WAS CASE- AND SPACE-INSENSITIVE FOR A REASON**, and the room
+  no longer has it -- but the lesson outlives it: it was `=== v` while the
+  Cities page lowercased, so a row was UNKNOWN here and ALREADY THERE over
+  there, **both pages right by their own rule**. If any comparison against that
+  catalogue ever returns, trim and lowercase, and nothing cleverer: a fuzzy
+  match hides the typos the check exists to find.
+
+### AND THE STANDING CHECKS FOR THIS FILE
+
+Run all four after touching it. The first two are the room-wide ones at the top
+of this file; the last two exist because a third of this page was comment and
+the sweep that removed it could have broken either.
+
+```bash
+# 3. The stylesheet's braces balance -- a selector-matching sweep once ate a
+#    @media closing brace and left the page parsing perfectly.
+node -e "const s=require('fs').readFileSync('mc/events/index.html','utf8');
+const c=[...s.matchAll(/<style[^>]*>([sS]*?)<\/style>/g)].map(x=>x[1]).join('');
+const o=(c.match(/{/g)||[]).length,x=(c.match(/}/g)||[]).length;
+console.log(o===x?'balanced':'UNBALANCED '+o+'/'+x);"
+
+# 4. Nothing is defined and unused, and nothing is called that is not defined.
+#    The second half is what caught `existingIds()` surviving its own deletion.
+```
+
+**THE DEAD-CODE CHECK MUST NOT BUILD ITS PATTERNS WITH BACKSLASHES.** A quoted
+heredoc in this environment eats one level, so a word boundary reaches the file
+as a literal **backspace** and every name comes back "unused" -- which reads as
+a codebase made entirely of dead code. **Split on non-identifier characters and
+count; no regex escapes at all.**
+
+## EVERY FINDING IS A CALL TO ACTION (2026-08-28)
+
+Gone through one at a time. They were sentences that explained the PRODUCT --
+*"a game takes its copy and its palette from the away club"*, *"our game is
+played the day before its anchor event"*, *"the city is what any game anchored
+to it would be set in"* -- which on a row somebody is working through is a
+paragraph to read before they can do anything.
+
+| rule | reads |
+|---|---|
+| `no-title` | Add a Title. |
+| `no-name` | Add a Team or Title. |
+| `club-missing` | Add an Away Team. / Add a Home Team. / Add both Teams. |
+| `no-date` | Add a Start Date. |
+| `end-before-start` | Fix the End Date. |
+| `bad-kind` | Pick a valid Kind. |
+| `no-time` | Add a Start Time. |
+| `placeholder-club`, `tbd` | Replace the TBD, or delete this row and reimport it. |
+| `no-venue` | Add a Venue Name. |
+| `no-city` | Add a Venue City. |
+| `bad-url` | Fix the Web Address. |
+| `multi-day` | Split into 4 events. |
+| the duplicate | Check against NFL-2027-A. |
+| flagged, nothing objecting | Flagged, but nothing is wrong with it now. |
+
+- **THE FIELD NAMES ARE CAPITALISED because they are field names.** *Add a Venue
+  City* points at a box on the form; *add a venue city* is a sentence about
+  cities.
+- **ONE IS DELIBERATELY NOT A CALL TO ACTION.** `label-drift` is a statement
+  about our SCHEMA rather than about the row: *"Team name is out of step with
+  its parts."* **Nobody can run a migration from a card**, so it names the
+  symptom and nothing else.
+  - **WHAT TO DO ABOUT IT IS HERE, AND ONLY HERE.** The stored name is rebuilt
+    from geo + nickname by a trigger, so a disagreement means
+    **`tgb_events_sync_team_names` is not installed**: run
+    [2026082502_events_columns_match_the_page.sql](mc/supabase/migrations/2026082502_events_columns_match_the_page.sql).
+    It used to be in the comment above the rule; that page carries no comments
+    now, so this line is the whole record.
+- **TWO RULES NOW SAY ONE SENTENCE.** `placeholder-club` and `tbd` both read
+  *"Replace the TBD..."*, so a row whose club is TBD trips both and drew it
+  twice. **Deduped where the reasons are collected**, because that is the only
+  place that can see both.
+- **`club-missing` KEPT ITS BRANCH and the others lost theirs.** *"Add an Away
+  Team"* only helps if it is the away side that is missing, so that one still
+  asks; every other rule now says one thing however it fired.
+- **WHAT IS LOST, and it is a real trade.** The old sentences taught the product
+  to whoever read them. **That is a thing to know once**, and it is written down
+  here rather than on 4,000 rows.
+
+**THE TICK SAYS `Select all`, AND IS TOLD APART FROM THE COUNT BESIDE IT** by
+ink against muted and a hairline between them: side by side in one small mono
+they read as one phrase, *"SELECT ALL NONE SELECTED"*. The hairline is the same
+separator the Search & filter bar puts between its two halves.
+
+- **jsdom CANNOT SEE THAT HAIRLINE.** It does not resolve a `var()` inside a
+  shorthand, so `border-left: 1px solid var(--control-line)` comes back as
+  `medium none` and a computed-value assertion would fail against a rule that is
+  perfectly correct. **It is asserted from the stylesheet text**; the padding
+  beside it has no `var()` and is checked the ordinary way.
+
+**AND THE PAGER IS CENTRED ON THE PANEL, WHICH NEEDED A GRID.** A flex row with
+the pager taking the slack centres it in **what is left beside Expand all**, so
+it sits slightly left of centre and **moves as that button's label changes**
+between Expand all and Collapse all. Three columns with an empty first one puts
+it on the panel's own centre and keeps it there.
+
+## THE EVENTS ROOM, CLEANED UP (2026-08-28)
+
+Two detectors, run against the rendered page rather than grepped:
+
+### WHAT THEY FOUND
+
+- **A LIVE ReferenceError.** `existingIds()` lived in the ESPN importer, which
+  was deleted, and `splitRow` was left calling it: **Split threw on the one path
+  that uses it**, silently, because nothing renders a split until somebody asks
+  for one. Found by the half of the check that looks for **calls with no
+  definition**, which exists precisely because that is what the other direction
+  looks like.
+- **Four helpers nothing read**: `displayWhen` lost its reader when the head
+  stopped drawing a date, `displayDate` and `displayTime` were its only readers,
+  and `shortDate` was theirs. One constant, `TBA_TIME`, written only by the
+  deleted importer.
+- **23 CSS rules that matched nothing.** Dead **by construction**: every class
+  appeared only inside its own rule.
+
+### AND THE TWO TRAPS IN DOING IT
+
+- **A SELECTOR-MATCHING SWEEPER IS THE WRONG TOOL.** The first attempt cut by
+  selector, left every comment welded to its neighbour, and **ate a `@media`
+  closing brace**. Redone by hand, block by block, with each comment. **A brace
+  count over the style block is the check that catches it.**
+- **A RULE THAT IS STATE-DEPENDENT LOOKS EXACTLY LIKE A DEAD ONE.** `.is-dirty`,
+  `.event-body[hidden]`, `.sg-item` and 19 others match nothing until something
+  happens. **The test is the count in the SOURCE, not the query**: a class that
+  appears only in its own rule is dead; one a JS line writes is not.
+- **AND A RENAME LEAVES ITS OWN LEFTOVERS.** `.batch-bar` became `.batch-row`
+  and three rules kept the old name, so the selects and the greyed buttons lost
+  their styling silently. The dead-CSS pass is what turned them up.
+
+### THE HEADER
+
+It was three things stacked and **the middle one was a form**. Now:
+
+1. **The pager shares a line with Expand all.** Neither writes anything, both
+   only change what you are looking at.
+2. **The batch row sits below them, directly above the list**, wearing the list
+   head's own `padding: 5px 9px`, 8px gap and 15px tick, **so the select-all
+   lines up with the column of ticks under it**. That is the whole reason it is
+   shaped that way, and it breaks if either is restyled alone.
+3. **`.pager[hidden]` HAD TO BE DECLARED.** `.pager` is `display: flex`, an
+   author rule, and `[hidden]` is only the UA sheet's `display: none`, so a
+   one-page list would have kept an empty gap open. **Tenth time.**
+
+### SEATGEEK FILLS LEAGUE, SPORT AND DESCRIPTION
+
+- **FROM `taxonomies`, NOT FROM `type`.** It is coarse to fine:
+  `[sports, baseball, mlb]` gives **MLB / Baseball**, which is the pair
+  `public.leagues` holds. A league keeps its capitals and a sport is title case,
+  because that is how `teams.league` and `events.sport` already spell them --
+  getting it wrong would not error, it would file a second spelling of a league
+  we have.
+- **A CONCERT ANSWERS `[concert]` AND GETS NEITHER**, which is right: those two
+  columns are for fixtures.
+- **THE DESCRIPTION IS ONE ASSEMBLED SENTENCE**, and it does not repeat a venue
+  the title already names -- SeatGeek answers plenty of shows as "Big Act at
+  Ball Arena", which appended gave "at Ball Arena at Ball Arena". A concert also
+  carries its genre, which is the one thing a listing says that the title does
+  not.
+- **VERIFIED AGAINST THE LIVE API**, end to end: an Orioles fixture came out
+  `sports / MLB / Baseball` with *"Baltimore Orioles at Colorado Rockies at
+  Coors Field. Listed on SeatGeek."*
+
+**AND A HAND-WRITTEN PLURAL, AGAIN.** *"The away and home team is missing"* is
+what a joined list plus a hardcoded singular gives you. The club finding is also
+three words now rather than two sentences: what the away club is FOR is a thing
+to know once, not to read on every row it fires on.
+
+## SELECT ALL MEANS ALL, AND THE ROOM STANDS ALONE (2026-08-28)
+
+### `ALL` IS EVERY MATCHING ROW, ACROSS EVERY PAGE
+
+The list pages at 50 and a filtered set is routinely hundreds, so a select-all
+that meant the fifty in front of you turned a batch of 300 into six presses with
+a pager between them -- **and did it silently**, since the count looked right
+each time.
+
+- **THE FILTERS ARE STILL THE FENCE.** A row the filters exclude can never be
+  selected and is dropped the moment it stops matching, so a batch press reaches
+  exactly what the list says it holds. What changed is that "the list" now means
+  the whole filtered set rather than the visible slice.
+- **`prunePicked` HAD TO CHANGE WITH IT.** Pruning to the page would have undone
+  the select-all on the very next render: everything off-screen would be dropped
+  before you could press anything.
+- **THE COUNT SAYS WHEN THE SELECTION REACHES PAST THE PAGE** -- "120 events
+  selected, 50 on this page" -- because a count of 120 above a list of 50 is
+  otherwise a number you cannot check.
+- **PROVED ON 120 ROWS**: All selects 120, narrowing to "alpha" drops it to 60,
+  and one PATCH carries all 60 ids including rows from page two.
+
+**AND IT CAUGHT A LIVE BREAK.** The first attempt at this aborted on an
+assertion **after** its follow-up patch had already been applied, so the page
+called `matchingIds()` and never defined it: **select-all threw**. That is the
+standing rule in this file -- *after a failed edit, verify what actually
+landed* -- and what found it was a test pressing the button.
+
+### SEATGEEK FETCHES EVERY PAGE
+
+It read one page of 50 and reported "of 1,557", which is **a silent cap wearing
+a number**: you asked for a city and a window and got whatever fitted. It pages
+until the window is exhausted, reports progress while it runs, and says how many
+listings it dropped for having no readable date. **The cost is a long list on a
+wide window**, and the window is the control that makes it shorter.
+
+### CLEAR
+
+One press in Search & filter that puts the search box and both pickers back.
+Three narrowings can be on at once and **only two of them show as a value** -- a
+search typed a while ago reads as an empty list rather than as a filter.
+
+- **`anyFilterOn()` IS ASKED IN ONE PLACE**, so the button's own greyed state
+  and what pressing it does cannot drift apart.
+- **IT DOES NOT TOUCH THE SELECTION.** Clearing a filter widens the list, so
+  nothing ticked stops matching and nothing is dropped. That is the opposite of
+  narrowing and needs no warning.
+
+### THE PAGE IS VERY NEARLY STANDALONE
+
+Asked outright. What it loads now, and why:
+
+| loaded | what for |
+|---|---|
+| `admin-shell.css` | the shared room chrome, four rooms deep |
+| `admin-site-nav.js` | the TGB / MISSION CONTROL bar and the sign-in padlock |
+| `admin-auth.js` | the admin gate itself, which is Supabase auth |
+| Google Fonts | IBM Plex Mono and Space Grotesk |
+
+**TWO SCRIPT TAGS WERE LOADED AND READ BY NOTHING**, and went in this pass:
+`admin-shell.js` binds `[data-mc-back]` and `[data-mc-home]` buttons and this
+page has neither, and `supabase-rest.js` supplied `TgbRest.fetchAll`, which the
+loader stopped using when it started paging with its own `Range` headers so the
+first fifty rows could paint immediately.
+
+**SO EVERYTHING ELSE IS IN THE ONE FILE**: the markup, the CSS, the checks, the
+importer, batch edit and the row editor. `geo.js` and `city-picker.js` went with
+the city catalogue earlier today.
+
+## THE EVENTS ROOM PULLS SEATGEEK ITSELF, AND HAS NO ROUTINE (2026-08-28)
+
+A **SEATGEEK** button in the ADD bar: a city, a date range, a list you tick, and
+an import. `MANUAL | PROMPT | SEATGEEK` is the whole of ADD now.
+
+**TWO THINGS WERE MEASURED BEFORE ANY OF IT WAS BUILT, and both decide its
+shape:**
+
+- **`api.seatgeek.com` ANSWERS `access-control-allow-origin: *`**, so the page
+  calls it directly. No Edge Function, no server, no build step, which is the
+  same thing that made the deleted ESPN importer possible.
+- **`seatgeek.com` ITSELF IS BEHIND A DATADOME BOT WALL.** A plain fetch gets
+  **403 and a JavaScript challenge**, and that is true of a browser, a script
+  and an Edge Function alike. Only a real browser passes it, which is why the
+  PROMPT route (an AI with a browser) is told to read those pages and this
+  button reads the API. **Do not "fix" this by scraping the site.**
+
+**THE CLIENT ID IS ASKED FOR ONCE AND KEPT IN `localStorage`.** It is free from
+`seatgeek.com/account/develop`, and it is **not in the repository**: this page is
+public HTML on GitHub Pages, so a key committed here is published. **A SEATGEEK
+API SECRET IS NOT NEEDED AND MUST NOT GO IN.** The id alone authenticates a read
+of the public catalogue, verified against the live API, and the secret's only
+use is a higher rate limit, which would mean Basic auth from a browser and a
+secret sitting in a page anyone can open. If it is ever wanted, it belongs in an
+Edge Function beside the Meta and Threads tokens.
+
+**VERIFIED AGAINST THE LIVE API, not a fixture**: Denver from 2026-09-01 answers
+1,557 events, `type: "mlb"` maps to `sports`, `type: "concert"` to `concert`,
+`datetime_local` gives the venue-local date and time, and a performer's
+`name` / `short_name` pair splits into geo and nickname (`"Colorado Rockies"`
+becomes `Colorado` + `Rockies`).
+
+- **`venue.capacity` IS 0 ON EVERY ROW**, so the 10,000-seat rule the routine
+  carried **cannot be applied here**. A person ticking the list is the filter.
+- **THE LIST IS THE FIRST 50 BY DATE** and says so when there are more. A year
+  of a busy city is over a thousand events; a narrower window is the answer,
+  not a longer list.
+- **`start_time` IS THE LOCAL CLOCK.** Taking the UTC one would put a late show
+  on the following day for half the country.
+- **THE WINDOW DEFAULTS TO TODAY PLUS 366 DAYS.** Today, because a past event is
+  the one thing this table can never use; **366 rather than 365** so a whole
+  year is covered whichever side of a leap day you open it on.
+
+### "ALL OBJECT KEYS MUST MATCH", AND WHAT IT REALLY MEANS
+
+**PostgREST refuses a bulk INSERT whose objects differ in their keys.** A sports
+row carried the four club fields and a concert row did not, so **one import of a
+window holding both was refused outright**, and the message names no row and no
+key. The four are always present and null now. The importer also translates that
+error, since if it ever returns it is a bug in the mapping rather than in what
+somebody ticked.
+
+### AND THERE IS NO ROUTINE ANY MORE
+
+**TGB ANCHOR EVENT BOT is retired and its door is deleted**, a day after TGB
+CONCERT BOT was folded into it. **Nothing writes `public.events` unattended.**
+
+- **WHAT REPLACED IT is this button**: the same kind of pull, on demand, for a
+  city and a window, **with a person choosing the rows**, so the table is filled
+  deliberately rather than accumulating twice a day.
+- **WHAT IS LOST**: nothing sweeps for events while you are not looking, and the
+  venue-capacity rule went with the brief.
+- Both specs (`anchor-bot.prompt.md`, `anchor-event-bot.prompt.md`) are deleted,
+  the hub's row is gone, and nothing holds `trig_01HKMKbnCyH6WLKuw7ZstY5b`.
+  **The routine is disabled and renamed "delete me"**; this tooling has no
+  delete, so it is removed at claude.ai.
+- **`tgb_pull_anchor_events` AND `tgb_pull_concert_tours` STAY, retired in
+  place.** Nothing calls either. Dropping is the one irreversible move.
+
+### CHECK NARROWS THE PAGE. THERE IS NO POPUP.
+
+**This reverses this morning's popup outright**, and the reasoning that put it
+there is what makes the reversal cheap: the findings were always drawn on the
+row, so the report was only ever a second place to read them.
+
+- **IT NARROWS THROUGH THE ISSUES FILTER THAT ALREADY EXISTS**, not a state of
+  its own. That picker reads the stored flag, which is exactly what the sweep
+  has just written, so pressing Check is running the checks and then choosing
+  "has issues" by hand. **One state, two controls**: a second `reviewOnly` would
+  be a second idea of one filter, and this page has paid for that shape before.
+- **THE WAY OUT IS ON SCREEN AND THE MESSAGE NAMES IT**: set Issues back to any.
+
+### BATCH EDIT
+
+A tick on every row, and a bar leading the panel head with **Expand all pushed
+to the far end**. Both act on the list rather than on a row, but only one of
+them WRITES: the head reads left to right as what you DO to the list, then the
+one control that merely changes how you are LOOKING at it. Same arrangement as
+the command bar above it.
+
+**THE PUSH MOVED WITH THEM.** It was the batch bar's own `margin-left: auto`;
+with the order swapped that margin would have pushed the wrong thing, so it is
+on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
+
+- **SET KIND AND SET SOURCE, THEN APPLY. AND DELETE.** Those two fields are the
+  ones a batch can be right about: a date, a venue or a title is per event.
+- **AN EMPTY CONTROL MEANS LEAVE IT ALONE, never clear it.** Clearing a column
+  across a selection is not something an empty box should do by accident.
+- **ONE REQUEST FOR THE LOT**, `id=in.(...)`, with `return=representation`, and
+  **the shortfall is named, not counted**: "12 updated" about 9 is the quiet
+  sort of lie this project has been caught by before. The delete builds its
+  removed set **from the rows returned, not the ids asked for**, which is the
+  exact bug the issues room shipped and had to fix.
+- **THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render.** A tick that
+  outlived its row would be a batch press landing on something you cannot see.
+- **A HAIRLINE STANDS BETWEEN APPLY AND DELETE.** They are not two options of
+  one kind: one writes two fields and the other destroys the rows, and flush
+  together they read as a pair you choose between. **`.bar-sep` is declared only
+  under `.command-bar--find`**, so the batch row needs a rule of its own or the
+  span draws nothing.
+- **BOTH BUTTONS CARRY THE COUNT**, `Apply to 300` and `Delete 300`. Delete had
+  only its verb, which made **the quieter of the two faces the irreversible
+  one**; the number is the last thing you read before pressing it. Each keeps
+  its bare verb when nothing is ticked, so neither changes width the moment a
+  first row is ticked and shoves the other along the row.
+- **`aria-disabled`, NEVER `disabled`**, so a press on the off state can say what
+  to do first. It would be unreachable on a touch screen otherwise.
+- **THE TICK STOPS ITS OWN CLICK**, or ticking a box would open the row under it.
+
+### A CLASS NAMED FOR ONE CONTROL MUST NOT BE WORN BY ANOTHER
+
+The SeatGeek dialog's two fieldsets borrowed `.prompt-options--scope` from the
+AI prompt's own scope box. Nothing looked wrong, and
+`querySelector('.prompt-options--scope')` **started answering for the wrong
+dialog**, because this one is earlier in the source. They are
+`.prompt-options--sg` now. Caught by a test that had been asserting the AI
+prompt's layout and suddenly could not find it.
+
+## THE PROMPT IS DELETED. THIS IS WHAT IT KNEW. (2026-08-28)
+
+**The PROMPT button, its dialog and `buildEventImportPrompt` are gone**, along
+with the four knobs, the three AI doors and the SQL editor link. What replaced
+it is the SeatGeek importer: a real feed, filtered by a person, rather than a
+batch an AI researched and a human pasted back as SQL.
+
+**WHAT IS LOST, and it is not nothing:** a prompt could find a convention, an
+expo or a festival that no ticketing feed carries, and it could be pointed at a
+kind of event rather than a city. **SeatGeek covers what SeatGeek sells.**
+
+The section below is kept because the sourcing reasoning in it is what any
+replacement would need, and because it records the day the prompt was told
+where to look.
+
+### WHAT THE PROMPT SAID ABOUT SOURCES (2026-08-28, superseded)
+
+Asked whether SeatGeek can be read without an API key. **It already is, twice**:
+TGB CONCERT BOT and TGB ANCHOR BOT both browse its public pages, and neither
+holds a key -- a cloud routine has no secret store, which is the constraint that
+shaped every write path here. The events room's own prompt is now told the same
+thing.
+
+- **THE PROMPT HAD NEVER SAID WHERE TO LOOK.** It said what an event must BE
+  and how to format it, and left FINDING one to the model's habits.
+- **AND IT ACTIVELY FORBADE THE ANSWER.** *"Verify each event against the
+  league, venue, promoter, or organiser page, NOT A LISTINGS AGGREGATOR"* --
+  which rules out SeatGeek, and most of what a browsing tool can actually open.
+- **FINDING AND VERIFYING ARE TWO STEPS, and that is what resolves it.** A
+  listings site is a good way to FIND what is on; where the venue, league or
+  promoter has published the same date, verify against that and put THAT page in
+  `url`. Where the listing is the only public statement, the listing is an honest
+  url and `source` says SeatGeek.
+- **READ THE PAGE, NOT A SUMMARY OF IT** -- ask the tool for the page SOURCE if
+  it hands back a cleaned-up article. **A summariser will happily invent a
+  plausible date**, and the date is the one field nothing here works without.
+  This is the same failure that made Grok file imageless socials candidates.
+- **PREFER A TOUR OR SEASON PAGE**: one of them gives several cities at once,
+  and a game is built per city.
+- **A SEATGEEK LISTING MAY BE RESALE** for something announced elsewhere, so it
+  is evidence that a date is scheduled, not evidence of who is promoting it.
+
+**NO API KEY, AND THE PROMPT SAYS NOT TO GO LOOKING FOR ONE.** There is no
+SeatGeek key in `.env`, none in the Edge Function secrets, and none is needed.
+
+**THE SEARCH BOX SAYS `team`, NOT `club`.** No field on this page is called a
+club: the columns are `away_team_geo` / `away_team_nickname` and the form labels
+them Away team geo / Away team nickname. `placeholder-club` and the
+`club-missing` finding keep the word, being about a club as an entity rather
+than about a field.
+
+## THE EVENTS ROOM IS OFF THE CITY CATALOGUE (2026-08-28)
+
+`events.venue_city` is a plain string now. **What is entered or scraped is what
+is stored**, and nothing on this page reads, checks against, or writes to
+`public.cities`.
+
+**FOUR TIES WENT, AND EACH IS A CAPABILITY:**
+
+| gone | what it did |
+|---|---|
+| the shared datalist on every card | offered the catalogue's cities as you typed |
+| `TgbCities.attach` on the manual form | the same, plus a **+ add-a-city** button |
+| the `unknown-city` rule | filed a finding when a venue city was not in the catalogue |
+| `ensureCitiesExist` | **added the city to `public.cities` when an event was created** |
+
+**WHAT IT COSTS, PLAINLY, because none of it is recoverable by accident:**
+
+- **NOTHING STOPS TWO SPELLINGS OF ONE TOWN.** "Inglewood, California" and
+  "Inglewood, CA" are two different cities as far as anything reading this
+  column is concerned, and no screen will tell you.
+- **NOTHING SAYS THE VENUE TOWN IS ONE THE REST OF THE SITE HAS NEVER HEARD
+  OF.** `/games/`, `/gifts/` and `/soundtracks/` all key off `cities.city`; a
+  venue city that does not match one is now silently unjoinable.
+- **`no-city` SURVIVES.** A BLANK venue city is still a fault, and still forces
+  review. Only the CATALOGUE test went.
+- **The prompt was rewritten to match.** It said the city had to match a row in
+  `public.cities`; it now describes the FORM to use -- "City, State" spelled out
+  for a US city, "City, Country" elsewhere -- and says outright that nothing
+  checks it, so the spelling given is the spelling stored.
+
+**`geo.js` AND `city-picker.js` ARE NO LONGER LOADED BY THIS PAGE**, and a test
+asserts the room renders with neither module present. **The catalogue itself is
+untouched** and every other room still uses it: this is one room leaving, not
+`public.cities` being retired.
+
+**`citychk.js` WAS RETIRED**, its whole subject being the picker this removed.
+`evcity.js` replaces it and asserts the opposite.
+
+### AND THE VIEW BOX IS ISSUES, THE BUTTON IS CHECK (2026-08-28)
+
+**THE BOX IS THE SUBJECT AND THE BUTTON IS THE VERB**, which is how the other
+tabs already read: ADD holds MANUAL and PROMPT, SEARCH & FILTER holds a box you
+type in. This was **VIEW / Issues** -- a place-you-go label over a
+thing-that-happens control -- and VIEW means DOORS in the Tape Room, the
+Socializer and the issues room, which is not what this button does.
+
+- **THE COUNT IS ON THE BUTTON, NOT THE TAB.** `Check (3)`. A heading that
+  changed as you worked would read as a control.
+- **THE CLASS IS STILL `--check`.** Identifiers do not move with visible copy,
+  and this box has now been called CHECK, VIEW and ISSUES.
+
+**`no-venue` NOW READS `Venue name missing.`** It said the venue city was enough
+to anchor a game and this was a gap in the record rather than a fault -- true,
+and a sentence of reasoning on a row that only needed naming.
+
+## SUPABASE SAID WE WERE EXHAUSTING RESOURCES. THE DATABASE IS NEARLY IDLE. (2026-08-28)
+
+Measured before changing anything, against production, over the 116 days
+`pg_stat_statements` has been collecting:
+
+| asked | answer |
+|---|---|
+| database size | **36 MB** |
+| replication slots | **none** (a stale one is the usual cause of disk pressure) |
+| connections | 11, one active |
+| total execution time | ~7,900 s, which is **68 SECONDS OF CPU A DAY** |
+
+**SO THERE IS NO EXPENSIVE-QUERY PROBLEM TO FIND**, and the advice in the
+banner does not fit this project. What the numbers do say is worth more:
+
+- **A FULLY-CACHED SCAN OF 224 PAGES TOOK 131 ms.** `explain (analyze,
+  buffers)` on the most expensive statement showed every buffer a cache HIT and
+  still 131 ms. **That is a starved CPU, not a bad plan** -- the same query is
+  0.675 ms once it stops touching the heap. **If the banner is about anything,
+  it is about the size of the compute, or a plan-level quota (egress, function
+  invocations, MAUs) that SQL cannot see from in here.**
+- **~22% OF ALL DATABASE TIME IS THE SUPABASE DASHBOARD ITSELF.** Listing
+  extensions 776 s, listing functions 416 s, `pg_timezone_names` 360 s, table
+  and column metadata 198 s -- **1,750 s of 7,900**. That is a Studio tab left
+  open polling. **Closing it is worth more than any index in this repo.**
+
+### WHAT WAS ACTUALLY CHANGED
+
+[2026082803_covering_index_for_the_city_rail.sql](mc/supabase/migrations/2026082803_covering_index_for_the_city_rail.sql), **applied**.
+
+- **`games_city_archived_idx`.** `select city, archived from games` is the city
+  rail on `/games/` and `/gifts/`: 4,730 calls, 138 ms each, **8% of this
+  project's entire database time**. It scanned 224 heap pages to return two
+  small columns from 395 rows. **Seq Scan 224 buffers 131.7 ms became Index Only
+  Scan, 2 buffers, Heap Fetches 0, 0.675 ms** -- 195x, and on a starved instance
+  the cheapest thing available is asking it to do less.
+- **A SECOND INDEX WAS BUILT, MEASURED, REFUSED BY THE PLANNER AND DROPPED.**
+  The shop's live-items read looked like the same shape at 252 s, but **690 of
+  the 829 rows match its predicate**, so the "narrow" partial index covered 83%
+  of the table and a 52-page sequential scan beat it. Postgres was right and the
+  index was dropped in the same sitting: **an index nothing uses is written on
+  every insert forever in exchange for nothing.** Re-measure before re-adding
+  it; the answer changes if live items ever become a minority.
+
+**`guides` AVERAGES 68 kB A ROW**, 2.8 MB across 41 rows, because the portraits
+are base64 in the column. Nothing was done about it here, but any `select=*` on
+that table ships the lot, and it is the biggest single payload in this database.
+
+## THE EVENT ROUTINES ARE ONE, AND THE TOUR BUILDER IS CALLED WHAT IT IS (2026-08-28)
+
+Three routines had event-shaped names and only two filed events.
+
+- **TGB ANCHOR EVENTS IS `NFL ROUTES`.** Its name said anchor events; its prompt
+  is, and always was, the NFL Tour Builder, which designs a six-stop walking
+  route and commits SQL. **A name-only change** -- `name` is a top-level field,
+  so the prompt, the `claude-sonnet-5` pin, the `11 8,20` cron and the git source
+  all survived, and the reply was read back to confirm it.
+- **TGB ANCHOR BOT + TGB CONCERT BOT = TGB ANCHOR EVENT BOT.** They filed into
+  one table by two doorways on two schedules, and the second was the narrower:
+  concerts only, ten a call, through a function whose payload keys are a legacy
+  contract rather than the column names. The merged spec is
+  [anchor-event-bot.prompt.md](mc/_dev/prompt-tools/anchor-event-bot.prompt.md).
+- **IT KEPT TGB ANCHOR BOT'S TRIGGER ID**, `trig_01HKMKbnCyH6WLKuw7ZstY5b`, and
+  that is the point rather than a convenience: **the new ANCHOR BOT button in the
+  events room holds that id in an `href`, and a stale one 404s silently.** This
+  project lost `trig_01Q5uCitt...` to a delete on 2026-08-20 and had to repoint
+  four places.
+- **CONCERT BOT IS DISABLED, NOT DELETED**, and renamed so the routine list says
+  why. A trigger id does not survive a delete; disabling keeps the id, the
+  prompt and the model pin, and is one flag from running again.
+- **`tgb_pull_concert_tours` IS NOW CALLED BY NOTHING.** It is left in the
+  database, retired in place, and the merged spec says in as many words not to
+  call it. The surviving doorway takes every kind and **its payload keys are the
+  column names**, which is why it was the one to keep.
+- **THE NINE EM DASHES IN THE OLD SPEC WERE FIXED ON THE WAY THROUGH**, each
+  replaced by the punctuation its own sentence wanted rather than by a blanket
+  swap. The rule is not decoration: a prompt littered with them teaches the model
+  to write them back, and this file had been quietly breaking it since it was
+  written.
+
+### THE THIRD ADD BUTTON
+
+`MANUAL | PROMPT | ANCHOR BOT` in the events room.
+
+- **A DOOR, NOT A CONTROL.** Firing a routine is a POST to the claude.ai trigger
+  API with an OAuth bearer, and this page is public HTML on GitHub Pages: **a
+  token in it is a published token.** It opens the routine where Run is, and the
+  tooltip says so rather than leaving somebody pressing it twice.
+- **A REAL `<a>`**, so middle-click and ctrl-click work and it survives this
+  page's JavaScript failing.
+
+## THE EVENTS ROOM HAS NO STATUS, AND TWO FILTERS (2026-08-28)
+
+### NO STATUS AND NO REVIEW COLUMN
+
+`issues` / `issues_detail` replaced the only job `status = 'review'` was doing.
+What was left was one column carrying two unrelated ideas, which this file has
+recorded as a cost since the sweep started writing it.
+
+Gone with it: the Status field, `STATUS_VALUES`, the sweep's second write, the
+ESPN importer's status mapping, and **five rules that existed only to check a
+status against something** -- `bad-status`, `postponed`, `score-without-final`,
+`final-without-score` and `past-but-scheduled`.
+
+- **`past-but-scheduled` IS THE ONE WORTH REGRETTING.** It was the staleness
+  signal, and nothing sweeps this table. Without a status there is nothing to BE
+  stale: a past event is a past event, which the date says.
+- **THE COLUMN IS RETIRED IN PLACE, not dropped.**
+- **`isInReview` IS NOW ONLY WHAT THE RULES SAY.** There is no hand-flagged row,
+  so a row is in review while the rules object and stops the moment they do not.
+
+### SEARCH AND FILTER ARE ONE BOX, ON THEIR OWN ROW
+
+The first row is what CHANGES the table (Add, View); the second only changes
+what you are LOOKING at, and it sits directly above the list it narrows.
+
+- **ONE FLEXIBLE BOX PER ROW**, or the free space splits between two and neither
+  end stays pinned. `.bar-row .command-bar--check` has to out-specify the
+  `margin: 0` reset at (0,2,0) to stay pinned right.
+
+### THE THREE CHECKBOXES ARE GONE, AND TWO PICKERS REPLACE THEM
+
+**A FILTER EARNS ITS PLACE ONLY BY REACHING SOMETHING YOU CANNOT TYPE.** The
+search box already matches kind, league, club, venue, city and source, so a
+picker for any of those is a second way to do what typing does. **A date RANGE
+and a stored FLAG are not text**, which is the whole test.
+
+| picker | options |
+|---|---|
+| **When** | any date, upcoming, next 30 days, next 90 days, past |
+| **Issues** | any, has issues, clean |
+
+- **TWO PICKERS AND NOT ONE, because the axes are independent.** "Upcoming AND
+  has issues" is a real question and a single select cannot express it.
+- **WHEN IS MEASURED AGAINST `end_date`** where there is one, so a festival
+  running across today is upcoming on its first morning rather than past.
+- **A ROW WITH NO DATE AT ALL IS SHOWN UNDER EVERY WINDOW.** It is exactly the
+  row somebody has to fix, and a date filter that hid it would hide the fault
+  with it.
+- **`isoPlusDays` IS LOCAL, because `todayIso()` is.** Built from UTC the window
+  would be a day out for half of every day.
+- **ISSUES READS THE STORED FLAG, not a recomputation.** It is what the last
+  audit said, which is what a reader outside this page sees too.
+
+### AND THERE IS NO ARCHIVED / LIVE SPLIT
+
+Every event is on the list, removed or not. **A removed row is told apart by its
+own button, which reads Restore instead of Delete** -- and only once the row is
+opened, which is the cost of this: on a closed row nothing distinguishes one.
+
+## AN EVENT ROW CARRIES THE AUDIT'S ANSWER (2026-08-28)
+
+`public.events.issues`, `'NO'` by default, `'YES'` on a row the checks object
+to. [2026082801_events_issues_column.sql](mc/supabase/migrations/2026082801_events_issues_column.sql), **applied**.
+
+- **NOTHING WRITES `public.issues`, AND THAT IS THE POINT OF THE COLUMN.** The
+  two are different shapes of one idea and the difference is worth stating,
+  because the obvious tidy-up later is to merge them. `public.issues` holds one
+  row per FINDING, in words, filed by a routine that ran hours ago and is not
+  here to be asked. `events.issues` is one flag per EVENT, computed by rules
+  that live in the page and can be re-run in front of you. **The findings
+  themselves are never stored** -- they are recomputed on every render and drawn
+  on the row -- so a row in `public.issues` would be a copy that goes stale the
+  moment somebody fixes the date.
+- **IT IS NOT `status`, AND THE TWO BEHAVE DIFFERENTLY ON PURPOSE.**
+  `status = 'review'` is a HUMAN'S flag: the sweep only ever sets it and never
+  clears it, because the check cannot know whether the fault was dealt with or
+  merely made to stop matching. **`issues` is the MACHINE'S answer and moves
+  both ways** -- fix a date, re-run, and it goes back to NO. Keeping them apart
+  is what lets a row be `review` with `issues = NO`: somebody flagged it by hand
+  and the rules have nothing to say about it.
+- **WRITTEN ONLY WHERE IT WOULD CHANGE**, so a second press writes nothing, and
+  **read back on every PATCH**: PostgREST answers 200 with an empty array when
+  RLS refuses, and a flag nobody checked is worse than no flag.
+- **THE FLAG IS WRITTEN BEFORE THE REVIEW SWEEP**, so a run refused partway
+  leaves the machine's own answer correct on the rows it reached.
+- **IT IS NOT DRAWN ON THE ROW.** The row already carries its findings as
+  annotation lines, computed live, so a YES badge beside them would be the same
+  fact twice and would go stale the moment somebody fixed something without
+  re-running. **What it is FOR is anything reading the table from outside this
+  page.** It shows in the run's own message instead, or a column would be
+  maintained that nobody ever sees change.
+- **`'YES'` / `'NO'` WITH A CHECK**, matching what `public.games` already does
+  with `featured` and `archived`, but without the looseness that convention
+  usually brings: `'true'`, `''` and `'Y'` are all refused.
+- **NOT BACKFILLED.** Every row starts at the default, and `'NO'` has to mean
+  "the checks found nothing" rather than "the checks have not run" -- which only
+  a run can establish.
+
+### AND WHAT IT FOUND, IN WORDS (2026-08-28)
+
+`public.events.issues_detail`, [2026082802](mc/supabase/migrations/2026082802_events_issues_detail.sql), **applied**. One finding per line, in
+the same sentences the row draws on screen.
+
+- **THE FLAG ALONE ANSWERED NOTHING.** `issues = 'YES'` is readable by anything
+  and says only THAT something is wrong. The findings live in the page and are
+  recomputed on every render, so a person reading this table in the Supabase
+  editor could see a row had been objected to and had no way to learn why but to
+  open the room and press the button again.
+- **NON-EMPTY IF AND ONLY IF `issues` IS 'YES', AND A CHECK CONSTRAINT ENFORCES
+  IT.** A flag with no words, or words with no flag, is the one state a reader
+  could not interpret -- and it is exactly what a half-applied write leaves
+  behind. **They travel in one PATCH**, so sending them separately would fail on
+  whichever went first.
+- **THE FORCING REASONS ONLY, NEVER THE MUTED NOTES.** `no-time` and `multi-day`
+  report without accusing the row, so including them would put text on rows
+  whose flag says NO -- which the constraint now refuses outright.
+- **THE DETAIL IS PART OF THE COMPARISON, NOT JUST THE FLAG.** A row that is YES
+  before and after but for a DIFFERENT fault would be skipped by a flag-only
+  check, and its words would go on describing something that is no longer there.
+  Asserted with a row built to do exactly that.
+- **IT IS A SNAPSHOT AND THE COMMENT SAYS SO.** Fix a date and the row on screen
+  stops saying it immediately; the column keeps saying it until the sweep runs
+  again, when both are rewritten together.
+
+## THE THREE AUDIT FINDINGS, FIXED, AND THE NFL SHELF FILLED (2026-08-27)
+
+[2026082708_audit_clock_and_spotify_sweep.sql](mc/supabase/migrations/2026082708_audit_clock_and_spotify_sweep.sql), **applied**.
+
+### 1. THE AUDIT CLOCK IS WOUND AGAIN, BY ITS OWN PAYLOAD KEY
+
+`tgb_report_soundtrack_issues` takes `{"audited": [...], "issues": [...]}` and
+stamps `last_audit_at` on every tape named in the first.
+
+- **IT CANNOT BE INFERRED FROM THE FINDINGS, and that is the whole design.** A
+  clean tape files nothing, so stamping only the tapes that produced a finding
+  would leave a tape in good order looking permanently unaudited and send it to
+  the front of the queue forever -- **the same failure this clock exists to
+  prevent, arrived at from the other side.**
+- **THE `tgb-agent-context` BLOCK HAD DESCRIBED THIS KEY ALL ALONG** and it was
+  never implemented. It is now, and the reply carries `audited_rows_stamped` so
+  a run can see the clock move.
+- Proved by a call that filed nothing: `{"audited":["denver"],"issues":[]}` came
+  back `audited_rows_stamped: 14`.
+
+### 2. THE 198 TRACKS WITH NO ID ARE ALL FILED
+
+`tgb_sweep_missing_spotify_ids(limit)` walks the catalogue oldest-audited first
+and files a `spotify` finding at `warn` for each. **All 198 are on file**, so
+`/mc/issues.html` has a real queue for the first time.
+
+- **IT IS NOT A ONE-OFF SCRIPT AND SHOULD RUN EVERY BOT RUN.** New rows arrive
+  without ids from the Tape Room's own hand-add, and the audit only ever reaches
+  the five tapes a run looks at.
+- **IDEMPOTENT BY THE AUDIT'S OWN FINGERPRINT**, so it never files a second copy
+  of something already open, and the cap counts NEW findings rather than being
+  spent re-checking.
+
+### 3. THE `tgb-agent-context` BLOCK PARSES, AND IT WAS NEVER THE QUOTES
+
+This file has blamed an unescaped quote around *"song 177"* twice. That was real
+and it was not the reason. **One entry in `auditPath` was a bare string with no
+key at all** -- a value where every sibling is a pair -- which is invalid
+whatever the quotes do. It is `writeNamesNotIds` now, the four prose quotes are
+single, and `JSON.parse` returns 12 top-level keys.
+
+- **THREE REPAIR SCRIPTS FAILED BEFORE ONE WORKED**, and each failure is a
+  lesson: a left-to-right scanner cannot tell a closing quote from a prose one
+  inside a value that quotes two words; a parser-guided walk-back destroys the
+  structural quote at the END of a key, because that is what the parser objects
+  to; and a neighbour-based rule must refuse a quote that is **already escaped**,
+  or `\"` followed by a space becomes `\'`, which is not a valid escape at all.
+  **Each script refused to write anything that still would not parse**, which is
+  the only reason none of them left the block worse.
+
+### THE NFL SHELF IS LIVE, AND TWO NUMBERS COME WITH IT
+
+**487 tracks un-shelved across 29 NFL cities and 34 tapes.** The public page
+goes from **9 tapes to 39** and from 119 live tracks to **605**.
+
+- **`archived_with_tape` WAS CLEARED WITH THEM.** That flag means *this track
+  was shelved BY its tape* and is what a later tape-wide restore reads; left set
+  on a row that is now live, the next restore would think it still owned it.
+- **148 OF THE 605 HAVE NO SPOTIFY ID, AND THE DECK SKIPS THEM.** They are drawn
+  in the tracklist and cannot be played, which is the documented fallback and is
+  why each is now a finding.
+- **SIX TAPES ARE ENTIRELY UNPLAYABLE**, every track on them lacking an id:
+  Charlotte *Keeps Pounding* (29), New Orleans *Who Dat* (27), Tampa *Fire the
+  Cannons* (26), Atlanta *Rise Up Rhythms* (24), New Orleans *Brass* (15) and
+  *Trad Jazz* (15). **A visitor opening one gets a cassette that plays nothing.**
+  Re-shelving them is one statement if that is wanted:
+
+      update public.soundtrack set archived = true
+       where (city_slug, tape) in (
+         select city_slug, tape from public.soundtrack where not archived
+          group by city_slug, tape
+         having count(*) filter (where spotify_id is not null) = 0);
+
 ## SOUNDTRACKS — ONE TABLE, ONE PROMPT (2026-08-25)
 
 **`public.soundtrack` is one row per TRACK, and the tape is `(city_slug, tape)`.**
@@ -2728,11 +4131,11 @@ Set 2026-08-15, and it has been resettled twice since by folding routines togeth
 |---|---|---|
 | TGB GIFT SHOP BOT | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20 * * *` |
 | TGB SOUNDTRACK BOT | `trig_014sqaUyU7557svq9mGA1E4a` | **none, run by hand** |
-| TGB ANCHOR EVENTS | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
+| **NFL ROUTES** (was TGB ANCHOR EVENTS) | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20 * * *` |
 | TGB SOCIALIZER BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20 * * *` |
 | TGB PATH BOT | `trig_01HqDJy6BzpU7n23VXv8D1gW` | `17 8,20 * * *` |
-| TGB CONCERT BOT | `trig_01RY2ktLpjXwNUo4mYTncPBe` | `0 17 * * *` (noon Central, once daily) |
-| TGB ANCHOR BOT | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
+| ~~TGB CONCERT BOT~~ | `trig_01RY2ktLpjXwNUo4mYTncPBe` | **folded into TGB ANCHOR EVENT BOT and retired 2026-08-28. Its spec file is deleted and nothing in this repo names it; the trigger itself is disabled and can be deleted at claude.ai.** |
+| **TGB ANCHOR EVENT BOT** | `trig_01HKMKbnCyH6WLKuw7ZstY5b` | `8 8,20 * * *` |
 
 **THE `:8` SLOT IS TGB ANCHOR BOT'S AS OF 2026-08-25.** It was TGB WAYPOINT BOT's and sat empty after that routine was retired; the stagger exists only so cloud sessions do not provision at the same instant, so a freed minute is simply available. **There is no free slot now.**
 
@@ -3838,27 +5241,33 @@ Either can replace the other; pressing the button recomputes from geometry whene
 - **All six stops must be distinct places**: not one building's two entrances, not "Union Station" and "the Union Station clock", and the last stop is *near* the first, never the same as it.
 - **Existing waypoints are a DO-NOT-REPEAT LIST and nothing else** (2026-08-07). They were briefly sent as *anchors* to path around; that was withdrawn because the catalog was accumulated from sources of uneven quality and is not trusted stop-by-stop. The prompt now says so explicitly — if the best six stops in a city sit nowhere near anything we hold, that is the correct answer. `existingWaypointAnchors` still supplies the addresses, which the shared `existingWaypointSample` can't — it returns "Name — City", which is right for a do-not-duplicate list and useless for judging distance.
 
-### TGB CONCERT BOT — the routine whose prompt is a file it re-reads every run (2026-08-24)
+### TGB CONCERT BOT IS RETIRED (2026-08-28)
 
-`trig_01RY2ktLpjXwNUo4mYTncPBe`, cron `0 17 * * *` UTC — **noon Central, once daily**, and off the shared `8,20` schedule the other five share because it was asked for at noon. Winter drifts to 11am like everything else here; nobody adjusts.
+Folded into **TGB ANCHOR EVENT BOT**, which now covers concerts: the SeatGeek
+sourcing, the spread across cities and acts, and the lead-time rule are all in
+[anchor-event-bot.prompt.md](mc/_dev/prompt-tools/anchor-event-bot.prompt.md). **`concert-bot.prompt.md` is deleted**, and
+nothing in this repo names the routine any more -- the hub's row and the
+PROMPTS.md entry went with it, because a stale trigger id in an `href` 404s
+silently.
 
-**THE STORED PROMPT IS FOUR PARAGRAPHS AND NONE OF THEM IS THE BRIEF.** It says: open [mc/_dev/prompt-tools/concert-bot.prompt.md](mc/_dev/prompt-tools/concert-bot.prompt.md) and follow it. **Edit that file and the next run behaves differently**, with nothing to redeploy and no second copy to keep in step — which is the thing every other routine here pays for by hand. TGB ANCHOR EVENTS already worked this way against a JS function; this is the same idea with the spec written as prose.
-
-- **IT STOPS RATHER THAN IMPROVISES.** If the file is missing, or does not open with the heading `# TGB CONCERT BOT`, the run reports the path it looked at and files nothing. **A routine that cannot find its spec and carries on writes plausible rows nobody asked for**, and nothing downstream can tell them from real ones. The heading check is deliberate: a file that exists but is something else is the case a bare existence check would miss.
-- **MOVING OR RENAMING THAT FILE BREAKS THE ROUTINE SILENTLY-ish**, in that nothing errors until noon. It is named in the stored prompt, in `PROMPTS.md` and here. **Change all three in the same commit.**
-- **THE STORED PROMPT ADDS EXACTLY TWO THINGS** the file does not: commit nothing, and no em dashes. Everything else would be a second copy of the brief, which is what this arrangement exists to avoid.
-
-**IT WRITES THROUGH `tgb_pull_concert_tours`** ([2026082401](mc/supabase/migrations/2026082401_concert_tour_pull_rpc.sql), **applied 2026-08-24**), the sixth SECURITY DEFINER pull and built to the shape of the other five. `anchor_events` writes are `authenticated` only and a cloud routine has no secret store; without the doorway it could read the table and not write it, which is the "prompt whose output is a file" pattern this repo has deleted four times.
-- **THE CONSTANTS ARE THE SECURITY, as always**: `kind = 'concert'`, `status = 'scheduled'`, `source = 'SeatGeek'`, `end_date = event_date`, at most 10 a call. **Never turn one into a parameter.**
-- **IT REFUSES A CITY NOT IN `public.cities`, and that is a decision rather than an oversight.** The catalogue is the one city list the whole site reads, and a tour date in a town nothing else knows about cannot be shopped, soundtracked or built on. The reply names the town so the run can report it and a human can add it on the Cities page; the next run then picks the date up.
-- **IT REFUSES A DATE ALREADY PAST**, which is the likeliest way a scrape goes wrong: an archive page reads exactly like a listings page.
-- **IT REPORTS PER ROW AND RAISES ON NOTHING** — `inserted` / `duplicate` / `invalid` / `unknown_city`. One bad date in ten must not throw away the nine good ones, which is what `tgb_pull_socials_candidates` learned when a row missing a blurb read as a duplicate story.
-
-**PROVED BY CALLS THAT MADE IT DO ITS JOB, not by an empty payload.** An empty call answers `{"inserted": 0}` and looks healthy while the body is broken; this project has been caught by exactly that twice. Verified live: a real row inserted and came back `concert / scheduled / SeatGeek / end_date = event_date`; the same row a second time came back `duplicate` and wrote nothing; an unknown city and a past date were both refused by name; eleven rows were refused on the cap.
-
-**SEATGEEK IS READ AS PUBLIC PAGES, NOT THROUGH AN API.** A cloud routine has no secret store, so there is nowhere to put a client id — the same constraint that shaped every write path here. The prompt tells the run to ask its browsing tool for page SOURCE when it gets a cleaned-up summary back, which is the failure that made Grok file imageless socials candidates.
-
-**EMAIL IS ON.** The run's only output is rows and a summary, and the summary carries the one thing needing a human: the cities it had to drop. Without a channel that report goes nowhere.
+- **CHECKED BEFORE DELETING THE SPEC, rather than assumed.** Every rule the
+  concert brief carried is in the anchor brief except one, and **that one was
+  deliberately not imported**: *"the fanbase city, never the venue suburb"*
+  contradicts what `venue_city` means here. The anchor spec's own definition is
+  the VENUE city -- the Chargers play in Inglewood, the Giants in East
+  Rutherford -- and importing the concert rule would have made the two halves of
+  one file disagree.
+- **THE ROUTINE ITSELF IS DISABLED, NOT DELETED, AND ONLY BECAUSE THIS TOOLING
+  CANNOT DELETE ONE.** `RemoteTrigger` has list, get, create, update and run,
+  and no delete: a routine is removed at claude.ai/code/routines. **It is safe
+  to delete whenever** -- nothing holds `trig_01RY2ktLpjXwNUo4mYTncPBe`.
+- **AND IT IS ALREADY INERT.** Its stored prompt says to open
+  `concert-bot.prompt.md` and **STOP if it is not there**, filing nothing. That
+  guard was written for a spec that had moved; deleting the spec is what makes
+  an accidental fire harmless.
+- **`tgb_pull_concert_tours` STAYS IN THE DATABASE, retired in place**, called
+  by nothing. Dropping is the one irreversible move; the anchor spec already
+  says in as many words not to call it.
 
 ### TGB ANCHOR BOT — fills `public.events` from anywhere it can (2026-08-25)
 
@@ -4334,9 +5743,343 @@ its verbs without the column following.
   - **`away_team_tgbid` / `home_team_tgbid` are now optional**, worth filling only for the builder's team auto-fill and the fandom color palette off the away club. They are not what makes a sports event usable.
 - **`neutral_site` is a stored flag, never inferred from the city columns.** True means neither club is at home — the international series, a Super Bowl, a bowl game, a relocated game — so the host city has no home team in it and both fanbases travel. It is expected to spawn **two** games eventually, one per travelling fanbase; nothing reads it that way yet. **Don't replace it with a comparison of `home_locale` to `city`**: an ordinary home game is routinely played in a differently-named suburb (Bills → Orchard Park, Giants → East Rutherford, Cowboys → Arlington), so that comparison would call a third of the league neutral. An international game keeps its league-assigned nominal home club in `home_locale`/`home_mascot` *and* carries the flag — both are true at once.
 - **`start_time` is venue-local**, per the column's own comment — the time a player standing outside the stadium sees. Leagues publish in Eastern, so a seed has to convert; the NFL Week 1 seed ([2026080102](mc/supabase/migrations/2026080102_nfl_2026_week1_anchor_events.sql), 16 games) keeps the ET broadcast time in `description` so the two stay reconcilable, and its Melbourne game deliberately carries a date one day later than the US listing.
-- `id` is a **client-supplied text primary key** (`NFL-2026-W1-CAR-CHI`), not generated. The events page only lets you type it on a row that has never been saved — changing it later would orphan every game pointing at it.
+- `id` is a **client-supplied text primary key** (`NFL-2026-09-07-CHI-CAR`), not generated by the database. **Since 2026-08-28 the events room COMPOSES it on ADD and there is no box to type it in**: `LEAGUE-DATE-AWAY-HOME` for a fixture, `KIND-DATE-ACT-CITY` otherwise, upper case, every part taken from a field on the form. A collision is suffixed `-2` rather than refused, since two events of one kind in one city on one day is ordinary. **It is still permanent** -- changing it later would orphan every game pointing at it -- which is the whole argument for not asking a person in a hurry to invent one. The notice after adding names it, that being the one moment it can be questioned. The bots and the pasted SQL still supply their own.
 
-### DELETE MEANS ARCHIVE, AND ARCHIVED STILL COUNTS (2026-08-25)
+### THE OPENED ROW IS THE MANUAL FORM (2026-08-28)
+
+One column, one field per line, label above the box. **The five coloured
+folder-tab bands are gone**, and with them `.event-band`, `.event-band-head`,
+every `data-band` attribute, the per-band grids for Who and What, and the five
+`--band-*-rgb` tokens.
+
+- **IT WAS THREE FRAMES DEEP BEFORE YOU REACHED A VALUE**: a bordered panel,
+  inside a bordered card, inside a bordered list. Five of them per row.
+- **EDITING AN EVENT AND CREATING ONE ARE THE SAME JOB AND NOW LOOK IT.** The
+  card and the manual form read down the same sequence in the same shape.
+- **WHAT THE COLOURS BOUGHT, and what losing them costs.** You could aim at the
+  amber band for the dates without reading anything, which was real. What they
+  cost was a card that read as five objects, and a hue to learn per group. The
+  whole measured argument for those five hues is in the section below; **it is
+  history now, not a description of the page.**
+- **`GROUP_ORDER` IS NAMED ONCE and `MANUAL_GROUP_ORDER` is it.** Two copies of
+  what/when/where/who/why would have drifted the first time either was
+  reordered. `FIELD_GROUPS` survives as that order plus `sportsOnly`, which is
+  still the only statement of which fields belong to a fixture.
+- **THE CLUB FIELDS FOLD ONE BY ONE**, the shape the manual form already used,
+  **and only when the group is empty** -- a concert carrying a mascot still
+  shows them, or there would be data on the row nothing on screen could reach.
+- **THE SPAN CLASSES ARE NEUTRALISED, NOT REMOVED.** `grid-column: span 2` in a
+  one-column grid **forces an implicit second column** and everything else
+  squeezes into the first. `FIELD_META` still sets them and other surfaces read
+  them, so they are re-pointed at `1 / -1` here rather than deleted.
+- **IT IS NOT A COPY OF `.manual-form`'s SELECTOR.** Sharing it would tie a list
+  of 4,000 rows to a dialog's metrics, and the two differ where they should: a
+  row inside a card is tighter than a form on its own.
+
+**PROVED BY OPENING ROWS**: no fieldset and no legend in the body, one
+`.event-fields` block, a computed `1fr`, the five wide fields resolving to
+`1 / -1`, the order, ten club fields folding on a concert and none on a
+fixture, and a filled club field never folding. 25 assertions; **14 fail against
+the previous commit.**
+
+### THE ESPN SCHEDULE IMPORTER IS DELETED (2026-08-28)
+
+The prompt dialog held two panes behind a **League schedule / AI prompt** strip.
+The strip and the schedule are gone; the dialog is the prompt box.
+
+**WHAT WENT WITH IT, and it is worth knowing before anybody rebuilds it:**
+
+- **`neutral_site` WAS PUBLISHED PER GAME by the feed.** An international game
+  arrived flagged and an ordinary home game in a suburb stadium arrived false --
+  the single strongest reason to prefer it over a prompt for the big four, and
+  the distinction the prompt now spends its longest passage explaining.
+- **IT IMPORTED WITHOUT A COPY-PASTE**, straight into the table, chunked, with a
+  per-row error report and a retry that named the row the database refused.
+- **IT READ THE FEED IN THE BROWSER.** No key, no server, no build step, because
+  `site.api.espn.com` sends `Access-Control-Allow-Origin: *`.
+- The venue-local timezone maps (`STATE_TZ`, `COUNTRY_TZ`, `COUNTRY_ALIAS`), the
+  UTC-vs-local date re-filter, and the id shapes went too.
+
+**REBUILD IT AS A NEW THING IF IT IS WANTED, not by reviving this**, and read
+the SCHEDULE section further down first -- the reasoning in it is still true,
+it just describes something that is no longer there.
+
+**THE THREE PAGES IT ABSORBED ARE STILL DELETED.** `mc/get_games.html` and
+`mc/mlb.html` went in 2026-08-07 and nothing brings them back; what replaced
+them is now the prompt alone.
+
+### SCOPE IS MULTI-SELECT, AND THE CITY LIST LEFT THE PROMPT (2026-08-28)
+
+- **THE KIND PICKER TAKES SEVERAL.** Concerts *and* festivals is an ordinary
+  thing to want and the single picker made it two runs. `promptScopeLine` reads
+  `selectedOptions`, not `.value` -- **`select.value` is the first selected
+  option**, so reading it on a multiple select silently throws the rest away,
+  which looks exactly like the control not working.
+- **NOTHING SELECTED MEANS ANY KIND**, which is why the `Any kind` option went:
+  on a multiple select it would be a value meaning the same as selecting
+  nothing, and two ways to say one thing is how they end up disagreeing.
+  **NOTHING ON SCREEN SAYS SO**, and that is the accepted cost: a hint beside
+  the box read as clutter on a control most people will leave alone. Where it
+  shows is the prompt -- select nothing and no scope line is written at all.
+- **EVERY KNOB IS ABOVE THE PROMPT NOW**, in the order you answer them: how
+  many, what kind and over what window, then anything else to narrow to.
+  **THAT RETIRES THE "options sit under the text" RULE OUTRIGHT**, rather than
+  one control at a time as the first two moves did. What replaced it: a knob
+  here is a QUESTION you answer before you read, and the prompt is what they
+  produce.
+- **ALL THREE ARE THE SAME OBJECT**, a `<fieldset>` with a real `<legend>`, so
+  the browser cuts each box's top border for its word. Focus and scope were both
+  a `<div>` with a `<span>` inside -- a label sitting INSIDE the border beside
+  one that cut through.
+- **`.prompt-knobs` WENT WITH FOCUS.** It was the last thing in that wrapper,
+  and a wrapper whose only job was a rule above the remaining knobs would have
+  drawn a rule above nothing.
+- **IT IS A REAL `<fieldset><legend>`**, so the browser cuts the box's top
+  border for the word. It was a `<div>` with a `<span>` inside, which put the
+  label INSIDE the border while the count beside it cut through -- two boxes
+  doing one job two ways, a few pixels apart.
+- **`from` OPENS ON TODAY.** An empty window wrote no bound at all, so the
+  prompt was free to come back with events that have already happened -- the one
+  thing this table can never use, since our game is played the day BEFORE its
+  anchor and there is no day before a date that has gone.
+  - **`todayIso()`, WHICH IS LOCAL.** Built from UTC it would be a day out for
+    half of every day, and "on or after today" is a claim about the day the
+    person at the keyboard is having.
+  - **ONLY WHEN IT IS BLANK.** A window somebody typed is theirs, and reseeding
+    it on every open would throw it away on the second visit -- the same rule
+    the prompt text itself keeps. Clearing the box still means no lower bound.
+- **THE 1,451-LINE CITY LIST IS OUT OF THE PROMPT.** It was appended verbatim to
+  every copy so `venue_city` would land on a real row. The instruction now
+  describes the FORM instead -- "City, State" spelled out for a US city, "City,
+  Country" elsewhere -- and the room's own `unknown-city` finding catches what
+  gets through. **The prompt is 9.5KB instead of ~40KB**, which is the
+  difference between a prompt a model reads and a prompt it skims.
+
+### THE AI PROMPT DIALOG IS THE SOCIALIZER'S, FOOT AND ALL (2026-08-28)
+
+It had a blurb of my own writing and a lone **Copy** button; it now carries the
+four sentences and the foot that room has run since August. **This is the fifth
+room to wear that chrome: when either changes, change both.**
+
+- **THE FOUR SENTENCES ARE PORTED, NOT REWRITTEN.** Edit and copy the prompt
+  into your AI; paste the results into the website's database (Supabase); the
+  two common failures; `adminhelp@thegamebureau.com`. **Both common failures
+  happen after you leave the page**, so somebody meeting one has nothing on
+  screen connecting it back -- which is the whole reason the sentences exist.
+- **IT NAMES NO BUTTON.** A draft named *Insert results*, which did not exist in
+  this room at the time; copy naming a control that is not on screen is worse
+  than saying nothing, because somebody goes looking for it. The sentences name
+  the ACTS instead, so they survive a change of control.
+- **THE FOOT IS `COPY PROMPT TO CLIPBOARD & OPEN` + ChatGPT / Grok / Claude,
+  then INSERT RESULTS.** Every one of the three copies before it opens, so the
+  lone Copy was the same act minus the useful half. **What is lost is copying
+  WITHOUT opening anything**, which the textarea still allows by hand.
+  - **ANCHORS, AND THE COPY IS NOT AWAITED.** The new tab has to come from the
+    browser's own handling of a click on a link, so there is no `preventDefault`
+    and nothing awaited before the navigation -- awaiting pushes it into a later
+    task, which is exactly what a popup blocker refuses.
+  - **ONE LISTENER ON THE ROW**, not three on the anchors, so a fourth AI is one
+    line of markup.
+  - **They open BLANK**: none of these takes a prompt this long through a query
+    string reliably, and a half-truncated pre-fill is worse than an empty box
+    with the whole thing on the clipboard.
+  - **`/sql/new?skip=true`, NOT `/sql/`.** `new` opens a blank query rather than
+    whatever was last run in this project, and `skip=true` stops it asking.
+    Pasting a script over somebody's half-written query is the accident that
+    avoids.
+
+**THE COUNT MOVED ABOVE THE PROMPT AND ASKS A QUESTION.** `HOW MANY ANCHOR
+EVENTS?`, between the instructions and the text.
+
+- **IT REVERSES THE "options sit under the text" RULE FOR ONE CONTROL**, and
+  that is recorded rather than done quietly. The count is the one knob that is a
+  QUESTION rather than an adjustment: you know how many you want before you have
+  read a word, and the number is written into the prompt's first line. Scope and
+  focus are refinements to something you have read, so they stay below.
+
+**THE DIALOG IS `Add Anchor Events with AI`**, plural: the count radio goes to
+500, so the singular understated it by two orders of magnitude. **The MANUAL
+dialog is the one that adds one.**
+
+### A FINDING IS ABOUT THE EVENT, NOT ABOUT A GAME (2026-08-28)
+
+Five of them had drifted into describing the product: *"A game takes its copy
+and its palette from the away club"*, *"the city is what a game is built
+around"*, *"a game is played the day before its anchor event"*. **Read on a row
+in this table that is an objection to the wrong object entirely** -- the row is
+an ANCHOR EVENT, and a game is a separate thing somebody buys.
+
+Each one now says what is missing from THIS EVENT first, and names a game only
+as the thing that would be built on it:
+
+| rule | now reads |
+|---|---|
+| `club-missing` | ...so this event does not say who is playing. The away club is also the fandom **any game built on it** would be pitched at. |
+| `no-date` | No start date, so **this event cannot anchor anything**: our game is played the day before its anchor event. |
+| `no-city` | No venue city, so **nothing can place this event**. The city is also what any game anchored to it would be set in. |
+| `no-venue` | ...a **gap in the record** rather than a fault. |
+| `multi-day` | Runs 4 days, so it is **4 anchors rather than one**. |
+
+**AND THE PROMPT HAD THE DAY BACKWARDS.** It told the model *"A game is played
+in the host city ON THE DAY OF the event"*, which is the opposite of the
+product: the game is played the **day before**, while visiting fans are already
+in town with an afternoon free. A prompt that states it backwards teaches a
+model to pick events for the wrong reason. It also says why now, since the
+reason is what makes the rule usable.
+
+**THE ESPN IMPORTER FOUND `fixtures`, NOT `games`.** *"Found 240 games"* in a
+room whose whole subject is anchor events reads as though the feed had returned
+our own product.
+
+### THE SCORES AND THE TGBIDS ARE OFF SCREEN (2026-08-28)
+
+`OFF_SCREEN_FIELDS`: `away_team_score`, `home_team_score`, `away_team_tgbid`,
+`home_team_tgbid`. The manual form had skipped them since it was built; they are
+off the card too now.
+
+- **SO THEY ARE EDITABLE NOWHERE, AND THAT IS THE COST.** A finished score goes
+  in with SQL until they come back. The same bargain the Socializer already
+  makes with `url` and `headline`.
+- **`assertBandsCoverFields` IS TOLD ABOUT THEM RATHER THAN SILENCED.** That
+  check exists to shout when a column becomes unreachable, and these four are
+  exactly that, deliberately -- so the list is named in the check instead of the
+  check being weakened.
+- **ONE LIST, BOTH SURFACES.** It was `MANUAL_SKIP`, which the card knew nothing
+  about; `MANUAL_SKIP` is now that list, and `shownFields(group)` is what both
+  builders ask.
+- **A SAVE CANNOT NULL THEM.** `readForm` skips an input that is not in the
+  DOM, so the columns are simply absent from the PATCH. **Asserted**, because
+  nulling a real score because its box was taken off the card is the failure
+  this change could plausibly have.
+
+### ONE PLURALISER (2026-08-28)
+
+`plural(n, one, many)`. There were eleven hand-written `+ ' events'`, and
+**"Checked 1 events"** is what the first of them produced when it was reached
+with a one.
+
+- **IT IS NOT A TYPO IN ONE MESSAGE**, it is the same mistake available eleven
+  times, so the fix is one function rather than eleven corrections.
+- **`event(s)` IS THE OTHER WAY OF DODGING IT**, and it is a form nobody speaks.
+  Both of those went too.
+- **A CHECK THAT SEARCHES THE SOURCE MUST STRIP COMMENTS.** The first cut
+  matched the comment explaining the removal -- the same vacuous shape this file
+  has already recorded once. Comments are not code.
+
+### THE COUNT IS A QUESTION MARK UNTIL THERE IS ONE (2026-08-28)
+
+The room's heading read **0 ANCHOR EVENTS** while the first request was still in
+the air, and the markup shipped that way.
+
+- **ZERO IS A STATEMENT, AND IT WAS A WRONG ONE.** It is also the one number on
+  this page somebody might act on -- a table that says it holds nothing is a
+  table somebody starts filling. `? ANCHOR EVENTS` says the true thing: we do
+  not know yet.
+- **THE MARKUP SHIPS THE `?` TOO**, or the wrong answer is on screen for the
+  first paint whatever the painter does afterwards.
+- **KNOWN MEANS LOADED OR COUNTED.** `count=exact` on the first request means
+  the real total arrives with the first fifty rows, so the question mark is
+  brief -- and it covers a signed-out room as well, where nobody has asked the
+  database anything.
+- **THE PLURAL FOLLOWS THE NUMBER, so `?` keeps ANCHOR EVENTS**: `? ANCHOR
+  EVENT` would be a guess at the answer being one.
+
+### ISSUES IS A POPUP AGAIN, AND THE ROW STILL SAYS WHY (2026-08-28)
+
+Pressing ISSUES runs the sweep and opens a **report**. It used to narrow the
+list in place and rename itself Show all.
+
+- **ONE CONTROL WAS THE WAY IN AND THE WAY OUT OF A VIEW NOBODY ASKED FOR.**
+  The room you were working in silently became a different room, with the page
+  filtered under you and the pager reset. A report is something you read and
+  dismiss; the list underneath is left exactly where you were.
+- **`state.reviewOnly` IS GONE**, with the filter branch that read it, the
+  Show all face, and the reset inside `focusEventRow`.
+- **THE ROW ANNOTATIONS STAY, AND THAT IS WHAT MAKES THIS AFFORDABLE.** The
+  cost that deleted the last report is real and unchanged: a block in a list has
+  to repeat the event's name to say what it is talking about, and then offer a
+  way back to it. It is worth paying **once**, for a thing read and closed,
+  precisely because it is not the only place a finding appears -- the findings
+  are still drawn on the row they belong to, where they inherit both for free.
+- **`reviewReasons` IS STILL THE ONE READER**, so the report and the annotation
+  cannot disagree about what is wrong with a row.
+- **GO CLOSES THE REPORT AND FINDS THE ROW**, because the report can fix
+  nothing: every finding is answered by editing a field. It goes through
+  `focusEventRow`, which is the same path a newly added event takes.
+- **A ROW FLAGGED WITH NOTHING OBJECTING SAYS SO** rather than drawing an empty
+  block, which would read as the report having failed to load.
+- **ESCAPE CLOSES IT FIRST**, being the one dialog here that can open over
+  another.
+
+### THE TITLE'S SAMPLE FOLLOWS THE KIND (2026-08-28)
+
+`TITLE_SAMPLES`, read by the manual form's Kind handler.
+
+| kind | sample |
+|---|---|
+| sports | The New Orleans Night vs The Chicago Blitz |
+| concert | Led Zeppelin in Concert |
+| convention | WEFTEC Conference |
+
+- **ONE PLACEHOLDER CANNOT BE RIGHT FOR SIX KINDS.** A tour name shown while
+  Kind says sports is a sample of the wrong SHAPE, and the shape is the only
+  thing a sample teaches.
+- **THE THREE UNNAMED KINDS KEEP THE FIELD'S OWN SAMPLE** rather than being
+  given an invented example each.
+- **A PLACEHOLDER, NEVER A VALUE.** `readForm` never reads it, so a title left
+  blank stays blank -- which matters, since a sports row is allowed no title and
+  reads as its two clubs.
+
+**THE FIELD IS `Venue name`, NOT `Venue`.** Beside `Venue city`, a bare Venue
+reads as the category the pair belongs to rather than as that box's own field.
+The column is still `venue`; visible copy only.
+
+### DELETE IS A REAL DELETE (2026-08-28)
+
+The row goes. `archived_at` was written for three days and is **retired in
+place**, not dropped: nothing reads it, nothing writes it, and the ~4,600 events
+it might have stamped were deleted before it ever carried a value.
+
+**IT REVERSES THE 2026-08-25 DECISION BELOW, KNOWINGLY**, and that reasoning is
+kept because the arguments have not stopped being true, they were overruled. The
+two costs, both real:
+
+- **THE ROW WAS THE TOMBSTONE.** `tgb_pull_anchor_events` and
+  `tgb_pull_concert_tours` both dedupe against this table with no filter, so
+  deleting an event tells the bots only that they have never seen it and the
+  next run is free to file it again. **That is now said in the confirmation**,
+  where somebody deciding can read it, rather than on a tooltip explaining why
+  the button did not do what it said.
+- **A REFERENCED EVENT IS REFUSED BY THE DATABASE, NOT ORPHANED.**
+  `games.anchor_event_id` has no `on delete` clause, which is NO ACTION, so
+  Postgres raises **23503**. That is a good safety net and a terrible message,
+  so it is translated: *"A game is built on NFL-2027-…, so it cannot be deleted.
+  Repoint or delete that game first."* Never the raw constraint name.
+
+**`setArchived`, `purgeArchived` AND `Restore` ARE ALL GONE, in the same pass**,
+per the standing rule that a control and its code go together. `state` no longer
+carries an archived split, and **`tgb_purge_archived_events` is now called by
+nothing** — the once-per-load housekeeping job existed only to remove past
+archived rows, and nothing is archived.
+
+**`return=representation` ON THE DELETE IS NOT DECORATION.** PostgREST answers
+**200 with an empty array** when RLS refuses, so without reading the row back a
+refused delete reports success and the card vanishes until a reload brings it
+straight back. Proved by refusing one.
+
+**PROVED BY WATCHING THE REQUEST, not by reading the diff**, which is the only
+thing that can tell these two apart: an archive and a delete look identical from
+outside the page. 30 assertions — one DELETE and no PATCH, `archived_at` written
+nowhere, the id in the filter, no body, the row off the list, an empty-array
+reply reported as refused, 23503 becoming a sentence, cancelling sending
+nothing, and no purge RPC on load. **Run against the previous commit it fails 18
+ways.**
+
+### THE ARCHIVE IT REPLACED (2026-08-25, superseded)
+
+Kept for the reasoning, which is what to read before proposing it again.
+
+
 
 `public.events.archived_at` — [2026082504](mc/supabase/migrations/2026082504_events_archive.sql), **applied 2026-08-25**. Null is live; a
 timestamp means somebody took the event off the list. **The row stays.**
