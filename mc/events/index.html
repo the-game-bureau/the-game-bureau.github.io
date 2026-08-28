@@ -263,26 +263,6 @@
     /* Waiting for the rest of the table. Not `disabled`, so a press still
        reaches the handler and can say why. */
     .command-bar .btn.is-waiting { opacity: 0.55; cursor: progress; }
-    .bar-check {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 0.78rem; color: var(--ink); white-space: nowrap;
-      cursor: pointer; user-select: none;
-    }
-    /* 8.5px puts the 15px box's middle on the 32px control's middle, exactly as
-       the neutral-site field in the WHERE band does. Recomputed by a test from
-       the stylesheet, so changing either number fails loudly. */
-    .bar-check input { width: 15px; height: 15px; margin: 0; accent-color: var(--bic-blue); cursor: pointer; }
-    /* A ticked filter is stated in the label, not only in the box: a tick is
-       small and the strip is read at a glance. */
-    .bar-check.is-on { font-weight: 600; color: var(--bic-blue); }
-    /* THE COUNT IS DRAWN ONLY WHEN THERE IS SOMETHING TO COUNT. A "(0)" beside
-       every filter on every visit is a number that never means anything, and
-       the strip's whole job is to carry the ones that do. */
-    .bar-check-n { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
-    .bar-check-n:empty { display: none; }
-    .bar-check.is-on .bar-check-n { color: inherit; }
-    /* The review count is the red pen, matching the rows it points at. */
-    #reviewFilterLabel .bar-check-n[data-any="1"] { color: var(--danger); }
     /* The Go control is a <button> for most findings and an <a> for the ones
        that send you to another room, so it is styled by position rather than by
        tag -- otherwise the two read as different kinds of control. */
@@ -1083,24 +1063,6 @@
              window, which is not a text match; the `past` pill and the week
              headings are what answer that question now. -->
           <input type="search" id="searchInput" placeholder="Search title, club, league, venue, city, kind…" autocomplete="off">
-          <span class="bar-sep" aria-hidden="true"></span>
-          <label class="bar-check" id="reviewFilterLabel">
-            <input type="checkbox" id="reviewFilter">
-            <span>Review <b class="bar-check-n" id="reviewFilterN"></b></span>
-          </label>
-          <label class="bar-check" id="neutralFilterLabel">
-            <input type="checkbox" id="neutralFilter">
-            <span>Neutral <b class="bar-check-n" id="neutralFilterN"></b></span>
-          </label>
-          <!-- NOT A NARROWING LIKE THE OTHER TWO. Review and Neutral pick a
-               subset of what is on screen; this one SWAPS the list for the rows
-               that are otherwise hidden. It reads as a third checkbox because
-               that is what it looks like, and its label says "Removed" rather
-               than "Archived" so it matches the button somebody pressed. -->
-          <label class="bar-check" id="archivedFilterLabel">
-            <input type="checkbox" id="archivedFilter">
-            <span>Removed <b class="bar-check-n" id="archivedFilterN"></b></span>
-          </label>
         </div>
       </fieldset>
     </div>
@@ -1467,15 +1429,6 @@
     const titleEl = document.getElementById('eventTitle');
     const pageStatus = document.getElementById('pageStatus');
     const searchInput = document.getElementById('searchInput');
-    const reviewFilter = document.getElementById('reviewFilter');
-    const neutralFilter = document.getElementById('neutralFilter');
-    const reviewFilterLabel = document.getElementById('reviewFilterLabel');
-    const neutralFilterLabel = document.getElementById('neutralFilterLabel');
-    const reviewFilterN = document.getElementById('reviewFilterN');
-    const neutralFilterN = document.getElementById('neutralFilterN');
-    const archivedFilter = document.getElementById('archivedFilter');
-    const archivedFilterLabel = document.getElementById('archivedFilterLabel');
-    const archivedFilterN = document.getElementById('archivedFilterN');
     const listEl = document.getElementById('eventList');
     const pagerTopEl = document.getElementById('pagerTop');
     const pagerBottomEl = document.getElementById('pagerBottom');
@@ -1515,17 +1468,15 @@
     //
     // `sort` IS GONE FROM state. Nothing chooses any more, so nothing has to be
     // remembered; compareRows is simply the order.
-    // `reviewOnly` IS A VIEW, NOT A SEARCH TERM. It narrows to the rows that
-    // are in review, which is a question about the row's state rather than
-    // about its text, and the search box is still free to narrow within it.
-    // `neutralOnly` IS THE ONLY WAY TO FIND A NEUTRAL-SITE ROW NOW. The pill
-    // that said so was deleted with the rest of them, and `neutral_site` is a
-    // boolean the row's text never spells out, so nothing the search box can be
-    // told would reach these 15 rows.
-    // `loaded` IS FALSE UNTIL THE WHOLE TABLE IS HERE, and `total` is the count the
-    // server reported on the first request. Anything that reads state.rows as THE
-    // TABLE rather than as a page has to check `loaded` first.
-    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false, neutralOnly: false,
+    // `reviewOnly` IS A VIEW, NOT A SEARCH TERM, and the Issues button is its
+    // only control now: pressing it narrows to the rows the rules object to and
+    // the button's own face becomes "Show all".
+    //
+    // `showArchived` HAS NO CONTROL AT ALL, and that is a real loss rather than
+    // a tidy-up: an archived event is unreachable from this room. It is left
+    // here because the filter below still reads it, and because whatever
+    // replaces the three checkboxes has to carry it.
+    const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false,
                     loaded: false, total: null,
                     // ARCHIVED ROWS ARE HIDDEN BY DEFAULT. They are kept so a game can
                     // reference them and so a bot cannot re-file them, not so somebody
@@ -1672,7 +1623,6 @@
       if (!state.showArchived && clean(row.archived_at)) return false;
       if (state.showArchived && !clean(row.archived_at)) return false;
       if (state.reviewOnly && !isInReview(row)) return false;
-      if (state.neutralOnly && row.neutral_site !== true) return false;
       if (state.q) {
         const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
           row.away_team_geo, row.away_team_nickname, row.home_team_geo, row.home_team_nickname,
@@ -3435,30 +3385,12 @@
     // controls with two ideas of one filter is how a page starts contradicting
     // itself; this page has already paid for that once, with a counts line
     // saying "13 shelved" beside a tab saying 8 from the same data.
-    function syncFilters() {
-      const paint = (box, label, nEl, on, count) => {
-        if (!box) return;
-        box.checked = on;
-        if (label) label.classList.toggle('is-on', on);
-        if (nEl) {
-          nEl.textContent = count ? String(count) : '';
-          if (count) nEl.setAttribute('data-any', '1'); else nEl.removeAttribute('data-any');
-        }
-      };
-      // COUNTED OVER THE WHOLE TABLE, NOT OVER WHAT IS ON SCREEN. A count that
-      // shrank as you ticked the other box would read as the filter breaking,
-      // and the question each one answers is "how many are there", not "how
-      // many survive the filter I have already applied".
-      paint(reviewFilter, reviewFilterLabel, reviewFilterN,
-        state.reviewOnly, state.rows.filter(isInReview).length);
-      paint(neutralFilter, neutralFilterLabel, neutralFilterN,
-        state.neutralOnly, state.rows.filter((r) => r.neutral_site === true).length);
-      paint(archivedFilter, archivedFilterLabel, archivedFilterN,
-        state.showArchived, state.rows.filter((r) => clean(r.archived_at)).length);
-    }
+    // THE FILTER PAINTER WENT WITH THE CHECKBOXES. It drew each label's count
+    // and lit the one that was on; there is nothing left to paint. `reviewOnly`
+    // is now painted by the Issues button's own face, which reads "Show all"
+    // while the view is on.
 
     function syncErrorsBtn() {
-      syncFilters();
       if (!errorsBtn) return;
       if (state.reviewOnly) {
         errorsBtn.textContent = 'Show all';
@@ -4754,16 +4686,6 @@
     }
     // THE CHECKBOXES ARE WIRED BY A LOOP, not one block each, so a third filter
     // is one entry rather than a copy of this with two words changed.
-    [[reviewFilter, 'reviewOnly'], [neutralFilter, 'neutralOnly'], [archivedFilter, 'showArchived']].forEach(([box, key]) => {
-      if (!box) return;
-      box.addEventListener('change', () => {
-        state[key] = box.checked;
-        state.page = 1;
-        render();
-        // render() repaints the strip and the Issues button, so unticking
-        // Review really is the same act as pressing Show all.
-      });
-    });
 
     if (addEventBtn) {
       addEventBtn.addEventListener('click', () => {
