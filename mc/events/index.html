@@ -546,6 +546,23 @@
       min-height: 1.2em; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
 
+    .prompt-sheet {
+      width: 100%; min-height: 340px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--control-line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(45, 72, 128, 0.09) 21px, rgba(45, 72, 128, 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+
+    .prompt-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0;
+      padding: 4px 10px 8px; border: 1px solid var(--line); border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-doors > legend { padding: 0 6px; }
+
     .pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 0; flex-wrap: wrap; }
     .pager-info { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted); }
 
@@ -578,7 +595,7 @@
           <button class="btn" id="seatgeekBtn" type="button"
                   title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
           <button class="btn" id="conventionsBtn" type="button"
-                  title="Read the convention centres and expo halls in one city. SeatGeek only carries a convention that sells seats through it, so this list is short.">CONVENTIONS</button>
+                  title="Build a prompt that reads the convention centres and expo halls in the cities you name. SeatGeek barely carries a convention, so this asks an AI with a browser to read the halls' own calendars.">CONVENTIONS</button>
         </div>
       </fieldset>
 
@@ -664,6 +681,49 @@
       </div>
     </div>
 
+    <div class="prompt-lightbox" id="cvLightbox" role="dialog" aria-modal="true" aria-labelledby="cvDialogTitle" hidden>
+      <div class="prompt-dialog">
+        <div class="prompt-dialog-head">
+          <h2 class="prompt-dialog-title" id="cvDialogTitle">Add Conventions and Expos with AI</h2>
+          <button class="btn small" id="closeCvBtn" type="button">Close</button>
+        </div>
+        <div class="prompt-dialog-body">
+          <p class="prompt-howto">
+            No ticketing feed carries conventions, so this reads the web instead.
+            Name the cities and a window, edit the prompt if you like, then copy it into an AI that can browse.
+            Paste what it hands back into the website's database (Supabase).
+            If the SQL will not run, or the events come back wrong, mail
+            <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
+          </p>
+
+          <fieldset class="prompt-options prompt-options--sg" aria-label="Which cities">
+            <legend class="prompt-options-label">Which cities?</legend>
+            <input type="text" id="cvCity" placeholder="Denver, or Denver, Chicago, Tulsa" autocomplete="off">
+          </fieldset>
+
+          <fieldset class="prompt-options prompt-options--sg" aria-label="Over what window">
+            <legend class="prompt-options-label">Over what window?</legend>
+            <label class="prompt-option">from <input type="date" id="cvFrom"></label>
+            <label class="prompt-option">to <input type="date" id="cvTo"></label>
+          </fieldset>
+
+          <textarea id="cvPrompt" class="prompt-sheet" spellcheck="false" aria-label="The prompt"></textarea>
+          <p class="prompt-copy-status" id="cvStatus" aria-live="polite"></p>
+        </div>
+        <div class="prompt-dialog-foot">
+          <fieldset class="prompt-doors">
+            <legend class="prompt-options-label">Copy prompt to clipboard &amp; open</legend>
+            <a class="btn small" data-cv-door href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+            <a class="btn small" data-cv-door href="https://grok.com/" target="_blank" rel="noopener noreferrer">Grok</a>
+            <a class="btn small" data-cv-door href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
+          </fieldset>
+          <a class="btn small primary" id="cvSqlBtn"
+             href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
+             target="_blank" rel="noopener noreferrer">Insert results</a>
+        </div>
+      </div>
+    </div>
+
     <div class="prompt-lightbox" id="sgLightbox" role="dialog" aria-modal="true" aria-labelledby="sgDialogTitle" hidden>
       <div class="prompt-dialog">
         <div class="prompt-dialog-head">
@@ -671,7 +731,7 @@
           <button class="btn small" id="closeSgBtn" type="button">Close</button>
         </div>
         <div class="prompt-dialog-body">
-          <p class="prompt-howto" id="sgHowto">
+          <p class="prompt-howto">
             Give it a city and a date range and it reads SeatGeek for real, announced events.
             Tick the ones worth building a game around and press Import selected.
           </p>
@@ -816,7 +876,13 @@
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
     const seatgeekBtn = document.getElementById('seatgeekBtn');
     const conventionsBtn = document.getElementById('conventionsBtn');
-    const sgHowto = document.getElementById('sgHowto');
+    const cvLightbox = document.getElementById('cvLightbox');
+    const cvCityEl = document.getElementById('cvCity');
+    const cvFromEl = document.getElementById('cvFrom');
+    const cvToEl = document.getElementById('cvTo');
+    const cvPromptEl = document.getElementById('cvPrompt');
+    const cvStatus = document.getElementById('cvStatus');
+    const closeCvBtn = document.getElementById('closeCvBtn');
     const sgLightbox = document.getElementById('sgLightbox');
     const closeSgBtn = document.getElementById('closeSgBtn');
     const sgKeyBox = document.getElementById('sgKeyBox');
@@ -1772,7 +1838,7 @@
     }
 
     const SG_KEY_STORE = 'tgb_seatgeek_client_id';
-    const sgState = { rows: [], checked: new Set(), busy: false, mode: 'city', opener: null, pauseUntil: 0 };
+    const sgState = { rows: [], checked: new Set(), busy: false, pauseUntil: 0 };
 
     function sgCities() {
       return clean(sgCityEl && sgCityEl.value).split(',')
@@ -1927,7 +1993,6 @@
       if (to && to < from) { sgSet('The end date is before the start date.', 'error'); return; }
 
       sgRememberKey();
-      if (sgState.mode === 'conventions') return sgFetchConventions(key, cities, from, to);
       sgFetchBtn.disabled = true;
       const orig = sgFetchBtn.textContent;
       sgFetchBtn.textContent = 'Fetching\u2026';
@@ -1983,9 +2048,6 @@
     const SG_RETRIES = 3;
     const SG_HEADROOM = 2;
 
-    const HALL_NAME = /convention|expo|fairground|fair ground|civic cent|exhibition|trade cent/i;
-    const CONVENTION_TITLE = /\bcon\b|comic|expo|convention|fest\b|summit|fair\b|show\b|symposium|conference|gaming|anime/i;
-
     const sgWait = (ms) => new Promise((go) => setTimeout(go, ms));
 
     async function sgApi(key, path, params) {
@@ -2026,89 +2088,174 @@
       }
     }
 
-    async function sgFetchConventions(key, cities, from, to) {
-      sgFetchBtn.disabled = true;
-      const orig = sgFetchBtn.textContent;
-      sgFetchBtn.textContent = 'Fetching\u2026';
-      sgSet('Looking for halls in ' + cities.join(', ') + '\u2026');
-      try {
-        const halls = new Map();
-        for (const city of cities) {
-          const want = city.toLowerCase();
-          for (const term of ['convention', 'expo', 'fairgrounds', 'civic center']) {
-            const body = await sgApi(key, 'venues', { city: city, q: term, per_page: 30 });
-            ((body && body.venues) || []).forEach((v) => {
-              if (clean(v.city).toLowerCase() !== want) return;
-              if (!HALL_NAME.test(clean(v.name))) return;
-              halls.set(v.id, v);
-            });
-          }
-        }
-        if (!halls.size) {
-          sgState.rows = [];
-          renderSg();
-          sgSet('No convention centre or expo hall in ' + cities.join(' or ') +
-            ' that SeatGeek knows about.', 'error');
-          return;
-        }
 
-        const ids = Array.from(halls.keys()).slice(0, 12 * cities.length);
-        const seen = new Set();
-        const all = [];
-        let done = 0;
-        for (const id of ids) {
-          const params = {
-            'venue.id': id,
-            'datetime_local.gte': from + 'T00:00:00',
-            per_page: 100, sort: 'datetime_local.asc'
-          };
-          if (to) params['datetime_local.lte'] = to + 'T23:59:59';
-          const body = await sgApi(key, 'events', params);
-          ((body && body.events) || []).forEach((ev) => {
-            if (seen.has(ev.id)) return;
-            seen.add(ev.id);
-            all.push(ev);
-          });
-          done += 1;
-          sgSet('Reading ' + done + ' of ' + plural(ids.length, 'hall') + '\u2026 ' + plural(all.length, 'event'));
-        }
+    const CV_PROMPT_LINES = [
+      "You are filling in a table of ANCHOR EVENTS for The Game Bureau.",
+      "",
+      "An anchor event is a real thing that brings visitors to a city and fills its",
+      "hotels. We build a walking game played the DAY BEFORE one, for people who are",
+      "already in town with an afternoon free. So the date is the field nothing works",
+      "without.",
+      "",
+      "YOUR JOB",
+      "",
+      "Find every CONVENTION, EXPO, TRADE SHOW, CONFERENCE, FAN CONVENTION and",
+      "consumer show happening in the cities and window below.",
+      "",
+      "  Cities: __CITIES__",
+      "  Window: __FROM__ to __TO__",
+      "",
+      "WHERE TO LOOK, in this order",
+      "",
+      "1. The convention centres, expo halls, fairgrounds and civic centres in each",
+      "   city, and READ THEIR OWN EVENT CALENDARS. That is the authoritative list",
+      "   and it is the reason this is a browsing job rather than an API call.",
+      "2. The city's convention and visitors bureau, which publishes a citywide",
+      "   calendar that catches events held in hotels rather than the main hall.",
+      "3. The event's own website, for the exact dates and the public url.",
+      "",
+      "DO NOT use a ticket resale site as your source. It carries a convention only",
+      "when that convention sells seats through it, which is almost never, and it",
+      "will make you think a busy month is empty.",
+      "",
+      "READ THE PAGE, NOT A SUMMARY OF IT. Ask your tool for the page source if it",
+      "hands you back a cleaned-up article. A summariser will invent a plausible date,",
+      "and the date is the one field we cannot recover from.",
+      "",
+      "WHAT COUNTS",
+      "",
+      "  Yes: trade shows, professional conferences, comic and anime conventions,",
+      "       gaming conventions, home and garden shows, auto shows, boat shows,",
+      "       craft fairs at scale, expos of any kind.",
+      "  No:  concerts, sports fixtures, theatre and comedy, and anything at a hall",
+      "       that is simply a gig at that address. A concert at a convention centre",
+      "       is a concert.",
+      "  No:  a private corporate meeting nobody can attend, and anything with fewer",
+      "       than a few thousand attendees. If nobody travelled for it, it is not an",
+      "       anchor.",
+      "",
+      "IF YOU CANNOT ESTABLISH A DATE, LEAVE THE EVENT OUT. Do not guess, do not",
+      "carry last year's dates forward, and do not write 'TBD' into any field.",
+      "",
+      "WHAT TO HAND BACK",
+      "",
+      "One SQL block and nothing else. No prose around it, no explanation:",
+      "",
+      "```sql",
+      "insert into public.events",
+      "  (id, kind, title, description, start_date, end_date, start_time,",
+      "   venue, venue_city, url, source)",
+      "values",
+      "  ('CONVENTION-2027-03-05-EXAMPLE-DEN', 'convention', 'Example Con 2027',",
+      "   'A three day fan convention at the Colorado Convention Center.',",
+      "   '2027-03-05', '2027-03-07', null,",
+      "   'Colorado Convention Center', 'Denver, Colorado',",
+      "   'https://example.com/2027', 'Colorado Convention Center calendar')",
+      "on conflict (id) do nothing;",
+      "```",
+      "",
+      "THE COLUMNS, and the rules that are not obvious",
+      "",
+      "  id           Upper case, A to Z and 0 to 9 and hyphens only. Compose it as",
+      "               KIND-STARTDATE-FIRSTWORDOFTITLE-CITY, the last two truncated to",
+      "               10 and 3 characters: CONVENTION-2027-03-05-EXAMPLE-DEN. It is",
+      "               PERMANENT once stored, so it must be unique.",
+      "  kind         'convention' or 'expo'. Nothing else from this prompt.",
+      "  title        What the event calls itself, including the year where it uses",
+      "               one. Not the hall's name.",
+      "  description  One or two plain sentences. Say what it is and roughly how big.",
+      "  start_date   ISO, YYYY-MM-DD. The first public day, not the setup day.",
+      "  end_date     ISO. The last public day. Same as start_date for a one day",
+      "               event. Never null.",
+      "  start_time   24 hour venue-local clock, HH:MM, or null. Null is correct and",
+      "               ordinary: a three day convention has opening hours rather than",
+      "               a start time. Never invent one.",
+      "  venue        The hall, spelled as the hall spells it.",
+      "  venue_city   'City, State' with the STATE SPELLED OUT for a US city, and",
+      "               'City, Country' elsewhere. 'Denver, Colorado', not 'Denver, CO'.",
+      "               Nothing checks this, so the spelling you give is the spelling",
+      "               stored.",
+      "  url          The event's own page where there is one, otherwise the hall's",
+      "               listing for it. It must resolve.",
+      "  source       The site you actually read, in words: 'Colorado Convention",
+      "               Center calendar', 'VISIT DENVER events'.",
+      "",
+      "HOUSE STYLE",
+      "",
+      "  Escape an apostrophe in SQL by doubling it: 'Macy''s'.",
+      "  No em dashes anywhere, in any field. Use a comma, a colon or a full stop.",
+      "  Give me every event you can stand behind. A short honest list beats a long",
+      "  one with three invented dates in it.",
+      "",
+      "Then, under the SQL block, print this line so I can run it:",
+      "https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true",
+      "",
+      "And after that, in two or three lines: which halls and calendars you read,",
+      "how many events you found per city, and anything you deliberately left out",
+      "because you could not pin the date down.",
+    ];
 
-        sgState.rows = all.map(sgRow).filter((r) => r.start_date);
-        sgState.rows.forEach((r) => {
-          r.__hall = true;
-          const t = clean(r.title);
-          if (CONVENTION_TITLE.test(t)) {
-            r.__likely = true;
-            if (r.kind === 'other') r.kind = /expo\b/i.test(t) ? 'expo' : 'convention';
-          }
-        });
-        sgState.rows.sort((a, b) => (b.__likely ? 1 : 0) - (a.__likely ? 1 : 0) ||
-          String(a.start_date).localeCompare(String(b.start_date)));
+    function cvCities() {
+      return clean(cvCityEl && cvCityEl.value).split(',')
+        .map((c) => clean(c)).filter(Boolean)
+        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
+    }
 
-        const have = new Set(state.rows.map((r) => clean(r.id)));
-        sgState.checked = new Set(sgState.rows
-          .filter((r) => r.__likely && !have.has(r.id)).map((r) => r.id));
-        renderSg();
+    function cvSet(text, kind) {
+      if (!cvStatus) return;
+      cvStatus.textContent = text || '';
+      cvStatus.style.color = kind === 'error' ? 'var(--danger)'
+        : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
+    }
 
-        const likely = sgState.rows.filter((r) => r.__likely).length;
-        if (!sgState.rows.length) {
-          sgSet('Nothing on at ' + plural(halls.size, 'hall') + ' in that window.', 'error');
-        } else if (!likely) {
-          sgSet('Found ' + plural(sgState.rows.length, 'event') + ' at ' +
-            plural(halls.size, 'hall') + ', and none of them looks like a convention. ' +
-            'SeatGeek only carries one that sells seats through it.', 'error');
-        } else {
-          sgSet(plural(likely, 'convention') + ' ticked, out of ' +
-            plural(sgState.rows.length, 'event') + ' at ' + plural(halls.size, 'hall') +
-            '. The rest are concerts at the same address.', 'success');
-        }
-      } catch (err) {
-        console.error(err);
-        sgSet(err && err.message ? err.message : 'Could not reach SeatGeek.', 'error');
-      } finally {
-        sgFetchBtn.disabled = false;
-        sgFetchBtn.textContent = orig;
+    function buildCvPrompt() {
+      const cities = cvCities();
+      const from = clean(cvFromEl && cvFromEl.value);
+      const to = clean(cvToEl && cvToEl.value);
+      return CV_PROMPT_LINES.join(String.fromCharCode(10))
+        .split('__CITIES__').join(cities.length ? cities.join(', ') : 'name at least one city')
+        .split('__FROM__').join(from || 'today')
+        .split('__TO__').join(to || 'a year from today');
+    }
+
+    function paintCvPrompt() {
+      if (!cvPromptEl) return;
+      cvPromptEl.value = buildCvPrompt();
+    }
+
+    function openCvDialog() {
+      if (!cvLightbox) return;
+      if (cvFromEl && !cvFromEl.value) cvFromEl.value = todayIso();
+      if (cvToEl && !cvToEl.value) cvToEl.value = isoPlusDays(366);
+      paintCvPrompt();
+      cvSet('');
+      cvLightbox.hidden = false;
+      cvLightbox.classList.add('is-open');
+      if (cvCityEl) cvCityEl.focus();
+    }
+
+    function closeCvDialog() {
+      if (!cvLightbox) return;
+      cvLightbox.classList.remove('is-open');
+      cvLightbox.hidden = true;
+      if (conventionsBtn) conventionsBtn.focus();
+    }
+
+    function copyCvPrompt() {
+      if (!cvCities().length) {
+        cvSet('Name at least one city first, or the prompt has nowhere to look.', 'error');
+        if (cvCityEl) cvCityEl.focus();
+        return false;
       }
+      const text = cvPromptEl ? cvPromptEl.value : buildCvPrompt();
+      try {
+        navigator.clipboard.writeText(text).then(
+          () => cvSet('Prompt copied. Paste it into the tab that just opened.', 'success'),
+          () => cvSet('Could not reach the clipboard. Select the prompt and copy it by hand.', 'error'));
+      } catch (e) {
+        cvSet('Could not reach the clipboard. Select the prompt and copy it by hand.', 'error');
+      }
+      return true;
     }
 
     function renderSg() {
@@ -2206,18 +2353,8 @@
       }
     }
 
-    function openSgDialog(mode) {
+    function openSgDialog() {
       if (!sgLightbox) return;
-      sgState.mode = mode === 'conventions' ? 'conventions' : 'city';
-      sgState.opener = sgState.mode === 'conventions' ? conventionsBtn : seatgeekBtn;
-      if (sgHowto) {
-        sgHowto.textContent = sgState.mode === 'conventions'
-          ? 'It reads the convention centres and expo halls in one city. SeatGeek only carries a convention that sells seats through it, so expect a short list with concerts mixed in. The ones that look like conventions are ticked for you.'
-          : 'Give it a city and a date range and it reads SeatGeek for real, announced events. Tick the ones worth building a game around and press Import selected.';
-      }
-      sgState.rows = [];
-      sgState.checked = new Set();
-      renderSg();
       if (sgFromEl && !sgFromEl.value) sgFromEl.value = todayIso();
       if (sgToEl && !sgToEl.value) sgToEl.value = isoPlusDays(366);
       try {
@@ -2236,8 +2373,7 @@
       if (!sgLightbox) return;
       sgLightbox.classList.remove('is-open');
       sgLightbox.hidden = true;
-      const back = sgState.opener || seatgeekBtn;
-      if (back) back.focus();
+      if (seatgeekBtn) seatgeekBtn.focus();
     }
 
     const MANUAL_EXTRA = { what: { after: 'kind', field: 'title' } };
@@ -2941,8 +3077,20 @@
       });
     }
 
-    if (seatgeekBtn) seatgeekBtn.addEventListener('click', () => openSgDialog('city'));
-    if (conventionsBtn) conventionsBtn.addEventListener('click', () => openSgDialog('conventions'));
+    if (seatgeekBtn) seatgeekBtn.addEventListener('click', openSgDialog);
+    if (conventionsBtn) conventionsBtn.addEventListener('click', openCvDialog);
+    if (closeCvBtn) closeCvBtn.addEventListener('click', closeCvDialog);
+    if (cvCityEl) cvCityEl.addEventListener('input', paintCvPrompt);
+    if (cvFromEl) cvFromEl.addEventListener('change', paintCvPrompt);
+    if (cvToEl) cvToEl.addEventListener('change', paintCvPrompt);
+    if (cvLightbox) {
+      cvLightbox.addEventListener('click', (e) => { if (e.target === cvLightbox) closeCvDialog(); });
+      cvLightbox.querySelectorAll('[data-cv-door]').forEach((door) => {
+        door.addEventListener('click', (e) => {
+          if (!copyCvPrompt()) e.preventDefault();
+        });
+      });
+    }
     if (closeSgBtn) closeSgBtn.addEventListener('click', closeSgDialog);
     if (sgFetchBtn) sgFetchBtn.addEventListener('click', sgFetch);
     if (sgImportBtn) sgImportBtn.addEventListener('click', sgImport);

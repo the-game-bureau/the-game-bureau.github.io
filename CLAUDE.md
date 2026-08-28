@@ -1090,62 +1090,106 @@ halves of the SeatGeek importer.
   harder one: **an id is permanent and every game points at one**, so changing
   how new ids are composed would make two rows for one fixture look unrelated.
 
-## CONVENTIONS IS A MODE OF THE SEATGEEK DIALOG (2026-08-28)
+## CONVENTIONS READS THE WEB, AND THAT WAS MEASURED FIRST (2026-08-28)
 
-A second ADD button, reading the convention centres and expo halls in one city.
+The CONVENTIONS button builds a **prompt**. It names the cities and the window,
+sends an AI with a browser to the halls' own calendars, and asks for one
+`insert into public.events` block back. **It calls nothing.**
 
-- **NOT A SECOND DIALOG.** `sgState.mode` switches the fetch and the standing
-  sentence; the key box, the date range, the list, the tick handling and the
-  import are the same code. **A second copy of that is the drift this repo has
-  paid for more than any other.**
-- **SEATGEEK BARELY CARRIES CONVENTIONS, AND THE BUTTON SAYS SO.** It is a
-  resale marketplace, so it lists a convention only when that convention sells
-  seats through it. Measured on 2026-08-28: **Javits 4 of 5 events are New York
-  Comic Con; Ernest N. Morial 2 of 5; Colorado Convention Center 0 of 18; San
-  Diego Convention Center 0 of 67 -- Comic-Con itself is not there; McCormick
-  Place 0 events at all.** `taxonomies.name=comic_con` returns **0 site-wide**.
-  The tooltip and the dialog both warn before the fetch rather than after.
-- **THE HALL IS FOUND BY NAME AND THE CITY IS RE-CHECKED.** SeatGeek's `q` is
-  fuzzy: a `city=New Orleans&q=convention` venue search returns **New Bern
-  Riverfront Convention Center**. Both tests are needed -- the name test alone
-  reads another state's hall, the city test alone reads every Marriott.
-- **EVERY EVENT AT THOSE HALLS IS LISTED; ONLY THE CONVENTION-SHAPED ONES ARE
-  TICKED.** Dropping the concerts outright would hide a real event at that
-  address from somebody who wanted it, and the ticking is the recommendation.
-  The status says in as many words that the rest are concerts at the same
-  address, so a short list does not read as a broken fetch.
-- **A TICKED ROW WHOSE KIND CAME BACK `other` IS SET TO `convention` OR `expo`
-  FROM ITS OWN TITLE.** SeatGeek types New York Comic Con as `entertainment` and
-  the World Oddities Expo as `theater`.
-- **CAPPED AT 12 HALLS PER CITY.** A fuzzy venue search on a big city returns
-  hotels for ever, and each hall costs a request.
+**IT WAS A SEATGEEK FETCH FOR ABOUT AN HOUR AND THE NUMBERS KILLED IT.**
+SeatGeek is a resale marketplace, so it lists a convention only when that
+convention sells seats through it. Measured on 2026-08-28: **Javits 4 of 5
+events are New York Comic Con; Ernest N. Morial 2 of 5; Colorado Convention
+Center 0 of 18; San Diego Convention Center 0 of 67 -- Comic-Con itself is not
+there; McCormick Place 0 events at all.** `taxonomies.name=comic_con` returns
+**0 site-wide**.
 
-## A 429 FROM SEATGEEK IS A WAIT, NOT A FAILURE (2026-08-28)
+### WHY IT IS A PROMPT AND NOT A SCRAPER, IN FOUR MEASUREMENTS
 
-Reported as *"what does SeatGeek returned 429 mean?"*, which is the question a
-raw status code always provokes.
+Asked for outright as *"scrape from convention centers in entered cities"*. It
+cannot be done from this page, and it cannot be done well from a server either.
+**Probed rather than assumed**, against McCormick Place, Ernest N. Morial, the
+Colorado Convention Center, Javits and San Diego:
 
-- **THE LIMIT IS 100 REQUESTS A MINUTE, AND SEATGEEK SAYS SO IN ITS HEADERS**:
-  `ratelimit-limit: 100`, `ratelimit-remaining`, and **`ratelimit-reset` in
-  SECONDS** (not a timestamp). Measured on 2026-08-28; fifteen requests in a
-  burst all answered 200, so the wall is the minute and not the burst.
-- **THE CONVENTIONS SWEEP IS WHAT REACHES IT.** Four venue lookups plus up to
-  twelve hall calendars is **16 requests per city**, so three cities plus a
-  re-fetch crosses 100 inside a minute.
-- **SO IT WAITS FOR AS LONG AS SEATGEEK ASKS, AND SAYS IT IS WAITING.** A 429
-  sets `sgState.pauseUntil` from `ratelimit-reset` and the call is retried; the
-  status line says which minute limit was hit and how many seconds are left, or
-  a long sweep looks hung.
-- **IT ALSO SLOWS DOWN BEFORE IT IS REFUSED.** A reply saying two or fewer
-  remain pauses the NEXT call until the reset, so a sweep degrades to slow
-  rather than failing.
-- **IT GIVES UP AFTER THREE WAITS AND NAMES THE FIX** -- narrow the date range
-  or the city list -- rather than retrying for ever.
-- **A MISSING HEADER MEANS UNKNOWN, NOT EXHAUSTED, and the first cut got that
-  wrong.** `Number(null)` is **0** and `isFinite(0)` is **true**, so a reply
-  carrying no rate-limit header read as a spent budget and **paused every fetch
-  for 61 seconds**. Two suites went from green to nineteen failures, which is
-  what found it. **The third time this exact trap has been recorded here.**
+| wall | what was found |
+|---|---|
+| **CORS** | not one of them sends `access-control-allow-origin`. This page is static HTML on GitHub Pages, so the browser cannot read them at all. |
+| **JS-RENDERED** | McCormick Place and Morial serve **zero date strings in their HTML** -- the calendar is drawn after load by a third-party booking widget, so even a server-side fetch gets an empty shell. |
+| **NO STRUCTURED DATA** | no `schema.org/Event` JSON-LD on any of them. |
+| **NO FEED** | both WordPress sites expose `wp-json` and **neither has an events post type** (pages, posts, staff, FAQs). |
+
+**SO A SCRAPER WOULD BE ONE HAND-WRITTEN PARSER PER HALL**, breaking on every
+redesign, and **breaking SILENTLY**: a stale parser returns zero events, which
+is indistinguishable from a quiet month. Javits also answered **429** to a
+plain fetch, so several of them will refuse a server too.
+
+**THIS IS THE SAME WALL AS `seatgeek.com` ITSELF**, which is behind DataDome,
+and the answer this file already recorded there applies here: **an AI with a
+browser can read those pages; a fetch cannot.** That is what the deleted PROMPT
+route was for, and this button is that route brought back for one job.
+
+### WHAT THE PROMPT ITSELF INSISTS ON
+
+The text is the product; every clause is here because getting it wrong is
+silent.
+
+- **THE HALL'S OWN CALENDAR FIRST**, then the city's convention and visitors
+  bureau (which catches an event held in a hotel rather than the main hall),
+  then the event's own site for the dates.
+- **A TICKET RESALE SITE IS FORBIDDEN AS A SOURCE**, with the reason given: it
+  will make a busy month look empty, which is the measurement above.
+- **READ THE PAGE, NOT A SUMMARY OF IT.** A summariser invents a plausible date,
+  and the date is the one field nothing here works without. Same clause the
+  socials prompt carries, for the same failure.
+- **A CONCERT AT A CONVENTION CENTRE IS A CONCERT.** Said explicitly, because
+  the venue is what the AI is looking at.
+- **NO DATE MEANS LEAVE IT OUT**, and `TBD` is refused in any field -- the room
+  has a `tbd` rule that would force every such row into review.
+- **`start_time` MAY BE NULL AND THAT IS ORDINARY.** A three day convention has
+  opening hours, not a start time, and an invented one is worse than a blank:
+  `no-time` is a muted note, a wrong clock is not.
+- **`end_date` IS NEVER NULL**, matching the trigger the database now carries.
+- **THE ID SHAPE IS THE ROOM'S OWN**, `KIND-STARTDATE-FIRSTWORD-CITY` truncated
+  to 10 and 3, because pasted SQL never goes through `composeEventId`.
+- **THE SQL EDITOR LINK IS PRINTED UNDER THE BLOCK** by the AI, and it is
+  `/sql/new?skip=true` -- `new` opens a blank query rather than whatever was
+  last run, and `skip=true` stops it asking. Pasting over somebody's
+  half-written query is the accident that avoids.
+- **NO EM DASH**, per the standing rule, and a test asserts the built prompt
+  contains none.
+
+### THE DIALOG
+
+- **ITS OWN LIGHTBOX, NOT A MODE.** While it fetched, sharing SeatGeek's dialog
+  was right: the key box, the list, the ticking and the import were all the same
+  code. It hands over text now and shares none of that, so a mode flag would be
+  two dialogs wearing one id.
+- **IT IS THE SOCIALIZER'S DIALOG, part for part** -- the four-sentence howto,
+  the ruled `prompt-sheet`, the fenced COPY PROMPT TO CLIPBOARD & OPEN group
+  (ChatGPT / Grok / Claude) and INSERT RESULTS. **Sixth room to wear it; when
+  either changes, change both.**
+- **`.prompt-sheet` AND `.prompt-doors` HAD TO BE RE-DECLARED.** Both went with
+  the PROMPT dialog deleted earlier the same day, per the rule that a control
+  and its CSS go together -- so the markup referenced two classes that matched
+  nothing, and the sheet rendered as a bare textarea.
+- **THE PROMPT REBUILDS ON EVERY KEYSTROKE.** Unlike the Socializer's, it is not
+  persisted and edits do not survive a reopen: this one is generated FROM two
+  fields, so a stored copy would be a stale prompt naming last week's cities.
+- **A DOOR REFUSES WITH NO CITY, and the guard is in `copyCvPrompt`, not in
+  CSS.** Each door copies and then opens a chat window, so without it you would
+  arrive somewhere with a prompt saying "name at least one city" on the
+  clipboard.
+- **THE COPY IS NOT AWAITED.** The new tab has to come from the browser's own
+  handling of a click on a link, so there is no `preventDefault` on the happy
+  path and nothing awaited before the navigation.
+- **A REFUSED CLIPBOARD IS REPORTED, never claimed as a success**, and says to
+  select the prompt and copy it by hand.
+
+### WHAT WENT WITH IT
+
+`sgFetchConventions`, `HALL_NAME`, `CONVENTION_TITLE`, `sgState.mode`,
+`sgState.opener` and `#sgHowto`. **`sgApi` and its rate limiting stayed** -- the
+city-mode fetch goes through it, and that is where the 429 handling lives.
 
 ## THE CITY BOX TAKES A LIST (2026-08-28)
 
@@ -1161,8 +1205,8 @@ Both SeatGeek modes split it on commas: `Denver, Chicago, Tulsa`.
   it now searches `Denver` and then `Colorado`, which finds the Denver events
   and nothing for the second. **Better than the silent zero it replaced, and
   worth knowing before somebody reports it as a bug.**
-- **THE HALL CAP IS PER CITY** (`12 * cities.length`), or a two-city convention
-  search would read twelve halls in the first city and none in the second.
+- **THE CONVENTIONS PROMPT SPLITS THE SAME BOX**, so its `Cities:` line reads
+  the deduped list rather than whatever was typed.
 
 ## THE EVENTS ROOM CARRIES NO COMMENTS. THIS FILE IS THE ONLY RECORD. (2026-08-28)
 
