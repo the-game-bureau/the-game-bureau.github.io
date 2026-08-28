@@ -1135,7 +1135,7 @@
         </div>
         <div class="prompt-dialog-foot">
           <div class="prompt-copy-status" id="manualStatus" aria-live="polite"></div>
-          <button class="btn small primary" id="manualSaveBtn" type="button">Add event</button>
+          <button class="btn small primary" id="manualSaveBtn" type="button">ADD</button>
         </div>
       </div>
     </div>
@@ -4046,15 +4046,16 @@
     // year, the week and both clubs -- so asking for it first asked for
     // something you could not yet know. It is permanent once saved, which is
     // why its hint stays loud.
+    // NO `id` HERE ANY MORE: it is composed from the other fields when you
+    // press ADD, so there is nothing to type and nothing to check for.
     const MANUAL_ORDER = manualGroups()
-      .reduce((acc, g) => acc.concat(manualBandFields(g)), [])
-      .concat(['id']);
+      .reduce((acc, g) => acc.concat(manualBandFields(g)), []);
 
     // Every editable column must appear on this form too, or a field is
     // reachable when editing and not when creating -- which is worse than
     // either, because the row arrives missing something nobody was asked for.
     (function assertManualCoversFields() {
-      const named = MANUAL_ORDER.filter((f) => f !== 'id');
+      const named = MANUAL_ORDER.slice();
       // MANUAL_SKIP IS THE ONLY WAY A FIELD MAY BE ABSENT. Anything else
       // missing is a column reachable when editing and not when creating, which
       // is worse than either: the row arrives without something nobody was
@@ -4092,20 +4093,6 @@
       //
       // The ID keeps its place at the top, outside any band. It is the one
       // field that can never be changed afterwards.
-      function appendIdField() {
-      const idLabel = document.createElement('label');
-      idLabel.append(document.createTextNode('ID (permanent)'));
-      const idInput = document.createElement('input');
-      idInput.type = 'text';
-      idInput.id = 'manualId';
-      idInput.placeholder = 'NFL-2026-W1-CAR-CHI';
-      idLabel.appendChild(idInput);
-      const idHint = document.createElement('span');
-      idHint.className = 'manual-hint';
-      idHint.textContent = 'Every game points at this, so it can never be changed. Shape: LEAGUE-YEAR-Wweek-HOME-AWAY, or KIND-YEAR-MM-DD-NAME.';
-      idLabel.appendChild(idHint);
-      manualForm.appendChild(idLabel);
-      }
 
       manualGroups().forEach((g) => {
         const band = document.createElement('fieldset');
@@ -4122,8 +4109,6 @@
         });
         manualForm.appendChild(band);
       });
-
-      appendIdField();
 
       // ── THE CLUBS ONLY WHEN THERE ARE CLUBS ──────────────────────────────
       //
@@ -4341,25 +4326,70 @@
       if (addEventBtn) addEventBtn.focus();
     }
 
-    async function submitManual() {
-      if (!manualForm || !manualSaveBtn) return;
-      const idInput = manualForm.querySelector('#manualId');
-      const id = clean(idInput && idInput.value);
-      if (!id) {
-        setManualStatus('Give the event an ID before adding it.', true);
-        if (idInput) idInput.focus();
-        return;
-      }
-      // Checked here as well as by the database, because a primary-key
-      // collision comes back as a raw 23505 naming a constraint, and the answer
-      // -- "that id is taken" -- is one we already have in hand.
-      if (state.rows.some((r) => clean(r.id) === id)) {
-        setManualStatus('An event with the ID "' + id + '" already exists.', true);
-        if (idInput) idInput.focus();
-        return;
+    // ── COMPOSING AN ID ───────────────────────────────────────────────────
+    //
+    // The shape the brief has always asked for: `NFL-2026-09-07-CHI-CAR` for a
+    // fixture, `CONCERT-2027-07-04-OLIVIA-DEN` otherwise. Upper case, no
+    // spaces, and every part taken from a field on the form, so the id
+    // describes the row rather than being a number.
+    //
+    // IT IS PERMANENT ONCE SAVED, which is exactly why it should not be typed:
+    // a field you can never correct is a bad thing to leave to a person filling
+    // a form quickly, and the parts it is built from are all in front of them
+    // anyway.
+    function idPart(value, max) {
+      const t = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return t.slice(0, max);
+    }
+
+    function composeEventId(row) {
+      const kind = clean(row.kind) || 'other';
+      const date = clean(row.start_date) || clean(row.end_date);
+      const parts = [];
+
+      // THE LEAGUE LEADS A FIXTURE AND THE KIND LEADS EVERYTHING ELSE, which is
+      // what makes an id readable at a glance: NFL- says what it is as well as
+      // any word could.
+      parts.push(kind === 'sports' && clean(row.league)
+        ? idPart(row.league, 8) : idPart(kind, 10));
+      if (date) parts.push(date);
+
+      if (kind === 'sports' && (clean(row.away_team_geo) || clean(row.home_team_geo))) {
+        // AWAY THEN HOME, the order the title reads in.
+        parts.push(idPart(row.away_team_geo || row.away_team_nickname, 3));
+        parts.push(idPart(row.home_team_geo || row.home_team_nickname, 3));
+      } else {
+        // THE FIRST WORD OF THE TITLE, which is the act or the name, plus the
+        // city. Neither is unique on its own and the date in front of them
+        // does most of the work.
+        const first = String(clean(row.title) || '').split(/\s+/)[0];
+        if (first) parts.push(idPart(first, 10));
+        const city = String(clean(row.venue_city) || '').split(',')[0];
+        if (city) parts.push(idPart(city, 3));
       }
 
-      const payload = Object.assign({ id: id }, withDefaults(readForm(manualForm)));
+      return parts.filter(Boolean).join('-') || 'EVENT';
+    }
+
+    // A COLLISION IS SUFFIXED RATHER THAN REFUSED. Two events of one kind in
+    // one city on one day is ordinary -- a double-header, two halls of one
+    // convention -- and refusing the second would send somebody off to invent
+    // an id by hand, which is the thing this removes.
+    function uniqueEventId(base) {
+      const taken = (v) => state.rows.some((r) => clean(r.id) === v);
+      if (!taken(base)) return base;
+      for (let n = 2; n < 100; n += 1) {
+        const tryId = base + '-' + n;
+        if (!taken(tryId)) return tryId;
+      }
+      return base + '-' + Date.now();
+    }
+
+    async function submitManual() {
+      if (!manualForm || !manualSaveBtn) return;
+      const fields = withDefaults(readForm(manualForm));
+      const id = uniqueEventId(composeEventId(fields));
+      const payload = Object.assign({ id: id }, fields);
       manualSaveBtn.disabled = true;
       const orig = manualSaveBtn.textContent;
       manualSaveBtn.textContent = 'Adding…';
@@ -4398,7 +4428,7 @@
       state.rows.push(added);
       closeManualDialog();
       render();
-      setStatus('Added ' + displayTitle(added) + '.', 'success');
+      setStatus('Added ' + displayTitle(added) + ' as ' + clean(added.id) + '.', 'success');
       // AFTER the plain confirmation, never before it. This writes its own
       // richer message over the top when it has something to say, and it can
       // answer SYNCHRONOUSLY -- a club market it refuses to invent needs no
