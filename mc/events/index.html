@@ -1583,16 +1583,11 @@
     // only control now: pressing it narrows to the rows the rules object to and
     // the button's own face becomes "Show all".
     //
-    // THERE IS NO ARCHIVED/LIVE SPLIT. Every event is on the list, removed or
-    // not, and the row says which by offering Restore instead of Delete. The
-    // filters below reach the two things the search box cannot: WHEN, and
-    // whether the audit objected.
+    // THERE IS NO ARCHIVED STATE. Delete deletes, so every row in the table is
+    // on the list. The filters reach the two things the search box cannot:
+    // WHEN, and whether the audit objected.
     const state = { rows: [], authed: false, page: 1, q: '', reviewOnly: false,
-                    loaded: false, total: null,
-                    // ARCHIVED ROWS ARE HIDDEN BY DEFAULT. They are kept so a game can
-                    // reference them and so a bot cannot re-file them, not so somebody
-                    // has to scroll past them.
-                    when: 'any', issues: 'any' };
+                    loaded: false, total: null, when: 'any', issues: 'any' };
 
     const clean = (v) => (v == null ? '' : String(v)).trim();
 
@@ -2264,19 +2259,17 @@
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'btn small warn';
-        // THE FACE SAYS DELETE AND THE ACT IS ARCHIVE, deliberately. Delete is
-        // what somebody comes to this row to do, and archiving is HOW we do it
-        // safely -- a game may point at the row, and both pull RPCs dedupe
-        // against this table, so a real delete invites the bot to file the
-        // event again on its next run. **The tooltip is where that is said**,
-        // and it must stay said: the button is honest about the outcome (it
-        // leaves the list) and the tooltip is honest about the mechanism.
-        const archived = !!clean(row.archived_at);
-        delBtn.textContent = archived ? 'Restore' : 'Delete';
-        delBtn.title = archived
-          ? 'Put this event back on the list.'
-          : 'Take it off the list. The row is kept so a game can still point at it and so the bots do not file it again; it is removed for good once its date has passed.';
-        delBtn.addEventListener('click', () => setArchived(row, delBtn, !archived));
+        // DELETE IS A REAL DELETE (2026-08-28). For three days the face said
+        // Delete and the act was an archive -- `archived_at` set, the row kept,
+        // the difference explained on a tooltip. That is gone: the button does
+        // what it says.
+        //
+        // WHAT IT COSTS IS IN THE QUESTION, not hidden on a tooltip. Both pull
+        // RPCs dedupe against this table, so THE ROW IS THE TOMBSTONE: delete
+        // it and the bots may file the same event again on their next run.
+        delBtn.textContent = 'Delete';
+        delBtn.title = 'Delete this event for good. This cannot be undone, and the bots may find it and file it again.';
+        delBtn.addEventListener('click', () => deleteRow(row, delBtn));
         const gap = document.createElement('span');
         gap.className = 'event-actions-gap';
 
@@ -4707,10 +4700,6 @@
       }
       refreshPromptText();
       setStatus('Loaded ' + state.rows.length + ' events.', 'success');
-      // AFTER THE WHOLE TABLE IS IN, never before: the purge reports what it
-      // removed, and removing rows from a list that is still filling would
-      // fight the loader.
-      purgeArchived();
     }
 
     // UPDATE ONLY. Creating an event is the MANUAL dialog's job, so this no
@@ -4905,94 +4894,65 @@
       }
     }
 
-    // ARCHIVE, NOT DELETE. See the button above for why the face says Delete.
-    async function setArchived(row, btn, on) {
+    // ── DELETING AN EVENT ───────────────────────────────────
+    //
+    // A REAL DELETE. `setArchived`, `purgeArchived` and everything they needed
+    // are gone with it: there is no archived state, no Restore, and no
+    // housekeeping job sweeping past archived rows, because nothing is kept.
+    //
+    // TWO CONSEQUENCES, AND THE QUESTION CARRIES THE ONE NOBODY EXPECTS.
+    // That the row goes is obvious. That THE ROW IS THE TOMBSTONE is not:
+    // `tgb_pull_anchor_events` and `tgb_pull_concert_tours` both dedupe against
+    // this table, so deleting an event tells the bots only that they have never
+    // seen it, and the next run is free to file it again.
+    //
+    // THE OTHER IS THE DATABASE'S OWN. `games.anchor_event_id` is a foreign key
+    // with no `on delete` clause, which is NO ACTION, so deleting a referenced
+    // event fails outright rather than orphaning a game. That is a good safety
+    // net and a terrible error message, so 23503 is translated into a sentence.
+    async function deleteRow(row, btn) {
       const id = clean(row.id);
       if (!id) return;
-      if (on && !window.confirm(
-            'Take "' + displayTitle(row) + '" off the list?\n\n' +
-            'The row is KEPT, so any game anchored to it still works and the bots will not file the event again. ' +
-            'It is removed for good once its date has passed.')) return;
+      if (!window.confirm(
+            'Delete "' + displayTitle(row) + '" for good?' + '\n\n' +
+            'This cannot be undone, and the bots may find the event and file it again. ' +
+            'A game anchored to it will refuse the delete.')) return;
       btn.disabled = true;
       const orig = btn.textContent;
-      btn.textContent = on ? 'Removing…' : 'Restoring…';
+      btn.textContent = 'Deleting…';
       try {
         const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
-          method: 'PATCH',
+          method: 'DELETE',
           // return=representation IS NOT DECORATION. PostgREST answers 200 with
           // an EMPTY ARRAY when RLS refuses a write, so without reading the row
-          // back a refused archive reports success and the card vanishes until
-          // a reload brings it straight back.
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify({ archived_at: on ? new Date().toISOString() : null })
+          // back a refused delete reports success and the card vanishes until a
+          // reload brings it straight back.
+          headers: authHeaders({ Prefer: 'return=representation' })
         });
-        if (!res.ok) throw new Error(await readError(res, on ? 'Could not remove it.' : 'Could not restore it.'));
-        const saved = await res.json();
-        if (!Array.isArray(saved) || !saved.length) {
-          throw new Error('The database refused that write, so nothing changed. Check you are signed in as an admin.');
+        if (!res.ok) {
+          const raw = await readError(res, 'Could not delete it.');
+          // 23503 IS THE FOREIGN KEY, AND IT IS THE ONE FAILURE WORTH NAMING.
+          // A raw \"violates foreign key constraint\" is a statement about
+          // our schema; what the person at the keyboard needs to know is that a
+          // game is built on this event.
+          throw new Error(/23503|foreign key/i.test(raw)
+            ? 'A game is built on ' + id + ', so it cannot be deleted. Repoint or delete that game first.'
+            : raw);
+        }
+        const gone = await res.json();
+        if (!Array.isArray(gone) || !gone.length) {
+          throw new Error('The database refused that delete, so nothing changed. Check you are signed in as an admin.');
         }
         const i = state.rows.indexOf(row);
-        if (i !== -1) state.rows[i] = saved[0]; else state.rows.push(saved[0]);
+        if (i !== -1) state.rows.splice(i, 1);
+        if (state.total != null) state.total = Math.max(0, state.total - 1);
         render();
-        setStatus(on
-          ? 'Took ' + id + ' off the list. It is kept so nothing re-files it.'
-          : 'Put ' + id + ' back on the list.', 'success');
+        setStatus('Deleted ' + id + '.', 'success');
       } catch (err) {
         console.error(err);
         setStatus(err && err.message ? err.message : 'That did not work.', 'error');
         btn.disabled = false;
         btn.textContent = orig;
-      }
-    }
-
-    // ── Purge: an archived event that has already happened has no job left ────
-    //
-    // Nothing will re-file a past date, because both pulls refuse one, so the
-    // row is not doing the tombstone work any more. It goes -- unless a game
-    // points at it, which is the reference this whole design exists to keep.
-    //
-    // IT RUNS ONCE PER LOAD, AFTER THE WHOLE TABLE IS IN, and only ever touches
-    // rows that are archived AND past AND unreferenced. Silent when it finds
-    // nothing: the common case is not news.
-    async function purgeArchived() {
-      if (!state.authed) return;
-      try {
-        // NOT restUrl(). It runs the table name through encodeURIComponent, so
-        // 'rpc/tgb_purge_archived_events' comes out as 'rpc%2Ftgb_purge...' and
-        // the call 404s. An RPC path has a slash in it that must survive.
-        const rpcUrl = SUPABASE_CONFIG.url + '/rest/v1/rpc/tgb_purge_archived_events';
-        const res = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: '{}'
-        });
-        if (!res.ok) {
-          // NOT AN ERROR THE ROOM SHOUTS ABOUT. The likeliest cause is that
-          // 2026082504 has not been applied, and a housekeeping job that could
-          // not run is no reason to redden a page that otherwise works.
-          const body = await res.text();
-          if (/PGRST202/.test(body)) {
-            console.warn('tgb_purge_archived_events is not installed: run mc/supabase/migrations/2026082504_events_archive.sql');
-          } else {
-            console.warn('purge skipped:', body);
-          }
-          return;
-        }
-        const out = await res.json();
-        const gone = (out && out.deleted) || 0;
-        const kept = (out && out.kept_referenced) || 0;
-        if (!gone && !kept) return;
-        const ids = new Set((out && out.ids) || []);
-        if (ids.size) {
-          state.rows = state.rows.filter((r) => !ids.has(clean(r.id)));
-          render();
-        }
-        setStatus('Removed ' + gone + (gone === 1 ? ' archived event' : ' archived events') +
-          ' whose date has passed.' +
-          (kept ? ' ' + kept + ' kept, because a game still points at ' + (kept === 1 ? 'it' : 'them') + '.' : ''),
-          'success');
-      } catch (err) {
-        console.warn('purge skipped:', err);
       }
     }
 
