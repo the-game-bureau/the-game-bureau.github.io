@@ -4690,6 +4690,52 @@ every `data-band` attribute, the per-band grids for Who and What, and the five
 fixture, and a filled club field never folding. 25 assertions; **14 fail against
 the previous commit.**
 
+### THE AI PROMPT DIALOG IS THE SOCIALIZER'S, FOOT AND ALL (2026-08-28)
+
+It had a blurb of my own writing and a lone **Copy** button; it now carries the
+four sentences and the foot that room has run since August. **This is the fifth
+room to wear that chrome: when either changes, change both.**
+
+- **THE FOUR SENTENCES ARE PORTED, NOT REWRITTEN.** Edit and copy the prompt
+  into your AI; paste the results into the website's database (Supabase); the
+  two common failures; `adminhelp@thegamebureau.com`. **Both common failures
+  happen after you leave the page**, so somebody meeting one has nothing on
+  screen connecting it back -- which is the whole reason the sentences exist.
+- **IT NAMES NO BUTTON.** A draft named *Insert results*, which did not exist in
+  this room at the time; copy naming a control that is not on screen is worse
+  than saying nothing, because somebody goes looking for it. The sentences name
+  the ACTS instead, so they survive a change of control.
+- **THE FOOT IS `COPY PROMPT TO CLIPBOARD & OPEN` + ChatGPT / Grok / Claude,
+  then INSERT RESULTS.** Every one of the three copies before it opens, so the
+  lone Copy was the same act minus the useful half. **What is lost is copying
+  WITHOUT opening anything**, which the textarea still allows by hand.
+  - **ANCHORS, AND THE COPY IS NOT AWAITED.** The new tab has to come from the
+    browser's own handling of a click on a link, so there is no `preventDefault`
+    and nothing awaited before the navigation -- awaiting pushes it into a later
+    task, which is exactly what a popup blocker refuses.
+  - **ONE LISTENER ON THE ROW**, not three on the anchors, so a fourth AI is one
+    line of markup.
+  - **They open BLANK**: none of these takes a prompt this long through a query
+    string reliably, and a half-truncated pre-fill is worse than an empty box
+    with the whole thing on the clipboard.
+  - **`/sql/new?skip=true`, NOT `/sql/`.** `new` opens a blank query rather than
+    whatever was last run in this project, and `skip=true` stops it asking.
+    Pasting a script over somebody's half-written query is the accident that
+    avoids.
+
+**THE COUNT MOVED ABOVE THE PROMPT AND ASKS A QUESTION.** `HOW MANY ANCHOR
+EVENTS?`, between the instructions and the text.
+
+- **IT REVERSES THE "options sit under the text" RULE FOR ONE CONTROL**, and
+  that is recorded rather than done quietly. The count is the one knob that is a
+  QUESTION rather than an adjustment: you know how many you want before you have
+  read a word, and the number is written into the prompt's first line. Scope and
+  focus are refinements to something you have read, so they stay below.
+
+**THE DIALOG IS `Add Anchor Events with AI`**, plural: the count radio goes to
+500, so the singular understated it by two orders of magnitude. **The MANUAL
+dialog is the one that adds one.**
+
 ### A FINDING IS ABOUT THE EVENT, NOT ABOUT A GAME (2026-08-28)
 
 Five of them had drifted into describing the product: *"A game takes its copy
