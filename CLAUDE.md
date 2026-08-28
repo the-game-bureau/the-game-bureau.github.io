@@ -4690,6 +4690,36 @@ every `data-band` attribute, the per-band grids for Who and What, and the five
 fixture, and a filled club field never folding. 25 assertions; **14 fail against
 the previous commit.**
 
+### A FINDING IS ABOUT THE EVENT, NOT ABOUT A GAME (2026-08-28)
+
+Five of them had drifted into describing the product: *"A game takes its copy
+and its palette from the away club"*, *"the city is what a game is built
+around"*, *"a game is played the day before its anchor event"*. **Read on a row
+in this table that is an objection to the wrong object entirely** -- the row is
+an ANCHOR EVENT, and a game is a separate thing somebody buys.
+
+Each one now says what is missing from THIS EVENT first, and names a game only
+as the thing that would be built on it:
+
+| rule | now reads |
+|---|---|
+| `club-missing` | ...so this event does not say who is playing. The away club is also the fandom **any game built on it** would be pitched at. |
+| `no-date` | No start date, so **this event cannot anchor anything**: our game is played the day before its anchor event. |
+| `no-city` | No venue city, so **nothing can place this event**. The city is also what any game anchored to it would be set in. |
+| `no-venue` | ...a **gap in the record** rather than a fault. |
+| `multi-day` | Runs 4 days, so it is **4 anchors rather than one**. |
+
+**AND THE PROMPT HAD THE DAY BACKWARDS.** It told the model *"A game is played
+in the host city ON THE DAY OF the event"*, which is the opposite of the
+product: the game is played the **day before**, while visiting fans are already
+in town with an afternoon free. A prompt that states it backwards teaches a
+model to pick events for the wrong reason. It also says why now, since the
+reason is what makes the rule usable.
+
+**THE ESPN IMPORTER FOUND `fixtures`, NOT `games`.** *"Found 240 games"* in a
+room whose whole subject is anchor events reads as though the feed had returned
+our own product.
+
 ### THE SCORES AND THE TGBIDS ARE OFF SCREEN (2026-08-28)
 
 `OFF_SCREEN_FIELDS`: `away_team_score`, `home_team_score`, `away_team_tgbid`,

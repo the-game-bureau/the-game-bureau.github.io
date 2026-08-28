@@ -2691,7 +2691,7 @@
         : [];
 
       return [
-        'You are researching real, scheduled, real-world events for The Game Bureau, which builds location-based games around them. A game is played in the host city on the day of the event, so every row has to be a real event with a real date and a real venue.',
+        'You are researching real, scheduled, real-world events for The Game Bureau, which builds location-based games around them. Our game is played in the host city on the day BEFORE the event, while visiting fans are already in town with an afternoon free, so every row has to be a real event with a real date and a real venue.',
         '',
         'Task: find ' + plural(n, 'event') + ' and return them as ONE Supabase SQL script that inserts into public.events.'
           + (hint ? ' Focus on: ' + hint + '.' : ''),
@@ -3114,7 +3114,7 @@
           if (!sports) return '';
           if (clean(r.away_team_nickname) && clean(r.home_team_nickname)) return '';
           const missing = [!clean(r.away_team_nickname) && 'away', !clean(r.home_team_nickname) && 'home'].filter(Boolean);
-          return 'The ' + missing.join(' and ') + ' club is not filled in. A game takes its copy and its palette from the away club.';
+          return 'The ' + missing.join(' and ') + ' club is not filled in, so this event does not say who is playing. The away club is also the fandom any game built on it would be pitched at.';
         }
       },
       {
@@ -3122,7 +3122,7 @@
         level: 'error',
         test: (r) => clean(r.start_date)
           ? ''
-          : 'No date. A game is played the day before its anchor event, so an undated event cannot anchor one.'
+          : 'No start date, so this event cannot anchor anything: our game is played the day before its anchor event.'
       },
       {
         key: 'end-before-start',
@@ -3226,7 +3226,7 @@
         test: (r) => {
           const total = dayCount(r);
           return total > 1
-            ? 'Runs ' + total + ' days. A game is played the day BEFORE its anchor event, so each day is its own opportunity: open the row and press Split into ' + total + ' days.'
+            ? 'Runs ' + total + ' days, so it is ' + total + ' anchors rather than one: our game is played the day BEFORE its anchor event, and each of these days has its own day before. Open the row and press Split into ' + total + ' days.'
             : '';
         }
       },
@@ -3235,7 +3235,7 @@
         level: 'check',
         test: (r) => clean(r.venue)
           ? ''
-          : 'No venue. The city is enough to build a game around, so this is a gap rather than a fault.'
+          : 'No venue named. The venue city is enough to anchor a game, so this is a gap in the record rather than a fault.'
       },
       {
         // A TBD ANYWHERE ON THE ROW IS THE ROW SAYING IT IS NOT FINISHED.
@@ -3259,7 +3259,7 @@
         level: 'check',
         test: (r) => clean(r.venue_city)
           ? ''
-          : 'No venue city. The city is what a game is built around, and nothing here can place this event without one.'
+          : 'No venue city, so nothing can place this event. The city is also what any game anchored to it would be set in.'
       },
       {
         key: 'unknown-city',
@@ -3889,8 +3889,8 @@
         schedState.checked = new Set(mapped.filter((r) => !existingIds().has(r.id)).map((r) => r.id));
         renderSchedule();
         setSchedStatus(mapped.length
-          ? 'Found ' + mapped.length + ' games. Uncheck anything you do not want.'
-          : 'No games in that window. Leagues have off-seasons — try another range.',
+          ? 'Found ' + plural(mapped.length, 'fixture') + '. Uncheck anything you do not want.'
+          : 'No fixtures in that window. Leagues have off-seasons — try another range.',
           mapped.length ? 'success' : null);
       } catch (err) {
         console.error(err);
