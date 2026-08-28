@@ -3266,10 +3266,24 @@
     // until somebody deals with it, so the queue survives a reload, is visible
     // to anything else reading the table, and can be added to by hand.
     //
-    // IT ONLY EVER WRITES `review`, and only onto rows that are not already in
-    // it. It never writes a row back OUT of review: clearing one is a human's
-    // decision, because the check cannot know whether the underlying thing was
-    // actually dealt with or merely made to stop matching.
+    // IT WRITES TWO COLUMNS, AND THEY BEHAVE DIFFERENTLY ON PURPOSE.
+    //
+    //   `status = 'review'`   A HUMAN'S FLAG. Only ever set, never cleared: the
+    //                         check cannot know whether the underlying thing was
+    //                         dealt with or merely made to stop matching, and
+    //                         clearing it would undo somebody's own flag.
+    //
+    //   `issues = YES / NO`   THE MACHINE'S ANSWER, and it moves both ways. It
+    //                         is what the rules said the LAST TIME THEY RAN, so
+    //                         fixing a date and re-running turns it back to NO.
+    //
+    // Keeping them apart is what lets a row be `review` with `issues = NO`:
+    // somebody flagged it by hand and the rules have nothing to say about it.
+    //
+    // NOTHING HERE WRITES `public.issues`. That table holds soundtrack findings
+    // filed by a routine that ran hours ago; these findings are recomputed on
+    // every render and drawn on the row, so a copy in a table would go stale the
+    // moment somebody fixed the date.
     async function runErrorSweep() {
       if (!errorsBtn) return;
       errorsBtn.disabled = true;
@@ -3284,8 +3298,56 @@
           await TgbCities.load({ force: true }).catch((err) => console.error(err));
         }
 
+        // WHAT THE RULES SAY NOW, per row. Computed once so the two writes
+        // below cannot disagree about which rows are which.
+        const faulty = new Set();
+        state.rows.forEach((r) => {
+          if (reviewReasons(r).length > 0) faulty.add(clean(r.id));
+        });
+
+        // THE FLAG IS RESTATED ON EVERY RUN, in both directions, and only where
+        // it would actually change. A row whose fault was fixed goes back to
+        // NO; a row that is already YES and still faulty is not rewritten.
+        const flagChanges = state.rows.filter((r) => {
+          const want = faulty.has(clean(r.id)) ? 'YES' : 'NO';
+          return clean(r.issues || 'NO') !== want;
+        });
+
         const needs = state.rows.filter((r) =>
-          clean(r.status) !== 'review' && reviewReasons(r).length > 0);
+          clean(r.status) !== 'review' && faulty.has(clean(r.id)));
+
+        // ── THE FLAG ─────────────────────────────────────────────────────
+        // Written before the review sweep, so a run that is refused partway
+        // leaves the machine's own answer correct on the rows it reached.
+        let flagged = 0;
+        let flagFailed = 0;
+        for (const row of flagChanges) {
+          const want = faulty.has(clean(row.id)) ? 'YES' : 'NO';
+          try {
+            const res = await fetch(restUrl(TABLE, { id: 'eq.' + clean(row.id) }), {
+              method: 'PATCH',
+              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+              body: JSON.stringify({ issues: want })
+            });
+            const saved = res.ok ? await res.json() : null;
+            // READ BACK, because PostgREST answers 200 with an empty array when
+            // RLS refuses and a flag nobody checked is worse than no flag.
+            if (Array.isArray(saved) && saved.length) {
+              Object.assign(row, saved[0]);
+              flagged += 1;
+            } else {
+              flagFailed += 1;
+            }
+          } catch (err) {
+            console.error(err);
+            flagFailed += 1;
+          }
+        }
+        if (flagFailed) {
+          setStatus('Could not write the issues flag on ' + flagFailed
+            + (flagFailed === 1 ? ' row.' : ' rows.')
+            + ' Check you are signed in as an admin.', 'error');
+        }
 
         if (needs.length) {
           // ONE PATCH PER ROW rather than one bulk call. PostgREST can update
@@ -3322,7 +3384,8 @@
               ' could not be written: ' + failed.slice(0, 3).join(', ') +
               (failed.length > 3 ? '…' : '') + ' Check you are signed in as an admin.', 'error');
           } else {
-            setStatus('Put ' + wrote + (wrote === 1 ? ' event' : ' events') + ' into review.', 'success');
+            setStatus('Put ' + wrote + (wrote === 1 ? ' event' : ' events') + ' into review'
+              + (flagged ? ', and set the issues flag on ' + flagged : '') + '.', 'success');
           }
         }
 
@@ -3334,9 +3397,16 @@
         render();
         if (!needs.length) {
           const inReview = state.rows.filter(isInReview).length;
-          setStatus(inReview
+          // THE FLAG MOVES EVEN WHEN THE REVIEW QUEUE DOES NOT, which is the
+          // whole point of it being the machine's own answer: a fault fixed
+          // since the last run turns YES back to NO and nothing goes into
+          // review. Saying nothing here would make that write invisible.
+          const flagNote = flagged
+            ? ' Issues flag updated on ' + flagged + (flagged === 1 ? ' row.' : ' rows.')
+            : '';
+          setStatus((inReview
             ? 'Nothing new. ' + inReview + ' in review.'
-            : 'Checked ' + state.rows.length + ' events. Nothing to review.', 'success');
+            : 'Checked ' + state.rows.length + ' events. Nothing to review.') + flagNote, 'success');
         }
       } finally {
         errorsBtn.disabled = false;

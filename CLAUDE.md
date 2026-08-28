@@ -1020,6 +1020,45 @@ A small **Find** beside the Spotify box on every track badge. It asks
   CONTROL carrying a three-letter label rather than a field carrying a value.
   The harness names it.
 
+## AN EVENT ROW CARRIES THE AUDIT'S ANSWER (2026-08-28)
+
+`public.events.issues`, `'NO'` by default, `'YES'` on a row the checks object
+to. [2026082801_events_issues_column.sql](mc/supabase/migrations/2026082801_events_issues_column.sql), **applied**.
+
+- **NOTHING WRITES `public.issues`, AND THAT IS THE POINT OF THE COLUMN.** The
+  two are different shapes of one idea and the difference is worth stating,
+  because the obvious tidy-up later is to merge them. `public.issues` holds one
+  row per FINDING, in words, filed by a routine that ran hours ago and is not
+  here to be asked. `events.issues` is one flag per EVENT, computed by rules
+  that live in the page and can be re-run in front of you. **The findings
+  themselves are never stored** -- they are recomputed on every render and drawn
+  on the row -- so a row in `public.issues` would be a copy that goes stale the
+  moment somebody fixes the date.
+- **IT IS NOT `status`, AND THE TWO BEHAVE DIFFERENTLY ON PURPOSE.**
+  `status = 'review'` is a HUMAN'S flag: the sweep only ever sets it and never
+  clears it, because the check cannot know whether the fault was dealt with or
+  merely made to stop matching. **`issues` is the MACHINE'S answer and moves
+  both ways** -- fix a date, re-run, and it goes back to NO. Keeping them apart
+  is what lets a row be `review` with `issues = NO`: somebody flagged it by hand
+  and the rules have nothing to say about it.
+- **WRITTEN ONLY WHERE IT WOULD CHANGE**, so a second press writes nothing, and
+  **read back on every PATCH**: PostgREST answers 200 with an empty array when
+  RLS refuses, and a flag nobody checked is worse than no flag.
+- **THE FLAG IS WRITTEN BEFORE THE REVIEW SWEEP**, so a run refused partway
+  leaves the machine's own answer correct on the rows it reached.
+- **IT IS NOT DRAWN ON THE ROW.** The row already carries its findings as
+  annotation lines, computed live, so a YES badge beside them would be the same
+  fact twice and would go stale the moment somebody fixed something without
+  re-running. **What it is FOR is anything reading the table from outside this
+  page.** It shows in the run's own message instead, or a column would be
+  maintained that nobody ever sees change.
+- **`'YES'` / `'NO'` WITH A CHECK**, matching what `public.games` already does
+  with `featured` and `archived`, but without the looseness that convention
+  usually brings: `'true'`, `''` and `'Y'` are all refused.
+- **NOT BACKFILLED.** Every row starts at the default, and `'NO'` has to mean
+  "the checks found nothing" rather than "the checks have not run" -- which only
+  a run can establish.
+
 ## THE THREE AUDIT FINDINGS, FIXED, AND THE NFL SHELF FILLED (2026-08-27)
 
 [2026082708_audit_clock_and_spotify_sweep.sql](mc/supabase/migrations/2026082708_audit_clock_and_spotify_sweep.sql), **applied**.
