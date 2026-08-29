@@ -125,6 +125,31 @@
     }
     .wp:last-child { border-bottom: 0; }
     .wp:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
     .wp-name { font-weight: 700; font-size: 0.95rem; }
     .wp-name a { color: inherit; text-decoration: none; }
     .wp-name a:hover { text-decoration: underline dotted; }
@@ -247,6 +272,8 @@
         <legend>Add</legend>
         <div class="command-bar-inner">
           <button class="btn primary" id="addBtn" type="button" title="Type a place in by hand">Waypoint</button>
+          <button class="btn" id="promptBtn" type="button"
+                  title="Build a prompt for an AI with a browser: ten strange walking stops in the cities you name, with coordinates.">Prompt</button>
         </div>
       </fieldset>
 
@@ -289,6 +316,44 @@
   <!-- THE EDITOR. One waypoint at a time, in a dialog holding a working copy:
        Save writes it, Close discards it. That is what a dialog buys over a
        card page, which needed a dirty set, a Save all and an edit lock. -->
+  <div class="dlg" id="aiDlg" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <span class="dlg-title" id="aiTitle">Add Waypoints with AI</span>
+      </div>
+      <div class="dlg-body">
+        <p class="ai-howto">
+          Ten strange walking stops per run, anywhere in the world.
+          Name the cities, edit the prompt if you like, then copy it into an AI that can browse.
+          Paste what it hands back into the website's database (Supabase).
+          If the SQL will not run, or the places come back wrong, mail
+          <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
+        </p>
+
+        <fieldset class="ai-options" aria-label="Which cities">
+          <legend class="ai-options-label">Which cities</legend>
+          <input type="text" id="aiCity" placeholder="Denver, Lisbon, Osaka, or leave empty for anywhere" autocomplete="off">
+        </fieldset>
+
+        <textarea id="aiPrompt" class="ai-sheet" spellcheck="false" aria-label="The prompt"></textarea>
+        <p class="dlg-msg" id="aiMsg"></p>
+      </div>
+      <div class="dlg-foot">
+        <fieldset class="ai-doors">
+          <legend class="ai-options-label">Copy prompt to clipboard &amp; open</legend>
+          <a class="btn" data-ai-door href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+          <a class="btn" data-ai-door href="https://grok.com/" target="_blank" rel="noopener noreferrer">Grok</a>
+          <a class="btn" data-ai-door href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
+        </fieldset>
+        <span class="spacer"></span>
+        <button class="btn" id="aiCloseBtn" type="button">Close</button>
+        <a class="btn primary" id="aiSqlBtn"
+           href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
+           target="_blank" rel="noopener noreferrer">Insert results</a>
+      </div>
+    </div>
+  </div>
+
   <div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
     <div class="dlg-panel">
       <div class="dlg-head">
@@ -688,6 +753,167 @@
       return row;
     }
 
+
+    const AI_PROMPT_LINES = [
+      "You are finding WAYPOINTS for The Game Bureau.",
+      "",
+      "A waypoint is a real world location where a game's challenge takes place.",
+      "Waypoint + Challenge = Game Stop. So a waypoint has to be somewhere a small",
+      "group can stand together, in public, and look at something.",
+      "",
+      "WHAT I WANT",
+      "",
+      "  Ten waypoints. __WHERE__",
+      "",
+      "WEIRD IS THE BRIEF. Not the cathedral, the thing across the road from it.",
+      "A giant fibreglass animal, a plaque about a duel, a door to nowhere, a museum",
+      "of one obsessive subject, a memorial to a fictional character, a building that",
+      "lost an argument with a bylaw. If a visitor would take a photograph and then",
+      "explain it to somebody, it qualifies. If it is the single most famous thing in",
+      "the city, it probably does not.",
+      "",
+      "WHERE TO GO LOOKING",
+      "",
+      "These four catalogues are the best hunting grounds for exactly this, and are",
+      "the ones Make My Drive Fun built its own 89,000 record catalogue from:",
+      "",
+      "  atlasobscura.com    curated oddities, worldwide, with coordinates",
+      "  theclio.com         historical and cultural sites, mostly US, with coordinates",
+      "  roadsideamerica.com US roadside oddities",
+      "  sillyamerica.com    US roadside attractions",
+      "",
+      "Wikipedia's own list articles are the other rich seam, because they carry an",
+      "address AND coordinates per row: \"List of public art in <city>\", \"National",
+      "Register of Historic Places listings in <county> County\", \"Category:Tourist",
+      "attractions in <city>\", and the city article's own Landmarks section.",
+      "",
+      "BUT THOSE ARE WHERE YOU FIND IT, NOT WHAT YOU CITE. A curated list is one",
+      "person's say so and can vanish. `source_url` must be the page that ACTUALLY",
+      "SAYS SOMETHING ABOUT THE PLACE and will still be there in five years: its",
+      "English Wikipedia article, its own official page, the museum's own site, the",
+      "council's listing. If the only thing you can find is a roundup entry, use it,",
+      "but prefer an article.",
+      "",
+      "Do not cite a map or a geocoder. openstreetmap.org and Google Maps are the",
+      "things that FOUND the place, not things that say anything about it.",
+      "",
+      "COORDINATES ARE NOT OPTIONAL",
+      "",
+      "A waypoint with no coordinates cannot be drawn on our map, cannot be measured",
+      "against another, and cannot be walked to. It is the one gap that makes a",
+      "waypoint useless, and our room flags every row that has one.",
+      "",
+      "  Give lat and lon as decimal degrees, six places, WGS84: 39.739200, -104.984700.",
+      "  Take them from the article's own coordinates or the catalogue entry.",
+      "  Point at the THING, not at the centre of the town it is in. A row sitting on",
+      "  the city centroid is worse than a row with nothing, because it looks located.",
+      "  If you cannot find a real point for a place, drop that place and find another.",
+      "",
+      "NEVER INVENT AN ADDRESS FROM COORDINATES. A point is not an address, and",
+      "reverse geocoding one produces a plausible, wrong, uncheckable street line.",
+      "Leave address null instead. A ZIP is different: looked up from a verified",
+      "street address it is a lookup, not an invention, so fetch it where you can.",
+      "",
+      "WHAT TO HAND BACK",
+      "",
+      "One SQL block and nothing else. No prose around it, no explanation:",
+      "",
+      "```sql",
+      "insert into public.waypoints",
+      "  (name, description, address, city, state, zip, lat, lon, source_url, ai_model)",
+      "values",
+      "  ('The Mustang', 'A thirty two foot blue horse with glowing red eyes that killed the man who made it.',",
+      "   '8500 Pena Blvd', 'Denver', 'CO', '80249', 39.849300, -104.673800,",
+      "   'https://en.wikipedia.org/wiki/Blue_Mustang', 'Anthropic Claude Opus 5'),",
+      "  ('Casa dos Bicos', 'A sixteenth century house faced with more than a thousand stone spikes.',",
+      "   'R. dos Bacalhoeiros 10', 'Lisbon', 'Portugal', '1100-135', 38.709700, -9.132700,",
+      "   'https://en.wikipedia.org/wiki/Casa_dos_Bicos', 'Anthropic Claude Opus 5');",
+      "```",
+      "",
+      "THE COLUMNS, and the rules that are not obvious",
+      "",
+      "  DO NOT SEND wpid. It is assigned by the database. A value you invent will",
+      "               collide with a real row.",
+      "  name         What the place is called. Not a sentence, not a description.",
+      "  description  One or two sentences, READ ALOUD AT THE STOP, so write it to be",
+      "               spoken. Say the strange thing plainly. No marketing voice.",
+      "  address      The street address, or null. Never derived from coordinates.",
+      "  city         The city on its own: Denver, Lisbon, Osaka.",
+      "  state        The two letter state code in the US, and THE COUNTRY NAME",
+      "               everywhere else: CO for Denver, Portugal for Lisbon. That is how",
+      "               the table already holds it and how the room reads a place back.",
+      "  zip          The postal code, looked up from the street address, or null.",
+      "  lat, lon     Decimal degrees, six places. Both or neither, and never 0, 0.",
+      "  source_url   The page that says something about the place. It must resolve.",
+      "  ai_model     The make and model of the AI writing this, exactly as you would",
+      "               name yourself: 'Anthropic Claude Opus 5', 'OpenAI GPT-5',",
+      "               'Google Gemini 3 Pro', 'xAI Grok 4'. The same value on every",
+      "               row. Not the family, not 'AI'. If you do not know which model",
+      "               you are, leave it out rather than guessing.",
+      "",
+      "HOUSE STYLE",
+      "",
+      "  Escape an apostrophe in SQL by doubling it: 'Macy''s'.",
+      "  NO EM DASHES anywhere in what you return, and not the &mdash; entity either.",
+      "  Use a comma, a colon, a semicolon, a full stop or brackets; one always fits.",
+      "  An em dash is the clearest tell that a machine wrote the line, and these",
+      "  descriptions are read aloud at the stop. This prompt uses none either.",
+      "  Ten real ones beat fifteen with three invented coordinates in them.",
+      "",
+      "Then, under the SQL block, print this line so I can run it:",
+      "https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true",
+      "",
+      "And after that, in two or three lines: which catalogues and articles you read,",
+      "how many you found per city, and anything you dropped for want of a coordinate.",
+    ];
+
+    function aiCities() {
+      return clean(el('aiCity').value).split(',')
+        .map((c) => clean(c)).filter(Boolean)
+        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
+    }
+
+    function buildAiPrompt() {
+      const cities = aiCities();
+      // NAMING NO CITY IS A REAL ANSWER, and it is the default: "anywhere in the
+      // world" is what this prompt is for. A blank box must not produce a
+      // prompt with a hole in it.
+      const where = cities.length === 1
+        ? 'All ten in ' + cities[0] + '.'
+        : (cities.length
+            ? 'Spread across these cities, and only these: ' + cities.join(', ') + '.'
+            : 'Anywhere in the world. Spread them across several cities and countries '
+              + 'rather than ten in one place.');
+      return AI_PROMPT_LINES.join(String.fromCharCode(10)).split('__WHERE__').join(where);
+    }
+
+    function paintAiPrompt() { el('aiPrompt').value = buildAiPrompt(); }
+
+    function openAiDialog() {
+      paintAiPrompt();
+      el('aiMsg').textContent = '';
+      el('aiDlg').classList.add('is-open');
+      el('aiCity').focus();
+    }
+
+    function closeAiDialog() {
+      el('aiDlg').classList.remove('is-open');
+      el('promptBtn').focus();
+    }
+
+    function copyAiPrompt() {
+      // THE COPY HAPPENS INSIDE THE CLICK, before anything is awaited: the
+      // clipboard needs the gesture, and activation does not survive a wait.
+      const text = el('aiPrompt').value;
+      try {
+        navigator.clipboard.writeText(text).then(
+          () => { el('aiMsg').textContent = 'Prompt copied. Paste it into the tab that just opened.'; },
+          () => { el('aiMsg').textContent = 'Could not reach the clipboard. Select the prompt and copy it by hand.'; });
+      } catch (err) {
+        el('aiMsg').textContent = 'Could not reach the clipboard. Select the prompt and copy it by hand.';
+      }
+    }
+
     /* ---- the map --------------------------------------------------------- */
 
     let leafletPromise = null;
@@ -901,6 +1127,14 @@
 
     el('addBtn').addEventListener('click', () => openEditor(null));
     el('saveBtn').addEventListener('click', saveEditor);
+    el('promptBtn').addEventListener('click', openAiDialog);
+    el('aiCloseBtn').addEventListener('click', closeAiDialog);
+    el('aiCity').addEventListener('input', paintAiPrompt);
+    el('aiDlg').addEventListener('click', (e) => { if (e.target === el('aiDlg')) closeAiDialog(); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ai-door]'), (door) => {
+      door.addEventListener('click', copyAiPrompt);
+    });
+
     el('closeBtn').addEventListener('click', closeEditor);
     el('deleteBtn').addEventListener('click', deleteEditing);
     el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });

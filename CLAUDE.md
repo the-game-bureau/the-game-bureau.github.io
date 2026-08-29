@@ -5083,6 +5083,63 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 
 **PROVED BY RENDERING IT AGAINST THE LIVE 516 ROWS**, not a fixture: 516 drawn, the place picker built with 72 real places and their counts, 498 on the map with the other 18 named in the note, a search for `denver` leaving 37, the editor opening on a real row with Delete shown, Save sending one PATCH, a new waypoint refusing a blank name and refusing half a coordinate pair without sending anything, then POSTing when fixed -- and **no request naming `paths`, `path_stops`, `tour` or `cities`**. No console errors. With `country` simulated onto the rows the field appears and the place labels gain it.
 
+### ADD WAYPOINTS WITH AI (2026-08-28)
+
+A **Prompt** button in the Add bar, opening the sibling of the Events room's
+OTHER dialog: **no date range**, one box for **Which cities**, ten strange
+walking stops a run, anywhere in the world. When either dialog changes, change
+both.
+
+- **BLANK IS A REAL ANSWER AND IS THE DEFAULT.** No city means *anywhere in the
+  world, spread across several cities and countries*, which is what this prompt
+  is for. One city puts all ten there; several fence it to those.
+- **WEIRD IS STATED AS THE BRIEF**, and the prompt warns off the most famous
+  thing in the city, which is what a model reaches for unprompted.
+
+#### THE RESEARCH, because the prompt wording IS the product
+
+**makemydrivefun.com WAS ASKED FOR AND IS NOT IN THE PROMPT, deliberately.**
+Its whole sitemap is **9 urls**, all homepage, blog and privacy: it has **no
+per-stop pages at all**, so there is nothing for a model to read and nothing to
+cite. What it does have is a blog post naming where its catalogue came from:
+**Atlas Obscura, Clio, Roadside America and Silly America, 89,384 records.**
+**Those four are what the prompt sends the model to**, which is the same answer
+one step upstream, and all four are reachable and carry coordinates.
+
+- **A CATALOGUE IS WHERE YOU FIND IT, NOT WHAT YOU CITE.** `source_url` must be
+  the page that says something about the place and will still be there in five
+  years: its Wikipedia article, its own official page, the museum's own site.
+  **Verified against the live table, this is what we already do**: 165 of 400
+  rows cite `en.wikipedia.org`, then `nps.gov` and other institutional sites.
+  Same reasoning as the events prompt refusing a resale site, and as the older
+  rule that a geocoder result is never a source: it found the place, it does
+  not say anything about it.
+- **COORDINATES ARE CALLED NOT OPTIONAL**, which ties the prompt to the Issues
+  container built the same day: that is the room's one rule. It asks for six
+  decimal places, forbids the **city centroid** by name (a row there is worse
+  than a row with nothing, because it looks located), and says to drop a place
+  it cannot locate rather than guess.
+- **THE OLD PROMPTS' TRAPS ARE CARRIED FORWARD** from [waypoint-prompts.js](mc/assets/waypoint-prompts.js),
+  which no page loads any more: never invent an address from coordinates, a ZIP
+  looked up from a real address is a lookup rather than an invention, the
+  description is read aloud at the stop, and `ai_model` is the make and model.
+
+#### THE TWO SCHEMA FACTS THAT WOULD OTHERWISE COST A FAILED PASTE
+
+- **`wpid` MUST BE OMITTED.** It is `bigint NOT NULL` with **no default and no
+  identity**, and a trigger, `waypoints_assign_wpid_trg`, assigns it. A model
+  handed a NOT NULL primary key invents one and collides with a real row, so
+  the prompt says not to send it and why.
+- **`state` HOLDS THE COUNTRY OUTSIDE THE US.** Two-letter code in the US, the
+  country NAME everywhere else. Read off the live table rather than assumed:
+  London / United Kingdom, Madrid / Spain, Munich / Germany. **There is no
+  `country` column**, and `placeOf` joins city and state, so this is the only
+  place a country can go.
+- **THE IMPORT RPCs ARE GONE.** `tgb_import_waypoints_prompt_items` and its
+  sports twin both answer **404**, so the prompt returns a plain
+  `insert into public.waypoints`, exactly as the Events room's does. **Do not
+  restore the helper for this** without a migration and a reason.
+
 ### AN ISSUES CONTAINER, WITH A CHECK BUTTON (2026-08-28)
 
 A fourth folder-tab fieldset, **Issues**, hard right of Find, holding one
