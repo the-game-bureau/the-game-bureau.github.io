@@ -66,7 +66,12 @@
 
   function stateAbbrOf(value) {
     var geo = global.TgbWaypointGeo;
-    // Shared with waypoint-geo.js rather than carrying a second state map.
+    // WAYPOINT-GEO.JS WAS DELETED ON 2026-08-29 with the Waypoints room's
+    // strip, so this always takes the fallback now and no page loads this file
+    // at all. THIS FILE STAYS ANYWAY: TGB ANCHOR EVENTS reads it out of the
+    // repo as its specification, as text rather than as code, so what matters
+    // here is the prompt wording below and not whether this helper resolves.
+    // The guard was always here; only the module behind it has gone.
     if (geo && typeof geo.stateAbbrOf === 'function') return geo.stateAbbrOf(value);
     return '';
   }

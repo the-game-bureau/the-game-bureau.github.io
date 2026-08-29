@@ -210,7 +210,7 @@ something real.
 | **Tape Room** | [mc/soundtracks/index.html](mc/soundtracks/index.html) | `soundtracks`, `soundtrack_songs`, `soundtrack_issues` | TGB SOUNDTRACK BOT |
 | **Gift Shop** (the room) | [mc/gifts/index.html](mc/gifts/index.html) | `gift_shop_items`, `gift_shop_listings` | TGB GIFT SHOP BOT |
 | **Socializer** | [mc/socializer/index.html](mc/socializer/index.html) | `socials` | TGB SOCIALIZER BOT |
-| **Waypoints** | [mc/waypoints/index.html](mc/waypoints/index.html) | `waypoints`, `paths`, `path_stops` | TGB PATH BOT, TGB WAYPOINT BOT |
+| **Waypoints** | [mc/waypoints/index.html](mc/waypoints/index.html) | `waypoints` | none |
 | **Green Room** | [mc/greenroom.html](mc/greenroom.html) | `guides` | none |
 | **Cities** | [mc/data/cities.html](mc/data/cities.html) | `cities`, `countries` | none |
 | **Anchor Events** | [mc/events/index.html](mc/events/index.html) | `anchor_events` | TGB ANCHOR EVENTS (name only; see its note) |
@@ -5053,6 +5053,35 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 | `public.waypoints` | the places. **One row per place, ever.** No tour columns. |
 | `public.paths` | `tour_id` (PK), `title`, `shape`, `city`. One row per path. |
 | `public.path_stops` | `tour_id`, `wpid`, `ord`. **Nothing but ids and a position.** |
+
+### THE WAYPOINTS ROOM IS STRIPPED TO WAYPOINTS (2026-08-29)
+
+**It reads and writes `public.waypoints` and nothing else.** 3,825 lines to 888. Asked for as *"super stripped down"*, and it is a rebuild rather than a trim: the path picker was the way INTO the room, so the library, the map and the load path all hung off an open path and there was no way to cut one out and leave the rest standing.
+
+**WHAT IS GONE, PLAINLY.** Every one of these worked, and none of it is coming back by accident:
+
+| gone | what it did |
+|---|---|
+| the path panel, picker, `?tour=`, Clone | everything about `paths` and `path_stops` |
+| RECALC and TUCK IN | the walk solver and cheapest-insertion ranking |
+| drag a place onto a walk | the whole drag-and-drop between the two panels |
+| Fill, and the bulk `Fill N` | Nominatim geocoding of blank address / zip / point / description / source |
+| Waypoint Prompts | the six AI pulls that returned waypoint SQL |
+| the partner band | the 16 `partner_*` fields on the editor |
+| the city catalogue | `TgbCities`, `geo.js`, `city-picker.js`, the datalist and the + add-a-city |
+
+- **A WAYPOINT CARRIES ITS OWN PLACE NOW.** `city`, `state` and **`country`** are plain text on the row, and nothing joins `public.cities`. **That is the same trade `events.venue_city` made on 2026-08-28 and it costs the same thing**: nothing stops two spellings of one town, and no screen will tell you.
+- **`country` IS A NEW COLUMN AND NEEDS [2026082901_waypoints_country.sql](mc/supabase/migrations/2026082901_waypoints_country.sql), APPLIED BY HAND.** **The page ships before it and degrades**: it probes a loaded row for the column and hides the field when it is absent, the same guard `source_url` and `lat`/`lon` already carry, so nothing 400s. The field appears the moment the SQL is run -- proved by rendering both ways.
+- **`tour_id`, `tour_title`, `tour_shape` AND `walk_order` ARE RETIRED IN PLACE, NOT DROPPED.** This room neither reads nor writes one. 22 rows still carry the tour columns; dropping is the single irreversible move available.
+- **NOTHING CAN VIEW OR EDIT A PATH ANY MORE.** `public.paths` (22) and `public.path_stops` (234) are untouched and unreachable. **Daily Review's two `?tour=` deep links are removed rather than left pointing at a room that would ignore the query** -- a link that lands somewhere plausible and silently does nothing is worse than no link, because you go looking for the walk. That panel is now the only place a filed path can be read at all.
+- **`waypoint-editor.js` AND `waypoint-geo.js` ARE DELETED.** This room was their only caller, and the editor's contract was mostly Fill, the partner band and "add to the open path". The new editor is inlined and small.
+- **`waypoint-prompts.js` STAYS ON DISK AND THE PAGE NO LONGER LOADS IT.** **TGB ANCHOR EVENTS reads that FILE out of the repo as its specification** -- step 1 of its stored prompt is *open it and find `buildTourPlacesWaypointPrompt`* -- so deleting it would break a routine silently, with no error anywhere. **Do not tidy it away as unused.**
+- **WHAT SURVIVED, AND WHY EACH.** The map, because pins and drag-to-move are facts about a waypoint rather than about a walk. The `missing` tag, because a row short of something is the one you act on. The name-as-a-link-to-its-source. The place picker, **built from the rows themselves** rather than from a catalogue, so it can only offer a place some waypoint actually claims.
+- **THE WRITE RULES ARE UNCHANGED AND WERE CARRIED OVER DELIBERATELY.** `return=representation` on every write, because PostgREST answers 200 with an empty array when RLS refuses; `hasPoint()` checking null explicitly, because `Number(null)` is 0 and `isFinite(0)` is true; coordinates as a pair or nothing; the read paged past the 1,000-row cap.
+
+**TGB PATH BOT IS STILL RUNNING AND I COULD NOT TURN IT OFF.** `update_trigger` refuses: *"this routine was created via http_api, not by an agent. Agents can only update routines they created."* So **it keeps filing four walking tours a day into two tables nothing can display**, on `17 8,20`. Disable it at claude.ai/code/routines -- **disabled, not deleted**, since a trigger id does not survive a delete and this project lost one that way on 2026-08-20.
+
+**PROVED BY RENDERING IT AGAINST THE LIVE 516 ROWS**, not a fixture: 516 drawn, the place picker built with 72 real places and their counts, 498 on the map with the other 18 named in the note, a search for `denver` leaving 37, the editor opening on a real row with Delete shown, Save sending one PATCH, a new waypoint refusing a blank name and refusing half a coordinate pair without sending anything, then POSTing when fixed -- and **no request naming `paths`, `path_stops`, `tour` or `cities`**. No console errors. With `country` simulated onto the rows the field appears and the place labels gain it.
 
 ### THE ROOM IS CALLED WAYPOINTS, AT `/mc/waypoints/` (2026-08-28)
 
