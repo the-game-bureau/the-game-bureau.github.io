@@ -369,6 +369,72 @@ Kevin can settle them.
 
 ---
 
+## THE CHALLENGE EDITOR, AND WHY A CHALLENGE HAS A SCOPE (2026-08-29)
+
+[mc/challenges/index.html](mc/challenges/index.html), the room the product was missing. Built to the
+Waypoints room's shape, chrome copied rather than approximated, so a writer who
+has seen one room has seen this one. **When any of these rooms' chrome changes,
+change them all.**
+
+**WHY IT IS THE ROOM THAT MATTERED.** Counted on 2026-08-29: 3,050 anchor
+events, 536 waypoints, 234 path stops, **1 challenge**, 395 games of which
+**none is live**, and 6 plays ever recorded. The inputs are enormous and the
+output is empty, so every hour spent on another catalogue widened the top of a
+funnel with no bottom.
+
+### A CHALLENGE IS EITHER PORTABLE OR PLACE BOUND
+
+[2026082902_challenges_scope_and_tags.sql](mc/supabase/migrations/2026082902_challenges_scope_and_tags.sql), **applied**. `scope` with a CHECK,
+and `tags text[]`.
+
+- **THE ONE ROW ON FILE IS PLACE BOUND**, and saying so is the point of the
+  column: *"Whose house is this? / Jefferson Davis"* works at one address.
+  **Singing the away club's fight song in the home club's city works at
+  hundreds of places, in hundreds of games, and is written once.** Those are
+  different species and the table treated them identically, which is why reuse
+  was aspirational rather than real.
+- **IT IS STORED, NOT DERIVED from whether the prompt carries a variable.** A
+  portable challenge need not use one: *"photograph the ugliest thing you can
+  see from here"* travels anywhere and names nothing. The distinction is
+  editorial.
+- **`id` IS AN IDENTITY COLUMN**, so it is never sent on an insert, and
+  **`kind` HAS A CHECK CONSTRAINT** unlike `events.kind` -- adding a fifth kind
+  here needs a migration, not just a constant.
+
+### VARIABLES ARE WHAT MAKE A CHALLENGE PORTABLE
+
+`{{away_team_nickname}}` and eight others, **every one a real column on
+`public.events`** plus the waypoint the stop sits at. A friendlier name would
+mean a mapping table nobody maintains, and a variable that resolves to nothing
+at play time is worse than no variable at all.
+
+- **THE PREVIEW IS THE REASON THE ROOM EXISTS.** The prompt reads back filled
+  from a worked example, Bears at Broncos, so a writer sees the sentence a team
+  will hear rather than a row of placeholders.
+- **AN UNKNOWN VARIABLE IS LEFT UNFILLED AND MARKED RED, in the preview and on
+  the row.** That is exactly what play time does, and showing it resolved would
+  hide the fault. **This is the failure nothing else in the system can catch**:
+  a mistyped `{{away_team}}` is not an error anywhere, it simply prints as
+  literal braces in front of a team standing in the street.
+- **A VARIABLE BUTTON INSERTS AT THE CARET** and each says what it reads as.
+
+### THE CHECKS
+
+`no-prompt`, `no-answer` (a question only, since a photo is judged by the team),
+`unknown-variable`, and `place-bound-variable` -- a contradiction rather than a
+typo: it says it travels nowhere and then asks for the away club, which only a
+travelling game has.
+
+### AND THE SAME RLS HOLE AS WAYPOINTS
+
+`challenges` grants every write to `authenticated` with `USING (true)`, exactly
+as `waypoints` does, while `events` and `issues` both gate on `is_photo_admin()`.
+**The admin check for both tables is client-side only**, so any signed-in
+Supabase user on this project can edit or delete every row.
+[2026082903_challenges_and_waypoints_admin_writes.sql](mc/supabase/migrations/2026082903_challenges_and_waypoints_admin_writes.sql) fixes both and is
+**written but NOT applied**: tightening a policy can lock out a caller, and
+that is a decision rather than a tidy-up. Reads stay public either way.
+
 ## THE SPACEBAR DID NOT WORK IN THE SUGGESTION FORM (2026-08-27)
 
 `/soundtracks/` runs its cassette transport off a **document-level** keydown

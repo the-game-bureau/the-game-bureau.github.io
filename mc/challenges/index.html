@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CHALLENGES | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+</style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? CHALLENGES</h1>
+        <p class="room-blurb">A Challenge is what a team does when they get there. Waypoint + Challenge = Game Stop</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn primary" id="addBtn" type="button" title="Write one yourself">Challenge</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="Search name, prompt, answer, tag..." autocomplete="off">
+          <select id="kindFilter" title="Narrow to one kind"></select>
+          <select id="scopeFilter" title="Portable travels between games; place bound does not">
+            <option value="any">any scope</option>
+            <option value="portable">portable</option>
+            <option value="place">place bound</option>
+          </select>
+          <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--check">
+        <legend>Issues</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="checkBtn" type="button">Check</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Challenge Library</span>
+        <span class="panel-count" id="listCount"></span>
+      </div>
+      <div class="batch-row" id="batchBar">
+        <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
+        <span class="batch-count" id="batchCount">none selected</span>
+        <span class="batch-actions">
+          <select id="batchKind" aria-label="Set kind"><option value="">Set kind</option></select>
+          <select id="batchScope" aria-label="Set scope">
+            <option value="">Set scope</option>
+            <option value="portable">portable</option>
+            <option value="place">place bound</option>
+          </select>
+          <button class="btn" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
+          <span class="bar-sep" aria-hidden="true"></span>
+          <button class="btn warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
+        </span>
+      </div>
+      <div class="panel-body" id="list"></div>
+    </section>
+  </main>
+
+  <!-- THE EDITOR. One challenge at a time, in a dialog holding a working copy:
+       Save writes it, Close discards it. -->
+  <div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <span class="dlg-title" id="dlgTitle">Challenge</span>
+        <span class="dlg-sub" id="dlgSub"></span>
+      </div>
+      <div class="dlg-body">
+        <label class="field field--wide"><span>Name</span>
+          <input type="text" id="fName" placeholder="Sing for the away side" autocomplete="off">
+        </label>
+
+        <label class="field"><span>Kind</span>
+          <select id="fKind"></select>
+        </label>
+
+        <label class="field"><span>Scope</span>
+          <select id="fScope">
+            <option value="portable">portable, works anywhere</option>
+            <option value="place">place bound, one waypoint only</option>
+          </select>
+        </label>
+
+        <label class="field field--wide"><span>Prompt, read by the team at the stop</span>
+          <textarea id="fPrompt" rows="3" placeholder="Stand on the steps and sing the {{away_team_nickname}} fight song, loudly enough that a stranger looks."></textarea>
+        </label>
+
+        <div class="field field--wide"><span>Insert a variable</span>
+          <div class="varbar" id="varBar"></div>
+        </div>
+
+        <div class="field field--wide"><span>How it reads in a real game</span>
+          <div class="preview" id="preview"></div>
+        </div>
+
+        <label class="field field--wide"><span>Answer, blank when nothing is marked</span>
+          <input type="text" id="fAnswer" placeholder="Jefferson Davis" autocomplete="off">
+        </label>
+
+        <label class="field field--wide"><span>Tags, comma separated</span>
+          <input type="text" id="fTags" placeholder="sports, combative, loud" autocomplete="off">
+        </label>
+
+        <div class="field"><span>Written</span>
+          <div class="field-read" id="fCreated">-</div>
+        </div>
+      </div>
+      <p class="dlg-msg" id="dlgMsg"></p>
+      <div class="dlg-foot">
+        <button class="btn warn" id="deleteBtn" type="button">Delete</button>
+        <span class="spacer"></span>
+        <button class="btn" id="closeBtn" type="button">Close</button>
+        <button class="btn primary" id="saveBtn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'challenges';
+
+    // THE KINDS ARE A CHECK CONSTRAINT, unlike events.kind which is free text.
+    // Adding one here needs a migration, so the list is not merely a UI choice.
+    const KIND_VALUES = ['question', 'minigame', 'photo', 'freeform'];
+
+    // ---- VARIABLES ARE WHAT MAKE A CHALLENGE PORTABLE ---------------------
+    //
+    // "Sing the away team's fight song" is one row that serves every fandom
+    // game we will ever build. "Whose house is this" serves one address. The
+    // difference is entirely whether the text can name the game's own teams
+    // without being rewritten, and that is what {{away_team_nickname}} buys.
+    //
+    // EVERY NAME HERE IS A REAL COLUMN ON public.events, plus the waypoint the
+    // stop sits at. Inventing a friendlier name would mean a mapping table
+    // nobody maintains, and a variable that resolves to nothing at play time
+    // is worse than no variable at all.
+    const VARIABLES = [
+      { key: 'away_team_geo',       eg: 'Chicago',    what: 'where the away club is from' },
+      { key: 'away_team_nickname',  eg: 'Bears',      what: 'what the copy calls the away club' },
+      { key: 'home_team_geo',       eg: 'Denver',     what: 'where the home club is from' },
+      { key: 'home_team_nickname',  eg: 'Broncos',    what: 'what the copy calls the home club' },
+      { key: 'league',              eg: 'NFL',        what: 'the league' },
+      { key: 'sport',               eg: 'Football',   what: 'the sport' },
+      { key: 'venue',               eg: 'Empower Field at Mile High', what: 'the anchor event venue' },
+      { key: 'venue_city',          eg: 'Denver, Colorado',           what: 'the venue town' },
+      { key: 'waypoint',            eg: 'Union Station',              what: 'the place this stop is at' }
+    ];
+    const VAR_KEYS = VARIABLES.map((v) => v.key);
+    const VAR_RE = /\{\{\s*([a-z_]+)\s*\}\}/g;
+
+    function varsIn(text) {
+      const out = [];
+      String(text || '').replace(VAR_RE, (m, k) => { out.push(k); return m; });
+      return out.filter((k, at, list) => list.indexOf(k) === at);
+    }
+    function unknownVarsIn(text) { return varsIn(text).filter((k) => VAR_KEYS.indexOf(k) === -1); }
+
+    const state = { authed: false, rows: [], q: '', kind: 'any', scope: 'any',
+                    editing: null, reviewOnly: false, loaded: false };
+    const cols = { scope: false, tags: false };
+    const picked = new Set();
+
+    /* ---- plumbing -------------------------------------------------------- */
+
+    function el(id) { return document.getElementById(id); }
+    function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_CONFIG.publishableKey)
+      }, extra || {});
+    }
+    async function readError(res) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { /* body already consumed */ }
+      // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23514 is a
+      // statement about our schema and tells nobody what to do about it.
+      if (/challenges_scope_check/.test(text)) return 'Scope must be portable or place bound.';
+      if (/challenges_kind_check/.test(text)) return 'That is not a kind this table allows.';
+      if (/PGRST204|column .*scope|column .*tags/.test(text)) {
+        return 'The database has no scope or tags column yet. Run '
+             + 'mc/supabase/migrations/2026082902_challenges_scope_and_tags.sql.';
+      }
+      if (res.status === 401 || res.status === 403 || /42501/.test(text)) {
+        return 'The database refused that. Check you are signed in as an admin.';
+      }
+      return text.slice(0, 200) || ('HTTP ' + res.status);
+    }
+
+    function setStatus(text, kind) {
+      const node = el('pageStatus');
+      if (!node) return;
+      node.textContent = text || '';
+      node.classList.toggle('error', kind === 'error');
+      node.classList.toggle('success', kind === 'success');
+    }
+
+    /* ---- reading --------------------------------------------------------- */
+
+    async function loadAll() {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(TABLE, { select: '*', order: 'name.asc' }), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error('Could not read challenges: ' + await readError(res));
+        const page = await res.json();
+        out.push(...page);
+        if (page.length < 1000) break;
+      }
+      state.rows = out;
+      state.loaded = true;
+      probeColumns(out[0]);
+    }
+
+    // THE PAGE SHIPS BEFORE THE MIGRATION AND DEGRADES, the same guard the
+    // Waypoints room carries for source_url and lat/lon: naming a column
+    // PostgREST does not have 400s the whole load.
+    function probeColumns(row) {
+      if (!row) return;
+      cols.scope = Object.prototype.hasOwnProperty.call(row, 'scope');
+      cols.tags = Object.prototype.hasOwnProperty.call(row, 'tags');
+      el('fScope').closest('.field').hidden = !cols.scope;
+      el('fTags').closest('.field').hidden = !cols.tags;
+      el('scopeFilter').hidden = !cols.scope;
+      el('batchScope').hidden = !cols.scope;
+    }
+
+    function scopeOf(row) { return cols.scope ? (clean(row.scope) || 'portable') : 'portable'; }
+    function tagsOf(row) { return Array.isArray(row.tags) ? row.tags.filter(Boolean) : []; }
+
+    /* ---- what counts as an issue ----------------------------------------- */
+    //
+    // Each rule carries the sentence somebody acts on rather than a category.
+    // The list is meant to grow; this is the place.
+    const CHECK_RULES = [
+      {
+        key: 'no-prompt',
+        // Nothing to read at the stop means the team is standing there with
+        // nothing to do, which is the one fault that stops a challenge being a
+        // challenge at all.
+        test: (c) => !clean(c.prompt),
+        say: 'Write the prompt. It is what the team reads when they arrive.'
+      },
+      {
+        key: 'no-answer',
+        // Only a question is marked against an answer. A photo or a freeform
+        // is judged by the team, so a blank there is correct.
+        test: (c) => clean(c.kind) === 'question' && !clean(c.answer),
+        say: 'Add an answer, or change the kind. A question is marked against one.'
+      },
+      {
+        key: 'unknown-variable',
+        // THE HIGH VALUE RULE. A mistyped variable is not an error anywhere:
+        // it renders as literal braces in front of a team standing in the
+        // street, and nothing else in the system will ever notice.
+        test: (c) => unknownVarsIn(c.prompt).length > 0,
+        say: (c) => 'Fix ' + unknownVarsIn(c.prompt).map((k) => '{{' + k + '}}').join(', ')
+                  + '. That is not a variable, so it prints as it is written.'
+      },
+      {
+        key: 'place-bound-variable',
+        // A contradiction rather than a typo: it says it travels nowhere and
+        // then asks for the away club, which only a travelling game has.
+        test: (c) => scopeOf(c) === 'place' && varsIn(c.prompt).length > 0,
+        say: 'This is place bound but names a team. Make it portable, or take the variable out.'
+      }
+    ];
+
+    function reviewReasons(c) {
+      const out = [];
+      CHECK_RULES.forEach((rule) => {
+        try { if (rule.test(c)) out.push(typeof rule.say === 'function' ? rule.say(c) : rule.say); }
+        catch (err) { console.error('check rule ' + rule.key + ' threw', err); }
+      });
+      return out;
+    }
+    function isInReview(c) { return reviewReasons(c).length > 0; }
+    function issueCount() { return state.rows.filter(isInReview).length; }
+
+    /* ---- filtering ------------------------------------------------------- */
+
+    function matches(c) {
+      if (state.reviewOnly && !isInReview(c)) return false;
+      if (state.kind !== 'any' && clean(c.kind) !== state.kind) return false;
+      if (state.scope !== 'any' && scopeOf(c) !== state.scope) return false;
+      if (!state.q) return true;
+      const hay = [c.name, c.prompt, c.answer, c.kind, tagsOf(c).join(' ')]
+        .map((v) => clean(v).toLowerCase()).join(' ');
+      return hay.includes(state.q);
+    }
+    function visible() { return state.rows.filter(matches); }
+    function anyFilterOn() {
+      return !!(state.q || state.kind !== 'any' || state.scope !== 'any' || state.reviewOnly);
+    }
+
+    /* ---- batch ----------------------------------------------------------- */
+
+    function visibleIds() { return visible().map((c) => String(c.id)); }
+    function prunePicked() {
+      const on = new Set(visibleIds());
+      Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
+    }
+    function pickedIds() { return visibleIds().filter((id) => picked.has(id)); }
+
+    function paintBatch() {
+      const n = pickedIds().length;
+      const total = visibleIds().length;
+      el('batchCount').textContent = n ? n + ' selected' : 'none selected';
+      const all = el('batchAllBox');
+      all.checked = total > 0 && n === total;
+      all.indeterminate = n > 0 && n < total;
+      [['batchApplyBtn', 'Apply'], ['batchDeleteBtn', 'Delete']].forEach(([id, word]) => {
+        const btn = el(id);
+        const off = n === 0;
+        btn.setAttribute('aria-disabled', off ? 'true' : 'false');
+        btn.textContent = off ? word : word + ' ' + n;
+        btn.title = off ? 'Tick some challenges first.' : word + ' the ' + n + ' ticked.';
+      });
+    }
+
+    /* ---- rendering ------------------------------------------------------- */
+
+    // `?` UNTIL THE TABLE IS IN, NEVER `0`: everything loads before the first
+    // render, so a zero on the way would be wrong rather than not yet known.
+    function updateTitle() {
+      const n = state.rows.length;
+      el('roomTitle').textContent = (state.loaded ? String(n) : '?')
+        + (state.loaded && n === 1 ? ' CHALLENGE' : ' CHALLENGES');
+    }
+
+    function paintCheckBtn() {
+      const btn = el('checkBtn');
+      const n = issueCount();
+      btn.textContent = state.reviewOnly ? 'Show all' : (n ? 'Check (' + n + ')' : 'Check');
+      btn.title = state.reviewOnly ? 'Show every challenge again.'
+        : (n ? 'Show only the ' + n + ' with something wrong.' : 'Nothing is wrong with any of them.');
+    }
+
+    let kindSig = null;
+    function paintKindFilter() {
+      const sel = el('kindFilter');
+      const counts = new Map();
+      state.rows.forEach((c) => {
+        const k = clean(c.kind) || '(none)';
+        counts.set(k, (counts.get(k) || 0) + 1);
+      });
+      const kinds = [...counts.keys()].sort();
+      const sig = kinds.map((k) => k + ':' + counts.get(k)).join('|');
+      if (sig === kindSig) return;
+      kindSig = sig;
+      const want = state.kind;
+      sel.textContent = '';
+      const any = document.createElement('option');
+      any.value = 'any';
+      any.textContent = 'any kind (' + state.rows.length + ')';
+      sel.appendChild(any);
+      kinds.forEach((k) => {
+        const o = document.createElement('option');
+        o.value = k; o.textContent = k + ' (' + counts.get(k) + ')';
+        sel.appendChild(o);
+      });
+      if (![...sel.options].some((o) => o.value === want) && want !== 'any') state.kind = 'any';
+      sel.value = state.kind;
+    }
+
+    // THE PROMPT IS DRAWN WITH ITS VARIABLES MARKED, so a writer can see which
+    // words the game fills in and which are literal. An unknown one is drawn
+    // red in the same pass, which is the fastest way to spot a typo.
+    function promptNode(text, cls) {
+      const wrap = document.createElement(cls === 'preview' ? 'div' : 'p');
+      if (cls) wrap.className = cls;
+      const src = String(text || '');
+      let at = 0, m;
+      VAR_RE.lastIndex = 0;
+      while ((m = VAR_RE.exec(src))) {
+        if (m.index > at) wrap.appendChild(document.createTextNode(src.slice(at, m.index)));
+        const chip = document.createElement('span');
+        const known = VAR_KEYS.indexOf(m[1]) !== -1;
+        chip.className = 'var' + (known ? '' : ' is-bad');
+        chip.textContent = m[0];
+        if (!known) chip.title = 'Not a variable. This prints exactly as written.';
+        wrap.appendChild(chip);
+        at = m.index + m[0].length;
+      }
+      if (at < src.length) wrap.appendChild(document.createTextNode(src.slice(at)));
+      return wrap;
+    }
+
+    function rowNode(c) {
+      const row = document.createElement('div');
+      row.className = 'ch';
+      row.dataset.id = String(c.id);
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        if (e.target.closest('.ch-pick')) return;
+        openEditor(c);
+      });
+
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'ch-pick';
+      pick.checked = picked.has(String(c.id));
+      pick.setAttribute('aria-label', 'Select ' + (clean(c.name) || 'this challenge'));
+      pick.addEventListener('change', () => {
+        if (pick.checked) picked.add(String(c.id)); else picked.delete(String(c.id));
+        paintBatch();
+      });
+      row.appendChild(pick);
+
+      const line = document.createElement('span');
+      line.className = 'ch-line';
+
+      const name = document.createElement('span');
+      name.className = 'ch-name';
+      name.textContent = clean(c.name) || '(unnamed)';
+      line.appendChild(name);
+
+      const kind = document.createElement('span');
+      kind.className = 'ch-kind';
+      kind.textContent = clean(c.kind) || 'no kind';
+      line.appendChild(kind);
+
+      if (cols.scope) {
+        const sc = scopeOf(c);
+        const chip = document.createElement('span');
+        chip.className = 'ch-scope ' + (sc === 'place' ? 'is-place' : 'is-portable');
+        chip.textContent = sc === 'place' ? 'place bound' : 'portable';
+        chip.title = sc === 'place'
+          ? 'The answer is a fact about one waypoint, so it travels nowhere.'
+          : 'Works at any waypoint, in any game.';
+        line.appendChild(chip);
+      }
+
+      tagsOf(c).forEach((t) => {
+        const chip = document.createElement('span');
+        chip.className = 'ch-tag';
+        chip.textContent = t;
+        line.appendChild(chip);
+      });
+
+      if (clean(c.prompt)) line.appendChild(promptNode(c.prompt, 'ch-prompt'));
+      row.appendChild(line);
+
+      const why = reviewReasons(c);
+      if (why.length) {
+        row.classList.add('is-review');
+        why.forEach((text) => {
+          const p = document.createElement('p');
+          p.className = 'ch-note';
+          p.textContent = text;
+          row.appendChild(p);
+        });
+      }
+      return row;
+    }
+
+    function emptyNode(text) {
+      const p = document.createElement('p');
+      p.className = 'ch-empty';
+      p.textContent = text;
+      return p;
+    }
+
+    function render() {
+      updateTitle();
+      prunePicked();
+      paintKindFilter();
+      paintCheckBtn();
+
+      const rows = visible();
+      el('listCount').textContent = rows.length === state.rows.length
+        ? state.rows.length + ' challenges'
+        : rows.length + ' of ' + state.rows.length + ' challenges';
+
+      const clearBtn = el('clearBtn');
+      clearBtn.setAttribute('aria-disabled', anyFilterOn() ? 'false' : 'true');
+      clearBtn.title = anyFilterOn() ? 'Put the search box and the pickers back.' : 'Nothing is filtered.';
+
+      const list = el('list');
+      list.textContent = '';
+      if (!state.authed) {
+        list.appendChild(emptyNode('Sign in with an admin account to load challenges.'));
+        paintBatch();
+        return;
+      }
+      if (!rows.length) {
+        list.appendChild(emptyNode(state.rows.length
+          ? 'Nothing matches. Press Clear to see all ' + state.rows.length + '.'
+          : 'No challenges yet. Press Challenge to write one.'));
+        paintBatch();
+        return;
+      }
+      rows.forEach((c) => list.appendChild(rowNode(c)));
+      paintBatch();
+    }
+
+    /* ---- the editor ------------------------------------------------------ */
+
+    // A WORKED EXAMPLE, so the preview is a real sentence rather than a row of
+    // placeholders. Bears at Broncos because it is the fixture the whole
+    // vocabulary is written around.
+    const SAMPLE = {};
+    VARIABLES.forEach((v) => { SAMPLE[v.key] = v.eg; });
+
+    function fillVars(text) {
+      return String(text || '').replace(VAR_RE, (m, k) =>
+        (Object.prototype.hasOwnProperty.call(SAMPLE, k) ? SAMPLE[k] : m));
+    }
+
+    function paintPreview() {
+      const box = el('preview');
+      box.textContent = '';
+      const src = clean(el('fPrompt').value);
+      if (!src) {
+        const p = document.createElement('span');
+        p.className = 'preview-empty';
+        p.textContent = 'Write a prompt and it will read back here as a team would hear it.';
+        box.appendChild(p);
+        return;
+      }
+      // UNKNOWN VARIABLES ARE LEFT UNFILLED AND MARKED, which is exactly what
+      // would happen at play time. Showing them resolved would hide the fault.
+      box.appendChild(promptNode(fillVars(src)));
+    }
+
+    function buildVarBar() {
+      const bar = el('varBar');
+      bar.textContent = '';
+      VARIABLES.forEach((v) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = v.key;
+        b.title = v.what + '. Reads as "' + v.eg + '" in the preview.';
+        b.addEventListener('click', () => {
+          const box = el('fPrompt');
+          const at = box.selectionStart == null ? box.value.length : box.selectionStart;
+          const end = box.selectionEnd == null ? at : box.selectionEnd;
+          const token = '{{' + v.key + '}}';
+          box.value = box.value.slice(0, at) + token + box.value.slice(end);
+          box.focus();
+          box.selectionStart = box.selectionEnd = at + token.length;
+          paintPreview();
+        });
+        bar.appendChild(b);
+      });
+    }
+
+    function buildKindSelects() {
+      [el('fKind'), el('batchKind')].forEach((sel, i) => {
+        if (i === 1) sel.textContent = '';
+        else sel.textContent = '';
+        if (i === 1) {
+          const first = document.createElement('option');
+          first.value = ''; first.textContent = 'Set kind';
+          sel.appendChild(first);
+        }
+        KIND_VALUES.forEach((k) => {
+          const o = document.createElement('option');
+          o.value = k; o.textContent = k;
+          sel.appendChild(o);
+        });
+      });
+    }
+
+    function openEditor(row) {
+      state.editing = row ? Object.assign({}, row) : null;
+      const isNew = !row;
+      el('dlgTitle').textContent = isNew ? 'New challenge' : 'Challenge';
+      el('dlgSub').textContent = isNew ? '' : 'ID ' + row.id;
+      el('dlgMsg').textContent = '';
+      el('fName').value = row ? clean(row.name) : '';
+      el('fKind').value = row ? (clean(row.kind) || 'question') : 'question';
+      el('fScope').value = row ? scopeOf(row) : 'portable';
+      el('fPrompt').value = row ? clean(row.prompt) : '';
+      el('fAnswer').value = row ? clean(row.answer) : '';
+      el('fTags').value = row ? tagsOf(row).join(', ') : '';
+      el('fCreated').textContent = row && row.created_at ? String(row.created_at).slice(0, 10) : '-';
+      // DELETE IS OFFERED ONLY ON A ROW THAT EXISTS. On a new one it would be
+      // a control that can do nothing, which reads as broken.
+      el('deleteBtn').hidden = isNew;
+      paintPreview();
+      el('dlg').classList.add('is-open');
+      el('fName').focus();
+    }
+
+    function closeEditor() {
+      el('dlg').classList.remove('is-open');
+      state.editing = null;
+    }
+
+    function readForm() {
+      const body = {
+        name: clean(el('fName').value),
+        kind: clean(el('fKind').value) || 'question',
+        prompt: clean(el('fPrompt').value) || null,
+        answer: clean(el('fAnswer').value) || null
+      };
+      if (cols.scope) body.scope = clean(el('fScope').value) || 'portable';
+      if (cols.tags) {
+        body.tags = clean(el('fTags').value).split(',')
+          .map((t) => clean(t)).filter(Boolean)
+          .filter((t, at, list) => list.indexOf(t) === at);
+      }
+      return body;
+    }
+
+    async function saveEditing() {
+      const body = readForm();
+      if (!body.name) {
+        el('dlgMsg').textContent = 'A challenge needs a name, so it can be found again.';
+        el('fName').focus();
+        return;
+      }
+      el('saveBtn').disabled = true;
+      try {
+        if (state.editing && state.editing.id) {
+          const res = await fetch(restUrl(TABLE, { id: 'eq.' + state.editing.id }), {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) throw new Error('Nothing was saved: ' + await readError(res));
+          const rows = await res.json();
+          // POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES A WRITE.
+          if (!rows.length) throw new Error('The database refused that write. Check you are signed in as an admin.');
+          const at = state.rows.findIndex((r) => String(r.id) === String(state.editing.id));
+          if (at !== -1) state.rows[at] = rows[0];
+          setStatus('Saved ' + body.name + '.', 'success');
+        } else {
+          // `id` IS AN IDENTITY COLUMN, so it is never sent.
+          const res = await fetch(restUrl(TABLE, {}), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) throw new Error('Nothing was created: ' + await readError(res));
+          const rows = await res.json();
+          if (!rows.length) throw new Error('The database refused that insert. Check you are signed in as an admin.');
+          state.rows.push(rows[0]);
+          state.rows.sort((a, b) => clean(a.name).localeCompare(clean(b.name)));
+          setStatus('Added ' + body.name + '.', 'success');
+        }
+        closeEditor();
+        render();
+      } catch (err) {
+        console.error(err);
+        el('dlgMsg').textContent = err.message;
+      } finally {
+        el('saveBtn').disabled = false;
+      }
+    }
+
+    async function deleteEditing() {
+      const row = state.editing;
+      if (!row || !row.id) return;
+      const name = clean(row.name) || 'this challenge';
+      if (!window.confirm('Delete ' + name + ' for good? This cannot be undone.')) return;
+      el('deleteBtn').disabled = true;
+      try {
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + row.id }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error('Nothing was deleted: ' + await readError(res));
+        const gone = await res.json();
+        if (!gone.length) throw new Error('The database refused that delete. Check you are signed in as an admin.');
+        state.rows = state.rows.filter((r) => String(r.id) !== String(row.id));
+        closeEditor();
+        render();
+        setStatus('Deleted ' + name + '.', 'success');
+      } catch (err) {
+        console.error(err);
+        el('dlgMsg').textContent = err.message;
+      } finally {
+        el('deleteBtn').disabled = false;
+      }
+    }
+
+    /* ---- batch writes ---------------------------------------------------- */
+
+    function inFilter(ids) { return 'in.(' + ids.join(',') + ')'; }
+
+    async function batchApply() {
+      const ids = pickedIds();
+      if (!ids.length) { setStatus('Tick some challenges first.', 'error'); return; }
+      const body = {};
+      const kind = clean(el('batchKind').value);
+      const scope = clean(el('batchScope').value);
+      if (kind) body.kind = kind;
+      if (scope && cols.scope) body.scope = scope;
+      if (!Object.keys(body).length) {
+        setStatus('Choose a kind or a scope to set, then press Apply.', 'error');
+        return;
+      }
+      el('batchApplyBtn').setAttribute('aria-disabled', 'true');
+      try {
+        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('Nothing was saved: ' + await readError(res));
+        const saved = await res.json();
+        if (!saved.length) throw new Error('The database refused that change. Check you are signed in as an admin.');
+        saved.forEach((row) => {
+          const at = state.rows.findIndex((r) => String(r.id) === String(row.id));
+          if (at !== -1) state.rows[at] = row;
+        });
+        el('batchKind').value = '';
+        el('batchScope').value = '';
+        render();
+        const missed = ids.length - saved.length;
+        setStatus('Updated ' + saved.length + ' of ' + ids.length + '.'
+          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
+          missed ? 'error' : 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message, 'error');
+      } finally { paintBatch(); }
+    }
+
+    async function batchDelete() {
+      const ids = pickedIds();
+      if (!ids.length) { setStatus('Tick some challenges first.', 'error'); return; }
+      if (!window.confirm('Delete ' + ids.length + ' challenges for good? This cannot be undone.')) return;
+      el('batchDeleteBtn').setAttribute('aria-disabled', 'true');
+      try {
+        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error('Nothing was deleted: ' + await readError(res));
+        const gone = await res.json();
+        if (!gone.length) throw new Error('The database refused that delete. Check you are signed in as an admin.');
+        // BUILT FROM THE ROWS RETURNED, never the ids asked for.
+        const goneIds = new Set(gone.map((r) => String(r.id)));
+        state.rows = state.rows.filter((r) => !goneIds.has(String(r.id)));
+        goneIds.forEach((id) => picked.delete(id));
+        render();
+        const missed = ids.length - gone.length;
+        setStatus('Deleted ' + gone.length + ' of ' + ids.length + '.'
+          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
+          missed ? 'error' : 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message, 'error');
+      } finally { paintBatch(); }
+    }
+
+    /* ---- wiring ---------------------------------------------------------- */
+
+    buildKindSelects();
+    buildVarBar();
+
+    el('q').addEventListener('input', () => {
+      state.q = clean(el('q').value).toLowerCase();
+      render();
+    });
+    [['kindFilter', 'kind'], ['scopeFilter', 'scope']].forEach(([id, key]) => {
+      el(id).addEventListener('change', () => {
+        state[key] = clean(el(id).value) || 'any';
+        render();
+      });
+    });
+    el('clearBtn').addEventListener('click', () => {
+      if (!anyFilterOn()) { setStatus('Nothing is filtered.', 'error'); return; }
+      state.q = ''; state.kind = 'any'; state.scope = 'any'; state.reviewOnly = false;
+      el('q').value = ''; el('kindFilter').value = 'any'; el('scopeFilter').value = 'any';
+      render();
+      setStatus('Filters cleared.', 'success');
+    });
+
+    el('checkBtn').addEventListener('click', () => {
+      if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+      if (state.reviewOnly) {
+        state.reviewOnly = false;
+        render();
+        setStatus('Showing every challenge again.', 'success');
+        return;
+      }
+      // EVERY FILTER COMES OFF FIRST. The check reads state.rows and so is
+      // never narrowed, but its ANSWER would be: a search left in the box
+      // would hide faulty rows from the very list the count promises.
+      state.q = ''; state.kind = 'any'; state.scope = 'any';
+      el('q').value = ''; el('kindFilter').value = 'any'; el('scopeFilter').value = 'any';
+      const n = issueCount();
+      state.reviewOnly = n > 0;
+      render();
+      setStatus(n
+        ? 'Filters cleared, and showing the ' + n + ' of ' + state.rows.length
+          + ' with something wrong. Press Show all for the rest.'
+        : 'Checked all ' + state.rows.length + '. Nothing wrong with any of them.',
+        'success');
+    });
+
+    el('batchAllBox').addEventListener('change', (e) => {
+      const ids = visibleIds();
+      if (e.target.checked) ids.forEach((id) => picked.add(id));
+      else ids.forEach((id) => picked.delete(id));
+      render();
+    });
+    el('batchApplyBtn').addEventListener('click', batchApply);
+    el('batchDeleteBtn').addEventListener('click', batchDelete);
+
+    el('addBtn').addEventListener('click', () => openEditor(null));
+    el('closeBtn').addEventListener('click', closeEditor);
+    el('saveBtn').addEventListener('click', saveEditing);
+    el('deleteBtn').addEventListener('click', deleteEditing);
+    el('fPrompt').addEventListener('input', paintPreview);
+    el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el('dlg').classList.contains('is-open')) closeEditor();
+    });
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading challenges...');
+        try {
+          await loadAll();
+          render();
+          setStatus('');
+        } catch (err) {
+          console.error(err);
+          // The fetch and the render are separate try blocks on purpose: a
+          // rendering bug reporting itself as "could not read the table" sends
+          // you looking at the data instead of the code.
+          setStatus(err.message || 'Could not load challenges.', 'error');
+        }
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.rows = [];
+        state.loaded = false;
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>

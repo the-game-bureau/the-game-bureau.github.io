@@ -96,6 +96,20 @@
           action: 'GO TO WAYPOINTS'
         },
         {
+          href: '/mc/challenges/',
+          // DIRECTLY UNDER WAYPOINTS, because the pair is the sentence the
+          // whole vocabulary rests on: Waypoint + Challenge = Game Stop. They
+          // are the two halves of a stop and reading them apart is how the
+          // join between them went unbuilt for so long.
+          //
+          // A CHALLENGE IS THE PLAYABLE CONTENT and, at one row on 2026-08-29,
+          // the least built thing in the product. Everything else in this
+          // group is an ingredient somebody has already gathered thousands of.
+          label: 'Challenges',
+          description: 'What a team actually does at a stop — write them once, with variables, and use them in every game.',
+          action: 'GO TO CHALLENGES'
+        },
+        {
           // This card was WAYPOINTS until 2026-08-09 — it pointed at
           // mc/data/waypoints.html, and once that page was folded into the
           // Path Builder it became a second door to a room the Game Builder
