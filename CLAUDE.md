@@ -5096,6 +5096,40 @@ both.
 - **WEIRD IS STATED AS THE BRIEF**, and the prompt warns off the most famous
   thing in the city, which is what a model reaches for unprompted.
 
+#### A WAYPOINT IS FREE, AND THAT IS A HARD RULE
+
+**FREE, ALWAYS**, stated in capitals above the weird brief. A game sends a
+group to stand in front of a thing; **if somebody has to buy their way in, the
+stop costs money at the point of play and nothing downstream knows it.** No
+admission, no ticket, no entry fee, no tour price, no donation expected at a
+door.
+
+- **THE LINE IS THE DOOR, NOT THE BUILDING.** A museum's building, its sign or
+  the sculpture outside it is fine; its galleries are not. A cathedral you walk
+  into for nothing is fine; one that charges is not. A park that closes at dusk
+  is fine. Behind a turnstile, inside a paid attraction, or up a tower you buy a
+  lift ticket for is not.
+- **AN UNKNOWN ONE IS LEFT OUT AND REPORTED**, not guessed at, because **a wrong
+  one costs somebody money at the stop** and the closing note is the only place
+  that can say so. The note now has to say WHICH reason a place was dropped for,
+  a missing coordinate or an unconfirmed price.
+- **THE WEIRD EXAMPLES HAD TO CHANGE WITH IT.** They offered *"a museum of one
+  obsessive subject"*, which the rule excludes, so a model reading both would
+  have had one instruction contradicting the other. **When a rule is added,
+  re-read the examples above it.**
+
+#### ONE COLUMN, AND IT IS BOTH POPUPS
+
+`.dlg-body` was `grid-template-columns: 1fr 1fr`, so the waypoint editor's
+fields sat two abreast **and the AI dialog inherited it**, putting its
+paragraph, its city box and a 920px sheet of prompt into two columns. It is
+`1fr`, and **the phone override that forced one column under 760px went with
+it**, being the same value as the default now.
+
+- **`.field--wide` IS LEFT IN THE MARKUP.** `grid-column: 1 / -1` is correct in
+  a single-column grid and does nothing, and it keeps recording which fields
+  wanted the full width if the form ever goes back to two.
+
 #### THE RESEARCH, because the prompt wording IS the product
 
 **makemydrivefun.com WAS ASKED FOR AND IS NOT IN THE PROMPT, deliberately.**
