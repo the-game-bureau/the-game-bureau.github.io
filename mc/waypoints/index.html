@@ -631,8 +631,8 @@
       const note = el('mapNote');
       const unlocated = rows.length - located.length;
       note.textContent = unlocated
-        ? unlocated + ' of these have no coordinates, so they are not on the map. Drag a pin to move a waypoint.'
-        : (located.length ? 'Drag a pin to move a waypoint.' : 'No waypoint on this list has coordinates yet.');
+        ? unlocated + ' of these have no coordinates, so they are not on the map. Open one and press Fill, or type them in.'
+        : (located.length ? '' : 'No waypoint on this list has coordinates yet.');
 
       if (!located.length) {
         if (layer) layer.clearLayers();
@@ -652,23 +652,14 @@
       located.forEach((w) => {
         const ll = [Number(w.lat), Number(w.lon)];
         pts.push(ll);
+        // THE MAP READS, IT DOES NOT WRITE. A pin was draggable, and a drag is
+        // the one gesture with no undo and no confirmation: a nudge nobody
+        // meant moved a waypoint and saved it. The coordinates are edited in
+        // the form, where the value is visible before it is committed.
         const marker = L.marker(ll, {
-          draggable: true,
           icon: L.divIcon({ className: '', html: '<div class="wp-pin"></div>', iconSize: [14, 14] })
         });
         marker.bindTooltip(clean(w.name) || '(unnamed)');
-        marker.on('dragend', async () => {
-          const p = marker.getLatLng();
-          try {
-            await patch(w.wpid, { lat: round6(p.lat), lon: round6(p.lng) });
-            setStatus('Moved ' + (clean(w.name) || 'that waypoint') + '.', 'success');
-          } catch (err) {
-            // The pin goes back where the database still says it is, or the map
-            // would show a position nothing was saved at.
-            marker.setLatLng([Number(w.lat), Number(w.lon)]);
-            setStatus(err.message, 'error');
-          }
-        });
         layer.addLayer(marker);
       });
       // REFIT ONLY WHEN THE SET OF POINTS CHANGES. Yanking the viewport while
@@ -679,8 +670,6 @@
         map.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 15 });
       }
     }
-
-    function round6(n) { return Math.round(Number(n) * 1e6) / 1e6; }
 
     /* ---- writing --------------------------------------------------------- */
 

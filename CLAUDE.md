@@ -5083,6 +5083,37 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 
 **PROVED BY RENDERING IT AGAINST THE LIVE 516 ROWS**, not a fixture: 516 drawn, the place picker built with 72 real places and their counts, 498 on the map with the other 18 named in the note, a search for `denver` leaving 37, the editor opening on a real row with Delete shown, Save sending one PATCH, a new waypoint refusing a blank name and refusing half a coordinate pair without sending anything, then POSTing when fixed -- and **no request naming `paths`, `path_stops`, `tour` or `cities`**. No console errors. With `country` simulated onto the rows the field appears and the place labels gain it.
 
+### THE MAP READS, IT DOES NOT WRITE (2026-08-28)
+
+A pin was `draggable: true` with a `dragend` that PATCHed the new coordinates.
+**Both are gone**, and so is `round6`, whose only caller that handler was.
+
+- **A DRAG IS THE ONE GESTURE HERE WITH NO UNDO AND NO CONFIRMATION.** Every
+  other write in this room goes through the form, where you see the value
+  before you commit it and can close without saving. A nudge nobody meant moved
+  a waypoint and saved it, and the only sign was a success message.
+- **NOTHING IS STRANDED, WHICH IS THE TEST FOR REMOVING A WRITE PATH.** `lat`
+  and `lon` are still editable fields on the form and still go through `patch`,
+  so a coordinate is as reachable as it was. **Removing the only way to set a
+  value would be a different change entirely.**
+- **THE NOTE STOPPED OFFERING IT**, per the standing rule that a control and
+  its copy go in the same pass. It said *"Drag a pin to move a waypoint"* on
+  every render; it now reports only the unlocated count and names the form as
+  the fix. **With every waypoint located it says nothing at all** -- there is no
+  news, and a line that is always there is a line nobody reads.
+- **THE ROLLBACK, if it is ever wanted:** put `draggable: true` back on the
+  marker options and re-add the `dragend`, which read `marker.getLatLng()`,
+  called `patch`, and **on failure put the pin back where the database still
+  said it was** -- without that the map shows a position nothing was saved at.
+
+**PROVED BY RENDERING THE ROOM, and by running the same suite against the file
+BEFORE the change**, where it fails nine ways: two pins built with
+`draggable: true` and a `dragend` bound to each. **The first cut of that suite
+was VACUOUS** -- `ensureLeaflet` waits for a real `onload` on an injected
+`<script>`, which never fires in jsdom, so no marker was ever built and
+*"none of the pins is draggable"* passed over an empty array. The harness fires
+that `onload`, and both assertions now require `markers.length > 0` first.
+
 ### THE ROOM IS CALLED WAYPOINTS, AT `/mc/waypoints/` (2026-08-28)
 
 **PATH BUILDER was the room's name until this date, and `mc/pathbuilder.html` was its file.** Both are gone: the page is [mc/waypoints/index.html](mc/waypoints/index.html), the `<h1>` and the `<title>` read WAYPOINTS, and **`/mc/pathbuilder.html` 404s** — GitHub Pages serves no 301, so this is a hard break like every other move here.
