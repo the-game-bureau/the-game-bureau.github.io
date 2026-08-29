@@ -150,6 +150,33 @@
       font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
       white-space: pre; overflow: auto;
     }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .wp-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
     .wp-name { font-weight: 700; font-size: 0.95rem; }
     .wp-name a { color: inherit; text-decoration: none; }
     .wp-name a:hover { text-decoration: underline dotted; }
@@ -256,7 +283,7 @@
          four different title sizes. -->
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title">WAYPOINTS</h1>
+        <h1 class="room-title" id="roomTitle">? WAYPOINTS</h1>
         <!-- THE TAGLINE IS NOT A STATUS LINE. It is the standing description of
              the room, and a message that overwrote it would take the
              explanation away exactly when something had gone wrong. Notices go
@@ -307,6 +334,18 @@
       <div class="panel-head">
         <span class="panel-title">Waypoint Library</span>
         <span class="panel-count" id="listCount"></span>
+      </div>
+      <div class="batch-row" id="batchBar">
+        <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
+        <span class="batch-count" id="batchCount">none selected</span>
+        <span class="batch-actions">
+          <input type="text" id="batchCity" placeholder="Set city…" autocomplete="off">
+          <input type="text" id="batchState" placeholder="Set state…" autocomplete="off"
+                 title="Two letter code in the US, the country name everywhere else. CO for Denver, Portugal for Lisbon.">
+          <button class="btn" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
+          <span class="bar-sep" aria-hidden="true"></span>
+          <button class="btn warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
+        </span>
       </div>
       <div class="panel-body" id="list"></div>
     </section>
@@ -438,7 +477,7 @@
     const cols = { country: false, source_url: false, latlon: false };
 
     const state = { authed: false, rows: [], q: '', place: 'any', editing: null,
-                    reviewOnly: false };
+                    reviewOnly: false, loaded: false };
 
     /* ---- plumbing -------------------------------------------------------- */
 
@@ -504,6 +543,7 @@
         if (page.length < 1000) break;
       }
       state.rows = out;
+      state.loaded = true;
       probeColumns(out[0]);
     }
 
@@ -642,7 +682,60 @@
 
     /* ---- rendering ------------------------------------------------------- */
 
+    // ---- BATCH EDIT -----------------------------------------------------
+    //
+    // CITY AND STATE ARE THE ONLY TWO WORTH SETTING AT ONCE. Everything else on
+    // a waypoint is about that one place: its name, what it is, where exactly
+    // it stands, what says so. A batch setter for a description would be
+    // offering to write one sentence about ten different things.
+    const picked = new Set();
+
+    // WHAT IS SELECTED IS WHAT IS ON SCREEN. The list is not paged, so the
+    // filtered set IS the visible set; pruning to it stops a tick surviving a
+    // filter change and a press landing on somebody else's row.
+    function visibleIds() { return visible().map((w) => String(w.wpid)); }
+
+    function prunePicked() {
+      const on = new Set(visibleIds());
+      Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
+    }
+
+    function pickedIds() { return visibleIds().filter((id) => picked.has(id)); }
+
+    function paintBatch() {
+      const n = pickedIds().length;
+      const total = visibleIds().length;
+      el('batchCount').textContent = n ? n + ' selected' : 'none selected';
+
+      const all = el('batchAllBox');
+      all.checked = total > 0 && n === total;
+      all.indeterminate = n > 0 && n < total;
+
+      [['batchApplyBtn', 'Apply'], ['batchDeleteBtn', 'Delete']].forEach(([id, word]) => {
+        const btn = el(id);
+        const off = n === 0;
+        btn.setAttribute('aria-disabled', off ? 'true' : 'false');
+        // THE NOUN STAYS WHEN THERE IS NOTHING TICKED, so the button does not
+        // change width as rows are ticked and shove the row about.
+        btn.textContent = off ? word : word + ' ' + n;
+        btn.title = off ? 'Tick some waypoints first.' : word + ' the ' + n + ' ticked.';
+      });
+    }
+
+    // `?` UNTIL THE TABLE IS IN, NEVER `0`. Everything is loaded before the
+    // first render, so a zero on the way would be a figure that is wrong rather
+    // than a figure that is not known yet.
+    function updateTitle() {
+      const t = el('roomTitle');
+      if (!t) return;
+      const n = state.rows.length;
+      t.textContent = (state.loaded ? String(n) : '?')
+        + (state.loaded && n === 1 ? ' WAYPOINT' : ' WAYPOINTS');
+    }
+
     function render() {
+      updateTitle();
+      prunePicked();
       renderPlaceFilter();
       paintCheckBtn();
       const rows = visible();
@@ -659,6 +752,7 @@
       if (!state.authed) {
         list.appendChild(emptyNode('Sign in with an admin account to load waypoints.'));
         renderMap([]);
+        paintBatch();
         return;
       }
       if (!rows.length) {
@@ -666,10 +760,12 @@
           ? 'Nothing matches. Press Clear to see all ' + state.rows.length + '.'
           : 'No waypoints yet. Press Waypoint to add one.'));
         renderMap([]);
+        paintBatch();
         return;
       }
       rows.forEach((w) => list.appendChild(rowNode(w)));
       renderMap(rows);
+      paintBatch();
     }
 
     function emptyNode(text) {
@@ -685,10 +781,22 @@
       row.dataset.wpid = String(w.wpid);
       row.addEventListener('click', (e) => {
         // The source is a real link out; clicking it must not also open the
-        // editor underneath.
+        // editor underneath. Nor must the tick, which is a control of its own.
         if (e.target.closest('a')) return;
+        if (e.target.closest('.wp-pick')) return;
         openEditor(w);
       });
+
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'wp-pick';
+      pick.checked = picked.has(String(w.wpid));
+      pick.setAttribute('aria-label', 'Select ' + (clean(w.name) || 'this waypoint'));
+      pick.addEventListener('change', () => {
+        if (pick.checked) picked.add(String(w.wpid)); else picked.delete(String(w.wpid));
+        paintBatch();
+      });
+      row.appendChild(pick);
 
       const name = document.createElement('span');
       name.className = 'wp-name';
@@ -1109,6 +1217,87 @@
       }
     }
 
+    function inFilter(ids) { return 'in.(' + ids.join(',') + ')'; }
+
+    async function batchApply() {
+      const ids = pickedIds();
+      if (!ids.length) { setStatus('Tick some waypoints first.', 'error'); return; }
+      const body = {};
+      const city = clean(el('batchCity').value);
+      const st = clean(el('batchState').value);
+      if (city) body.city = city;
+      if (st) body.state = st;
+      if (!Object.keys(body).length) {
+        setStatus('Type a city or a state to set, then press Apply.', 'error');
+        el('batchCity').focus();
+        return;
+      }
+      const btn = el('batchApplyBtn');
+      btn.setAttribute('aria-disabled', 'true');
+      try {
+        // ONE REQUEST FOR THE LOT, not a loop.
+        const res = await fetch(restUrl(TABLE, { wpid: inFilter(ids) }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('Nothing was saved: ' + await readError(res));
+        const saved = await res.json();
+        // POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, and a
+        // SHORT reply is the partial case. Reporting the number asked for
+        // would be saying "12 updated" about 9.
+        if (!saved.length) throw new Error('The database refused that change. Check you are signed in as an admin.');
+        saved.forEach((row) => {
+          const at = state.rows.findIndex((r) => String(r.wpid) === String(row.wpid));
+          if (at !== -1) state.rows[at] = row;
+        });
+        el('batchCity').value = '';
+        el('batchState').value = '';
+        render();
+        const missed = ids.length - saved.length;
+        setStatus('Updated ' + saved.length + ' of ' + ids.length + '.'
+          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
+          missed ? 'error' : 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message, 'error');
+      } finally {
+        paintBatch();
+      }
+    }
+
+    async function batchDelete() {
+      const ids = pickedIds();
+      if (!ids.length) { setStatus('Tick some waypoints first.', 'error'); return; }
+      if (!window.confirm('Delete ' + ids.length + ' waypoints for good? This cannot be undone.')) return;
+      const btn = el('batchDeleteBtn');
+      btn.setAttribute('aria-disabled', 'true');
+      try {
+        const res = await fetch(restUrl(TABLE, { wpid: inFilter(ids) }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error('Nothing was deleted: ' + await readError(res));
+        const gone = await res.json();
+        if (!gone.length) throw new Error('The database refused that delete. Check you are signed in as an admin.');
+        // BUILT FROM THE ROWS RETURNED, never from the ids asked for: a delete
+        // that reached three of five must not clear five rows off the screen.
+        const goneIds = new Set(gone.map((r) => String(r.wpid)));
+        state.rows = state.rows.filter((r) => !goneIds.has(String(r.wpid)));
+        goneIds.forEach((id) => picked.delete(id));
+        render();
+        const missed = ids.length - gone.length;
+        setStatus('Deleted ' + gone.length + ' of ' + ids.length + '.'
+          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
+          missed ? 'error' : 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message, 'error');
+      } finally {
+        paintBatch();
+      }
+    }
+
     async function deleteEditing() {
       const row = state.editing;
       if (!row || !row.wpid) return;
@@ -1141,6 +1330,15 @@
 
     el('addBtn').addEventListener('click', () => openEditor(null));
     el('saveBtn').addEventListener('click', saveEditor);
+    el('batchAllBox').addEventListener('change', (e) => {
+      const ids = visibleIds();
+      if (e.target.checked) ids.forEach((id) => picked.add(id));
+      else ids.forEach((id) => picked.delete(id));
+      render();
+    });
+    el('batchApplyBtn').addEventListener('click', batchApply);
+    el('batchDeleteBtn').addEventListener('click', batchDelete);
+
     el('promptBtn').addEventListener('click', openAiDialog);
     el('aiCloseBtn').addEventListener('click', closeAiDialog);
     el('aiCity').addEventListener('input', paintAiPrompt);
@@ -1233,6 +1431,7 @@
       onSignedOut: () => {
         state.authed = false;
         state.rows = [];
+        state.loaded = false;
         render();
         setStatus('Sign in with an admin account.');
       }

@@ -5083,6 +5083,56 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 
 **PROVED BY RENDERING IT AGAINST THE LIVE 516 ROWS**, not a fixture: 516 drawn, the place picker built with 72 real places and their counts, 498 on the map with the other 18 named in the note, a search for `denver` leaving 37, the editor opening on a real row with Delete shown, Save sending one PATCH, a new waypoint refusing a blank name and refusing half a coordinate pair without sending anything, then POSTing when fixed -- and **no request naming `paths`, `path_stops`, `tour` or `cities`**. No console errors. With `country` simulated onto the rows the field appears and the place labels gain it.
 
+### THE COUNT LEADS THE ROOM'S NAME (2026-08-28)
+
+`137 WAYPOINTS`, and `1 WAYPOINT` at one. The Events room's own shape.
+
+- **`?` UNTIL THE TABLE IS IN, NEVER `0`.** `loadAll` pulls every page before
+  the first render, so a zero on the way is a figure that is WRONG rather than
+  one that is not known yet.
+- **THE MARKUP'S OWN TEXT IS `? WAYPOINTS`, and that is not belt and braces.**
+  `render()` does not run until the whole table has arrived, so the static text
+  is what somebody looks at for the first second. It read a bare `WAYPOINTS`
+  and the test caught it.
+
+### BATCH EDIT (2026-08-28)
+
+A tick on every row, and a bar above the list: **Select all | count | Set city
+| Set state | Apply | Delete**. Built to the Events room's shape; when either
+changes, change both.
+
+- **CITY AND STATE ARE THE ONLY TWO WORTH SETTING AT ONCE.** Everything else on
+  a waypoint is about that ONE place: its name, what it is, where exactly it
+  stands, what says so. **A batch setter for a description would be offering to
+  write one sentence about ten different things.** The pair earns it because
+  "these ten are all in Lisbon, Portugal" is a real sentence.
+- **THE TICK IS EXEMPT FROM THE ROW'S CLICK.** The whole row opens the editor,
+  so without that guard every selection would open a dialog over the list. The
+  source link was already exempt for the same reason.
+- **`aria-disabled`, NEVER `disabled`**, and the faces keep their noun at zero
+  (`Apply`, then `Apply 2`) so the bar does not change width as rows are ticked
+  and shove itself about.
+- **ONE REQUEST FOR THE LOT**, `wpid=in.(...)`, with `return=representation`.
+  **PostgREST answers 200 with an empty array when RLS refuses**, and a SHORT
+  array when it refused only some.
+- **THE SHORTFALL IS REPORTED, NEVER ROUNDED UP.** *"Updated 3 of 4. 1 was
+  refused."* Saying "4 updated" about 3 is the quiet sort of lie this project
+  has been caught by before. **The delete rebuilds from the rows RETURNED**, not
+  the ids asked for, so a delete that reached three of five cannot clear five
+  rows off the screen.
+- **APPLY SENDS ONLY WHAT WAS TYPED.** An empty box is not a value; it is a
+  column left alone. Pressing Apply with both empty says what to type rather
+  than sending an empty patch.
+- **THE SELECTION IS PRUNED TO WHAT IS VISIBLE, on every render.** The list is
+  not paged, so the filtered set IS the visible set. A tick surviving a filter
+  change would let a press land on a row nobody can see.
+
+**AND THE SUITE CAUGHT MY OWN VACUOUS ASSERTION.** `ok('it asks for the rows
+back', /return=representation/.test(...) || true)` **could never fail.** The
+stub records the request headers now and the assertion reads the `Prefer` it
+actually sent. **A `|| true` in a test is the thing this file keeps warning
+about, written by the person who wrote the warning.**
+
 ### ADD WAYPOINTS WITH AI (2026-08-28)
 
 A **Prompt** button in the Add bar, opening the sibling of the Events room's
