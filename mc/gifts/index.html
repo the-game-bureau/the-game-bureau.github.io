@@ -6819,8 +6819,11 @@
         btn.addEventListener('click', () => {
           const url = (urlInput && urlInput.value || '').trim();
           if (!url) { setItemStatus('Link is required.', 'error'); return; }
-          const win = window.open(url, '_blank', 'noopener');
-          if (win) win.focus();
+          // `noopener` IN THE FEATURES STRING makes window.open return null
+          // even on success, so this focus() could never run. Cut the opener
+          // afterwards instead, once the handle has been used.
+          const win = window.open(url, '_blank');
+          if (win) { try { win.opener = null; } catch (err) { /* cross-origin */ } win.focus(); }
         });
       });
 

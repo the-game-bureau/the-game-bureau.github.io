@@ -4167,9 +4167,13 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           failManualFields(['manualUrl'], error && error.message ? error.message : 'Add a destination web page.');
           return;
         }
-        var opened = window.open(url, '_blank', 'noopener,noreferrer');
+        // SAME TRAP AS THE COMPOSER DOORS: `noopener` in the FEATURES STRING
+        // makes window.open return null even on success, so this reported a
+        // blocked popup every single time while the tab opened perfectly. The
+        // opener is cut afterwards instead.
+        var opened = window.open(url, '_blank');
         if (opened) {
-          opened.opener = null;
+          try { opened.opener = null; } catch (err) { /* cross-origin, already safe */ }
           manualStatusText('Opened destination.', true);
         } else {
           manualStatusText('Popup blocked. Open the destination from the URL field.', false);
@@ -7763,9 +7767,20 @@ Finish with the SQL block and that link, then a short summary below them: the fi
               // ONE window.open PER CLICK. A second one is blocked by most
               // browsers, so the composer gets the single popup and the gift
               // photo becomes a link in the notice below.
-              var opened = PLATFORM_COMPOSE[key]
-                ? window.open(PLATFORM_COMPOSE[key], '_blank', 'noopener')
-                : null;
+              // `noopener` MUST NOT GO IN THE FEATURES STRING, and this is the
+              // trap this page just fell into: with it, `window.open` returns
+              // NULL EVEN WHEN IT SUCCEEDED, which is indistinguishable from a
+              // blocked popup. So the composer opened perfectly and the notice
+              // said the browser had blocked it. The Tape Room's bot button
+              // documents the same trap; this is the second instance.
+              //
+              // The opener is cut AFTERWARDS instead, once the handle has been
+              // used, which gives the same protection and a usable return.
+              var opened = null;
+              if (PLATFORM_COMPOSE[key]) {
+                opened = window.open(PLATFORM_COMPOSE[key], '_blank');
+                if (opened) { try { opened.opener = null; } catch (err) { /* cross-origin, already safe */ } }
+              }
               copied.then(function (ok) {
                 noteUsed(key);
                 // Say what actually happened. window.open returns null when the

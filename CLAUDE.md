@@ -4050,6 +4050,35 @@ Step **2c** of the routine's prompt: one video worth sharing on our own channel,
 - **ONLY WHEN THERE IS SOMETHING TO SEE.** A candidate with no url never reaches the bio page — it refuses a row it cannot send anybody to — so the line is omitted rather than promising a link that is not there.
 - **AND ONLY ONCE.** A human writing an Instagram override may end it this way themselves; the machine repeating it underneath is the small sloppiness that reads as automated. Matched loosely (`/see\s+link\s+in\s+bio/i`) so odd spacing still counts.
 
+### `noopener` IN THE FEATURES STRING MADE EVERY DOOR REPORT A BLOCKED TAB (2026-08-29)
+
+Reported as *"YouTube could not be opened, your browser blocked the tab"* while
+the page opened perfectly.
+
+- **`window.open(url, '_blank', 'noopener')` RETURNS NULL EVEN ON SUCCESS.**
+  That null is indistinguishable from a blocked popup, so the only thing the
+  page could check said "blocked" **every single time**.
+- **THIS FILE ALREADY DOCUMENTED THE TRAP** for the Tape Room's bot button, and
+  nothing was checking for it anywhere else. **Second and third instances found
+  in the same sweep**: the Socializer's composer doors, its manual *Open
+  destination* button (which had therefore claimed a blocked popup on every
+  press since it was written), and the Gift Shop's link, whose `win.focus()`
+  could never run.
+- **THE PROTECTION IS NOT GIVEN UP.** Each cuts the opener AFTERWARDS with
+  `win.opener = null`, once the handle has been used, **guarded by a
+  try/catch** because a cross-origin window can throw on that assignment and
+  must not take the notice down with it.
+- **THE RULE IS: a `window.open` whose RESULT IS READ may not carry `noopener`
+  in its features string.** One that ignores the result may, and 11 of them do.
+  That is what the check asserts, across every page, so a future one is caught
+  rather than the three fixed here.
+
+**AND THE STANDING PARSE CHECK CRIES WOLF ON THE SOCIALIZER TOO.** It excludes
+`src=` and not `type=`, so it parses that page's `tgb-agent-context` JSON block
+as JavaScript and reports `Unexpected token ':'`. **Pre-existing, and it is the
+checker's own fault** -- the same false failure this file already records for
+the Tape Room. Skip any block whose `type` is not javascript.
+
 ### CREDENTIALS ARE CHECKED BEFORE THEY COST A POST (2026-08-20)
 
 Every credential failure here used to be found the same way: pick a candidate, write a caption, press Post, and **then** learn the token was wrong. The work was already done and the failure arrived at the worst moment. `{diagnose: true}` on [socials-post](mc/supabase/functions/socials-post/index.ts) now answers for **all three** destinations and posts nothing.
