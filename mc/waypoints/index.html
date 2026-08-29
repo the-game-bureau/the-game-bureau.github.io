@@ -62,6 +62,12 @@
     /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
        space splits between them and neither end stays pinned. */
     .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
     .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
 
     .btn {
@@ -113,7 +119,7 @@
 
     /* ---- a waypoint row -------------------------------------------------- */
     .wp {
-      display: flex; align-items: baseline; gap: 10px;
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
       padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
       cursor: pointer;
     }
@@ -132,11 +138,27 @@
     /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
        is the one you act on; everything else is furniture. */
     .wp-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .wp.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .wp-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
     .wp-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
 
     /* ---- map ------------------------------------------------------------- */
     #map { height: 340px; width: 100%; }
-    .map-note { padding: 8px 12px; font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--line); }
     .wp-pin {
       background: var(--ink); color: #fff; border: 2px solid #fff; border-radius: 50%;
       width: 14px; height: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
@@ -178,7 +200,6 @@
       letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
     }
     .field input, .field textarea { width: 100%; }
-    .field-hint { font-size: 0.7rem; color: var(--muted); }
     .field-read {
       font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
       padding: 7px 0;
@@ -238,6 +259,13 @@
           <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
         </div>
       </fieldset>
+
+      <fieldset class="command-bar command-bar--check">
+        <legend>Issues</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="checkBtn" type="button">Check</button>
+        </div>
+      </fieldset>
     </div>
 
     <section class="panel">
@@ -247,12 +275,11 @@
         <span class="spacer"></span>
       </div>
       <div id="map"></div>
-      <p class="map-note" id="mapNote"></p>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-title">Library</span>
+        <span class="panel-title">Waypoint Library</span>
         <span class="panel-count" id="listCount"></span>
       </div>
       <div class="panel-body" id="list"></div>
@@ -298,7 +325,6 @@
         </label>
         <label class="field" id="lonField"><span>Longitude</span>
           <input type="text" id="fLon" placeholder="-104.9847" autocomplete="off">
-          <span class="field-hint">Both or neither. Empty clears the point.</span>
         </label>
         <div class="field"><span>Filed</span>
           <div class="field-read" id="fCreated">-</div>
@@ -347,7 +373,8 @@
     // been pasted into the SQL editor.
     const cols = { country: false, source_url: false, latlon: false };
 
-    const state = { authed: false, rows: [], q: '', place: 'any', editing: null };
+    const state = { authed: false, rows: [], q: '', place: 'any', editing: null,
+                    reviewOnly: false };
 
     /* ---- plumbing -------------------------------------------------------- */
 
@@ -443,6 +470,44 @@
       return true;
     }
 
+    // ---- WHAT COUNTS AS AN ISSUE ----------------------------------------
+    //
+    // ONE RULE TO BEGIN WITH, and the list is meant to grow. Each carries the
+    // sentence a person acts on rather than a category: the Events room learned
+    // that a finding explaining the product is a paragraph to read before you
+    // can do anything, and a call to action is not.
+    //
+    // NOTHING IS STORED. `public.waypoints` has no `issues` column -- that
+    // flag is the Events table's -- so this is computed over the rows in
+    // memory on every render. What that costs, plainly: a finding cannot be
+    // found from anywhere but this room, and there is no record that anybody
+    // looked. Every rule here is derivable from the row itself, so nothing is
+    // lost by recomputing it; the day one is not, it needs a column.
+    const CHECK_RULES = [
+      {
+        key: 'no-point',
+        // The row cannot be drawn on the map, cannot be measured against
+        // another, and cannot be walked to. It is the one gap that stops a
+        // waypoint being usable at all.
+        test: (w) => cols.latlon && !hasPoint(w),
+        say: 'Add coordinates. Open it and press Fill, or type them in.'
+      }
+    ];
+
+    function reviewReasons(w) {
+      const out = [];
+      CHECK_RULES.forEach((rule) => {
+        try { if (rule.test(w)) out.push(rule.say); }
+        // A BUG IN ONE RULE MUST NOT TELL SOMEBODY THEIR TABLE IS FINE.
+        catch (err) { console.error('check rule ' + rule.key + ' threw', err); }
+      });
+      return out;
+    }
+
+    function isInReview(w) { return reviewReasons(w).length > 0; }
+
+    function issueCount() { return state.rows.filter(isInReview).length; }
+
     function missingBits(w) {
       const out = [];
       if (!clean(w.address)) out.push('address');
@@ -461,6 +526,7 @@
     /* ---- filtering ------------------------------------------------------- */
 
     function matches(w) {
+      if (state.reviewOnly && !isInReview(w)) return false;
       if (state.place !== 'any' && placeOf(w) !== state.place) return false;
       if (!state.q) return true;
       const hay = [w.name, w.address, w.city, w.state, w.country, w.zip, w.description]
@@ -470,7 +536,7 @@
 
     function visible() { return state.rows.filter(matches); }
 
-    function anyFilterOn() { return !!(state.q || state.place !== 'any'); }
+    function anyFilterOn() { return !!(state.q || state.place !== 'any' || state.reviewOnly); }
 
     /* ---- the place picker ------------------------------------------------ */
 
@@ -514,6 +580,7 @@
 
     function render() {
       renderPlaceFilter();
+      paintCheckBtn();
       const rows = visible();
       el('listCount').textContent = rows.length === state.rows.length
         ? state.rows.length + ' waypoints'
@@ -594,7 +661,11 @@
 
       const tags = document.createElement('span');
       tags.className = 'wp-tags';
-      const gaps = missingBits(w);
+      // THE `missing` TAG STAYS FOR THE GAPS NO RULE COVERS. It reports the
+      // other five -- address, city, description, source -- and drops the one
+      // the check now draws in words underneath, or the row would say the same
+      // thing twice a few pixels apart.
+      const gaps = missingBits(w).filter((g) => g !== 'point');
       if (gaps.length) {
         const t = document.createElement('span');
         t.className = 'wp-tag wp-tag--missing';
@@ -603,6 +674,17 @@
         tags.appendChild(t);
       }
       row.appendChild(tags);
+
+      const why = reviewReasons(w);
+      if (why.length) {
+        row.classList.add('is-review');
+        why.forEach((line) => {
+          const p = document.createElement('p');
+          p.className = 'wp-note';
+          p.textContent = line;
+          row.appendChild(p);
+        });
+      }
       return row;
     }
 
@@ -636,12 +718,6 @@
       el('mapCount').textContent = located.length
         ? located.length + ' with a point'
         : 'nothing to draw';
-      const note = el('mapNote');
-      const unlocated = rows.length - located.length;
-      note.textContent = unlocated
-        ? unlocated + ' of these have no coordinates, so they are not on the map. Open one and press Fill, or type them in.'
-        : (located.length ? '' : 'No waypoint on this list has coordinates yet.');
-
       if (!located.length) {
         if (layer) layer.clearLayers();
         return;
@@ -844,10 +920,49 @@
       if (!anyFilterOn()) { setStatus('Nothing is filtered.', 'error'); return; }
       state.q = '';
       state.place = 'any';
+      state.reviewOnly = false;
       el('q').value = '';
       el('placeFilter').value = 'any';
       render();
       setStatus('Filters cleared.', 'success');
+    });
+
+    // THE FACE NAMES WHAT THE PRESS WILL DO, and carries the count. One
+    // control, two states -- `Check (137)`, then `Show all`.
+    function paintCheckBtn() {
+      const btn = el('checkBtn');
+      if (!btn) return;
+      const n = issueCount();
+      btn.textContent = state.reviewOnly ? 'Show all' : (n ? 'Check (' + n + ')' : 'Check');
+      btn.title = state.reviewOnly
+        ? 'Show every waypoint again.'
+        : (n ? 'Show only the ' + n + ' with something wrong.'
+             : 'Nothing is wrong with any of them.');
+    }
+
+    el('checkBtn').addEventListener('click', () => {
+      if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+      if (state.reviewOnly) {
+        state.reviewOnly = false;
+        render();
+        setStatus('Showing every waypoint again.', 'success');
+        return;
+      }
+      // EVERY FILTER COMES OFF FIRST. The check reads `state.rows`, so it was
+      // never narrowed -- but its ANSWER would be: a search left in the box
+      // would hide faulty rows from the very list the count promises.
+      state.q = '';
+      state.place = 'any';
+      el('q').value = '';
+      el('placeFilter').value = 'any';
+      const n = issueCount();
+      state.reviewOnly = n > 0;
+      render();
+      setStatus(n
+        ? 'Filters cleared, and showing the ' + n + ' of ' + state.rows.length
+          + ' with something wrong. Press Show all for the rest.'
+        : 'Checked all ' + state.rows.length + '. Nothing wrong with any of them.',
+        'success');
     });
 
     const adminAuth = window.TgbMcAdminAuth.create({

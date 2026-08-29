@@ -5083,6 +5083,68 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 
 **PROVED BY RENDERING IT AGAINST THE LIVE 516 ROWS**, not a fixture: 516 drawn, the place picker built with 72 real places and their counts, 498 on the map with the other 18 named in the note, a search for `denver` leaving 37, the editor opening on a real row with Delete shown, Save sending one PATCH, a new waypoint refusing a blank name and refusing half a coordinate pair without sending anything, then POSTing when fixed -- and **no request naming `paths`, `path_stops`, `tour` or `cities`**. No console errors. With `country` simulated onto the rows the field appears and the place labels gain it.
 
+### AN ISSUES CONTAINER, WITH A CHECK BUTTON (2026-08-28)
+
+A fourth folder-tab fieldset, **Issues**, hard right of Find, holding one
+button that reads `Check`, `Check (137)` or `Show all`. **Built to the Events
+room's shape**; when either changes, change both.
+
+- **ONE RULE TO BEGIN WITH: `no-point`.** A waypoint with no coordinates cannot
+  be drawn on the map, measured against another, or walked to. It is the one
+  gap that stops a waypoint being usable at all, which is why it is first.
+  **The list is meant to grow**; `CHECK_RULES` is the place.
+- **EACH RULE CARRIES THE SENTENCE, not a category.** *"Add coordinates. Open
+  it and press Fill, or type them in."* The Events room learned that a finding
+  explaining the product is a paragraph to read before you can do anything.
+- **A RULE THAT THROWS IS CAUGHT AND LOGGED.** A bug in one rule must not tell
+  somebody their table is fine.
+- **NOTHING IS STORED, AND THAT IS THE ONE REAL DIFFERENCE FROM THE EVENTS
+  ROOM.** `public.waypoints` has no `issues` column -- that flag is
+  `public.events`'s -- so this is computed over the loaded rows on every
+  render. **What it costs, plainly: a finding cannot be found from anywhere but
+  this room, and there is no record that anybody looked.** Every rule here is
+  derivable from the row itself, so nothing is lost by recomputing it; **the
+  day one is not, it needs a column and a migration.**
+- **THE COUNT IS ON THE FACE**, over the whole table rather than what is on
+  screen: a figure that shrank as you typed would read as the filter breaking.
+- **THE PRESS CLEARS EVERY FILTER FIRST.** The check reads `state.rows` and so
+  is never narrowed -- **but its ANSWER would be**, and a search left in the box
+  would hide faulty rows from the very list the count promises.
+- **ONE CONTROL, TWO STATES**, and pressing it again shows everything. Clear
+  lifts it too, since `anyFilterOn()` counts `reviewOnly`.
+- **THE `missing` TAG KEEPS THE GAPS NO RULE COVERS** -- address, city,
+  description, source -- and **drops `point`**, which the check now draws in
+  words underneath. Otherwise the row says one thing twice a few pixels apart.
+
+**TWO REAL BUGS, BOTH FOUND BY RENDERING RATHER THAN READING:**
+
+- **THE ROW'S CLASS IS `wp`, NOT `wp-row`.** `.wp-row.is-review` matched
+  nothing, so the count was right and **the row looked completely untouched**.
+- **`.wp` IS A FLEX ROW AND WAS `nowrap`.** A note appended to it became a flex
+  item squeezed onto the same line and its `flex: 1 0 100%` was inert --
+  **exactly how the Tape Room's finding line shipped invisible**. `.wp` carries
+  `flex-wrap: wrap` now.
+
+### AND THREE SMALLER THINGS, THE SAME DAY
+
+- **THE MAP NOTE IS DELETED.** It counted the unlocated rows under the map,
+  which is precisely what the Issues container now reports, and two places
+  saying one thing is the repetition this repo keeps removing. `mapCount` still
+  says what IS drawn. The element, its `.map-note` rule and the branch that
+  wrote it all went together.
+- **THE LIST PANEL IS `Waypoint Library`**, not `Library`.
+- **THE COORDINATE HINT IS GONE** (*"Both or neither. Empty clears the
+  point."*). **`.field-hint` had exactly one user and is deleted with it**, per
+  the standing rule that a control and its CSS go in the same pass. **The
+  BEHAVIOUR is unchanged and is now undocumented on screen**: `wpPayload` still
+  writes the pair or neither, and still nulls the point when both boxes are
+  emptied. If that ever surprises somebody, the hint is what explained it.
+- **CLICKING A WAYPOINT OPENS IT IN THE EDITOR, and always did.** Asked for and
+  found already built, so it was proved rather than rebuilt: the row's click
+  opens the modal with that row's values, a second row replaces rather than
+  stacks, **the findings note is part of the row and opens it too**, and the
+  source link still leaves the page instead of opening the editor underneath.
+
 ### THE MAP READS, IT DOES NOT WRITE (2026-08-28)
 
 A pin was `draggable: true` with a `dragend` that PATCHed the new coordinates.
