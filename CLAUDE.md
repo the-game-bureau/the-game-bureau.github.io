@@ -418,6 +418,31 @@ at play time is worse than no variable at all.
   literal braces in front of a team standing in the street.
 - **A VARIABLE BUTTON INSERTS AT THE CARET** and each says what it reads as.
 
+### AND IT SHIPPED UNSTYLED, BECAUSE A `.replace()` MATCHED NOTHING
+
+The row rendered as **`Jefferson Davis' Housequestionplace bound`** -- one
+run-on word, no chips, no gap. Every rule for `.ch-line`, `.ch-kind`,
+`.ch-scope`, `.var`, `.preview` and `.varbar` was **absent from the file**.
+
+- **THE BUILDER APPENDED THEM WITH `head.replace('  </style>', ...)`** and the
+  source's closer carries no leading spaces. **A `String.replace()` that
+  matches nothing returns the string unchanged and says nothing**, so the CSS
+  vanished with no error anywhere. Every helper in this repo's edit scripts
+  asserts `count == 1` for exactly this reason; the builder bypassed its own
+  rule.
+- **AND THE SUITE PASSED 55/55 OVER IT.** Every assertion read `textContent` or
+  a class name, and both are perfectly correct on a page that renders as one
+  word. **This is the third time this project has recorded that a
+  `textContent` assertion passes on a page that renders wrong.**
+- **THE FIX IS SIX ASSERTIONS THAT READ `getComputedStyle`**: the row line's
+  `display` and `gap`, the two chips' `padding`, and the variable's font. Run
+  against the shipped file they fail with `display: inline`, `padding: 0` and
+  the body font, which is the screenshot exactly.
+- **THE BORDER IS ASSERTED FROM THE STYLESHEET TEXT**, because **jsdom does not
+  resolve a `var()` inside a shorthand**: `border: 1px solid var(--line)` comes
+  back `medium none` and a computed check would fail against a correct rule.
+  Same limitation this file already records for the Events room's hairline.
+
 ### THE CHECKS
 
 `no-prompt`, `no-answer` (a question only, since a photo is judged by the team),
