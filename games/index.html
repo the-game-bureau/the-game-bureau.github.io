@@ -91,8 +91,31 @@ body.home-page .site-nav.site-nav {
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--line);
 }
+/* THE LINKS STAY RIGHT, AND THE TAGLINE STAYS ON ONE LINE.
+   site-shell.css sends the nav links full width and left under 980px, which is
+   right for a page whose content is one wide column and wrong here: this page
+   is a rail and a map at every width above the phone breakpoint, so the header
+   should read brand-left / links-right the whole way down. And the brand's own
+   tagline is a 35-character line that has nowhere useful to break: wrapped, it
+   pushes the nav taller and the map shorter. */
+body.home-page .site-nav.site-nav .nav-links {
+  grid-column: 2;
+  justify-content: flex-end;
+  align-self: center;
+}
+body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
+
 @media (max-width: 860px) {
   body.home-page .site-nav.site-nav { padding: 16px 18px 14px; }
+  /* Below the split, the shared behaviour is the right one again: the links
+     drop to their own full-width row rather than crushing the wordmark. */
+  body.home-page .site-nav.site-nav .nav-links {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  /* And the tagline may wrap again, because at 390px one line is not on offer
+     and nowrap would simply overflow the page. */
+  body.home-page .site-nav.site-nav .brand-tagline { white-space: normal; }
 }
 
 /* ---- masthead -------------------------------------------------------- */
@@ -267,6 +290,31 @@ body.home-page .site-nav.site-nav {
   font-size: 10px !important;
 }
 .leaflet-control-attribution a { color: var(--accent) !important; }
+
+/* THE DESTINATION IS A WAYPOINT PIN CARRYING THE GAME'S OWN ICON.
+   A dot says "a place is here". A pin with the game's emoji in it says WHICH
+   game, which is the thing a map of several cities has to answer at a glance.
+   Drawn by us rather than loaded as an image: it takes currentColor, so the
+   away club's colour reaches the pin body with no second rule and no second
+   asset, and the emoji keeps its own colours on top. */
+.wp-pin { position: relative; width: 38px; height: 46px; }
+.wp-pin b {
+  position: absolute; left: 0; top: 0; width: 38px; height: 38px;
+  border-radius: 50%; background: currentColor;
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 3px rgba(10, 14, 21, 0.82), 0 5px 16px rgba(0, 0, 0, 0.5);
+}
+/* The tail is a CSS triangle rather than a rotated square: a rotation changes
+   the element's bounding box, and Leaflet anchors on that box, so the tip would
+   no longer sit on the coordinate it names. */
+.wp-pin b::after {
+  content: ''; position: absolute; bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-top: 11px solid currentColor;
+}
+.wp-pin em { font-style: normal; font-size: 18px; line-height: 1; }
+.wp-pin .pin-label { top: 50px; }
 
 /* A CITY IS A DOT WITH A NAME, drawn by us rather than by a pin image:
    it takes currentColor, so the away club's colour reaches it with no
@@ -445,6 +493,23 @@ body.home-page .site-nav.site-nav {
     'new orleans': { ll: [29.954267, -90.078217], name: 'New Orleans City Hall' },
     'new york':    { ll: [40.712772, -74.006058], name: 'New York City Hall' }
   };
+
+  /* THE GAME'S OWN ICON, in the order the row can actually answer it.
+     17 of the 31 live games carry a default_emoji and 22 carry a
+     category_icon, which is a NAME rather than a glyph, so the second is a
+     wider net than the first and both are worth reading. Six games carry
+     neither and get a plain pin, which is honest: an invented icon would say
+     something about the game that nobody decided. */
+  var CATEGORY_GLYPH = {
+    football: '\uD83C\uDFC8', basketball: '\uD83C\uDFC0', baseball: '\u26BE',
+    hockey: '\uD83C\uDFD2', soccer: '\u26BD', music: '\uD83C\uDFB5',
+    food: '\uD83C\uDF74', history: '\uD83C\uDFDB\uFE0F', art: '\uD83C\uDFA8'
+  };
+  function gameGlyph(g) {
+    var e = clean(g.default_emoji);
+    if (e) return e;
+    return CATEGORY_GLYPH[clean(g.category_icon).toLowerCase()] || '';
+  }
 
   function firstStop(g) {
     return FIRST_STOP[cityKey(hostCity(g))] || null;
@@ -885,11 +950,34 @@ body.home-page .site-nav.site-nav {
     var icon = L.divIcon({
       className: '',
       html: '<span class="pin' + (small ? ' pin--away' : '') + '" style="color:' + color + '">'
-          + '<i></i>' + (label ? '<span class="pin-label">' + label + '</span>' : '')
+          + '<i></i>' + (label ? '<span class="pin-label">' + esc(label) + '</span>' : '')
           + '</span>',
       iconSize: [13, 13], iconAnchor: [7, 7]
     });
     return L.marker(latlng, { icon: icon, keyboard: false });
+  }
+
+  // THE PIN'S TIP SITS ON THE COORDINATE, which is what iconAnchor [19, 46]
+  // buys: anchored at the centre it would float half a pin north of the place
+  // it names, which on a street-level zoom is a different corner.
+  function pin(L, latlng, color, glyph, label) {
+    var icon = L.divIcon({
+      className: '',
+      html: '<span class="wp-pin" style="color:' + color + '"><b>'
+          + (glyph ? '<em>' + esc(glyph) + '</em>' : '') + '</b>'
+          + (label ? '<span class="pin-label">' + esc(label) + '</span>' : '')
+          + '</span>',
+      iconSize: [38, 46], iconAnchor: [19, 46]
+    });
+    return L.marker(latlng, { icon: icon, keyboard: false });
+  }
+
+  // The label and the glyph are row values going into an html string, so they
+  // are escaped. A game named with an ampersand is ordinary; one carrying a
+  // tag is not, and neither should be able to reach the DOM as markup.
+  function esc(v) {
+    return clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // THE RESTING STATE IS EVERY HOST CITY AT ONCE, so the page opens saying
@@ -908,7 +996,10 @@ body.home-page .site-nav.site-nav {
       if (!p) return;
       seen[k] = true;
       pts.push(p);
-      dot(L, p, colorOf(g), '', false).addTo(layer);
+      // THE RESTING MAP IS PINS TOO, so "here is where we play" reads as a set
+      // of games rather than as a scatter of anonymous dots. No label: at
+      // country zoom thirty city names on top of each other is a smear.
+      pin(L, p, colorOf(g), gameGlyph(g), '').addTo(layer);
     });
     el('mapnote').hidden = true;
     if (pts.length > 1) map.fitBounds(L.latLngBounds(pts).pad(0.18), { animate: false });
@@ -938,7 +1029,8 @@ body.home-page .site-nav.site-nav {
     var land = stop ? stop.ll : home;
     var depth = stop ? 16 : 12;
 
-    dot(L, stop ? stop.ll : home, color, stop ? stop.name : homeName(g), false).addTo(layer);
+    pin(L, stop ? stop.ll : home, color, gameGlyph(g),
+        stop ? stop.name : homeName(g)).addTo(layer);
     if (away) {
       dot(L, away, color, awayName(g), true).addTo(layer);
       arc = L.polyline([away, home], {
