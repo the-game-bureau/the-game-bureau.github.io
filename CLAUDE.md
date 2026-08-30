@@ -7674,6 +7674,53 @@ Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues`
 - **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
 - **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
+## `teams` IS A VIEW OVER `audiences`, AND THE ROOM IS GONE (2026-08-30)
+
+[2026083022](mc/supabase/migrations/2026083022_teams_merge_into_audiences.sql) merged all 639 clubs into `public.audiences`;
+[2026083023](mc/supabase/migrations/2026083023_teams_becomes_a_view.sql) renamed the table to `teams_retired` and put a view
+in its place. **Both applied.** `mc/teams/index.html` is deleted, with its nav
+entry and its Data Warehouse card in the same commit.
+
+- **THE TABLE COULD NOT SIMPLY BE DROPPED AND THAT WAS CHECKED, NOT ASSUMED.**
+  **Six foreign keys point into it and sixteen files read it, two of them the
+  game engines at play time.** Deleting it outright would have taken the paid
+  product with it.
+- **AND COPYING IT WOULD HAVE BEEN WORSE**, because the club list would exist
+  twice and drift, which is the fault every step of this rebuild has removed.
+  Same shape `destinations` already took: one table underneath, a view wearing
+  the old name, every reader unchanged.
+- **THE SIX FOREIGN KEYS ARE GIVEN UP KNOWINGLY.** A view cannot be one's
+  target. **What is lost is the database refusing a game that names a club we do
+  not carry**, and the verify block in 2026083023 is what replaces it -- run it
+  after anything writes a club onto a game or an event. It answers 0 today.
+- **`fanbase` IS NOT RELIABLY THE SCHOOL, which is the trap in the merge.** 515
+  college rows hold 512 distinct fanbases: **Los Angeles is UCLA and USC,
+  Louisiana is LSU and UL, Miami is FIU and Miami.** So an audience is named for
+  its fanbase where that is unique in the family and for its CODE where it is
+  not, which is what a fan says for exactly those cases anyway.
+- **THE 499 COLLEGE CLUBS ARRIVE WITH NO HOME, and that is honest rather than
+  lossy.** `teams.city_name` is NULL on every NCAAF row, so there is no town to
+  resolve. A club with no home never appears in `destinations` and can never be
+  an anti-audience.
+- **A COLUMN'S TYPE IS PART OF THE CONTRACT, AND ROWS ALONE CANNOT SEE IT.**
+  `tgbid` was an integer and arrived in `audiences` as text, so the first cut of
+  the view handed the engines a string. **Every row and every value compared
+  equal and the contract was still broken.** The verify block now compares
+  `data_type` out of `information_schema` as well as the values.
+  - **The alter is refused while the view reads the column** (`0A000`), so the
+    view is dropped and rebuilt **inside one transaction** -- nothing reading
+    `teams` ever sees it missing.
+- **`destinations` WENT 110 TO 140, WHICH IS CORRECT.** The 30 MLB clubs now
+  have home places, so they are destinations like every other pro club. Checked
+  rather than assumed: **all 110 originals are still there and no trivia key
+  stopped resolving.**
+- **PROVED BY A COLUMN-FOR-COLUMN COMPARISON**, not by reading the diff: 639
+  rows both sides, 0 missing, **0 rows where any compared column disagrees, 0
+  columns whose type differs**, and 0 games naming a club the view lacks.
+- **`teams_retired` KEEPS ITS 639 ROWS.** The drop is commented at the foot of
+  2026083023 and should stay commented until the engines have been read against
+  the view for a while.
+
 ## Prompts and routines: the map is [mc/_dev/prompt-tools/PROMPTS.md](mc/_dev/prompt-tools/PROMPTS.md)
 
 Every AI prompt here is either a **page prompt** (in this repo, copied into a chat AI by a human, deliverable is SQL) or a **routine prompt** (stored on a trigger at claude.ai, runs unattended, writes through an RPC itself). They are near-copies with different last steps, and the editorial rules have to be kept in step **by hand**. That file is the table of which page pairs with which trigger, with cron and write path for each. **Open it before editing either half of a pair.**

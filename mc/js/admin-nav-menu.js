@@ -99,11 +99,6 @@
       combined: true,
       items: [
         {
-          href: '/mc/teams/',
-          label: 'Teams',
-          description: 'The clubs a fandom game is built on, and the palette it wears.'
-        },
-        {
           href: '/mc/leagues/',
           label: 'Leagues',
           description: 'Which sport each league plays. The list anchor events and teams are both naming.'
