@@ -653,6 +653,53 @@ The card led with a derived "AWAY at HOME" line. It leads with `games.name`.
   internally, and `placeholder-club` and the `club-missing` finding keep it.
   **Team is the word a visitor uses**, and this is visible copy.
 
+### "THE DAY BEFORE" WAS A SUGGESTION WRITTEN AS A RULE (2026-08-30)
+
+It had spread until the whole site read as though a game could be played in one
+window only. **The truth is narrower and better**, and this file's own
+big-picture section has said it since the beginning:
+
+> They buy a game and play it whenever they like. **We suggest a start time**,
+> and the suggestion is doing real work: it is not scheduling, it is what makes
+> several groups finish at roughly the same moment.
+
+- **THE PAGE NOW SAYS THE SUGGESTED TIME AND WHY IT EXISTS**, which no page ever
+  had: *"Start whenever you like. We suggest 1pm, so you finish about when other
+  teams do."* **A time given without its reason reads as a restriction**, which
+  is exactly how the day-before framing went wrong in the first place. 18 of the
+  31 live games carry a `start_time`; a game without one claims nothing.
+- **THE PITCH SAYS THE GAME COMPLEMENTS THE TRIP** rather than fixing it to a
+  day: *"We give you the city on foot... Play it whenever suits you and it will
+  make the rest of the weekend better."*
+- **THE CONTENT PASS WAS TWO MECHANICALLY SAFE REMOVALS AND NOTHING ELSE.**
+  [soften-the-day-before-framing.sql](mc/supabase/seeds/soften-the-day-before-framing.sql), applied. **329 distinct phrasings**
+  carried the idea; only the leading `One day early, ` on a tagline and the
+  formulaic `are in town a day early for` in a body are formulaic enough that
+  deleting the clause leaves a whole sentence.
+  - **COUNTED BEFORE AND AFTER, never assumed**: taglines 70 to 44, bodies
+    **353 to 18**, and **live rows 0**. The 44 that remain are all on ARCHIVED
+    rows, so nothing a visitor reads carries it. They want rewriting rather than
+    deleting, which is the Taglines room's job with a corrected prompt.
+  - **NOTHING REGENERATES IT**, checked: neither the Taglines room nor the
+    Marquee carries a prompt that asks for the phrase, so the backlog is
+    historical rather than self-refilling.
+- **THE EVENTS ROOM'S OTHER PROMPT LOST THE CLAUSE TOO.** It told the AI *"we
+  build a walking game played the DAY BEFORE one"*, which changes nothing about
+  which events are worth anchoring to: what matters is that the event fills
+  hotels and carries a date, and both survive.
+- **THREE COMMENTS IN games/index.html SAID IT AND WERE UPDATED.** A comment
+  stating a rule the code no longer follows is worse than none. **One mention
+  stays and is correct**: a `Date` crossing a DST boundary really does land on
+  the day before, which is about arithmetic and not about the product.
+
+**AND TWO OF THE FOUR TEST FAILURES THAT FOUND THIS WERE THE TEST'S OWN.**
+`body.textContent` **includes `<script>` source in jsdom**, so an assertion that
+nothing visible says the phrase was reading the page's own comments and failing
+on them. It reads the rendered list and the pitch now. The other was a fixture
+that had quietly stopped being empty: the all-archived stage is DERIVED from the
+real rows rather than assuming the table is still in the state it was this
+morning.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Games | The Game Bureau</title>
-<meta name="description" content="Live action games played in real streets, the day before the event that brought you to town. Pick your side and see where you are going.">
+<meta name="description" content="Live action games played on foot in real streets, built around whatever brought you to town. Play when it suits you. Pick your side and see where you are going.">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="The Game Bureau">
-<meta property="og:description" content="Live action games played in real streets. Pick your side and see where you are going.">
+<meta property="og:description" content="Live action games played on foot in real streets, built around whatever brought you to town. Pick your side and see where you are going.">
 <meta property="og:url" content="https://thegamebureau.com/games/">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -28,9 +28,9 @@
    second. `body.home-page` in site-shell.css already owns this palette,
    so this is the house dark skin rather than a new one.
 
-   WHY A SPLIT AT ALL: the product is "somewhere specific, the day before
-   the thing that brought you there", and a grid of cards says none of
-   that. The map is not decoration, it is the argument.
+   WHY A SPLIT AT ALL: the product is "somewhere specific, built around the
+   thing that brought you there", and a grid of cards says none of that. The
+   map is not decoration, it is the argument.
    ══════════════════════════════════════════════════════════════════════ */
 
 :root { color-scheme: dark; }
@@ -389,10 +389,10 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     <header class="gp-head">
       <p class="gp-kicker">Pick your side</p>
       <p class="gp-pitch">
-        In town for a game, a concert, or nothing in particular? <b>The day
-        before</b>, we send you walking: real streets, real places, and
-        something to work out at each one. Pick your side and see where you
-        are going.
+        In town for a game, a concert, or nothing in particular? We give you
+        the city on foot: real streets, real places, and something to work out
+        at each one. <b>Play it whenever suits you</b> and it will make the rest
+        of the weekend better.
       </p>
     </header>
 
@@ -711,7 +711,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   /* THE VISIBLE PAGE NAMES CITIES, NEVER CLUB NICKNAMES.
      The fixture line, the pins and the note are built from cities already. The
      TAGLINE AND THE BODY ARE NOT: they are authored prose and they name clubs
-     outright ("Pittsburgh Steelers fans are in town a day early"). A nickname is
+     outright ("Pittsburgh Steelers fans are in town for the road date"). A nickname is
      somebody else's trademark, and this is the shop window.
 
      The substitution is precise rather than a blanket sweep, because the row
@@ -762,6 +762,20 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var n = parseInt(hex.slice(1), 16);
     var l = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
     return l > 150 ? '#0a0e15' : '#ffffff';
+  }
+
+  // A stored time is 13:00:00. Nobody reads a clock that way.
+  function niceTime(v) {
+    var t = clean(v);
+    if (!t) return '';
+    var bits = t.split(':');
+    var h = Number(bits[0]);
+    var m = bits[1] || '00';
+    if (!isFinite(h)) return '';
+    var suffix = h < 12 ? 'am' : 'pm';
+    var hour = h % 12;
+    if (hour === 0) hour = 12;
+    return hour + (m === '00' ? '' : ':' + m) + suffix;
   }
 
   function whenOf(g) {
@@ -819,7 +833,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       // a page that failed to load. There is no game live today.
       b.textContent = 'No games on sale yet';
       p.textContent = 'We are building them city by city. The first ones go on '
-        + 'sale alongside the fixtures they are played the day before.';
+        + 'sale alongside the events they are built around.';
     }
     box.appendChild(b);
     box.appendChild(p);
@@ -913,6 +927,13 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 
     var start = clean(g.starting_location_name);
     if (start) more.appendChild(text('p', 'You start at ' + start + '.', 'gm-note'));
+
+    var suggested = niceTime(g.start_time);
+    if (suggested) {
+      more.appendChild(text('p',
+        'Start whenever you like. We suggest ' + suggested
+        + ', so you finish about when other teams do.', 'gm-note'));
+    }
 
     var city = hostCity(g);
     if (city) more.appendChild(giftRow(city, color));
@@ -1028,7 +1049,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 
   /* CHOOSING A GAME FLIES THE MAP FROM THE AWAY CITY INTO THE HOME CITY.
      That IS the product in one gesture: the fans travel, and the game is
-     played in the host's streets the day before. The away pin is smaller and
+     played on foot in the host's streets. The away pin is smaller and
      the arc runs toward the host, so the direction of travel is readable
      without reading anything. */
   function flyTo(g) {
@@ -1070,7 +1091,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     note.textContent = '';
     note.appendChild(text('b', 'Where you are going'));
     note.appendChild(text('span', hasFixture(g)
-      ? awayName(g) + ' fans take over ' + hostCity(g) + '. You play the day before.'
+      ? awayName(g) + ' fans take over ' + hostCity(g) + ', on foot.'
       : cityOnly(g.name, g) + '. On foot, in ' + hostCity(g) + '.'));
     // NAMED AS A PLACEHOLDER ON SCREEN, not only in a comment. A civic building
     // presented as the meeting point would have people turning up at it.
