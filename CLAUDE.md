@@ -830,6 +830,57 @@ box was inline so it had no size; the glyph took the colour it sat on; the glyph
 had no font that could draw it. **All three rendered as "nothing there", and all
 three needed `getComputedStyle` on a different property to see.**
 
+### THE CATEGORY MARK IS DRAWN, NOT TYPED (2026-08-30)
+
+Reported a third time, with an example: *Tampa Bay Fans Takeover New Orleans*.
+Driving that exact card with the real Leaflet passed every assertion, which is
+the point at which chasing the bug is worse than removing the class of bug.
+
+**AN EMOJI IS A REQUEST THAT THE VIEWER'S MACHINE HAPPENS TO OWN A FONT
+CARRYING THAT CODEPOINT.** Neither face this site loads does, so it falls
+through to whatever the browser picks last, which is the right picture on some
+machines and a blank on others. **This project has been here before**: the Tape
+Room's play mark is a drawn SVG for exactly this reason, after finding that no
+face it loaded carried the arrows it wanted.
+
+- **`gameMark()` RETURNS `{svg}` OR `{emoji}`, NEVER BOTH.** An emoji is used
+  only where the ROW asked for one; **the category fallback is a drawn
+  silhouette and depends on no font at all.** That matters because the fallback
+  is the COMMON path: **18 of the 31 live games reach their pin through it**,
+  and the card that was reported is one of them (`nor2026tam` carries
+  `default_emoji: ""` and `category_icon: "football"`).
+- **A SILHOUETTE, NOT A PICTURE.** At 18px inside a coloured disc, detail is
+  noise. Nine categories: football, basketball, baseball, hockey, soccer, music,
+  food, history, art.
+- **IT TAKES `currentColor`**, so the contrasting ink reaches it with no second
+  rule, and it needs no network, no second asset and no font.
+- **`display: block` ON THE SVG**, or its inline baseline leaves it sitting low
+  in the disc.
+- **THE SVG IS OUR OWN MARKUP AND GOES IN AS WRITTEN.** Only the emoji and the
+  label are row values, and both are still escaped.
+
+**AND THE NOTE STOPPED READING AS AN ADDRESS LABEL.** It said *"Tampa, Florida
+fans take over New Orleans, Louisiana, on foot"*, which is two postal addresses
+in a sentence. Bare cities in prose; the card's own fixture line keeps the full
+form.
+
+### WHAT THREE ROUNDS OF THIS TAUGHT, WORTH MORE THAN THE FIX
+
+The same symptom, "nothing there", had **four** distinct causes in one
+afternoon, and every one of them passed the test written for the last:
+
+| cause | what could see it |
+|---|---|
+| the box was `display: inline`, so its size was ignored | computed `display` |
+| the glyph took `currentColor`, the colour behind it | computed `color` |
+| the container could collapse to zero height | nothing available here |
+| the glyph had no font that could draw it | computed `font-family` |
+
+**A CORRECT MARKUP STRING PROVES NOTHING ABOUT WHAT A VIEWER SEES.** The html
+was right at every stage. What finally settled it was not another diagnosis but
+**removing the dependency**: a drawn mark cannot fail to have a font, and a map
+that draws nothing now says which of the remaining causes it hit.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

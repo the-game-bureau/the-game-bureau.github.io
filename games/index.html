@@ -335,6 +335,14 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
    does not, and renders invisible on its own background. Which of the two you
    get depends on the device's emoji font, so this is a bug that appears on some
    machines and not others, which is the worst kind to leave in. */
+/* A DRAWN MARK TAKES THE CONTRASTING INK and needs no font at all. `display:
+   block` on the svg, or its inline baseline leaves it sitting low in the disc. */
+.wp-pin .wp-mark {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; color: var(--wp-ink, #fff);
+}
+.wp-pin .wp-mark svg { display: block; width: 20px; height: 20px; }
+
 .wp-pin em {
   font-style: normal; font-size: 18px; line-height: 1;
   color: var(--wp-ink, #fff);
@@ -537,15 +545,64 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
      wider net than the first and both are worth reading. Six games carry
      neither and get a plain pin, which is honest: an invented icon would say
      something about the game that nobody decided. */
-  var CATEGORY_GLYPH = {
-    football: '\uD83C\uDFC8', basketball: '\uD83C\uDFC0', baseball: '\u26BE',
-    hockey: '\uD83C\uDFD2', soccer: '\u26BD', music: '\uD83C\uDFB5',
-    food: '\uD83C\uDF74', history: '\uD83C\uDFDB\uFE0F', art: '\uD83C\uDFA8'
+  /* THE CATEGORY MARK IS DRAWN, NOT TYPED, and that is the whole point.
+     An emoji is a request that the VIEWER'S MACHINE happens to own a font
+     carrying that codepoint. Neither face this site loads does, so the glyph
+     falls through to whatever the browser picks last, which on some machines is
+     the right picture and on others is a blank. This project has been here
+     before: the Tape Room's play mark is a drawn SVG for exactly this reason,
+     after finding that no face it loaded carried the arrows it wanted.
+
+     18 of the 31 live games reach their pin through this fallback rather than
+     through default_emoji, so it is the COMMON path, not the edge case.
+
+     An SVG takes currentColor, needs no font, no network and no second asset,
+     and draws the same on every machine. It is a silhouette rather than a
+     picture: at 18px inside a coloured disc, detail is noise. */
+  var CATEGORY_MARK = {
+    football:
+      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+      + '<path d="M20.6 3.4C18.2 1 12 2 7.9 6.1S1 18.2 3.4 20.6 12 22 16.1 17.9 23 5.8 20.6 3.4z'
+      + 'M8.6 15.4l-1.2-1.2 1.6-1.6-1-1 1.2-1.2 1 1 1.4-1.4-1-1L11.8 8l1 1 1.6-1.6 1.2 1.2z"/></svg>',
+    basketball:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">'
+      + '<circle cx="12" cy="12" r="9.2"/><path d="M12 2.8v18.4M2.8 12h18.4"/>'
+      + '<path d="M5.4 5.4a12 12 0 0 1 0 13.2M18.6 5.4a12 12 0 0 0 0 13.2"/></svg>',
+    baseball:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">'
+      + '<circle cx="12" cy="12" r="9.2"/>'
+      + '<path d="M6.2 4.4a11 11 0 0 1 0 15.2M17.8 4.4a11 11 0 0 0 0 15.2"/></svg>',
+    hockey:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      + 'stroke-linecap="round" aria-hidden="true">'
+      + '<path d="M4 4l10 12"/><path d="M14 16h5"/><ellipse cx="7" cy="19" rx="4" ry="2" fill="currentColor" stroke="none"/></svg>',
+    soccer:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">'
+      + '<circle cx="12" cy="12" r="9.2"/><path d="M12 7.4l3.6 2.6-1.4 4.2H9.8L8.4 10z"/></svg>',
+    music:
+      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+      + '<path d="M19 3.5v11.1a3.2 3.2 0 1 1-1.9-2.9V7.1L10 8.7v8.2a3.2 3.2 0 1 1-1.9-2.9V6.2z"/></svg>',
+    food:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+      + 'stroke-linecap="round" aria-hidden="true">'
+      + '<path d="M6 2.5v8a2.5 2.5 0 0 0 5 0v-8M8.5 13v8.5"/>'
+      + '<path d="M17 2.5c-1.7 1.2-2.5 3-2.5 5.5 0 2 .8 3.2 2.5 3.6v9.9"/></svg>',
+    history:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">'
+      + '<path d="M3 9.5L12 4l9 5.5M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3 21h18"/></svg>',
+    art:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+      + 'stroke-linecap="round" aria-hidden="true">'
+      + '<path d="M16 3.5l4.5 4.5L9 19.5l-5.5 1L4.5 15z"/><path d="M13.2 6.3l4.5 4.5"/></svg>'
   };
-  function gameGlyph(g) {
+
+  // Returns { emoji } or { svg }, never both. An emoji is used only when the
+  // ROW asked for one; the category fallback never depends on a font.
+  function gameMark(g) {
     var e = clean(g.default_emoji);
-    if (e) return e;
-    return CATEGORY_GLYPH[clean(g.category_icon).toLowerCase()] || '';
+    if (e) return { emoji: e };
+    var svg = CATEGORY_MARK[clean(g.category_icon).toLowerCase()];
+    return svg ? { svg: svg } : {};
   }
 
   function firstStop(g) {
@@ -1050,12 +1107,17 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   // THE PIN'S TIP SITS ON THE COORDINATE, which is what iconAnchor [19, 46]
   // buys: anchored at the centre it would float half a pin north of the place
   // it names, which on a street-level zoom is a different corner.
-  function pin(L, latlng, color, glyph, label) {
+  function pin(L, latlng, color, mark, label) {
+    // The SVG is OUR OWN markup, built above, so it goes in as written. Only
+    // the emoji and the label are row values, and both are escaped.
+    var inner = '';
+    if (mark && mark.svg) inner = '<i class="wp-mark">' + mark.svg + '</i>';
+    else if (mark && mark.emoji) inner = '<em>' + esc(mark.emoji) + '</em>';
+
     var icon = L.divIcon({
       className: '',
       html: '<span class="wp-pin" style="color:' + color
-          + ';--wp-ink:' + inkOn(color) + '"><b>'
-          + (glyph ? '<em>' + esc(glyph) + '</em>' : '') + '</b>'
+          + ';--wp-ink:' + inkOn(color) + '"><b>' + inner + '</b>'
           + (label ? '<span class="pin-label">' + esc(label) + '</span>' : '')
           + '</span>',
       iconSize: [38, 46], iconAnchor: [19, 46]
@@ -1090,7 +1152,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       // THE RESTING MAP IS PINS TOO, so "here is where we play" reads as a set
       // of games rather than as a scatter of anonymous dots. No label: at
       // country zoom thirty city names on top of each other is a smear.
-      pin(L, p, colorOf(g), gameGlyph(g), '').addTo(layer);
+      pin(L, p, colorOf(g), gameMark(g), '').addTo(layer);
     });
     if (!pts.length) {
       // Drawing nothing is the one outcome that reads as the page being broken,
@@ -1131,7 +1193,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var land = stop ? stop.ll : home;
     var depth = stop ? 16 : 12;
 
-    pin(L, stop ? stop.ll : home, color, gameGlyph(g),
+    pin(L, stop ? stop.ll : home, color, gameMark(g),
         stop ? stop.name : homeName(g)).addTo(layer);
     if (away) {
       dot(L, away, color, awayName(g), true).addTo(layer);
@@ -1151,9 +1213,12 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var note = el('mapnote');
     note.textContent = '';
     note.appendChild(text('b', 'Where you are going'));
+    // BARE CITIES IN PROSE. "Tampa, Florida fans take over New Orleans,
+    // Louisiana" is an address label read aloud, not a sentence.
+    var bareCity = function (v) { return clean(v).split(',')[0].trim(); };
     note.appendChild(text('span', hasFixture(g)
-      ? awayName(g) + ' fans take over ' + hostCity(g) + ', on foot.'
-      : cityOnly(g.name, g) + '. On foot, in ' + hostCity(g) + '.'));
+      ? bareCity(awayName(g)) + ' fans take over ' + bareCity(hostCity(g)) + ', on foot.'
+      : cityOnly(g.name, g) + '. On foot, in ' + bareCity(hostCity(g)) + '.'));
     // NAMED AS A PLACEHOLDER ON SCREEN, not only in a comment. A civic building
     // presented as the meeting point would have people turning up at it.
     if (stop) {
