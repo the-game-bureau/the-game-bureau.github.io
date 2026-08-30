@@ -1387,6 +1387,23 @@ the Trivia room. **Nothing was misconfigured. The call was.**
 
 ## ONE FAVICON, AT `/favicon.ico` (2026-08-30)
 
+**EVERY LIVE `.ico` IN THE REPO IS NOW THE SAME FILE**, which is the half that
+was missing. Six others were still lying about -- `tgb.ico`,
+`mission-control.ico`, `builder.ico`, `add-post.ico`, `mc/sampler/favicon.ico`,
+`soundtracks.ico` -- and three reasons to overwrite rather than delete them:
+**a stale reference in a page nobody swept still shows the right mark; a browser
+auto-discovers `<folder>/favicon.ico` without being told, so `/mc/sampler/` was
+quietly serving a different icon; and a browser that has CACHED one of those
+paths gets the new image at the same URL**, which is the only thing that
+dislodges a cached favicon. `_dev/archive` is left frozen. Verified: all seven
+paths serve the pin and decode to amber pixels in Chrome, 12 assertions.
+
+**AND IF A TAB STILL SHOWS THE OLD ONE, IT IS THE BROWSER.** Chrome caches
+favicons per origin and **caches failures too**, and a normal reload does not
+clear them. Opening `/favicon.ico` directly is the one-step test: the pin means
+the cache, a 404 means the server root is wrong.
+
+
 The waypoint pin from the home page, drawn once and served everywhere.
 
 - **IT WAS ELEVEN DIFFERENT HREFS ACROSS 67 PAGES**, and 72 more had none at
@@ -1473,6 +1490,38 @@ wireframe.
 - **PROVED BY THE NUMBERS, not the absence of an error**: 70 of 70 waypoint
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
+
+## STEP FOUR: `place_id` ON WAYPOINTS, ROUTES AND EVENTS (2026-08-30)
+
+[2026083019](mc/supabase/migrations/2026083019_place_id_everywhere.sql), **applied**. **Everything resolved: 536 of 536 waypoints, 22 of
+22 routes, 3,050 of 3,050 events, nothing left null.**
+
+- **ADDED BESIDE THE TEXT, NEVER INSTEAD OF IT.** Every `city` and `venue_city`
+  keeps its value, so a page that has not caught up reads the string it always
+  read. **Nothing in this file is a hard break**, which is the opposite of every
+  rebuild before it.
+- **THE THREE RESOLVE DIFFERENTLY AND THAT IS THE INTERESTING PART.** Waypoints
+  are an exact match, since `places` was keyed from those very columns. Events
+  use the same rule the places seed used, so the two cannot disagree. **Routes
+  carry a bare city with no state**, so they are matched on the name alone and
+  **only where exactly one place answers**: this catalogue holds two Portlands
+  and two Columbias, and sending an ambiguous city to whichever row came first
+  would put a route in the wrong one with nothing ever saying so. A null is
+  visible; a wrong answer is not.
+- **`public.games` GETS NOTHING, deliberately.** All 395 rows are archived
+  legacy and new games will be minted from templates, so keying a table that is
+  being replaced is work thrown away.
+- **THE QUESTION THIS MAKES ASKABLE was impossible before it**, because it
+  needed a string comparison across four tables that spelled a city four ways:
+
+      place              waypoints  routes  occasions  audiences
+      Boston, MA            40         1        0          3
+      Chicago, IL           29         1     2073          3
+      New Orleans, LA       22         2      433          2
+      Biloxi, MS            20         0        0          0
+
+  **Biloxi is the row that justifies the whole step.** Twenty waypoints, no
+  club, no route, no occasion, and until today it was invisible to everything.
 
 ## `destinations` IS A VIEW (2026-08-30)
 
