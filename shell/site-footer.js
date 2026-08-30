@@ -520,14 +520,17 @@
     return s === 'yes' || s === 'true' || s === '1';
   }
 
-  fetch(SB_URL + '/rest/v1/games?select=city,archived&apikey=' + SB_KEY, {
+  fetch(SB_URL + '/rest/v1/games?select=city,archived,erased&apikey=' + SB_KEY, {
     headers: sbHeaders,
     cache: 'no-store'
   })
     .then(function (r) { return r.ok ? r.json() : []; })
     .then(function (rows) {
+      // ERASED IS A SECOND FLAG AND IT IS NOT ARCHIVED. Counting only the
+      // first made this badge say 33 over a page listing 31, which reads as
+      // the nav being broken rather than as two different questions.
       var live = (Array.isArray(rows) ? rows : []).filter(function (game) {
-        return !isArchived(game && game.archived);
+        return !isArchived(game && game.archived) && !isArchived(game && game.erased);
       });
       var cities = new Set();
       live.forEach(function (game) {

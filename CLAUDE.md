@@ -962,6 +962,48 @@ neither.
 to show the shape. Real ones are written by people; that is the point of the
 line and the reason the library exists.
 
+### THE STRIPE, THE COUNTS AND THE NAV (2026-08-30)
+
+- **THE PIN CARRIES THE CLUB'S SECOND COLOUR AS A RING.** In the fandom palette
+  primary is the helmet and secondary is the stripe on it, so a ring around the
+  disc is the shape those colours already mean. **All 31 live games carry a
+  valid secondary and all 31 differ from their primary.**
+  - **THREE RINGS, INNERMOST FIRST**: the club's second colour, then the page's
+    own dark so the pin separates from the map whatever the two club colours
+    are, then the drop shadow. Without that dark ring a club whose secondary is
+    near the tile grey dissolves into it.
+  - **`--wp-2` FALLS BACK TO THE DARK**, so a game with no distinct secondary
+    draws what it always drew rather than a ring of nothing.
+  - **THE RINGS GREW THE PIN AND THE ANCHOR GREW WITH THEM**: 38px disc plus
+    5px each side is a 48px box, and the tail starts BELOW the outer ring rather
+    than under it. Buried, it read as a nub rather than a point. `iconSize`
+    [48, 59] and `iconAnchor` [24, 59], so the tip still sits on its coordinate.
+
+- **THE GAMES AND GIFTS BADGES WERE EMPTY BECAUSE THE FOOTER STOOD ASIDE FOR A
+  TICKER THAT NO LONGER EXISTS.** `site-footer.js` carries
+  `if (dataset.adminPage === 'mission-control') return;` immediately before
+  those two counts, because **the old games page had its own animated ticker for
+  them**. The rebuild deleted the ticker and left the attribute on the body, so
+  the footer went on deferring to it forever. **Nothing else on this page read
+  the attribute**; it is gone and both badges fill.
+  - The two requests were **never made at all**, which is what pointed at an
+    early return rather than at a failing fetch. Both endpoints answer fine by
+    hand: games 200, gifts 206 with `content-range: 0-0/690`.
+
+- **THE BADGE SAID 33 OVER A PAGE LISTING 31.** The footer counted `archived`
+  and not `erased`, and **two live-by-archived rows are erased**. Fixed in
+  `site-footer.js`, so it is right on every page that shows the count. **Any
+  surface counting games has to ask both flags**, which this file has now
+  recorded twice from two different directions.
+
+- **THE NAV HAS THREE CHILDREN, NOT TWO**: the brand, the links, and the follow
+  reel. `grid-column: 2` therefore pinned the links to the MIDDLE of three
+  columns, 434px short of the right edge, which is why the first attempt at
+  right-aligning them did nothing visible. **A flex row with
+  `margin-right: auto` on the brand** is right regardless of how many children
+  the shared nav grows, and needs no count. Measured: the last control now ends
+  24px from the edge, which is exactly the nav's own padding.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

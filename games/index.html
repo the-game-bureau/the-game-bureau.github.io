@@ -109,10 +109,15 @@ body.home-page .site-nav.site-nav {
    should read brand-left / links-right the whole way down. And the brand's own
    tagline is a 35-character line that has nowhere useful to break: wrapped, it
    pushes the nav taller and the map shorter. */
+body.home-page .site-nav.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+body.home-page .site-nav.site-nav .brand-lockup { margin-right: auto; }
 body.home-page .site-nav.site-nav .nav-links {
-  grid-column: 2;
   justify-content: flex-end;
-  align-self: center;
+  flex-wrap: nowrap;
 }
 body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 
@@ -120,9 +125,14 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   body.home-page .site-nav.site-nav { padding: 16px 18px 14px; }
   /* Below the split, the shared behaviour is the right one again: the links
      drop to their own full-width row rather than crushing the wordmark. */
+  body.home-page .site-nav.site-nav { flex-wrap: wrap; }
+  body.home-page .site-nav.site-nav .brand-lockup {
+    margin-right: 0;
+    flex: 1 0 100%;
+  }
   body.home-page .site-nav.site-nav .nav-links {
-    grid-column: 1 / -1;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
   /* And the tagline may wrap again, because at 390px one line is not on offer
      and nowrap would simply overflow the page. */
@@ -320,21 +330,32 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
    that zero-size box, and the pin does not appear. The dot above worked only
    because `.pin` happens to be `display: grid`. A test reads the COMPUTED
    display, because the declaration below looks perfectly correct either way. */
-.wp-pin { display: block; position: relative; width: 38px; height: 46px; }
+.wp-pin { display: block; position: relative; width: 48px; height: 59px; }
 .wp-pin b {
-  position: absolute; left: 0; top: 0; width: 38px; height: 38px;
+  position: absolute; left: 5px; top: 5px; width: 38px; height: 38px;
   border-radius: 50%; background: currentColor;
   display: grid; place-items: center;
-  box-shadow: 0 0 0 3px rgba(10, 14, 21, 0.82), 0 5px 16px rgba(0, 0, 0, 0.5);
+  /* THREE RINGS, INNERMOST FIRST: the club's second colour as the stripe, then
+     the page's own dark so the pin separates from the map whatever the two club
+     colours happen to be, then the drop shadow. Without that dark ring a club
+     whose secondary is near the tile grey would dissolve into it.
+     `--wp-2` FALLS BACK TO THE DARK, so a game with no distinct secondary draws
+     what it always drew rather than a ring of nothing. */
+  box-shadow:
+    0 0 0 3px var(--wp-2, rgba(10, 14, 21, 0.82)),
+    0 0 0 5px rgba(10, 14, 21, 0.82),
+    0 5px 16px rgba(0, 0, 0, 0.5);
 }
 /* The tail is a CSS triangle rather than a rotated square: a rotation changes
    the element's bounding box, and Leaflet anchors on that box, so the tip would
    no longer sit on the coordinate it names. */
+/* The tail starts BELOW the rings, or the stripe cuts across it and the pin
+   reads as a circle with a detached triangle under it. */
 .wp-pin b::after {
-  content: ''; position: absolute; bottom: -8px; left: 50%;
+  content: ''; position: absolute; bottom: -16px; left: 50%;
   transform: translateX(-50%);
-  border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-top: 11px solid currentColor;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-top: 14px solid currentColor;
 }
 /* THE GLYPH TAKES A CONTRASTING INK, NOT THE COLOUR IT SITS ON.
    `.wp-pin` carries the game's colour and the head paints itself
@@ -367,7 +388,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji',
                'Twemoji Mozilla', 'Segoe UI Symbol', sans-serif;
 }
-.wp-pin .pin-label { top: 50px; }
+.wp-pin .pin-label { top: 62px; }
 
 /* A CITY IS A DOT WITH A NAME, drawn by us rather than by a pin image:
    it takes currentColor, so the away club's colour reaches it with no
@@ -428,7 +449,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 </style>
 </head>
 
-<body class="home-page" data-admin-page="mission-control">
+<body class="home-page">
 
 <!-- THE SHARED PUBLIC NAV. Hand-rolling these four links in the rail would be
      the copy-and-drift this repo has lost to more than once: site-nav.js also
@@ -871,6 +892,17 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var c = clean(g.primary_color);
     return /^#[0-9a-f]{6}$/i.test(c) ? c : '#f5b461';
   }
+  /* THE SECOND COLOUR IS THE STRIPE. In the fandom palette primary is the
+     helmet and secondary is the stripe on it, so a ring around the disc is the
+     shape the colours already mean. All 31 live games carry a valid secondary
+     and all 31 differ from their primary.
+     A secondary EQUAL to the primary would draw a ring nobody can see, so it
+     returns nothing and the pin falls back to its plain dark ring. */
+  function secondOf(g) {
+    var c = clean(g.secondary_color);
+    if (!/^#[0-9a-f]{6}$/i.test(c)) return '';
+    return c.toLowerCase() === colorOf(g).toLowerCase() ? '' : c;
+  }
   // Perceived luminance, so a pale club colour does not get white text on it.
   function inkOn(hex) {
     var n = parseInt(hex.slice(1), 16);
@@ -1181,7 +1213,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   // THE PIN'S TIP SITS ON THE COORDINATE, which is what iconAnchor [19, 46]
   // buys: anchored at the centre it would float half a pin north of the place
   // it names, which on a street-level zoom is a different corner.
-  function pin(L, latlng, color, mark, label) {
+  function pin(L, latlng, color, mark, label, second) {
     // The SVG is OUR OWN markup, built above, so it goes in as written. Only
     // the emoji and the label are row values, and both are escaped.
     var inner = '';
@@ -1191,10 +1223,12 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var icon = L.divIcon({
       className: '',
       html: '<span class="wp-pin" style="color:' + color
-          + ';--wp-ink:' + inkOn(color) + '"><b>' + inner + '</b>'
+          + ';--wp-ink:' + inkOn(color)
+          + (second ? ';--wp-2:' + second : '')
+          + '"><b>' + inner + '</b>'
           + (label ? '<span class="pin-label">' + esc(label) + '</span>' : '')
           + '</span>',
-      iconSize: [38, 46], iconAnchor: [19, 46]
+      iconSize: [48, 59], iconAnchor: [24, 59]
     });
     return L.marker(latlng, { icon: icon, keyboard: false });
   }
@@ -1226,7 +1260,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       // THE RESTING MAP IS PINS TOO, so "here is where we play" reads as a set
       // of games rather than as a scatter of anonymous dots. No label: at
       // country zoom thirty city names on top of each other is a smear.
-      pin(L, p, colorOf(g), gameMark(g), '').addTo(layer);
+      pin(L, p, colorOf(g), gameMark(g), '', secondOf(g)).addTo(layer);
     });
     if (!pts.length) {
       // Drawing nothing is the one outcome that reads as the page being broken,
@@ -1268,7 +1302,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     var depth = stop ? 16 : 12;
 
     pin(L, stop ? stop.ll : home, color, gameMark(g),
-        stop ? stop.name : homeName(g)).addTo(layer);
+        stop ? stop.name : homeName(g), secondOf(g)).addTo(layer);
     if (away) {
       dot(L, away, color, awayName(g), true).addTo(layer);
       arc = L.polyline([away, home], {
