@@ -56,11 +56,16 @@ body.home-page {
 .gp {
   display: grid;
   grid-template-columns: minmax(360px, 34vw) 1fr;
+  grid-template-rows: 1fr;
   flex: 1 1 auto;
   /* A floor, or on a short window the map collapses to a sliver and the rail
      to two rows. Below this the phone layout takes over anyway. */
   min-height: 620px;
 }
+/* BELT AND BRACES ON THE MAP'S OWN HEIGHT. #map is absolutely positioned inside
+   it, so .gp-map has no content to be sized by and a broken chain above leaves
+   it at zero. */
+.gp-map { min-height: 320px; }
 .gp-rail {
   display: flex;
   flex-direction: column;
@@ -987,9 +992,25 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     return leafletReady;
   }
 
+  function mapProblem(why) {
+    var note = el('mapnote');
+    note.textContent = '';
+    note.appendChild(text('b', 'The map is not drawing'));
+    note.appendChild(text('span', why));
+    note.hidden = false;
+  }
+
   function initMap() {
     return ensureLeaflet().then(function (L) {
-      if (!L || map) return map;
+      if (map) return map;
+      if (!L) {
+        // The games are the point and they are all still there, so this is a
+        // notice rather than a failure. It names the cause, because "no map"
+        // and "no pins" look the same and have different fixes.
+        mapProblem('The map library did not load. The games are all still '
+                 + 'listed; only the map is missing.');
+        return null;
+      }
       map = L.map('map', {
         zoomControl: true, attributionControl: true, scrollWheelZoom: true
       }).setView([39.5, -96.5], 4);
@@ -1059,6 +1080,17 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       // country zoom thirty city names on top of each other is a smear.
       pin(L, p, colorOf(g), gameGlyph(g), '').addTo(layer);
     });
+    if (!pts.length) {
+      // Drawing nothing is the one outcome that reads as the page being broken,
+      // so it is the one that has to explain itself. It happens when the
+      // waypoint read failed, since a city point is the average of the
+      // waypoints we hold there and there is no other source for one.
+      mapProblem(visible().length
+        ? 'No city on this list has coordinates yet, so there is nothing to '
+          + 'place. The games are all still listed.'
+        : 'Nothing to show yet.');
+      return;
+    }
     el('mapnote').hidden = true;
     if (pts.length > 1) map.fitBounds(L.latLngBounds(pts).pad(0.18), { animate: false });
     else if (pts.length === 1) map.setView(pts[0], 9, { animate: false });

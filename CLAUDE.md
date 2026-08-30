@@ -760,6 +760,46 @@ rather than assumed: **25 of the 31 put a glyph in their pin** (13 from
 is a content decision**, and an invented icon would say something about the game
 nobody decided.
 
+### A MAP THAT DRAWS NOTHING NOW SAYS WHY (2026-08-30)
+
+Reported twice as pins not showing. The first report was real and fixed (the
+inline-box note above). The second could not be reproduced, so the answer is not
+another guess at the cause: **it is making the page tell us.**
+
+- **THREE CAUSES LOOK IDENTICAL ON SCREEN and have different fixes.** The
+  library not loading, the coordinates never arriving, and the container having
+  no height all produce one dark rectangle. `mapProblem()` names which, in the
+  note the map already carries. **Every WRITE path on this project reports its
+  failure; drawing had no such channel at all.**
+- **A ZERO-HEIGHT CONTAINER IS THE PERFECT CRIME**, and it was the likeliest
+  remaining cause: **Leaflet initialises happily, reports no error, and draws
+  nothing**, which looks exactly like markers failing. `.gp` declared columns and
+  no rows, so its single implicit row was `auto` -- and `.gp-map`'s only child is
+  ABSOLUTELY POSITIONED, so it contributes no height and the row fell to whatever
+  the rail happened to be. `grid-template-rows: 1fr` states it, and `.gp-map`
+  carries a 320px floor of its own.
+- **AND MY OWN TEST HID IT.** The real-Leaflet harness stubs
+  `getBoundingClientRect` to 900x700, because jsdom has no layout and Leaflet
+  declines to draw into a 0x0 box. **That stub is necessary and it is exactly
+  what makes the harness blind to a sizing fault**, which is worth knowing before
+  trusting it about anything geometric.
+
+### WHAT THE REAL-LEAFLET HARNESS IS FOR
+
+`realmap.js` loads the ACTUAL library, which the ordinary suite cannot: that one
+runs against a stand-in, which is right for asserting WHICH coordinate the map
+flew to and WHAT markup a marker carried, and is **structurally incapable of
+noticing that Leaflet never put that markup in the document**.
+
+It proves the path end to end: the container is taken over, seven panes are
+built, **10 markers reach the document** (one per host city, deduped from 31
+games), each sized 38x46 from `iconSize`, offset by `iconAnchor`, carrying
+`.wp-pin` as a block box, and **10 of 10 carry a glyph**.
+
+**WHAT IT STILL CANNOT SEE**, said plainly: layout. No stacking, no overlap, no
+clipping, and nothing about whether the pin is on screen rather than merely in
+the document.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
