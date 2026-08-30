@@ -1385,6 +1385,32 @@ the Trivia room. **Nothing was misconfigured. The call was.**
 - **RUN AGAINST THE BROKEN FILE, where it fails three ways.** An assertion that
   has never failed on the bug it is for is an assertion nobody should trust.
 
+## THE HOME PAGE IS A CLOSED DOOR (2026-08-30)
+
+[index.html](index.html) was a bare iframe around `/games/`. It is a coming-soon page.
+
+- **A SHOP WINDOW ONTO UNFINISHED WORK IS WORSE THAN A CLOSED DOOR**, because a
+  visitor cannot tell a half-built page from a broken one.
+- **IT CLOSES THE FRONT DOOR ONLY, and that is worth knowing rather than
+  assuming.** `/games/`, `/gifts/`, `/soundtracks/` and `/highlights/` are still
+  served at their own addresses and still indexed. **Closing those is a separate
+  decision** and this file does not make it.
+- **NO NAV, NO FOOTER, NO SCRIPT AT ALL.** Both are doors into the pages this
+  page exists to hold back, and `site-footer.js` would print live counts of
+  games and gifts on a page saying we are not open. The only link is an email.
+- **THE PIN IS DRAWN, NOT TYPED**, for the reason `/games/` learned four times in
+  one afternoon: neither face this site loads carries an emoji glyph, so a
+  character is a picture on some machines and tofu on others.
+- **PROVED IN REAL CHROME**, not jsdom: it fits one screen at 390x640 and at
+  1440x900 without scrolling, never scrolls sideways, paints its own ground, and
+  every link is a `mailto:`. 9 assertions.
+- **AND MY OWN SOURCE CHECK LIED, FOR THE THIRD TIME THIS SESSION.** Grepping for
+  `iframe` and `site-footer` reported both PRESENT: they were matching **the
+  comment explaining their removal**. Strip comments before searching source.
+  This file already records the same fault twice, once in a test that matched a
+  comment about a latch and once in an assertion that read jsdom's `textContent`
+  including `<script>` source.
+
 ## PLACES: ONE KEY FOR WHERE (2026-08-30)
 
 [2026083016_places.sql](mc/supabase/migrations/2026083016_places.sql), **applied**. 95 rows. Step one of the backend
