@@ -1491,6 +1491,63 @@ wireframe.
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
 
+## STEP SIX: TEMPLATES, AND THE GENERATOR (2026-08-30)
+
+[2026083021](mc/supabase/migrations/2026083021_templates_and_the_generator.sql), **applied**. The wireframe is built.
+
+**23 templates produce 2,363 games.** There are 395 stored games and every one
+of them is archived.
+
+- **A GAME HAS BEEN A STORED ROW PER MATCHUP**, which is why every combination
+  had to be written out in advance and why none of them is live. A template is
+  the recipe: `template x audience x occasion`, computed when somebody asks.
+  **Two of the three are optional**, which is the whole accommodation for a
+  concert walk and a history walk beside a fixture.
+- **`audience_id` NULL MEANS ANY VISITING AUDIENCE.** That is the generative
+  move in one column: one template serves every club that visits.
+- **IT WRITES NOTHING TO `public.games`.** That table is 395 archived legacy rows
+  read by both engines with `select=*`, and minting into it would tie the new
+  model to the shape being replaced. `tgb_build_game` RETURNS an assembled game;
+  **where a purchased one is stored is the next decision, not this one.**
+- **THE COPY RULE IS DERIVED, NOT A LIST.** `tgb_audience_label` returns the home
+  CITY when the audience's name equals its mascot -- true of every pro club and
+  none of the college ones -- and otherwise the name. So Tampa, and **Alabama**.
+  - **THE FIRST CUT RETURNED THE CITY FOR EVERYBODY and produced "Tuscaloosa
+    Fans Takeover New Orleans"**, which nobody has ever said. The trademark rule
+    and the fan-speech rule pull opposite ways for college, and the mascot column
+    is what tells them apart: `Buccaneers` is a mark, `Alabama` is a state.
+- **TEMPLATES ARE SEEDED FROM `routes`, NOT FROM `places`.** A template with no
+  route is a city we want to sell and have not walked, and there is no reason to
+  create 95 of those on day one. **22 of the 23 are walkable**, and that count is
+  a real measure of what could ship tomorrow.
+- **A TAKEOVER EXCLUDES THE CLUBS AT HOME IN ITS OWN CITY**, because a takeover
+  is pitched at a visitor. That is why 23 templates give 2,363 rather than 2,530.
+- **PROVED BY BUILDING GAMES**: *Chicago Fans Takeover New Orleans* with the
+  Saints as its enemy, 7 stops and 7 content rungs; *Alabama Fans Takeover New
+  Orleans*; and *Oswald's New Orleans*, which has an audience, **no enemy and no
+  date**, and is the row that proves the shape rather than an argument for it.
+
+### THE WIREFRAME IS BUILT. WHAT IS AND IS NOT DONE.
+
+| step | |
+|---|---|
+| 1 places | **done.** 95 rows, every source resolving |
+| 2 audiences | **done.** 111 rows |
+| 3 destinations as a view | **done.** 110 in, 110 out, no column disagreeing |
+| 4 place_id on three tables | **done.** 536 / 22 / 3,050, none null |
+| 5 the key ladder | **done.** with the anti-audience derived |
+| 6 templates and the generator | **done.** 2,363 games from 23 templates |
+
+**WHAT IS NOT BUILT, said plainly rather than left to be discovered:**
+
+- **NOTHING PLAYS A GENERATED GAME.** Both engines read `public.games` with
+  `select=*` at play time. `tgb_build_game` returns a game; **nothing has been
+  taught to run one.**
+- **NO ROOM EDITS TEMPLATES.** They are SQL today.
+- **`public.games` IS UNTOUCHED AND STILL THE PAID PRODUCT.**
+- **`destinations_retired` STILL HOLDS ITS 110 ROWS**, deliberately, so the view
+  can be compared against what it replaced. The drop is commented in 2026083018.
+
 ## STEP FIVE: THE KEY LADDER (2026-08-30)
 
 [2026083020](mc/supabase/migrations/2026083020_the_key_ladder.sql), **applied**. `tgb_content_keys`, `tgb_anti_audience` and
