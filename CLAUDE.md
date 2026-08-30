@@ -800,6 +800,36 @@ games), each sized 38x46 from `iconSize`, offset by `iconAnchor`, carrying
 clipping, and nothing about whether the pin is on screen rather than merely in
 the document.
 
+### THE GLYPH WAS ALWAYS IN THE DOM. IT HAD NO FONT. (2026-08-30)
+
+Reported as the icon not showing after the pins themselves came back. The
+codepoint was in the document the whole time: `U+1F3C8`, on all ten markers.
+
+**IT INHERITED `font-family: "IBM Plex Mono", monospace` FROM
+`.leaflet-container`, AND NEITHER OF THOSE HAS EMOJI GLYPHS.** A stack that ends
+at a generic the font cannot serve leaves the browser on a last resort, and for
+an astral-plane codepoint under a MONOSPACE generic that is tofu or nothing
+depending on the machine. `.wp-pin em` names the emoji faces explicitly now.
+
+- **THIS IS WHY EVERY ASSERTION ABOUT THE MARKUP PASSED.** The html was right,
+  the codepoint was right, the element was in the document, the pin was a block
+  box, and none of that reaches a font. **Only the computed `font-family` shows
+  it**, which is the same lesson as the inline-box fault two notes up, arrived at
+  from a third direction: the markup being correct proves nothing about what a
+  viewer sees.
+- **THE CHECK WAS RUN AGAINST THE BROKEN FILE**, and fails there with
+  `got: "IBM Plex Mono", monospace`. An assertion that has never failed on the
+  bug it is for is an assertion nobody should trust.
+- **ANY EMOJI SET IN THIS PAGE'S TYPE NEEDS THE SAME TREATMENT.** Both faces
+  this site loads are text faces; nothing in the stack can draw an emoji, so an
+  emoji anywhere inherits its way to a last resort. If a glyph is ever added to
+  a card or a chip, name the emoji stack there too.
+
+**THREE FAULTS IN ONE PIN, EACH INVISIBLE TO THE LAST TEST THAT PASSED.** The
+box was inline so it had no size; the glyph took the colour it sat on; the glyph
+had no font that could draw it. **All three rendered as "nothing there", and all
+three needed `getComputedStyle` on a different property to see.**
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
