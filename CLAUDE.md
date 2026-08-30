@@ -1329,12 +1329,24 @@ costs nothing because the nickname is in the key.
   Saints.** Now the id is EITHER a full `destinations.id` (a question about that
   club) or its city-and-state prefix (a question about the city, asked of
   anybody there). Which shape a row uses is the editorial call.
-- **THAT IS WHAT MAKES `type` MEAN SOMETHING.** **Know Your Enemy** is the HOST
-  club's or host city's id, asked of the fandom that travelled; **Super Fan
-  Check** is the VISITING club's own id, asked of its own fans. **So a resolver
-  for one game reads three keys**: the host city, the host club, and the
-  visiting club. Denver already holds one of each -- a city question about the
-  mile, a club question about Elway.
+- **A RESOLVER FOR ONE GAME READS THREE KEYS**: the host city, the host team,
+  and the visiting team. Denver already holds two of them -- a city question
+  about the mile, a team question about Elway.
+- **`type` IS DROPPED** ([2026083010](mc/supabase/migrations/2026083010_trivia_drops_type.sql)). It held 'Know Your Enemy' and 'Super Fan
+  Check', which read as two kinds of question and are **one fact seen from two
+  sides**: whether the row is about the team you follow or the team you are
+  visiting. **A game already knows which side each destination is on**, so with
+  the id naming a team the direction is derivable -- and the column was a
+  hand-typed second copy of it, free to contradict the id with nothing to say
+  so. What is given up: nothing records that a question was WRITTEN as a taunt
+  rather than a straight quiz. That was never enforced and never read.
+- **THE SHAPE IS `team` OR `city`, AND IT IS DERIVED.** The id being a full
+  `destinations.id` means the row is about that team; the id being its
+  city-and-state prefix means it is about the place. **IT MUST NOT BECOME A
+  COLUMN** -- a stored shape is a stored copy of what the id already says, which
+  is the exact fault `type` was. If it has to be queryable it is a view. The one
+  canonical expression is written out in 2026083010's header so three readers do
+  not invent three of them.
 - **STILL NOT UNIQUE AND STILL NOT A FOREIGN KEY.** Many questions share an id,
   and **the city form has no row to reference at all** -- `destinations.id` is
   the four-part form. The migration's verify block is what catches a typo;
