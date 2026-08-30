@@ -633,6 +633,26 @@ this is the twelfth and the first that destroyed a file.
    one exception away from deleting its subject. Better still, write through a
    file rather than a heredoc, which is what this script does.
 
+### THE HEADLINE IS THE GAME'S OWN NAME (2026-08-30)
+
+The card led with a derived "AWAY at HOME" line. It leads with `games.name`.
+
+- **THE DERIVED LINE WAS BOTH REDUNDANT AND INCOMPLETE.** Redundant because the
+  names already carry the fixture where there is one -- *New Orleans Fans
+  Takeover Detroit* -- and incomplete because the twelve games with no
+  travelling side had nothing to derive from and rendered as *" at New
+  Orleans"*. A name is the one thing every row has.
+- **THE FIXTURE MOVED TO THE WHERE LINE, and is drawn only when the name does
+  not already carry it.** Otherwise the row reads *New Orleans Fans Takeover
+  Detroit / Detroit / New Orleans fans*, which is the away city three times. A
+  test asserts no card names it twice.
+- **THE HEADLINE WRAPS** (`overflow-wrap: anywhere`). A name is longer than a
+  two-club line and has real words in it; two lines is the common case and
+  clipping it would lose the half that distinguishes one game from another.
+- **THE SEARCH BOX SAYS TEAM, NOT CLUB.** Club is the word this repo uses
+  internally, and `placeholder-club` and the `club-missing` finding keep it.
+  **Team is the word a visitor uses**, and this is visible copy.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

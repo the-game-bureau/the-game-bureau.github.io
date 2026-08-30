@@ -177,8 +177,11 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 }
 .gm-fixture {
   display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
-  font: 700 1.14rem/1.1 'Big Shoulders Display', system-ui, sans-serif;
+  font: 700 1.14rem/1.12 'Big Shoulders Display', system-ui, sans-serif;
   letter-spacing: 0.01em; text-transform: uppercase;
+  /* A game NAME is longer than a two-club fixture line and has real words in
+     it, so it wraps rather than being clipped. Two lines is the common case. */
+  overflow-wrap: anywhere;
 }
 /* "AT" IS DIRECTIONAL AND SAYS WHO IS TRAVELLING, which is the whole
    premise: the away fans are the ones in town with an afternoon free. */
@@ -192,6 +195,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline;
 }
 .gm-when { color: var(--accent); }
+.gm-fans { color: var(--muted); }
 .gm-tag {
   margin: 8px 0 0;
   font: 400 0.8rem/1.5 'IBM Plex Mono', monospace; color: var(--ink);
@@ -394,7 +398,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 
     <div class="gp-find">
       <label for="q">Find your game</label>
-      <input type="search" id="q" placeholder="A club, a city, a nickname" autocomplete="off">
+      <input type="search" id="q" placeholder="A team, a city, a nickname" autocomplete="off">
       <p class="gp-tally" id="tally"></p>
     </div>
 
@@ -834,25 +838,41 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     card.setAttribute('aria-expanded', open ? 'true' : 'false');
     card.dataset.gameId = clean(g.id);
 
-    // NOT EVERY GAME IS A FIXTURE, and the live table proves it: 12 of the 33
-    // carry no away club at all (Murder Map, Jazz Fest Bingo, the DealerTire
-    // walks). Drawn as "AWAY at HOME" those render as " at New Orleans", which
-    // is a card with a hole where its name should be. A game with no travelling
-    // side is named instead, which is the only true thing to call it.
+    // THE GAME'S OWN NAME IS THE HEADLINE. It was a derived "AWAY at HOME"
+    // line, which said the same thing for every fixture in a city and could say
+    // nothing at all for the twelve games with no travelling side: those
+    // rendered as " at New Orleans", a card with a hole where its name should
+    // be. The names already carry the fixture where there is one ("New Orleans
+    // Fans Takeover Detroit") and carry the only true thing where there is not
+    // ("Murder Map: New Orleans"), so the derived line was both redundant and
+    // incomplete. It falls back to the fixture for a row with no name at all.
     var fx = document.createElement('div');
     fx.className = 'gm-fixture';
-    if (hasFixture(g)) {
+    var title = cityOnly(g.name, g);
+    if (title) {
+      fx.appendChild(text('span', title));
+    } else if (hasFixture(g)) {
       fx.appendChild(text('span', awayName(g)));
       fx.appendChild(text('span', 'at', 'gm-at'));
       fx.appendChild(text('span', homeName(g)));
     } else {
-      fx.appendChild(text('span', cityOnly(g.name, g) || hostCity(g)));
+      fx.appendChild(text('span', hostCity(g)));
     }
     card.appendChild(fx);
 
     var where = document.createElement('div');
     where.className = 'gm-where';
     where.appendChild(text('span', hostCity(g)));
+    // A NAME DOES NOT ALWAYS SAY WHO IS TRAVELLING, so the fixture moves here
+    // where it is a fact about the game rather than its title. Drawn only when
+    // the name does not already carry the away city, or the row would say
+    // "New Orleans Fans Takeover Detroit / Detroit / New Orleans at Detroit".
+    if (hasFixture(g)) {
+      var away = awayName(g);
+      if (away && title.toLowerCase().indexOf(away.split(',')[0].toLowerCase()) < 0) {
+        where.appendChild(text('span', away + ' fans', 'gm-fans'));
+      }
+    }
     var w = whenOf(g);
     if (w) where.appendChild(text('span', w, 'gm-when'));
     card.appendChild(where);
