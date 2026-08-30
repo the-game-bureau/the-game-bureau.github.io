@@ -87,7 +87,11 @@ The distractors are most of the work and are where a lazy question shows.
 - **PLAUSIBLE TO SOMEBODY WHO ALMOST KNOWS.** The best wrong answer is the one a
   fan would give if they were a year out or thinking of the wrong game.
 - **NO JOKE OPTIONS.** A funny fourth option is a free elimination and turns it
-  into a three way guess.
+  into a three way guess. **The exception is a set where ALL THREE distractors
+  are the joke and they are one category** -- Curly Lambeau against Larry, Moe
+  and Groucho -- because then nothing is eliminated by being funny and somebody
+  who does not know really could pick Moe. It makes the question easy, so spend
+  it where easy is the right weight and not twice in one city.
 - **NEVER "ALL OF THE ABOVE" OR "NONE OF THE ABOVE".**
 - **DO NOT LET LENGTH GIVE IT AWAY.** The correct answer being the longest or the
   most specific option is the oldest tell there is.
@@ -97,6 +101,14 @@ The distractors are most of the work and are where a lazy question shows.
 ---
 
 ## 4. WHAT MAKES A QUESTION WORTH ASKING
+
+- **THE QUESTION MUST NOT CONTAIN ITS OWN ANSWER.** This is the easiest one to
+  write by accident: *"Lambeau Field is named for the man who founded the club.
+  What was his surname?"* answers itself out loud, and it shipped. **Read the
+  question back with the answer covered up.** If naming the place, the trophy or
+  the building gives it away, ask for something else about it -- the nickname,
+  the year, the person -- rather than removing the detail that makes it worth
+  asking.
 
 - **IT MUST BE CHECKABLE.** A fact you cannot point at is a fact we cannot defend
   when somebody says we got it wrong.
