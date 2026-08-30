@@ -7674,6 +7674,45 @@ Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues`
 - **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
 - **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
+## AN AUDIENCE IS NAMED BY ITS CITY (2026-08-30)
+
+[2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql), **applied**. 110 pro clubs took their city, 14 kept a
+mascot, 499 college clubs were left alone.
+
+- **THE RULE WAS ALREADY WRITTEN DOWN AND WAS ONLY TRUE AT DISPLAY TIME.** A
+  mascot is a search term, never a label, and `tgb_audience_label` has enforced
+  that since it was written -- but the STORED name still said Buccaneers, so
+  any screen printing `audiences.name` raw printed a trademark.
+- **THE CITY COMES FROM `home_place_id`, NEVER FROM `city_name`.** That column
+  is **wrong for four clubs and blank for every college one**: San Jose for the
+  49ers, Los Angeles for the Ducks, New York for both the Nets and the Devils.
+  `home_place_id` was built from `fanbase`, which is right in all four cases.
+  **Using the obvious column would have named a San Francisco club San Jose.**
+- **FOURTEEN KEEP THE MASCOT, because two clubs cannot answer to one name.**
+  Giants and Jets are both New York; Cubs and White Sox are both Chicago. The
+  test is whether the city is shared *inside that league*, so the Nets become
+  Brooklyn and the Devils Newark rather than colliding.
+- **THE 499 COLLEGE CLUBS ARE THE IMPORTANT EXCLUSION, and renaming them would
+  have reproduced a failure this project has already had.** 2026083021 records
+  it: the first copy rule returned the city for everybody and produced
+  **"Tuscaloosa Fans Takeover New Orleans"**. It is not a trademark case either
+  -- `Alabama` is a state, and the MASCOT is Crimson Tide. **The trademark rule
+  and the fan-speech rule agree here.**
+- **SIX MLB ROWS NAMED FOR A CODE WERE FIXED ON THE WAY PAST.** 2026083022 named
+  a club by its code where its fanbase collided, so MLB carried `CHC`, `LAD`,
+  `NYY`. Those are exactly the shared-city rows, so they took the mascot
+  instead. **A code is not a word any fan says.**
+- **115 IDS CHANGED, AND NOTHING POINTED AT ONE.** `id` is `family-slug(name)`,
+  so `nfl-buccaneers` is `nfl-tampa`. **Checked before writing rather than
+  after**: no two rows collide, nothing out of scope collides, and **no trivia
+  key is an audience id** -- a trivia key is a family, a place, or a DESTINATION
+  id, and a destination id is built from the mascot plus the place, so it does
+  not move. Destinations still 140, `teams` still 639.
+- **`tgb_audience_label` NEEDED NO CHANGE, and that is the check that proves the
+  rename is consistent with it.** It returns the city when `name = nickname`,
+  which is now true only of the fourteen; the rest already hold a city. Tampa,
+  New York, Alabama, all still correct.
+
 ## `teams` IS A VIEW OVER `audiences`, AND THE ROOM IS GONE (2026-08-30)
 
 [2026083022](mc/supabase/migrations/2026083022_teams_merge_into_audiences.sql) merged all 639 clubs into `public.audiences`;
