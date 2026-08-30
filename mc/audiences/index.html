@@ -338,7 +338,8 @@
     const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
     const KINDS = ['fandom', 'artist', 'interest'];
-    const EDITABLE = ['family', 'name', 'kind', 'home_place_id', 'team_key', 'aliases'];
+    const EDITABLE = ['family', 'name', 'nickname', 'kind', 'home_place_id',
+                      'team_key', 'aliases'];
 
     const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '', loaded: false };
     let adminAuth = null;
@@ -368,9 +369,12 @@
              + 'unique, which is why a college audience is named for its school.';
       }
       if (/audiences_kind/.test(text)) return 'A kind is fandom, artist or interest.';
-      if (/audiences_destination_needs_home/.test(text)) {
-        return 'An audience with a destination has to have a home place too. '
-             + 'Clear the destination, or set where they are at home.';
+      if (/audiences_home_needs_nickname/.test(text)) {
+        return 'A club at home somewhere needs a mascot, or it disappears from '
+             + 'destinations without a word. Add one, or clear the home place.';
+      }
+      if (/audiences_nickname_is_a_club/.test(text)) {
+        return 'Only a fandom has a mascot. An artist or an interest does not.';
       }
       if (/audiences_aliases_lower/.test(text)) {
         return 'Aliases are lowercase. They are matched, never printed.';
@@ -482,10 +486,17 @@
         /* A CLUB WITH NO HOME CAN NEVER BE ANYBODY'S ENEMY, because the
            anti-audience is reached through this column. Nothing else reports it. */
         const homeless = r.kind === 'fandom' && !clean(r.home_place_id);
+        const needsNick = r.kind === 'fandom' && clean(r.home_place_id) && !clean(r.nickname);
         return '<tr data-row="' + esc(r.id) + '">'
           + '<td class="col-id">' + esc(r.id) + '</td>'
           + '<td class="col-key ed" data-field="family" data-empty="family">' + esc(r.family) + '</td>'
           + '<td class="col-name ed" data-field="name" data-empty="name">' + esc(r.name) + '</td>'
+          /* THE MASCOT, WHICH IS NOT THE NAME. Alabama and Crimson Tide are both
+             true. A club at home without one leaves `destinations` silently,
+             which is why the cell is drawn in the red pen when it is empty. */
+          + '<td class="ed' + (needsNick ? ' is-bad' : '') + '" data-field="nickname"'
+          + ' data-empty="' + (needsNick ? 'no mascot' : 'none') + '">'
+          + esc(r.nickname) + '</td>'
           + '<td><span class="chip chip--' + (KINDS.indexOf(r.kind) >= 0 ? r.kind : 'bad') + '">'
             + esc(r.kind) + '</span></td>'
           + '<td class="ed' + (homeless ? ' is-bad' : '') + '" data-field="home_place_id"'
@@ -500,7 +511,7 @@
       }).join('');
 
       host.innerHTML = '<table><thead><tr>'
-        + '<th>Key</th><th>Family</th><th>Name</th><th>Kind</th><th>At home in</th>'
+        + '<th>Key</th><th>Family</th><th>Name</th><th>Mascot</th><th>Kind</th><th>At home in</th>'
         + '<th>Team</th><th>Aliases</th><th></th></tr></thead><tbody>' + body + '</tbody></table>';
     }
 
@@ -559,7 +570,7 @@
         patch.aliases = list;
       } else if (field === 'home_place_id') {
         const v = clean(value);
-        if (!v) { patch.home_place_id = null; patch.destination_id = null; }
+        if (!v) { patch.home_place_id = null; }
         else {
           /* THE CELL SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so a typed label
              is resolved back. Without this, editing the cell at all would send
@@ -762,6 +773,13 @@
 
         /* A CLUB WITH NO HOME CAN NEVER BE AN ANTI-AUDIENCE, which is the one
            fault in this table that nothing else will ever report. */
+        const noNick = rows.filter((r) => r.kind === 'fandom'
+          && clean(r.home_place_id) && !clean(r.nickname));
+        if (noNick.length) {
+          setStatus(noNick.length + (noNick.length === 1 ? ' club has' : ' clubs have')
+            + ' no mascot, so they are missing from destinations: '
+            + noNick.slice(0, 6).map((r) => r.id).join(', ') + '.', 'error');
+        }
         const homeless = rows.filter((r) => r.kind === 'fandom' && !clean(r.home_place_id));
         if (homeless.length) {
           setStatus(homeless.length + (homeless.length === 1 ? ' fandom has' : ' fandoms have')

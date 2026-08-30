@@ -1474,6 +1474,44 @@ wireframe.
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
 
+## `destinations` IS A VIEW (2026-08-30)
+
+[2026083018](mc/supabase/migrations/2026083018_destinations_becomes_a_view.sql), **applied**. Step three, and the one that buys time for
+everything after it: **nothing that reads a destination had to change.**
+
+- **THE CLUB LIST EXISTED TWICE**, 110 rows in `destinations` and the same 110
+  in `audiences`. **Two copies of one fact drift and nothing says so**: rename a
+  club in one and the other answers with the old name forever. A view cannot
+  drift from what it is computed from.
+- **PROVED BY COMPARING THE VIEW AGAINST THE TABLE IT REPLACED**, which is the
+  only check worth running here: 110 and 110, **0 rows missing either way, and
+  0 rows where ANY column disagrees** -- id, city, state, league, nickname and
+  aliases all identical.
+- **`audiences.nickname` IS THE MASCOT AND IT IS NOT `name`.** Alabama and
+  Crimson Tide are both true; an audience is named by what its members call
+  themselves and a destination is named by the mascot. Two columns because they
+  are two facts.
+- **`audiences.destination_id` IS DROPPED, and that is the point rather than a
+  casualty.** With the nickname present the destination id is
+  `home_place_id + family + slug(nickname)`, so storing it was **a second copy
+  of a computable fact** -- the exact fault this step exists to remove.
+  Verified before dropping: the derived id matched the stored one for all 110.
+- **A CLUB AT HOME MUST HAVE A MASCOT**, enforced. Without the CHECK, clearing a
+  nickname would make a club **vanish from `destinations` in silence** -- no
+  error, no empty row, just one fewer club than there was. Both new guards were
+  made to refuse.
+- **THE TABLE IS RETIRED IN PLACE AS `destinations_retired`, not dropped.** A
+  drop is the one irreversible move and this is the first step of the rebuild
+  that touches live data; **if the view is ever wrong the table is still there
+  to compare against.** The drop sits commented at the foot of the migration.
+- **THE VIEW IS `security_invoker`**, so it runs as the caller rather than as
+  its owner. Both tables under it are public anyway, which makes this the
+  difference between that being true by design and true by luck.
+- **THE ROOM FOLLOWED IN THE SAME PASS**: the mascot is an editable column drawn
+  in the red pen when a club at home lacks one, `destination_id` is gone from
+  the write path, and both new constraints are translated into sentences. 37
+  assertions.
+
 ## AUDIENCES: THE CLUB HALF, FREE OF THE PLACE (2026-08-30)
 
 [2026083017_audiences.sql](mc/supabase/migrations/2026083017_audiences.sql), **applied**, and [mc/audiences/index.html](mc/audiences/index.html). Step two of

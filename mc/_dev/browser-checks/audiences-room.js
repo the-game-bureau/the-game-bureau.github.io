@@ -116,8 +116,24 @@ setTimeout(() => {
   hb3.value = '';
   key(hb3, 'Enter');
   p = patches()[patches().length - 1];
-  t('clearing the home clears the destination with it',
-    p.body.home_place_id === null && p.body.destination_id === null, JSON.stringify(p.body));
+  t('clearing the home sends just that', p.body.home_place_id === null, JSON.stringify(p.body));
+  /* `destination_id` IS DROPPED. The destination id is derivable from the home
+     place, the family and the nickname, so storing it was a second copy of a
+     computable fact. */
+  t('and no longer writes a destination_id',
+    p.body.destination_id === undefined, JSON.stringify(p.body));
+
+  /* THE MASCOT IS A COLUMN AND IT IS NOT THE NAME. A club at home without one
+     vanishes from the destinations view, which is why the database refuses it. */
+  const bamaRow = ROWS.find((r) => r.id === 'ncaaf-alabama');
+  if (bamaRow) {
+    t('a college audience is named for its school',
+      cell('ncaaf-alabama', 'name').textContent.trim() === 'Alabama',
+      cell('ncaaf-alabama', 'name').textContent);
+    t('and carries the mascot separately',
+      cell('ncaaf-alabama', 'nickname').textContent.trim() === 'Crimson Tide',
+      cell('ncaaf-alabama', 'nickname').textContent);
+  }
 
   /* ---- renaming changes the key, and it says so ------------------------- */
   asked = null;
