@@ -64,6 +64,11 @@
           description: 'What a team does when they get there. Written once, with variables, and used in every game it fits.'
         },
         {
+          href: '/mc/trivia/',
+          label: 'Trivia',
+          description: 'Questions keyed to a place. Know your enemy, or prove you know your own club. Play them here the way a team meets them.'
+        },
+        {
           href: '/mc/routes/',
           label: 'Routes',
           description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'

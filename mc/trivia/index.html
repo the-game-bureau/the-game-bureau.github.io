@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>TRIVIA | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/ is
+         the reference room and this is a copy, so when either changes, change
+         both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+    }
+
+    body {
+      margin: 0; background: var(--paper-base); color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 15px;
+    }
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* PICK TAKES THE SLACK. One flexible bar per row, or the free space splits
+       between them and neither end of the row stays pinned. */
+    .command-bar--pick { flex: 1 1 auto; min-width: 0; }
+    .command-bar--play, .command-bar--score { flex: 0 0 auto; }
+    .command-bar--pick select { flex: 1 1 200px; min-width: 0; max-width: 32ch; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. A dozen instances of this in the repo. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    .score { font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+             color: var(--muted); white-space: nowrap; }
+    .score b { color: var(--ink); font-size: 1.05rem; }
+
+    /* ---- the table ------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg); border-bottom: 1px solid var(--line);
+    }
+    .panel-title { font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+                   letter-spacing: 0.1em; text-transform: uppercase; }
+    .panel-head .spacer { margin-left: auto; }
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head and the bars stay on screen. */
+    .panel-body { max-height: 70vh; overflow: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--cut-panel-bg); text-align: left; white-space: nowrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+      font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    tbody td {
+      padding: 9px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      font-size: 0.88rem; vertical-align: top;
+    }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: var(--panel-soft); }
+    tbody tr:last-child td { border-bottom: 0; }
+    .col-key { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+               color: var(--muted); white-space: nowrap; }
+    .col-q { font-weight: 500; }
+    .col-a { white-space: nowrap; font-weight: 600; }
+    .col-form { font: 500 0.7rem/1.2 'IBM Plex Mono', monospace; color: var(--muted);
+                white-space: nowrap; }
+    .col-play { text-align: right; white-space: nowrap; }
+
+    .chip {
+      display: inline-flex; align-items: center; padding: 3px 8px;
+      border: 1px solid var(--control-line); border-radius: 999px;
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .chip--team { border-color: var(--ink); color: var(--ink); }
+    .chip--city { color: var(--muted); }
+    /* AN ID THAT RESOLVES TO NEITHER SHAPE IS A TYPO NOTHING ELSE CATCHES,
+       because trivia.id is not a foreign key and cannot be one. Red pen. */
+    .chip--bad { border-color: var(--bic-red); color: var(--bic-red); }
+
+    .empty { padding: 30px 26px; color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+    .empty b { color: var(--ink); }
+
+    /* ---- the popup ------------------------------------------------------- */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 12px 16px; border-bottom: 1px solid var(--line);
+      background: var(--cut-panel-bg); border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace;
+                 letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-head .spacer { margin-left: auto; }
+    .dlg-body { padding: 20px 18px 6px; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .question { margin: 0 0 18px; font-size: 1.2rem; line-height: 1.35;
+                font-weight: 500; text-wrap: balance; }
+
+    .choices { display: grid; gap: 9px; }
+    .choice {
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; padding: 12px 14px; text-align: left;
+      border: 1px solid var(--control-line); border-radius: 9px;
+      background: #fff; color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 1rem;
+      cursor: pointer;
+    }
+    .choice:hover:not(:disabled) { background: var(--panel-soft); }
+    .choice:disabled { cursor: default; }
+    .choice-key {
+      flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+      display: grid; place-items: center; border: 1px solid var(--control-line);
+      font: 600 0.72rem/1 'IBM Plex Mono', monospace;
+    }
+    /* RIGHT AND WRONG ARE NOT COLOUR ALONE. Each carries a word, so a
+       screenshot and a colourblind reader both keep the answer. */
+    .choice.is-right { border-color: var(--success); background: rgba(39,103,64,0.09); color: var(--success); }
+    .choice.is-right .choice-key { border-color: var(--success); }
+    .choice.is-wrong { border-color: var(--bic-red); background: rgba(194,55,55,0.08); color: var(--bic-red); }
+    .choice.is-wrong .choice-key { border-color: var(--bic-red); }
+    .choice-mark { margin-left: auto; font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+                   letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .oneword { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .oneword input[type="text"] { flex: 1 1 240px; min-width: 0; min-height: 44px; font-size: 1rem; }
+
+    .verdict { margin: 16px 0 0; font-size: 1rem; line-height: 1.45; }
+    .verdict.is-right { color: var(--success); }
+    .verdict.is-wrong { color: var(--bic-red); }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+      .col-key, .col-form { display: none; }
+    }
+</style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? QUESTIONS</h1>
+        <p class="room-blurb">Every question we hold, and a way to meet one the way a team does. Draw at random, pick a city and be asked what a visitor would be asked, or pick a team and be asked about them.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar command-bar--play">
+        <legend>Play</legend>
+        <div class="command-bar-inner">
+          <button type="button" class="btn primary" id="randomBtn">Random</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--pick">
+        <legend>Or pick</legend>
+        <div class="command-bar-inner">
+          <select id="cityPick" aria-label="City"><option value="">Any city</option></select>
+          <select id="teamPick" aria-label="Team"><option value="">Any team</option></select>
+          <button type="button" class="btn" id="clearBtn" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--score">
+        <legend>Score</legend>
+        <div class="command-bar-inner">
+          <span class="score" id="score"><b>0</b> of 0</span>
+          <button type="button" class="btn" id="resetBtn" disabled>Reset</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Questions</span>
+        <span class="spacer"></span>
+        <span class="score" id="deckCount"></span>
+      </div>
+      <div class="panel-body" id="tableHost"></div>
+    </section>
+  </main>
+
+  <div class="dlg" id="playDlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dlg-panel">
+      <div class="dlg-head">
+        <span class="dlg-title" id="dlgTitle">Question</span>
+        <span class="dlg-sub" id="dlgSub"></span>
+        <span class="spacer"></span>
+        <span class="score" id="dlgScore"></span>
+      </div>
+      <div class="dlg-body" id="dlgBody"></div>
+      <div class="dlg-foot">
+        <button type="button" class="btn" id="closeBtn">Close</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="nextBtn">Next question</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+
+    /* ================================================================== *
+     *  TRIVIA. The table of every question, and a popup for playing one.
+     *
+     *  IT READS AND NEVER WRITES. Writing questions is trivia.prompt.md
+     *  plus three CHECK constraints, which is why this room holds no editor
+     *  and no Save. What it is FOR is meeting a question the way a team
+     *  meets it, because a question that reads fine in a table can be
+     *  unanswerable standing in the street.
+     *
+     *  THE ANSWER CONTROL FOLLOWS THE ROW, NOT A SETTING: `choices` present
+     *  means buttons, `choices` null means a text box. That is the same
+     *  either/or the database enforces, so the popup cannot offer a shape
+     *  the row does not have.
+     *
+     *  THE TWO PICKERS ANSWER DIFFERENT QUESTIONS AND MUST NOT BE MERGED:
+     *    CITY  -- everything a team would be asked THERE: the city's own
+     *             rows plus every club in it.
+     *    TEAM  -- questions about that club, and nothing else.
+     *  Both are true and they are not the same set, so one picker would
+     *  have to pick a meaning and lose the other.
+     *
+     *  THE PAGE CARRIES NO OTHER COMMENTS by house rule; the load-bearing
+     *  reasoning lives here and in CLAUDE.md.
+     * ================================================================== */
+
+    const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+
+    const el = (id) => document.getElementById(id);
+    const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
+
+    const state = {
+      trivia: [], destinations: [],
+      city: '', team: '',
+      deck: [], current: null, answered: false, given: '', right: false,
+      won: 0, asked: 0, loaded: false
+    };
+
+    let adminAuth = null;
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_URL + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_KEY),
+        'Content-Type': 'application/json'
+      }, extra || {});
+    }
+    async function readError(res, fallback) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { text = ''; }
+      /* TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw PGRST205 is a statement
+         about our schema and tells the person at the keyboard nothing they can
+         act on, so each one names the migration to run. */
+      if (/relation .*"?trivia|PGRST205.*trivia/.test(text)) {
+        return 'There is no public.trivia table. Run mc/supabase/migrations/2026083006_trivia.sql.';
+      }
+      if (/relation .*"?destinations|PGRST205.*destinations/.test(text)) {
+        return 'There is no public.destinations table. Run mc/supabase/migrations/2026083004_destinations.sql.';
+      }
+      if (/column .*choices/.test(text)) {
+        return 'public.trivia has no choices column. Run mc/supabase/migrations/2026083006_trivia.sql.';
+      }
+      if (/42501|row-level security/.test(text)) {
+        return 'The database refused the read. Sign in again.';
+      }
+      return fallback + (text ? ' (' + text.slice(0, 180) + ')' : '');
+    }
+
+    let statusTimer = null;
+    function setStatus(msg, tone) {
+      const box = el('pageStatus');
+      box.textContent = msg || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+      window.clearTimeout(statusTimer);
+      /* An error stays until the next action; a success clears itself, because
+         a stale line an hour later is a lie about what is currently true. */
+      if (msg && tone !== 'error') statusTimer = window.setTimeout(() => {
+        if (el('pageStatus').textContent === msg) el('pageStatus').textContent = '';
+      }, 6000);
+    }
+
+    async function pageAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not read ' + table + '.'));
+        const page = await res.json();
+        out.push(...page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    /* Every value drawn here is a row value going into an html string. A
+       question carrying an ampersand is ordinary; one carrying a tag is not,
+       and neither should reach the DOM as markup. */
+    function esc(v) {
+      return clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ---- the keys --------------------------------------------------------- */
+
+    /* THE SAME SLUG THE GENERATED COLUMN USES, so a prefix computed here and an
+       id computed by Postgres agree. If destinations.id changes shape, so does
+       this. */
+    const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cityKeyOf = (d) => slug(d.city) + '-' + slug(d.state);
+
+    /* SHAPE IS DERIVED AND MUST NEVER BECOME A COLUMN: a stored copy of what the
+       id already says is the exact fault that got `type` dropped. */
+    function shapeOf(id) {
+      const v = clean(id);
+      if (!v) return '';
+      if (state.destinations.some((d) => d.id === v)) return 'team';
+      if (state.destinations.some((d) => d.id.indexOf(v + '-') === 0)) return 'city';
+      return '';
+    }
+    function placeLabel(id) {
+      const v = clean(id);
+      const team = state.destinations.find((d) => d.id === v);
+      if (team) return team.city + ', ' + team.state + ' ' + team.nickname;
+      const any = state.destinations.find((d) => d.id.indexOf(v + '-') === 0);
+      if (any) return any.city + ', ' + any.state;
+      return v;
+    }
+
+    /* A CITY MEANS EVERYTHING ASKED THERE: the city's own rows plus every club
+       in it. A visitor to Cleveland for the basketball should still meet the
+       Modell question. A TEAM means questions about that club and nothing else,
+       because the city's rows are about the place and the picker beside it
+       already offers them. */
+    const inCity = (row, key) => row.id === key || clean(row.id).indexOf(key + '-') === 0;
+
+    function pool() {
+      if (state.team) return state.trivia.filter((r) => r.id === state.team);
+      if (state.city) return state.trivia.filter((r) => inCity(r, state.city));
+      return state.trivia.slice();
+    }
+    function scopeLabel() {
+      if (state.team) return placeLabel(state.team);
+      if (state.city) return placeLabel(state.city);
+      return 'the whole table';
+    }
+
+    /* ---- the deck --------------------------------------------------------- */
+
+    /* A SHUFFLED DECK, NOT A DRAW PER PRESS. Drawing at random every time asks
+       the same question twice before it has asked half of them, which on a
+       short table is immediately obvious and reads as broken. */
+    function shuffle(list) {
+      const a = list.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+    function drawNext() {
+      if (!state.deck.length) {
+        state.deck = shuffle(pool());
+        /* Do not reopen on the question already on screen, or a reshuffle looks
+           like nothing happened. */
+        if (state.deck.length > 1 && state.current
+            && state.deck[0].trivia_id === state.current.trivia_id) {
+          state.deck.push(state.deck.shift());
+        }
+      }
+      const row = state.deck.shift();
+      if (!row) {
+        setStatus('Nothing keyed to ' + scopeLabel() + ' yet.', 'error');
+        return;
+      }
+      open(row);
+    }
+
+    /* ---- judging ---------------------------------------------------------- */
+
+    /* CASE AND SURROUNDING SPACE ONLY. A one-word answer is refused by the
+       database if it holds a space, so there is nothing else to forgive, and
+       forgiving more would start accepting a different word. */
+    const same = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase();
+
+    function judge(given) {
+      if (state.answered || !state.current) return;
+      state.answered = true;
+      state.given = clean(given);
+      state.right = same(given, state.current.answer);
+      state.asked += 1;
+      if (state.right) state.won += 1;
+      paintScore();
+      paintDialog();
+      paintTable();
+    }
+
+    /* ---- the popup -------------------------------------------------------- */
+
+    function open(row) {
+      state.current = row;
+      state.answered = false;
+      state.given = '';
+      state.right = false;
+      el('playDlg').classList.add('is-open');
+      paintDialog();
+    }
+    function close() {
+      el('playDlg').classList.remove('is-open');
+      state.current = null;
+      state.answered = false;
+    }
+
+    function paintDialog() {
+      const row = state.current;
+      if (!row) return;
+      const shape = shapeOf(row.id);
+
+      el('dlgSub').textContent = placeLabel(row.id)
+        + '  ' + (shape || 'unknown key') + '  ' + row.id;
+      el('dlgScore').innerHTML = '<b>' + state.won + '</b> of ' + state.asked;
+
+      const parts = ['<p class="question">' + esc(row.question) + '</p>'];
+      const choices = Array.isArray(row.choices) ? row.choices : null;
+
+      /* THE CONTROL FOLLOWS THE ROW: choices means buttons, no choices means a
+         box. The database allows nothing else, so neither does this. */
+      if (choices && choices.length) {
+        parts.push('<div class="choices" id="choices">');
+        choices.forEach((c, i) => {
+          let cls = 'choice', mark = '';
+          if (state.answered) {
+            if (same(c, row.answer)) { cls += ' is-right'; mark = 'Correct'; }
+            else if (same(c, state.given)) { cls += ' is-wrong'; mark = 'You said'; }
+          }
+          parts.push('<button type="button" class="' + cls + '" data-choice="' + i + '"'
+            + (state.answered ? ' disabled' : '') + '>'
+            + '<span class="choice-key">' + 'ABCDEFGH'.charAt(i) + '</span>'
+            + '<span>' + esc(c) + '</span>'
+            + (mark ? '<span class="choice-mark">' + mark + '</span>' : '')
+            + '</button>');
+        });
+        parts.push('</div>');
+      } else {
+        parts.push('<div class="oneword">'
+          + '<input type="text" id="wordBox" placeholder="One word" autocomplete="off"'
+          + ' autocapitalize="off" spellcheck="false"'
+          + (state.answered ? ' disabled value="' + esc(state.given) + '"' : '') + '>'
+          + '<button type="button" class="btn primary" id="wordBtn"'
+          + (state.answered ? ' disabled' : '') + '>Answer</button></div>');
+      }
+
+      if (state.answered) {
+        parts.push('<p class="verdict ' + (state.right ? 'is-right' : 'is-wrong') + '">'
+          + (state.right
+              ? 'Right. <b>' + esc(row.answer) + '</b>.'
+              : 'Wrong. The answer is <b>' + esc(row.answer) + '</b>.') + '</p>');
+      }
+
+      el('dlgBody').innerHTML = parts.join('');
+
+      /* WIRED DEFENSIVELY, one control at a time. A dead reference here would
+         take the rest of the block down with it, which in this room means a
+         question you can read and cannot answer. */
+      const box = el('choices');
+      if (box) box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-choice]');
+        if (b && !state.answered) judge(choices[Number(b.dataset.choice)]);
+      });
+      const wordBtn = el('wordBtn'), wordBox = el('wordBox');
+      if (wordBtn && wordBox) {
+        wordBtn.addEventListener('click', () => judge(wordBox.value));
+        wordBox.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); judge(wordBox.value); }
+        });
+        if (!state.answered) wordBox.focus();
+      }
+    }
+
+    /* ---- the table -------------------------------------------------------- */
+
+    function paintScore() {
+      el('score').innerHTML = '<b>' + state.won + '</b> of ' + state.asked;
+      el('resetBtn').disabled = state.asked === 0;
+    }
+
+    function paintTable() {
+      const rows = pool();
+      const host = el('tableHost');
+      el('deckCount').textContent = rows.length
+        ? rows.length + (rows.length === 1 ? ' question' : ' questions') + ' from ' + scopeLabel()
+        : 'nothing from ' + scopeLabel();
+
+      if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
+      if (!rows.length) {
+        host.innerHTML = '<p class="empty">' + (state.trivia.length
+          ? 'Nothing keyed to <b>' + esc(scopeLabel()) + '</b> yet. Clear the pickers, or write one: the rules are in <b>mc/_dev/prompt-tools/trivia.prompt.md</b>.'
+          : 'No questions on file. The rules for writing them are in <b>mc/_dev/prompt-tools/trivia.prompt.md</b>.') + '</p>';
+        return;
+      }
+
+      const body = rows.map((r) => {
+        const shape = shapeOf(r.id);
+        const n = Array.isArray(r.choices) ? r.choices.length : 0;
+        return '<tr data-row="' + r.trivia_id + '">'
+          + '<td><span class="chip chip--' + (shape || 'bad') + '">'
+            + (shape || 'no such place') + '</span></td>'
+          + '<td class="col-key">' + esc(r.id) + '</td>'
+          + '<td class="col-q">' + esc(r.question) + '</td>'
+          + '<td class="col-a">' + esc(r.answer) + '</td>'
+          + '<td class="col-form">' + (n ? n + ' choices' : 'one word') + '</td>'
+          + '<td class="col-play"><button type="button" class="btn" data-play="'
+            + r.trivia_id + '">Play</button></td></tr>';
+      }).join('');
+
+      host.innerHTML = '<table><thead><tr>'
+        + '<th>Shape</th><th>Keyed to</th><th>Question</th><th>Answer</th>'
+        + '<th>Form</th><th></th></tr></thead><tbody>' + body + '</tbody></table>';
+
+    }
+
+    /* ---- the pickers ------------------------------------------------------ */
+
+    /* BUILT FROM THE ROWS THAT EXIST, never from a static list, so a picker can
+       only offer a choice with questions behind it: an empty result is not a
+       state either control can produce. The count is the whole reason they are
+       live rather than a search box. */
+    function buildPickers() {
+      const cities = {}, teams = {};
+      state.destinations.forEach((d) => {
+        const ck = cityKeyOf(d);
+        if (!cities[ck]) cities[ck] = { label: d.city + ', ' + d.state, n: 0 };
+        teams[d.id] = { label: d.city + ' ' + d.nickname + ' (' + d.league + ')', n: 0 };
+      });
+      state.trivia.forEach((r) => {
+        Object.keys(cities).forEach((k) => { if (inCity(r, k)) cities[k].n += 1; });
+        if (teams[r.id]) teams[r.id].n += 1;
+      });
+      fill('cityPick', 'Any city', cities, state.city);
+      fill('teamPick', 'Any team', teams, state.team);
+    }
+    function fill(id, anyLabel, map, keep) {
+      const sel = el(id);
+      sel.textContent = '';
+      const any = document.createElement('option');
+      any.value = '';
+      any.textContent = anyLabel + ' (' + state.trivia.length + ')';
+      sel.appendChild(any);
+      /* A PLACE WITH NOTHING BEHIND IT IS NOT OFFERED. 110 destinations against
+         a handful of questions would otherwise be a list of dead ends. */
+      Object.keys(map).filter((k) => map[k].n > 0)
+        .sort((a, b) => map[a].label.localeCompare(map[b].label))
+        .forEach((k) => {
+          const o = document.createElement('option');
+          o.value = k;
+          o.textContent = map[k].label + ' (' + map[k].n + ')';
+          sel.appendChild(o);
+        });
+      const has = Array.prototype.some.call(sel.options, (o) => o.value === keep);
+      sel.value = has ? keep : '';
+      if (!has) { if (id === 'cityPick') state.city = ''; else state.team = ''; }
+    }
+
+    function paintClear() {
+      const on = !!(state.city || state.team);
+      const b = el('clearBtn');
+      b.setAttribute('aria-disabled', on ? 'false' : 'true');
+      b.style.opacity = on ? '' : '0.45';
+    }
+
+    /* CHOOSING ONE PICKER CLEARS THE OTHER, and that is honest rather than a
+       limitation: they select overlapping sets from two different angles, so
+       holding both would leave a short list with two reasons and you would have
+       to check both controls to find out which. */
+    function afterPick() {
+      paintClear();
+      state.deck = [];
+      paintTable();
+    }
+    function chooseCity() {
+      state.city = el('cityPick').value;
+      if (state.city) { state.team = ''; el('teamPick').value = ''; }
+      afterPick();
+    }
+    function chooseTeam() {
+      state.team = el('teamPick').value;
+      if (state.team) { state.city = ''; el('cityPick').value = ''; }
+      afterPick();
+    }
+
+    /* ---- boot ------------------------------------------------------------- */
+
+    async function boot() {
+      try {
+        setStatus('Loading.', '');
+        const [trivia, destinations] = await Promise.all([
+          pageAll('trivia', { select: '*', order: 'trivia_id.asc' }),
+          pageAll('destinations', { select: '*', order: 'id.asc' })
+        ]);
+        state.trivia = trivia;
+        state.destinations = destinations;
+        state.loaded = true;
+
+        const n = trivia.length;
+        el('roomTitle').textContent = n + (n === 1 ? ' QUESTION' : ' QUESTIONS');
+
+        buildPickers();
+        paintClear();
+        paintScore();
+        paintTable();
+
+        /* AN ID THAT RESOLVES TO NEITHER SHAPE IS A TYPO NOTHING ELSE CATCHES.
+           trivia.id is not a foreign key and cannot be one, so this room is the
+           only place it will ever be reported. */
+        const orphans = [...new Set(trivia.map((r) => r.id).filter((id) => !shapeOf(id)))];
+        if (orphans.length) {
+          setStatus(orphans.length + (orphans.length === 1 ? ' question is' : ' questions are')
+            + ' keyed to a place that is not in destinations: ' + orphans.join(', ')
+            + '. Fix the id or add the destination.', 'error');
+        } else {
+          setStatus('');
+        }
+      } catch (err) {
+        state.loaded = true;
+        el('tableHost').innerHTML = '<p class="empty">Could not load.</p>';
+        setStatus(err.message || 'Could not load.', 'error');
+      }
+    }
+
+    /* THE WHOLE ROW PLAYS, and the Play button is the visible affordance: a
+       table whose rows respond only on one small target reads as a list you
+       cannot use. BOUND ONCE, on the host, NOT inside paintTable -- that runs
+       on every pick and every answer, so binding there stacks a listener per
+       repaint and the count grows all session. */
+    el('tableHost').addEventListener('click', (e) => {
+      const tr = e.target.closest('[data-row]');
+      if (!tr) return;
+      const row = state.trivia.find((r) => String(r.trivia_id) === tr.dataset.row);
+      if (row) open(row);
+    });
+
+    el('randomBtn').addEventListener('click', () => {
+      /* RANDOM DRAWS FROM THE WHOLE TABLE and says so by clearing the pickers,
+         rather than quietly drawing from a filter still on screen. */
+      state.city = ''; state.team = '';
+      el('cityPick').value = ''; el('teamPick').value = '';
+      state.deck = [];
+      paintClear();
+      paintTable();
+      drawNext();
+    });
+    el('cityPick').addEventListener('change', chooseCity);
+    el('teamPick').addEventListener('change', chooseTeam);
+    el('clearBtn').addEventListener('click', () => {
+      if (el('clearBtn').getAttribute('aria-disabled') === 'true') {
+        setStatus('Nothing is picked.', '');
+        return;
+      }
+      state.city = ''; state.team = '';
+      el('cityPick').value = ''; el('teamPick').value = '';
+      afterPick();
+    });
+    el('resetBtn').addEventListener('click', () => {
+      state.won = 0; state.asked = 0;
+      paintScore();
+      if (state.current) paintDialog();
+      setStatus('Score reset.', '');
+    });
+    el('nextBtn').addEventListener('click', drawNext);
+    el('closeBtn').addEventListener('click', close);
+    el('playDlg').addEventListener('click', (e) => { if (e.target === el('playDlg')) close(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el('playDlg').classList.contains('is-open')) close();
+    });
+
+    adminAuth = window.TgbMcAdminAuth.create({
+      supabaseUrl: SUPABASE_URL,
+      supabaseKey: SUPABASE_KEY,
+      onAuthorized: () => { boot(); }
+    });
+    if (window.TgbAdminSiteNav && window.TgbAdminSiteNav.bindAuth) {
+      window.TgbAdminSiteNav.bindAuth(adminAuth);
+    }
+    adminAuth.init();
+  </script>
+</body>
+</html>

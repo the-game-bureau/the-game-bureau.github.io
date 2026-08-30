@@ -1319,6 +1319,83 @@ costs nothing because the nickname is in the key.
   `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
   still reaches nothing. No venue town leaked in.
 
+## THE NHL AND THE SEC JOIN THE DESTINATIONS (2026-08-30)
+
+[2026083012](mc/supabase/migrations/2026083012_destinations_nhl.sql) and [2026083013](mc/supabase/migrations/2026083013_destinations_sec.sql), **both applied**. **110 rows: NFL 32, NHL 32,
+NBA 30, NCAAF 16.**
+
+- **NEWARK, NOT NEW JERSEY AND NOT NEW YORK.** `teams.city_name` says New York
+  for the Devils, which is simply wrong, and New Jersey is not a city. `fanbase`
+  says Newark, the Prudential Center is in downtown Newark, and the familiar name
+  reaches it as an alias. **That is the Brooklyn shape**: file the real, walkable
+  place and let the name people say find it.
+- **THREE NHL ROWS LOOK LIKE VENUE TOWNS AND ARE NOT.** Anaheim is the club's own
+  name and a real city; San Jose is a real city, and is the wrong answer
+  `city_name` gave the 49ers; and **Miami is correct for the Florida Panthers**,
+  who play in Sunrise, which is exactly the sort of town nobody takes over. The
+  fanbase rule got all three right unaided.
+- **THE SEC COULD NOT BE SEEDED FROM `public.teams` AT ALL**, and that is the
+  note to keep. For NCAAF that table holds **`city_name` NULL on all 16** and
+  `fanbase` holding the SCHOOL: `Alabama`, `Georgia`, `Texas`. **Two of them are
+  towns by coincidence** (`Oxford`, `Starkville`), which makes the column look
+  usable and is how a bad seed gets written. Every town was resolved by hand.
+- **THE COLLEGE CASE INVERTS THE ALIAS RULE.** In the pro leagues the city is
+  what a fan says. **Here almost nobody says the town**: Alabama not Tuscaloosa,
+  Georgia not Athens, Texas not Austin. The town is still right to STORE, since
+  that is where the walk happens, but **the alias is the only way in** and an
+  SEC row without one is unreachable in practice. A check asserts none is.
+- **THE KEY ABSORBS THE COLLISIONS.** Three Tigers (Auburn, Baton Rouge,
+  Columbia MO) and two Bulldogs are distinct because the city is in the key, and
+  **two Columbias** are told apart by the state. Nashville now holds three clubs
+  across three leagues.
+- **AN ALIAS MAY BE SHARED AND TWO ARE ON PURPOSE**: `carolina` reaches the
+  Panthers and the Hurricanes, `tennessee` the Titans, the Predators and the
+  Vols. Every one of those clubs really is called that.
+- **EIGHT ROWS NOW DEPEND ON A COINCIDENCE.** Every Canadian province is two
+  letters, so they pass the `state` CHECK the way Toronto did: **by luck rather
+  than by design.** There is still no `country` column. **A league whose
+  countries have longer subdivisions needs one, not a workaround.**
+
+## THE TRIVIA ROOM IS A TABLE AND A POPUP (2026-08-30)
+
+[mc/trivia/index.html](mc/trivia/index.html). Every question in a table; playing one opens a dialog.
+**The seventh room to wear the Socializer's chrome; when any of them changes,
+change them all.**
+
+- **IT READS AND NEVER WRITES.** Writing questions is [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md) plus
+  three CHECK constraints, which is why this room holds no editor and no Save.
+  **What it is FOR is meeting a question the way a team meets it**, because a
+  question that reads fine in a table can be unanswerable standing in a street.
+- **THE ANSWER CONTROL FOLLOWS THE ROW, NOT A SETTING.** `choices` present draws
+  buttons, `choices` null draws a text box. That is the same either/or the
+  database enforces, so the popup cannot offer a shape the row does not have.
+- **THE TWO PICKERS ANSWER DIFFERENT QUESTIONS AND MUST NOT BE MERGED.** CITY is
+  everything a team would be asked THERE, the city's own rows plus every club in
+  it -- a visitor to Cleveland for the basketball still meets the Modell
+  question. TEAM is questions about that club and nothing else. **Both are true
+  and they are not the same set**, so one control would have to pick a meaning
+  and lose the other. **Choosing one clears the other**, or a short list has two
+  reasons and you have to check both to find out which.
+- **A PLACE WITH NOTHING BEHIND IT IS NOT OFFERED.** 110 destinations against a
+  handful of questions would be a list that is almost all dead ends; the pickers
+  are built from the rows and carry counts, which is the whole reason they are
+  live controls rather than a search box.
+- **THE ORPHAN CHECK LIVES HERE AND NOWHERE ELSE.** `trivia.id` is not a foreign
+  key and cannot be one, so **this room is the only thing that will ever report
+  an id resolving to no destination**: red chip on the row, and the scribble
+  names them.
+- **CASE AND SURROUNDING SPACE ARE THE ONLY THINGS FORGIVEN** on a typed answer.
+  The database refuses a one-word answer holding a space, so there is nothing
+  else to forgive, and forgiving more would start accepting a different word.
+- **THE ROW LISTENER IS BOUND ONCE, ON THE HOST, NOT INSIDE `paintTable`.** That
+  function runs on every pick and every answer, so binding there stacks a
+  listener per repaint and the count grows all session. A check asserts one
+  click is handled once.
+- **PROVED BY RENDERING IT** against the real 9 questions and 110 destinations:
+  the table, both shapes, the pickers and their counts, a wrong multiple choice
+  and a right typed answer, the lock after answering, Next, Escape, both pickers
+  narrowing, Random clearing them, and no console errors. **43 assertions.**
+
 ## AN ANSWER IS ONE WORD OR A CHOICE, AND THE RULES ARE WRITTEN DOWN (2026-08-30)
 
 [2026083011](mc/supabase/migrations/2026083011_trivia_answer_is_one_word_or_a_choice.sql), **applied**, plus [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md).
