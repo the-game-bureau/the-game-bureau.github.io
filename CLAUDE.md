@@ -927,6 +927,46 @@ measurement that was wrong.
   answered the second question, and the second question had been YES the whole
   time.
 
+### TWO QUESTIONS, NOT ONE SEARCH BOX (2026-08-30)
+
+**WHO DO YOU CHEER FOR?** and **WHERE ARE YOU HEADED?**, both on the rail. The
+old page asked the first out loud and had a second mode for browsing by city;
+the rebuild flattened both into a box labelled "Find your game", which asked
+neither.
+
+- **TWO CONTROLS RATHER THAN A MODE SWITCH, because they COMBINE.** "I follow
+  New Orleans and I am headed to Chicago" is one query: a single box cannot
+  express it and a mode switch would make you choose between the halves.
+  Measured on the live rows: New Orleans alone gives 28, Chicago alone 23, both
+  together 1.
+- **CHEERING FOR A SIDE REACHES BOTH HALVES OF THE FIXTURE.** Following New
+  Orleans means the games where they travel AND the games where somebody visits
+  them: 11 away plus 12 home, and both are yours. **Asking a fan to work out
+  which side of a fixture they are on is asking them to do our filing.**
+- **HEADED-TO IS THE HOST CITY AND NOTHING ELSE.** A game is played where it is
+  played; matching the away city there would answer a question nobody asked.
+- **THE SUGGESTION LISTS OFFER CITIES ONLY**, built from the live games so they
+  cannot suggest a choice with nothing behind it. **A datalist option is printed
+  text**, so the no-nicknames rule applies to it exactly as it does to a card;
+  typing a nickname still matches, because that is what a fan types and matching
+  on a word is not using it as a name.
+- **AN EMPTY RESULT NAMES WHICH QUESTION EMPTIED IT.** With two controls, "no
+  results" otherwise leaves you checking both to find out which to loosen.
+
+### AND THE PITCH SAYS WHAT KIND OF THING THIS IS
+
+> Part scavenger hunt, part escape room. **The city you are visiting is the
+> gameboard**, and every stop was written by locals. Human locals.
+
+**"HUMAN LOCALS" IS NOT TRUE OF THE CATALOGUE TODAY AND THAT IS A DEBT, NOT A
+DETAIL.** The 22 challenges seeded on 2026-08-29 were written by Claude, and
+every waypoint description came out of an AI prompt. The INTENT is on record --
+"challenges will be human built, AI assisted, eventually other writers" -- and
+the sentence is the right promise to make. **It has to be true before this page
+is advertised**, which means either those rows are rewritten by people or the
+line goes. It is a claim about provenance on a page that takes money, and it is
+the one piece of copy here that cannot be fixed after somebody has read it.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

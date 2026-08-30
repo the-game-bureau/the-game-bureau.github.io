@@ -144,9 +144,11 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   color: var(--muted); max-width: 46ch;
 }
 .gp-pitch b { color: var(--ink); font-weight: 600; }
+.gp-pitch--second { margin-top: 10px; }
 
 /* ---- the finder ------------------------------------------------------ */
 .gp-find { padding: 18px 24px; border-bottom: 1px solid var(--line); }
+.gp-ask + .gp-ask { margin-top: 11px; }
 .gp-find label {
   display: block; margin-bottom: 7px;
   font: 600 0.56rem/1 'IBM Plex Mono', monospace;
@@ -439,16 +441,28 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     <header class="gp-head">
       <p class="gp-kicker">Pick your side</p>
       <p class="gp-pitch">
-        In town for a game, a concert, or nothing in particular? We give you
-        the city on foot: real streets, real places, and something to work out
-        at each one. <b>Play it whenever suits you</b> and it will make the rest
-        of the weekend better.
+        Part scavenger hunt, part escape room. <b>The city you are visiting is
+        the gameboard</b>, and every stop was written by locals. Human locals.
+      </p>
+      <p class="gp-pitch gp-pitch--second">
+        In town for a game, a concert, or nothing in particular? Play it
+        whenever suits you.
       </p>
     </header>
 
     <div class="gp-find">
-      <label for="q">Find your game</label>
-      <input type="search" id="q" placeholder="A team, a city, a nickname" autocomplete="off">
+      <div class="gp-ask">
+        <label for="q">Who do you cheer for?</label>
+        <input type="search" id="q" list="fanList"
+               placeholder="Your team" autocomplete="off">
+        <datalist id="fanList"></datalist>
+      </div>
+      <div class="gp-ask">
+        <label for="q2">Where are you headed?</label>
+        <input type="search" id="q2" list="cityList"
+               placeholder="The city you are visiting" autocomplete="off">
+        <datalist id="cityList"></datalist>
+      </div>
       <p class="gp-tally" id="tally"></p>
     </div>
 
@@ -486,7 +500,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   var el = function (id) { return document.getElementById(id); };
   var clean = function (v) { return v === null || v === undefined ? '' : String(v).trim(); };
 
-  var state = { games: [], points: {}, q: '', openId: '', loaded: false, gifts: {} };
+  var state = { games: [], points: {}, q: '', q2: '', openId: '', loaded: false, gifts: {} };
   var map = null, layer = null, arc = null;
 
   /* ---- geography -----------------------------------------------------
@@ -681,6 +695,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
         state.points[k] = [sums[k][0] / sums[k][2], sums[k][1] / sums[k][2]];
       });
       state.loaded = true;
+      buildAskLists();
     });
   }
 
@@ -889,25 +904,69 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
-  function matches(g) {
-    if (!state.q) return true;
-    var hay = [g.name, g.city, g.tagline, g.away_team_city, g.away_team_mascot,
-               g.home_team_city, g.home_team_mascot, g.venue_city]
+  /* WHO DO YOU CHEER FOR reaches BOTH clubs, deliberately. Following New
+     Orleans means the games where they travel AND the games where somebody
+     visits them: both are yours, and asking a fan to work out which side of the
+     fixture they are on is asking them to do our filing.
+
+     IT MATCHES NICKNAMES EVEN THOUGH NO CARD PRINTS ONE. That is what a fan
+     types, and matching on a word is not using it as a name. The suggestion
+     list offers CITIES only, for the same reason the cards do. */
+  function cheersFor(g, q) {
+    if (!q) return true;
+    var hay = [g.away_team_city, g.away_team_mascot,
+               g.home_team_city, g.home_team_mascot, g.name]
       .map(clean).join(' ').toLowerCase();
-    return hay.indexOf(state.q) >= 0;
+    return hay.indexOf(q) >= 0;
   }
+  // WHERE ARE YOU HEADED is the HOST city and nothing else. A game is played
+  // where it is played; matching the away city here would answer a question
+  // nobody asked and put the wrong games in front of a visitor.
+  function headedTo(g, q) {
+    if (!q) return true;
+    return [hostCity(g), g.venue_city].map(clean).join(' ').toLowerCase().indexOf(q) >= 0;
+  }
+  function matches(g) { return cheersFor(g, state.q) && headedTo(g, state.q2); }
   function visible() { return state.games.filter(matches); }
 
   /* ---- drawing --------------------------------------------------------- */
+
+  // BUILT FROM THE LIVE GAMES, never typed from memory, so the list can only
+  // offer a choice with games behind it: an empty result is not a state either
+  // control can produce from its own suggestions.
+  function buildAskLists() {
+    var fans = {}, cities = {};
+    state.games.forEach(function (g) {
+      [g.away_team_city, g.home_team_city].forEach(function (c) {
+        var v = tidyPlace(c);
+        if (v) fans[v.toLowerCase()] = v;
+      });
+      var h = hostCity(g);
+      if (h) cities[h.toLowerCase()] = h;
+    });
+    fill('fanList', fans);
+    fill('cityList', cities);
+  }
+  function fill(id, map) {
+    var list = el(id);
+    if (!list) return;
+    list.textContent = '';
+    Object.keys(map).sort().forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = map[k];
+      list.appendChild(o);
+    });
+  }
 
   function render() {
     var rows = visible();
     var list = el('list');
     list.textContent = '';
 
+    var asked = !!state.q || !!state.q2;
     el('tally').innerHTML = state.loaded
       ? ('<b>' + rows.length + '</b> ' + (rows.length === 1 ? 'game' : 'games')
-         + (state.q ? ' matching' : ' to play'))
+         + (asked ? ' for you' : ' to play'))
       : 'Loading the schedule.';
 
     if (!state.loaded) return;
@@ -924,9 +983,15 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     box.className = 'gp-empty';
     var b = document.createElement('b');
     var p = document.createElement('p');
-    if (state.q) {
+    if (state.q || state.q2) {
+      // NAME WHICH QUESTION EMPTIED IT. With two controls, "no results" leaves
+      // you checking both to find out which one to loosen.
       b.textContent = 'Nothing under that';
-      p.textContent = 'No game matches "' + state.q + '". Try a club, a city or a nickname.';
+      p.textContent = state.q && state.q2
+        ? 'No game has ' + state.q + ' going to ' + state.q2 + '. Clear one of them.'
+        : (state.q
+            ? 'No game involves ' + state.q + ' yet.'
+            : 'No game in ' + state.q2 + ' yet.');
     } else {
       // AN EMPTY SHOP WINDOW SAYS WHEN IT WILL NOT BE, rather than reading as
       // a page that failed to load. There is no game live today.
@@ -1256,8 +1321,9 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
 
   /* ---- wiring ---------------------------------------------------------- */
 
-  el('q').addEventListener('input', function () {
+  function onAsk() {
     state.q = clean(el('q').value).toLowerCase();
+    state.q2 = clean(el('q2').value).toLowerCase();
     // A search that no longer holds the open game closes it, or the map would
     // be flown somewhere the list can no longer show you.
     if (state.openId && !visible().some(function (g) { return clean(g.id) === state.openId; })) {
@@ -1265,7 +1331,9 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     }
     render();
     if (!state.openId) showAll();
-  });
+  }
+  el('q').addEventListener('input', onAsk);
+  el('q2').addEventListener('input', onAsk);
 
   render();
   load().then(function () {
