@@ -1210,6 +1210,50 @@ carrying the words.
   question**, and it varies by state and by what is being waived. This built the
   mechanism and the record; it did not make the words sound.
 
+## DESTINATIONS, AND THE TURN TOWARD GENERATED GAMES (2026-08-30)
+
+[2026083004_destinations.sql](mc/supabase/migrations/2026083004_destinations.sql), **applied**. 32 NFL rows, one per club.
+`id`, `city`, `state`, `league`, `nickname`, and nothing else yet.
+
+**THIS IS THE FIRST TABLE BUILT FOR A GENERATIVE MODEL RATHER THAN A
+CATALOGUE.** A game has been a stored row per matchup, which is why there are
+395 of them and why every combination had to be written out in advance. **A game
+is really a CITY plus a VISITING FANDOM**, and the anchor event is a REASON TO
+BE THERE rather than a component of the game. One route through Chicago serves
+every club that visits it.
+
+- **THE CITY IS THE FANBASE CITY, NEVER THE VENUE TOWN.** Boston not
+  Foxborough, Dallas not Arlington, New York not East Rutherford. **Nobody takes
+  over Orchard Park.** The rule was already written down for the routines; this
+  is the same rule stored, and a verify query names all eleven venue towns and
+  expects none of them.
+- **SHARED MARKETS ARE TWO ROWS, NOT ONE.** New York holds the Giants and the
+  Jets, Los Angeles the Rams and the Chargers: two fandoms, two takeovers. 32
+  rows across 30 distinct city-and-state pairs, and **the nickname is in the key
+  precisely so both fit**.
+- **`id` IS GENERATED, NOT SUPPLIED.** `city-state-league-nickname`, lowercased
+  and hyphenated, as a `generated always as ... stored` primary key. A key a
+  writer types is a key a writer can mistype, and this one is a pure function of
+  the four columns beside it: derived, it cannot drift from them. **Writing it
+  by hand is refused outright** by Postgres, which was tried.
+- **IT IS NOT A VIEW OVER `public.teams`, and there are three reasons.**
+  **`teams.city_name` IS WRONG FOR SAN FRANCISCO**: it says *San Jose* for the
+  49ers, whose own `fanbase` column says San Francisco and whose venue is Santa
+  Clara. A view would inherit that. The seed reads `fanbase`, which is right for
+  all 32 where `city_name` is right for 31. Beyond that, a destination outlives
+  its club's row, and it will gain columns a team has no business having: a
+  route, an airport, whether anything is written for it yet.
+- **PROVED BY CALLS THAT MADE IT REFUSE THINGS**, not by the absence of an
+  error: a spelled-out state, a blank city and a blank nickname are all rejected
+  by their CHECKs, a hand-written id is rejected as a generated column, a repeat
+  of an existing club is rejected by the primary key, and `anon` reads it 200.
+
+**WHAT IT DOES NOT DO YET.** Nothing generates a game from it. The pieces that
+exist are the routes (per city), the challenges (scoped portable / team / city /
+place) and now the destinations; what is missing is the join that says *this
+fandom, in this city* and the decision about what `public.games` becomes when a
+row is only needed at purchase.
+
 ## A PATH IS A ROUTE, AND A STOP FINALLY HAS ITS CHALLENGE (2026-08-30)
 
 [2026083001](mc/supabase/migrations/2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql), **applied**. `paths` is `routes`, `path_stops` is `route_stops`,
