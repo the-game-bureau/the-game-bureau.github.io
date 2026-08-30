@@ -3,21 +3,33 @@ let ok=0,bad=0;const t=(m,c,g)=>c?(ok++,console.log('  ok  '+m)):(bad++,console.
 (async()=>{
  const b=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:'new',args:['--no-sandbox']});
  const p=await b.newPage();
- const seen={};
- p.on('response',r=>{ if(/favicon|\.ico/.test(r.url())) seen[r.url()]=r.status(); });
- for (const path of ['/', '/games/', '/mc/trivia/', '/soundtracks/', '/linkinbio/']) {
-   await p.goto('http://127.0.0.1:5599'+path,{waitUntil:'networkidle2',timeout:30000});
-   const href=await p.evaluate(()=>{const l=document.querySelector('link[rel="icon"]');return l?l.getAttribute('href'):null;});
-   t(path+' points at the one icon', href==='/favicon.ico', href);
+ for (const u of ['/', '/soundtracks/', '/games/', '/mc/audiences/', '/mc/trivia/', '/gifts/']) {
+   const got=[];
+   p.removeAllListeners('response');
+   p.on('response',r=>{ if(/favicon\.ico|icon-32|apple-touch/.test(r.url())) got.push(r.status()); });
+   await p.goto('http://127.0.0.1:5599'+u,{waitUntil:'networkidle2',timeout:30000});
+   const links=await p.evaluate(()=>[...document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]')]
+     .map(l=>l.getAttribute('rel')+' '+l.getAttribute('href')));
+   t(u+' offers a PNG first-class', links.some(l=>/icon-32\.png\?v=2/.test(l)), links.join(' | '));
+   t(u+' versions the ico', links.some(l=>/favicon\.ico\?v=2/.test(l)));
+   /* CHROME FETCHES A FAVICON ONCE PER ORIGIN and reuses it for every later
+      page in the session, so a per-page request count is only meaningful for
+      the FIRST page. Asserting it on all six failed three correct pages. */
+   if (u === '/') t('the first page actually fetches one',
+     got.length>0 && got.every(s=>s===200), got.join(','));
+   t(u+' asks for nothing that 404s', got.every(s=>s===200), got.join(','));
  }
- const r=await p.goto('http://127.0.0.1:5599/favicon.ico');
- t('the .ico is served', r.status()===200, r.status());
- const buf=await r.buffer();
- t('and it is a real ICO container ('+buf.length+' bytes)',
-   buf[0]===0 && buf[1]===0 && buf[2]===1 && buf[3]===0, buf.slice(0,4).join(','));
- t('carrying more than one size', buf[4] > 1, buf[4]+' entries');
- const j=await p.goto('http://127.0.0.1:5599/shell/brand/tgb-pin.jpg');
- t('the jpg is served', j.status()===200, j.status());
+ // AND THE FILES THEMSELVES DECODE TO THE PIN.
+ for (const f of ['/icon-32.png?v=2','/apple-touch-icon.png?v=2','/favicon.ico?v=2']) {
+   const r=await p.goto('http://127.0.0.1:5599'+f);
+   const px=await p.evaluate((s)=>new Promise((res)=>{const im=new Image();
+     im.onload=()=>{const c=document.createElement('canvas');c.width=32;c.height=32;
+       const x=c.getContext('2d');x.drawImage(im,0,0,32,32);
+       const d=x.getImageData(0,0,32,32).data;let a=0;
+       for(let i=0;i<d.length;i+=4){if(Math.abs(d[i]-245)<45&&Math.abs(d[i+1]-180)<45&&Math.abs(d[i+2]-97)<45)a++;}
+       res(a);};im.onerror=()=>res(-1);im.src=s;}), f);
+   t(f+' decodes to the pin', r.status()===200 && px>10, r.status()+' amber='+px);
+ }
  await b.close();
  console.log('\n'+ok+' ok, '+bad+' FAIL'); process.exit(bad?1:0);
 })();
