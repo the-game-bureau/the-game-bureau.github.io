@@ -1,10 +1,10 @@
-/* Drives mc/trivia/index.html against the REAL 9 questions and 110 destinations.
-   Proves by rendering, not by reading the diff. */
+/* Drives mc/trivia/index.html against the REAL rows. Proves by rendering. */
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
 const TRIVIA = JSON.parse(fs.readFileSync('C:/tmp/fx-trivia.json', 'utf8'));
 const DEST = JSON.parse(fs.readFileSync('C:/tmp/fx-dest.json', 'utf8'));
+const WP = JSON.parse(fs.readFileSync('C:/tmp/fx-wp.json', 'utf8'));
 const HTML = fs.readFileSync('C:/Code/the-game-bureau/mc/trivia/index.html', 'utf8');
 
 let ok = 0, bad = 0;
@@ -14,8 +14,28 @@ const t = (m, c, got) => c ? (ok++, console.log('  ok  ' + m))
 const dom = new JSDOM(HTML, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://x/mc/trivia/' });
 const w = dom.window, d = w.document;
 
-w.fetch = (url) => {
-  const rows = String(url).indexOf('/trivia') >= 0 ? TRIVIA : DEST;
+/* Every request is recorded, because what the room SENDS is most of what these
+   changes are about: a score row, a patch, an insert. */
+const sent = [];
+w.fetch = (url, opt) => {
+  const u = String(url), o = opt || {};
+  sent.push({ url: u, method: o.method || 'GET', body: o.body ? JSON.parse(o.body) : null,
+              headers: o.headers || {} });
+  const rows = /\/trivia/.test(u) ? TRIVIA : /\/destinations/.test(u) ? DEST
+             : /\/waypoints/.test(u) ? WP : [];
+  if (o.method === 'PATCH' || o.method === 'POST') {
+    const body = o.body ? JSON.parse(o.body) : {};
+    /* A PATCH ECHOES THE ROW IT PATCHED, id and all. The first cut of this stub
+       invented a trivia_id on every write, the page merged it into the row as it
+       should, and every later lookup of that row missed. **The stub was the
+       broken half**, and it looked exactly like the page losing an edit. */
+    const m = /trivia_id=eq\.(\d+)/.exec(u);
+    const base = m ? { trivia_id: Number(m[1]) } : { trivia_id: 900 + sent.length };
+    return Promise.resolve({ ok: true, json: () => Promise.resolve([
+      Object.assign({ id: 'denver-co', question: 'q', answer: 'a', choices: null },
+                    base, body)
+    ]), text: () => Promise.resolve('') });
+  }
   return Promise.resolve({ ok: true, json: () => Promise.resolve(rows), text: () => Promise.resolve('') });
 };
 let authorized = null;
@@ -30,202 +50,225 @@ try { w.eval(script); } catch (e) { console.log('  FAIL boot threw: ' + e.messag
 const el = (id) => d.getElementById(id);
 const rows = () => [...d.querySelectorAll('tbody tr')];
 const choices = () => [...d.querySelectorAll('.choice')];
-const fire = (node, type, init) => node.dispatchEvent(new w.Event(type, Object.assign({ bubbles: true }, init)));
-const click = (node) => node.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const click = (n) => n.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const fire = (n, type) => n.dispatchEvent(new w.Event(type, { bubbles: true }));
+const key = (n, k) => n.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+const rowFor = (r) => rows().find((x) => x.dataset.row === String(r.trivia_id));
+const cell = (r, field) => rowFor(r).querySelector('[data-field="' + field + '"]');
+const posts = (frag) => sent.filter((s) => s.method === 'POST' && s.url.indexOf(frag) >= 0);
+const patches = () => sent.filter((s) => s.method === 'PATCH');
+const optText = (b) => b.querySelector('span:nth-child(2)').textContent;
 
 setTimeout(() => {
-  /* ---- the table ------------------------------------------------------- */
-  t('the room counts the questions in its title (' + el('roomTitle').textContent + ')',
-    el('roomTitle').textContent === TRIVIA.length + ' QUESTIONS', el('roomTitle').textContent);
-  t('every question is a table row (' + rows().length + ')', rows().length === TRIVIA.length, rows().length);
+  /* ---- the table ---------------------------------------------------------- */
+  t('every question is a row (' + rows().length + ')', rows().length === TRIVIA.length);
+  const mcRow = TRIVIA.find((r) => r.choices && r.choices.length);
+  const owRow = TRIVIA.find((r) => !r.choices);
+  t('the choices column lists the options',
+    cell(mcRow, 'choices').textContent.indexOf(mcRow.choices[0]) >= 0,
+    cell(mcRow, 'choices').textContent);
+  t('and is blank on a typed row', cell(owRow, 'choices').textContent === '');
+  t('key, question, answer and choices are all editable cells',
+    ['id', 'question', 'answer', 'choices'].every((f) => !!cell(mcRow, f)));
 
-  const shapes = rows().map((r) => r.querySelector('.chip').textContent.trim());
-  t('no row is keyed to a place that does not exist',
-    !shapes.some((s) => s === 'no such place'), shapes.filter((s) => s === 'no such place').length);
-  t('both shapes are drawn (team ' + shapes.filter((s) => s === 'team').length
-    + ', city ' + shapes.filter((s) => s === 'city').length + ')',
-    shapes.includes('team') && shapes.includes('city'));
+  /* ---- editing in place ---------------------------------------------------- */
+  click(cell(mcRow, 'question'));
+  const box = cell(mcRow, 'question').querySelector('input');
+  t('clicking a cell turns it into a box', !!box);
+  t('holding what was there', box.value === mcRow.question, box.value);
+  key(box, 'Escape');
+  t('Escape cancels without writing', patches().length === 0, patches().length);
+  t('and does not open the popup', !el('playDlg').classList.contains('is-open'));
 
-  const forms = rows().map((r) => r.querySelector('.col-form').textContent.trim());
-  t('the form column tells choices from one word',
-    forms.some((f) => /choices/.test(f)) && forms.some((f) => f === 'one word'), forms.join(' / '));
+  click(cell(mcRow, 'question'));
+  const box2 = cell(mcRow, 'question').querySelector('input');
+  box2.value = 'Reworded question?';
+  key(box2, 'Enter');
+  t('Enter saves one PATCH', patches().length === 1, patches().length);
+  t('against that row alone',
+    patches()[0].url.indexOf('trivia_id=eq.' + mcRow.trivia_id) >= 0, patches()[0].url);
+  t('carrying the new question', patches()[0].body.question === 'Reworded question?');
+  t('and asking for the row back',
+    /return=representation/.test(patches()[0].headers.Prefer || ''), patches()[0].headers.Prefer);
 
-  /* ---- the chips carry a ground, and it has to be READABLE ---------------
-     PROVE THE MATHS BEFORE CLAIMING IT. The fills are rgba over the panel's
-     near-white paper, so the composite is computed here rather than eyeballed,
-     and 4.5:1 is the floor for 0.6rem text. jsdom does not resolve a var()
-     inside a shorthand, so the values are read from the stylesheet text, which
-     is the approach this repo already uses for the same limitation. */
-  const css = [...d.querySelectorAll('style')].map((x) => x.textContent).join(' ');
-  const PAPER = [255, 255, 254];                      // --paper over --paper-base
-  const INK = [45, 72, 128];
-  const over = (rgb, a) => rgb.map((v, i) => Math.round(v * a + PAPER[i] * (1 - a)));
-  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-  const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
-  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
-                            return (x + 0.05) / (y + 0.05); };
+  click(cell(mcRow, 'choices'));
+  const cbox = cell(mcRow, 'choices').querySelector('input');
+  cbox.value = ' Alpha / Bravo / Charlie ';
+  key(cbox, 'Enter');
+  let last = patches()[patches().length - 1];
+  t('choices save as a trimmed array',
+    Array.isArray(last.body.choices) && last.body.choices.join('|') === 'Alpha|Bravo|Charlie',
+    JSON.stringify(last.body.choices));
 
-  const teamCss = (css.match(/\.chip--team\s*{([^}]*)}/) || [])[1] || '';
-  const cityCss = (css.match(/\.chip--city\s*{([^}]*)}/) || [])[1] || '';
-  const badCss  = (css.match(/\.chip--bad\s*{([^}]*)}/)  || [])[1] || '';
+  click(cell(mcRow, 'choices'));
+  const cbox2 = cell(mcRow, 'choices').querySelector('input');
+  cbox2.value = '   ';
+  key(cbox2, 'Enter');
+  last = patches()[patches().length - 1];
+  t('an emptied choices line stores NULL, not an empty array', last.body.choices === null,
+    JSON.stringify(last.body.choices));
 
-  t('each chip declares its own background',
-    /background:/.test(teamCss) && /background:/.test(cityCss) && /background:/.test(badCss));
+  /* ---- two tries ----------------------------------------------------------- */
+  const mc2 = TRIVIA.find((r) => r.choices && r.choices.length >= 3);
+  click(rowFor(mc2).querySelector('[data-play]'));
+  t('Play opens the popup', el('playDlg').classList.contains('is-open'));
 
-  const pairs = [
-    ['team', over(INK, 0.12), INK],
-    ['city', over([122, 84, 12], 0.13), [122, 84, 12]],
-    ['bad',  over([194, 55, 55], 0.10), [194, 55, 55]]
-  ];
-  pairs.forEach(([name, bg, fg]) => {
-    const r = ratio(fg, bg);
-    t(name + ' chip text clears 4.5:1 on its own fill (' + r.toFixed(2) + ':1)', r >= 4.5, r.toFixed(2));
-  });
-
-  /* THE THREE GROUNDS MUST DIFFER FROM EACH OTHER, or the fill says nothing. */
-  const grounds = pairs.map(([, bg]) => bg.join(','));
-  t('the three fills are three different colours', new Set(grounds).size === 3, grounds.join(' | '));
-
-  /* AND THE WORD SURVIVES WITHOUT THE COLOUR. */
-  t('every chip still carries its word, so colour is not the only signal',
-    rows().every((r) => r.querySelector('.chip').textContent.trim().length > 0));
-
-  /* ---- the pickers ------------------------------------------------------ */  /* ---- the pickers ------------------------------------------------------ */
-  const cityOpts = [...el('cityPick').options];
-  const teamOpts = [...el('teamPick').options];
-  t('the city picker is built from the rows (' + (cityOpts.length - 1) + ')', cityOpts.length > 1);
-  t('the team picker is built from the rows (' + (teamOpts.length - 1) + ')', teamOpts.length > 1);
-  t('neither offers a place with nothing behind it',
-    cityOpts.slice(1).concat(teamOpts.slice(1)).every((o) => !/\(0\)$/.test(o.textContent)));
-  t('and both carry a count', /\(\d+\)$/.test(cityOpts[1].textContent), cityOpts[1].textContent);
-  t('there are far more destinations than offered cities (110 vs ' + (cityOpts.length - 1) + ')',
-    DEST.length > cityOpts.length - 1);
-
-  /* ---- the popup: multiple choice --------------------------------------- */
-  const mc = TRIVIA.find((r) => Array.isArray(r.choices) && r.choices.length);
-  const mcRow = rows().find((r) => r.dataset.row === String(mc.trivia_id));
-  click(mcRow.querySelector('[data-play]'));
-  t('playing opens the popup', el('playDlg').classList.contains('is-open'));
-  t('the popup names where the question is keyed',
-    el('dlgSub').textContent.indexOf(mc.id) >= 0, el('dlgSub').textContent);
-  t('a multiple choice question draws buttons (' + choices().length + ')',
-    choices().length === mc.choices.length, choices().length);
-  t('and no text box', !el('wordBox'));
-
-  /* THE OPTIONS ARE SHUFFLED PER OPEN, so the stored order cannot become the
-     answer. Same SET every time, different ORDER across opens, and it must NOT
-     move when the answer is judged. */
-  const optsOf = () => choices().map((c) => c.querySelector('span:nth-child(2)').textContent);
-  const first = optsOf();
-  t('the options are the whole set and nothing else',
-    first.slice().sort().join('|') === mc.choices.slice().sort().join('|'),
-    first.join(', '));
-
-  const seen = new Set([first.join('|')]);
-  for (let i = 0; i < 30; i++) {
-    click(el('closeBtn'));
-    click(rows().find((r) => r.dataset.row === String(mc.trivia_id)).querySelector('[data-play]'));
-    const o = optsOf();
-    if (o.slice().sort().join('|') !== mc.choices.slice().sort().join('|')) {
-      t('a reopen kept the same set', false, o.join(', '));
-    }
-    seen.add(o.join('|'));
-  }
-  t('reopening rearranges them (' + seen.size + ' orders in 31 opens)', seen.size > 1, seen.size);
-  t('and the answer is not always in the same slot',
-    new Set([...seen].map((o) => o.split('|').indexOf(mc.answer))).size > 1);
-
-  const orderBeforeAnswer = optsOf();
-  const wrong = choices().find((c) => c.textContent.indexOf(mc.answer) < 0);
-  click(wrong);
-  t('answering wrong marks the answer right and the guess wrong',
-    !!d.querySelector('.choice.is-right') && !!d.querySelector('.choice.is-wrong'));
-  t('the verdict names the answer',
-    d.querySelector('.verdict').textContent.indexOf(mc.answer) >= 0,
+  click(choices().find((b) => optText(b) !== mc2.answer));
+  t('a wrong first try reveals nothing', !d.querySelector('.choice.is-right'));
+  t('it marks the miss', !!d.querySelector('.choice.is-wrong'));
+  t('and kills only that option', choices().filter((b) => b.disabled).length === 1,
+    choices().filter((b) => b.disabled).length);
+  t('the rest stay live',
+    choices().filter((b) => !b.disabled).length === mc2.choices.length - 1);
+  t('nothing is scored on a first miss', posts('/scores').length === 0, posts('/scores').length);
+  t('and the room offers one more try',
+    /one more try/i.test(d.querySelector('.verdict').textContent),
     d.querySelector('.verdict').textContent);
-  /* THE SET, NOT THE ORDER. This compared the joined marks to 'Correct/You said',
-     which baked in the assumption that the right option renders above the wrong
-     one -- true until the options were shuffled, and then flaky about half the
-     time. The page was never wrong; the assertion had a position in it. */
-  const marks = [...d.querySelectorAll('.choice-mark')].map((x) => x.textContent).sort();
-  t('right and wrong are not colour alone',
-    marks.join('|') === 'Correct|You said', marks.join('|'));
-  t('the choices lock once answered', choices().every((c) => c.disabled));
-  /* JUDGING MUST NOT RESHUFFLE. paintDialog runs again the moment an answer
-     lands, so a shuffle in there would rearrange the four buttons under the
-     pointer at the exact moment somebody is reading which one they got wrong. */
-  t('answering does not rearrange them',
-    optsOf().join('|') === orderBeforeAnswer.join('|'), optsOf().join(', '));
-  t('the score counts the miss (' + el('score').textContent + ')',
-    el('score').textContent.replace(/\s+/g, ' ') === '0 of 1', el('score').textContent);
-  click(choices()[0]);
-  t('a second press cannot change the score', el('score').textContent.replace(/\s+/g, ' ') === '0 of 1');
 
-  /* ---- the popup: one word ---------------------------------------------- */
-  const ow = TRIVIA.find((r) => !r.choices);
-  click(rows().find((r) => r.dataset.row === String(ow.trivia_id)).querySelector('[data-play]'));
-  t('a one word question draws a text box', !!el('wordBox'));
-  t('and no buttons', choices().length === 0, choices().length);
-  el('wordBox').value = '  ' + ow.answer.toUpperCase() + ' ';
-  click(el('wordBtn'));
-  t('case and surrounding space are forgiven',
-    /is-right/.test(d.querySelector('.verdict').className), d.querySelector('.verdict').className);
-  t('the score counts the hit (' + el('score').textContent + ')',
-    el('score').textContent.replace(/\s+/g, ' ') === '1 of 2', el('score').textContent);
-  t('the box locks once answered', el('wordBox').disabled);
+  click(choices().find((b) => optText(b) === mc2.answer));
+  t('right on the second try reveals it', !!d.querySelector('.choice.is-right'));
+  t('and is worth 3', /\b3\b/.test(d.querySelector('.verdict').textContent),
+    d.querySelector('.verdict').textContent);
 
-  /* ---- moving on -------------------------------------------------------- */
-  const before = el('dlgSub').textContent;
+  const s1 = posts('/scores')[0];
+  t('a score row is written on settle', !!s1);
+  t('player blank, for the database to fold to anon', s1.body.player === '');
+  t('area trivia, subject the question id',
+    s1.body.area === 'trivia' && s1.body.subject_id === String(mc2.trivia_id));
+  t('correct, tries 2, points 3',
+    s1.body.correct === true && s1.body.tries === 2 && s1.body.points === 3,
+    JSON.stringify([s1.body.correct, s1.body.tries, s1.body.points]));
+  t('exactly one row per question', posts('/scores').length === 1);
+
+  /* ---- first try is seven --------------------------------------------------- */
+  el('player').value = '  Kevin  ';
+  const mc3 = TRIVIA.filter((r) => r.choices && r.choices.length)[1];
+  click(rowFor(mc3).querySelector('[data-play]'));
+  click(choices().find((b) => optText(b) === mc3.answer));
+  const s2 = posts('/scores')[1];
+  t('right first time is worth 7', s2.body.tries === 1 && s2.body.points === 7,
+    JSON.stringify([s2.body.tries, s2.body.points]));
+  t('the player name is trimmed', s2.body.player === 'Kevin', s2.body.player);
+  t('the bar adds them up (3 + 7)', /10/.test(el('score').textContent), el('score').textContent);
+
+  /* ---- wrong twice is nothing ----------------------------------------------- */
+  const mc4 = TRIVIA.filter((r) => r.choices && r.choices.length >= 3)[2];
+  click(rowFor(mc4).querySelector('[data-play]'));
+  const misses = choices().filter((b) => optText(b) !== mc4.answer).map(optText);
+  click(choices().find((b) => optText(b) === misses[0]));
+  click(choices().find((b) => optText(b) === misses[1]));
+  const s3 = posts('/scores')[2];
+  t('wrong twice scores nothing',
+    s3.body.correct === false && s3.body.tries === 2 && s3.body.points === 0,
+    JSON.stringify([s3.body.correct, s3.body.tries, s3.body.points]));
+  t('and only then is the answer shown',
+    d.querySelector('.verdict').textContent.indexOf(mc4.answer) >= 0,
+    d.querySelector('.verdict').textContent);
+
+  /* ---- a game is ten -------------------------------------------------------- */
+  click(el('closeBtn'));
+  click(el('gameBtn'));
+  t('a game opens on one of ten', el('dlgTitle').textContent === 'Question 1 of 10',
+    el('dlgTitle').textContent);
+  const before = posts('/scores').length;
+  for (let i = 0; i < 10; i++) {
+    if (choices().length) {
+      click(choices()[0]);
+      const live = choices().find((b) => !b.disabled);
+      if (live && !d.querySelector('.choice.is-right')) click(live);
+    } else {
+      el('wordBox').value = 'zzz'; click(el('wordBtn'));
+      if (el('wordBox') && !el('wordBox').disabled) { el('wordBox').value = 'zzz'; click(el('wordBtn')); }
+    }
+    click(el('nextBtn'));
+  }
+  t('ten questions writes ten score rows', posts('/scores').length - before === 10,
+    posts('/scores').length - before);
+  t('and ends on a result screen', el('dlgTitle').textContent === 'Game over',
+    el('dlgTitle').textContent);
+  t('reporting out of ten', /of 10/.test(el('dlgBody').textContent), el('dlgBody').textContent);
   click(el('nextBtn'));
-  t('Next moves to another question', el('dlgSub').textContent !== before);
-  t('and it is unanswered', !d.querySelector('.verdict'));
-
-  /* ---- escape and the backdrop ------------------------------------------ */
-  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  t('Escape closes the popup', !el('playDlg').classList.contains('is-open'));
-
-  /* ---- the pickers narrow ------------------------------------------------ */
-  const city = cityOpts.find((o) => o.value === 'denver-co');
-  t('Denver is offered as a city', !!city);
-  el('cityPick').value = 'denver-co';
-  fire(el('cityPick'), 'change');
-  const denver = rows().length;
-  t('a city narrows the table (' + denver + ')', denver > 0 && denver < TRIVIA.length, denver);
-  t('and includes both the city row and the club row',
-    rows().map((r) => r.querySelector('.col-key').textContent).some((k) => k === 'denver-co')
-    && rows().map((r) => r.querySelector('.col-key').textContent).some((k) => /denver-co-/.test(k)));
-  t('the count line names the scope', /Denver/.test(el('deckCount').textContent), el('deckCount').textContent);
-  t('Clear lit up', el('clearBtn').getAttribute('aria-disabled') === 'false');
-
-  el('teamPick').value = 'denver-co-nfl-broncos';
-  fire(el('teamPick'), 'change');
-  t('a team narrows further (' + rows().length + ')', rows().length < denver, rows().length);
-  t('and choosing a team clears the city picker', el('cityPick').value === '');
-  t('a team shows only its own rows',
-    rows().every((r) => r.querySelector('.col-key').textContent === 'denver-co-nfl-broncos'));
-
-  click(el('randomBtn'));
-  t('Random clears both pickers', el('cityPick').value === '' && el('teamPick').value === '');
-  t('and opens a question', el('playDlg').classList.contains('is-open'));
-  t('the table is back to everything (' + rows().length + ')', rows().length === TRIVIA.length);
+  t('Play again deals a new one', el('dlgTitle').textContent === 'Question 1 of 10',
+    el('dlgTitle').textContent);
   click(el('closeBtn'));
 
-  click(el('clearBtn'));
-  t('Clear on nothing says so rather than doing nothing',
-    /Nothing is picked/.test(el('pageStatus').textContent), el('pageStatus').textContent);
+  el('teamPick').value = 'new-orleans-la-nba-pelicans';
+  fire(el('teamPick'), 'change');
+  click(el('gameBtn'));
+  t('a short scope plays short', el('dlgTitle').textContent === 'Question 1 of 1',
+    el('dlgTitle').textContent);
+  t('and says so rather than padding', /holds only 1 question/.test(el('pageStatus').textContent),
+    el('pageStatus').textContent);
+  click(el('closeBtn'));
+  el('teamPick').value = '';
+  fire(el('teamPick'), 'change');
 
-  click(el('resetBtn'));
-  t('Reset zeroes the score', el('score').textContent.replace(/\s+/g, ' ') === '0 of 0');
+  /* ---- adding --------------------------------------------------------------- */
+  click(el('manualBtn'));
+  t('Manual opens the add dialog', el('addDlg').classList.contains('is-open'));
+  const opts = [...el('placeList').options].map((o) => o.value);
+  t('the key list offers a city, a team and a waypoint',
+    opts.indexOf('denver-co') >= 0 && opts.indexOf('denver-co-nfl-broncos') >= 0
+    && opts.some((v) => v.indexOf('wp-') === 0), opts.length);
 
-  /* ---- one listener, not one per repaint --------------------------------- */
-  let opens = 0;
-  const spy = rows()[0];
-  spy.addEventListener('click', () => { opens += 1; });
-  click(spy.querySelector('[data-play]'));
-  t('a row click is handled once, not once per repaint', opens === 1, opens);
+  el('addId').value = 'nowhere-zz'; el('addQ').value = 'Q?'; el('addA').value = 'A';
+  click(el('addSave'));
+  t('a key matching nothing is refused before any request',
+    /Nothing matches/.test(el('addMsg').textContent) && posts('/trivia').length === 0,
+    el('addMsg').textContent);
 
-  t('no console errors', errs.length === 0, errs.join(' | '));
+  el('addId').value = 'denver-co';
+  el('addQ').value = 'One word: who?';
+  click(el('addSave'));
+  t('a question opening with One word is refused',
+    /may not open/.test(el('addMsg').textContent), el('addMsg').textContent);
 
-  console.log('\n' + ok + ' ok, ' + bad + ' FAIL');
-  process.exit(bad ? 1 : 0);
+  el('addQ').value = 'Which river?'; el('addA').value = 'Two words';
+  click(el('addSave'));
+  t('a multi word typed answer is refused',
+    /single word/.test(el('addMsg').textContent), el('addMsg').textContent);
+
+  el('addC').value = 'Platte / South Platte'; el('addA').value = 'Missouri';
+  click(el('addSave'));
+  t('an answer outside its own choices is refused',
+    /one of the choices/.test(el('addMsg').textContent), el('addMsg').textContent);
+
+  el('addA').value = 'Platte';
+  click(el('addSave'));
+  setTimeout(() => {
+    const ins = posts('/trivia')[0];
+    t('a good one is inserted', !!ins);
+    t('with key, answer and choices',
+      ins && ins.body.id === 'denver-co' && ins.body.answer === 'Platte'
+      && ins.body.choices.join('|') === 'Platte|South Platte', ins && JSON.stringify(ins.body));
+
+    /* ---- the waypoint shape --------------------------------------------------- */
+    click(el('manualBtn'));
+    el('addId').value = 'wp-' + WP[0].wpid;
+    el('addQ').value = 'What stood here?';
+    el('addA').value = 'Something';
+    el('addC').value = 'Something / Nothing';
+    click(el('addSave'));
+    setTimeout(() => {
+      t('a wp- key resolves rather than being refused',
+        !/Nothing matches/.test(el('addMsg').textContent), el('addMsg').textContent);
+      t('and draws as the waypoint shape',
+        rows().some((r) => r.querySelector('.chip').textContent.trim() === 'waypoint'),
+        [...new Set(rows().map((r) => r.querySelector('.chip').textContent.trim()))].join(','));
+
+      const wpRow = rows().find((r) => r.querySelector('.chip').textContent.trim() === 'waypoint');
+      click(wpRow.querySelector('[data-play]'));
+      t('and the popup names the waypoint, not the key',
+        el('dlgSub').textContent.indexOf(WP[0].name) >= 0, el('dlgSub').textContent);
+      click(el('closeBtn'));
+
+      click(el('manualBtn'));
+      d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      t('Escape closes the add dialog first', !el('addDlg').classList.contains('is-open'));
+
+      t('no console errors', errs.length === 0, errs.join(' | '));
+      console.log('\n' + ok + ' ok, ' + bad + ' FAIL');
+      process.exit(bad ? 1 : 0);
+    }, 40);
+  }, 40);
 }, 60);

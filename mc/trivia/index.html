@@ -148,6 +148,14 @@
       border-color: rgba(122, 84, 12, 0.42);
       color: rgb(122, 84, 12);
     }
+    /* A THIRD SHAPE, A THIRD GROUND. Green is free here: nothing in this room
+       uses it semantically, and the chips carry their word either way. Measured
+       the same way as the other two, 5.9:1 on its own fill. */
+    .chip--waypoint {
+      background: rgba(39, 103, 64, 0.12);
+      border-color: rgba(39, 103, 64, 0.42);
+      color: var(--success);
+    }
     /* AN ID THAT RESOLVES TO NEITHER SHAPE IS A TYPO NOTHING ELSE CATCHES,
        because trivia.id is not a foreign key and cannot be one. Red pen, and
        the only chip here wearing a semantic colour. */
@@ -228,6 +236,37 @@
       .command-bar { flex: 1 1 100%; }
       .col-key, .col-form { display: none; }
     }
+
+    /* ---- inline editing --------------------------------------------------
+       BLACK AND BOLD MEANS YOU CAN CHANGE IT, at rest rather than on hover:
+       a dotted underline that only appears under the pointer says nothing about
+       the other cells you are looking at. Same affordance the Socializer's
+       editable fields carry, and the same reason. */
+    .ed { cursor: text; }
+    .ed:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+    .ed:empty::before { content: attr(data-empty); color: var(--muted); font-style: italic; }
+    .ed-box {
+      width: 100%; min-width: 0;
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.88rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--ink); border-radius: 6px; padding: 5px 7px;
+    }
+    .col-choices { font-size: 0.8rem; color: var(--muted); }
+
+    /* ---- the add dialog --------------------------------------------------- */
+    .dlg-form { display: grid; gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input { width: 100%; }
+    .field small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+    .dlg-msg { color: var(--bic-red); font-size: 0.84rem; line-height: 1.4; }
+    .dlg-msg:empty { display: none; }
+
+    /* ---- the player ------------------------------------------------------- */
+    .command-bar--score input[type="text"] { width: 13ch; }
 </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
@@ -244,10 +283,18 @@
     </div>
 
     <div class="bar-row">
+      <fieldset class="command-bar command-bar--add">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button type="button" class="btn" id="manualBtn">Manual</button>
+        </div>
+      </fieldset>
+
       <fieldset class="command-bar command-bar--play">
         <legend>Play</legend>
         <div class="command-bar-inner">
-          <button type="button" class="btn primary" id="randomBtn">Random</button>
+          <button type="button" class="btn primary" id="gameBtn">New game</button>
+          <button type="button" class="btn" id="randomBtn">One question</button>
         </div>
       </fieldset>
 
@@ -263,7 +310,8 @@
       <fieldset class="command-bar command-bar--score">
         <legend>Score</legend>
         <div class="command-bar-inner">
-          <span class="score" id="score"><b>0</b> of 0</span>
+          <input type="text" id="player" placeholder="Player" autocomplete="off" aria-label="Player name">
+          <span class="score" id="score"><b>0</b> pts</span>
           <button type="button" class="btn" id="resetBtn" disabled>Reset</button>
         </div>
       </fieldset>
@@ -296,46 +344,103 @@
     </div>
   </div>
 
+  <div class="dlg" id="addDlg" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="dlg-panel">
+      <div class="dlg-head">
+        <span class="dlg-title" id="addTitle">Add a question</span>
+        <span class="dlg-sub">The rules are in mc/_dev/prompt-tools/trivia.prompt.md</span>
+      </div>
+      <div class="dlg-body">
+        <div class="dlg-form">
+          <label class="field">
+            <span>Keyed to</span>
+            <input type="text" id="addId" list="placeList" autocomplete="off"
+                   placeholder="denver-co or denver-co-nfl-broncos">
+            <datalist id="placeList"></datalist>
+            <small>A full destination id for a question about that team, or its
+              city and state for one about the place.</small>
+          </label>
+          <label class="field">
+            <span>Question</span>
+            <input type="text" id="addQ" autocomplete="off"
+                   placeholder="Which river runs through it?">
+          </label>
+          <label class="field">
+            <span>Answer</span>
+            <input type="text" id="addA" autocomplete="off" placeholder="Monongahela">
+          </label>
+          <label class="field">
+            <span>Choices</span>
+            <input type="text" id="addC" autocomplete="off"
+                   placeholder="Allegheny / Monongahela / Ohio / Susquehanna">
+            <small>Separated by a slash. Leave it empty for a typed answer, which
+              must then be a single word.</small>
+          </label>
+        </div>
+        <p class="dlg-msg" id="addMsg"></p>
+      </div>
+      <div class="dlg-foot">
+        <button type="button" class="btn" id="addCancel">Cancel</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="addSave">Add question</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/mc/js/admin-site-nav.js"></script>
   <script src="/mc/js/admin-auth.js"></script>
   <script>
 
     /* ================================================================== *
-     *  TRIVIA. The table of every question, and a popup for playing one.
+     *  TRIVIA. The table of every question, editable in place, and a
+     *  popup for playing one.
      *
-     *  IT READS AND NEVER WRITES. Writing questions is trivia.prompt.md
-     *  plus three CHECK constraints, which is why this room holds no editor
-     *  and no Save. What it is FOR is meeting a question the way a team
-     *  meets it, because a question that reads fine in a table can be
-     *  unanswerable standing in the street.
+     *  A GAME IS TEN QUESTIONS, dealt once so the header can say "3 of 10"
+     *  on question one. A scope holding fewer plays short and says so;
+     *  padding it would ask the same thing twice in one game.
      *
-     *  THE ANSWER CONTROL FOLLOWS THE ROW, NOT A SETTING: `choices` present
-     *  means buttons, `choices` null means a text box. That is the same
-     *  either/or the database enforces, so the popup cannot offer a shape
-     *  the row does not have.
+     *  TWO TRIES, AND THAT IS WHAT THE SCORING IS FOR: 7 right first time,
+     *  3 right second, 0 otherwise. A wrong first answer marks the button
+     *  and does NOT reveal the answer, or the second try would be free.
      *
-     *  THE TWO PICKERS ANSWER DIFFERENT QUESTIONS AND MUST NOT BE MERGED:
-     *    CITY  -- everything a team would be asked THERE: the city's own
-     *             rows plus every club in it.
-     *    TEAM  -- questions about that club, and nothing else.
-     *  Both are true and they are not the same set, so one picker would
-     *  have to pick a meaning and lose the other.
+     *  THE POINTS ARE NOT COMPUTED HERE ALONE. `scores` carries a CHECK
+     *  that recomputes them from `correct` and `tries`, so a client that
+     *  got the arithmetic wrong is refused rather than believed. Change
+     *  the bands in both places, or the write simply starts failing.
      *
-     *  THE PAGE CARRIES NO OTHER COMMENTS by house rule; the load-bearing
-     *  reasoning lives here and in CLAUDE.md.
+     *  WRITTEN ON SETTLE, ONCE PER QUESTION: right, or wrong the second
+     *  time. Never on a first miss, which is the middle of a question.
+     *
+     *  THREE SHAPES, ALL DERIVED FROM THE KEY AND NONE OF THEM STORED:
+     *    team      a full destinations.id
+     *    city      its city and state prefix
+     *    waypoint  wp-<wpid>, a question about one place on a route
+     *
+     *  THE ANSWER CONTROL FOLLOWS THE ROW: choices means buttons, no
+     *  choices means a text box. The database allows nothing else.
      * ================================================================== */
 
     const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
+    const GAME_SIZE = 10;
+    const FIRST_TRY = 7;
+    const SECOND_TRY = 3;
+    /* THE WAYPOINT PREFIX. `wp-` cannot collide with a destination key, which
+       always begins with a city slug, and it is what tells a waypoint question
+       from a city one without asking the database. */
+    const WP = 'wp-';
+
     const el = (id) => document.getElementById(id);
     const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
 
     const state = {
-      trivia: [], destinations: [],
+      trivia: [], destinations: [], waypoints: [],
       city: '', team: '',
       deck: [], current: null, shown: [], answered: false, given: '', right: false,
-      won: 0, asked: 0, loaded: false
+      tries: 0, missed: '',
+      game: null,
+      points: 0, asked: 0, loaded: false
     };
 
     let adminAuth = null;
@@ -353,25 +458,45 @@
         'Content-Type': 'application/json'
       }, extra || {});
     }
+
+    /* TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw 23514 naming a constraint
+       is a statement about our schema; each one here says what to do instead. */
     async function readError(res, fallback) {
       let text = '';
       try { text = await res.text(); } catch (e) { text = ''; }
-      /* TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw PGRST205 is a statement
-         about our schema and tells the person at the keyboard nothing they can
-         act on, so each one names the migration to run. */
-      if (/relation .*"?trivia|PGRST205.*trivia/.test(text)) {
+      if (/trivia_answer_is_a_choice/.test(text)) {
+        return 'The answer has to be one of the choices, spelled the same way.';
+      }
+      if (/trivia_free_answer_is_one_word/.test(text)) {
+        return 'With no choices the answer is typed, so it must be a single word. '
+             + 'Add choices, or shorten the answer.';
+      }
+      if (/trivia_choices_enough/.test(text)) {
+        return 'Two choices at least, or leave it empty for a typed answer.';
+      }
+      if (/trivia_no_one_word_prefix/.test(text)) {
+        return 'A question may not open with "One word". Ask for a thing that is '
+             + 'one word instead: the last name of, which river.';
+      }
+      if (/trivia_question_not_blank|trivia_answer_not_blank/.test(text)) {
+        return 'A question and an answer are both required.';
+      }
+      if (/trivia_id_lower/.test(text)) return 'The key must be lowercase.';
+      if (/scores_points_match_the_rules/.test(text)) {
+        return 'The database refused the score: the points do not match the try it '
+             + 'was won on. That is a bug in this page, not in your answer.';
+      }
+      if (/PGRST205.*trivia|relation .*trivia/.test(text)) {
         return 'There is no public.trivia table. Run mc/supabase/migrations/2026083006_trivia.sql.';
       }
-      if (/relation .*"?destinations|PGRST205.*destinations/.test(text)) {
+      if (/PGRST205.*scores|relation .*scores/.test(text)) {
+        return 'There is no public.scores table. Run mc/supabase/migrations/2026083015_scores.sql.';
+      }
+      if (/PGRST205.*destinations|relation .*destinations/.test(text)) {
         return 'There is no public.destinations table. Run mc/supabase/migrations/2026083004_destinations.sql.';
       }
-      if (/column .*choices/.test(text)) {
-        return 'public.trivia has no choices column. Run mc/supabase/migrations/2026083006_trivia.sql.';
-      }
-      if (/42501|row-level security/.test(text)) {
-        return 'The database refused the read. Sign in again.';
-      }
-      return fallback + (text ? ' (' + text.slice(0, 180) + ')' : '');
+      if (/42501|row-level security/.test(text)) return 'The database refused it. Sign in again.';
+      return fallback + (text ? ' (' + text.slice(0, 160) + ')' : '');
     }
 
     let statusTimer = null;
@@ -380,8 +505,8 @@
       box.textContent = msg || '';
       box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
       window.clearTimeout(statusTimer);
-      /* An error stays until the next action; a success clears itself, because
-         a stale line an hour later is a lie about what is currently true. */
+      /* An error stays until the next action; a success clears itself, because a
+         stale line an hour later is a lie about what is currently true. */
       if (msg && tone !== 'error') statusTimer = window.setTimeout(() => {
         if (el('pageStatus').textContent === msg) el('pageStatus').textContent = '';
       }, 6000);
@@ -401,9 +526,8 @@
       return out;
     }
 
-    /* Every value drawn here is a row value going into an html string. A
-       question carrying an ampersand is ordinary; one carrying a tag is not,
-       and neither should reach the DOM as markup. */
+    /* Every value drawn here is a row value going into an html string. A question
+       carrying an ampersand is ordinary; one carrying a tag is not. */
     function esc(v) {
       return clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -412,22 +536,29 @@
     /* ---- the keys --------------------------------------------------------- */
 
     /* THE SAME SLUG THE GENERATED COLUMN USES, so a prefix computed here and an
-       id computed by Postgres agree. If destinations.id changes shape, so does
-       this. */
+       id computed by Postgres agree. */
     const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const cityKeyOf = (d) => slug(d.city) + '-' + slug(d.state);
+    const wpKeyOf = (w) => WP + w.wpid;
 
     /* SHAPE IS DERIVED AND MUST NEVER BECOME A COLUMN: a stored copy of what the
-       id already says is the exact fault that got `type` dropped. */
+       key already says is the fault that got `type` dropped. */
     function shapeOf(id) {
       const v = clean(id);
       if (!v) return '';
+      if (v.indexOf(WP) === 0) {
+        return state.waypoints.some((w) => wpKeyOf(w) === v) ? 'waypoint' : '';
+      }
       if (state.destinations.some((d) => d.id === v)) return 'team';
       if (state.destinations.some((d) => d.id.indexOf(v + '-') === 0)) return 'city';
       return '';
     }
     function placeLabel(id) {
       const v = clean(id);
+      if (v.indexOf(WP) === 0) {
+        const w = state.waypoints.find((x) => wpKeyOf(x) === v);
+        return w ? (clean(w.name) + (clean(w.city) ? ', ' + clean(w.city) : '')) : v;
+      }
       const team = state.destinations.find((d) => d.id === v);
       if (team) return team.city + ', ' + team.state + ' ' + team.nickname;
       const any = state.destinations.find((d) => d.id.indexOf(v + '-') === 0);
@@ -435,11 +566,6 @@
       return v;
     }
 
-    /* A CITY MEANS EVERYTHING ASKED THERE: the city's own rows plus every club
-       in it. A visitor to Cleveland for the basketball should still meet the
-       Modell question. A TEAM means questions about that club and nothing else,
-       because the city's rows are about the place and the picker beside it
-       already offers them. */
     const inCity = (row, key) => row.id === key || clean(row.id).indexOf(key + '-') === 0;
 
     function pool() {
@@ -453,11 +579,56 @@
       return 'the whole table';
     }
 
-    /* ---- the deck --------------------------------------------------------- */
+    /* ---- writing ---------------------------------------------------------- */
+
+    /* EVERY WRITE ASKS FOR THE ROW BACK. PostgREST answers 200 with an EMPTY
+       ARRAY when RLS refuses, so without reading it a refused edit reports
+       success and the page shows a value the table never took. */
+    async function patchRow(row, patch) {
+      const res = await fetch(restUrl('trivia', { trivia_id: 'eq.' + row.trivia_id }), {
+        method: 'PATCH',
+        headers: authHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify(patch)
+      });
+      if (!res.ok) throw new Error(await readError(res, 'Could not save.'));
+      const rows = await res.json();
+      if (!rows.length) throw new Error('The database refused the change. Sign in again.');
+      Object.assign(row, rows[0]);
+      return rows[0];
+    }
+
+    /* THE SCORE IS RECORDED ON SETTLE, ONCE PER QUESTION, and a failure to record
+       is REPORTED rather than swallowed: a play that scored and was not written
+       is indistinguishable from one that never happened. */
+    async function recordScore(row, given, correct, tries) {
+      const points = correct ? (tries === 1 ? FIRST_TRY : tries === 2 ? SECOND_TRY : 0) : 0;
+      try {
+        const res = await fetch(restUrl('scores', {}), {
+          method: 'POST',
+          headers: authHeaders({ Prefer: 'return=representation' }),
+          body: JSON.stringify({
+            player: clean(el('player').value),   // blank becomes anon in the database
+            area: 'trivia',
+            subject_id: String(row.trivia_id),
+            answer_given: clean(given),
+            correct: correct,
+            tries: tries,
+            points: points
+          })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not record the score.'));
+        const back = await res.json();
+        if (!back.length) throw new Error('The database refused the score.');
+      } catch (err) {
+        setStatus(err.message || 'Could not record the score.', 'error');
+      }
+      return points;
+    }
+
+    /* ---- the deck and the game -------------------------------------------- */
 
     /* A SHUFFLED DECK, NOT A DRAW PER PRESS. Drawing at random every time asks
-       the same question twice before it has asked half of them, which on a
-       short table is immediately obvious and reads as broken. */
+       the same question twice before it has asked half of them. */
     function shuffle(list) {
       const a = list.slice();
       for (let i = a.length - 1; i > 0; i--) {
@@ -466,60 +637,90 @@
       }
       return a;
     }
+
+    function startGame() {
+      const rows = shuffle(pool());
+      if (!rows.length) {
+        setStatus('Nothing keyed to ' + scopeLabel() + ' yet, so there is no game to play.', 'error');
+        return;
+      }
+      state.game = { rows: rows.slice(0, GAME_SIZE), at: 0, points: 0, won: 0 };
+      /* A SCOPE WITH FEWER THAN TEN PLAYS SHORT AND SAYS SO. Padding it would ask
+         the same question twice in one game, and rounding the count up would be
+         the room lying about its own length. */
+      if (state.game.rows.length < GAME_SIZE) {
+        setStatus(scopeLabel() + ' holds only ' + state.game.rows.length
+          + (state.game.rows.length === 1 ? ' question' : ' questions')
+          + ', so this game is that long.', '');
+      } else {
+        setStatus('');
+      }
+      open(state.game.rows[0]);
+    }
+    function advanceGame() {
+      const g = state.game;
+      g.at += 1;
+      if (g.at >= g.rows.length) { paintDialog(); return; }
+      open(g.rows[g.at]);
+    }
     function drawNext() {
       if (!state.deck.length) {
         state.deck = shuffle(pool());
-        /* Do not reopen on the question already on screen, or a reshuffle looks
-           like nothing happened. */
         if (state.deck.length > 1 && state.current
             && state.deck[0].trivia_id === state.current.trivia_id) {
           state.deck.push(state.deck.shift());
         }
       }
       const row = state.deck.shift();
-      if (!row) {
-        setStatus('Nothing keyed to ' + scopeLabel() + ' yet.', 'error');
-        return;
-      }
+      if (!row) { setStatus('Nothing keyed to ' + scopeLabel() + ' yet.', 'error'); return; }
       open(row);
     }
 
     /* ---- judging ---------------------------------------------------------- */
 
-    /* CASE AND SURROUNDING SPACE ONLY. A one-word answer is refused by the
-       database if it holds a space, so there is nothing else to forgive, and
-       forgiving more would start accepting a different word. */
+    /* CASE AND SURROUNDING SPACE ONLY. A typed answer is refused by the database
+       if it holds a space, so there is nothing else to forgive, and forgiving
+       more would start accepting a different word. */
     const same = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase();
 
     function judge(given) {
       if (state.answered || !state.current) return;
-      state.answered = true;
+      const row = state.current;
+      state.tries += 1;
       state.given = clean(given);
-      state.right = same(given, state.current.answer);
+      const right = same(given, row.answer);
+
+      /* A WRONG FIRST ANSWER REVEALS NOTHING. Showing the answer would make the
+         second try free, and the second try is the whole reason 3 points exist. */
+      if (!right && state.tries < 2) {
+        state.missed = state.given;
+        paintDialog();
+        return;
+      }
+
+      state.answered = true;
+      state.right = right;
       state.asked += 1;
-      if (state.right) state.won += 1;
+      const points = right ? (state.tries === 1 ? FIRST_TRY : SECOND_TRY) : 0;
+      state.points += points;
+      if (state.game) { state.game.points += points; if (right) state.game.won += 1; }
       paintScore();
       paintDialog();
-      paintTable();
+      recordScore(row, given, right, state.tries);
     }
 
     /* ---- the popup -------------------------------------------------------- */
 
-    /* THE OPTIONS ARE SHUFFLED ON EVERY OPEN, so the stored order cannot become
-       the answer. Four rows in a table are read in the order they were typed and
-       nothing rotates them, which over a session teaches a team that the second
-       option is usually right.
-
-       SHUFFLED ONCE PER OPEN, INTO `state.shown`, AND NOT IN `paintDialog`.
-       That function runs again the moment an answer is judged, so shuffling
-       there would rearrange the four buttons under the pointer at exactly the
-       moment somebody is reading which one they got wrong. */
     function open(row) {
       state.current = row;
+      /* SHUFFLED ONCE PER OPEN, NOT IN paintDialog, which runs again the moment
+         an answer is judged and would move the buttons under the pointer. */
       state.shown = Array.isArray(row.choices) ? shuffle(row.choices) : [];
       state.answered = false;
       state.given = '';
+      state.missed = '';
       state.right = false;
+      state.tries = 0;
       el('playDlg').classList.add('is-open');
       paintDialog();
     }
@@ -527,34 +728,67 @@
       el('playDlg').classList.remove('is-open');
       state.current = null;
       state.answered = false;
+      /* CLOSING ABANDONS THE GAME rather than leaving it half played behind a
+         shut dialog, where New game would look like it had done nothing. */
+      state.game = null;
     }
 
     function paintDialog() {
+      const g = state.game;
+
+      /* THE RESULT SCREEN, in the same panel rather than a second dialog over the
+         first: a panel that changes its mind beats a stack. */
+      if (g && g.at >= g.rows.length) {
+        el('dlgTitle').textContent = 'Game over';
+        el('dlgSub').textContent = scopeLabel();
+        el('dlgScore').textContent = '';
+        el('dlgBody').innerHTML =
+          '<p class="question"><b>' + g.points + '</b> points, '
+          + g.won + ' of ' + g.rows.length + ' right.</p>'
+          + '<p class="verdict' + (g.won === g.rows.length ? ' is-right' : '') + '">'
+          + (g.won === g.rows.length ? 'Every one.'
+             : g.won === 0 ? 'Not one. The city wins.'
+             : 'The rest are still in the table.') + '</p>';
+        el('nextBtn').textContent = 'Play again';
+        return;
+      }
+
       const row = state.current;
       if (!row) return;
       const shape = shapeOf(row.id);
 
+      el('dlgTitle').textContent = g
+        ? 'Question ' + (g.at + 1) + ' of ' + g.rows.length
+        : 'Question';
+      el('nextBtn').textContent = g
+        ? (g.at + 1 >= g.rows.length ? 'See the score' : 'Next question')
+        : 'Next question';
       el('dlgSub').textContent = placeLabel(row.id)
         + '  ' + (shape || 'unknown key') + '  ' + row.id;
-      el('dlgScore').innerHTML = '<b>' + state.won + '</b> of ' + state.asked;
+      el('dlgScore').innerHTML = g
+        ? ('<b>' + g.points + '</b> pts')
+        : ('<b>' + state.points + '</b> pts');
 
       const parts = ['<p class="question">' + esc(row.question) + '</p>'];
-      /* `state.shown` IS THE ORDER ON SCREEN and the row's own array is not
-         read here: judging goes by VALUE, so the two can differ safely. */
       const choices = state.shown.length ? state.shown : null;
 
-      /* THE CONTROL FOLLOWS THE ROW: choices means buttons, no choices means a
-         box. The database allows nothing else, so neither does this. */
       if (choices && choices.length) {
         parts.push('<div class="choices" id="choices">');
         choices.forEach((c, i) => {
-          let cls = 'choice', mark = '';
+          let cls = 'choice', mark = '', dead = false;
           if (state.answered) {
             if (same(c, row.answer)) { cls += ' is-right'; mark = 'Correct'; }
-            else if (same(c, state.given)) { cls += ' is-wrong'; mark = 'You said'; }
+            else if (same(c, state.given) || same(c, state.missed)) {
+              cls += ' is-wrong'; mark = 'You said';
+            }
+            dead = true;
+          } else if (state.missed && same(c, state.missed)) {
+            /* THE FIRST MISS STAYS MARKED AND DEAD, or somebody could spend the
+               second try on the answer they have already given. */
+            cls += ' is-wrong'; mark = 'You said'; dead = true;
           }
           parts.push('<button type="button" class="' + cls + '" data-choice="' + i + '"'
-            + (state.answered ? ' disabled' : '') + '>'
+            + (dead ? ' disabled' : '') + '>'
             + '<span class="choice-key">' + 'ABCDEFGH'.charAt(i) + '</span>'
             + '<span>' + esc(c) + '</span>'
             + (mark ? '<span class="choice-mark">' + mark + '</span>' : '')
@@ -571,21 +805,25 @@
       }
 
       if (state.answered) {
+        const points = state.right ? (state.tries === 1 ? FIRST_TRY : SECOND_TRY) : 0;
         parts.push('<p class="verdict ' + (state.right ? 'is-right' : 'is-wrong') + '">'
           + (state.right
-              ? 'Right. <b>' + esc(row.answer) + '</b>.'
-              : 'Wrong. The answer is <b>' + esc(row.answer) + '</b>.') + '</p>');
+              ? 'Right on try ' + state.tries + '. <b>' + points + '</b> points.'
+              : 'Wrong twice. The answer is <b>' + esc(row.answer) + '</b>.') + '</p>');
+      } else if (state.missed) {
+        parts.push('<p class="verdict is-wrong">Not that one. One more try, for '
+          + SECOND_TRY + ' points.</p>');
       }
 
       el('dlgBody').innerHTML = parts.join('');
 
-      /* WIRED DEFENSIVELY, one control at a time. A dead reference here would
-         take the rest of the block down with it, which in this room means a
-         question you can read and cannot answer. */
+      /* WIRED DEFENSIVELY, one control at a time. A dead reference here would take
+         the rest of the block down with it, which in this room means a question
+         you can read and cannot answer. */
       const box = el('choices');
       if (box) box.addEventListener('click', (e) => {
         const b = e.target.closest('[data-choice]');
-        if (b && !state.answered) judge(choices[Number(b.dataset.choice)]);
+        if (b && !b.disabled && !state.answered) judge(choices[Number(b.dataset.choice)]);
       });
       const wordBtn = el('wordBtn'), wordBox = el('wordBox');
       if (wordBtn && wordBox) {
@@ -600,9 +838,12 @@
     /* ---- the table -------------------------------------------------------- */
 
     function paintScore() {
-      el('score').innerHTML = '<b>' + state.won + '</b> of ' + state.asked;
+      el('score').innerHTML = '<b>' + state.points + '</b> pts';
       el('resetBtn').disabled = state.asked === 0;
     }
+
+    const choicesText = (r) => Array.isArray(r.choices) && r.choices.length
+      ? r.choices.join(' / ') : '';
 
     function paintTable() {
       const rows = pool();
@@ -614,37 +855,103 @@
       if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
       if (!rows.length) {
         host.innerHTML = '<p class="empty">' + (state.trivia.length
-          ? 'Nothing keyed to <b>' + esc(scopeLabel()) + '</b> yet. Clear the pickers, or write one: the rules are in <b>mc/_dev/prompt-tools/trivia.prompt.md</b>.'
-          : 'No questions on file. The rules for writing them are in <b>mc/_dev/prompt-tools/trivia.prompt.md</b>.') + '</p>';
+          ? 'Nothing keyed to <b>' + esc(scopeLabel()) + '</b> yet. Clear the pickers, or press Manual to add one.'
+          : 'No questions on file. Press Manual to add one. The rules are in <b>mc/_dev/prompt-tools/trivia.prompt.md</b>.') + '</p>';
         return;
       }
 
       const body = rows.map((r) => {
         const shape = shapeOf(r.id);
-        const n = Array.isArray(r.choices) ? r.choices.length : 0;
         return '<tr data-row="' + r.trivia_id + '">'
           + '<td><span class="chip chip--' + (shape || 'bad') + '">'
             + (shape || 'no such place') + '</span></td>'
-          + '<td class="col-key">' + esc(r.id) + '</td>'
-          + '<td class="col-q">' + esc(r.question) + '</td>'
-          + '<td class="col-a">' + esc(r.answer) + '</td>'
-          + '<td class="col-form">' + (n ? n + ' choices' : 'one word') + '</td>'
+          + '<td class="col-key ed" data-field="id" data-empty="key">' + esc(r.id) + '</td>'
+          + '<td class="col-q ed" data-field="question" data-empty="question">' + esc(r.question) + '</td>'
+          + '<td class="col-a ed" data-field="answer" data-empty="answer">' + esc(r.answer) + '</td>'
+          + '<td class="col-choices ed" data-field="choices" data-empty="typed answer">'
+            + esc(choicesText(r)) + '</td>'
           + '<td class="col-play"><button type="button" class="btn" data-play="'
             + r.trivia_id + '">Play</button></td></tr>';
       }).join('');
 
       host.innerHTML = '<table><thead><tr>'
         + '<th>Shape</th><th>Keyed to</th><th>Question</th><th>Answer</th>'
-        + '<th>Form</th><th></th></tr></thead><tbody>' + body + '</tbody></table>';
+        + '<th>Choices</th><th></th></tr></thead><tbody>' + body + '</tbody></table>';
+    }
 
+    /* ---- editing in place -------------------------------------------------- */
+
+    let editing = null;
+
+    function startEdit(td) {
+      if (editing) return;
+      const tr = td.closest('[data-row]');
+      const row = state.trivia.find((r) => String(r.trivia_id) === tr.dataset.row);
+      if (!row) return;
+      const field = td.dataset.field;
+      const was = field === 'choices' ? choicesText(row) : clean(row[field]);
+
+      /* THE TOKEN IS THE WHOLE POINT. `finish` used to test `if (!editing)`,
+         which is true of ANY edit rather than THIS one -- so clicking a second
+         cell focused its box, BLURRED the first, and the first box's blur
+         handler fired with `editing` already pointing at the new edit. It then
+         committed the OLD field again from its own closure and cancelled the
+         new edit on the way out. Two identical patches and a cell that would
+         not open. Comparing the token means a stale handler cannot speak. */
+      const token = {};
+      editing = { td: td, row: row, field: field, token: token };
+      td.textContent = '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'ed-box';
+      input.value = was;
+      td.appendChild(input);
+      input.focus();
+      input.select();
+
+      const finish = (save) => {
+        if (!editing || editing.token !== token) return;
+        const value = input.value;
+        editing = null;
+        if (!save || value === was) { redraw(); return; }
+        commit(row, field, value);
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        /* ESCAPE MUST NOT REACH THE DOCUMENT HANDLER, which closes a dialog.
+           Cancelling an edit and shutting a popup are different intentions. */
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+      });
+      input.addEventListener('blur', () => finish(true));
+    }
+
+    function redraw() { paintTable(); buildPickers(); }
+
+    /* CHOICES ARE TYPED AS A SLASH SEPARATED LINE and stored as an array. An
+       empty line is NULL, not an empty array: null is what the database reads as
+       "typed answer", and an empty array would fail the two-choice CHECK with a
+       message about a state nobody meant. */
+    function commit(row, field, value) {
+      const patch = {};
+      if (field === 'choices') {
+        const list = clean(value).split('/').map((v) => v.trim()).filter(Boolean);
+        patch.choices = list.length ? list : null;
+      } else {
+        patch[field] = field === 'id' ? clean(value).toLowerCase() : clean(value);
+      }
+      patchRow(row, patch).then(() => {
+        setStatus('Saved.', '');
+        redraw();
+      }).catch((err) => {
+        setStatus(err.message || 'Could not save.', 'error');
+        redraw();
+      });
     }
 
     /* ---- the pickers ------------------------------------------------------ */
 
-    /* BUILT FROM THE ROWS THAT EXIST, never from a static list, so a picker can
-       only offer a choice with questions behind it: an empty result is not a
-       state either control can produce. The count is the whole reason they are
-       live rather than a search box. */
+    /* BUILT FROM THE ROWS THAT EXIST, so a picker can only offer a choice with
+       questions behind it: an empty result is not a state either can produce. */
     function buildPickers() {
       const cities = {}, teams = {};
       state.destinations.forEach((d) => {
@@ -666,8 +973,8 @@
       any.value = '';
       any.textContent = anyLabel + ' (' + state.trivia.length + ')';
       sel.appendChild(any);
-      /* A PLACE WITH NOTHING BEHIND IT IS NOT OFFERED. 110 destinations against
-         a handful of questions would otherwise be a list of dead ends. */
+      /* A PLACE WITH NOTHING BEHIND IT IS NOT OFFERED. 110 destinations against a
+         handful of questions would be a list of dead ends. */
       Object.keys(map).filter((k) => map[k].n > 0)
         .sort((a, b) => map[a].label.localeCompare(map[b].label))
         .forEach((k) => {
@@ -681,6 +988,31 @@
       if (!has) { if (id === 'cityPick') state.city = ''; else state.team = ''; }
     }
 
+    /* THE ADD DIALOG'S KEY LIST OFFERS EVERY PLACE, not only the ones already
+       holding a question: this is where a new place gets its first. Waypoints
+       are capped, because 536 options in a datalist is a scroll and not a list;
+       the box takes a typed wp- key whether or not it is offered. */
+    const WP_SUGGESTIONS = 60;
+    function buildPlaceList() {
+      const list = el('placeList');
+      if (!list) return;
+      const keys = {};
+      state.destinations.forEach((d) => {
+        keys[d.id] = d.city + ' ' + d.nickname + ' (' + d.league + ')';
+        keys[cityKeyOf(d)] = d.city + ', ' + d.state;
+      });
+      state.waypoints.slice(0, WP_SUGGESTIONS).forEach((w) => {
+        keys[wpKeyOf(w)] = clean(w.name) + (clean(w.city) ? ', ' + clean(w.city) : '');
+      });
+      list.textContent = '';
+      Object.keys(keys).sort().forEach((k) => {
+        const o = document.createElement('option');
+        o.value = k;
+        o.textContent = keys[k];
+        list.appendChild(o);
+      });
+    }
+
     function paintClear() {
       const on = !!(state.city || state.team);
       const b = el('clearBtn');
@@ -688,10 +1020,8 @@
       b.style.opacity = on ? '' : '0.45';
     }
 
-    /* CHOOSING ONE PICKER CLEARS THE OTHER, and that is honest rather than a
-       limitation: they select overlapping sets from two different angles, so
-       holding both would leave a short list with two reasons and you would have
-       to check both controls to find out which. */
+    /* CHOOSING ONE PICKER CLEARS THE OTHER: they select overlapping sets from two
+       angles, so holding both would leave a short list with two reasons. */
     function afterPick() {
       paintClear();
       state.deck = [];
@@ -708,35 +1038,116 @@
       afterPick();
     }
 
+    /* ---- adding ------------------------------------------------------------ */
+
+    function openAdd() {
+      ['addQ', 'addA', 'addC'].forEach((k) => { el(k).value = ''; });
+      el('addMsg').textContent = '';
+      /* PREFILLED FROM THE PICKER when one is on, because the commonest reason to
+         press Manual is that the place you are looking at is short. */
+      el('addId').value = state.team || state.city || '';
+      el('addDlg').classList.add('is-open');
+      el('addId').focus();
+    }
+    function closeAdd() { el('addDlg').classList.remove('is-open'); }
+
+    async function saveAdd() {
+      const id = clean(el('addId').value).toLowerCase();
+      const question = clean(el('addQ').value);
+      const answer = clean(el('addA').value);
+      const list = clean(el('addC').value).split('/').map((v) => v.trim()).filter(Boolean);
+      const msg = el('addMsg');
+
+      /* CHECKED HERE AND ENFORCED THERE. Every one of these is refused by the
+         database too; catching them first means a sentence rather than a round
+         trip, and the room and the constraints cannot disagree because the
+         constraints are what actually decide. */
+      if (!id || !question || !answer) {
+        msg.textContent = 'A key, a question and an answer are all required.';
+        return;
+      }
+      if (!shapeOf(id)) {
+        msg.textContent = 'Nothing matches ' + id + '. Pick a key from the list, or '
+          + 'use wp- and a waypoint id for a question about one place.';
+        return;
+      }
+      if (/^one word/i.test(question)) {
+        msg.textContent = 'A question may not open with "One word". Ask for a thing '
+          + 'that is one word instead: the last name of, which river.';
+        return;
+      }
+      if (list.length === 1) {
+        msg.textContent = 'Two choices at least, or leave it empty for a typed answer.';
+        return;
+      }
+      if (list.length && !list.some((c) => same(c, answer))) {
+        msg.textContent = 'The answer has to be one of the choices, spelled the same way.';
+        return;
+      }
+      if (!list.length && /\s/.test(answer)) {
+        msg.textContent = 'With no choices the answer is typed, so it must be a single word.';
+        return;
+      }
+
+      el('addSave').disabled = true;
+      try {
+        const res = await fetch(restUrl('trivia', {}), {
+          method: 'POST',
+          headers: authHeaders({ Prefer: 'return=representation' }),
+          body: JSON.stringify({ id: id, question: question, answer: answer,
+                                 choices: list.length ? list : null })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
+        const back = await res.json();
+        if (!back.length) throw new Error('The database refused it. Sign in again.');
+        state.trivia.push(back[0]);
+        closeAdd();
+        redraw();
+        el('roomTitle').textContent = state.trivia.length + ' QUESTIONS';
+        setStatus('Added, keyed to ' + placeLabel(id) + '.', '');
+      } catch (err) {
+        msg.textContent = err.message || 'Could not add it.';
+      } finally {
+        el('addSave').disabled = false;
+      }
+    }
+
     /* ---- boot ------------------------------------------------------------- */
 
     async function boot() {
       try {
         setStatus('Loading.', '');
-        const [trivia, destinations] = await Promise.all([
+        /* WAYPOINTS ARE READ FOR THEIR NAMES ONLY, which is why the select is
+           three columns rather than *: a waypoint row carries a description and
+           a source url this room never shows. */
+        const [trivia, destinations, waypoints] = await Promise.all([
           pageAll('trivia', { select: '*', order: 'trivia_id.asc' }),
-          pageAll('destinations', { select: '*', order: 'id.asc' })
+          pageAll('destinations', { select: '*', order: 'id.asc' }),
+          pageAll('waypoints', { select: 'wpid,name,city', order: 'name.asc' })
+            .catch(() => [])
         ]);
         state.trivia = trivia;
         state.destinations = destinations;
+        state.waypoints = waypoints;
         state.loaded = true;
 
         const n = trivia.length;
         el('roomTitle').textContent = n + (n === 1 ? ' QUESTION' : ' QUESTIONS');
 
         buildPickers();
+        buildPlaceList();
         paintClear();
         paintScore();
         paintTable();
 
-        /* AN ID THAT RESOLVES TO NEITHER SHAPE IS A TYPO NOTHING ELSE CATCHES.
+        /* A KEY THAT RESOLVES TO NO SHAPE IS A TYPO NOTHING ELSE CATCHES.
            trivia.id is not a foreign key and cannot be one, so this room is the
            only place it will ever be reported. */
         const orphans = [...new Set(trivia.map((r) => r.id).filter((id) => !shapeOf(id)))];
         if (orphans.length) {
           setStatus(orphans.length + (orphans.length === 1 ? ' question is' : ' questions are')
-            + ' keyed to a place that is not in destinations: ' + orphans.join(', ')
-            + '. Fix the id or add the destination.', 'error');
+            + ' keyed to nothing that exists: ' + orphans.join(', ')
+            + '. Fix the key, or add the destination or waypoint.', 'error');
         } else {
           setStatus('');
         }
@@ -747,26 +1158,32 @@
       }
     }
 
-    /* THE WHOLE ROW PLAYS, and the Play button is the visible affordance: a
-       table whose rows respond only on one small target reads as a list you
-       cannot use. BOUND ONCE, on the host, NOT inside paintTable -- that runs
-       on every pick and every answer, so binding there stacks a listener per
-       repaint and the count grows all session. */
+    /* BOUND ONCE, ON THE HOST, NOT INSIDE paintTable -- that runs on every pick
+       and every save, so binding there stacks a listener per repaint. */
     el('tableHost').addEventListener('click', (e) => {
-      const tr = e.target.closest('[data-row]');
-      if (!tr) return;
-      const row = state.trivia.find((r) => String(r.trivia_id) === tr.dataset.row);
-      if (row) open(row);
+      const play = e.target.closest('[data-play]');
+      if (play) {
+        const row = state.trivia.find((r) => String(r.trivia_id) === play.dataset.play);
+        /* PLAYING ONE FROM THE TABLE LEAVES ANY GAME, or the header would count a
+           question that is not among the ten that were dealt. */
+        if (row) { state.game = null; open(row); }
+        return;
+      }
+      const cell = e.target.closest('.ed');
+      if (cell && !editing) startEdit(cell);
     });
 
+    el('manualBtn').addEventListener('click', openAdd);
+    el('addCancel').addEventListener('click', closeAdd);
+    el('addSave').addEventListener('click', saveAdd);
+    el('addDlg').addEventListener('click', (e) => { if (e.target === el('addDlg')) closeAdd(); });
+
+    el('gameBtn').addEventListener('click', () => { state.deck = []; startGame(); });
     el('randomBtn').addEventListener('click', () => {
-      /* RANDOM DRAWS FROM THE WHOLE TABLE and says so by clearing the pickers,
-         rather than quietly drawing from a filter still on screen. */
-      state.city = ''; state.team = '';
-      el('cityPick').value = ''; el('teamPick').value = '';
-      state.deck = [];
-      paintClear();
-      paintTable();
+      /* ONE QUESTION DRAWS FROM THE SCOPE ON SCREEN. Unlike New game it does not
+         clear the pickers: they say what you are looking at, and pressing this
+         should not silently widen it. */
+      state.game = null;
       drawNext();
     });
     el('cityPick').addEventListener('change', chooseCity);
@@ -781,23 +1198,27 @@
       afterPick();
     });
     el('resetBtn').addEventListener('click', () => {
-      state.won = 0; state.asked = 0;
+      state.points = 0; state.asked = 0;
       paintScore();
-      if (state.current) paintDialog();
-      setStatus('Score reset.', '');
+      /* THE TABLE IS NOT TOUCHED, and the message says so: `scores` is append
+         only and a row already written is a record of something that happened. */
+      setStatus('Score reset. What is already in scores stays there.', '');
     });
-    el('nextBtn').addEventListener('click', drawNext);
+    el('nextBtn').addEventListener('click', () => {
+      const g = state.game;
+      if (g && g.at >= g.rows.length) { startGame(); return; }
+      if (g) { advanceGame(); return; }
+      drawNext();
+    });
     el('closeBtn').addEventListener('click', close);
     el('playDlg').addEventListener('click', (e) => { if (e.target === el('playDlg')) close(); });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && el('playDlg').classList.contains('is-open')) close();
+      if (e.key !== 'Escape') return;
+      /* THE ADD DIALOG IS ON TOP WHEN IT IS OPEN, so it takes Escape first. */
+      if (el('addDlg').classList.contains('is-open')) { closeAdd(); return; }
+      if (el('playDlg').classList.contains('is-open')) close();
     });
 
-    /* THE OPTION IS `supabaseConfig`, AN OBJECT OF `url` AND `publishableKey`.
-       Passing `supabaseUrl` / `supabaseKey` is silently wrong: the controller
-       reads neither, `hasConfig` then sees nothing, and the room reports
-       "Admin auth is unavailable because Supabase is not configured" as though
-       the project were misconfigured rather than the call. */
     adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: { url: SUPABASE_URL, publishableKey: SUPABASE_KEY },
       onAuthorized: () => { boot(); }

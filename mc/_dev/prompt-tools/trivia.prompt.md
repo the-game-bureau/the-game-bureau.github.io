@@ -33,6 +33,16 @@ editorial call that makes the whole table work.
 |---|---|---|
 | **team** | a full `destinations.id`, e.g. `new-orleans-la-nfl-saints` | the question is about that club |
 | **city** | its city and state prefix, e.g. `denver-co` | the question is about the place, and any club there could be asked it |
+| **waypoint** | `wp-` and a `waypoints.wpid`, e.g. `wp-475` | the question is about ONE place on a route, asked while standing at it |
+
+**A WAYPOINT QUESTION IS THE NARROWEST AND IS ASKED IN FRONT OF THE THING.** It
+may name what is there, because the team can see it: *"whose statue is this"*
+works at one address and nowhere else. **`wp-` cannot collide with a destination
+key**, which always begins with a city slug, which is what lets the shape be read
+off the key with no lookup.
+
+**NOTHING LINKS A WAYPOINT QUESTION TO A ROUTE YET.** The key records WHICH place
+it belongs to; how a game reaches it at that stop is not built.
 
 - **THE ID IS NOT UNIQUE.** A place holds many questions. Several rows sharing
   one id is the normal state, not a mistake.
@@ -52,6 +62,10 @@ select t.id from public.trivia t
   to live.
 - **NEVER USE A VENUE TOWN.** There is no `foxborough-ma` and there must not be.
   The Patriots are `boston-ma-nfl-patriots`.
+- **TWO TRIES, AND THAT CHANGES WHAT A GOOD DISTRACTOR IS.** Right first time is
+  7, right second is 3, wrong twice is 0. **So one obviously silly option is
+  worse than it used to be**: it is a free first guess. Four plausible ones make
+  the second try a real decision.
 
 **SHAPE IS DERIVED AND IS NOT A COLUMN.** It is read off the id. Do not add one,
 and do not ask for one: a stored shape is a stored copy of what the id already
