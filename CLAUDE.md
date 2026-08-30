@@ -1464,6 +1464,12 @@ change them all.**
     distinct orders in 31 opens, and no movement at all when the answer lands.
   - **JUDGING GOES BY VALUE, NOT BY INDEX**, which is what lets the displayed
     order differ from the row's own array safely.
+  - **AND IT MADE ONE OF MY OWN ASSERTIONS FLAKY, which is worth recording.** A
+    check compared the two answer marks as a joined string, `'Correct/You said'`,
+    **which had a POSITION baked into it**: it assumed the right option renders
+    above the wrong one, true until the shuffle and then wrong about half the
+    time. **The page was never at fault.** It compares the sorted SET now. Any
+    assertion that reads these buttons in order is now a coin toss.
 - **CASE AND SURROUNDING SPACE ARE THE ONLY THINGS FORGIVEN** on a typed answer.
   The database refuses a one-word answer holding a space, so there is nothing
   else to forgive, and forgiving more would start accepting a different word.

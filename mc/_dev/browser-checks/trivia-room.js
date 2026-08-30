@@ -103,9 +103,13 @@ setTimeout(() => {
   t('the verdict names the answer',
     d.querySelector('.verdict').textContent.indexOf(mc.answer) >= 0,
     d.querySelector('.verdict').textContent);
+  /* THE SET, NOT THE ORDER. This compared the joined marks to 'Correct/You said',
+     which baked in the assumption that the right option renders above the wrong
+     one -- true until the options were shuffled, and then flaky about half the
+     time. The page was never wrong; the assertion had a position in it. */
+  const marks = [...d.querySelectorAll('.choice-mark')].map((x) => x.textContent).sort();
   t('right and wrong are not colour alone',
-    [...d.querySelectorAll('.choice-mark')].map((x) => x.textContent).join('/') === 'Correct/You said',
-    [...d.querySelectorAll('.choice-mark')].map((x) => x.textContent).join('/'));
+    marks.join('|') === 'Correct|You said', marks.join('|'));
   t('the choices lock once answered', choices().every((c) => c.disabled));
   /* JUDGING MUST NOT RESHUFFLE. paintDialog runs again the moment an answer
      lands, so a shuffle in there would rearrange the four buttons under the
