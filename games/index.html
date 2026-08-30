@@ -76,8 +76,27 @@ body.home-page {
   background: var(--paper-strong);
 }
 
+/* ---- the shared nav, on a page where it is the first thing --------------
+   site-shell.css gives it `width: calc(100% - 48px); margin: 0 auto;
+   padding: 0 0 16px` -- no TOP padding, because on every other public page
+   something sits above it. Here it is the first thing on the page, so the
+   wordmark sat hard against the top edge.
+
+   Full bleed with its own 24px inset rather than an auto-centred 48px-narrower
+   box, so the nav's left edge and the rail's left edge are ONE margin. Two
+   margins four pixels apart is the kind of thing you cannot name and can see. */
+body.home-page .site-nav.site-nav {
+  width: 100%;
+  margin: 0;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 860px) {
+  body.home-page .site-nav.site-nav { padding: 16px 18px 14px; }
+}
+
 /* ---- masthead -------------------------------------------------------- */
-.gp-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.gp-head { padding: 22px 24px 18px; border-bottom: 1px solid var(--line); }
 /* THE WORDMARK IS THE NAV'S JOB NOW, so the rail leads with the instruction
    instead of saying the company name a second time six pixels below it. */
 .gp-kicker {
@@ -93,7 +112,7 @@ body.home-page {
 .gp-pitch b { color: var(--ink); font-weight: 600; }
 
 /* ---- the finder ------------------------------------------------------ */
-.gp-find { padding: 13px 20px; border-bottom: 1px solid var(--line); }
+.gp-find { padding: 18px 24px; border-bottom: 1px solid var(--line); }
 .gp-find label {
   display: block; margin-bottom: 7px;
   font: 600 0.56rem/1 'IBM Plex Mono', monospace;
@@ -114,7 +133,7 @@ body.home-page {
 .gp-tally b { color: var(--accent); font-weight: 600; }
 
 /* ---- the list -------------------------------------------------------- */
-.gp-list { flex: 1 1 auto; overflow-y: auto; padding: 8px; min-height: 0; }
+.gp-list { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px 20px; min-height: 0; }
 
 /* ONE GAME. The left edge is the away club's own colour, which is the
    palette a fandom game is built from: the fan's side, not the host's.
@@ -181,6 +200,47 @@ body.home-page {
 .gm-note {
   margin: 9px 0 0;
   font: 400 0.66rem/1.45 'IBM Plex Mono', monospace; color: var(--muted);
+}
+
+/* ---- the shop, inside the game it belongs to ---------------------------
+   THE OLD PAGE HAD A SCROLLING "FROM THE GIFT SHOP" STRIP ALONG THE BOTTOM and
+   the rebuild dropped it, which took the shop's shopfront off the busiest page
+   on the site. This is that route back, and it is a better one: a strip of
+   featured sports gifts was the same four objects on every visit and said
+   nothing about the game you were looking at. These are gifts for the city you
+   are about to walk. */
+.gm-shop { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line); }
+.gm-shop-label {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 8px;
+  font: 600 0.56rem/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+}
+.gm-shop-all { color: var(--accent); text-decoration: none; letter-spacing: 0.1em; }
+.gm-shop-all:hover { text-decoration: underline; }
+.gm-shop-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.gm-gift {
+  display: block; text-decoration: none; color: inherit;
+  border: 1px solid var(--line); border-radius: 7px; overflow: hidden;
+  background: var(--paper);
+}
+.gm-gift:hover { border-color: var(--gm-color, var(--accent)); }
+.gm-gift-pic {
+  display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover;
+  background: var(--paper); border: 0;
+}
+/* A GIFT WITH NO USABLE PICTURE KEEPS ITS TILE rather than tearing a hole in
+   the row: an initial on a flat ground reads as a thing, an empty box reads as
+   a page that half loaded. */
+.gm-gift-mono {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1;
+  font: 700 1.3rem/1 'Big Shoulders Display', system-ui, sans-serif;
+  color: var(--muted); background: var(--paper);
+}
+.gm-gift-name {
+  display: block; padding: 5px 6px 6px;
+  font: 400 0.6rem/1.3 'IBM Plex Mono', monospace; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .gp-empty {
@@ -272,9 +332,10 @@ body.home-page {
     <header class="gp-head">
       <p class="gp-kicker">Pick your side</p>
       <p class="gp-pitch">
-        You are already in town for the match. <b>The day before it</b>, we send you
-        walking: real streets, real places, something to work out at each one.
-        Pick your side and see where you are going.
+        In town for a game, a concert, or nothing in particular? <b>The day
+        before</b>, we send you walking: real streets, real places, and
+        something to work out at each one. Pick your side and see where you
+        are going.
       </p>
     </header>
 
@@ -302,6 +363,8 @@ body.home-page {
      a stale catalogue perfectly makes an outage invisible, and on a page with
      prices on it a stale row is worse than an honest failure. Left in place
      because removing it is a product decision, not a tidy-up. -->
+<footer class="site-footer" data-site-footer></footer>
+
 <script src="/mc/assets/supabase-fallback.js"></script>
 <script src="/mc/assets/public-account.js"></script>
 <script src="/shell/site-nav.js"></script>
@@ -316,7 +379,7 @@ body.home-page {
   var el = function (id) { return document.getElementById(id); };
   var clean = function (v) { return v === null || v === undefined ? '' : String(v).trim(); };
 
-  var state = { games: [], points: {}, q: '', openId: '', loaded: false };
+  var state = { games: [], points: {}, q: '', openId: '', loaded: false, gifts: {} };
   var map = null, layer = null, arc = null;
 
   /* ---- geography -----------------------------------------------------
@@ -414,10 +477,106 @@ body.home-page {
         && clean(g && g.erased).toUpperCase() !== 'YES';
   }
 
+  /* ---- the shop -------------------------------------------------------
+     THE CONTRACT IS THE PUBLIC SHOP'S OWN: gift_shop_listings joined to
+     gift_shop_items, filtered on the LISTING's archived flag, then judged by
+     the ITEM's own archived / certified_at. `live` on the listing is
+     deliberately not read: the shop does not read it either, and filtering on
+     it once cut the pickable catalogue from 611 gifts to 79.
+
+     Cached per city and fetched only when a game is opened, so a visitor who
+     never opens one pays nothing for this. */
+  function giftsFor(city, done) {
+    var key = clean(city).toLowerCase();
+    if (!key) { done([]); return; }
+    if (state.gifts[key]) { done(state.gifts[key]); return; }
+    var url = rest('gift_shop_listings', {
+      select: '*,gift_shop_items(*)',
+      archived: 'eq.false',
+      city: 'eq.' + city,
+      limit: '24'
+    });
+    fetch(url, { headers: headers() }).then(function (r) {
+      return r.ok ? r.json() : [];
+    }).then(function (rows) {
+      var items = (Array.isArray(rows) ? rows : [])
+        .map(function (row) { return row && row.gift_shop_items; })
+        .filter(function (it) {
+          return it && it.certified_at && !it.rejected_at
+              && clean(it.archived).toLowerCase() !== 'true'
+              && it.archived !== true;
+        });
+      state.gifts[key] = items;
+      done(items);
+    }).catch(function () {
+      // A shop that will not answer is not a reason to break the game card.
+      state.gifts[key] = [];
+      done([]);
+    });
+  }
+
+  function giftRow(city, color) {
+    var box = document.createElement('div');
+    box.className = 'gm-shop';
+    var label = document.createElement('p');
+    label.className = 'gm-shop-label';
+    label.appendChild(text('span', 'From the ' + city.split(',')[0].trim() + ' shop'));
+    var all = document.createElement('a');
+    all.className = 'gm-shop-all';
+    // The shop's own URL contract: ?city= narrows it.
+    all.href = '/gifts/?city=' + encodeURIComponent(city);
+    all.textContent = 'See all';
+    all.addEventListener('click', function (e) { e.stopPropagation(); });
+    label.appendChild(all);
+    box.appendChild(label);
+
+    var row = document.createElement('div');
+    row.className = 'gm-shop-row';
+    box.appendChild(row);
+    box.hidden = true;
+
+    giftsFor(city, function (items) {
+      if (!items.length) return;
+      items.slice(0, 4).forEach(function (it) {
+        var a = document.createElement('a');
+        a.className = 'gm-gift';
+        a.href = '/gifts/?item=' + encodeURIComponent(clean(it.id));
+        a.title = clean(it.title);
+        a.addEventListener('click', function (e) { e.stopPropagation(); });
+        var pic = clean(it.image_url);
+        if (pic) {
+          var img = document.createElement('img');
+          img.className = 'gm-gift-pic';
+          img.src = pic;
+          img.alt = '';
+          img.loading = 'lazy';
+          img.addEventListener('error', function () {
+            img.replaceWith(mono(it.title));
+          });
+          a.appendChild(img);
+        } else {
+          a.appendChild(mono(it.title));
+        }
+        a.appendChild(text('span', clean(it.title), 'gm-gift-name'));
+        row.appendChild(a);
+      });
+      box.hidden = false;
+    });
+    return box;
+  }
+  function mono(title) {
+    var d = document.createElement('span');
+    d.className = 'gm-gift-mono';
+    d.textContent = (clean(title).charAt(0) || '?').toUpperCase();
+    return d;
+  }
+
   /* ---- what a card says ----------------------------------------------- */
 
-  function awayName(g) { return clean(g.away_team_mascot) || tidyPlace(g.away_team_city); }
-  function homeName(g) { return clean(g.home_team_mascot) || tidyPlace(g.home_team_city); }
+  function awayName(g) { return tidyPlace(g.away_team_city) || clean(g.away_team_mascot); }
+  function homeName(g) {
+    return tidyPlace(g.home_team_city) || hostCity(g) || clean(g.home_team_mascot);
+  }
   // A STATE THAT REPEATS ITS CITY IS DROPPED. Several places genuinely share a
   // name with the division around them and the catalogue is right to hold both,
   // but "New York, New York" on a card is the row saying it twice. Same rule the
@@ -429,6 +588,48 @@ body.home-page {
   }
   function hostCity(g) {
     return tidyPlace(clean(g.city) || clean(g.home_team_city) || clean(g.venue_city));
+  }
+
+  /* THE VISIBLE PAGE NAMES CITIES, NEVER CLUB NICKNAMES.
+     The fixture line, the pins and the note are built from cities already. The
+     TAGLINE AND THE BODY ARE NOT: they are authored prose and they name clubs
+     outright ("Pittsburgh Steelers fans are in town a day early"). A nickname is
+     somebody else's trademark, and this is the shop window.
+
+     The substitution is precise rather than a blanket sweep, because the row
+     already knows exactly which two nicknames could appear and which city each
+     one belongs to. Two-word form first ("Pittsburgh Steelers" -> "Pittsburgh"),
+     or replacing the bare nickname would leave the city doubled.
+
+     THIS IS A SAFETY NET, NOT THE FIX, and it has one hole it cannot close: a
+     tagline that names a club the ROW DOES NOT IDENTIFY. `smissno` says "Golden
+     Eagles" with no away mascot on the row, and `jax2026phi` names a club whose
+     mascot field is null. A global nickname map would resolve those to the
+     WRONG city, which is worse than leaving them, so they are a content fix in
+     the Taglines room rather than something to paper over here. */
+  function cityOnly(str, g) {
+    var out = clean(str);
+    if (!out) return '';
+    // THE BARE CITY, not the canonical "City, State". This is running prose,
+    // and "Philadelphia, Pennsylvania fans crash the capital" is not a sentence
+    // anybody wrote. The card's own fixture line keeps the full form.
+    var bare = function (v) { return clean(v).split(',')[0].trim(); };
+    var pairs = [
+      [clean(g.away_team_mascot), bare(g.away_team_city)],
+      [clean(g.home_team_mascot), bare(g.home_team_city) || bare(hostCity(g))]
+    ];
+    pairs.forEach(function (pair) {
+      var nick = pair[0], city = pair[1];
+      if (!nick || !city) return;
+      // (?![a-z]) rather than a word boundary: it keeps "Saints" out of
+      // "Saintsbury" without needing an escape this file has to survive.
+      out = out.replace(new RegExp(city + ' ' + nick + '(?![a-z])', 'gi'), city);
+      out = out.replace(new RegExp('the ' + nick + '(?![a-z])', 'g'), city);
+      out = out.replace(new RegExp(nick + "(?![a-z])'s", 'gi'), city + "'s");
+      out = out.replace(new RegExp(nick + "(?![a-z])'", 'gi'), city + "'s");
+      out = out.replace(new RegExp(nick + '(?![a-z])', 'gi'), city);
+    });
+    return out;
   }
 
   // A FANDOM GAME TAKES ITS COLOUR FROM THE AWAY CLUB, which is the side the
@@ -533,7 +734,7 @@ body.home-page {
     if (w) where.appendChild(text('span', w, 'gm-when'));
     card.appendChild(where);
 
-    var tag = clean(g.tagline);
+    var tag = cityOnly(g.tagline, g);
     if (tag) card.appendChild(text('p', tag, 'gm-tag'));
 
     if (open) card.appendChild(openBody(g, color));
@@ -546,7 +747,7 @@ body.home-page {
     var more = document.createElement('div');
     more.className = 'gm-more';
 
-    var body = clean(g.body);
+    var body = cityOnly(g.body, g);
     if (body) {
       more.appendChild(text('p', body.length > 260 ? body.slice(0, 258) + '..' : body, 'gm-body'));
     }
@@ -569,6 +770,9 @@ body.home-page {
 
     var start = clean(g.starting_location_name);
     if (start) more.appendChild(text('p', 'You start at ' + start + '.', 'gm-note'));
+
+    var city = hostCity(g);
+    if (city) more.appendChild(giftRow(city, color));
     return more;
   }
 
@@ -689,7 +893,7 @@ body.home-page {
     note.textContent = '';
     note.appendChild(text('b', 'Where you are going'));
     note.appendChild(text('span',
-      awayName(g) + ' fans take over ' + hostCity(g) + ', the day before the game.'));
+      awayName(g) + ' fans take over ' + hostCity(g) + '. You play the day before.'));
     note.hidden = false;
   }
 

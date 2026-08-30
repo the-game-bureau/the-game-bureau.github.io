@@ -454,6 +454,65 @@ points: the empty state on the live rows, the full list on the same rows served
 live, the away-club palette, the fly framing New Orleans and New York in that
 order, the second zoom, the search, and the close. 35 assertions.
 
+### THE SHOP'S SHOPFRONT, AND WHAT THE PAGE MAY NAME (2026-08-30, same day)
+
+Four corrections to the rebuild above, all from Kevin using it.
+
+- **THE REBUILD KILLED THE GIFT SHOP'S ROUTE TO CUSTOMERS.** Dropping the
+  scrolling FROM THE GIFT SHOP strip took the shop's shopfront off the busiest
+  page on the site. **It is back as a row inside the OPEN game**, which is a
+  better route than the strip was: a rail of featured sports gifts was the same
+  four objects on every visit and said nothing about the game you were reading.
+  These are gifts for the city you are about to walk, with **See all** narrowing
+  the shop to it.
+  - **THE CONTRACT IS THE PUBLIC SHOP'S OWN**: `gift_shop_listings` joined to
+    `gift_shop_items`, filtered on the LISTING's archived flag and then judged by
+    the ITEM's `archived` / `certified_at` / `rejected_at`. **`live` is
+    deliberately not read**, because the shop does not read it either and
+    filtering on it once cut the pickable catalogue from 611 gifts to 79.
+  - Fetched only when a game is opened and cached per city, so a visitor who
+    opens none pays nothing for it. A shop that will not answer draws nothing
+    rather than breaking the card.
+- **THE VISIBLE PAGE NAMES CITIES, NEVER CLUB NICKNAMES.** A nickname is
+  somebody else's trademark and this is a shop window; the product is a walk
+  through Charlotte, not a licensed Panthers item. **Search still reaches the
+  nicknames**, because that is what a fan types and matching on a word is not
+  using it as a name.
+  - **THE FIXTURE LINE AND THE PINS WERE EASY; THE TAGLINES WERE NOT.** Those
+    are authored prose and they name clubs outright. `cityOnly()` substitutes
+    per row, from the two mascots the row itself carries, two-word form first
+    ("Pittsburgh Steelers" before a bare "Steelers") or the city would double.
+  - **IT IS A SAFETY NET, NOT THE FIX, and it has one hole it cannot close.**
+    Two rows of 395 name a club the row does not identify: **`smissno`** says
+    "Golden Eagles" with no away mascot, and **`jax2026phi`** names a club whose
+    mascot field is null. **A global nickname map would resolve both to the
+    WRONG city**, which is worse than leaving them, so they are a content fix in
+    the Taglines room. The test asserts what the scrub can actually promise: no
+    card prints a nickname THAT ROW NAMES.
+- **THE COUNTS CAME BACK BY ADDING THE FOOTER ELEMENT.** `site-footer.js` mounts
+  into `footer[data-site-footer]` and bails when there is none, and it is also
+  what computes the four figures and hands them to `TgbNav.setStats`. No footer
+  element, no badges, and the nav renders them pending forever.
+- **THE NAV IS THE FIRST THING ON THIS PAGE, WHICH THE SHARED RULE DOES NOT
+  ASSUME.** `site-shell.css` gives it `padding: 0 0 16px` because on every other
+  public page something sits above it; here the wordmark sat against the top
+  edge. It is padded and **full bleed with its own 24px inset** rather than an
+  auto-centred box 48px narrower, so **the nav's left edge and the rail's are one
+  margin**. Two margins four pixels apart is the kind of thing you cannot name
+  and can see.
+- **THE COPY NO LONGER SAYS "THE MATCH".** It assumed a fixture, and most of the
+  reasons somebody is in town are not one, so the pitch reads *"In town for a
+  game, a concert, or nothing in particular?"* **It also collided with our own
+  word** and that is the part to keep: a TGB game is a game, and so is the thing
+  that brought you. The map note says *"You play the day before"* rather than
+  *"the day before the game"* for the same reason.
+- **THE UNARCHIVE IS WRITTEN AND NOT APPLIED.**
+  [unarchive-new-orleans-and-oswald.sql](mc/supabase/seeds/unarchive-new-orleans-and-oswald.sql) lights the New Orleans games and
+  Oswald's Diary. **Supabase was unreachable when it was written** -- both
+  `supabase db query --linked` and a plain curl to the REST endpoint timed out --
+  so it goes in by hand. Read its second statement's output rather than trusting
+  the absence of an error.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

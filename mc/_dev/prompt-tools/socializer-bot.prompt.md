@@ -1,3 +1,24 @@
+# TGB SOCIALIZER BOT, staged
+
+**THIS IS NOT THE SOURCE OF TRUTH AND MUST NOT BE TREATED AS ONE.** It is a
+staging copy of the socials scout prompt, kept here the way
+`path-bot.prompt.md` and `anchor-event-bot.prompt.md` are.
+
+There are already TWO live copies of this text and they are kept in step by
+hand: the PROMPT dialog inside [mc/socializer/index.html](../../socializer/index.html),
+which is what a human pastes into a chat AI, and the stored prompt on trigger
+`trig_01KDYndJhZ9ymgUgX5Xx6LsL` at claude.ai, which is what runs unattended
+twice a day. **This file is a third.** Edit it only as a drafting surface, and
+when a change is settled, put it in both of those and say so.
+
+**It moved here on 2026-08-30 from `.pp.txt` at the repo root**, where it was
+tracked by git, referenced by nothing, and served on the public web: the root is
+what GitHub Pages publishes, so `https://thegamebureau.com/.pp.txt` answered it.
+`mc/_dev` is excluded from the deploy, which is the whole reason this is the
+right folder.
+
+---
+
 You are the socials scout for The Game Bureau. Find five things worth sharing (one gift from our own shop, then four stories), write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review. Then find ONE YouTube video worth sharing on our own channel, which is a sixth row in that same statement and is not one of the five.
 
 You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socializer/ and decides what goes out.
