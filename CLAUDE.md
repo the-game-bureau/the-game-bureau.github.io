@@ -1286,6 +1286,41 @@ place) and now the destinations; what is missing is the join that says *this
 fandom, in this city* and the decision about what `public.games` becomes when a
 row is only needed at purchase.
 
+## TRIVIA IS KEYED TO A PLACE, NOT TO A CLUB (2026-08-30)
+
+[2026083006_trivia.sql](mc/supabase/migrations/2026083006_trivia.sql), **applied**. Three rows to start.
+
+- **`id` HOLDS THE FIRST TWO PARTS OF A DESTINATION'S ID** -- `atlanta-ga`,
+  `buffalo-ny` -- so **one row serves every fandom that ever visits that city
+  and every game ever generated there.** That is the generative argument applied
+  to content: one route through Chicago serves every club that visits it, and so
+  does one question about Chicago.
+- **`id` IS NEITHER THE PRIMARY KEY NOR UNIQUE**, deliberately: a city holds many
+  questions. `trivia_id` is an identity column so a row can be pointed at without
+  anybody inventing a name for it.
+- **AND IT IS NOT A FOREIGN KEY, WHICH LOOKS LIKE AN OVERSIGHT AND IS NOT.**
+  `destinations.id` is the FOUR-part id, so a city-and-state has nothing to
+  reference -- **New York and Los Angeles each carry two rows, so neither `city`
+  nor `city+state` is unique.** Same shape as `issues.subject_id`, TEXT and
+  generic for the same reason. **The verify block is what catches a typo;
+  nothing in the database will.**
+- **THE ANSWER IS ONE WORD OR ONE OF THE CHOICES, never both and never neither.**
+  `choices is null` means a word the team types; otherwise the options, with
+  `answer` among them, which a CHECK enforces. **A multiple choice whose answer
+  is not on its own list is unanswerable and looks perfectly fine in a table** --
+  which is exactly what a hand-typed row produces.
+- **`type` IS FREE TEXT** (`Know Your Enemy`, `Super Fan Check`). A CHECK would
+  mean a migration every time a writer invents a category, and unlike
+  `challenges.kind` nothing here has to BEHAVE differently per value.
+- **THESE REWARD KNOWING, WHICH THE CHALLENGE LIBRARY'S OWN RULE FORBIDS.** That
+  rule -- prefer a challenge answered by LOOKING over one answered by KNOWING --
+  is about a stop, where recall rewards whoever reaches for a phone fastest.
+  **Trivia is the other thing on purpose**: it is the away fandom being tested on
+  the city they are visiting, and the two sit side by side in a game.
+- **PROVED BY CALLS THAT MADE IT REFUSE**: an answer outside its choices, a
+  single choice, a capitalised id and a blank question are all refused by name,
+  and the three ids all resolve to a real destination.
+
 ## A PATH IS A ROUTE, AND A STOP FINALLY HAS ITS CHALLENGE (2026-08-30)
 
 [2026083001](mc/supabase/migrations/2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql), **applied**. `paths` is `routes`, `path_stops` is `route_stops`,
