@@ -733,6 +733,33 @@ markup lays out to nothing. The data was ruled out first, by making the page's
 own anon read by hand: 536 waypoints, 518 with a point. **When a thing does not
 appear, prove the data arrived before touching the drawing.**
 
+### THE GLYPH INHERITED THE COLOUR IT SITS ON (2026-08-30)
+
+The pin head paints itself `background: currentColor`, and `.wp-pin` carries the
+game's colour, so the `<em>` holding the emoji **inherited exactly the colour
+behind it**.
+
+- **A COLOUR-FONT EMOJI SURVIVES THAT AND A MONOCHROME ONE DOES NOT.** Which of
+  the two a viewer gets depends on their device's emoji font, so this is a fault
+  that appears on some machines and not others, which is the worst kind to
+  leave in.
+- **THE GLYPH TAKES `--wp-ink` NOW**, the same readable black-or-white the buy
+  button already derives from the club colour by luminance.
+- **THE ASSERTION READS THE BUILT MARKUP, NOT THE COMPUTED COLOUR**, because
+  **jsdom does not resolve a `var()`**: `color: var(--wp-ink, #fff)` comes back
+  as that literal string, so a computed check would pass against a broken rule
+  and fail against a correct one. Same limitation this file already records for
+  the Events room's hairline. It asserts the inline `--wp-ink` carries the right
+  value AND that the stylesheet actually applies it.
+
+**WHAT THE LIVE ROWS ACTUALLY RESOLVE TO**, run through the page's own fallback
+rather than assumed: **25 of the 31 put a glyph in their pin** (13 from
+`default_emoji`, 12 more via `category_icon`), and 6 get a bare pin. The six are
+`mnola`, `nolaofficetour2000`, `northtxnola`, `nolapass`, `salno` and `smissno`
+-- all standalone New Orleans walks carrying neither column. **Giving them one
+is a content decision**, and an invented icon would say something about the game
+nobody decided.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

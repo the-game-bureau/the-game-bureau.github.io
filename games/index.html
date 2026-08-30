@@ -323,7 +323,17 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   border-left: 7px solid transparent; border-right: 7px solid transparent;
   border-top: 11px solid currentColor;
 }
-.wp-pin em { font-style: normal; font-size: 18px; line-height: 1; }
+/* THE GLYPH TAKES A CONTRASTING INK, NOT THE COLOUR IT SITS ON.
+   `.wp-pin` carries the game's colour and the head paints itself
+   `background: currentColor`, so the <em> inherited exactly the colour behind
+   it. A colour-font emoji ignores `color` and survives that; a MONOCHROME one
+   does not, and renders invisible on its own background. Which of the two you
+   get depends on the device's emoji font, so this is a bug that appears on some
+   machines and not others, which is the worst kind to leave in. */
+.wp-pin em {
+  font-style: normal; font-size: 18px; line-height: 1;
+  color: var(--wp-ink, #fff);
+}
 .wp-pin .pin-label { top: 50px; }
 
 /* A CITY IS A DOT WITH A NAME, drawn by us rather than by a pin image:
@@ -1010,7 +1020,8 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   function pin(L, latlng, color, glyph, label) {
     var icon = L.divIcon({
       className: '',
-      html: '<span class="wp-pin" style="color:' + color + '"><b>'
+      html: '<span class="wp-pin" style="color:' + color
+          + ';--wp-ink:' + inkOn(color) + '"><b>'
           + (glyph ? '<em>' + esc(glyph) + '</em>' : '') + '</b>'
           + (label ? '<span class="pin-label">' + esc(label) + '</span>' : '')
           + '</span>',
