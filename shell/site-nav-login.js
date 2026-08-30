@@ -20,7 +20,7 @@
 
   function builderHrefForGame(gameId) {
     var id = String(gameId || '').trim();
-    return '/mc/builder.html' + (id ? '?id=' + encodeURIComponent(id) : '');
+    return '/mc/builder/' + (id ? '?id=' + encodeURIComponent(id) : '');
   }
 
   function updateBuilderLink() {

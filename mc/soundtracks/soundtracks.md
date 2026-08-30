@@ -304,7 +304,7 @@ curl -sS -X POST "$B/rpc/tgb_pull_soundtrack_songs" \
 
 **You cannot fix anything.** Putting a track live, shelving it and editing it
 are human actions in the Tape Room; a finding is read and cleared at
-`/mc/issues.html`, and clearing one DELETES it. Noticing is automatable;
+`/mc/issues/`, and clearing one DELETES it. Noticing is automatable;
 deciding is not. Your job is to notice precisely.
 
 **Which tapes:** the two you just wrote to, errors being cheapest to catch the

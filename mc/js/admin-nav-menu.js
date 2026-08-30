@@ -36,225 +36,178 @@
 
   var MENU_GROUPS = [
     {
-      // NOT "Data & Research", which described the storage rather than the
-      // purpose. Every catalog in here is a PART a game gets assembled from: an
-      // anchor event to build around, waypoints that become its stops, the city
-      // it is played in, the club whose colors it wears. Naming them by what
-      // they are for is what tells you why Cities sits beside Anchor Events.
-      label: 'Game Elements',
-      // NOT `combined`. The four catalogs render as their own cards, the same
-      // shape as Ancillary Things at the top of the hub — these are places you
-      // go and do something, not a directory you scan. `combined` is still
-      // right for Game Builder below, which is nine tools and would be nine
-      // full cards of scrolling.
+      // ---- THE SPINE ------------------------------------------------------
+      // The order IS the argument, and it is the whole reason this group is
+      // first: a game is assembled down this list. An anchor event brings
+      // people to a city; waypoints are the places they will stand in; a
+      // challenge is what they do there; a route puts those in order; the
+      // marquee is where a game becomes something somebody can buy.
+      //
+      // Everything above the marquee is an INGREDIENT and everything below it
+      // is the finished thing. That line is what the old Game Elements /
+      // Game Builder split was reaching for and never quite said.
+      label: 'The Spine',
       items: [
         {
           href: '/mc/events/',
-          // FIRST IN THE GROUP since 2026-08-28. It is where the work starts:
-          // a game is played the day before its anchor event, so the event is
-          // what decides there is a game to build at all, and everything else
-          // in this group is chosen to fit one. The order of the cards is the
-          // order of the job.
-          //
-          // Absorbed /mc/get_games.html ("Sports Games Research") and
-          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
-          // gathered real schedules the long way round and neither wrote
-          // anchor_events; the SCHEDULE button on this page reads the same ESPN
-          // feed in the browser and imports straight into the table.
           label: 'Anchor Events',
-          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.',
-          action: 'GO TO ANCHOR EVENTS'
+          description: 'Real matchups, concerts and conventions a game is built around. The reason people are already in town.'
         },
         {
           href: '/mc/waypoints/',
-          // MOVED HERE FROM GAME BUILDER 2026-08-17. A Path is an ordered set of
-          // waypoints and nothing else -- no game, no challenges, no pricing --
-          // so it is a part a game is assembled FROM, which is what this group
-          // holds. Next door is where those parts get put together, and a Path
-          // is reusable across games in the same way a Guide, a City and a Team
-          // are.
-          //
-          // SECOND IN THE GROUP since 2026-08-28, and first from 2026-08-19
-          // before that. It sat LAST originally, which put the room that
-          // actually assembles a walk below four catalogues you consult; a Path
-          // is the thing being built and the others are what it is built out
-          // of. That argument still holds against the three below it and loses
-          // to Anchor Events, which is the one card here that decides whether
-          // there is a walk to build.
           label: 'Waypoints',
-          // ONE ROOM, ONE NAME, AND THE NAME IS NOW THE ONE THE DOORWAYS
-          // ALREADY USED. The waypoint catalogue and the paths built from it
-          // were folded into this page on 2026-08-09, but the doorways kept
-          // calling it two things -- "Waypoints" from the Data Warehouse and
-          // Daily Review, "Path Builder" here -- so it read as two rooms that
-          // happened to share a URL. That was settled in favour of Path Builder
-          // and settled the other way on 2026-08-28: WAYPOINTS is what the room
-          // is called now, and mc/pathbuilder.html moved to /mc/waypoints/ with
-          // it. The description still says both jobs, because the room still
-          // does both.
-          description: 'The catalog of real places, the nightly scout, and the walking paths built from them.',
-          action: 'GO TO WAYPOINTS'
+          description: 'Every real place we hold. One row per place, ever, whatever it is later used for.'
         },
         {
           href: '/mc/challenges/',
-          // DIRECTLY UNDER WAYPOINTS, because the pair is the sentence the
-          // whole vocabulary rests on: Waypoint + Challenge = Game Stop. They
-          // are the two halves of a stop and reading them apart is how the
-          // join between them went unbuilt for so long.
-          //
-          // A CHALLENGE IS THE PLAYABLE CONTENT and, at one row on 2026-08-29,
-          // the least built thing in the product. Everything else in this
-          // group is an ingredient somebody has already gathered thousands of.
           label: 'Challenges',
-          description: 'What a team actually does at a stop — write them once, with variables, and use them in every game.',
-          action: 'GO TO CHALLENGES'
+          description: 'What a team does when they get there. Written once, with variables, and used in every game it fits.'
         },
         {
-          // This card was WAYPOINTS until 2026-08-09 — it pointed at
-          // mc/data/waypoints.html, and once that page was folded into the
-          // Path Builder it became a second door to a room the Game Builder
-          // group below already lists. Guides took the slot, then became the
-          // Green Room the same day when mc/guides.html was rebuilt as
-          // mc/greenroom.html against public.guides. The card ABOVE is called
-          // Waypoints again as of 2026-08-28, and it is NOT this card coming
-          // back: the old one was a second door to the same room, this is the
-          // room itself, renamed.
-          href: '/mc/greenroom.html',
-          label: 'Guide Green Room',
-          description: 'Where the narrators are made — add, write, illustrate and retire the guides.',
-          action: 'GO TO THE GREEN ROOM'
+          href: '/mc/routes/',
+          label: 'Routes',
+          description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'
         },
         {
-          href: '/mc/data/teams.html',
-          // Was /mc/get_teams.html, the last "research assistant". Research Home
-          // sat above it and was deleted the same day: two cards, both already
-          // in this menu, on a page that had to be hand-edited to stay true.
-          label: 'Teams',
-          description: 'The teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.',
-          action: 'GO TO TEAMS'
+          href: '/mc/marquee/',
+          label: 'Marquee',
+          description: 'Where a game becomes a product: its name, its city, its price, its opponent, its start.'
         },
         {
-          // A ROOM WITH NO DOOR IS UNREACHABLE, and this file is the door. Added
-          // in the same commit as the room, which is the standing rule here read
-          // the other way round: doors and rooms move together.
-          href: '/mc/teams/leagues.htm',
-          label: 'Leagues',
-          description: 'Which sport each league plays — the list anchor events and teams are both naming.',
-          action: 'GO TO LEAGUES'
+          href: '/mc/builder/',
+          label: 'Flow Builder',
+          description: 'The playable conversation: messages, prompts, replies and branches. Not the game identity, which is next door.'
         }
       ]
     },
     {
-      // Renamed from "Games" 2026-08-07, to say what the group is FOR rather
-      // than what it is about — the same move that turned "Data & Research"
-      // into "Game Elements". Elements are the parts; this is where they get
-      // assembled into a game.
-      label: 'Game Builder',
-      // One panel listing its tools, not ten full-height cards. `combined` only
-      // affects the /mc/ hub; the dropdown renders every group the same way.
+      // ---- THE CATALOGUE --------------------------------------------------
+      // Reference a game READS but does not consume. None of these is a step
+      // in building one, which is exactly why they are not in the spine: you
+      // come here to correct a fact, not to make something.
+      label: 'The Catalogue',
       combined: true,
       items: [
         {
-          href: '/mc/marquee.html',
-          // First, ahead of the room that contains it: a game starts here,
-          // and this is the one item in the group you open to make a NEW game
-          // rather than to work on an existing one. It also carries
-          // appendOpenGameId, so it reopens whatever you had last.
-          //
-          // "Marquee" since 2026-08-10, and the file moved with it
-          // (mc/profiles.html -> mc/marquee.html). It was "Game Profiles",
-          // which named a database row rather than a room, over a filename
-          // that did not say whose profiles. A marquee is where a show's name,
-          // billing and price go up - which is exactly what this page sets.
-          label: 'Marquee',
-          description: "Set a game's billing: name, public copy, price, teams, guide, engine and rendezvous.",
-          appendOpenGameId: true
-        },
-        // A "Game Builder" item pointing at /games/admin/ sat here until
-        // 2026-08-07. That room was emptied the same day — its button bar had
-        // only duplicated this menu, its game-count stat went with it, and its
-        // index.html was deleted — leaving a link to a directory that 404s. It
-        // is gone rather than repointed, because the group above is already
-        // called GAME BUILDER and its first item, the Marquee, is where you
-        // actually start. Removing it also ends a name that appeared twice.
-        {
-          href: '/mc/builder.html',
-          // Was "Game Builder" until 2026-08-07, which overstated it: this edits
-          // the conversation FLOW, not the game as a whole — the game's identity,
-          // pricing, teams and start point are next door in the Marquee.
-          label: 'Flow Builder',
-          description: 'Build the playable conversation flow: messages, prompts, replies, and branches.',
-          appendOpenGameId: true
-        },
-        // GAME STOPS IS OFF THE MENU (2026-08-09) and its page renamed
-        // mc/_stops.html — the underscore marks a room that is still live but is
-        // not offered. It is the only writer of public.stops, which the two game
-        // editors read through the game_stops view, so it cannot simply be
-        // deleted; it is parked until that model is resolved.
-        //
-        // Why it was parked: public.stops is keyed by CITY, so every game in a
-        // city shares one list and a city cannot have two different walks. That
-        // is exactly what public.paths + public.path_stops were built to fix,
-        // and having both means two systems ordering the same waypoints. The
-        // end state is a path carrying its own challenges; until then, reach
-        // the old page by typing /mc/_stops.html.
-        {
-          href: '/mc/game-plays.html',
-          label: 'Game Plays',
-          description: 'See recorded playthroughs: team names, answers at each stop, and lifecycle timeline.'
+          href: '/mc/teams/',
+          label: 'Teams',
+          description: 'The clubs a fandom game is built on, and the palette it wears.'
         },
         {
-          href: '/mc/gifts/operations.html',
-          label: 'Operations',
-          description: 'Monitor TGB game operations: issued access codes, play stats, and live-game workflows.'
+          href: '/mc/leagues/',
+          label: 'Leagues',
+          description: 'Which sport each league plays. The list anchor events and teams are both naming.'
         },
+        {
+          href: '/mc/data/',
+          label: 'Data Warehouse',
+          description: 'The older directory of table editors. Most of what it points at now has a room of its own.'
+        }
+      ]
+    },
+    {
+      // ---- RUNNING IT -----------------------------------------------------
+      // Nothing here makes a game. These are the rooms you open because a game
+      // already exists and something about it needs looking at.
+      label: 'Running It',
+      combined: true,
+      items: [
         {
           href: '/mc/review/',
           label: 'Daily Review',
-          description: 'Review recent game-stop candidates, gift-shop items, and sound findings.'
+          description: 'What the routines filed since yesterday, in one pass.'
         },
-        // Guides MOVED UP to Game Elements on 2026-08-09, taking the card the
-        // Waypoints entry vacated. Listed once, not twice: a page in two groups
-        // makes the menu a place to search rather than read.
         {
-          href: '/mc/taglines.html',
+          href: '/mc/game-plays/',
+          label: 'Game Plays',
+          description: 'Recorded playthroughs: team names, the answer at every stop, and the timeline.'
+        },
+        {
+          href: '/mc/operations/',
+          label: 'Operations',
+          description: 'Issued access codes, play stats, and the live-game workflow.'
+        },
+        {
+          href: '/mc/highlights/',
+          label: "Winner's Wall",
+          description: 'Photographs teams sent in, and whether they are fit to publish.'
+        },
+        {
+          href: '/mc/taglines/',
           label: 'Taglines',
-          description: 'Generate, compare, and update public game taglines in bulk.'
+          description: 'Generate, compare and approve the public one-liner on every game.'
         },
         {
           href: '/mc/picmaker/',
           label: 'Picmaker',
-          description: 'Generate sport marks, takeover hero images, and reusable guide portrait image prompts.'
+          description: 'Sport marks, takeover heroes, and the reusable portrait prompts.'
         }
       ]
     },
     {
-      label: 'Socials',
-      // Menu only. /mc/ already carries Socializer under Ancillary Things at the
-      // top of the page, so a directory card below it was the same link twice --
-      // the same reason Gifts Admin and Soundtracks Admin are chores and appear
-      // in no menu group.
-      //
-      // IT USED TO SAY the dropdown was the only way to reach this room from
-      // another page, because the shared admin nav carried four buttons and none
-      // of them was social. THAT STOPPED BEING TRUE ON 2026-08-20: that nav has
-      // a fifth button, FOLLOW, and it lands here. This entry is kept anyway,
-      // because FOLLOW does not say Socializer on its face and somebody looking
-      // for the room by name should still find it in a list.
+      // ---- THE PERIPHERY --------------------------------------------------
+      // Soundtracks, gifts and socials hang off the product rather than being
+      // it. The Gift Shop and the Tape Room are not listed here because they
+      // are already the two chore cards at the top of the hub, and a page in
+      // two places is the same link twice.
+      label: 'The Periphery',
       hubHidden: true,
       items: [
         {
           href: '/mc/socializer/',
           label: 'Socializer',
-          description: 'Review AI-scouted stories and open prefilled composers for The Game Bureau social channels.'
+          description: 'Review what the bot found and post it, one account at a time.'
         },
         {
-          // Reached from the Tape Room's own VIEW bar as well, by the one red
-          // button in that room. This entry is here so somebody looking for it
-          // by name finds it in a list, the same reason Socializer has one.
-          href: '/mc/issues.html',
+          href: '/mc/issues/',
           label: 'Issues',
-          description: 'What the daily audit found wrong with the tapes. Drawn on the rows in the Tape Room until 2026-08-26.'
+          description: 'What the audits found wrong, across every area, and visitor suggestions.'
+        }
+      ]
+    },
+    {
+      // ---- FOR REVIEW -----------------------------------------------------
+      // LAST, AND DELIBERATELY VISIBLE. Every page below is reachable, carries
+      // real code, and is linked from nothing. That is the state in which a
+      // page rots quietly: it keeps working, nobody opens it, and the next
+      // person cannot tell whether it is load-bearing.
+      //
+      // Listing them is not a proposal to delete them. It is a list of
+      // decisions somebody has to take, in one place, so the answer is
+      // recorded rather than rediscovered.
+      label: 'For Review',
+      combined: true,
+      items: [
+        {
+          href: '/mc/stops/',
+          // PARKED 2026-08-09 and it cannot simply go: it is the only writer of
+          // public.stops, which both engines read through the game_stops view.
+          // The Route Builder is what replaces it.
+          label: 'Stop Builder',
+          description: 'Parked. Keyed by city, so a city cannot have two walks, which is the fault routes exist to fix. Still the only writer of public.stops.'
+        },
+        {
+          href: '/mc/greenroom/',
+          // Kevin asked for guides out of the game on 2026-08-30. The room is
+          // listed here rather than deleted because 41 rows and four columns on
+          // public.games depend on it, and both engines read those at play time.
+          label: 'Guide Green Room',
+          description: 'Guides are being removed from the game. 41 rows, and four columns the engines still read at play time.'
+        },
+        {
+          href: '/mc/assets/states/',
+          label: 'Team Colors',
+          description: 'A standalone colour sheet under assets. Nothing links to it and nothing reads it.'
+        },
+        {
+          href: '/mc/editgames/',
+          label: 'editgames (stub)',
+          description: 'A forwarding stub, 28 lines. Nothing links to it. Safe to delete once you have said so.'
+        },
+        {
+          href: '/mc/photos/',
+          label: 'photos (stub)',
+          description: 'A forwarding stub to the highlights admin, 16 lines. Nothing links to it.'
         }
       ]
     },

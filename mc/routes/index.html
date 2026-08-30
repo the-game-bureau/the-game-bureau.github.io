@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ROUTES | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+    /* ---- what a challenge row shows -------------------------------------- */
+    .ch { align-items: flex-start; }
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    .ch-prompt {
+      flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
+      font-size: 0.86rem; line-height: 1.45;
+    }
+    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+       writer can see at a glance which words the game fills in. */
+    .var {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+      padding: 0 3px; border-radius: 3px;
+      background: rgba(var(--bic-blue-rgb), 0.1); color: var(--bic-blue);
+    }
+    .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
+
+    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
+       rather than words in a sentence. Scope carries the outline because it is
+       the one that decides whether a challenge can be reused; kind does not. */
+    .ch-kind {
+      font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
+      white-space: nowrap;
+    }
+    .ch-scope {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
+      border: 1px solid transparent; white-space: nowrap;
+    }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
+    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
+    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .preview {
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-soft); padding: 10px 12px;
+      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
+    }
+    .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
+    .varbar button {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
+      padding: 3px 7px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff; color: var(--bic-blue);
+    }
+    .varbar button:hover { background: var(--cut-panel-bg); }
+
+    /* ---- the two columns ------------------------------------------------
+       WAYPOINTS LEFT, ROUTE RIGHT, because you are moving places out of a
+       catalogue and into a walk, and the drag runs the way reading does.
+       The route column is wider: its rows carry an ordinal, a challenge and
+       the words that lead to the next stop. */
+    .cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; }
+    @media (max-width: 960px) { .cols { grid-template-columns: 1fr; } }
+    .col { border: 1px solid var(--cut-panel-line); border-radius: 10px;
+           background: var(--panel); box-shadow: 0 1px 4px rgba(20,30,60,0.05);
+           display: flex; flex-direction: column; min-width: 0; }
+    .col-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+                padding: 9px 12px; border-bottom: 1px solid var(--line);
+                background: var(--cut-panel-bg); border-radius: 10px 10px 0 0; }
+    .col-title { font: 700 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+                 text-transform: uppercase; }
+    .col-count { font: 400 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .col-body { padding: 7px; overflow-y: auto; max-height: 70vh; }
+
+    /* ---- a place in the library ------------------------------------------ */
+    .lib { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px;
+           border: 1px solid transparent; border-radius: 7px; }
+    .lib:hover { background: #fff; border-color: var(--line); }
+    .lib-name { flex: 1 1 auto; min-width: 0; font-size: 0.9rem; line-height: 1.35; }
+    .lib-where { display: block; font: 400 0.66rem/1.3 'IBM Plex Mono', monospace;
+                 color: var(--muted); margin-top: 2px; }
+    /* A PLACE ALREADY ON THE ROUTE IS TINTED, NEVER FADED. It is still
+       draggable, still editable, and may be added again to close a loop, so
+       fading it would say disabled, which is a lie. */
+    .lib.is-used { background: rgba(var(--bic-blue-rgb), 0.08);
+                   border-color: rgba(var(--bic-blue-rgb), 0.3); }
+    .lib-add { flex: 0 0 auto; }
+
+    /* ---- a stop on the route --------------------------------------------- */
+    .stop { border: 1px solid var(--line); border-radius: 8px; background: #fff;
+            padding: 8px 10px; margin-bottom: 7px; }
+    .stop-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .stop-ord { font: 700 0.72rem/1 'IBM Plex Mono', monospace; color: var(--bic-blue);
+                min-width: 2.2em; }
+    .stop-name { flex: 1 1 auto; min-width: 0; font-size: 0.95rem; font-weight: 600; }
+    .stop-acts { display: flex; gap: 3px; }
+    .stop-field { margin-top: 7px; }
+    .stop-field > span { display: block; font: 500 0.6rem/1 'IBM Plex Mono', monospace;
+                         letter-spacing: 0.08em; text-transform: uppercase;
+                         color: var(--muted); margin-bottom: 4px; }
+    .stop-field select, .stop-field textarea {
+      width: 100%; font: inherit; font-size: 0.86rem; color: var(--ink);
+      border: 1px solid var(--control-line); border-radius: 6px; padding: 6px 8px;
+      background: #fff;
+    }
+    .stop-field textarea { min-height: 52px; resize: vertical; line-height: 1.45; }
+    /* THE LAST STOP LEADS NOWHERE, so it is not asked for a direction. A box
+       that can only ever be wrong to fill in is worse than no box. */
+    .stop.is-last .stop-field--dir { display: none; }
+    .stop-last-note { margin-top: 7px; font: 400 0.72rem/1.4 'IBM Plex Mono', monospace;
+                      color: var(--muted); }
+    .stop.is-nochallenge { border-color: rgba(190, 55, 55, 0.45); }
+    .stop-warn { margin-top: 6px; font-size: 0.78rem; color: var(--bic-red); }
+    .arrow { font: 600 0.8rem/1 'IBM Plex Mono', monospace; padding: 4px 7px;
+             border: 1px solid var(--control-line); border-radius: 5px;
+             background: #fff; cursor: pointer; color: var(--ink); }
+    .arrow:hover { border-color: var(--bic-blue); }
+    .arrow[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+    .empty { padding: 18px 12px; color: var(--muted); font-size: 0.9rem; text-align: center; }
+</style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? ROUTES</h1>
+        <p class="room-blurb">A Route is the walk a game takes. Waypoint + Challenge = Stop, and the Direction is what sends a team to the next one.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Open</legend>
+        <div class="command-bar-inner">
+          <select id="citySel" title="Narrow to one city"></select>
+          <select id="routeSel" title="The route you are editing"></select>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>This route</legend>
+        <div class="command-bar-inner">
+          <input type="text" id="fTitle" placeholder="Route name" autocomplete="off">
+          <select id="fShape" title="The shape of the walk"></select>
+          <button class="btn primary" id="saveBtn" type="button" aria-disabled="true">Save</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--check">
+        <legend>Issues</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="checkBtn" type="button">Check</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="cols">
+      <section class="col">
+        <div class="col-head">
+          <span class="col-title" id="libTitle">Waypoint Library</span>
+          <span class="col-count" id="libCount"></span>
+        </div>
+        <div class="col-body" id="libBody"></div>
+      </section>
+
+      <section class="col">
+        <div class="col-head">
+          <span class="col-title" id="routeTitle">Route</span>
+          <span class="col-count" id="routeCount"></span>
+        </div>
+        <div class="col-body" id="routeBody"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+
+    /* ================================================================== *
+     *  ROUTES. The device that marries waypoints and challenges.
+     *
+     *  A ROUTE is the walk a game takes. A STOP is one waypoint plus one
+     *  challenge plus the DIRECTION that leads to the next stop, which is
+     *  the only part of a game about the space BETWEEN two places.
+     *
+     *  THE PAGE CARRIES NO COMMENTS ELSEWHERE BY HOUSE RULE; the reasoning
+     *  that is load-bearing lives here and in CLAUDE.md.
+     * ================================================================== */
+
+    const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+
+    const el = (id) => document.getElementById(id);
+    const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
+
+    const SHAPES = ['loop', 'out_and_back', 'point_to_point',
+                    'lollipop', 'figure_eight', 'horseshoe', 'network'];
+
+    const state = {
+      routes: [], stops: [], waypoints: [], challenges: [],
+      city: 'any', routeId: '', dirty: false, loaded: false, reviewOnly: false
+    };
+
+    let adminAuth = null;
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_URL + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const h = Object.assign({
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_KEY),
+        'Content-Type': 'application/json'
+      }, extra || {});
+      return h;
+    }
+    async function readError(res, fallback) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { text = ''; }
+      // TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw 42703 is a statement
+      // about our schema and tells the person at the keyboard nothing.
+      if (/route_stops|column .*challenge_id|column .*direction/.test(text)) {
+        return 'The database has no route_stops table with a challenge and a '
+             + 'direction yet. Run mc/supabase/migrations/'
+             + '2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql.';
+      }
+      if (/PGRST205|relation .*routes/.test(text)) {
+        return 'There is no public.routes table. Run mc/supabase/migrations/'
+             + '2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql.';
+      }
+      if (/42501|row-level security/.test(text)) {
+        return 'The database refused the write. Sign in again.';
+      }
+      return fallback + (text ? ' (' + text.slice(0, 180) + ')' : '');
+    }
+
+    let statusTimer = null;
+    function setStatus(msg, tone) {
+      const box = el('pageStatus');
+      box.textContent = msg || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+      window.clearTimeout(statusTimer);
+      // An error stays until the next action; a success clears itself, because
+      // a stale "saved" an hour later is a lie about what is currently true.
+      if (msg && tone !== 'error') statusTimer = window.setTimeout(() => {
+        if (el('pageStatus').textContent === msg) el('pageStatus').textContent = '';
+      }, 6000);
+    }
+
+    /* ---- reading ---------------------------------------------------------- */
+
+    async function pageAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not read ' + table + '.'));
+        const page = await res.json();
+        out.push(...page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    async function loadAll() {
+      const [routes, stops, waypoints, challenges] = await Promise.all([
+        pageAll('routes', { select: '*', order: 'city.asc,title.asc' }),
+        pageAll('route_stops', { select: '*', order: 'route_id.asc,ord.asc' }),
+        pageAll('waypoints', { select: 'wpid,name,address,city,state,lat,lon', order: 'name.asc' }),
+        pageAll('challenges', { select: '*', order: 'name.asc' })
+      ]);
+      state.routes = routes;
+      state.stops = stops;
+      state.waypoints = waypoints;
+      state.challenges = challenges;
+      state.loaded = true;
+    }
+
+    const routeById = (id) => state.routes.find((r) => clean(r.route_id) === clean(id)) || null;
+    const wpById = (id) => state.waypoints.find((w) => String(w.wpid) === String(id)) || null;
+    const chById = (id) => state.challenges.find((c) => String(c.id) === String(id)) || null;
+    function openRoute() { return routeById(state.routeId); }
+    function openStops() {
+      return state.stops.filter((s) => clean(s.route_id) === clean(state.routeId))
+                        .slice().sort((a, b) => (a.ord || 0) - (b.ord || 0));
+    }
+
+    /* ---- WHICH CHALLENGES MAY SIT AT THIS STOP ----------------------------
+       The whole reason scope carries a key. Without this the picker offers
+       every challenge in the library at every stop, and the four scopes are
+       decoration.                                                            */
+    function challengesFor(stop) {
+      const route = openRoute();
+      const city = clean(route && route.city).toLowerCase();
+      return state.challenges.filter((c) => {
+        const sc = clean(c.scope) || 'portable';
+        if (sc === 'portable') return true;
+        if (sc === 'city') return clean(c.scope_city).toLowerCase() === city;
+        if (sc === 'place') return String(c.scope_wpid) === String(stop.wpid);
+        // A TEAM-BOUND CHALLENGE IS OFFERED AND SAYS WHAT IT COSTS. A route is
+        // reusable across matchups, which is the whole "thirty two tours
+        // scrambled" idea; attaching one pins this route to one club. That is
+        // an editorial decision, so it is shown rather than quietly refused.
+        if (sc === 'team') return true;
+        return false;
+      });
+    }
+    function scopeNote(c) {
+      const sc = clean(c.scope) || 'portable';
+      if (sc === 'team') return '  [pins this route to one club]';
+      if (sc === 'place') return '  [belongs here]';
+      if (sc === 'city') return '  [this city]';
+      return '';
+    }
+
+    /* ---- checks ----------------------------------------------------------- */
+    const CHECK_RULES = [
+      { key: 'no-challenge',
+        test: (s) => !s.challenge_id,
+        say: 'Give this stop a challenge. A waypoint with nothing to do at it is not a stop.' },
+      { key: 'no-direction',
+        // The LAST stop leads nowhere, so it is exempt by construction rather
+        // than by somebody remembering.
+        test: (s, i, all) => i < all.length - 1 && !clean(s.direction),
+        say: 'Write the direction. It is what a team reads after solving this, and what sends them to the next place.' },
+      { key: 'no-point',
+        test: (s) => { const w = wpById(s.wpid);
+          return !w || w.lat === null || w.lon === null || w.lat === undefined || w.lon === undefined; },
+        say: 'This place has no coordinates, so nothing can measure or draw the walk. Fix it in Waypoints.' }
+    ];
+    function faultsOf(stop, i, all) {
+      const out = [];
+      CHECK_RULES.forEach((r) => {
+        try { if (r.test(stop, i, all)) out.push(r.say); }
+        catch (e) { console.error('check ' + r.key + ' threw', e); }
+      });
+      return out;
+    }
+    function routeFaults(routeId) {
+      const all = state.stops.filter((s) => clean(s.route_id) === clean(routeId))
+                             .slice().sort((a, b) => (a.ord || 0) - (b.ord || 0));
+      return all.reduce((n, s, i) => n + (faultsOf(s, i, all).length ? 1 : 0), 0);
+    }
+    function totalFaults() {
+      return state.routes.reduce((n, r) => n + routeFaults(r.route_id), 0);
+    }
+
+    /* ---- painting --------------------------------------------------------- */
+
+    function buildPickers() {
+      const cities = [...new Set(state.routes.map((r) => clean(r.city)).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+      const c = el('citySel');
+      const keepCity = state.city;
+      c.textContent = '';
+      const anyOpt = document.createElement('option');
+      anyOpt.value = 'any';
+      anyOpt.textContent = 'every city (' + state.routes.length + ')';
+      c.appendChild(anyOpt);
+      cities.forEach((city) => {
+        const n = state.routes.filter((r) => clean(r.city) === city).length;
+        const o = document.createElement('option');
+        o.value = city; o.textContent = city + ' (' + n + ')';
+        c.appendChild(o);
+      });
+      c.value = cities.indexOf(keepCity) >= 0 ? keepCity : 'any';
+      state.city = c.value;
+
+      const list = state.routes.filter((r) => state.city === 'any' || clean(r.city) === state.city);
+      const r = el('routeSel');
+      r.textContent = '';
+      if (!list.length) {
+        const o = document.createElement('option');
+        o.value = ''; o.textContent = 'no routes here';
+        r.appendChild(o);
+        state.routeId = '';
+      } else {
+        list.forEach((row) => {
+          const stops = state.stops.filter((s) => clean(s.route_id) === clean(row.route_id)).length;
+          const bad = routeFaults(row.route_id);
+          const o = document.createElement('option');
+          o.value = clean(row.route_id);
+          // THE COUNTS ARE THE REASON THIS IS A LIVE PICKER. A closed control
+          // that cannot say a route has 20 stops and 20 faults is one you have
+          // to open to learn anything from.
+          o.textContent = clean(row.title) + '  (' + stops + ' stops'
+                        + (bad ? ', ' + bad + ' need work' : '') + ')';
+          r.appendChild(o);
+        });
+        if (!list.some((x) => clean(x.route_id) === state.routeId)) {
+          state.routeId = clean(list[0].route_id);
+        }
+        r.value = state.routeId;
+      }
+
+      const sh = el('fShape');
+      if (!sh.options.length) {
+        SHAPES.forEach((v) => {
+          const o = document.createElement('option');
+          o.value = v; o.textContent = v.split('_').join(' ');
+          sh.appendChild(o);
+        });
+      }
+    }
+
+    function paintRouteFields() {
+      const route = openRoute();
+      el('fTitle').value = route ? clean(route.title) : '';
+      el('fShape').value = route ? (clean(route.shape) || 'loop') : 'loop';
+      el('fTitle').disabled = !route;
+      el('fShape').disabled = !route;
+    }
+
+    function paintLibrary() {
+      const route = openRoute();
+      const body = el('libBody');
+      body.textContent = '';
+      if (!route) {
+        el('libTitle').textContent = 'Waypoint Library';
+        el('libCount').textContent = '';
+        body.appendChild(emptyNode('Choose a route and its city fills this column.'));
+        return;
+      }
+      const city = clean(route.city);
+      el('libTitle').textContent = 'Waypoint Library: ' + city;
+      const rows = state.waypoints.filter((w) => clean(w.city).toLowerCase() === city.toLowerCase());
+      const used = new Set(openStops().map((s) => String(s.wpid)));
+      el('libCount').textContent = rows.length + (rows.length === 1 ? ' place' : ' places');
+      if (!rows.length) {
+        body.appendChild(emptyNode('No waypoints in ' + city + ' yet. Add them in Waypoints.'));
+        return;
+      }
+      rows.forEach((w) => {
+        const row = document.createElement('div');
+        row.className = 'lib' + (used.has(String(w.wpid)) ? ' is-used' : '');
+        const name = document.createElement('div');
+        name.className = 'lib-name';
+        name.textContent = clean(w.name);
+        const where = document.createElement('span');
+        where.className = 'lib-where';
+        where.textContent = clean(w.address) || 'no address';
+        name.appendChild(where);
+        row.appendChild(name);
+        const add = document.createElement('button');
+        add.className = 'arrow lib-add';
+        add.type = 'button';
+        // A PLACE MAY APPEAR TWICE ON A ROUTE. A loop that comes home names the
+        // square it started from again, so Add stays live on a used row.
+        add.textContent = '>';
+        add.title = 'Add ' + clean(w.name) + ' to the end of this route';
+        add.addEventListener('click', () => addStop(w.wpid));
+        row.appendChild(add);
+        body.appendChild(row);
+      });
+    }
+
+    function emptyNode(text) {
+      const d = document.createElement('div');
+      d.className = 'empty';
+      d.textContent = text;
+      return d;
+    }
+
+    function paintRoute() {
+      const route = openRoute();
+      const body = el('routeBody');
+      body.textContent = '';
+      if (!route) {
+        el('routeTitle').textContent = 'Route';
+        el('routeCount').textContent = '';
+        body.appendChild(emptyNode('No route open.'));
+        return;
+      }
+      const stops = openStops();
+      el('routeTitle').textContent = clean(route.title) || 'Untitled route';
+      const bad = routeFaults(route.route_id);
+      el('routeCount').textContent = stops.length + ' stops'
+        + (bad ? ' | ' + bad + ' need work' : '');
+      if (!stops.length) {
+        body.appendChild(emptyNode('Nothing here yet. Press an arrow in the library to add a place.'));
+        return;
+      }
+      stops.forEach((stop, i) => {
+        if (state.reviewOnly && !faultsOf(stop, i, stops).length) return;
+        body.appendChild(stopNode(stop, i, stops));
+      });
+      if (state.reviewOnly && !body.children.length) {
+        body.appendChild(emptyNode('Nothing on this route needs work.'));
+      }
+    }
+
+    function stopNode(stop, i, all) {
+      const w = wpById(stop.wpid);
+      const last = i === all.length - 1;
+      const faults = faultsOf(stop, i, all);
+      const box = document.createElement('div');
+      box.className = 'stop' + (last ? ' is-last' : '')
+                    + (stop.challenge_id ? '' : ' is-nochallenge');
+
+      const head = document.createElement('div');
+      head.className = 'stop-head';
+      const ord = document.createElement('span');
+      ord.className = 'stop-ord';
+      ord.textContent = String(i + 1);
+      head.appendChild(ord);
+      const name = document.createElement('span');
+      name.className = 'stop-name';
+      name.textContent = w ? clean(w.name) : ('waypoint ' + stop.wpid);
+      head.appendChild(name);
+
+      const acts = document.createElement('span');
+      acts.className = 'stop-acts';
+      acts.appendChild(arrowBtn('^', 'Move up', i === 0, () => move(i, -1)));
+      acts.appendChild(arrowBtn('v', 'Move down', last, () => move(i, 1)));
+      // REMOVE TAKES THE STOP OFF THE ROUTE AND KEEPS THE WAYPOINT. That is the
+      // entire reason these are two tables, so the control is an arrow back to
+      // the library rather than a bin.
+      acts.appendChild(arrowBtn('<', 'Take off this route, keep the place', false, () => removeAt(i)));
+      head.appendChild(acts);
+      box.appendChild(head);
+
+      const cf = document.createElement('label');
+      cf.className = 'stop-field';
+      const cl = document.createElement('span');
+      cl.textContent = 'Challenge';
+      cf.appendChild(cl);
+      const sel = document.createElement('select');
+      const none = document.createElement('option');
+      none.value = ''; none.textContent = 'not chosen yet';
+      sel.appendChild(none);
+      const offered = challengesFor(stop);
+      offered.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = String(c.id);
+        o.textContent = clean(c.name) + '  (' + clean(c.kind) + ')' + scopeNote(c);
+        sel.appendChild(o);
+      });
+      // A CHALLENGE ALREADY ATTACHED THAT THE SCOPE NO LONGER OFFERS IS STILL
+      // SHOWN, or changing a challenge's scope would silently blank the stops
+      // using it and nothing would say so.
+      if (stop.challenge_id && !offered.some((c) => String(c.id) === String(stop.challenge_id))) {
+        const c = chById(stop.challenge_id);
+        const o = document.createElement('option');
+        o.value = String(stop.challenge_id);
+        o.textContent = (c ? clean(c.name) : 'challenge ' + stop.challenge_id)
+                      + '  [no longer fits this stop]';
+        sel.appendChild(o);
+      }
+      sel.value = stop.challenge_id ? String(stop.challenge_id) : '';
+      sel.addEventListener('change', () => {
+        stop.challenge_id = sel.value ? Number(sel.value) : null;
+        markDirty();
+        paintRoute();
+      });
+      cf.appendChild(sel);
+      box.appendChild(cf);
+
+      if (last) {
+        const note = document.createElement('p');
+        note.className = 'stop-last-note';
+        note.textContent = 'Last stop. It leads nowhere, so it needs no direction.';
+        box.appendChild(note);
+      } else {
+        const df = document.createElement('label');
+        df.className = 'stop-field stop-field--dir';
+        const dl = document.createElement('span');
+        const nextW = wpById(all[i + 1].wpid);
+        dl.textContent = 'Direction, read after solving, leads to '
+                       + (nextW ? clean(nextW.name) : 'the next stop');
+        df.appendChild(dl);
+        const ta = document.createElement('textarea');
+        ta.value = clean(stop.direction);
+        ta.placeholder = 'Nicely done. Now put the lake on your right and walk two blocks to the fountain.';
+        ta.addEventListener('input', () => {
+          stop.direction = ta.value;
+          markDirty();
+        });
+        df.appendChild(ta);
+        box.appendChild(df);
+      }
+
+      faults.forEach((f) => {
+        const p = document.createElement('p');
+        p.className = 'stop-warn';
+        p.textContent = f;
+        box.appendChild(p);
+      });
+      return box;
+    }
+
+    function arrowBtn(glyph, title, off, fn) {
+      const b = document.createElement('button');
+      b.className = 'arrow';
+      b.type = 'button';
+      b.textContent = glyph;
+      b.title = title;
+      // aria-disabled, NEVER disabled: a disabled button dispatches no click at
+      // all, so on a touch screen the reason it is off is unreachable.
+      if (off) b.setAttribute('aria-disabled', 'true');
+      b.addEventListener('click', () => { if (!off) fn(); });
+      return b;
+    }
+
+    function render() {
+      buildPickers();
+      paintRouteFields();
+      paintLibrary();
+      paintRoute();
+      const n = state.routes.length;
+      el('roomTitle').textContent = (state.loaded ? n : '?') + (n === 1 ? ' ROUTE' : ' ROUTES');
+      const bad = state.loaded ? totalFaults() : 0;
+      el('checkBtn').textContent = state.reviewOnly ? 'Show all' : (bad ? 'Check (' + bad + ')' : 'Check');
+      el('saveBtn').setAttribute('aria-disabled', state.dirty ? 'false' : 'true');
+    }
+
+    /* ---- editing ---------------------------------------------------------- */
+
+    function markDirty() {
+      state.dirty = true;
+      el('saveBtn').setAttribute('aria-disabled', 'false');
+    }
+    function renumber() {
+      openStops().forEach((s, i) => { s.ord = i + 1; });
+    }
+    function addStop(wpid) {
+      if (!openRoute()) { setStatus('Open a route first.', 'error'); return; }
+      const stops = openStops();
+      state.stops.push({
+        route_id: state.routeId, wpid: wpid, ord: stops.length + 1,
+        challenge_id: null, direction: null
+      });
+      markDirty();
+      render();
+    }
+    function removeAt(i) {
+      const stops = openStops();
+      const target = stops[i];
+      state.stops.splice(state.stops.indexOf(target), 1);
+      renumber();
+      markDirty();
+      render();
+    }
+    function move(i, by) {
+      const stops = openStops();
+      const j = i + by;
+      if (j < 0 || j >= stops.length) return;
+      const a = stops[i].ord, b = stops[j].ord;
+      stops[i].ord = b; stops[j].ord = a;
+      markDirty();
+      render();
+    }
+
+    /* ---- saving -----------------------------------------------------------
+       DELETE THEN INSERT FOR THE WHOLE ROUTE, not a diff. A route is a dozen
+       rows, positions shift wholesale when one moves, and a partial failure
+       leaving two stop 3s is worse than redoing the lot. A crash between the
+       two requests empties the route, which is visible and fixable; a silently
+       wrong order is not.                                                     */
+    async function save() {
+      const route = openRoute();
+      if (!route) return;
+      if (el('saveBtn').getAttribute('aria-disabled') === 'true') {
+        setStatus('Nothing has changed.', 'error');
+        return;
+      }
+      el('saveBtn').disabled = true;
+      try {
+        route.title = clean(el('fTitle').value);
+        route.shape = clean(el('fShape').value) || 'loop';
+        const head = await fetch(restUrl('routes', { route_id: 'eq.' + route.route_id }), {
+          method: 'PATCH',
+          headers: authHeaders({ Prefer: 'return=representation' }),
+          body: JSON.stringify({ title: route.title, shape: route.shape })
+        });
+        if (!head.ok) throw new Error(await readError(head, 'Could not save the route.'));
+        // PostgREST answers 200 with an EMPTY ARRAY when RLS refuses a write,
+        // so a refused save reports success unless the row is read back.
+        const back = await head.json();
+        if (!Array.isArray(back) || !back.length) {
+          throw new Error('The database refused the write and changed nothing. Sign in again.');
+        }
+
+        const del = await fetch(restUrl('route_stops', { route_id: 'eq.' + route.route_id }), {
+          method: 'DELETE', headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!del.ok) throw new Error(await readError(del, 'Could not clear the old stops.'));
+
+        renumber();
+        const rows = openStops().map((s) => ({
+          route_id: route.route_id,
+          wpid: s.wpid,
+          ord: s.ord,
+          challenge_id: s.challenge_id || null,
+          direction: clean(s.direction) || null
+        }));
+        if (rows.length) {
+          const ins = await fetch(restUrl('route_stops', {}), {
+            method: 'POST',
+            headers: authHeaders({ Prefer: 'return=representation' }),
+            body: JSON.stringify(rows)
+          });
+          if (!ins.ok) throw new Error(await readError(ins, 'Could not write the stops.'));
+          const wrote = await ins.json();
+          // NAME THE SHORTFALL, never round it up.
+          if (!Array.isArray(wrote) || wrote.length !== rows.length) {
+            throw new Error('Wrote ' + ((wrote || []).length) + ' of ' + rows.length
+              + ' stops. The route is now incomplete: fix the problem and save again.');
+          }
+        }
+        state.dirty = false;
+        setStatus('Saved ' + clean(route.title) + ', ' + rows.length + ' stops.', 'success');
+        render();
+      } catch (err) {
+        setStatus(err.message || 'Could not save.', 'error');
+      } finally {
+        el('saveBtn').disabled = false;
+      }
+    }
+
+    /* ---- wiring ----------------------------------------------------------- */
+
+    el('citySel').addEventListener('change', () => {
+      if (!confirmLeave()) { el('citySel').value = state.city; return; }
+      state.city = el('citySel').value;
+      state.routeId = '';
+      render();
+    });
+    el('routeSel').addEventListener('change', () => {
+      if (!confirmLeave()) { el('routeSel').value = state.routeId; return; }
+      state.routeId = el('routeSel').value;
+      render();
+    });
+    el('fTitle').addEventListener('input', markDirty);
+    el('fShape').addEventListener('change', markDirty);
+    el('saveBtn').addEventListener('click', save);
+    el('checkBtn').addEventListener('click', () => {
+      state.reviewOnly = !state.reviewOnly;
+      render();
+      if (state.reviewOnly) {
+        const bad = routeFaults(state.routeId);
+        setStatus(bad
+          ? 'Showing the ' + bad + ' stops on this route that need work. Press Show all for the rest.'
+          : 'Nothing on this route needs work.', bad ? '' : 'success');
+      } else {
+        setStatus('');
+      }
+    });
+
+    // A ROUTE'S ORDER IS THE EXPENSIVE THING TO LOSE, so leaving with it
+    // unsaved is guarded, on the picker and on the tab alike.
+    function confirmLeave() {
+      if (!state.dirty) return true;
+      return window.confirm('This route has unsaved changes. Leave them behind?');
+    }
+    window.addEventListener('beforeunload', (e) => {
+      if (!state.dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    async function boot() {
+      try {
+        await loadAll();
+        render();
+        if (!state.routes.length) {
+          setStatus('No routes on file. TGB PATH BOT files them, or write one in SQL.', 'error');
+        }
+      } catch (err) {
+        setStatus(err.message || 'Could not load.', 'error');
+      }
+    }
+
+    adminAuth = window.TgbMcAdminAuth.create({
+      supabaseUrl: SUPABASE_URL,
+      supabaseKey: SUPABASE_KEY,
+      onAuthorized: () => { boot(); }
+    });
+    if (window.TgbAdminSiteNav && window.TgbAdminSiteNav.bindAuth) {
+      window.TgbAdminSiteNav.bindAuth(adminAuth);
+    }
+    adminAuth.init();
+  </script>
+</body>
+</html>

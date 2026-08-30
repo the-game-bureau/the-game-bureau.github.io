@@ -369,6 +369,212 @@ Kevin can settle them.
 
 ---
 
+## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
+
+Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
+room is `mc/<room>/index.html`, which is the convention `/mc/gifts/`,
+`/mc/soundtracks/`, `/mc/socializer/` and `/mc/events/` already kept and the
+loose files broke.
+
+| was | is |
+|---|---|
+| `mc/builder.html` | `mc/builder/` |
+| `mc/marquee.html` | `mc/marquee/` |
+| `mc/greenroom.html` | `mc/greenroom/` |
+| `mc/issues.html` | `mc/issues/` |
+| `mc/taglines.html` | `mc/taglines/` |
+| `mc/game-plays.html` | `mc/game-plays/` |
+| `mc/_stops.html` | `mc/stops/` |
+| `mc/data/teams.html` | `mc/teams/` |
+| `mc/teams/leagues.htm` | `mc/leagues/` |
+| `mc/gifts/operations.html` | `mc/operations/` |
+| `mc/editgames.html` | `mc/editgames/` |
+| `mc/photos.html` | `mc/photos/` |
+
+**EVERY ONE IS A HARD BREAK.** GitHub Pages serves no 301, so any stored link to
+any of those is dead. That is the standing cost of every move in this repo, paid
+once and knowingly. **The `.htm` is gone with `leagues`**, which was the only one
+in the repo.
+
+- **A DEPTH CHANGE BREAKS A RELATIVE PATH SILENTLY, and four pages had them.**
+  `builder`, `taglines` and `game-plays` carried `href="js/..."` and `greenroom`
+  carried `src="picmaker/prompts.js"`: 13 refs, all made root-absolute BEFORE
+  anything moved. **A page served with no stylesheet looks like a page that
+  failed to load, not like a path that resolved one folder too deep.** This is
+  the third time root-absolute paths have made a move here cost nothing; write
+  new cross-folder links that way.
+  - `marquee` and `operations` looked like they had some and did not: their
+    matches were `src="${...}"` inside template literals. **Check what a match
+    actually is before rewriting it.**
+- **THE REPOINT SWEPT THE ESCAPED FORM TOO.** A nav `match` is written
+  `/^\/mc\/socials\//` and a plain search for `/mc/socials/` does not find it.
+  A `match` out of step with its `href` does not error, it just quietly never
+  lights the button, and the Socializer sprang exactly that twice.
+- **AND THE SWEEP ATE THE PROSE, WHICH THIS FILE ALREADY WARNED ABOUT.** It
+  rewrote eight dated notes in here and a migration comment, turning one
+  sentence into *"why `/mc/stops/` and `/mc/stops/` were once different live
+  things"*, which is nonsense. **Both files were reverted and this section
+  written instead.** So: **every dated note below that names an old path is
+  describing the day it was written, and the table above is the current map.**
+  Migration comments are records of how a file was applied on the day and are
+  never swept.
+
+### THE HUB'S GROUPS ARE THE PRODUCT'S OWN SHAPE NOW
+
+`admin-nav-menu.js` is what both the dropdown and the hub's directory render
+from, so the groups are the categories. Five, in this order:
+
+| group | what is in it |
+|---|---|
+| **The Spine** | Anchor Events, Waypoints, Challenges, Routes, Marquee, Flow Builder |
+| **The Catalogue** | Teams, Leagues, Data Warehouse |
+| **Running It** | Daily Review, Game Plays, Operations, Winner's Wall, Taglines, Picmaker |
+| **The Periphery** | Socializer, Issues |
+| **For Review** | Stop Builder, Guide Green Room, Team Colors, and two stubs |
+
+- **THE ORDER OF THE SPINE IS THE ARGUMENT.** A game is assembled down that
+  list: an anchor event brings people to a city, waypoints are the places they
+  stand in, a challenge is what they do there, a route puts those in order, and
+  the marquee is where it becomes something somebody can buy. **Everything above
+  the marquee is an ingredient and everything below it is the finished thing** --
+  which is what the old Game Elements / Game Builder split was reaching for and
+  never said.
+- **FOR REVIEW IS LAST AND DELIBERATELY VISIBLE.** Every page in it is
+  reachable, carries real code, and is linked from nothing. **That is the state
+  in which a page rots quietly**: it keeps working, nobody opens it, and the
+  next person cannot tell whether it is load-bearing. Listing them is not a
+  proposal to delete them, it is a list of decisions somebody has to take.
+- **A CHECK ASSERTS EVERY INTERNAL NAV HREF RESOLVES TO A FILE.** 22 links, 0
+  dead. A stale one 404s silently, which this project has already paid for with
+  a deleted trigger id.
+
+## THE ROUTE BUILDER, WHICH IS THE DEVICE (2026-08-30)
+
+[mc/routes/index.html](mc/routes/index.html). Waypoints left, the route right. Pick a city, pick a
+route, add a place, hang a challenge on it, and write the direction that sends a
+team to the next one. **The sixth room to wear the Socializer's chrome; when any
+of them changes, change them all.**
+
+- **THE CHALLENGE PICKER IS SCOPE-FILTERED, and that is the whole reason scope
+  carries a key.** Without it every stop offers all 24 challenges and the four
+  scopes are decoration. Portable always; `city` when it matches the route's
+  city; `place` only at its own waypoint; `team` always, **with the cost said on
+  the option**: a route is reusable across matchups, which is the "thirty two
+  tours scrambled" idea, and attaching a team-bound challenge pins it to one
+  club. **Shown rather than quietly refused**, because that is an editorial
+  decision. Measured on a real Atlanta route: **17 of 24 offered.**
+- **A CHALLENGE ALREADY ATTACHED THAT THE SCOPE NO LONGER OFFERS IS STILL
+  SHOWN**, marked `[no longer fits this stop]`. Otherwise changing a challenge's
+  scope would silently blank every stop using it and nothing would say so.
+- **THE LAST STOP GETS NO DIRECTION BOX**, and says why in words. It leads
+  nowhere, so a box that can only ever be wrong to fill in is worse than no box.
+  The `no-direction` check exempts it by construction rather than by somebody
+  remembering.
+- **THE DIRECTION'S LABEL NAMES WHERE IT LEADS** -- *"read after solving, leads
+  to Centennial Olympic Park"* -- because a direction is about the leg, and the
+  far end is the half you cannot see from the stop you are editing.
+- **REMOVE IS A LEFT ARROW, NOT A BIN.** It takes the stop off the route and
+  keeps the waypoint, which is the entire reason these are two tables. A bin
+  would be a lie about what happens.
+- **SAVE IS DELETE-THEN-INSERT FOR THE WHOLE ROUTE, not a diff.** A route is a
+  dozen rows, positions shift wholesale when one moves, and a partial failure
+  leaving two stop 3s is worse than redoing the lot. A crash between the two
+  empties the route, which is visible and fixable; a silently wrong order is not.
+  **The shortfall is named, never rounded up.**
+- **EVERY WRITE ASKS FOR THE ROW BACK.** PostgREST answers 200 with an empty
+  array when RLS refuses, so a refused save would otherwise report success.
+- **A PLACE MAY BE ADDED TWICE**, so Add stays live on a row already on the
+  route: a loop that comes home names the square it started from again. The used
+  row is **tinted, never faded** -- fading says disabled, which would be a lie.
+- **PROVED BY RENDERING THE REAL TABLES**: 22 routes, 234 stops, 536 waypoints,
+  24 challenges. 35 assertions, including the scope filter's exact count, the
+  reorder, and every field of the insert.
+
+## THE GAME'S OWN RULES, SETTLED (2026-08-30)
+
+Six decisions that had been open. They are recorded here because each one
+changes how the game FEELS, and none of them is derivable from the code.
+
+### A TEAM ALWAYS WINS, AND THE OPPONENT IS THEATRE
+
+Scoring is football-shaped: **6 for a solved challenge, then 1 more for the
+extra point, or take a 3-point field goal instead.** The opponent is a simulated
+side derived from the HOME team, it scores occasionally, and the player is told
+about it to build anxiety.
+
+**AND THE RESULT IS FIXED. A team that completes every challenge always wins.**
+The opponent's score is computed backwards from that.
+
+- **THIS IS THE MOST IMPORTANT THING ON THIS PAGE TO NOT "FIX" LATER.** The
+  obvious tidy-up is to make the opponent fair. Doing so would break the product:
+  the tension is meant to be real and the outcome is not, which is how a haunted
+  house works and how most escape rooms work.
+- **WHAT IT OBLIGES US TO, and it is a real obligation:** the copy must never
+  claim a team is playing against other real people. An imaginary rival is
+  entertainment; one presented as a live opponent when it is not is a different
+  thing. **Live matchmaking is a separate feature if it is ever wanted, not a
+  reinterpretation of this one.**
+- **THE FIELD GOAL IS THE PRESSURE MECHANIC**, now that there is no timer: a
+  stop offers the full challenge for 6, or the easier answer for 3. That is the
+  check-and-bet idea, and it costs nobody their afternoon.
+
+### NO TIMER
+
+A clock makes people hurry past the thing they came to look at, which is the
+whole product. Pressure comes from the opponent's scoring and from the choice
+between 6 and 3.
+
+### THE WAIVER IS A CHALLENGE
+
+`kind = 'consent'`, and replying AGREE is the signature.
+[2026083003](mc/supabase/migrations/2026083003_consent_is_a_challenge.sql), **applied**. See its own section below.
+
+### LONG PLUS CODES ARE THE ONE LOCATION FORMAT
+
+Replacing what3words and raw coordinates. **NOT YET BUILT** -- `waypoints` has no
+`plus_code` column, and `games.starting_location_plus_code` is the only place
+one is stored today. The codec already exists in this repo, twice, and is the
+thing to extract rather than write again.
+
+### EACH TABLE CARRIES ITS OWN CITY
+
+No shared `public.cities` to join through. `waypoints`, `events` and `games` each
+hold their own place strings. **What it costs is unchanged and still true**:
+nothing stops two spellings of one town, and no screen will tell you.
+
+## THE WAIVER IS A CHALLENGE, AND AGREE IS THE SIGNATURE (2026-08-30)
+
+[2026083003](mc/supabase/migrations/2026083003_consent_is_a_challenge.sql), **applied**. A fifth `kind`, `consent`, and one portable row
+carrying the words.
+
+- **IT NEEDED ALMOST NOTHING NEW, which is why it is a good call.** The
+  machinery that shows a team some words at a stop and records what they typed
+  back already exists, is already append-only, and already knows who they are.
+- **`game_responses` IS A DECENT SIGNATURE RECORD, and that was checked rather
+  than assumed.** RLS grants `anon` INSERT and nothing else, so a reply cannot
+  be edited or deleted by the client or by the page.
+  `tgb_link_game_instance_identity` folds the buyer's Stripe email onto the
+  instance server-side from `gift_codes`, so the client never asserts who
+  signed. `created_at` is the database's clock, not the phone's.
+- **THE SIGNATURE MUST CARRY ITS OWN CONTRACT, and this is the rule that is
+  impossible to repair afterwards.** `challenges.prompt` is editable, by design,
+  in a room built for editing. **If a reply records only the word "agree", every
+  past signature points at whatever the prompt says TODAY** -- so one edit
+  silently rewrites what a thousand people agreed to and nothing shows it. The
+  engine writes the FULL PROMPT into `response_value`. There is no column to
+  add; the column comment says so.
+- **A FIFTH KIND NEEDS A MIGRATION** here, unlike `events.kind`:
+  `challenges.kind` carries a CHECK. It earns one rather than being a `question`
+  answered "agree" because the engine must treat it differently (it gates the
+  route and cannot be skipped), because "which rows are waivers" has to be a
+  query rather than a name match, and because `no-answer` would fire wrongly.
+- **THE SEEDED ROW IS NAMED `The waiver (DRAFT, not reviewed by an attorney)`**,
+  because the room lists rows by name and this is the one row where shipping the
+  wrong words costs something editing them later cannot undo. **Whether a
+  click-through waiver is enforceable where we operate is an attorney's
+  question**, and it varies by state and by what is being waived. This built the
+  mechanism and the record; it did not make the words sound.
+
 ## A PATH IS A ROUTE, AND A STOP FINALLY HAS ITS CHALLENGE (2026-08-30)
 
 [2026083001](mc/supabase/migrations/2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql), **applied**. `paths` is `routes`, `path_stops` is `route_stops`,
