@@ -197,8 +197,17 @@
     }
     .dlg-foot .spacer { margin-left: auto; }
 
-    .question { margin: 0 0 18px; font-size: 1.2rem; line-height: 1.35;
+    .question { margin: 0 0 14px; font-size: 1.2rem; line-height: 1.35;
                 font-weight: 500; text-wrap: balance; }
+    /* THE STAKE IS QUIET AND THE NUMBER IS NOT. It sits between the question and
+       the answers because that is the order somebody reads them in, and it is
+       the last thing seen before a press. */
+    .stake {
+      margin: 0 0 16px;
+      font: 500 0.68rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    }
+    .stake b { font-size: 1.15rem; color: var(--ink); }
 
     .choices { display: grid; gap: 9px; }
     .choice {
@@ -770,6 +779,17 @@
         : ('<b>' + state.points + '</b> pts');
 
       const parts = ['<p class="question">' + esc(row.question) + '</p>'];
+
+      /* WHAT THIS ANSWER IS WORTH, RIGHT NOW. The header counts what you have
+         already won, which is a different question from what is on the table,
+         and the drop from 7 to 3 is the whole reason to think before pressing.
+         Drawn only while the question is open: once it is settled the verdict
+         says what was actually scored, and two numbers would disagree. */
+      if (!state.answered) {
+        parts.push('<p class="stake">Playing for <b>'
+          + (state.tries === 0 ? FIRST_TRY : SECOND_TRY) + '</b> points</p>');
+      }
+
       const choices = state.shown.length ? state.shown : null;
 
       if (choices && choices.length) {
@@ -811,8 +831,7 @@
               ? 'Right on try ' + state.tries + '. <b>' + points + '</b> points.'
               : 'Wrong twice. The answer is <b>' + esc(row.answer) + '</b>.') + '</p>');
       } else if (state.missed) {
-        parts.push('<p class="verdict is-wrong">Not that one. One more try, for '
-          + SECOND_TRY + ' points.</p>');
+        parts.push('<p class="verdict is-wrong">Not that one. One more try.</p>');
       }
 
       el('dlgBody').innerHTML = parts.join('');

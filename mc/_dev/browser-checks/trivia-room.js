@@ -113,6 +113,13 @@ setTimeout(() => {
   click(rowFor(mc2).querySelector('[data-play]'));
   t('Play opens the popup', el('playDlg').classList.contains('is-open'));
 
+  /* THE STAKE IS ON SCREEN AND IT FALLS. The header counts what you have won;
+     this line says what is on the table, which is the whole reason to think. */
+  t('the question says it is playing for 7',
+    /playing for/i.test(d.querySelector('.stake').textContent)
+    && d.querySelector('.stake').textContent.indexOf('7') >= 0,
+    d.querySelector('.stake').textContent);
+
   click(choices().find((b) => optText(b) !== mc2.answer));
   t('a wrong first try reveals nothing', !d.querySelector('.choice.is-right'));
   t('it marks the miss', !!d.querySelector('.choice.is-wrong'));
@@ -121,6 +128,9 @@ setTimeout(() => {
   t('the rest stay live',
     choices().filter((b) => !b.disabled).length === mc2.choices.length - 1);
   t('nothing is scored on a first miss', posts('/scores').length === 0, posts('/scores').length);
+  t('the stake drops to 3 on the second try',
+    d.querySelector('.stake').textContent.indexOf('3') >= 0,
+    d.querySelector('.stake').textContent);
   t('and the room offers one more try',
     /one more try/i.test(d.querySelector('.verdict').textContent),
     d.querySelector('.verdict').textContent);
@@ -129,6 +139,7 @@ setTimeout(() => {
   t('right on the second try reveals it', !!d.querySelector('.choice.is-right'));
   t('and is worth 3', /\b3\b/.test(d.querySelector('.verdict').textContent),
     d.querySelector('.verdict').textContent);
+  t('and the stake line goes once it is settled', !d.querySelector('.stake'));
 
   const s1 = posts('/scores')[0];
   t('a score row is written on settle', !!s1);
