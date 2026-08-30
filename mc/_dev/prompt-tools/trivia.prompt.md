@@ -133,8 +133,16 @@ The distractors are most of the work and are where a lazy question shows.
   a quiz question, even when it is the most famous thing about a year.
 - **WRITE IT TO BE READ ALOUD.** One sentence where possible. A team is reading
   this on a phone, outdoors, standing up.
-- **START A ONE WORD QUESTION WITH "One word:"** so nobody types a sentence into
-  a box that will only accept one.
+- **A TYPED QUESTION HAS TO ASK FOR ONE WORD IN ITS OWN WORDS.** `"One word:"`
+  at the front does it, and so does naming a thing that IS one word: *the last
+  name of*, *which river*, *the surname*. Either is fine; **what is not fine is
+  a question that could be answered with a phrase**, because the box will only
+  take one and nothing on screen said so.
+- **SAY "SPELLING COUNTS" WHERE THE NAME IS EASY TO GET NEARLY RIGHT.** A typed
+  answer is graded on the letters, so a team that knows Sweetness was Walter
+  Payton and writes `Peyton` scores nothing. **Warning them is not a hint** --
+  they still have to know the name -- and without it the question quietly grades
+  something it never said it was grading.
 
 ---
 
