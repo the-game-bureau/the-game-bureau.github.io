@@ -1385,6 +1385,38 @@ the Trivia room. **Nothing was misconfigured. The call was.**
 - **RUN AGAINST THE BROKEN FILE, where it fails three ways.** An assertion that
   has never failed on the bug it is for is an assertion nobody should trust.
 
+## ONE FAVICON, AT `/favicon.ico` (2026-08-30)
+
+The waypoint pin from the home page, drawn once and served everywhere.
+
+- **IT WAS ELEVEN DIFFERENT HREFS ACROSS 67 PAGES**, and 72 more had none at
+  all. Several were RELATIVE -- `../index.ico`, `../../index.ico`,
+  `builder.ico` -- which resolve differently at every depth and are exactly the
+  fault that has made three page moves in this repo expensive. **113 pages now
+  point at `/favicon.ico`**, root-absolute, which is also the path a browser
+  requests unprompted, so a page that misses the tag still gets the icon.
+- **THE DARK TILE IS PART OF THE ICON, not the tab bar showing through.** An
+  outline pin alone is amber on whatever colour the browser happens to use, and
+  **amber on white is unreadable at 16 pixels.**
+- **SEVEN SIZES IN THE .ICO** (16 to 256), each resampled from a 1024 render
+  rather than left for the browser to squash on the fly.
+- **THE JPEG IS COMPOSITED ONTO ITS OWN GROUND**, not left for the encoder to
+  assume white, and **it loses the rounded corners, which is correct**: a
+  rounded corner is a transparency and JPEG has none. Two PNGs sit beside it at
+  512 and 180 for a home screen and a share card, neither of which can use an
+  `.ico`.
+- **RENDERED WITH CHROME, NOT DRAWN BY HAND.** Puppeteer screenshots the same
+  SVG the home page carries, so the icon cannot drift from the mark.
+- **BACKUPS AND `_dev/archive` ARE LEFT ALONE, deliberately.** Nine old refs
+  remain there; they are frozen copies of what a page was on a given day, and
+  `_dev` is excluded from the deploy anyway.
+- **`mc/game/run/help.html` HAS NO `<head>` AND SO HAS NO ICON.** Reported
+  rather than forced: a file with no head is a fragment, and inserting one would
+  be inventing a document shape nobody asked for.
+- **PROVED IN REAL CHROME**: five pages across four folders all resolve to the
+  one href, the file is served, its first four bytes are a real ICO container
+  and it carries more than one size. 9 assertions.
+
 ## THE HOME PAGE IS A CLOSED DOOR (2026-08-30)
 
 [index.html](index.html) was a bare iframe around `/games/`. It is a coming-soon page.
