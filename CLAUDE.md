@@ -958,14 +958,9 @@ neither.
 > Part scavenger hunt, part escape room. **The city you are visiting is the
 > gameboard**, and every stop was written by locals. Human locals.
 
-**"HUMAN LOCALS" IS NOT TRUE OF THE CATALOGUE TODAY AND THAT IS A DEBT, NOT A
-DETAIL.** The 22 challenges seeded on 2026-08-29 were written by Claude, and
-every waypoint description came out of an AI prompt. The INTENT is on record --
-"challenges will be human built, AI assisted, eventually other writers" -- and
-the sentence is the right promise to make. **It has to be true before this page
-is advertised**, which means either those rows are rewritten by people or the
-line goes. It is a claim about provenance on a page that takes money, and it is
-the one piece of copy here that cannot be fixed after somebody has read it.
+**THE 22 SEEDED CHALLENGES ARE PLACEHOLDERS**, written by Claude on 2026-08-29
+to show the shape. Real ones are written by people; that is the point of the
+line and the reason the library exists.
 
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
