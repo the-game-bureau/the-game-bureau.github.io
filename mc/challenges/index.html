@@ -286,8 +286,15 @@
       text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
       border: 1px solid transparent; white-space: nowrap;
     }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
     .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
     .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
 
     /* ---- the editor ------------------------------------------------------ */
     .preview {
@@ -339,9 +346,11 @@
         <div class="command-bar-inner">
           <input type="search" id="q" placeholder="Search name, prompt, answer, tag..." autocomplete="off">
           <select id="kindFilter" title="Narrow to one kind"></select>
-          <select id="scopeFilter" title="Portable travels between games; place bound does not">
+          <select id="scopeFilter" title="How far a challenge travels: any city, one club, one city, or one waypoint">
             <option value="any">any scope</option>
             <option value="portable">portable</option>
+            <option value="team">team bound</option>
+            <option value="city">city bound</option>
             <option value="place">place bound</option>
           </select>
           <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
@@ -366,7 +375,8 @@
         <span class="batch-count" id="batchCount">none selected</span>
         <span class="batch-actions">
           <select id="batchKind" aria-label="Set kind"><option value="">Set kind</option></select>
-          <select id="batchScope" aria-label="Set scope">
+          <select id="batchScope" aria-label="Set scope"
+                  title="Only the two scopes that need no key. Team and city name a club or a city, which is a per-row decision.">
             <option value="">Set scope</option>
             <option value="portable">portable</option>
             <option value="place">place bound</option>
@@ -399,9 +409,24 @@
 
         <label class="field"><span>Scope</span>
           <select id="fScope">
-            <option value="portable">portable, works anywhere</option>
+            <option value="portable">portable, any city and any fandom</option>
+            <option value="team">team bound, one club only</option>
+            <option value="city">city bound, one city only</option>
             <option value="place">place bound, one waypoint only</option>
           </select>
+        </label>
+
+        <label class="field" id="bindTeamField" hidden><span>Which club</span>
+          <select id="fScopeTeam"></select>
+        </label>
+
+        <label class="field" id="bindCityField" hidden><span>Which city</span>
+          <input type="text" id="fScopeCity" list="chCityList" placeholder="Chicago" autocomplete="off">
+          <datalist id="chCityList"></datalist>
+        </label>
+
+        <label class="field" id="bindPlaceField" hidden><span>Which waypoint</span>
+          <select id="fScopeWpid"></select>
         </label>
 
         <label class="field field--wide"><span>Prompt, read by the team at the stop</span>
@@ -483,9 +508,10 @@
     }
     function unknownVarsIn(text) { return varsIn(text).filter((k) => VAR_KEYS.indexOf(k) === -1); }
 
-    const state = { authed: false, rows: [], q: '', kind: 'any', scope: 'any',
+    const state = { teams: [], waypoints: [],
+                    authed: false, rows: [], q: '', kind: 'any', scope: 'any',
                     editing: null, reviewOnly: false, loaded: false };
-    const cols = { scope: false, tags: false };
+    const cols = { scope: false, tags: false, bind: false };
     const picked = new Set();
 
     /* ---- plumbing -------------------------------------------------------- */
@@ -510,11 +536,21 @@
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
       // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23514 is a
       // statement about our schema and tells nobody what to do about it.
-      if (/challenges_scope_check/.test(text)) return 'Scope must be portable or place bound.';
+      if (/challenges_scope_key_check/.test(text)) {
+        return 'That scope and that binding disagree. A portable challenge names '
+             + 'nothing, a team challenge names a club, a city challenge names a '
+             + 'city, and a place challenge names a waypoint.';
+      }
+      if (/challenges_scope_check/.test(text)) return 'Scope must be portable, team, city or place.';
       if (/challenges_kind_check/.test(text)) return 'That is not a kind this table allows.';
       if (/PGRST204|column .*scope|column .*tags/.test(text)) {
         return 'The database has no scope or tags column yet. Run '
              + 'mc/supabase/migrations/2026082902_challenges_scope_and_tags.sql.';
+      }
+      if (/PGRST204|column .*scope_team|column .*scope_city|column .*scope_wpid/.test(text)) {
+        return 'The database has no scope_team, scope_city or scope_wpid column '
+             + 'yet. Run mc/supabase/migrations/'
+             + '2026083002_challenge_scope_gains_city_and_team.sql.';
       }
       if (res.status === 401 || res.status === 403 || /42501/.test(text)) {
         return 'The database refused that. Check you are signed in as an admin.';
@@ -546,6 +582,101 @@
       state.rows = out;
       state.loaded = true;
       probeColumns(out[0]);
+      // BOTH CATALOGUES FAIL SOFT. A picker that cannot be built is a scope
+      // that cannot be set, which is worth saying; it is not worth taking the
+      // room down for, since every other kind of editing still works.
+      if (cols.bind) { await loadBindCatalogues(); }
+    }
+
+    async function loadBindCatalogues() {
+      try {
+        const res = await fetch(restUrl('teams', {
+          select: 'team_key,city_name,mascot,league', order: 'league.asc,city_name.asc'
+        }), { headers: authHeaders() });
+        if (res.ok) state.teams = await res.json();
+      } catch (err) { state.teams = []; }
+      try {
+        // The waypoint picker points a place-bound challenge at ONE row, so it
+        // wants the whole library. It pages past the silent 1000-row cap for
+        // the same reason the Waypoints room does.
+        const out = [];
+        for (let from = 0; ; from += 1000) {
+          const res = await fetch(restUrl('waypoints', {
+            select: 'wpid,name,city,state', order: 'name.asc'
+          }), { headers: authHeaders({ Range: from + '-' + (from + 999) }) });
+          if (!res.ok) break;
+          const page = await res.json();
+          out.push(...page);
+          if (page.length < 1000) break;
+        }
+        state.waypoints = out;
+      } catch (err) { state.waypoints = []; }
+      buildBindPickers();
+    }
+
+    function teamName(key) {
+      if (!key) return '';
+      const t = (state.teams || []).find((x) => clean(x.team_key) === key);
+      // A key with no row still reads as itself rather than vanishing: a club
+      // we have stopped carrying is not a reason to hide what a challenge says.
+      return t ? (clean(t.city_name) + ' ' + clean(t.mascot)).trim() : key;
+    }
+    function wpName(wpid) {
+      if (!wpid) return '';
+      const w = (state.waypoints || []).find((x) => String(x.wpid) === String(wpid));
+      return w ? clean(w.name) : ('waypoint ' + wpid);
+    }
+
+    function buildBindPickers() {
+      const team = el('fScopeTeam');
+      team.textContent = '';
+      const none = document.createElement('option');
+      none.value = ''; none.textContent = 'not chosen yet';
+      team.appendChild(none);
+      (state.teams || []).forEach((t) => {
+        const o = document.createElement('option');
+        o.value = clean(t.team_key);
+        o.textContent = (clean(t.city_name) + ' ' + clean(t.mascot)).trim()
+                      + '  (' + clean(t.league) + ')';
+        team.appendChild(o);
+      });
+
+      const wp = el('fScopeWpid');
+      wp.textContent = '';
+      const none2 = document.createElement('option');
+      none2.value = ''; none2.textContent = 'not chosen yet';
+      wp.appendChild(none2);
+      (state.waypoints || []).forEach((w) => {
+        const o = document.createElement('option');
+        o.value = String(w.wpid);
+        const where = [clean(w.city), clean(w.state)].filter(Boolean).join(', ');
+        o.textContent = clean(w.name) + (where ? '  (' + where + ')' : '');
+        wp.appendChild(o);
+      });
+
+      // THE CITY LIST IS BUILT FROM THE WAYPOINTS, never typed from memory, so
+      // it can only suggest a city some waypoint actually claims. The box stays
+      // free text: a city with no waypoint yet is a real thing to write.
+      const seen = new Map();
+      (state.waypoints || []).forEach((w) => {
+        const c = clean(w.city);
+        if (c) seen.set(c.toLowerCase(), c);
+      });
+      const list = el('chCityList');
+      list.textContent = '';
+      [...seen.values()].sort((a, b) => a.localeCompare(b)).forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c;
+        list.appendChild(o);
+      });
+    }
+
+    // ONE PAINTER, so the field on screen and the scope cannot disagree.
+    function paintBindFields() {
+      const sc = clean(el('fScope').value) || 'portable';
+      el('bindTeamField').hidden  = !cols.bind || sc !== 'team';
+      el('bindCityField').hidden  = !cols.bind || sc !== 'city';
+      el('bindPlaceField').hidden = !cols.bind || sc !== 'place';
     }
 
     // THE PAGE SHIPS BEFORE THE MIGRATION AND DEGRADES, the same guard the
@@ -554,14 +685,44 @@
     function probeColumns(row) {
       if (!row) return;
       cols.scope = Object.prototype.hasOwnProperty.call(row, 'scope');
+      // The three key columns arrive together in one migration, so one probe
+      // covers them. Naming a column PostgREST does not have 400s the whole
+      // page load, which is why every one of these is probed and not assumed.
+      cols.bind = Object.prototype.hasOwnProperty.call(row, 'scope_team');
       cols.tags = Object.prototype.hasOwnProperty.call(row, 'tags');
       el('fScope').closest('.field').hidden = !cols.scope;
       el('fTags').closest('.field').hidden = !cols.tags;
       el('scopeFilter').hidden = !cols.scope;
       el('batchScope').hidden = !cols.scope;
+      paintBindFields();
     }
 
     function scopeOf(row) { return cols.scope ? (clean(row.scope) || 'portable') : 'portable'; }
+
+    // ONE READER FOR "what is this bound to", so the chip, the check and the
+    // Route Builder cannot disagree about whether a row names its subject.
+    // Returns the key, or '' when the scope needs one and has none.
+    function bindOf(row) {
+      const sc = scopeOf(row);
+      if (sc === 'team')  return clean(row.scope_team);
+      if (sc === 'city')  return clean(row.scope_city);
+      if (sc === 'place') return row.scope_wpid ? String(row.scope_wpid) : '';
+      return '';
+    }
+    function needsBind(row) { return scopeOf(row) !== 'portable'; }
+    function bindLabel(row) {
+      const sc = scopeOf(row);
+      if (sc === 'team')  return teamName(clean(row.scope_team));
+      if (sc === 'city')  return clean(row.scope_city);
+      if (sc === 'place') return wpName(row.scope_wpid);
+      return '';
+    }
+    const SCOPE_SAYS = {
+      portable: 'Works in any city, in any fandom game.',
+      team:     'One club only, wherever they play.',
+      city:     'One city only, whoever is visiting.',
+      place:    'One waypoint only, so it travels nowhere.'
+    };
     function tagsOf(row) { return Array.isArray(row.tags) ? row.tags.filter(Boolean) : []; }
 
     /* ---- what counts as an issue ----------------------------------------- */
@@ -576,6 +737,15 @@
         // challenge at all.
         test: (c) => !clean(c.prompt),
         say: 'Write the prompt. It is what the team reads when they arrive.'
+      },
+      {
+        key: 'unbound-scope',
+        // A NARROW SCOPE THAT NAMES NOTHING IS UNUSABLE AND LOOKS FINE.
+        // Nothing can offer it at the right stop, and no screen but this one
+        // would ever say so, because the row reads perfectly well.
+        test: (c) => cols.bind && needsBind(c) && !bindOf(c),
+        say: 'Say which one. A team, city or place challenge that names nothing '
+           + 'can never be offered automatically.'
       },
       {
         key: 'no-answer',
@@ -625,7 +795,8 @@
       if (state.kind !== 'any' && clean(c.kind) !== state.kind) return false;
       if (state.scope !== 'any' && scopeOf(c) !== state.scope) return false;
       if (!state.q) return true;
-      const hay = [c.name, c.prompt, c.answer, c.kind, tagsOf(c).join(' ')]
+      const hay = [c.name, c.prompt, c.answer, c.kind, tagsOf(c).join(' '),
+                   cols.bind ? bindLabel(c) : '']
         .map((v) => clean(v).toLowerCase()).join(' ');
       return hay.includes(state.q);
     }
@@ -763,12 +934,15 @@
 
       if (cols.scope) {
         const sc = scopeOf(c);
+        const bound = cols.bind ? bindLabel(c) : '';
+        const loose = cols.bind && needsBind(c) && !bindOf(c);
         const chip = document.createElement('span');
-        chip.className = 'ch-scope ' + (sc === 'place' ? 'is-place' : 'is-portable');
-        chip.textContent = sc === 'place' ? 'place bound' : 'portable';
-        chip.title = sc === 'place'
-          ? 'The answer is a fact about one waypoint, so it travels nowhere.'
-          : 'Works at any waypoint, in any game.';
+        chip.className = 'ch-scope is-' + sc + (loose ? ' is-loose' : '');
+        // THE CHIP NAMES WHAT IT IS BOUND TO, not just how far it travels.
+        // "team bound" on twenty rows says nothing; "Falcons" is the fact.
+        chip.textContent = sc === 'portable' ? 'portable'
+          : (bound ? bound : sc + ' bound, unset');
+        chip.title = SCOPE_SAYS[sc] + (loose ? ' This one names nothing yet.' : '');
         line.appendChild(chip);
       }
 
@@ -923,6 +1097,10 @@
       el('fName').value = row ? clean(row.name) : '';
       el('fKind').value = row ? (clean(row.kind) || 'question') : 'question';
       el('fScope').value = row ? scopeOf(row) : 'portable';
+      el('fScopeTeam').value = row && row.scope_team ? clean(row.scope_team) : '';
+      el('fScopeCity').value = row && row.scope_city ? clean(row.scope_city) : '';
+      el('fScopeWpid').value = row && row.scope_wpid ? String(row.scope_wpid) : '';
+      paintBindFields();
       el('fPrompt').value = row ? clean(row.prompt) : '';
       el('fAnswer').value = row ? clean(row.answer) : '';
       el('fTags').value = row ? tagsOf(row).join(', ') : '';
@@ -948,6 +1126,13 @@
         answer: clean(el('fAnswer').value) || null
       };
       if (cols.scope) body.scope = clean(el('fScope').value) || 'portable';
+      if (cols.bind) {
+        const sc = body.scope;
+        body.scope_team = sc === 'team'  ? (clean(el('fScopeTeam').value) || null) : null;
+        body.scope_city = sc === 'city'  ? (clean(el('fScopeCity').value) || null) : null;
+        body.scope_wpid = sc === 'place' && clean(el('fScopeWpid').value)
+          ? Number(el('fScopeWpid').value) : null;
+      }
       if (cols.tags) {
         body.tags = clean(el('fTags').value).split(',')
           .map((t) => clean(t)).filter(Boolean)
@@ -1039,7 +1224,16 @@
       const kind = clean(el('batchKind').value);
       const scope = clean(el('batchScope').value);
       if (kind) body.kind = kind;
-      if (scope && cols.scope) body.scope = scope;
+      if (scope && cols.scope) {
+        body.scope = scope;
+        // Same reasoning as the editor. Only the two key-free scopes are
+        // offered in batch, so this can always be satisfied.
+        if (cols.bind) {
+          body.scope_team = null;
+          body.scope_city = null;
+          if (scope !== 'place') body.scope_wpid = null;
+        }
+      }
       if (!Object.keys(body).length) {
         setStatus('Choose a kind or a scope to set, then press Apply.', 'error');
         return;
@@ -1158,6 +1352,10 @@
     el('closeBtn').addEventListener('click', closeEditor);
     el('saveBtn').addEventListener('click', saveEditing);
     el('deleteBtn').addEventListener('click', deleteEditing);
+    // THE SCOPE AND ITS KEY ARE ONE DECISION, so changing the scope shows the
+    // box that names what it binds to. Without this the field would only ever
+    // appear when the editor was opened on a row that already had one.
+    el('fScope').addEventListener('change', paintBindFields);
     el('fPrompt').addEventListener('input', paintPreview);
     el('fAnswer').addEventListener('input', paintPreview);
     el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });

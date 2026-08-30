@@ -369,6 +369,109 @@ Kevin can settle them.
 
 ---
 
+## A PATH IS A ROUTE, AND A STOP FINALLY HAS ITS CHALLENGE (2026-08-30)
+
+[2026083001](mc/supabase/migrations/2026083001_paths_become_routes_and_a_stop_gains_its_challenge.sql), **applied**. `paths` is `routes`, `path_stops` is `route_stops`,
+`tour_id` is `route_id`, and `route_stops` gained **`challenge_id`** and
+**`direction`**. 22 routes and 234 stops carried across; nothing was lost.
+
+- **THE RENAME COSTS NOTHING NOW AND WOULD HAVE COST SOMETHING BEFORE.** Both
+  reasons this file gave for keeping `tour_id` are gone: "Path" is no longer the
+  word, and **the Waypoints rebuild on 2026-08-29 deleted the `?tour=` handling**,
+  so there is no stored link shape left to protect. Kevin calls it a route; the
+  vocabulary should be the one the person using it speaks.
+- **THE CONSTRAINTS, INDEXES AND POLICIES WERE SWEPT FROM THE CATALOG**, not from
+  a list of the five this repo knows about, so anything added by hand in the
+  dashboard moved too. A table called `routes` whose key is `paths_pkey`
+  half-remembers its old name. **One was missed by that sweep and fixed after:**
+  `route_stops_tour_id_fkey` is named for the COLUMN, not the table, so a
+  `path%` filter never saw it.
+- **`challenge_id` IS NULLABLE AND `ON DELETE SET NULL`.** A stop is worth
+  recording the moment you know where it is; requiring a challenge up front
+  means inventing filler to save a route. And deleting a challenge must not
+  delete the stops that used it -- the place and its position are still true.
+- **`direction` SITS ON THE STOP, which is where this file predicted it would**
+  on 2026-08-20 when it named the vocabulary and refused to invent a table. A
+  direction belongs to the LEG between two stops, and the stop is the only row
+  that knows both ends. It has been living inside each game's conversation flow
+  until now, authored per game and reusable by nobody.
+
+### AND THE PROBE FOUND A LIVE BREAK THAT HAD BEEN SILENT FOR ELEVEN DAYS
+
+`tgb_pull_walking_tours` was still writing **`waypoints.archived`**, a column
+[2026081806](mc/supabase/migrations/2026081806_waypoints_drop_archived.sql) dropped on 2026-08-18. So **TGB PATH BOT has filed nothing since
+then**: every run died with `42703`, unattended, at 08:17 and 20:17 UTC, with
+nobody watching. The pending-migrations table at the top of this file had it
+right and it had never been cleared.
+
+- **THE RENAME DID NOT CAUSE IT, THE PROBE REVEALED IT**, which is the entire
+  argument for the apply-then-prove rule. The migration applied cleanly and
+  every catalogue query said so; **only a call that made the function do its job
+  hit the line that fails.**
+- Fixed in place from the LIVE definition, one identifier at a time, never
+  re-pasted: a `create or replace` written afresh rewrites the whole body and
+  this project has already lost a column that way.
+- **PROVED BY FILING A REAL FOUR-STOP TOUR**, reading the reply, and deleting the
+  route, its stops and its four waypoints afterwards. Back to 22 / 234 / 536
+  exactly.
+
+## HOW FAR A CHALLENGE TRAVELS IS FOUR ANSWERS (2026-08-30)
+
+[2026083002](mc/supabase/migrations/2026083002_challenge_scope_gains_city_and_team.sql), **applied**. `scope` was portable or place; it is now
+**portable / team / city / place**, each of the three narrow ones carrying a key
+that names what it is bound to.
+
+| scope | travels | example |
+|---|---|---|
+| `portable` | any city, any fandom | sing the away side's fight song |
+| `team` | one club, wherever they play | 28-3, Deflategate, Renegade |
+| `city` | one city, whoever is visiting | which lake do these sea horses face |
+| `place` | one waypoint | whose house is this |
+
+- **TEAM AND CITY ARE INDEPENDENT AXES, NOT DEGREES OF ONE THING.** A taunt
+  about 28-3 travels to every city the Falcons visit and belongs to no place; a
+  question about Buckingham Fountain belongs to Chicago and to nobody's fandom.
+  Collapsing them would make one of the two unaskable.
+- **A SCOPE NEEDS A KEY, OR IT IS A TAG NOTHING CAN OBEY.** `place` had been
+  label-only since it was written: a place-bound challenge named no place, so
+  nothing could offer it at the right stop. Survivable at one row, not at a
+  library. `scope_team` (a `teams.team_key`), `scope_city` and `scope_wpid` are
+  what the Route Builder reads to decide which challenges a stop may use.
+  - **`scope_team` IS NOT A FOREIGN KEY, deliberately.** `teams.team_key` is
+    generated from league and code, and a league we stop carrying should not
+    silently null a challenge that is still perfectly good writing.
+    `scope_wpid` IS one, `on delete set null`, since a deleted waypoint leaves a
+    challenge that really is place-bound to nothing.
+- **THE KEYS ARE NULLABLE AND THE CONTRADICTION IS NOT.** Marking a challenge
+  team-bound before deciding which club is a legitimate half-written row, and
+  the `unbound-scope` check draws it in the red pen. What the CHECK refuses is a
+  key that disagrees with its scope, which is the one state no reader could
+  interpret. **All four contradictions were tried on purpose and all four were
+  refused.**
+- **THE EDITOR NULLS THE OTHER TWO KEYS ON EVERY SAVE, and that is what stops
+  the CHECK ever being reached.** A challenge moved from team-bound to
+  city-bound while still carrying its old team is refused outright -- correctly,
+  and with a message about a state the writer cannot see.
+- **TEAM AND CITY ARE NOT OFFERED IN BATCH.** Each needs a key naming which one,
+  and a batch that set the scope and left the key null would mark a dozen rows
+  bound to nothing. Only the two key-free scopes are there.
+- **THE CHIP NAMES WHAT THE ROW IS BOUND TO**, not how far it travels: "team
+  bound" on twenty rows says nothing, `Falcons` is the fact. Portable is the one
+  in ink, because it is the one saying this row will be used again; the three
+  narrow scopes are quiet and told apart by the word. **A colour each would make
+  a list of chips into a legend to learn.**
+- **THE CITY BOX IS FREE TEXT WITH A DATALIST BUILT FROM THE WAYPOINTS**, so it
+  can only suggest a city some waypoint actually claims, and a city with no
+  waypoint yet is still a real thing to write.
+- **PROVED BY RENDERING THE REAL 23 ROWS** with the real 32 NFL clubs and 29
+  Chicago waypoints: all four scopes in the picker, the key box following the
+  scope, exactly one key sent and the other two nulled both ways round, the
+  place filter narrowing to 7, and the two rows that name nothing drawn in the
+  red pen. 26 assertions, plus the existing 61.
+  - **ONE OLD ASSERTION WAS CORRECTLY BROKEN BY THIS** and was updated rather
+    than worked around: it read the chip as `place bound`, which is the string
+    that no longer exists.
+
 ## THE CHALLENGE EDITOR, AND WHY A CHALLENGE HAS A SCOPE (2026-08-29)
 
 [mc/challenges/index.html](mc/challenges/index.html), the room the product was missing. Built to the
