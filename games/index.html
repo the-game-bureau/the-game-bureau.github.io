@@ -57,9 +57,15 @@ body.home-page {
   display: grid;
   grid-template-columns: minmax(360px, 34vw) 1fr;
   grid-template-rows: 1fr;
-  flex: 1 1 auto;
-  /* A floor, or on a short window the map collapses to a sliver and the rail
-     to two rows. Below this the phone layout takes over anyway. */
+  /* `flex: 1 1 0`, NEVER `1 1 auto`, AND THAT ONE CHARACTER IS THE WHOLE FIX.
+     `auto` takes the item's CONTENT as its flex basis, so this measured 371
+     stacked cards, about 43,000px tall. The row is 1fr OF THAT, .gp-map
+     stretched to it, and Leaflet centred its view in a container two dozen
+     screens tall: the pins sat at y=21,700, exactly where they belonged and
+     nowhere anybody would ever look.
+     With a basis of 0 the height comes from the space left in the viewport,
+     the rail scrolls inside itself, and the map is the size of the screen. */
+  flex: 1 1 0;
   min-height: 620px;
 }
 /* BELT AND BRACES ON THE MAP'S OWN HEIGHT. #map is absolutely positioned inside
@@ -404,6 +410,9 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   .gp {
     grid-template-columns: 1fr;
     grid-template-rows: 38vh auto;
+    /* Stacked, the PAGE scrolls rather than the rail, so the split is sized by
+       its content again. `1 1 0` here would squash it into the leftover space. */
+    flex: 0 0 auto;
     min-height: 0;
   }
   .gp-map { order: -1; min-height: 38vh; border-bottom: 1px solid var(--line-strong); }

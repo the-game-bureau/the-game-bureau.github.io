@@ -881,6 +881,52 @@ was right at every stage. What finally settled it was not another diagnosis but
 **removing the dependency**: a drawn mark cannot fail to have a font, and a map
 that draws nothing now says which of the remaining causes it hit.
 
+### THE MAP WAS 43,376 PIXELS TALL (2026-08-30)
+
+The pins were never missing. They were at **y = 21,700**, dead centre of a
+container two dozen screens tall, which is exactly where Leaflet should put them
+and nowhere anybody would ever look.
+
+**`flex: 1 1 auto` TAKES THE ITEM'S CONTENT AS ITS FLEX BASIS.** So `.gp`
+measured 371 stacked cards, the grid's `1fr` row was `1fr` of THAT, `.gp-map`
+stretched to it, and Leaflet centred its view in a 43,376px box. **`flex: 1 1 0`
+is the whole fix**: the height comes from the space left in the viewport, the
+rail scrolls inside itself, and the map is the size of the screen.
+
+- **THE PHONE LAYOUT NEEDS THE OPPOSITE and says so.** Stacked, the PAGE scrolls
+  rather than the rail, so the split is sized by its content again: `flex: 0 0
+  auto` under 860px, or it would be squashed into the leftover space.
+- **EVERY EARLIER DIAGNOSIS WAS RIGHT AND NONE OF THEM WAS THIS.** The inline
+  box, the glyph in its own background colour, the missing emoji font: all three
+  were real faults, all three are fixed, and **none of them was why nothing was
+  on screen.** Fixing a real bug is not evidence that you have found THE bug.
+
+### AND THE LESSON: GET A REAL BROWSER
+
+[mc/_dev/browser-checks/games-in-a-real-browser.js](mc/_dev/browser-checks/games-in-a-real-browser.js). Puppeteer against the
+Chrome already on the machine, serving the repo over http.
+
+**jsdom passed over this four times, and it was never going to catch it.** It
+has no layout: `getBoundingClientRect` returns zeroes, so every harness here
+STUBS it, and **the stub is what makes the harness blind to geometry**. The
+real-Leaflet suite hard-codes 900x700 for the map, which is precisely the
+measurement that was wrong.
+
+**WHAT ONLY A BROWSER COULD SAY**, and what the check now asserts:
+
+    map box  924 x 43376        ->  924 x 620
+    pin 0    y=21703 onScreen=false  ->  y=325 onScreen=true
+
+- **RUN IT OVER HTTP, NEVER `file://`.** The page's cross-folder links are
+  root-absolute (`/shell/...`, `/mc/assets/...`) and under `file://` none of
+  them resolves: the first run reported **0 cards** and that was the harness,
+  not the page. `python -m http.server` in the repo root is enough.
+- **THE SUPABASE READS ARE INTERCEPTED AND THE CDN IS NOT.** Whether Leaflet
+  actually arrives is part of what is being tested.
+- **THE CHECK IS `onScreen`, not "in the document".** Every previous assertion
+  answered the second question, and the second question had been YES the whole
+  time.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
