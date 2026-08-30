@@ -50,7 +50,47 @@ setTimeout(() => {
   t('the form column tells choices from one word',
     forms.some((f) => /choices/.test(f)) && forms.some((f) => f === 'one word'), forms.join(' / '));
 
-  /* ---- the pickers ------------------------------------------------------ */
+  /* ---- the chips carry a ground, and it has to be READABLE ---------------
+     PROVE THE MATHS BEFORE CLAIMING IT. The fills are rgba over the panel's
+     near-white paper, so the composite is computed here rather than eyeballed,
+     and 4.5:1 is the floor for 0.6rem text. jsdom does not resolve a var()
+     inside a shorthand, so the values are read from the stylesheet text, which
+     is the approach this repo already uses for the same limitation. */
+  const css = [...d.querySelectorAll('style')].map((x) => x.textContent).join(' ');
+  const PAPER = [255, 255, 254];                      // --paper over --paper-base
+  const INK = [45, 72, 128];
+  const over = (rgb, a) => rgb.map((v, i) => Math.round(v * a + PAPER[i] * (1 - a)));
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+                            return (x + 0.05) / (y + 0.05); };
+
+  const teamCss = (css.match(/\.chip--team\s*{([^}]*)}/) || [])[1] || '';
+  const cityCss = (css.match(/\.chip--city\s*{([^}]*)}/) || [])[1] || '';
+  const badCss  = (css.match(/\.chip--bad\s*{([^}]*)}/)  || [])[1] || '';
+
+  t('each chip declares its own background',
+    /background:/.test(teamCss) && /background:/.test(cityCss) && /background:/.test(badCss));
+
+  const pairs = [
+    ['team', over(INK, 0.12), INK],
+    ['city', over([122, 84, 12], 0.13), [122, 84, 12]],
+    ['bad',  over([194, 55, 55], 0.10), [194, 55, 55]]
+  ];
+  pairs.forEach(([name, bg, fg]) => {
+    const r = ratio(fg, bg);
+    t(name + ' chip text clears 4.5:1 on its own fill (' + r.toFixed(2) + ':1)', r >= 4.5, r.toFixed(2));
+  });
+
+  /* THE THREE GROUNDS MUST DIFFER FROM EACH OTHER, or the fill says nothing. */
+  const grounds = pairs.map(([, bg]) => bg.join(','));
+  t('the three fills are three different colours', new Set(grounds).size === 3, grounds.join(' | '));
+
+  /* AND THE WORD SURVIVES WITHOUT THE COLOUR. */
+  t('every chip still carries its word, so colour is not the only signal',
+    rows().every((r) => r.querySelector('.chip').textContent.trim().length > 0));
+
+  /* ---- the pickers ------------------------------------------------------ */  /* ---- the pickers ------------------------------------------------------ */
   const cityOpts = [...el('cityPick').options];
   const teamOpts = [...el('teamPick').options];
   t('the city picker is built from the rows (' + (cityOpts.length - 1) + ')', cityOpts.length > 1);
