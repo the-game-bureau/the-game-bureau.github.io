@@ -369,6 +369,91 @@ Kevin can settle them.
 
 ---
 
+## /games/ IS A RAIL AND A MAP (2026-08-30)
+
+[games/index.html](games/index.html), rebuilt. 2,638 lines to 738. Games down the left,
+a map on the right, and **choosing one flies the map from the away club's city
+into the host's**.
+
+- **THE MAP IS THE ARGUMENT, NOT DECORATION.** The product is "somewhere
+  specific, the day before the thing that brought you there", and a grid of
+  cards says none of that. One gesture says all of it: the away fans travel, and
+  the game is played in the host's streets.
+  - **TWO MOVES, NOT ONE.** It fits both cities first, which says where they
+    came from, then zooms the host at 12 about a second later, which says where
+    the game actually happens. One jump would read as a teleport.
+  - The away pin is smaller and the dashed arc runs toward the host, so the
+    direction of travel is readable without reading anything.
+- **THERE IS NO COORDINATE ON A CITY ANYWHERE IN THIS DATABASE.** `cities`,
+  `teams` and `games` all lack one. A city point is the **average of the
+  waypoints we hold in it**, which resolves **36 of the 37 club cities** and is a
+  better middle for this map than a civic centroid: it is the centre of the
+  places we actually send people to. **Baton Rouge is the one gap**, and there is
+  a small static fallback for it and for the venue towns, because a game that
+  silently refuses to fly looks like a broken control.
+- **WHY DARK, when the rest of the public site is paper.** The map is the
+  brightest object on the page and every game carries its own away-club colour;
+  a pale chrome would compete with the first and wash out the second.
+  `body.home-page` already owned this palette, so this is the house dark skin
+  rather than a fourth one.
+  - **THE TILES ARE DIMMED AND DESATURATED** (`grayscale .72 brightness .62`).
+    OSM's raster is a bright paper map: left alone it reads as a hole cut in the
+    page and every team colour on top of it loses.
+- **THE CARD WEARS THE AWAY CLUB'S COLOUR**, which is the standing fandom rule:
+  a game is pitched at the travelling fans, so the palette is theirs and not the
+  host's. The ink on the button is derived by luminance, so a pale club colour
+  does not get white text on it.
+- **`archived` IS TEXT AND 'YES' IS THE ONLY TRUE VALUE.** Compared as a boolean
+  it is wrong in both directions. **ALL 395 GAMES CARRY 'YES' TODAY, so `/games/`
+  is showing an empty shop window in production** and has been. The empty state
+  says when it will not be rather than reading as a page that failed to load.
+- **A MAP THAT WILL NOT BUILD MUST NOT BLANK THE GAMES**, and the first cut of
+  this got it wrong: `initMap()` was chained inside the load's `.then()`, so a
+  Leaflet failure landed in the `catch` and erased a list that had already
+  rendered perfectly. **Found by a test whose Leaflet stub was missing a method**,
+  which is exactly the shape of a CDN having a bad afternoon. It is caught
+  separately now.
+- **LEAFLET IS INJECTED ON DEMAND**, not loaded in the head: 144KB that must
+  arrive and parse before anything paints is most of what makes a page like this
+  feel slow, and the rail is the half people read first. `ensureLeaflet` resolves
+  on error too.
+- **A CITY THAT REPEATS ITS STATE IS TIDIED.** `New York, New York` is the row
+  saying it twice, and it was the first card in the fixture. Same rule the Tape
+  Room already keeps for its tape headlines.
+- **THE SHARED NAV AND FOOTER ARE STILL THERE**, and the page is a flex column
+  so the split takes the slack without this page having to know how tall the nav
+  is. Hand-rolling four links in the rail would be the copy-and-drift this repo
+  has lost to more than once, and `site-nav.js` also carries the padlock, the
+  follow reel and the live stat badges.
+  - **`supabase-fallback.js` AND `public-account.js` WENT BACK ON** because the
+    other eight public pages carry them and the old page did: **a redesign
+    should not quietly change what a page does.** Worth knowing about the first
+    one: it serves a committed snapshot from `/mc/backups/` when a live read
+    fails, which is the shape this file warns about under soundtracks. A
+    fallback that renders a stale catalogue perfectly makes an outage invisible,
+    and on a page with prices on it a stale row is worse than an honest failure.
+    **Left in place because removing it is a product decision.**
+
+### WHAT THE REBUILD DROPPED, PLAINLY
+
+None of it is coming back by accident, and two files are now loaded by nothing.
+
+| gone | what it did |
+|---|---|
+| the fan / city mode switch | *WHO DO YOU CHEER FOR?* and a second browse-by-city mode |
+| the gift strip | *FROM THE GIFT SHOP* along the bottom |
+| helmet / basketball / baseball marks | generated club artwork on the cards |
+| `games-prefetch.js` | a warm-up read, now loaded by **no page** |
+| `your_nearest_team.js` | geolocated club suggestion, now loaded by **no page** |
+
+**Nothing outside the page referenced any of its ids**, checked rather than
+assumed, so the rebuild stranded no other page.
+
+**PROVED BY RENDERING IT** against the real 395 games and the 69 derived city
+points: the empty state on the live rows, the full list on the same rows served
+live, the away-club palette, the fly framing New Orleans and New York in that
+order, the second zoom, the search, and the close. 35 assertions.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
