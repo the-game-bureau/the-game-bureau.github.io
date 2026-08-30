@@ -1286,6 +1286,37 @@ place) and now the destinations; what is missing is the join that says *this
 fandom, in this city* and the decision about what `public.games` becomes when a
 row is only needed at purchase.
 
+## THE NBA JOINS THE DESTINATIONS (2026-08-30)
+
+[2026083007_destinations_nba.sql](mc/supabase/migrations/2026083007_destinations_nba.sql), **applied**. 30 rows, so the table is **62 across
+40 distinct cities**. Los Angeles now holds four clubs and New York three, which
+costs nothing because the nickname is in the key.
+
+- **`teams.fanbase` AGAIN, NEVER `city_name`, AND IT IS RIGHT FOR ALL 30** --
+  including **GOLDEN STATE, which the row already resolves to San Francisco**,
+  correct since the club left Oakland for Chase Center. That is the same column
+  that got the 49ers right where `city_name` said San Jose.
+- **BROOKLYN IS ITS OWN DESTINATION, and this bends the city rule knowingly.**
+  Brooklyn is a borough rather than a city -- **and it is what the fandom IS**:
+  the jersey says Brooklyn, Barclays Center is in Brooklyn, and a Nets fan says
+  Brooklyn. That is the opposite of Orchard Park, which nobody claims. It is
+  also a genuinely different walk from Manhattan, which is the product test.
+  - **IT IS THE ONE DECLARED EXCEPTION TO "NO ALIAS MAY NAME ANOTHER
+    DESTINATION'S CITY".** `new york` sits on the Brooklyn row, because a
+    visitor headed to New York really can walk to Brooklyn -- **the rule exists
+    to stop an alias resolving somebody to a place they are NOT going**, which
+    is what `oakland` on a Las Vegas row would do. **The check names the
+    exemption rather than being deleted**, so it still catches the next one.
+- **TORONTO IS THE FIRST NON-US ROW, and it passes by luck.** `state` holds `ON`,
+  which satisfies the two-character CHECK because Canadian provinces happen to
+  be two letters. There is no `country` column. **A league whose countries have
+  subdivisions that are not two letters needs a column, not a workaround** --
+  say so before seeding one.
+- **PROVED BY LOOKUPS**: `golden state` reaches San Francisco, `utah` reaches
+  Salt Lake City, `indiana` reaches Indianapolis, `the six` reaches Toronto,
+  `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
+  still reaches nothing. No venue town leaked in.
+
 ## TRIVIA IS KEYED TO A PLACE, NOT TO A CLUB (2026-08-30)
 
 [2026083006_trivia.sql](mc/supabase/migrations/2026083006_trivia.sql), **applied**. Three rows to start.
