@@ -1491,6 +1491,41 @@ wireframe.
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
 
+## A MASCOT IS A SEARCH TERM, NEVER A LABEL (2026-08-30)
+
+Kevin, settling it. **The trademark rule is about PRINTING, not about matching.**
+
+- **NEVER IN VISIBLE COPY.** A nickname is somebody else's mark and every public
+  page is a shop window. `tgb_audience_label` already enforces this: a pro club
+  is named by its city, because its name IS its mascot.
+- **ALWAYS IN SEARCH.** Typing **Saints** must find the New Orleans games,
+  because that is what a fan types. Matching on a word is not using it as a
+  name, which is the same reasoning `/games/` already applies to its own search
+  box and its datalist.
+- **THE COLUMNS FOR IT ALREADY EXIST AND ARE ALREADY MATCH-ONLY.**
+  `audiences.nickname` plus `audiences.aliases` and `places.aliases`, all three
+  documented as never printed. **Nothing new is needed; what is needed is that
+  no page ever prints one.**
+- **SO THE TEST FOR ANY NEW SURFACE IS ONE QUESTION**: does this string reach a
+  reader, or only a matcher? Reader means the city. Matcher means anything a fan
+  might type.
+
+## PARKED: WHERE A GAME AND ITS POINTS GET STORED (2026-08-30)
+
+Decided in principle, deliberately not built. **A generated game will be stored
+in a table, and points will go there too.**
+
+- **`tgb_build_game` RETURNS A GAME AND WRITES NOTHING**, which is the right
+  shape to have stopped at: how a game is composed and where a purchased one
+  lives are two decisions, and only the first is made.
+- **`public.scores` ALREADY EXISTS AND ALREADY TAKES POINTS**, from trivia today
+  and from challenges when the engine writes them, with the 7/3/0 bands enforced
+  by CHECK. **Settle whether the new table replaces it or points at it before
+  writing a second scoring path** -- two places recording what somebody scored
+  is the exact fault this whole rebuild removed from the club list.
+- **NOTHING PLAYS A GENERATED GAME YET.** Both engines read `public.games` with
+  `select=*` at play time, and that is the work this table is the front of.
+
 ## STEP SIX: TEMPLATES, AND THE GENERATOR (2026-08-30)
 
 [2026083021](mc/supabase/migrations/2026083021_templates_and_the_generator.sql), **applied**. The wireframe is built.
