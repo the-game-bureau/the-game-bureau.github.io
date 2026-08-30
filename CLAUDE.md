@@ -1319,6 +1319,33 @@ costs nothing because the nickname is in the key.
   `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
   still reaches nothing. No venue town leaked in.
 
+## THE ADMIN GATE TAKES `supabaseConfig`, AND THE WRONG SHAPE IS SILENT (2026-08-30)
+
+Reported as *"Admin auth is unavailable because Supabase is not configured"* on
+the Trivia room. **Nothing was misconfigured. The call was.**
+
+- **`TgbMcAdminAuth.create` READS ONE OPTION FOR THIS: `supabaseConfig`, AN
+  OBJECT OF `url` AND `publishableKey`.** Passing `supabaseUrl` and
+  `supabaseKey` -- which reads perfectly naturally and is what I wrote -- lands
+  in `Object.assign`, is never looked at, and `hasConfig` then sees nothing.
+  **The room then blames the PROJECT for a fault in its own call**, which is the
+  worst shape an error message can take: it sends you to the dashboard.
+- **THE ROUTES ROOM HAD IT TOO AND NOBODY HAD SIGNED INTO IT YET.** Two rooms,
+  one copied from the other. **A swept check found no third**, which is the only
+  reason to believe there is not one.
+- **NO ROOM SUITE COULD EVER HAVE CAUGHT THIS.** They all stub
+  `TgbMcAdminAuth` -- correctly, since the alternative is a real sign-in -- and
+  **the stub is precisely the module that was rejecting the call.** So the check
+  is a separate harness, [admin-auth-config-shape.js](mc/_dev/browser-checks/admin-auth-config-shape.js), which loads the REAL
+  module into five rooms and asks whether it accepted the config.
+- **AND ITS FIRST VERSION FAILED ON TWO CORRECT FILES.** It searched
+  `body.textContent` for the message, and **jsdom includes `<script>` SOURCE in
+  that** -- so it matched the page's own comment explaining this very bug. **This
+  file already records that trap** and I walked into it anyway. It strips
+  scripts from a clone now.
+- **RUN AGAINST THE BROKEN FILE, where it fails three ways.** An assertion that
+  has never failed on the bug it is for is an assertion nobody should trust.
+
 ## THE NHL AND THE SEC JOIN THE DESTINATIONS (2026-08-30)
 
 [2026083012](mc/supabase/migrations/2026083012_destinations_nhl.sql) and [2026083013](mc/supabase/migrations/2026083013_destinations_sec.sql), **both applied**. **110 rows: NFL 32, NHL 32,
