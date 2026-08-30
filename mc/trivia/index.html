@@ -161,6 +161,17 @@
     /* AN ID THAT RESOLVES TO NEITHER SHAPE IS A TYPO NOTHING ELSE CATCHES,
        because trivia.id is not a foreign key and cannot be one. Red pen, and
        the only chip here wearing a semantic colour. */
+    /* A FAMILY IS VIOLET, MEASURED not picked: 6.6 to 1 as text on its own wash,
+       the same way the team and city chips were checked. */
+    .chip--family {
+      background: rgba(106, 61, 140, 0.12);
+      border-color: rgba(106, 61, 140, 0.42);
+      color: rgb(106, 61, 140);
+    }
+    /* PORTABLE IS THE QUIETEST, which is the right weight: it is the LEAST
+       specific rung and should not shout on a list where everything else is
+       narrower. No fill, dashed, and it still carries its word. */
+    .chip--portable { color: var(--muted); border-style: dashed; }
     .chip--bad {
       background: rgba(194, 55, 55, 0.10);
       border-color: var(--bic-red);
@@ -441,12 +452,17 @@
        always begins with a city slug, and it is what tells a waypoint question
        from a city one without asking the database. */
     const WP = 'wp-';
+    /* THE TWO BROADEST RUNGS. `*` is asked in every game there is and a family
+       key in every game of that sport, so they are the highest-value rows in the
+       table -- and both were EMPTY until the ladder made them reachable. The
+       room has to know them or it draws them as a typo. */
+    const PORTABLE = '*';
 
     const el = (id) => document.getElementById(id);
     const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
 
     const state = {
-      trivia: [], destinations: [], waypoints: [],
+      trivia: [], destinations: [], waypoints: [], families: [],
       city: '', team: '',
       deck: [], current: null, shown: [], answered: false, given: '', right: false,
       tries: 0, missed: '',
@@ -557,15 +573,21 @@
     function shapeOf(id) {
       const v = clean(id);
       if (!v) return '';
+      if (v === PORTABLE) return 'portable';
       if (v.indexOf(WP) === 0) {
         return state.waypoints.some((w) => wpKeyOf(w) === v) ? 'waypoint' : '';
       }
+      /* A FAMILY IS READ OFF THE AUDIENCES rather than from a list this page
+         would have to keep in step with the database. */
+      if (state.families.indexOf(v) >= 0) return 'family';
       if (state.destinations.some((d) => d.id === v)) return 'team';
       if (state.destinations.some((d) => d.id.indexOf(v + '-') === 0)) return 'city';
       return '';
     }
     function placeLabel(id) {
       const v = clean(id);
+      if (v === PORTABLE) return 'anywhere, anyone';
+      if (state.families.indexOf(v) >= 0) return 'the whole of ' + v.toUpperCase();
       if (v.indexOf(WP) === 0) {
         const w = state.waypoints.find((x) => wpKeyOf(x) === v);
         return w ? (clean(w.name) + (clean(w.city) ? ', ' + clean(w.city) : '')) : v;
@@ -1185,6 +1207,11 @@
         state.trivia = trivia;
         state.destinations = destinations;
         state.waypoints = waypoints;
+        /* READ OFF THE DESTINATIONS, so a family invented tomorrow needs no edit
+           here. They carry the league in upper case; a trivia key is lowercase
+           by CHECK, so it is folded down. */
+        state.families = [...new Set(destinations.map(
+          (d) => clean(d.league).toLowerCase()).filter(Boolean))];
         state.loaded = true;
 
         const n = trivia.length;

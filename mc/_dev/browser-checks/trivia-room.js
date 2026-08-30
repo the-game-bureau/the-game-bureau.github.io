@@ -71,6 +71,22 @@ setTimeout(() => {
   t('key, question, answer and choices are all editable cells',
     ['id', 'question', 'answer', 'choices'].every((f) => !!cell(mcRow, f)));
 
+  /* ---- every row resolves to a shape --------------------------------------
+     THE SUITE HAD NO SHAPE ASSERTION AT ALL, so it passed 66 of 66 over nine
+     rows the page would have drawn in the red pen as `no such place`. Five
+     times now this repo has recorded a test passing on a page that renders
+     wrong; the shape a row draws is the thing to read. */
+  const shapes = rows().map((r) => r.querySelector('.chip').textContent.trim());
+  t('no row draws as a typo', !shapes.some((s) => s === 'no such place'),
+    [...new Set(shapes)].join(', '));
+  t('the two broadest rungs are drawn',
+    shapes.indexOf('portable') >= 0 && shapes.indexOf('family') >= 0,
+    [...new Set(shapes)].join(', '));
+  t('and every shape the page knows is one of five',
+    shapes.every((s) => ['team', 'city', 'waypoint', 'family', 'portable'].indexOf(s) >= 0),
+    [...new Set(shapes)].join(', '));
+
+
   /* ---- editing in place ---------------------------------------------------- */
   click(cell(mcRow, 'question'));
   const box = cell(mcRow, 'question').querySelector('input');
