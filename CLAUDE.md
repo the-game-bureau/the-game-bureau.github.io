@@ -1248,6 +1248,38 @@ every club that visits it.
   by their CHECKs, a hand-written id is rejected as a generated column, a repeat
   of an existing club is rejected by the primary key, and `anon` reads it 200.
 
+### AND A FAN DOES NOT CALL IT BY ITS CITY (2026-08-30)
+
+[2026083005_destination_aliases.sql](mc/supabase/migrations/2026083005_destination_aliases.sql), **applied**. `destinations.aliases text[]`, 28 terms
+across 20 of the 32 rows.
+
+- **THE CITY RULE IS RIGHT AND IT BROKE THE LOOKUP.** Five clubs are known by a
+  state or a region rather than a city, so a Panthers fan typing the only word
+  they would ever use -- **Carolina** -- matched nothing at all. Same for
+  **Arizona**, **Minnesota**, **New England** and **Tennessee**. **Nothing was
+  missing from the table**; five names were missing from the search.
+- **MATCH ONLY, NEVER PRINTED**, which is the same bargain `/games/` already
+  makes with nicknames: matching on a word is not using it as a name. `city` is
+  what a page displays.
+- **STORED LOWERCASE, AND A CHECK ENFORCES IT.** A value nothing renders has no
+  business carrying capitals, and lowercasing on write means a lookup needs no
+  function around the column. **Neither CHECK may contain a subquery**, which is
+  not legal in one: `aliases::text = lower(aliases::text)` reads the array's own
+  literal, and `not (aliases && array[''])` uses the overlap operator to refuse a
+  blank member.
+- **NO VENUE TOWN AND NO FORMER CITY, and the second is the sharper rule.** The
+  table exists to keep Foxborough and Orchard Park out, so letting them back in
+  through a side door would send a fan to a town nothing is written for. And a
+  Raiders fan may well say **Oakland** -- which is a real place that is not Las
+  Vegas. **An alias naming a DIFFERENT real city is worse than no alias**,
+  because it resolves silently and looks like it worked. Verified: no alias in
+  the table equals any destination's city name.
+- **PROVED BY LOOKUPS THAT USED TO MISS**, not by the absence of an error:
+  `carolina` resolves to Charlotte, `new england` to Boston, `arizona` to
+  Phoenix, `minnesota` to Minneapolis, `tennessee` to Nashville, and
+  `orchard park` and `oakland` still resolve to nothing. Both CHECKs were made
+  to refuse, by name.
+
 **WHAT IT DOES NOT DO YET.** Nothing generates a game from it. The pieces that
 exist are the routes (per city), the challenges (scoped portable / team / city /
 place) and now the destinations; what is missing is the join that says *this
