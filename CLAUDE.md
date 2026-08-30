@@ -7674,6 +7674,51 @@ Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues`
 - **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
 - **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
+### AND THE ROOM SHOWS ALL 33 COLUMNS (2026-08-30)
+
+[mc/audiences/index.html](mc/audiences/index.html) drew nine of them. The other 24 arrived with the
+teams merge and were readable nowhere.
+
+- **ONE `COLUMNS` LIST DRIVES THE HEADER, THE CELLS, THE EDITABLE SET AND THE
+  SEARCH.** Two hand-kept lists is the drift this repo has paid for repeatedly;
+  adding a column is one line and it appears in all four places.
+- **A GROUP BAND ABOVE THE NAMES: Identity, Where, Sport, Colours, Keys,
+  Filed.** Thirty-three columns is more than anybody scans, and naming the runs
+  is what makes the sideways scroll navigable. Built from the same list, so a
+  column cannot sit under the wrong heading.
+- **THE KEY STICKS TO THE LEFT EDGE.** Past a dozen columns you cannot tell
+  which row you are reading. It needs its own opaque ground, or the cells slide
+  under it.
+- **THE TABLE TAKES ITS NATURAL WIDTH** (`max-content`) and scrolls inside the
+  panel. At `width: 100%` every cell would be about thirty pixels. **The page
+  body still never scrolls sideways.**
+- **A COLOUR IS A SWATCH, because six characters of hex cannot be read**, with a
+  ring on it so a white value is not invisible on the panel. Sort orders and ids
+  are right-aligned tabular figures.
+- **THE THREE THE DATABASE OWNS ARE NOT EDITABLE**: `id` is generated from
+  family and name, and the two stamps record when something happened.
+- **A WORD IN A NUMBER COLUMN AND JUNK IN A COLOUR ONE ARE REFUSED WITH A
+  SENTENCE**, before the request. A raw `22P02` is a statement about our schema,
+  and a bad colour draws nothing, which looks exactly like an empty cell.
+- **NO COLUMN IS HIDDEN ON A PHONE ANY MORE.** Dropping two of nine was a
+  reasonable trim; dropping two of thirty-three answers nothing, and the key was
+  one of the two.
+- **THE RENAME BROKE THE SUITE AND IT WAS RIGHT TO.** `nfl-bears` is
+  `nfl-chicago`, and the duplicate-key probe had quietly **stopped testing its
+  own subject** -- `nfl` + `Bears` no longer collides with anything, so the
+  guard was never reached and the assertion passed anyway.
+- **PROVED AGAINST THE REAL 640 ROWS, and the new checks were run against the
+  previous commit**, where nine of them fail: `position: static`, `width: 100%`,
+  no band, no columns. **An assertion that has never failed on the bug it is for
+  is an assertion nobody should trust.** 63 assertions.
+
+**AND ONE CONTRADICTION IS RECORDED RATHER THAN RECONCILED.** The add dialog
+refuses a home for anything that is not a fandom -- *"an interest is not at home
+anywhere"* -- while the one real interest on file, `history-jfk`, **carries
+new-orleans-la**, and the database holds no such rule. Both are asserted, so the
+disagreement is visible. Settle it by dropping the dialog's guard (an interest
+can belong to a place) or by clearing that row; a comment would not survive.
+
 ## AN AUDIENCE IS NAMED BY ITS CITY (2026-08-30)
 
 [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql), **applied**. 110 pro clubs took their city, 14 kept a

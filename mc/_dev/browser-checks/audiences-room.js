@@ -1,4 +1,4 @@
-/* Drives mc/audiences/index.html against the REAL 111 audiences and 95 places. */
+/* Drives mc/audiences/index.html against the REAL 640 audiences and 95 places. */
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
@@ -61,24 +61,29 @@ setTimeout(() => {
   t('and the interest one is there too', kinds.indexOf('interest') >= 0, kinds.join(', '));
 
   /* THE HOME CELL SHOWS A LABEL, NOT THE KEY. */
-  const bears = ROWS.find((r) => r.id === 'nfl-bears');
+  const bears = ROWS.find((r) => r.id === 'nfl-chicago');
   t('a club shows where it is at home, in words',
-    /Chicago/.test(cell('nfl-bears', 'home_place_id').textContent),
-    cell('nfl-bears', 'home_place_id').textContent);
+    /Chicago/.test(cell('nfl-chicago', 'home_place_id').textContent),
+    cell('nfl-chicago', 'home_place_id').textContent);
+  /* AND SO DOES AN INTEREST, WHICH THE ADD DIALOG REFUSES TO CREATE. The one
+     real interest on file, `history-jfk`, carries new-orleans-la, while the
+     dialog below says "an interest is not at home anywhere". The database holds
+     no such rule. Both are asserted rather than reconciled, so the
+     disagreement is visible instead of being a comment nobody reads. */
   const jfk = ROWS.find((r) => r.kind === 'interest');
-  t('an interest shows no home at all',
-    cell(jfk.id, 'home_place_id').textContent === '',
+  t('an interest carries its home too, and the cell shows it in words',
+    /New Orleans/.test(cell(jfk.id, 'home_place_id').textContent),
     cell(jfk.id, 'home_place_id').textContent);
 
   /* ---- editing ----------------------------------------------------------- */
-  click(cell('nfl-bears', 'team_key'));
-  const box = cell('nfl-bears', 'team_key').querySelector('input');
+  click(cell('nfl-chicago', 'team_key'));
+  const box = cell('nfl-chicago', 'team_key').querySelector('input');
   t('a cell opens into a box', !!box);
   key(box, 'Escape');
   t('Escape writes nothing', patches().length === 0, patches().length);
 
-  click(cell('nfl-bears', 'aliases'));
-  const ab = cell('nfl-bears', 'aliases').querySelector('input');
+  click(cell('nfl-chicago', 'aliases'));
+  const ab = cell('nfl-chicago', 'aliases').querySelector('input');
   ab.value = ' Da Bears / MONSTERS of the midway ';
   key(ab, 'Enter');
   let p = patches()[patches().length - 1];
@@ -90,8 +95,8 @@ setTimeout(() => {
 
   /* THE HOME CELL SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so a typed label
      has to be resolved back or a foreign key would get "Chicago, IL". */
-  click(cell('nfl-bears', 'home_place_id'));
-  const hb = cell('nfl-bears', 'home_place_id').querySelector('input');
+  click(cell('nfl-chicago', 'home_place_id'));
+  const hb = cell('nfl-chicago', 'home_place_id').querySelector('input');
   hb.value = 'Denver, CO';
   key(hb, 'Enter');
   p = patches()[patches().length - 1];
@@ -99,8 +104,8 @@ setTimeout(() => {
     p.body.home_place_id === 'denver-co', JSON.stringify(p.body));
 
   const beforeBad = patches().length;
-  click(cell('nfl-bears', 'home_place_id'));
-  const hb2 = cell('nfl-bears', 'home_place_id').querySelector('input');
+  click(cell('nfl-chicago', 'home_place_id'));
+  const hb2 = cell('nfl-chicago', 'home_place_id').querySelector('input');
   hb2.value = 'Nowhereville';
   key(hb2, 'Enter');
   t('a place that does not exist sends NOTHING', patches().length === beforeBad,
@@ -111,8 +116,8 @@ setTimeout(() => {
 
   /* CLEARING THE HOME CLEARS THE DESTINATION TOO, or the CHECK refuses the row
      for carrying a destination with no home. */
-  click(cell('nfl-bears', 'home_place_id'));
-  const hb3 = cell('nfl-bears', 'home_place_id').querySelector('input');
+  click(cell('nfl-chicago', 'home_place_id'));
+  const hb3 = cell('nfl-chicago', 'home_place_id').querySelector('input');
   hb3.value = '';
   key(hb3, 'Enter');
   p = patches()[patches().length - 1];
@@ -125,6 +130,11 @@ setTimeout(() => {
 
   /* THE MASCOT IS A COLUMN AND IT IS NOT THE NAME. A club at home without one
      vanishes from the destinations view, which is why the database refuses it. */
+  t('a pro club is named by its city, never its mascot',
+    cell('nfl-chicago', 'name').textContent.trim() === 'Chicago'
+    && cell('nfl-chicago', 'nickname').textContent.trim() === 'Bears',
+    cell('nfl-chicago', 'name').textContent + ' / ' + cell('nfl-chicago', 'nickname').textContent);
+
   const bamaRow = ROWS.find((r) => r.id === 'ncaaf-alabama');
   if (bamaRow) {
     t('a college audience is named for its school',
@@ -137,13 +147,13 @@ setTimeout(() => {
 
   /* ---- renaming changes the key, and it says so ------------------------- */
   asked = null;
-  click(cell('nfl-bears', 'name'));
-  const nb = cell('nfl-bears', 'name').querySelector('input');
+  click(cell('nfl-chicago', 'name'));
+  const nb = cell('nfl-chicago', 'name').querySelector('input');
   nb.value = 'Monsters';
   key(nb, 'Enter');
   t('renaming asks first', !!asked);
   t('and shows both keys in the question',
-    asked && asked.indexOf('nfl-bears') >= 0 && asked.indexOf('nfl-monsters') >= 0, asked);
+    asked && asked.indexOf('nfl-chicago') >= 0 && asked.indexOf('nfl-monsters') >= 0, asked);
 
   /* ---- filters ----------------------------------------------------------- */
   const before = rows().length;
@@ -195,12 +205,104 @@ setTimeout(() => {
 
     click(el('manualBtn'));
     el('addFamily').value = 'nfl'; fire(el('addFamily'), 'input');
-    el('addName').value = 'Bears'; fire(el('addName'), 'input');
+    el('addName').value = 'Chicago'; fire(el('addName'), 'input');
     click(el('addSave'));
     t('a key that already exists is refused before any request',
       /already exists/.test(el('addMsg').textContent) && posts().length === 1,
       el('addMsg').textContent);
     click(el('addCancel'));
+
+    /* ---- EVERY COLUMN IS ON THE PAGE ---------------------------------------
+       These read getComputedStyle and the built header rather than the source,
+       because a correct markup string proves nothing about what a viewer sees:
+       this project has recorded a suite passing over an invisible pin, an
+       unstyled row and a glyph with no font. Run against the previous commit
+       they fail, which is the only reason to trust them. */
+    const cols = [...HTML.matchAll(
+      /\{\s*g:\s*'([^']+)',\s*k:\s*'([^']+)',\s*t:\s*'([^']+)',\s*kind:\s*'([^']+)'([^}]*)\}/g)]
+      .map((m) => ({ g: m[1], k: m[2], t: m[3], kind: m[4], edit: /edit:\s*false/.test(m[5]) ? false : true }));
+    t('the column list parses out of the source', cols.length > 0, cols.length);
+    const heads = [...d.querySelectorAll('thead tr:nth-child(2) th')].map((x) => x.textContent);
+    t('every column on the table has a header (' + cols.length + ')',
+      heads.length === cols.length + 1, heads.length);
+    t('in the order the one list gives',
+      cols.every((c, i) => heads[i] === c.t), heads.slice(0, 5).join('|'));
+    t('all 33 database columns are drawn', cols.length === 33, cols.length);
+
+    const bands = [...d.querySelectorAll('thead .bandrow th')];
+    t('the group band names the runs',
+      bands.map((x) => x.textContent).join('/') === 'Identity/Where/Sport/Colours/Keys/Filed/',
+      bands.map((x) => x.textContent).join('/'));
+    t('and its colspans cover every column',
+      bands.reduce((n, x) => n + (Number(x.getAttribute('colspan')) || 1), 0) === cols.length + 1,
+      bands.reduce((n, x) => n + (Number(x.getAttribute('colspan')) || 1), 0));
+
+    const firstCell = rows()[0].children[0];
+    const fcs = w.getComputedStyle(firstCell);
+    t('the key column is stuck to the left edge', fcs.position === 'sticky', fcs.position);
+    t('at zero', fcs.left === '0px', fcs.left);
+    t('on its own ground, or the cells slide under it',
+      fcs.background !== '' && !/transparent/.test(fcs.background), fcs.background);
+
+    const tbl = d.querySelector('tbody').closest('table');
+    t('the table takes its natural width rather than being squeezed',
+      w.getComputedStyle(tbl).width === 'max-content', w.getComputedStyle(tbl).width);
+
+    /* A COLOUR IS A SWATCH, and the swatch has to carry the row's own value. */
+    const tampa = rows().find((r) => r.dataset.row === 'nfl-tampa');
+    const shellIdx = cols.findIndex((c) => c.k === 'shell');
+    const sw = tampa.children[shellIdx].querySelector('.swatch');
+    t('a colour cell draws a swatch', !!sw);
+    t('painted the row\u2019s own colour',
+      sw && /rgb\(255,\s*255,\s*255\)/.test(w.getComputedStyle(sw).backgroundColor),
+      sw && w.getComputedStyle(sw).backgroundColor);
+    t('with a ring, or white is invisible on the panel',
+      sw && w.getComputedStyle(sw).boxShadow !== 'none', sw && w.getComputedStyle(sw).boxShadow);
+    t('and the hex beside it', /FFFFFF/i.test(tampa.children[shellIdx].textContent),
+      tampa.children[shellIdx].textContent);
+
+    const numIdx = cols.findIndex((c) => c.k === 'tgbid');
+    const ncs = w.getComputedStyle(tampa.children[numIdx]);
+    t('figures line up on the right', ncs.textAlign === 'right', ncs.textAlign);
+    t('in tabular figures', /tabular-nums/.test(ncs.fontVariantNumeric), ncs.fontVariantNumeric);
+    t('and the value is there', tampa.children[numIdx].textContent.trim() === '105',
+      tampa.children[numIdx].textContent);
+
+    /* THE THREE THE DATABASE OWNS ARE NOT EDITABLE. */
+    ['id', 'created_at', 'updated_at'].forEach((k) => {
+      const i = cols.findIndex((c) => c.k === k);
+      t(k + ' cannot be typed over', !tampa.children[i].dataset.field);
+    });
+    t('but the club facts can',
+      ['shell', 'conference', 'venue_city', 'espn_id'].every((k) =>
+        tampa.children[cols.findIndex((c) => c.k === k)].dataset.field === k));
+
+    /* A WORD IN A NUMBER COLUMN, AND JUNK IN A COLOUR ONE, ARE REFUSED WITH A
+       SENTENCE RATHER THAN SENT. A raw 22P02 is a statement about our schema. */
+    const before = sent.filter((x) => x.method === 'PATCH').length;
+    const typeInto = (rowId, key, value) => {
+      const r = rows().find((x) => x.dataset.row === rowId);
+      const td = r.children[cols.findIndex((c) => c.k === key)];
+      click(td);
+      const box = td.querySelector('input, textarea');
+      box.value = value;
+      box.dispatchEvent(new w.FocusEvent('blur', { bubbles: true }));
+    };
+    typeInto('nfl-tampa', 'tgbid', 'twelve');
+    t('a word in a number column is refused',
+      /whole number/.test(el('pageStatus').textContent), el('pageStatus').textContent);
+    typeInto('nfl-tampa', 'shell', 'reddish');
+    t('and junk in a colour column names the shape wanted',
+      /six hex digits/.test(el('pageStatus').textContent), el('pageStatus').textContent);
+    t('neither reached the database',
+      sent.filter((x) => x.method === 'PATCH').length === before,
+      sent.filter((x) => x.method === 'PATCH').length - before);
+
+    /* THE SEARCH READS WHAT THE TABLE DRAWS, or a column you can see is one you
+       cannot find. `conference` was unreachable before this. */
+    el('q').value = 'NFC South'; fire(el('q'), 'input');
+    t('search reaches a merged column', rows().length === 4, rows().length);
+    el('q').value = ''; fire(el('q'), 'input');
 
     /* ---- deleting ---------------------------------------------------------- */
     const n = rows().length;
