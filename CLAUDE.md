@@ -1504,6 +1504,34 @@ change them all.**
   and a right typed answer, the lock after answering, Next, Escape, both pickers
   narrowing, Random clearing them, and no console errors. **43 assertions.**
 
+## THE ANSWER AND ITS CHOICES ARE ONE EDIT (2026-08-30)
+
+Reported as *"the answer isn't writing"*. **The write was correct to fail.**
+
+- **`trivia_answer_is_a_choice` REFUSES AN ANSWER THAT IS NOT AMONG ITS OWN
+  OPTIONS**, so patching `answer` alone on a multiple choice row was always
+  rejected. Nothing was broken; the edit was half of a change that only makes
+  sense whole, **and a half-refused edit reads exactly like a dead cell.**
+- **THEY TRAVEL IN ONE PATCH, WHICH IS ALSO THE ONLY WAY THEY CAN.** Sent
+  separately, whichever went first would be refused for disagreeing with the half
+  still to come, whichever order you chose.
+- **TYPING A NEW ANSWER REPLACES THE OPTION THAT WAS CORRECT, IN ITS OWN SLOT**,
+  so the other three distractors and their order survive. **Typing an option that
+  is already there just moves which one is right** and the list does not change.
+  Those are two different intentions and the room can tell them apart without
+  asking.
+- **AND THE OTHER WAY: rewording the correct option carries the answer with it,
+  MATCHED BY POSITION.** Nothing else can identify it -- the text is exactly what
+  just changed, so the slot is the only stable handle. Changing a DISTRACTOR
+  leaves the answer alone, which is the same rule seen from the other side.
+- **IF THE SLOT IS GONE THE ANSWER IS LEFT ALONE AND THE DATABASE REFUSES.** That
+  is the honest outcome: when the correct option is deleted outright, **nothing
+  in this page knows which of the new options was meant to be right**, and
+  guessing would silently change what a question is testing.
+- **PROVED IN BOTH DIRECTIONS, and the check fails on the previous commit** --
+  where it not only fails but throws, reading an index of the `choices` that were
+  never sent, which is the bug's own shape.
+
 ## AN ANSWER IS ONE WORD OR A CHOICE, AND THE RULES ARE WRITTEN DOWN (2026-08-30)
 
 [2026083011](mc/supabase/migrations/2026083011_trivia_answer_is_one_word_or_a_choice.sql), **applied**, plus [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md).

@@ -108,6 +108,82 @@ setTimeout(() => {
   t('an emptied choices line stores NULL, not an empty array', last.body.choices === null,
     JSON.stringify(last.body.choices));
 
+  /* ---- the answer and its choices are ONE edit ---------------------------
+     `trivia_answer_is_a_choice` refuses an answer that is not among its own
+     options, so patching the answer alone on a multiple choice row was always
+     refused. Both halves have to travel together, and sent separately whichever
+     went first would be refused for disagreeing with the half still to come. */
+  const mcA = TRIVIA.filter((r) => r.choices && r.choices.length >= 3)[3];
+  const wasAnswer = mcA.answer;
+  const wasAt = mcA.choices.findIndex((c) => c === wasAnswer);
+
+  click(cell(mcA, 'answer'));
+  const abox = cell(mcA, 'answer').querySelector('input');
+  t('the answer cell opens', !!abox);
+  abox.value = 'Brand New Answer';
+  key(abox, 'Enter');
+  let ap = patches()[patches().length - 1];
+  t('a new answer patches the answer', ap.body.answer === 'Brand New Answer',
+    JSON.stringify(ap.body));
+  t('and the choices in the SAME patch, or the database refuses it',
+    Array.isArray(ap.body.choices), JSON.stringify(ap.body.choices));
+  t('replacing the old correct option in its own slot',
+    ap.body.choices[wasAt] === 'Brand New Answer', JSON.stringify(ap.body.choices));
+  t('leaving the other options alone',
+    ap.body.choices.length === mcA.choices.length
+    && ap.body.choices.filter((c, i) => i !== wasAt)
+        .every((c, i) => c === mcA.choices.filter((x, j) => j !== wasAt)[i]),
+    JSON.stringify(ap.body.choices));
+
+  /* NAMING AN OPTION THAT IS ALREADY THERE just moves which one is correct. */
+  const mcB = TRIVIA.filter((r) => r.choices && r.choices.length >= 3)[4];
+  const other = mcB.choices.find((c) => c !== mcB.answer);
+  click(cell(mcB, 'answer'));
+  const bbox = cell(mcB, 'answer').querySelector('input');
+  bbox.value = other;
+  key(bbox, 'Enter');
+  ap = patches()[patches().length - 1];
+  t('naming an existing option only moves the answer',
+    ap.body.answer === other && ap.body.choices === undefined, JSON.stringify(ap.body));
+
+  /* AND THE OTHER WAY: rewording the correct option moves the answer with it,
+     matched by POSITION, because the text is exactly what just changed. */
+  const mcC = TRIVIA.filter((r) => r.choices && r.choices.length >= 3)[5];
+  const atC = mcC.choices.findIndex((c) => c === mcC.answer);
+  const reworded = mcC.choices.slice();
+  reworded[atC] = 'Reworded Correct';
+  click(cell(mcC, 'choices'));
+  const cb = cell(mcC, 'choices').querySelector('input');
+  cb.value = reworded.join(' / ');
+  key(cb, 'Enter');
+  ap = patches()[patches().length - 1];
+  t('rewording the correct option carries the answer with it',
+    ap.body.answer === 'Reworded Correct', JSON.stringify(ap.body));
+  t('by position, not by text', ap.body.choices[atC] === 'Reworded Correct');
+
+  /* AN UNTOUCHED CORRECT OPTION LEAVES THE ANSWER ALONE. */
+  const mcD = TRIVIA.filter((r) => r.choices && r.choices.length >= 3)[6];
+  const keep = mcD.choices.slice();
+  keep[(mcD.choices.findIndex((c) => c === mcD.answer) + 1) % keep.length] = 'A New Distractor';
+  click(cell(mcD, 'choices'));
+  const db = cell(mcD, 'choices').querySelector('input');
+  db.value = keep.join(' / ');
+  key(db, 'Enter');
+  ap = patches()[patches().length - 1];
+  t('changing a distractor does not touch the answer', ap.body.answer === undefined,
+    JSON.stringify(ap.body));
+
+  /* A TYPED ROW HAS NO CHOICES TO KEEP IN STEP. */
+  click(cell(owRow, 'answer'));
+  const ob = cell(owRow, 'answer').querySelector('input');
+  ob.value = 'Elsewhere';
+  key(ob, 'Enter');
+  ap = patches()[patches().length - 1];
+  t('a typed row patches the answer alone',
+    ap.body.answer === 'Elsewhere' && ap.body.choices === undefined,
+    JSON.stringify(ap.body));
+
+
   /* ---- two tries ----------------------------------------------------------- */
   const mc2 = TRIVIA.find((r) => r.choices && r.choices.length >= 3);
   click(rowFor(mc2).querySelector('[data-play]'));

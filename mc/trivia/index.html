@@ -949,12 +949,47 @@
     /* CHOICES ARE TYPED AS A SLASH SEPARATED LINE and stored as an array. An
        empty line is NULL, not an empty array: null is what the database reads as
        "typed answer", and an empty array would fail the two-choice CHECK with a
-       message about a state nobody meant. */
+       message about a state nobody meant.
+
+       THE ANSWER AND THE CHOICES ARE ONE EDIT, NOT TWO. `trivia_answer_is_a_choice`
+       refuses an answer that is not among its own options, so editing the answer
+       alone on a multiple choice row was ALWAYS refused -- correctly, and it read
+       as the cell simply not writing. Both halves now travel in ONE patch, which
+       is also the only way they can travel: sent separately, whichever went first
+       would be refused for disagreeing with the half still to come. */
     function commit(row, field, value) {
       const patch = {};
+      const had = Array.isArray(row.choices) && row.choices.length
+        ? row.choices.slice() : null;
+
       if (field === 'choices') {
         const list = clean(value).split('/').map((v) => v.trim()).filter(Boolean);
         patch.choices = list.length ? list : null;
+        /* REWORDING THE CORRECT OPTION MOVES THE ANSWER WITH IT, matched by
+           POSITION. Nothing else can identify it: the text is exactly what just
+           changed, so the slot is the only stable handle. */
+        if (list.length && !list.some((c) => same(c, row.answer))) {
+          const at = had ? had.findIndex((c) => same(c, row.answer)) : -1;
+          /* If the slot is gone the answer is left alone and the database
+             refuses, which is the honest outcome: nothing here knows which of
+             the new options was meant to be right. */
+          if (at >= 0 && at < list.length) patch.answer = list[at];
+        }
+      } else if (field === 'answer') {
+        const next = clean(value);
+        patch.answer = next;
+        if (had) {
+          /* TYPING AN OPTION THAT IS ALREADY THERE just moves which one is
+             correct, and the list does not change. Typing something NEW replaces
+             the option that was correct, in its own slot, so the shuffle order
+             and the other three distractors survive. */
+          if (!had.some((c) => same(c, next))) {
+            const at = had.findIndex((c) => same(c, row.answer));
+            const list = had.slice();
+            if (at >= 0) list[at] = next; else list.push(next);
+            patch.choices = list;
+          }
+        }
       } else {
         patch[field] = field === 'id' ? clean(value).toLowerCase() : clean(value);
       }
