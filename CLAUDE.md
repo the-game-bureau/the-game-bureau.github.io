@@ -1319,6 +1319,36 @@ costs nothing because the nickname is in the key.
   `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
   still reaches nothing. No venue town leaked in.
 
+## AN ANSWER IS ONE WORD OR A CHOICE, AND THE RULES ARE WRITTEN DOWN (2026-08-30)
+
+[2026083011](mc/supabase/migrations/2026083011_trivia_answer_is_one_word_or_a_choice.sql), **applied**, plus [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md).
+
+- **IT WAS ALREADY TRUE OF ALL EIGHT ROWS AND IT WAS TRUE BY LUCK.** Nothing
+  stopped a row carrying `answer = 'Tracy Porter'` with `choices = null`, which
+  is a team outdoors on a phone being asked to type two words exactly right,
+  spelling and spacing included. **It looks perfectly correct in the table** and
+  is unanswerable in practice, which is the shape of fault this project keeps
+  paying for.
+- **SO THE POLICY IS A CONSTRAINT NOW.** `trivia_free_answer_is_one_word`:
+  `choices is not null or btrim(answer) !~ '[[:space:]]'`. **If the only good
+  answer is two words, the question wants choices**, which is the entire
+  decision and why the three named answers could never have been anything else.
+- **A POSIX CLASS, NOT A BACKSLASH ESCAPE.** `[[:space:]]` needs none. This repo
+  has recorded the escaping scar twelve times and lost two files to it; a
+  pattern written with a backslash reaches the file having lost a level and
+  matches a control character instead.
+- **THE RULES A CONSTRAINT CANNOT CARRY ARE IN [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md)**, beside the
+  other briefs and excluded from the deploy: the two id shapes and how to check
+  one resolves, four options, how to write the wrong three, verify or omit,
+  prefer a fact that does not move, combative never cruel, no tragedy as a
+  punchline, and the SQL shape to hand back. **It names all three CHECK
+  constraints**, so a writer who trips one reads a sentence rather than a
+  `23514`. **Change it in the same commit as a constraint**, or it describes a
+  rule the database no longer keeps.
+- **PROVED BY MAKING IT REFUSE**: a multi word free answer is rejected, a one
+  word answer is accepted, the probe was deleted, and 8 rows remain with 3 of
+  them one word.
+
 ## A TRIVIA ID IS A DESTINATION, OR THE CITY IT IS IN (2026-08-30)
 
 [2026083008](mc/supabase/migrations/2026083008_trivia_id_is_a_destination.sql) and [2026083009](mc/supabase/migrations/2026083009_brooklyn_stands_alone_and_five_more.sql), **both applied**. Eight rows now.

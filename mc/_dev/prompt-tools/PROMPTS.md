@@ -131,6 +131,26 @@ again, update the trigger in the same commit.**
 
 ---
 
+## A THIRD KIND: A CONTENT SPEC, WHICH IS NEITHER
+
+[trivia.prompt.md](trivia.prompt.md) is not a page prompt and not a routine prompt. **Nothing
+runs it today.** It is the rulebook for writing rows of `public.trivia`, aimed at
+a person or at whatever AI is asked to produce some, and it is the file a trivia
+routine will open and follow when one exists, the way TGB PATH BOT opens
+`path-bot.prompt.md`.
+
+**IT IS THE SECOND HALF OF A PAIR AND THE FIRST HALF IS IN THE DATABASE.** Three
+CHECK constraints refuse a bad row outright, and the file names all three so a
+writer meeting one knows what it means rather than reading a raw `23514`. **When
+a constraint changes, change that file in the same commit**, or it will go on
+describing a rule the database no longer keeps.
+
+**THE RULES A CONSTRAINT CANNOT CARRY are the reason the file is long**: verify
+or omit, prefer a fact that does not move, write plausible distractors, no
+tragedy as a punchline. Those are editorial and nothing will ever enforce them.
+
+---
+
 ## The no-em-dash rule
 
 **No em dash may appear in a prompt, or in anything a prompt hands back.** Not
