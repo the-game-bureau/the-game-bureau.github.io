@@ -513,6 +513,36 @@ Four corrections to the rebuild above, all from Kevin using it.
   so it goes in by hand. Read its second statement's output rather than trusting
   the absence of an error.
 
+### AND THE LIVE ROWS FOUND TWO MORE THINGS (2026-08-30)
+
+The unarchive ran, 33 rows came off the shelf, and rendering the page against
+them turned up two faults no synthetic fixture would ever have shown.
+
+- **NOT EVERY GAME IS A FIXTURE. Twelve of the 33 carry no away club at all** --
+  Murder Map, Jazz Fest Bingo, the DealerTire walks, the office tour -- and drawn
+  as "AWAY at HOME" every one of them rendered as **" at New Orleans"**: a card
+  with a hole where its name should be. **A game with no travelling side is named
+  instead**, which is the only true thing to call it, and the map note follows
+  ("Murder Map: New Orleans. On foot, in New Orleans.") rather than saying
+  " fans take over".
+  - `hasFixture()` tests the AWAY side, because the host is always knowable from
+    the game's own city and the travelling half is what decides it.
+- **`erased` IS A SECOND FLAG AND IT IS NOT `archived`.** The unarchive lit 33
+  rows by `archived`; **two of them are erased** ("DealerTire CBD Challenge
+  Copy" and "Murder Atlas: New Orleans Edition"), so the shop window is **31**.
+  The page was already right; the verify query in the seed only asks about
+  `archived` and therefore overcounts by exactly those two. **Anything counting
+  live games has to ask both.**
+- **SAINT-DENIS HAD NO POINT.** `nor2026pit` is the international fixture at the
+  Stade de France, and we hold no waypoints abroad, so it listed and refused to
+  fly. The static fallback now carries the eight international host cities as
+  well as the venue towns. **A game that silently will not fly looks like a
+  broken control rather than a gap in the library.**
+
+**PROVED AGAINST THE REAL 31**, not a fixture: every card carries a name, none
+opens with " at ", all ten clubless games are named, and the Saint-Denis one
+flies. 57 assertions.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
