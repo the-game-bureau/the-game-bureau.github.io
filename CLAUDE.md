@@ -1385,6 +1385,71 @@ the Trivia room. **Nothing was misconfigured. The call was.**
 - **RUN AGAINST THE BROKEN FILE, where it fails three ways.** An assertion that
   has never failed on the bug it is for is an assertion nobody should trust.
 
+## PLACES: ONE KEY FOR WHERE (2026-08-30)
+
+[2026083016_places.sql](mc/supabase/migrations/2026083016_places.sql), **applied**. 95 rows. Step one of the backend
+wireframe.
+
+- **FIVE TABLES SPELT "WHERE" FIVE DIFFERENT WAYS AND NONE SHARED A KEY**:
+  `waypoints.city` 70, `routes.city` 19, `events.venue_city` 55, `games.city`
+  54, `destinations` 67 pairs, `cities.city` 1,468. **52 of the 70 waypoint
+  cities matched a destination**, so eighteen places held real waypoints that no
+  game could find, silently.
+- **`id` IS `city-state`, GENERATED, AND THAT IS THE PROPERTY THE MODEL TURNS
+  ON**: `chicago-il` + `nfl-bears` is `chicago-il-nfl-bears`, **the key already
+  in the trivia table.** Every key written so far keeps working, so
+  `destinations` can become a view later without breaking anything.
+- **THE EIGHTEEN WERE TWO DIFFERENT THINGS, and the wireframe called them one.**
+  I wrote that they were misspellings needing aliases. **They are not.** Twelve
+  are real places with no club -- **Biloxi holds 20 waypoints** -- and six are
+  VENUE TOWNS the destinations table deliberately excludes.
+- **A VENUE TOWN IS A ROW WITH `venue_for`, NOT AN ALIAS.** An alias says two
+  names are one place; **Foxborough is thirty miles from Boston and a walk
+  cannot cross that.** `venue_for` says the true thing: the games are Boston's,
+  the ground is not. Ten are stamped.
+- **THE POINT IS THE MIDDLE OF OUR OWN WAYPOINTS, not a civic centroid**, which
+  is the same number `/games/` derives at runtime today. 70 of 95 have one.
+- **NOTHING ELSE WAS TOUCHED.** No other table changed, every text column still
+  works, and this file is safe to stop at: **the eighteen are findable and
+  nothing had to catch up.**
+- **PROVED BY THE NUMBERS, not the absence of an error**: 70 of 70 waypoint
+  cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
+  are orphaned.
+
+## EVERY GAME HAS AN AUDIENCE AND AN ANTI-AUDIENCE (2026-08-30)
+
+Kevin's observation, and it is the missing half of a decision already taken.
+
+- **A BEARS FAN IN NEW ORLEANS HAS TWO FANDOMS IN PLAY**: their own,
+  `nfl-bears`, and the one they are surrounded by, `nfl-saints`. **A question
+  keyed to the HOME club is asked OF the visitor ABOUT the enemy**, and it is as
+  much a part of that game as a question about their own side.
+- **THIS IS WHY DROPPING `trivia.type` WAS RIGHT, AND IT FINISHES THE
+  ARGUMENT.** That column held 'Know Your Enemy' and 'Super Fan Check', which
+  are **one fact seen from two sides**. The side is now derivable and derived at
+  play time: **it is simply WHICH RUNG of the ladder the question came from.**
+  Audience rung, ask about themselves. Anti-audience rung, ask about the enemy.
+- **SO THE LADDER HAS TO CARRY BOTH SIDES, AND THE FIRST SKETCH ONLY CARRIED
+  ONE.** The order matters and it is not symmetric: **your own club outranks
+  theirs**, because a game is pitched at the travelling fandom.
+
+      wp-475                        this exact spot
+      new-orleans-la-nfl-bears      your fandom, here
+      nfl-bears                     your fandom anywhere
+      new-orleans-la-nfl-saints     the enemy, here          <- anti-audience
+      nfl-saints                    the enemy anywhere       <- anti-audience
+      new-orleans-la                the city
+      nfl                           the league
+      *                             portable
+
+- **NO SCHEMA CHANGE IS NEEDED AND THAT IS THE POINT.** An anti-audience is not
+  a column, a flag or a second table: it is **the home place's audience, looked
+  up through `places`**, which is exactly what `audiences.home_place_id` will
+  already say. **Do not add an `anti_audience` anything.**
+- **A GAME WITH NO ANTI-AUDIENCE IS ORDINARY.** Oswald's New Orleans has no
+  enemy; a concert has none. Those rungs are simply absent from the ladder,
+  which is what makes the same function serve all four kinds of game.
+
 ## THE NHL AND THE SEC JOIN THE DESTINATIONS (2026-08-30)
 
 [2026083012](mc/supabase/migrations/2026083012_destinations_nhl.sql) and [2026083013](mc/supabase/migrations/2026083013_destinations_sec.sql), **both applied**. **110 rows: NFL 32, NHL 32,
