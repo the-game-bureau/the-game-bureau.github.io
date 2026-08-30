@@ -1491,6 +1491,58 @@ wireframe.
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
 
+## STEP FIVE: THE KEY LADDER (2026-08-30)
+
+[2026083020](mc/supabase/migrations/2026083020_the_key_ladder.sql), **applied**. `tgb_content_keys`, `tgb_anti_audience` and
+`tgb_trivia_for`. **Content is not attached to a game. A game asks for keys.**
+
+      wp-475                     this exact spot
+      new-orleans-la-nfl-bears   your fandom, here
+      nfl-bears                  your fandom, anywhere it travels
+      new-orleans-la-nfl-saints  the enemy, here
+      nfl-saints                 the enemy, anywhere
+      new-orleans-la             this city, whoever is visiting
+      nfl                        the league
+      *                          portable
+
+- **THE RUNG IS RETURNED WITH THE ROW, AND THAT IS WHAT SETTLES `trivia.type`.**
+  The same two Saints questions come back **`theirs`** for a Bears fan and
+  **`yours`** for a Saints fan. Know Your Enemy and Super Fan Check are one fact
+  seen from two sides, computed at play time, and they can never disagree with
+  the key because there is nothing to disagree with.
+- **TESTING THE CASES THAT ARE NOT A FIXTURE FOUND TWO REAL FAULTS**, and both
+  would have shipped. **Oswald's New Orleans came back with the Pelicans as its
+  enemy**, and so did an Alabama fan. A history walk is not up against anybody,
+  and a college football fan is not up against a basketball team.
+  - **AN ENEMY MUST BE IN THE SAME FAMILY, and only a fandom has one.** So an
+    Alabama fan in New Orleans correctly has NO enemy: no SEC club is at home
+    there. **A guessed enemy is worse than none** -- it reads as a bug rather
+    than a gap, and it puts a question about a sport nobody came for in front of
+    a paying team.
+- **THE ENEMY IS DEFINED ONCE, IN `tgb_anti_audience`.** It was written twice --
+  in the ladder and again in `tgb_trivia_for`'s `side` -- and **the two
+  disagreed immediately**: the copy lacked the same-family rule, so Saints
+  questions came back labelled `family` instead of `theirs`. Two copies of one
+  rule is the fault this entire rebuild is about, reproduced inside a single
+  migration.
+- **`side` COMPARES EXACTLY, NEVER WITH A `LIKE`.** `l.k like '%' || anti.id` is
+  wrong in both directions: it matches a longer key that merely ends the same
+  way, and it misses the mascot form entirely.
+- **BOTH KEY FORMS GO ON THE LADDER.** An audience id uses the NAME
+  (`ncaaf-alabama`), a destination id uses the MASCOT
+  (`new-orleans-la-ncaaf-crimson-tide`). They coincide for a pro club and differ
+  for a college one, so emitting both leaves no already-written key unreachable.
+- **`'*'::text`, NOT A BARE `'*'`.** An untyped literal appended to a `text[]` is
+  read as an array literal and answers `22P02 malformed array literal`. **This
+  project has already lost `tgb_fill_waypoint_gaps` to that exact error for
+  months.** Every other append here is a typed column or a concatenation, which
+  is why only that one line bit.
+- **PROVED BY CALLS THAT MADE IT DO ITS JOB**, on five shapes of game and six
+  enemy resolutions: a fixture, a home game that dedupes to five rungs, a
+  history walk with no enemy, a cross-family visitor with no enemy, and a walk
+  with no audience at all which is two rungs. A real Bears game in New Orleans
+  pulls ten questions, two of them about the Saints.
+
 ## STEP FOUR: `place_id` ON WAYPOINTS, ROUTES AND EVENTS (2026-08-30)
 
 [2026083019](mc/supabase/migrations/2026083019_place_id_everywhere.sql), **applied**. **Everything resolved: 536 of 536 waypoints, 22 of
