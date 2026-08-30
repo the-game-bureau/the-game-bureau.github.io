@@ -1422,6 +1422,28 @@ NBA 30, NCAAF 16.**
   than by design.** There is still no `country` column. **A league whose
   countries have longer subdivisions needs one, not a workaround.**
 
+## NO QUESTION OPENS WITH "One word" (2026-08-30)
+
+[2026083014](mc/supabase/migrations/2026083014_trivia_no_one_word_prefix.sql), **applied**, plus [trivia-no-one-word-prefix.sql](mc/supabase/seeds/trivia-no-one-word-prefix.sql).
+
+- **IT WAS AN INSTRUCTION TO THE FORM, BOLTED ONTO A SENTENCE A TEAM READS
+  ALOUD IN THE STREET.** The rule it served is unchanged: a typed question must
+  still make clear that one word is wanted. **What changed is HOW** -- by naming
+  a thing that IS one word, which the question was going to do anyway. *"The
+  last name of the Bears running back they called Sweetness"* needs no label;
+  neither does *"Which river is dyed bright green through downtown Chicago"*.
+- **ENFORCED, NOT REMEMBERED.** `trivia_no_one_word_prefix` refuses a question
+  opening with the phrase, because the prefix is the obvious thing to reach for
+  the next time somebody writes a typed question, and a rule that lives only in
+  a document is one the tenth question breaks. **Anchored to the START**, so the
+  phrase is free mid-sentence if it is ever genuinely wanted.
+- **THE TEXT BOX KEEPS "One word" AS ITS PLACEHOLDER, and that is the right
+  place for it**: a box saying what it takes is a form describing its own shape,
+  which is exactly the job the question should not have been doing. **It carries
+  more weight now** that nothing in front of it says so.
+- **PROVED BY MAKING IT REFUSE** the prefix and accept an ordinary question,
+  probes deleted, 9 rows intact.
+
 ## THE TRIVIA ROOM IS A TABLE AND A POPUP (2026-08-30)
 
 [mc/trivia/index.html](mc/trivia/index.html). Every question in a table; playing one opens a dialog.

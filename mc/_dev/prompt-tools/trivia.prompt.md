@@ -133,11 +133,13 @@ The distractors are most of the work and are where a lazy question shows.
   a quiz question, even when it is the most famous thing about a year.
 - **WRITE IT TO BE READ ALOUD.** One sentence where possible. A team is reading
   this on a phone, outdoors, standing up.
-- **A TYPED QUESTION HAS TO ASK FOR ONE WORD IN ITS OWN WORDS.** `"One word:"`
-  at the front does it, and so does naming a thing that IS one word: *the last
-  name of*, *which river*, *the surname*. Either is fine; **what is not fine is
-  a question that could be answered with a phrase**, because the box will only
-  take one and nothing on screen said so.
+- **NEVER WRITE "One word:". A TYPED QUESTION ASKS FOR ONE WORD IN ITS OWN
+  WORDS.** That prefix was an instruction to the FORM bolted onto the front of a
+  sentence somebody reads aloud in the street. Name a thing that IS one word
+  instead and the question does the job by itself: *the last name of*, *which
+  river*, *the surname*, *which team*. **What is not fine is a question that
+  could be answered with a phrase**, because the box takes one word and nothing
+  on screen would have said so.
 - **SAY "SPELLING COUNTS" WHERE THE NAME IS EASY TO GET NEARLY RIGHT.** A typed
   answer is graded on the letters, so a team that knows Sweetness was Walter
   Payton and writes `Peyton` scores nothing. **Warning them is not a hint** --
@@ -170,7 +172,7 @@ insert into public.trivia (id, question, answer, choices) values
    array['4','5','6','7']),
 
   ('pittsburgh-pa',
-   'One word: which river joins the Allegheny at the Point to form the Ohio?',
+   'Which river joins the Allegheny at the Point to form the Ohio?',
    'Monongahela', null);
 ```
 
