@@ -1474,6 +1474,60 @@ wireframe.
   cities resolve, 19 of 19 routes, 40 of 40 event cities, and 0 destinations
   are orphaned.
 
+## AUDIENCES: THE CLUB HALF, FREE OF THE PLACE (2026-08-30)
+
+[2026083017_audiences.sql](mc/supabase/migrations/2026083017_audiences.sql), **applied**, and [mc/audiences/index.html](mc/audiences/index.html). Step two of
+the wireframe. **111 rows: NFL 32, NHL 32, NBA 30, NCAAF 16, and one interest.**
+
+- **AN AUDIENCE IS NAMED BY WHAT ITS MEMBERS CALL THEMSELVES.** One rule settles
+  every naming question here: a pro fan says "Bears fan", a college fan says
+  "Alabama fan", nobody says "Crimson Tide fan" and nobody says "Tuscaloosa
+  fan". **It is also the only thing that makes the keys unique**, so the naming
+  rule and the uniqueness constraint turn out to be one rule.
+- **THE WIREFRAME'S PRETTIEST CLAIM IS WITHDRAWN, and it was measured first.**
+  It said `destinations.id` decomposes into `places.id` + `audiences.id`. True
+  for 105 of 110 and **false for five**: `ncaaf-tigers` is Auburn, LSU AND
+  Missouri; `ncaaf-bulldogs` is Georgia and Mississippi State. **An invariant
+  with five exceptions is worse than none**, because everything downstream has
+  to learn them. The relationship is STORED instead -- `home_place_id` and
+  `destination_id` -- so there is no string arithmetic anywhere and the college
+  case stops being special. `destinations.id` is untouched, so every trivia key
+  still reads exactly as it did.
+- **THE ANTI-AUDIENCE IS NOT A COLUMN AND MUST NOT BECOME ONE.** It is the home
+  place's own audience, reached through `home_place_id`. **So a fandom with no
+  home can never be anybody's enemy**, which is a fault nothing else in the
+  database will ever report -- the room reports it on load and draws the cell in
+  the red pen.
+- **THE SEC PAIRINGS ARE WRITTEN OUT, and the attempt to derive them is the
+  trap.** `teams.fanbase` holds the school for NCAAF, but joining a destination
+  to it on the mascot is ambiguous for exactly the five rows that caused the
+  problem.
+- **ALIASES WERE COPIED WHOLE FROM `destinations`**, which mixes club words
+  (bama, roll tide) with place words (nola, philly). **The place-only ones still
+  want moving to `places.aliases`**, and that is said rather than half-done:
+  destinations keeps its copy and keeps working.
+
+### THE ROOM
+
+- **THE HOME CELL SHOWS A LABEL AND THE COLUMN HOLDS A KEY**, so a typed label
+  is resolved back before it is sent. Without that, editing the cell at all
+  would put "Chicago, IL" into a foreign key. **A place that does not exist
+  sends nothing and names itself** rather than being refused by the database
+  with a constraint name.
+- **CLEARING THE HOME CLEARS THE DESTINATION WITH IT**, or the row is refused by
+  `audiences_destination_needs_home` for a state nobody meant.
+- **RENAMING CHANGES THE KEY, and the room says so before it happens.** The id
+  is generated from `family` and `name`. **Nothing points at an audience id yet,
+  which is the only reason renaming is offered at all** -- it will not be safe
+  once games are minted from them, and the delete confirmation says the same.
+- **ALIASES ARE LOWERCASED ON THE WAY IN** rather than refused by the CHECK for
+  carrying a capital, since they are matched and never printed.
+- **THE EDIT TOKEN IS THE SAME FIX THE TRIVIA ROOM NEEDED**: `if (!editing)` is
+  true of ANY edit rather than THIS one, so opening a second cell blurs the
+  first and its handler re-commits the old field. Compare the token.
+- **PROVED BY RENDERING IT** against the real 111 audiences and 95 places: 34
+  assertions, four clean runs.
+
 ## EVERY GAME HAS AN AUDIENCE AND AN ANTI-AUDIENCE (2026-08-30)
 
 Kevin's observation, and it is the missing half of a decision already taken.

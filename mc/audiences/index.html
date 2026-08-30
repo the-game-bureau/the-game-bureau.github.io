@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AUDIENCES | THE GAME BUREAU</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: when any of these
+         rooms' chrome changes, change them all. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+    }
+
+    body {
+      margin: 0; background: var(--paper-base); color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 15px;
+    }
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* ONE FLEXIBLE BAR PER ROW, or the free space splits between them and
+       neither end of the row stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--add, .command-bar--filter { flex: 0 0 auto; }
+    .command-bar--find input[type="search"] { flex: 1 1 240px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] RE-ASSERTED over .btn's author display, or setting .hidden does
+       nothing at all. A dozen instances of this in the repo. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg); border-bottom: 1px solid var(--line);
+    }
+    .panel-title { font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+                   letter-spacing: 0.1em; text-transform: uppercase; }
+    .panel-head .spacer { margin-left: auto; }
+    .count { font: 600 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the bars stay on screen over a hundred rows. */
+    .panel-body { max-height: 72vh; overflow: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--cut-panel-bg); text-align: left; white-space: nowrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+      font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    tbody td {
+      padding: 8px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      font-size: 0.86rem; vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: var(--panel-soft); }
+    .col-id { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+              color: var(--muted); white-space: nowrap; }
+    .col-name { font-weight: 600; }
+    .col-key { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+               color: var(--muted); white-space: nowrap; }
+    .col-aliases { font-size: 0.76rem; color: var(--muted); }
+    .col-act { text-align: right; white-space: nowrap; }
+
+    /* BLACK AND BOLD MEANS YOU CAN CHANGE IT, at rest rather than on hover: a
+       dotted underline that only appears under the pointer says nothing about
+       the other cells you are looking at. */
+    .ed { cursor: text; }
+    .ed:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+    .ed:empty::before { content: attr(data-empty); color: var(--muted); font-style: italic; }
+    .ed-box {
+      width: 100%; min-width: 0;
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--ink); border-radius: 6px; padding: 4px 6px;
+    }
+
+    .chip {
+      display: inline-flex; align-items: center; padding: 3px 8px;
+      border: 1px solid var(--control-line); border-radius: 999px;
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    /* A KIND IS TOLD BY ITS GROUND, and each still carries its word so colour is
+       never the only signal. Contrast measured the way the trivia chips were. */
+    .chip--fandom   { background: rgba(var(--bic-blue-rgb), 0.12);
+                      border-color: rgba(var(--bic-blue-rgb), 0.45); color: var(--ink); }
+    .chip--artist   { background: rgba(122, 84, 12, 0.13);
+                      border-color: rgba(122, 84, 12, 0.42); color: rgb(122, 84, 12); }
+    .chip--interest { background: rgba(39, 103, 64, 0.12);
+                      border-color: rgba(39, 103, 64, 0.42); color: var(--success); }
+    /* A CLUB WITH NO HOME IS A FAULT NOTHING ELSE REPORTS. Red pen. */
+    .chip--bad { background: rgba(194, 55, 55, 0.10);
+                 border-color: var(--bic-red); color: var(--bic-red); }
+
+    .empty { padding: 30px 26px; color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+    .empty b { color: var(--ink); }
+
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(640px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 12px 16px; border-bottom: 1px solid var(--line);
+      background: var(--cut-panel-bg); border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace;
+                 letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 16px; display: grid; gap: 11px; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    .dlg-foot .spacer { margin-left: auto; }
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field select { width: 100%; }
+    .field small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+    .dlg-msg { color: var(--bic-red); font-size: 0.84rem; line-height: 1.4; padding: 0 16px 12px; }
+    .dlg-msg:empty { display: none; }
+    .key-preview {
+      font: 600 0.8rem/1 'IBM Plex Mono', monospace; color: var(--ink);
+      background: rgba(var(--bic-blue-rgb), 0.07); border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    @media (max-width: 860px) {
+      .command-bar { flex: 1 1 100%; }
+      .col-id, .col-aliases { display: none; }
+    }
+</style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? AUDIENCES</h1>
+        <p class="room-blurb">Who a game is pitched at. A fandom, an artist, an interest.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar command-bar--add">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button type="button" class="btn" id="manualBtn">Manual</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="A name, a key, an alias" autocomplete="off">
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--filter">
+        <legend>Filter</legend>
+        <div class="command-bar-inner">
+          <select id="familyPick" aria-label="Family"><option value="">Any family</option></select>
+          <select id="kindPick" aria-label="Kind">
+            <option value="">Any kind</option>
+            <option value="fandom">fandom</option>
+            <option value="artist">artist</option>
+            <option value="interest">interest</option>
+          </select>
+          <button type="button" class="btn" id="clearBtn" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Audiences</span>
+        <span class="spacer"></span>
+        <span class="count" id="tally"></span>
+      </div>
+      <div class="panel-body" id="tableHost"></div>
+    </section>
+  </main>
+
+  <div class="dlg" id="addDlg" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="dlg-panel">
+      <div class="dlg-head">
+        <span class="dlg-title" id="addTitle">Add an audience</span>
+        <span class="dlg-sub">Named by what its members call themselves</span>
+      </div>
+      <div class="dlg-body">
+        <label class="field">
+          <span>Family</span>
+          <input type="text" id="addFamily" list="familyList" autocomplete="off"
+                 placeholder="nfl, music, history">
+          <datalist id="familyList"></datalist>
+          <small>A league for a club, a domain otherwise. It is also the ladder's
+            broadest named rung, so a question keyed to it reaches every audience
+            in the family.</small>
+        </label>
+        <label class="field">
+          <span>Name</span>
+          <input type="text" id="addName" autocomplete="off" placeholder="Bears, Taylor Swift">
+          <small>What its members call themselves. The nickname for a pro club,
+            the school for a college one. Nobody says "Crimson Tide fan".</small>
+        </label>
+        <label class="field">
+          <span>Kind</span>
+          <select id="addKind">
+            <option value="fandom">fandom</option>
+            <option value="artist">artist</option>
+            <option value="interest">interest</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>At home in</span>
+          <input type="text" id="addHome" list="placeList" autocomplete="off"
+                 placeholder="leave empty for an artist or an interest">
+          <datalist id="placeList"></datalist>
+          <small>Only if they are at home somewhere. An artist is not. This is
+            also what a game reads to find the ANTI-AUDIENCE, so a club without
+            it can never be anybody's enemy.</small>
+        </label>
+        <div class="field">
+          <span>The key it will get</span>
+          <div class="key-preview" id="keyPreview">family-name</div>
+        </div>
+      </div>
+      <p class="dlg-msg" id="addMsg"></p>
+      <div class="dlg-foot">
+        <button type="button" class="btn" id="addCancel">Cancel</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="addSave">Add audience</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+
+    /* ================================================================== *
+     *  AUDIENCES. Who a game is pitched at, free of the place, so it can
+     *  travel. The club half of what `destinations` had welded together.
+     *
+     *  NAMED BY WHAT ITS MEMBERS CALL THEMSELVES. That one rule settles
+     *  every naming question: a pro fan says "Bears fan", a college fan
+     *  says "Alabama fan", nobody says "Tuscaloosa fan". It is also the
+     *  only thing that makes the college keys unique, since ncaaf-tigers
+     *  would otherwise be Auburn, LSU and Missouri at once.
+     *
+     *  THE KEY IS GENERATED FROM family AND name, so RENAMING EITHER
+     *  CHANGES THE KEY. That is stated on screen before it happens, and
+     *  the room asks. Nothing points at an audience id yet, which is the
+     *  only reason it is offered at all.
+     *
+     *  THERE IS NO ANTI-AUDIENCE COLUMN AND THERE MUST NOT BE. Every game
+     *  has one -- the fandom you are surrounded by -- and it is reached
+     *  through `home_place_id`: the audience at home in the place you are
+     *  visiting. Two records of one fact drift.
+     *
+     *  IT READS AND WRITES `audiences` ONLY. Places and destinations are
+     *  read for their names.
+     * ================================================================== */
+
+    const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+
+    const el = (id) => document.getElementById(id);
+    const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
+    const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    const KINDS = ['fandom', 'artist', 'interest'];
+    const EDITABLE = ['family', 'name', 'kind', 'home_place_id', 'team_key', 'aliases'];
+
+    const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '', loaded: false };
+    let adminAuth = null;
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_URL + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_KEY),
+        'Content-Type': 'application/json'
+      }, extra || {});
+    }
+
+    /* TRANSLATE DATABASE ERRORS INTO SENTENCES. A raw 23514 naming a constraint
+       is a statement about our schema and tells the person at the keyboard
+       nothing they can act on. */
+    async function readError(res, fallback) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { text = ''; }
+      if (/audiences_pkey|duplicate key/.test(text)) {
+        return 'That key is already taken. Family and name together have to be '
+             + 'unique, which is why a college audience is named for its school.';
+      }
+      if (/audiences_kind/.test(text)) return 'A kind is fandom, artist or interest.';
+      if (/audiences_destination_needs_home/.test(text)) {
+        return 'An audience with a destination has to have a home place too. '
+             + 'Clear the destination, or set where they are at home.';
+      }
+      if (/audiences_aliases_lower/.test(text)) {
+        return 'Aliases are lowercase. They are matched, never printed.';
+      }
+      if (/audiences_aliases_not_blank/.test(text)) return 'An alias cannot be blank.';
+      if (/audiences_family_not_blank|audiences_name_not_blank/.test(text)) {
+        return 'A family and a name are both required.';
+      }
+      if (/audiences_home_place_id_fkey|places/.test(text) && /violates foreign key/.test(text)) {
+        return 'There is no such place. Pick one from the list, or add it in Places first.';
+      }
+      if (/PGRST205.*audiences|relation .*audiences/.test(text)) {
+        return 'There is no public.audiences table. Run mc/supabase/migrations/2026083017_audiences.sql.';
+      }
+      if (/PGRST205.*places|relation .*places/.test(text)) {
+        return 'There is no public.places table. Run mc/supabase/migrations/2026083016_places.sql.';
+      }
+      if (/42501|row-level security/.test(text)) return 'The database refused it. Sign in again.';
+      return fallback + (text ? ' (' + text.slice(0, 160) + ')' : '');
+    }
+
+    let statusTimer = null;
+    function setStatus(msg, tone) {
+      const box = el('pageStatus');
+      box.textContent = msg || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+      window.clearTimeout(statusTimer);
+      /* An error stays until the next action; a success clears itself, because a
+         stale line an hour later is a lie about what is currently true. */
+      if (msg && tone !== 'error') statusTimer = window.setTimeout(() => {
+        if (el('pageStatus').textContent === msg) el('pageStatus').textContent = '';
+      }, 6000);
+    }
+
+    async function pageAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not read ' + table + '.'));
+        const page = await res.json();
+        out.push(...page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    function esc(v) {
+      return clean(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const placeLabel = (id) => {
+      const p = state.places.find((x) => x.id === clean(id));
+      return p ? p.city + ', ' + p.state : clean(id);
+    };
+    const aliasText = (r) => Array.isArray(r.aliases) && r.aliases.length
+      ? r.aliases.join(' / ') : '';
+
+    /* EVERY WRITE ASKS FOR THE ROW BACK. PostgREST answers 200 with an EMPTY
+       ARRAY when RLS refuses, so without reading it a refused edit reports
+       success and the page shows a value the table never took. */
+    async function patchRow(row, patch) {
+      const res = await fetch(restUrl('audiences', { id: 'eq.' + row.id }), {
+        method: 'PATCH',
+        headers: authHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify(patch)
+      });
+      if (!res.ok) throw new Error(await readError(res, 'Could not save.'));
+      const rows = await res.json();
+      if (!rows.length) throw new Error('The database refused the change. Sign in again.');
+      Object.assign(row, rows[0]);
+      return rows[0];
+    }
+
+    /* ---- the list ---------------------------------------------------------- */
+
+    function visible() {
+      const q = state.q.toLowerCase();
+      return state.rows.filter((r) => {
+        if (state.family && r.family !== state.family) return false;
+        if (state.kind && r.kind !== state.kind) return false;
+        if (!q) return true;
+        const hay = [r.id, r.family, r.name, r.team_key, placeLabel(r.home_place_id)]
+          .concat(Array.isArray(r.aliases) ? r.aliases : [])
+          .map(clean).join(' ').toLowerCase();
+        return hay.indexOf(q) >= 0;
+      });
+    }
+
+    function paintTable() {
+      const rows = visible();
+      const host = el('tableHost');
+      el('tally').textContent = rows.length === state.rows.length
+        ? state.rows.length + ' audiences'
+        : rows.length + ' of ' + state.rows.length;
+
+      if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
+      if (!rows.length) {
+        host.innerHTML = '<p class="empty">' + (state.rows.length
+          ? 'Nothing matches. Clear the filters, or press Manual to add one.'
+          : 'No audiences on file. Run <b>mc/supabase/migrations/2026083017_audiences.sql</b>.')
+          + '</p>';
+        return;
+      }
+
+      const body = rows.map((r) => {
+        /* A CLUB WITH NO HOME CAN NEVER BE ANYBODY'S ENEMY, because the
+           anti-audience is reached through this column. Nothing else reports it. */
+        const homeless = r.kind === 'fandom' && !clean(r.home_place_id);
+        return '<tr data-row="' + esc(r.id) + '">'
+          + '<td class="col-id">' + esc(r.id) + '</td>'
+          + '<td class="col-key ed" data-field="family" data-empty="family">' + esc(r.family) + '</td>'
+          + '<td class="col-name ed" data-field="name" data-empty="name">' + esc(r.name) + '</td>'
+          + '<td><span class="chip chip--' + (KINDS.indexOf(r.kind) >= 0 ? r.kind : 'bad') + '">'
+            + esc(r.kind) + '</span></td>'
+          + '<td class="ed' + (homeless ? ' is-bad' : '') + '" data-field="home_place_id"'
+            + ' data-empty="' + (homeless ? 'no home' : 'nowhere') + '">'
+            + esc(clean(r.home_place_id) ? placeLabel(r.home_place_id) : '') + '</td>'
+          + '<td class="col-key ed" data-field="team_key" data-empty="no colours">'
+            + esc(r.team_key) + '</td>'
+          + '<td class="col-aliases ed" data-field="aliases" data-empty="none">'
+            + esc(aliasText(r)) + '</td>'
+          + '<td class="col-act"><button type="button" class="btn warn" data-del="'
+            + esc(r.id) + '">Delete</button></td></tr>';
+      }).join('');
+
+      host.innerHTML = '<table><thead><tr>'
+        + '<th>Key</th><th>Family</th><th>Name</th><th>Kind</th><th>At home in</th>'
+        + '<th>Team</th><th>Aliases</th><th></th></tr></thead><tbody>' + body + '</tbody></table>';
+    }
+
+    /* ---- editing in place --------------------------------------------------- */
+
+    let editing = null;
+
+    function startEdit(td) {
+      if (editing) return;
+      const tr = td.closest('[data-row]');
+      const row = state.rows.find((r) => r.id === tr.dataset.row);
+      if (!row) return;
+      const field = td.dataset.field;
+      const was = field === 'aliases' ? aliasText(row)
+                : field === 'home_place_id' ? clean(row.home_place_id)
+                : clean(row[field]);
+
+      /* THE TOKEN, NOT A BARE `if (editing)`. Opening a second cell focuses its
+         box and BLURS the first, whose handler would otherwise fire with
+         `editing` already pointing at the new edit: it would re-commit the old
+         field from its own closure and cancel the new one. */
+      const token = {};
+      editing = { token: token };
+      td.textContent = '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'ed-box';
+      input.value = was;
+      if (field === 'home_place_id') input.setAttribute('list', 'placeList');
+      if (field === 'family') input.setAttribute('list', 'familyList');
+      td.appendChild(input);
+      input.focus();
+      input.select();
+
+      const finish = (save) => {
+        if (!editing || editing.token !== token) return;
+        const value = input.value;
+        editing = null;
+        if (!save || value === was) { paintTable(); return; }
+        commit(row, field, value);
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+      });
+      input.addEventListener('blur', () => finish(true));
+    }
+
+    function commit(row, field, value) {
+      const patch = {};
+      if (field === 'aliases') {
+        /* MATCH ONLY, NEVER PRINTED, so they are lowercased on the way in rather
+           than refused by the CHECK for carrying a capital. An empty line is an
+           empty array, not null: the column is NOT NULL with a default. */
+        const list = clean(value).split('/').map((v) => v.trim().toLowerCase()).filter(Boolean);
+        patch.aliases = list;
+      } else if (field === 'home_place_id') {
+        const v = clean(value);
+        if (!v) { patch.home_place_id = null; patch.destination_id = null; }
+        else {
+          /* THE CELL SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so a typed label
+             is resolved back. Without this, editing the cell at all would send
+             "Chicago, IL" into a foreign key. */
+          const p = state.places.find((x) => x.id === v)
+                 || state.places.find((x) => (x.city + ', ' + x.state).toLowerCase() === v.toLowerCase());
+          if (!p) {
+            setStatus('There is no place called ' + v + '. Pick one from the list, '
+              + 'or add it in Places first.', 'error');
+            paintTable();
+            return;
+          }
+          patch.home_place_id = p.id;
+        }
+      } else if (field === 'family' || field === 'name') {
+        /* RENAMING CHANGES THE KEY, because the id is generated from these two.
+           Nothing points at an audience id yet, which is the only reason this is
+           offered; it is asked about rather than done quietly. */
+        const next = field === 'family'
+          ? slug(value) + '-' + slug(row.name)
+          : slug(row.family) + '-' + slug(value);
+        if (next !== row.id) {
+          const okToRename = window.confirm(
+            'This changes the key from\n\n  ' + row.id + '\n\nto\n\n  ' + next
+            + '\n\nThe key is generated from the family and the name. Anything '
+            + 'written down that names the old key will stop matching.');
+          if (!okToRename) { paintTable(); return; }
+        }
+        patch[field] = field === 'family' ? slug(value) : clean(value);
+      } else {
+        patch[field] = clean(value) || null;
+      }
+
+      patchRow(row, patch).then(() => {
+        setStatus('Saved.', '');
+        buildPickers();
+        paintTable();
+      }).catch((err) => {
+        setStatus(err.message || 'Could not save.', 'error');
+        paintTable();
+      });
+    }
+
+    async function removeRow(id) {
+      const row = state.rows.find((r) => r.id === id);
+      if (!row) return;
+      if (!window.confirm('Delete ' + row.id + '?\n\nNothing points at an audience '
+          + 'id yet, so this is safe today. It will not be once games are minted '
+          + 'from them.')) return;
+      try {
+        const res = await fetch(restUrl('audiences', { id: 'eq.' + id }), {
+          method: 'DELETE', headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not delete.'));
+        const back = await res.json();
+        /* BUILT FROM THE ROWS RETURNED, not the id asked for: PostgREST answers
+           200 with an empty array when RLS refuses, and a refused delete would
+           otherwise take the row off the screen until a reload brought it back. */
+        if (!back.length) throw new Error('The database refused the delete. Sign in again.');
+        state.rows = state.rows.filter((r) => r.id !== id);
+        paintCount();
+        buildPickers();
+        paintTable();
+        setStatus('Deleted ' + id + '.', '');
+      } catch (err) {
+        setStatus(err.message || 'Could not delete.', 'error');
+      }
+    }
+
+    /* ---- the pickers -------------------------------------------------------- */
+
+    function buildPickers() {
+      const fams = {};
+      state.rows.forEach((r) => { fams[r.family] = (fams[r.family] || 0) + 1; });
+      const sel = el('familyPick');
+      const keep = state.family;
+      sel.textContent = '';
+      const any = document.createElement('option');
+      any.value = ''; any.textContent = 'Any family (' + state.rows.length + ')';
+      sel.appendChild(any);
+      /* BUILT FROM THE ROWS, so it cannot offer a family with nothing behind it. */
+      Object.keys(fams).sort().forEach((f) => {
+        const o = document.createElement('option');
+        o.value = f; o.textContent = f + ' (' + fams[f] + ')';
+        sel.appendChild(o);
+      });
+      sel.value = Array.prototype.some.call(sel.options, (o) => o.value === keep) ? keep : '';
+      if (sel.value !== keep) state.family = '';
+
+      const fl = el('familyList');
+      fl.textContent = '';
+      Object.keys(fams).sort().forEach((f) => {
+        const o = document.createElement('option'); o.value = f; fl.appendChild(o);
+      });
+
+      const pl = el('placeList');
+      pl.textContent = '';
+      state.places.slice().sort((a, b) => a.id.localeCompare(b.id)).forEach((p) => {
+        const o = document.createElement('option');
+        o.value = p.id; o.textContent = p.city + ', ' + p.state;
+        pl.appendChild(o);
+      });
+    }
+
+    function paintClear() {
+      const on = !!(state.q || state.family || state.kind);
+      const b = el('clearBtn');
+      b.setAttribute('aria-disabled', on ? 'false' : 'true');
+      b.style.opacity = on ? '' : '0.45';
+    }
+    function paintCount() {
+      const n = state.rows.length;
+      el('roomTitle').textContent = n + (n === 1 ? ' AUDIENCE' : ' AUDIENCES');
+    }
+
+    /* ---- adding -------------------------------------------------------------- */
+
+    function previewKey() {
+      const k = slug(el('addFamily').value) + '-' + slug(el('addName').value);
+      el('keyPreview').textContent = k === '-' ? 'family-name' : k;
+    }
+    function openAdd() {
+      ['addFamily', 'addName', 'addHome'].forEach((k) => { el(k).value = ''; });
+      el('addKind').value = 'fandom';
+      el('addMsg').textContent = '';
+      previewKey();
+      el('addDlg').classList.add('is-open');
+      el('addFamily').focus();
+    }
+    function closeAdd() { el('addDlg').classList.remove('is-open'); }
+
+    async function saveAdd() {
+      const family = slug(el('addFamily').value);
+      const name = clean(el('addName').value);
+      const kind = el('addKind').value;
+      const home = clean(el('addHome').value);
+      const msg = el('addMsg');
+
+      /* CHECKED HERE AND ENFORCED THERE. Every one of these is refused by the
+         database too; catching them first means a sentence rather than a round
+         trip, and the constraints remain what actually decides. */
+      if (!family || !name) { msg.textContent = 'A family and a name are both required.'; return; }
+      const id = family + '-' + slug(name);
+      if (state.rows.some((r) => r.id === id)) {
+        msg.textContent = id + ' already exists.';
+        return;
+      }
+      if (home && !state.places.some((p) => p.id === home)) {
+        msg.textContent = 'There is no place called ' + home
+          + '. Pick one from the list, or add it in Places first.';
+        return;
+      }
+      if (kind !== 'fandom' && home) {
+        msg.textContent = 'An ' + kind + ' is not at home anywhere. Clear the place, '
+          + 'or make it a fandom.';
+        return;
+      }
+
+      el('addSave').disabled = true;
+      try {
+        const res = await fetch(restUrl('audiences', {}), {
+          method: 'POST',
+          headers: authHeaders({ Prefer: 'return=representation' }),
+          body: JSON.stringify({ family: family, name: name, kind: kind,
+                                 home_place_id: home || null })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
+        const back = await res.json();
+        if (!back.length) throw new Error('The database refused it. Sign in again.');
+        state.rows.push(back[0]);
+        closeAdd();
+        paintCount();
+        buildPickers();
+        paintTable();
+        setStatus('Added ' + back[0].id + '.', '');
+      } catch (err) {
+        msg.textContent = err.message || 'Could not add it.';
+      } finally {
+        el('addSave').disabled = false;
+      }
+    }
+
+    /* ---- boot ---------------------------------------------------------------- */
+
+    async function boot() {
+      try {
+        setStatus('Loading.', '');
+        const [rows, places, dests] = await Promise.all([
+          pageAll('audiences', { select: '*', order: 'id.asc' }),
+          pageAll('places', { select: 'id,city,state', order: 'id.asc' }),
+          pageAll('destinations', { select: 'id', order: 'id.asc' }).catch(() => [])
+        ]);
+        state.rows = rows; state.places = places; state.dests = dests;
+        state.loaded = true;
+
+        paintCount();
+        buildPickers();
+        paintClear();
+        paintTable();
+
+        /* A CLUB WITH NO HOME CAN NEVER BE AN ANTI-AUDIENCE, which is the one
+           fault in this table that nothing else will ever report. */
+        const homeless = rows.filter((r) => r.kind === 'fandom' && !clean(r.home_place_id));
+        if (homeless.length) {
+          setStatus(homeless.length + (homeless.length === 1 ? ' fandom has' : ' fandoms have')
+            + ' no home place, so no game can ever treat them as the enemy: '
+            + homeless.slice(0, 6).map((r) => r.id).join(', ')
+            + (homeless.length > 6 ? ' and more' : '') + '.', 'error');
+        } else {
+          setStatus('');
+        }
+      } catch (err) {
+        state.loaded = true;
+        el('tableHost').innerHTML = '<p class="empty">Could not load.</p>';
+        setStatus(err.message || 'Could not load.', 'error');
+      }
+    }
+
+    /* BOUND ONCE, ON THE HOST, NOT INSIDE paintTable -- that runs on every
+       keystroke in the search box, so binding there stacks a listener per
+       repaint and the count grows all session. */
+    el('tableHost').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      if (del) { removeRow(del.dataset.del); return; }
+      const cell = e.target.closest('.ed');
+      if (cell && !editing) startEdit(cell);
+    });
+
+    el('q').addEventListener('input', () => {
+      state.q = clean(el('q').value);
+      paintClear(); paintTable();
+    });
+    el('familyPick').addEventListener('change', () => {
+      state.family = el('familyPick').value; paintClear(); paintTable();
+    });
+    el('kindPick').addEventListener('change', () => {
+      state.kind = el('kindPick').value; paintClear(); paintTable();
+    });
+    el('clearBtn').addEventListener('click', () => {
+      if (el('clearBtn').getAttribute('aria-disabled') === 'true') {
+        setStatus('Nothing is filtered.', ''); return;
+      }
+      state.q = ''; state.family = ''; state.kind = '';
+      el('q').value = ''; el('familyPick').value = ''; el('kindPick').value = '';
+      paintClear(); paintTable();
+    });
+
+    el('manualBtn').addEventListener('click', openAdd);
+    el('addCancel').addEventListener('click', closeAdd);
+    el('addSave').addEventListener('click', saveAdd);
+    el('addFamily').addEventListener('input', previewKey);
+    el('addName').addEventListener('input', previewKey);
+    el('addDlg').addEventListener('click', (e) => { if (e.target === el('addDlg')) closeAdd(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el('addDlg').classList.contains('is-open')) closeAdd();
+    });
+
+    adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: { url: SUPABASE_URL, publishableKey: SUPABASE_KEY },
+      onAuthorized: () => { boot(); }
+    });
+    if (window.TgbAdminSiteNav && window.TgbAdminSiteNav.bindAuth) {
+      window.TgbAdminSiteNav.bindAuth(adminAuth);
+    }
+    adminAuth.init();
+  </script>
+</body>
+</html>
