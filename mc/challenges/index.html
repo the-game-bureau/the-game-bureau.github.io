@@ -296,6 +296,14 @@
       font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
     }
     .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
     .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
     .varbar button {
       font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
@@ -408,7 +416,7 @@
           <div class="preview" id="preview"></div>
         </div>
 
-        <label class="field field--wide"><span>Answer, blank when nothing is marked</span>
+        <label class="field field--wide"><span>Answer, blank when nothing is marked. Variables work here too</span>
           <input type="text" id="fAnswer" placeholder="Jefferson Davis" autocomplete="off">
         </label>
 
@@ -581,15 +589,20 @@
         // THE HIGH VALUE RULE. A mistyped variable is not an error anywhere:
         // it renders as literal braces in front of a team standing in the
         // street, and nothing else in the system will ever notice.
-        test: (c) => unknownVarsIn(c.prompt).length > 0,
-        say: (c) => 'Fix ' + unknownVarsIn(c.prompt).map((k) => '{{' + k + '}}').join(', ')
+        // THE ANSWER IS CHECKED TOO, and it is the half that matters more: a
+        // mistyped variable in a PROMPT is visibly odd to the team, while one
+        // in an ANSWER silently fails to match anything they say.
+        test: (c) => unknownVarsIn(c.prompt).concat(unknownVarsIn(c.answer)).length > 0,
+        say: (c) => 'Fix ' + unknownVarsIn(c.prompt).concat(unknownVarsIn(c.answer))
+                      .map((k) => '{{' + k + '}}').join(', ')
                   + '. That is not a variable, so it prints as it is written.'
       },
       {
         key: 'place-bound-variable',
         // A contradiction rather than a typo: it says it travels nowhere and
         // then asks for the away club, which only a travelling game has.
-        test: (c) => scopeOf(c) === 'place' && varsIn(c.prompt).length > 0,
+        test: (c) => scopeOf(c) === 'place'
+                  && varsIn(c.prompt).concat(varsIn(c.answer)).length > 0,
         say: 'This is place bound but names a team. Make it portable, or take the variable out.'
       }
     ];
@@ -849,6 +862,17 @@
       // UNKNOWN VARIABLES ARE LEFT UNFILLED AND MARKED, which is exactly what
       // would happen at play time. Showing them resolved would hide the fault.
       box.appendChild(promptNode(fillVars(src)));
+
+      const ans = clean(el('fAnswer').value);
+      if (ans) {
+        const line = promptNode(fillVars(ans));
+        line.className = 'preview-answer';
+        const label = document.createElement('span');
+        label.className = 'preview-answer-label';
+        label.textContent = 'Answer';
+        line.insertBefore(label, line.firstChild);
+        box.appendChild(line);
+      }
     }
 
     function buildVarBar() {
@@ -1135,6 +1159,7 @@
     el('saveBtn').addEventListener('click', saveEditing);
     el('deleteBtn').addEventListener('click', deleteEditing);
     el('fPrompt').addEventListener('input', paintPreview);
+    el('fAnswer').addEventListener('input', paintPreview);
     el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && el('dlg').classList.contains('is-open')) closeEditor();

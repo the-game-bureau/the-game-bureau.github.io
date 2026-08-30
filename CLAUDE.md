@@ -443,6 +443,43 @@ run-on word, no chips, no gap. Every rule for `.ch-line`, `.ch-kind`,
   back `medium none` and a computed check would fail against a correct rule.
   Same limitation this file already records for the Events room's hairline.
 
+### A PORTABLE QUESTION NEEDS A PORTABLE ANSWER
+
+**Variables work in `answer` as well as `prompt`**, and without that the whole
+quiz half of the library was impossible. *"Which city do the {{away_team_nickname}}
+play in?"* is one row that works in every fandom game, and **its answer is
+different in every one**. With `answer` as plain text the only portable kinds
+were minigame, photo and freeform.
+
+- **THE ANSWER IS THE HALF THAT MATTERS MORE for the unknown-variable check.**
+  A typo in a PROMPT is visibly odd to the team reading it. A typo in an ANSWER
+  silently fails to match anything they say, and nobody finds out.
+- **THE PREVIEW SHOWS THE ANSWER, filled the same way**, under a dashed rule.
+  A portable quiz that could not be read back was a quiz nobody could check.
+
+### THE FIRST LIBRARY, 22 ROWS (2026-08-30)
+
+[challenges-first-library.sql](mc/supabase/seeds/challenges-first-library.sql), applied. 16 portable, 6 place bound.
+
+- **THE DESIGN RULE RUNNING THROUGH THEM: prefer a challenge answered by
+  LOOKING over one answered by KNOWING.** A stop that rewards recall rewards
+  whoever reaches for a phone fastest. A stop that asks you to count, find or
+  do something rewards **being there**, which is the entire product.
+- **EVERY PLACE BOUND ROW POINTS AT A WAYPOINT WE ACTUALLY HOLD** -- Cloud
+  Gate, Buckingham Fountain, the Board of Trade, the Billy Goat, Marina City,
+  all real rows in Chicago. A challenge about a place we do not have is a row
+  nobody can ever use.
+- **THE PORTABLE MINIGAMES NEED NO PROPS AND NO LOCAL KNOWLEDGE.** Twenty
+  paces, the stranger's verdict, one quiet minute. Those are the rows that make
+  a walk playable in a city nobody has written anything for yet, which is what
+  turns the catalogue from content into a system.
+- **COMBATIVE, NEVER CRUEL.** The joke is on the team singing, not on the town.
+
+**PROVED BY RENDERING THE REAL 22**, not a fixture: 22 rows drawn, **none
+flagged**, no unknown variables, no console errors, and the portable quiz reads
+back as *"Which city do the Bears actually play in?"* with the answer
+**Chicago**.
+
 ### THE CHECKS
 
 `no-prompt`, `no-answer` (a question only, since a photo is judged by the team),
