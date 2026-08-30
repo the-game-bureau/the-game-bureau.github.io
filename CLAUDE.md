@@ -1450,6 +1450,20 @@ change them all.**
   key and cannot be one, so **this room is the only thing that will ever report
   an id resolving to no destination**: red chip on the row, and the scribble
   names them.
+- **THE OPTIONS ARE SHUFFLED ON EVERY OPEN.** Four rows in a table are read in
+  the order they were typed and nothing rotates them, so over a session **the
+  stored order becomes the answer**: a team learns the second option is usually
+  right without ever knowing a fact. It also frees a writer from having to think
+  about where to put the right one, which [trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md) now says outright.
+  **It does not save you from length**: shuffling moves an option's position and
+  not its shape, so the longest answer is still the longest wherever it lands.
+  - **SHUFFLED ONCE PER OPEN, INTO `state.shown`, NEVER IN `paintDialog`.** That
+    function runs again the instant an answer is judged, so shuffling there
+    would **rearrange the four buttons under the pointer at exactly the moment
+    somebody is reading which one they got wrong.** Asserted both ways: 20
+    distinct orders in 31 opens, and no movement at all when the answer lands.
+  - **JUDGING GOES BY VALUE, NOT BY INDEX**, which is what lets the displayed
+    order differ from the row's own array safely.
 - **CASE AND SURROUNDING SPACE ARE THE ONLY THINGS FORGIVEN** on a typed answer.
   The database refuses a one-word answer holding a space, so there is nothing
   else to forgive, and forgiving more would start accepting a different word.

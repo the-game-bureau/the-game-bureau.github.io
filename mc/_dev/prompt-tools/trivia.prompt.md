@@ -94,9 +94,13 @@ The distractors are most of the work and are where a lazy question shows.
   it where easy is the right weight and not twice in one city.
 - **NEVER "ALL OF THE ABOVE" OR "NONE OF THE ABOVE".**
 - **DO NOT LET LENGTH GIVE IT AWAY.** The correct answer being the longest or the
-  most specific option is the oldest tell there is.
-- **THE ORDER IS NOT MEANINGFUL** and nothing shuffles it for you today. Do not
-  always put the answer first.
+  most specific option is the oldest tell there is. **Shuffling does not save you
+  from this one**: it moves an option's position and not its shape, so the
+  longest answer is still the longest wherever it lands.
+- **THE ORDER YOU WRITE IS NOT THE ORDER A TEAM SEES.** The popup shuffles the
+  options on every open, so the stored order cannot become the answer and you do
+  not have to think about where to put the right one. **Write them in whatever
+  order reads best in SQL**, which is the only place that order is ever seen.
 
 ---
 

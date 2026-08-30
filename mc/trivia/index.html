@@ -309,7 +309,7 @@
     const state = {
       trivia: [], destinations: [],
       city: '', team: '',
-      deck: [], current: null, answered: false, given: '', right: false,
+      deck: [], current: null, shown: [], answered: false, given: '', right: false,
       won: 0, asked: 0, loaded: false
     };
 
@@ -480,8 +480,18 @@
 
     /* ---- the popup -------------------------------------------------------- */
 
+    /* THE OPTIONS ARE SHUFFLED ON EVERY OPEN, so the stored order cannot become
+       the answer. Four rows in a table are read in the order they were typed and
+       nothing rotates them, which over a session teaches a team that the second
+       option is usually right.
+
+       SHUFFLED ONCE PER OPEN, INTO `state.shown`, AND NOT IN `paintDialog`.
+       That function runs again the moment an answer is judged, so shuffling
+       there would rearrange the four buttons under the pointer at exactly the
+       moment somebody is reading which one they got wrong. */
     function open(row) {
       state.current = row;
+      state.shown = Array.isArray(row.choices) ? shuffle(row.choices) : [];
       state.answered = false;
       state.given = '';
       state.right = false;
@@ -504,7 +514,9 @@
       el('dlgScore').innerHTML = '<b>' + state.won + '</b> of ' + state.asked;
 
       const parts = ['<p class="question">' + esc(row.question) + '</p>'];
-      const choices = Array.isArray(row.choices) ? row.choices : null;
+      /* `state.shown` IS THE ORDER ON SCREEN and the row's own array is not
+         read here: judging goes by VALUE, so the two can differ safely. */
+      const choices = state.shown.length ? state.shown : null;
 
       /* THE CONTROL FOLLOWS THE ROW: choices means buttons, no choices means a
          box. The database allows nothing else, so neither does this. */
