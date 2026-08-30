@@ -700,6 +700,39 @@ that had quietly stopped being empty: the all-archived stage is DERIVED from the
 real rows rather than assuming the table is still in the state it was this
 morning.
 
+### THE PIN DID NOT SHOW, AND EVERY TEST PASSED OVER IT (2026-08-30)
+
+`.wp-pin` is a `<span>`, and **WIDTH AND HEIGHT ARE IGNORED ON AN INLINE
+ELEMENT**. Declared `width: 38px; height: 46px` it still collapsed to a
+zero-size box on the text baseline, the absolutely positioned head positioned
+off that, and no pin appeared anywhere on the map.
+
+- **THE DOT ABOVE IT WORKED ONLY BY ACCIDENT.** `.pin` happens to carry
+  `display: grid`, so it is a block box and its size applies. Copying the shape
+  without copying that one declaration is what broke it.
+- **THE DECLARATION READS PERFECTLY CORRECT EITHER WAY**, which is why nothing
+  caught it. **35 assertions passed over an invisible pin**, because every one
+  of them read the html string a `divIcon` was built with. A `divIcon` is markup
+  handed to Leaflet, so the whole thing can be right and render nothing.
+  **This is the fourth time this project has recorded a test passing on a page
+  that renders wrong**, and the fix is the same one every time: read
+  `getComputedStyle`.
+- **THE CHECK NOW READS THE COMPUTED `display`**, and was run against the broken
+  file to prove it fails there: `FAIL the pin is not an inline box   got:
+  inline`. **An assertion that has never failed on the bug it is for is an
+  assertion nobody should trust.**
+- **AND THE REST OF THE PAGE WAS SWEPT for the same fault** rather than fixing
+  the one that was reported: every element given a width or height was checked
+  for an inline computed display. `.pin`, `.pin i`, `.gm-gift-mono` and
+  `.gm-gift-name` are all block, grid or block already.
+
+**WHAT THE STUB COULD NEVER HAVE TOLD ME.** The suite runs against a stand-in
+Leaflet, which is right for asserting WHICH coordinate the map flew to and WHAT
+markup a marker carried, and is structurally incapable of noticing that the
+markup lays out to nothing. The data was ruled out first, by making the page's
+own anon read by hand: 536 waypoints, 518 with a point. **When a thing does not
+appear, prove the data arrived before touching the drawing.**
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
