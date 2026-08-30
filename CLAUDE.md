@@ -1301,12 +1301,14 @@ costs nothing because the nickname is in the key.
   the jersey says Brooklyn, Barclays Center is in Brooklyn, and a Nets fan says
   Brooklyn. That is the opposite of Orchard Park, which nobody claims. It is
   also a genuinely different walk from Manhattan, which is the product test.
-  - **IT IS THE ONE DECLARED EXCEPTION TO "NO ALIAS MAY NAME ANOTHER
-    DESTINATION'S CITY".** `new york` sits on the Brooklyn row, because a
-    visitor headed to New York really can walk to Brooklyn -- **the rule exists
-    to stop an alias resolving somebody to a place they are NOT going**, which
-    is what `oakland` on a Las Vegas row would do. **The check names the
-    exemption rather than being deleted**, so it still catches the next one.
+  - **IT CARRIED `new york` AS AN ALIAS FOR AN HOUR AND NO LONGER DOES**
+    ([2026083009](mc/supabase/migrations/2026083009_brooklyn_stands_alone_and_five_more.sql)). Brooklyn is a place of its own, and a walk through
+    Brooklyn is not a walk through Manhattan. **WHAT IT COSTS: somebody typing
+    "New York" in the headed-to box is NOT offered a Brooklyn game**, and
+    nothing on screen says Brooklyn exists unless you type it. **What it buys:
+    the rule that no alias may name another destination's city is absolute
+    again**, with no exemption for a reader to remember, so the check that
+    enforces it can be trusted. `bk` and `bklyn` remain.
 - **TORONTO IS THE FIRST NON-US ROW, and it passes by luck.** `state` holds `ON`,
   which satisfies the two-character CHECK because Canadian provinces happen to
   be two letters. There is no `country` column. **A league whose countries have
@@ -1316,6 +1318,30 @@ costs nothing because the nickname is in the key.
   Salt Lake City, `indiana` reaches Indianapolis, `the six` reaches Toronto,
   `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
   still reaches nothing. No venue town leaked in.
+
+## A TRIVIA ID IS A DESTINATION, OR THE CITY IT IS IN (2026-08-30)
+
+[2026083008](mc/supabase/migrations/2026083008_trivia_id_is_a_destination.sql) and [2026083009](mc/supabase/migrations/2026083009_brooklyn_stands_alone_and_five_more.sql), **both applied**. Eight rows now.
+
+- **THE CITY-ONLY KEY COULD NOT SAY WHOSE QUESTION IT WAS.** `new-orleans-la`
+  would carry a Saints question and a Pelicans question with nothing to tell
+  them apart, so **a game against the Pelicans would have asked about the
+  Saints.** Now the id is EITHER a full `destinations.id` (a question about that
+  club) or its city-and-state prefix (a question about the city, asked of
+  anybody there). Which shape a row uses is the editorial call.
+- **THAT IS WHAT MAKES `type` MEAN SOMETHING.** **Know Your Enemy** is the HOST
+  club's or host city's id, asked of the fandom that travelled; **Super Fan
+  Check** is the VISITING club's own id, asked of its own fans. **So a resolver
+  for one game reads three keys**: the host city, the host club, and the
+  visiting club. Denver already holds one of each -- a city question about the
+  mile, a club question about Elway.
+- **STILL NOT UNIQUE AND STILL NOT A FOREIGN KEY.** Many questions share an id,
+  and **the city form has no row to reference at all** -- `destinations.id` is
+  the four-part form. The migration's verify block is what catches a typo;
+  nothing in the database will.
+- **`trivia_id` SKIPS FROM 3 TO 8, and that is not a lost row.** It is an
+  identity column, so the four inserts written to prove the CHECKs refuse
+  consumed their values on the way. **Never read a gap in it as a deletion.**
 
 ## TRIVIA IS KEYED TO A PLACE, NOT TO A CLUB (2026-08-30)
 
