@@ -543,6 +543,34 @@ them turned up two faults no synthetic fixture would ever have shown.
 opens with " at ", all ten clubless games are named, and the Saint-Denis one
 flies. 57 assertions.
 
+### THE FLIGHT ENDS ON THE FIRST STOP (2026-08-30)
+
+The second move used to land on the host city's centroid at zoom 12. It lands on
+the game's first stop at 16.
+
+- **A CENTROID SAYS WHICH TOWN; A NAMED CORNER SAYS WHERE YOU STAND**, and that
+  is the thing worth showing at the end of a flight across the country.
+- **TODAY IT IS A PLACEHOLDER: the city's own city hall.** Unambiguous, easy to
+  check, and obviously not the real answer. **EVENTUALLY IT IS THE FIRST
+  WAYPOINT OF THE GAME'S ROUTE**, and the swap is `firstStop()` and nothing
+  else. What it waits on is the join: a game has to point at a route before this
+  page can read `route_stops` at `ord = 1` and take that waypoint's point. The
+  tables and the Route Builder exist; the game-to-route pointer does not.
+- **IT SAYS ON SCREEN THAT IT IS A PLACEHOLDER**, not only in a comment: *"First
+  stop stands in as New Orleans City Hall until the route is attached."* A civic
+  building presented as the meeting point would have people turning up at it.
+- **ONLY THE TWO CITIES ASKED FOR ARE IN THE MAP, deliberately.** A coordinate
+  nobody has checked is worse than none, because a wrong one looks exactly like
+  a right one, and this project has already put fourteen markers on one point
+  that way. A city with no entry falls back to its centroid **at zoom 12 rather
+  than 16**: a centroid zoomed to street depth is a promise the point cannot
+  keep. Adding a city is one line.
+- **THE GAMES' OWN `starting_location_lat/lon` IS NOT USED FOR THIS, and it is
+  worth saying why**, since 28 of the 31 live rows carry one. Several are wrong:
+  `nyg2026nor` points at **MetLife Stadium in East Rutherford** for a game whose
+  city is New York. An unchecked point that renders perfectly is the failure
+  mode this whole note is about.
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every

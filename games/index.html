@@ -297,6 +297,11 @@ body.home-page .site-nav.site-nav {
   font: 600 0.62rem/1 'IBM Plex Mono', monospace;
   letter-spacing: 0.13em; text-transform: uppercase;
 }
+.gp-mapnote-soft {
+  display: block; margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid var(--line);
+  font-size: 0.66rem; opacity: 0.8;
+}
 .gp-mapnote[hidden] { display: none; }
 
 /* ---- phones ----------------------------------------------------------
@@ -414,6 +419,36 @@ body.home-page .site-nav.site-nav {
     'dublin':      [53.3498, -6.2603],
     'berlin':      [52.5200, 13.4050]
   };
+
+  /* ---- WHERE THE WALK ACTUALLY BEGINS ---------------------------------
+     THE FINAL ZOOM SHOULD LAND ON THE GAME'S FIRST STOP, not on the middle of
+     the host city. A city centroid says which town; a named corner says "this
+     is where you stand", which is the thing worth showing at the end of a
+     flight across the country.
+
+     TODAY THIS IS A PLACEHOLDER: each city's own city hall, a civic point that
+     is unambiguous, easy to check, and obviously not yet the real answer.
+
+     EVENTUALLY IT IS THE FIRST WAYPOINT OF THE GAME'S ROUTE, and the swap is
+     `firstStop()` and nothing else. What it waits on is the join: a game has to
+     point at a route (`routes.route_id`) before this page can read
+     `route_stops` at `ord = 1` and take that waypoint's lat/lon. The tables and
+     the Route Builder exist as of 2026-08-30; the game-to-route pointer does
+     not.
+
+     ONLY THE TWO CITIES ASKED FOR ARE IN HERE, and that is deliberate rather
+     than lazy: a coordinate nobody has checked is worse than none, because a
+     wrong one looks exactly like a right one and this project has already put
+     fourteen markers on one point that way. A city with no entry falls back to
+     its centroid and the map simply says less. Adding one is a line. */
+  var FIRST_STOP = {
+    'new orleans': { ll: [29.954267, -90.078217], name: 'New Orleans City Hall' },
+    'new york':    { ll: [40.712772, -74.006058], name: 'New York City Hall' }
+  };
+
+  function firstStop(g) {
+    return FIRST_STOP[cityKey(hostCity(g))] || null;
+  }
 
   function cityKey(v) {
     // The stored form is "Charlotte, North Carolina"; the waypoint library
@@ -896,7 +931,14 @@ body.home-page .site-nav.site-nav {
     layer.clearLayers();
     if (arc) { map.removeLayer(arc); arc = null; }
 
-    dot(L, home, color, homeName(g), false).addTo(layer);
+    // The stop, when we have one, is what the flight ends on. 16 is a street,
+    // 12 is a town: a centroid zoomed to 16 would be a promise the point cannot
+    // keep, so the depth follows what is actually known.
+    var stop = firstStop(g);
+    var land = stop ? stop.ll : home;
+    var depth = stop ? 16 : 12;
+
+    dot(L, stop ? stop.ll : home, color, stop ? stop.name : homeName(g), false).addTo(layer);
     if (away) {
       dot(L, away, color, awayName(g), true).addTo(layer);
       arc = L.polyline([away, home], {
@@ -904,12 +946,12 @@ body.home-page .site-nav.site-nav {
       }).addTo(map);
       map.fitBounds(L.latLngBounds([away, home]).pad(0.35));
       // THE SECOND MOVE IS THE POINT. Fitting both cities says where they came
-      // from; the zoom that follows says where the game actually happens.
+      // from; the zoom that follows says where the game actually begins.
       window.setTimeout(function () {
-        if (clean(g.id) === state.openId) map.flyTo(home, 12, { duration: 1.6 });
+        if (clean(g.id) === state.openId) map.flyTo(land, depth, { duration: 1.6 });
       }, 1100);
     } else {
-      map.flyTo(home, 12, { duration: 1.4 });
+      map.flyTo(land, depth, { duration: 1.4 });
     }
 
     var note = el('mapnote');
@@ -918,6 +960,13 @@ body.home-page .site-nav.site-nav {
     note.appendChild(text('span', hasFixture(g)
       ? awayName(g) + ' fans take over ' + hostCity(g) + '. You play the day before.'
       : cityOnly(g.name, g) + '. On foot, in ' + hostCity(g) + '.'));
+    // NAMED AS A PLACEHOLDER ON SCREEN, not only in a comment. A civic building
+    // presented as the meeting point would have people turning up at it.
+    if (stop) {
+      note.appendChild(text('span',
+        'First stop stands in as ' + stop.name + ' until the route is attached.',
+        'gp-mapnote-soft'));
+    }
     note.hidden = false;
   }
 
