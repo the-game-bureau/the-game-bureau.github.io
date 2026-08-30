@@ -1319,6 +1319,45 @@ costs nothing because the nickname is in the key.
   `new york` reaches all four New York clubs INCLUDING Brooklyn, and `oakland`
   still reaches nothing. No venue town leaked in.
 
+## BORING STUFF, AND THE SOCIALIZER ADMIN BUTTON IS GONE (2026-08-30)
+
+The account plumbing was a dialog behind a `Socializer admin` button in the VIEW
+bar. It is a section at the foot of the page called **Boring stuff**, and the
+button is deleted.
+
+- **A DIALOG IS FOR SOMETHING YOU SUMMON AND DISMISS, and this is a standing
+  reading.** What each credential points at is true whether or not anybody
+  asked, it is the first thing to check when a post fails, and it belongs where
+  a footnote belongs. Below the queue costs the room nothing, because the queue
+  is what you scroll to anyway.
+- **THE BUTTON WENT BECAUSE ITS DESTINATION IS NOW ALWAYS ON SCREEN.** VIEW is
+  places you GO; a control that summons something already visible goes nowhere.
+- **`loud` NO LONGER GATES THE RENDER, and that is the one real behaviour
+  change.** It gated it because rendering meant opening a dialog. A section that
+  filled only when a button was pressed would sit **empty on a healthy project**,
+  which reads as a panel that failed to load. `renderAccountHealth()` now runs on
+  every check, including the one on load, and **a check that could not run fills
+  it too** rather than leaving it blank with no explanation.
+- **THE AUTOMATIC CHECK ITSELF IS UNCHANGED AND STILL SILENT UNLESS SOMETHING IS
+  WRONG.** The red pen only speaks for a credential that needs attention.
+- **THE SCROLL LOCK HAD TO STOP ASKING ABOUT IT.** `closeTool` tests whether any
+  dialog is still open before restoring `body.overflow`, and `healthCard` is
+  never hidden now, so leaving it in that test **would have locked the page's
+  scroll forever** the first time another dialog closed.
+- **DELETED WITH IT, per the rule that a control and its wiring go in one pass**:
+  `#healthBackdrop`, the `data-health-close` handlers, the backdrop click, and
+  the `openTool` call.
+- **PROVED BY RENDERING IT**: no such button anywhere, no backdrop, no close
+  control, the panel is not a dialog and not hidden, it is titled Boring stuff,
+  it fills on load with nothing pressed, all three accounts draw with the failing
+  one marked, and the page scroll is not locked. 16 assertions.
+- **ONE THING IS UNVERIFIED FROM HERE AND IS SAID RATHER THAN COVERED.** Whether
+  the red pen's warning survives the load is not testable in this harness: every
+  fetch resolves in the same tick, so the queue's own status write races the
+  account check. **The same assertion fails on the previous commit**, which is
+  what says it is the harness and not this change. Check it in a browser with a
+  bad token.
+
 ## THE ADMIN GATE TAKES `supabaseConfig`, AND THE WRONG SHAPE IS SILENT (2026-08-30)
 
 Reported as *"Admin auth is unavailable because Supabase is not configured"* on

@@ -1438,6 +1438,10 @@
     }
     .prompt-platforms input { accent-color: var(--accent); }
 
+    /* BORING STUFF is a plain section, not a dialog. `.tool-modal-panel` is
+       what centred it, floated it and hid it; without that it is simply the
+       last panel on the page and needs only the gap above it. */
+    .boring-panel { margin-top: 22px; }
     .health-body { display: grid; gap: 14px; padding: 4px 0 2px; }
     .health-row {
       display: grid;
@@ -2115,6 +2119,35 @@
         <p class="queue-empty" id="queueEmpty" hidden></p>
       </fieldset>
 
+      <!-- BORING STUFF. What each credential actually points at, at the bottom
+           of the page rather than behind a button.
+
+           IT WAS A DIALOG BEHIND A `Socializer admin` BUTTON IN THE VIEW BAR.
+           Both are gone. A dialog is for something you summon and dismiss, and
+           this is a standing reading about the plumbing: it is true whether or
+           not anybody asked, it is the first thing to check when a post fails,
+           and it belongs where a footnote belongs. Below the queue costs the
+           room nothing, because the queue is what you scroll to.
+
+           THE AUTOMATIC CHECK ON LOAD IS UNCHANGED AND STILL SILENT UNLESS
+           SOMETHING IS WRONG -- the red pen only speaks up for a credential
+           that needs attention. What changed is that its ANSWER is now always
+           drawn here rather than only when a button was pressed. -->
+      <section class="prompt-panel boring-panel" id="healthCard"
+               aria-labelledby="healthTitle">
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Accounts</span>
+            <h2 class="panel-title" id="healthTitle">Boring stuff</h2>
+            <p class="prompt-howto">
+              What each credential actually points at, checked live against each
+              platform. Nothing is posted.
+            </p>
+          </div>
+        </div>
+        <div class="health-body" id="healthBody"></div>
+      </section>
+
       <!-- THE IMAGE DIALOG. An image url is the one field on a candidate you
            cannot check by reading it: og:image scraping fails quietly, and a
            masthead, a tracking pixel and a 404 all look like a fine URL in a
@@ -2299,22 +2332,6 @@
 
            A value can be perfectly good in one and absent from the other, and
            that failure reads identically to a bad token. -->
-      <section class="prompt-panel tool-modal-panel" id="healthCard" role="dialog"
-               aria-modal="true" aria-labelledby="healthTitle" hidden>
-        <div class="panel-head prompt-head">
-          <div class="prompt-headline">
-            <span class="prompt-eyebrow">Accounts</span>
-            <h2 class="panel-title" id="healthTitle">What each credential points at</h2>
-            <p class="prompt-howto">
-              Checked live against each platform. Nothing is posted.
-            </p>
-          </div>
-          <span class="panel-head-actions">
-            <button class="btn small" data-health-close type="button">Close</button>
-          </span>
-        </div>
-        <div class="health-body" id="healthBody"></div>
-      </section>
       <!-- WHAT THE BOT BUTTON OPENS. It was a bare link to claude.ai, which is
            a page that assumes you already know what a routine is and shows you
            a cron expression to prove it. Anybody who presses this wanting to
@@ -2387,7 +2404,6 @@
         </div>
       </section>
 
-      <div class="tool-backdrop" id="healthBackdrop" hidden></div>
       <!-- A yes/no question, asked where every other question on this page is
            asked. Deliberately generic: it takes its words from the caller, so
            the next confirmation does not add a third dialog. -->
@@ -3382,7 +3398,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       var botCard = document.getElementById('botCard');
       var botBackdrop = document.getElementById('botBackdrop');
       var healthCard = document.getElementById('healthCard');
-      var healthBackdrop = document.getElementById('healthBackdrop');
 
       function platformBoxes() {
         return platformsEl
@@ -4259,9 +4274,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       function closeTool(card, backdrop) {
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
+        // healthCard is NOT tested here any more: it is an ordinary section
+        // now, never hidden, so asking whether it is open would keep the page's
+        // scroll locked forever.
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (confirmCard && !confirmCard.hidden) ||
-            (healthCard && !healthCard.hidden)) return;
+            (confirmCard && !confirmCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
@@ -6526,29 +6543,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
         host.appendChild(btn);
         window.TgbFollowReel.popup(btn);
 
-        // SOCIALIZER ADMIN, beside the reel. The automatic check on load is
-        // silent unless something is wrong, which is right for a warning and
-        // useless when you have just changed a secret and want to know whether
-        // it took. This is the same check, said out loud.
-        //
-        // THE FACE NAMES THE ROOM AND THE TOOLTIP NAMES THE ACTION, which is
-        // the wrong way round for most controls here and right for this one:
-        // it sits in VIEW among places you GO, so it reads as the door to the
-        // account plumbing rather than as a verb. What it actually does has not
-        // changed, and the tooltip is now the only thing that says so, so do
-        // not let that line rot.
-        var health = document.createElement('button');
-        health.type = 'button';
-        health.className = 'btn';
-        health.textContent = 'Socializer admin';
-        health.title = 'Ask the Edge Function what each credential actually points at, ' +
-                       'and how long the Threads token has left. Posts nothing.';
-        health.addEventListener('click', function () {
-          health.disabled = true;
-          checkAccounts(true).then(function () { health.disabled = false; },
-                                   function () { health.disabled = false; });
-        });
-        host.appendChild(health);
+        // THE `Socializer admin` BUTTON WAS HERE and is deleted. It ran the
+        // same check this page already runs on load and opened the answer in a
+        // dialog; the answer is now a standing section at the foot of the page,
+        // so a button to summon it was a second way to reach something already
+        // on screen. VIEW is places you GO, and this went nowhere.
       }
 
       // Topics first (what the story is), then the platform recommendations
@@ -7208,6 +7207,7 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           // Instagram because a fetch failed is worse than saying nothing.
           accountHealth = null;
           if (loud) setPageStatus('Could not check the accounts: ' + (err.message || err));
+          renderAccountHealth();
           return null;
         }
 
@@ -7223,7 +7223,11 @@ Finish with the SQL block and that link, then a short summary below them: the fi
           // fixing the first is the thing that wastes an afternoon.
           setPageStatus(bad.join('  |  '));
         }
-        if (loud) renderAccountHealth();
+        // ALWAYS RENDERED, never only when asked. `loud` used to gate this
+        // because rendering meant opening a dialog; the section is always on
+        // screen now, so gating it would leave it blank on a healthy project,
+        // which reads as a panel that failed to load.
+        renderAccountHealth();
         return accountHealth;
       }
 
@@ -7299,7 +7303,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
             body.appendChild(row);
           });
         }
-        openTool(healthCard, healthBackdrop);
       }
 
       var PLATFORM_HEALTH_LABEL = {
@@ -8205,12 +8208,6 @@ Finish with the SQL block and that link, then a short summary below them: the fi
       }
       if (promptResetBtn) promptResetBtn.addEventListener('click', resetPromptText);
 
-      Array.prototype.forEach.call(document.querySelectorAll('[data-health-close]'), function (b) {
-        b.addEventListener('click', function () { closeTool(healthCard, healthBackdrop); });
-      });
-      if (healthBackdrop) healthBackdrop.addEventListener('click', function () {
-        closeTool(healthCard, healthBackdrop);
-      });
 
       // ── PER-ACCOUNT CAPTIONS ─────────────────────────────────────────────
       var captionsCard = document.getElementById('captionsCard');
