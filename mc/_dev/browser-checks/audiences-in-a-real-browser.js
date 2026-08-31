@@ -66,51 +66,66 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   await page.goto('http://127.0.0.1:' + PORT + '/mc/audiences/', { waitUntil: 'networkidle0' });
   await page.waitForSelector('tbody tr', { timeout: 8000 }).catch(() => {});
 
+  /* OPEN A ROW, because the whole shape of this room is that a row is one line
+     until you do. The measurements below are about what that opening costs. */
+  await page.evaluate(() => {
+    const r = [...document.querySelectorAll('tr.row-head')].find((x) => x.dataset.row === 'nfl-tampa');
+    r.scrollIntoView({ block: 'center' });
+    r.querySelector('[data-open]').click();
+  });
+  await new Promise((r) => setTimeout(r, 200));
+
   const m = await page.evaluate(() => {
-    const tbl = document.querySelector('tbody') && document.querySelector('tbody').closest('table');
     const panel = document.getElementById('tableHost');
-    const firstHead = document.querySelector('thead tr:nth-child(2) th');
-    const row = document.querySelector('tbody tr');
-    const key = row && row.children[0];
-    const keyBox = key && key.getBoundingClientRect();
-    /* SCROLL IT RIGHT, THEN ASK WHERE THE KEY IS. Sticky is a declaration until
-       something actually scrolls past it. */
-    if (panel) panel.scrollLeft = 900;
-    const keyAfter = key && key.getBoundingClientRect();
-    const keyBg = key ? getComputedStyle(key).backgroundColor : '';
-    /* DOES THE ROW ACTUALLY SLIDE UNDER THE KEY, or through it? The only way to
-       ask is to put a cell behind it and read the pixel: elementFromPoint at the
-       key's own centre must answer the key, not whatever is scrolled beneath. */
-    const kc = keyAfter ? document.elementFromPoint(keyAfter.left + keyAfter.width / 2,
-                                                   keyAfter.top + keyAfter.height / 2) : null;
-    const keyOnTop = !!(kc && (kc === key || key.contains(kc)));
-    /* THE RED PEN IS FOR A SENTENCE. If it grows into a paragraph it climbs over
-       the room's own title, which is what 499 named ids did. */
+    const tbl = panel.querySelector('table');
+    const det = [...document.querySelectorAll('tr.row-detail')].find((x) => x.dataset.detail === 'nfl-tampa');
+    const fields = det ? [...det.querySelectorAll('.field')] : [];
+    const boxes = fields.map((f) => f.getBoundingClientRect());
+    /* DO ANY TWO FIELDS OVERLAP? A grid says they should not, and jsdom cannot
+       answer it at all -- it has no layout, so every box there is zero by zero. */
+    let overlaps = 0;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        if (a.left < b.right - 1 && b.left < a.right - 1
+            && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlaps++;
+      }
+    }
+    const sw = det && det.querySelector('.swatch');
+    const swBox = sw && sw.getBoundingClientRect();
+    const blurb = document.querySelector('.room-blurb');
+    const bb = blurb ? blurb.getBoundingClientRect() : null;
+    const bar = document.querySelector('.bar-row, .command-bar');
+    const barB = bar ? bar.getBoundingClientRect() : null;
     const scrib = document.getElementById('pageStatus');
     const sb = scrib ? scrib.getBoundingClientRect() : null;
     const head = document.querySelector('.room-title, h1');
     const hb = head ? head.getBoundingClientRect() : null;
-    const sw = document.querySelector('.swatch');
-    const swBox = sw && sw.getBoundingClientRect();
+    const key = document.querySelector('tr.row-head td:nth-child(2)');
     return {
-      rows: document.querySelectorAll('tbody tr').length,
-      headers: document.querySelectorAll('thead tr:nth-child(2) th').length,
-      bands: [...document.querySelectorAll('thead .bandrow th')].map((x) => x.textContent).filter(Boolean),
-      tableW: tbl ? Math.round(tbl.getBoundingClientRect().width) : 0,
-      panelW: panel ? Math.round(panel.clientWidth) : 0,
-      panelScrollW: panel ? Math.round(panel.scrollWidth) : 0,
+      rows: document.querySelectorAll('tr.row-head').length,
+      headCells: document.querySelector('tr.row-head').children.length,
+      fields: fields.length,
+      groups: det ? det.querySelectorAll('.fgroup').length : 0,
+      overlaps: overlaps,
+      widestField: boxes.length ? Math.round(Math.max(...boxes.map((b) => b.width))) : 0,
+      cols: boxes.length ? new Set(boxes.map((b) => Math.round(b.left))).size : 0,
+      tableW: Math.round(tbl.getBoundingClientRect().width),
+      panelW: Math.round(panel.clientWidth),
+      panelScrollW: Math.round(panel.scrollWidth),
       pageScrollW: Math.round(document.documentElement.scrollWidth),
       pageW: Math.round(document.documentElement.clientWidth),
-      keyLeftBefore: keyBox ? Math.round(keyBox.left) : -1,
-      keyLeftAfter: keyAfter ? Math.round(keyAfter.left) : -1,
-      keyVisible: keyAfter ? keyAfter.width > 0 && keyAfter.left >= 0 : false,
-      headerText: firstHead ? firstHead.textContent : '',
-      swatches: document.querySelectorAll('.swatch').length,
       swW: swBox ? Math.round(swBox.width) : 0,
       swH: swBox ? Math.round(swBox.height) : 0,
       swColour: sw ? getComputedStyle(sw).backgroundColor : '',
       swDisplay: sw ? getComputedStyle(sw).display : '',
-      keyBg: keyBg, keyOnTop: keyOnTop,
+      /* BODY CELLS ONLY. The thead sticks VERTICALLY on purpose, so the header
+         stays while you scroll down; counting it here would fail on a rule that
+         is doing its job. What must not exist is a FROZEN COLUMN. */
+      stickies: [...document.querySelectorAll('tbody td')]
+        .filter((c) => getComputedStyle(c).position === 'sticky').length,
+      blurbBottom: bb ? Math.round(bb.bottom) : 0,
+      barTop: barB ? Math.round(barB.top) : 0,
       scribH: sb ? Math.round(sb.height) : 0,
       scribText: scrib ? scrib.textContent.trim() : '',
       overlapsTitle: !!(sb && hb && sb.height > 0 && sb.bottom > hb.bottom + 4 && sb.top < hb.bottom)
@@ -118,47 +133,41 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   });
 
   t('the room renders its rows in a real browser (' + m.rows + ')', m.rows > 600, m.rows);
-  t('all 33 columns have a header', m.headers === 34, m.headers);
-  t('the six group bands are drawn', m.bands.length === 6, m.bands.join('/'));
-  t('the table is genuinely wider than the panel', m.tableW > m.panelW,
-    m.tableW + ' vs ' + m.panelW);
-  t('so the panel scrolls sideways', m.panelScrollW > m.panelW + 50,
-    m.panelScrollW + ' vs ' + m.panelW);
-  /* THE ONE THAT MATTERS MOST: a wide table inside a page must never make the
-     PAGE scroll sideways. That is the failure the house rule is about. */
-  t('and the page itself does NOT', m.pageScrollW <= m.pageW + 1,
-    m.pageScrollW + ' vs ' + m.pageW);
-  t('the key column holds the left edge after scrolling 900px',
-    Math.abs(m.keyLeftAfter - m.keyLeftBefore) <= 1,
-    m.keyLeftBefore + ' -> ' + m.keyLeftAfter);
-  t('and is still on screen', m.keyVisible, m.keyLeftAfter);
+  t('a closed row is seven cells, not thirty-four', m.headCells === 7, m.headCells);
+  /* THE POINT OF THE WHOLE CHANGE: the table fits the panel now. */
+  t('so the table fits its panel and never scrolls sideways',
+    m.panelScrollW <= m.panelW + 1, m.panelScrollW + ' vs ' + m.panelW);
+  t('and neither does the page', m.pageScrollW <= m.pageW + 1, m.pageScrollW + ' vs ' + m.pageW);
+
+  t('opening a row shows all 33 fields', m.fields === 33, m.fields);
+  t('under six group headings', m.groups === 6, m.groups);
+  t('laid out in real columns, not stacked', m.cols >= 3, m.cols);
+  t('with no two fields on top of each other', m.overlaps === 0, m.overlaps);
+  t('and none of them squeezed to nothing', m.widestField >= 180, m.widestField);
+
   /* A SWATCH IS A SPAN, AND WIDTH AND HEIGHT ARE IGNORED ON AN INLINE ELEMENT.
      This project has already shipped an invisible pin for exactly that. */
-  t('the colour swatches are drawn (' + m.swatches + ')', m.swatches > 100, m.swatches);
-  t('as a box, not an inline span with no size', m.swDisplay !== 'inline', m.swDisplay);
+  t('a colour is drawn as a box, not an inline span with no size',
+    m.swDisplay !== 'inline', m.swDisplay);
   t('with real width and height', m.swW >= 12 && m.swH >= 12, m.swW + 'x' + m.swH);
   t('painted a real colour', /^rgba?\(/.test(m.swColour) && m.swColour !== 'rgba(0, 0, 0, 0)',
     m.swColour);
-  /* THE TWO A HEADLESS RUN CANNOT SEE. jsdom does not resolve a `var()`, so a
-     background of `var(--panel)` -- a token this room never defined -- came back
-     as that literal string and every non-transparent check passed over a
-     completely see-through column. Only a real browser resolves it. */
-  t('the sticky key column is fully opaque',
-    /^rgb\(/.test(m.keyBg) && !/rgba\([^)]*0(\.\d+)?\)$/.test(m.keyBg), m.keyBg);
-  t('so the scrolled rows pass BEHIND it, not through it', m.keyOnTop, m.keyBg);
+
+  /* NOTHING IS FROZEN ANY MORE, and that is asserted rather than assumed: a
+     sticky column on a table that fits is dead CSS, and dead CSS is how a room
+     ends up with a rule nobody can explain. */
+  t('no column is frozen, because none needs to be', m.stickies === 0, m.stickies);
 
   t('the red pen holds a sentence, not a paragraph', m.scribH <= 60, m.scribH + 'px');
   t('and does not climb over the room title', !m.overlapsTitle, m.scribText.slice(0, 60));
-  t('it names no college ids', !/ncaaf-[a-z]+,/.test(m.scribText), m.scribText.slice(0, 80));
-
+  t('the blurb sits above the bar rather than through it',
+    m.blurbBottom <= m.barTop + 1, m.blurbBottom + ' vs ' + m.barTop);
   t('no console errors', errs.length === 0, errs.slice(0, 2).join(' | '));
 
-  /* A SCREENSHOT, BECAUSE THE MEASUREMENTS ABOVE STILL CANNOT SEE OVERLAP OR
-     CLIPPING. It is written next to the check rather than asserted on. */
   await page.screenshot({ path: 'C:/tmp/audiences-room.png' });
-  console.log(String.fromCharCode(10) + '  table ' + m.tableW + 'px inside a ' + m.panelW + 'px panel; page '
-    + m.pageScrollW + '/' + m.pageW + '; swatches ' + m.swatches
-    + '; key stayed at x=' + m.keyLeftAfter);
+  console.log(String.fromCharCode(10) + '  table ' + m.tableW + 'px in a ' + m.panelW
+    + 'px panel; page ' + m.pageScrollW + '/' + m.pageW + '; open row = ' + m.fields
+    + ' fields in ' + m.cols + ' columns, widest ' + m.widestField + 'px');
 
   await browser.close();
   console.log('\n' + ok + ' ok, ' + bad + ' FAIL');

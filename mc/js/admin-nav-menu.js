@@ -66,7 +66,7 @@
         {
           href: '/mc/audiences/',
           label: 'Audiences',
-          description: 'Who a game is pitched at. A fandom, an artist, an interest. Named by what its members call themselves.'
+          description: 'Audiences are built-in fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience. Game locations are also pulled from the audiences table.'
         },
         {
           href: '/mc/trivia/',

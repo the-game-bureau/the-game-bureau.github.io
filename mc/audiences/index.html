@@ -30,10 +30,6 @@
       --bic-red: #c23737;
       --success: #276740;
       --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
-      /* OPAQUE ON PURPOSE. The sticky key column has rows sliding underneath it,
-         so it cannot use `--paper`, which is 92% white and lets them through.
-         Every other ground here is translucent; this one may never be. */
-      --panel-solid: #ffffff;
     }
 
     body {
@@ -113,41 +109,12 @@
     }
     tbody tr:last-child td { border-bottom: 0; }
     tbody tr:hover { background: var(--panel-soft); }
-    /* THIRTY-THREE COLUMNS SCROLL SIDEWAYS INSIDE THE PANEL, and the table is
-       allowed its natural width rather than being squeezed to 100%: at full
-       width every cell would be about thirty pixels and nothing would be
-       readable. The page body still never scrolls horizontally. */
-    table { width: max-content; min-width: 100%; }
-
-    /* THE KEY STAYS PUT WHILE YOU SCROLL RIGHT. Past a dozen columns you cannot
-       tell which row you are reading, and a sticky first column is the whole
-       answer. It needs its own opaque ground or the cells slide under it. */
-    thead th:first-child, tbody td:first-child {
-      position: sticky; left: 0; z-index: 2; background: var(--panel-solid);
-      /* A HAIRLINE PLUS A SOFT SHADOW, not a hairline alone. A cell scrolling
-         under the key is clipped mid-word, and against a bare 1px rule its tail
-         reads as text floating beside the key rather than as a column passing
-         behind it. The shadow is what says which is on top. */
-      box-shadow: 1px 0 0 var(--line), 6px 0 8px -4px rgba(var(--bic-blue-rgb), 0.22);
-    }
-    thead th:first-child { z-index: 3; background: var(--cut-panel-bg); }
-    /* THE HOVER TINT IS TRANSLUCENT, so it is LAYERED OVER the opaque ground
-       rather than replacing it. Setting `background` here would put the room
-       back to letting thirty columns slide through the key. */
-    tbody tr:hover td:first-child {
-      background-image: linear-gradient(var(--panel-soft), var(--panel-soft));
-    }
-
-    /* THE GROUP BAND, above the column names. Quieter than the names under it:
-       it is a signpost you read once on the way past, not a label. */
-    .bandrow th { top: 0; }
-    thead tr:nth-child(2) th { top: 22px; }
-    th.band {
-      font-size: 0.58rem; color: var(--muted); opacity: 0.85;
-      border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.18);
-      box-shadow: inset 1px 0 0 var(--line);
-    }
-    th.band:first-child { box-shadow: none; }
+    /* THE TABLE FITS ITS PANEL AGAIN, because a closed row is seven cells. It
+       carried `width: max-content` with a FROZEN FIRST COLUMN and a group band
+       while it drew all thirty-three at once: 4,526px in a 1,178px panel. All
+       of that is deleted rather than left lying about -- a sticky column on a
+       table that does not scroll is a rule describing a page that is gone.
+       `--panel-solid` went with it, being the opaque ground that column needed. */
 
     .col-name { font-weight: 600; }
     .col-key, .col-stamp {
@@ -172,6 +139,65 @@
     .swatch-hex { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
                   color: var(--muted); text-transform: uppercase; }
     .col-act { text-align: right; white-space: nowrap; }
+
+    /* THE SHARED 62ch CLAMP IS CLEARED FOR THIS ROOM'S SENTENCE, and nowhere
+       else. `admin-shell.css` is right to clamp a short blurb; this one runs to
+       three clauses and would break after "our games." The same one-line
+       override the Tape Room and the Events room already carry. */
+    .room-head .room-blurb { max-width: 74ch; }
+
+    /* ---- the row that opens ------------------------------------------------ */
+    .col-caret { width: 30px; padding-left: 8px; padding-right: 0; }
+    .caret {
+      display: grid; place-items: center; width: 22px; height: 22px;
+      border: 0; background: none; cursor: pointer; color: var(--muted);
+      border-radius: 5px; font-size: 0.8rem; line-height: 1;
+    }
+    .caret:hover { background: rgba(var(--bic-blue-rgb), 0.1); color: var(--ink); }
+    .caret[aria-expanded="true"] span[aria-hidden] { transform: rotate(90deg); }
+    .caret span[aria-hidden] { display: block; transition: transform 0.12s ease; }
+    @media (prefers-reduced-motion: reduce) { .caret span[aria-hidden] { transition: none; } }
+    /* A LABEL FOR A SCREEN READER AND NOT FOR THE EYE. `display: none` would
+       take it out of the accessibility tree along with the pixels. */
+    .sr {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap;
+    }
+    .row-head { cursor: pointer; }
+    .row-head.is-open > td { background: var(--panel-soft); }
+    .row-head.is-open > td:first-child { background-image:
+      linear-gradient(var(--panel-soft), var(--panel-soft)); }
+    /* `[hidden]` HAS TO BE RE-ASSERTED over any author display. A table row's
+       own `display: table-row` from the UA sheet is not an author rule, so this
+       is the belt for the day someone gives .row-detail a display of its own. */
+    .row-detail[hidden] { display: none; }
+    .row-detail > td { padding: 0; background: var(--panel-soft); }
+
+    .fields {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px 18px; padding: 14px 18px 18px;
+    }
+    /* THE GROUP HEADING SPANS THE WHOLE GRID, so the fields under it read as a
+       run rather than as one more cell in the flow. */
+    .fgroup {
+      grid-column: 1 / -1; margin: 6px 0 0;
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+      padding-bottom: 5px; border-bottom: 1px solid var(--line);
+    }
+    .fgroup:first-child { margin-top: 0; }
+    .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .flabel {
+      font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .fval { font-size: 0.86rem; min-height: 1.3em; word-break: break-word; }
+    .fval.col-num { text-align: left; }
+    /* A LOCKED FIELD KEEPS ITS LOOK AND LOSES THE AFFORDANCE, and says WHY on
+       hover. A field that silently ignores a click is indistinguishable from one
+       that is broken. */
+    .fval.is-locked { color: var(--muted); cursor: help; }
+    .fval .none { font-style: italic; color: var(--muted); }
 
     /* BLACK AND BOLD MEANS YOU CAN CHANGE IT, at rest rather than on hover: a
        dotted underline that only appears under the pointer says nothing about
@@ -267,7 +293,7 @@
     <div class="room-head">
       <div class="room-titlecol">
         <h1 class="room-title" id="roomTitle">? AUDIENCES</h1>
-        <p class="room-blurb">Who a game is pitched at. A fandom, an artist, an interest.</p>
+        <p class="room-blurb">Audiences are built-in fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience. Game locations are also pulled from the audiences table.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -413,15 +439,15 @@
     const COLUMNS = [
       { g: 'Identity', k: 'id',            t: 'Key',        kind: 'key',   edit: false },
       { g: 'Identity', k: 'family',        t: 'Family',     kind: 'key' },
-      { g: 'Identity', k: 'name',          t: 'Name',       kind: 'name' },
-      { g: 'Identity', k: 'nickname',      t: 'Mascot',     kind: 'text' },
-      { g: 'Identity', k: 'kind',          t: 'Kind',       kind: 'chip' },
+      { g: 'Identity', k: 'name',          t: 'Name',       kind: 'name', head: true },
+      { g: 'Identity', k: 'nickname',      t: 'Mascot',     kind: 'text', head: true },
+      { g: 'Identity', k: 'kind',          t: 'Kind',       kind: 'chip', head: true },
       { g: 'Identity', k: 'code',          t: 'Code',       kind: 'key' },
       { g: 'Identity', k: 'full_name',     t: 'Full name',  kind: 'text' },
       { g: 'Identity', k: 'first_name',    t: 'First name', kind: 'text' },
       { g: 'Identity', k: 'fanbase',       t: 'Fanbase',    kind: 'text' },
 
-      { g: 'Where',    k: 'home_place_id', t: 'At home in', kind: 'place' },
+      { g: 'Where',    k: 'home_place_id', t: 'At home in', kind: 'place', head: true },
       { g: 'Where',    k: 'city_name',     t: 'City',       kind: 'text' },
       { g: 'Where',    k: 'state_code',    t: 'St',         kind: 'key' },
       { g: 'Where',    k: 'state_name',    t: 'State',      kind: 'text' },
@@ -455,10 +481,17 @@
        database owns: `id` is generated from family and name, and the two stamps
        are records of when something happened rather than fields to fill in. */
     const EDITABLE = COLUMNS.filter((c) => c.edit !== false).map((c) => c.k);
+    /* THE FIVE A CLOSED ROW CARRIES. Everything else is one click away, which is
+       the whole shape: 640 rows of 33 fields is a table nobody can read across,
+       and a row you can scan is worth more than a row that says everything. */
+    const HEAD_COLS = COLUMNS.filter((c) => c.head);
     const NUMERIC = COLUMNS.filter((c) => c.kind === 'num').map((c) => c.k);
     const COLOURS = COLUMNS.filter((c) => c.kind === 'colour').map((c) => c.k);
 
-    const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '', loaded: false };
+    /* `open` IS A SET OF IDS, NOT A FLAG ON A ROW OBJECT. Every save reloads and
+       replaces the rows, so a flag on one would be thrown away by the next read. */
+    const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '',
+                    loaded: false, open: new Set() };
     let adminAuth = null;
 
     function restUrl(table, params) {
@@ -586,6 +619,37 @@
       });
     }
 
+    /* WHAT EACH CELL LOOKS LIKE, keyed off the column's own `kind`. One
+       function, so a new column is drawn without touching the renderer, and
+       the closed row and the opened detail cannot disagree about a value. */
+  function cellOf(r, c) {
+      const v = clean(r[c.k]);
+      if (c.kind === 'chip') {
+        return '<span class="chip chip--' + (KINDS.indexOf(r.kind) >= 0 ? r.kind : 'bad')
+          + '">' + esc(r.kind) + '</span>';
+      }
+      if (c.kind === 'aliases') return esc(aliasText(r));
+      if (c.kind === 'place')   return esc(v ? placeLabel(v) : '');
+      /* A STAMP IS SHOWN SHORT. Nobody reads a timezone offset off an admin
+         table and the whole ISO string is wider than the field is worth. */
+      if (c.kind === 'stamp')   return v ? esc(v.slice(0, 10)) : '';
+      /* SIX CHARACTERS OF HEX CANNOT BE READ AS A COLOUR, so the swatch is the
+         value and the text beside it is the thing you edit. */
+      if (c.kind === 'colour') {
+        if (!v) return '';
+        return '<span class="swatch" style="background:' + esc(v) + '"></span>'
+          + '<span class="swatch-hex">' + esc(v) + '</span>';
+      }
+      return esc(v);
+    }
+
+  function emptyOf(r, c, homeless, needsNick) {
+      return c.k === 'home_place_id' ? (homeless ? 'no home' : 'nowhere')
+           : c.k === 'nickname' ? (needsNick ? 'no mascot' : 'none')
+           : c.k === 'aliases' ? 'none'
+           : c.k === 'team_key' ? 'no colours' : c.t.toLowerCase();
+    }
+
     function paintTable() {
       const rows = visible();
       const host = el('tableHost');
@@ -602,32 +666,6 @@
         return;
       }
 
-      /* WHAT EACH CELL LOOKS LIKE, keyed off the column's own `kind`. One
-         function, so a new column is drawn without touching the renderer. */
-      function cell(r, c) {
-        const raw = r[c.k];
-        const v = clean(raw);
-
-        if (c.kind === 'chip') {
-          return '<span class="chip chip--' + (KINDS.indexOf(r.kind) >= 0 ? r.kind : 'bad')
-            + '">' + esc(r.kind) + '</span>';
-        }
-        if (c.kind === 'aliases') return esc(aliasText(r));
-        if (c.kind === 'place')   return esc(v ? placeLabel(v) : '');
-        /* A STAMP IS SHOWN SHORT AND NEVER FULLY. Nobody reads a timezone offset
-           off an admin table, and the whole ISO string is wider than the column
-           beside it is worth. */
-        if (c.kind === 'stamp')   return v ? esc(v.slice(0, 10)) : '';
-        /* SIX CHARACTERS OF HEX CANNOT BE READ AS A COLOUR, so the swatch is the
-           value and the text beside it is the thing you edit. */
-        if (c.kind === 'colour') {
-          if (!v) return '';
-          return '<span class="swatch" style="background:' + esc(v) + '"></span>'
-            + '<span class="swatch-hex">' + esc(v) + '</span>';
-        }
-        return esc(v);
-      }
-
       const body = rows.map((r) => {
         /* A CLUB WITH NO HOME CAN NEVER BE ANYBODY'S ENEMY, because the
            anti-audience is reached through this column. Nothing else reports it. */
@@ -636,42 +674,103 @@
            club at home without one leaves `destinations` silently. */
         const needsNick = r.kind === 'fandom' && clean(r.home_place_id) && !clean(r.nickname);
 
-        const tds = COLUMNS.map((c) => {
+        const heads = HEAD_COLS.map((c) => {
           const bad = (c.k === 'home_place_id' && homeless) || (c.k === 'nickname' && needsNick);
-          const empty = c.k === 'home_place_id' ? (homeless ? 'no home' : 'nowhere')
-                      : c.k === 'nickname' ? (needsNick ? 'no mascot' : 'none')
-                      : c.k === 'aliases' ? 'none'
-                      : c.k === 'team_key' ? 'no colours' : c.t.toLowerCase();
-          const cls = ['col-' + c.kind];
-          if (c.edit !== false) cls.push('ed');
-          if (bad) cls.push('is-bad');
-          return '<td class="' + cls.join(' ') + '"'
-            + (c.edit !== false ? ' data-field="' + c.k + '" data-empty="' + esc(empty) + '"' : '')
-            + '>' + cell(r, c) + '</td>';
+          return '<td class="col-' + c.kind + ' ed' + (bad ? ' is-bad' : '') + '"'
+            + ' data-field="' + c.k + '" data-empty="' + esc(emptyOf(r, c, homeless, needsNick))
+            + '">' + cellOf(r, c) + '</td>';
         }).join('');
 
-        return '<tr data-row="' + esc(r.id) + '">' + tds
+        /* THE CARET IS A REAL BUTTON WITH `aria-expanded`, and the rest of the
+           head is not. The row holds editable cells, so it cannot be a <button>
+           -- interactive content inside a button is invalid HTML and browsers
+           disagree about what to do with it. Same rule the Events room keeps. */
+        return '<tr class="row-head" data-row="' + esc(r.id) + '">'
+          + '<td class="col-caret"><button type="button" class="caret" data-open="'
+            + esc(r.id) + '" aria-expanded="false" title="Show every field">'
+            + '<span aria-hidden="true">&#9656;</span>'
+            + '<span class="sr">Show every field</span></button></td>'
+          + '<td class="col-key">' + esc(r.id) + '</td>'
+          + heads
           + '<td class="col-act"><button type="button" class="btn warn" data-del="'
-          + esc(r.id) + '">Delete</button></td></tr>';
+            + esc(r.id) + '">Delete</button></td></tr>'
+          /* THE DETAIL IS EMPTY UNTIL IT IS OPENED. Building it anyway would put
+             640 x 33 fields in the document -- 21,000 controls -- and pay for
+             them again on every keystroke in the search box, which is what
+             re-renders this list. */
+          + '<tr class="row-detail" data-row="' + esc(r.id) + '" data-detail="' + esc(r.id)
+            + '" hidden><td colspan="' + (HEAD_COLS.length + 3) + '"></td></tr>';
       }).join('');
 
-      /* THE GROUP BAND IS NOT DECORATION. Thirty-three columns is more than
-         anybody scans, and naming the runs -- Identity, Where, Sport, Colours,
-         Keys, Filed -- is what makes the sideways scroll navigable. It is built
-         from the same list, so a column cannot land under the wrong heading. */
-      let band = '', head = '';
-      COLUMNS.forEach((c, i) => {
-        if (i === 0 || c.g !== COLUMNS[i - 1].g) {
-          const span = COLUMNS.filter((x) => x.g === c.g).length;
-          band += '<th class="band" colspan="' + span + '">' + esc(c.g) + '</th>';
-        }
-        head += '<th>' + esc(c.t) + '</th>';
-      });
+      host.innerHTML = '<table><thead><tr>'
+        + '<th class="col-caret"></th><th>Key</th>'
+        + HEAD_COLS.map((c) => '<th>' + esc(c.t) + '</th>').join('')
+        + '<th></th></tr></thead><tbody>' + body + '</tbody></table>';
 
-      host.innerHTML = '<table><thead>'
-        + '<tr class="bandrow">' + band + '<th class="band"></th></tr>'
-        + '<tr>' + head + '<th></th></tr>'
-        + '</thead><tbody>' + body + '</tbody></table>';
+      /* A ROW THAT WAS OPEN STAYS OPEN. Every save repaints the whole list, so
+         without this, committing one field would shut the panel you are working
+         in. Rebuilt rather than remembered, because the values have changed. */
+      state.open.forEach((id) => openDetail(id, true));
+    }
+
+    /* ---- one row, every field ----------------------------------------------- */
+
+    function detailHtml(r) {
+      const homeless = r.kind === 'fandom' && !clean(r.home_place_id);
+      const needsNick = r.kind === 'fandom' && clean(r.home_place_id) && !clean(r.nickname);
+      let out = '', group = '';
+      COLUMNS.forEach((c) => {
+        if (c.g !== group) {
+          group = c.g;
+          out += '<h3 class="fgroup">' + esc(group) + '</h3>';
+        }
+        const bad = (c.k === 'home_place_id' && homeless) || (c.k === 'nickname' && needsNick);
+        /* THE VALUE CARRIES `data-field`, NOT THE FIELD BOX AROUND IT, so the
+           one in-place editor works here exactly as it does on the closed row:
+           it finds the row through `[data-row]`, which the detail also carries. */
+        const val = c.edit === false
+          ? '<div class="fval col-' + c.kind + ' is-locked" title="'
+            + (c.k === 'id' ? 'Generated from the family and the name.'
+                            : 'Written by the database, not by hand.') + '">'
+            + (cellOf(r, c) || '<span class="none">none</span>') + '</div>'
+          : '<div class="fval col-' + c.kind + ' ed' + (bad ? ' is-bad' : '') + '"'
+            + ' data-field="' + c.k + '" data-empty="' + esc(emptyOf(r, c, homeless, needsNick))
+            + '">' + cellOf(r, c) + '</div>';
+        out += '<div class="field"><span class="flabel">' + esc(c.t) + '</span>' + val + '</div>';
+      });
+      return '<div class="fields">' + out + '</div>';
+    }
+
+    function openDetail(id, quiet) {
+      const tr = byData('data-detail', id);
+      const row = state.rows.find((r) => r.id === id);
+      if (!tr || !row) return;
+      tr.firstElementChild.innerHTML = detailHtml(row);
+      tr.hidden = false;
+      const caret = byData('data-open', id);
+      if (caret) caret.setAttribute('aria-expanded', 'true');
+      state.open.add(id);
+      if (!quiet) tr.previousElementSibling.classList.add('is-open');
+      else if (tr.previousElementSibling) tr.previousElementSibling.classList.add('is-open');
+    }
+
+    function closeDetail(id) {
+      const tr = byData('data-detail', id);
+      if (tr) { tr.hidden = true; tr.firstElementChild.innerHTML = ''; }
+      const caret = byData('data-open', id);
+      if (caret) caret.setAttribute('aria-expanded', 'false');
+      if (tr && tr.previousElementSibling) tr.previousElementSibling.classList.remove('is-open');
+      state.open.delete(id);
+    }
+
+    /* FOUND BY WALKING THE ROWS, NEVER BY BUILDING A SELECTOR OUT OF AN ID.
+       An id is row data, so `[data-detail="' + id + '"]` needs escaping, and the
+       escape has to survive three layers of tooling to reach the file -- which
+       this project has lost twelve times and lost again writing this line. There
+       is nothing to escape if there is no selector. */
+    function byData(attr, id) {
+      return [...document.querySelectorAll('[' + attr + ']')]
+        .find((x) => x.getAttribute(attr) === id) || null;
     }
 
     /* ---- editing in place --------------------------------------------------- */
@@ -1000,8 +1099,24 @@
     el('tableHost').addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
       if (del) { removeRow(del.dataset.del); return; }
+      const caret = e.target.closest('[data-open]');
+      if (caret) {
+        const id = caret.dataset.open;
+        if (state.open.has(id)) closeDetail(id); else openDetail(id);
+        return;
+      }
       const cell = e.target.closest('.ed');
       if (cell && !editing) startEdit(cell);
+      /* CLICKING THE ROW ANYWHERE ELSE OPENS IT, so the caret is the affordance
+         rather than the only target. A click that lands on an editable cell is
+         taken by the branch above, or typing a name would toggle the panel. */
+      if (!cell) {
+        const head = e.target.closest('.row-head');
+        if (head) {
+          const id = head.dataset.row;
+          if (state.open.has(id)) closeDetail(id); else openDetail(id);
+        }
+      }
     });
 
     el('q').addEventListener('input', () => {

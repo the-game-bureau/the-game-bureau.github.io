@@ -7674,6 +7674,63 @@ Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues`
 - **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
 - **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
+### A ROW IS ONE LINE UNTIL YOU OPEN IT (2026-08-30)
+
+The 33-column table lasted an afternoon. **A closed row is the key, the name, the
+mascot, the kind and where it is at home**; the caret opens every field.
+
+- **IT REVERSES THE WIDE TABLE OUTRIGHT, and the measurement is the argument:
+  4,526px inside a 1,178px panel.** Everything past the fifth column was behind a
+  sideways scroll, so "show all the fields" and "let me read a row" were pulling
+  against each other. Opening one row answers both.
+- **THE SAME SHAPE THE EVENTS ROOM ALREADY SETTLED**, and for the same reasons:
+  the caret is a real `<button>` carrying `aria-expanded` while the row is not,
+  because **the row holds editable cells and interactive content inside a button
+  is invalid HTML** that browsers disagree about.
+- **THE DETAIL IS NOT BUILT UNTIL IT IS OPENED.** 640 rows of 33 fields is
+  **21,000 controls**, and they would be paid for again on every keystroke in the
+  search box, which is what re-renders this list. Closing tears them down rather
+  than hiding them.
+- **A ROW THAT WAS OPEN STAYS OPEN**, because every save repaints the whole list
+  and would otherwise shut the panel you are working in. `state.open` is a set of
+  **ids, not a flag on a row object** -- a save replaces the rows, so a flag on
+  one would be thrown away by the next read.
+- **ONE `cellOf` AND ONE `emptyOf`, HOISTED, so the closed row and the opened
+  detail cannot disagree about a value.** They were local to the renderer and
+  would have been copied.
+- **THE FIELDS ARE FOUND BY WALKING THE ROWS, NEVER BY BUILDING A SELECTOR OUT OF
+  AN ID.** `[data-detail="' + id + '"]` needs escaping, and the escape has to
+  survive a heredoc, Python and the file to get there -- **which it did not, on
+  the line that was writing it**: `\\` collapsed to one backslash and left
+  `/["\]/g`, a regex that will not compile. There is nothing to escape if there
+  is no selector.
+- **THERE IS NO EXPAND ALL, deliberately.** The Events room has one because it
+  pages at 50; this room has 640 rows and no pager, so the button would offer to
+  build 21,000 controls in one press.
+- **`family` IS NOT ON A CLOSED ROW AND NEED NOT BE.** The key is
+  `family-slug(name)`, so it already says it -- which is also how the filter test
+  asserts it now.
+- **AND THE FROZEN COLUMN AND THE GROUP BAND WERE DELETED WITH THE WIDE TABLE**,
+  along with `--panel-solid` and `width: max-content`. **A sticky column on a
+  table that fits is a rule describing a page that is gone**, and dead CSS is how
+  a room ends up with a declaration nobody can explain. A check asserts **no body
+  cell is sticky** -- narrowed to the body on purpose, since the header still
+  sticks vertically and should.
+- **PROVED IN BOTH HARNESSES.** 67 headless assertions, and 17 in real Chrome
+  measuring what jsdom structurally cannot: the table now **fits its panel**, the
+  page does not scroll sideways, an opened row lays 33 fields into **5 columns
+  with no two overlapping** and none squeezed under 180px.
+
+**AND THE ROOM'S SENTENCE SAYS WHAT AN AUDIENCE IS FOR.** It read *"Who a game is
+pitched at. A fandom, an artist, an interest."*, which described the column
+rather than the job. It now says every game has a **TARGET** audience and a
+**RIVAL** audience, and that game locations come from this table too -- which is
+the `home_place_id` rule stated where somebody standing in the room can read it.
+**The nav card was changed in the same pass**, per the standing rule that a door
+describes a room in the room's own words; leaving it would have drifted on the
+first read. The shared 62ch clamp is cleared to 74ch here, the same one-line
+override the Tape Room and the Events room already carry.
+
 ### AND A REAL BROWSER FOUND TWO THINGS THE HEADLESS RUN COULD NOT (2026-08-30)
 
 [audiences-in-a-real-browser.js](mc/_dev/browser-checks/audiences-in-a-real-browser.js). Puppeteer against the Chrome on the
@@ -7725,6 +7782,12 @@ machine, over http. **The 63-assertion jsdom suite passed over both faults.**
   backslash escapes at all.**
 
 ### AND THE ROOM SHOWS ALL 33 COLUMNS (2026-08-30)
+
+> **THE WIDE TABLE IN THIS NOTE IS GONE**, replaced the same day by a row that
+> opens -- see the section above it. What survives is the `COLUMNS` list, the
+> groups, the swatches, the locked columns and the two refusals; where this
+> note describes a frozen column, a group band or a 4,526px table, **the newer
+> note wins.**
 
 [mc/audiences/index.html](mc/audiences/index.html) drew nine of them. The other 24 arrived with the
 teams merge and were readable nowhere.

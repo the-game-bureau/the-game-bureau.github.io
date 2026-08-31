@@ -41,12 +41,22 @@ const script = [...d.querySelectorAll('script')].filter((s) => !s.src).map((s) =
 try { w.eval(script); } catch (e) { console.log('  FAIL boot threw: ' + e.message); bad++; }
 
 const el = (id) => d.getElementById(id);
-const rows = () => [...d.querySelectorAll('tbody tr')];
+const rows = () => [...d.querySelectorAll('tbody tr.row-head')];
 const click = (n) => n.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
 const fire = (n, ty) => n.dispatchEvent(new w.Event(ty, { bubbles: true }));
 const key = (n, k) => n.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
 const rowFor = (id) => rows().find((r) => r.dataset.row === id);
-const cell = (id, f) => rowFor(id).querySelector('[data-field="' + f + '"]');
+/* A FIELD IS ON THE CLOSED ROW OR IN THE DETAIL, and a test should not have to
+   know which -- that is exactly the thing this change moves around. It opens the
+   row when the field is not on the head, which is what a person does too. */
+const cell = (id, f) => {
+  const onHead = rowFor(id).querySelector('[data-field="' + f + '"]');
+  if (onHead) return onHead;
+  const caret = rowFor(id).querySelector('[data-open]');
+  if (caret && caret.getAttribute('aria-expanded') !== 'true') click(caret);
+  const det = [...d.querySelectorAll('tr.row-detail')].find((x) => x.dataset.detail === id);
+  return det ? det.querySelector('[data-field="' + f + '"]') : null;
+};
 const patches = () => sent.filter((s) => s.method === 'PATCH');
 const posts = () => sent.filter((s) => s.method === 'POST');
 const dels = () => sent.filter((s) => s.method === 'DELETE');
@@ -59,6 +69,17 @@ setTimeout(() => {
   const kinds = [...new Set(rows().map((r) => r.querySelector('.chip').textContent.trim()))];
   t('the kinds are drawn as chips', kinds.indexOf('fandom') >= 0, kinds.join(', '));
   t('and the interest one is there too', kinds.indexOf('interest') >= 0, kinds.join(', '));
+
+  /* THE DETAIL IS NOT BUILT UNTIL IT IS OPENED, asserted on the FIRST render and
+     nowhere else: 640 rows of 33 fields is 21,000 controls, and they would be
+     paid for again on every keystroke in the search box. */
+  t('every row ships with a detail, all shut',
+    d.querySelectorAll('tr.row-detail').length === rows().length
+    && [...d.querySelectorAll('tr.row-detail')].every((x) => x.hidden),
+    d.querySelectorAll('tr.row-detail').length + ' vs ' + rows().length);
+  t('and not one field is built yet',
+    d.querySelectorAll('.row-detail [data-field]').length === 0,
+    d.querySelectorAll('.row-detail [data-field]').length);
 
   /* THE HOME CELL SHOWS A LABEL, NOT THE KEY. */
   const bears = ROWS.find((r) => r.id === 'nfl-chicago');
@@ -161,8 +182,9 @@ setTimeout(() => {
   fire(el('familyPick'), 'change');
   const sec = rows().length;
   t('a family narrows the list (' + sec + ')', sec > 0 && sec < before, sec);
-  t('to that family only',
-    rows().every((r) => r.querySelector('[data-field="family"]').textContent.trim() === 'ncaaf'));
+  /* READ OFF THE KEY, because `family` is not a column a CLOSED row carries --
+     and it need not be: the key is `family-slug(name)`, so it already says it. */
+  t('to that family only', rows().every((r) => r.dataset.row.indexOf('ncaaf-') === 0));
   t('the tally says so', /of \d+/.test(el('tally').textContent), el('tally').textContent);
   t('Clear lit up', el('clearBtn').getAttribute('aria-disabled') === 'false');
 
@@ -212,79 +234,82 @@ setTimeout(() => {
       el('addMsg').textContent);
     click(el('addCancel'));
 
-    /* ---- EVERY COLUMN IS ON THE PAGE ---------------------------------------
-       These read getComputedStyle and the built header rather than the source,
-       because a correct markup string proves nothing about what a viewer sees:
-       this project has recorded a suite passing over an invisible pin, an
-       unstyled row and a glyph with no font. Run against the previous commit
-       they fail, which is the only reason to trust them. */
+    /* ---- A ROW IS ONE LINE UNTIL YOU OPEN IT -------------------------------
+       These read getComputedStyle and the built DOM rather than the source: a
+       correct markup string proves nothing about what a viewer sees, and this
+       project has recorded a suite passing over an invisible pin, an unstyled
+       row and a completely transparent column. */
     const cols = [...HTML.matchAll(
       /\{\s*g:\s*'([^']+)',\s*k:\s*'([^']+)',\s*t:\s*'([^']+)',\s*kind:\s*'([^']+)'([^}]*)\}/g)]
-      .map((m) => ({ g: m[1], k: m[2], t: m[3], kind: m[4], edit: /edit:\s*false/.test(m[5]) ? false : true }));
-    t('the column list parses out of the source', cols.length > 0, cols.length);
-    const heads = [...d.querySelectorAll('thead tr:nth-child(2) th')].map((x) => x.textContent);
-    t('every column on the table has a header (' + cols.length + ')',
-      heads.length === cols.length + 1, heads.length);
+      .map((m) => ({ g: m[1], k: m[2], t: m[3], kind: m[4],
+                     edit: /edit:\s*false/.test(m[5]) ? false : true,
+                     head: /head:\s*true/.test(m[5]) }));
+    t('the column list parses out of the source (33)', cols.length === 33, cols.length);
+
+    const head0 = rows()[0];
+    t('a closed row is short', head0.children.length === cols.filter((c) => c.head).length + 3,
+      head0.children.length);
+    t('and carries only the five you scan by',
+      head0.querySelectorAll('[data-field]').length === 4,
+      head0.querySelectorAll('[data-field]').length);
+
+    /* THE DETAIL IS NOT BUILT UNTIL IT IS OPENED. 640 rows of 33 fields is
+       21,000 controls, paid for again on every keystroke in the search box. */
+    const details = () => [...d.querySelectorAll('tr.row-detail')];
+    t('every visible row still has a detail of its own',
+      rows().every((r) => details().some((x) => x.dataset.detail === r.dataset.row)),
+      rows().length + ' rows, ' + details().length + ' details');
+
+    const detOf = (id) => details().find((x) => x.dataset.detail === id);
+    const caretOf = (id) => rows().find((x) => x.dataset.row === id).querySelector('[data-open]');
+    click(caretOf('nfl-tampa'));
+    const det = detOf('nfl-tampa');
+    t('the caret opens the row', !det.hidden);
+    t('and says so', caretOf('nfl-tampa').getAttribute('aria-expanded') === 'true');
+    t('every one of the 33 fields is in it',
+      det.querySelectorAll('.field').length === cols.length,
+      det.querySelectorAll('.field').length);
     t('in the order the one list gives',
-      cols.every((c, i) => heads[i] === c.t), heads.slice(0, 5).join('|'));
-    t('all 33 database columns are drawn', cols.length === 33, cols.length);
+      [...det.querySelectorAll('.flabel')].map((x) => x.textContent).join('|')
+        === cols.map((c) => c.t).join('|'));
+    t('grouped, with a heading per run',
+      [...det.querySelectorAll('.fgroup')].map((x) => x.textContent).join('/')
+        === 'Identity/Where/Sport/Colours/Keys/Filed',
+      [...det.querySelectorAll('.fgroup')].map((x) => x.textContent).join('/'));
 
-    const bands = [...d.querySelectorAll('thead .bandrow th')];
-    t('the group band names the runs',
-      bands.map((x) => x.textContent).join('/') === 'Identity/Where/Sport/Colours/Keys/Filed/',
-      bands.map((x) => x.textContent).join('/'));
-    t('and its colspans cover every column',
-      bands.reduce((n, x) => n + (Number(x.getAttribute('colspan')) || 1), 0) === cols.length + 1,
-      bands.reduce((n, x) => n + (Number(x.getAttribute('colspan')) || 1), 0));
+    const fval = (id, k) => {
+      const dd = detOf(id);
+      return dd.querySelector('[data-field="' + k + '"]')
+          || [...dd.querySelectorAll('.fval')][cols.findIndex((c) => c.k === k)];
+    };
+    ['id', 'created_at', 'updated_at'].forEach((k) => {
+      const f = fval('nfl-tampa', k);
+      t(k + ' cannot be typed over', !f.dataset.field && /is-locked/.test(f.className));
+    });
+    t('and says why on hover', /Generated/.test(fval('nfl-tampa', 'id').title),
+      fval('nfl-tampa', 'id').title);
+    t('but the club facts can be',
+      ['shell', 'conference', 'venue_city', 'espn_id'].every((k) =>
+        fval('nfl-tampa', k).dataset.field === k));
 
-    const firstCell = rows()[0].children[0];
-    const fcs = w.getComputedStyle(firstCell);
-    t('the key column is stuck to the left edge', fcs.position === 'sticky', fcs.position);
-    t('at zero', fcs.left === '0px', fcs.left);
-    t('on its own ground, or the cells slide under it',
-      fcs.background !== '' && !/transparent/.test(fcs.background), fcs.background);
-
-    const tbl = d.querySelector('tbody').closest('table');
-    t('the table takes its natural width rather than being squeezed',
-      w.getComputedStyle(tbl).width === 'max-content', w.getComputedStyle(tbl).width);
-
-    /* A COLOUR IS A SWATCH, and the swatch has to carry the row's own value. */
-    const tampa = rows().find((r) => r.dataset.row === 'nfl-tampa');
-    const shellIdx = cols.findIndex((c) => c.k === 'shell');
-    const sw = tampa.children[shellIdx].querySelector('.swatch');
-    t('a colour cell draws a swatch', !!sw);
-    t('painted the row\u2019s own colour',
+    const sw = fval('nfl-tampa', 'shell').querySelector('.swatch');
+    t('a colour is drawn as a swatch', !!sw);
+    t('painted the row own colour',
       sw && /rgb\(255,\s*255,\s*255\)/.test(w.getComputedStyle(sw).backgroundColor),
       sw && w.getComputedStyle(sw).backgroundColor);
     t('with a ring, or white is invisible on the panel',
-      sw && w.getComputedStyle(sw).boxShadow !== 'none', sw && w.getComputedStyle(sw).boxShadow);
-    t('and the hex beside it', /FFFFFF/i.test(tampa.children[shellIdx].textContent),
-      tampa.children[shellIdx].textContent);
-
-    const numIdx = cols.findIndex((c) => c.k === 'tgbid');
-    const ncs = w.getComputedStyle(tampa.children[numIdx]);
-    t('figures line up on the right', ncs.textAlign === 'right', ncs.textAlign);
-    t('in tabular figures', /tabular-nums/.test(ncs.fontVariantNumeric), ncs.fontVariantNumeric);
-    t('and the value is there', tampa.children[numIdx].textContent.trim() === '105',
-      tampa.children[numIdx].textContent);
-
-    /* THE THREE THE DATABASE OWNS ARE NOT EDITABLE. */
-    ['id', 'created_at', 'updated_at'].forEach((k) => {
-      const i = cols.findIndex((c) => c.k === k);
-      t(k + ' cannot be typed over', !tampa.children[i].dataset.field);
-    });
-    t('but the club facts can',
-      ['shell', 'conference', 'venue_city', 'espn_id'].every((k) =>
-        tampa.children[cols.findIndex((c) => c.k === k)].dataset.field === k));
+      sw && w.getComputedStyle(sw).boxShadow !== 'none');
+    t('and the hex beside it', /FFFFFF/i.test(fval('nfl-tampa', 'shell').textContent));
+    t('the tgbid is there', fval('nfl-tampa', 'tgbid').textContent.trim() === '105',
+      fval('nfl-tampa', 'tgbid').textContent);
 
     /* A WORD IN A NUMBER COLUMN, AND JUNK IN A COLOUR ONE, ARE REFUSED WITH A
-       SENTENCE RATHER THAN SENT. A raw 22P02 is a statement about our schema. */
+       SENTENCE RATHER THAN SENT. A raw 22P02 says nothing anybody can act on. */
     const before = sent.filter((x) => x.method === 'PATCH').length;
-    const typeInto = (rowId, key, value) => {
-      const r = rows().find((x) => x.dataset.row === rowId);
-      const td = r.children[cols.findIndex((c) => c.k === key)];
-      click(td);
-      const box = td.querySelector('input, textarea');
+    const typeInto = (id, k, value) => {
+      const f = fval(id, k);
+      click(f);
+      const box = f.querySelector('input, textarea');
       box.value = value;
       box.dispatchEvent(new w.FocusEvent('blur', { bubbles: true }));
     };
@@ -295,15 +320,33 @@ setTimeout(() => {
     t('and junk in a colour column names the shape wanted',
       /six hex digits/.test(el('pageStatus').textContent), el('pageStatus').textContent);
     t('neither reached the database',
-      sent.filter((x) => x.method === 'PATCH').length === before,
-      sent.filter((x) => x.method === 'PATCH').length - before);
+      sent.filter((x) => x.method === 'PATCH').length === before);
 
-    /* THE SEARCH READS WHAT THE TABLE DRAWS, or a column you can see is one you
-       cannot find. `conference` was unreachable before this. */
-    el('q').value = 'NFC South'; fire(el('q'), 'input');
-    t('search reaches a merged column', rows().length === 4, rows().length);
-    el('q').value = ''; fire(el('q'), 'input');
+    /* A SAVE REPAINTS THE WHOLE LIST, so without carrying the open set the panel
+       you are working in would shut under you on every commit. */
+    typeInto('nfl-tampa', 'espn_id', '4321');
+    t('a good edit is sent', sent.filter((x) => x.method === 'PATCH').length === before + 1);
 
+    setTimeout(() => {
+      t('and the row is still open afterwards', detOf('nfl-tampa') && !detOf('nfl-tampa').hidden);
+
+      click(caretOf('nfl-tampa'));
+      t('the caret closes it again', detOf('nfl-tampa').hidden);
+      t('and the fields are torn down, not merely hidden',
+        detOf('nfl-tampa').querySelectorAll('.field').length === 0,
+        detOf('nfl-tampa').querySelectorAll('.field').length);
+
+      /* THE SEARCH READS WHAT THE DETAIL DRAWS, or a field you can see is one
+         you cannot find. `conference` is on no closed row. */
+      el('q').value = 'NFC South'; fire(el('q'), 'input');
+      t('search reaches a field that is only in the detail', rows().length === 4, rows().length);
+      el('q').value = ''; fire(el('q'), 'input');
+      rest();
+    }, 20);
+    return;
+
+    /* HOISTED, so the block above can call it before it is written out. */
+    function rest() {
     /* ---- deleting ---------------------------------------------------------- */
     const n = rows().length;
     click(rows()[0].querySelector('[data-del]'));
@@ -316,5 +359,6 @@ setTimeout(() => {
       console.log('\n' + ok + ' ok, ' + bad + ' FAIL');
       process.exit(bad ? 1 : 0);
     }, 30);
+    }
   }, 30);
 }, 60);
