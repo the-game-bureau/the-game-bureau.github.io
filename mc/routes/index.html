@@ -543,7 +543,15 @@
         pageAll('routes', { select: '*', order: 'city.asc,title.asc' }),
         pageAll('route_stops', { select: '*', order: 'route_id.asc,ord.asc' }),
         pageAll('waypoints', { select: 'wpid,name,address,city,state,lat,lon', order: 'name.asc' }),
-        pageAll('challenges', { select: '*', order: 'name.asc' })
+        // NOT THE TRIVIA ROWS. `trivia` was merged into `challenges` on
+        // 2026-08-31 and the two are still played differently: a stop
+        // challenge is answered by LOOKING, which is the whole product,
+        // and trivia is the away fandom being tested on the city they are
+        // visiting. They also address themselves differently -- a trivia
+        // row carries a ladder key and no scope, so all 38 would arrive
+        // `portable` and be offered at EVERY stop, swamping a picker that
+        // offers 17 of 24 today.
+        pageAll('challenges', { select: '*', kind: 'neq.trivia', order: 'name.asc' })
       ]);
       state.routes = routes;
       state.stops = stops;

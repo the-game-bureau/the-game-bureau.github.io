@@ -454,6 +454,88 @@ points: the empty state on the live rows, the full list on the same rows served
 live, the away-club palette, the fly framing New Orleans and New York in that
 order, the second zoom, the search, and the close. 35 assertions.
 
+### THE CITY'S SOUNDTRACK SITS UNDER THE SHOP (2026-08-31)
+
+A second row inside the open game: **the tapes for the city it is walked in**,
+each a drawn cassette, with **Hear it** into `/soundtracks/`.
+
+- **THE SAME ERRAND AS THE GIFT ROW.** The periphery hangs off the city a game
+  is walked in, and both rows are a shopfront for it inside the game they belong
+  to. **Built to the gift card's own metrics on purpose** -- `.gm-tape` wears
+  `.gm-gift` and adds to it, so restyling the gift card restyles this. Two rows
+  a few pixels apart drawn to two scales read as two different kinds of thing,
+  and a check compares the radius and the name's font size between them.
+- **THE CONTRACT IS THE PUBLIC PAGE'S OWN**: `archived=eq.false`, and a tape is
+  drawn when at least one of its tracks is live. **It names its columns and
+  must** -- `soundtrack.findings` is kept out of the anon grant per column, so
+  `select=*` answers **401 for the whole request** and the row would come back
+  empty. **Do not put `*` back**; that is the privacy boundary, not tidiness.
+- **THE TAPE IS `(city_slug, tape)`, so the tracks are grouped back into the
+  tapes they came off.** New Orleans has four, Atlanta and Tampa two, everywhere
+  else one. **The heading follows the count** -- four tapes under "the
+  soundtrack" is the row contradicting itself.
+- **EVERY TAPE POINTS AT THE SAME PLACE, and that is the honest answer.** The
+  public page's deep link is by CITY slug: a key like `denver--204` is not a
+  city and the hash contract is a city.
+  - **THE PATH IS KEPT AS A STRING, never read back off the anchor.** `a.href`
+    as a GETTER returns the ABSOLUTE url, so building the cards from it stamped
+    the harness's own origin onto every one. Caught by a check, not by reading.
+- **30 OF THE 54 GAME CITIES HAVE A LIVE TAPE**, measured before anything was
+  built. **The other 24 draw nothing at all** -- hidden, taking no height -- so a
+  city with gifts and no tape shows one row rather than a gap. That is the
+  common case, not an edge.
+- **ALL THREE TABLES SPELL A CITY THE SAME WAY**, checked rather than assumed:
+  `games.city`, `soundtrack.city` and `gift_shop_listings.city` are all the
+  canonical `"City, FullStateName"`, so the match is the gift row's own `eq.`.
+- **FETCHED ONLY WHEN A GAME IS OPENED, and cached per city**, so a visitor who
+  opens none pays nothing. A catalogue that will not answer draws nothing rather
+  than breaking the card.
+
+#### THE CASSETTE WAS INVISIBLE, AND THE ASSERTION FOR IT PASSED
+
+It took `--gm-color`, the away club's colour, on the tile's own dark ground:
+**Chicago's `#0B162A` measured 1.07:1.** A cassette you cannot see.
+
+- **"NOT THE SAME COLOUR AS ITS BACKGROUND" IS TRUE AND USELESS**, which is what
+  the first check asked. **The measurable question is CONTRAST**, and the check
+  computes WCAG luminance now and requires 3:1. Run against the old colour it
+  fails with `1.07:1 rgb(11, 22, 42) on rgb(10, 14, 21)`.
+- **THE MARK TAKES `--muted`**, which is what the gift tile's own fallback uses
+  and clears the bar on both themes. **The colour is not lost**: the card's
+  border already takes it on hover, and so does the mark now.
+- **THIS IS THE PIN'S FAULT ARRIVED AT FROM A THIRD DIRECTION.** That glyph took
+  `currentColor` and vanished into the disc behind it; this one took a colour
+  that happened to be dark on a dark ground. **Same lesson: a correct markup
+  string proves nothing about what a viewer sees.**
+- **DRAWN, NOT TYPED.** No face this site loads carries an emoji, so a cassette
+  character is a picture on some machines and tofu on others -- this page learned
+  that four times in one afternoon over a single pin. The SVG is `display:
+  block`, or its baseline sits it low in the tile, and the `<span>` around it is
+  `display: block` too, **or its width would be ignored outright**.
+
+#### AND THE HARNESS WAS THE BROKEN HALF THREE TIMES
+
+[games-tape-row.js](mc/_dev/browser-checks/games-tape-row.js), Puppeteer against the Chrome on the machine, serving
+the repo over http. **26 assertions, and it also writes a screenshot** -- the
+validator checks structure and computed style, and looking at it is what caught
+the invisible cassette.
+
+- **`decodeURIComponent` DOES NOT DECODE `+` AS A SPACE.** `URLSearchParams`
+  emits one for a space and PostgREST decodes it, so the page was right and the
+  stub silently missed every city whose name has a space in it -- which is most
+  of them. **Second time today**, after the Stop Builder's delete.
+- **IT COUNTED PREFLIGHTS AS REQUESTS.** Every call here is preflighted (the
+  `apikey` header makes it so), so counting URLs alone read as the page asking
+  for each city twice. **I added an in-flight request cache to both rows for a
+  doubling that does not happen, then took it back out** -- machinery for a
+  problem that does not exist is churn, and `giftsFor` is untouched from HEAD.
+  **Count the method, not the URL.**
+- **A SECOND PRESS CLOSES A CARD**, so the screenshot step opens until the card
+  it wants is the open one rather than pressing blind.
+- **`games-in-a-real-browser.js` COULD NOT RUN AT ALL**, requiring a bare
+  `puppeteer-core` while this machine's modules are at `C:/tmp`. Pre-existing;
+  repointed, and it passes 8/8.
+
 ### THE SHOP'S SHOPFRONT, AND WHAT THE PAGE MAY NAME (2026-08-30, same day)
 
 Four corrections to the rebuild above, all from Kevin using it.
@@ -1057,16 +1139,28 @@ in the repo.
 ### THE HUB'S GROUPS ARE THE PRODUCT'S OWN SHAPE NOW
 
 `admin-nav-menu.js` is what both the dropdown and the hub's directory render
-from, so the groups are the categories. Five, in this order:
+from, so the groups are the categories. Six, in this order:
 
 | group | what is in it |
 |---|---|
-| **The Spine** | Game Builder, Anchor Events, Waypoints, Challenges, Audiences, Trivia, Routes, Flow Builder |
-| **The Catalogue** | Teams, Leagues, Data Warehouse |
+| **The Spine** | Game Builder, Audiences, Anchor Events, Trivia, Routes, Flow Builder |
+| **Game Stops** | Waypoints, Challenges |
+| **The Catalogue** | Data Warehouse (Teams went with the audiences merge, Leagues on 2026-08-31) |
 | **Running It** | Daily Review, Game Plays, Operations, Winner's Wall, Taglines, Picmaker |
 | **The Periphery** | Socializer, Issues |
 | **For Review** | Stop Builder, Guide Green Room, Team Colors, and two stubs |
 
+- **GAME STOPS IS ITS OWN GROUP (2026-08-31).** **A STOP IS A WAYPOINT PLUS A
+  CHALLENGE** -- the one place in the vocabulary where two rooms make a third
+  thing between them. In the spine they sat among the ingredients, which is true
+  and buries the fact that these two are a **pair**: you pick the place, then
+  decide what a team does when they get there, and **neither half is a stop on
+  its own.**
+  - **`routes` STAYS IN THE SPINE, deliberately.** A route is the WALK, an
+    ordered list of stops, so it is a step in ASSEMBLING a game rather than one
+    of the two halves of a stop.
+  - It sits directly under The Spine because that is the order the work runs in:
+    the game and its audience first, then the stops it is built from.
 - **THE GAME BUILDER LEADS THE SPINE (2026-08-31), which reverses the order
   this list carried until then.** It used to run in the order a game is
   ASSEMBLED -- anchor event, waypoints, challenges, audiences, trivia, routes,
@@ -9457,6 +9551,264 @@ suites were made **Range-aware**: they slice the fixture and answer
 a stub that no longer models the thing under test**, and it was that mismatch,
 not a page fault, that produced the first round of failures.
 
+## THE GAME BUILDER IS SIX BOXES, AND THE INSPECTOR IS SETTINGS (2026-08-31)
+
+**ANCHOR | AUDIENCE | ATLAS** on one row, then **GAME**, then **TAGS**, then
+**STATUS**. Six
+things were taken off the inspector drawer or deleted outright in one pass.
+
+- **THE THREE ON ONE ROW ANSWER ONE QUESTION IN THREE PARTS** -- why they are in
+  town, who the game is for, which walk they take -- and all three are settled
+  before a word of the game is written. Stacked they were three full-width bars
+  to scroll past.
+  - **STILL THREE FIELDSETS, not one with three groups.** Each keeps its own
+    folder tab, so the row says what each part is without a legend having to name
+    all three.
+  - **THE AUDIENCE BOX IS THE WIDEST** (`flex: 1.6`), holding two fields; the
+    anchor takes 1.15 because an event's label is a whole sentence, and the atlas
+    a name and a count.
+- **THE GAME BOX IS THREE ROWS: name and city, tagline and intro, price and
+  engine.** Row 1 says WHICH game, row 2 says what it SAYS, row 3 says how it is
+  SOLD and how it is PLAYED. Everything left in the drawer is a setting.
+  - **`detailsPaymentSection` HELD PRICE ALONE AND WENT WITH IT.** A drawer
+    heading over an empty grid is worse than no heading. Its CSS selector went in
+    the same pass -- **it was a MIDDLE member of a group, which is what made
+    removing the whole line safe**; taking the LAST member out is what leaves a
+    dangling comma and kills the entire stylesheet, which this project has
+    already done once.
+  - **ROW 3 IS CAPPED, NOT STRETCHED.** A price is five characters and an engine
+    is one of two, so `flex: 0 1 220px`: two short controls spread across the
+    width of the box read as fields that have lost their neighbours.
+  - **THE GAME ID STAYED IN THE DRAWER, deliberately.** It is the row's permanent
+    key rather than a setting, **six tables reference it**, and it is the one
+    field on the page that must not be casually retyped.
+- **EVERY MOVE WAS A MOVE, NEVER A COPY.** The blocks came across whole, so every
+  id resolved and **not one wiring line changed** in any of them. A second
+  control for one column is the duplication this repo keeps removing, and two
+  boxes writing `price` would disagree the moment one was edited. A check asserts
+  there is exactly one of each control.
+
+### THE POST LANDED EVERY TIME AND THE DOT SNAPPED BACK (2026-08-31)
+
+Reported as *"can't change it from building to post even after save, no error
+message"*. **The PATCH was succeeding on every press.** The database had
+`status = 'live'` and `archived = NULL`; the page did not.
+
+- **`fetchGameRowFromSupabase` DID NOT NAME `status` IN ITS SELECT.** That is the
+  read-back after every write and the read when a game is opened, so the row came
+  home without the column, `normalizeGameRow` gave it `''`, and
+  `getHeaderGameGroup` fell through to **its BUILDING default** -- which is
+  correct on its own terms and here painted the dot back onto Build.
+- **THIS IS THE SAME FAULT AS THE COUNTS LINE, FROM THE OTHER END.** That one
+  was a column the VIEW did not carry; this is a column the SELECT did not ask
+  for. **The write path has six wiring points and the read path has the selects,
+  and missing one of either is silent in a different way**: a write that does not
+  carry the column, or a read that cannot see what was written.
+- **FIVE SELECTS ON THIS PAGE, AND ONE OF THEM ASKED.** The header list, added
+  when the counts line was fixed. The read-back, the full store load and the
+  recent-games read all now do; the fifth is `['id', 'nodes']` and correctly does
+  not.
+- **`status` IS IN `SUPABASE_GAMES_SCHEMA` NOW.** An absent key already passes
+  the filter, so this changes nothing today -- what it buys is that
+  `disableGamesColumn('status')` can take it out of every select at once when a
+  stale database reports it missing, instead of the whole read 400ing on one
+  unknown column.
+- **AND THE BRANCH THAT HID IT IS GONE.** `setCurrentGameStatus` opened with
+  `if (busy || !getCurrentGameArchiveEntry()) return false` -- **a bare return on
+  a write path**, which this file forbids in as many words. Busy is the ordinary
+  case and stays quiet; no game open now says so. **A press that quietly does
+  nothing is indistinguishable from one that failed**, which is why a real bug
+  went a day without a symptom anybody could act on.
+- **THE CHECK FAILS ON THE PREVIOUS STATE** with `got: 2 without`, and it asks
+  the general question rather than naming the two: **every games select that
+  reads a game must ask for status.** A future column added to the writers and
+  forgotten in the readers trips the same assertion.
+
+### EVERY GAME SAVE HAD BEEN FAILING FOR A DAY, AND NOTHING SAID SO (2026-08-31)
+
+[2026083111](mc/supabase/migrations/2026083111_infer_game_team_keys_loses_tgbid.sql), **applied**. Reported as a status radio answering
+`{"code":"42703","message":"column team.tgbid does not exist"}`, **and it was
+never about the status.**
+
+- **`infer_game_team_keys` IS A BEFORE TRIGGER ON `public.games`, so it was
+  EVERY WRITE TO EVERY GAME.** Saving, archiving, duplicating -- all of it, with
+  the same message, since [2026083025](mc/supabase/migrations/2026083025_tgbid_goes_the_key_stays.sql) dropped `tgbid` the day before.
+- **A PLPGSQL BODY IS STORED AS TEXT AND RESOLVED AT RUNTIME**, so dropping a
+  column out from under a function raises nothing at drop time and nothing at
+  deploy time. **It waits for a caller.** This project has now been bitten by
+  that exact property **four times**: `tgb_resolve_soundtrack_finding` after a
+  table rename, `tgb_pull_walking_tours` after `waypoints.archived` was dropped,
+  `tgb_pull_concert_tours` after the anchor_events rename, and this.
+- **THE RULE THIS FILE ALREADY CARRIES WOULD HAVE CAUGHT IT**: *when you drop a
+  column, grep the other migrations for its name before you run the drop.*
+  2026083025 swept the pages and the jersey puzzles and **did not sweep the
+  trigger functions.** The sweep that catches it is one query:
+  `select proname from pg_proc ... where pg_get_functiondef(oid) ilike '%<column>%'`
+  -- **and it must filter `prokind = 'f'`**, or `pg_get_functiondef` raises on
+  the first aggregate it meets.
+- **ONLY THE TGBID HALF WENT.** The key inference -- league from the id or the
+  tags, matchup codes from the id, then `infer_team_key` -- is untouched, because
+  `away_team_key` and `home_team_key` are live and read by both engines through
+  `team-palette.js`. **The four tgbid lookups are not replaced by anything**:
+  they kept key and tgbid paired, and both tgbid columns are retired, so filling
+  one in would be maintaining a second copy of a fact nobody asks for -- which is
+  what tgbid WAS.
+- **REWRITTEN FROM THE LIVE DEFINITION, one half removed**, never re-typed from
+  memory: a `create or replace` written afresh rewrites the whole body, and this
+  project has already silently lost a column that way.
+- **PROVED WITH A WRITE, not by the absence of an error** -- this function only
+  fails when something calls it. A real `update` on a real row returns 1, the
+  keys still infer (`NFL:PIT` / `NFL:NO`), a status change works both ways with
+  the trigger keeping `archived` in step (`live` -> NULL, `building` -> YES), and
+  **no function in `public` names a dropped column any more.**
+
+### STATUS IS THREE RADIOS, AND IT IS THE LAST BOX (2026-08-31)
+
+**Post · Build · Skip**, under Tags, over `games.status`.
+
+- **IT IS THE ONE DECISION ON THE PAGE.** Everything above says what the game IS;
+  this says whether anybody can buy it. Last, because it is what you answer when
+  the rest is finished.
+- **THREE OPTIONS BECAUSE THERE ARE THREE STATES, and BUILDING is the one the nav
+  button could never reach.** `archived` is `'YES'` for **both** building and
+  skipped, so a two-way toggle over the flag can only ever say posted or not.
+  **That is the whole reason this control exists rather than a second button.**
+- **IT WRITES `status` AND NOTHING ELSE.** A trigger keeps `archived` in step
+  both ways, so `/games/`, the footer and every reader of the flag are untouched.
+- **AND THE NAV'S SKIP BUTTON IS GONE, the same day.** It sat beside Duplicate
+  and was a **two-way control over a three-way column**, so it could say posted
+  or not and could never reach BUILDING -- which is the state every game is
+  actually in. **Two controls for one column is the duplication this repo keeps
+  removing**, and this pair was the worse kind: one of them could not express the
+  common case.
+  - **`toggleCurrentGameArchiveState` WENT WITH IT, being its only caller.** The
+    two-way act does not survive a three-way column: there is nothing left that
+    means "the other one". `setCurrentGameStatus` is the one writer.
+  - **CTRL/CMD+SHIFT+A WENT TOO**, per the standing rule that a control and its
+    wiring go in one pass. A shortcut with no visible control is undiscoverable,
+    and it would still have been the two-way act. **Ctrl/Cmd+Shift+D stays**,
+    being a different act.
+  - **`setArchiveGameFeedback` AND `state.archiveGameActionBusy` STAY.** The
+    first greys every lifecycle control while a status write is in the air; the
+    second is read by three other guards. They were never the button's -- it was
+    only their loudest reader.
+- **THE DOT IS PAINTED FROM `getHeaderGameGroup`**, the same reader the picker's
+  grouping and the counts line use, so the box and the list beside it cannot
+  disagree about what a game is.
+  - **NEVER REPAINTED WHILE IT HAS FOCUS**, or a repaint mid-choice moves the
+    selection out from under somebody using the arrow keys -- the guard the Game
+    ID box has carried since 2026-08-10.
+  - **NO GAME OPEN CHECKS NOTHING**, rather than defaulting to one of the three.
+    A dot on Post over no game is the page asserting something it cannot know.
+- **CHOOSING THE STATUS IT ALREADY HAS WRITES NOTHING**, and that is not
+  belt-and-braces: **a radio raises `change` on the way in from the keyboard**,
+  so arrowing across the group would otherwise file two writes to reach the
+  third option.
+- **A REFUSED WRITE PUTS THE DOT BACK.** PostgREST answers 200 with an empty
+  array when RLS refuses, so the reply is read and an empty one is reported as a
+  refusal; leaving the dot where the click left it would show a status the
+  database does not hold.
+- **A DATABASE WITH NO `status` COLUMN IS TOLD WHICH FILE TO RUN**, not handed a
+  `PGRST204`.
+- **PROVED FROM THE MARKUP, THE WIRING AND THE MAPPING**: 28 assertions,
+  including the group-to-dot mapping lifted out of the source and run for all
+  four cases. **The PATCH leaving the page is NOT covered and the suite says so**
+  -- opening a game needs its whole flow document and an admin session. What is
+  asserted instead is that there is exactly one writer and that it sends the
+  right body. Live spread today: **395 building, 0 live, 0 archived.**
+
+### AND THREE THINGS WERE DELETED OUTRIGHT
+
+| gone | what it cost |
+|---|---|
+| **AWAY / HOME TEAM pickers** | `games.away_team_key`, `home_team_key` and the four `*_team_city` / `*_team_mascot` columns have **no editor on this page**. Still written by the anchor prefill, still read by the engines, nothing cleared -- a row whose audience and legacy team disagree is now an SQL fix. |
+| **TAKEOVER DATE / SUGGESTED START / TARGET END** | `games.game_date`, `start_time` and `end_time` cannot be SET here. **`/games/` still PRINTS `start_time`** -- *"Start whenever you like. We suggest 1pm"* -- on 18 of 31 rows. |
+| **State / Province** | with `stateOptionsForCountry` and `refreshStateOptions`. |
+
+- **THE PALETTE ALREADY CAME FROM THE AUDIENCE**, which is why removing the team
+  pickers changed nothing about a game's colours: `team-palette.js` scores an
+  exact `audience_id` match at 30000, above the team key. **Checked rather than
+  assumed.**
+- **THE ANCHOR EVENT IS WHERE A DATE LIVES NOW.** It carries `start_date` and
+  `start_time` and is the real thing in the world that gives a game its when.
+- **`bindTeamSelect` AND `populateTeamSelects` ARE KEPT WITH NO CALLERS.**
+  `bindTeamSelect` is the only thing that knows how a team select writes a city,
+  a mascot, a key AND the palette together, and rediscovering that is the
+  expensive half if a picker ever returns.
+
+### THE BREAKPOINT NEVER FIRED, AND ONLY A REAL BROWSER COULD SAY SO
+
+The three boxes were given their share by `#anchorBar` / `#audienceBar` /
+`#atlasBar`, and the wrap rule was written `> .game-id-bar`. **AN ID BEATS A
+CLASS WHATEVER THE MEDIA QUERY** -- a media query adds no specificity of its own
+-- so the id won and **at 1100px the three stayed side by side and squeezed to
+279px**, which is a form nobody can fill in.
+
+- **THE RULE WAS PRESENT AND CORRECT-LOOKING**, which is why nothing caught it.
+  jsdom has no layout and no cascade resolution at a width; **31 headless
+  assertions passed over it.** [game-builder-row-geometry.js](mc/_dev/browser-checks/game-builder-row-geometry.js) is Puppeteer against
+  the Chrome on the machine, and it fails on the previous state with
+  `got: 317,431,279`. **This is the fifth time this project has recorded a test
+  passing on a page that renders wrong, and the answer is the same every time.**
+- **IT LIFTS THE ROW WITH A PARSER, NOT WITH `indexOf`.** Slicing on a closing
+  tag broke twice: the markup around the row moved and the slice silently took
+  the wrong bytes, **reporting a page fault that was the harness's own**.
+- **AND THE ESCAPING SCAR BIT THREE TIMES IN ONE SITTING**, once in a new form
+  worth recording: **Python decodes `
+` as well as `
+`**, so a unicode
+  escape written to dodge the backslash rule reached the file as a real newline
+  inside a JS string literal. **Write tooling with no escapes at all**: `chr(92)`
+  for a backslash, and a plain space where a separator is all that is wanted.
+
+### THE BREAKPOINT WAS ALSO IN THE WRONG PLACE, AND THAT WAS THE REPORT
+
+Fixing the specificity made the query fire; **1240px is a common laptop window**,
+so the three then stacked on exactly the screens they were designed for. It is
+**900px** now.
+
+- **MEASURED WITH THE QUERY LIFTED OUT, never guessed at.** At 900px the three
+  combos are still **230, 320 and 200 pixels** wide, which is a form somebody can
+  fill in; below that is phone territory where a full-width bar each is right.
+- **THE CHECK ASSERTS BOTH DIRECTIONS.** One line at 1100px **and every combo
+  still over 180px** -- three boxes on a line is worth nothing if every control
+  in them is too narrow to read a value in -- then three full-width bars at
+  860px. The old check asserted stacking at 1100px and **was correct to fail**.
+
+### THE ATLAS LABEL IS A DOOR TO THE ATLASES ROOM (2026-08-31)
+
+The word **Atlas** is a link to `/mc/atlases/`. It is the one field on the page
+whose own label is worth following: an atlas is built there and named here, so
+you come to it, find the one you want does not exist, and the way to make it is
+the word you are already looking at.
+
+- **AN ANCHOR, NOT A `<label for>`, AND IT CANNOT BE BOTH.** A label's click
+  focuses its input and a link's navigates, so one element doing both is a
+  control that does two things at once. The input carries `aria-label` instead,
+  so it is still named for a screen reader.
+- **NOT NESTED IN A LABEL EITHER**, which is the nesting browsers disagree about
+  -- the same reason the Stop Builder's two `new` links are siblings of theirs.
+- **A NEW TAB.** The Game Builder is where you are working, and a half-edited
+  game must not be lost to a glance at a list.
+- **IT READS AS A LABEL FIRST**, keeping the label's own size, weight and
+  letter-spacing and taking the accent only on hover. A row of fields with one
+  heading shouting at the others is worse than no link.
+
+## AN NUL BYTE IN THE STOP BUILDER, FOUND BY `grep` CALLING IT BINARY (2026-08-31)
+
+`rowKey()` joined a compound key with `' '` and **the backslash was eaten on the
+way in**, so the file carried a real NUL inside a JS string literal.
+
+- **IT WORKED, WHICH IS WHY IT SURVIVED.** A NUL is a valid character in a JS
+  string and it was only ever a separator, so nothing errored and every
+  assertion passed. **The only symptom was `grep` reporting the file as binary.**
+- **FOURTEENTH INSTANCE OF THE ESCAPING SCAR, in code written the same session
+  as the note warning about it**, and repaired with this file's own standing
+  remedy: `JSON.stringify([row.city, row.waypoint_id])`, **which needs no escape
+  at all**. A separator written as an escape is one a layer of quoting can eat.
+- **WORTH SCANNING FOR AFTER ANY SESSION THAT WRITES A FILE THROUGH A HEREDOC.**
+  A byte scan of the three rooms touched found this one and no other.
+
 ### A ROW IS ONE LINE UNTIL YOU OPEN IT (2026-08-23)
 
 The card went through both failures in one day, which is worth recording as a pair. It began as **21 controls in one flat `auto-fit` grid**: every field looked equally important and equally likely to be the one you came to change, so finding the score meant reading every label. Grouping them into six named bands fixed that and **made the card worse**, because it was still every field, now with headings, rules and an explanatory note per band. **Fifty rows meant fifty copies of a 22-field form.** You could not see three events at once, let alone scan a week.
@@ -10390,102 +10742,966 @@ The country badge that appears on the public games page (in the hero meta list a
 
 ---
 
-## `public.leagues` — which sport each league plays (2026-08-24)
+## AN AMAZON SHORT LINK HAS NEVER BEEN RECOGNISED (2026-08-31)
 
-Two columns, `sport` and `league`, seeded with ten US leagues.
-[2026082403](mc/supabase/migrations/2026082403_leagues_catalog.sql), **apply by hand**.
+Found while checking a file I was editing for control characters, not looked
+for. **`giftCtaLabel` in [mc/gifts/index.html](mc/gifts/index.html) carried a literal BACKSPACE byte
+where a word boundary was meant:** `amzn\.to|<0x08>a\.co\/`. So the alternation
+matched a backspace followed by `a.co/`, which no url contains, and **every
+`a.co/` short link fell through to the generic button label instead of saying
+View on Amazon.**
 
-| sport | leagues |
-|---|---|
-| Football | NFL, NCAAF |
-| Basketball | NBA, NCAAB, WNBA |
-| Baseball | MLB |
-| Hockey | NHL |
-| Soccer | MLS |
-| Auto racing | NASCAR |
-| Mixed martial arts | UFC |
+- **THE FOURTEENTH INSTANCE OF THE ESCAPING SCAR, and the first found by a
+  routine sweep rather than by a symptom.** It was at HEAD, so it has been
+  shipping; nothing errors, because a regex that matches nothing is a perfectly
+  valid regex.
+- **`cat -A` OR A BYTE SCAN IS THE ONLY THING THAT SHOWS IT.** In a normal diff
+  and in an editor the line reads `amzn\.to|a\.co\/`, which looks like somebody
+  simply forgot the boundary rather than like corruption.
+- **REPAIRED BY WRITING BYTES, NOT BY AN EDIT.** The replacement is built with
+  `chr(92)` so no layer of quoting can eat it again -- which is the standing
+  remedy this file has recorded a dozen times and which is what produced the
+  fault in the first place.
+- **PROVED BY RUNNING THE REPAIRED PATTERN**: `a.co/d/...` and `amzn.to/...` and
+  `amazon.com/dp/...` all match, and `bookshop.org/p/a.command` does not -- which
+  is what the word boundary is there for.
+- **WORTH SWEEPING FOR.** A byte scan of every file touched this session found
+  exactly this one; a repo-wide scan has not been run.
 
-- **WHY, WHEN `teams` ALREADY CARRIES BOTH.** `teams` answers *what sport does
-  this CLUB play*, 639 times over with the pair repeated on every row, so "what
-  leagues do we cover" is a distinct scan and **a league with no teams filed
-  cannot be named at all**. Four of these ten are in that position: MLS, WNBA,
-  NASCAR and UFC.
-- **`sport` IS ALREADY SPELLED TWO WAYS AND THIS DOES NOT FIX THAT.**
-  `teams.sport` holds lower case `football` (515 rows); `anchor_events.sport`
-  holds `Football` (331). Neither is wrong and nothing reconciles them. **The
-  seed uses the title case**, because that is what `anchor_events` holds and what
-  a picker on that page would write; `teams` is left alone, being 639 rows read
-  by the builder and the fandom palette. Recorded rather than quietly changed.
-- **THE LEAGUE IS THE KEY**, not a surrogate. There is one NFL, and `NFL` is the
-  value `anchor_events.league` and `teams.league` already store, so a reference
-  from either is a plain text match with nothing to carry.
-- **NO FOREIGN KEY FROM `anchor_events.league`, DELIBERATELY.** That column is
-  free text, and a FK would refuse the first concert or festival carrying a
-  league nobody has listed. **This is a catalogue, not a gate.** Both `distinct`
-  checks pass today — every league in `anchor_events` and in `teams` is in the
-  seed, verified before shipping — so the FK is available whenever the refusals
-  are actually wanted.
-- **Anon-readable, admin-written**, like `cities` and `teams`: reference data
-  with nothing private in it, and a cloud routine holds only the publishable key.
-- **The first seven are the leagues the ESPN importer can already read a schedule
-  for**, spelled as its own `LEAGUES` map spells them, so the two agree. The last
-  three have no feed here and are listed because the table's job is to say what
-  we cover, not what we can scrape.
+## ATLASES: AN ORDERED LIST OF STOPS (2026-08-31)
 
-### The Leagues room — [mc/teams/leagues.htm](mc/teams/leagues.htm) (2026-08-24)
+[2026083108](mc/supabase/migrations/2026083108_atlases.sql) and [2026083109](mc/supabase/migrations/2026083109_atlases_rename_does_not_recurse.sql), **both applied**, plus
+[mc/atlases/index.html](mc/atlases/index.html) in the Game Stops group. Four fields, as asked:
+`atlas_id`, `atlas_name`, `stop_id`, `stop_number`.
 
-The editor over `public.leagues`: list, add, edit, delete. **The fifth page to
-wear the Socializer's chrome**, ported from [mc/events/index.html](mc/events/index.html) — when any of
-the five changes, change them all; the Socializer is the reference.
+- **THE REUSE DECIDED THE SHAPE, AND IT WAS ASKED RATHER THAN ASSUMED.** With
+  `stops` cut to three fields that morning there was no `stop_id` for an atlas to
+  point at, and the two instructions were in tension. **The answer was that stops
+  are reused across atlases**, which makes this a many-to-many: an atlas has many
+  stops, a stop belongs to many atlases.
+- **SO `stops` GOT A SURROGATE `id` BACK, partly reversing 2026083106 knowingly.**
+  A stop's key is `(city, waypoint_id)`, and referencing it by that pair would put
+  TWO columns on every atlas row for one reference, repeated for every atlas the
+  stop is in. **A row that is pointed at from elsewhere wants a single-column
+  identity** -- the same reasoning 2026081601 recorded when `soundtracks` moved
+  off `city_slug`.
+  - **`(city, waypoint_id)` IS KEPT AS A UNIQUE KEY, not thrown away.** It is the
+    rule that makes reuse work at all: **one place is one stop in a city**, so two
+    atlases naming that stop point at the same row rather than at two rows that
+    happen to agree.
+- **THE KEY IS `(atlas_id, stop_number)`**, so an atlas cannot have two stop 3s --
+  the failure `route_stops` was rekeyed to prevent. **A stop MAY appear twice in
+  one atlas**, which is not an oversight: a walk that comes home names the square
+  it started from again.
+- **`atlas_name` REPEATS ON EVERY ROW**, because that is the shape asked for. It
+  is the `soundtrack` shape, and it costs the same thing: **a rename is a write to
+  every row**, and two rows of one atlas could otherwise disagree with nothing
+  saying so. A trigger closes it: an INSERT **adopts** the name the atlas already
+  has, and renaming any row renames the whole atlas. There is no way to end up
+  with two names.
 
-- **IT IS `.htm`, THE ONLY ONE IN THE LIVE REPO**, and it does not follow the
-  folder convention either (every room is named by its folder: `/mc/gifts/`,
-  `/mc/socializer/`). Both were asked for explicitly. **Worth knowing before
-  somebody "fixes" it**: GitHub Pages serves no 301, so a rename to
-  `/mc/teams/leagues/` would be a hard break like every other move here.
-- **THE NAV ENTRY WENT IN THE SAME COMMIT.** A room with no door is unreachable,
-  which is the standing rule read the other way round.
-- **ADD IS THE WHOLE BAR — no search, no filter.** Ten rows. A control that
-  narrows a list of ten to one of them is a control nobody needs, the same
-  reasoning that kept a YouTube filter out of the Socializer's queue.
-- **GROUPED BY SPORT, AND THE GROUPING IS THE POINT.** `sport` is free text, so a
-  second spelling of one sport appears as a second heading with one row under it.
-  **That is the only place on the site where such a drift is visible at a
-  glance**, and this database already has one — see the note above. The add
-  dialog's sport box is a `datalist` of the sports already used, for the same
-  reason.
-- **THE LEAGUE IS THE PRIMARY KEY AND IS STILL EDITABLE, WITH A GUARD.** Postgres
-  permits renaming a PK and **there is no foreign key to refuse it**, so nothing
-  in the database would warn that every `anchor_events` and `teams` row naming
-  the old string is now pointing at a league that is not in the list. So the page
-  **counts those rows first and puts the number in the question**: *"331
-  anchor_events rows and 515 teams rows name NCAAF. There is no foreign key, so
-  those rows will NOT follow the rename."* Delete asks the same way.
-  - **A table it cannot read is reported as unchecked, never as zero.** A
-    confident zero about a table nobody could reach is the worse answer.
-- **A NEW LEAGUE IS UPPER CASED ON THE WAY IN.** Every other table spells a
-  league that way and the whole value of this catalogue is that the strings
-  match; correcting it is obviously right, so it is done rather than refused.
-- **NOTHING AUTOSAVES.** An edit is a draft keyed by the row's ORIGINAL league,
-  so a re-render cannot silently discard typing, and the foot counts the unsaved
-  ones. **That count is the only warning there is** — and it is repainted by
-  `paintDirtyCount()` on every keystroke rather than by `render()`, which cannot
-  run per keystroke without stealing focus from the box being typed in. It was
-  wired to `render()` alone at first and simply never appeared.
-- **`return=representation` ON THE SAVE, THE DELETE AND THE INSERT.** PostgREST
-  answers **200 with an empty array** when RLS refuses a write, so without
-  reading the row back a refused save reports success and the page shows a value
-  the table never took. Tested by refusing every write.
-- **A MISSING TABLE NAMES THE MIGRATION** rather than reporting `42P01`, which is
-  a statement about our schema and not something the person at the keyboard can
-  act on.
+### THE RENAME RECURSED FOREVER, AND THE GUARD THAT LOOKED RIGHT WAS THE BUG
 
-**PROVED BY RENDERING IT**, in jsdom with the auth and REST modules stubbed: 46
-cases over the ten real rows — the grouping and counts, an edit saving and
-regrouping, a rename warning with both reference counts and one warning it has
-nothing to strand, the upper-casing, a duplicate caught before the round trip,
-a delete naming what points at it, a cancelled delete sending no request, a
-refused write reported as refused, and the missing-table message.
+The propagating UPDATE fired the trigger again, and the guard --
+`atlas_name is distinct from new.atlas_name` -- **reads like it stops after one
+pass and does not**: this is a BEFORE trigger, so the rows it is looking at have
+not been written yet, the condition stays true, and each nested call starts
+another. Postgres stopped it with **`54001: stack depth limit exceeded`**.
+
+- **NOTHING WAS CORRUPTED, which is the one good thing about failing that way**:
+  the whole statement rolled back and both probe rows still read the name they
+  started with. **A silent half-rename would have been worse than a crash**, and
+  it is what a cleverer data-shaped guard might have produced.
+- **`pg_trigger_depth()` IS THE ONLY RELIABLE TEST**, because it asks the question
+  that matters: **am I the update somebody typed, or the update this trigger just
+  made?** A data-shaped guard cannot tell those apart in a BEFORE trigger.
+- **PROVED BY DOING IT**: renaming one row now renames both, and the broken
+  version raised 54001, so an insert that raises nothing proved nothing here.
+
+### THE ROOM
+
+- **GROUPED, NOT A FLAT LIST OF ROWS.** The table is flat and the name repeats,
+  so reading it that way would put the atlas name on every line and make the
+  order impossible to see. An atlas is a heading and its stops in order.
+- **THE NAME IS EDITED ON THE ATLAS HEAD AND NOWHERE ELSE**, because renaming is
+  an act on the ATLAS: the database rewrites every row of it, so a field on a stop
+  row would look per-row and silently change the lot. **The room patches ONE row
+  and lets the trigger do the rest** -- patching all of them would be the same
+  write several times over.
+- **THE NUMBER LEADS AND IS THE LOUDEST THING ON THE ROW**, in tabular figures, or
+  a column of them does not line up. **A blank number on the add form goes on the
+  END**, which is what you want nine times in ten and saves counting.
+- **A REMOVAL DOES NOT CLOSE UP THE NUMBERS, and says so.** Renumbering would
+  rewrite every row after it; **a gap is visible and harmless where a silent
+  renumber is neither.**
+- **IT WEARS THE STOP BUILDER'S TWO HUES**, copied rather than re-picked -- forest
+  for the waypoint, violet for the challenge. **When either room's pair changes,
+  change both.**
+- **EVERY ATLAS CARRIES ITS OWN `Add a stop`, AND IT AIMS THE ONE FORM RATHER
+  THAN BEING A SECOND ONE (2026-08-31).** Adding to an existing atlas always
+  worked from the bar at the top -- type or pick the key and the name fills
+  itself -- but **you had to scroll away from the atlas and retype its key**,
+  which is the sort of thing nobody does twice. The button fills the form in,
+  clears the stop and number boxes, says which atlas it is adding to and puts
+  the cursor in the Stop box.
+  - **A SECOND INLINE FORM WOULD BE A SECOND WRITE PATH**, and two ways to do one
+    thing is what this repo keeps removing. Everything still goes through
+    `addRow()`, so there is one set of rules about what a stop number means and
+    one place a refusal is reported. A check asserts there is exactly ONE add
+    form on the page.
+  - **IT FIRES THE FIELD'S OWN `input` HANDLER rather than copying what it does**,
+    so the name fills and locks exactly as it would if you had typed the key. A
+    second copy of that would drift the first time either changed.
+  - **IT WRITES NOTHING BY ITSELF**, which is asserted: it is a control that aims
+    a form, and a button that silently filed a row would be a different thing.
+- **PROVED BY DRIVING IT: 44 assertions**, including the same stop in two
+  atlases, a name adopted rather than set twice, a rename reaching every row and
+  no other atlas, a removal leaving the stop in the atlas it shares, and **the
+  chain from aiming the form to a write that lands in the atlas it named** --
+  both halves, because either alone would pass over a button that pointed at the
+  wrong atlas.
+- **AND THE ONE FAILURE WAS THE SUITE'S OWN.** It asserted against `boxes()[0]`,
+  and adding a row re-sorts the list by `atlas_id`, so the box at index 0 changed
+  under it. **It finds atlases by id now** -- the third time this session a suite
+  has reported a page fault that was its own.
+
+## A GAME NAMES ITS ATLAS (2026-08-31)
+
+[2026083110](mc/supabase/migrations/2026083110_a_game_names_its_atlas.sql), **applied**. `games.atlas_id`, and an ATLAS box in the
+Game Builder directly under the Anchor.
+
+- **IT IS NOT A FOREIGN KEY, AND IT CANNOT BE.** `atlases` is keyed by
+  `(atlas_id, stop_number)` because an atlas IS its rows, so **the id alone is not
+  unique** and has nothing for a key to reference. Making it unique would mean an
+  atlas could hold one stop.
+  - **WHAT THAT COSTS: nothing stops a game naming an atlas that does not exist,
+    and no screen will tell you.** The same trade `events.venue_city` and
+    `waypoints.city` make. **The room only offers atlases that exist, which is
+    where the guard actually lives**, and it NAMES a stored atlas it cannot find
+    rather than blanking the box -- the only thing that will ever say it.
+  - If it needs enforcing, the answer is an `atlas` header table with one row per
+    atlas that both tables point at. **That is a change to the shape that was
+    asked for, not a tidy-up.**
+- **THE COLUMN WENT ON THE VIEW IN THE SAME BREATH**, which is this morning's
+  lesson applied before it could happen again: 2026083028 added `status` to the
+  games TABLE and not to `games_with_graph_and_teams`, and the room showed a stale
+  local copy for a day. Appended last, so every existing reader is untouched.
+- **THE SIX WIRING POINTS**, and missing one is SILENT -- the picker works, the
+  value shows, and the PATCH quietly does not carry it. All six asserted.
+- **THE BOX IS UNDER THE ANCHOR because it is the next question**: the anchor says
+  what brought people to the city, the atlas says which walk they take once they
+  are there.
+- **GATED ON `showGameDetails`, NOT `isGameNode`.** An atlas is a property of the
+  GAME ROW, and 28 of the 395 rows have an empty flow document -- the gate that
+  made five fields un-editable over an open game earlier today.
+- **IT COMMITS ON `change`, NOT PER KEYSTROKE.** A datalist fires `change` when an
+  option is picked and when the box is left, which is exactly the two moments a
+  value is meant; per keystroke it would refuse every half-typed name in the red
+  pen while somebody was still typing it.
+
+## STATE / PROVINCE IS GONE FROM THE GAME BUILDER (2026-08-31)
+
+Asked for outright. The container, the select, and both functions that filled it.
+
+- **THE CITY BOX ALREADY CARRIES THE WHOLE PLACE.** `Chicago, IL` is the shape
+  every other table here spells, so a second control for half of it was a second
+  place to say one thing -- and the only thing it could uniquely express was a
+  state that DISAGREED with the city.
+- **`meta.stateCode` AND `meta.stateName` ARE STILL WRITTEN**, derived from the
+  city by `parseGeo`, so nothing downstream lost a value.
+- **`stateOptionsForCountry` AND `refreshStateOptions` WENT WITH IT**, per the
+  standing rule that a control and the code that fills it go in one pass. A check
+  asserts the name survives only inside the comment explaining its removal --
+  **searching the raw source would match that comment**, which this file has
+  recorded three times.
+- **`TgbGeo.usStateOptions` and `provinceOptions` are untouched** and still used
+  by other rooms.
+
+## TRIVIA IS A KIND OF CHALLENGE. ONE TABLE. (2026-08-31)
+
+[2026083107](mc/supabase/migrations/2026083107_trivia_becomes_a_challenge.sql), **applied**. 38 questions joined the 24 tasks:
+**`public.challenges` is 62 rows**, and `public.trivia` is retired.
+
+- **THEY WERE ALWAYS THE SAME SHAPE OF THING**: something a team is given, and
+  something they give back. What kept them apart was two columns and a naming
+  accident, both handled below rather than papered over.
+- **`choices text[]` ARRIVES WITH THEM.** 31 of the 38 have one; a null means
+  the answer is typed. A challenge has never had options, and the two rules
+  about them -- **the answer must be among its own choices**, and **two options
+  at least** -- are left GENERAL, because they say nothing about a row that has
+  none.
+- **THE LADDER KEY IS `ladder_key`, NAMED FOR WHAT IT IS.** `trivia.id` was a
+  TEXT column called `id` that was not the row's identity and was shared by many
+  rows; what it holds is a **key-ladder rung** -- a `destinations.id`, its
+  city-and-state prefix, `wp-<wpid>` or `*`.
+- **THE TWO ADDRESSING SCHEMES ARE NOT MERGED, AND THAT IS THE DESIGN.** Mapping
+  a rung onto a `scope` would have invented a correspondence that does not
+  exist: **`scope_team` is a `teams.team_key` (`NFL:CHI`), not a destination id,
+  and `scope_city` is a plain city name (`Chicago`), not `chicago-il`.** A
+  mapping that is right by luck for some rows and wrong for others is worse than
+  two honest columns.
+  - **A CHECK MAKES THE UNION EXCLUSIVE**, so no row can carry both and have them
+    disagree: **a trivia row has a ladder key, `scope = 'portable'` and no scope
+    keys; everything else has a scope and no ladder key.** Verified: 0 rows break
+    it.
+- **`challenges.id` IS NOT RENUMBERED.** Three foreign keys point at it --
+  `route_stops`, `stops`, `stops_retired` -- so the 38 take new ids after the
+  existing 24 and nothing pointing at a challenge moved.
+- **EVERY TRIVIA CONSTRAINT IS RE-CREATED SCOPED TO `kind = 'trivia'`**, because
+  a challenge legitimately breaks most of them: **a photo challenge has no
+  answer at all**, and **"Jefferson Davis" is a perfectly good challenge answer
+  and two words** -- the one-word rule is a fact about a team typing on a phone
+  in the street, not about standing in front of a house.
+
+### `NOT VALID` EXEMPTS EXISTING ROWS, NEVER NEW INSERTS
+
+**The first run of the migration was refused by its own constraint**, on
+`trivia_id` 8 -- the row whose answer is *Chicago* in a question naming Chicago,
+**the very row NOT VALID exists to spare.** The constraint was added before the
+insert, so the 38 arrived as NEW rows and were checked.
+
+**So the ORDER of `add constraint` and `insert` is what decides whether a legacy
+row survives a migration**, and it is invisible until the database refuses.
+Moved after the insert, the 38 arrive unvalidated exactly as they sat, and
+everything written from now on is checked.
+
+### NO COMPATIBILITY VIEW, AND THIS DEPARTS FROM `destinations`
+
+There the consumers were spread across two engines and could not all be
+enumerated, so a view kept them working. **Here they were two and both were
+changed in this commit**: `tgb_trivia_for` and the Trivia room. A view would
+guard against nothing but our own oversight and would HIDE it -- the same
+reasoning the anchor_events rename recorded, and the same reason the soundtracks
+JSON fallback was deleted. **`public.trivia` is retired in place as
+`trivia_retired`**, still holding its 38 rows so the merge can be compared
+against what it replaced.
+
+### THE THREE ROOMS
+
+- **THE TRIVIA ROOM READS `challenges?kind=eq.trivia`** and was renamed through
+  rather than given a mapping layer at the read boundary. **`row.id` was the
+  dangerous one**: it meant the LADDER KEY in that room and now means the
+  challenge's own id, so every use was read and placed rather than swept -- a
+  blind rename would have started matching the wrong column, and **a key that
+  resolves to nothing looks exactly like a key that resolves.**
+  - **`data-field` IS THE COLUMN NAME on an editable cell**, since `commit()`
+    sends `{[td.dataset.field]: value}`. `id` became `ladder_key` and `question`
+    became `prompt` there, or every edit would have been refused as `PGRST204`.
+  - **Its insert now sends `kind: 'trivia'` explicitly.** The column defaults to
+    `question`, and a row written without it is refused by the exclusivity check
+    -- which is that check doing its job.
+- **THE CHALLENGES ROOM AND THE ROUTE BUILDER BOTH READ `kind=neq.trivia`**, and
+  that is not tidiness. The two are still **played** differently: a stop
+  challenge is answered by LOOKING, which is the whole product, and trivia is
+  the away fandom being tested on the city they are visiting. And a trivia row
+  is `portable` by construction, so **all 38 would have been offered at every
+  stop**, swamping a picker that offers 17 of 24 today. The Challenges room also
+  has no field for `choices` or `ladder_key`, so it would have listed 38 rows it
+  could only half-edit.
+- **PROVED BY MAKING IT REFUSE AND ACCEPT**, six refusals and two acceptances:
+  an answer inside its own question, a two-word typed trivia answer, a ladder
+  key on a non-trivia row, a trivia row with none, an uppercase key and an answer
+  outside its own choices are all refused; **a two-word answer on a CHALLENGE is
+  accepted**, which is the whole point of scoping those rules. Probes deleted, 62
+  rows. And the merge was compared against the table it replaced: **38 rows where
+  the question, the answer and the options are all identical.**
+
+**ONE GAP FOUND AND NOT FIXED:** the Challenges room's `KIND_VALUES` is still
+`question / minigame / photo / freeform` and **has never included `consent`**,
+which 2026083003 added. Its Kind picker therefore cannot offer the waiver's own
+kind. Left alone deliberately -- that row is the one whose words must not be
+casually edited -- but it is a real gap.
+
+## ROUTES AND THE FLOW BUILDER MOVE TO THE BOTTOM (2026-08-31)
+
+A seventh group, **Assembly**, holding both, above External Tools.
+
+- **THEY ARE THE TWO ROOMS THAT PUT THE PIECES IN AN ORDER**, and the last thing
+  you open rather than the first. Everything above them is a piece: a game, an
+  audience, a place, a thing to do there. These two decide the SEQUENCE -- the
+  walk a team takes, and the conversation they have on it -- so **neither is any
+  use until the pieces exist.**
+- **THE SPINE IS FOUR ROOMS NOW**: Game Builder, Audiences, Anchor Events,
+  Trivia. It read in assembly order with these two at its tail, which was true;
+  at the bottom of the page they are where you go LAST, which is more useful for
+  a list somebody scans from the top.
+- **ABOVE EXTERNAL TOOLS, not below it.** That group is other people's
+  dashboards and is not part of this map at all.
+- **21 links, 0 dead, 0 duplicated** -- and that last count earned its place: the
+  first attempt added the group and **failed its removal assertion without
+  writing**, so the two rooms were briefly in the nav twice. A link count alone
+  would not have caught it.
+
+## A STOP IS THREE FIELDS, AND THE ROOM IS TWO EQUAL HALVES (2026-08-31)
+
+[2026083106](mc/supabase/migrations/2026083106_a_stop_is_three_fields.sql), **applied**. `public.stops` is `city`, `waypoint_id`,
+`challenge_id` and nothing else, and [mc/stop-builder/index.html](mc/stop-builder/index.html) was rebuilt
+around it.
+
+- **`(city, waypoint_id)` IS THE PRIMARY KEY, AND IT WAS ALREADY THE RULE.** It
+  had been a unique index since the table was built, for the reason recorded
+  there: the same waypoint twice in one city with two challenges is two stops in
+  one doorway and nothing downstream could choose between them. Promoting it
+  changes no behaviour; it states the fact once instead of twice.
+- **ALTERED IN PLACE, NOT REBUILT.** `create table as` would have been shorter
+  and would have thrown away the two rows already filed, which are real. Both
+  survive.
+- **SO THE ROOM DELETES BY THE PAIR, never by an id** -- there is no id to
+  delete by, which is the point of the shape. Filtering on the city alone would
+  take the whole city.
+- **THE TOUCH TRIGGER WENT WITH `updated_at`.** Dropping the column alone leaves
+  a trigger writing a field that is not there, and **nothing says so until the
+  next update raises at run time** -- the same shape as a SECURITY DEFINER
+  function still inserting a dropped column, which this project has paid for
+  twice.
+- **WHAT IS GIVEN UP: nothing records WHEN a stop was made.** If that is ever
+  wanted it is a column, and it makes this four fields.
+
+### THE ROW: CITY, WAYPOINT, CHALLENGE
+
+`minmax(120px, max-content) 1fr 1fr auto`.
+
+- **THE TWO HALVES ARE `1fr 1fr`, NOT `auto`, AND THAT IS THE WHOLE ASK.** A
+  stop is a waypoint AND a challenge; sizing them to content would make whichever
+  half had more words look like the point of the row. **Equal columns say they
+  are two of the same kind of thing**, and the check reads the computed
+  `grid-template-columns` rather than trusting the declaration.
+- **THE CITY IS THE LEFT COLUMN.** It spanned the full width as a banner above
+  the pair for a few hours; on the left it reads as the first of three things
+  you scan across, and **a column of cities lines up down the list**, which a
+  banner per row could not do. It takes only the width it needs, so it cannot
+  eat into the pair.
+- **IT KEEPS ITS OWN VOICE** -- mono, uppercase, muted, and **the only cell with
+  no kicker above it** -- so it is plainly the key the two halves hang off
+  rather than a third block competing with them.
+- **AND IT IS CENTRED AGAINST THE PAIR.** The row's height is set by the taller
+  half, each of which is a name over a second line, so a one-line city pinned to
+  the top sat level with the kickers and read as a third heading. It is
+  `align-self: center` rather than a change to the grid's `align-items`, because
+  **a half must start at the top** or its kicker would drift down as the other
+  half grew.
+- **THE DELETE IS THE LAST COLUMN**, not a passenger in the city cell, so
+  neither half carries a control the other does not and the city is free to be
+  the width of a city. **It stops its own click**, or removing a stop would open
+  the popup over the row it had just removed.
+- **THE ROW IS A REAL CONTROL**: `role="button"`, focusable, Enter and Space.
+  The whole row opens something, and a div with a click handler is reachable by
+  a mouse and by nothing else.
+- **RANDOM IS DRAWN AS A WORD IN THE CHALLENGE HALF**, never as an empty block:
+  a blank half would let a decided stop pass for one somebody had not finished.
+
+### THE TWO HALVES ARE CONTRASTING HUES, MEASURED
+
+**forest `#1d5c33` for the waypoint, violet `#6b3fa0` for the challenge.** The
+pair was measured rather than picked, which is the precedent the Events room set
+when its five band colours were chosen:
+
+| | contrast on the panel | dE from the ink | dE from the red pen |
+|---|---|---|---|
+| forest `#1d5c33` | **7.98:1** | 65.7 | 87.1 |
+| violet `#6b3fa0` | **7.38:1** | 32.8 | 80.5 |
+
+**and dE 94.4 between them.**
+
+- **DISTANCE FROM EACH OTHER IS NECESSARY AND IS NOT SUFFICIENT.** The
+  furthest-apart pair on the shortlist was indigo and burnt orange at **dE
+  99.8**, and both halves were disqualified by what they sit NEXT to: **indigo
+  is only 26.6 from this room's own ink**, so it would read as ordinary text,
+  and **burnt is 32.7 from the red pen**, so it would read as an error. The
+  Events room shipped a band whose token WAS the error red, byte for byte, and
+  it read as a fault; that is the mistake this measurement exists to prevent.
+- **HUE ANGLE ALONE IS THE WRONG METRIC**, which is why every figure above is
+  Lab. Amber sits 30 degrees from the red pen and reads nothing like it, because
+  it also differs in lightness and chroma.
+- **WHICH WAY ROUND IS NOT ARBITRARY.** Green is the PLACE, which is what green
+  means on every map anybody has ever read; violet is the thing you DO there,
+  and it is the one hue in this palette carrying no other meaning already.
+- **THE KICKER CARRIES THE COLOUR AND A 3px LEFT EDGE CONFIRMS IT.** That is the
+  Events room's own lesson: at the alpha a row can carry, two washes are within
+  a few channel values of each other, so **the fill is a hint and the label is
+  the signal.**
+- **RANDOM TAKES THE CHALLENGE HALF'S HUE, NOT THE ROOM'S ACCENT.** With the two
+  halves coloured, an accent there would be a **third** colour in a row that has
+  just been given two, and a reader would have to learn what it meant.
+- **THE POPUP WEARS THE SAME TWO**, on a top rule rather than a wash -- a full
+  wash behind a panorama would tint the photograph -- **or opening a stop would
+  mean learning the sides again.**
+- **`.sv-label` IS DECLARED TWICE AT THE SAME WEIGHT**, so the later one wins on
+  source order: it had to LOSE its own `color` rather than the first one gaining
+  specificity. Same tie the Tape Room's playing-case rule had to settle, and a
+  check asserts the second declares no colour.
+- **PROVED BY RECOMPUTING FROM THE STYLESHEET, 16 assertions.** jsdom does not
+  resolve a `var()`, so a computed-colour check here would compare the literal
+  string `var(--wp-ink)` and **pass against a broken rule** -- a trap this file
+  has recorded twice. The token values are read out of the sheet and the
+  contrast and the separation are recomputed from them.
+
+### A `new` LINK BESIDE EACH OF THE TWO FIELDS
+
+- **THEY GO ON THE ADD FORM, NOT ON A ROW**, because that is where you find out
+  the one you want does not exist: you type a name, nothing matches, and the
+  room refuses it. A row is a record of a decision already taken.
+- **A NEW TAB, so the half-typed form is not lost.** Both say so on their
+  tooltips.
+- **EACH WEARS ITS OWN HALF'S HUE**, so the door says which side it opens
+  without being read, and it is **the only lowercase thing on a row of uppercase
+  labels**, which is what stops it reading as part of the label.
+- **THE TWO FIELDS BECAME A `<div>` WITH AN EXPLICIT `<label for>`.** An `<a>`
+  inside a `<label>` is legal and is the kind of nesting browsers disagree
+  about -- the same class of problem as the hub's button-inside-an-anchor. **The
+  City field keeps its wrapping `<label>`**, which is right for a field with
+  nothing beside it. A check asserts no anchor is nested in a label and that
+  both labels still point at their inputs.
+
+### THE POPUP: STREET VIEW LEFT, CHALLENGE RIGHT
+
+- **EQUAL COLUMNS AGAIN**, for the same reason the row is equal.
+- **A KEYLESS STREET VIEW EMBED**, `google.com/maps?layer=c&cbll=<lat>,<lon>&output=svembed`.
+  **The Static Street View and Embed APIs both need a billed key and this
+  project holds none**, so the panorama is best effort and the address, the
+  description and the source sit under it: the half is still worth opening when
+  there is no panorama.
+- **A WAYPOINT WITH NO COORDINATES SAYS SO** rather than drawing a grey box.
+  **18 of 536 are unlocated**, so this is the ordinary case rather than an edge.
+- **THE FRAME IS TORN DOWN ON CLOSE, NOT HIDDEN.** A hidden Google frame goes on
+  loading and goes on being a third-party request; the Tape Room learned the
+  same about a hidden Spotify embed, which kept playing.
+- **PROVED BY DRIVING IT: 40 assertions**, including the computed grid on both
+  the row and the popup, the panorama's exact `cbll`, the torn-down frame, an
+  insert carrying **exactly three keys and no id**, and a delete filtered on
+  both halves of the key.
+
+**AND THE ONE FAILURE WAS THE SUITE'S OWN, checked against the live API rather
+than assumed.** The delete appeared not to remove the row, because
+`URLSearchParams` emits a space as `+` and my stub used `decodeURIComponent`,
+which does not decode it. **PostgREST does**: `city=eq.Cincinnati,+OH` and
+`city=eq.Cincinnati,%20OH` both match the real row. **The page was right and the
+stub was wrong** -- the second time this session a suite has reported a page
+fault that was its own.
+
+## TAGS IS ITS OWN BOX, AND THE LAST ONE (2026-08-31)
+
+Three bars now: **Anchor, Game, Tags.**
+
+- **MOVED OUT OF THE INSPECTOR, NOT COPIED.** It was a `details-section` in the
+  Basics drawer; `tagsField`, `nodeTagPicker`, `nodeTagNewInput` and
+  `nodeTagAddBtn` all moved with it, so **not one wiring line changed.**
+- **LAST, BECAUSE IT IS THE ONE BOX THAT IS NOT ABOUT THIS GAME.** Anchor says
+  what the game is built around and Game says what it is; **a tag is a word
+  shared with every other game wearing it**, which is also why deleting one here
+  deletes it everywhere. Last, it reads as the footnote it is rather than as a
+  third thing to fill in before you start.
+- **THE DEAD SELECTOR WENT WITH IT.** `#detailsTagsSection` was named in a
+  grouped CSS rule and now matches nothing, which is the dead CSS this project
+  sweeps for. A check asserts the string is gone from the file.
+
+## A GAME IS LOCATED BY ITS CITY, AND BY NOTHING ELSE (2026-08-31)
+
+[2026083105](mc/supabase/migrations/2026083105_games_lose_their_start_point.sql), **applied**. Seven columns off `public.games`:
+`location_based`, `starting_location`, and the four `starting_location_*`
+fields plus the Plus Code. The LOCATION BASED toggle and the start fields are
+out of the Game Builder.
+
+- **THE VALUES ARE KEPT, WHICH IS WHAT MADE THE DROP SAFE TO RUN.** A drop is
+  the one irreversible move available and **378 of 395 rows carried a lat**, so
+  every value went into `public.games_location_retired` first, keyed by game id.
+  Verified after: **395 kept, 378 with a lat, 11 with a Plus Code** -- the
+  pre-drop numbers exactly. Restoring is an update joined on id.
+- **THREE VIEWS DEPENDED ON THE COLUMNS.** A plain drop would have failed and
+  `cascade` would have taken them, **including the one the Game Builder reads.**
+  Each is dropped and rebuilt around the alter.
+- **THE REBUILT VIEWS KEEP THEIR EXACT CONTRACT: 63, 68 and 70 columns, the same
+  as before.** Every `<alias>.<column>` reference became a **typed NULL** rather
+  than the select lists being rewritten. That matters most for
+  `games_with_graph`, an 11,000-character generated definition that assembles
+  the paid product's game graph: its references sit inside
+  `jsonb_build_object(... CASE WHEN node_type = 'game' THEN game.<col> ...)`,
+  and cutting those items out would change the node JSON's shape.
+
+### TWO WAYS THE BLANKING FAILED FIRST, AND THE RULE THAT SETTLED IT
+
+**A REFERENCE IS EITHER A VALUE IN AN EXPRESSION OR A WHOLE SELECT ITEM, and
+they need opposite treatment.** Getting it wrong failed twice, differently:
+
+- **A select item blanked without an alias loses its name.** `game.location_based`
+  in the outer list became `NULL::boolean`, so the column vanished and the view
+  above it raised **`42703: column "location_based" does not exist`**. Two of
+  them then gave **`42701: column "text" specified more than once`**, because
+  unaliased `NULL::text` columns are all called `text`.
+- **A value inside a CASE given an alias is a syntax error.**
+
+`is_select_item()` is the test: a select item is bounded by a comma on the left
+and a comma or the end of the list on the right, with only whitespace between.
+**21 references blanked across the three views, none left, and no unaliased NULL
+in any list** -- all three asserted before the file was written.
+
+### WHAT IT COSTS, MEASURED AND SAID RATHER THAN DISCOVERED
+
+- **THE LANDING PAGE'S RENDEZVOUS MAP IS CITY-LEVEL NOW.** `/mc/game/run/`
+  already geocoded the city as its THIRD fallback, behind the address and the
+  stored pair; that is now the only step, and `isLocationBased` is simply
+  `true` -- **every game is located, so the toggle was a question with one
+  answer.** A buyer sees the town rather than the corner. That is the intent of
+  the change, not a casualty.
+- **`/mc/game/scan/` HAS NOTHING LEFT TO AIM AT, and this is the real loss.** It
+  is a GPS proximity page -- pick a game, walk to its start point, it fires
+  inside a radius -- and **a city centroid is kilometres from anywhere anybody
+  stands.** It now says so on screen. **Both quiet failures were avoided**:
+  leaving the columns in its select would 400 and report *"Unable to load
+  games"*, blaming the connection for a schema change; loading the list anyway
+  would give a scanner that never fires. **Bringing it back needs a per-STOP
+  coordinate, which `public.waypoints` already holds** -- a feature and a
+  decision, not a repair.
+- **NOTHING ELSE BROKE, checked rather than assumed.** Only the scanner named
+  these columns in a SELECT; both engines read `select=*`, which simply returns
+  fewer columns, and every other reference is a property read that becomes
+  undefined. **The readers were updated first, in the same commit** -- dropping
+  a column out from under a live select is how a page 400s and blames the
+  connection.
+- **PROVED BY THE LIVE READS**: `games?select=*`, the graph view, the Game
+  Builder's own header select and the scanner's new select all answer **200**.
+
+**AND THE `.loc-toggle` CSS WENT WITH THE TOGGLE**, per the standing rule that a
+control and its stylesheet go in one pass.
+
+### A FALSE PARSE FAILURE ON `/mc/game/run/`, PRE-EXISTING
+
+The standing inline-script check reports `Unexpected identifier 'to'` on that
+page. **It does so identically at HEAD**, which is what says it is not this
+change -- and the block it chokes on begins mid-sentence, `" BLOCK to restore
+play."`: **the regex matched a `<script` inside an HTML COMMENT** and sliced
+across it. This file already records the same check crying wolf twice on
+`tgb-agent-context` blocks. **A `<script` inside a comment is the third way it
+can be wrong.**
+
+## THE GAME BUILDER WAS SHOWING A STALE LOCAL COPY (2026-08-31)
+
+[2026083104](mc/supabase/migrations/2026083104_status_on_the_graph_view.sql), **applied**. Reported as a counts line reading
+**`GAME STATS: 2 posted + 0 building + 394 skipped = 396 games`** over a table
+holding **395 rows, every one of them BUILDING.**
+
+- **THE REMOTE READ HAD BEEN FAILING OUTRIGHT.** [2026083028](mc/supabase/migrations/2026083028_three_game_statuses.sql) added `status` to
+  the games TABLE and not to `games_with_graph_and_teams`, which is the VIEW the
+  header list reads. The select named a column the view lacks, PostgREST
+  answered **42703**, `loadHeaderGameStoreFromSupabase` caught it and returned
+  null, and the picker fell back to the browser's own snapshot.
+- **THREE TELLS, ALL QUIET.** A count one too many (the stale local draft), a
+  `building` of **zero**, and a split that could only have come from `archived`
+  -- which is what `getHeaderGameGroup` falls back to when `status` is absent.
+  **A failed read that renders a plausible page is the worst shape a bug takes
+  here**, and this file already records the same lesson about the soundtracks
+  JSON fallback: a stale thing that draws perfectly tells nobody it is stale.
+- **THIS IS THE "ONE STATUS FIELD" MERGE.** The table had it and the view did
+  not, so the room was deriving from two sources and the two disagreed. With
+  `status` on both, it is genuinely one field to read.
+- **APPENDED TO THE LIVE DEFINITION, NEVER REWRITTEN.** `create or replace view`
+  requires the existing columns to keep their names, types AND order, and a
+  hand-written replacement would have **dropped the two `to_jsonb(...) AS
+  away_team / home_team` columns the room reads.** The migration is the live
+  definition with one line inserted before the `FROM`, so `status` lands last
+  and every existing reader is untouched. **70 columns, both team columns kept.**
+- **PROVED BY THE ROOM'S OWN REQUEST**: the exact select was 400 before and is
+  200 after, and answers `{building: 395}`.
+- **NOTED, NOT FIXED: the view's two team joins are dead.** They join
+  `teams_retired` on `game.away_team_tgbid` / `home_team_tgbid`, and
+  [2026083025](mc/supabase/migrations/2026083025_tgbid_goes_the_key_stays.sql) retired those columns in place, so `away_team` and
+  `home_team` are null on every row. Pre-existing, and a separate decision.
+
+## ROW 2 OF THE GAME BOX IS THE TAGLINE AND THE INTRO (2026-08-31)
+
+- **MOVED OUT OF THE INSPECTOR, NOT COPIED.** Both were fields in the Basics
+  drawer; a second control for one column is the duplication this repo keeps
+  removing, so the blocks came across whole and **every id moved with them** --
+  `nodeTaglineInput`, `nodeBodyInput`, the GENERATE button, the autocomplete and
+  the HTML note all still resolve, so **not one wiring line changed.**
+- **ROW 1 ANSWERS WHICH GAME, ROW 2 ANSWERS WHAT IT SAYS.** Name and city, then
+  tagline and intro. Everything left in the drawer is a setting.
+- **BOTH WERE ALREADY GAME-ONLY, checked rather than assumed**:
+  `descriptionField.hidden = !showGameDetails`, and the label is written to
+  INTRO. Nothing else in the inspector was using them, which is what made the
+  move safe -- `nodeBodyInput` reads like a shared body field and is not.
+  `replyModeField` travels inside the description block as it always did and
+  keeps its own `hidden`.
+- **THE ROW STACKS RATHER THAN SHARING A LINE.** A tagline is one line and an
+  intro is a paragraph; side by side the textarea would be half a column wide.
+- **PROVED BY RENDERING IT**: two rows, the right field in each, nothing left
+  behind, no repeated ids, and the Game ID still in the drawer. 7 assertions.
+  **The first run failed on the test, not the page** -- it asked for
+  `nodeGameIdInput`, and the id is `selectionIdInput`.
+
+## THE PALETTE ALREADY COMES FROM THE TARGET AUDIENCE (2026-08-31)
+
+Asked for; already true since [2026083027](mc/supabase/migrations/2026083027_a_game_names_its_audiences.sql) earlier the same day.
+`team-palette.js` reads `game.target_audience_id` and scores an exact
+`audience_id` match at **30000**, which is the top tier -- above the team key
+and well above the city-and-mascot guess. **Nothing was changed.**
+
+## POST AND SKIP, IN ALL FOUR ROOMS (2026-08-31)
+
+Asked for outright. Four rooms had four vocabularies for one pair of decisions,
+so somebody moving between them had to learn the words again in each:
+
+| room | was | is |
+|---|---|---|
+| **Tape Room** | Live / Shelve | **Post / Skip** |
+| **Gift Shop** | Go live / Shelve | **Post / Skip** |
+| **Socializer** | Done / Skip | **Post / Skip** |
+| **Game Builder** | Archive / Unarchive | **Post / Skip** |
+
+**POST MEANS PUT IT OUT. SKIP MEANS DO NOT.** That is the whole of it, and it is
+now the same sentence in every room.
+
+- **NOT ONE IDENTIFIER MOVED, and that is the bargain this repo has already made
+  four times with these verbs.** `archived` is still the column in three of the
+  four; `LIVE` and `SHELVED` are still the status strings; `certified_at` and
+  `rejected_at` are still the gift shop's two stamps; `status` still holds
+  `live` / `building` / `archived`; `.is-shelved`, `.process-shelve`,
+  `#processLive`, `#archiveGameBtn`, `#gameArchiveConfirmBtn` and `post-done`
+  are all untouched. **Rename the words on screen and leave the identifiers
+  where every other reader can find them.** This is the FIFTH set of words the
+  Tape Room's pair has worn.
+- **THE THIRD STATE KEEPS ITS OWN WORD IN EVERY ROOM THAT HAS ONE, and that is
+  the rule that makes the pair legible.** The Gift Shop's **REVIEW**, the Game
+  Builder's **BUILDING** and the Gift Shop's **LATER** are all left alone,
+  because none of them is a decision: they are where something ARRIVES, or a
+  deliberate refusal to decide yet. Naming them Post or Skip would say a
+  decision had been taken.
+- **THE TAPE ROOM'S SHORTCUT IS `P`, WITH `L` AND `K` KEPT AS UNLABELLED
+  ALIASES.** K was the binding for four months and L for a fortnight; muscle
+  memory outlives a rename, which is exactly why K survived when L arrived. The
+  legend reads `P post · S skip · E edit · N next`.
+- **THE GAME BUILDER GETS BOTH VERBS ON ONE BUTTON**, reading Skip on a game
+  that is out and Post on one that is not, which is the same shape the Tape
+  Room's `STATUS_VERB` gives its track switch. **A BUILDING game reads Post**,
+  correctly: it carries `archived = 'YES'`, and posting it is what puts it on
+  sale.
+- **THE PICKER'S WORD COMES FROM A MAP, NOT FROM THE GROUP KEY.** Lowercasing
+  the key printed `archived`, which is the column's word rather than the room's.
+
+### THE ONE RISK, WRITTEN DOWN RATHER THAN LEFT TO BE FOUND
+
+**THE SOCIALIZER'S `Post` BUTTON DOES NOT POST ANYTHING.** The account buttons
+and `All n` beside it are what reach an account; this one FILES what already
+happened. A face that names an action it does not take is the thing this repo
+refuses everywhere else -- *"Remove is a left arrow, not a bin. A bin would be a
+lie about what happens."*
+
+Three things stop the misread being expensive, and **all three must stay**:
+
+- **The tooltip opens on the verb the face does not wear**: *"File this as
+  posted to Facebook, Threads. It does not post anything itself; the account
+  buttons already did that."*
+- **It is the only filled button in the row**, and it sits AFTER the accounts,
+  so it reads as the end of a sequence rather than one more account.
+- **Pressing it with no account used opens the confirm that already existed**,
+  which says in as many words that nothing went out through this room.
+
+**If it ever does read as a second Post, the fix is a different word for the
+FILING step in every room** -- not a fifth vocabulary in this one.
+
+### AND THE TWO PLACES THAT DOCUMENT THE OLD WORDS FOR A ROUTINE
+
+Both updated in the same commit, or they describe a room that no longer exists.
+
+- **The Tape Room's `tgb-agent-context` block** said *"the two words on screen
+  are exactly LIVE and SHELVED"* and *"SKIP in that room means only one thing
+  (taking a FINDING off the Issues list), so never use it for a song."* **The
+  second half was already stale** -- findings left that room in August -- and
+  the first half is now wrong. It says POSTED and SKIPPED, names the column
+  values as unchanged, and **still parses: 12 top-level keys.**
+- **[soundtracks.md](mc/soundtracks/soundtracks.md)**, the routine's own brief, in nine places.
+
+**PROVED BY READING THE SOURCE AND THE BUILT FACES**, [post-and-skip.js](mc/_dev/browser-checks/post-and-skip.js),
+**45 assertions**: every new word is there, every identifier is where it was,
+and **the old words are gone from what a reader sees** -- checked against a copy
+with the comments STRIPPED, because this project has three times reported a word
+as present when the match was the comment explaining its removal.
+
+## THE AUDIENCE DROPDOWNS ALREADY CARRY THE MASCOT (2026-08-31)
+
+Asked for; **measured against the live 640 rather than assumed, and it is
+already true of 625 of them.** `audienceLabel` appends the nickname in brackets
+whenever it differs from the name: `NFL Chicago (Bears)`, `NBA New Orleans
+(Pelicans)`, `NCAAF Alabama (Crimson Tide)`.
+
+- **[2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql) IS WHAT MADE IT APPEAR.** Before that rename `name` WAS the
+  mascot, so `nick === name` on every pro club and the brackets were suppressed
+  on all 110. Naming an audience by its city is what freed the nickname to be
+  shown beside it.
+- **THE 15 WITHOUT BRACKETS ARE RIGHT AS THEY ARE.** One is `history-jfk`, an
+  interest with no mascot at all. **The other 14 are the shared-city clubs**,
+  where the mascot IS the name because one name cannot answer for two: `MLB Cubs
+  · Chicago, IL`, `NFL Jets · New York, NY`. The mascot is on the line; it is
+  simply not repeated in brackets after itself.
+- **Nothing was changed**, because changing it would mean printing the mascot
+  twice on exactly those fourteen.
+
+## A STOP IS A WAYPOINT, A CHALLENGE AND A CITY. REBUILT. (2026-08-31)
+
+[2026083103](mc/supabase/migrations/2026083103_stops_rebuilt.sql), **applied**, plus [mc/stop-builder/index.html](mc/stop-builder/index.html) in the
+Game Stops group. **The old room is deleted and the old table is retired.**
+
+- **THE NAME WAS TAKEN, AND BY THE THING THIS REPLACES.** `public.stops` was
+  keyed by CITY -- `city_slug` + `waypoint_id` + `challenge_id` + `ord` + `end`
+  -- which is the fault this file has called PARKED since 2026-08-09: every game
+  in a city shares one list, so **a city cannot have two different walks**, and
+  **1 of its 41 rows carried a challenge at all.**
+- **RETIRED IN PLACE AS `stops_retired`, NOT DROPPED, AND THE VIEW CAME WITH IT
+  FOR FREE.** `game_stops` is read by the Game Builder and the Flow Builder
+  (`MAPS_TABLE = 'game_stops'` in each), which are the paid product's editors.
+  **A view follows its table by OID, not by name**, so the rename carried it and
+  **neither builder needed a line changed** -- the same property the
+  anchor_events rename turned on. Verified after: **41 rows intact and 485 rows
+  still coming through the view.**
+  - **THE CONSTRAINTS AND INDEXES WERE SWEPT FROM THE CATALOG**, not from a list
+    of the ones this repo knows about, so anything added by hand in the
+    dashboard moved too. **4 renamed, 0 left half-named.** A table called
+    `stops_retired` whose key is `stops_pkey` half-remembers its old name.
+- **THE NEW TABLE IS THREE COLUMNS AND NO MORE**: `city`, `waypoint_id`,
+  `challenge_id`.
+- **NO `ord`, AND THAT IS NOT AN OVERSIGHT.** An order belongs to a ROUTE --
+  `route_stops.ord`, 234 rows of it -- and a stop carrying its own position
+  would be a second idea of the walk, free to disagree with the first. **A stop
+  is a place and a thing to do there; the order a team meets them in is the
+  route's business.**
+- **NULL `challenge_id` MEANS RANDOM, and the picker is what makes that
+  unambiguous.** RANDOM is its FIRST option and there is no blank one, so NULL
+  cannot also mean "not decided yet". **Nothing generates the pick yet** -- that
+  is the code the request said would come later, and this column is the shape it
+  will read.
+  - **THE COST IS NAMED RATHER THAN HIDDEN: `on delete set null` means deleting
+    a challenge turns every stop that used it RANDOM.** That is a change of
+    MEANING, not a gap, which is exactly why the room draws the word rather than
+    an empty cell -- an empty cell would let it pass for an unfinished row.
+    `on delete restrict` would make a challenge undeletable while one stop names
+    it, and `route_stops` already made the opposite call for the same reason.
+- **ONE PLACE IS ONE STOP IN A CITY**, a unique index on `(city, waypoint_id)`.
+  The same waypoint twice with two challenges is two stops in one doorway and
+  nothing downstream could choose between them. **A loop that comes home is a
+  ROUTE naming a stop twice**, which `route_stops` already allows by keying on
+  position.
+- **THE CITY IS TEXT, CHOSEN FROM `audiences`, AND IS NOT A FOREIGN KEY.** The
+  room offers the **68 cities** the audiences table holds a home place for, which
+  is the list asked for. **It reads through `places`, never `city_name`** --
+  that column was dropped on 2026-08-30 precisely because it disagreed with the
+  place for 21 clubs, saying San Jose for the 49ers.
+
+### THE ROOM
+
+- **ONE LINE, THREE COMBOS**, because a stop is one thought: this place, this
+  thing to do, in this city. Three stacked bars would say they were three
+  decisions. Same arrangement the Game Builder's ANCHOR box settled on.
+- **THE WAYPOINT LIST NARROWS TO THE CHOSEN CITY.** 536 places is not a list
+  anybody scrolls, and the city is already known by the time you reach that box.
+  **It falls back to ALL of them when the city matches nothing**, so a city typed
+  by hand can still take a place.
+- **A TYPED CHALLENGE THE LIST DOES NOT HOLD IS REFUSED, NEVER STORED AS
+  RANDOM.** Silently turning a typo into a real choice is the one outcome nobody
+  could see afterwards. `chalFromLabel` returns the string `'random'` for a
+  deliberate RANDOM and `null` for a typo, so the caller can tell them apart.
+- **`return=representation` ON THE INSERT AND THE DELETE.** PostgREST answers
+  **200 with an empty array** when RLS refuses, so without reading the row back a
+  refused write reports success and the page shows a stop the table never took.
+- **EVERY READ PAGES.** Waypoints is already 536 and stops will outgrow it; the
+  cap truncates in silence.
+- **THE WIRING IS DEFENSIVE**, because one dead reference in that block kills the
+  rest of it INCLUDING `adminAuth.init()`, and `admin-shell.css` hides every
+  child of `body.mc-auth-protected` until `init()` adds `.mc-auth-authorized`.
+- **PROVED BY DRIVING IT: 33 assertions**, and by calls that made the table
+  refuse -- a blank city (23514), an unknown waypoint (23503) and the same place
+  twice (23505) are all refused, a RANDOM stop is accepted, probes deleted. Every
+  read the room makes answers 200 as `anon`.
+
+## THE HUB'S TWO ANCILLARY CARDS GET A WINDOW ONTO THE PUBLIC PAGE (2026-08-31)
+
+A small drawn button in the upper right of GIFT SHOP and SOUNDTRACKS, opening
+`/gifts/` and `/soundtracks/`.
+
+- **WHERE IT GOES IS THE POINT.** The card is the ROOM, where you stock the
+  shelf; the button is the SHOP, what a buyer sees. **`/mc/gifts/` and `/gifts/`
+  differ by one segment and are the easiest mistake to make in this repo**, so
+  the two doors now sit next to each other and are drawn differently: the big one
+  is the work, the little one is the window.
+- **IT IS THE SOCIALIZER'S OWN SHAPE, borrowed rather than invented.** Both cards
+  are wrapped in `.mc-chore-slot` and the button is a SIBLING, because **the card
+  is one big `<a>` and an `<a>` inside an `<a>` is invalid HTML** browsers
+  disagree about. Three slots now.
+- **THEY WEAR `.mc-chore-follow` AS WELL AS THEIR OWN CLASS**, so all three
+  corner controls share every visual property. **Three controls a few inches
+  apart, drawn to three metrics, read as three different KINDS of control.**
+- **DRAWN, NOT TYPED.** Neither face this site loads carries an emoji glyph, so a
+  character is a picture on some machines and tofu on others -- `/games/` learned
+  that four times in one afternoon. The SVGs take `currentColor`, so hover needs
+  no second rule.
+- **A NEW TAB, because it is a glance at the live site rather than somewhere you
+  go**, with `rel="noopener noreferrer"`.
+- **PROVED BY RENDERING THE HUB**: 22 assertions, including that neither button
+  is inside the card's link and that both cards still point at their rooms.
+
+## THE NAV IS SIX GROUPS, AND TWO PAGES WENT (2026-08-31)
+
+**The Spine | Game Stops | Post Game | Running It | For Review | External Tools.**
+21 links, 0 dead, checked rather than assumed -- a stale href 404s silently,
+which this project has already paid for with a deleted trigger id.
+
+- **GAME STOPS.** **A stop is a waypoint plus a challenge**, the one place in the
+  vocabulary where two rooms make a third thing between them. In the spine they
+  sat among the ingredients, which is true and buries the fact that they are a
+  **pair**: you pick the place, then decide what a team does when they get there,
+  and **neither half is a stop on its own.** Stop Builder joins them, last of the
+  three, because it is the one that makes something out of the other two.
+  - **`routes` STAYS IN THE SPINE, deliberately.** A route is the WALK, an
+    ordered list of stops, so it is a step in ASSEMBLING a game rather than one
+    of the two halves of a stop.
+- **POST GAME**, holding the Winner's Wall. **What comes back AFTER a team has
+  walked it**: a stop is where they stood, this is the photograph they sent from
+  it, **the only part of the whole product that arrives from outside rather than
+  being written.** It was in Running It, among the daily chores, which is true of
+  when you open it and says nothing about what it is.
+- **THE OLD STOP BUILDER IS DELETED** with the table it wrote; `/mc/stops/`
+  404s. **`mc/stops/` and `/mc/_stops.html` are both gone now**, so the note
+  further down about the two being different live things is history.
+- **THE DATA WAREHOUSE PAGE IS DELETED**, asked for outright, and **The
+  Catalogue group went with it** rather than being left as a heading over
+  nothing. `/mc/data/` 404s; **`mc/data/atlas.jsonl` stays**, being data rather
+  than a page.
+  - **AND IT SURFACED A DEAD FETCH THAT IS NOT MINE TO FIX:**
+    `mc/builder/index.html` reads `/mc/data/teams.json`, **which does not exist
+    and did not before today** -- the folder held only `index.html` and
+    `atlas.jsonl`. It is caught and `console.warn`ed, so the builder's teams
+    dropdown has been quietly falling back for some time. Reported, not touched.
+
+## A QUESTION MAY NOT CONTAIN ITS OWN ANSWER (2026-08-31)
+
+[2026083102](mc/supabase/migrations/2026083102_trivia_answer_not_in_question.sql), **applied**. `trivia_answer_not_in_question`.
+
+- **THE ROW THAT PROMPTED IT IS ON FILE.** `trivia_id` 8 answers **Chicago** to
+  *"Which river is dyed bright green through downtown CHICAGO every St Patrick's
+  Day?"* A team reads that aloud in the street and the answer is already in their
+  mouth. **It is not a typo, it is a question that tests nothing, and it looks
+  perfectly fine in a table** -- the shape of fault this project keeps paying for.
+- **`NOT VALID`, WHICH IS THE WHOLE POINT AND NOT A SHORTCUT.** It was asked for
+  as a rule for NEW trivia that does not reach the old, and that is exactly what
+  a NOT VALID check does: enforced on every insert and update from now on, and
+  the existing rows are never scanned. **One row breaks it, measured before the
+  file was written.**
+  - **WHAT IT COSTS, said rather than discovered: NOT VALID is per ROW, not per
+    row-version.** The day somebody edits `trivia_id` 8 the constraint applies to
+    it and the edit is refused until the question is reworded. That is the right
+    outcome and it will arrive as a surprise. `validate constraint` is what turns
+    the rule from "new rows" into "every row", once the backlog is fixed.
+- **WORD BOUNDARIES, NOT A SUBSTRING.** A bare `position(answer in question)`
+  would refuse **Bear** for a question about a `bearskin` hat. Both sides are
+  flattened -- every run of non-alphanumerics becomes one space -- then padded,
+  so case, spacing and punctuation are all forgiven and the test is whole words.
+- **NO BACKSLASH ESCAPES IN THE PATTERN.** `[^a-zA-Z0-9]` needs none, and the
+  first attempt at merely COUNTING the violations died on
+  `2201B: brackets [] not balanced` because a `\m` reached Postgres having lost
+  a level. Same reasoning that put `[[:space:]]` in
+  `trivia_free_answer_is_one_word`. **Thirteenth instance of the escaping scar.**
+- **IT APPLIES TO A MULTIPLE CHOICE ROW TOO.** Naming the right option in the
+  question is the same broken question with buttons under it.
+- **[trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md) NAMES IT, IN THE SAME COMMIT.** That file lists every
+  CHECK so a writer who trips one reads a sentence rather than a `23514`; leaving
+  it would describe a rule the database no longer matches.
+- **PROVED BY MAKING IT REFUSE**, not by the absence of an error: the answer
+  named in the question is refused, a clean row is accepted, `CHICAGO-bears`
+  against `Chicago Bears` is refused, `bearskin` against `Bear` is accepted, and
+  the probes were deleted. **38 rows before and after**, and `convalidated` is
+  false, which is the check that the old row was left alone.
+
+## THE GIFT SHOP AND SOUNDTRACKS CARRY THEIR OWN CITIES (2026-08-31)
+
+Asked for in two sentences, one each. **Neither needed a migration**, which was
+checked rather than assumed, and that is most of the story.
+
+- **THE DATABASE SIDE WAS ALREADY DONE FOR BOTH.** `public.soundtrack` has **no
+  foreign keys at all** and carries `city`, `state_code`, `state_name`,
+  `country_code` and `country_name` on the row (2026082514, 2026-08-25);
+  `gift_shop_listings.city` is and always was plain text. **The only two foreign
+  keys left pointing at `public.cities` anywhere are `stops.city_slug` and
+  `guides.hometown`** -- neither is the shop or a tape.
+- **WHAT WAS LEFT WAS THE PAGES.** Two live reads, both cut:
+  [mc/gifts/index.html](mc/gifts/index.html) built its picker from `cities?select=*`, and
+  [gifts/index.html](gifts/index.html) built the public rail the same way. **The two soundtrack
+  pages read it nowhere** -- their remaining mentions are comments and a search
+  placeholder.
+- **THE SHOP'S CITY LIST IS ITS OWN LISTINGS NOW.** `gift_shop_listings?select=city`,
+  **930 rows across 146 cities**, verified as `anon`. So the picker can only
+  offer a city that actually holds a gift, which is the rule the Waypoints room's
+  place picker and the Tape Room's place filter already keep: **an empty result
+  is not a state this control can produce.**
+- **IT PAGES, AND 930 IS EXACTLY WHY.** PostgREST caps a response at 1,000 and
+  truncates in silence, so this is the size that crosses the line without anybody
+  noticing.
+- **WHAT IT COSTS, AND SIX CITIES IS NOT NOTHING.** `hide_from_gift_shop`
+  governs the shop no longer, so six cities it was hiding appear on the public
+  rail the moment they hold a listing: **Glendale, Miami Gardens, Orchard Park
+  and Santa Clara** -- venue towns nobody shops for -- plus **Moscow and Kyiv**.
+  Measured, not guessed. **Archiving those listings is what takes them off now**,
+  and the flag still governs `/games/` and `/soundtracks/` as it always did.
+- **`hiddenShopCityNames` STAYS AND STAYS EMPTY.** `buildGiftCityEntries` reads
+  it when back-filling cities found on a game, and an empty set is the honest
+  answer once nothing hides one. `isHiddenFromShop` went, having no caller left.
+- **Nothing stops two spellings of one town and no screen will tell you**, which
+  is the same trade `events.venue_city` and the Waypoints room already made.
+
+### AND THE SOUNDTRACK BOT WORKS PRO SPORTS CITIES ONLY
+
+[soundtracks.md](mc/soundtracks/soundtracks.md), section 4. **The four-tier ladder is retired.**
+
+- **53 CITIES ACROSS 124 CLUBS**, the fanbase cities of the NFL, NBA, MLB and
+  NHL. No college towns, no other US cities, no non-US cities.
+- **WHY: a tape is met by somebody who travelled to a city for a game**, and the
+  cities that fill hotels are the ones with a professional club. There are still
+  pro cities with no tape at all, so the narrower field is where an hour is worth
+  more rather than a smaller version of the same job.
+- **AN EXISTING TAPE IN A RETIRED TIER STAYS and may still be topped up.** The
+  rule is about which city gets a NEW tape.
+- **THE CITIES READ IS GONE FROM THE BRIEF ENTIRELY**, which is the other half of
+  the ask and removes the trap that read carried: 1,300-odd rows against a
+  1,000-row cap handed the run the alphabet to roughly M *looking complete*. The
+  clubs read is 124 rows and cannot be truncated.
+- **THE VENUE-TOWN RULE IS NOW THE WHOLE GUARD, and it needs no flag.**
+  `teams.fanbase` holds the right answer for all 124 clubs, so picking by that
+  column never meets Foxborough. The `hide_from_soundtracks` bullets went with
+  the read -- **a rule describing a check that no longer runs is worse than none.**
+- **THE THREE BULLETS THAT DESCRIBED THE LADDER WENT WITH IT**, and one was
+  replaced rather than deleted: `fanbase` spells it `Buffalo, NY` and the row
+  wants `Buffalo, New York` plus its four geo parts, so the brief now says to
+  expand it, **because nothing downstream will and nothing will say it was not
+  done.**
+
+## `public.leagues` IS DROPPED, AND SO IS ITS ROOM (2026-08-31)
+
+[2026083101](mc/supabase/migrations/2026083101_leagues_goes.sql), **applied**. Ten rows of (sport, league), the room
+at `/mc/leagues/`, and its nav entry, all gone in one commit.
+
+- **IT WAS A SECOND COPY OF A COMPUTABLE FACT.** Every one of the ten pairs is
+  already in `public.audiences`, repeated across 639 club rows, and the `teams`
+  view computes `sport` and `league_sort` from `family`. **A duplicate nothing
+  reads is what makes the next reader ask which copy is true**, which is the
+  fault the destinations and teams rebuilds each removed.
+- **DROPPED RATHER THAN RETIRED IN PLACE**, which departs from this project's
+  usual answer and is why **the seed is written out in the migration's header**:
+  ten rows are a paste, not an afternoon.
+- **NOTHING DEPENDED ON IT, checked rather than assumed.** No foreign key
+  (deliberately: `events.league` is free text, so a concert carrying no league is
+  not refused), no view, no function, and **the only two readers in the whole
+  repo were the room and its nav entry.**
+- **WHAT IS LOST, PLAINLY, and it is the one thing `audiences` cannot say.** Four
+  of the ten leagues have **no club filed against them** -- MLS, WNBA, NASCAR and
+  UFC -- so those four are now unnameable anywhere. The table said what we intend
+  to cover as against what we have entered.
+  - **AND THE TWO SPELLINGS OF `sport` ARE INVISIBLE AGAIN.** `teams.sport` holds
+    lower case `football`, `events.sport` holds `Football`; the room's grouping
+    was the only screen where a second spelling appeared as a second heading with
+    one row under it. **The drift is unchanged; only the mirror is gone.**
+- **`/mc/leagues/` 404s**, as every move here does. The `.htm` it descended from
+  was already gone with the folder move.
+- **The nav still parses and all 22 remaining links resolve to a file**, checked
+  rather than assumed -- a stale href 404s silently, which this project has
+  already paid for once with a deleted trigger id.
 
 ## One city catalog: `public.cities`
 

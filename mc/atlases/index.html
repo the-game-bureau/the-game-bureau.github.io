@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ATLASES | THE GAME BUREAU</title>
+  <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+
+      /* THE STOP BUILDER'S TWO HUES, copied rather than re-picked: a waypoint
+         and a challenge must read the same wherever you meet them, and the
+         pair was measured there -- forest 7.98:1 and violet 7.38:1 on the
+         panel, dE 94.4 apart, and neither near the red pen or the room ink.
+         WHEN EITHER ROOM'S PAIR CHANGES, CHANGE BOTH. */
+      --wp-ink: #1d5c33;
+      --ch-ink: #6b3fa0;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+    /* ---- what a challenge row shows -------------------------------------- */
+    .ch { align-items: flex-start; }
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    .ch-prompt {
+      flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
+      font-size: 0.86rem; line-height: 1.45;
+    }
+    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+       writer can see at a glance which words the game fills in. */
+    .var {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+      padding: 0 3px; border-radius: 3px;
+      background: rgba(var(--bic-blue-rgb), 0.1); color: var(--bic-blue);
+    }
+    .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
+
+    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
+       rather than words in a sentence. Scope carries the outline because it is
+       the one that decides whether a challenge can be reused; kind does not. */
+    .ch-kind {
+      font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
+      white-space: nowrap;
+    }
+    .ch-scope {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
+      border: 1px solid transparent; white-space: nowrap;
+    }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
+    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
+    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .preview {
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-soft); padding: 10px 12px;
+      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
+    }
+    .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
+    .varbar button {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
+      padding: 3px 7px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff; color: var(--bic-blue);
+    }
+    .varbar button:hover { background: var(--cut-panel-bg); }
+</style>  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+  <style>
+    /* ---- the add form -----------------------------------------------------
+       ONE LINE, because adding a stop to an atlas is one thought: this atlas,
+       this stop, at this number. */
+    .atlas-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .atlas-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
+    .atlas-field--num { flex: 0 0 96px; }
+    .atlas-field > span {
+      font: 700 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      display: flex; align-items: baseline; gap: 6px;
+    }
+    .atlas-field input {
+      min-width: 0; width: 100%; height: 34px; padding: 0 8px;
+      border: 1px solid var(--control-line); border-radius: 6px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 0.86rem;
+    }
+    .atlas-field input[data-invalid="true"] { border-color: var(--bic-red); }
+    .atlas-new {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.04em; text-transform: none;
+      color: var(--bic-blue); text-decoration: none;
+      border-bottom: 1px dotted currentColor;
+    }
+    .atlas-new:hover, .atlas-new:focus-visible { border-bottom-style: solid; }
+
+    /* ---- an atlas is a heading and its stops in order ---------------------
+       GROUPED, NOT A FLAT LIST OF ROWS. The table is flat -- the name repeats on
+       every row -- and reading it that way would put the atlas name on every
+       line and make the order impossible to see. */
+    .atlas { border-bottom: 1px solid var(--line); }
+    .atlas-head {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 9px 12px; background: var(--panel-soft);
+    }
+    .atlas-name { font-weight: 700; font-size: 1rem; }
+    /* THE NAME IS EDITABLE HERE AND NOWHERE ELSE, because renaming is an act on
+       the ATLAS and the trigger rewrites every row of it. On a stop row it would
+       look like a per-row field and would silently rewrite the lot. */
+    .atlas-name-input {
+      font: inherit; font-weight: 700; font-size: 1rem;
+      color: var(--ink); background: transparent;
+      border: 1px solid transparent; border-radius: 6px;
+      padding: 2px 6px; min-width: 0; width: 22ch;
+    }
+    .atlas-name-input:hover, .atlas-name-input:focus {
+      border-color: var(--control-line); background: #fff; outline: none;
+    }
+    .atlas-key { font: 500 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .atlas-count { font: 500 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); margin-left: auto; }
+    /* AFTER the count, which takes the auto margin, so the button sits at the
+       far end of the head and every atlas has it in the same place. */
+    .atlas-add { flex: 0 0 auto; }
+
+    /* ---- a stop in the walk ----------------------------------------------
+       THE SAME TWO HUES THE STOP BUILDER USES, so a waypoint and a challenge
+       read the same wherever you meet them. Measured there: forest 7.98:1 and
+       violet 7.38:1 on the panel, dE 94.4 apart, and neither near the red pen. */
+    .astop {
+      display: grid;
+      grid-template-columns: 44px minmax(110px, max-content) 1fr 1fr auto;
+      align-items: start;
+      gap: 8px 14px;
+      padding: 9px 12px 9px 22px;
+      border-top: 1px solid var(--line);
+    }
+    .astop:hover { background: rgba(var(--bic-blue-rgb), 0.03); }
+    /* THE NUMBER IS THE POINT OF AN ATLAS, so it leads and it is the loudest
+       thing on the row. Tabular figures, or a column of them does not line up. */
+    .astop-num {
+      font: 700 0.95rem/1.35 'IBM Plex Mono', monospace;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink); align-self: center;
+    }
+    .astop-city {
+      font: 700 0.66rem/1.35 'IBM Plex Mono', monospace;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+      overflow-wrap: anywhere; align-self: center;
+    }
+    .astop-half { min-width: 0; padding-left: 9px; border-left: 3px solid var(--half-ink, var(--line)); }
+    .astop-half--wp { --half-ink: var(--wp-ink); }
+    .astop-half--ch { --half-ink: var(--ch-ink); }
+    .astop-kicker {
+      font: 700 0.56rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--half-ink, var(--muted)); display: block; margin-bottom: 3px;
+    }
+    .astop-name { font-weight: 700; overflow-wrap: anywhere; }
+    .astop-name.is-random { color: var(--ch-ink); font-style: italic; }
+    .astop-sub { font-size: 0.76rem; color: var(--muted); display: block; margin-top: 2px; }
+    .astop-del { align-self: start; }
+    .atlas-empty { padding: 18px 12px; color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .astop { grid-template-columns: 44px 1fr; }
+      .astop-del { justify-self: start; }
+    }
+  </style>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? ATLASES</h1>
+        <p class="room-blurb">An atlas is an ordered list of stops. A stop can be in as many atlases as you like.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar command-bar--find" style="flex: 1 1 100%;">
+        <legend>Add a stop to an atlas</legend>
+        <div class="command-bar-inner atlas-form">
+          <label class="atlas-field">
+            <span>Atlas</span>
+            <input id="atlasInput" list="atlasList" autocomplete="off"
+                   placeholder="Pick one, or type a new key"
+                   title="An atlas you already have, or a new key. Lowercase. Every atlas below also has its own Add a stop button.">
+          </label>
+          <label class="atlas-field">
+            <span>Name</span>
+            <input id="nameInput" autocomplete="off"
+                   placeholder="Murder Map"
+                   title="Only used when the atlas is new. An atlas that exists keeps the name it has.">
+          </label>
+          <div class="atlas-field">
+            <span><label for="stopInput">Stop</label>
+              <a class="atlas-new" href="/mc/stop-builder/" target="_blank" rel="noopener noreferrer"
+                 title="Open the Stop Builder in a new tab to make one. This form keeps what you have typed.">new</a>
+            </span>
+            <input id="stopInput" list="stopList" autocomplete="off"
+                   placeholder="Type a place"
+                   title="Any stop. The same stop can be in several atlases.">
+          </div>
+          <label class="atlas-field atlas-field--num">
+            <span>Number</span>
+            <input id="numInput" type="number" min="1" step="1" autocomplete="off"
+                   title="Where it comes in the walk. Left blank, it goes on the end.">
+          </label>
+          <button class="btn primary" id="addBtn" type="button">Add</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="Search atlas, city, place or challenge..." autocomplete="off">
+          <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <datalist id="atlasList"></datalist>
+    <datalist id="stopList"></datalist>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Atlases</span>
+        <span class="panel-count" id="listCount"></span>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'atlases';
+    const RANDOM_LABEL = 'RANDOM';
+
+    const state = { rows: [], stops: [], waypoints: [], challenges: [],
+                    q: '', authed: false, loaded: false };
+
+    function el(id) { return document.getElementById(id); }
+    function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_CONFIG.publishableKey)
+      }, extra || {});
+    }
+
+    // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23505 is a
+    // statement about our schema and tells nobody what to do about it.
+    async function readError(res) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { /* body already consumed */ }
+      if (/atlases_pkey|duplicate key/.test(text)) {
+        return 'That atlas already has a stop at that number. An atlas cannot have '
+             + 'two stop 3s; give it the next number, or renumber the one there.';
+      }
+      if (/atlases_number_positive/.test(text)) return 'A stop number starts at 1.';
+      if (/atlases_id_lower/.test(text)) return 'An atlas key must be lowercase.';
+      if (/atlases_id_not_blank/.test(text)) return 'The atlas needs a key.';
+      if (/atlases_name_not_blank/.test(text)) return 'The atlas needs a name.';
+      if (/atlases_stop_id_fkey/.test(text)) return 'That stop is not on file any more. Reload and pick again.';
+      if (/PGRST205|does not exist/.test(text)) {
+        return 'public.atlases is not there. Run mc/supabase/migrations/2026083108_atlases.sql.';
+      }
+      return 'The database refused it (' + res.status + '). ' + text.slice(0, 200);
+    }
+
+    function say(message, tone) {
+      const box = el('pageStatus');
+      if (!box) return;
+      box.textContent = message || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+    }
+
+    /* ---- reading ---------------------------------------------------------
+       EVERY READ PAGES. PostgREST caps a response at 1000 rows and truncates in
+       SILENCE, and an atlas is a row per stop, so this table grows fastest of
+       any of them. */
+    async function readAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const page = await res.json();
+        if (!Array.isArray(page) || !page.length) break;
+        out.push.apply(out, page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    async function loadAll() {
+      const parts = await Promise.all([
+        readAll(TABLE, { select: '*', order: 'atlas_id.asc,stop_number.asc' }),
+        readAll('stops', { select: '*', order: 'city.asc,id.asc' }),
+        readAll('waypoints', { select: 'wpid,name,city,state,address', order: 'name.asc' }),
+        // NOT THE TRIVIA ROWS: a stop's challenge is a thing you DO at a place,
+        // and trivia carries a ladder key instead of a scope. Same filter the
+        // Stop Builder and the Route Builder use.
+        readAll('challenges', { select: 'id,name,kind', kind: 'neq.trivia', order: 'name.asc' })
+      ]);
+      state.rows = parts[0];
+      state.stops = parts[1];
+      state.waypoints = parts[2];
+      state.challenges = parts[3];
+      state.loaded = true;
+    }
+
+    /* ---- labels ---------------------------------------------------------- */
+    function wpById(id) {
+      return state.waypoints.filter(function (w) { return String(w.wpid) === String(id); })[0] || null;
+    }
+    function chalById(id) {
+      return state.challenges.filter(function (c) { return String(c.id) === String(id); })[0] || null;
+    }
+    function stopById(id) {
+      return state.stops.filter(function (s) { return String(s.id) === String(id); })[0] || null;
+    }
+    // A LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
+    // on the option's value and nothing else.
+    function stopLabel(s) {
+      const w = wpById(s.waypoint_id);
+      return (w ? w.name : 'waypoint ' + s.waypoint_id) + ' - ' + s.city;
+    }
+    function stopFromLabel(text) {
+      const v = clean(text).toLowerCase();
+      if (!v) return null;
+      return state.stops.filter(function (s) { return stopLabel(s).toLowerCase() === v; })[0]
+          || state.stops.filter(function (s) { return String(s.id) === v; })[0]
+          || null;
+    }
+
+    function atlases() {
+      // GROUPED IN THE ORDER THE ROWS ARRIVE, which the read already sorted by
+      // atlas then number, so the walk reads down the page.
+      const by = {};
+      const order = [];
+      state.rows.forEach(function (r) {
+        if (!by[r.atlas_id]) { by[r.atlas_id] = { id: r.atlas_id, name: r.atlas_name, rows: [] };
+                               order.push(r.atlas_id); }
+        // THE NAME IS TAKEN FROM THE FIRST ROW AND THAT IS SAFE, because a
+        // trigger keeps every row of an atlas on one name. It could not disagree.
+        by[r.atlas_id].rows.push(r);
+      });
+      return order.map(function (k) { return by[k]; });
+    }
+
+    /* ---- the list --------------------------------------------------------- */
+    function matches(a) {
+      const q = state.q.toLowerCase();
+      if (!q) return true;
+      if (a.id.toLowerCase().indexOf(q) !== -1) return true;
+      if (a.name.toLowerCase().indexOf(q) !== -1) return true;
+      return a.rows.some(function (r) {
+        const s = stopById(r.stop_id);
+        if (!s) return false;
+        const w = wpById(s.waypoint_id);
+        const c = s.challenge_id == null ? RANDOM_LABEL : (chalById(s.challenge_id) || {}).name;
+        return [s.city, w && w.name, c].filter(Boolean).some(function (v) {
+          return String(v).toLowerCase().indexOf(q) !== -1;
+        });
+      });
+    }
+
+    function half(kicker, name, sub, isRandom, which) {
+      const box = document.createElement('div');
+      box.className = 'astop-half astop-half--' + which;
+      const k = document.createElement('span');
+      k.className = 'astop-kicker';
+      k.textContent = kicker;
+      box.appendChild(k);
+      const n = document.createElement('span');
+      n.className = 'astop-name' + (isRandom ? ' is-random' : '');
+      n.textContent = name;
+      box.appendChild(n);
+      if (sub) {
+        const s = document.createElement('span');
+        s.className = 'astop-sub';
+        s.textContent = sub;
+        box.appendChild(s);
+      }
+      return box;
+    }
+
+    function render() {
+      const all = atlases();
+      const shown = all.filter(matches);
+      const title = el('roomTitle');
+      if (title) {
+        title.textContent = (state.loaded ? all.length : '?')
+          + ' ATLAS' + (all.length === 1 ? '' : 'ES');
+      }
+      const count = el('listCount');
+      if (count) {
+        count.textContent = state.loaded
+          ? (shown.length === all.length ? state.rows.length + ' stops' : shown.length + ' shown')
+          : '';
+      }
+      const clear = el('clearBtn');
+      if (clear) clear.setAttribute('aria-disabled', state.q ? 'false' : 'true');
+
+      const list = el('list');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!shown.length) {
+        const p = document.createElement('p');
+        p.className = 'atlas-empty';
+        p.textContent = state.loaded
+          ? (all.length ? 'Nothing matches that search.' : 'No atlases yet. Add a stop to one above.')
+          : 'Loading...';
+        list.appendChild(p);
+        return;
+      }
+
+      shown.forEach(function (a) {
+        const box = document.createElement('div');
+        box.className = 'atlas';
+        box.dataset.atlas = a.id;
+
+        const head = document.createElement('div');
+        head.className = 'atlas-head';
+
+        // THE NAME IS EDITED HERE AND NOWHERE ELSE. Renaming is an act on the
+        // ATLAS: the database rewrites every row of it, so a field on a stop row
+        // would look per-row and silently change the lot.
+        const nameBox = document.createElement('input');
+        nameBox.className = 'atlas-name-input';
+        nameBox.value = a.name;
+        nameBox.title = 'Rename this atlas. Every row of it follows.';
+        nameBox.addEventListener('change', function () { renameAtlas(a, nameBox); });
+        head.appendChild(nameBox);
+
+        const key = document.createElement('span');
+        key.className = 'atlas-key';
+        key.textContent = a.id;
+        head.appendChild(key);
+
+        const n = document.createElement('span');
+        n.className = 'atlas-count';
+        n.textContent = a.rows.length + (a.rows.length === 1 ? ' stop' : ' stops');
+        head.appendChild(n);
+
+        /* ADD A STOP TO **THIS** ATLAS, from the atlas you are looking at.
+           IT AIMS THE ONE FORM RATHER THAN BEING A SECOND ONE. Adding to an
+           existing atlas has always worked from the bar at the top -- type or
+           pick the key and the name fills itself -- but you had to scroll away
+           from the atlas and retype its key to do it, which is the sort of
+           thing nobody does twice. A second inline form would be a second write
+           path, and two ways to do one thing is what this repo keeps removing.
+           So this fills the form in, puts the cursor in the Stop box and brings
+           it into view: one path, reachable from where the question arises. */
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'btn small atlas-add';
+        add.textContent = 'Add a stop';
+        add.title = 'Add a stop to ' + a.name + '. It goes on the end unless you give it a number.';
+        add.addEventListener('click', function () { aimFormAt(a); });
+        head.appendChild(add);
+
+        box.appendChild(head);
+
+        a.rows.forEach(function (r) {
+          const s = stopById(r.stop_id);
+          const w = s ? wpById(s.waypoint_id) : null;
+          const c = s && s.challenge_id != null ? chalById(s.challenge_id) : null;
+
+          const line = document.createElement('div');
+          line.className = 'astop';
+
+          const num = document.createElement('div');
+          num.className = 'astop-num';
+          num.textContent = r.stop_number;
+          line.appendChild(num);
+
+          const city = document.createElement('div');
+          city.className = 'astop-city';
+          city.textContent = s ? s.city : '';
+          line.appendChild(city);
+
+          // A STOP WE NO LONGER HOLD IS NAMED BY ITS ID rather than drawn blank:
+          // a blank reads as a row that failed to load. It should not happen --
+          // the foreign key cascades -- so if it ever does, it is worth seeing.
+          line.appendChild(half('Waypoint',
+            w ? w.name : (s ? 'waypoint ' + s.waypoint_id : 'stop ' + r.stop_id),
+            w ? (w.address || '') : 'not on file any more', false, 'wp'));
+
+          line.appendChild(half('Challenge',
+            c ? c.name : RANDOM_LABEL,
+            c ? (c.kind || '') : 'whatever fits at play time',
+            !c, 'ch'));
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'btn small astop-del';
+          del.textContent = 'Remove';
+          del.title = 'Take this stop out of the atlas. The stop itself is untouched.';
+          del.addEventListener('click', function () { removeRow(a, r); });
+          line.appendChild(del);
+
+          box.appendChild(line);
+        });
+
+        list.appendChild(box);
+      });
+    }
+
+    /* ---- writing ----------------------------------------------------------
+       `return=representation` ON EVERY WRITE. PostgREST answers 200 with an
+       EMPTY ARRAY when RLS refuses, so without reading the row back a refused
+       write reports success and the page shows something the table never took. */
+    function nextNumber(atlasId) {
+      const mine = state.rows.filter(function (r) { return r.atlas_id === atlasId; });
+      return mine.reduce(function (m, r) { return Math.max(m, r.stop_number); }, 0) + 1;
+    }
+
+    async function addRow() {
+      const aField = el('atlasInput'), nField = el('nameInput');
+      const sField = el('stopInput'), numField = el('numInput');
+      [aField, nField, sField, numField].forEach(function (f) { f.removeAttribute('data-invalid'); });
+
+      const atlasId = clean(aField.value).toLowerCase();
+      if (!atlasId) {
+        aField.setAttribute('data-invalid', 'true');
+        say('An atlas needs a key. Pick one, or type a new one.', 'error');
+        return;
+      }
+      const stop = stopFromLabel(sField.value);
+      if (!stop) {
+        sField.setAttribute('data-invalid', 'true');
+        say(clean(sField.value) ? 'No stop called "' + clean(sField.value) + '". Pick one from the list.'
+                                : 'Pick a stop.', 'error');
+        return;
+      }
+
+      const known = state.rows.filter(function (r) { return r.atlas_id === atlasId; })[0];
+      const name = known ? known.atlas_name : clean(nField.value);
+      if (!name) {
+        nField.setAttribute('data-invalid', 'true');
+        say('A new atlas needs a name.', 'error');
+        return;
+      }
+
+      // BLANK MEANS THE END OF THE WALK, which is what you want nine times in
+      // ten and saves counting. A number typed is a number obeyed.
+      const typed = clean(numField.value);
+      const number = typed ? Number(typed) : nextNumber(atlasId);
+      if (!isFinite(number) || number < 1 || Math.floor(number) !== number) {
+        numField.setAttribute('data-invalid', 'true');
+        say('A stop number is a whole number, starting at 1.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(restUrl(TABLE), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({
+            atlas_id: atlasId, atlas_name: name,
+            stop_id: stop.id, stop_number: number
+          })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the write and said nothing. Check you are signed in.');
+        }
+        state.rows.push(rows[0]);
+        sortRows();
+        sField.value = '';
+        numField.value = '';
+        render();
+        paintPickers();
+        say('Added ' + stopLabel(stop) + ' to ' + name + ' at ' + number + '.', 'success');
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    async function renameAtlas(atlas, box) {
+      const name = clean(box.value);
+      if (!name) { box.value = atlas.name; say('An atlas needs a name.', 'error'); return; }
+      if (name === atlas.name) return;
+      try {
+        // ONE ROW IS PATCHED AND THE DATABASE RENAMES THE REST. A trigger
+        // propagates it, so patching every row here would be the same write
+        // several times over -- and the two could not disagree anyway.
+        const first = atlas.rows[0];
+        const res = await fetch(restUrl(TABLE, {
+          atlas_id: 'eq.' + atlas.id, stop_number: 'eq.' + first.stop_number
+        }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ atlas_name: name })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the rename and said nothing. Check you are signed in.');
+        }
+        state.rows.forEach(function (r) { if (r.atlas_id === atlas.id) r.atlas_name = name; });
+        render();
+        paintPickers();
+        say('Renamed to ' + name + '.', 'success');
+      } catch (err) {
+        box.value = atlas.name;
+        say(err.message, 'error');
+      }
+    }
+
+    async function removeRow(atlas, row) {
+      const s = stopById(row.stop_id);
+      const label = s ? stopLabel(s) : 'stop ' + row.stop_id;
+      if (!window.confirm('Take ' + label + ' out of ' + atlas.name + '? '
+          + 'The stop itself is untouched and stays in any other atlas.')) return;
+      try {
+        const res = await fetch(restUrl(TABLE, {
+          atlas_id: 'eq.' + row.atlas_id, stop_number: 'eq.' + row.stop_number
+        }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the delete and said nothing. Check you are signed in.');
+        }
+        state.rows = state.rows.filter(function (r) {
+          return !(r.atlas_id === row.atlas_id && r.stop_number === row.stop_number);
+        });
+        render();
+        paintPickers();
+        // THE NUMBERS ARE NOT CLOSED UP, and that is deliberate: renumbering
+        // would rewrite every row after this one, and a gap in an atlas is
+        // visible and harmless where a silent renumber is neither.
+        say('Removed ' + label + '. The numbers after it are unchanged.', 'success');
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    /* THE FORM IS AIMED, NOT DUPLICATED. Everything below writes through the
+       same addRow() as the bar has always used, so there is one set of rules
+       about what a stop number means and one place a refusal is reported. */
+    function aimFormAt(atlas) {
+      const aField = el('atlasInput');
+      const sField = el('stopInput');
+      const numField = el('numInput');
+      if (!aField || !sField) return;
+      aField.value = atlas.id;
+      // FIRE THE HANDLER RATHER THAN COPYING WHAT IT DOES. It fills the name and
+      // locks it, and a second copy of that would drift the first time either
+      // changed.
+      aField.dispatchEvent(new Event('input', { bubbles: true }));
+      sField.value = '';
+      if (numField) numField.value = '';
+      // BLANK MEANS THE END, which is what you want when you have just pressed
+      // Add a stop on an atlas you are reading.
+      say('Adding to ' + atlas.name + '. Pick a stop; it goes on the end unless '
+          + 'you give it a number.');
+      if (typeof sField.scrollIntoView === 'function') {
+        sField.scrollIntoView({ block: 'nearest' });
+      }
+      sField.focus();
+    }
+
+    function sortRows() {
+      state.rows.sort(function (a, b) {
+        return a.atlas_id.localeCompare(b.atlas_id) || (a.stop_number - b.stop_number);
+      });
+    }
+
+    /* ---- the pickers ------------------------------------------------------
+       BUILT FROM THE ROWS, so the atlas list can only offer one that exists --
+       an empty result is not a state it can produce. A NEW atlas is typed. */
+    function paintPickers() {
+      const aBox = el('atlasList');
+      if (aBox) {
+        aBox.innerHTML = '';
+        atlases().forEach(function (a) {
+          const o = document.createElement('option');
+          o.value = a.id;
+          o.label = a.name;
+          aBox.appendChild(o);
+        });
+      }
+      const sBox = el('stopList');
+      if (sBox) {
+        sBox.innerHTML = '';
+        state.stops.forEach(function (s) {
+          const o = document.createElement('option');
+          o.value = stopLabel(s);
+          sBox.appendChild(o);
+        });
+      }
+    }
+
+    /* ---- wiring -----------------------------------------------------------
+       DEFENSIVE, because one dead reference here kills the rest of the block
+       INCLUDING adminAuth.init(), and admin-shell.css hides every child of
+       body.mc-auth-protected until init() adds .mc-auth-authorized. */
+    function on(id, event, fn) {
+      const node = el(id);
+      if (node) node.addEventListener(event, fn);
+      else console.warn('atlases: no element #' + id);
+    }
+
+    on('addBtn', 'click', addRow);
+    on('q', 'input', function () { state.q = clean(el('q').value); render(); });
+    on('clearBtn', 'click', function () { el('q').value = ''; state.q = ''; render(); });
+    // THE NAME BOX FILLS ITSELF FOR AN ATLAS THAT EXISTS, and says so by going
+    // read-only: an atlas keeps the name it has, and the database would ignore
+    // anything typed here anyway.
+    on('atlasInput', 'input', function () {
+      const id = clean(el('atlasInput').value).toLowerCase();
+      const known = state.rows.filter(function (r) { return r.atlas_id === id; })[0];
+      const nField = el('nameInput');
+      if (known) { nField.value = known.atlas_name; nField.readOnly = true; }
+      else if (nField.readOnly) { nField.value = ''; nField.readOnly = false; }
+    });
+
+    const adminAuth = TgbMcAdminAuth.create({
+      // THE OPTION IS `supabaseConfig`, AN OBJECT. Passing supabaseUrl and
+      // supabaseKey reads naturally, lands in Object.assign, is never looked at,
+      // and the room then blames the PROJECT for a fault in its own call.
+      supabaseConfig: {
+        url: SUPABASE_CONFIG.url,
+        publishableKey: SUPABASE_CONFIG.publishableKey
+      },
+      onAuthorized: async function () {
+        state.authed = true;
+        try {
+          await loadAll();
+          paintPickers();
+          render();
+        } catch (err) {
+          say(err.message, 'error');
+        }
+      }
+    });
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>

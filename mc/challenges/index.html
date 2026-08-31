@@ -573,7 +573,15 @@
     async function loadAll() {
       const out = [];
       for (let from = 0; ; from += 1000) {
-        const res = await fetch(restUrl(TABLE, { select: '*', order: 'name.asc' }), {
+        // THE STOP CHALLENGES, NOT THE TRIVIA. `trivia` was merged into this
+        // table on 2026-08-31 and the two remain different jobs: a stop
+        // challenge is answered by LOOKING and is edited here, with a scope
+        // and variables; a trivia question is answered by KNOWING, carries a
+        // key-ladder rung instead of a scope, and has CHOICES this editor has
+        // no field for. Listing them would be 38 rows this room could only
+        // half-edit. The Trivia room is built for them and reads the same
+        // table with the filter the other way round.
+        const res = await fetch(restUrl(TABLE, { select: '*', kind: 'neq.trivia', order: 'name.asc' }), {
           headers: authHeaders({ Range: from + '-' + (from + 999) })
         });
         if (!res.ok) throw new Error('Could not read challenges: ' + await readError(res));

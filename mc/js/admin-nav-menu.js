@@ -50,6 +50,12 @@
       // reasoning that puts the Socializer first in Ancillary Things -- ordered
       // by how often it is opened, not by where it sits in the pipeline.
       //
+      // AUDIENCES IS SECOND (2026-08-31) for the same reason and one step
+      // further: a game names a TARGET and a RIVAL audience, both chosen from
+      // that table, and it is what the Game Builder sends you to when a fandom
+      // is missing or a club's colours are wrong. It is the ingredient reached
+      // for most often, so it sits next to the room that reaches for it.
+      //
       // The rest still reads in assembly order, so the argument is not lost,
       // only demoted below the one room somebody came here to open.
       //
@@ -66,10 +72,37 @@
           description: 'Admins and AI build games here.'
         },
         {
+          href: '/mc/audiences/',
+          label: 'Audiences',
+          description: 'Audiences are built-in fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience. Game locations are also pulled from the audiences table.'
+        },
+        {
           href: '/mc/events/',
           label: 'Anchor Events',
           description: 'Real matchups, concerts and conventions a game is built around. The reason people are already in town.'
         },
+        {
+          href: '/mc/trivia/',
+          label: 'Trivia',
+          description: 'Questions keyed to a place. Know your enemy, or prove you know your own club. Play them here the way a team meets them.'
+        }
+      ]
+    },
+    {
+      // ---- GAME STOPS -----------------------------------------------------
+      // A STOP IS A WAYPOINT PLUS A CHALLENGE, which is the one place in the
+      // vocabulary where two rooms make a third thing between them. They sat
+      // in the spine among the ingredients, which is true and buries the fact
+      // that these two are a PAIR: you pick the place and then decide what a
+      // team does when they get there, and neither half is a stop on its own.
+      //
+      // It sits under The Spine because that is the order the work runs in:
+      // the game and its audience first, then the stops it is assembled from.
+      // `routes` stays in the spine deliberately -- a route is the WALK, an
+      // ordered list of stops, so it is a step in building a game rather than
+      // one of the two halves of a stop.
+      label: 'Game Stops',
+      items: [
         {
           href: '/mc/waypoints/',
           label: 'Waypoints',
@@ -81,44 +114,41 @@
           description: 'What a team does when they get there. Written once, with variables, and used in every game it fits.'
         },
         {
-          href: '/mc/audiences/',
-          label: 'Audiences',
-          description: 'Audiences are built-in fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience. Game locations are also pulled from the audiences table.'
+          // THIRD OF THE FOUR, because it is the one that makes something out
+          // of the first two. Waypoints and Challenges are the halves; a stop
+          // is the pair, and it is what a team actually experiences.
+          href: '/mc/stop-builder/',
+          label: 'Stop Builder',
+          description: 'A place, a thing to do there, and the city it is in. Leave the challenge on RANDOM and the stop takes whatever fits at play time.'
         },
         {
-          href: '/mc/trivia/',
-          label: 'Trivia',
-          description: 'Questions keyed to a place. Know your enemy, or prove you know your own club. Play them here the way a team meets them.'
-        },
-        {
-          href: '/mc/routes/',
-          label: 'Routes',
-          description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'
-        },
-        {
-          href: '/mc/builder/',
-          label: 'Flow Builder',
-          description: 'The playable conversation: messages, prompts, replies and branches. Not the game identity, which is next door.'
+          // AND LAST, because an atlas is stops in an ORDER and there is nothing
+          // to order until they exist. It sits in this group rather than in
+          // Assembly with Routes because it is made OF stops, which is what this
+          // group is about; Routes and the Flow Builder are the sequence a game
+          // is finally assembled into.
+          href: '/mc/atlases/',
+          label: 'Atlases',
+          description: 'An ordered list of stops. A stop can be in as many atlases as you like, so an atlas is a way of collecting them rather than a copy of them.'
         }
       ]
     },
     {
-      // ---- THE CATALOGUE --------------------------------------------------
-      // Reference a game READS but does not consume. None of these is a step
-      // in building one, which is exactly why they are not in the spine: you
-      // come here to correct a fact, not to make something.
-      label: 'The Catalogue',
-      combined: true,
+      // ---- POST GAME ------------------------------------------------------
+      // What comes back AFTER a team has walked it. A stop is where they stood;
+      // this is the photograph they sent from it, which is the only part of the
+      // whole product that arrives from the outside rather than being written.
+      //
+      // It sits under Game Stops because that is the shape of the day: the
+      // stops are what a team walks, and this is what the walk returns. It was
+      // in Running It until 2026-08-31, among the daily chores, which is true
+      // of when you open it and says nothing about what it is.
+      label: 'Post Game',
       items: [
         {
-          href: '/mc/leagues/',
-          label: 'Leagues',
-          description: 'Which sport each league plays. The list anchor events and teams are both naming.'
-        },
-        {
-          href: '/mc/data/',
-          label: 'Data Warehouse',
-          description: 'The older directory of table editors. Most of what it points at now has a room of its own.'
+          href: '/mc/highlights/',
+          label: "Winner's Wall",
+          description: 'Photographs teams sent in, and whether they are fit to publish.'
         }
       ]
     },
@@ -143,11 +173,6 @@
           href: '/mc/operations/',
           label: 'Operations',
           description: 'Issued access codes, play stats, and the live-game workflow.'
-        },
-        {
-          href: '/mc/highlights/',
-          label: "Winner's Wall",
-          description: 'Photographs teams sent in, and whether they are fit to publish.'
         },
         {
           href: '/mc/taglines/',
@@ -196,14 +221,6 @@
       combined: true,
       items: [
         {
-          href: '/mc/stops/',
-          // PARKED 2026-08-09 and it cannot simply go: it is the only writer of
-          // public.stops, which both engines read through the game_stops view.
-          // The Route Builder is what replaces it.
-          label: 'Stop Builder',
-          description: 'Parked. Keyed by city, so a city cannot have two walks, which is the fault routes exist to fix. Still the only writer of public.stops.'
-        },
-        {
           href: '/mc/greenroom/',
           // Kevin asked for guides out of the game on 2026-08-30. The room is
           // listed here rather than deleted because 41 rows and four columns on
@@ -225,6 +242,34 @@
           href: '/mc/photos/',
           label: 'photos (stub)',
           description: 'A forwarding stub to the highlights admin, 16 lines. Nothing links to it.'
+        }
+      ]
+    },
+    {
+      // ---- ASSEMBLY -------------------------------------------------------
+      // THE TWO ROOMS THAT PUT THE PIECES IN AN ORDER, and the last thing you
+      // open rather than the first. Everything above is a piece: a game, an
+      // audience, a place, a thing to do there. These two decide the SEQUENCE
+      // -- the walk a team takes, and the conversation they have on it -- so
+      // neither is any use until the pieces exist.
+      //
+      // They were the tail of The Spine, which read in assembly order and was
+      // true; at the bottom they are where you go LAST, which is the more
+      // useful thing for a list somebody scans from the top. They sit above
+      // External Tools because that group is other people's dashboards and is
+      // not part of this map at all.
+      label: 'Assembly',
+      combined: true,
+      items: [
+        {
+          href: '/mc/routes/',
+          label: 'Routes',
+          description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'
+        },
+        {
+          href: '/mc/builder/',
+          label: 'Flow Builder',
+          description: 'The playable conversation: messages, prompts, replies and branches. Not the game identity, which is next door.'
         }
       ]
     },

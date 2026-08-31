@@ -508,7 +508,9 @@
       if (/trivia_question_not_blank|trivia_answer_not_blank/.test(text)) {
         return 'A question and an answer are both required.';
       }
-      if (/trivia_id_lower/.test(text)) return 'The key must be lowercase.';
+      if (/challenges_ladder_key_belongs_to_trivia/.test(text)) {
+        return 'The key must be lowercase, and it may only sit on a trivia row.';
+      }
       if (/scores_points_match_the_rules/.test(text)) {
         return 'The database refused the score: the points do not match the try it '
              + 'was won on. That is a bug in this page, not in your answer.';
@@ -599,10 +601,11 @@
       return v;
     }
 
-    const inCity = (row, key) => row.id === key || clean(row.id).indexOf(key + '-') === 0;
+    const inCity = (row, key) => row.ladder_key === key
+      || clean(row.ladder_key).indexOf(key + '-') === 0;
 
     function pool() {
-      if (state.team) return state.trivia.filter((r) => r.id === state.team);
+      if (state.team) return state.trivia.filter((r) => r.ladder_key === state.team);
       if (state.city) return state.trivia.filter((r) => inCity(r, state.city));
       return state.trivia.slice();
     }
@@ -618,7 +621,7 @@
        ARRAY when RLS refuses, so without reading it a refused edit reports
        success and the page shows a value the table never took. */
     async function patchRow(row, patch) {
-      const res = await fetch(restUrl('trivia', { trivia_id: 'eq.' + row.trivia_id }), {
+      const res = await fetch(restUrl('challenges', { id: 'eq.' + row.id }), {
         method: 'PATCH',
         headers: authHeaders({ Prefer: 'return=representation' }),
         body: JSON.stringify(patch)
@@ -642,7 +645,7 @@
           body: JSON.stringify({
             player: clean(el('player').value),   // blank becomes anon in the database
             area: 'trivia',
-            subject_id: String(row.trivia_id),
+            subject_id: String(row.id),
             answer_given: clean(given),
             correct: correct,
             tries: tries,
@@ -700,7 +703,7 @@
       if (!state.deck.length) {
         state.deck = shuffle(pool());
         if (state.deck.length > 1 && state.current
-            && state.deck[0].trivia_id === state.current.trivia_id) {
+            && state.deck[0].id === state.current.id) {
           state.deck.push(state.deck.shift());
         }
       }
@@ -788,7 +791,7 @@
 
       const row = state.current;
       if (!row) return;
-      const shape = shapeOf(row.id);
+      const shape = shapeOf(row.ladder_key);
 
       el('dlgTitle').textContent = g
         ? 'Question ' + (g.at + 1) + ' of ' + g.rows.length
@@ -796,13 +799,13 @@
       el('nextBtn').textContent = g
         ? (g.at + 1 >= g.rows.length ? 'See the score' : 'Next question')
         : 'Next question';
-      el('dlgSub').textContent = placeLabel(row.id)
-        + '  ' + (shape || 'unknown key') + '  ' + row.id;
+      el('dlgSub').textContent = placeLabel(row.ladder_key)
+        + '  ' + (shape || 'unknown key') + '  ' + row.ladder_key;
       el('dlgScore').innerHTML = g
         ? ('<b>' + g.points + '</b> pts')
         : ('<b>' + state.points + '</b> pts');
 
-      const parts = ['<p class="question">' + esc(row.question) + '</p>'];
+      const parts = ['<p class="question">' + esc(row.prompt) + '</p>'];
 
       /* WHAT THIS ANSWER IS WORTH, RIGHT NOW. The header counts what you have
          already won, which is a different question from what is on the table,
@@ -904,17 +907,19 @@
       }
 
       const body = rows.map((r) => {
-        const shape = shapeOf(r.id);
-        return '<tr data-row="' + r.trivia_id + '">'
+        const shape = shapeOf(r.ladder_key);
+        return '<tr data-row="' + r.id + '">'
           + '<td><span class="chip chip--' + (shape || 'bad') + '">'
             + (shape || 'no such place') + '</span></td>'
-          + '<td class="col-key ed" data-field="id" data-empty="key">' + esc(r.id) + '</td>'
-          + '<td class="col-q ed" data-field="question" data-empty="question">' + esc(r.question) + '</td>'
+          + '<td class="col-key ed" data-field="ladder_key" data-empty="key">'
+            + esc(r.ladder_key) + '</td>'
+          + '<td class="col-q ed" data-field="prompt" data-empty="question">'
+            + esc(r.prompt) + '</td>'
           + '<td class="col-a ed" data-field="answer" data-empty="answer">' + esc(r.answer) + '</td>'
           + '<td class="col-choices ed" data-field="choices" data-empty="typed answer">'
             + esc(choicesText(r)) + '</td>'
           + '<td class="col-play"><button type="button" class="btn" data-play="'
-            + r.trivia_id + '">Play</button></td></tr>';
+            + r.id + '">Play</button></td></tr>';
       }).join('');
 
       host.innerHTML = '<table><thead><tr>'
@@ -929,7 +934,7 @@
     function startEdit(td) {
       if (editing) return;
       const tr = td.closest('[data-row]');
-      const row = state.trivia.find((r) => String(r.trivia_id) === tr.dataset.row);
+      const row = state.trivia.find((r) => String(r.id) === tr.dataset.row);
       if (!row) return;
       const field = td.dataset.field;
       const was = field === 'choices' ? choicesText(row) : clean(row[field]);
@@ -1039,7 +1044,7 @@
       });
       state.trivia.forEach((r) => {
         Object.keys(cities).forEach((k) => { if (inCity(r, k)) cities[k].n += 1; });
-        if (teams[r.id]) teams[r.id].n += 1;
+        if (teams[r.ladder_key]) teams[r.ladder_key].n += 1;
       });
       fill('cityPick', 'Any city', cities, state.city);
       fill('teamPick', 'Any team', teams, state.team);
@@ -1169,10 +1174,16 @@
 
       el('addSave').disabled = true;
       try {
-        const res = await fetch(restUrl('trivia', {}), {
+        const res = await fetch(restUrl('challenges', {}), {
           method: 'POST',
           headers: authHeaders({ Prefer: 'return=representation' }),
-          body: JSON.stringify({ id: id, question: question, answer: answer,
+          // `kind` IS NOT OPTIONAL. The column defaults to 'question', and a
+          // row written without it would be refused outright by
+          // challenges_ladder_key_belongs_to_trivia -- which is the check
+          // doing its job: a ladder key on a non-trivia row is exactly the
+          // ambiguity it exists to stop.
+          body: JSON.stringify({ kind: 'trivia', name: question,
+                                 ladder_key: id, prompt: question, answer: answer,
                                  choices: list.length ? list : null })
         });
         if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
@@ -1199,7 +1210,9 @@
            three columns rather than *: a waypoint row carries a description and
            a source url this room never shows. */
         const [trivia, destinations, waypoints] = await Promise.all([
-          pageAll('trivia', { select: '*', order: 'trivia_id.asc' }),
+          // kind=trivia, or the room would list the 24 stop challenges too:
+          // they have no ladder key and every check here is about one.
+          pageAll('challenges', { select: '*', kind: 'eq.trivia', order: 'id.asc' }),
           pageAll('destinations', { select: '*', order: 'id.asc' }),
           pageAll('waypoints', { select: 'wpid,name,city', order: 'name.asc' })
             .catch(() => [])
@@ -1226,7 +1239,7 @@
         /* A KEY THAT RESOLVES TO NO SHAPE IS A TYPO NOTHING ELSE CATCHES.
            trivia.id is not a foreign key and cannot be one, so this room is the
            only place it will ever be reported. */
-        const orphans = [...new Set(trivia.map((r) => r.id).filter((id) => !shapeOf(id)))];
+        const orphans = [...new Set(trivia.map((r) => r.ladder_key).filter((id) => !shapeOf(id)))];
         if (orphans.length) {
           setStatus(orphans.length + (orphans.length === 1 ? ' question is' : ' questions are')
             + ' keyed to nothing that exists: ' + orphans.join(', ')
@@ -1246,7 +1259,7 @@
     el('tableHost').addEventListener('click', (e) => {
       const play = e.target.closest('[data-play]');
       if (play) {
-        const row = state.trivia.find((r) => String(r.trivia_id) === play.dataset.play);
+        const row = state.trivia.find((r) => String(r.id) === play.dataset.play);
         /* PLAYING ONE FROM THE TABLE LEAVES ANY GAME, or the header would count a
            question that is not among the ten that were dealt. */
         if (row) { state.game = null; open(row); }

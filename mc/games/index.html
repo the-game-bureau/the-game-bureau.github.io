@@ -2945,71 +2945,9 @@ code{font-family:"IBM Plex Mono",monospace;}
 }
 
 /* ── Location Based toggle slider ── */
-.loc-toggle-wrap{
-  display:flex;
-  align-items:center;
-  gap:0.5rem;
-}
-.loc-toggle-side-label{
-  font-family:"IBM Plex Mono",monospace;
-  font-size:0.72rem;
-  letter-spacing:0.08em;
-  color:color-mix(in srgb, var(--game-primary, #2d4880) 30%, transparent);
-  transition:color 0.2s, font-weight 0.1s;
-  user-select:none;
-}
-.loc-toggle-side-label.is-active{
-  color:var(--game-primary, #2d4880);
-  font-weight:600;
-}
-.loc-toggle{
-  position:relative;
-  display:inline-block;
-  width:44px;
-  height:24px;
-  flex-shrink:0;
-  cursor:pointer;
-}
-.loc-toggle input{
-  position:absolute;
-  opacity:0;
-  width:0;
-  height:0;
-}
-.loc-toggle-track{
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  background:rgba(255,255,255,.9);
-  border:1px solid color-mix(in srgb, var(--game-primary, #2d4880) 16%, transparent);
-  box-shadow:0 8px 18px color-mix(in srgb, var(--game-primary, #2d4880) 8%, transparent);
-  transition:background 0.2s, border-color 0.2s;
-}
-.loc-toggle input:checked ~ .loc-toggle-track{
-  background:color-mix(in srgb, var(--game-primary, #2d4880) 10%, transparent);
-  border-color:color-mix(in srgb, var(--game-primary, #2d4880) 30%, transparent);
-}
-.loc-toggle input:disabled ~ .loc-toggle-track{
-  opacity:.45;
-  cursor:default;
-}
-.loc-toggle-thumb{
-  position:absolute;
-  top:3px;
-  left:3px;
-  width:16px;
-  height:16px;
-  border-radius:50%;
-  background:color-mix(in srgb, var(--game-primary, #2d4880) 28%, transparent);
-  transition:transform 0.18s, background 0.2s;
-  box-shadow:0 1px 4px color-mix(in srgb, var(--game-primary, #2d4880) 18%, transparent);
-  pointer-events:none;
-}
-.loc-toggle input:checked ~ .loc-toggle-thumb{
-  transform:translateX(20px);
-  background:var(--game-primary, #2d4880);
-}
-
+/* THE .loc-toggle RULES WENT WITH THE TOGGLE (2026-08-31). A control and
+   its CSS go in the same pass; this repo has lost an hour to a stylesheet
+   outliving the markup it was written for. */
 .field-autocomplete{
   display:grid;
   gap:2px;
@@ -7408,6 +7346,55 @@ body.builder-page--editor .game-id-bar{
   box-shadow:0 1px 4px rgba(var(--bic-blue-rgb), .12);
 }
 body.builder-page--editor .game-id-bar[hidden]{ display:none; }
+/* THE THREE SIT SIDE BY SIDE AND SHARE THE ROW'S SLACK. `align-items:
+   stretch` so the three tabs line up along the top and the three boxes end
+   level, whatever each one's contents come to -- the audience box carries
+   swatches and the atlas box a note, so their natural heights differ.
+   THE BARS KEEP THEIR OWN BOTTOM MARGIN and the row cancels it, or the gap
+   under the row would be the margin plus the row's own. */
+body.builder-page--editor .gid-row{
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  margin:0 0 var(--stack-gap, 14px);
+}
+body.builder-page--editor .gid-row > .game-id-bar{ margin-bottom:0; min-width:0; }
+/* THE ANCHOR TAKES THE MOST, because an event's label is a whole sentence --
+   a date, a kind, and two clubs or a title -- where an atlas is a name and a
+   count. The audience box holds TWO fields, so it is the widest of the three.
+   `min-width: 0` on each, or a long value inside a flex item refuses to
+   shrink and pushes the row wider than the page. */
+body.builder-page--editor .gid-row > #anchorBar{ flex:1.15 1 0; }
+body.builder-page--editor .gid-row > #audienceBar{ flex:1.6 1 0; }
+body.builder-page--editor .gid-row > #atlasBar{ flex:1 1 0; }
+/* AND THE ROW BREAKS UP RATHER THAN SQUEEZING. Three boxes holding four
+   fields between them is a desktop arrangement; below this each is its own
+   full-width bar again, which is what they were before today. */
+/* THE THREE ARE NAMED BY ID HERE, and that is not tidiness. The rules above
+   give each box its share with `#anchorBar` / `#audienceBar` / `#atlasBar`, and
+   AN ID BEATS A CLASS WHATEVER THE MEDIA QUERY -- a media query adds no
+   specificity of its own. Written as `> .game-id-bar` this block lost the tie
+   and the row never wrapped: at 1100px the three stayed side by side and
+   squeezed to 279px, which is a form nobody can fill in.
+   NOTHING IN jsdom COULD SEE IT. The rule was present and correct-looking; only
+   a real browser resolving the cascade at a real width says which one won.
+
+   AND THE BREAKPOINT WAS FAR TOO EARLY AT 1240px, which is a common laptop
+   window: the three stacked on exactly the screens they were designed for.
+   MEASURED WITH THE QUERY LIFTED OUT rather than guessed -- at 900px the three
+   combos are still 230, 320 and 200 pixels wide, which is a form somebody can
+   fill in. Below that is phone territory, where a full-width bar each is right
+   anyway. */
+@media (max-width: 900px){
+  body.builder-page--editor .gid-row{ flex-wrap:wrap; }
+  body.builder-page--editor .gid-row > #anchorBar,
+  body.builder-page--editor .gid-row > #audienceBar,
+  body.builder-page--editor .gid-row > #atlasBar{
+    flex:1 1 100%;
+    margin-bottom:var(--stack-gap, 14px);
+  }
+  body.builder-page--editor .gid-row > .game-id-bar:last-child{ margin-bottom:0; }
+}
 body.builder-page--editor .game-id-bar > legend{
   float:none;
   width:auto;
@@ -7476,18 +7463,73 @@ body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
    event's label is a whole sentence (a date, a kind, and two clubs or a title)
    and an audience's is a few words. `min-width: 0` on both, or a long value
    inside a flex item refuses to shrink and pushes the row wider than the bar. */
-body.builder-page--editor .game-id-bar-inner--anchor{ align-items:flex-start; flex-wrap:nowrap; }
-body.builder-page--editor .gid-field--anchor{ flex:1.5 1 0; min-width:0; }
+/* THE TWO AUDIENCES SHARE A LINE, which is what the anchor row used to do
+   with three. `align-items: flex-start` because only the audience fields
+   carry swatches under them, so without it the taller field would drag the
+   other's label down with it. */
+body.builder-page--editor .game-id-bar-inner--audience{ align-items:flex-start; flex-wrap:nowrap; }
+/* ROW 2 IS PROSE, so it stacks rather than sharing a line: a tagline is one
+   line and an intro is a paragraph, and side by side the textarea would be
+   half a column wide. `.field` brings its own label-above-control layout
+   from the inspector, so this only has to give the row its direction. */
+/* ROW 3 IS TWO SHORT CONTROLS, CAPPED. `flex: 0 1 <basis>` rather than `1 1`,
+   or a price of five characters would be handed half the box. */
+/* THE LINKED LABEL READS AS A LABEL FIRST. It keeps the label's own size,
+   weight and letter-spacing and takes the accent only on hover, or a row of
+   fields would have one heading shouting at the others. */
+body.builder-page--editor .gid-label-link{
+  color:inherit;
+  text-decoration:none;
+  border-bottom:1px dotted currentColor;
+}
+body.builder-page--editor .gid-label-link:hover,
+body.builder-page--editor .gid-label-link:focus-visible{
+  color:var(--accent, #7aa2ff);
+  border-bottom-color:currentColor;
+}
+body.builder-page--editor .game-id-bar-inner--settings > .field{ flex:0 1 220px; min-width:0; }
+body.builder-page--editor .game-id-bar-inner--copy{
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+  margin-top:10px;
+}
+body.builder-page--editor .game-id-bar-inner--copy .field{ width:100%; min-width:0; }
+body.builder-page--editor .game-id-bar-inner--copy textarea{ min-height:96px; }
+/* The atlas box is one field, so it is capped rather than stretched across
+   the whole bar: a lone control the width of the room reads as an input
+   that has lost its neighbour. */
+body.builder-page--editor #atlasBar .gid-field{ flex:1 1 0; min-width:0; }
+body.builder-page--editor .atlas-note{
+  margin-top:4px;
+  font:500 0.68rem/1.35 'IBM Plex Mono', monospace;
+  color:var(--muted);
+}
+body.builder-page--editor .atlas-note:empty{ display:none; }
+/* The tag picker is a wrapping row of chips, so it takes the bar's whole
+   width rather than sitting in a column beside nothing. */
+body.builder-page--editor #tagsBar .field{ width:100%; min-width:0; }
+/* THE ANCHOR IS ONE FIELD NOW, so it is capped rather than stretched across
+   the whole bar -- a lone control the width of the room reads as an input
+   that has lost its neighbour. Wider than the atlas box because an event's
+   label is a whole sentence: a date, a kind, and two clubs or a title. */
+/* NO CAP ON THE FIELD ANY MORE: the BOX is the cap now that three share a
+   row, and a max-width inside it would leave a gap at the end of its own
+   bar. The reason for the old cap -- a lone control the width of the room --
+   is gone with the full-width bar. */
+body.builder-page--editor .gid-field--anchor{ flex:1 1 0; min-width:0; }
+/* `min-width: 0`, or a long value inside a flex item refuses to shrink and
+   pushes the row wider than the bar. */
 body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
 /* THE SWATCHES SIT UNDER THEIR OWN FIELD and take no height when there are
    none, so an audience with no colours does not open a gap in the row. */
 body.builder-page--editor .gid-field .ta-swatches{ min-height:0; }
-/* AND THE ROW WRAPS ON A NARROW WINDOW, because three fields on one line is a
-   desktop arrangement and 300px is not on offer. */
+/* AND THE PAIR STACKS ON A NARROW WINDOW, because two fields side by side is
+   a desktop arrangement and 300px is not on offer. */
 @media (max-width: 1100px){
-  body.builder-page--editor .game-id-bar-inner--anchor{ flex-wrap:wrap; }
+  body.builder-page--editor .game-id-bar-inner--audience{ flex-wrap:wrap; }
   body.builder-page--editor .gid-field--anchor,
-  body.builder-page--editor .gid-field--audience{ flex:1 1 100%; }
+  body.builder-page--editor .gid-field--audience{ flex:1 1 100%; max-width:none; }
 }
 body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
 body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:0; }
@@ -7582,10 +7624,7 @@ body.builder-page--editor .details-section-title{
 
 body.builder-page--editor #detailsBrandSection .details-section-title,
 body.builder-page--editor #detailsGameDetailsSection .details-section-title,
-body.builder-page--editor #detailsPaymentSection .details-section-title,
 body.builder-page--editor #detailsRendezvousSection .details-section-title,
-body.builder-page--editor #detailsTagsSection .details-section-title,
-body.builder-page--editor #detailsTeamsSection .details-section-title,
 body.builder-page--editor #detailsTeamNamesSection .details-section-title,
 body.builder-page--editor .guide-moved-note{
   border:1px dashed rgba(255,255,255,.28);
@@ -9900,11 +9939,22 @@ html.admin-embedded .builder-section-head{
 
       <!-- Two nav bars on one line: game lifecycle + builder tools. -->
       <div class="builder-nav-rows">
-        <!-- Game lifecycle nav: create / duplicate / archive. -->
+        <!-- Game lifecycle nav: create / duplicate.
+             THE SKIP BUTTON IS GONE (2026-08-31). It was a TWO-WAY control over
+             a THREE-WAY column: `archived` is 'YES' for both building and
+             skipped, so it could say posted or not and could never reach
+             BUILDING. The STATUS box says all three, in the three words this
+             project now uses everywhere -- Post, Build, Skip.
+             TWO CONTROLS FOR ONE COLUMN IS THE DUPLICATION THIS REPO KEEPS
+             REMOVING, and this pair was the worse kind: one of them could not
+             express the state most games are actually in.
+             CTRL/CMD+SHIFT+A WENT WITH IT, per the standing rule that a control
+             and its wiring go in one pass. A shortcut with no visible control is
+             a shortcut nobody can discover, and it would still have been the
+             two-way act. -->
         <div class="builder-nav-row builder-nav-row--lifecycle" aria-label="Game lifecycle">
           <button class="builder-nav-btn" id="builderNewGameBtn" type="button" title="New game">New</button>
           <button class="builder-nav-btn" id="duplicateGameBtn" type="button" title="Duplicate (Ctrl/Cmd+Shift+D)">Duplicate</button>
-          <button class="builder-nav-btn" id="archiveGameBtn" type="button" title="Archive (Ctrl/Cmd+Shift+A)">Archive</button>
         </div>
 
         <!-- Secondary nav row: builder tools. -->
@@ -9953,15 +10003,46 @@ html.admin-embedded .builder-section-head{
            keep in step, which is the copy-and-drift this repo has lost to. -->
       <datalist id="audienceList"></datalist>
 
+      <!-- ANCHOR IS THE EVENT AND NOTHING ELSE (2026-08-31). The three shared
+           one box because choosing an event FILLS the other two, and that is
+           still true and is still the reason they sit next to each other. What
+           it obscured is that they are different KINDS of fact: an anchor event
+           is a real thing in the world with a date, and an audience is who the
+           game is pitched at -- and 12 of the 31 live games have no event at
+           all while every fandom game has both audiences.
+           The fill is unchanged: it still reaches across the two boxes, and it
+           still never overwrites an audience somebody has set. -->
+      <!-- ANCHOR, AUDIENCE AND ATLAS ON ONE ROW (2026-08-31). The three answer
+           the same question in three parts -- WHY they are in town, WHO the game
+           is for, and WHICH walk they take -- and all three are settled before
+           you write a word of the game. Stacked they were three full-width bars
+           to scroll past; side by side they read as one decision with three
+           halves, and the Game box is the first thing under them.
+           THEY ARE STILL THREE FIELDSETS, not one with three groups: each keeps
+           its own folder tab, so the row says what each part is without a legend
+           having to name all three. -->
+      <div class="gid-row">
       <fieldset class="game-id-bar" id="anchorBar">
         <legend>Anchor</legend>
-        <div class="game-id-bar-inner game-id-bar-inner--anchor">
+        <div class="game-id-bar-inner">
           <div class="gid-field gid-field--anchor" id="anchorEventField">
             <label class="gid-label" for="anchorEventInput">Event</label>
             <input id="anchorEventInput" type="text" list="anchorEventList"
                    autocomplete="off" spellcheck="false" disabled
                    placeholder="Nothing in particular">
           </div>
+        </div>
+      </fieldset>
+
+      <!-- AUDIENCE: THE TWO FANDOMS IN PLAY. A Bears fan in New Orleans has
+           their own and the one they are surrounded by, and the pair is one
+           thought -- who this game is FOR, and who they are up against -- so
+           they stay on one line together. The target leads because a game is
+           pitched at the travelling side, which is the same asymmetry the copy,
+           the palette and the game id all have. -->
+      <fieldset class="game-id-bar" id="audienceBar">
+        <legend>Audience</legend>
+        <div class="game-id-bar-inner game-id-bar-inner--audience">
           <div class="gid-field gid-field--audience" id="targetAudienceField">
             <label class="gid-label" for="targetAudienceInput">Target audience</label>
             <input id="targetAudienceInput" type="text" list="audienceList"
@@ -9981,6 +10062,54 @@ html.admin-embedded .builder-section-head{
           </div>
         </div>
       </fieldset>
+
+      <!-- ATLAS, UNDER THE ANCHOR (2026-08-31). The anchor says what brought
+           people to the city; this says which walk they take when they get
+           there. It is the same kind of fact and the next question, so it is the
+           next box rather than a field in the drawer.
+
+           A COMBO, NOT A SELECT, which is the shape this room uses wherever a
+           field shows a LABEL and the column holds a KEY. It is also the shape
+           the audiences and the anchor event above it already use.
+
+           IT OFFERS ONLY ATLASES THAT EXIST, and that is where the guard lives:
+           `games.atlas_id` is NOT a foreign key and cannot be one, because
+           `public.atlases` is keyed by (atlas_id, stop_number), so the id alone
+           is not unique. Nothing downstream will tell you a game names an atlas
+           that is not there. -->
+      <fieldset class="game-id-bar" id="atlasBar">
+        <legend>Atlas</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--atlas" id="atlasField">
+            <!-- THE LABEL IS A DOOR TO THE ATLASES ROOM. An atlas is built
+                 there and named here, so this is the one field on the page whose
+                 own label is worth following: you come to it, find the atlas you
+                 want does not exist yet, and the way to make one is the word you
+                 are already looking at.
+
+                 IT IS AN ANCHOR RATHER THAN A `<label for>`, and it cannot be
+                 both: a label's click focuses its input and a link's navigates,
+                 so one element doing both is a control that does two things at
+                 once. The input carries `aria-label` instead, so it is still
+                 named for a screen reader. Same shape the Stop Builder's two
+                 `new` links already use -- an anchor inside a label is the
+                 nesting browsers disagree about.
+
+                 A NEW TAB, because the Game Builder is where you are working and
+                 a half-edited game must not be lost to a glance at a list. -->
+            <div class="gid-label">
+              <a class="gid-label-link" href="/mc/atlases/" target="_blank" rel="noopener noreferrer"
+                 title="Open the Atlases room in a new tab. This page keeps what you have typed.">Atlas</a>
+            </div>
+            <input id="gameAtlasInput" list="gameAtlasList" autocomplete="off"
+                   aria-label="Atlas"
+                   placeholder="The walk this game takes" disabled>
+            <datalist id="gameAtlasList"></datalist>
+            <div class="atlas-note" id="gameAtlasNote"></div>
+          </div>
+        </div>
+      </fieldset>
+      </div>
 
       <!-- THE GAME'S IDENTITY, ON THE PAGE RATHER THAN IN THE INSPECTOR.
            Name and id are not fields you go looking for among Brand, Payment
@@ -10024,6 +10153,164 @@ html.admin-embedded .builder-section-head{
             <label class="gid-label" for="nodeCityInput">City</label>
             <input id="nodeCityInput" type="text" autocomplete="off"
                    placeholder="Chicago, IL" disabled>
+          </div>
+        </div>
+        <!-- ROW 2: THE TAGLINE AND THE INTRO (2026-08-31).
+             MOVED OUT OF THE INSPECTOR, NOT COPIED. Both were fields in the
+             Basics drawer; a second control for one column is the duplication
+             this repo keeps removing, so the blocks came across whole and every
+             id moved with them. `nodeTaglineInput`, `nodeBodyInput`, the
+             GENERATE button and the autocomplete all still resolve, so not one
+             wiring line changed.
+
+             THEY BELONG WITH THE NAME AND THE CITY because they are the same
+             kind of fact: what this game IS. Row 1 answers which game, row 2
+             answers what it says. Everything left in the drawer is a setting.
+
+             BOTH ARE GAME-ONLY ALREADY, checked rather than assumed:
+             `descriptionField.hidden = !showGameDetails` and the label is
+             written to INTRO, so nothing else in the inspector was using them.
+             `replyModeField` travels inside the description block as it always
+             did and keeps its own `hidden`. -->
+        <div class="game-id-bar-inner game-id-bar-inner--copy">
+            <div class="field" id="taglineField">
+              <label class="field-label" for="nodeTaglineInput">Tagline</label>
+              <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
+            </div>
+            <div class="field" id="descriptionField">
+              <label class="field-label field-label--with-meta" for="nodeBodyInput">
+                <span id="nodeBodyLabel">Intro</span>
+                <button class="field-generate-btn" type="button" data-generate-description-btn>(GENERATE)</button>
+                <span class="field-info" id="nodeBodyInfo" tabindex="0" role="note" aria-label="Not seen by the player." hidden>
+                  i
+                  <span class="field-tooltip" role="tooltip">Not seen by the player.</span>
+                </span>
+              </label>
+
+              <div class="field" id="replyModeField" hidden>
+                <div class="field-label">Expected Player Msg Type</div>
+                <div class="mode-toggle mode-toggle--triple" role="radiogroup" aria-label="Player message mode">
+                  <label class="mode-toggle-option" for="replyModeAnyAnswerInput">
+                    <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeAnyAnswerInput" value="anyanswer" disabled>
+                    <span class="mode-toggle-btn">Any</span>
+                  </label>
+                  <label class="mode-toggle-option" for="replyModeNormalInput">
+                    <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeNormalInput" value="normal" disabled>
+                    <span class="mode-toggle-btn">Specific</span>
+                  </label>
+                  <label class="mode-toggle-option" for="replyModePhotoInput">
+                    <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModePhotoInput" value="photo" disabled>
+                    <span class="mode-toggle-btn">Photo</span>
+                  </label>
+                </div>
+              </div>
+
+              <textarea id="nodeBodyInput" disabled></textarea>
+              <div class="field-autocomplete" id="nodeBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
+              <div class="field-generate-status" data-generate-description-status hidden></div>
+              <div class="mini-note" id="nodeBodyHtmlNote" hidden>HTML OK.</div>
+            </div>
+        </div>
+        <!-- ROW 3: PRICE AND ENGINE (2026-08-31).
+             MOVED OUT OF THE INSPECTOR, NOT COPIED, like every field before
+             them: the blocks came across whole, so `priceField`, `engineField`,
+             `nodePriceInput` and `nodeEngineInput` all still resolve and not one
+             wiring line changed. `detailsPaymentSection` held price alone and is
+             deleted with it.
+
+             THEY ARE A ROW OF THEIR OWN because they are a different kind of
+             fact from the two above. Row 1 says which game, row 2 says what it
+             says, row 3 says how it is SOLD and how it is PLAYED -- the two
+             things a buyer meets that are not words. Folded into row 1 a price
+             box would sit beside the game's own name, which reads as part of
+             its identity rather than as a setting.
+
+             THEY ARE NARROW BY CONSTRUCTION. A price is five characters and an
+             engine is one of two, so the row is capped rather than stretched:
+             two short controls spread across the width of the box read as
+             fields that have lost their neighbours. -->
+        <div class="game-id-bar-inner game-id-bar-inner--settings">
+                    <div class="field" id="priceField">
+                      <label class="field-label" for="nodePriceInput">Price</label>
+                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+                    </div>
+
+                    <div class="field" id="engineField">
+                      <label class="field-label field-label--with-meta" for="nodeEngineInput">
+                        <span class="field-label-text">Engine</span>
+                        <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
+                      </label>
+                      <select id="nodeEngineInput" autocomplete="off" disabled>
+                        <option value="text">Text Message</option>
+                        <option value="map">Map</option>
+                      </select>
+                    </div>
+
+        </div>
+      </fieldset>
+
+      <!-- TAGS, ITS OWN BOX AND THE LAST ONE (2026-08-31).
+           MOVED OUT OF THE INSPECTOR, NOT COPIED: it was a `details-section`
+           in the Basics drawer, and a second control for one column is the
+           duplication this repo keeps removing. `tagsField`, `nodeTagPicker`,
+           `nodeTagNewInput` and `nodeTagAddBtn` all moved with it, so not one
+           wiring line changed.
+
+           LAST, BECAUSE IT IS THE ONE BOX THAT IS NOT ABOUT THIS GAME. Anchor
+           says what the game is built around and Game says what it is; a tag is
+           a word shared with every other game wearing it, which is also why
+           deleting one here deletes it everywhere. It reads as the footnote it
+           is rather than as a third thing to fill in before you start. -->
+      <fieldset class="game-id-bar" id="tagsBar">
+        <legend>Tags</legend>
+        <div class="game-id-bar-inner">
+          <div class="field" id="tagsField">
+            <label class="field-label field-label--with-meta" for="nodeTagNewInput">Tags<span class="field-info" tabindex="0" role="note" aria-label="Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.">i<span class="field-tooltip" role="tooltip">Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.</span></span></label>
+            <div class="tag-picker" id="nodeTagPicker">
+              <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
+              <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- STATUS, THE LAST BOX AND THE ONLY DECISION ON THE PAGE (2026-08-31).
+           Everything above says what the game IS; this says whether anybody can
+           buy it. It is last because it is the thing you answer when the rest is
+           finished.
+
+           THREE OPTIONS, BECAUSE THERE ARE THREE STATES. `games.status` is
+           live / building / archived, and BUILDING is the one the nav's Skip
+           button could never reach: `archived` is 'YES' for both building and
+           skipped, so a two-way toggle can only ever say posted or not. That is
+           the whole reason this control exists rather than a second button.
+
+           IT WRITES `status` AND NOTHING ELSE. A trigger keeps `archived` in
+           step both ways, so the public page, the footer and `/games/` all go on
+           reading the flag they always read. -->
+      <fieldset class="game-id-bar" id="statusBar">
+        <legend>Status</legend>
+        <div class="game-id-bar-inner">
+          <div class="field" id="gameStatusField">
+            <label class="field-label field-label--with-meta" for="gameStatusLive">
+              <span class="field-label-text">Status</span>
+              <span class="field-info" tabindex="0" role="note" aria-label="Post puts the game on sale. Build is written and deliberately not for sale. Skip is off the shelf. Only a posted game reaches a buyer.">i<span class="field-tooltip" role="tooltip">Post puts the game on sale. Build is written and deliberately not for sale. Skip is off the shelf. Only a posted game reaches a buyer.</span></span>
+            </label>
+            <div class="mode-toggle mode-toggle--triple" role="radiogroup" aria-label="Game status" id="gameStatusToggle">
+              <label class="mode-toggle-option" for="gameStatusLive">
+                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusLive" value="live" disabled>
+                <span class="mode-toggle-btn">Post</span>
+              </label>
+              <label class="mode-toggle-option" for="gameStatusBuilding">
+                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusBuilding" value="building" disabled>
+                <span class="mode-toggle-btn">Build</span>
+              </label>
+              <label class="mode-toggle-option" for="gameStatusArchived">
+                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusArchived" value="archived" disabled>
+                <span class="mode-toggle-btn">Skip</span>
+              </label>
+            </div>
+            <div class="mini-note" id="gameStatusNote"></div>
           </div>
         </div>
       </fieldset>
@@ -10124,110 +10411,55 @@ html.admin-embedded .builder-section-head{
                       <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
                              aria-label="Game ID" placeholder="none">
                     </div>
-                    <div class="field" id="taglineField">
-                      <label class="field-label" for="nodeTaglineInput">Tagline</label>
-                      <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
-                    </div>
-                    <div class="field" id="engineField">
-                      <label class="field-label field-label--with-meta" for="nodeEngineInput">
-                        <span class="field-label-text">Engine</span>
-                        <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
-                      </label>
-                      <select id="nodeEngineInput" autocomplete="off" disabled>
-                        <option value="text">Text Message</option>
-                        <option value="map">Map</option>
-                      </select>
-                    </div>
+                    <!-- TAKEOVER DATE, SUGGESTED START AND TARGET END ARE GONE
+                         (2026-08-31), asked for outright. The ANCHOR EVENT above
+                         is where a date lives now: it carries `start_date` and
+                         `start_time` and is the real thing in the world that
+                         gives a game its when.
+                         WHAT IT COSTS, and it is worth knowing before somebody
+                         goes looking. `games.game_date`, `start_time` and
+                         `end_time` are still stored and still READ: the public
+                         `/games/` page prints "Start whenever you like. We
+                         suggest 1pm, so you finish about when other teams do."
+                         off `start_time`, on 18 of the 31 rows that had one.
+                         That sentence can no longer be SET from this page --
+                         it is SQL, or the anchor event's own time. Nothing was
+                         cleared. -->
 
-                    <div class="field" id="gameDateField">
-                      <label class="field-label field-label--with-meta" for="nodeGameDateInput">Takeover Date<span class="field-info" tabindex="0" role="note" aria-label="The TGB experience date shown in the player-facing Takeover Time square. This is not the sports matchup date.">i<span class="field-tooltip" role="tooltip">The TGB experience date shown in the player-facing Takeover Time square. This is not the sports matchup date.</span></span></label>
-                      <input id="nodeGameDateInput" type="date" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="gameStartTimeField">
-                      <label class="field-label field-label--with-meta" for="nodeGameStartTimeInput">Suggested Start (ET)<span class="field-info" tabindex="0" role="note" aria-label="Suggested start time for the TGB experience, in US Eastern Time. Shown in Takeover Time.">i<span class="field-tooltip" role="tooltip">Suggested start time for the TGB experience, in US Eastern Time. Shown in Takeover Time.</span></span></label>
-                      <input id="nodeGameStartTimeInput" type="time" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="gameEndTimeField">
-                      <label class="field-label field-label--with-meta" for="nodeGameEndTimeInput">Target End (ET)<span class="field-info" tabindex="0" role="note" aria-label="Target end time for the TGB experience, in US Eastern Time. Shown in Takeover Time.">i<span class="field-tooltip" role="tooltip">Target end time for the TGB experience, in US Eastern Time. Shown in Takeover Time.</span></span></label>
-                      <input id="nodeGameEndTimeInput" type="time" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="descriptionField">
-                      <label class="field-label field-label--with-meta" for="nodeBodyInput">
-                        <span id="nodeBodyLabel">Intro</span>
-                        <button class="field-generate-btn" type="button" data-generate-description-btn>(GENERATE)</button>
-                        <span class="field-info" id="nodeBodyInfo" tabindex="0" role="note" aria-label="Not seen by the player." hidden>
-                          i
-                          <span class="field-tooltip" role="tooltip">Not seen by the player.</span>
-                        </span>
-                      </label>
-
-                      <div class="field" id="replyModeField" hidden>
-                        <div class="field-label">Expected Player Msg Type</div>
-                        <div class="mode-toggle mode-toggle--triple" role="radiogroup" aria-label="Player message mode">
-                          <label class="mode-toggle-option" for="replyModeAnyAnswerInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeAnyAnswerInput" value="anyanswer" disabled>
-                            <span class="mode-toggle-btn">Any</span>
-                          </label>
-                          <label class="mode-toggle-option" for="replyModeNormalInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeNormalInput" value="normal" disabled>
-                            <span class="mode-toggle-btn">Specific</span>
-                          </label>
-                          <label class="mode-toggle-option" for="replyModePhotoInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModePhotoInput" value="photo" disabled>
-                            <span class="mode-toggle-btn">Photo</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <textarea id="nodeBodyInput" disabled></textarea>
-                      <div class="field-autocomplete" id="nodeBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
-                      <div class="field-generate-status" data-generate-description-status hidden></div>
-                      <div class="mini-note" id="nodeBodyHtmlNote" hidden>HTML OK.</div>
-                    </div>
 
                   </div>
                 </section>
 
-                <section class="details-section" id="detailsPaymentSection">
-                  <div class="details-section-title">Payment</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-
-                    <div class="field" id="priceField">
-                      <label class="field-label" for="nodePriceInput">Price</label>
-                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                  </div>
-                </section>
+                <!-- THE PAYMENT SECTION IS GONE (2026-08-31). Price was the
+                     only field in it, and it is in the GAME box now; a drawer
+                     section holding nothing is a heading over a gap. -->
 
                 <!-- Starting locations card -->
                 <section class="details-section rendezvous-card" id="detailsRendezvousSection">
                   <div class="details-section-title">Starting Location</div>
                   <div class="details-section-grid details-section-grid--game-details">
 
-                    <div class="field" id="locationBasedField">
-                      <div class="field-label">LOCATION BASED<span class="field-info" tabindex="0" role="note" aria-label="Choose YES for a real-world game with GPS stops, or NO for a remote/online game.">i<span class="field-tooltip" role="tooltip">Choose YES for a real-world game with GPS stops, or NO for a remote/online game.</span></span></div>
-                      <div class="loc-toggle-wrap">
-                        <span class="loc-toggle-side-label" id="locationBasedLabelNo">NO</span>
-                        <label class="loc-toggle" for="locationBasedToggle">
-                          <input type="checkbox" id="locationBasedToggle">
-                          <span class="loc-toggle-track"></span>
-                          <span class="loc-toggle-thumb"></span>
-                        </label>
-                        <span class="loc-toggle-side-label" id="locationBasedLabelYes">YES</span>
-                      </div>
-                    </div>
+                    <!-- LOCATION BASED IS GONE, AND SO IS EVERY START FIELD
+                         (2026-08-31). Asked for outright: a game's location is
+                         the CITY on its own row and nothing else, so there is no
+                         longer such a thing as a game that is not located. The
+                         toggle asked a question with one answer, and the four
+                         start fields were a second, finer location competing
+                         with the city for the same job.
+                         The seven columns went with them; see
+                         2026083105_games_lose_their_start_point.sql. -->
 
 
-                    <div class="field" id="stateField">
-                      <label class="field-label field-label--with-meta" for="nodeStateInput">State / Province<span class="field-info" tabindex="0" role="note" aria-label="Pick the state or province. Drives the map icon.">i<span class="field-tooltip" role="tooltip">Pick the state or province. Drives the map icon.</span></span></label>
-                      <select id="nodeStateInput" autocomplete="off" disabled>
-                        <option value="">—</option>
-                      </select>
-                    </div>
+                    <!-- STATE / PROVINCE IS GONE (2026-08-31), asked for
+                         outright. The CITY box in the Game box carries the whole
+                         place -- "Chicago, IL" is the shape every other table
+                         here spells -- so a second control for the half of it
+                         was a second place to say one thing.
+                         `meta.stateCode` and `meta.stateName` are still WRITTEN,
+                         derived from the city by `applyGeoControls`, so nothing
+                         downstream lost a value. What is gone is the way to set
+                         a state that DISAGREES with the city, which was never a
+                         thing anybody wanted. -->
 
                     <div class="field" id="countryField">
                       <label class="field-label field-label--with-meta" for="nodeCountryInput">Country<span class="field-info" tabindex="0" role="note" aria-label="Country. Non-US countries show a country badge instead of a state.">i<span class="field-tooltip" role="tooltip">Country. Non-US countries show a country badge instead of a state.</span></span></label>
@@ -10253,23 +10485,21 @@ html.admin-embedded .builder-section-head{
                   </div>
                 </section>
 
-                <section class="details-section" id="detailsTeamsSection">
-                  <div class="details-section-title">Teams</div>
-                  <div class="details-section-grid details-section-grid--teams">
-                    <div class="field" id="awayTeamField">
-                      <label class="field-label" for="nodeAwayTeamInput">Away Team (Fan's Team)</label>
-                      <select id="nodeAwayTeamInput" autocomplete="off" disabled>
-                        <option value="">— pick a team —</option>
-                      </select>
-                    </div>
-                    <div class="field" id="homeTeamCityField">
-                      <label class="field-label" for="nodeHomeTeamCityInput">Home Team</label>
-                      <select id="nodeHomeTeamCityInput" autocomplete="off" disabled>
-                        <option value="">— pick a team —</option>
-                      </select>
-                    </div>
-                  </div>
-                </section>
+                <!-- THE AWAY AND HOME TEAM PICKERS ARE GONE (2026-08-31),
+                     asked for outright. The AUDIENCE box above says the same
+                     thing better: a target audience IS the away club and a rival
+                     IS the home one, and it says so with a colour swatch beside
+                     it and a list that reaches artists and interests too, which
+                     a teams dropdown never could.
+                     THE PALETTE ALREADY CAME FROM THE AUDIENCE. `team-palette.js`
+                     scores an exact `audience_id` match at 30000, above the team
+                     key, so nothing about how a game is coloured changed.
+                     WHAT IT COSTS, plainly: `games.away_team_key`,
+                     `home_team_key` and the four `*_team_city` / `*_team_mascot`
+                     columns have no editor on this page any more. They are still
+                     written by the anchor-event prefill and still read by the
+                     engines; nothing is cleared. A row whose audience and whose
+                     legacy team disagree can now only be corrected in SQL. -->
 
                 <section class="details-section" id="detailsGuideSection">
                   <div class="details-section-title">Guide</div>
@@ -10401,20 +10631,6 @@ html.admin-embedded .builder-section-head{
                   </div>
                 </section>
 
-                <section class="details-section" id="detailsTagsSection">
-                  <div class="details-section-title">Tags</div>
-                  <div class="details-section-grid details-section-grid--tags">
-                    <div class="field" id="tagsField">
-                      <label class="field-label field-label--with-meta" for="nodeTagNewInput">Tags<span class="field-info" tabindex="0" role="note" aria-label="Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.">i<span class="field-tooltip" role="tooltip">Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.</span></span></label>
-                      <div class="tag-picker" id="nodeTagPicker">
-                        <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
-                        <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-
 
               <section class="details-section" id="detailsLogicSection">
                 <div class="details-section-title">Logic</div>
@@ -10530,7 +10746,7 @@ html.admin-embedded .builder-section-head{
       <p class="erase-note-message" id="gameEraseMessage">Erase?</p>
       <div class="erase-note-actions">
         <button class="erase-note-btn erase-note-btn--confirm" id="gameEraseConfirmBtn" type="button">Erase</button>
-        <button class="erase-note-btn erase-note-btn--archive" id="gameArchiveConfirmBtn" type="button">Archive</button>
+        <button class="erase-note-btn erase-note-btn--archive" id="gameArchiveConfirmBtn" type="button">Skip instead</button>
         <button class="erase-note-btn erase-note-btn--cancel" id="gameEraseCancelBtn" type="button">Cancel</button>
       </div>
     </div>
@@ -10741,6 +10957,13 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_key: true,
   home_team_key: true,
   target_audience_id: true,
+  atlas_id: true,
+  /* IN THE MAP SO A DATABASE THAT HAS NOT RUN 2026083028 CAN TURN IT OFF. An
+     absent key already passes the filter (`!== false`), so this changes nothing
+     today -- what it buys is that `disableGamesColumn('status')` can take it out
+     of every select at once when PostgREST reports it missing, instead of the
+     whole read 400ing on one unknown column. */
+  status: true,
   rival_audience_id: true,
   venue_name: true,
   venue_city: true,
@@ -11192,7 +11415,7 @@ function serializeGameRow(game, index = 0) {
     id: normalizedGame.id,
     name: normalizedGame.name || 'Untitled Game',
     archived: normalizedGame.archived || null,
-  status: normalizedGame.status || null,
+    status: normalizedGame.status || null,
     updated_at: timestamp
   };
   if (!gameIsFandom) {
@@ -11274,12 +11497,6 @@ function normalizeGameRow(row, index = 0) {
     button_url:            row && row.button_url,
     tertiary_color:        row && row.tertiary_color,
     quaternary_color:      row && row.quaternary_color,
-    starting_location_name:    row && row.starting_location_name,
-    starting_location_address: row && row.starting_location_address,
-    starting_location_plus_code: row && row.starting_location_plus_code,
-    starting_location_lat:     row && row.starting_location_lat,
-    starting_location_lon:     row && row.starting_location_lon,
-    location_based:        row && row.location_based,
     fandom_game:           row && row.fandom_game,
     teams:                 row && row.teams,
     kind:                  row && row.kind,
@@ -11310,6 +11527,7 @@ function normalizeGameRow(row, index = 0) {
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
     target_audience_id:    row && row.target_audience_id,
+    atlas_id:              row && row.atlas_id,
     rival_audience_id:     row && row.rival_audience_id,
     venue_name:            row && row.venue_name,
     venue_city:            row && row.venue_city,
@@ -11325,6 +11543,13 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'primary_color',
     'secondary_color',
     'featured',
+    /* `status` HAS TO BE ASKED FOR, and leaving it out is silent: the PATCH
+       lands, the row comes home without it, and `getHeaderGameGroup` falls
+       through to its BUILDING default -- so a game posted successfully snaps
+       straight back to Build with no error anywhere. Reported exactly that way.
+       `archived` STAYS BESIDE IT. They cannot disagree (a trigger keeps them in
+       step) and every other reader on this page still reads the flag. */
+    'status',
     'archived',
     'nodes',
     'links',
@@ -11344,12 +11569,6 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'button_url',
     'tertiary_color',
     'quaternary_color',
-    'starting_location_name',
-    'starting_location_address',
-    'starting_location_plus_code',
-    'starting_location_lat',
-    'starting_location_lon',
-    'location_based',
     'fandom_game',
     'teams',
     'kind',
@@ -11453,6 +11672,13 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'primary_color',
     'secondary_color',
     'featured',
+    /* `status` HAS TO BE ASKED FOR, and leaving it out is silent: the PATCH
+       lands, the row comes home without it, and `getHeaderGameGroup` falls
+       through to its BUILDING default -- so a game posted successfully snaps
+       straight back to Build with no error anywhere. Reported exactly that way.
+       `archived` STAYS BESIDE IT. They cannot disagree (a trigger keeps them in
+       step) and every other reader on this page still reads the flag. */
+    'status',
     'archived',
     'nodes',
     'links',
@@ -11472,12 +11698,6 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'button_url',
     'tertiary_color',
     'quaternary_color',
-    'starting_location_name',
-    'starting_location_address',
-    'starting_location_plus_code',
-    'starting_location_lat',
-    'starting_location_lon',
-    'location_based',
     'fandom_game',
     'teams',
     'kind',
@@ -11754,6 +11974,60 @@ async function archiveGameInSupabase(gameId) {
   return setGameArchivedStateInSupabase(gameId, ARCHIVED_GAME_VALUE);
 }
 
+/* `toggleCurrentGameArchiveState` WENT WITH THE BUTTON, being its only caller.
+   The two-way act does not survive it: the column has three states and the
+   Status box names all three, so there is nothing left that means "the other
+   one". `setCurrentGameStatus` is the one writer.
+
+   `setArchiveGameFeedback` AND `state.archiveGameActionBusy` STAY. The first is
+   what greys every lifecycle control while a status write is in the air and
+   flashes the success; the second is read by three other disabled-guards. They
+   were never the button's -- it only happened to be the loudest reader. */
+
+/* `status` IS WRITTEN, NEVER `archived`, and that is the whole point of the
+   three-way control: `archived` is 'YES' for BOTH building and skipped, so
+   writing the flag can never tell those two apart. A trigger fills `archived`
+   in from `status`, so every reader of the flag is untouched.
+   ONE WRITER FOR THE COLUMN. The nav's Skip button routes through here too --
+   two ways to set one column is how they drift. */
+async function setGameStatusInSupabase(gameId, status) {
+  const targetId = String(gameId || '').trim();
+  const next = String(status || '').trim().toLowerCase();
+  if (!targetId || !hasSupabaseStore()) {
+    return { serverSaved: false, error: new Error('Supabase is not configured.'), savedGame: null };
+  }
+  if (next !== 'live' && next !== 'building' && next !== 'archived') {
+    return { serverSaved: false, error: new Error('Unknown status: ' + status), savedGame: null };
+  }
+  try {
+    const response = await fetch(buildSupabaseUrl({ id: 'eq.' + targetId }), {
+      method: 'PATCH',
+      headers: getSupabaseHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+      body: JSON.stringify({ status: next })
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      /* A DATABASE THAT HAS NOT RUN 2026083028 HAS NO `status` COLUMN, and
+         PGRST204 names the column rather than the migration. Say which file. */
+      if (/PGRST204/.test(text) || /status/.test(text) && /column/.test(text)) {
+        throw new Error('This database has no games.status column. Run mc/supabase/migrations/2026083028_three_game_statuses.sql.');
+      }
+      throw new Error(text || 'Supabase status update failed.');
+    }
+    const rows = await response.json();
+    /* POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so a refused
+       write would otherwise report success and the radio would show a state the
+       table never took. */
+    if (!Array.isArray(rows) || !rows.length) {
+      throw new Error('The database refused this change, so nothing was saved.');
+    }
+    const savedGame = await loadGameFromSupabase(targetId) || normalizeGameRow(rows[0], 0);
+    return { serverSaved: true, error: null, savedGame };
+  } catch (error) {
+    return { serverSaved: false, error, savedGame: null };
+  }
+}
+
 async function unarchiveGameInSupabase(gameId) {
   return setGameArchivedStateInSupabase(gameId, null);
 }
@@ -12009,7 +12283,6 @@ const priceField = document.getElementById('priceField');
 const cityField = document.getElementById('cityField');
 const startNameField = document.getElementById('startNameField');
 const startAddressField = document.getElementById('startAddressField');
-const locationBasedField = document.getElementById('locationBasedField');
 const categoryIconField = document.getElementById('categoryIconField');
 const tagsField = document.getElementById('tagsField');
 const teamsField = document.getElementById('teamsField');
@@ -12120,9 +12393,7 @@ const objectStopNameInput = document.getElementById('objectStopNameInput');
 const objectStopGroupField = document.getElementById('objectStopGroupField');
 const objectStopGroupButtons = Array.from(document.querySelectorAll('[data-stop-group-btn]'));
 const nodeTaglineInput = document.getElementById('nodeTaglineInput');
-const nodeHomeTeamCityInput = document.getElementById('nodeHomeTeamCityInput');
 const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput');
-const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 const anchorEventInput = document.getElementById('anchorEventInput');
@@ -12345,6 +12616,114 @@ function populateTargetAudienceSelect() {
   paintGuessButton();
 }
 
+/* ---- THE ATLAS ------------------------------------------------------------
+   `public.atlases` is a row per STOP, so the id repeats once for every stop in
+   the atlas. This groups them, which is also why the list can only ever offer
+   an atlas that exists: it is built from the rows themselves.
+
+   AND THAT IS THE ONLY GUARD THERE IS. `games.atlas_id` is not a foreign key
+   and cannot be one -- the table is keyed by (atlas_id, stop_number), so the id
+   alone is not unique. Nothing downstream will say a game names an atlas that
+   is not there. */
+let builderAtlasList = [];
+
+async function loadBuilderAtlases() {
+  if (!hasSupabaseStore()) return;
+  const url = buildSupabaseUrl(
+    { select: 'atlas_id,atlas_name,stop_number', order: 'atlas_id.asc' }, 'atlases');
+  if (!url) return;
+  try {
+    const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const rows = await response.json();
+    const by = new Map();
+    (Array.isArray(rows) ? rows : []).forEach((r) => {
+      if (!r || !r.atlas_id) return;
+      /* THE NAME COMES OFF ANY ROW AND THAT IS SAFE: a trigger keeps every row
+         of an atlas on one name, so they cannot disagree. */
+      if (!by.has(r.atlas_id)) by.set(r.atlas_id, { id: r.atlas_id, name: r.atlas_name, stops: 0 });
+      by.get(r.atlas_id).stops += 1;
+    });
+    builderAtlasList = [...by.values()];
+  } catch (err) {
+    console.warn('atlases fetch failed for the Game Builder:', err);
+    builderAtlasList = [];
+  }
+  paintAtlasField();
+}
+
+/* THE LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
+   on the option's value and nothing else: the name, the key, and how many stops
+   it holds -- which is the one figure that tells a finished atlas from a started
+   one at the moment you are choosing. */
+function atlasLabel(a) {
+  return a.name + '  ·  ' + a.id + '  ·  ' + a.stops + (a.stops === 1 ? ' stop' : ' stops');
+}
+function atlasFromTyped(text) {
+  const v = String(text == null ? '' : text).trim().toLowerCase();
+  if (!v) return '';
+  const byLabel = builderAtlasList.find((a) => atlasLabel(a).toLowerCase() === v);
+  if (byLabel) return byLabel.id;
+  /* A BARE KEY IS ACCEPTED TOO, so a value pasted out of the database resolves
+     rather than being called a mistake. */
+  const byId = builderAtlasList.find((a) => a.id.toLowerCase() === v);
+  return byId ? byId.id : null;
+}
+
+function paintAtlasField() {
+  const input = document.getElementById('gameAtlasInput');
+  const list = document.getElementById('gameAtlasList');
+  const note = document.getElementById('gameAtlasNote');
+  if (!input) return;
+
+  if (list) {
+    list.innerHTML = '';
+    builderAtlasList.forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = atlasLabel(a);
+      list.appendChild(opt);
+    });
+  }
+
+  const stored = String((state.currentGameMeta && state.currentGameMeta.atlasId) || '').trim();
+  const known = builderAtlasList.find((a) => a.id === stored);
+  if (document.activeElement !== input) {
+    input.value = known ? atlasLabel(known) : stored;
+  }
+  input.removeAttribute('data-invalid');
+
+  /* A GREYED FIELD SAYS WHY. Greyed is the common state here -- the whole bar
+     is disabled until a game is open -- and greyed while empty is
+     indistinguishable from a picker that failed to load. */
+  input.placeholder = !builderAtlasList.length
+    ? 'No atlases yet. Make one in the Atlases room.'
+    : (input.disabled ? 'Open a game first' : 'The walk this game takes');
+
+  if (note) {
+    /* A STORED ATLAS THAT IS NOT ON FILE IS NAMED, not silently blanked. There
+       is no foreign key, so this note is the only thing that will ever say it. */
+    note.textContent = stored && !known
+      ? 'No atlas called ' + stored + '. It may have been emptied, or the id is wrong.'
+      : (known ? known.stops + (known.stops === 1 ? ' stop' : ' stops') : '');
+  }
+}
+
+function commitAtlasField() {
+  const input = document.getElementById('gameAtlasInput');
+  if (!input || input.disabled || !state.currentGameMeta) return;
+  const resolved = atlasFromTyped(input.value);
+  if (resolved === null) {
+    input.setAttribute('data-invalid', 'true');
+    const note = document.getElementById('gameAtlasNote');
+    if (note) note.textContent = 'No atlas called that. Pick one from the list, or clear the box.';
+    return;
+  }
+  input.removeAttribute('data-invalid');
+  state.currentGameMeta.atlasId = resolved;
+  markDirty();
+  paintAtlasField();
+}
+
 /* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
    does not hold is REFUSED rather than stored, because the column is a foreign
    key and PostgREST would answer with a constraint name nobody can act on. */
@@ -12441,10 +12820,14 @@ async function loadBuilderTeams() {
   populateAnchorEventSelect();
 }
 
+/* `populateTeamSelects` FILLED THE TWO PICKERS AND NOTHING ELSE, so it is now a
+   list of no selects. Kept as an empty loop rather than deleted, because it is
+   CALLED from three places and the alternative is chasing every caller for a
+   function that costs nothing -- and because `builderTeamsList` is still loaded
+   and still read by the palette. If a third team select ever appears, this is
+   where it goes. */
 function populateTeamSelects() {
   [
-    { select: nodeAwayTeamInput, cityKey: 'awayTeamCity', mascotKey: 'awayTeamMascot', keyKey: 'awayTeamKey' },
-    { select: nodeHomeTeamCityInput, cityKey: 'homeTeamCity', mascotKey: 'homeTeamMascot', keyKey: 'homeTeamKey' }
   ].forEach(({ select, cityKey, mascotKey, keyKey }) => {
     if (!select || select.tagName !== 'SELECT') return;
     while (select.options.length > 1) select.remove(1);
@@ -12938,13 +13321,20 @@ function applyAnchorEventSelection(nextId) {
     // so the away-team palette applies (bindTeamSelect gates on fandomGame), and
     // auto-fill the team selects.
     state.currentGameMeta.fandomGame = true;
-    if ((named(ev.away_team_geo) || named(ev.away_team_nickname)) && nodeAwayTeamInput) {
-      setTeamSelectValue(nodeAwayTeamInput, ev.away_team_geo || '', ev.away_team_nickname || '');
-      nodeAwayTeamInput.dispatchEvent(new Event('change'));
+    /* THE PREFILL STILL WRITES THE LEGACY TEAM FIELDS, it just no longer has a
+       select to paint. The columns are read by the engines, so an event that
+       names two clubs should still fill them; what went is the control. */
+    if (named(ev.away_team_geo) || named(ev.away_team_nickname)) {
+      if (state.currentGameMeta) {
+        state.currentGameMeta.awayTeamCity = ev.away_team_geo || '';
+        state.currentGameMeta.awayTeamMascot = ev.away_team_nickname || '';
+      }
     }
-    if ((named(ev.home_team_geo) || named(ev.home_team_nickname)) && nodeHomeTeamCityInput) {
-      setTeamSelectValue(nodeHomeTeamCityInput, ev.home_team_geo || '', ev.home_team_nickname || '');
-      nodeHomeTeamCityInput.dispatchEvent(new Event('change'));
+    if (named(ev.home_team_geo) || named(ev.home_team_nickname)) {
+      if (state.currentGameMeta) {
+        state.currentGameMeta.homeTeamCity = ev.home_team_geo || '';
+        state.currentGameMeta.homeTeamMascot = ev.home_team_nickname || '';
+      }
     }
     fillAudiencesFromEvent(ev);
   }
@@ -12999,9 +13389,6 @@ function setTeamSelectValue(select, city, mascot, teamKey = '') {
 }
 const nodeDefaultEmojiInput = document.getElementById('nodeDefaultEmojiInput');
 const nodeCategoryIconInput = document.getElementById('nodeCategoryIconInput');
-const nodeGameDateInput = document.getElementById('nodeGameDateInput');
-const nodeGameStartTimeInput = document.getElementById('nodeGameStartTimeInput');
-const nodeGameEndTimeInput = document.getElementById('nodeGameEndTimeInput');
 
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodeGuideBioInput = document.getElementById('nodeGuideBioInput');
@@ -13071,7 +13458,6 @@ const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleI
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
-const nodeStateInput = document.getElementById('nodeStateInput');
 const nodeCountryInput = document.getElementById('nodeCountryInput');
 const nodeStartNameInput = document.getElementById('nodeStartNameInput');
 const nodeStartAddressInput = document.getElementById('nodeStartAddressInput');
@@ -13080,9 +13466,6 @@ const nodeVenueCityInput = document.getElementById('nodeVenueCityInput');
 const nodeCoordinatesInput = document.getElementById('nodeCoordinatesInput');
 const coordinatesField = document.getElementById('coordinatesField');
 const coordinatesGenerateBtn = document.getElementById('coordinatesGenerateBtn');
-const locationBasedToggle   = document.getElementById('locationBasedToggle');
-const locationBasedLabelNo  = document.getElementById('locationBasedLabelNo');
-const locationBasedLabelYes = document.getElementById('locationBasedLabelYes');
 const nodeTagPicker = document.getElementById('nodeTagPicker');
 const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
@@ -13137,7 +13520,9 @@ const builderChallengesBtn = null;
 const builderMapperBtn = document.getElementById('builderMapperBtn');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
 const featureGameBtn = document.getElementById('featureGameBtn');
-const archiveGameBtn = document.getElementById('archiveGameBtn');
+const gameStatusToggle = document.getElementById('gameStatusToggle');
+const gameStatusNote = document.getElementById('gameStatusNote');
+const gameStatusRadios = [...document.querySelectorAll('input[name="gameStatus"]')];
 const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
 const deleteBtn = document.getElementById('deleteBtn');
@@ -17333,6 +17718,9 @@ function initGameMeta(game) {
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
     awayTeamKey:          g.away_team_key     ?? g.awayTeamKey     ?? gn.awayTeamKey     ?? '',
     targetAudienceId:     g.target_audience_id ?? g.targetAudienceId ?? gn.targetAudienceId ?? '',
+    /* snake ?? camel ?? node, all three: the recovery draft holds only
+       camelCase, so a snake-only read blanks the field on every reload. */
+    atlasId:              g.atlas_id ?? g.atlasId ?? gn.atlasId ?? '',
     rivalAudienceId:      g.rival_audience_id  ?? g.rivalAudienceId  ?? gn.rivalAudienceId  ?? '',
     venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
     venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
@@ -17602,8 +17990,22 @@ function showArchiveGameError(message, error) {
   window.alert(message + detail);
 }
 
-async function toggleCurrentGameArchiveState() {
-  if (state.archiveGameActionBusy || !getCurrentGameArchiveEntry()) return false;
+/* SETTING A STATUS IS ONE ACT, wherever it is asked for. The radios name a
+   target and the nav's Skip button names the other two-way one; both come
+   through here, so there is one place that saves first, one that reports a
+   refusal, and one that repaints. */
+async function setCurrentGameStatus(nextStatus) {
+  const next = String(nextStatus || '').trim().toLowerCase();
+  /* NO BARE RETURN ON A WRITE PATH. A press that quietly does nothing is
+     indistinguishable from one that failed, which is exactly how the read-back
+     bug above went unreported for a day: the user pressed Post, nothing moved,
+     and nothing on screen said why. Busy is the ordinary case and says so
+     quietly; no game open is a real refusal. */
+  if (state.archiveGameActionBusy) return false;
+  if (!getCurrentGameArchiveEntry()) {
+    showArchiveGameError('Open a game before setting its status.', new Error('No game is open.'));
+    return false;
+  }
   if (!hasSupabaseStore()) {
     showArchiveGameError('Could not update this game in the database.', new Error('Supabase is not configured.'));
     return false;
@@ -17616,6 +18018,8 @@ async function toggleCurrentGameArchiveState() {
   updateSelectionUi();
 
   try {
+    /* THE GAME IS SAVED FIRST, because a status is set on a ROW and a game typed
+       in this browser does not have one yet. */
     const saveResult = await saveDoc({ silent: true });
     if (!saveResult || saveResult.error) {
       showArchiveGameError(
@@ -17624,17 +18028,13 @@ async function toggleCurrentGameArchiveState() {
       );
       return false;
     }
-
     const targetId = String((saveResult.savedGame && saveResult.savedGame.id) || state.currentGameId || '').trim();
     if (!targetId) {
       showArchiveGameError('Could not update this game in the database.', new Error('No saved game is available to update.'));
       return false;
     }
 
-    const updateResult = wasArchived
-      ? await unarchiveGameInSupabase(targetId)
-      : await archiveGameInSupabase(targetId);
-
+    const updateResult = await setGameStatusInSupabase(targetId, next);
     if (!updateResult.serverSaved) {
       showArchiveGameError('Could not update this game in the database.', updateResult.error);
       return false;
@@ -17646,16 +18046,18 @@ async function toggleCurrentGameArchiveState() {
     const savedGame = updateResult.savedGame || normalizeSavedGame({
       ...existingSavedGame,
       id: targetId,
-      archived: wasArchived ? '' : ARCHIVED_GAME_VALUE,
+      status: next,
+      /* `archived` IS MIRRORED ONLY FOR THIS LOCAL COPY. The database's own
+         trigger is what actually sets it; this keeps the in-memory row from
+         disagreeing with the picker for the moment before a reload. */
+      archived: next === 'live' ? '' : ARCHIVED_GAME_VALUE,
       updatedAt: new Date().toISOString()
     }, 0);
 
     state.localOnlyChanges = false;
     upsertStoredGame(savedGame);
-    if (wasArchived) {
-      openSavedGame(savedGame.id);
-    }
-    setArchiveGameFeedback(wasArchived ? 'unarchived' : 'archived');
+    if (wasArchived && next === 'live') openSavedGame(savedGame.id);
+    setArchiveGameFeedback(next === 'live' ? 'unarchived' : 'archived');
     return true;
   } finally {
     state.archiveGameActionBusy = false;
@@ -17975,6 +18377,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   away_team_mascot: 'awayTeamMascot',
   away_team_key: 'awayTeamKey',
   target_audience_id: 'targetAudienceId',
+  atlas_id: 'atlasId',
   rival_audience_id: 'rivalAudienceId',
   venue_name: 'venueName',
   venue_city: 'venueCity'
@@ -18074,6 +18477,7 @@ function normalizeSavedGame(raw, index) {
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
     target_audience_id:    raw && raw.target_audience_id,
+    atlas_id:              raw && raw.atlas_id,
     rival_audience_id:     raw && raw.rival_audience_id,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
@@ -18459,7 +18863,17 @@ function getHeaderGameGroup(game) {
   if (status === 'archived') return 'ARCHIVED';
   if (status === 'building') return 'BUILDING';
   if (normalizeArchivedFlag(game && game.archived) === ARCHIVED_GAME_VALUE) return 'ARCHIVED';
-  return 'LIVE';
+  /* A GAME WE CANNOT CLASSIFY IS BUILDING, NEVER POSTED (2026-08-31).
+     This line is only reached by a row carrying NO `status` at all, which since
+     2026083104 means a LOCAL draft rather than anything the database holds: a
+     game typed in this browser and not saved, or a snapshot written before the
+     column existed. `archived` is null on those, so returning LIVE counted them
+     as ON SALE -- which is how the counts line read `1 posted + 395 building`
+     over a catalogue where nothing is posted.
+     BUILDING is also the safer answer if the remote read ever fails again: an
+     unclassifiable game claiming to be on sale is the one wrong answer here,
+     and it is the one the old default gave. */
+  return 'BUILDING';
 }
 
 function compareHeaderGames(a, b) {
@@ -18531,10 +18945,13 @@ function gamePickerLabel(game, group) {
      the list offers three identical lines and picking one is a coin toss. It
      also makes the id searchable, which is how somebody arrives from a link. */
   const name = game.name || 'Untitled Game';
-  /* LIVE IS THE UNMARKED CASE. A word on every row would be a column, not news;
-     what is worth saying is that a game is NOT on sale, and which of the two
-     reasons it is not. */
-  const mark = group === 'LIVE' ? '' : '  ·  ' + String(group || '').toLowerCase();
+  /* POSTED IS THE UNMARKED CASE. A word on every row would be a column, not
+     news; what is worth saying is that a game is NOT on sale, and which of
+     the two reasons it is not.
+     THE WORD COMES FROM A MAP, NOT FROM THE KEY. Lowercasing the group key
+     printed `archived`, which is the column's word rather than the room's. */
+  const GROUP_WORD = { LIVE: '', BUILDING: 'building', ARCHIVED: 'skipped' };
+  const mark = group === 'LIVE' ? '' : '  ·  ' + (GROUP_WORD[group] || String(group || '').toLowerCase());
   return name + '  ·  ' + game.id + mark;
 }
 
@@ -18544,9 +18961,9 @@ function renderGamePickerSelect() {
   const games = getHeaderGames();
   const list = document.getElementById('gamePickerList');
   const groups = [
-    { key: 'LIVE', label: 'LIVE', games: [] },
+    { key: 'LIVE', label: 'POSTED', games: [] },
     { key: 'BUILDING', label: 'BUILDING', games: [] },
-    { key: 'ARCHIVED', label: 'ARCHIVED', games: [] }
+    { key: 'ARCHIVED', label: 'SKIPPED', games: [] }
   ];
   const groupMap = new Map(groups.map((group) => [group.key, group]));
   games.forEach((game) => {
@@ -18584,8 +19001,8 @@ function renderGamePickerSelect() {
     const building = groupMap.get('BUILDING').games.length;
     const archived = groupMap.get('ARCHIVED').games.length;
     gameProfileStat.textContent = games.length
-      ? ('GAME STATS: ' + live + ' live + ' + building + ' building + ' +
-         archived + ' archived = ' + games.length + ' game' +
+      ? ('GAME STATS: ' + live + ' posted + ' + building + ' building + ' +
+         archived + ' skipped = ' + games.length + ' game' +
          (games.length === 1 ? '' : 's'))
       : '';
   }
@@ -20448,23 +20865,14 @@ function updateSelectionUi(options = {}) {
   if (startNameField) startNameField.hidden = !showGameDetails;
   if (startAddressField) startAddressField.hidden = !showGameDetails;
   if (coordinatesField) coordinatesField.hidden = !showGameDetails;
-  if (locationBasedField) locationBasedField.hidden = !showGameDetails;
   if (categoryIconField) categoryIconField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
   if (guideBackgroundField) guideBackgroundField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
-  const _paymentSection = document.getElementById('detailsPaymentSection');
-  if (_paymentSection) _paymentSection.hidden = !showGameDetails;
   const _engineField = document.getElementById('engineField');
   if (_engineField) _engineField.hidden = !showGameDetails;
-  const _gameDateField = document.getElementById('gameDateField');
-  if (_gameDateField) _gameDateField.hidden = !showGameDetails;
-  const _gameStartTimeField = document.getElementById('gameStartTimeField');
-  if (_gameStartTimeField) _gameStartTimeField.hidden = !showGameDetails;
-  const _gameEndTimeField = document.getElementById('gameEndTimeField');
-  if (_gameEndTimeField) _gameEndTimeField.hidden = !showGameDetails;
   tagsField.hidden = !showGameDetails;
   if (anytimeRepliesField) anytimeRepliesField.hidden = !showGameDetails;
   if (teamsField) teamsField.hidden = !showGameDetails;
@@ -20494,19 +20902,21 @@ function updateSelectionUi(options = {}) {
     const el = document.getElementById(slot.input);
     if (el) el.disabled = !showGameDetails;
   });
+  /* `showGameDetails`, NOT `isGameNode`, for the same reason as the audiences
+     above: an atlas is a property of the GAME ROW, and 28 of the 395 rows have
+     an empty flow document. Gating on the node made five fields on this page
+     un-editable over a perfectly open game. */
+  const atlasBox = document.getElementById('gameAtlasInput');
+  if (atlasBox) atlasBox.disabled = !showGameDetails;
+  paintAtlasField();
   /* REPAINTED AFTER the disabled flags are set, because the placeholder reads
      them. Set before, an open game would be told to open a game. */
   populateTargetAudienceSelect();
-  if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.disabled = !isGameNode;
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
-  if (nodeAwayTeamInput) nodeAwayTeamInput.disabled = !isGameNode;
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.disabled = !isGameNode;
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.disabled = !isGameNode;
   nodeDefaultEmojiInput.disabled = !isGameNode;
   if (nodeCategoryIconInput) nodeCategoryIconInput.disabled = !isGameNode;
-  if (nodeGameDateInput) nodeGameDateInput.disabled = !isGameNode;
-  if (nodeGameStartTimeInput) nodeGameStartTimeInput.disabled = !isGameNode;
-  if (nodeGameEndTimeInput) nodeGameEndTimeInput.disabled = !isGameNode;
   nodeGameLogoInput.disabled = !isGameNode;
   if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.disabled = !isGameNode;
   if (gameLogoUrlUploadBtn) gameLogoUrlUploadBtn.disabled = !isGameNode;
@@ -20514,7 +20924,6 @@ function updateSelectionUi(options = {}) {
   if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
-  if (nodeStateInput) nodeStateInput.disabled = !isGameNode;
   if (nodeCountryInput) nodeCountryInput.disabled = !isGameNode;
   if (nodeStartNameInput) nodeStartNameInput.disabled = !isGameNode;
   if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
@@ -20600,19 +21009,32 @@ function updateSelectionUi(options = {}) {
           : 'Add the Featured tag to this game';
     featureGameBtn.setAttribute('aria-label', featureGameBtn.title);
   }
-  if (archiveGameBtn) {
-    archiveGameBtn.disabled = archiveGameDisabled;
-    archiveGameBtn.textContent = state.archiveGameActionBusy
-      ? (currentGameArchived ? 'Unarchiving...' : 'Archiving...')
-      : (currentGameArchived ? 'Unarchive' : 'Archive');
-    archiveGameBtn.classList.toggle('is-success', !!state.archiveGameFeedback && !state.archiveGameActionBusy);
-    archiveGameBtn.title = !hasSupabaseStore()
-      ? 'Supabase is required to archive or unarchive a game'
-      : state.archiveGameActionBusy
-        ? (currentGameArchived ? 'Unarchiving game...' : 'Archiving game...')
-        : (currentGameArchived ? 'Unarchive the current game (Ctrl/Cmd+Shift+A)' : 'Archive the current game (Ctrl/Cmd+Shift+A)');
-    archiveGameBtn.setAttribute('aria-label', archiveGameBtn.title);
+  /* THE RADIOS ARE PAINTED FROM `getHeaderGameGroup`, which is the same reader
+     the picker's own grouping and the counts line use. One reader, so the box
+     and the list beside it cannot disagree about what a game is. */
+  if (gameStatusRadios.length) {
+    const entry = getCurrentHeaderGameEntry() || getCurrentGameArchiveEntry();
+    const group = entry ? getHeaderGameGroup(entry) : '';
+    const want = group === 'LIVE' ? 'live' : group === 'ARCHIVED' ? 'archived' : group === 'BUILDING' ? 'building' : '';
+    gameStatusRadios.forEach((radio) => {
+      radio.disabled = archiveGameDisabled;
+      /* NEVER WRITTEN WHILE IT HAS FOCUS, or a repaint mid-choice would move the
+         selection out from under somebody using the arrow keys. */
+      if (document.activeElement !== radio) radio.checked = radio.value === want;
+    });
+    if (gameStatusNote) {
+      /* THE NOTE SAYS WHAT THE CHOICE MEANS FOR A BUYER, which is the only thing
+         about it that is not obvious from three words. */
+      gameStatusNote.textContent = !entry
+        ? 'Open a game first.'
+        : want === 'live' ? 'On sale. This is the only status a buyer can reach.'
+        : want === 'building' ? 'Written, and deliberately not for sale.'
+        : want === 'archived' ? 'Off the shelf.'
+        : '';
+    }
   }
+
+
   if (duplicateGameStatus) {
     duplicateGameStatus.hidden = !state.duplicateGameFeedback;
     duplicateGameStatus.textContent = state.duplicateGameFeedback;
@@ -20656,26 +21078,9 @@ function updateSelectionUi(options = {}) {
   populateTargetAudienceSelect();
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '') : '';
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
-  if (nodeHomeTeamCityInput) {
-    if (isGameNode) {
-      setTeamSelectValue(nodeHomeTeamCityInput, state.currentGameMeta && state.currentGameMeta.homeTeamCity || '', state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '', state.currentGameMeta && state.currentGameMeta.homeTeamKey || '');
-    } else {
-      nodeHomeTeamCityInput.value = '';
-    }
-  }
-  if (nodeAwayTeamInput) {
-    if (isGameNode) {
-      setTeamSelectValue(nodeAwayTeamInput, state.currentGameMeta && state.currentGameMeta.awayTeamCity || '', state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '', state.currentGameMeta && state.currentGameMeta.awayTeamKey || '');
-    } else {
-      nodeAwayTeamInput.value = '';
-    }
-  }
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamCity || '') : '';
   nodeDefaultEmojiInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.defaultEmoji || '') : '';
   if (nodeCategoryIconInput) nodeCategoryIconInput.value = isGameNode ? normalizeCategoryIconValue(state.currentGameMeta && state.currentGameMeta.categoryIcon) : '';
-  if (nodeGameDateInput) nodeGameDateInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.gameDate || '') : '';
-  if (nodeGameStartTimeInput) nodeGameStartTimeInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.startTime || '') : '';
-  if (nodeGameEndTimeInput) nodeGameEndTimeInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.endTime || '') : '';
   nodeGameLogoInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.logoUrl || '') : '';
   setGameLogoAssetStatus('');
   if (gameLogoOnlineMenu && isGameNode && !gameLogoOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
@@ -20707,13 +21112,6 @@ function updateSelectionUi(options = {}) {
     }
     nodeCoordinatesInput.value = plusCode;
   }
-  const isLocationBased = isGameNode && !!meta.locationBased;
-  if (locationBasedToggle) {
-    locationBasedToggle.checked  = isLocationBased;
-    locationBasedToggle.disabled = !isGameNode;
-  }
-  if (locationBasedLabelNo)  locationBasedLabelNo.classList.toggle('is-active', !isLocationBased);
-  if (locationBasedLabelYes) locationBasedLabelYes.classList.toggle('is-active',  isLocationBased);
   if (anchorEventInput) {
     anchorEventInput.disabled = !showGameDetails;
     /* REPAINTED AFTER the disabled flag, because the placeholder reads it, and
@@ -22314,6 +22712,9 @@ function stageCurrentGameIntoStore() {
     away_team_mascot:      _meta.awayTeamMascot || null,
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
     target_audience_id:    _meta.targetAudienceId || null,
+    // NULL, NEVER '': the column is text and a blank string would read as an
+    // atlas whose id is empty rather than as no atlas at all.
+    atlas_id:              _meta.atlasId || null,
     rival_audience_id:     _meta.rivalAudienceId || null,
     venue_name:            _meta.venueName || null,
     venue_city:            _meta.venueCity || null,
@@ -22475,7 +22876,7 @@ async function loadDoc() {
     }
     // Fall back to most recently updated game
     try {
-      const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'archived', 'nodes', 'links', 'created_at', 'updated_at']);
+      const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'status', 'archived', 'nodes', 'links', 'created_at', 'updated_at']);
       const recentRows = await fetchGameRowsFromSupabase(recentSelect);
       recentRows.sort((a, b) => Date.parse(b && b.updated_at || 0) - Date.parse(a && a.updated_at || 0));
       if (recentRows.length > 0) {
@@ -22972,16 +23373,12 @@ function bindTeamSelect(select, mascotInput, cityField, mascotField, options = {
     scheduleUpdateActionUi();
   });
 }
-bindTeamSelect(nodeAwayTeamInput, nodeAwayTeamMascotInput, 'awayTeamCity', 'awayTeamMascot', {
-  useGameCity: true,
-  cityInput: nodeAwayTeamCityInput,
-  keyField: 'awayTeamKey',
-  applyPalette: true
-});
-bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', 'homeTeamMascot', {
-  useGameCity: true,
-  keyField: 'homeTeamKey',
-});
+/* `bindTeamSelect` HAD TWO CALLERS AND NOW HAS NONE. It is left defined rather
+   than deleted: it is the only thing that knows how a team select writes a city,
+   a mascot, a key AND the palette together, and rediscovering that would be the
+   expensive half if a picker ever comes back. The palette it applied is not
+   lost -- `team-palette.js` resolves by audience at a higher tier than by team
+   key, which is why removing these two changed nothing about a game's colours. */
 if (anchorEventInput) {
   anchorEventInput.addEventListener('change', resolveTypedEvent);
   anchorEventInput.addEventListener('blur', resolveTypedEvent);
@@ -23022,26 +23419,10 @@ if (nodeCategoryIconInput) {
   });
 }
 
-if (nodeGameDateInput) {
-  nodeGameDateInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.gameDate = nodeGameDateInput.value;
-  });
-}
-
-if (nodeGameStartTimeInput) {
-  nodeGameStartTimeInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.startTime = nodeGameStartTimeInput.value;
-  });
-}
-
-if (nodeGameEndTimeInput) {
-  nodeGameEndTimeInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.endTime = nodeGameEndTimeInput.value;
-  });
-}
+/* THE THREE LISTENERS WENT WITH THE THREE FIELDS, per the standing rule that a
+   control and its wiring go in one pass. `meta.gameDate`, `meta.startTime` and
+   `meta.endTime` are still carried, still serialised and still saved -- what is
+   gone is the way to type one here. */
 
 
 if (nodeStartNameInput) {
@@ -23195,21 +23576,11 @@ function fillSelect(sel, options, placeholder) {
   sel.innerHTML = html.join('');
 }
 
-// State list depends on the chosen country: US states, Canadian provinces, or
-// none (non-US/Canada countries carry only a country badge).
-function stateOptionsForCountry(countryCode) {
-  if (!TGB_GEO) return [];
-  if (countryCode === 'CAN') return TGB_GEO.provinceOptions();
-  if (countryCode === '' || countryCode === 'USA') return TGB_GEO.usStateOptions();
-  return [];
-}
-
-function refreshStateOptions(countryCode, keepCode) {
-  if (!nodeStateInput) return;
-  const opts = stateOptionsForCountry(countryCode);
-  fillSelect(nodeStateInput, opts, opts.length ? '—' : '— n/a —');
-  if (keepCode && opts.some((o) => o.code === keepCode)) nodeStateInput.value = keepCode;
-}
+/* `stateOptionsForCountry` AND `refreshStateOptions` WENT WITH THE SELECT
+   (2026-08-31). A control and the code that fills it go in the same pass; this
+   repo has lost an hour to a stylesheet outliving its markup and a function
+   outliving its only caller. `TgbGeo.usStateOptions` and `provinceOptions` are
+   untouched and still used by other rooms. */
 
 // Populate the country dropdown + default (US) state list. Countries come from
 // public.countries via geo.js, so (re)fill once it's hydrated, keeping the pick.
@@ -23221,7 +23592,6 @@ function fillCountrySelect() {
 }
 if (TGB_GEO && nodeCountryInput) {
   fillCountrySelect();
-  refreshStateOptions('USA', '');
   if (TGB_GEO.countriesReady) TGB_GEO.countriesReady.then(fillCountrySelect).catch(() => {});
 }
 
@@ -23230,7 +23600,6 @@ function applyGeoControls(meta) {
   if (!nodeCityInput) return;
   if (!meta) {
     nodeCityInput.value = '';
-    if (nodeStateInput) { refreshStateOptions('USA', ''); nodeStateInput.value = ''; }
     if (nodeCountryInput) nodeCountryInput.value = '';
     return;
   }
@@ -23249,7 +23618,6 @@ function applyGeoControls(meta) {
   const countryCode = (meta.countryCode || parsed.countryCode || (stateCode ? 'USA' : ''));
   nodeCityInput.value = cityName;
   if (nodeCountryInput) nodeCountryInput.value = countryCode;
-  refreshStateOptions(countryCode, stateCode);
 }
 
 // Recompute meta.city + structured fields from the three controls, then reuse
@@ -23261,7 +23629,12 @@ function syncGeoControlsToMeta(runGeocode) {
      whole Anchor box over an open game, one more field along. */
   if (!state.currentGameMeta) return;
   const cityName = nodeCityInput ? nodeCityInput.value.trim() : '';
-  const stateCode = nodeStateInput ? nodeStateInput.value : '';
+  /* THE STATE COMES OFF THE CITY NOW. The picker went on 2026-08-31 and the
+     city box already carries the whole place -- "Chicago, IL" -- so `parseGeo`
+     is the one reader of it. A blank simply means the city has no state half,
+     which is ordinary outside the US. */
+  const parsedCity = TGB_GEO ? (TGB_GEO.parseGeo(cityName) || {}) : {};
+  const stateCode = parsedCity.stateCode || '';
   const countryCode = nodeCountryInput ? nodeCountryInput.value : '';
   const parts = TGB_GEO
     ? {
@@ -23325,17 +23698,8 @@ if (nodeCityInput) {
 
    `TgbCities` is still loaded and still used elsewhere on this page; only this
    control left. */
-if (nodeStateInput) {
-  nodeStateInput.addEventListener('change', () => {
-    syncGeoControlsToMeta(true);
-    scheduleRecoverySync();      // <select> change isn't caught by the delegated marker
-    scheduleUpdateActionUi();
-  });
-}
 if (nodeCountryInput) {
   nodeCountryInput.addEventListener('change', () => {
-    // Swap the state list to match the country, preserving a still-valid pick.
-    refreshStateOptions(nodeCountryInput.value, nodeStateInput ? nodeStateInput.value : '');
     syncGeoControlsToMeta(true);
     scheduleRecoverySync();
     scheduleUpdateActionUi();
@@ -23582,13 +23946,6 @@ if (nodeCoordinatesInput) {
   });
 }
 
-if (locationBasedToggle) {
-  locationBasedToggle.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.locationBased = locationBasedToggle.checked;
-    updateSelectionUi();
-  });
-}
 
 
 
@@ -24808,9 +25165,26 @@ if (featureGameBtn) {
     await toggleCurrentGameFeaturedState();
   });
 }
-if (archiveGameBtn) {
-  archiveGameBtn.addEventListener('click', async () => {
-    await toggleCurrentGameArchiveState();
+/* ONE LISTENER ON THE GROUP, not three on the radios, so a fourth status would
+   be one line of markup. `change` rather than `click`, because that is what a
+   radio raises when it is reached with the arrow keys as well as with a press. */
+if (gameStatusToggle) {
+  gameStatusToggle.addEventListener('change', async (event) => {
+    const radio = event.target;
+    if (!radio || radio.name !== 'gameStatus') return;
+    const next = String(radio.value || '');
+    const entry = getCurrentHeaderGameEntry() || getCurrentGameArchiveEntry();
+    /* A PRESS ON THE STATUS IT ALREADY HAS WRITES NOTHING. A radio raises
+       `change` on the way in from the keyboard too, so without this, arrowing
+       across the group would file two writes to reach the third option. */
+    if (entry && getHeaderGameGroup(entry) === (next === 'live' ? 'LIVE' : next === 'archived' ? 'ARCHIVED' : 'BUILDING')) {
+      return;
+    }
+    const done = await setCurrentGameStatus(next);
+    /* A REFUSED WRITE PUTS THE DOT BACK. Leaving it where the click left it
+       would show a status the database does not hold -- the same rule the hub's
+       city ticks keep. */
+    if (!done) updateSelectionUi();
   });
 }
 if (builderNewGameBtn) {
@@ -25334,12 +25708,6 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!isTyping && isPrimaryShiftShortcut(event, 'KeyA')) {
-    event.preventDefault();
-    void toggleCurrentGameArchiveState();
-    return;
-  }
-
   if (!isTyping && isLetterShortcut(event, 'KeyW')) {
     event.preventDefault();
     addNodeToVisiblePhone('stop');
@@ -25544,6 +25912,14 @@ async function initializeBuilder() {
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
   loadBuilderAudiences().catch((err) => console.warn('loadBuilderAudiences failed:', err));
+  loadBuilderAtlases().catch((err) => console.warn('loadBuilderAtlases failed:', err));
+  /* COMMIT ON CHANGE, NOT ON EVERY KEYSTROKE. A datalist fires `change` when
+     an option is picked and when the box is left, which is exactly the two
+     moments a value is meant. Committing per keystroke would refuse every
+     half-typed name in the red pen while somebody was still typing it. */
+  const atlasBox = document.getElementById('gameAtlasInput');
+  if (atlasBox) atlasBox.addEventListener('change', commitAtlasField);
+  else console.warn('game builder: no #gameAtlasInput');
   loadBuilderAnchorEvents().catch((err) => console.warn('loadBuilderAnchorEvents failed:', err));
   loadBuilderGuides().catch((err) => console.warn('loadBuilderGuides failed:', err));
   await loadDoc();

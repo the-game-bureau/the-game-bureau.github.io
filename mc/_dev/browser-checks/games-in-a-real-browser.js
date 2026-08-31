@@ -4,7 +4,7 @@
 // four separate faults that all rendered as "nothing there". This drives real
 // Chrome: it can answer the only question that matters, which is whether the
 // pin occupies pixels on screen.
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('C:/tmp/node_modules/puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 

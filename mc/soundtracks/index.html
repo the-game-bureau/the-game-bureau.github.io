@@ -2507,11 +2507,11 @@
           <span class="track-head-label track-head-label--mid track-head-label--tiny" title="Sports music: a fight song, a victory anthem, a stadium walk-up or goal song.">Sports</span>
 
           <label class="tape-air track-air tape-air--all" id="trackAirAll">
-            <span class="tape-air-word tape-air-word--off">Shelved</span>
+            <span class="tape-air-word tape-air-word--off">Skipped</span>
             <input class="tape-air-input" id="trackAirAllInput" type="checkbox"
-                   aria-label="Show shelved tracks, live tracks, or both">
+                   aria-label="Show skipped tracks, posted tracks, or both">
             <span class="tape-air-track" aria-hidden="true"></span>
-            <span class="tape-air-word tape-air-word--on">Live</span>
+            <span class="tape-air-word tape-air-word--on">Posted</span>
           </label>
           <span class="track-head-label track-head-label--mid" title="Delete the row outright. Shelving is almost always what you want instead.">Del</span>
         </div>
@@ -2571,7 +2571,7 @@
     "No duplicate title+artist pair in a city, archived rows included: a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
     "Every song needs a title, an artist, and a city-specific blurb with no trailing period. A blurb is REQUIRED and a missing one is a facts issue; what has NO MINIMUM is its LENGTH. Keep it to 10 words or fewer, and four words that say something true beat eight padded out to hit a count. No blurb is ever too short to pass; shortness alone is never worth reporting.",
     "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess: a fabricated id passes every format check and silently plays nothing.",
-    "TWO STATES, and one column holds both: SHELVED is archived = true, LIVE is archived = false. Everything this routine writes is SHELVED. Only a human moves a song to LIVE, by switching it live in the Tape Room, where the two words on screen are exactly LIVE and SHELVED. There is no third state and no review queue: shelved plus recently added is what a human works through, which the room shows as its NEW filter. SKIP in that room means only one thing (taking a FINDING off the Issues list), so never use it for a song. Write any suggestion a human will read in those words.",
+    "TWO STATES, and one column holds both: SHELVED is archived = true, LIVE is archived = false. Those are the COLUMN VALUES and they have not changed. What a human sees changed on 2026-08-31: the two words on screen are now POSTED and SKIPPED, and the two buttons are POST and SKIP, the same pair the Gift Shop, the Socializer and the Game Builder use. So archived = true is SKIPPED and archived = false is POSTED. Everything this routine writes arrives SKIPPED. Only a human posts a song, in the Tape Room. There is no third state and no review queue: skipped plus recently added is what a human works through, which the room shows as its NEW filter. Write any suggestion a human will read as POST and SKIP, never as live, shelve or archive.",
     "A shelved song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
     "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and go live there. Being wrong for one city is not evidence about another.",
     "Audit every track on the tapes in scope, live or shelved. A finding is a STATEMENT, not an instruction, and a human decides what to do with it. This reverses the old rule, which refused to report against a shelved track on the grounds that shelving was the strongest available fix; with everything landing shelved that rule would have silenced the audit on the whole catalogue.",
@@ -2884,8 +2884,20 @@
         return isArchivedSong(song) ? 'SHELVED' : 'LIVE';
       }
 
-      var STATUS_LABEL = { LIVE: 'Live', SHELVED: 'Shelved' };
-      var STATUS_VERB = { LIVE: 'Live', SHELVED: 'Shelve' };
+      // POST AND SKIP, THE SAME TWO VERBS THE GIFT SHOP AND THE SOCIALIZER
+      // USE (2026-08-31). Three rooms had three vocabularies for one pair of
+      // decisions -- Live/Shelve here, Go live/Shelve there, Done/Skip in the
+      // Socializer -- so somebody moving between them had to learn the words
+      // again in each. POST means put it out; SKIP means do not.
+      //
+      // THE COLUMN AND THE INTERNAL NAMES DO NOT MOVE. `archived` is still
+      // the column, LIVE and SHELVED are still the status strings, and
+      // `.is-shelved` is still the class. That is the bargain this room has
+      // already made through four renames of these verbs: rename the words
+      // on screen, leave the identifiers where every other reader can find
+      // them. This is the FIFTH set of words for this pair.
+      var STATUS_LABEL = { LIVE: 'Posted', SHELVED: 'Skipped' };
+      var STATUS_VERB = { LIVE: 'Post', SHELVED: 'Skip' };
 
       function emptyNode(message) {
         var div = document.createElement('div');
@@ -3521,7 +3533,10 @@
         var at = focusedAt();
         if (!at) return;
 
-        if (key === 'l' || key === 'k') { event.preventDefault(); setTrackStatus(at.tapeIndex, at.songIndex, 'LIVE'); return; }
+        // P IS THE LABELLED KEY; L AND K ARE UNLABELLED ALIASES. K was the
+        // binding for four months and L for a fortnight, and muscle memory
+        // outlives a rename -- the same reason K survived when L arrived.
+        if (key === 'p' || key === 'l' || key === 'k') { event.preventDefault(); setTrackStatus(at.tapeIndex, at.songIndex, 'LIVE'); return; }
         if (key === 's') { event.preventDefault(); setTrackStatus(at.tapeIndex, at.songIndex, 'SHELVED'); return; }
         if (key === 'n') { event.preventDefault(); focusStep(1); return; }
         if (key === 'e') {
@@ -3539,7 +3554,7 @@
         lead.className = 'key-legend-lead';
         lead.textContent = 'Keys';
         keyLegend.appendChild(lead);
-        [['L', 'live'], ['S', 'shelve'], ['E', 'edit'], ['N', 'next']].forEach(function (pair) {
+        [['P', 'post'], ['S', 'skip'], ['E', 'edit'], ['N', 'next']].forEach(function (pair) {
           var span = document.createElement('span');
           span.className = 'key-legend-pair';
           var kbd = document.createElement('kbd');
@@ -3548,7 +3563,7 @@
           span.append(kbd, document.createTextNode(' ' + pair[1]));
           keyLegend.appendChild(span);
         });
-        keyLegend.title = 'Keyboard shortcuts for the track you have selected: L puts it live, S shelves it, E opens its editor, N moves to the next one. Arrow keys move up and down. K still works as an alias for L.';
+        keyLegend.title = 'Keyboard shortcuts for the track you have selected: P posts it, S skips it, E opens its editor, N moves to the next one. Arrow keys move up and down. L and K both still work as aliases for P.';
       }
 
       var refocusing = false;
@@ -3855,10 +3870,10 @@
           slash.className = 'tape-line-figure-sep';
           slash.textContent = NB + '/' + NB;
           tracksCell.appendChild(slash);
-          figure(counts.SHELVED, 'shelved', '');
+          figure(counts.SHELVED, 'skipped', '');
 
-          tracksCell.title = counts.LIVE + ' live on /soundtracks/, '
-            + counts.SHELVED + ' shelved, ' + total + ' in all.';
+          tracksCell.title = counts.LIVE + ' posted to /soundtracks/, '
+            + counts.SHELVED + ' skipped, ' + total + ' in all.';
 
           // WHAT THE SELECT-ALL AND THE BATCH BUTTON ACT ON: the rows actually
           // on screen, which is this tape's tracks after the VIEW bar's own
@@ -3968,7 +3983,7 @@
         var message = (error && error.message) || 'Write failed.';
         if (/23505|duplicate key/i.test(message)) {
           return 'The ' + cityLabel + ' tape already has that title and artist. '
-            + 'It may already be there as a shelved track.';
+            + 'It may already be there as a skipped track.';
         }
         if (/soundtrack_spotify_id_check|violates check constraint/i.test(message)) {
           return 'Supabase rejected the Spotify ID. It has to be 22 letters and digits, or blank.';
@@ -3994,7 +4009,7 @@
         if (patch.archived) song.archived = true; else { delete song.archived; delete song.archivedWithTape; }
 
         if (quiet) return true;
-        var said = { LIVE: 'live', SHELVED: 'shelved' };
+        var said = { LIVE: 'posted', SHELVED: 'skipped' };
         renderTrackArchive((said[status] || 'updated') + ' — ' + songDisplay(song), 'success');
         return true;
       }
@@ -4604,7 +4619,7 @@
         // batch question: on an already shelved track it would write
         // `archived = true` over `archived = true`.
         if (isLive) {
-          btn('Shelve instead', 'primary', function () {
+          btn('Skip instead', 'primary', function () {
             var songIndex = (tape.songs || []).indexOf(song);
             trackPendingDelete = null;
             if (songIndex < 0) { repaintTracks(); return; }
@@ -4677,15 +4692,15 @@
           title.textContent = tracks + ' selected';
           words.textContent = 'Everything here acts on all ' + n + ' at once.';
           // ONLY THE MOVES THAT WOULD CHANGE SOMETHING. A selection that is
-          // already live has nothing to gain from Live.
+          // already posted has nothing to gain from Post.
           if (anyShelved) {
-            btn('Go live', 'primary', function () {
-              applyToSelection(tape, { archived: false }, 'Live');
+            btn('Post', 'primary', function () {
+              applyToSelection(tape, { archived: false }, 'Post');
             }, 'Put every selected track on /soundtracks/.');
           }
           if (anyLive) {
-            btn('Shelve', 'primary', function () {
-              applyToSelection(tape, { archived: true }, 'Shelve');
+            btn('Skip', 'primary', function () {
+              applyToSelection(tape, { archived: true }, 'Skip');
             }, 'Take every selected track off /soundtracks/.');
           }
           btn('Delete', 'warn', function () {
@@ -4703,11 +4718,11 @@
           // alone.
           words.textContent = 'This cannot be undone, and the bot may find ' + it
             + ' and file ' + it + ' again.'
-            + (anyLive ? ' Shelving keeps ' + it + ' off /soundtracks/ and stops that.' : '');
+            + (anyLive ? ' Skipping keeps ' + it + ' off /soundtracks/ and stops that.' : '');
           if (anyLive) {
-            btn('Shelve instead', 'primary', function () {
+            btn('Skip instead', 'primary', function () {
               bulkPendingDelete = false;
-              applyToSelection(tape, { archived: true }, 'Shelve');
+              applyToSelection(tape, { archived: true }, 'Skip');
             });
           }
           var go = btn('Delete ' + tracks, 'warn', async function () {
@@ -5366,13 +5381,13 @@
         sep('with a live track');
         sep('|');
         part('tracks', live, 'is-live');
-        sep('live /');
+        sep('posted /');
         part('', shelved, '');
-        sep('shelved');
+        sep('skipped');
 
-        trackTotalEl.title = t.total + ' tapes, ' + t.onAir + ' with at least one live '
-          + 'track and so on /soundtracks/. ' + live + ' live tracks and ' + shelved
-          + ' shelved. The whole catalogue, whatever the filters are set to.';
+        trackTotalEl.title = t.total + ' tapes, ' + t.onAir + ' with at least one posted '
+          + 'track and so on /soundtracks/. ' + live + ' posted tracks and ' + shelved
+          + ' skipped. The whole catalogue, whatever the filters are set to.';
       }
 
       // ONE TRI-STATE, WORN BY TWO CONTROLS. A checkbox cannot be put into
@@ -5389,7 +5404,7 @@
           .classList.toggle('is-current', value === 'shelved');
         label.querySelector('.tape-air-word--on')
           .classList.toggle('is-current', value === 'live');
-        input.title = counts.live + ' live, ' + counts.shelved + ' shelved. '
+        input.title = counts.live + ' posted, ' + counts.shelved + ' skipped. '
           + (value === 'all'
               ? 'Showing both. Press a word to show only those ' + noun + '.'
               : 'Showing ' + value + ' ' + noun + ' only. Press again to show both.');

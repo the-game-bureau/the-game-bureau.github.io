@@ -47,10 +47,10 @@ the track.
 | `state_code` `state_name` `country_code` `country_name` | the parts, for badges |
 | `tape` | the name printed down the spine |
 | `position` `title` `artist` `blurb` `spotify_id` `explicit` | the track |
-| `archived` | `true` SHELVED, `false` LIVE. **That is the whole state model.** |
+| `archived` | `true` SKIPPED, `false` POSTED. **That is the whole state model.** |
 
 
-**Everything you file arrives SHELVED** and is invisible on `/soundtracks/`
+**Everything you file arrives SKIPPED** and is invisible on `/soundtracks/`
 until a human puts it live in the Tape Room. Write each tape as though it were
 publishing tomorrow anyway: a candidate you would not defend is not worth
 filing.
@@ -67,7 +67,7 @@ inside the US, `Dublin, Ireland` outside it. Send `state_code`, `state_name`,
 holds tracks keeps the label it has** and yours is ignored, so one city can
 never end up wearing two names.
 
-**A shelved row is also a do-not-rescrape tombstone.** It stays on the tape so
+**A skipped row is also a do-not-rescrape tombstone.** It stays on the tape so
 the same title and artist is never picked for it again. The tombstone is scoped
 to the TAPE, so a track wrong for one tape may be right for another, including
 another tape in the same city.
@@ -88,20 +88,22 @@ B=https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1
 # how full every tape is, one row per TAPE (a city may hold several)
 curl -sS "$B/soundtrack_stats?select=city_slug,tape,active_songs,archived_songs,archived&order=city_slug.asc&apikey=$KEY"
 
-# the US cities allowed a tape. THIS IS THE ONLY READ OF public.cities LEFT,
-# and it is here for PICKING, not for validation: nothing downstream checks it,
-# so a city you choose badly is filed exactly as given.
-curl -sS "$B/cities?select=slug,city&country_code=eq.USA&hide_from_soundtracks=is.false&order=city.asc&apikey=$KEY"
-
-# clubs, for the tier ladder below
-curl -sS "$B/teams?select=league,code,fanbase,mascot&order=league.asc&apikey=$KEY"
+# the 124 professional clubs, which ARE the list of cities you may work.
+# There is no read of public.cities any more; see below.
+curl -sS "$B/teams?select=league,code,fanbase,mascot&league=in.(NFL,NBA,MLB,NHL)&order=league.asc&apikey=$KEY"
 ```
 
-**The cities read is filtered to the US on purpose, and it is not tidiness.**
-The catalogue is over 1,300 rows, PostgREST stops at 1,000 and says nothing, so
-an unfiltered read hands you the alphabet to roughly M *looking complete*.
-Filtered it is about 490. Only if you genuinely reach tier 4 should you drop
-`country_code`, and then read it in halves with `&limit=1000` and `&offset=1000`.
+**THERE IS NO READ OF `public.cities`, AND THAT IS THE POINT (2026-08-31).**
+Soundtracks carry their own place: every `soundtrack` row holds `city`,
+`state_code`, `state_name`, `country_code` and `country_name`, and there is no
+foreign key to that catalogue. So nothing here validates a city and nothing
+needs to: **the 124 pro clubs are the whole list of cities you may work**, and a
+club's `fanbase` is a real city by construction.
+
+**It also removes the trap the old cities read carried.** That catalogue is over
+1,300 rows and PostgREST stops at 1,000 in silence, so an unfiltered read handed
+you the alphabet to roughly M *looking complete*. The clubs read is 124 rows and
+cannot be truncated.
 
 **If curl fails with a 403 on CONNECT**, the host has fallen off the
 environment's network allowlist. Do not route around it: no CORS shims, no
@@ -124,45 +126,49 @@ The Tape Room's TGB SOUNDTRACK BOT button puts that line on the clipboard, so it
 is the ordinary way this routine is pointed at a city. Say which city you were
 given, in one line, before the SQL.
 
-**Two things still apply to a named city**, and **nothing enforces them but
-you**: it should be in `public.cities`, and it must not carry
-`hide_from_soundtracks`. If the named city carries that flag, refuse it, say so
-plainly, and work the ladder instead. A city merely absent from the catalogue is
-allowed now, so file it with the right `city` label and say you did.
+**A NAMED CITY IS TAKEN AS GIVEN, and nothing checks it.** There is no
+catalogue to be in and no `hide_from_soundtracks` flag to trip, so a city a
+human names is simply filed with the label they gave. If the named city has no
+professional club in it, that is fine -- a person choosing outranks the rule
+below -- but **say so in one line** so the exception is visible in the run.
 
-Otherwise, pick one yourself down this ladder. Stop at the first tier that still
-has a city wanting a tape. Do not skip a tier because a lower one looks more
-interesting.
+Otherwise, pick one yourself, and **there is only one place to pick from.**
 
-| tier | |
-|---|---|
-| 1 | a fanbase city of an NFL, NBA, MLB or NHL club |
-| 2 | a college football town, where an NCAAF program actually plays |
-| 3 | any other US city in `public.cities` |
-| 4 | non-US, **only** once tiers 1 to 3 are exhausted |
+**PRO SPORTS CITIES ONLY, FOR NOW (2026-08-31).** A city qualifies if it is the
+fanbase city of an **NFL, NBA, MLB or NHL** club. That is **53 cities** across
+124 clubs, and it is the whole field: no college towns, no other US cities, no
+non-US cities, however interesting.
 
-Within a tier take a city with **no tape at all** before one that merely needs
-topping up, and break ties alphabetically so two runs never fight over the same
-city. Say which tier you picked from and why, in one line.
+**WHY, and it is worth knowing rather than obeying blindly.** A tape exists to
+be met by somebody who has travelled to a city for a game, and the cities that
+fill hotels for a game are the cities with a professional club in them. A tape
+for a town nobody visits is a tape nobody plays, and there are still pro cities
+with no tape at all -- so the narrower field is where every hour is worth more,
+not a smaller version of the same job.
 
-**Four things that will trip you up:**
+**THE FOUR-TIER LADDER IS RETIRED, NOT FORGOTTEN.** It ran pro cities, then
+college football towns, then any other US city, then non-US. The lower three
+tiers are simply out of scope today; **an existing tape in one of them stays and
+may still be topped up** -- this rule is about which city gets a NEW tape.
+
+Take a city with **no tape at all** before one that merely needs topping up,
+and break ties alphabetically so two runs never fight over the same city. Say
+which city you picked and why, in one line.
+
+**Two things that will trip you up:**
 
 - **THE FANBASE CITY, NEVER THE VENUE TOWN.** Boston not Foxborough, Buffalo not
   Orchard Park, Dallas not Arlington, Miami not Miami Gardens, New York not East
   Rutherford, San Francisco not Santa Clara, Phoenix not Glendale, Las Vegas not
   Paradise, Los Angeles not Inglewood. Nobody makes a mixtape of Orchard Park.
-  Those towns carry `hide_from_soundtracks` so the flag stops you anyway, but
-  pick by fanbase and you never meet it.
-- **COLLEGE ROWS NAME A SCHOOL, NOT A CITY.** `teams.fanbase` reads "Alabama" or
-  "Ohio State", so you resolve the town yourself: Tuscaloosa, Columbus, Oxford.
-  Then check that town is in `public.cities`.
-- **THE TWO TABLES SPELL A CITY DIFFERENTLY.** `teams` say "Buffalo, NY";
-  `cities` say "Buffalo, New York". Match on the city name, never the whole
-  string.
-- **A city with `hide_from_soundtracks` is off limits at every tier, and the
-  database will NOT stop you any more.** That check was dropped when the tie to
-  `public.cities` was cut, so this line is the whole guard. Read the flag from
-  the cities URL above and obey it.
+  **`teams.fanbase` already holds the right answer for all 124 clubs**, so
+  reading that column is the whole guard -- there is no `hide_from_soundtracks`
+  check any more, because there is no cities read to do it in.
+- **`fanbase` IS SPELLED "Buffalo, NY", AND THAT IS NOT WHAT GOES ON THE ROW.**
+  A tape carries the full form: `city` reads "Buffalo, New York", with
+  `state_code` NY, `state_name` New York, `country_code` USA and `country_name`
+  United States. Expand the state yourself and file all five, because nothing
+  downstream will do it for you and nothing will tell you it was not done.
 
 ### The top-up
 
@@ -287,14 +293,14 @@ curl -sS -X POST "$B/rpc/tgb_pull_soundtrack_songs" \
   - `duplicate_spotify_id` -- that recording is already on this tape. Find
     another song.
   - whatever is left of `skipped` is the title+artist tombstone: the tape has
-    held that song before, possibly shelved, and will not take it again.
+    held that song before, possibly skipped, and will not take it again.
 - **`tape` ADDRESSES the tape as well as naming it.** Send it and you mean the
   tape with that name; **omit it and you mean whatever tape the city already
   has**, which is what a top-up wants. Sending a NEW name for a city that
   already has a tape creates a SECOND tape there, which is legitimate and almost
   never what a top-up intends. **On a top-up, omit it.**
 - At most **4 tapes and 60 songs** a call.
-- The function cannot update, delete, shelve or un-shelve anything, and it
+- The function cannot update, delete, skip or post anything, and it
   refuses a city that is unknown or hidden. Do not try to write the table
   directly and do not look for a service-role key.
 
@@ -329,8 +335,8 @@ look**. `last_audit_at` is the clock and null sorts first:
 curl -sS "$B/soundtrack_stats?select=city_slug,tape,last_audit_at&order=last_audit_at.asc.nullsfirst&limit=3&apikey=$KEY"
 ```
 
-Audit **every track on those tapes, shelved ones included.** Everything this
-routine writes lands shelved, so skipping them would mean skipping almost the
+Audit **every track on those tapes, skipped ones included.** Everything this
+routine writes lands skipped, so passing over them would mean passing over almost the
 whole catalogue, and the tracks nobody has read yet are exactly the ones worth a
 second opinion. A finding is a **statement**; a human decides.
 
@@ -368,8 +374,8 @@ The `kind` string drives the filter in the Tape Room, so it matters.
 - **`facts`** wrong year, wrong album, a wrong claim about the artist. Also: a
   duplicate on the same tape, a missing blurb, a blurb over ten words or ending
   in a period, an `explicit` flag that disagrees with Spotify, an artist
-  appearing MORE THAN ONCE on the tape at all (shelved tracks included, since
-  the routine's own picks all land shelved), the word karaoke anywhere, a
+  appearing MORE THAN ONCE on the tape at all (skipped tracks included, since
+  the routine's own picks all land skipped), the word karaoke anywhere, a
   tape whose city is now hidden, or a tape **over 15**.
 
 **THE ONE-PER-ARTIST RULE IS NEW AND THE CATALOGUE PREDATES IT.** Counted on
@@ -456,7 +462,7 @@ Re-read `soundtrack_stats` and say, out loud:
   tape already there; if `soundtrack_stats` now shows an extra row for that
   city, you sent a `tape` on a top-up. Say so, so a human can merge them.
 
-**The live counts will NOT jump.** Everything you write lands shelved. A tape
+**The posted counts will NOT jump.** Everything you write lands skipped. A tape
 that still reads short right after your run is expected, not a failure.
 
 If a check fails, fix it with another call and re-verify.

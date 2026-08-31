@@ -296,6 +296,37 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ---- the tape, beside the shop -----------------------------------------
+   IT WEARS `.gm-gift` AND ADDS TO IT, rather than declaring its own metrics.
+   The two rows sit a few pixels apart, and drawn to two scales they read as two
+   different kinds of thing. Change the gift card and this follows.
+
+   THE ART BOX MIRRORS `.gm-gift-pic`'s SQUARE, so a row of tapes and a row of
+   gifts line up their names on the same baseline. */
+.gm-tapes { margin-top: 10px; }
+/* THE MARK TAKES `--muted`, NOT THE GAME'S COLOUR, and that is measured rather
+   than felt. The club colour is the card's accent and is right on a border; on
+   the tile's own ground it can be a dark navy on a dark paper -- Chicago's
+   #0B162A came out at 1.3:1, which is a cassette you cannot see. `--muted` is
+   what the gift tile's own fallback mark uses and clears 4.5:1 on both themes.
+   THE COLOUR IS NOT LOST: `.gm-gift:hover` already paints the border with it,
+   so the card still answers to the game it belongs to. */
+.gm-tape-art {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1;
+  background: var(--paper); color: var(--muted);
+}
+.gm-tape:hover .gm-tape-art { color: var(--gm-color, var(--muted)); }
+/* `display: block` ON THE SVG, or its inline baseline leaves it sitting low in
+   the tile -- the same rule the waypoint pin's mark already carries. And a SPAN
+   is inline by default, so its width and height would be IGNORED: this page has
+   already lost a whole pin to that once. */
+/* BIG ENOUGH TO READ AS A CASSETTE. At 46px in a ~170px tile it was a mark
+   floating in a lot of nothing; the gift tile fills its square with a photo,
+   so this one has to carry the same weight with a drawing. */
+.gm-tape-mark { display: block; width: 68%; max-width: 88px; }
+.gm-tape-mark svg { display: block; width: 100%; height: auto; }
+.gm-tape .gm-gift-name { color: var(--ink); }
+
 .gp-empty {
   padding: 34px 22px; text-align: center; color: var(--muted);
   font: 400 0.86rem/1.65 'IBM Plex Mono', monospace;
@@ -524,7 +555,7 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
   var el = function (id) { return document.getElementById(id); };
   var clean = function (v) { return v === null || v === undefined ? '' : String(v).trim(); };
 
-  var state = { games: [], points: {}, q: '', q2: '', openId: '', loaded: false, gifts: {} };
+  var state = { games: [], points: {}, q: '', q2: '', openId: '', loaded: false, gifts: {}, tapes: {} };
   var map = null, layer = null, arc = null;
 
   /* ---- geography -----------------------------------------------------
@@ -766,6 +797,131 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
       state.gifts[key] = [];
       done([]);
     });
+  }
+
+  /* ---- the tape, beside the shop --------------------------------------
+     THE SAME ERRAND AS THE GIFT ROW: the periphery hangs off the city a game
+     is walked in, and both rows are a shopfront for it inside the game they
+     belong to. Built to the gift row's own metrics on purpose -- they are
+     siblings, and two rows a few pixels apart drawn to two scales read as two
+     different kinds of thing.
+
+     THE CONTRACT IS THE PUBLIC PAGE'S OWN. `/soundtracks/` fetches
+     `archived=eq.false` and draws a tape when at least one of its tracks is
+     live, so that is the test here too.
+
+     IT NAMES ITS COLUMNS AND MUST. `soundtrack.findings` is an internal
+     editorial note kept out of the anon grant per column, so `select=*` answers
+     **401** for the whole request and the row would come back empty. Do not put
+     `*` back -- that is the privacy boundary, not tidiness.
+
+     Cached per city and fetched only when a game is opened, so a visitor who
+     opens none pays nothing for it. */
+  function tapesFor(city, done) {
+    var key = clean(city).toLowerCase();
+    if (!key) { done(null); return; }
+    if (state.tapes[key]) { done(state.tapes[key]); return; }
+    var url = rest('soundtrack', {
+      select: 'city_slug,tape,position,title,artist',
+      archived: 'eq.false',
+      city: 'eq.' + city,
+      order: 'tape.asc,position.asc',
+      limit: '60'
+    });
+    fetch(url, { headers: headers() }).then(function (r) {
+      return r.ok ? r.json() : [];
+    }).then(function (rows) {
+      rows = Array.isArray(rows) ? rows : [];
+      /* THE TAPE IS `(city_slug, tape)`, so the tracks are grouped back into
+         the tapes they came off. A city holds several: New Orleans has four. */
+      var order = [], by = {};
+      rows.forEach(function (r) {
+        var name = clean(r && r.tape);
+        if (!name) return;
+        if (!by[name]) { by[name] = []; order.push(name); }
+        by[name].push(r);
+      });
+      var out = {
+        slug: clean(rows.length && rows[0].city_slug),
+        tapes: order.map(function (nm) { return { name: nm, tracks: by[nm] }; }),
+        tracks: rows
+      };
+      state.tapes[key] = out;
+      done(out);
+    }).catch(function () {
+      // A catalogue that will not answer is not a reason to break the card.
+      state.tapes[key] = { slug: '', tapes: [], tracks: [] };
+      done(state.tapes[key]);
+    });
+  }
+
+  /* A CASSETTE IS DRAWN, NEVER TYPED. Neither face this site loads carries an
+     emoji glyph, so a character is a picture on some machines and tofu on
+     others -- this page learned that four times in one afternoon over a single
+     pin. It takes `currentColor`, so the game's own colour reaches it with no
+     second rule. */
+  function cassette() {
+    var w = document.createElement('span');
+    w.className = 'gm-tape-mark';
+    w.innerHTML = '<svg viewBox="0 0 40 26" fill="none" stroke="currentColor" '
+      + 'stroke-width="1.7" aria-hidden="true">'
+      + '<rect x="1.6" y="1.6" width="36.8" height="22.8" rx="2.6"/>'
+      + '<rect x="6.5" y="7" width="27" height="9.4" rx="1.4"/>'
+      + '<circle cx="14" cy="11.7" r="2.5" fill="currentColor" stroke="none"/>'
+      + '<circle cx="26" cy="11.7" r="2.5" fill="currentColor" stroke="none"/>'
+      + '<path d="M11 21h18"/></svg>';
+    return w;
+  }
+
+  function tapeRow(city, color) {
+    var box = document.createElement('div');
+    box.className = 'gm-shop gm-tapes';
+    var label = document.createElement('p');
+    label.className = 'gm-shop-label';
+    var name = city.split(',')[0].trim();
+    var heading = text('span', 'The ' + name + ' soundtrack');
+    label.appendChild(heading);
+    var all = document.createElement('a');
+    all.className = 'gm-shop-all';
+    all.textContent = 'Hear it';
+    all.addEventListener('click', function (e) { e.stopPropagation(); });
+    label.appendChild(all);
+    box.appendChild(label);
+
+    var row = document.createElement('div');
+    row.className = 'gm-shop-row';
+    box.appendChild(row);
+    box.hidden = true;
+
+    tapesFor(city, function (out) {
+      if (!out || !out.tapes.length) return;
+      /* THE HEADING FOLLOWS THE COUNT. Four tapes under a heading saying "the
+         soundtrack" is the row contradicting itself. */
+      if (out.tapes.length > 1) heading.textContent = name + ' soundtracks';
+      /* THE PUBLIC PAGE'S DEEP LINK IS BY CITY SLUG, never by tape: a key like
+         `denver--204` is not a city and the hash contract is a city. So every
+         tape here points at the same place, which is the honest answer. */
+      /* THE PATH IS KEPT AS A STRING, never read back off the anchor: `a.href`
+         as a GETTER returns the ABSOLUTE url, so building the cards from it
+         would stamp the current origin onto every one of them. */
+      var href = '/soundtracks/' + (out.slug ? '#' + encodeURIComponent(out.slug) : '');
+      all.href = href;
+      out.tapes.slice(0, 4).forEach(function (tp) {
+        var a = document.createElement('a');
+        a.className = 'gm-gift gm-tape';
+        a.href = href;
+        a.title = tp.name + ' - ' + tp.tracks.length + ' track' + (tp.tracks.length === 1 ? '' : 's');
+        a.addEventListener('click', function (e) { e.stopPropagation(); });
+        var art = document.createElement('span');
+        art.className = 'gm-tape-art';
+        art.appendChild(cassette());
+        a.appendChild(art);
+        a.appendChild(text('span', tp.name, 'gm-gift-name'));
+        row.appendChild(a);
+      });
+      box.hidden = false;
+    });
+    return box;
   }
 
   function giftRow(city, color) {
@@ -1135,7 +1291,13 @@ body.home-page .site-nav.site-nav .brand-tagline { white-space: nowrap; }
     }
 
     var city = hostCity(g);
-    if (city) more.appendChild(giftRow(city, color));
+    /* THE SHOP FIRST, THEN THE TAPE. Both hang off the city; the shop is the
+       one with a price on it. Each row hides itself when its city has nothing,
+       so a city with gifts and no tape draws one row rather than a gap. */
+    if (city) {
+      more.appendChild(giftRow(city, color));
+      more.appendChild(tapeRow(city, color));
+    }
     return more;
   }
 

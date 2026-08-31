@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>STOP BUILDER | THE GAME BUREAU</title>
+  <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+
+      /* THE TWO HALVES ARE TOLD APART BY COLOUR, and the pair was MEASURED
+         rather than picked. The Events room set the precedent when its five
+         band hues were chosen: contrast against the ground the text sits on,
+         and separation in Lab -- because HUE ANGLE ALONE IS THE WRONG METRIC.
+
+           forest #1d5c33   7.98:1 on the panel   dE 65.7 from the ink   dE 87.1 from the red pen
+           violet #6b3fa0   7.37:1 on the panel   dE 32.8 from the ink   dE 80.5 from the red pen
+           between them: dE 94.4
+
+         WHY NOT THE FURTHEST-APART PAIR. indigo/burnt measured dE 99.8 and both
+         halves were disqualified by what they sat NEXT to: indigo is only 26.6
+         from this room's own ink, so it would read as ordinary text, and burnt
+         is 32.7 from the red pen, so it would read as an error. Distance from
+         each other is necessary and is not sufficient.
+
+         WHICH WAY ROUND: green is the PLACE, which is what green means on every
+         map anybody has ever read; violet is the thing you DO there, and it is
+         the one hue in this palette that carries no other meaning already. */
+      --wp-ink: #1d5c33;
+      --wp-rgb: 29, 92, 51;
+      --ch-ink: #6b3fa0;
+      --ch-rgb: 107, 63, 160;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+    /* ---- what a challenge row shows -------------------------------------- */
+    .ch { align-items: flex-start; }
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    .ch-prompt {
+      flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
+      font-size: 0.86rem; line-height: 1.45;
+    }
+    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+       writer can see at a glance which words the game fills in. */
+    .var {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+      padding: 0 3px; border-radius: 3px;
+      background: rgba(var(--bic-blue-rgb), 0.1); color: var(--bic-blue);
+    }
+    .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
+
+    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
+       rather than words in a sentence. Scope carries the outline because it is
+       the one that decides whether a challenge can be reused; kind does not. */
+    .ch-kind {
+      font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
+      white-space: nowrap;
+    }
+    .ch-scope {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
+      border: 1px solid transparent; white-space: nowrap;
+    }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
+    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
+    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .preview {
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-soft); padding: 10px 12px;
+      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
+    }
+    .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
+    .varbar button {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
+      padding: 3px 7px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff; color: var(--bic-blue);
+    }
+    .varbar button:hover { background: var(--cut-panel-bg); }
+</style>  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+  <style>
+    /* ---- the three pickers ------------------------------------------------
+       ONE LINE, THREE COMBOS, because a stop is one thought: this place, this
+       thing to do, in this city. Three stacked bars would say they were three
+       decisions. Same arrangement the Game Builder's ANCHOR box settled on. */
+    .stop-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .stop-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 240px; min-width: 0; }
+    .stop-field > span {
+      font: 700 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    /* `min-width: 0` on the FIELD as well as the box, or a long value inside a
+       flex item refuses to shrink and pushes the row wider than the bar. */
+    .stop-field input {
+      min-width: 0; width: 100%; height: 34px; padding: 0 8px;
+      border: 1px solid var(--control-line); border-radius: 6px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 0.86rem;
+    }
+    .stop-field input[data-invalid="true"] { border-color: var(--bic-red); }
+    /* THE FIELD LABEL IS A ROW NOW, because it carries a door beside the word.
+       The two `stop-field`s that have one are a div wrapping an explicit
+       `<label for>`; the City field keeps its wrapping <label>, which is right
+       for a field with nothing beside it. An <a> inside a <label> is legal and
+       is the kind of nesting browsers disagree about -- the same class of
+       problem as the hub's button-inside-an-anchor. */
+    .stop-field > span { display: flex; align-items: baseline; gap: 6px; }
+    /* SMALL, AND IN ITS OWN HALF'S HUE, so the door says which side it opens
+       without being read. It is the only lowercase thing on a row of uppercase
+       labels, which is what stops it reading as part of the label. */
+    .stop-new {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.04em; text-transform: none;
+      color: var(--half-ink, var(--bic-blue));
+      text-decoration: none;
+      border-bottom: 1px dotted currentColor;
+    }
+    .stop-new:hover, .stop-new:focus-visible { border-bottom-style: solid; }
+    /* The two fields take the hue of the half they open, so the door, the
+       kicker on a row and the popup's side all agree. */
+    .stop-field--wp { --half-ink: var(--wp-ink); }
+    .stop-field--ch { --half-ink: var(--ch-ink); }
+
+    /* ---- a stop is a city and TWO EQUAL HALVES ----------------------------
+       THE TWO BLOCKS ARE `1fr 1fr`, NOT `auto`, which is the whole ask: a stop
+       is a waypoint AND a challenge, and a grid sized to content would make the
+       one with more words look like the point of the row. Equal columns say
+       they are two of the same kind of thing.
+       THE CITY LEADS ON ITS OWN LINE because it is what the pair have in
+       common: one city, two halves. Inside a column it would read as a third
+       block competing with them. */
+    /* CITY, WAYPOINT, CHALLENGE, and the delete at the end.
+       THE TWO HALVES ARE STILL `1fr 1fr` AND THAT IS STILL THE POINT: a stop is
+       a waypoint AND a challenge, and sizing them to content would make the one
+       with more words look like the point of the row. The city takes only what
+       it needs, so it cannot eat into the pair; `max-content` with a floor keeps
+       a column of them lined up without a long name wrapping. */
+    .stop {
+      display: grid;
+      grid-template-columns: minmax(120px, max-content) 1fr 1fr auto;
+      align-items: start;
+      gap: 8px 16px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+    }
+    .stop:hover { background: var(--panel-soft); }
+    .stop:focus-visible { outline: 2px solid var(--bic-blue); outline-offset: -2px; }
+    /* THE CITY LEADS THE ROW, on its own column. It sat above the pair as a
+       full-width banner until 2026-08-31; on the left it reads as the first of
+       three things you scan across, and a column of cities lines up down the
+       list, which a banner per row could not do.
+       IT KEEPS ITS OWN VOICE -- mono, uppercase, muted -- so it is plainly the
+       key the two halves hang off rather than a third block competing with
+       them. It is the only cell with no kicker above it, for the same reason. */
+    .stop-city {
+      font: 700 0.68rem/1.35 'IBM Plex Mono', monospace;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+      overflow-wrap: anywhere;
+      /* CENTRED AGAINST THE PAIR, not aligned to the top of them. The row's
+         height is set by the taller of the two halves, each of which is a name
+         over a second line, so a one-line city pinned to the top sat against
+         the kickers and read as a third heading. Centred it reads as the key
+         the pair hang off, which is what it is.
+         `align-self`, because the grid sets `align-items: start` for everything
+         else: a half must start at the top or its kicker would drift down as
+         the other half grew. */
+      align-self: center;
+    }
+    /* THE DELETE IS THE LAST COLUMN, not a passenger in the city cell, so
+       neither half carries a control the other does not and the city is free to
+       be the width of a city. */
+    .stop-del { align-self: start; }
+
+    /* THE KICKER CARRIES THE COLOUR AND THE EDGE CONFIRMS IT, which is the
+       lesson the Events room's bands recorded: at the alpha a row can carry,
+       two washes are within a few channel values of each other, so THE FILL IS
+       A HINT AND THE LABEL IS THE SIGNAL. */
+    .stop-half {
+      min-width: 0;
+      padding-left: 9px;
+      border-left: 3px solid var(--half-ink, var(--line));
+    }
+    .stop-half--wp { --half-ink: var(--wp-ink); --half-rgb: var(--wp-rgb); }
+    .stop-half--ch { --half-ink: var(--ch-ink); --half-rgb: var(--ch-rgb); }
+    .stop-kicker {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--half-ink, var(--muted));
+      display: block; margin-bottom: 3px;
+    }
+    .stop-name { font-weight: 700; overflow-wrap: anywhere; }
+    .stop-sub {
+      font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere;
+      display: block; margin-top: 2px;
+    }
+    /* RANDOM IS DRAWN AS A WORD, NEVER AS AN EMPTY BLOCK. A null challenge means
+       random, and a blank half would let it pass for a row somebody had not
+       finished.
+       IT TAKES THE CHALLENGE HALF'S OWN HUE rather than the room's accent: with
+       the two halves coloured, an accent here would be a THIRD colour in a row
+       that has just been given two, and a reader would have to learn what it
+       meant. In the half's own hue it reads as that half speaking up. */
+    .stop-name.is-random { color: var(--ch-ink); font-style: italic; }
+    .stop-empty { padding: 18px 12px; color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .stop { grid-template-columns: 1fr; }
+      .stop-del { justify-self: start; }
+    }
+
+    /* ---- the popup --------------------------------------------------------
+       WAYPOINT LEFT, CHALLENGE RIGHT, and equal, for the same reason the row is
+       equal. The dialog is the room's own chrome from admin-shell.css; only the
+       split and the panorama are local. */
+    .sv-backdrop {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(16, 22, 38, 0.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .sv-backdrop[hidden] { display: none; }
+    .sv-panel {
+      background: #fff; border: 1px solid var(--cut-panel-line); border-radius: 10px;
+      width: min(1080px, 100%); max-height: min(760px, 92vh);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sv-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 10px 14px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--cut-panel-line);
+    }
+    .sv-title { font-weight: 700; }
+    .sv-city { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .sv-close { margin-left: auto; }
+    .sv-body {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+      min-height: 0; overflow: auto;
+    }
+    /* THE POPUP WEARS THE SAME TWO HUES AS THE ROW, or opening a stop would
+       mean learning the sides again. The top rule is what carries it, since a
+       full wash behind a panorama would tint the photograph. */
+    .sv-side {
+      padding: 14px; min-width: 0;
+      border-top: 3px solid var(--half-ink, var(--line));
+    }
+    .sv-side + .sv-side { border-left: 1px solid var(--line); }
+    #svWaypoint { --half-ink: var(--wp-ink); --half-rgb: var(--wp-rgb); }
+    #svChallenge { --half-ink: var(--ch-ink); --half-rgb: var(--ch-rgb); }
+    .sv-label { color: var(--half-ink, var(--muted)); }
+    /* THE PANORAMA IS A 4:3 BOX WITH ITS OWN GROUND, so a frame that is slow or
+       refuses is a grey rectangle rather than a collapsed nothing. */
+    .sv-pano {
+      position: relative; width: 100%; aspect-ratio: 4 / 3;
+      background: #e8ecf3; border: 1px solid var(--line); border-radius: 8px;
+      overflow: hidden; margin-bottom: 10px;
+    }
+    .sv-pano iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .sv-nopano {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; text-align: center; padding: 16px;
+      font-size: 0.82rem; color: var(--muted);
+    }
+    .sv-field { margin-bottom: 9px; }
+    /* NO `color` HERE. The rule above sets it from the side's own hue, and this
+       one is declared LATER at the same weight -- a colour here would win on
+       source order and quietly undo the whole thing. Same tie the Tape Room's
+       playing-case rule had to settle. */
+    .sv-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      display: block; margin-bottom: 2px;
+    }
+    .sv-value { overflow-wrap: anywhere; }
+    .sv-value.is-empty { color: var(--muted); font-style: italic; }
+    .sv-prompt { white-space: pre-wrap; }
+    @media (max-width: 820px) {
+      .sv-body { grid-template-columns: 1fr; }
+      .sv-side + .sv-side { border-left: 0; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">? STOPS</h1>
+        <p class="room-blurb">A stop is a waypoint plus a challenge, in a city.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar command-bar--find" style="flex: 1 1 100%;">
+        <legend>Add a stop</legend>
+        <div class="command-bar-inner stop-form">
+          <label class="stop-field">
+            <span>City</span>
+            <input id="cityInput" list="cityList" autocomplete="off"
+                   placeholder="Chicago, IL"
+                   title="The cities the audiences table holds a home place for.">
+          </label>
+          <div class="stop-field stop-field--wp">
+            <span><label for="wpInput">Waypoint</label>
+              <a class="stop-new" href="/mc/waypoints/" target="_blank" rel="noopener noreferrer"
+                 title="Open the Waypoints room in a new tab to add a place. This form keeps what you have typed.">new</a>
+            </span>
+            <input id="wpInput" list="wpList" autocomplete="off"
+                   placeholder="Type a place"
+                   title="Every real place we hold. Narrows to the city once one is chosen.">
+          </div>
+          <div class="stop-field stop-field--ch">
+            <span><label for="chalInput">Challenge</label>
+              <a class="stop-new" href="/mc/challenges/" target="_blank" rel="noopener noreferrer"
+                 title="Open the Challenges room in a new tab to write one. This form keeps what you have typed.">new</a>
+            </span>
+            <input id="chalInput" list="chalList" autocomplete="off"
+                   placeholder="RANDOM"
+                   title="RANDOM is the first option and the default: the stop takes whatever fits at play time.">
+          </div>
+          <button class="btn primary" id="addBtn" type="button">Add stop</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="Search city, place or challenge..." autocomplete="off">
+          <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <datalist id="cityList"></datalist>
+    <datalist id="wpList"></datalist>
+    <datalist id="chalList"></datalist>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Stops</span>
+        <span class="panel-count" id="listCount"></span>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <!-- THE STOP, OPENED. Waypoint left, challenge right, equal halves. -->
+  <div class="sv-backdrop" id="svBackdrop" hidden>
+    <section class="sv-panel" role="dialog" aria-modal="true" aria-labelledby="svTitle">
+      <div class="sv-head">
+        <span class="sv-title" id="svTitle"></span>
+        <span class="sv-city" id="svCity"></span>
+        <button class="btn small sv-close" id="svClose" type="button">Close</button>
+      </div>
+      <div class="sv-body">
+        <div class="sv-side" id="svWaypoint"></div>
+        <div class="sv-side" id="svChallenge"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'stops';
+
+    // RANDOM IS THE FIRST OPTION AND IT IS A REAL CHOICE, not a blank. It is
+    // stored as a NULL challenge_id, which is unambiguous ONLY because this
+    // picker has no empty option: leaving the box alone means Random, and there
+    // is no way to say "not decided yet". Nothing generates the pick yet; that
+    // is the code still to be written, and this column is its shape.
+    const RANDOM_LABEL = 'RANDOM';
+
+    const state = { rows: [], waypoints: [], challenges: [], cities: [],
+                    q: '', authed: false, loaded: false, open: null };
+
+    function el(id) { return document.getElementById(id); }
+    function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_CONFIG.publishableKey)
+      }, extra || {});
+    }
+
+    // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23505 is a
+    // statement about our schema and tells nobody what to do about it.
+    async function readError(res) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { /* body already consumed */ }
+      if (/stops_pkey|duplicate key/.test(text)) {
+        return 'That place is already a stop in that city. One place is one stop, '
+             + 'so edit the one that is there rather than adding a second.';
+      }
+      if (/stops_city_not_blank/.test(text)) return 'A stop needs a city.';
+      if (/stops_waypoint_id_fkey/.test(text)) return 'That waypoint is not on file any more. Reload and pick again.';
+      if (/PGRST205|does not exist/.test(text)) {
+        return 'public.stops is not there. Run mc/supabase/migrations/2026083103_stops_rebuilt.sql.';
+      }
+      return 'The database refused it (' + res.status + '). ' + text.slice(0, 200);
+    }
+
+    function say(message, tone) {
+      const box = el('pageStatus');
+      if (!box) return;
+      box.textContent = message || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+    }
+
+    /* ---- reading ---------------------------------------------------------
+       EVERY READ PAGES. PostgREST caps a response at 1000 rows and truncates in
+       SILENCE; waypoints is already 536 and stops will outgrow it. */
+    async function readAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const page = await res.json();
+        if (!Array.isArray(page) || !page.length) break;
+        out.push.apply(out, page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    // THE CITY LIST IS THE AUDIENCES TABLE'S OWN, as asked: every city an
+    // audience is at home in. It is read through `places` because an audience
+    // carries a home PLACE, not a town -- and `city_name` on the club row was
+    // dropped on 2026-08-30 precisely because it disagreed with the place for
+    // 21 clubs, saying San Jose for the 49ers.
+    async function loadCities() {
+      const rows = await readAll('audiences', {
+        select: 'home_place_id,places!inner(city,state)',
+        order: 'name.asc'
+      });
+      const seen = {};
+      rows.forEach(function (r) {
+        const p = r && r.places;
+        if (!p || !p.city) return;
+        seen[p.state ? p.city + ', ' + p.state : p.city] = true;
+      });
+      return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+    }
+
+    async function loadAll() {
+      const parts = await Promise.all([
+        // THREE FIELDS, so `select=*` is the whole row and there is no id to ask
+        // for: (city, waypoint_id) is the key, and it is what a delete filters on.
+        readAll(TABLE, { select: '*', order: 'city.asc,waypoint_id.asc' }),
+        readAll('waypoints', {
+          select: 'wpid,name,city,state,address,zip,description,lat,lon,source_url',
+          order: 'name.asc'
+        }),
+        readAll('challenges', { select: 'id,name,prompt,answer,kind,scope', order: 'name.asc' }),
+        loadCities()
+      ]);
+      state.rows = parts[0];
+      state.waypoints = parts[1];
+      state.challenges = parts[2];
+      state.cities = parts[3];
+      state.loaded = true;
+    }
+
+    /* ---- labels ----------------------------------------------------------
+       A LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist
+       matches on the option's value and nothing else. */
+    function wpWhere(w) { return [w.city, w.state].filter(Boolean).join(', '); }
+    function wpLabel(w) {
+      const where = wpWhere(w);
+      return where ? w.name + ' - ' + where : String(w.name || '');
+    }
+    function chalLabel(c) { return c.name + (c.kind ? ' (' + c.kind + ')' : ''); }
+
+    function wpById(id) {
+      return state.waypoints.filter(function (w) { return String(w.wpid) === String(id); })[0] || null;
+    }
+    function chalById(id) {
+      return state.challenges.filter(function (c) { return String(c.id) === String(id); })[0] || null;
+    }
+
+    function wpFromLabel(text) {
+      const v = clean(text).toLowerCase();
+      if (!v) return null;
+      return state.waypoints.filter(function (w) { return wpLabel(w).toLowerCase() === v; })[0]
+          || state.waypoints.filter(function (w) { return String(w.wpid) === v; })[0]
+          || null;
+    }
+    // 'random' is a real answer here and null means "no such challenge", so the
+    // caller can tell a deliberate RANDOM from a typo.
+    function chalFromLabel(text) {
+      const v = clean(text).toLowerCase();
+      if (!v || v === RANDOM_LABEL.toLowerCase()) return 'random';
+      return state.challenges.filter(function (c) { return chalLabel(c).toLowerCase() === v; })[0] || null;
+    }
+
+    /* ---- the pickers ------------------------------------------------------
+       THE WAYPOINT LIST NARROWS TO THE CHOSEN CITY, because 536 places is not a
+       list anybody scrolls and the city is already known by the time you reach
+       that box. It falls back to ALL of them when the city matches nothing, so
+       a city typed by hand can still take a place. */
+    function paintPickers() {
+      const cityBox = el('cityList');
+      if (cityBox) {
+        cityBox.innerHTML = '';
+        state.cities.forEach(function (c) {
+          const o = document.createElement('option');
+          o.value = c;
+          cityBox.appendChild(o);
+        });
+      }
+
+      const cityField = el('cityInput');
+      const city = clean(cityField ? cityField.value : '').toLowerCase();
+      const town = city.split(',')[0].trim();
+      const near = town
+        ? state.waypoints.filter(function (w) { return clean(w.city).toLowerCase() === town; })
+        : [];
+      const wpBox = el('wpList');
+      if (wpBox) {
+        wpBox.innerHTML = '';
+        (near.length ? near : state.waypoints).forEach(function (w) {
+          const o = document.createElement('option');
+          o.value = wpLabel(w);
+          wpBox.appendChild(o);
+        });
+      }
+
+      const chalBox = el('chalList');
+      if (chalBox) {
+        chalBox.innerHTML = '';
+        // RANDOM FIRST, ALWAYS. It is the default and the first thing offered.
+        const rnd = document.createElement('option');
+        rnd.value = RANDOM_LABEL;
+        rnd.label = 'whatever fits at play time';
+        chalBox.appendChild(rnd);
+        state.challenges.forEach(function (c) {
+          const o = document.createElement('option');
+          o.value = chalLabel(c);
+          chalBox.appendChild(o);
+        });
+      }
+    }
+
+    /* ---- the list --------------------------------------------------------- */
+    function matches(row) {
+      const q = state.q.toLowerCase();
+      if (!q) return true;
+      const w = wpById(row.waypoint_id);
+      const c = row.challenge_id == null ? RANDOM_LABEL : (chalById(row.challenge_id) || {}).name;
+      return [row.city, w && w.name, w && w.address, c].filter(Boolean).some(function (v) {
+        return String(v).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    // (city, waypoint_id) IS THE KEY, so it is also how a row is identified in
+    // the DOM and in a delete. There is no id to fall back on.
+    function rowKey(row) { return JSON.stringify([row.city, row.waypoint_id]); }
+
+    function half(kicker, name, sub, isRandom, which) {
+      const box = document.createElement('div');
+      box.className = 'stop-half stop-half--' + which;
+      const k = document.createElement('span');
+      k.className = 'stop-kicker';
+      k.textContent = kicker;
+      box.appendChild(k);
+      const n = document.createElement('span');
+      n.className = 'stop-name' + (isRandom ? ' is-random' : '');
+      n.textContent = name;
+      box.appendChild(n);
+      if (sub) {
+        const s = document.createElement('span');
+        s.className = 'stop-sub';
+        s.textContent = sub;
+        box.appendChild(s);
+      }
+      return box;
+    }
+
+    function render() {
+      const shown = state.rows.filter(matches);
+      const title = el('roomTitle');
+      if (title) {
+        title.textContent = (state.loaded ? state.rows.length : '?')
+          + ' STOP' + (state.rows.length === 1 ? '' : 'S');
+      }
+      const count = el('listCount');
+      if (count) {
+        count.textContent = state.loaded
+          ? (shown.length === state.rows.length ? '' : shown.length + ' shown')
+          : '';
+      }
+      const clear = el('clearBtn');
+      if (clear) clear.setAttribute('aria-disabled', state.q ? 'false' : 'true');
+
+      const list = el('list');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!shown.length) {
+        const p = document.createElement('p');
+        p.className = 'stop-empty';
+        p.textContent = state.loaded
+          ? (state.rows.length ? 'Nothing matches that search.' : 'No stops yet. Add one above.')
+          : 'Loading...';
+        list.appendChild(p);
+        return;
+      }
+
+      shown.forEach(function (row) {
+        const w = wpById(row.waypoint_id);
+        const c = row.challenge_id == null ? null : chalById(row.challenge_id);
+
+        const line = document.createElement('div');
+        line.className = 'stop';
+        line.dataset.key = rowKey(row);
+        // A REAL CONTROL, because the whole row opens something. Focusable and
+        // announced, and Enter and Space work; a div with a click handler is
+        // reachable by a mouse and by nothing else.
+        line.tabIndex = 0;
+        line.setAttribute('role', 'button');
+        line.title = 'Open this stop';
+
+        // THE ORDER IS THE ORDER YOU READ IT: where, then the place, then what
+        // you do there, then the one control.
+        const city = document.createElement('div');
+        city.className = 'stop-city';
+        city.textContent = row.city;
+        line.appendChild(city);
+
+        // A WAYPOINT WE NO LONGER HOLD IS NAMED BY ITS ID rather than drawn
+        // blank: a blank reads as a row that failed to load.
+        line.appendChild(half('Waypoint',
+          w ? w.name : 'waypoint ' + row.waypoint_id,
+          w ? (w.address || wpWhere(w)) : 'not on file any more', false, 'wp'));
+
+        line.appendChild(half('Challenge',
+          c ? c.name : RANDOM_LABEL,
+          c ? (c.kind || '') : 'whatever fits at play time',
+          !c, 'ch'));
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn small stop-del';
+        del.textContent = 'Delete';
+        // THE DELETE STOPS ITS OWN CLICK, or removing a stop would open the
+        // popup over the row it had just removed.
+        del.addEventListener('click', function (e) { e.stopPropagation(); removeStop(row); });
+        line.appendChild(del);
+
+        line.addEventListener('click', function () { openStop(row); });
+        line.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStop(row); }
+        });
+
+        list.appendChild(line);
+      });
+    }
+
+    /* ---- the popup --------------------------------------------------------
+       STREET VIEW WITHOUT AN API KEY. `google.com/maps?layer=c&cbll=...&output=svembed`
+       is the keyless panorama embed; the Static Street View and Embed APIs both
+       need a billed key, and this project holds none. So the panorama is best
+       effort and the address, the description and the source sit under it --
+       the half is still worth opening when there is no panorama.
+       A WAYPOINT WITH NO COORDINATES SAYS SO rather than drawing a grey box,
+       which is 18 of 536 today. */
+    function svUrl(w) {
+      const lat = Number(w && w.lat), lon = Number(w && w.lon);
+      if (w == null || w.lat == null || w.lon == null) return '';
+      if (!isFinite(lat) || !isFinite(lon)) return '';
+      if (lat === 0 && lon === 0) return '';
+      return 'https://www.google.com/maps?layer=c&cbll=' + lat + ',' + lon
+           + '&cbp=11,0,0,0,0&output=svembed';
+    }
+
+    function field(parent, label, value, prompt) {
+      const wrap = document.createElement('div');
+      wrap.className = 'sv-field';
+      const l = document.createElement('span');
+      l.className = 'sv-label';
+      l.textContent = label;
+      wrap.appendChild(l);
+      const v = document.createElement('div');
+      v.className = 'sv-value' + (value ? '' : ' is-empty') + (prompt ? ' sv-prompt' : '');
+      v.textContent = value || 'none';
+      wrap.appendChild(v);
+      parent.appendChild(wrap);
+      return wrap;
+    }
+
+    function openStop(row) {
+      const w = wpById(row.waypoint_id);
+      const c = row.challenge_id == null ? null : chalById(row.challenge_id);
+      state.open = row;
+
+      el('svTitle').textContent = w ? w.name : 'Waypoint ' + row.waypoint_id;
+      el('svCity').textContent = row.city;
+
+      // ---- left: the waypoint ----
+      const left = el('svWaypoint');
+      left.innerHTML = '';
+      const pano = document.createElement('div');
+      pano.className = 'sv-pano';
+      const url = svUrl(w);
+      if (url) {
+        const frame = document.createElement('iframe');
+        frame.src = url;
+        frame.loading = 'lazy';
+        frame.referrerPolicy = 'no-referrer-when-downgrade';
+        frame.title = 'Street view of ' + (w ? w.name : 'this waypoint');
+        frame.allowFullscreen = true;
+        pano.appendChild(frame);
+      } else {
+        const note = document.createElement('div');
+        note.className = 'sv-nopano';
+        note.textContent = w
+          ? 'No coordinates on this waypoint, so there is no street view to show. Add them in the Waypoints room.'
+          : 'That waypoint is not on file any more.';
+        pano.appendChild(note);
+      }
+      left.appendChild(pano);
+      if (w) {
+        field(left, 'Address', clean(w.address) || clean(wpWhere(w)));
+        field(left, 'Description', clean(w.description), true);
+        const src = clean(w.source_url);
+        const box = field(left, 'Source', src);
+        if (src && /^https?:/i.test(src)) {
+          const a = document.createElement('a');
+          a.href = src; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          a.textContent = src;
+          const v = box.querySelector('.sv-value');
+          v.textContent = '';
+          v.appendChild(a);
+        }
+      }
+
+      // ---- right: the challenge ----
+      const right = el('svChallenge');
+      right.innerHTML = '';
+      if (!c) {
+        field(right, 'Challenge', RANDOM_LABEL);
+        const note = document.createElement('div');
+        note.className = 'sv-value is-empty';
+        note.textContent = 'No challenge is fixed on this stop, so it takes whatever '
+          + 'fits at play time. Nothing picks one yet.';
+        right.appendChild(note);
+      } else {
+        field(right, 'Challenge', c.name);
+        field(right, 'Kind', clean(c.kind));
+        field(right, 'Scope', clean(c.scope));
+        field(right, 'Prompt', clean(c.prompt), true);
+        field(right, 'Answer', clean(c.answer));
+      }
+
+      el('svBackdrop').hidden = false;
+      el('svClose').focus();
+    }
+
+    function closeStop() {
+      const back = el('svBackdrop');
+      if (!back || back.hidden) return;
+      back.hidden = true;
+      // THE FRAME IS TORN DOWN, NOT HIDDEN. A hidden Google frame goes on
+      // loading and goes on being a third-party request; the Tape Room learned
+      // the same about a hidden Spotify embed, which kept playing.
+      el('svWaypoint').innerHTML = '';
+      el('svChallenge').innerHTML = '';
+      state.open = null;
+    }
+
+    /* ---- writing ----------------------------------------------------------
+       `return=representation` ON EVERY WRITE. PostgREST answers 200 with an
+       EMPTY ARRAY when RLS refuses, so without reading the row back a refused
+       write reports success and the page shows a stop the table never took. */
+    async function addStop() {
+      const cityField = el('cityInput');
+      const wpField = el('wpInput');
+      const chalField = el('chalInput');
+      const city = clean(cityField.value);
+      const wpText = clean(wpField.value);
+      const chalText = clean(chalField.value);
+
+      [cityField, wpField, chalField].forEach(function (f) { f.removeAttribute('data-invalid'); });
+
+      if (!city) {
+        cityField.setAttribute('data-invalid', 'true');
+        say('A stop needs a city. Pick one from the list.', 'error');
+        return;
+      }
+      const wp = wpFromLabel(wpText);
+      if (!wp) {
+        wpField.setAttribute('data-invalid', 'true');
+        say(wpText ? 'No waypoint called "' + wpText + '". Pick one from the list.'
+                   : 'A stop needs a waypoint.', 'error');
+        return;
+      }
+      // A TYPED CHALLENGE THE LIST DOES NOT HOLD IS REFUSED RATHER THAN STORED
+      // AS RANDOM. Silently turning a typo into a real choice is the one
+      // outcome nobody could see afterwards.
+      const chal = chalFromLabel(chalText);
+      if (chal === null) {
+        chalField.setAttribute('data-invalid', 'true');
+        say('No challenge called "' + chalText + '". Pick one, or leave it on '
+            + RANDOM_LABEL + '.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(restUrl(TABLE), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({
+            city: city,
+            waypoint_id: wp.wpid,
+            challenge_id: chal === 'random' ? null : chal.id
+          })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the write and said nothing. Check you are signed in.');
+        }
+        state.rows.push(rows[0]);
+        state.rows.sort(function (a, b) {
+          return a.city.localeCompare(b.city) || (a.waypoint_id - b.waypoint_id);
+        });
+        wpField.value = '';
+        chalField.value = '';
+        render();
+        say('Added ' + wp.name + ' in ' + city + '.', 'success');
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    async function removeStop(row) {
+      const w = wpById(row.waypoint_id);
+      const name = w ? w.name : 'this stop';
+      if (!window.confirm('Delete ' + name + ' in ' + row.city + '? '
+          + 'The waypoint and the challenge are untouched; only the stop goes.')) return;
+      try {
+        // FILTERED ON THE KEY, WHICH IS THE PAIR. There is no id on this table
+        // any more, and filtering on the city alone would take the whole city.
+        const res = await fetch(restUrl(TABLE, {
+          city: 'eq.' + row.city,
+          waypoint_id: 'eq.' + row.waypoint_id
+        }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the delete and said nothing. Check you are signed in.');
+        }
+        state.rows = state.rows.filter(function (r) { return rowKey(r) !== rowKey(row); });
+        if (state.open && rowKey(state.open) === rowKey(row)) closeStop();
+        render();
+        say('Deleted the stop at ' + name + '.', 'success');
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    /* ---- wiring -----------------------------------------------------------
+       DEFENSIVE, because one dead reference in this block kills the rest of it
+       INCLUDING adminAuth.init(), and admin-shell.css hides every child of
+       body.mc-auth-protected until init() adds .mc-auth-authorized. A missing
+       element should cost one control, not the whole page. */
+    function on(id, event, fn) {
+      const node = el(id);
+      if (node) node.addEventListener(event, fn);
+      else console.warn('stop builder: no element #' + id);
+    }
+
+    on('addBtn', 'click', addStop);
+    on('cityInput', 'input', paintPickers);
+    on('q', 'input', function () { state.q = clean(el('q').value); render(); });
+    on('clearBtn', 'click', function () { el('q').value = ''; state.q = ''; render(); });
+    on('svClose', 'click', closeStop);
+    on('svBackdrop', 'click', function (e) {
+      // The backdrop only, never a click inside the panel.
+      if (e.target === el('svBackdrop')) closeStop();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeStop();
+    });
+
+    const adminAuth = TgbMcAdminAuth.create({
+      // THE OPTION IS `supabaseConfig`, AN OBJECT. Passing supabaseUrl and
+      // supabaseKey reads naturally, lands in Object.assign, is never looked at,
+      // and the room then blames the PROJECT for a fault in its own call.
+      supabaseConfig: {
+        url: SUPABASE_CONFIG.url,
+        publishableKey: SUPABASE_CONFIG.publishableKey
+      },
+      onAuthorized: async function () {
+        state.authed = true;
+        try {
+          await loadAll();
+          paintPickers();
+          render();
+        } catch (err) {
+          say(err.message, 'error');
+        }
+      }
+    });
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>

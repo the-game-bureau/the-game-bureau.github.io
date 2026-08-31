@@ -3362,10 +3362,10 @@
           </div>
           <select id="statusFilter" aria-label="Filter gifts by status" disabled>
             <option value="">Filter: Any status</option>
-            <option value="NOT_SHELVED">Filter: Not shelved</option>
-            <option value="LIVE">Filter: Live</option>
+            <option value="NOT_SHELVED">Filter: Not skipped</option>
+            <option value="LIVE">Filter: Posted</option>
             <option value="REVIEW">Filter: Review</option>
-            <option value="SHELVED">Filter: Shelved</option>
+            <option value="SHELVED">Filter: Skipped</option>
           </select>
           <select id="itemSortSelect" aria-label="Sort gifts" disabled>
             <option value="newest" selected>Sort: New → Old</option>
@@ -3415,8 +3415,8 @@
              ate a backslash. A character typed as itself cannot be misread.
              They are aria-hidden: the word beside each one already says what
              the button does, so a screen reader would only hear it twice. -->
-        <button class="btn primary process-go" type="button" id="processLive"><span class="process-emoji" aria-hidden="true">🙂</span> GO LIVE</button>
-        <button class="btn process-shelve" type="button" id="processShelve"><span class="process-emoji" aria-hidden="true">😐</span> SHELVE</button>
+        <button class="btn primary process-go" type="button" id="processLive"><span class="process-emoji" aria-hidden="true">🙂</span> POST</button>
+        <button class="btn process-shelve" type="button" id="processShelve"><span class="process-emoji" aria-hidden="true">😐</span> SKIP</button>
         <button class="btn process-later" type="button" id="processLater"><span class="process-emoji" aria-hidden="true">🤷</span> LATER</button>
       </div>
     </section>
@@ -3539,13 +3539,13 @@
               <div class="item-status-slot">
                 <label class="item-status-choice">
                   <input type="radio" value="LIVE" data-status-choice>
-                  <span>Live</span>
+                  <span>Posted</span>
                 </label>
               </div>
               <div class="item-status-slot">
                 <label class="item-status-choice">
                   <input type="radio" value="SHELVED" data-status-choice>
-                  <span>Shelved</span>
+                  <span>Skipped</span>
                 </label>
               </div>
               <div class="item-status-slot item-status-slot--flag">
@@ -3616,7 +3616,7 @@
 
           <div class="item-save-actions">
             <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
-            <button class="item-status-delete item-delete-btn" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
+            <button class="item-status-delete item-delete-btn" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Skipped to keep the record.">Delete</button>
           </div>
         </div>
       </div>
@@ -3644,7 +3644,7 @@
         <label class="suggest-keywords">Keywords (optional)
           <input id="suggestKeywords" type="text" placeholder="e.g. jazz, French Quarter, cookbooks" autocomplete="off">
         </label>
-        <p class="suggest-hint" id="suggestHint">Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org items, excludes all current inventory (Live, Review, and Shelved rows — shelved never comes back), and returns Supabase SQL using the import helper.</p>
+        <p class="suggest-hint" id="suggestHint">Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org items, excludes all current inventory (Posted, Review, and Skipped rows — a skipped gift never comes back), and returns Supabase SQL using the import helper.</p>
         <label>Prompt
           <textarea id="suggestPromptText" readonly spellcheck="false"></textarea>
         </label>
@@ -4469,23 +4469,41 @@
       return response.json();
     }
 
-    // public.cities is the whole site's city catalog (it also backs /soundtracks/).
-    // The gift shop's old gift_shop_cities table was merged into it by
-    // mc/supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql.
+    // THE SHOP'S CITY LIST IS ITS OWN LISTINGS, AND NOTHING ELSE (2026-08-31).
+    // It used to read public.cities, the whole site's catalogue, filtered by
+    // `hide_from_gift_shop`. Asked for outright: the gift shop keeps its own
+    // list and does not join that table.
+    //
+    // SO THE LIST CAN ONLY EVER OFFER A CITY THAT HAS A GIFT IN IT. That is the
+    // same rule the Waypoints room's place picker and the Tape Room's place
+    // filter already keep, and it is the better one for a picker: an empty
+    // result is not a state this control can produce.
+    //
+    // WHAT IT COSTS, plainly, because none of it is recoverable by accident:
+    // nothing stops two spellings of one town, no screen will tell you, and
+    // `hide_from_gift_shop` no longer governs anything here. Six cities that
+    // flag was hiding now appear if they hold a listing -- Glendale, Miami
+    // Gardens, Orchard Park, Santa Clara, Moscow and Kyiv. Archiving their
+    // listings is what takes them off now.
+    //
+    // ONE COLUMN, AND IT PAGES. PostgREST caps a response at 1000 rows and
+    // truncates in silence; there are 930 listings today, which is exactly the
+    // size that crosses that line without anybody noticing.
     async function fetchGiftShopCities() {
-      // select=* so this still works on a database that has not run
-      // 2026072205_cities_ignored.sql yet (naming `ignored` would 400).
-      // sort_order can also be absent (dropped, then restored by
-      // 2026072405_restore_cities_columns.sql) — ordering by a missing column
-      // 400s, so retry alphabetically rather than taking the catalog down.
-      const read = async (order) => fetch(restUrl('cities', { select: '*', order }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-      let response = await read('sort_order.asc,city.asc');
-      if (!response.ok) response = await read('city.asc');
-      if (!response.ok) throw new Error(await readError(response, 'Could not load cities.'));
-      return response.json();
+      const PAGE = 1000;
+      const rows = [];
+      for (let from = 0; ; from += PAGE) {
+        const response = await fetch(restUrl('gift_shop_listings', { select: 'city' }), {
+          headers: authHeaders({ Accept: 'application/json', Range: from + '-' + (from + PAGE - 1) }),
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not load the shop cities.'));
+        const page = await response.json();
+        if (!Array.isArray(page) || !page.length) break;
+        rows.push(...page);
+        if (page.length < PAGE) break;
+      }
+      return rows;
     }
 
 
@@ -4764,8 +4782,9 @@
     // dropped here, so they can't be filtered on or added to a gift.
     function setGiftShopCities(rows) {
       const cities = new Set();
+      // NO `ignored` TEST. That column is on public.cities, which this room no
+      // longer reads; a listing has no such flag and never had one.
       (Array.isArray(rows) ? rows : []).forEach((row) => {
-        if (row && row.ignored === true) return;
         const city = canonicalShopCity(row && row.city);
         if (city) cities.add(city);
       });
@@ -5232,8 +5251,8 @@
     function processTally() {
       const d = processState.done || { live: 0, shelve: 0, later: 0 };
       const bits = [];
-      if (d.live) bits.push(d.live + ' live');
-      if (d.shelve) bits.push(d.shelve + ' shelved');
+      if (d.live) bits.push(d.live + ' posted');
+      if (d.shelve) bits.push(d.shelve + ' skipped');
       if (d.later) bits.push(d.later + ' left for later');
       return bits.length ? bits.join(', ') + '.' : '';
     }
@@ -6111,11 +6130,22 @@
         return selected ? selected.value : articleStatus();
       };
       // Each choice reads as a state when it is the current one and as the
-      // action that gets you there when it isn't: Live / Go live.
+      // action that gets you there when it isn't: Posted / Post.
+      //
+      // POST AND SKIP ARE THE SAME TWO VERBS THE TAPE ROOM AND THE SOCIALIZER
+      // NOW USE (2026-08-31). Three rooms had three vocabularies for one pair
+      // of decisions, so somebody moving between them had to learn the words
+      // again in each. REVIEW keeps its own word: it is the state a gift
+      // ARRIVES in, not a decision anybody takes.
+      //
+      // THE VALUES DO NOT MOVE. LIVE and SHELVED are still the status strings,
+      // `certified_at` and `rejected_at` are still the columns, and
+      // `.process-shelve` is still the class. Rename the words on screen and
+      // leave the identifiers where every other reader can find them.
       const STATUS_CHOICE_WORDS = {
         REVIEW:  { on: 'Reviewing', off: 'Review' },
-        LIVE:    { on: 'Live',      off: 'Go live' },
-        SHELVED: { on: 'Shelved',   off: 'Shelve' }
+        LIVE:    { on: 'Posted',    off: 'Post' },
+        SHELVED: { on: 'Skipped',   off: 'Skip' }
       };
       const refreshStatusChoiceWords = () => {
         statusChoiceInputs.forEach((input) => {
@@ -6534,7 +6564,7 @@
       const urlInput = article.querySelector('[data-field="url"]');
       function defaultCtaLabel(url) {
         const u = String(url || '').toLowerCase();
-        if (/amazon\.|amzn\.to|a\.co\//.test(u)) return 'View on Amazon';
+        if (/amazon\.|amzn\.to|\ba\.co\//.test(u)) return 'View on Amazon';
         if (/bookshop\.org/.test(u)) return 'View on Bookshop';
         return 'Visit Site';
       }

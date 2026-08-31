@@ -1808,35 +1808,28 @@
     // per-surface `hide_from_gift_shop` column and falls back to the retired
     // `ignored` flag only when that column is absent, so the page behaves
     // correctly before and after 2026072901_cities_hide_flags.sql.
-    function isHiddenFromShop(row) {
-      if (!row) return false;
-      if (row.hide_from_gift_shop === true) return true;
-      return row.hide_from_gift_shop === undefined && row.ignored === true;
-    }
-
-    // Cities hidden from the shop are not shopping cities. select=* so this
-    // keeps working on a database missing either column.
+    // THE SHOP'S CITY LIST IS ITS OWN LISTINGS, AND NOTHING ELSE (2026-08-31).
+    // It used to read public.cities, the whole site's catalogue, and drop the
+    // rows flagged `hide_from_gift_shop`. Asked for outright: the gift shop
+    // keeps its own list and does not join that table.
+    //
+    // WHAT IT COSTS, said rather than discovered later. `hide_from_gift_shop`
+    // governs nothing here now, so SIX CITIES IT WAS HIDING appear on the rail
+    // the moment they hold a listing: Glendale, Miami Gardens, Orchard Park and
+    // Santa Clara -- venue towns nobody shops for -- plus Moscow and Kyiv.
+    // Archiving those listings is what takes them off the rail now, and the
+    // flag still governs /games/ and /soundtracks/ as it always did.
+    //
+    // `hiddenShopCityNames` STAYS AND STAYS EMPTY. buildGiftCityEntries reads it
+    // when back-filling cities found on a game, and an empty set is the honest
+    // answer to "which cities are hidden from the shop" once nothing hides one.
+    // Deleting it would mean editing that back-fill for no gain.
     async function fetchGiftShopCities() {
-      // Ordering by sort_order 400s if that column is missing (it was dropped
-      // and restored by 2026072405_restore_cities_columns.sql) — fall back to
-      // alphabetical instead of losing the whole catalog.
-      const rows = await fetchAllRows(buildSupabaseUrl('cities', {
-        select: '*',
-        order: 'sort_order.asc,city.asc'
-      })).catch(() => fetchAllRows(buildSupabaseUrl('cities', {
-        select: '*',
-        order: 'city.asc'
-      })));
-      const list = Array.isArray(rows) ? rows : [];
-      // Record the hidden names before dropping them, so the game back-fill in
-      // buildGiftCityEntries can recognise and skip them.
+      const rows = await fetchAllRows(buildSupabaseUrl('gift_shop_listings', {
+        select: 'city'
+      }));
       hiddenShopCityNames.clear();
-      list.forEach((row) => {
-        if (row && row.city && isHiddenFromShop(row)) {
-          hiddenShopCityNames.add(String(row.city).trim().toLowerCase());
-        }
-      });
-      return list.filter((row) => row && !isHiddenFromShop(row));
+      return Array.isArray(rows) ? rows : [];
     }
 
     // Every gift_shop_items row, so the shop can show items even when they have

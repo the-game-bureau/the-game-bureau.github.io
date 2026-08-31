@@ -690,11 +690,25 @@
         });
 
         // ----- Load TGB games from Supabase into the dropdown ---------------
-        // Games with no starting coordinates are skipped — they can't be scanned to.
+        //
+        // THIS PAGE HAS NOTHING TO AIM AT AS OF 2026-08-31, and says so rather
+        // than pretending. `games.starting_location_lat` / `_lon` were dropped
+        // (2026083105) because a game's location is now the CITY on its own
+        // row, and a city centroid is kilometres from anywhere a player would
+        // stand -- so a proximity scanner cannot run on one.
+        //
+        // THE TWO WAYS THIS COULD HAVE FAILED QUIETLY, both avoided: leaving
+        // the columns in the select would 400 and report "Unable to load
+        // games", blaming the connection for a schema change; loading the list
+        // anyway would give a scanner that never fires.
+        //
+        // WHAT IT WOULD TAKE TO BRING IT BACK: a per-STOP coordinate, which
+        // `public.waypoints` already holds. That is a real feature and a
+        // decision, not a repair.
         function loadGames() {
             const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
             url.searchParams.set('apikey', SB_CONFIG.key);
-            url.searchParams.set('select', 'id,name,city,starting_location_lat,starting_location_lon,archived');
+            url.searchParams.set('select', 'id,name,city,archived');
             url.searchParams.set('order', 'name.asc');
 
             fetch(url.toString())
@@ -704,17 +718,15 @@
                 })
                 .then(function (rows) {
                     const games = (Array.isArray(rows) ? rows : []).filter(function (g) {
-                        if (!g) return false;
-                        if (g.archived) return false;
-                        return typeof g.starting_location_lat === 'number'
-                            && typeof g.starting_location_lon === 'number';
+                        return g && !g.archived;
                     });
-                    if (!games.length) {
-                        showError('No games with starting coordinates found.', true);
-                        return;
-                    }
-                    populateGameSelect(games);
-                    hideError();
+                    // NAMED, NOT BLAMED ON THE CONNECTION. The read worked; there
+                    // is simply no start point on a game any more.
+                    showError('Games no longer carry a start point, so there is '
+                        + 'nothing for the scanner to aim at. A game is located by '
+                        + 'its city now, which is too coarse to stand inside. '
+                        + (games.length ? '(' + games.length + ' games loaded.)' : ''), false);
+                    gameSelect.disabled = true;
                 })
                 .catch(function () {
                     showError('Unable to load games from Supabase. Check your connection and retry.', true);
@@ -749,11 +761,9 @@
                     setState('scanning');
                     return;
                 }
-                nextClueId = game.id;
-                clueLatitude = game.starting_location_lat;
-                clueLongitude = game.starting_location_lon;
-                clueRadiusMeters = DEFAULT_CLUE_RADIUS_METERS;
-                hideError();
+                // No coordinate to aim at; see loadGames above.
+                nextClueId = null;
+                clueLatitude = clueLongitude = clueRadiusMeters = undefined;
             });
         }
 

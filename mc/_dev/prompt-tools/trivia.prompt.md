@@ -1,6 +1,6 @@
 # WRITING TRIVIA
 
-The rules for adding rows to `public.trivia`. Written for a person and for any
+The rules for adding trivia to `public.challenges`. Written for a person and for any
 AI asked to produce trivia, and it is the file a future trivia routine opens and
 follows, the way TGB PATH BOT opens `path-bot.prompt.md`.
 
@@ -51,9 +51,10 @@ it belongs to; how a game reaches it at that stop is not built.
   in the database will catch a typo.** Check it yourself:
 
 ```sql
-select t.id from public.trivia t
- where not exists (select 1 from public.destinations d
-                    where d.id = t.id or d.id like t.id || '-%');
+select t.ladder_key from public.challenges t
+ where t.kind = 'trivia'
+   and not exists (select 1 from public.destinations d
+                    where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 -- must return no rows
 ```
 
@@ -168,9 +169,10 @@ The distractors are most of the work and are where a lazy question shows.
   clearest single tell that a machine wrote the line, and this text carries none
   either so nothing copies the habit back.
 - **NO SMART QUOTES.** A straight apostrophe, doubled inside SQL.
-- **DO NOT WRITE `trivia_id`.** It is an identity column and the database
-  assigns it. **A gap in the sequence is not a deleted row**, it is a refused
-  insert consuming its value.
+- **DO NOT WRITE `id`.** It is an identity column and the database assigns it.
+  **A gap in the sequence is not a deleted row**, it is a refused insert
+  consuming its value. (It was `trivia_id` until 2026-08-31; `id` on a trivia
+  row used to mean the LADDER KEY, and that is `ladder_key` now.)
 
 ---
 
@@ -179,13 +181,24 @@ The distractors are most of the work and are where a lazy question shows.
 One `insert` statement, in a fenced sql block, and nothing else around it.
 
 ```sql
-insert into public.trivia (id, question, answer, choices) values
-  ('pittsburgh-pa-nfl-steelers',
+-- FIVE COLUMNS, AND `kind` IS NOT OPTIONAL. Trivia was merged into
+-- public.challenges on 2026-08-31; the column defaults to 'question', and a row
+-- written without it is refused outright, because a ladder key may only sit on
+-- a trivia row.
+--   name        what the room lists it by. The question, or a short form of it.
+--   ladder_key  the rung. This was `trivia.id`, which was a bad name for it.
+--   prompt      the question. This was `trivia.question`.
+insert into public.challenges (kind, name, ladder_key, prompt, answer, choices) values
+  ('trivia',
+   'How many Super Bowl titles have the Steelers won?',
+   'pittsburgh-pa-nfl-steelers',
    'How many Super Bowl titles have the Steelers won?',
    '6',
    array['4','5','6','7']),
 
-  ('pittsburgh-pa',
+  ('trivia',
+   'Which river joins the Allegheny at the Point to form the Ohio?',
+   'pittsburgh-pa',
    'Which river joins the Allegheny at the Point to form the Ohio?',
    'Monongahela', null);
 ```
@@ -204,24 +217,56 @@ insert into public.trivia (id, question, answer, choices) values
 Read the numbers rather than the absence of an error.
 
 ```sql
--- every id resolves as a team or as a city
-select t.id from public.trivia t
- where not exists (select 1 from public.destinations d
-                    where d.id = t.id or d.id like t.id || '-%');
+-- every ladder key resolves as a team or as a city
+select t.ladder_key from public.challenges t
+ where t.kind = 'trivia'
+   and not exists (select 1 from public.destinations d
+                    where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 
 -- what shape each row came out as
-select t.trivia_id, t.id,
-       case when exists (select 1 from public.destinations d where d.id = t.id)
+select t.id, t.ladder_key,
+       case when exists (select 1 from public.destinations d where d.id = t.ladder_key)
               then 'team'
-            when exists (select 1 from public.destinations d where d.id like t.id || '-%')
+            when exists (select 1 from public.destinations d where d.id like t.ladder_key || '-%')
               then 'city'
        end as shape
-  from public.trivia t order by t.trivia_id desc limit 20;
+  from public.challenges t
+ where t.kind = 'trivia'
+ order by t.id desc limit 20;
 
-select count(*) from public.trivia;
+select count(*) from public.challenges where kind = 'trivia';
 ```
 
-**If a row was refused, the constraint names itself.** `trivia_answer_is_a_choice`
-means the answer is not among its own options. `trivia_free_answer_is_one_word`
-means a multi word answer was sent with no choices. `trivia_choices_enough` means
-fewer than two options. Fix the row; do not remove the constraint.
+**If a row was refused, the constraint names itself.** They were renamed when
+trivia moved into `public.challenges` on 2026-08-31, and all but two are now
+scoped to `kind = 'trivia'`, because a challenge legitimately breaks them: a
+photo challenge has no answer at all, and a two word answer is fine on one.
+
+| constraint | what it means |
+|---|---|
+| `challenges_answer_is_a_choice` | the answer is not among its own options |
+| `challenges_choices_enough` | fewer than two options |
+| `challenges_trivia_free_answer_is_one_word` | a multi word answer with no choices |
+| `challenges_trivia_answer_not_in_prompt` | the question contains its own answer |
+| `challenges_trivia_no_one_word_prefix` | the question opens with "One word" |
+| `challenges_trivia_has_a_prompt` / `_has_an_answer` | one of them is blank |
+| `challenges_ladder_key_belongs_to_trivia` | the key is uppercase, or missing, or sitting on a row whose `kind` is not `trivia` |
+
+Fix the row; do not remove the constraint.
+
+### THE QUESTION MAY NOT CONTAIN ITS OWN ANSWER
+
+**Enforced, as `trivia_answer_not_in_question`.** A team reads the question
+aloud in the street, so an answer sitting inside it is an answer already in
+their mouth. The row that prompted the rule is on file: *"Which river is dyed
+bright green through downtown CHICAGO every St Patrick's Day?"*, answer
+**Chicago**. It looks perfectly fine in a table and tests nothing.
+
+- **Whole words, and case and punctuation are forgiven.** `Chicago Bears` is
+  refused by a question saying "the CHICAGO-bears"; a question about a
+  `bearskin` hat is fine with the answer `Bear`.
+- **It applies to a multiple choice row too.** Naming the right option in the
+  question is the same broken question with buttons under it.
+- **It is `NOT VALID`, so it does not reach rows written before 2026-08-31** --
+  one of which breaks it. **Editing that row will refuse the edit** until the
+  question is reworded, which is the right outcome and will arrive as a surprise.
