@@ -259,6 +259,60 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      answered instead. */
   t('the counts line reads the status, not the archived flag',
     /building/.test(picker.stats) && !/0 building/.test(picker.stats), picker.stats);
+  /* AND A LOCAL SNAPSHOT WITHOUT A STATUS MUST NOT BLANK THE ONE THE DATABASE
+     SUPPLIED. `refreshHeaderGames` merges remote, then local, then memory, and
+     the last copy wins -- so a snapshot written before the column existed was
+     erasing it on every load. */
+  const merged = await page.evaluate(() => {
+    const rows = buildHeaderGameList([
+      { id: 'x1', name: 'A', status: 'building', archived: 'YES' },
+      { id: 'x1', name: 'A', status: '', archived: 'YES' }
+    ]);
+    return rows[0] ? rows[0].status : '(none)';
+  });
+  t('a statusless local copy does not blank the real status',
+    merged === 'building', merged);
+
+  /* THE CITY LIVES IN THE GAME BOX AND THE EVENT FILLS IT. Moved rather than
+     added: `games.city` already had a control in the inspector, and a second
+     one for one column is the duplication this repo keeps removing. */
+  await page.evaluate(() => {
+    const ev = document.getElementById('anchorEventInput');
+    const box = document.getElementById('nodeCityInput');
+    box.value = '';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    const opt = [...document.querySelectorAll('#anchorEventList option')].find((o) => / at /.test(o.value));
+    if (opt) { ev.value = opt.value; ev.dispatchEvent(new Event('change', { bubbles: true })); }
+    return { stage: 1, chosen: opt ? opt.value : '(none)' };
+  });
+  /* A TICK, because the room repaints on a schedule: `applyAnchorEventSelection`
+     ends in scheduleRecoverySync / scheduleUpdateActionUi, so the box settles
+     one turn after the change event rather than inside it. */
+  await new Promise((r) => setTimeout(r, 120));
+  const city = await page.evaluate(() => {
+    const f = document.getElementById('cityField');
+    const bar = document.getElementById('gameIdentityBar');
+    const ev = document.getElementById('anchorEventInput');
+    const box = document.getElementById('nodeCityInput');
+    const inBar = !!(f && bar && bar.contains(f));
+    const label = f ? f.querySelector('label').textContent.trim() : '';
+    const filled = box.value;
+    /* AND IT DOES NOT OVERWRITE ONE SOMEBODY HAS SET. */
+    box.value = 'Somewhere Else';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    const opt2 = [...document.querySelectorAll('#anchorEventList option')]
+      .filter((o) => / at /.test(o.value))[1];
+    if (opt2) { ev.value = opt2.value; ev.dispatchEvent(new Event('change', { bubbles: true })); }
+    return { inBar: inBar, label: label, filled: filled, kept: box.value,
+             onlyOne: document.querySelectorAll('#nodeCityInput').length };
+  });
+  t('the city sits in the GAME box', city.inBar);
+  t('and is called City', /^city$/i.test(city.label), city.label);
+  t('there is only one city control', city.onlyOne === 1, city.onlyOne);
+  t('an event fills a blank city', city.filled.trim().length > 0,
+    JSON.stringify(city.filled));
+  t('and never overwrites one already set',
+    city.kept === 'Somewhere Else', JSON.stringify(city.kept));
   t('and live ones carry no word at all', picker.liveUnmarked);
   t('and no live game is listed after an archived one', picker.noLiveAfterArchived);
   t('a game that does not exist is refused', picker.badInvalid);

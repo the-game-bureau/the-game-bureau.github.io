@@ -7883,6 +7883,38 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### THE CITY IS IN THE GAME BOX, AND THE EVENT FILLS IT (2026-08-30)
+
+- **MOVED, NOT ADDED.** `games.city` already had a control -- "Start City" in the
+  inspector -- and **a second one for one column is the duplication this repo
+  keeps removing**. The STATE and COUNTRY boxes stay where they are: the three
+  compose `meta.city` together, and the city is the half you read a game by.
+  **The id and the wiring are unchanged**, so the geocoder still finds it.
+- **THE EVENT FILLS A BLANK ONE.** `events.venue_city` is the canonical
+  "City, State" string, which is the shape `games.city` holds, so it goes across
+  whole. **The structured halves are cleared** so they are re-derived -- left
+  behind, a game moved from Denver to Chicago would keep `CO` in the state box.
+- **AND NEVER OVERWRITES ONE ALREADY SET**, the same rule as the two audiences.
+
+**IT TOOK THREE FIXES TO MAKE THAT WORK, AND ALL THREE WERE THE SAME BUG.**
+
+- **`syncGeoControlsToMeta` RETURNED EARLY ON `getGameNode()`**, so typing a city
+  changed the box and never the row.
+- **`applyGeoControls(isGameNode ? meta : null)` CLEARED THE BOX ON EVERY
+  REPAINT**, because a game with no flow node passed null.
+- **THE THIRD FIELD TO NEED THIS TODAY**, after the Anchor trio and the two
+  audiences. **`isGameNode` asks whether the flow DOCUMENT has a game node;
+  `showGameDetails` asks whether a game ROW is open**, and every column on
+  `public.games` belongs to the row. **Anything in this room still gated on
+  `isGameNode` is a candidate for the same fault** -- `nodeTitleInput` and
+  `nodeTaglineInput` are the two that remain.
+- **AND `applyGeoControls` SHOWED NO CITY AT ALL when `parseGeo` came back
+  empty**, which it can: that module is FETCHED, and it can decline a spelling.
+  The text before the comma is the last resort, by the same convention the whole
+  string is written in.
+
+**98 assertions.**
+
 ## A GAME IS LIVE, ARCHIVED OR BUILDING (2026-08-30)
 
 [2026083028](mc/supabase/migrations/2026083028_three_game_statuses.sql), **applied**. `games.status`, with a CHECK, plus a trigger that

@@ -7464,6 +7464,7 @@ body.builder-page--editor .btn-guess[aria-disabled="true"]{
   opacity:.5;
   cursor:help;
 }
+body.builder-page--editor .gid-field--city{ flex:0 1 240px; }
 body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
 /* Its own line under the pair above: flex-basis 100% forces the wrap, so the
    name and id keep the first row to themselves at any width. */
@@ -10012,6 +10013,21 @@ html.admin-embedded .builder-section-head{
                contents, and .textContent everywhere an input would have said
                .value. It is still the primary key of the row and renaming it
                still asks first -- see the blur handler. -->
+          <!-- THE CITY, MOVED RATHER THAN ADDED. `games.city` already had a
+               control -- "Start City" in the inspector -- and a second one for
+               one column is the duplication this repo keeps removing. The
+               STATE and COUNTRY boxes stay where they are: the three compose
+               `meta.city` together through syncGeoControlsToMeta, and the city
+               is the half you read a game by.
+
+               THE ID AND THE WIRING ARE UNCHANGED, so applyGeoControls and the
+               geocoder still find it: this is a move in the markup and nothing
+               else. -->
+          <div class="gid-field gid-field--city" id="cityField">
+            <label class="gid-label" for="nodeCityInput">City</label>
+            <input id="nodeCityInput" type="text" autocomplete="off"
+                   placeholder="e.g. Denver" disabled>
+          </div>
           <div class="gid-field gid-field--id" id="selectionId">
             <label class="gid-label" for="selectionIdInput">Game ID</label>
             <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
@@ -10208,10 +10224,6 @@ html.admin-embedded .builder-section-head{
                       </div>
                     </div>
 
-                    <div class="field" id="cityField">
-                      <label class="field-label field-label--with-meta" for="nodeCityInput">Start City<span class="field-info" tabindex="0" role="note" aria-label="The city the tour takes place in.">i<span class="field-tooltip" role="tooltip">The city the tour takes place in.</span></span></label>
-                      <input id="nodeCityInput" type="text" autocomplete="off" placeholder="e.g. Denver" disabled>
-                    </div>
 
                     <div class="field" id="stateField">
                       <label class="field-label field-label--with-meta" for="nodeStateInput">State / Province<span class="field-info" tabindex="0" role="note" aria-label="Pick the state or province. Drives the map icon.">i<span class="field-tooltip" role="tooltip">Pick the state or province. Drives the map icon.</span></span></label>
@@ -12857,6 +12869,34 @@ function audienceForEventSide(ev, side) {
   return null;
 }
 
+/* THE EVENT KNOWS WHERE IT IS, so a game anchored to it does too. `venue_city`
+   is the canonical "City, State" string, which is the same shape `games.city`
+   holds -- so it goes across whole rather than being taken apart and rebuilt.
+   Filling a BLANK only, like the two audiences: changing the event must not
+   quietly move a game somebody has already placed. */
+function fillCityFromEvent(ev) {
+  if (!ev || !state.currentGameMeta) return;
+  if (String(state.currentGameMeta.city || '').trim()) return;
+  const city = String(ev.venue_city || '').trim();
+  if (!city) return;
+  state.currentGameMeta.city = city;
+  /* THE STRUCTURED HALVES ARE CLEARED so applyGeoControls re-derives them from
+     the string. Left behind, a game moved from Denver to Chicago would keep
+     CO in the state box, which is the disagreement this room already fixed
+     once between `city_name` and the place it pointed at. */
+  state.currentGameMeta.cityName = '';
+  state.currentGameMeta.stateCode = '';
+  state.currentGameMeta.countryCode = '';
+  applyGeoControls(state.currentGameMeta);
+  /* AND THE BOX IS WRITTEN EXPLICITLY. `applyGeoControls` derives the city name
+     through `parseGeo`, which is a fetched module and can decline a spelling --
+     and this filler is the one place that KNOWS what it just wrote, so it says
+     so rather than hoping the round trip through the parser comes back. */
+  if (nodeCityInput && document.activeElement !== nodeCityInput) {
+    nodeCityInput.value = String(city).split(',')[0].trim() || city;
+  }
+}
+
 function fillAudiencesFromEvent(ev) {
   if (!ev || !state.currentGameMeta) return;
   [['away', 'targetAudienceId'], ['home', 'rivalAudienceId']].forEach(([side, field]) => {
@@ -12911,6 +12951,7 @@ function applyAnchorEventSelection(nextId) {
     }
     fillAudiencesFromEvent(ev);
   }
+  fillCityFromEvent(ev);
   // Non-sports events (concert/convention/…) just record the link — no team
   // fill, no palette change, so the game keeps its own colors.
   scheduleRecoverySync();
@@ -18446,6 +18487,19 @@ function buildHeaderGameList(games = []) {
     const normalizedGame = normalizeSavedGame(rawGame, index);
     const gameId = String(normalizedGame.id || '').trim();
     if (!gameId) return;
+    /* LAST WINS, EXCEPT WHERE THE LATER COPY SIMPLY DOES NOT KNOW.
+       `refreshHeaderGames` merges remote, then the LOCAL snapshot, then what is
+       in memory -- and the local snapshot was written before `status` existed,
+       so it carries an empty one and was blanking the value the database had
+       just supplied. The counts line then read "394 archived" over a table
+       where every row was building.
+       Narrow on purpose: an empty value elsewhere is usually a real clear, and
+       carrying every blank forward would make a field impossible to empty. */
+    const previous = gameMap.get(gameId);
+    if (previous && !String(normalizedGame.status || '').trim()
+                 && String(previous.status || '').trim()) {
+      normalizedGame.status = previous.status;
+    }
     gameMap.set(gameId, normalizedGame);
   });
 
@@ -20624,7 +20678,11 @@ function updateSelectionUi(options = {}) {
   }
 
   const meta = state.currentGameMeta || {};
-  applyGeoControls(isGameNode ? meta : null);
+  /* THE OPEN GAME, NOT THE FLOW NODE -- the third field to need this today.
+     `isGameNode` asks whether the DOCUMENT has a game node, and a game opened
+     from the picker may have none, so every repaint passed null and
+     applyGeoControls cleared the city box. The city belongs to the ROW. */
+  applyGeoControls(showGameDetails ? meta : null);
   if (nodeStartNameInput) nodeStartNameInput.value = isGameNode ? (meta.startingLocationName || '') : '';
   if (nodeStartAddressInput) nodeStartAddressInput.value = isGameNode ? (meta.startingLocationAddress || '') : '';
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
@@ -23169,7 +23227,15 @@ function applyGeoControls(meta) {
   }
   // Prefer structured fields; fall back to parsing the composed city string.
   const parsed = TGB_GEO ? TGB_GEO.parseGeo(meta.city || '') : {};
-  const cityName = (meta.cityName != null && meta.cityName !== '') ? meta.cityName : (parsed.cityName || '');
+  /* AND THE STRING ITSELF IS THE LAST RESORT. `parseGeo` needs the geo module,
+     which is fetched, and it can decline a spelling it does not recognise -- in
+     either case the box was set to '' and a game with a perfectly good city
+     showed NO city at all, which reads as missing data rather than as a parse
+     that came back empty. The text before the comma is the city by the same
+     convention the whole string is written in. */
+  const cityName = (meta.cityName != null && meta.cityName !== '')
+    ? meta.cityName
+    : (parsed.cityName || String(meta.city || '').split(',')[0].trim());
   const stateCode = (meta.stateCode || parsed.stateCode || '');
   const countryCode = (meta.countryCode || parsed.countryCode || (stateCode ? 'USA' : ''));
   nodeCityInput.value = cityName;
@@ -23180,7 +23246,11 @@ function applyGeoControls(meta) {
 // Recompute meta.city + structured fields from the three controls, then reuse
 // the existing debounced geocode to fill coordinates when they're blank.
 function syncGeoControlsToMeta(runGeocode) {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* THE META, NOT THE NODE. `getGameNode()` asks whether the flow document has
+     a game node, and a game opened from the picker may have none -- so typing a
+     city changed the box and never the row, silently. Same gate that greyed the
+     whole Anchor box over an open game, one more field along. */
+  if (!state.currentGameMeta) return;
   const cityName = nodeCityInput ? nodeCityInput.value.trim() : '';
   const stateCode = nodeStateInput ? nodeStateInput.value : '';
   const countryCode = nodeCountryInput ? nodeCountryInput.value : '';
