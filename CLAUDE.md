@@ -7883,6 +7883,43 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+## A GAME IS LIVE, ARCHIVED OR BUILDING (2026-08-30)
+
+[2026083028](mc/supabase/migrations/2026083028_three_game_statuses.sql), **applied**. `games.status`, with a CHECK, plus a trigger that
+keeps `archived` in step.
+
+- **`archived` WAS TWO STATES IN A FLAG THAT READS LIKE A BOOLEAN AND IS NOT**:
+  TEXT, where `'YES'` is the only true value and null means live. **BUILDING is
+  the third: written, not finished, deliberately not on sale.**
+- **`archived` IS KEPT AND KEPT IN STEP, NEVER REPLACED.** `public.games` is
+  read by both engines with `select=*` and is the paid product, and `archived`
+  is what `/games/`, `/gifts/` and `site-footer.js` all filter on.
+- **THE TRIGGER SYNCS BOTH DIRECTIONS, and the second one is what matters.**
+  A caller that knows about `status` sets it and `archived` follows; **the
+  Archive button in this room PATCHes `archived` directly and knows nothing
+  about `status`**, so the status follows that instead. Without the back-sync
+  the two would disagree, which is the exact fault this file keeps recording.
+  Both directions were proved on a probe and rolled back.
+- **`archived` IS 'YES' FOR BOTH `archived` AND `building`, so only `live`
+  reaches a buyer.** A third state that quietly appeared in the shop window
+  would be worse than no third state.
+- **AND EVERYTHING IS BUILDING, AS ASKED -- WHICH TOOK 31 GAMES OFF `/games/`.**
+  The public shop window is now **zero**. **The 31 ids are written out in the
+  migration** so restoring exactly what was live is one statement; they are the
+  New Orleans set plus Oswald, the office tour and the DealerTire walks.
+- **`erased` IS UNTOUCHED and is still a separate flag.** Four rows carry it.
+  **Anything counting live games has to ask both**, which this file has now
+  recorded from three directions.
+- **THE ROOM READS `status` FIRST AND FALLS BACK TO `archived`**, which is a
+  preference rather than a reconciliation: the trigger means they cannot
+  disagree, and the fallback is for a row read by something that has not caught
+  up.
+- **THE PICKER GROUPS LIVE, BUILDING, ARCHIVED -- the workflow order**, and
+  **live is the UNMARKED case**: a word on every row is a column rather than
+  news, so what a label says is that a game is NOT on sale and which of the two
+  reasons. The counts line reads `GAME STATS: 0 live + 395 building + 0
+  archived`. **90 assertions.**
+
 ### A NEW GAME HAS NO NAME, AND A GUESS BUTTON OFFERS ONE (2026-08-30)
 
 - **`!AAA Great Game!` IS GONE FROM A NEW GAME.** It is a placeholder shaped to

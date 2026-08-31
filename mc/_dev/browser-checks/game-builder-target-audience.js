@@ -224,14 +224,17 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       /* THE ID IS IN EVERY LABEL, or three rows called "Chicago Fans Takeover
          Baltimore" are three identical lines. */
       allCarryAnId: opts.every((v) => v.split('·').length >= 2),
-      archivedMarked: opts.some((v) => /archived/.test(v)),
+      statusMarked: opts.some((v) => /archived|building/.test(v)),
+      liveUnmarked: opts.every((v) => !/·\s*live/.test(v)),
       /* THE INVARIANT, NOT THE FIXTURE. "Live first" is vacuously false on an
          all-archived catalogue, which is what these three rows are. What must
          hold is that no LIVE game ever appears after an archived one. */
       noLiveAfterArchived: (() => {
-        const firstArchived = opts.findIndex((v) => /archived/.test(v));
-        if (firstArchived < 0) return true;
-        return opts.slice(firstArchived).every((v) => /archived/.test(v));
+        /* LIVE, THEN BUILDING, THEN ARCHIVED: the workflow order. What must
+           hold is that an unmarked (live) row never follows a marked one. */
+        const firstMarked = opts.findIndex((v) => /archived|building/.test(v));
+        if (firstMarked < 0) return true;
+        return opts.slice(firstMarked).every((v) => /archived|building/.test(v));
       })(),
       badInvalid: bad.invalid, badTitle: bad.title,
       afterBlank: afterBlank, before: before,
@@ -244,7 +247,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     picker.isInput + '/' + picker.list + '/' + picker.noSelect);
   t('its list holds the games (' + picker.count + ')', picker.count > 0, picker.count);
   t('every label carries the id, so duplicates are tellable apart', picker.allCarryAnId);
-  t('archived games are marked', picker.archivedMarked);
+  /* THREE STATUSES NOW: live is the unmarked case, because a word on every row
+     is a column rather than news. What is worth saying is that a game is NOT on
+     sale, and which of the two reasons. */
+  t('games not on sale carry their status', picker.statusMarked, picker.firstLabel);
+  t('and live ones carry no word at all', picker.liveUnmarked);
   t('and no live game is listed after an archived one', picker.noLiveAfterArchived);
   t('a game that does not exist is refused', picker.badInvalid);
   t('and says so in words', /No game called/.test(picker.badTitle), picker.badTitle);

@@ -18403,14 +18403,26 @@ function compareSavedGamesNewestFirst(a, b) {
 }
 
 function getHeaderGameGroup(game) {
+  /* THE `status` COLUMN LEADS WHERE THERE IS ONE, and `archived` is the fallback
+     for a row read before 2026083028 or by something that has not caught up.
+     They cannot disagree -- a trigger keeps them in step both ways -- so this is
+     a preference rather than a reconciliation. */
+  const status = String((game && game.status) || '').trim().toLowerCase();
+  if (status === 'live') return 'LIVE';
+  if (status === 'archived') return 'ARCHIVED';
+  if (status === 'building') return 'BUILDING';
   if (normalizeArchivedFlag(game && game.archived) === ARCHIVED_GAME_VALUE) return 'ARCHIVED';
   return 'LIVE';
 }
 
 function compareHeaderGames(a, b) {
   const groupOrder = {
+    /* THE ORDER IS THE WORKFLOW: what is on sale, what is being written, what is
+       off the shelf. BUILDING sits between them because it is the one you are
+       most likely to be coming back to. */
     LIVE: 0,
-    ARCHIVED: 1
+    BUILDING: 1,
+    ARCHIVED: 2
   };
   const groupDiff = (groupOrder[getHeaderGameGroup(a)] ?? 99) - (groupOrder[getHeaderGameGroup(b)] ?? 99);
   if (groupDiff !== 0) return groupDiff;
@@ -18453,13 +18465,17 @@ function getHeaderGames() {
   return buildHeaderGameList(games);
 }
 
-function gamePickerLabel(game, archived) {
+function gamePickerLabel(game, group) {
   /* NAME, THEN ID, THEN WHETHER IT IS ON THE SHELF. The id is not decoration:
      three rows share the name "Chicago Fans Takeover Baltimore", so without it
      the list offers three identical lines and picking one is a coin toss. It
      also makes the id searchable, which is how somebody arrives from a link. */
   const name = game.name || 'Untitled Game';
-  return name + '  ·  ' + game.id + (archived ? '  ·  archived' : '');
+  /* LIVE IS THE UNMARKED CASE. A word on every row would be a column, not news;
+     what is worth saying is that a game is NOT on sale, and which of the two
+     reasons it is not. */
+  const mark = group === 'LIVE' ? '' : '  ·  ' + String(group || '').toLowerCase();
+  return name + '  ·  ' + game.id + mark;
 }
 
 function renderGamePickerSelect() {
@@ -18469,6 +18485,7 @@ function renderGamePickerSelect() {
   const list = document.getElementById('gamePickerList');
   const groups = [
     { key: 'LIVE', label: 'LIVE', games: [] },
+    { key: 'BUILDING', label: 'BUILDING', games: [] },
     { key: 'ARCHIVED', label: 'ARCHIVED', games: [] }
   ];
   const groupMap = new Map(groups.map((group) => [group.key, group]));
@@ -18484,7 +18501,7 @@ function renderGamePickerSelect() {
   if (list) list.innerHTML = '';
   groups.forEach((group) => {
     group.games.forEach((game) => {
-      const label = gamePickerLabel(game, group.key === 'ARCHIVED');
+      const label = gamePickerLabel(game, group.key);
       gamePickerByLabel.set(label.toLowerCase(), game.id);
       if (!list) return;
       const opt = document.createElement('option');
@@ -18494,9 +18511,7 @@ function renderGamePickerSelect() {
   });
 
   const current = state.currentGameId && games.find((game) => game.id === state.currentGameId);
-  gamePickerInput.value = current
-    ? gamePickerLabel(current, getHeaderGameGroup(current) === 'ARCHIVED')
-    : '';
+  gamePickerInput.value = current ? gamePickerLabel(current, getHeaderGameGroup(current)) : '';
   gamePickerInput.removeAttribute('data-invalid');
   gamePickerInput.title = current ? current.id : 'Open game';
 
@@ -18506,10 +18521,12 @@ function renderGamePickerSelect() {
   const gameProfileStat = document.getElementById('gameProfileStat');
   if (gameProfileStat) {
     const live = groupMap.get('LIVE').games.length;
+    const building = groupMap.get('BUILDING').games.length;
     const archived = groupMap.get('ARCHIVED').games.length;
     gameProfileStat.textContent = games.length
-      ? ('GAME STATS: ' + live + ' live + ' + archived + ' archived = ' +
-         games.length + ' game' + (games.length === 1 ? '' : 's'))
+      ? ('GAME STATS: ' + live + ' live + ' + building + ' building + ' +
+         archived + ' archived = ' + games.length + ' game' +
+         (games.length === 1 ? '' : 's'))
       : '';
   }
 
