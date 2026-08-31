@@ -419,6 +419,47 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('and does NOT overwrite the target that was typed',
     /Chicago \(Bears\)/.test(wrote.target), wrote.target + ' after ' + wrote.picked);
 
+  /* THE GENERATED GAME ID. The shape is the catalogue's own -- host code, year,
+     visitor code -- read off real rows rather than invented, and the codes come
+     from `team_key` because `chc` is the Cubs' code and not the first three
+     letters of Chicago. */
+  const gid = await page.evaluate(() => {
+    const ev = document.getElementById('anchorEventInput');
+    const tin = document.getElementById('targetAudienceInput');
+    const rin = document.getElementById('rivalAudienceInput');
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    const out = {};
+
+    type(tin, 'MLB Cubs · Chicago, IL');
+    type(rin, 'MLB Baltimore (Orioles)');
+    out.fixture = composeGameId();
+
+    /* NO FANDOMS: it falls back to the event's own title and town. */
+    type(tin, ''); type(rin, '');
+    out.noFandoms = composeGameId();
+
+    /* NOTHING AT ALL: the game's own name, then something random. */
+    type(ev, '');
+    out.nameOnly = composeGameId();
+
+    out.free = freeGameId('bal2026chc', new Set(['bal2026chc', 'bal2026chc2']));
+    out.freeFirst = freeGameId('nothing-like-this', new Set(['bal2026chc']));
+    out.code = gameIdCode('mlb-cubs', '');
+    out.fallbackCode = gameIdCode('history-jfk', '');
+    return out;
+  });
+  t('a fixture builds host + year + visitor', /^bal\d{4}chc$/.test(gid.fixture), gid.fixture);
+  t('the code is the club code, not three letters of the city',
+    gid.code === 'chc', gid.code);
+  t('an audience with no club key falls back to its name',
+    gid.fallbackCode === 'jfk', gid.fallbackCode);
+  t('with no fandoms it uses the event', gid.noFandoms.length > 4, gid.noFandoms);
+  t('and with nothing at all it still returns something',
+    gid.nameOnly.length > 0, gid.nameOnly);
+  /* THE COLLISION SUFFIX IS THE CONVENTION ALREADY IN THE TABLE: chc2026stl5. */
+  t('a taken id gets the next free number', gid.free === 'bal2026chc3', gid.free);
+  t('and a free one is left alone', gid.freeFirst === 'nothing-like-this', gid.freeFirst);
+
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly
      does not carry it. Structural on purpose -- the harness cannot open a game,

@@ -7883,6 +7883,44 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### A GAME ID IS BUILT FROM ITS ANCHOR (2026-08-30)
+
+The prompt that asks for a new game's id now opens with one already in it,
+composed from what the game knows.
+
+- **THE SHAPE IS THE CATALOGUE'S OWN, read off real rows rather than invented.**
+  `bal2026chc`, `nyk2026nop`, `atl2026tam`: **the HOST first, then the year,
+  then the VISITOR**. So the rival leads and the target closes, which is the
+  same asymmetry the copy already has.
+- **`chc` IS NOT THE FIRST THREE LETTERS OF CHICAGO.** It is the Cubs' code, as
+  `nop` is the Pelicans' and `sfo` San Francisco's -- **there is no rule that
+  derives them**, so they come from `team_key`, which is `LEAGUE:CODE`. That
+  meant adding `team_key` to the audience read. A fandom with no key falls back
+  to three letters of its name, which is visibly a guess.
+- **THE YEAR COMES FROM THE EVENT** where there is one, because the id is about
+  when the game is PLAYED rather than when it was typed.
+- **FOUR FALLBACKS, IN ORDER**: both fandoms; then an event that names no clubs,
+  by its own title and town (the shape the Events room composes from); then one
+  fandom and a year; then the game's own name; and last **something random
+  rather than something wrong**.
+- **IT IS A SUGGESTION, NEVER A DECISION.** It is offered in the prompt that
+  already asks, so a person sees it and can type over it -- and **`games.id` is
+  referenced by SIX tables**, so an id that arrives without anybody looking at it
+  is one nobody can safely change later.
+- **THE COLLISION SUFFIX IS THE CONVENTION ALREADY IN THE TABLE**: `chc2026stl5`
+  is the fifth of its shape. The suggestion is pre-checked against the
+  catalogue, so it is never one the next line would reject.
+- **73 assertions**, including that a fixture gives `bal2026chc` exactly.
+
+**`games.id` IS ALREADY A UNIQUE KEY, TWICE.** It is the PRIMARY KEY **and**
+carries a second unique index, `games_id_unique`. Nothing was needed.
+
+- **THE SECOND ONE IS DEAD WEIGHT and is left in place, reported rather than
+  dropped.** A primary key is already unique, so that index is written on every
+  insert forever in exchange for nothing -- which is the exact argument that
+  made [2026082803](mc/supabase/migrations/2026082803_covering_index_for_the_city_rail.sql) drop an index it had just built. `drop index
+  public.games_id_unique;` is the whole change if it is wanted.
+
 ### AND THE GAME PICKER IN THE NAV IS A COMBO TOO (2026-08-30)
 
 `#gamePickerSelect` is `#gamePickerInput`, an input bound to a datalist. **The

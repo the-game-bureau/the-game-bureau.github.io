@@ -12197,7 +12197,7 @@ let builderAudiencesList = [];
 async function loadBuilderAudiences() {
   if (!hasSupabaseStore()) return;
   const url = buildSupabaseUrl(
-    { select: 'id,name,family,nickname,kind,shell,stripe,mask,home_place_id',
+    { select: 'id,name,family,nickname,kind,shell,stripe,mask,home_place_id,team_key',
       order: 'family.asc,name.asc' },
     'audiences'
   );
@@ -14046,6 +14046,79 @@ function makeId(type = 'stop', counters = state.nextNodeNumbers, usedIds = null)
 
 const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
+/* A GAME ID, BUILT FROM WHAT THE GAME ALREADY KNOWS.
+ *
+ * THE SHAPE IS THE ONE THE CATALOGUE ALREADY USES, read off the real rows
+ * rather than invented: `bal2026chc`, `nyk2026nop`, `atl2026tam` -- **the HOST
+ * first, then the year, then the VISITOR**, each a club's own code. So the
+ * rival (the home fandom) leads and the target (the travelling one) closes.
+ *
+ * `chc` IS NOT THE FIRST THREE LETTERS OF CHICAGO. It is the Cubs' code, as
+ * `nop` is the Pelicans' and `sfo` San Francisco's; there is no rule that
+ * derives them, so they come from `team_key`, which is `LEAGUE:CODE`. A fandom
+ * with no key falls back to three letters of its name, which is the best guess
+ * available and is visibly a guess.
+ *
+ * IT IS A SUGGESTION, NEVER A DECISION. It is offered in the prompt that
+ * already asks for an id, so a person sees it and can type over it -- and
+ * `games.id` is referenced by SIX tables, so an id that arrives without anybody
+ * looking at it is an id nobody can safely change later.
+ */
+function gameIdCode(audienceId, fallbackText) {
+  const a = audienceId ? builderAudiencesList.find((x) => x.id === audienceId) : null;
+  const key = a && a.team_key ? String(a.team_key) : '';
+  const code = key.indexOf(':') >= 0 ? key.split(':')[1] : '';
+  const source = code || (a ? a.name : '') || fallbackText || '';
+  return String(source).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 3);
+}
+
+function composeGameId() {
+  const meta = state.currentGameMeta || {};
+  const ev = meta.anchorEventId ? builderAnchorEventsById.get(String(meta.anchorEventId)) : null;
+
+  /* THE YEAR COMES FROM THE EVENT WHERE THERE IS ONE, because the id is about
+     when the game is played rather than when it was typed. */
+  const year = (ev && ev.start_date && String(ev.start_date).slice(0, 4))
+            || String(new Date().getFullYear());
+
+  const host = gameIdCode(meta.rivalAudienceId, ev && ev.home_team_geo);
+  const away = gameIdCode(meta.targetAudienceId, ev && ev.away_team_geo);
+  if (host && away) return host + year + away;
+
+  /* NO FIXTURE. An event that names no clubs -- a concert, a convention -- is
+     named by its own title and the town it is in, which is the same shape the
+     Events room composes its own ids from. */
+  if (ev) {
+    const title = String(ev.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+    const town = String(ev.venue_city || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 3);
+    if (title || town) return (title || 'event') + year + (town || '');
+  }
+
+  /* ONE FANDOM AND NO EVENT is still better than nothing to go on. */
+  if (host || away) return (host || away) + year;
+
+  /* THEN THE GAME'S OWN NAME, which is what a person would reach for. */
+  const named = String(meta.title || getDocName() || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24);
+  if (named) return named;
+
+  /* AND LAST, SOMETHING RANDOM RATHER THAN SOMETHING WRONG. `game` plus five
+     characters: short enough to read aloud, long enough not to collide. */
+  return 'game' + Math.random().toString(36).slice(2, 7);
+}
+
+/* A FREE ONE. The catalogue is asked, then a number is appended -- which is the
+   convention already in the table: `chc2026stl5` is the fifth of its shape. */
+function freeGameId(base, knownIds) {
+  const root = String(base || '').slice(0, 60) || 'game';
+  if (!knownIds.has(root)) return root;
+  for (let n = 2; n < 500; n++) {
+    const candidate = root + n;
+    if (!knownIds.has(candidate)) return candidate;
+  }
+  return root + Date.now().toString(36).slice(-4);
+}
+
 async function promptForNewGameId({ purpose = 'create', suggestedFrom = '' } = {}) {
   const knownIds = new Set([
     ...state.store.games.map((g) => g && g.id),
@@ -14060,6 +14133,11 @@ async function promptForNewGameId({ purpose = 'create', suggestedFrom = '' } = {
     let n = 2;
     while (knownIds.has(candidate)) candidate = base + '-copy-' + (n++);
     suggestion = candidate;
+  } else {
+    /* THE BOX OPENS WITH ONE ALREADY IN IT, built from the anchor and the two
+       fandoms. It is pre-checked against the catalogue, so the suggestion is
+       never one the next line would reject. */
+    suggestion = freeGameId(composeGameId(), knownIds);
   }
 
   for (let attempt = 0; attempt < 5; attempt++) {
