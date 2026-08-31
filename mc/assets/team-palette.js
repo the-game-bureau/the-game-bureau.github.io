@@ -6,6 +6,7 @@
   'use strict';
 
   const TEAM_SELECT = [
+    'audience_id',
     'team_key',
     'espn_id',
     'league',
@@ -27,7 +28,7 @@
   ].join(',');
   const LEGACY_TEAM_SELECT = TEAM_SELECT
     .split(',')
-    .filter((column) => !['team_key', 'espn_id', 'division', 'text_color'].includes(column))
+    .filter((column) => !['audience_id', 'team_key', 'espn_id', 'division', 'text_color'].includes(column))
     .join(',');
   const loadCache = new Map();
 
@@ -46,6 +47,14 @@
   function normalizeTeamKey(value) {
     const match = clean(value).toUpperCase().match(/^([^:]+):([^:]+)$/);
     return match ? `${match[1].trim()}:${match[2].trim()}` : '';
+  }
+
+  /* A GAME NAMES ITS FANDOM NOW, so the palette is an exact join. Everything
+     below this -- the key, then the league and code, then the fuzzy city and
+     mascot scoring -- is what a game WITHOUT a target audience still falls
+     through to, which is every legacy row and every game that is not a fixture. */
+  function audienceId(team) {
+    return clean(team && (team.audience_id || team.audienceId));
   }
 
   function teamKey(team) {
@@ -135,7 +144,13 @@
   function sideReference(game, side) {
     const prefix = side === 'home' ? 'home' : 'away';
     const matchupCodes = inferMatchupCodes(game);
+    /* TARGET is the visiting fandom and RIVAL is the home one, which is the
+       standing rule rather than a new one: a game takes its copy and its palette
+       from the away club. */
     return {
+      audience: game && (prefix === 'away'
+        ? (game.target_audience_id || game.targetAudienceId)
+        : (game.rival_audience_id || game.rivalAudienceId)),
       key: game && (game[`${prefix}_team_key`] || game[`${prefix}TeamKey`]),
       league: inferLeague(game),
       code: matchupCodes[prefix],
@@ -145,7 +160,10 @@
   }
 
   function scoreTeam(team, reference) {
-    /* THE KEY IS THE ONLY EXACT MATCH NOW. `tgbid` used to be tried first and
+    const requestedAudience = clean(reference && reference.audience);
+    if (requestedAudience && audienceId(team) === requestedAudience) return 30000;
+
+    /* THE KEY IS THE OTHER EXACT MATCH. `tgbid` used to be tried first and
        scored higher; it was dropped because it named the same club as the key on
        every row that had both -- verified across all 367 games, 0 disagreeing --
        so it was a second identifier that could only ever go stale. */
@@ -181,6 +199,12 @@
 
   function inferTeam(teams, reference) {
     const rows = Array.isArray(teams) ? teams : [];
+    const requestedAudience = clean(reference && reference.audience);
+    if (requestedAudience) {
+      const byAudience = rows.find((team) => audienceId(team) === requestedAudience);
+      if (byAudience) return byAudience;
+    }
+
     const requestedKey = normalizeTeamKey(reference && reference.key);
     if (requestedKey) {
       const keyed = rows.find((team) => teamKey(team) === requestedKey);
@@ -297,7 +321,7 @@
     LEGACY_TEAM_SELECT,
     normalizeIdentity,
     normalizeTeamKey,
-    normalizeTgbid,
+    audienceId,
     teamKey,
     isFandomGame,
     inferLeague,
