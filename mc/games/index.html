@@ -12284,7 +12284,7 @@ function resolveTypedAudience(slot) {
      resolution and the red pen run either way and only the WRITE is guarded.
      Behind the guard, a typed value that matches nothing was accepted in
      silence on any path where the field was reachable without a game node. */
-  const canWrite = !!(getGameNode() && state.currentGameMeta);
+  const canWrite = !!state.currentGameMeta;
 
   if (!typed) {
     if (canWrite) state.currentGameMeta[slot.field] = '';
@@ -12732,7 +12732,7 @@ function populateAnchorEventSelect() {
 function resolveTypedEvent() {
   if (!anchorEventInput) return;
   const typed = String(anchorEventInput.value || '').trim();
-  const canWrite = !!(getGameNode() && state.currentGameMeta);
+  const canWrite = !!state.currentGameMeta;
 
   if (!typed) {
     anchorEventInput.removeAttribute('data-invalid');
@@ -12797,7 +12797,9 @@ function fillAudiencesFromEvent(ev) {
 }
 
 function applyAnchorEventSelection(nextId) {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* THE META, NOT THE NODE. A game opened from the picker always has meta; it
+     does not always have a game node, and the link is a column on the row. */
+  if (!state.currentGameMeta) return;
   const id = String(nextId || '');
   state.currentGameMeta.anchorEventId = id;
   const ev = id ? builderAnchorEventsById.get(id) : null;
@@ -20239,9 +20241,16 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
+  /* GATED ON `showGameDetails`, NOT `isGameNode`, and the difference is the
+     whole bug: `isGameNode` means a NODE is selected in the flow graph, and a
+     game opened from the picker may have no game node at all -- 28 of the 395
+     rows have an empty document. The anchor, the target and the rival are
+     properties of the GAME ROW, so they are editable whenever a row is open.
+     `showGameDetails` is `gameNode || currentGameEntry`, which is what the Game
+     ID box has always used. */
   AUDIENCE_SLOTS.forEach((slot) => {
     const el = document.getElementById(slot.input);
-    if (el) el.disabled = !isGameNode;
+    if (el) el.disabled = !showGameDetails;
   });
   /* REPAINTED AFTER the disabled flags are set, because the placeholder reads
      them. Set before, an open game would be told to open a game. */
@@ -20456,7 +20465,7 @@ function updateSelectionUi(options = {}) {
   if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
   if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
   if (anchorEventInput) {
-    anchorEventInput.disabled = !isGameNode;
+    anchorEventInput.disabled = !showGameDetails;
     /* REPAINTED AFTER the disabled flag, because the placeholder reads it, and
        ALWAYS rather than only on a mismatch: the field holds a LABEL now, so
        comparing it with the stored id would never agree. */

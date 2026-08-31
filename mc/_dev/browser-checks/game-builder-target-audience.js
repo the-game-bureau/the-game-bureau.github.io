@@ -147,10 +147,16 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      so the bar stays disabled here and the TAGLINE is disabled with it. */
   const gate = await page.evaluate(() => ({
     tagline: document.getElementById('nodeTaglineInput').disabled,
-    ta: document.getElementById('targetAudienceInput').disabled
+    ta: document.getElementById('targetAudienceInput').disabled,
+    rival: document.getElementById('rivalAudienceInput').disabled,
+    event: document.getElementById('anchorEventInput').disabled
   }));
-  t('the picker is gated exactly like the rest of the identity bar',
-    gate.ta === gate.tagline, JSON.stringify(gate));
+  /* THE ANCHOR TRIO IS LIVE WHENEVER A GAME ROW IS OPEN. It used to be gated on
+     `isGameNode` -- a NODE selected in the flow graph -- so a game whose
+     document has no game node greyed all three out and said "Open a game
+     first" over an open game. */
+  t('all three are live once a game is open',
+    !gate.ta && !gate.rival && !gate.event, JSON.stringify(gate));
 
   /* TYPING A LABEL RESOLVES BACK TO AN ID, and a label the list does not hold
      is REFUSED rather than stored -- the column is a foreign key, so the
@@ -314,6 +320,49 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     t('and its home club to the rival', fill.home === 'mlb-cubs', fill.home);
   }
 
+  /* THE WRITE, END TO END. It could not be exercised while the fields were
+     gated on a flow node; with a game row enough, typing a fandom must reach
+     the meta -- and the SWATCHES are the proof, because they are painted from
+     `state.currentGameMeta`, which no test can read directly. */
+  const wrote = await page.evaluate(() => {
+    const tin = document.getElementById('targetAudienceInput');
+    const rin = document.getElementById('rivalAudienceInput');
+    const ev = document.getElementById('anchorEventInput');
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    const swatches = (id) => document.querySelectorAll('#' + id + ' .ta-swatch').length;
+
+    type(tin, '');
+    type(rin, '');
+    const cleared = swatches('targetAudienceSwatches') + swatches('rivalAudienceSwatches');
+
+    type(tin, 'NFL Chicago (Bears)');
+    const afterTyping = swatches('targetAudienceSwatches');
+
+    /* AND THE EVENT FILLS THE BLANK ONE WITHOUT TOUCHING THE ONE JUST SET. */
+    const first = [...document.querySelectorAll('#anchorEventList option')]
+      .find((o) => / at /.test(o.value));
+    if (first) type(ev, first.value);
+    return {
+      cleared: cleared,
+      afterTyping: afterTyping,
+      target: tin.value,
+      rival: rin.value,
+      rivalSwatches: swatches('rivalAudienceSwatches'),
+      picked: first ? first.value : ''
+    };
+  });
+  t('clearing a field clears its colours', wrote.cleared === 0, wrote.cleared);
+  t('and typing one writes it to the game', wrote.afterTyping >= 2, wrote.afterTyping);
+  /* NON-EMPTY, NOT A BRACKET. `MLB Cubs . Chicago, IL` has none: audienceLabel
+     omits the mascot in brackets when it IS the name, which is true of every
+     club that shares its city. The first version of this expected a bracket. */
+  t('choosing an event fills the empty rival', wrote.rival.trim().length > 0, wrote.rival);
+  t('and draws its colours', wrote.rivalSwatches >= 2, wrote.rivalSwatches);
+  /* THE RULE THE WHOLE FILL TURNS ON: a value somebody typed is never
+     overwritten by the event. */
+  t('and does NOT overwrite the target that was typed',
+    /Chicago \(Bears\)/.test(wrote.target), wrote.target + ' after ' + wrote.picked);
+
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly
      does not carry it. Structural on purpose -- the harness cannot open a game,
@@ -340,9 +389,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      this stub does not serve, so the change handler's early return is never
      passed. What is asserted instead is that every wiring point the value would
      travel through exists, and that the control is gated like its siblings. */
-  console.log(String.fromCharCode(10) + '  UNVERIFIED FROM HERE: the PATCH itself. '
-    + 'No game opens in this stub, so the handler returns early. Six wiring '
-    + 'points asserted structurally instead.');
+  console.log(String.fromCharCode(10) + '  The write is now exercised end to end. '
+    + 'What is still UNVERIFIED FROM HERE is the PATCH leaving the page: Save '
+    + 'is a separate path. The six wiring points are asserted structurally.');
   console.log(String.fromCharCode(10) + ok + ' ok, ' + bad + ' FAIL');
   process.exit(bad ? 1 : 0);
 })();

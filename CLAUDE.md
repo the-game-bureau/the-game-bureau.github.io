@@ -7883,6 +7883,45 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### THE ANCHOR BOX WAS GATED ON THE WRONG THING (2026-08-30)
+
+All three fields read **"Open a game first"** over an open game. Reported with a
+screenshot, and the cause is one word.
+
+- **`isGameNode` MEANS A NODE IS SELECTED IN THE FLOW GRAPH. `showGameDetails`
+  MEANS A GAME ROW IS OPEN.** They are `!!gameNode` and
+  `!!(gameNode || currentGameEntry)`, and they differ for **every game whose
+  document has no game node** -- which is exactly the generated rows the Game
+  Builder is now used to edit.
+- **THE ANCHOR, THE TARGET AND THE RIVAL ARE PROPERTIES OF THE ROW**, not of a
+  node, so they are gated on `showGameDetails` -- which is what the Game ID box
+  has always used, and why that one field was live in the screenshot while
+  everything beside it was grey.
+- **THE WRITES MOVED WITH THE GATE.** `getGameNode() && state.currentGameMeta`
+  became `state.currentGameMeta` alone, in both resolvers and in
+  `applyAnchorEventSelection`. **The meta is set the moment a row is opened**,
+  with or without a node, so it is the honest test for "is there something to
+  write to".
+- **THIS IS WHY THE CHECK COULD NEVER EXERCISE THE WRITE**, and the caveat it
+  printed on every run was describing a real fault rather than a harness limit.
+  **A stub that cannot reach a path and a page that cannot reach it look
+  identical**, and I read it as the first for four commits.
+- **THE WRITE IS NOW PROVED END TO END**, through the one thing a test can
+  observe: the **swatches are painted from `state.currentGameMeta`**, which no
+  check can read directly, so they only appear if the value really landed.
+  Typing a fandom paints its colours; clearing the field clears them; choosing
+  an event fills the empty rival and paints its colours; **and does not
+  overwrite the target that was typed**, which is the rule the whole fill turns
+  on. **57 assertions.**
+- **WHAT IS STILL UNVERIFIED: the PATCH leaving the page.** Save is a separate
+  path and the stub answers it without checking what was sent.
+
+**AND `nodeTitleInput` / `nodeTaglineInput` ARE STILL GATED ON `isGameNode`.**
+That is untouched and is very likely the same fault one field over: on a game
+with no flow node, **the name and the tagline cannot be edited either**. It is
+recorded rather than fixed, because only the anchor was asked for and changing
+what enables the game's own name is a decision.
+
 ### ONE BOX CALLED ANCHOR, AND THE EVENT FILLS THE OTHER TWO (2026-08-30)
 
 The three bars are one, on one line: **Event, Target audience, Rival audience**.
