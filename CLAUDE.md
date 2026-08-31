@@ -7883,6 +7883,48 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### THE GAME BOX IS A NAME AND A CITY (2026-08-30)
+
+- **THIS ROOM IS OFF THE CITY CATALOGUE.** The box was attached to
+  `window.TgbCities`, which suggested catalogue cities and carried a **+** to
+  add a missing one. **What is typed, or pulled from the anchor event, is what
+  is stored.** Same trade the Events room made for `venue_city` on 2026-08-28,
+  and for the same reason: the value nearly always arrives from the event, which
+  carries a canonical "City, State" already.
+  - **WHAT IT COSTS, PLAINLY:** nothing stops two spellings of one town and no
+    screen will say so; nothing reports a city the rest of the site has never
+    heard of, and `/gifts/` and `/soundtracks/` both key off `cities.city`; and
+    **creating a missing city from here went with the + button.**
+  - **THE PLACEHOLDER IS NOW THE ONLY THING TEACHING THE FORMAT**, so it shows
+    the whole shape -- `Chicago, IL` -- rather than the bare `e.g. Denver` it
+    used to. `TgbCities` is still loaded and used elsewhere on the page.
+- **THE TAGLINE AND THE GAME ID MOVED DOWN TO BASICS**, so the GAME box is the
+  two things that answer *which game is this*: its name and its city. **Moved,
+  not deleted** -- every id and every listener is untouched, so the rename
+  warning on the id still works.
+
+### AND THE LAST TWO FIELDS CAME OFF THE FLOW-NODE GATE (2026-08-30)
+
+Reported as *"just because guess is grayed out doesn't mean that game isn't
+editable"*. **A greyed Guess beside a greyed name box read as "this game cannot
+be edited" -- and the name really was disabled.**
+
+- **`nodeTitleInput` AND `nodeTaglineInput` WERE THE LAST TWO ON `isGameNode`**,
+  which this file flagged twice today as a candidate and which then bit. **A game
+  opened from the picker may have no game node in its document, and then its own
+  NAME could not be typed.**
+- **THE HANDLERS MOVED TOO, not just the disabled flags.** `nodeTitleInput`'s
+  input listener returned early without a node, so an enabled box would have
+  accepted every keystroke and stored none -- the shape of failure that is worse
+  than a greyed field, because it looks like it worked. The title is written to
+  the META, which an open game always has.
+- **FIVE FIELDS IN ONE DAY**, all the same fault: the Anchor trio, the city, and
+  now the name and the tagline. **`isGameNode` asks about the flow DOCUMENT;
+  `showGameDetails` asks whether a game ROW is open, and every column on
+  `public.games` belongs to the row.**
+- **THE CHECKS FAIL ON THE PREVIOUS COMMIT** with `title: true, tagline: true,
+  city: true` -- all three disabled over an open game. **104 assertions.**
+
 ### THE CITY IS IN THE GAME BOX, AND THE EVENT FILLS IT (2026-08-30)
 
 - **MOVED, NOT ADDED.** `games.city` already had a control -- "Start City" in the

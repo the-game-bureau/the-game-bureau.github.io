@@ -153,6 +153,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      so the bar stays disabled here and the TAGLINE is disabled with it. */
   const gate = await page.evaluate(() => ({
     tagline: document.getElementById('nodeTaglineInput').disabled,
+    title: document.getElementById('nodeTitleInput').disabled,
+    city: document.getElementById('nodeCityInput').disabled,
     ta: document.getElementById('targetAudienceInput').disabled,
     rival: document.getElementById('rivalAudienceInput').disabled,
     event: document.getElementById('anchorEventInput').disabled
@@ -163,6 +165,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      first" over an open game. */
   t('all three are live once a game is open',
     !gate.ta && !gate.rival && !gate.event, JSON.stringify(gate));
+  /* AND SO IS THE GAME'S OWN NAME. A greyed Guess beside a greyed name box read
+     as "this game cannot be edited", and the name was gated on `isGameNode` --
+     the flow document holding a game node -- rather than on a game being open. */
+  t('the name and tagline are editable on an open game',
+    !gate.title && !gate.tagline, JSON.stringify(gate));
 
   /* TYPING A LABEL RESOLVES BACK TO AN ID, and a label the list does not hold
      is REFUSED rather than stored -- the column is a foreign key, so the
@@ -303,11 +310,35 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     const opt2 = [...document.querySelectorAll('#anchorEventList option')]
       .filter((o) => / at /.test(o.value))[1];
     if (opt2) { ev.value = opt2.value; ev.dispatchEvent(new Event('change', { bubbles: true })); }
+    const bar2 = document.getElementById('gameIdentityBar');
+    const tag = document.getElementById('taglineField');
+    const idf = document.getElementById('selectionId');
     return { inBar: inBar, label: label, filled: filled, kept: box.value,
+             placeholder: box.getAttribute('placeholder') || '',
+             noDatalist: !box.getAttribute('list'),
+             noAddButton: !(f && f.querySelector('button')),
+             taglineOut: !!(tag && bar2 && !bar2.contains(tag)),
+             idOut: !!(idf && bar2 && !bar2.contains(idf)),
+             taglineExists: !!document.getElementById('nodeTaglineInput'),
+             idExists: !!document.getElementById('selectionIdInput'),
              onlyOne: document.querySelectorAll('#nodeCityInput').length };
   });
   t('the city sits in the GAME box', city.inBar);
   t('and is called City', /^city$/i.test(city.label), city.label);
+  /* THE PLACEHOLDER IS THE ONLY THING TEACHING THE FORMAT, now that nothing
+     checks the value against public.cities. */
+  t('and suggests the whole shape, not a bare city',
+    /^Chicago,\s*IL$/.test(city.placeholder), city.placeholder);
+  t('the box is off the city catalogue', city.noDatalist && city.noAddButton,
+    city.noDatalist + '/' + city.noAddButton);
+  /* THE GAME BOX IS THE TWO THINGS THAT ANSWER "WHICH GAME IS THIS". The
+     tagline and the id moved down to Basics -- moved, not deleted, so every
+     listener still works. */
+  t('the tagline is out of the GAME box', city.taglineOut);
+  t('and so is the game id', city.idOut);
+  t('but both are still on the page and wired',
+    city.taglineExists && city.idExists,
+    city.taglineExists + '/' + city.idExists);
   t('there is only one city control', city.onlyOne === 1, city.onlyOne);
   t('an event fills a blank city', city.filled.trim().length > 0,
     JSON.stringify(city.filled));

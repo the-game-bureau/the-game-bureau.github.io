@@ -10007,41 +10007,23 @@ html.admin-embedded .builder-section-head{
                       title="Name it from the two audiences">Guess</button>
             </div>
           </div>
-          <!-- THE ID IS A REAL TEXT BOX NOW. It was a contenteditable span
-               inside the name's <label>, which cost it a mousedown handler to
-               stop the label stealing focus, a Range to select its own
-               contents, and .textContent everywhere an input would have said
-               .value. It is still the primary key of the row and renaming it
-               still asks first -- see the blur handler. -->
           <!-- THE CITY, MOVED RATHER THAN ADDED. `games.city` already had a
                control -- "Start City" in the inspector -- and a second one for
-               one column is the duplication this repo keeps removing. The
-               STATE and COUNTRY boxes stay where they are: the three compose
-               `meta.city` together through syncGeoControlsToMeta, and the city
-               is the half you read a game by.
+               one column is the duplication this repo keeps removing. The STATE
+               and COUNTRY boxes stay where they are: the three compose
+               `meta.city` together, and the city is the half you read a game by.
+
+               THE PLACEHOLDER IS THE ONLY THING TEACHING THE FORMAT now that
+               nothing checks the value against the catalogue, so it shows the
+               whole shape rather than a bare city: "City, ST" is what the anchor
+               event supplies and what every other table here spells.
 
                THE ID AND THE WIRING ARE UNCHANGED, so applyGeoControls and the
-               geocoder still find it: this is a move in the markup and nothing
-               else. -->
+               geocoder still find it. -->
           <div class="gid-field gid-field--city" id="cityField">
             <label class="gid-label" for="nodeCityInput">City</label>
             <input id="nodeCityInput" type="text" autocomplete="off"
-                   placeholder="e.g. Denver" disabled>
-          </div>
-          <div class="gid-field gid-field--id" id="selectionId">
-            <label class="gid-label" for="selectionIdInput">Game ID</label>
-            <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
-                   aria-label="Game ID" placeholder="none">
-          </div>
-          <!-- THE TAGLINE IS PART OF THE NAME, not part of Basics. It is the
-               line printed under the title wherever the game is shown, so it is
-               written while you are looking at the title — filed next to Engine
-               and Price it was a sentence of ad copy in a drawer of settings.
-               Its own row, full width, because it is prose and a 260px box
-               invites four words. -->
-          <div class="gid-field gid-field--tagline" id="taglineField">
-            <label class="gid-label" for="nodeTaglineInput">Tagline</label>
-            <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
+                   placeholder="Chicago, IL" disabled>
           </div>
         </div>
       </fieldset>
@@ -10131,6 +10113,21 @@ html.admin-embedded .builder-section-head{
                 <section class="details-section" id="detailsGameDetailsSection">
                   <div class="details-section-title">Basics</div>
                   <div class="details-section-grid details-section-grid--game-details">
+                    <!-- THE TAGLINE AND THE ID MOVED DOWN HERE (2026-08-30), so
+                         the GAME box is the two things that answer "which game
+                         is this": its name and its city. Moved, not deleted --
+                         every id and every listener is untouched, so the rename
+                         warning on the id and the tagline's own handler still
+                         work exactly as they did. -->
+                    <div class="field" id="selectionId">
+                      <label class="field-label" for="selectionIdInput">Game ID</label>
+                      <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
+                             aria-label="Game ID" placeholder="none">
+                    </div>
+                    <div class="field" id="taglineField">
+                      <label class="field-label" for="nodeTaglineInput">Tagline</label>
+                      <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
+                    </div>
                     <div class="field" id="engineField">
                       <label class="field-label field-label--with-meta" for="nodeEngineInput">
                         <span class="field-label-text">Engine</span>
@@ -20476,10 +20473,16 @@ function updateSelectionUi(options = {}) {
   if (nodeBodyInfo) nodeBodyInfo.hidden = true;
   if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = true;
 
-  nodeTitleInput.disabled = !isGameNode;
+  /* THE OPEN GAME, NOT THE FLOW NODE -- the LAST two fields on the old gate,
+     and the fourth and fifth to need this today. `isGameNode` asks whether the
+     flow document holds a game node; a game opened from the picker may hold
+     none, and then its own NAME could not be typed. Every column on
+     `public.games` belongs to the ROW, and `showGameDetails` is the question
+     that asks about the row. */
+  nodeTitleInput.disabled = !showGameDetails;
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
-  nodeTaglineInput.disabled = !isGameNode;
+  nodeTaglineInput.disabled = !showGameDetails;
   /* GATED ON `showGameDetails`, NOT `isGameNode`, and the difference is the
      whole bug: `isGameNode` means a NODE is selected in the flow graph, and a
      game opened from the picker may have no game node at all -- 28 of the 395
@@ -20635,7 +20638,8 @@ function updateSelectionUi(options = {}) {
      the name never got it. */
   paintGuessButton();
   if (document.activeElement !== nodeTitleInput) {
-    nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
+    nodeTitleInput.value = (gameNode && gameNode.title)
+      || (currentGameEntry ? (currentGameEntry.name || '') : '');
   }
   stopNameInput.value = '';
   varNameInput.value = '';
@@ -20645,7 +20649,8 @@ function updateSelectionUi(options = {}) {
     radio.checked = false;
     radio.disabled = true;
   });
-  nodeTaglineInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
+  nodeTaglineInput.value = showGameDetails
+    ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
   /* REPOPULATED RATHER THAN JUST SET, because a stored audience that is not in
      the list needs its own option adding before the value can take. */
   populateTargetAudienceSelect();
@@ -22649,12 +22654,13 @@ if (guessNameBtn) {
     }
     const node = getGameNode();
     const guess = guessedGameName();
-    if (!guess || !node) return;
+    if (!guess) return;
     /* IT OVERWRITES, and that is the difference between this and the audience
        fill: you pressed a button called Guess, which is a request rather than a
        side effect. Undo is retyping, and the old name is still on screen until
        you do. */
-    node.title = guess;
+    if (node) node.title = guess;
+    if (state.currentGameMeta) state.currentGameMeta.title = guess;
     nodeTitleInput.value = guess;
     renderGamePickerSelect();
     scheduleRender();
@@ -22663,7 +22669,10 @@ if (guessNameBtn) {
 
 nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
-  if (!node || node.type !== 'game') return;
+  /* THE META ALWAYS EXISTS ON AN OPEN GAME; the node may not. Without this the
+     box accepted every keystroke and stored none of them. */
+  if (state.currentGameMeta) state.currentGameMeta.title = nodeTitleInput.value;
+  if (!node || node.type !== 'game') { renderGamePickerSelect(); paintGuessButton(); return; }
   /* THE RAW VALUE WHILE TYPING, defaulted only on the way OUT. `value ||
      TYPE_CONFIG.title` stored the placeholder the instant the box went empty,
      which is exactly the state you pass through when replacing a name -- and
@@ -22905,7 +22914,7 @@ varCorrectRadios.forEach((radio, i) => {
 
 
 nodeTaglineInput.addEventListener('input', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  if (!state.currentGameMeta) return;
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
 
@@ -23298,32 +23307,24 @@ if (nodeCityInput) {
   nodeCityInput.addEventListener('input', () => syncGeoControlsToMeta(true));
 }
 
-// Start City is backed by public.cities (window.TgbCities): the box suggests
-// catalog cities and carries a + to add a missing one. The catalog stores full
-// "City, State" strings while this box holds the city NAME only, so a pick is
-// split back across the City / State / Country controls.
-if (nodeCityInput && window.TgbCities) {
-  const applyCatalogCity = (fullCity) => {
-    if (!fullCity || !TGB_GEO) return;
-    const parsed = TGB_GEO.parseGeo(fullCity);
-    if (!parsed || !parsed.cityName) return;
-    nodeCityInput.value = parsed.cityName;
-    if (nodeCountryInput) nodeCountryInput.value = parsed.countryCode || 'USA';
-    refreshStateOptions(parsed.countryCode || 'USA', parsed.stateCode || '');
-    syncGeoControlsToMeta(true);
-    scheduleRecoverySync();
-    scheduleUpdateActionUi();
-  };
-  window.TgbCities.attach(nodeCityInput, {
-    includeIgnored: true,   // a game can be set in a venue city
-    onChange: applyCatalogCity,
-    authHeaders: (extra) => {
-      const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
-      const token = (session && session.access_token) ? session.access_token : supabaseConfig.publishableKey;
-      return Object.assign({ apikey: supabaseConfig.publishableKey, Authorization: 'Bearer ' + token }, extra || {});
-    }
-  });
-}
+/* THIS ROOM IS OFF THE CITY CATALOGUE (2026-08-30). The box was attached to
+   `window.TgbCities`: it suggested catalogue cities and carried a + to add a
+   missing one. **What is entered or pulled from the anchor event is what is
+   stored**, and nothing checks it against `public.cities`.
+
+   WHAT THAT COSTS, PLAINLY, because none of it comes back by accident:
+     - nothing stops two spellings of one town, and no screen will say so;
+     - nothing reports a city the rest of the site has never heard of, and
+       /gifts/ and /soundtracks/ both key off `cities.city`;
+     - creating a missing city from here is gone with the + button.
+
+   It is the same trade the Events room made on 2026-08-28 for `venue_city`,
+   and for the same reason: the value almost always arrives from the anchor
+   event, which carries a canonical "City, State" string already. The
+   PLACEHOLDER is what teaches the shape now.
+
+   `TgbCities` is still loaded and still used elsewhere on this page; only this
+   control left. */
 if (nodeStateInput) {
   nodeStateInput.addEventListener('change', () => {
     syncGeoControlsToMeta(true);
