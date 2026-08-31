@@ -7910,6 +7910,23 @@ keeps `archived` in step.
 - **`erased` IS UNTOUCHED and is still a separate flag.** Four rows carry it.
   **Anything counting live games has to ask both**, which this file has now
   recorded from three directions.
+- **AND THE ROOM DID NOT ASK FOR THE COLUMN, so the fallback answered for a
+  whole day.** The counts line read **"2 live + 0 building + 394 archived"** over
+  a table where every row was building. The header query names its columns --
+  `id, name, city, featured, archived, created_at, updated_at` -- and **`status`
+  was not among them**, so `game.status` was `undefined` on every row and
+  `getHeaderGameGroup` fell through to `archived`.
+  - **ASKING FOR IT WAS HALF THE FIX.** Three normalisers copy a row field by
+    field between the fetch and the picker, and **each one drops anything it does
+    not name**: `normalizeGameRow`, `normalizeSavedGame`, and the staging copy.
+    A column has to be added to all four places or it arrives and is thrown away.
+  - **THE COUNTS LINE IS THE CHEAPEST PLACE TO SEE IT**, being fed by the same
+    list the picker is built from, so that is what the check reads. It fails on
+    the previous commit with `0 live + 0 building + 3 archived`.
+  - **THIS IS THE SAME SHAPE AS THE SIX WIRING POINTS on `target_audience_id`**,
+    arrived at from the other direction: there a value could not get OUT, here it
+    could not get IN.
+
 - **THE ROOM READS `status` FIRST AND FALLS BACK TO `archived`**, which is a
   preference rather than a reconciliation: the trigger means they cannot
   disagree, and the fallback is for a row read by something that has not caught
@@ -7918,7 +7935,7 @@ keeps `archived` in step.
   **live is the UNMARKED case**: a word on every row is a column rather than
   news, so what a label says is that a game is NOT on sale and which of the two
   reasons. The counts line reads `GAME STATS: 0 live + 395 building + 0
-  archived`. **91 assertions.**
+  archived`. **92 assertions.**
 
 ### A NEW GAME HAS NO NAME, AND A GUESS BUTTON OFFERS ONE (2026-08-30)
 

@@ -221,6 +221,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       list: el.getAttribute('list'),
       noSelect: !document.getElementById('gamePickerSelect'),
       count: opts.length,
+      stats: (document.getElementById('gameProfileStat') || {}).textContent || '',
       /* THE ID IS IN EVERY LABEL, or three rows called "Chicago Fans Takeover
          Baltimore" are three identical lines. */
       allCarryAnId: opts.every((v) => v.split('·').length >= 2),
@@ -251,6 +252,13 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      is a column rather than news. What is worth saying is that a game is NOT on
      sale, and which of the two reasons. */
   t('games not on sale carry their status', picker.statusMarked, picker.firstLabel);
+  /* THE COUNTS LINE IS FED BY THE SAME LIST THE PICKER IS BUILT FROM, so it is
+     the cheapest place to see that `status` really arrived: it read
+     "394 archived" over a table where every row was building, because the
+     header query never asked for the column and the fallback to `archived`
+     answered instead. */
+  t('the counts line reads the status, not the archived flag',
+    /building/.test(picker.stats) && !/0 building/.test(picker.stats), picker.stats);
   t('and live ones carry no word at all', picker.liveUnmarked);
   t('and no live game is listed after an archived one', picker.noLiveAfterArchived);
   t('a game that does not exist is refused', picker.badInvalid);
