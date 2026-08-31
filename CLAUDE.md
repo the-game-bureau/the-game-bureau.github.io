@@ -7883,6 +7883,35 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### INCLUDE ANCHOR IS GONE, AND `fandom_game` IS DERIVED (2026-08-30)
+
+The toggle in the Teams section is deleted, along with its two labels, its
+handler and its four paint sites.
+
+- **IT WAS A SECOND STATEMENT OF SOMETHING THE TARGET AUDIENCE ALREADY MAKES.**
+  A game pitched at a travelling fandom **is** a fandom game, and **two places
+  recording one fact is how they end up disagreeing** -- this one decides whether
+  the palette comes from the away club at all, so a disagreement means a game
+  wearing the wrong colours.
+- **THE COLUMN IS UNCHANGED.** `games.fandom_game` is still written by
+  `serializeGameRow`; only the way it is arrived at moved. `syncFandomFlag()`
+  sets it from `targetAudienceId` wherever that changes: set, cleared, or filled
+  from an event.
+- **WHAT IS LOST, PLAINLY: a game can no longer be marked a fandom game WITHOUT
+  a target audience.** That is the point rather than a casualty -- the flag with
+  no audience was a game that claimed a fandom palette with no fandom to take it
+  from -- but if a case for it appears, it needs a real reason rather than the
+  toggle coming back.
+- **THE `.loc-toggle` CSS STAYS**, checked rather than assumed: **LOCATION BASED
+  uses it**, and the check asserts that toggle still renders. Removing a control
+  and taking a shared stylesheet with it is the fault this repo has recorded
+  before.
+- **THE FLOW BUILDER HAS THE SAME THREE CONSTS AND NO MARKUP**, and did before
+  today: `mc/builder/index.html` looks up `fandomGameToggle` and gets null, so
+  its handler has never been able to bind. **Pre-existing, in a different room,
+  and left alone** -- said here rather than discovered.
+- **80 assertions.**
+
 ### THE GAME NAME COULD NOT BE CLEARED (2026-08-30)
 
 Reported as *"can't edit game name on new game"*. The field was enabled and

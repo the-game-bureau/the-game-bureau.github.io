@@ -10208,18 +10208,6 @@ html.admin-embedded .builder-section-head{
                 <section class="details-section" id="detailsTeamsSection">
                   <div class="details-section-title">Teams</div>
                   <div class="details-section-grid details-section-grid--teams">
-                    <div class="field" id="fandomGameField">
-                      <div class="field-label">INCLUDE ANCHOR<span class="field-info" tabindex="0" role="note" aria-label="Turn on to include an anchor event for this game.">i<span class="field-tooltip" role="tooltip">Turn on to include an anchor event for this game.</span></span></div>
-                      <div class="loc-toggle-wrap">
-                        <span class="loc-toggle-side-label" id="fandomGameLabelNo">NO</span>
-                        <label class="loc-toggle" for="fandomGameToggle">
-                          <input type="checkbox" id="fandomGameToggle">
-                          <span class="loc-toggle-track"></span>
-                          <span class="loc-toggle-thumb"></span>
-                        </label>
-                        <span class="loc-toggle-side-label" id="fandomGameLabelYes">YES</span>
-                      </div>
-                    </div>
                     <div class="field" id="awayTeamField">
                       <label class="field-label" for="nodeAwayTeamInput">Away Team (Fan's Team)</label>
                       <select id="nodeAwayTeamInput" autocomplete="off" disabled>
@@ -11971,7 +11959,6 @@ const cityField = document.getElementById('cityField');
 const startNameField = document.getElementById('startNameField');
 const startAddressField = document.getElementById('startAddressField');
 const locationBasedField = document.getElementById('locationBasedField');
-const fandomGameField = document.getElementById('fandomGameField');
 const categoryIconField = document.getElementById('categoryIconField');
 const tagsField = document.getElementById('tagsField');
 const teamsField = document.getElementById('teamsField');
@@ -12315,7 +12302,10 @@ function resolveTypedAudience(slot) {
   const canWrite = !!state.currentGameMeta;
 
   if (!typed) {
-    if (canWrite) state.currentGameMeta[slot.field] = '';
+    if (canWrite) {
+      state.currentGameMeta[slot.field] = '';
+      syncFandomFlag();
+    }
     input.removeAttribute('data-invalid');
     paintAudienceSwatches(slot);
     return;
@@ -12335,7 +12325,10 @@ function resolveTypedAudience(slot) {
   input.removeAttribute('data-invalid');
   input.title = hit.id;
   input.value = audienceLabel(hit);
-  if (canWrite) state.currentGameMeta[slot.field] = hit.id;
+  if (canWrite) {
+    state.currentGameMeta[slot.field] = hit.id;
+    syncFandomFlag();
+  }
   paintAudienceSwatches(slot);
 }
 
@@ -12821,7 +12814,21 @@ function fillAudiencesFromEvent(ev) {
     const hit = audienceForEventSide(ev, side);
     if (hit) state.currentGameMeta[field] = hit.id;
   });
+  syncFandomFlag();
   AUDIENCE_SLOTS.forEach(paintAudienceSlot);
+}
+
+/* `fandom_game` IS DERIVED NOW, NOT TOGGLED. It used to be an INCLUDE ANCHOR
+   switch somebody set by hand, which is a second statement of something the
+   target audience already makes: a game pitched at a travelling fandom IS a
+   fandom game. Two places recording one fact is how they end up disagreeing,
+   and this one decides whether the palette comes from the away club at all.
+
+   The COLUMN is unchanged and still written by serializeGameRow; only the way
+   it is arrived at has moved. */
+function syncFandomFlag() {
+  if (!state.currentGameMeta) return;
+  state.currentGameMeta.fandomGame = !!String(state.currentGameMeta.targetAudienceId || '').trim();
 }
 
 function applyAnchorEventSelection(nextId) {
@@ -12842,12 +12849,7 @@ function applyAnchorEventSelection(nextId) {
     // A SPORTS event (has teams) behaves as a fandom anchor: turn the toggle on
     // so the away-team palette applies (bindTeamSelect gates on fandomGame), and
     // auto-fill the team selects.
-    if (fandomGameToggle && !fandomGameToggle.checked) {
-      fandomGameToggle.checked = true;
-      fandomGameToggle.dispatchEvent(new Event('change', { bubbles: true }));
-    } else {
-      state.currentGameMeta.fandomGame = true;
-    }
+    state.currentGameMeta.fandomGame = true;
     if ((named(ev.away_team_geo) || named(ev.away_team_nickname)) && nodeAwayTeamInput) {
       setTeamSelectValue(nodeAwayTeamInput, ev.away_team_geo || '', ev.away_team_nickname || '');
       nodeAwayTeamInput.dispatchEvent(new Event('change'));
@@ -12992,9 +12994,6 @@ const coordinatesGenerateBtn = document.getElementById('coordinatesGenerateBtn')
 const locationBasedToggle   = document.getElementById('locationBasedToggle');
 const locationBasedLabelNo  = document.getElementById('locationBasedLabelNo');
 const locationBasedLabelYes = document.getElementById('locationBasedLabelYes');
-const fandomGameToggle      = document.getElementById('fandomGameToggle');
-const fandomGameLabelNo     = document.getElementById('fandomGameLabelNo');
-const fandomGameLabelYes    = document.getElementById('fandomGameLabelYes');
 const nodeTagPicker = document.getElementById('nodeTagPicker');
 const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
@@ -20330,7 +20329,6 @@ function updateSelectionUi(options = {}) {
   if (startAddressField) startAddressField.hidden = !showGameDetails;
   if (coordinatesField) coordinatesField.hidden = !showGameDetails;
   if (locationBasedField) locationBasedField.hidden = !showGameDetails;
-  if (fandomGameField) fandomGameField.hidden = !showGameDetails;
   if (categoryIconField) categoryIconField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
@@ -20407,7 +20405,6 @@ function updateSelectionUi(options = {}) {
   if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
   if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
-  if (fandomGameToggle) fandomGameToggle.disabled = !isGameNode;
   const _guidePromptBtn = document.getElementById('guidePromptBtn');
   if (_guidePromptBtn) _guidePromptBtn.disabled = !isGameNode;
   const _guideImagePromptBtn = document.getElementById('guideImagePromptBtn');
@@ -20584,13 +20581,6 @@ function updateSelectionUi(options = {}) {
   }
   if (locationBasedLabelNo)  locationBasedLabelNo.classList.toggle('is-active', !isLocationBased);
   if (locationBasedLabelYes) locationBasedLabelYes.classList.toggle('is-active',  isLocationBased);
-  const isFandomGame = isGameNode && !!meta.fandomGame;
-  if (fandomGameToggle) {
-    fandomGameToggle.checked = isFandomGame;
-    fandomGameToggle.disabled = !isGameNode;
-  }
-  if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
-  if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
   if (anchorEventInput) {
     anchorEventInput.disabled = !showGameDetails;
     /* REPAINTED AFTER the disabled flag, because the placeholder reads it, and
@@ -23384,13 +23374,6 @@ if (locationBasedToggle) {
   });
 }
 
-if (fandomGameToggle) {
-  fandomGameToggle.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.fandomGame = fandomGameToggle.checked;
-    updateSelectionUi();
-  });
-}
 
 
 nodeGuideNameInput.addEventListener('input', () => {

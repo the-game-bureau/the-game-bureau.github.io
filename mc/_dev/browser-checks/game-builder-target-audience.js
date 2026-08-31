@@ -477,6 +477,36 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     ].forEach(([name, needle]) => t(side + ' wired into ' + name, src.indexOf(needle) >= 0, needle));
   });
 
+  /* THE INCLUDE ANCHOR TOGGLE IS GONE, and `fandom_game` is derived from the
+     target audience instead. It was a second statement of something the
+     audience already makes, and two places recording one fact is how they end
+     up disagreeing -- this one decides whether the palette comes from the away
+     club at all. */
+  const noToggle = await page.evaluate(() => ({
+    control: !!document.getElementById('fandomGameToggle'),
+    field: !!document.getElementById('fandomGameField'),
+    words: /INCLUDE ANCHOR/i.test(document.body.innerText),
+    /* THE OTHER TOGGLE ON THE PAGE MUST SURVIVE, or removing one control took
+       a shared stylesheet with it. */
+    locationToggle: !!document.getElementById('locationBasedToggle'),
+    locationStyled: (() => {
+      const el = document.querySelector('.loc-toggle');
+      return el ? getComputedStyle(el).position !== '' && el.getBoundingClientRect().width > 0 : false;
+    })()
+  }));
+  t('the INCLUDE ANCHOR control is gone', !noToggle.control && !noToggle.field);
+  t('and so are the words', !noToggle.words);
+  t('the LOCATION BASED toggle still works', noToggle.locationToggle && noToggle.locationStyled);
+  /* DERIVED, NOT TOGGLED -- asserted on the source, because the flag lives in
+     `state`, which is a top-level const and reachable from no test. */
+  const src2 = fs.readFileSync('mc/games/index.html', 'utf8');
+  t('the flag is derived from the target audience',
+    src2.indexOf('state.currentGameMeta.fandomGame = !!String(state.currentGameMeta.targetAudienceId') >= 0);
+  ['syncFandomFlag();'].forEach(() => {});
+  t('and synced when an audience is set, cleared, or filled from an event',
+    (src2.match(/syncFandomFlag\(\);/g) || []).length >= 3,
+    (src2.match(/syncFandomFlag\(\);/g) || []).length);
+
   /* THE GAME NAME ON A NEW GAME. Typed key by key with a real select-all,
      because the fault only appears when the box goes EMPTY -- appending to the
      default worked fine, and a `.value = ''` assignment does not reproduce it
