@@ -139,7 +139,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     m.panelScrollW <= m.panelW + 1, m.panelScrollW + ' vs ' + m.panelW);
   t('and neither does the page', m.pageScrollW <= m.pageW + 1, m.pageScrollW + ' vs ' + m.pageW);
 
-  t('opening a row shows all 32 fields', m.fields === 32, m.fields);
+  t('opening a row shows all 23 fields', m.fields === 23, m.fields);
   t('under six group headings', m.groups === 6, m.groups);
   t('laid out in real columns, not stacked', m.cols >= 3, m.cols);
   t('with no two fields on top of each other', m.overlaps === 0, m.overlaps);

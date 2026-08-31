@@ -7832,6 +7832,60 @@ new-orleans-la**, and the database holds no such rule. Both are asserted, so the
 disagreement is visible. Settle it by dropping the dialog's guard (an interest
 can belong to a place) or by clearing that row; a comment would not survive.
 
+## NINE REDUNDANT COLUMNS GO, AND THE VIEW COMPUTES FOUR OF THEM (2026-08-30)
+
+[2026083026](mc/supabase/migrations/2026083026_nine_redundant_columns_go.sql), **applied**. `audiences` is **23 columns**, down from 32.
+
+**GONE:** `code`, `sport`, `league_sort`, `game_city`, `city_name`, `state_code`,
+`state_name`, `country_code`, `country_name`.
+
+- **FOUR ARE STILL ON THE `teams` VIEW, COMPUTED, because things read them.**
+  `code`, `sport` and `game_city` are in `TEAM_SELECT` in `team-palette.js`,
+  which is what **both engines** resolve a club through; `league_sort` is in the
+  `order=` of five callers. Derived rather than stored, **they can never drift
+  from what they are derived from again** -- which is the whole point of removing
+  the storage rather than the column.
+- **THE FIVE GEO COLUMNS LEFT THE VIEW AS WELL, and that was checked rather than
+  assumed: no teams query anywhere asks for one.** Not `TEAM_SELECT`, not
+  games-prefetch's own list, and the jersey minigame reads `select=*` and uses
+  none of them. A club's town lives in `places`.
+- **DERIVING `game_city` FIXED THE FOUR ROWS IT DISAGREED WITH.** It equalled
+  `fanbase` on 120 of the 124 that had one, and **the four exceptions were
+  exactly the four that were wrong** -- Brooklyn, Anaheim, Newark and San
+  Francisco, each stored as the big city next door. Taken from the PLACE they are
+  all correct, and so is `NFL:SF`, which said San Jose.
+- **`text_color` IS KEPT AND SET TO WHITE EVERYWHERE**, as asked. It was already
+  `#FFFFFF` on 639 of 640; one row was null. Nothing reads it -- `teamPalette`
+  derives readable ink from `shell` by luminance on purpose, because a club's own
+  text colour can be white on its own white helmet.
+- **TWO WERE REFUSED, and both are data rather than derivation.** `full_name` is
+  **NOT `fanbase + nickname` on 149 of 639**, so deriving it would quietly
+  rewrite a fifth of the table; `team_sort` has **515 distinct values over 639
+  rows** and was never assessed. Both kept.
+- **PROVED AGAINST WHAT THE PAGES ACTUALLY ASK FOR**, not by counting columns:
+  all **18** `TEAM_SELECT` names still resolve, `order by league_sort, team_sort`
+  still works, 639 rows, 0 games orphaned. Three suites green (67, 17, 8).
+
+### AND IT SURFACED A PAGE THAT IS ALREADY BROKEN (2026-08-30)
+
+**[mc/assets/states/index.html](mc/assets/states/index.html) -- "Team Colors" -- UPSERTS INTO `public.teams`**,
+which became a view on 2026-08-30. **A view is only auto-updatable through plain
+column references**, and that page POSTs a full row including `league`, which is
+`upper(a.family)`: `information_schema` reports `is_updatable = NO` for it.
+
+- **IT BROKE YESTERDAY, NOT TODAY.** The `league` expression alone was enough.
+  What today added is three more: `code`, `sport` and `league_sort` are
+  expressions now too.
+- **IT IS IN THE NAV'S "FOR REVIEW" GROUP**, which this file already describes as
+  the state in which a page rots quietly: reachable, real code, linked from
+  nothing anybody opens.
+- **THE DECISION IS NOT MINE TO TAKE and it is genuinely open.** Its whole
+  subject is a club's colours, and `shell` / `stripe` / `mask` / `text_color` are
+  all editable in the **audiences room** now, so the page may simply be
+  redundant. If it is wanted, it has to write `audiences` instead: `league`
+  becomes `family` lowercased, `mascot` becomes `nickname`, and `code`, `sport`
+  and `league_sort` are dropped from the payload because they are computed.
+
 ## `tgbid` IS DROPPED. THE TEAM KEY DOES ITS JOB. (2026-08-30)
 
 [2026083025](mc/supabase/migrations/2026083025_tgbid_goes_the_key_stays.sql), **applied**. A club had two identifiers and they could

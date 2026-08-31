@@ -244,7 +244,7 @@ setTimeout(() => {
       .map((m) => ({ g: m[1], k: m[2], t: m[3], kind: m[4],
                      edit: /edit:\s*false/.test(m[5]) ? false : true,
                      head: /head:\s*true/.test(m[5]) }));
-    t('the column list parses out of the source (32)', cols.length === 32, cols.length);
+    t('the column list parses out of the source (23)', cols.length === 23, cols.length);
 
     const head0 = rows()[0];
     t('a closed row is short', head0.children.length === cols.filter((c) => c.head).length + 3,
@@ -266,7 +266,7 @@ setTimeout(() => {
     const det = detOf('nfl-tampa');
     t('the caret opens the row', !det.hidden);
     t('and says so', caretOf('nfl-tampa').getAttribute('aria-expanded') === 'true');
-    t('every one of the 32 fields is in it',
+    t('every one of the 23 fields is in it',
       det.querySelectorAll('.field').length === cols.length,
       det.querySelectorAll('.field').length);
     t('in the order the one list gives',
