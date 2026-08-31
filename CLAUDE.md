@@ -7832,6 +7832,74 @@ new-orleans-la**, and the database holds no such rule. Both are asserted, so the
 disagreement is visible. Settle it by dropping the dialog's guard (an interest
 can belong to a place) or by clearing that row; a comment would not survive.
 
+## `tgbid` IS DROPPED. THE TEAM KEY DOES ITS JOB. (2026-08-30)
+
+[2026083025](mc/supabase/migrations/2026083025_tgbid_goes_the_key_stays.sql), **applied**. A club had two identifiers and they could
+only ever drift.
+
+- **MEASURED BEFORE ANYTHING WAS TOUCHED, and that is the whole argument**:
+  **0 games where the two name different clubs, 0 with a tgbid and no team_key,
+  0 the other way.** A second name for the same thing on all 367 rows, kept in
+  step by nothing. **A second identifier that agrees today is one that will
+  disagree the first time somebody writes only one of them.**
+- **THE JERSEY MINIGAME WOULD HAVE BROKEN SILENTLY**, and it is the reason this
+  was not a one-line drop. Its **101 puzzles were keyed on `tgbid`**
+  (`player1tgbid`), so removing the column leaves every shirt in a default
+  palette -- **the game renders perfectly and says nothing.** `jerseys.json`
+  carries `player1key` now, 282 keys written, and its own regeneration prompt was
+  rewritten too, or the next run would put tgbids straight back.
+  - **THREE OF ITS 39 IDS RESOLVED TO NOTHING ALREADY.** 37, 61 and 63 are in no
+    `teams` row and never were, so those puzzles were broken before today.
+  - **`?tgbid=` STILL WORKS AS A LINK**, resolved through the team list rather
+    than through a column that is gone.
+- **`team-palette.js` LOST ITS FIRST MATCH TIER**, which is what **both engines**
+  resolve a club through. tgbid scored 20000 and the key 10000; the key alone now
+  does the same job, because they never disagreed.
+- **THE MARQUEE STOPPED WRITING `games.*_tgbid`, and an anchor event names its
+  clubs in words.** `events.away_team_name` is rebuilt from geo + nickname by a
+  trigger on every write, so the label was **looking a club up to reconstruct a
+  string the row already carried**. The event-to-team prefill matches on geo and
+  nickname, which is what the picker matches on anyway.
+- **`games.*_tgbid` AND `events.*_tgbid` ARE RETIRED IN PLACE, NOT DROPPED.**
+  `public.games` is read by both engines with `select=*` and is the paid product;
+  removing a column from it is a different change on a different day. The events
+  pair never carried a value on any row.
+- **AND I REACHED FOR A HELPER THE FILE DOES NOT HAVE.** `clean()` exists in the
+  audiences room and in `team-palette.js`, not in the marquee, and **the standing
+  parse check cannot see a name that does not exist** -- it would have thrown at
+  run time on the one path nobody loads until an anchor event is picked. This
+  file already records that `new vm.Script` only parses.
+- **PROVED IN REAL CHROME, not by reading the diff**: the jersey game draws its
+  three shirts, **painted real club colours**, with the club named underneath --
+  both halves coming out of the same lookup. 8 assertions in
+  [jersey-colours.js](mc/_dev/browser-checks/jersey-colours.js), and its first cut asked for `svg [fill]`, found none,
+  and **reported a broken game that was rendering perfectly**. A shirt is drawn
+  from CSS custom properties; it reads the computed paint now.
+
+### WHAT ELSE IS REDUNDANT, MEASURED (2026-08-30)
+
+Asked in the same breath, and answered against the live 640 rather than by
+reading the schema. **Nothing below is dropped yet.**
+
+| column | finding |
+|---|---|
+| **`code`** | **redundant. 639 of 639** are the tail of `team_key`, which is `LEAGUE:CODE`. |
+| **`text_color`** | **dead. `#FFFFFF` on all 639**, one value, no information -- and `teamPalette` has ignored it since 2026-06-16 on purpose, deriving readable ink from `shell` by luminance. |
+| **`sport`** | **derivable from `family`. 0 families disagree**: mlb=baseball, nba=basketball, ncaaf/nfl=football, nhl=hockey. |
+| **`league_sort`** | **derivable from `family`.** One value each: nfl=0, mlb=1, nba=2, ncaaf=3, nhl=4. |
+| **the five geo columns** | `city_name`, `state_code`, `state_name`, `country_code`, `country_name` all derive from `home_place_id`, **and 21 rows DISAGREE with it** -- these are the ones that say San Jose for the 49ers and New York for the Nets and the Devils. **Worse than redundant: actively wrong.** |
+| **`game_city`** | null on 516, and **equal to `fanbase` on 120 of the 124** that have it. |
+| `full_name` | mostly derivable -- `fanbase + nickname` on **490 of 639** -- but 149 exceptions, so not safely. |
+| `first_name` | **keep.** Matches `city_name` on only 92. |
+| `fanbase` | **keep.** `city, ST` for the 120 pro rows, the school for college. |
+| `venue_city` | **keep, and it is the interesting one.** Differs from the city on **123 rows** -- that is the venue town, which is the whole Foxborough problem. |
+| `espn_id`, `timezone` | keep. Sparse (120 / 118) and both are external facts nothing else holds. |
+
+**THE ORDER TO DO THEM IN, IF THEY GO:** `text_color` first (nothing reads it),
+then `code` and the two sorts (pure functions of columns beside them), and **the
+five geo columns last and most carefully** -- they are read by
+`team-palette.js`'s city matching, so they need the place join put in first.
+
 ## AN AUDIENCE IS NAMED BY ITS CITY (2026-08-30)
 
 [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql), **applied**. 110 pro clubs took their city, 14 kept a

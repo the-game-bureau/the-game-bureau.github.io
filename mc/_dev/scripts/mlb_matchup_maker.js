@@ -607,8 +607,6 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
     location_based: true, fandom_game: true, engine: 'text',
     away_team_key: awayIdentity.team_key || null,
     home_team_key: homeIdentity.team_key || null,
-    away_team_tgbid: TeamPalette.teamTgbid(awayIdentity) || null,
-    home_team_tgbid: TeamPalette.teamTgbid(homeIdentity) || null,
     game_date: win.gameDate, start_time: win.startTime, end_time: win.endTime,
     archived: archivedValue,
     venue_name: venueInfo.name,

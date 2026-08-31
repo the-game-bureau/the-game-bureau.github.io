@@ -244,7 +244,7 @@ setTimeout(() => {
       .map((m) => ({ g: m[1], k: m[2], t: m[3], kind: m[4],
                      edit: /edit:\s*false/.test(m[5]) ? false : true,
                      head: /head:\s*true/.test(m[5]) }));
-    t('the column list parses out of the source (33)', cols.length === 33, cols.length);
+    t('the column list parses out of the source (32)', cols.length === 32, cols.length);
 
     const head0 = rows()[0];
     t('a closed row is short', head0.children.length === cols.filter((c) => c.head).length + 3,
@@ -266,7 +266,7 @@ setTimeout(() => {
     const det = detOf('nfl-tampa');
     t('the caret opens the row', !det.hidden);
     t('and says so', caretOf('nfl-tampa').getAttribute('aria-expanded') === 'true');
-    t('every one of the 33 fields is in it',
+    t('every one of the 32 fields is in it',
       det.querySelectorAll('.field').length === cols.length,
       det.querySelectorAll('.field').length);
     t('in the order the one list gives',
@@ -300,8 +300,9 @@ setTimeout(() => {
     t('with a ring, or white is invisible on the panel',
       sw && w.getComputedStyle(sw).boxShadow !== 'none');
     t('and the hex beside it', /FFFFFF/i.test(fval('nfl-tampa', 'shell').textContent));
-    t('the tgbid is there', fval('nfl-tampa', 'tgbid').textContent.trim() === '105',
-      fval('nfl-tampa', 'tgbid').textContent);
+    t('a number column carries its figure',
+      fval('nfl-tampa', 'team_sort').textContent.trim() === '29',
+      fval('nfl-tampa', 'team_sort').textContent);
 
     /* A WORD IN A NUMBER COLUMN, AND JUNK IN A COLOUR ONE, ARE REFUSED WITH A
        SENTENCE RATHER THAN SENT. A raw 22P02 says nothing anybody can act on. */
@@ -313,7 +314,7 @@ setTimeout(() => {
       box.value = value;
       box.dispatchEvent(new w.FocusEvent('blur', { bubbles: true }));
     };
-    typeInto('nfl-tampa', 'tgbid', 'twelve');
+    typeInto('nfl-tampa', 'team_sort', 'twelve');
     t('a word in a number column is refused',
       /whole number/.test(el('pageStatus').textContent), el('pageStatus').textContent);
     typeInto('nfl-tampa', 'shell', 'reddish');

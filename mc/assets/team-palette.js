@@ -7,7 +7,6 @@
 
   const TEAM_SELECT = [
     'team_key',
-    'tgbid',
     'espn_id',
     'league',
     'conference',
@@ -28,7 +27,7 @@
   ].join(',');
   const LEGACY_TEAM_SELECT = TEAM_SELECT
     .split(',')
-    .filter((column) => !['team_key', 'tgbid', 'espn_id', 'division', 'text_color'].includes(column))
+    .filter((column) => !['team_key', 'espn_id', 'division', 'text_color'].includes(column))
     .join(',');
   const loadCache = new Map();
 
@@ -47,15 +46,6 @@
   function normalizeTeamKey(value) {
     const match = clean(value).toUpperCase().match(/^([^:]+):([^:]+)$/);
     return match ? `${match[1].trim()}:${match[2].trim()}` : '';
-  }
-
-  function normalizeTgbid(value) {
-    const n = Number(value);
-    return Number.isInteger(n) && n > 0 ? n : null;
-  }
-
-  function teamTgbid(team) {
-    return normalizeTgbid(team && (team.tgbid || team.team_tgbid || team.teamTgbid));
   }
 
   function teamKey(team) {
@@ -146,7 +136,6 @@
     const prefix = side === 'home' ? 'home' : 'away';
     const matchupCodes = inferMatchupCodes(game);
     return {
-      tgbid: game && (game[`${prefix}_team_tgbid`] || game[`${prefix}TeamTgbid`]),
       key: game && (game[`${prefix}_team_key`] || game[`${prefix}TeamKey`]),
       league: inferLeague(game),
       code: matchupCodes[prefix],
@@ -156,10 +145,10 @@
   }
 
   function scoreTeam(team, reference) {
-    const requestedTgbid = normalizeTgbid(reference && reference.tgbid);
-    const candidateTgbid = teamTgbid(team);
-    if (requestedTgbid && candidateTgbid === requestedTgbid) return 20000;
-
+    /* THE KEY IS THE ONLY EXACT MATCH NOW. `tgbid` used to be tried first and
+       scored higher; it was dropped because it named the same club as the key on
+       every row that had both -- verified across all 367 games, 0 disagreeing --
+       so it was a second identifier that could only ever go stale. */
     const requestedKey = normalizeTeamKey(reference && reference.key);
     const candidateKey = teamKey(team);
     if (requestedKey && candidateKey === requestedKey) return 10000;
@@ -192,12 +181,6 @@
 
   function inferTeam(teams, reference) {
     const rows = Array.isArray(teams) ? teams : [];
-    const requestedTgbid = normalizeTgbid(reference && reference.tgbid);
-    if (requestedTgbid) {
-      const keyedByTgbid = rows.find((team) => teamTgbid(team) === requestedTgbid);
-      if (keyedByTgbid) return keyedByTgbid;
-    }
-
     const requestedKey = normalizeTeamKey(reference && reference.key);
     if (requestedKey) {
       const keyed = rows.find((team) => teamKey(team) === requestedKey);
@@ -218,7 +201,7 @@
     if (!game || typeof game !== 'object') return null;
     const prefix = side === 'home' ? 'home' : 'away';
     const joined = game[`${prefix}_team`] || game[`${prefix}Team`];
-    return joined && typeof joined === 'object' && (teamTgbid(joined) || teamKey(joined)) ? joined : null;
+    return joined && typeof joined === 'object' && teamKey(joined) ? joined : null;
   }
 
   function inferGameTeam(teams, game, side = 'away') {
@@ -315,7 +298,6 @@
     normalizeIdentity,
     normalizeTeamKey,
     normalizeTgbid,
-    teamTgbid,
     teamKey,
     isFandomGame,
     inferLeague,

@@ -133,13 +133,13 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   });
 
   t('the room renders its rows in a real browser (' + m.rows + ')', m.rows > 600, m.rows);
-  t('a closed row is seven cells, not thirty-four', m.headCells === 7, m.headCells);
+  t('a closed row is seven cells, not thirty-three', m.headCells === 7, m.headCells);
   /* THE POINT OF THE WHOLE CHANGE: the table fits the panel now. */
   t('so the table fits its panel and never scrolls sideways',
     m.panelScrollW <= m.panelW + 1, m.panelScrollW + ' vs ' + m.panelW);
   t('and neither does the page', m.pageScrollW <= m.pageW + 1, m.pageScrollW + ' vs ' + m.pageW);
 
-  t('opening a row shows all 33 fields', m.fields === 33, m.fields);
+  t('opening a row shows all 32 fields', m.fields === 32, m.fields);
   t('under six group headings', m.groups === 6, m.groups);
   t('laid out in real columns, not stacked', m.cols >= 3, m.cols);
   t('with no two fields on top of each other', m.overlaps === 0, m.overlaps);

@@ -1070,30 +1070,29 @@
         const candidates = Array.isArray(records) ? records.filter(Boolean) : [];
         if (!candidates.length) throw new Error('No jersey puzzles found.');
 
-        const tgbid = getTargetTgbId();
-        if (tgbid) {
-          const matches = candidates.filter((record) => recordMatchesTgbId(record, tgbid));
+        const wanted = getTargetTeamKey();
+        if (wanted) {
+          const matches = candidates.filter((record) => recordMatchesTeamKey(record, wanted));
           if (matches.length) return pickRandom(matches);
-          throw new Error('No jersey puzzles found for TGBID ' + tgbid + '.');
+          throw new Error('No jersey puzzles found for ' + wanted + '.');
         }
 
         return pickRandom(candidates);
       }
 
-      function getTargetTgbId() {
-        return normalizeTgbId(getParam(['tgbid', 'TGBID', 'tgbId', 'teamId', 'team_id']));
+      function getTargetTeamKey() {
+        return normalizeTeamKey(getParam(['key', 'team_key', 'teamKey', 'teamId', 'team_id']));
       }
 
-      function recordMatchesTgbId(record, targetId) {
-        const id = normalizeTgbId(targetId);
-        if (!record || !id) return false;
+      function recordMatchesTeamKey(record, target) {
+        const key = normalizeTeamKey(target);
+        if (!record || !key) return false;
 
-        const recordIds = record.tgbids || record.TGBIDs || record.TGBIDS || record.tgbIds;
-        if (Array.isArray(recordIds) && recordIds.some((value) => normalizeTgbId(value) === id)) return true;
-        if (normalizeTgbId(record.tgbid || record.TGBID) === id) return true;
+        const recordKeys = record.teamKeys || record.team_keys;
+        if (Array.isArray(recordKeys) && recordKeys.some((v) => normalizeTeamKey(v) === key)) return true;
 
         for (let index = 1; index <= 3; index++) {
-          if (normalizeTgbId(record['player' + index + 'tgbid'] || record['player' + index + 'TGBID']) === id) return true;
+          if (normalizeTeamKey(record['player' + index + 'key']) === key) return true;
         }
         return false;
       }
@@ -1107,7 +1106,7 @@
         (Array.isArray(rows) ? rows : []).forEach((row) => {
           if (!row || typeof row !== 'object') return;
           const team = {
-            tgbid: normalizeTgbId(row.TGBID || row.tgbid || row.tgb_id),
+            teamKey: normalizeTeamKey(row.team_key || row.teamKey),
             league: row.League || row.league || '',
             code: row.code || row.Code || row.EspnId || '',
             fullName: row.fullName || row.full_name || [row.GeoName, row.MascotName].filter(Boolean).join(' ') || '',
@@ -1131,7 +1130,7 @@
             const normalized = normalizeKey(key);
             if (normalized && !map.has(normalized)) map.set(normalized, team);
           });
-          if (team.tgbid) map.set('tgbid:' + team.tgbid, team);
+          if (team.teamKey) map.set('key:' + team.teamKey, team);
         });
         return map;
       }
@@ -1139,7 +1138,7 @@
       function normalizeRecord(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const record = {
-          tgbids: normalizeTgbIdList(raw.tgbids || raw.TGBIDs || raw.TGBIDS || raw.tgbIds),
+          teamKeys: normalizeTeamKeyList(raw.teamKeys || raw.team_keys),
           operator: cleanText(raw.operator),
           players: [
             playerFromRecord(raw, 1),
@@ -1147,8 +1146,8 @@
             playerFromRecord(raw, 3)
           ]
         };
-        if (!record.tgbids.length) {
-          record.tgbids = uniqueTgbIds(record.players.map((player) => player.tgbid));
+        if (!record.teamKeys.length) {
+          record.teamKeys = normalizeTeamKeyList(record.players.map((player) => player.teamKey));
         }
         record.city = displayMarketForRecord(record);
         if (!record.players.every((player) => player.name && isValidJerseyNumber(player.num))) return null;
@@ -1156,14 +1155,14 @@
       }
 
       function playerFromRecord(raw, index) {
-        const tgbid = normalizeTgbId(raw['player' + index + 'tgbid'] || raw['player' + index + 'TGBID']);
-        const team = tgbid ? state.teams.get('tgbid:' + tgbid) : null;
+        const teamKey = normalizeTeamKey(raw['player' + index + 'key'] || raw['player' + index + 'Key']);
+        const team = teamKey ? state.teams.get('key:' + teamKey) : null;
         return {
           name: cleanText(raw['player' + index + 'name']),
           num: Number(raw['player' + index + 'num']),
           sport: cleanText(raw['player' + index + 'sport']) || cleanText(team && team.sport),
           team: cleanText(raw['player' + index + 'team']) || cleanText(team && team.fullName),
-          tgbid: tgbid
+          teamKey: teamKey
         };
       }
 
@@ -1229,8 +1228,8 @@
       }
 
       function resolveTeamPalette(player) {
-        const tgbidTeam = player && player.tgbid ? state.teams.get('tgbid:' + player.tgbid) : null;
-        if (tgbidTeam) return tgbidTeam;
+        const keyedTeam = player && player.teamKey ? state.teams.get('key:' + player.teamKey) : null;
+        if (keyedTeam) return keyedTeam;
         const direct = state.teams.get(normalizeKey(player.team));
         if (direct) return direct;
         return {
@@ -1484,7 +1483,7 @@
       function displayMarketForRecord(record) {
         const players = record && Array.isArray(record.players) ? record.players : [];
         const teams = players
-          .map((player) => player && player.tgbid ? state.teams.get('tgbid:' + player.tgbid) : null)
+          .map((player) => player && player.teamKey ? state.teams.get('key:' + player.teamKey) : null)
           .filter(Boolean);
         const fanbases = uniqueCleanValues(teams.map((team) => team.fanbase));
         if (fanbases.length === 1) return fanbases[0];
@@ -1608,15 +1607,21 @@
         return String(value || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim();
       }
 
-      function normalizeTgbId(value) {
-        const text = cleanText(value);
-        if (!/^\d+$/.test(text)) return '';
-        return String(Number(text));
+      function normalizeTeamKey(value) {
+        const text = cleanText(value).toUpperCase();
+        return /^[A-Z0-9_]+:[A-Z0-9&._-]+$/.test(text) ? text : '';
       }
 
-      function normalizeTgbIdList(value) {
+      function normalizeTeamKeyList(value) {
         const source = Array.isArray(value) ? value : String(value || '').split(/[,\s]+/);
-        return uniqueTgbIds(source.map(normalizeTgbId).filter(Boolean));
+        const seen = new Set();
+        const out = [];
+        source.map(normalizeTeamKey).filter(Boolean).forEach((k) => {
+          if (seen.has(k)) return;
+          seen.add(k);
+          out.push(k);
+        });
+        return out;
       }
 
       function uniqueCleanValues(values) {
@@ -1632,17 +1637,6 @@
         return next;
       }
 
-      function uniqueTgbIds(values) {
-        const seen = new Set();
-        const ids = [];
-        (Array.isArray(values) ? values : []).forEach((value) => {
-          const id = normalizeTgbId(value);
-          if (!id || seen.has(id)) return;
-          seen.add(id);
-          ids.push(id);
-        });
-        return ids;
-      }
 
       function shortGameCity(value) {
         return cleanText(value).replace(/,\s*[A-Z]{2,3}$/i, '');

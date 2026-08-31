@@ -24,7 +24,7 @@
     + '&select=*'
     + '&order=name.asc';
   var teamsUrl = SB_URL + '/rest/v1/teams'
-    + '?select=tgbid,team_key,league,conference,division,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone'
+    + '?select=team_key,league,conference,division,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone'
     + '&order=league_sort.asc&order=team_sort.asc';
   window.__tgbPrefetch = {
     games: fetch(gamesUrl, { headers: headers, cache: 'no-store' })

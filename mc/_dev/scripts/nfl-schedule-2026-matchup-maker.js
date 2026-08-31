@@ -1430,8 +1430,6 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     fandom_game: true,
     away_team_key: awayIdentity.team_key || `NFL:${matchup.awayCode}`,
     home_team_key: homeIdentity.team_key || `NFL:${matchup.homeCode}`,
-    away_team_tgbid: TeamPalette.teamTgbid(awayIdentity) || null,
-    home_team_tgbid: TeamPalette.teamTgbid(homeIdentity) || null,
     away_team_city: awayIdentity.game_city || awayIdentity.fanbase || null,
     away_team_mascot: awayIdentity.mascot || null,
     home_team_city: homeIdentity.game_city || homeIdentity.fanbase || null,
