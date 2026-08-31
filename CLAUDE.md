@@ -7883,6 +7883,36 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### AND THE GAME PICKER IN THE NAV IS A COMBO TOO (2026-08-30)
+
+`#gamePickerSelect` is `#gamePickerInput`, an input bound to a datalist. **The
+fourth control in this room to make that move today**, and the same argument
+each time: a select you can only scroll.
+
+- **395 GAMES, AND THE ID IS PART OF EVERY LABEL, which is not decoration.**
+  Three rows are all called *Chicago Fans Takeover Baltimore* -- `bal2026chc`,
+  `bal2026chc1`, `bal2026chc2` -- so **a name alone names no game**, and the list
+  would have offered three identical lines. It also makes the id searchable,
+  which is how somebody arrives holding one.
+- **A DATALIST HAS NO OPTGROUPS**, so the LIVE / ARCHIVED headings the select
+  drew survive as **order plus the word on the archived rows**, which is the half
+  that carries information. The check asserts the invariant rather than the
+  fixture: **no live game is ever listed after an archived one** -- "live first"
+  is vacuously false on an all-archived catalogue, which is what the three
+  fixture rows are.
+- **A BARE ID OPENS THE GAME TOO**, so a value pasted from the database or
+  copied off the Game ID box works rather than being called a mistake.
+- **AN EMPTY BOX IS NOT AN INSTRUCTION.** It is what you get halfway through
+  retyping, so it puts the open game's label back rather than being read as
+  "close this game".
+- **THE BOX EMPTIES ON FOCUS**, or a browser offers only the one entry matching
+  the label already in it -- which is the whole list, hidden behind an exact
+  match.
+- **AN INPUT BRINGS ITS OWN GROUND AND BORDER WHERE A SELECT FILLED THE WRAP**,
+  which draws a box inside a box. `background: transparent; border: 0`, asserted
+  from the computed style rather than from the rule being present.
+- **66 assertions.**
+
 ### THE ANCHOR BOX WAS GATED ON THE WRONG THING (2026-08-30)
 
 All three fields read **"Open a game first"** over an open game. Reported with a

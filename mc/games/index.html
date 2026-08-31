@@ -6527,6 +6527,22 @@ body.builder-page--editor .game-picker-select{
   font-size:.95rem;
   font-weight:600;
   line-height:1.2;
+  /* IT IS AN INPUT NOW, and an input brings its own white ground and border
+     where a select filled the wrap. Left alone it draws a box inside a box. The
+     wrap keeps the frame; the field just sits in it. */
+  width:100%;
+  border:0;
+  background:transparent;
+}
+/* THE ROOM'S OWN MARK FOR A VALUE IT WILL NOT ACT ON, the same one the Game ID
+   box and the three Anchor fields wear. */
+body.builder-page--editor .game-picker-select[data-invalid]{
+  box-shadow:inset 0 0 0 1px #c23737;
+  border-radius:10px;
+}
+body.builder-page--editor .game-picker-select::placeholder{
+  color:rgba(var(--bic-blue-rgb), .55);
+  font-weight:500;
 }
 
 body.builder-page--editor .game-picker-select:focus-visible{
@@ -9862,9 +9878,18 @@ html.admin-embedded .builder-section-head{
 
         <!-- Secondary nav row: builder tools. -->
         <div class="builder-nav-row" id="mbNav" aria-label="Builder navigation">
+          <!-- A COMBO, NOT A SELECT. 395 games is past what a select is for,
+               and the list has no way to be narrowed: you scroll it. An input
+               bound to a datalist lets you type a city, a club or an id.
+
+               THE ID IS PART OF EVERY LABEL, and it has to be: three rows are
+               all called "Chicago Fans Takeover Baltimore", so a name alone
+               names no game. -->
           <div class="game-picker-select-wrap">
-            <select class="game-picker-select" id="gamePickerSelect" aria-label="Open a game">
-            </select>
+            <input class="game-picker-select" id="gamePickerInput" type="text"
+                   list="gamePickerList" autocomplete="off" spellcheck="false"
+                   aria-label="Open a game" placeholder="Open a game">
+            <datalist id="gamePickerList"></datalist>
           </div>
           <button class="builder-nav-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false" title="Save (Ctrl/Cmd+S)">Save</button>
           <a class="builder-nav-btn" id="builderViewGameBtn" href="/mc/game/run/index.html" target="_blank" rel="noopener" aria-disabled="true" title="Preview the public game">Preview</a>
@@ -11912,7 +11937,10 @@ const gamesPageHero = document.querySelector('.games-page-hero');
 // Removed with the topbar: sign-out is the shared nav's padlock now. Kept as
 // null so setBuilderAuthLocked's existing guard keeps working untouched.
 const builderSignOutBtn = null;
-const gamePickerSelect = document.getElementById('gamePickerSelect');
+const gamePickerInput = document.getElementById('gamePickerInput');
+/* THE LABEL SHOWN, BACK TO AN ID. Rebuilt with the list, so it can never name a
+   game the list no longer offers. */
+let gamePickerByLabel = new Map();
 const builderTutorialPopover = document.getElementById('builderTutorialPopover');
 const builderTutorialStepCount = document.getElementById('builderTutorialStepCount');
 const builderTutorialTitle = document.getElementById('builderTutorialTitle');
@@ -16866,7 +16894,7 @@ function updateActionUi() {
     // Mapper archived 2026-07-30 to mc/_dev/archive/mc/. Button removed; this
     // guard stays harmlessly null so the surrounding block is untouched.
   }
-  if (gamePickerSelect) gamePickerSelect.disabled = isSaveBusy;
+  if (gamePickerInput) gamePickerInput.disabled = isSaveBusy;
 }
 
 function isRefreshShortcut(event) {
@@ -18305,44 +18333,54 @@ function getHeaderGames() {
   return buildHeaderGameList(games);
 }
 
+function gamePickerLabel(game, archived) {
+  /* NAME, THEN ID, THEN WHETHER IT IS ON THE SHELF. The id is not decoration:
+     three rows share the name "Chicago Fans Takeover Baltimore", so without it
+     the list offers three identical lines and picking one is a coin toss. It
+     also makes the id searchable, which is how somebody arrives from a link. */
+  const name = game.name || 'Untitled Game';
+  return name + '  ·  ' + game.id + (archived ? '  ·  archived' : '');
+}
+
 function renderGamePickerSelect() {
-  if (!gamePickerSelect) return;
+  if (!gamePickerInput) return;
 
   const games = getHeaderGames();
-  gamePickerSelect.innerHTML = '';
-
+  const list = document.getElementById('gamePickerList');
   const groups = [
     { key: 'LIVE', label: 'LIVE', games: [] },
     { key: 'ARCHIVED', label: 'ARCHIVED', games: [] }
   ];
   const groupMap = new Map(groups.map((group) => [group.key, group]));
-
   games.forEach((game) => {
     const group = groupMap.get(getHeaderGameGroup(game));
     if (group) group.games.push(game);
   });
 
+  /* LIVE FIRST, THEN ARCHIVED. A datalist has no optgroups, so the grouping
+     that the select drew as headings survives as ORDER plus the word on the
+     archived rows -- which is the half that carries information. */
+  gamePickerByLabel = new Map();
+  if (list) list.innerHTML = '';
   groups.forEach((group) => {
-    if (!group.games.length) return;
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = group.label;
     group.games.forEach((game) => {
-      const option = document.createElement('option');
-      option.value = game.id;
-      option.textContent = game.name || 'Untitled Game';
-      optgroup.appendChild(option);
+      const label = gamePickerLabel(game, group.key === 'ARCHIVED');
+      gamePickerByLabel.set(label.toLowerCase(), game.id);
+      if (!list) return;
+      const opt = document.createElement('option');
+      opt.value = label;
+      list.appendChild(opt);
     });
-    gamePickerSelect.appendChild(optgroup);
   });
 
-  const selectedValue = state.currentGameId && games.some((game) => game.id === state.currentGameId)
-    ? state.currentGameId
+  const current = state.currentGameId && games.find((game) => game.id === state.currentGameId);
+  gamePickerInput.value = current
+    ? gamePickerLabel(current, getHeaderGameGroup(current) === 'ARCHIVED')
     : '';
-  gamePickerSelect.value = selectedValue;
-  const selectedOption = gamePickerSelect.options[gamePickerSelect.selectedIndex];
-  gamePickerSelect.title = selectedOption ? selectedOption.textContent : 'Open game';
+  gamePickerInput.removeAttribute('data-invalid');
+  gamePickerInput.title = current ? current.id : 'Open game';
 
-  // The hero's counts line, fed by the same list the dropdown is built from so
+  // The hero's counts line, fed by the same list the picker is built from so
   // the two can never disagree. Empty until games load; .room-substat:empty
   // hides it, so there is no blank gap under the title before then.
   const gameProfileStat = document.getElementById('gameProfileStat');
@@ -18359,8 +18397,10 @@ function renderGamePickerSelect() {
 }
 
 function getSelectedGamePickerId() {
-  if (!gamePickerSelect) return '';
-  const selectedValue = String(gamePickerSelect.value || '').trim();
+  if (!gamePickerInput) return '';
+  const selectedValue = String(
+    gamePickerByLabel.get(String(gamePickerInput.value || '').trim().toLowerCase()) || ''
+  ).trim();
   if (!selectedValue || selectedValue === HEADER_GAME_PLACEHOLDER_VALUE || selectedValue === HEADER_GAME_NEW_VALUE) return '';
   return selectedValue;
 }
@@ -24509,27 +24549,49 @@ document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
     handleBuilderSignOut();
   });
 });
-if (gamePickerSelect) {
-  gamePickerSelect.addEventListener('change', async () => {
-    const selectedValue = String(gamePickerSelect.value || '').trim();
-    if (!selectedValue || state.saveUiState === 'saving' || state.saveUiState === 'loading') {
+if (gamePickerInput) {
+  /* `change` FIRES WHEN A LIST ENTRY IS PICKED and again on blur after typing.
+     `blur` as well, because a value typed and then clicked away from does not
+     always raise `change` in every browser. */
+  const openTyped = async () => {
+    const typed = String(gamePickerInput.value || '').trim();
+
+    /* AN EMPTY BOX IS NOT AN INSTRUCTION. It is what you get halfway through
+       retyping, so it puts the current game's label back rather than being read
+       as "close this game". */
+    if (!typed || state.saveUiState === 'saving' || state.saveUiState === 'loading') {
       renderGamePickerSelect();
       return;
     }
-    if (selectedValue === HEADER_GAME_PLACEHOLDER_VALUE) {
-      renderGamePickerSelect();
+
+    /* A LABEL, OR A BARE ID -- so a value pasted out of the database or copied
+       off the Game ID box opens the game rather than being called a mistake. */
+    const games = getHeaderGames();
+    const byLabel = gamePickerByLabel.get(typed.toLowerCase());
+    const byId = games.find((g) => String(g.id).toLowerCase() === typed.toLowerCase());
+    const selectedValue = byLabel || (byId ? byId.id : '');
+
+    if (!selectedValue) {
+      /* REFUSED IN THE ROOM'S OWN IDIOM rather than silently reopening the last
+         game, which would look like the box ignoring what was typed. */
+      gamePickerInput.setAttribute('data-invalid', '');
+      gamePickerInput.title = 'No game called ' + typed + '. Pick one from the list.';
       return;
     }
-    if (selectedValue === HEADER_GAME_NEW_VALUE) {
-      startNewPhone();
-      return;
-    }
-    if (selectedValue === state.currentGameId) {
-      renderGamePickerSelect();
-      return;
-    }
+    gamePickerInput.removeAttribute('data-invalid');
+
+    if (selectedValue === HEADER_GAME_PLACEHOLDER_VALUE) { renderGamePickerSelect(); return; }
+    if (selectedValue === HEADER_GAME_NEW_VALUE) { startNewPhone(); return; }
+    if (selectedValue === state.currentGameId) { renderGamePickerSelect(); return; }
     await openSavedGameById(selectedValue, { preserveRecovery: hasPendingSaveChanges() });
-  });
+  };
+  gamePickerInput.addEventListener('change', openTyped);
+  gamePickerInput.addEventListener('blur', openTyped);
+  /* THE BOX EMPTIES ON FOCUS so the whole list is offered rather than the one
+     entry that matches the game already open -- which is what a browser shows
+     when the field already holds a full label. The label comes back on blur if
+     nothing was chosen, through renderGamePickerSelect above. */
+  gamePickerInput.addEventListener('focus', () => { gamePickerInput.value = ''; });
 }
 if (refreshPageBtn) {
   refreshPageBtn.addEventListener('click', () => {

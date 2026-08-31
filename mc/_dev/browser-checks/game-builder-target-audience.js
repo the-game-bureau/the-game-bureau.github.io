@@ -111,11 +111,12 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   /* THE WRITE. Choosing an audience must reach games.target_audience_id, which
      is six separate wiring points away from the picker. */
   const opened = await page.evaluate(() => {
-    const picker = document.getElementById('gamePickerSelect');
-    if (!picker || picker.options.length < 2) return { ok: false, options: picker ? picker.options.length : 0 };
-    picker.selectedIndex = 1;
+    const picker = document.getElementById('gamePickerInput');
+    const opts = [...document.querySelectorAll('#gamePickerList option')];
+    if (!picker || !opts.length) return { ok: false, options: opts.length };
+    picker.value = opts[0].value;
     picker.dispatchEvent(new Event('change', { bubbles: true }));
-    return { ok: true, id: picker.value };
+    return { ok: true, id: picker.value, options: opts.length };
   });
   await new Promise((r) => setTimeout(r, 700));
   t('a game can be opened from the picker', opened.ok, JSON.stringify(opened));
@@ -194,6 +195,61 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('painted the colour it was given', /rgb\(11,\s*22,\s*42\)/.test(sw.colour), sw.colour);
   t('and ringed, or a white club colour is invisible on a white bar',
     sw.ring && sw.ring !== 'none', sw.ring);
+
+  /* THE GAME PICKER IN THE NAV IS A COMBO TOO. 395 games in a select is a list
+     you scroll; the id in every label is what makes three rows sharing one name
+     tellable apart, and what makes the id searchable. */
+  const picker = await page.evaluate(() => {
+    const el = document.getElementById('gamePickerInput');
+    const opts = [...document.querySelectorAll('#gamePickerList option')].map((o) => o.value);
+    const cs = getComputedStyle(el);
+    const before = el.value;
+    const type = (v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    type('no such game anywhere');
+    const bad = { invalid: el.hasAttribute('data-invalid'), title: el.title };
+    /* AN EMPTY BOX IS NOT AN INSTRUCTION TO CLOSE THE GAME: it is what you get
+       halfway through retyping, so the label comes back. */
+    type('');
+    const afterBlank = el.value;
+    return {
+      isInput: el.tagName === 'INPUT',
+      list: el.getAttribute('list'),
+      noSelect: !document.getElementById('gamePickerSelect'),
+      count: opts.length,
+      /* THE ID IS IN EVERY LABEL, or three rows called "Chicago Fans Takeover
+         Baltimore" are three identical lines. */
+      allCarryAnId: opts.every((v) => v.split('·').length >= 2),
+      archivedMarked: opts.some((v) => /archived/.test(v)),
+      /* THE INVARIANT, NOT THE FIXTURE. "Live first" is vacuously false on an
+         all-archived catalogue, which is what these three rows are. What must
+         hold is that no LIVE game ever appears after an archived one. */
+      noLiveAfterArchived: (() => {
+        const firstArchived = opts.findIndex((v) => /archived/.test(v));
+        if (firstArchived < 0) return true;
+        return opts.slice(firstArchived).every((v) => /archived/.test(v));
+      })(),
+      badInvalid: bad.invalid, badTitle: bad.title,
+      afterBlank: afterBlank, before: before,
+      transparent: cs.backgroundColor === 'rgba(0, 0, 0, 0)',
+      noBorder: cs.borderTopWidth === '0px'
+    };
+  });
+  t('the game picker is a combo, not a select',
+    picker.isInput && picker.list === 'gamePickerList' && picker.noSelect,
+    picker.isInput + '/' + picker.list + '/' + picker.noSelect);
+  t('its list holds the games (' + picker.count + ')', picker.count > 0, picker.count);
+  t('every label carries the id, so duplicates are tellable apart', picker.allCarryAnId);
+  t('archived games are marked', picker.archivedMarked);
+  t('and no live game is listed after an archived one', picker.noLiveAfterArchived);
+  t('a game that does not exist is refused', picker.badInvalid);
+  t('and says so in words', /No game called/.test(picker.badTitle), picker.badTitle);
+  t('an empty box puts the open game back rather than closing it',
+    picker.afterBlank.length > 0, JSON.stringify(picker.afterBlank));
+  /* AN INPUT BRINGS ITS OWN GROUND AND BORDER WHERE A SELECT FILLED THE WRAP,
+     which draws a box inside a box. Read from the computed style. */
+  t('it sits in the wrap rather than drawing its own box',
+    picker.transparent && picker.noBorder,
+    picker.transparent + '/' + picker.noBorder);
 
   /* THE ANCHOR EVENT MOVED OUT OF THE INSPECTOR AND BECAME THE SAME COMBO. It
      was a `<select>` with one option per row of public.events -- 4,123 of them,
