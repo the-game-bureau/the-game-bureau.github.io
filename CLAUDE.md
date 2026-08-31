@@ -7883,6 +7883,42 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### THE ANCHOR EVENT LEADS, AND STOPPED BEING A 4,123-OPTION SELECT (2026-08-30)
+
+An **ANCHOR EVENT** bar above Target audience. **Moved, not added** -- the picker
+already existed, buried in the inspector among Brand, Payment and Rendezvous.
+
+- **IT IS THE FIRST QUESTION, so it is the first bar.** A game is built around a
+  real event: it is what brings the visiting fandom to the city, so it comes
+  before who they are and before what the game is called. **A drawer of settings
+  is the wrong place for the thing everything else is chosen to fit.**
+- **MOVED RATHER THAN DUPLICATED.** Two pickers for one column is the
+  duplication this repo keeps removing, and the ids were repointed rather than
+  copied: there is no `anchorEventSelect` left anywhere.
+- **IT WAS A `<select>` WITH ONE OPTION PER ROW OF `public.events` -- 4,123 of
+  them.** That is past what a select is for by a wide margin, and worse than the
+  641 the audience picker had. It is the same combo as the two bars under it, so
+  you can type a city, a club or a year.
+  - **`applyAnchorEventSelection` TAKES AN ID NOW instead of reading the
+    control.** The field holds a LABEL, so a function reading `.value` would
+    have been handed prose where it expected a key -- which would have looked
+    like the link silently failing to save.
+  - **THE PAINT IS UNCONDITIONAL, where it used to fire only on a mismatch.**
+    That check compared the control's value with the stored id; with a label in
+    the box the two can never agree, so it would have repainted on every pass.
+- **THE SECTION IT LEFT WAS RETITLED.** It still holds the anchor toggle and the
+  two legacy team pickers, and a heading reading "Anchor Event" over a control
+  that has moved is the same drift as a door describing a room in words the room
+  no longer uses. It says **Teams**.
+  - **THE `INCLUDE ANCHOR` TOGGLE IS STILL DOWN THERE**, which is arguable: it
+    gates the fandom palette rather than the event link. Left where it is
+    because moving it is a second decision, and it is recorded here rather than
+    discovered.
+- **PROVED IN REAL CHROME**: the bar is above Target, the control is an input
+  bound to a list, no select remains, the list fills from `events`, a label
+  carries its date, an unknown event is refused with a sentence and a real one
+  resolves to an id. **50 assertions** across the three bars.
+
 ### AND WHO THEY ARE UP AGAINST (2026-08-30)
 
 A second bar, **RIVAL AUDIENCE**, under Target and still above Game, writing

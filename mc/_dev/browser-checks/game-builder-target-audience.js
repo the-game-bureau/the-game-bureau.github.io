@@ -14,6 +14,7 @@ const AUDIENCES = fs.readFileSync('C:/tmp/fx-aud.json', 'utf8');
 const TEAMS = fs.readFileSync('C:/tmp/fx-teams.json', 'utf8');
 const GAMES = fs.readFileSync('C:/tmp/fx-games.json', 'utf8');
 const PLACES = fs.readFileSync('C:/tmp/fx-places-full.json', 'utf8');
+const EVENTS = fs.readFileSync('C:/tmp/fx-events.json', 'utf8');
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': '*',
@@ -53,6 +54,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       if (/rest\/v1\/games/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: GAMES });
       /* THE TOWN COMES FROM `places`, so the stub has to serve it or every label
          loses its city and the check reports a page fault that is its own. */
+      if (/rest\/v1\/events/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: EVENTS });
       if (/rest\/v1\/places/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: PLACES });
       return req.respond({ contentType: 'application/json', headers: CORS, body: '[]' });
     }
@@ -176,6 +178,47 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('painted the colour it was given', /rgb\(11,\s*22,\s*42\)/.test(sw.colour), sw.colour);
   t('and ringed, or a white club colour is invisible on a white bar',
     sw.ring && sw.ring !== 'none', sw.ring);
+
+  /* THE ANCHOR EVENT MOVED OUT OF THE INSPECTOR AND BECAME THE SAME COMBO. It
+     was a `<select>` with one option per row of public.events -- 4,123 of them,
+     which is past what a select is for by a wide margin. */
+  const anchor = await page.evaluate(() => {
+    const bar = document.getElementById('anchorEventBar');
+    const inp = document.getElementById('anchorEventInput');
+    const tbar = document.getElementById('targetAudienceBar');
+    const order = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    inp.disabled = false;
+    const first = document.querySelector('#anchorEventList option');
+    const type = (v) => { inp.value = v; inp.dispatchEvent(new Event('change', { bubbles: true })); };
+    type('not a real event at all');
+    const bad = { invalid: inp.hasAttribute('data-invalid'), title: inp.title };
+    if (first) type(first.value);
+    return {
+      exists: !!bar,
+      legend: bar ? bar.querySelector('legend').textContent.trim() : '',
+      aboveTarget: !!(bar && tbar && order(bar, tbar)),
+      isInput: inp.tagName === 'INPUT',
+      list: inp.getAttribute('list'),
+      options: document.querySelectorAll('#anchorEventList option').length,
+      firstLabel: first ? first.value : '',
+      noSelectLeft: !document.getElementById('anchorEventSelect'),
+      badInvalid: bad.invalid, badTitle: bad.title,
+      goodInvalid: inp.hasAttribute('data-invalid'), goodTitle: inp.title
+    };
+  });
+  t('there is an Anchor event section', anchor.exists);
+  t('called Anchor event', /anchor event/i.test(anchor.legend), anchor.legend);
+  t('above Target audience', anchor.aboveTarget);
+  t('and it is a combo, not the old select',
+    anchor.isInput && anchor.list === 'anchorEventList' && anchor.noSelectLeft,
+    anchor.isInput + '/' + anchor.list + '/' + anchor.noSelectLeft);
+  t('its list is filled from public.events (' + anchor.options + ')', anchor.options > 100, anchor.options);
+  t('and a label carries the date and what it is',
+    /\d{4}-\d{2}-\d{2}/.test(anchor.firstLabel), anchor.firstLabel);
+  t('an event the catalogue does not hold is refused', anchor.badInvalid);
+  t('and says so in words', /No event called/.test(anchor.badTitle), anchor.badTitle);
+  t('a real one clears the refusal and resolves to an id',
+    !anchor.goodInvalid && anchor.goodTitle.length > 0, anchor.goodTitle);
 
   /* THE RIVAL IS THE SAME CONTROL, NOT A SECOND ONE. What is worth asserting is
      that they SHARE the list and the resolver and yet write to DIFFERENT

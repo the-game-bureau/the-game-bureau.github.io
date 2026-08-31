@@ -7426,6 +7426,9 @@ body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
    1500px bar for a control holding two words, which reads as an input that has
    lost its neighbour rather than as a picker. */
 body.builder-page--editor .gid-field--audience{ flex:0 1 460px; min-width:260px; }
+/* WIDER THAN AN AUDIENCE, because an event's label is a whole line: a date, a
+   kind, and either two clubs or a title. */
+body.builder-page--editor .gid-field--anchor{ flex:1 1 640px; min-width:300px; }
 body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
 body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:30px; }
 /* A SWATCH IS A BOX AND NOT A SPAN ON A BASELINE. Width and height are ignored
@@ -7501,6 +7504,7 @@ body.builder-page--editor #selectionIdInput{
 }
 /* THE ROOM'S EXISTING IDIOM FOR A VALUE THE DATABASE WOULD REFUSE, borrowed
    rather than invented: the id box has worn it since this bar was built. */
+body.builder-page--editor #anchorEventInput[data-invalid],
 body.builder-page--editor #targetAudienceInput[data-invalid],
 body.builder-page--editor #selectionIdInput[data-invalid]{
   border-color:#c23737;
@@ -9862,6 +9866,30 @@ html.admin-embedded .builder-section-head{
 
            It wears the Game bar's own frame, because the two answer the same
            kind of question: which game is this, and who is it for. -->
+      <!-- THE REASON PEOPLE ARE IN TOWN, ASKED FIRST.
+           A game is built around a real event: it is what brings the visiting
+           fandom to the city, so it comes before who they are and what the game
+           is called. It moved here out of the inspector, where it sat among
+           Brand, Payment and Rendezvous -- a drawer of settings is the wrong
+           place for the thing everything else is chosen to fit.
+
+           IT WAS A `<select>` HOLDING 4,123 OPTIONS, one per row of
+           public.events, which is past what a select is for by a wide margin.
+           Same combo as the two bars below it. -->
+      <datalist id="anchorEventList"></datalist>
+
+      <fieldset class="game-id-bar" id="anchorEventBar">
+        <legend>Anchor event</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--anchor" id="anchorEventField">
+            <label class="gid-label" for="anchorEventInput">The reason people are in town</label>
+            <input id="anchorEventInput" type="text" list="anchorEventList"
+                   autocomplete="off" spellcheck="false" disabled
+                   placeholder="Nothing in particular">
+          </div>
+        </div>
+      </fieldset>
+
       <!-- ONE DATALIST FOR BOTH BARS. The two fields offer the same 641
            audiences, so a second copy would be 641 duplicate option nodes and
            two lists to keep in step -- which is the copy-and-drift this repo has
@@ -10171,7 +10199,7 @@ html.admin-embedded .builder-section-head{
                 </section>
 
                 <section class="details-section" id="detailsTeamsSection">
-                  <div class="details-section-title">Anchor Event</div>
+                  <div class="details-section-title">Teams</div>
                   <div class="details-section-grid details-section-grid--teams">
                     <div class="field" id="fandomGameField">
                       <div class="field-label">INCLUDE ANCHOR<span class="field-info" tabindex="0" role="note" aria-label="Turn on to include an anchor event for this game.">i<span class="field-tooltip" role="tooltip">Turn on to include an anchor event for this game.</span></span></div>
@@ -10184,12 +10212,6 @@ html.admin-embedded .builder-section-head{
                         </label>
                         <span class="loc-toggle-side-label" id="fandomGameLabelYes">YES</span>
                       </div>
-                    </div>
-                    <div class="field" id="anchorEventField">
-                      <label class="field-label field-label--with-meta" for="anchorEventSelect">Choose Event<span class="field-info" tabindex="0" role="note" aria-label="Pick a real matchup from the Anchor Events catalog to auto-fill the teams below.">i<span class="field-tooltip" role="tooltip">Pick an event from the Anchor Events catalog — a concert, convention, sports matchup, anything. A sports event also auto-fills the away/home teams below. Manage the catalog in Mission Control → Anchor Events.</span></span></label>
-                      <select id="anchorEventSelect" autocomplete="off" disabled>
-                        <option value="">— none —</option>
-                      </select>
                     </div>
                     <div class="field" id="awayTeamField">
                       <label class="field-label" for="nodeAwayTeamInput">Away Team (Fan's Team)</label>
@@ -12055,7 +12077,7 @@ const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput
 const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
-const anchorEventSelect = document.getElementById('anchorEventSelect');
+const anchorEventInput = document.getElementById('anchorEventInput');
 
 // Teams dropdown — sourced from the public.teams Supabase catalog (the single
 // source of truth). Selecting the away team also fills the editable Away Team
@@ -12699,29 +12721,69 @@ async function applyGuideSelection() {
 }
 
 function populateAnchorEventSelect() {
-  if (!anchorEventSelect) return;
-  const cur = String((state && state.currentGameMeta && state.currentGameMeta.anchorEventId) || anchorEventSelect.value || '');
-  while (anchorEventSelect.options.length > 1) anchorEventSelect.remove(1);
-  builderAnchorEvents.forEach((ev) => {
-    const opt = document.createElement('option');
-    opt.value = String(ev.id);
-    opt.textContent = anchorEventLabel(ev);
-    anchorEventSelect.appendChild(opt);
-  });
-  // Preserve an already-linked id even if the catalog hasn't loaded it (or it
-  // was deleted) so opening the game doesn't silently drop the link.
-  if (cur && !builderAnchorEventsById.has(cur)) {
-    const opt = document.createElement('option');
-    opt.value = cur;
-    opt.textContent = cur + ' (not in catalog)';
-    anchorEventSelect.appendChild(opt);
+  const list = document.getElementById('anchorEventList');
+  if (list) {
+    list.innerHTML = '';
+    builderAnchorEvents.forEach((ev) => {
+      const opt = document.createElement('option');
+      /* THE LABEL IS THE VALUE, because a datalist matches on nothing else. It
+         already carries the date, the kind and the clubs or the title, so
+         typing a city, a year or a club name all reach the row. */
+      opt.value = anchorEventLabel(ev);
+      list.appendChild(opt);
+    });
   }
-  anchorEventSelect.value = cur || '';
+  if (!anchorEventInput) return;
+  /* THE FIELD SHOWS A LABEL AND THE COLUMN HOLDS AN ID, so what is drawn is
+     resolved FROM the stored id. An id the catalogue does not hold keeps its
+     own text rather than blanking, or opening the game would silently drop a
+     link that is still in the row. */
+  const cur = String((state && state.currentGameMeta && state.currentGameMeta.anchorEventId) || '');
+  const ev = cur ? builderAnchorEventsById.get(cur) : null;
+  anchorEventInput.value = ev ? anchorEventLabel(ev)
+                        : (cur ? cur + ' (not in catalog)' : '');
+  anchorEventInput.removeAttribute('data-invalid');
+  anchorEventInput.placeholder = !builderAnchorEvents.length ? 'Events did not load'
+                               : (anchorEventInput.disabled ? 'Open a game first'
+                                                            : 'Type a city, a club or a year');
 }
 
-function applyAnchorEventSelection() {
+/* WHAT WAS TYPED, BACK TO AN ID, then the existing selection logic runs on it.
+   A label the catalogue does not hold is REFUSED rather than stored: the column
+   is a foreign key into public.events. */
+function resolveTypedEvent() {
+  if (!anchorEventInput) return;
+  const typed = String(anchorEventInput.value || '').trim();
+  const canWrite = !!(getGameNode() && state.currentGameMeta);
+
+  if (!typed) {
+    anchorEventInput.removeAttribute('data-invalid');
+    if (canWrite) applyAnchorEventSelection('');
+    return;
+  }
+  const low = typed.toLowerCase();
+  let hit = null;
+  builderAnchorEvents.some((ev) => {
+    if (anchorEventLabel(ev).toLowerCase() === low || String(ev.id).toLowerCase() === low) {
+      hit = ev;
+      return true;
+    }
+    return false;
+  });
+  if (!hit) {
+    anchorEventInput.setAttribute('data-invalid', '');
+    anchorEventInput.title = 'No event called ' + typed + '. Pick one from the list.';
+    return;
+  }
+  anchorEventInput.removeAttribute('data-invalid');
+  anchorEventInput.title = String(hit.id);
+  anchorEventInput.value = anchorEventLabel(hit);
+  if (canWrite) applyAnchorEventSelection(String(hit.id));
+}
+
+function applyAnchorEventSelection(nextId) {
   if (!getGameNode() || !state.currentGameMeta) return;
-  const id = anchorEventSelect ? String(anchorEventSelect.value || '') : '';
+  const id = String(nextId || '');
   state.currentGameMeta.anchorEventId = id;
   const ev = id ? builderAnchorEventsById.get(id) : null;
   /* A SPORTS EVENT IS ONE THAT NAMES CLUBS, and it names them in words. It was
@@ -20377,14 +20439,12 @@ function updateSelectionUi(options = {}) {
   }
   if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
   if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
-  if (anchorEventSelect) {
-    anchorEventSelect.disabled = !isGameNode;
-    anchorEventSelect.value = isGameNode ? String(meta.anchorEventId || '') : '';
-    // If the linked id isn't among the current options (catalog still loading,
-    // or the row was removed), inject a preserving option so it doesn't blank.
-    if (isGameNode && meta.anchorEventId && anchorEventSelect.value !== String(meta.anchorEventId)) {
-      populateAnchorEventSelect();
-    }
+  if (anchorEventInput) {
+    anchorEventInput.disabled = !isGameNode;
+    /* REPAINTED AFTER the disabled flag, because the placeholder reads it, and
+       ALWAYS rather than only on a mismatch: the field holds a LABEL now, so
+       comparing it with the stored id would never agree. */
+    populateAnchorEventSelect();
   }
   if (nodeGuideSelect) {
     // Rebuilt rather than assigned, for the same reason the anchor-event
@@ -22549,7 +22609,10 @@ bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', '
   useGameCity: true,
   keyField: 'homeTeamKey',
 });
-if (anchorEventSelect) anchorEventSelect.addEventListener('change', applyAnchorEventSelection);
+if (anchorEventInput) {
+  anchorEventInput.addEventListener('change', resolveTypedEvent);
+  anchorEventInput.addEventListener('blur', resolveTypedEvent);
+}
 if (nodeGuideSelect) nodeGuideSelect.addEventListener('change', applyGuideSelection);
 // Full size in the shadow box the page already has. Only ever the real
 // portrait: paintGuidePortrait disables the frame when the silhouette is up.
