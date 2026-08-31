@@ -71,9 +71,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       hasBar: !!bar,
       legend: bar ? bar.querySelector('legend').textContent.trim() : '',
       aboveGame: !!pos,
-      options: document.querySelectorAll('#targetAudienceList option').length,
-      firstReal: (document.querySelector('#targetAudienceList option') || {}).value || '',
-      names: [...document.querySelectorAll('#targetAudienceList option')].map((o) => o.value).join('|')
+      options: document.querySelectorAll('#audienceList option').length,
+      firstReal: (document.querySelector('#audienceList option') || {}).value || '',
+      names: [...document.querySelectorAll('#audienceList option')].map((o) => o.value).join('|')
     };
   });
 
@@ -177,20 +177,74 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('and ringed, or a white club colour is invisible on a white bar',
     sw.ring && sw.ring !== 'none', sw.ring);
 
+  /* THE RIVAL IS THE SAME CONTROL, NOT A SECOND ONE. What is worth asserting is
+     that they SHARE the list and the resolver and yet write to DIFFERENT
+     columns -- the two failures a duplicate invites are one list going stale
+     and both fields writing the same key. */
+  const pair = await page.evaluate(() => {
+    const tin = document.getElementById('targetAudienceInput');
+    const rin = document.getElementById('rivalAudienceInput');
+    const tbar = document.getElementById('targetAudienceBar');
+    const rbar = document.getElementById('rivalAudienceBar');
+    const game = document.getElementById('gameIdentityBar');
+    const order = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    /* READ THE SWATCHES BEFORE TYPING, because typing cannot write to the meta
+       here and would only tell us what the previous value drew. */
+    const stored = {
+      t: document.querySelectorAll('#targetAudienceSwatches .ta-swatch').length,
+      r: document.querySelectorAll('#rivalAudienceSwatches .ta-swatch').length
+    };
+    tin.disabled = false; rin.disabled = false;
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    type(tin, 'NFL Chicago (Bears)');
+    type(rin, 'NFL New Orleans (Saints)');
+    return {
+      exists: !!rbar,
+      legend: rbar ? rbar.querySelector('legend').textContent.trim() : '',
+      afterTarget: order(tbar, rbar),
+      beforeGame: order(rbar, game),
+      sameList: tin.getAttribute('list') === rin.getAttribute('list'),
+      oneList: document.querySelectorAll('datalist').length,
+      tTitle: tin.title, rTitle: rin.title,
+      tValue: tin.value, rValue: rin.value,
+      tStored: stored.t, rStored: stored.r,
+      distinctHosts: document.getElementById('targetAudienceSwatches')
+                  !== document.getElementById('rivalAudienceSwatches')
+    };
+  });
+  t('there is a Rival audience section', pair.exists);
+  t('called Rival audience', /rival audience/i.test(pair.legend), pair.legend);
+  t('after Target audience', pair.afterTarget);
+  t('and still above the Game section', pair.beforeGame);
+  t('both fields point at the same datalist', pair.sameList,
+    pair.sameList + ' (' + pair.oneList + ' datalists on the page, one is the city picker)');
+  t('each resolves its own audience', pair.tTitle === 'nfl-chicago' && pair.rTitle === 'nfl-new-orleans',
+    pair.tTitle + ' | ' + pair.rTitle);
+  t('and holds its own label', /Chicago/.test(pair.tValue) && /New Orleans/.test(pair.rValue),
+    pair.tValue + ' | ' + pair.rValue);
+  /* DRAWN FROM THE STORED VALUE, so the fixture is a game that carries both.
+     Typing cannot fill these here: the write is guarded on an open game node,
+     which this stub cannot produce. */
+  t('each draws its own colours, from its own stored value',
+    pair.tStored >= 2 && pair.rStored >= 2, pair.tStored + '/' + pair.rStored);
+  t('and the two hosts are different elements', pair.distinctHosts);
+
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly
      does not carry it. Structural on purpose -- the harness cannot open a game,
      and this is the failure that would otherwise ship. */
   const src = fs.readFileSync('mc/games/index.html', 'utf8');
-  const points = [
-    ['saved columns',    /target_audience_id: true/],
-    ['column map',       /target_audience_id: 'targetAudienceId'/],
-    ['initGameMeta',     /targetAudienceId:\s+g\.target_audience_id/],
-    ['normalize (row)',  /target_audience_id:\s+row && row\.target_audience_id/],
-    ['normalize (raw)',  /target_audience_id:\s+raw && raw\.target_audience_id/],
-    ['serializeGameRow', /target_audience_id:\s+_meta\.targetAudienceId \|\| null/]
-  ];
-  points.forEach(([name, re]) => t('wired into ' + name, re.test(src)));
+  [['target', 'target_audience_id', 'targetAudienceId'],
+   ['rival',  'rival_audience_id',  'rivalAudienceId']].forEach(([side, col, camel]) => {
+    [['saved columns',    col + ': true'],
+     ['column map',       col + ": '" + camel + "'"],
+     ['initGameMeta',     camel + ':'],
+     ['initGameMeta reads the column', 'g.' + col],
+     ['normalize (row)',  'row && row.' + col],
+     ['normalize (raw)',  'raw && raw.' + col],
+     ['serializeGameRow', '_meta.' + camel + ' || null']
+    ].forEach(([name, needle]) => t(side + ' wired into ' + name, src.indexOf(needle) >= 0, needle));
+  });
 
   t('no console errors', errs.length === 0, errs.slice(0, 3).join(' | '));
 

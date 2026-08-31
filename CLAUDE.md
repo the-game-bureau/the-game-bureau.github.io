@@ -7883,6 +7883,43 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### AND WHO THEY ARE UP AGAINST (2026-08-30)
+
+A second bar, **RIVAL AUDIENCE**, under Target and still above Game, writing
+`games.rival_audience_id`.
+
+- **IT IS THE SAME CONTROL TOLD WHICH SIDE IT IS, not a second one.** One
+  datalist, one resolver, one painter, driven by an `AUDIENCE_SLOTS` entry.
+  **Two copies of a resolver that have to agree by hand is the drift this repo
+  has paid for more than once**, and a second datalist would have been 641
+  duplicate option nodes that could go stale independently.
+- **BOTH FIELDS POINT AT THE ONE LIST**, asserted -- and the check counts two
+  datalists on the page, because **the shared city picker builds its own at
+  runtime**. Counting them would be counting somebody else's control; what
+  matters is that these two share.
+- **THE SIX WIRING POINTS AGAIN.** A column reaches the database through all of
+  them or none, so both sides are asserted across all six rather than the rival
+  being assumed to follow.
+- **PROVED ON A GAME THAT CARRIES BOTH.** The first fixture had a target and a
+  null rival, so "each draws its own colours" was asking the page for something
+  no path could have produced. **The swatches follow the STORED value**, and the
+  write is guarded on an open game node, so the fixture has to be a real row
+  with both -- `bal2026chc`, Cubs against Baltimore.
+
+**AND THE ESCAPING SCAR ATE THE CHECK ITSELF, one layer deeper than usual.** The
+six wiring assertions were built with `new RegExp(camel + '\s*:\s+g\.' + col)`,
+and **the backslashes did not survive the heredoc** -- so every pattern read
+`targetAudienceIds*:s+g.target_audience_id`, matched nothing, and reported six
+**present** wiring points as missing. Two of my own probes then confirmed the
+"fix" was broken, because they were eaten the same way.
+
+- **THE REMEDY IS THIS FILE'S OWN, APPLIED PROPERLY THIS TIME: no backslash
+  escapes at all.** The assertions are plain `indexOf` on substrings that
+  actually appear -- `'row && row.target_audience_id'`, `'_meta.rivalAudienceId
+  || null'`. A substring cannot be eaten by a layer of quoting.
+- **A CHECK THAT FAILS ON CORRECT CODE IS WORSE THAN NO CHECK**, because the
+  next person deletes the code rather than the check. This one failed on six.
+
 ### AND IT ASKS WHO THE GAME IS FOR, ABOVE WHAT THE GAME IS (2026-08-30)
 
 A **TARGET AUDIENCE** fieldset above the Game bar, built from `public.audiences`

@@ -9862,6 +9862,12 @@ html.admin-embedded .builder-section-head{
 
            It wears the Game bar's own frame, because the two answer the same
            kind of question: which game is this, and who is it for. -->
+      <!-- ONE DATALIST FOR BOTH BARS. The two fields offer the same 641
+           audiences, so a second copy would be 641 duplicate option nodes and
+           two lists to keep in step -- which is the copy-and-drift this repo has
+           lost to more than once. -->
+      <datalist id="audienceList"></datalist>
+
       <fieldset class="game-id-bar" id="targetAudienceBar">
         <legend>Target audience</legend>
         <div class="game-id-bar-inner">
@@ -9872,10 +9878,9 @@ html.admin-embedded .builder-section-head{
                  audiences room's home cell, the waypoint editor's city. You can
                  type to narrow 641 rows, which a select cannot do, and what is
                  typed is resolved back to an id before it is stored. -->
-            <input id="targetAudienceInput" type="text" list="targetAudienceList"
+            <input id="targetAudienceInput" type="text" list="audienceList"
                    autocomplete="off" spellcheck="false" disabled
                    placeholder="Nobody in particular">
-            <datalist id="targetAudienceList"></datalist>
           </div>
           <!-- THE PALETTE IS THE POINT, SO IT IS SHOWN. A fandom's colours are
                what the game wears, and three hex values in a table say nothing:
@@ -9883,6 +9888,30 @@ html.admin-embedded .builder-section-head{
           <div class="gid-field gid-field--audience-palette" id="targetAudiencePalette" hidden>
             <span class="gid-label">Its colours</span>
             <div class="ta-swatches" id="targetAudienceSwatches"></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- THE OTHER HALF OF THE FIXTURE. A game has two fandoms in play: the one
+           it is pitched at, and the one they are surrounded by. The rival is
+           what a Know Your Enemy question is keyed to, and what
+           `tgb_anti_audience` computes for a generated game -- so a stored game
+           should be able to say it outright.
+
+           IT IS THE SAME CONTROL, NOT A SECOND ONE: one datalist, one resolver,
+           one painter, told which slot it is working on. -->
+      <fieldset class="game-id-bar" id="rivalAudienceBar">
+        <legend>Rival audience</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--audience" id="rivalAudienceField">
+            <label class="gid-label" for="rivalAudienceInput">Who they are up against</label>
+            <input id="rivalAudienceInput" type="text" list="audienceList"
+                   autocomplete="off" spellcheck="false" disabled
+                   placeholder="Nobody in particular">
+          </div>
+          <div class="gid-field gid-field--audience-palette" id="rivalAudiencePalette" hidden>
+            <span class="gid-label">Its colours</span>
+            <div class="ta-swatches" id="rivalAudienceSwatches"></div>
           </div>
         </div>
       </fieldset>
@@ -10647,6 +10676,7 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_key: true,
   home_team_key: true,
   target_audience_id: true,
+  rival_audience_id: true,
   venue_name: true,
   venue_city: true,
   anchor_event_id: true
@@ -11213,6 +11243,7 @@ function normalizeGameRow(row, index = 0) {
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
     target_audience_id:    row && row.target_audience_id,
+    rival_audience_id:     row && row.rival_audience_id,
     venue_name:            row && row.venue_name,
     venue_city:            row && row.venue_city,
   }, index);
@@ -12189,22 +12220,38 @@ function audienceLabel(a) {
   return place && !sameTown ? head + ' · ' + place : head;
 }
 
-function populateTargetAudienceSelect() {
-  const input = document.getElementById('targetAudienceInput');
-  const list = document.getElementById('targetAudienceList');
-  if (!input || !list) return;
+/* THE TWO SLOTS ARE ONE CONTROL TOLD WHICH SIDE IT IS. Everything below takes a
+   slot rather than being written twice: the alternative is two copies of a
+   resolver and a painter that have to agree by hand, which is the drift this
+   repo has paid for more than once. */
+const AUDIENCE_SLOTS = [
+  { field: 'targetAudienceId', input: 'targetAudienceInput',
+    palette: 'targetAudiencePalette', swatches: 'targetAudienceSwatches',
+    hint: 'Type a city, a club or a league' },
+  { field: 'rivalAudienceId', input: 'rivalAudienceInput',
+    palette: 'rivalAudiencePalette', swatches: 'rivalAudienceSwatches',
+    hint: 'Type a city, a club or a league' }
+];
 
+function fillAudienceDatalist() {
+  const list = document.getElementById('audienceList');
+  if (!list) return;
   list.innerHTML = '';
   builderAudiencesList.forEach((a) => {
     const opt = document.createElement('option');
     opt.value = audienceLabel(a);
     list.appendChild(opt);
   });
+}
+
+function paintAudienceSlot(slot) {
+  const input = document.getElementById(slot.input);
+  if (!input) return;
 
   /* THE FIELD SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so what is drawn is
      resolved FROM the stored id rather than being the id itself. Without this,
      opening a game would show `nfl-chicago` in a box a person is meant to read. */
-  const id = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
+  const id = String((state.currentGameMeta && state.currentGameMeta[slot.field]) || '');
   const row = id ? builderAudiencesList.find((a) => a.id === id) : null;
   input.value = row ? audienceLabel(row)
               : (id ? id + ' (no longer in audiences)' : '');
@@ -12215,16 +12262,20 @@ function populateTargetAudienceSelect() {
      placeholder reading "Nobody in particular" is indistinguishable from a
      picker that failed to load. */
   input.placeholder = !builderAudiencesList.length ? 'Audiences did not load'
-                    : (input.disabled ? 'Open a game first'
-                                      : 'Type a city, a club or a league');
-  paintTargetAudiencePalette();
+                    : (input.disabled ? 'Open a game first' : slot.hint);
+  paintAudienceSwatches(slot);
+}
+
+function populateTargetAudienceSelect() {
+  fillAudienceDatalist();
+  AUDIENCE_SLOTS.forEach(paintAudienceSlot);
 }
 
 /* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
    does not hold is REFUSED rather than stored, because the column is a foreign
    key and PostgREST would answer with a constraint name nobody can act on. */
-function resolveTypedAudience() {
-  const input = document.getElementById('targetAudienceInput');
+function resolveTypedAudience(slot) {
+  const input = document.getElementById(slot.input);
   if (!input) return;
   const typed = String(input.value || '').trim();
   /* WHETHER A NAME EXISTS HAS NOTHING TO DO WITH WHETHER A GAME IS OPEN, so the
@@ -12234,9 +12285,9 @@ function resolveTypedAudience() {
   const canWrite = !!(getGameNode() && state.currentGameMeta);
 
   if (!typed) {
-    if (canWrite) state.currentGameMeta.targetAudienceId = '';
+    if (canWrite) state.currentGameMeta[slot.field] = '';
     input.removeAttribute('data-invalid');
-    paintTargetAudiencePalette();
+    paintAudienceSwatches(slot);
     return;
   }
 
@@ -12254,15 +12305,15 @@ function resolveTypedAudience() {
   input.removeAttribute('data-invalid');
   input.title = hit.id;
   input.value = audienceLabel(hit);
-  if (canWrite) state.currentGameMeta.targetAudienceId = hit.id;
-  paintTargetAudiencePalette();
+  if (canWrite) state.currentGameMeta[slot.field] = hit.id;
+  paintAudienceSwatches(slot);
 }
 
-function paintTargetAudiencePalette() {
-  const host = document.getElementById('targetAudienceSwatches');
-  const field = document.getElementById('targetAudiencePalette');
+function paintAudienceSwatches(slot) {
+  const host = document.getElementById(slot.swatches);
+  const field = document.getElementById(slot.palette);
   if (!host || !field) return;
-  const id = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
+  const id = String((state.currentGameMeta && state.currentGameMeta[slot.field]) || '');
   const a = id ? builderAudiencesList.find((x) => x.id === id) : null;
   const colours = a ? [a.shell, a.stripe, a.mask].filter(Boolean) : [];
   host.innerHTML = '';
@@ -17008,6 +17059,7 @@ function initGameMeta(game) {
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
     awayTeamKey:          g.away_team_key     ?? g.awayTeamKey     ?? gn.awayTeamKey     ?? '',
     targetAudienceId:     g.target_audience_id ?? g.targetAudienceId ?? gn.targetAudienceId ?? '',
+    rivalAudienceId:      g.rival_audience_id  ?? g.rivalAudienceId  ?? gn.rivalAudienceId  ?? '',
     venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
     venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
   };
@@ -17649,6 +17701,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   away_team_mascot: 'awayTeamMascot',
   away_team_key: 'awayTeamKey',
   target_audience_id: 'targetAudienceId',
+  rival_audience_id: 'rivalAudienceId',
   venue_name: 'venueName',
   venue_city: 'venueCity'
 };
@@ -17746,6 +17799,7 @@ function normalizeSavedGame(raw, index) {
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
     target_audience_id:    raw && raw.target_audience_id,
+    rival_audience_id:     raw && raw.rival_audience_id,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
     away_team_key:         raw && raw.away_team_key,
@@ -20107,13 +20161,13 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
-  const taSelect = document.getElementById('targetAudienceInput');
-  if (taSelect) {
-    taSelect.disabled = !isGameNode;
-    /* REPAINTED AFTER the disabled flag is set, because the placeholder reads
-       it. Set before, it would say "Open a game first" on an open game. */
-    populateTargetAudienceSelect();
-  }
+  AUDIENCE_SLOTS.forEach((slot) => {
+    const el = document.getElementById(slot.input);
+    if (el) el.disabled = !isGameNode;
+  });
+  /* REPAINTED AFTER the disabled flags are set, because the placeholder reads
+     them. Set before, an open game would be told to open a game. */
+  populateTargetAudienceSelect();
   if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.disabled = !isGameNode;
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamInput) nodeAwayTeamInput.disabled = !isGameNode;
@@ -21911,6 +21965,7 @@ function stageCurrentGameIntoStore() {
     away_team_mascot:      _meta.awayTeamMascot || null,
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
     target_audience_id:    _meta.targetAudienceId || null,
+    rival_audience_id:     _meta.rivalAudienceId || null,
     venue_name:            _meta.venueName || null,
     venue_city:            _meta.venueCity || null,
     nodes:                 docPayload.nodes,
@@ -22430,15 +22485,15 @@ nodeTaglineInput.addEventListener('input', () => {
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
 
-const targetAudienceInput = document.getElementById('targetAudienceInput');
-if (targetAudienceInput) {
-  /* `change` FIRES WHEN A DATALIST OPTION IS PICKED and again on blur after
-     typing, which covers both ways in. `blur` as well, because a value typed
-     and then clicked away from does not always raise `change` in every
-     browser. */
-  targetAudienceInput.addEventListener('change', resolveTypedAudience);
-  targetAudienceInput.addEventListener('blur', resolveTypedAudience);
-}
+/* `change` FIRES WHEN A DATALIST OPTION IS PICKED and again on blur after
+   typing, which covers both ways in. `blur` as well, because a value typed and
+   then clicked away from does not always raise `change` in every browser. */
+AUDIENCE_SLOTS.forEach((slot) => {
+  const el = document.getElementById(slot.input);
+  if (!el) return;
+  el.addEventListener('change', () => resolveTypedAudience(slot));
+  el.addEventListener('blur', () => resolveTypedAudience(slot));
+});
 
 // Team selects fire `change`, not `input`. Each pick encodes "fanbase|mascot"
 // and writes both halves to state. The (now hidden) mascot text inputs are
