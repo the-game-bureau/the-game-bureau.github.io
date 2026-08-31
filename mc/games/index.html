@@ -12250,7 +12250,12 @@ async function loadBuilderAudiences() {
   builderAudiencesList = (Array.isArray(rows) ? rows : []).map((a) => {
     const p = a.home_place_id ? placeById.get(a.home_place_id) : null;
     return Object.assign({}, a, {
-      placeLabel: p ? (p.city + ', ' + p.state) : ''
+      placeLabel: p ? (p.city + ', ' + p.state) : '',
+      /* THE CITY ON ITS OWN, because `name` is NOT always one. 2026083024 kept
+         the MASCOT as the name for the fourteen clubs that share a city --
+         Cubs, White Sox, Giants, Jets -- since one name cannot answer for two.
+         So a sentence that wants a place has to take the place. */
+      placeCity: p ? p.city : ''
     });
   });
   populateTargetAudienceSelect();
@@ -22536,9 +22541,14 @@ if (stopLibraryList) {
 function guessedGameName() {
   const meta = state.currentGameMeta || {};
   const ev = meta.anchorEventId ? builderAnchorEventsById.get(String(meta.anchorEventId)) : null;
+  /* THE PLACE FIRST, THE NAME SECOND. `name` is the city for most clubs and the
+     MASCOT for the fourteen that share one, so reading it produced "Chicago Fans
+     Takeover Cubs". The home place is a city by construction. The name is still
+     the fallback, for an audience with no home -- a college club or an artist --
+     where it is the best thing there is. */
   const cityOf = (audienceId, fallback) => {
     const a = audienceId ? builderAudiencesList.find((x) => x.id === audienceId) : null;
-    return String((a && a.name) || fallback || '').trim();
+    return String((a && a.placeCity) || (a && a.name) || fallback || '').trim();
   };
   const away = cityOf(meta.targetAudienceId, ev && ev.away_team_geo);
   const host = cityOf(meta.rivalAudienceId, ev && ev.home_team_geo);

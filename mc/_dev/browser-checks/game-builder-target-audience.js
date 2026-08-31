@@ -569,8 +569,18 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     type(rin, 'NFL New Orleans (Saints)');
     const armed = { off: btn.getAttribute('aria-disabled'), title: btn.title };
     btn.click();
-    return { before: before, armed: armed,
-             name: document.getElementById('nodeTitleInput').value,
+    const first = document.getElementById('nodeTitleInput').value;
+
+    /* NOW A SHARED-CITY CLUB ON THE RIVAL SIDE. The name box has to be cleared
+       first, because Guess stands down once a game is named. */
+    const tt = document.getElementById('nodeTitleInput');
+    tt.value = ''; tt.dispatchEvent(new Event('input', { bubbles: true }));
+    type(rin, 'MLB Cubs · Chicago, IL');
+    btn.click();
+    const shared = document.getElementById('nodeTitleInput').value;
+
+    return { before: before, armed: armed, shared: shared, first: first,
+             name: first,
              /* NEVER NATIVELY DISABLED: a disabled button dispatches no click,
                 so on a touch screen the reason it is off is unreachable. */
              nativelyDisabled: btn.disabled };
@@ -580,6 +590,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('it arms once both are set', guess.armed.off === 'false', guess.armed.off);
   t('and names the game the way the catalogue does',
     guess.name === 'Chicago Fans Takeover New Orleans', JSON.stringify(guess.name));
+  /* A CLUB THAT SHARES ITS CITY IS NAMED FOR ITS MASCOT -- Cubs, Giants, Jets --
+     so reading `name` gave "Chicago Fans Takeover Cubs". The guess takes the
+     HOME PLACE, which is a city by construction. */
+  t('a club that shares its city still yields a CITY',
+    guess.shared === 'Chicago Fans Takeover Chicago', JSON.stringify(guess.shared));
   t('it is aria-disabled, never natively disabled', guess.nativelyDisabled === false);
 
   /* AND IT STANDS DOWN ONCE THE GAME HAS A NAME. Somebody chose those words --

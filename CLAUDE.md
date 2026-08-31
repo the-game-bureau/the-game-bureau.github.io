@@ -7918,7 +7918,7 @@ keeps `archived` in step.
   **live is the UNMARKED case**: a word on every row is a column rather than
   news, so what a label says is that a game is NOT on sale and which of the two
   reasons. The counts line reads `GAME STATS: 0 live + 395 building + 0
-  archived`. **90 assertions.**
+  archived`. **91 assertions.**
 
 ### A NEW GAME HAS NO NAME, AND A GUESS BUTTON OFFERS ONE (2026-08-30)
 
@@ -7941,9 +7941,15 @@ keeps `archived` in step.
   every generated game already carries. Away is the TARGET and host is the
   RIVAL -- the same asymmetry the id and the copy have, because the game is
   pitched at the travelling side.
-  - **THE AUDIENCE'S `name` IS ALREADY THE CITY**, since [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql), so the
-    button does not have to know the trademark rule. It falls back to the
-    event's own geo.
+  - **IT TAKES THE HOME PLACE, NOT THE NAME, and that was a real bug.**
+    [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql) named an audience by its city -- **except the fourteen clubs
+    that SHARE a city, which kept their mascot**, since one name cannot answer
+    for two. So reading `name` produced **"Chicago Fans Takeover Cubs"**. The
+    home place is a city by construction; the name survives as the fallback for
+    an audience with no home, where it is the best thing there is.
+    - **THE CHECK FAILS ON THE PREVIOUS COMMIT with exactly that string.** It
+      passed before because both sides of the test were unshared clubs -- Bears
+      and Saints -- so the fault was invisible to it.
   - **IT DOES NOT OVERWRITE. A game that already has a name is not offered a
     guess**, and this reverses the first cut, which did overwrite on the
     reasoning that pressing a button is a request. **Somebody chose those words
