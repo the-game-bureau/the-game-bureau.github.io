@@ -30,6 +30,10 @@
       --bic-red: #c23737;
       --success: #276740;
       --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+      /* OPAQUE ON PURPOSE. The sticky key column has rows sliding underneath it,
+         so it cannot use `--paper`, which is 92% white and lets them through.
+         Every other ground here is translucent; this one may never be. */
+      --panel-solid: #ffffff;
     }
 
     body {
@@ -119,11 +123,20 @@
        tell which row you are reading, and a sticky first column is the whole
        answer. It needs its own opaque ground or the cells slide under it. */
     thead th:first-child, tbody td:first-child {
-      position: sticky; left: 0; z-index: 2; background: var(--panel);
-      box-shadow: 1px 0 0 var(--line);
+      position: sticky; left: 0; z-index: 2; background: var(--panel-solid);
+      /* A HAIRLINE PLUS A SOFT SHADOW, not a hairline alone. A cell scrolling
+         under the key is clipped mid-word, and against a bare 1px rule its tail
+         reads as text floating beside the key rather than as a column passing
+         behind it. The shadow is what says which is on top. */
+      box-shadow: 1px 0 0 var(--line), 6px 0 8px -4px rgba(var(--bic-blue-rgb), 0.22);
     }
     thead th:first-child { z-index: 3; background: var(--cut-panel-bg); }
-    tbody tr:hover td:first-child { background: var(--panel-soft); }
+    /* THE HOVER TINT IS TRANSLUCENT, so it is LAYERED OVER the opaque ground
+       rather than replacing it. Setting `background` here would put the room
+       back to letting thirty columns slide through the key. */
+    tbody tr:hover td:first-child {
+      background-image: linear-gradient(var(--panel-soft), var(--panel-soft));
+    }
 
     /* THE GROUP BAND, above the column names. Quieter than the names under it:
        it is a signpost you read once on the way past, not a label. */
@@ -948,13 +961,30 @@
             + ' no mascot, so they are missing from destinations: '
             + noNick.slice(0, 6).map((r) => r.id).join(', ') + '.', 'error');
         }
+        /* THIS REPORT WAS WRITTEN WHEN A HOMELESS FANDOM WAS AN ODDITY, and the
+           teams merge made 499 of them at a stroke: `teams.city_name` is NULL on
+           every NCAAF row, so no college club has a town. Naming six ids and
+           saying "and more" then filled the red pen with a paragraph that
+           overlapped the room's own title.
+
+           **A COLLEGE CLUB WITH NO HOME IS EXPECTED, NOT A FAULT.** It is worth
+           saying once, quietly, with a number. It is only news when a club that
+           should have a town does not, which is what the second sentence is for
+           -- and THAT list is short enough to name. */
         const homeless = rows.filter((r) => r.kind === 'fandom' && !clean(r.home_place_id));
-        if (homeless.length) {
-          setStatus(homeless.length + (homeless.length === 1 ? ' fandom has' : ' fandoms have')
+        const oddities = homeless.filter((r) => r.family !== 'ncaaf');
+        if (oddities.length) {
+          setStatus(oddities.length + (oddities.length === 1 ? ' fandom has' : ' fandoms have')
             + ' no home place, so no game can ever treat them as the enemy: '
-            + homeless.slice(0, 6).map((r) => r.id).join(', ')
-            + (homeless.length > 6 ? ' and more' : '') + '.', 'error');
+            + oddities.slice(0, 6).map((r) => r.id).join(', ')
+            + (oddities.length > 6 ? ' and more' : '') + '.', 'error');
         } else {
+          /* THE 499 COLLEGE CLUBS WITH NO TOWN ARE SAID NOWHERE HERE, and that
+             is deliberate. It is true on every load, nobody can act on it from
+             this bar, and a notice that appears every time you open a room is
+             one nobody reads. **Each row already says it, in its own cell.**
+             Written to the scribble it ran to 161px and climbed over the room's
+             own title, which is how it was found. */
           setStatus('');
         }
       } catch (err) {

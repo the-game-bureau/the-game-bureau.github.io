@@ -7674,6 +7674,56 @@ Built on 2026-08-20 as `mc/partners.html` plus a private `public.partner_venues`
 - **A partner row says so wherever it appears**, in or out of the filter, with a `partner: approved` chip. Only approved is in colour, because it is the one that changes what you would do with the row; declined is dimmed, being a closed question rather than a warning.
 - **The three RPCs are unchanged in name and reply shape**, so the routine's prompt needed no edit when the table moved: `tgb_pull_partner_candidates` (still `SECURITY DEFINER`, still writes `candidate` and nothing else, still never overwrites a row already on file), `tgb_partner_coverage` and `tgb_partner_cities`. The two readers are no longer `SECURITY DEFINER`, because `waypoints` is anon-readable and a function that need not elevate should not.
 
+### AND A REAL BROWSER FOUND TWO THINGS THE HEADLESS RUN COULD NOT (2026-08-30)
+
+[audiences-in-a-real-browser.js](mc/_dev/browser-checks/audiences-in-a-real-browser.js). Puppeteer against the Chrome on the
+machine, over http. **The 63-assertion jsdom suite passed over both faults.**
+
+- **THE STICKY KEY COLUMN WAS COMPLETELY TRANSPARENT, because `--panel` is not
+  a token this room has.** Thirty columns scrolled straight through it and the
+  key overlapped whatever was behind. **jsdom does not resolve a `var()`**, so
+  `getComputedStyle` handed back the literal string `var(--panel)`, which is
+  neither empty nor `transparent` -- so the assertion written to catch exactly
+  this passed. **This file already records that limitation twice** and I wrote
+  the check anyway.
+  - `--panel-solid: #ffffff` is declared and commented as opaque ON PURPOSE:
+    every other ground in this room is translucent, and this is the one that may
+    never be. **The hover tint is LAYERED over it** with a `background-image`
+    rather than replacing `background`, or the transparency comes straight back.
+  - The check reads the resolved colour AND calls `elementFromPoint` at the
+    key's own centre after scrolling 900px: **is the key the thing at that
+    pixel, or something behind it.**
+- **THE RED PEN NAMED 499 IDS AND CLIMBED OVER THE ROOM'S OWN TITLE**, 161px of
+  handwriting across the heading and the FIND bar. The report was written when a
+  homeless fandom was an oddity; **the teams merge made 499 of them at a
+  stroke**, because `teams.city_name` is NULL on every NCAAF row.
+  - **A COLLEGE CLUB WITH NO TOWN IS NOW SAID NOWHERE ON THAT BAR.** It is true
+    on every load and nobody can act on it there, and **a notice that appears
+    every time you open a room is one nobody reads** -- the rule the Socializer's
+    account check already keeps. Each row still says it in its own cell.
+  - The red pen keeps the case that IS news: a fandom outside NCAAF with no
+    home. That list is short enough to name.
+- **A THIRD THING LOOKED LIKE A BUG IN THE SCREENSHOT AND WAS NOT.** Letters
+  appeared beside the frozen key on some rows. Probed rather than guessed at:
+  the key column ends at x=265 and they sat at 268, so it was **a cell scrolling
+  under, showing its tail**, which is what every frozen column does. **The edge
+  gained a soft shadow anyway** -- against a bare hairline the tail reads as text
+  floating beside the key rather than as a column passing behind it.
+- **AND THE HARNESS WAS THE BROKEN HALF FIRST, which is worth knowing before
+  trusting one.** Its stubbed replies carried no CORS headers, so Chrome blocked
+  every read and the room rendered empty -- indistinguishable from the page
+  being broken. **A stubbed cross-origin reply still has to pass CORS**, and the
+  page's `apikey` header makes every read a preflighted one.
+- **WHAT IT MEASURES THAT NOTHING ELSE CAN**: the table is **4,526px inside a
+  1,178px panel**, the panel scrolls sideways and **the page does not**, the key
+  holds x=124 after a 900px scroll, and 2,556 swatches paint at a real size with
+  a real colour. 18 assertions.
+- **THE ESCAPING SCAR, AGAIN.** A `
+` written through a heredoc into Python
+  reached the file as a REAL line break inside a JS string literal, which is a
+  syntax error. Fixed with `String.fromCharCode(10)`. **Write tooling with no
+  backslash escapes at all.**
+
 ### AND THE ROOM SHOWS ALL 33 COLUMNS (2026-08-30)
 
 [mc/audiences/index.html](mc/audiences/index.html) drew nine of them. The other 24 arrived with the
