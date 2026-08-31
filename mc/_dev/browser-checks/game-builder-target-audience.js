@@ -149,6 +149,40 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('and ringed, or a white club colour is invisible on a white bar',
     sw.ring && sw.ring !== 'none', sw.ring);
 
+  /* IT LOOKS LIKE THE BOXES BESIDE IT. The bar's own rules said `input`, so a
+     `select` got none of them and came back at the browser default -- taller,
+     a different font, its own arrow. Read from the COMPUTED style, because the
+     rule being present says nothing about it applying. */
+  const look = await page.evaluate(() => {
+    const sel = document.getElementById('targetAudienceSelect');
+    const inp = document.getElementById('nodeTaglineInput');
+    const cs = getComputedStyle(sel), ci = getComputedStyle(inp);
+    return {
+      radius: [cs.borderTopLeftRadius, ci.borderTopLeftRadius],
+      font: [cs.fontFamily, ci.fontFamily],
+      weight: [cs.fontWeight, ci.fontWeight],
+      height: [Math.round(sel.getBoundingClientRect().height),
+               Math.round(inp.getBoundingClientRect().height)],
+      appearance: cs.appearance || cs.webkitAppearance,
+      width: Math.round(sel.getBoundingClientRect().width),
+      barWidth: Math.round(document.getElementById('targetAudienceBar').getBoundingClientRect().width),
+      placeholder: sel.options[0] ? sel.options[0].textContent : '',
+      disabled: sel.disabled
+    };
+  });
+  t('the picker is cornered like its neighbours', look.radius[0] === look.radius[1], look.radius.join(' vs '));
+  t('and set in the same face', look.font[0] === look.font[1], look.font.join(' vs '));
+  t('at the same weight', look.weight[0] === look.weight[1], look.weight.join(' vs '));
+  t('and the same height', Math.abs(look.height[0] - look.height[1]) <= 1, look.height.join(' vs '));
+  t('the native chrome is off', look.appearance === 'none', look.appearance);
+  /* IT TOOK THE WHOLE 1500px BAR for a control holding two words. */
+  t('it does not stretch the whole bar', look.width < look.barWidth * 0.55,
+    look.width + ' of ' + look.barWidth);
+  /* A GREYED CONTROL THAT SAYS NOTHING IS INDISTINGUISHABLE FROM A BROKEN ONE. */
+  t('and a greyed picker says why it is off',
+    !look.disabled || /open a game first|did not load/i.test(look.placeholder),
+    look.placeholder + ' (disabled: ' + look.disabled + ')');
+
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly
      does not carry it. Structural on purpose -- the harness cannot open a game,

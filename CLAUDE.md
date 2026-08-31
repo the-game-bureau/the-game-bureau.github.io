@@ -7916,9 +7916,32 @@ and writing `games.target_audience_id`.
     on every reload.
   - `serializeGameRow` sends **null, never `''`** -- the column is a foreign key
     and an empty string matches no row.
+- **THE BAR'S OWN RULES SAID `input`, AND THE PICKER IS A `select`.** So it got
+  none of them and came back at the browser default: a different height, a
+  different face, its own chrome. `.game-id-bar input, .game-id-bar select` now,
+  with `appearance: none` and the arrow drawn back as two gradients -- the same
+  treatment the Tape Room's place filter carries, and for the same reason: a
+  native select beside a row of styled boxes reads as a different KIND of
+  control. **The open list is drawn by the browser and inherits none of it**, so
+  the options set their own type.
+- **IT WAS TAKING THE WHOLE 1,500px BAR.** `flex: 1 1 340px` with the palette
+  hidden left one control holding two words stretched across the room, which
+  reads as an input that has lost its neighbour. Capped at 460px.
+- **A GREYED PICKER NOW SAYS WHY IT IS OFF.** The whole identity bar is disabled
+  until a game is open, so greyed is the COMMON state here -- and greyed while
+  reading "Nobody in particular" is indistinguishable from a picker that failed
+  to load. The placeholder reads **Open a game first**, or **Audiences did not
+  load** when the fetch came back empty.
+  - **THE FILL HAD TO MOVE AFTER THE GATE**, because the placeholder reads
+    `select.disabled`. Painted before, an open game would be told to open a game.
+- **THE LOOK IS ASSERTED FROM THE COMPUTED STYLE, never from the rule.** Corner,
+  face, weight and height are all compared **against the tagline box beside it**,
+  which is the only comparison that means anything: the question is not whether
+  a value is right, it is whether the two read as the same kind of thing.
+
 - **PROVED IN REAL CHROME** with the live 641 audiences: the bar is above the
   Game bar, the picker fills, an option names the city, the swatch is a block
-  box at a real size in a real colour. 19 assertions.
+  box at a real size in a real colour. 26 assertions.
 - **WHAT IS NOT COVERED, said rather than papered over: the PATCH itself.**
   Opening a game needs its whole flow document, which the stub does not serve,
   so the change handler's early return is never passed and the control stays

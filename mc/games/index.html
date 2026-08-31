@@ -7422,7 +7422,10 @@ body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
 /* Its own line under the pair above: flex-basis 100% forces the wrap, so the
    name and id keep the first row to themselves at any width. */
 body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
-body.builder-page--editor .gid-field--audience{ flex:1 1 340px; }
+/* CAPPED. `flex:1 1 340px` with nothing beside it took the full width of a
+   1500px bar for a control holding two words, which reads as an input that has
+   lost its neighbour rather than as a picker. */
+body.builder-page--editor .gid-field--audience{ flex:0 1 460px; min-width:260px; }
 body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
 body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:30px; }
 /* A SWATCH IS A BOX AND NOT A SPAN ON A BASELINE. Width and height are ignored
@@ -7444,7 +7447,8 @@ body.builder-page--editor .gid-label{
   text-transform:uppercase;
   color:rgba(var(--bic-blue-rgb), .8);
 }
-body.builder-page--editor .game-id-bar input{
+body.builder-page--editor .game-id-bar input,
+body.builder-page--editor .game-id-bar select{
   width:100%;
   min-height:40px;
   padding:0 12px;
@@ -7456,14 +7460,37 @@ body.builder-page--editor .game-id-bar input{
   font-size:1rem;
   font-weight:600;
 }
-body.builder-page--editor .game-id-bar input:focus{
+body.builder-page--editor .game-id-bar input:focus,
+body.builder-page--editor .game-id-bar select:focus{
   outline:none;
   border-color:var(--bic-blue, #2d4880);
   box-shadow:0 0 0 3px rgba(var(--bic-blue-rgb), .14);
 }
-body.builder-page--editor .game-id-bar input:disabled{
+body.builder-page--editor .game-id-bar input:disabled,
+body.builder-page--editor .game-id-bar select:disabled{
   opacity:.55;
   cursor:not-allowed;
+}
+/* A NATIVE SELECT BRINGS ITS OWN CHROME, so it has to be undressed or it reads
+   as a different KIND of control from the boxes beside it. The arrow is drawn
+   back with two gradients, which is what the Tape Room's place filter does. */
+body.builder-page--editor .game-id-bar select{
+  appearance:none;
+  -webkit-appearance:none;
+  padding-right:34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(var(--bic-blue-rgb), .7) 50%),
+    linear-gradient(135deg, rgba(var(--bic-blue-rgb), .7) 50%, transparent 50%);
+  background-position:calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat;
+}
+/* THE OPEN LIST IS DRAWN BY THE BROWSER and inherits none of the above, so the
+   options set their own type or they come back at the OS default. */
+body.builder-page--editor .game-id-bar select option{
+  font-family:inherit;
+  font-size:.95rem;
+  color:var(--bic-blue, #2d4880);
 }
 /* The id is a key, so it is set in mono — and it is the one field here that
    can be typed into a state the database will refuse, so it says so. */
@@ -12125,9 +12152,15 @@ function populateTargetAudienceSelect() {
   if (!select) return;
   const wanted = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
   select.innerHTML = '';
+  /* THE PLACEHOLDER SAYS WHY THE CONTROL IS OFF. Greyed, reading "Nobody in
+     particular", it is indistinguishable from a picker that failed to load --
+     and this room greys the whole identity bar until a game is open, so that is
+     the common state rather than an odd one. */
   const none = document.createElement('option');
   none.value = '';
-  none.textContent = 'Nobody in particular';
+  none.textContent = !builderAudiencesList.length
+    ? 'Audiences did not load'
+    : (select.disabled ? 'Open a game first' : 'Nobody in particular');
   select.appendChild(none);
   builderAudiencesList.forEach((a) => {
     const opt = document.createElement('option');
@@ -19997,7 +20030,12 @@ function updateSelectionUi(options = {}) {
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
   const taSelect = document.getElementById('targetAudienceSelect');
-  if (taSelect) taSelect.disabled = !isGameNode;
+  if (taSelect) {
+    taSelect.disabled = !isGameNode;
+    /* REPAINTED AFTER the disabled flag is set, because the placeholder reads
+       it. Set before, it would say "Open a game first" on an open game. */
+    populateTargetAudienceSelect();
+  }
   if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.disabled = !isGameNode;
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamInput) nodeAwayTeamInput.disabled = !isGameNode;
