@@ -1014,7 +1014,7 @@ loose files broke.
 | was | is |
 |---|---|
 | `mc/builder.html` | `mc/builder/` |
-| `mc/marquee.html` | `mc/marquee/` |
+| `mc/marquee.html` | `mc/marquee/`, and on to `mc/games/` later the same day |
 | `mc/greenroom.html` | `mc/greenroom/` |
 | `mc/issues.html` | `mc/issues/` |
 | `mc/taglines.html` | `mc/taglines/` |
@@ -7832,6 +7832,83 @@ new-orleans-la**, and the database holds no such rule. Both are asserted, so the
 disagreement is visible. Settle it by dropping the dialog's guard (an interest
 can belong to a place) or by clearing that row; a comment would not survive.
 
+## A GAME NAMES ITS TARGET AND ITS RIVAL (2026-08-30)
+
+[2026083027](mc/supabase/migrations/2026083027_a_game_names_its_audiences.sql), **applied**. `public.games` gains
+`target_audience_id` and `rival_audience_id`, both foreign keys into
+`public.audiences`.
+
+- **A GAME HAS ALWAYS HAD TWO FANDOMS IN PLAY**; until now it named them by
+  string. **TARGET** is the visiting fandom, whose colours and copy the game
+  wears -- the standing rule, not a new one. **RIVAL** is the home club, which is
+  what `tgb_anti_audience` computes for a generated game and what a Know Your
+  Enemy question is keyed to.
+- **ADDED BESIDE, NEVER INSTEAD OF.** `away_team_key` and `home_team_key` keep
+  their values. **`public.games` is read by both engines with `select=*` and is
+  the paid product**, so a page that has not caught up reads what it always read.
+- **THE BACKFILL RESOLVED EVERYTHING IT COULD**: all **367** games with an away
+  key, **366** with a home key, **0** pointing at an audience that is not there,
+  **0** where the target disagrees with the away key. The 28 without are the
+  games that are not a fixture -- 12 of them live.
+- **THE COLOURS COME FROM THE TARGET**, which is what "get all colors from
+  audiences" means in practice. The `teams` view carries `audience_id`, so
+  `team-palette.js` matches a fandom **exactly** instead of scoring a city and a
+  mascot against 639 rows. **All three routes agree** -- by audience, by key, by
+  city and mascot all give the Bears `#0B162A`.
+  - **218 of the 367 have a stored `primary_color` that disagrees with the away
+    club's shell**, and the stored one is the stale half: `serializeGameRow` has
+    skipped writing those columns for fandom games since 2026-06-16 precisely so
+    that `teamPalette()` is the one source of truth.
+  - **`audience_id` IS EXCLUDED FROM `LEGACY_TEAM_SELECT`**, which is the list
+    for a database that has not run the migration; a column added today would
+    otherwise 400 the fallback as well as the main read.
+- **TWO WORDS FOR ONE THING, RECORDED RATHER THAN RECONCILED.** The functions say
+  `anti_audience`; these columns say `rival`, which is what it is actually
+  called. **`tgb_anti_audience` keeps its name on purpose** -- three functions
+  call it, and a `create or replace` chain to rename one is how this project has
+  silently dropped a column before.
+
+### AND IT CAUGHT A LIVE BREAK SHIPPED TWO COMMITS EARLIER
+
+**`team-palette.js` still EXPORTED `normalizeTgbid` after the function was
+deleted**, which is a `ReferenceError` at module scope: the module throws on
+load, and **both engines load it**.
+
+- **`node --check` PASSES ON IT**, because it is valid syntax. So does the
+  standing parse check, for the same reason. **Only requiring the module finds
+  it**, which is now what the check does: it reads the names out of the `return`
+  block and asserts every one resolves.
+- **NOTHING I HAD RUN LOADED IT.** The audiences suites and the jersey check all
+  pass without it, so three green runs said nothing about a module that could not
+  be loaded at all. **A suite is only evidence about what it actually imports.**
+
+## THE MARQUEE FOLDER IS `mc/games/` (2026-08-30)
+
+`mc/marquee/` moved to `mc/games/`, its second move in one day: it was
+`mc/marquee.html` this morning.
+
+- **`/mc/marquee/` 404s.** GitHub Pages serves no 301, so this is a hard break
+  like every other move here, and it is the room's **sixth** address.
+- **IT NOW SITS ONE CHARACTER FROM TWO OTHER THINGS**, which is worth knowing
+  before somebody reads a path quickly: **`/mc/game/` is the paid player runtime**
+  (`/mc/game/run/?id=`) and **`/games/` is the public shop window**. This file
+  already calls `/gifts/` versus `/mc/gifts/` the single easiest mistake to make
+  in this repo; this is that, one character tighter.
+- **THE ROOM IS STILL CALLED MARQUEE** on screen and in the nav, so the folder
+  and the room's own name disagree -- which is the exact state the Socializer
+  took four addresses to escape. **Only the folder was asked for**, and the name
+  is a real decision: "the marquee is where a game becomes something somebody can
+  buy" is the sentence the Spine group is ordered by.
+- **SEVEN FILES REPOINTED**, including `admin-bridge.js`'s two floating EDIT
+  hrefs and the `editgames` stub, whose whole job is forwarding to this room.
+  **No `match` regex named it**, checked rather than assumed -- that is the
+  escaped-path trap the Socializer sprang twice.
+- **AND THE SWEEP ATE THE PROSE, WHICH THIS FILE ALREADY WARNS ABOUT.** It
+  rewrote the folder-moves table above so the row read `mc/games/` -> `mc/marquee/`,
+  turning a record of this morning's move into nonsense. **Migration comments were
+  excluded by construction** -- they are records of the day they were applied --
+  and the table was restored by hand.
+
 ## NINE REDUNDANT COLUMNS GO, AND THE VIEW COMPUTES FOUR OF THEM (2026-08-30)
 
 [2026083026](mc/supabase/migrations/2026083026_nine_redundant_columns_go.sql), **applied**. `audiences` is **23 columns**, down from 32.
@@ -8261,7 +8338,7 @@ list is shorter and sharper than it looks.
 **NO COMPATIBILITY VIEW, DELIBERATELY, AND THIS DEPARTS FROM THE routes -> paths
 PRECEDENT.** That rename left read-only views at the old names because its
 consumers were spread across two engines and could not all be enumerated. **Here
-they can, and there were five**, all in this repo: the room, `mc/marquee.html`,
+they can, and there were five**, all in this repo: the room, `mc/games/`,
 the Data Warehouse card, TGB CONCERT BOT's prompt file, and the function above.
 A view would guard against nothing but our own oversight and would **hide** it —
 the same failure that got the soundtracks JSON fallback deleted, where a stale
@@ -8273,7 +8350,7 @@ still describes what it holds. Renaming it would touch `public.games`, which
 **both engines read with `select=*` at play time** and which is the paid product.
 `games.anchor_event_id -> events.id` reads perfectly well. Do it on its own day.
 
-**THE CHOOSE EVENT PICKER IS IN [mc/marquee.html](mc/marquee.html), NOT `mc/profiles.html`**, which is
+**THE CHOOSE EVENT PICKER IS IN [mc/games/](mc/games/), NOT `mc/profiles.html`**, which is
 what this file said. Worth knowing before somebody greps for it.
 
 **THE OLD NAME SURVIVES IN THREE PLACES ON PURPOSE**: the migration FILENAMES,
@@ -8284,7 +8361,7 @@ message for no gain — the same bargain the Tape Room made through four renames
 its verbs without the column following.
 
 **Don't create a second `events` table**, or the builder's Choose Event picker in
-[mc/marquee.html](mc/marquee.html) will silently ignore half the catalog.
+[mc/games/](mc/games/) will silently ignore half the catalog.
 
 [mc/events/index.html](mc/events/index.html) ("Anchor Events", added 2026-08-01) is the editor over those rows, and the only one — it replaced `mc/anchor-events.html`, deleted the same day.
 

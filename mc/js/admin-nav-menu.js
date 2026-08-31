@@ -79,7 +79,7 @@
           description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'
         },
         {
-          href: '/mc/marquee/',
+          href: '/mc/games/',
           label: 'Marquee',
           description: 'Where a game becomes a product: its name, its city, its price, its opponent, its start.'
         },
