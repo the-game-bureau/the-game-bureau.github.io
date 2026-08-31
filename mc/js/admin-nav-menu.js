@@ -37,20 +37,34 @@
   var MENU_GROUPS = [
     {
       // ---- THE SPINE ------------------------------------------------------
-      // The order IS the argument, and it is the whole reason this group is
-      // first: a game is assembled down this list. An anchor event brings
-      // people to a city; waypoints are the places they will stand in; a
-      // challenge is what they do there; a route puts those in order; the
-      // Game Builder is where a game becomes something somebody can buy.
+      // THE GAME BUILDER LEADS (2026-08-31), and that REVERSES the order this
+      // list carried until now. It used to run in the order a game is ASSEMBLED
+      // -- anchor event, waypoints, challenges, audiences, trivia, routes, and
+      // the Game Builder last as the thing all of it feeds. Everything above it
+      // was an ingredient and everything below the finished thing, which is a
+      // true sentence and the wrong first click.
       //
-      // Everything above the Game Builder is an INGREDIENT and everything below
-      // it is the finished thing. That line is what the old Game Elements /
-      // Game Builder split was reaching for and never quite said -- and the name
-      // is free again, because games/admin/ was deleted on 2026-08-07. The room
-      // was called MARQUEE until 2026-08-30; `mc/builder/` is the FLOW builder,
-      // which is the distinction that split was drawing.
+      // What replaces it: THE ROOM YOU ARE GOING TO. The Game Builder is where
+      // a game is actually made and where the day starts, and the ingredients
+      // are what you go and fetch when it turns out one is missing. Same
+      // reasoning that puts the Socializer first in Ancillary Things -- ordered
+      // by how often it is opened, not by where it sits in the pipeline.
+      //
+      // The rest still reads in assembly order, so the argument is not lost,
+      // only demoted below the one room somebody came here to open.
+      //
+      // `mc/builder/` is the FLOW builder and is a different room: the playable
+      // conversation rather than the game's identity. That distinction is what
+      // the old Game Elements / Game Builder split was reaching for; the name
+      // came free when games/admin/ was deleted on 2026-08-07, and this room
+      // was called MARQUEE until 2026-08-30.
       label: 'The Spine',
       items: [
+        {
+          href: '/mc/games/',
+          label: 'Game Builder',
+          description: 'Admins and AI build games here.'
+        },
         {
           href: '/mc/events/',
           label: 'Anchor Events',
@@ -80,11 +94,6 @@
           href: '/mc/routes/',
           label: 'Routes',
           description: 'The walk itself. Order the places, hang a challenge on each, and write the words that send a team to the next one.'
-        },
-        {
-          href: '/mc/games/',
-          label: 'Game Builder',
-          description: 'Admins and AI build games here.'
         },
         {
           href: '/mc/builder/',

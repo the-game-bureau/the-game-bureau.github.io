@@ -1061,20 +1061,27 @@ from, so the groups are the categories. Five, in this order:
 
 | group | what is in it |
 |---|---|
-| **The Spine** | Anchor Events, Waypoints, Challenges, Routes, Game Builder, Flow Builder |
+| **The Spine** | Game Builder, Anchor Events, Waypoints, Challenges, Audiences, Trivia, Routes, Flow Builder |
 | **The Catalogue** | Teams, Leagues, Data Warehouse |
 | **Running It** | Daily Review, Game Plays, Operations, Winner's Wall, Taglines, Picmaker |
 | **The Periphery** | Socializer, Issues |
 | **For Review** | Stop Builder, Guide Green Room, Team Colors, and two stubs |
 
-- **THE ORDER OF THE SPINE IS THE ARGUMENT.** A game is assembled down that
-  list: an anchor event brings people to a city, waypoints are the places they
-  stand in, a challenge is what they do there, a route puts those in order, and
-  the Game Builder is where it becomes something somebody can buy. **Everything
-  above it is an ingredient and everything below it is the finished thing** --
-  which is what the old Game Elements / Game Builder split was reaching for and
-  never said. (**That room was MARQUEE until 2026-08-30**, and the sentence used
-  to turn on the word: a marquee is where a show is billed.)
+- **THE GAME BUILDER LEADS THE SPINE (2026-08-31), which reverses the order
+  this list carried until then.** It used to run in the order a game is
+  ASSEMBLED -- anchor event, waypoints, challenges, audiences, trivia, routes,
+  and the Game Builder last as the thing all of it feeds. **Everything above it
+  was an ingredient and everything below the finished thing**, which is a true
+  sentence and the wrong first click.
+  - **WHAT REPLACES IT: THE ROOM YOU ARE GOING TO.** The Game Builder is where a
+    game is actually made and where the day starts; the ingredients are what you
+    fetch when one turns out to be missing. **Same reasoning that puts the
+    Socializer first in Ancillary Things** -- ordered by how often it is opened,
+    not by where it sits in the pipeline.
+  - **THE REST STILL READS IN ASSEMBLY ORDER**, so the argument is not lost,
+    only demoted below the one room somebody came to open. (**That room was
+    MARQUEE until 2026-08-30**, and the old sentence turned on the word: a
+    marquee is where a show is billed.)
 - **FOR REVIEW IS LAST AND DELIBERATELY VISIBLE.** Every page in it is
   reachable, carries real code, and is linked from nothing. **That is the state
   in which a page rots quietly**: it keeps working, nobody opens it, and the
