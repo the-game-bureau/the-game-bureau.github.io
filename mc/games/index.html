@@ -7425,12 +7425,26 @@ body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
 /* CAPPED. `flex:1 1 340px` with nothing beside it took the full width of a
    1500px bar for a control holding two words, which reads as an input that has
    lost its neighbour rather than as a picker. */
-body.builder-page--editor .gid-field--audience{ flex:0 1 460px; min-width:260px; }
-/* WIDER THAN AN AUDIENCE, because an event's label is a whole line: a date, a
-   kind, and either two clubs or a title. */
-body.builder-page--editor .gid-field--anchor{ flex:1 1 640px; min-width:300px; }
+/* THREE ON ONE LINE, sharing it in proportion rather than by a fixed width: the
+   event's label is a whole sentence (a date, a kind, and two clubs or a title)
+   and an audience's is a few words. `min-width: 0` on both, or a long value
+   inside a flex item refuses to shrink and pushes the row wider than the bar. */
+body.builder-page--editor .game-id-bar-inner--anchor{ align-items:flex-start; flex-wrap:nowrap; }
+body.builder-page--editor .gid-field--anchor{ flex:1.5 1 0; min-width:0; }
+body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
+/* THE SWATCHES SIT UNDER THEIR OWN FIELD and take no height when there are
+   none, so an audience with no colours does not open a gap in the row. */
+body.builder-page--editor .gid-field .ta-swatches{ min-height:0; }
+/* AND THE ROW WRAPS ON A NARROW WINDOW, because three fields on one line is a
+   desktop arrangement and 300px is not on offer. */
+@media (max-width: 1100px){
+  body.builder-page--editor .game-id-bar-inner--anchor{ flex-wrap:wrap; }
+  body.builder-page--editor .gid-field--anchor,
+  body.builder-page--editor .gid-field--audience{ flex:1 1 100%; }
+}
 body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
-body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:30px; }
+body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:0; }
+body.builder-page--editor .ta-swatches:not(:empty){ margin-top:6px; }
 /* A SWATCH IS A BOX AND NOT A SPAN ON A BASELINE. Width and height are ignored
    on an inline element, which is how this project shipped an invisible pin. */
 body.builder-page--editor .ta-swatch{
@@ -9866,79 +9880,47 @@ html.admin-embedded .builder-section-head{
 
            It wears the Game bar's own frame, because the two answer the same
            kind of question: which game is this, and who is it for. -->
-      <!-- THE REASON PEOPLE ARE IN TOWN, ASKED FIRST.
-           A game is built around a real event: it is what brings the visiting
-           fandom to the city, so it comes before who they are and what the game
-           is called. It moved here out of the inspector, where it sat among
-           Brand, Payment and Rendezvous -- a drawer of settings is the wrong
-           place for the thing everything else is chosen to fit.
+      <!-- WHAT THE GAME IS ANCHORED TO, ON ONE LINE.
+           The event, the fandom it is pitched at, and the fandom they are up
+           against are one thought: they are read together and they change
+           together, since choosing the event fills the other two. Three bars
+           stacked said they were three decisions.
 
-           IT WAS A `<select>` HOLDING 4,123 OPTIONS, one per row of
-           public.events, which is past what a select is for by a wide margin.
-           Same combo as the two bars below it. -->
+           ALL THREE ARE COMBOS. The event picker was a `<select>` holding one
+           option per row of public.events -- 4,123 of them -- and the audience
+           pickers 641 each, which is past what a select is for. An input bound
+           to a datalist lets you type to narrow, and what is typed is resolved
+           back to an id before it is stored. -->
       <datalist id="anchorEventList"></datalist>
+      <!-- ONE DATALIST FOR BOTH AUDIENCE FIELDS. They offer the same 641 rows,
+           so a second copy would be 641 duplicate option nodes and two lists to
+           keep in step, which is the copy-and-drift this repo has lost to. -->
+      <datalist id="audienceList"></datalist>
 
-      <fieldset class="game-id-bar" id="anchorEventBar">
-        <legend>Anchor event</legend>
-        <div class="game-id-bar-inner">
+      <fieldset class="game-id-bar" id="anchorBar">
+        <legend>Anchor</legend>
+        <div class="game-id-bar-inner game-id-bar-inner--anchor">
           <div class="gid-field gid-field--anchor" id="anchorEventField">
-            <label class="gid-label" for="anchorEventInput">The reason people are in town</label>
+            <label class="gid-label" for="anchorEventInput">Event</label>
             <input id="anchorEventInput" type="text" list="anchorEventList"
                    autocomplete="off" spellcheck="false" disabled
                    placeholder="Nothing in particular">
           </div>
-        </div>
-      </fieldset>
-
-      <!-- ONE DATALIST FOR BOTH BARS. The two fields offer the same 641
-           audiences, so a second copy would be 641 duplicate option nodes and
-           two lists to keep in step -- which is the copy-and-drift this repo has
-           lost to more than once. -->
-      <datalist id="audienceList"></datalist>
-
-      <fieldset class="game-id-bar" id="targetAudienceBar">
-        <legend>Target audience</legend>
-        <div class="game-id-bar-inner">
           <div class="gid-field gid-field--audience" id="targetAudienceField">
-            <label class="gid-label" for="targetAudienceInput">Who the game is pitched at</label>
-            <!-- AN INPUT PLUS A DATALIST, which is the combo this project uses
-                 wherever a field shows a LABEL and a column holds a KEY: the
-                 audiences room's home cell, the waypoint editor's city. You can
-                 type to narrow 641 rows, which a select cannot do, and what is
-                 typed is resolved back to an id before it is stored. -->
+            <label class="gid-label" for="targetAudienceInput">Target audience</label>
             <input id="targetAudienceInput" type="text" list="audienceList"
                    autocomplete="off" spellcheck="false" disabled
                    placeholder="Nobody in particular">
-          </div>
-          <!-- THE PALETTE IS THE POINT, SO IT IS SHOWN. A fandom's colours are
-               what the game wears, and three hex values in a table say nothing:
-               the swatches are the only way to see that the choice took. -->
-          <div class="gid-field gid-field--audience-palette" id="targetAudiencePalette" hidden>
-            <span class="gid-label">Its colours</span>
+            <!-- THE PALETTE SITS UNDER ITS OWN FIELD, because a game wears the
+                 target's colours and three hex values in a table say nothing:
+                 the swatches are the only way to see that the choice took. -->
             <div class="ta-swatches" id="targetAudienceSwatches"></div>
           </div>
-        </div>
-      </fieldset>
-
-      <!-- THE OTHER HALF OF THE FIXTURE. A game has two fandoms in play: the one
-           it is pitched at, and the one they are surrounded by. The rival is
-           what a Know Your Enemy question is keyed to, and what
-           `tgb_anti_audience` computes for a generated game -- so a stored game
-           should be able to say it outright.
-
-           IT IS THE SAME CONTROL, NOT A SECOND ONE: one datalist, one resolver,
-           one painter, told which slot it is working on. -->
-      <fieldset class="game-id-bar" id="rivalAudienceBar">
-        <legend>Rival audience</legend>
-        <div class="game-id-bar-inner">
           <div class="gid-field gid-field--audience" id="rivalAudienceField">
-            <label class="gid-label" for="rivalAudienceInput">Who they are up against</label>
+            <label class="gid-label" for="rivalAudienceInput">Rival audience</label>
             <input id="rivalAudienceInput" type="text" list="audienceList"
                    autocomplete="off" spellcheck="false" disabled
                    placeholder="Nobody in particular">
-          </div>
-          <div class="gid-field gid-field--audience-palette" id="rivalAudiencePalette" hidden>
-            <span class="gid-label">Its colours</span>
             <div class="ta-swatches" id="rivalAudienceSwatches"></div>
           </div>
         </div>
@@ -12248,11 +12230,9 @@ function audienceLabel(a) {
    repo has paid for more than once. */
 const AUDIENCE_SLOTS = [
   { field: 'targetAudienceId', input: 'targetAudienceInput',
-    palette: 'targetAudiencePalette', swatches: 'targetAudienceSwatches',
-    hint: 'Type a city, a club or a league' },
+    swatches: 'targetAudienceSwatches', hint: 'A city, a club or a league' },
   { field: 'rivalAudienceId', input: 'rivalAudienceInput',
-    palette: 'rivalAudiencePalette', swatches: 'rivalAudienceSwatches',
-    hint: 'Type a city, a club or a league' }
+    swatches: 'rivalAudienceSwatches', hint: 'A city, a club or a league' }
 ];
 
 function fillAudienceDatalist() {
@@ -12333,8 +12313,7 @@ function resolveTypedAudience(slot) {
 
 function paintAudienceSwatches(slot) {
   const host = document.getElementById(slot.swatches);
-  const field = document.getElementById(slot.palette);
-  if (!host || !field) return;
+  if (!host) return;
   const id = String((state.currentGameMeta && state.currentGameMeta[slot.field]) || '');
   const a = id ? builderAudiencesList.find((x) => x.id === id) : null;
   const colours = a ? [a.shell, a.stripe, a.mask].filter(Boolean) : [];
@@ -12346,7 +12325,6 @@ function paintAudienceSwatches(slot) {
     sw.title = c;
     host.appendChild(sw);
   });
-  field.hidden = colours.length === 0;
 }
 
 async function loadBuilderTeams() {
@@ -12781,6 +12759,43 @@ function resolveTypedEvent() {
   if (canWrite) applyAnchorEventSelection(String(hit.id));
 }
 
+/* THE EVENT NAMES BOTH FANDOMS, so choosing one fills them: the AWAY club is
+   who the game is pitched at, and the HOME club is who they are up against.
+   That is the standing rule rather than a new one -- a game takes its copy and
+   its palette from the away club, and the rival is the fandom they are
+   surrounded by.
+
+   IT FILLS A BLANK AND NEVER OVERWRITES. On a new game both are empty, which is
+   the case this is for; on a game somebody has already set by hand, changing
+   the event must not quietly rewrite their choice. */
+function audienceForEventSide(ev, side) {
+  const nick = String((side === 'home' ? ev.home_team_nickname : ev.away_team_nickname) || '').trim();
+  if (!nick) return null;
+  const family = String(ev.league || '').trim().toLowerCase();
+  const low = nick.toLowerCase();
+  /* THE LEAGUE NARROWS IT, and it has to: three clubs are called the Tigers and
+     two the Bulldogs, so a nickname alone would resolve to whichever came
+     first. Without a league we match on the mascot ONLY IF IT IS UNIQUE --
+     a wrong fandom is worse than none, because it reads as a decision. */
+  const inFamily = family
+    ? builderAudiencesList.filter((a) => String(a.family).toLowerCase() === family)
+    : builderAudiencesList;
+  const hits = inFamily.filter((a) => String(a.nickname || '').toLowerCase() === low);
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1 && family) return hits[0];
+  return null;
+}
+
+function fillAudiencesFromEvent(ev) {
+  if (!ev || !state.currentGameMeta) return;
+  [['away', 'targetAudienceId'], ['home', 'rivalAudienceId']].forEach(([side, field]) => {
+    if (String(state.currentGameMeta[field] || '').trim()) return;
+    const hit = audienceForEventSide(ev, side);
+    if (hit) state.currentGameMeta[field] = hit.id;
+  });
+  AUDIENCE_SLOTS.forEach(paintAudienceSlot);
+}
+
 function applyAnchorEventSelection(nextId) {
   if (!getGameNode() || !state.currentGameMeta) return;
   const id = String(nextId || '');
@@ -12811,6 +12826,7 @@ function applyAnchorEventSelection(nextId) {
       setTeamSelectValue(nodeHomeTeamCityInput, ev.home_team_geo || '', ev.home_team_nickname || '');
       nodeHomeTeamCityInput.dispatchEvent(new Event('change'));
     }
+    fillAudiencesFromEvent(ev);
   }
   // Non-sports events (concert/convention/…) just record the link — no team
   // fill, no palette change, so the game keeps its own colors.

@@ -61,11 +61,21 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     req.continue();
   });
 
+  await page.evaluateOnNewDocument((sample) => {
+    /* THE RESOLVER IS A TOP-LEVEL `function`, so it is on the window; the sample
+       event is handed in rather than searched for, so the check names the row it
+       is asserting about. */
+    window.__tgbTestEvent = sample;
+    Object.defineProperty(window, '__tgbAudienceForEventSide', {
+      get() { return typeof audienceForEventSide === 'function' ? audienceForEventSide : undefined; }
+    });
+  }, JSON.parse(EVENTS).find((e) => e.away_team_nickname === 'Braves'));
+
   await page.goto('http://127.0.0.1:' + PORT + '/mc/games/', { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 1200));
 
   const m = await page.evaluate(() => {
-    const bar = document.getElementById('targetAudienceBar');
+    const bar = document.getElementById('anchorBar');
     const sel = document.getElementById('targetAudienceInput');
     const idBar = document.getElementById('gameIdentityBar');
     const pos = bar && idBar ? (bar.compareDocumentPosition(idBar) & Node.DOCUMENT_POSITION_FOLLOWING) : 0;
@@ -79,8 +89,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     };
   });
 
-  t('the section is on the page', m.hasBar);
-  t('it is called Target audience', /target audience/i.test(m.legend), m.legend);
+  t('the Anchor box is on the page', m.hasBar);
+  t('it is called Anchor', /^anchor$/i.test(m.legend), m.legend);
   t('and it sits ABOVE the Game section', m.aboveGame);
   t('the list is filled from the audiences table (' + m.options + ')', m.options > 600, m.options);
   t('an option names the audience, not a mascot alone',
@@ -183,10 +193,13 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      was a `<select>` with one option per row of public.events -- 4,123 of them,
      which is past what a select is for by a wide margin. */
   const anchor = await page.evaluate(() => {
-    const bar = document.getElementById('anchorEventBar');
+    const bar = document.getElementById('anchorBar');
     const inp = document.getElementById('anchorEventInput');
-    const tbar = document.getElementById('targetAudienceBar');
-    const order = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    /* ON ONE LINE IS A LAYOUT FACT, so it is measured rather than declared:
+       three fields whose boxes share a top edge. jsdom cannot answer this at
+       all -- it has no layout. */
+    const tops = ['anchorEventField', 'targetAudienceField', 'rivalAudienceField']
+      .map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top));
     inp.disabled = false;
     const first = document.querySelector('#anchorEventList option');
     const type = (v) => { inp.value = v; inp.dispatchEvent(new Event('change', { bubbles: true })); };
@@ -196,7 +209,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     return {
       exists: !!bar,
       legend: bar ? bar.querySelector('legend').textContent.trim() : '',
-      aboveTarget: !!(bar && tbar && order(bar, tbar)),
+      oneLine: tops.every((v) => Math.abs(v - tops[0]) <= 1),
+      tops: tops.join('/'),
       isInput: inp.tagName === 'INPUT',
       list: inp.getAttribute('list'),
       options: document.querySelectorAll('#anchorEventList option').length,
@@ -206,9 +220,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       goodInvalid: inp.hasAttribute('data-invalid'), goodTitle: inp.title
     };
   });
-  t('there is an Anchor event section', anchor.exists);
-  t('called Anchor event', /anchor event/i.test(anchor.legend), anchor.legend);
-  t('above Target audience', anchor.aboveTarget);
+  t('there is one Anchor box', anchor.exists);
+  t('called Anchor', /^anchor$/i.test(anchor.legend), anchor.legend);
+  t('holding all three fields on one line', anchor.oneLine, anchor.tops);
   t('and it is a combo, not the old select',
     anchor.isInput && anchor.list === 'anchorEventList' && anchor.noSelectLeft,
     anchor.isInput + '/' + anchor.list + '/' + anchor.noSelectLeft);
@@ -227,8 +241,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   const pair = await page.evaluate(() => {
     const tin = document.getElementById('targetAudienceInput');
     const rin = document.getElementById('rivalAudienceInput');
-    const tbar = document.getElementById('targetAudienceBar');
-    const rbar = document.getElementById('rivalAudienceBar');
+    const bar = document.getElementById('anchorBar');
     const game = document.getElementById('gameIdentityBar');
     const order = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     /* READ THE SWATCHES BEFORE TYPING, because typing cannot write to the meta
@@ -242,10 +255,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     type(tin, 'NFL Chicago (Bears)');
     type(rin, 'NFL New Orleans (Saints)');
     return {
-      exists: !!rbar,
-      legend: rbar ? rbar.querySelector('legend').textContent.trim() : '',
-      afterTarget: order(tbar, rbar),
-      beforeGame: order(rbar, game),
+      exists: !!document.getElementById('rivalAudienceInput'),
+      legend: 'in the Anchor box',
+      afterTarget: order(document.getElementById('targetAudienceField'),
+                         document.getElementById('rivalAudienceField')),
+      beforeGame: order(bar, game),
       sameList: tin.getAttribute('list') === rin.getAttribute('list'),
       oneList: document.querySelectorAll('datalist').length,
       tTitle: tin.title, rTitle: rin.title,
@@ -255,10 +269,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
                   !== document.getElementById('rivalAudienceSwatches')
     };
   });
-  t('there is a Rival audience section', pair.exists);
-  t('called Rival audience', /rival audience/i.test(pair.legend), pair.legend);
-  t('after Target audience', pair.afterTarget);
-  t('and still above the Game section', pair.beforeGame);
+  t('there is a rival field', pair.exists);
+  t('after the target field', pair.afterTarget);
+  t('and the whole box is above the Game section', pair.beforeGame);
   t('both fields point at the same datalist', pair.sameList,
     pair.sameList + ' (' + pair.oneList + ' datalists on the page, one is the city picker)');
   t('each resolves its own audience', pair.tTitle === 'nfl-chicago' && pair.rTitle === 'nfl-new-orleans',
@@ -271,6 +284,35 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('each draws its own colours, from its own stored value',
     pair.tStored >= 2 && pair.rStored >= 2, pair.tStored + '/' + pair.rStored);
   t('and the two hosts are different elements', pair.distinctHosts);
+
+  /* CHOOSING AN EVENT FILLS BOTH FANDOMS: the AWAY club is who the game is
+     pitched at, the HOME club is who they are up against. It fills a BLANK and
+     never overwrites -- on a new game both are empty, and on a game somebody has
+     already set by hand, changing the event must not rewrite their choice. */
+  const fill = await page.evaluate(() => {
+    const ev = document.getElementById('anchorEventInput');
+    const tin = document.getElementById('targetAudienceInput');
+    const rin = document.getElementById('rivalAudienceInput');
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    /* THE FILL IS GUARDED ON AN OPEN GAME, which this stub cannot produce, so
+       the resolver is exercised directly -- it is the half that decides which
+       fandom a club maps to, and the half that can be wrong. */
+    const sample = window.__tgbTestEvent;
+    return {
+      hasResolver: typeof window.__tgbAudienceForEventSide === 'function',
+      away: sample ? (window.__tgbAudienceForEventSide(sample, 'away') || {}).id : null,
+      home: sample ? (window.__tgbAudienceForEventSide(sample, 'home') || {}).id : null
+    };
+  });
+  t('the event-to-fandom resolver is reachable', fill.hasResolver, fill.hasResolver);
+  if (fill.hasResolver) {
+    t('an event away club resolves to the target fandom', fill.away === 'mlb-atlanta', fill.away);
+    /* `mlb-cubs`, NOT `mlb-chicago`: Chicago holds two MLB clubs, so 2026083024
+       kept the mascot for both rather than letting one answer to the city. The
+       first version of this assertion expected the city and the page was
+       right. */
+    t('and its home club to the rival', fill.home === 'mlb-cubs', fill.home);
+  }
 
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly

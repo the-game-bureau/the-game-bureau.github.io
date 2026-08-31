@@ -7883,6 +7883,41 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### ONE BOX CALLED ANCHOR, AND THE EVENT FILLS THE OTHER TWO (2026-08-30)
+
+The three bars are one, on one line: **Event, Target audience, Rival audience**.
+
+- **THEY ARE ONE THOUGHT, so they are one box.** They are read together and they
+  change together, since choosing the event fills the other two. Three stacked
+  bars said they were three decisions.
+- **CHOOSING AN EVENT FILLS BOTH FANDOMS**: the **AWAY** club is who the game is
+  pitched at, the **HOME** club is who they are up against. That is the standing
+  rule rather than a new one -- a game takes its copy and its palette from the
+  away club, and the rival is the fandom they are surrounded by.
+- **IT FILLS A BLANK AND NEVER OVERWRITES. Typing always wins.** On a new game
+  both are empty, which is the case this is for; on a game somebody has set by
+  hand, changing the event must not quietly rewrite their choice.
+- **THE LEAGUE NARROWS THE MATCH, AND IT HAS TO.** Three clubs are called the
+  Tigers and two the Bulldogs, so a nickname alone would resolve to whichever
+  came first. **Without a league it matches only if the mascot is unique** -- a
+  wrong fandom is worse than none, because it reads as a decision somebody took.
+- **MEASURED BEFORE IT WAS BUILT: 160 of 165 fixtures resolve BOTH sides.** The
+  five that do not are minor-league hockey, where we carry no fandom at all, and
+  filling nothing there is the right answer.
+- **ONE LINE IS A LAYOUT FACT, so the check measures it** -- three fields whose
+  boxes share a top edge, which jsdom cannot answer at all. `min-width: 0` on
+  each, or a long value inside a flex item refuses to shrink and pushes the row
+  wider than the bar. **It wraps under 1100px**, because three fields on one line
+  is a desktop arrangement.
+- **THE SWATCHES MOVED INSIDE THEIR OWN FIELD** and take no height when there
+  are none, so an audience with no colours does not open a gap in the row. The
+  two `*AudiencePalette` wrappers went with them.
+- **AND MY OWN ASSERTION WAS WRONG ABOUT THE SHARED-CITY RULE.** It expected the
+  Cubs to resolve to `mlb-chicago`; the page correctly said **`mlb-cubs`**,
+  because Chicago holds two MLB clubs and 2026083024 kept the mascot for both
+  rather than letting one answer to the city. **The page was right.**
+- **52 assertions**, and the PATCH is still the one thing not covered.
+
 ### THE ANCHOR EVENT LEADS, AND STOPPED BEING A 4,123-OPTION SELECT (2026-08-30)
 
 An **ANCHOR EVENT** bar above Target audience. **Moved, not added** -- the picker
