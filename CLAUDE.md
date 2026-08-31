@@ -7883,6 +7883,49 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### AND IT ASKS WHO THE GAME IS FOR, ABOVE WHAT THE GAME IS (2026-08-30)
+
+A **TARGET AUDIENCE** fieldset above the Game bar, built from `public.audiences`
+and writing `games.target_audience_id`.
+
+- **IT IS ASKED FIRST BECAUSE IT DECIDES THE REST.** A game is pitched at a
+  travelling fandom, and that choice settles the copy AND the palette -- so it
+  belongs above the name rather than filed among Brand and Payment.
+- **THE PICKER READS `audiences`, NOT THE TEAMS LIST.** `builderTeamsList` is
+  the `teams` view: fandoms with a club key, 639 of them. **An audience can also
+  be an artist or an interest**, and the column is a foreign key into
+  `audiences`, so a picker built from `teams` would offer 639 of 641 and could
+  never name the other two.
+- **AN OPTION READS `NFL Chicago (Bears)`, and the room does not have to know
+  the trademark rule.** [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql) put the city in `name`, so the label is
+  just the column. A check asserts no option is a bare mascot where a city
+  exists.
+- **A STORED AUDIENCE THE LIST NO LONGER HOLDS KEEPS ITS OWN OPTION, MARKED.**
+  Without that, opening the game would silently reset the column to nothing --
+  a select cannot hold a value it has no option for.
+- **THE COLOURS ARE SHOWN, because they are the point.** Three hex values in a
+  table say nothing; the swatches are the only way to see that the choice took.
+  Each is a **block box with a ring**, or a white club colour is invisible on a
+  white bar and a `<span>` with a width is invisible altogether.
+- **SIX WIRING POINTS, AND MISSING ONE IS SILENT.** The saved-column map,
+  `normalizeGame` twice, `initGameMeta`, `GAME_COLUMN_TO_NODE_FIELD` and
+  `serializeGameRow`. **Miss one and the picker works, the value shows, and the
+  PATCH quietly does not carry it**, so the check asserts all six.
+  - `initGameMeta` follows the standing **snake ?? camel ?? node** rule: the
+    recovery draft holds only camelCase, so a snake-only read blanks the field
+    on every reload.
+  - `serializeGameRow` sends **null, never `''`** -- the column is a foreign key
+    and an empty string matches no row.
+- **PROVED IN REAL CHROME** with the live 641 audiences: the bar is above the
+  Game bar, the picker fills, an option names the city, the swatch is a block
+  box at a real size in a real colour. 19 assertions.
+- **WHAT IS NOT COVERED, said rather than papered over: the PATCH itself.**
+  Opening a game needs its whole flow document, which the stub does not serve,
+  so the change handler's early return is never passed and the control stays
+  gated. What is asserted instead is that **it is gated exactly like the tagline
+  beside it**, and that every wiring point exists. The check prints that
+  limitation on every run.
+
 ## THE MARQUEE IS THE GAME BUILDER, AT `mc/games/` (2026-08-30)
 
 Retitled the same hour it moved: **`<title>`, the `<h1>`, the three share tags

@@ -7422,6 +7422,19 @@ body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
 /* Its own line under the pair above: flex-basis 100% forces the wrap, so the
    name and id keep the first row to themselves at any width. */
 body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
+body.builder-page--editor .gid-field--audience{ flex:1 1 340px; }
+body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
+body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:30px; }
+/* A SWATCH IS A BOX AND NOT A SPAN ON A BASELINE. Width and height are ignored
+   on an inline element, which is how this project shipped an invisible pin. */
+body.builder-page--editor .ta-swatch{
+  display:block;
+  width:26px;
+  height:26px;
+  border-radius:6px;
+  /* A RING, or a white club colour is invisible on a white bar. */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);
+}
 body.builder-page--editor .gid-field--tagline input{ font-weight:500; }
 body.builder-page--editor .gid-label{
   font-family:"IBM Plex Mono", monospace;
@@ -9810,6 +9823,34 @@ html.admin-embedded .builder-section-head{
         </div>
       </div>
 
+      <!-- WHO THE GAME IS FOR, ABOVE WHAT THE GAME IS.
+           A game is pitched at a travelling fandom, and that choice decides the
+           copy AND the palette -- so it is asked before the name, not filed
+           among Brand and Payment. It writes `games.target_audience_id`, a
+           foreign key into public.audiences, which is what a generated game
+           already carries.
+
+           It wears the Game bar's own frame, because the two answer the same
+           kind of question: which game is this, and who is it for. -->
+      <fieldset class="game-id-bar" id="targetAudienceBar">
+        <legend>Target audience</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--audience" id="targetAudienceField">
+            <label class="gid-label" for="targetAudienceSelect">Who the game is pitched at</label>
+            <select id="targetAudienceSelect" disabled>
+              <option value="">Nobody in particular</option>
+            </select>
+          </div>
+          <!-- THE PALETTE IS THE POINT, SO IT IS SHOWN. A fandom's colours are
+               what the game wears, and three hex values in a table say nothing:
+               the swatches are the only way to see that the choice took. -->
+          <div class="gid-field gid-field--audience-palette" id="targetAudiencePalette" hidden>
+            <span class="gid-label">Its colours</span>
+            <div class="ta-swatches" id="targetAudienceSwatches"></div>
+          </div>
+        </div>
+      </fieldset>
+
       <!-- THE GAME'S IDENTITY, ON THE PAGE RATHER THAN IN THE INSPECTOR.
            Name and id are not fields you go looking for among Brand, Payment
            and Rendezvous: they answer "which game is this", which is the
@@ -10569,6 +10610,7 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_mascot: true,
   away_team_key: true,
   home_team_key: true,
+  target_audience_id: true,
   venue_name: true,
   venue_city: true,
   anchor_event_id: true
@@ -11134,6 +11176,7 @@ function normalizeGameRow(row, index = 0) {
     away_team_mascot:      row && row.away_team_mascot,
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
+    target_audience_id:    row && row.target_audience_id,
     venue_name:            row && row.venue_name,
     venue_city:            row && row.venue_city,
   }, index);
@@ -12043,6 +12086,83 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
   if (!window.TgbTeamPalette) return existingKey || '';
   const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { key: existingKey, city, mascot });
   return window.TgbTeamPalette.teamKey(team) || existingKey || '';
+}
+
+/* THE AUDIENCES, WHICH ARE NOT THE TEAMS LIST. `builderTeamsList` is the
+   `teams` VIEW -- fandoms with a club key, 639 of them -- and an audience can
+   also be an artist or an interest. `games.target_audience_id` is a foreign key
+   into public.audiences, so the picker is built from that table and from
+   nothing else, or it would offer a value the column cannot take. */
+let builderAudiencesList = [];
+
+async function loadBuilderAudiences() {
+  if (!hasSupabaseStore()) return;
+  const url = buildSupabaseUrl(
+    { select: 'id,name,family,nickname,kind,shell,stripe,mask', order: 'family.asc,name.asc' },
+    'audiences'
+  );
+  if (!url) return;
+  const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+  const rows = await response.json();
+  builderAudiencesList = Array.isArray(rows) ? rows : [];
+  populateTargetAudienceSelect();
+}
+
+function audienceLabel(a) {
+  /* THE NAME IS THE CITY FOR A PRO CLUB and the school for a college one --
+     2026083024 put that in the column, so nothing here has to know the
+     trademark rule. The mascot is shown beside it because two audiences can
+     share a name across families, and it is the word a person recognises. */
+  const family = String(a.family || '').toUpperCase();
+  const nick = String(a.nickname || '').trim();
+  return (family ? family + ' ' : '') + String(a.name || '')
+       + (nick && nick !== a.name ? ' (' + nick + ')' : '');
+}
+
+function populateTargetAudienceSelect() {
+  const select = document.getElementById('targetAudienceSelect');
+  if (!select) return;
+  const wanted = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
+  select.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = 'Nobody in particular';
+  select.appendChild(none);
+  builderAudiencesList.forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = audienceLabel(a);
+    select.appendChild(opt);
+  });
+  /* A STORED AUDIENCE THE LIST NO LONGER HOLDS KEEPS ITS OWN OPTION, marked, or
+     opening the game would silently reset the column to nothing. */
+  if (wanted && !builderAudiencesList.some((a) => a.id === wanted)) {
+    const gone = document.createElement('option');
+    gone.value = wanted;
+    gone.textContent = wanted + ' (no longer in audiences)';
+    select.appendChild(gone);
+  }
+  select.value = wanted;
+  paintTargetAudiencePalette();
+}
+
+function paintTargetAudiencePalette() {
+  const host = document.getElementById('targetAudienceSwatches');
+  const field = document.getElementById('targetAudiencePalette');
+  if (!host || !field) return;
+  const id = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
+  const a = id ? builderAudiencesList.find((x) => x.id === id) : null;
+  const colours = a ? [a.shell, a.stripe, a.mask].filter(Boolean) : [];
+  host.innerHTML = '';
+  colours.forEach((c) => {
+    const sw = document.createElement('span');
+    sw.className = 'ta-swatch';
+    sw.style.background = c;
+    sw.title = c;
+    host.appendChild(sw);
+  });
+  field.hidden = colours.length === 0;
 }
 
 async function loadBuilderTeams() {
@@ -16776,6 +16896,7 @@ function initGameMeta(game) {
     awayTeamCity:         g.away_team_city    ?? g.awayTeamCity    ?? gn.awayTeamCity    ?? '',
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
     awayTeamKey:          g.away_team_key     ?? g.awayTeamKey     ?? gn.awayTeamKey     ?? '',
+    targetAudienceId:     g.target_audience_id ?? g.targetAudienceId ?? gn.targetAudienceId ?? '',
     venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
     venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
   };
@@ -17416,6 +17537,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   away_team_city: 'awayTeamCity',
   away_team_mascot: 'awayTeamMascot',
   away_team_key: 'awayTeamKey',
+  target_audience_id: 'targetAudienceId',
   venue_name: 'venueName',
   venue_city: 'venueCity'
 };
@@ -17512,6 +17634,7 @@ function normalizeSavedGame(raw, index) {
     home_team_city:        raw && raw.home_team_city,
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
+    target_audience_id:    raw && raw.target_audience_id,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
     away_team_key:         raw && raw.away_team_key,
@@ -19873,6 +19996,8 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
+  const taSelect = document.getElementById('targetAudienceSelect');
+  if (taSelect) taSelect.disabled = !isGameNode;
   if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.disabled = !isGameNode;
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamInput) nodeAwayTeamInput.disabled = !isGameNode;
@@ -20016,6 +20141,9 @@ function updateSelectionUi(options = {}) {
     radio.disabled = true;
   });
   nodeTaglineInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
+  /* REPOPULATED RATHER THAN JUST SET, because a stored audience that is not in
+     the list needs its own option adding before the value can take. */
+  populateTargetAudienceSelect();
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '') : '';
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
   if (nodeHomeTeamCityInput) {
@@ -21666,6 +21794,7 @@ function stageCurrentGameIntoStore() {
     away_team_city:        awayTeamCity || null,
     away_team_mascot:      _meta.awayTeamMascot || null,
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
+    target_audience_id:    _meta.targetAudienceId || null,
     venue_name:            _meta.venueName || null,
     venue_city:            _meta.venueCity || null,
     nodes:                 docPayload.nodes,
@@ -22184,6 +22313,15 @@ nodeTaglineInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
+
+const targetAudienceSelect = document.getElementById('targetAudienceSelect');
+if (targetAudienceSelect) {
+  targetAudienceSelect.addEventListener('change', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.targetAudienceId = targetAudienceSelect.value || '';
+    paintTargetAudiencePalette();
+  });
+}
 
 // Team selects fire `change`, not `input`. Each pick encodes "fanbase|mascot"
 // and writes both halves to state. The (now hidden) mascot text inputs are
@@ -24778,6 +24916,7 @@ async function initializeBuilder() {
   applyZoom();
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
+  loadBuilderAudiences().catch((err) => console.warn('loadBuilderAudiences failed:', err));
   loadBuilderAnchorEvents().catch((err) => console.warn('loadBuilderAnchorEvents failed:', err));
   loadBuilderGuides().catch((err) => console.warn('loadBuilderGuides failed:', err));
   await loadDoc();
