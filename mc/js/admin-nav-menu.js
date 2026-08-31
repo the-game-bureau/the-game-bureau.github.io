@@ -84,7 +84,7 @@
         {
           href: '/mc/games/',
           label: 'Game Builder',
-          description: 'Where a game becomes a product: its name, its city, its price, its opponent, its start.'
+          description: 'Admins and AI build games here.'
         },
         {
           href: '/mc/builder/',
