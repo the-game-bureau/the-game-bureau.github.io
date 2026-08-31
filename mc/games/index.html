@@ -7434,6 +7434,36 @@ body.builder-page--editor .gid-field{
   min-width:0;
 }
 body.builder-page--editor .gid-field--name{ flex:1 1 320px; }
+body.builder-page--editor .gid-name-row{ display:flex; gap:8px; align-items:stretch; }
+body.builder-page--editor .gid-name-row input{ flex:1 1 auto; min-width:0; }
+/* IT WEARS THE BAR'S OWN METRICS rather than a size of its own, so it lines up
+   with the box beside it at any type scale. */
+body.builder-page--editor .btn-guess{
+  flex:0 0 auto;
+  min-height:40px;
+  padding:0 14px;
+  border:1px solid rgba(var(--bic-blue-rgb), .3);
+  border-radius:8px;
+  background:#fff;
+  color:var(--bic-blue, #2d4880);
+  font-family:"IBM Plex Mono", monospace;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+body.builder-page--editor .btn-guess:hover:not([aria-disabled="true"]){
+  background:rgba(var(--bic-blue-rgb), .07);
+  border-color:var(--bic-blue, #2d4880);
+}
+/* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click at
+   all, so on a touch screen -- no hover, therefore no tooltip -- the reason it
+   is off would be unreachable. Pressing it says what to do first. */
+body.builder-page--editor .btn-guess[aria-disabled="true"]{
+  opacity:.5;
+  cursor:help;
+}
 body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
 /* Its own line under the pair above: flex-basis 100% forces the wrap, so the
    name and id keep the first row to themselves at any width. */
@@ -9965,7 +9995,16 @@ html.admin-embedded .builder-section-head{
             <label class="gid-label" id="nodeTitleLabel" for="nodeTitleInput">
               <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
             </label>
-            <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
+            <div class="gid-name-row">
+              <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
+              <!-- THE NAME THE CATALOGUE ALREADY USES, offered rather than
+                   imposed. Every generated game is called "<away city> Fans
+                   Takeover <host city>", and both halves are sitting in the
+                   Anchor box above -- so this writes the sentence rather than
+                   making somebody retype what they have just chosen. -->
+              <button type="button" class="btn-guess" id="guessNameBtn" disabled
+                      title="Name it from the two audiences">Guess</button>
+            </div>
           </div>
           <!-- THE ID IS A REAL TEXT BOX NOW. It was a contenteditable span
                inside the name's <label>, which cost it a mousedown handler to
@@ -12286,6 +12325,7 @@ function paintAudienceSlot(slot) {
 function populateTargetAudienceSelect() {
   fillAudienceDatalist();
   AUDIENCE_SLOTS.forEach(paintAudienceSlot);
+  paintGuessButton();
 }
 
 /* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
@@ -12308,6 +12348,7 @@ function resolveTypedAudience(slot) {
     }
     input.removeAttribute('data-invalid');
     paintAudienceSwatches(slot);
+    paintGuessButton();
     return;
   }
 
@@ -12330,6 +12371,7 @@ function resolveTypedAudience(slot) {
     syncFandomFlag();
   }
   paintAudienceSwatches(slot);
+  paintGuessButton();
 }
 
 function paintAudienceSwatches(slot) {
@@ -12816,6 +12858,7 @@ function fillAudiencesFromEvent(ev) {
   });
   syncFandomFlag();
   AUDIENCE_SLOTS.forEach(paintAudienceSlot);
+  paintGuessButton();
 }
 
 /* `fandom_game` IS DERIVED NOW, NOT TOGGLED. It used to be an INCLUDE ANCHOR
@@ -20510,6 +20553,7 @@ function updateSelectionUi(options = {}) {
      emptied, and typing over the default produced `!AAA Great GameHello There`.
      The Game ID box beside it has carried this exact guard since 2026-08-10;
      the name never got it. */
+  paintGuessButton();
   if (document.activeElement !== nodeTitleInput) {
     nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
   }
@@ -21679,7 +21723,20 @@ function seedPhone(options = {}) {
     state.nextNodeNumbers = createNodeIdCounters();
     const firstSlot = getGameHomeSlot();
     const gameNode = createNode('game', firstSlot.x, firstSlot.y);
+    /* A NEW GAME HAS NO NAME. It used to open holding `!AAA Great Game!`, which
+       is a placeholder shaped to sort to the top of a list -- so every new game
+       began by deleting somebody else's joke, and a game saved in a hurry
+       carried it. `getDocName()` already answers "Untitled Game" for a blank
+       title, and the picker already labels one that way, so nothing downstream
+       needed teaching. */
+    gameNode.title = '';
     state.doc.nodes.push(gameNode);
+    /* AND THE BOX IS CLEARED OUTRIGHT, past the focus guard. That guard exists
+       so a repaint cannot yank text from under the cursor mid-rename -- but
+       seeding a game is a deliberate replacement, so pressing NEW while the
+       name field has focus must not leave the previous game's name sitting in
+       it over a game that has none. */
+    if (nodeTitleInput) nodeTitleInput.value = '';
     setCurrentGameColors();
     state.currentGameMeta = initGameMeta({});
     renderGamePickerSelect();
@@ -22450,6 +22507,63 @@ if (stopLibraryList) {
   });
 }
 
+/* THE NAME THE CATALOGUE ALREADY USES: "<away city> Fans Takeover <host city>".
+ * Away is the TARGET audience and host is the RIVAL, which is the same
+ * asymmetry the id and the copy already have -- the game is pitched at the
+ * travelling side.
+ *
+ * THE AUDIENCE'S `name` IS ALREADY THE CITY for a pro club, since 2026083024
+ * put it there, so nothing here has to know the trademark rule. It falls back
+ * to the event's own geo, which is a place string rather than a club.
+ */
+function guessedGameName() {
+  const meta = state.currentGameMeta || {};
+  const ev = meta.anchorEventId ? builderAnchorEventsById.get(String(meta.anchorEventId)) : null;
+  const cityOf = (audienceId, fallback) => {
+    const a = audienceId ? builderAudiencesList.find((x) => x.id === audienceId) : null;
+    return String((a && a.name) || fallback || '').trim();
+  };
+  const away = cityOf(meta.targetAudienceId, ev && ev.away_team_geo);
+  const host = cityOf(meta.rivalAudienceId, ev && ev.home_team_geo);
+  if (!away || !host) return '';
+  return away + ' Fans Takeover ' + host;
+}
+
+function paintGuessButton() {
+  const btn = document.getElementById('guessNameBtn');
+  if (!btn) return;
+  const guess = guessedGameName();
+  const open = !!state.currentGameMeta;
+  btn.disabled = false;
+  btn.setAttribute('aria-disabled', String(!open || !guess));
+  btn.title = !open ? 'Open a game first'
+            : (guess ? 'Name it "' + guess + '"'
+                     : 'Set a target and a rival audience first, and this writes the name.');
+}
+
+const guessNameBtn = document.getElementById('guessNameBtn');
+if (guessNameBtn) {
+  guessNameBtn.addEventListener('click', () => {
+    /* PRESSING THE OFF STATE SAYS WHAT TO DO, rather than doing nothing: the
+       button is `aria-disabled`, so the click still arrives. */
+    if (guessNameBtn.getAttribute('aria-disabled') === 'true') {
+      window.alert(guessNameBtn.title);
+      return;
+    }
+    const node = getGameNode();
+    const guess = guessedGameName();
+    if (!guess || !node) return;
+    /* IT OVERWRITES, and that is the difference between this and the audience
+       fill: you pressed a button called Guess, which is a request rather than a
+       side effect. Undo is retyping, and the old name is still on screen until
+       you do. */
+    node.title = guess;
+    nodeTitleInput.value = guess;
+    renderGamePickerSelect();
+    scheduleRender();
+  });
+}
+
 nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
@@ -22463,19 +22577,10 @@ nodeTitleInput.addEventListener('input', () => {
   scheduleRender();
 });
 
-nodeTitleInput.addEventListener('blur', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  /* AN UNTITLED GAME IS GIVEN THE DEFAULT WHEN YOU LEAVE THE FIELD, not while
-     you are in it. Leaving is when a blank is a decision rather than a
-     keystroke on the way to something else. */
-  if (!String(nodeTitleInput.value || '').trim()) {
-    node.title = TYPE_CONFIG[node.type].title;
-    nodeTitleInput.value = node.title;
-    renderGamePickerSelect();
-    scheduleRender();
-  }
-});
+/* AND NO DEFAULT IS PUT BACK ON BLUR EITHER. That fallback was added an hour
+   ago so an emptied name still got a title; with no default on a new game there
+   is nothing to put back, and an empty name is a real state -- `getDocName()`
+   reads it as "Untitled Game" wherever a name is needed. */
 
 objectStopNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);

@@ -7883,6 +7883,47 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### A NEW GAME HAS NO NAME, AND A GUESS BUTTON OFFERS ONE (2026-08-30)
+
+- **`!AAA Great Game!` IS GONE FROM A NEW GAME.** It is a placeholder shaped to
+  sort to the top of a list, so **every new game began by deleting somebody
+  else's joke**, and one saved in a hurry carried it into the catalogue. Nothing
+  downstream needed teaching: `getDocName()` already answers *Untitled Game* for
+  a blank title and the picker already labels one that way.
+  - **`TYPE_CONFIG.game.title` IS UNTOUCHED**, so the canvas node keeps its
+    default label; only the SEED stops copying it onto the row.
+  - **THE BLUR FALLBACK ADDED AN HOUR AGO IS REMOVED WITH IT.** It existed to
+    put a default back when a name was emptied; with no default there is nothing
+    to put back, and **an empty name is a real state**.
+  - **THE SEED CLEARS THE BOX PAST THE FOCUS GUARD.** That guard stops a repaint
+    yanking text from under the cursor mid-rename -- but seeding is a deliberate
+    replacement, and without this, pressing NEW while the name had focus left
+    the PREVIOUS game's name in the box over a game with none. Found by the
+    check, not by reading.
+- **GUESS WRITES "<away city> Fans Takeover <host city>"**, which is the name
+  every generated game already carries. Away is the TARGET and host is the
+  RIVAL -- the same asymmetry the id and the copy have, because the game is
+  pitched at the travelling side.
+  - **THE AUDIENCE'S `name` IS ALREADY THE CITY**, since [2026083024](mc/supabase/migrations/2026083024_an_audience_is_named_by_its_city.sql), so the
+    button does not have to know the trademark rule. It falls back to the
+    event's own geo.
+  - **IT OVERWRITES, and that is the difference between it and the audience
+    fill.** You pressed a button called Guess, which is a request rather than a
+    side effect.
+  - **`aria-disabled`, NEVER `disabled`.** A disabled button dispatches no click
+    at all, so on a touch screen -- no hover, therefore no tooltip -- the reason
+    it is off would be unreachable. Pressing the off state says what to do
+    first.
+  - **IT REPAINTS WHEN AN AUDIENCE CHANGES, which it did not at first**: it was
+    painted from `populateTargetAudienceSelect` and the event fill only, so
+    typing an audience armed nothing and the button stayed off over a game it
+    could perfectly well name.
+- **AND THE HARNESS COULD HANG RATHER THAN FAIL.** A native `alert` blocks the
+  page forever under Puppeteer unless something dismisses it, and this suite
+  presses a button whose off state calls one. **A run that hangs looks like the
+  harness rather than the page**, which is the worst shape a failure can take.
+  A `dialog` handler dismisses and records it. **86 assertions.**
+
 ### INCLUDE ANCHOR IS GONE, AND `fandom_game` IS DERIVED (2026-08-30)
 
 The toggle in the Teams section is deleted, along with its two labels, its

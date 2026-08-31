@@ -32,6 +32,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   await page.setViewport({ width: 1500, height: 950 });
   const errs = [];
   const sent = [];
+  /* A NATIVE DIALOG BLOCKS THE PAGE FOREVER IN PUPPETEER unless something
+     dismisses it, and this suite presses a button whose off state calls
+     `alert`. Without this the run hangs rather than failing, which is the worst
+     shape a test failure can take: it looks like the harness, not the page. */
+  page.on('dialog', async (d) => { errs.push('dialog: ' + d.message()); await d.dismiss(); });
   page.on('pageerror', (e) => errs.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
 
@@ -535,6 +540,40 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      "no name" rather than as "mid-edit". */
   t('a new game name can be cleared', cleared === '', JSON.stringify(cleared));
   t('and typed over', typedName === 'Hello There', JSON.stringify(typedName));
+
+  /* A NEW GAME OPENS WITH NO NAME. It used to hold `!AAA Great Game!`, a
+     placeholder shaped to sort to the top of a list, so every new game began by
+     deleting somebody else's joke -- and one saved in a hurry carried it. */
+  const fresh = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find((x) => /^new$/i.test(x.textContent.trim()));
+    if (btn) btn.click();
+    return document.getElementById('nodeTitleInput').value;
+  });
+  t('a new game opens with no name at all', fresh === '', JSON.stringify(fresh));
+
+  /* AND GUESS WRITES THE NAME THE CATALOGUE ALREADY USES. */
+  const guess = await page.evaluate(() => {
+    const btn = document.getElementById('guessNameBtn');
+    const before = { off: btn.getAttribute('aria-disabled'), title: btn.title };
+    const tin = document.getElementById('targetAudienceInput');
+    const rin = document.getElementById('rivalAudienceInput');
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    type(tin, 'NFL Chicago (Bears)');
+    type(rin, 'NFL New Orleans (Saints)');
+    const armed = { off: btn.getAttribute('aria-disabled'), title: btn.title };
+    btn.click();
+    return { before: before, armed: armed,
+             name: document.getElementById('nodeTitleInput').value,
+             /* NEVER NATIVELY DISABLED: a disabled button dispatches no click,
+                so on a touch screen the reason it is off is unreachable. */
+             nativelyDisabled: btn.disabled };
+  });
+  t('Guess is off until there are two audiences', guess.before.off === 'true', guess.before.off);
+  t('and says what to do first', /target and a rival/.test(guess.before.title), guess.before.title);
+  t('it arms once both are set', guess.armed.off === 'false', guess.armed.off);
+  t('and names the game the way the catalogue does',
+    guess.name === 'Chicago Fans Takeover New Orleans', JSON.stringify(guess.name));
+  t('it is aria-disabled, never natively disabled', guess.nativelyDisabled === false);
 
   t('no console errors', errs.length === 0, errs.slice(0, 3).join(' | '));
 
