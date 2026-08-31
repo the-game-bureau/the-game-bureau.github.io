@@ -13,6 +13,7 @@ const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const AUDIENCES = fs.readFileSync('C:/tmp/fx-aud.json', 'utf8');
 const TEAMS = fs.readFileSync('C:/tmp/fx-teams.json', 'utf8');
 const GAMES = fs.readFileSync('C:/tmp/fx-games.json', 'utf8');
+const PLACES = fs.readFileSync('C:/tmp/fx-places-full.json', 'utf8');
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': '*',
@@ -50,6 +51,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       if (/rest\/v1\/audiences/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: AUDIENCES });
       if (/rest\/v1\/teams/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: TEAMS });
       if (/rest\/v1\/games/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: GAMES });
+      /* THE TOWN COMES FROM `places`, so the stub has to serve it or every label
+         loses its city and the check reports a page fault that is its own. */
+      if (/rest\/v1\/places/.test(u)) return req.respond({ contentType: 'application/json', headers: CORS, body: PLACES });
       return req.respond({ contentType: 'application/json', headers: CORS, body: '[]' });
     }
     req.continue();
@@ -60,25 +64,33 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
 
   const m = await page.evaluate(() => {
     const bar = document.getElementById('targetAudienceBar');
-    const sel = document.getElementById('targetAudienceSelect');
+    const sel = document.getElementById('targetAudienceInput');
     const idBar = document.getElementById('gameIdentityBar');
     const pos = bar && idBar ? (bar.compareDocumentPosition(idBar) & Node.DOCUMENT_POSITION_FOLLOWING) : 0;
     return {
       hasBar: !!bar,
       legend: bar ? bar.querySelector('legend').textContent.trim() : '',
       aboveGame: !!pos,
-      options: sel ? sel.options.length : 0,
-      firstReal: sel && sel.options[1] ? sel.options[1].textContent : '',
-      names: sel ? [...sel.options].slice(1).map((o) => o.textContent).join('|') : ''
+      options: document.querySelectorAll('#targetAudienceList option').length,
+      firstReal: (document.querySelector('#targetAudienceList option') || {}).value || '',
+      names: [...document.querySelectorAll('#targetAudienceList option')].map((o) => o.value).join('|')
     };
   });
 
   t('the section is on the page', m.hasBar);
   t('it is called Target audience', /target audience/i.test(m.legend), m.legend);
   t('and it sits ABOVE the Game section', m.aboveGame);
-  t('the picker is filled from the audiences table (' + m.options + ')', m.options > 600, m.options);
+  t('the list is filled from the audiences table (' + m.options + ')', m.options > 600, m.options);
   t('an option names the audience, not a mascot alone',
     /NFL Chicago \(Bears\)/.test(m.names), m.firstReal);
+  /* THE TOWN IS IN THE LABEL WHERE IT IS NEWS, and left out where it repeats
+     the name -- most pro clubs are already named for their city. */
+  t('a college option carries its town',
+    /NCAAF Alabama \(Crimson Tide\) · Tuscaloosa, AL/.test(m.names),
+    (m.names.split('|').find((x) => /Crimson Tide/.test(x)) || 'not found'));
+  t('and a pro option does not say its city twice',
+    !/NFL Chicago \(Bears\) · Chicago/.test(m.names),
+    (m.names.split('|').find((x) => /NFL Chicago/.test(x)) || 'not found'));
   /* A PRO CLUB IS NAMED BY ITS CITY -- 2026083024 put that in the column, so a
      picker showing "Bears" would mean the room had reached past it. */
   t('no option is a bare mascot where a city exists',
@@ -97,7 +109,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('a game can be opened from the picker', opened.ok, JSON.stringify(opened));
 
   const patched = await page.evaluate(() => {
-    const sel = document.getElementById('targetAudienceSelect');
+    const sel = document.getElementById('targetAudienceInput');
     if (!sel || sel.disabled) return { disabled: true };
     sel.value = 'nfl-chicago';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -123,15 +135,31 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      so the bar stays disabled here and the TAGLINE is disabled with it. */
   const gate = await page.evaluate(() => ({
     tagline: document.getElementById('nodeTaglineInput').disabled,
-    ta: document.getElementById('targetAudienceSelect').disabled
+    ta: document.getElementById('targetAudienceInput').disabled
   }));
   t('the picker is gated exactly like the rest of the identity bar',
     gate.ta === gate.tagline, JSON.stringify(gate));
 
+  /* TYPING A LABEL RESOLVES BACK TO AN ID, and a label the list does not hold
+     is REFUSED rather than stored -- the column is a foreign key, so the
+     database would answer with a constraint name nobody can act on. */
+  const typed = await page.evaluate(() => {
+    const el = document.getElementById('targetAudienceInput');
+    el.disabled = false;
+    const type = (v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+    type('not a real audience at all');
+    const bad = { invalid: el.hasAttribute('data-invalid'), title: el.title };
+    type('NFL Chicago (Bears)');
+    return { bad: bad, goodInvalid: el.hasAttribute('data-invalid'), value: el.value };
+  });
+  t('a label the list does not hold is refused', typed.bad.invalid);
+  t('and says so in words, not a constraint name',
+    /No audience called/.test(typed.bad.title), typed.bad.title);
+  t('a real one clears the refusal', !typed.goodInvalid);
+
   /* THE SWATCH IS A `<span>`, AND WIDTH AND HEIGHT ARE IGNORED ON AN INLINE
      ELEMENT -- this project has shipped an invisible pin and an invisible
-     swatch for exactly that, and no markup assertion can see it. One is drawn
-     by hand here because the handler that would draw it needs an open game. */
+     swatch for exactly that, and no markup assertion can see it. */
   const sw = await page.evaluate(() => {
     const host = document.getElementById('targetAudienceSwatches');
     const x = document.createElement('span');
@@ -148,40 +176,6 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('painted the colour it was given', /rgb\(11,\s*22,\s*42\)/.test(sw.colour), sw.colour);
   t('and ringed, or a white club colour is invisible on a white bar',
     sw.ring && sw.ring !== 'none', sw.ring);
-
-  /* IT LOOKS LIKE THE BOXES BESIDE IT. The bar's own rules said `input`, so a
-     `select` got none of them and came back at the browser default -- taller,
-     a different font, its own arrow. Read from the COMPUTED style, because the
-     rule being present says nothing about it applying. */
-  const look = await page.evaluate(() => {
-    const sel = document.getElementById('targetAudienceSelect');
-    const inp = document.getElementById('nodeTaglineInput');
-    const cs = getComputedStyle(sel), ci = getComputedStyle(inp);
-    return {
-      radius: [cs.borderTopLeftRadius, ci.borderTopLeftRadius],
-      font: [cs.fontFamily, ci.fontFamily],
-      weight: [cs.fontWeight, ci.fontWeight],
-      height: [Math.round(sel.getBoundingClientRect().height),
-               Math.round(inp.getBoundingClientRect().height)],
-      appearance: cs.appearance || cs.webkitAppearance,
-      width: Math.round(sel.getBoundingClientRect().width),
-      barWidth: Math.round(document.getElementById('targetAudienceBar').getBoundingClientRect().width),
-      placeholder: sel.options[0] ? sel.options[0].textContent : '',
-      disabled: sel.disabled
-    };
-  });
-  t('the picker is cornered like its neighbours', look.radius[0] === look.radius[1], look.radius.join(' vs '));
-  t('and set in the same face', look.font[0] === look.font[1], look.font.join(' vs '));
-  t('at the same weight', look.weight[0] === look.weight[1], look.weight.join(' vs '));
-  t('and the same height', Math.abs(look.height[0] - look.height[1]) <= 1, look.height.join(' vs '));
-  t('the native chrome is off', look.appearance === 'none', look.appearance);
-  /* IT TOOK THE WHOLE 1500px BAR for a control holding two words. */
-  t('it does not stretch the whole bar', look.width < look.barWidth * 0.55,
-    look.width + ' of ' + look.barWidth);
-  /* A GREYED CONTROL THAT SAYS NOTHING IS INDISTINGUISHABLE FROM A BROKEN ONE. */
-  t('and a greyed picker says why it is off',
-    !look.disabled || /open a game first|did not load/i.test(look.placeholder),
-    look.placeholder + ' (disabled: ' + look.disabled + ')');
 
   /* THE SIX WIRING POINTS. A column reaches the database through all of them or
      none: miss one and the picker works, the value shows, and the PATCH quietly

@@ -7891,6 +7891,38 @@ and writing `games.target_audience_id`.
 - **IT IS ASKED FIRST BECAUSE IT DECIDES THE REST.** A game is pitched at a
   travelling fandom, and that choice settles the copy AND the palette -- so it
   belongs above the name rather than filed among Brand and Payment.
+- **IT IS A COMBO, NOT A SELECT: an input bound to a datalist**, which is the
+  shape this project uses wherever a field shows a LABEL and a column holds a
+  KEY -- the audiences room's home cell, the waypoint editor's city. **641 rows
+  is past what a select is for**: you can type to narrow it, which is the whole
+  reason for the change.
+  - **THE LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE**, because a datalist
+    matches on the option's value and nothing else: the league, the audience's
+    name, the mascot, and the town. `Saints`, `New Orleans`, `LA` and `NFL` all
+    reach the right row.
+  - **THE TOWN IS OMITTED WHERE IT REPEATS THE NAME.** Most pro clubs are named
+    for their city, so `NFL Chicago (Bears) - Chicago, IL` says Chicago twice.
+    It earns its place on a college club, where the name is a school and the
+    town is news: `NCAAF Alabama (Crimson Tide) . Tuscaloosa, AL`. Both are
+    asserted, in both directions.
+  - **THE TOWN COMES FROM `places`, because it is not on the audience any more.**
+    2026083026 dropped `city_name` and `state_code` from that table -- 21 of
+    them disagreed with the place they pointed at, which is how the 49ers were
+    stored as San Jose. Two small reads and a join is the price of them never
+    disagreeing again.
+  - **WHAT IS TYPED IS RESOLVED BACK TO AN ID, and a label the list does not
+    hold is REFUSED rather than stored.** The column is a foreign key, so the
+    database would otherwise answer with a constraint name nobody can act on.
+    The field wears `data-invalid` -- **the room's own idiom, borrowed rather
+    than invented**, since the id box has had it since this bar was built -- and
+    says *"No audience called X. Pick one from the list."*
+  - **A BARE ID IS ACCEPTED TOO**, so a value pasted out of the database
+    resolves instead of being called a mistake.
+  - **THE VALIDATION SITS IN FRONT OF THE GAME GUARD, not behind it.** Whether a
+    typed name exists has nothing to do with whether a game is open, and behind
+    the guard a value matching nothing was accepted in silence on any path where
+    the field could be reached without a game node. Only the WRITE is guarded.
+
 - **THE PICKER READS `audiences`, NOT THE TEAMS LIST.** `builderTeamsList` is
   the `teams` view: fandoms with a club key, 639 of them. **An audience can also
   be an artist or an interest**, and the column is a foreign key into
@@ -7941,7 +7973,7 @@ and writing `games.target_audience_id`.
 
 - **PROVED IN REAL CHROME** with the live 641 audiences: the bar is above the
   Game bar, the picker fills, an option names the city, the swatch is a block
-  box at a real size in a real colour. 26 assertions.
+  box at a real size in a real colour. 24 assertions, and the harness had to learn to serve `places` -- without it every label lost its city and the check reported a page fault that was its own.
 - **WHAT IS NOT COVERED, said rather than papered over: the PATCH itself.**
   Opening a game needs its whole flow document, which the stub does not serve,
   so the change handler's early return is never passed and the control stays

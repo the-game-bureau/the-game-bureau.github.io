@@ -7499,6 +7499,9 @@ body.builder-page--editor #selectionIdInput{
   font-size:.92rem;
   letter-spacing:.02em;
 }
+/* THE ROOM'S EXISTING IDIOM FOR A VALUE THE DATABASE WOULD REFUSE, borrowed
+   rather than invented: the id box has worn it since this bar was built. */
+body.builder-page--editor #targetAudienceInput[data-invalid],
 body.builder-page--editor #selectionIdInput[data-invalid]{
   border-color:#c23737;
   box-shadow:0 0 0 3px rgba(194, 55, 55, .14);
@@ -9863,10 +9866,16 @@ html.admin-embedded .builder-section-head{
         <legend>Target audience</legend>
         <div class="game-id-bar-inner">
           <div class="gid-field gid-field--audience" id="targetAudienceField">
-            <label class="gid-label" for="targetAudienceSelect">Who the game is pitched at</label>
-            <select id="targetAudienceSelect" disabled>
-              <option value="">Nobody in particular</option>
-            </select>
+            <label class="gid-label" for="targetAudienceInput">Who the game is pitched at</label>
+            <!-- AN INPUT PLUS A DATALIST, which is the combo this project uses
+                 wherever a field shows a LABEL and a column holds a KEY: the
+                 audiences room's home cell, the waypoint editor's city. You can
+                 type to narrow 641 rows, which a select cannot do, and what is
+                 typed is resolved back to an id before it is stored. -->
+            <input id="targetAudienceInput" type="text" list="targetAudienceList"
+                   autocomplete="off" spellcheck="false" disabled
+                   placeholder="Nobody in particular">
+            <datalist id="targetAudienceList"></datalist>
           </div>
           <!-- THE PALETTE IS THE POINT, SO IT IS SHOWN. A fandom's colours are
                what the game wears, and three hex values in a table say nothing:
@@ -12125,58 +12134,127 @@ let builderAudiencesList = [];
 async function loadBuilderAudiences() {
   if (!hasSupabaseStore()) return;
   const url = buildSupabaseUrl(
-    { select: 'id,name,family,nickname,kind,shell,stripe,mask', order: 'family.asc,name.asc' },
+    { select: 'id,name,family,nickname,kind,shell,stripe,mask,home_place_id',
+      order: 'family.asc,name.asc' },
     'audiences'
   );
   if (!url) return;
   const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
   if (!response.ok) throw new Error('HTTP ' + response.status);
   const rows = await response.json();
-  builderAudiencesList = Array.isArray(rows) ? rows : [];
+
+  /* THE TOWN COMES FROM `places`, BECAUSE IT IS NOT ON THE AUDIENCE ANY MORE.
+     2026083026 dropped city_name and state_code from that table -- 21 of them
+     disagreed with the place they pointed at, which is how the 49ers were
+     stored as San Jose. Two small reads and a join here is the price of them
+     not being able to disagree again. */
+  let places = [];
+  const purl = buildSupabaseUrl({ select: 'id,city,state', order: 'id.asc' }, 'places');
+  if (purl) {
+    try {
+      const pres = await fetch(purl, { headers: getSupabaseHeaders(), cache: 'no-store' });
+      if (pres.ok) places = await pres.json();
+    } catch (err) { console.warn('places fetch failed for the audience picker:', err); }
+  }
+  const placeById = new Map((places || []).map((p) => [p.id, p]));
+
+  builderAudiencesList = (Array.isArray(rows) ? rows : []).map((a) => {
+    const p = a.home_place_id ? placeById.get(a.home_place_id) : null;
+    return Object.assign({}, a, {
+      placeLabel: p ? (p.city + ', ' + p.state) : ''
+    });
+  });
   populateTargetAudienceSelect();
 }
 
+/* EVERY WORD SOMEBODY MIGHT TYPE GOES IN THE LABEL, because a datalist matches
+   on the option's value and nothing else. So the league, the audience's own name
+   (the CITY for a pro club, the school for a college one -- 2026083024 put that
+   in the column), the mascot, and the town it is at home in. Typing `Saints`,
+   `New Orleans`, `LA` or `NFL` all reach the right row.
+
+   NO EM DASH, per the standing rule; the separator is a middle dot. */
 function audienceLabel(a) {
-  /* THE NAME IS THE CITY FOR A PRO CLUB and the school for a college one --
-     2026083024 put that in the column, so nothing here has to know the
-     trademark rule. The mascot is shown beside it because two audiences can
-     share a name across families, and it is the word a person recognises. */
   const family = String(a.family || '').toUpperCase();
   const nick = String(a.nickname || '').trim();
-  return (family ? family + ' ' : '') + String(a.name || '')
-       + (nick && nick !== a.name ? ' (' + nick + ')' : '');
+  const name = String(a.name || '');
+  const head = (family ? family + ' ' : '') + name
+             + (nick && nick !== name ? ' (' + nick + ')' : '');
+  /* THE TOWN IS OMITTED WHEN IT REPEATS THE NAME, which is most pro clubs:
+     "NFL Chicago (Bears) - Chicago, IL" says Chicago twice. It earns its place
+     for a college club, where the name is a school and the town is news --
+     "NCAAF Alabama (Crimson Tide) - Tuscaloosa, AL". */
+  const place = String(a.placeLabel || '');
+  const sameTown = place && place.toLowerCase().indexOf(name.toLowerCase() + ',') === 0;
+  return place && !sameTown ? head + ' · ' + place : head;
 }
 
 function populateTargetAudienceSelect() {
-  const select = document.getElementById('targetAudienceSelect');
-  if (!select) return;
-  const wanted = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
-  select.innerHTML = '';
-  /* THE PLACEHOLDER SAYS WHY THE CONTROL IS OFF. Greyed, reading "Nobody in
-     particular", it is indistinguishable from a picker that failed to load --
-     and this room greys the whole identity bar until a game is open, so that is
-     the common state rather than an odd one. */
-  const none = document.createElement('option');
-  none.value = '';
-  none.textContent = !builderAudiencesList.length
-    ? 'Audiences did not load'
-    : (select.disabled ? 'Open a game first' : 'Nobody in particular');
-  select.appendChild(none);
+  const input = document.getElementById('targetAudienceInput');
+  const list = document.getElementById('targetAudienceList');
+  if (!input || !list) return;
+
+  list.innerHTML = '';
   builderAudiencesList.forEach((a) => {
     const opt = document.createElement('option');
-    opt.value = a.id;
-    opt.textContent = audienceLabel(a);
-    select.appendChild(opt);
+    opt.value = audienceLabel(a);
+    list.appendChild(opt);
   });
-  /* A STORED AUDIENCE THE LIST NO LONGER HOLDS KEEPS ITS OWN OPTION, marked, or
-     opening the game would silently reset the column to nothing. */
-  if (wanted && !builderAudiencesList.some((a) => a.id === wanted)) {
-    const gone = document.createElement('option');
-    gone.value = wanted;
-    gone.textContent = wanted + ' (no longer in audiences)';
-    select.appendChild(gone);
+
+  /* THE FIELD SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so what is drawn is
+     resolved FROM the stored id rather than being the id itself. Without this,
+     opening a game would show `nfl-chicago` in a box a person is meant to read. */
+  const id = String((state.currentGameMeta && state.currentGameMeta.targetAudienceId) || '');
+  const row = id ? builderAudiencesList.find((a) => a.id === id) : null;
+  input.value = row ? audienceLabel(row)
+              : (id ? id + ' (no longer in audiences)' : '');
+  input.removeAttribute('data-invalid');
+
+  /* A DISABLED FIELD SAYS WHY IT IS OFF. The whole identity bar is greyed until
+     a game is open, so that is the common state here -- and greyed with a
+     placeholder reading "Nobody in particular" is indistinguishable from a
+     picker that failed to load. */
+  input.placeholder = !builderAudiencesList.length ? 'Audiences did not load'
+                    : (input.disabled ? 'Open a game first'
+                                      : 'Type a city, a club or a league');
+  paintTargetAudiencePalette();
+}
+
+/* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
+   does not hold is REFUSED rather than stored, because the column is a foreign
+   key and PostgREST would answer with a constraint name nobody can act on. */
+function resolveTypedAudience() {
+  const input = document.getElementById('targetAudienceInput');
+  if (!input) return;
+  const typed = String(input.value || '').trim();
+  /* WHETHER A NAME EXISTS HAS NOTHING TO DO WITH WHETHER A GAME IS OPEN, so the
+     resolution and the red pen run either way and only the WRITE is guarded.
+     Behind the guard, a typed value that matches nothing was accepted in
+     silence on any path where the field was reachable without a game node. */
+  const canWrite = !!(getGameNode() && state.currentGameMeta);
+
+  if (!typed) {
+    if (canWrite) state.currentGameMeta.targetAudienceId = '';
+    input.removeAttribute('data-invalid');
+    paintTargetAudiencePalette();
+    return;
   }
-  select.value = wanted;
+
+  const low = typed.toLowerCase();
+  const hit = builderAudiencesList.find((a) => audienceLabel(a).toLowerCase() === low)
+    /* A BARE ID IS ACCEPTED TOO, so a value pasted from the database resolves
+       rather than being called a mistake. */
+    || builderAudiencesList.find((a) => String(a.id).toLowerCase() === low);
+
+  if (!hit) {
+    input.setAttribute('data-invalid', '');
+    input.title = 'No audience called ' + typed + '. Pick one from the list.';
+    return;
+  }
+  input.removeAttribute('data-invalid');
+  input.title = hit.id;
+  input.value = audienceLabel(hit);
+  if (canWrite) state.currentGameMeta.targetAudienceId = hit.id;
   paintTargetAudiencePalette();
 }
 
@@ -20029,7 +20107,7 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
-  const taSelect = document.getElementById('targetAudienceSelect');
+  const taSelect = document.getElementById('targetAudienceInput');
   if (taSelect) {
     taSelect.disabled = !isGameNode;
     /* REPAINTED AFTER the disabled flag is set, because the placeholder reads
@@ -22352,13 +22430,14 @@ nodeTaglineInput.addEventListener('input', () => {
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
 
-const targetAudienceSelect = document.getElementById('targetAudienceSelect');
-if (targetAudienceSelect) {
-  targetAudienceSelect.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.targetAudienceId = targetAudienceSelect.value || '';
-    paintTargetAudiencePalette();
-  });
+const targetAudienceInput = document.getElementById('targetAudienceInput');
+if (targetAudienceInput) {
+  /* `change` FIRES WHEN A DATALIST OPTION IS PICKED and again on blur after
+     typing, which covers both ways in. `blur` as well, because a value typed
+     and then clicked away from does not always raise `change` in every
+     browser. */
+  targetAudienceInput.addEventListener('change', resolveTypedAudience);
+  targetAudienceInput.addEventListener('blur', resolveTypedAudience);
 }
 
 // Team selects fire `change`, not `input`. Each pick encodes "fanbase|mascot"
