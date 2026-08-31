@@ -41,11 +41,14 @@
       // first: a game is assembled down this list. An anchor event brings
       // people to a city; waypoints are the places they will stand in; a
       // challenge is what they do there; a route puts those in order; the
-      // marquee is where a game becomes something somebody can buy.
+      // Game Builder is where a game becomes something somebody can buy.
       //
-      // Everything above the marquee is an INGREDIENT and everything below it
-      // is the finished thing. That line is what the old Game Elements /
-      // Game Builder split was reaching for and never quite said.
+      // Everything above the Game Builder is an INGREDIENT and everything below
+      // it is the finished thing. That line is what the old Game Elements /
+      // Game Builder split was reaching for and never quite said -- and the name
+      // is free again, because games/admin/ was deleted on 2026-08-07. The room
+      // was called MARQUEE until 2026-08-30; `mc/builder/` is the FLOW builder,
+      // which is the distinction that split was drawing.
       label: 'The Spine',
       items: [
         {
@@ -80,7 +83,7 @@
         },
         {
           href: '/mc/games/',
-          label: 'Marquee',
+          label: 'Game Builder',
           description: 'Where a game becomes a product: its name, its city, its price, its opponent, its start.'
         },
         {

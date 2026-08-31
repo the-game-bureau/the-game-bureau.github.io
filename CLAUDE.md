@@ -1061,7 +1061,7 @@ from, so the groups are the categories. Five, in this order:
 
 | group | what is in it |
 |---|---|
-| **The Spine** | Anchor Events, Waypoints, Challenges, Routes, Marquee, Flow Builder |
+| **The Spine** | Anchor Events, Waypoints, Challenges, Routes, Game Builder, Flow Builder |
 | **The Catalogue** | Teams, Leagues, Data Warehouse |
 | **Running It** | Daily Review, Game Plays, Operations, Winner's Wall, Taglines, Picmaker |
 | **The Periphery** | Socializer, Issues |
@@ -1070,10 +1070,11 @@ from, so the groups are the categories. Five, in this order:
 - **THE ORDER OF THE SPINE IS THE ARGUMENT.** A game is assembled down that
   list: an anchor event brings people to a city, waypoints are the places they
   stand in, a challenge is what they do there, a route puts those in order, and
-  the marquee is where it becomes something somebody can buy. **Everything above
-  the marquee is an ingredient and everything below it is the finished thing** --
+  the Game Builder is where it becomes something somebody can buy. **Everything
+  above it is an ingredient and everything below it is the finished thing** --
   which is what the old Game Elements / Game Builder split was reaching for and
-  never said.
+  never said. (**That room was MARQUEE until 2026-08-30**, and the sentence used
+  to turn on the word: a marquee is where a show is billed.)
 - **FOR REVIEW IS LAST AND DELIBERATELY VISIBLE.** Every page in it is
   reachable, carries real code, and is linked from nothing. **That is the state
   in which a page rots quietly**: it keeps working, nobody opens it, and the
@@ -7882,7 +7883,28 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
-## THE MARQUEE FOLDER IS `mc/games/` (2026-08-30)
+## THE MARQUEE IS THE GAME BUILDER, AT `mc/games/` (2026-08-30)
+
+Retitled the same hour it moved: **`<title>`, the `<h1>`, the three share tags
+and the nav label all read GAME BUILDER**, and `mc/builder/` stays **Flow
+Builder**.
+
+- **THE NAME WAS FREE, AND THAT WAS CHECKED.** `games/admin/` was the old Game
+  Builder and **no longer exists**; nothing live calls itself that. So this
+  restores the distinction the 2026-08-07 note drew rather than reviving the
+  collision it settled: **Game Builder is the game's IDENTITY -- its name, city,
+  price, opponent, start. Flow Builder is the playable CONVERSATION.**
+- **THE FOLDER AND THE ROOM AGREE AGAIN**, which they did not for the hour
+  between the two changes -- and disagreeing is the exact state the Socializer
+  took four addresses to escape.
+- **THE SPINE'S ARGUMENT TURNED ON THE OLD WORD AND WAS REWRITTEN, NOT SWEPT.**
+  It read *"the marquee is where a game becomes something somebody can buy"*,
+  which works because a marquee is where a show is billed. It now says the Game
+  Builder, **and both the nav comment and this file record that the room was
+  MARQUEE until today**, so the sentence does not read as though it always said
+  this.
+
+### THE FOLDER MOVE ITSELF (2026-08-30)
 
 `mc/marquee/` moved to `mc/games/`, its second move in one day: it was
 `mc/marquee.html` this morning.
