@@ -477,6 +477,35 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     ].forEach(([name, needle]) => t(side + ' wired into ' + name, src.indexOf(needle) >= 0, needle));
   });
 
+  /* THE GAME NAME ON A NEW GAME. Typed key by key with a real select-all,
+     because the fault only appears when the box goes EMPTY -- appending to the
+     default worked fine, and a `.value = ''` assignment does not reproduce it
+     either: it needs the `input` event a keystroke raises. */
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find((x) => /^new$/i.test(x.textContent.trim()));
+    if (btn) btn.click();
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  const nameField = await page.$('#nodeTitleInput');
+  let cleared = '(no field)', typedName = '(no field)';
+  if (nameField) {
+    await nameField.click();
+    await page.keyboard.down('Control');
+    await page.keyboard.press('KeyA');
+    await page.keyboard.up('Control');
+    await page.keyboard.press('Backspace');
+    cleared = await page.evaluate(() => document.getElementById('nodeTitleInput').value);
+    await nameField.type('Hello There', { delay: 8 });
+    typedName = await page.evaluate(() => document.getElementById('nodeTitleInput').value);
+  }
+  /* BEFORE THE FIX these came back '!AAA Great Game!' and
+     '!AAA Great Game!Hello There': every keystroke called
+     renderGamePickerSelect, which repainted the STORED title back into the box,
+     and the stored title was the default because an empty box was being read as
+     "no name" rather than as "mid-edit". */
+  t('a new game name can be cleared', cleared === '', JSON.stringify(cleared));
+  t('and typed over', typedName === 'Hello There', JSON.stringify(typedName));
+
   t('no console errors', errs.length === 0, errs.slice(0, 3).join(' | '));
 
   await page.screenshot({ path: 'C:/tmp/game-builder.png' });

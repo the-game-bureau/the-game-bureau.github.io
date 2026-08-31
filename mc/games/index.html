@@ -20506,7 +20506,16 @@ function updateSelectionUi(options = {}) {
     gameEraseBtn.setAttribute('aria-label', gameEraseBtn.title);
   }
 
-  nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
+  /* NEVER WRITTEN WHILE IT HAS FOCUS. Typing in this box calls
+     `renderGamePickerSelect()`, which repaints back through here -- so every
+     keystroke put the STORED title back into the field. Clearing it was
+     therefore impossible: the box refilled from the default as fast as it was
+     emptied, and typing over the default produced `!AAA Great GameHello There`.
+     The Game ID box beside it has carried this exact guard since 2026-08-10;
+     the name never got it. */
+  if (document.activeElement !== nodeTitleInput) {
+    nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
+  }
   stopNameInput.value = '';
   varNameInput.value = '';
   varNameInput.placeholder = 'e.g. name';
@@ -22454,9 +22463,28 @@ if (stopLibraryList) {
 nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
-  node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
+  /* THE RAW VALUE WHILE TYPING, defaulted only on the way OUT. `value ||
+     TYPE_CONFIG.title` stored the placeholder the instant the box went empty,
+     which is exactly the state you pass through when replacing a name -- and
+     with the repaint above writing it straight back, the box could never be
+     emptied at all. A game still gets a title: see the blur below. */
+  node.title = nodeTitleInput.value;
   renderGamePickerSelect();
   scheduleRender();
+});
+
+nodeTitleInput.addEventListener('blur', () => {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') return;
+  /* AN UNTITLED GAME IS GIVEN THE DEFAULT WHEN YOU LEAVE THE FIELD, not while
+     you are in it. Leaving is when a blank is a decision rather than a
+     keystroke on the way to something else. */
+  if (!String(nodeTitleInput.value || '').trim()) {
+    node.title = TYPE_CONFIG[node.type].title;
+    nodeTitleInput.value = node.title;
+    renderGamePickerSelect();
+    scheduleRender();
+  }
 });
 
 objectStopNameInput.addEventListener('input', () => {

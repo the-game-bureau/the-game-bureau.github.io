@@ -7883,6 +7883,36 @@ load, and **both engines load it**.
   pass without it, so three green runs said nothing about a module that could not
   be loaded at all. **A suite is only evidence about what it actually imports.**
 
+### THE GAME NAME COULD NOT BE CLEARED (2026-08-30)
+
+Reported as *"can't edit game name on new game"*. The field was enabled and
+accepted typing; **what it could not do was go empty**, which is the state you
+pass through to replace a name.
+
+- **TWO CAUSES, BOTH NEEDED FIXING.**
+  - **`renderGamePickerSelect()` RUNS ON EVERY KEYSTROKE** in that box, and
+    repaints back through `updateSelectionUi`, which wrote the STORED title
+    into the field. **The Game ID box beside it has carried a
+    `document.activeElement` guard since 2026-08-10** -- *"never written while
+    it has focus, or a repaint mid rename would yank the text out from under the
+    cursor"* -- and the name never got one.
+  - **`node.title = value || TYPE_CONFIG.title` STORED THE DEFAULT the instant
+    the box went empty.** So the two together refilled it as fast as it was
+    emptied. The raw value is stored while typing and **the default is applied on
+    BLUR**, which is when a blank is a decision rather than a keystroke on the
+    way to something else.
+- **THE SYMPTOM WAS `!AAA Great GameHello There`**, not an inert field, which is
+  why it read as "cannot edit" rather than "cannot clear".
+- **MY FIRST REPRODUCTION WAS WRONG AND NEARLY SENT ME PAST IT.** A
+  `clickCount: 3` triple-click did not select the input's contents, so Backspace
+  removed one character and the run looked identical before and after the fix.
+  **It needs a real Control+A and real keystrokes**: assigning `.value` does not
+  raise the `input` event the bug lives in.
+- **THE CHECK WAS RUN AGAINST THE PREVIOUS COMMIT, where it fails with exactly
+  the reported string**: `"!AAA Great Game!"` and
+  `"!AAA Great Game!Hello There"`. An assertion that has never failed on the bug
+  it is for is one nobody should trust. **75 assertions.**
+
 ### A GAME ID IS BUILT FROM ITS ANCHOR (2026-08-30)
 
 The prompt that asks for a new game's id now opens with one already in it,
