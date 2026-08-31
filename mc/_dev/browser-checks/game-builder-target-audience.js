@@ -575,6 +575,20 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     guess.name === 'Chicago Fans Takeover New Orleans', JSON.stringify(guess.name));
   t('it is aria-disabled, never natively disabled', guess.nativelyDisabled === false);
 
+  /* AND IT STANDS DOWN ONCE THE GAME HAS A NAME. Somebody chose those words --
+     possibly with this very button -- so replacing them has to be deliberate. */
+  const afterNaming = await page.evaluate(() => {
+    const btn = document.getElementById('guessNameBtn');
+    const named = { off: btn.getAttribute('aria-disabled'), title: btn.title };
+    const t = document.getElementById('nodeTitleInput');
+    t.value = '';
+    t.dispatchEvent(new Event('input', { bubbles: true }));
+    return { named: named, cleared: btn.getAttribute('aria-disabled') };
+  });
+  t('Guess stands down once the game is named', afterNaming.named.off === 'true', afterNaming.named.off);
+  t('and says why', /already has a name/.test(afterNaming.named.title), afterNaming.named.title);
+  t('clearing the name arms it again', afterNaming.cleared === 'false', afterNaming.cleared);
+
   t('no console errors', errs.length === 0, errs.slice(0, 3).join(' | '));
 
   await page.screenshot({ path: 'C:/tmp/game-builder.png' });

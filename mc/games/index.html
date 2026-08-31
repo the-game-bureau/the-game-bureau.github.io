@@ -22534,11 +22534,18 @@ function paintGuessButton() {
   if (!btn) return;
   const guess = guessedGameName();
   const open = !!state.currentGameMeta;
+  /* A GAME THAT ALREADY HAS A NAME IS NOT OFFERED A GUESS. Somebody chose those
+     words -- possibly by pressing this very button -- and a control that
+     silently replaces them is one press from losing a line nobody has saved
+     yet. Clear the box and it arms again, which makes overwriting a deliberate
+     two-step rather than a single click. */
+  const named = !!String(nodeTitleInput && nodeTitleInput.value || '').trim();
   btn.disabled = false;
-  btn.setAttribute('aria-disabled', String(!open || !guess));
+  btn.setAttribute('aria-disabled', String(!open || !guess || named));
   btn.title = !open ? 'Open a game first'
-            : (guess ? 'Name it "' + guess + '"'
-                     : 'Set a target and a rival audience first, and this writes the name.');
+            : named ? 'This game already has a name. Clear it and press Guess again.'
+            : guess ? 'Name it "' + guess + '"'
+            : 'Set a target and a rival audience first, and this writes the name.';
 }
 
 const guessNameBtn = document.getElementById('guessNameBtn');
@@ -22573,6 +22580,7 @@ nodeTitleInput.addEventListener('input', () => {
      with the repaint above writing it straight back, the box could never be
      emptied at all. A game still gets a title: see the blur below. */
   node.title = nodeTitleInput.value;
+  paintGuessButton();
   renderGamePickerSelect();
   scheduleRender();
 });
