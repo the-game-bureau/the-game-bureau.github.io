@@ -6,7 +6,7 @@
  * column because one of the SIX wiring points was missed.
  */
 const fs = require('fs');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('C:/tmp/node_modules/puppeteer-core');
 
 const PORT = process.env.PORT || 8998;
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -95,7 +95,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   });
 
   t('the Anchor box is on the page', m.hasBar);
-  t('it is called Anchor', /^anchor$/i.test(m.legend), m.legend);
+  t('it is called Anchor Event', /^anchor event$/i.test(m.legend), m.legend);
   t('and it sits ABOVE the Game section', m.aboveGame);
   t('the list is filled from the audiences table (' + m.options + ')', m.options > 600, m.options);
   t('an option names the audience, not a mascot alone',
@@ -298,11 +298,19 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   await new Promise((r) => setTimeout(r, 120));
   const city = await page.evaluate(() => {
     const f = document.getElementById('cityField');
+    const cityBar = document.getElementById('cityBar');
     const bar = document.getElementById('gameIdentityBar');
     const ev = document.getElementById('anchorEventInput');
     const box = document.getElementById('nodeCityInput');
-    const inBar = !!(f && bar && bar.contains(f));
-    const label = f ? f.querySelector('label').textContent.trim() : '';
+    const inOwnBar = !!(f && cityBar && cityBar.contains(f));
+    const outOfGame = !!(bar && !bar.contains(box));
+    const legend = cityBar && cityBar.querySelector('legend')
+      ? cityBar.querySelector('legend').textContent.trim() : '';
+    /* NO LABEL, and the accessible name comes from the input instead: a legend
+       names the GROUP, not the field, so without this the box has no name at
+       all for a screen reader. */
+    const noLabel = !document.querySelector('label[for="nodeCityInput"]');
+    const named = box.getAttribute('aria-label') || '';
     const filled = box.value;
     /* AND IT DOES NOT OVERWRITE ONE SOMEBODY HAS SET. */
     box.value = 'Somewhere Else';
@@ -313,7 +321,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     const bar2 = document.getElementById('gameIdentityBar');
     const tag = document.getElementById('taglineField');
     const idf = document.getElementById('selectionId');
-    return { inBar: inBar, label: label, filled: filled, kept: box.value,
+    return { inOwnBar: inOwnBar, outOfGame: outOfGame, legend: legend,
+             noLabel: noLabel, named: named, filled: filled, kept: box.value,
              placeholder: box.getAttribute('placeholder') || '',
              noDatalist: !box.getAttribute('list'),
              noAddButton: !(f && f.querySelector('button')),
@@ -323,18 +332,37 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
              idExists: !!document.getElementById('selectionIdInput'),
              onlyOne: document.querySelectorAll('#nodeCityInput').length };
   });
-  t('the city sits in the GAME box', city.inBar);
-  t('and is called City', /^city$/i.test(city.label), city.label);
+  /* THE CITY HAS A BOX OF ITS OWN, under the audiences. It was a field beside
+     the game NAME, and the two are not the same kind of fact: a name is what
+     the game is CALLED and the city is WHERE it is walked, which is the third
+     answer in the run the anchor and the audiences begin. */
+  t('the city has a box of its own', city.inOwnBar);
+  t('and has left the GAME box', city.outOfGame);
+  /* GAME CITY SINCE 2026-08-31. The bare word was ambiguous beside an ANCHOR
+     EVENT that carries a venue city of its own: this box is where the GAME is
+     walked. The id stays  -- an identifier does not follow visible
+     copy, which this room has renamed five times in a day. */
+  t('the box is called Game City', /^game city$/i.test(city.legend), city.legend);
+  t('with no label repeating its legend', city.noLabel);
+  t('and the input still named for a screen reader',
+    /^city$/i.test(city.named), city.named);
   /* THE PLACEHOLDER IS THE ONLY THING TEACHING THE FORMAT, now that nothing
      checks the value against public.cities. */
   t('and suggests the whole shape, not a bare city',
     /^Chicago,\s*IL$/.test(city.placeholder), city.placeholder);
   t('the box is off the city catalogue', city.noDatalist && city.noAddButton,
     city.noDatalist + '/' + city.noAddButton);
-  /* THE GAME BOX IS THE TWO THINGS THAT ANSWER "WHICH GAME IS THIS". The
-     tagline and the id moved down to Basics -- moved, not deleted, so every
-     listener still works. */
-  t('the tagline is out of the GAME box', city.taglineOut);
+  /* ONE THING PER BOX (2026-08-31, later the same day). The tagline came INTO
+     the GAME box out of the inspector that morning and left again that evening
+     for a box of its own, and the game ID came out of the drawer to the same
+     shape. So BOTH are outside the GAME box now.
+
+     THIS ASSERTION WAS CORRECTLY BROKEN by that move and is updated rather
+     than worked around: it read `!city.taglineOut`, which was true of the
+     arrangement it was written for and is false of this one. What both
+     versions actually protect is the line under them -- that the fields are
+     still on the page and still wired, whichever box they sit in. */
+  t('the tagline is in a box of its own', city.taglineOut);
   t('and so is the game id', city.idOut);
   t('but both are still on the page and wired',
     city.taglineExists && city.idExists,
@@ -388,8 +416,13 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     };
   });
   t('there is one Anchor box', anchor.exists);
-  t('called Anchor', /^anchor$/i.test(anchor.legend), anchor.legend);
-  t('holding all three fields on one line', anchor.oneLine, anchor.tops);
+  t('called Anchor Event', /^anchor event$/i.test(anchor.legend), anchor.legend);
+  /* THE ANCHOR HOLDS ITS OWN LINE, and the audiences and the city hold theirs.
+     The three shared a row until 2026-08-31; what that cost is that the box
+     holding TWO fields had a third of the width, so both audience combos came
+     out narrower than the single field beside them. */
+  t('the anchor box holds one field and holds the line',
+    anchor.tops.split('/').length === 1 || !anchor.oneLine, anchor.tops);
   t('and it is a combo, not the old select',
     anchor.isInput && anchor.list === 'anchorEventList' && anchor.noSelectLeft,
     anchor.isInput + '/' + anchor.list + '/' + anchor.noSelectLeft);
@@ -591,17 +624,16 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     control: !!document.getElementById('fandomGameToggle'),
     field: !!document.getElementById('fandomGameField'),
     words: /INCLUDE ANCHOR/i.test(document.body.innerText),
-    /* THE OTHER TOGGLE ON THE PAGE MUST SURVIVE, or removing one control took
-       a shared stylesheet with it. */
-    locationToggle: !!document.getElementById('locationBasedToggle'),
-    locationStyled: (() => {
-      const el = document.querySelector('.loc-toggle');
-      return el ? getComputedStyle(el).position !== '' && el.getBoundingClientRect().width > 0 : false;
-    })()
+    /* THE LOCATION BASED TOGGLE WENT ON 2026-08-31 with the seven start
+       location columns, so what is checked is that its CSS went too: a dead
+       selector is the other half of deleting a control. */
+    locationGone: !document.getElementById('locationBasedToggle'),
+    locationCssGone: !document.querySelector('.loc-toggle')
   }));
   t('the INCLUDE ANCHOR control is gone', !noToggle.control && !noToggle.field);
   t('and so are the words', !noToggle.words);
-  t('the LOCATION BASED toggle still works', noToggle.locationToggle && noToggle.locationStyled);
+  t('and the LOCATION BASED toggle went with its own change',
+    noToggle.locationGone && noToggle.locationCssGone);
   /* DERIVED, NOT TOGGLED -- asserted on the source, because the flag lives in
      `state`, which is a top-level const and reachable from no test. */
   const src2 = fs.readFileSync('mc/games/index.html', 'utf8');

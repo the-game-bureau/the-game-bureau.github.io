@@ -3,7 +3,7 @@ let ok=0,bad=0;const t=(m,c,g)=>c?(ok++,console.log('  ok  '+m)):(bad++,console.
 (async()=>{
  const b=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:'new',args:['--no-sandbox']});
  const p=await b.newPage();
- for (const u of ['/', '/soundtracks/', '/games/', '/mc/audiences/', '/mc/trivia/', '/gifts/']) {
+ for (const u of ['/', '/soundtracks/', '/games/', '/mc/audiences/', '/mc/challenges/', '/gifts/']) {
    const got=[];
    p.removeAllListeners('response');
    p.on('response',r=>{ if(/favicon\.ico|icon-32|apple-touch/.test(r.url())) got.push(r.status()); });

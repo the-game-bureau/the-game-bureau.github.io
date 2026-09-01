@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>TAGS | THE GAME BUREAU</title>
+  <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+
+      /* THE STOP BUILDER'S TWO HUES, copied rather than re-picked: a waypoint
+         and a challenge must read the same wherever you meet them, and the
+         pair was measured there -- forest 7.98:1 and violet 7.38:1 on the
+         panel, dE 94.4 apart, and neither near the red pen or the room ink.
+         WHEN EITHER ROOM'S PAIR CHANGES, CHANGE BOTH. */
+      --wp-ink: #1d5c33;
+      --ch-ink: #6b3fa0;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+    /* ---- what a challenge row shows -------------------------------------- */
+    .ch { align-items: flex-start; }
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    .ch-prompt {
+      flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
+      font-size: 0.86rem; line-height: 1.45;
+    }
+    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+       writer can see at a glance which words the game fills in. */
+    .var {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+      padding: 0 3px; border-radius: 3px;
+      background: rgba(var(--bic-blue-rgb), 0.1); color: var(--bic-blue);
+    }
+    .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
+
+    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
+       rather than words in a sentence. Scope carries the outline because it is
+       the one that decides whether a challenge can be reused; kind does not. */
+    .ch-kind {
+      font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
+      white-space: nowrap;
+    }
+    .ch-scope {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
+      border: 1px solid transparent; white-space: nowrap;
+    }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
+    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
+    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .preview {
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-soft); padding: 10px 12px;
+      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
+    }
+    .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
+    .varbar button {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
+      padding: 3px 7px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff; color: var(--bic-blue);
+    }
+    .varbar button:hover { background: var(--cut-panel-bg); }
+
+    .sort-btn { position: relative; display: inline-flex; }
+    .sort-btn input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; opacity: 0; cursor: pointer;
+    }
+    .sort-btn span {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .sort-btn:hover input:not(:checked) + span { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .sort-btn input:checked + span { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .sort-btn input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+</style>  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+
+  <style>
+    /* ---- the shelf ---------------------------------------------------- */
+    .tag-row {
+      display: grid; grid-template-columns: 1fr 110px 92px;
+      align-items: center; gap: 10px;
+      padding: 7px 12px; border-top: 1px solid var(--line);
+    }
+    .tag-row:first-child { border-top: none; }
+    .tag-row:hover { background: var(--panel-soft); }
+
+    /* THE NAME IS AN INPUT AT REST, and looks like text until you reach for
+       it. Ninety-one outlined boxes down a page is a form, not a list -- the
+       same call the Waypoints room made for its tape-name editor. */
+    .tag-name {
+      width: 100%; min-width: 0;
+      border: 1px solid transparent; border-radius: 6px;
+      background: transparent; color: var(--ink);
+      font: 500 0.95rem/1.2 'Space Grotesk', system-ui, sans-serif;
+      padding: 5px 7px;
+    }
+    .tag-name:hover { border-color: var(--control-line); background: #fff; }
+    .tag-name:focus { border-color: var(--ink); background: #fff; outline: none; }
+
+    /* THE COUNT IS THE FACT YOU CANNOT GET ANYWHERE ELSE, and it is what
+       decides whether a tag is worth keeping. Tabular figures, or a column of
+       them does not line up. */
+    .tag-uses {
+      font: 500 0.78rem/1 'IBM Plex Mono', monospace;
+      font-variant-numeric: tabular-nums; text-align: right; color: var(--muted);
+    }
+    /* A TAG NOTHING USES IS THE NEWS ON THIS PAGE, so it is the one drawn in
+       a pen of its own. Everything else is an ordinary row. */
+    .tag-uses.is-none { color: var(--bic-red); }
+
+    .tag-act { display: flex; justify-content: flex-end; }
+    .tag-empty { padding: 18px 12px; color: var(--muted); }
+
+    @media (max-width: 700px) {
+      .tag-row { grid-template-columns: 1fr auto; }
+      .tag-uses { grid-column: 2; }
+      .tag-act { grid-column: 1 / -1; justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title">TAGS</h1>
+        <!-- THE COUNT LEADS THE BLURB, painted from the room's own total, and
+             ships a `?` rather than a `0`: everything loads before the first
+             render, so a zero on the way would be WRONG rather than not yet
+             known. It does not move with a filter -- a figure that shrank as
+             you typed would read as the filter breaking. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> Tags. A tag is one word a game is filed under, and the same word is one tag however it is spelled.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <fieldset class="command-bar command-bar--add">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <input type="text" id="newTag" placeholder="A new tag" autocomplete="off" aria-label="A new tag">
+          <button type="button" class="btn primary" id="addBtn">Add</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="A tag" autocomplete="off" aria-label="Find a tag">
+        </div>
+      </fieldset>
+
+      <!-- SORT IS A RADIO GROUP, which is what "one at a time" means: five
+           buttons would need a hand-rolled exclusion set kept in step with the
+           paint, and here the browser keeps the rule. Same control the
+           Audiences room carries. -->
+      <fieldset class="command-bar command-bar--sort">
+        <legend>Sort</legend>
+        <div class="command-bar-inner" id="sortGroup" role="radiogroup" aria-label="Sort by">
+          <label class="sort-btn"><input type="radio" name="tagSort" value="name" checked><span>Name</span></label>
+          <label class="sort-btn"><input type="radio" name="tagSort" value="uses"><span>Games</span></label>
+        </div>
+      </fieldset>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span>Tags</span>
+        <span class="panel-count" id="tally"></span>
+      </div>
+      <div id="shelf"><p class="tag-empty">Loading.</p></div>
+    </section>
+  </main>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+  (function () {
+    const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+    const REST = SUPABASE_URL + '/rest/v1/';
+
+    const el = (id) => document.getElementById(id);
+    const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    /* ONE PLURALISER. Eleven hand-written " tags" is how "1 tags" ships. */
+    const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+
+    const state = { tags: [], uses: {}, q: '', sort: 'name', loaded: false };
+    let adminAuth = null;
+
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const h = { apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_KEY) };
+      return Object.assign(h, extra || {});
+    }
+
+    let clearAt = null;
+    function setStatus(msg, tone) {
+      const box = el('pageStatus');
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+      box.textContent = msg || '';
+      if (clearAt) { clearTimeout(clearAt); clearAt = null; }
+      /* A SUCCESS CLEARS ITSELF; AN ERROR STAYS. A stale "saved" an hour later
+         is a lie about what is currently true, and an error nobody has dealt
+         with is still true. */
+      if (msg && tone === 'success') clearAt = setTimeout(() => setStatus('', ''), 6000);
+    }
+
+    /* PostgREST CAPS A RESPONSE AT 1000 ROWS AND TRUNCATES IN SILENCE. 91 tags
+       is under it and 395 games is not far off, so both reads page. */
+    async function readAll(path) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const r = await fetch(REST + path, {
+          headers: authHeaders({ Range: from + '-' + (from + 999) }) });
+        if (!r.ok) throw new Error(await r.text());
+        const rows = await r.json();
+        out.push.apply(out, rows);
+        if (rows.length < 1000) return out;
+      }
+    }
+
+    /* HOW MANY GAMES CARRY EACH TAG, counted here rather than stored. A stored
+       count is a second copy of a fact the games already hold, and it goes
+       stale the moment anything writes a game without knowing about it -- the
+       fault this project has removed from the club list and the destinations. */
+    function countUses(games) {
+      const n = {};
+      games.forEach((g) => {
+        const list = Array.isArray(g.tags) ? g.tags : [];
+        /* DEDUPED WITHIN A ROW, so a game carrying one tag twice counts once:
+           the question is how many GAMES use it. */
+        new Set(list.map(clean).filter(Boolean)).forEach((t) => { n[t] = (n[t] || 0) + 1; });
+      });
+      return n;
+    }
+
+    async function load() {
+      try {
+        const [tags, games] = await Promise.all([
+          readAll('tags?select=id,name'),
+          readAll('games?select=id,tags')
+        ]);
+        state.tags = tags;
+        state.uses = countUses(games);
+        state.loaded = true;
+        paint();
+      } catch (e) {
+        state.loaded = true;
+        el('shelf').innerHTML = '<p class="tag-empty">Could not load.</p>';
+        setStatus('Could not read tags. ' + String(e).slice(0, 160), 'error');
+      }
+    }
+
+    function visible() {
+      const q = state.q.toLowerCase();
+      const rows = state.tags.filter((t) => !q || clean(t.name).toLowerCase().indexOf(q) >= 0);
+      /* TIES BREAK ON THE NAME, which is what makes the order stable: sorted by
+         games, 91 tags share a handful of counts, and without a second key a
+         row could move under you as you type in the search box. */
+      return rows.sort((a, b) => {
+        if (state.sort === 'uses') {
+          const d = (state.uses[b.name] || 0) - (state.uses[a.name] || 0);
+          if (d) return d;
+        }
+        return clean(a.name).localeCompare(clean(b.name), undefined, { sensitivity: 'base' });
+      });
+    }
+
+    function paint() {
+      el('blurbCount').textContent = state.loaded ? String(state.tags.length) : '?';
+      const rows = visible();
+      el('tally').textContent = rows.length === state.tags.length
+        ? plural(state.tags.length, 'tag', 'tags')
+        : rows.length + ' of ' + state.tags.length;
+
+      if (!state.loaded) { el('shelf').innerHTML = '<p class="tag-empty">Loading.</p>'; return; }
+      if (!rows.length) {
+        el('shelf').innerHTML = '<p class="tag-empty">' + (state.tags.length
+          ? 'Nothing matches.' : 'No tags on file.') + '</p>';
+        return;
+      }
+
+      el('shelf').innerHTML = rows.map((t) => {
+        const n = state.uses[t.name] || 0;
+        return '<div class="tag-row" data-id="' + esc(t.id) + '">'
+          + '<input class="tag-name" value="' + esc(t.name) + '" data-name="' + esc(t.name)
+            + '" aria-label="Tag name">'
+          + '<span class="tag-uses' + (n ? '' : ' is-none') + '">'
+            + plural(n, 'game', 'games') + '</span>'
+          + '<span class="tag-act"><button type="button" class="btn warn" data-del="'
+            + esc(t.id) + '">Delete</button></span>'
+          + '</div>';
+      }).join('');
+    }
+
+    /* EVERY WRITE ASKS FOR THE ROW BACK. PostgREST answers 200 with an EMPTY
+       ARRAY when RLS refuses, so without reading it back a refused write
+       reports success and the page shows a value the table never took. */
+    async function write(path, method, body) {
+      const r = await fetch(REST + path, {
+        method: method,
+        headers: authHeaders({ 'Content-Type': 'application/json',
+          Prefer: 'return=representation' }),
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+      const text = await r.text();
+      if (!r.ok) throw new Error(text);
+      let rows = [];
+      try { rows = JSON.parse(text); } catch (e) { rows = []; }
+      if (!Array.isArray(rows) || !rows.length) {
+        throw new Error('The database refused that write.');
+      }
+      return rows;
+    }
+
+    /* A DATABASE ERROR BECOMES A SENTENCE. A raw 23505 is a statement about our
+       schema and tells the person at the keyboard nothing they can act on. */
+    function saying(e, name) {
+      const s = String(e);
+      if (s.indexOf('23505') >= 0) {
+        return 'There is already a tag called ' + name + '. The same word is one tag however it is spelled.';
+      }
+      if (s.indexOf('tags_name_not_blank') >= 0 || s.indexOf('23514') >= 0) {
+        return 'A tag cannot be blank or start or end with a space.';
+      }
+      if (s.indexOf('refused') >= 0) return 'The database refused that. Are you still signed in?';
+      return s.slice(0, 200);
+    }
+
+    /* ---- renaming ----------------------------------------------------------
+       A RENAME REACHES EVERY GAME CARRYING THE WORD, and that is the whole
+       reason this room exists: the catalogue and the games have to agree, and
+       renaming the catalogue row alone would orphan the word on every game
+       that carries it -- which is exactly the state 2026090101 just cleared. */
+    async function rename(id, was, now) {
+      const games = await readAll('games?select=id,tags,primary_tag');
+      const touched = games.filter((g) => {
+        const list = Array.isArray(g.tags) ? g.tags : [];
+        return list.indexOf(was) >= 0 || g.primary_tag === was;
+      });
+
+      await write('tags?id=eq.' + encodeURIComponent(id), 'PATCH', { name: now });
+
+      /* THE CATALOGUE GOES FIRST, DELIBERATELY. If the game rewrites then fail,
+         what is left is a renamed tag and some games still carrying the old
+         word -- visible, named, and fixable by pressing rename again. The other
+         order leaves games pointing at a word the catalogue no longer has, with
+         nothing on screen saying so. */
+      let done = 0;
+      for (const g of touched) {
+        const list = Array.isArray(g.tags) ? g.tags : [];
+        const next = [];
+        list.forEach((t) => {
+          const v = t === was ? now : t;
+          if (next.indexOf(v) < 0) next.push(v);
+        });
+        const patch = { tags: next };
+        if (g.primary_tag === was) patch.primary_tag = now;
+        await write('games?id=eq.' + encodeURIComponent(g.id), 'PATCH', patch);
+        done += 1;
+      }
+      return { touched: touched.length, done: done };
+    }
+
+    async function commitName(input) {
+      const row = input.closest('.tag-row');
+      const was = input.dataset.name;
+      const now = clean(input.value);
+      if (now === was) return;
+      if (!now) { input.value = was; setStatus('A tag cannot be blank.', 'error'); return; }
+
+      input.disabled = true;
+      try {
+        const r = await rename(row.dataset.id, was, now);
+        input.dataset.name = now;
+        const t = state.tags.find((x) => x.id === row.dataset.id);
+        if (t) t.name = now;
+        state.uses[now] = state.uses[was] || 0;
+        delete state.uses[was];
+        setStatus(was + ' is now ' + now + ', on ' + plural(r.done, 'game', 'games') + '.', 'success');
+        paint();
+      } catch (e) {
+        input.value = was;
+        setStatus(saying(e, now), 'error');
+      } finally {
+        input.disabled = false;
+      }
+    }
+
+    /* ---- adding ----------------------------------------------------------- */
+    async function addTag() {
+      const name = clean(el('newTag').value);
+      if (!name) { setStatus('Type a tag first.', 'error'); return; }
+      try {
+        const rows = await write('tags', 'POST', { name: name });
+        state.tags.push(rows[0]);
+        el('newTag').value = '';
+        setStatus('Added ' + name + '. Nothing uses it yet.', 'success');
+        paint();
+      } catch (e) {
+        setStatus(saying(e, name), 'error');
+      }
+    }
+
+    /* ---- deleting ----------------------------------------------------------
+       DELETING TAKES THE WORD OFF EVERY GAME THAT CARRIES IT. Deleting the
+       catalogue row alone would leave the word on the games with nothing
+       naming it -- the orphan state 2026090101 exists to have cleared -- so
+       the confirmation says how many games it reaches. */
+    async function removeTag(id) {
+      const t = state.tags.find((x) => x.id === id);
+      if (!t) return;
+      const n = state.uses[t.name] || 0;
+      const q = n
+        ? 'Delete ' + t.name + '? It comes off ' + plural(n, 'game', 'games')
+          + ' as well, and that cannot be undone.'
+        : 'Delete ' + t.name + '? Nothing uses it.';
+      if (!window.confirm(q)) return;
+
+      try {
+        if (n) {
+          const games = await readAll('games?select=id,tags,primary_tag');
+          for (const g of games) {
+            const list = Array.isArray(g.tags) ? g.tags : [];
+            const hasTag = list.indexOf(t.name) >= 0;
+            const isPrimary = g.primary_tag === t.name;
+            if (!hasTag && !isPrimary) continue;
+            const patch = { tags: list.filter((x) => x !== t.name) };
+            /* THE PRIMARY GOES WITH IT. A game whose primary tag is a word
+               nothing else carries is a row no reader could interpret. */
+            if (isPrimary) patch.primary_tag = null;
+            await write('games?id=eq.' + encodeURIComponent(g.id), 'PATCH', patch);
+          }
+        }
+        await write('tags?id=eq.' + encodeURIComponent(id), 'DELETE');
+        state.tags = state.tags.filter((x) => x.id !== id);
+        delete state.uses[t.name];
+        setStatus('Deleted ' + t.name + '.', 'success');
+        paint();
+      } catch (e) {
+        setStatus(saying(e, t.name), 'error');
+      }
+    }
+
+    /* ---- wiring ------------------------------------------------------------
+       BOUND ON THE HOST, NOT PER ROW. `paint()` runs on every keystroke in the
+       search box, so binding inside it stacks a listener per repaint and the
+       count grows all session. */
+    el('shelf').addEventListener('blur', (ev) => {
+      if (ev.target && ev.target.classList.contains('tag-name')) commitName(ev.target);
+    }, true);
+    el('shelf').addEventListener('keydown', (ev) => {
+      if (!ev.target || !ev.target.classList.contains('tag-name')) return;
+      if (ev.key === 'Enter') { ev.preventDefault(); ev.target.blur(); }
+      if (ev.key === 'Escape') { ev.target.value = ev.target.dataset.name; ev.target.blur(); }
+    });
+    el('shelf').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-del]');
+      if (b) removeTag(b.dataset.del);
+    });
+
+    el('addBtn').addEventListener('click', addTag);
+    el('newTag').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); addTag(); }
+    });
+    el('q').addEventListener('input', () => { state.q = clean(el('q').value); paint(); });
+    el('sortGroup').addEventListener('change', (ev) => {
+      const t = ev.target;
+      if (!t || t.name !== 'tagSort' || !t.checked || t.value === state.sort) return;
+      state.sort = t.value;
+      paint();
+    });
+
+    adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: { url: SUPABASE_URL, publishableKey: SUPABASE_KEY },
+      onAuthorized: load
+    });
+    if (window.TgbAdminSiteNav && window.TgbAdminSiteNav.bindAuth) {
+      window.TgbAdminSiteNav.bindAuth(adminAuth);
+    }
+    adminAuth.init();
+  })();
+  </script>
+</body>
+</html>

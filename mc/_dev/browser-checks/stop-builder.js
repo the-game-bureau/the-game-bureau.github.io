@@ -27,8 +27,13 @@ const AUD = [
   { home_place_id: 'new-orleans-la', places: { city: 'New Orleans', state: 'LA' } }
 ];
 /* THREE FIELDS. No id, because (city, waypoint_id) is the key. */
-let STOPS = [{ city: 'Chicago, IL', waypoint_id: 101, challenge_id: 7 },
-             { city: 'Chicago, IL', waypoint_id: 102, challenge_id: null }];
+/* THE ROWS CARRY THEIR OWN `id`, which is the primary key and is how a stop is
+   addressed. The third has NO WAYPOINT: 2026083117 strips the waypoint when it
+   is deleted rather than removing the stop, so a stop that kept its challenge
+   and needs a new place is an ordinary row this room has to draw. */
+let STOPS = [{ id: 11, city: 'Chicago, IL', waypoint_id: 101, challenge_id: 7 },
+             { id: 12, city: 'Chicago, IL', waypoint_id: 102, challenge_id: null },
+             { id: 13, city: 'Chicago, IL', waypoint_id: null, challenge_id: 7 }];
 
 const dom = new JSDOM(HTML, { runScripts: 'outside-only', pretendToBeVisual: true,
                               url: 'https://x/mc/stop-builder/' });
@@ -52,15 +57,16 @@ w.fetch = (url, opt) => {
                              text: () => Promise.resolve('') });
   }
   if (m === 'DELETE') {
-    // `+` IS A SPACE IN A QUERY STRING, which URLSearchParams emits and
-    // PostgREST decodes -- verified against the live API, because a stub that
-    // gets this wrong reports a page fault that is its own. The first run of
-    // this suite did exactly that.
-    const city = decodeURIComponent(((u.match(/city=eq\.([^&]*)/) || [])[1] || '')
-      .split('+').join(' '));
-    const wp = Number((u.match(/waypoint_id=eq\.(\d+)/) || [])[1]);
-    const gone = STOPS.filter((r) => r.city === city && r.waypoint_id === wp);
-    STOPS = STOPS.filter((r) => !(r.city === city && r.waypoint_id === wp));
+    /* MATCHED ON THE ROW'S OWN id, the way PostgREST would. It matched the
+       pair (city, waypoint_id) until 2026083117 made a waypoint strippable,
+       at which point `waypoint_id=eq.null` matches nothing and the room could
+       not delete the one row somebody most wants to fix.
+         A STUB THAT DOES NOT MODEL THE FILTER THE PAGE SENDS reports a page
+       fault that is its own, which this suite has already been caught by
+       once over `+` meaning a space. */
+    const id = Number((u.match(/id=eq\.(\d+)/) || [])[1]);
+    const gone = STOPS.filter((r) => r.id === id);
+    STOPS = STOPS.filter((r) => r.id !== id);
     return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(gone),
                              text: () => Promise.resolve('') });
   }
@@ -82,12 +88,37 @@ try { w.eval(script); } catch (e) { t('the page boots', false, e.message); }
 
 const el = (id) => d.getElementById(id);
 const rows = () => [...d.querySelectorAll('.stop')];
+/* HOW MANY THE FIXTURE STARTED WITH. `STOPS` is mutated by the insert the
+   suite performs, so reading its length later counts the row just added. */
+const STOPS_AT_FIRST = STOPS.length;
 const posts = () => sent.filter((x) => x.method === 'POST');
 const key = (e) => new w.KeyboardEvent('keydown', { key: e, bubbles: true });
 
 authorized().then(() => setTimeout(() => {
+  /* ---- the room is named, and the count is in the blurb ------------------ */
+  /* THE TITLE IS THE ROOM NAME AND CARRIES NO COUNT, which is the third room to
+     make that move after the Waypoint Library and the Challenge Bank. The
+     convention leads with the room OWN NOUN and only works while the name IS
+     that noun: `41 STOPS` reads and `41 STOPS BUILDER` does not. */
+  const title = d.getElementById('roomTitle');
+  t('the title is the room name', title && title.textContent.trim() === 'STOPS BUILDER',
+    title && title.textContent.trim());
+  t('and carries no count', title && !/[0-9?]/.test(title.textContent),
+    title && title.textContent.trim());
+  t('the tab says so too', d.title.indexOf('STOPS BUILDER') === 0, d.title);
+
+  const blurb = d.querySelector('.room-blurb');
+  const bc = d.getElementById('blurbCount');
+  /* THE COUNT LEADS THE BLURB and is the room's whole total, so it must equal
+     the fixture rather than whatever a filter has left. */
+  t('the count leads the blurb', bc && bc.textContent === String(STOPS_AT_FIRST),
+    bc && bc.textContent);
+  t('and the blurb is the formula', blurb
+    && blurb.textContent.trim() === STOPS_AT_FIRST + ' Stops. Waypoint + Challenge = Stop.',
+    blurb && blurb.textContent.trim());
+
   /* ---- the row is a city and two equal halves --------------------------- */
-  t('both stops are drawn', rows().length === 2, rows().length);
+  t('every stop is drawn', rows().length === STOPS_AT_FIRST, rows().length);
   const r0 = rows()[0];
   t('the city leads the row, on the left', r0.children[0].className === 'stop-city',
     r0.children[0].className);
@@ -198,17 +229,32 @@ authorized().then(() => setTimeout(() => {
     t('no id is sent, because the table has none',
       !('id' in sentBody) && !('created_at' in sentBody));
     t('a blank challenge box posts RANDOM, which is a null', sentBody.challenge_id === null);
-    t('the new stop is on the list', rows().length === 3, rows().length);
+    t('the new stop is on the list', rows().length === STOPS_AT_FIRST + 1, rows().length);
 
-    /* ---- delete filters on the KEY, which is the pair ------------------- */
+    /* ---- A STOP SURVIVES ITS WAYPOINT (2026083117) ---------------------
+       Deleting a waypoint strips it from the stop rather than removing the
+       stop: the challenge and the position are editorial work and must not
+       be thrown away by a correction to the catalogue. So a stop with no
+       waypoint is an ordinary row here, and it has to say so rather than
+       reading `waypoint null`. */
+    const stripped = rows().filter((r) => r.textContent.indexOf('waypoint deleted') !== -1)[0];
+    t('a stop whose waypoint was deleted says so', !!stripped,
+      rows().map((r) => r.textContent.trim().slice(0, 24)).join(' | '));
+
+    /* ---- delete filters on the row's own id ---------------------------
+       It was the pair (city, waypoint_id), which stopped being an identity
+       the moment a waypoint could be stripped: the filter becomes
+       `waypoint_id=eq.null`, PostgREST matches nothing, and the row you most
+       want to fix is the one row you could not remove. */
     const before = rows().length;
-    rows()[0].querySelector('.stop-del').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+    stripped.querySelector('.stop-del')
+      .dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
     setTimeout(() => {
       const del = sent.filter((x) => x.method === 'DELETE').pop();
-      t('the delete filters on city AND waypoint_id',
-        del.url.indexOf('city=eq.') !== -1 && del.url.indexOf('waypoint_id=eq.') !== -1, del.url);
-      t('never on the city alone, which would take the whole city',
-        del.url.indexOf('waypoint_id=eq.') !== -1);
+      t('the delete filters on the row own id',
+        del.url.indexOf('id=eq.13') !== -1, del.url);
+      t('and can therefore remove a stop that has no waypoint',
+        del.url.indexOf('waypoint_id=eq.null') === -1, del.url);
       t('and asks for the row back', String(del.headers.Prefer).indexOf('return=representation') !== -1);
       t('the row is gone', rows().length === before - 1, rows().length);
 

@@ -4459,7 +4459,7 @@
 
     async function fetchTeams() {
       const response = await fetch(restUrl('teams', {
-        select: 'team_key,full_name,first_name,fanbase,game_city,venue_city,mascot,league,sport',
+        select: 'team_key,full_name,game_city,mascot,league,sport',
         order: 'league.asc,full_name.asc'
       }), {
         headers: authHeaders({ Accept: 'application/json' }),
@@ -7352,12 +7352,14 @@
         const key = promptCityKey(cityShort(city));
         if (key && !byShort.has(key)) byShort.set(key, city);
       });
+      /* `game_city` IS THE ONE THAT SURVIVED, and it is the one that was
+         always right: it is derived from the club's home PLACE, where fanbase
+         and venue_city were a stored string and a stadium town. The three
+         fallbacks went with their columns on 2026-09-01; every pro club has a
+         home place, and this list is filtered to pro leagues. */
       const candidates = [
         team && team.game_city,
-        team && team.fanbase,
-        team && team.venue_city,
-        fallbackCity,
-        team && team.first_name
+        fallbackCity
       ].map((value) => String(value || '').trim()).filter(Boolean);
       const found = [];
       candidates.forEach((candidate) => {
@@ -7380,7 +7382,7 @@
         const league = String((canonical && canonical.league) || String(raw.key || '').split(':')[0] || '').trim().toUpperCase();
         if (!PROMPT_PRO_LEAGUES.has(league)) return;
         const city = String(
-          (canonical && (canonical.fanbase || canonical.game_city || canonical.first_name || canonical.venue_city)) ||
+          (canonical && canonical.game_city) ||
           raw.city ||
           ''
         ).trim();

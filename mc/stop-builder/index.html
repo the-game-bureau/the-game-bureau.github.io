@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>STOP BUILDER | THE GAME BUREAU</title>
+  <title>STOPS BUILDER | THE GAME BUREAU</title>
   <link rel="icon" href="/favicon.ico?v=2" sizes="any">
   <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -48,7 +48,7 @@
          is 32.7 from the red pen, so it would read as an error. Distance from
          each other is necessary and is not sufficient.
 
-         WHICH WAY ROUND: green is the PLACE, which is what green means on every
+         WHICH WAY ROUND: green is the WAYPOINT, which is what green means on every
          map anybody has ever read; violet is the thing you DO there, and it is
          the one hue in this palette that carries no other meaning already. */
       --wp-ink: #1d5c33;
@@ -346,7 +346,7 @@
 </style>  <link rel="stylesheet" href="/mc/js/admin-shell.css">
   <style>
     /* ---- the three pickers ------------------------------------------------
-       ONE LINE, THREE COMBOS, because a stop is one thought: this place, this
+       ONE LINE, THREE COMBOS, because a stop is one thought: this waypoint, this
        thing to do, in this city. Three stacked bars would say they were three
        decisions. Same arrangement the Game Builder's ANCHOR box settled on. */
     .stop-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
@@ -550,8 +550,17 @@
 
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title" id="roomTitle">? STOPS</h1>
-        <p class="room-blurb">A stop is a waypoint plus a challenge, in a city.</p>
+        <!-- THE TITLE IS THE ROOM NAME, and the count moved into the blurb --
+             the third room to make that move, after the Waypoint Library and
+             the Challenge Bank. The count-in-the-title convention leads with
+             the room OWN NOUN, and it only works while the name IS that noun:
+             `41 STOPS` reads and `41 STOPS BUILDER` does not. -->
+        <h1 class="room-title" id="roomTitle">STOPS BUILDER</h1>
+        <!-- IT SHIPS ITS OWN `?`, or the wrong answer is on screen for the
+             first second whatever the painter does afterwards. It is never a
+             `0`: everything loads before the first render, so a zero on the way
+             would be WRONG rather than not yet known. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> Stops. Waypoint + Challenge = Stop.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -569,16 +578,16 @@
           <div class="stop-field stop-field--wp">
             <span><label for="wpInput">Waypoint</label>
               <a class="stop-new" href="/mc/waypoints/" target="_blank" rel="noopener noreferrer"
-                 title="Open the Waypoints room in a new tab to add a place. This form keeps what you have typed.">new</a>
+                 title="Open the Waypoints room in a new tab to add a waypoint. This form keeps what you have typed.">new</a>
             </span>
             <input id="wpInput" list="wpList" autocomplete="off"
                    placeholder="Type a place"
-                   title="Every real place we hold. Narrows to the city once one is chosen.">
+                   title="Every waypoint we hold. Narrows to the city once one is chosen.">
           </div>
           <div class="stop-field stop-field--ch">
             <span><label for="chalInput">Challenge</label>
               <a class="stop-new" href="/mc/challenges/" target="_blank" rel="noopener noreferrer"
-                 title="Open the Challenges room in a new tab to write one. This form keeps what you have typed.">new</a>
+                 title="Open the Challenge Bank in a new tab to write one. This form keeps what you have typed.">new</a>
             </span>
             <input id="chalInput" list="chalList" autocomplete="off"
                    placeholder="RANDOM"
@@ -666,7 +675,7 @@
       let text = '';
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
       if (/stops_pkey|duplicate key/.test(text)) {
-        return 'That place is already a stop in that city. One place is one stop, '
+        return 'That waypoint is already a stop in that city. One waypoint is one stop, '
              + 'so edit the one that is there rather than adding a second.';
       }
       if (/stops_city_not_blank/.test(text)) return 'A stop needs a city.';
@@ -710,7 +719,7 @@
     async function loadCities() {
       const rows = await readAll('audiences', {
         select: 'home_place_id,places!inner(city,state)',
-        order: 'name.asc'
+        order: 'full_name.asc'
       });
       const seen = {};
       rows.forEach(function (r) {
@@ -773,10 +782,10 @@
     }
 
     /* ---- the pickers ------------------------------------------------------
-       THE WAYPOINT LIST NARROWS TO THE CHOSEN CITY, because 536 places is not a
+       THE WAYPOINT LIST NARROWS TO THE CHOSEN CITY, because 536 waypoints is not a
        list anybody scrolls and the city is already known by the time you reach
        that box. It falls back to ALL of them when the city matches nothing, so
-       a city typed by hand can still take a place. */
+       a city typed by hand can still take a waypoint. */
     function paintPickers() {
       const cityBox = el('cityList');
       if (cityBox) {
@@ -831,9 +840,18 @@
       });
     }
 
+    // THE ROW IS IDENTIFIED BY ITS OWN `id`, NOT BY (city, waypoint_id). That
+    // pair is still the UNIQUE that stops one waypoint being two stops in a city,
+    // and it stopped being an identity the moment a waypoint could be stripped
+    // (2026083117): the filter becomes waypoint_id=eq.null, which matches
+    // nothing, so the one row you most want to fix is the one you could not
+    // remove.
     // (city, waypoint_id) IS THE KEY, so it is also how a row is identified in
     // the DOM and in a delete. There is no id to fall back on.
-    function rowKey(row) { return JSON.stringify([row.city, row.waypoint_id]); }
+    /* A ROW IS IDENTIFIED BY ITS OWN `id`. It was the pair, which cannot
+       identify a stop whose waypoint has been stripped -- two of those in one
+       city are both [city, null] and would be treated as the same row. */
+    function rowKey(row) { return String(row.id); }
 
     function half(kicker, name, sub, isRandom, which) {
       const box = document.createElement('div');
@@ -857,11 +875,12 @@
 
     function render() {
       const shown = state.rows.filter(matches);
-      const title = el('roomTitle');
-      if (title) {
-        title.textContent = (state.loaded ? state.rows.length : '?')
-          + ' STOP' + (state.rows.length === 1 ? '' : 'S');
-      }
+      /* THE BLURB CARRIES THE TOTAL, and does NOT move with a filter: it is the
+         standing measure of the room, and a figure that shrank as you typed
+         would read as the filter breaking. The panel below says how much a
+         filter has left, which is the one thing the blurb cannot. */
+      const blurbCount = el('blurbCount');
+      if (blurbCount) blurbCount.textContent = state.loaded ? String(state.rows.length) : '?';
       const count = el('listCount');
       if (count) {
         count.textContent = state.loaded
@@ -898,7 +917,7 @@
         line.setAttribute('role', 'button');
         line.title = 'Open this stop';
 
-        // THE ORDER IS THE ORDER YOU READ IT: where, then the place, then what
+        // THE ORDER IS THE ORDER YOU READ IT: where, then the waypoint, then what
         // you do there, then the one control.
         const city = document.createElement('div');
         city.className = 'stop-city';
@@ -908,7 +927,8 @@
         // A WAYPOINT WE NO LONGER HOLD IS NAMED BY ITS ID rather than drawn
         // blank: a blank reads as a row that failed to load.
         line.appendChild(half('Waypoint',
-          w ? w.name : 'waypoint ' + row.waypoint_id,
+          w ? w.name : (row.waypoint_id === null ? 'waypoint deleted'
+                                                 : 'waypoint ' + row.waypoint_id),
           w ? (w.address || wpWhere(w)) : 'not on file any more', false, 'wp'));
 
         line.appendChild(half('Challenge',
@@ -971,7 +991,12 @@
       const c = row.challenge_id == null ? null : chalById(row.challenge_id);
       state.open = row;
 
-      el('svTitle').textContent = w ? w.name : 'Waypoint ' + row.waypoint_id;
+      /* A STOP WHOSE WAYPOINT WAS DELETED KEEPS ITS CHALLENGE and needs a new
+         waypoint: 2026083117 strips the waypoint rather than removing the
+         stop, because the challenge and the position are editorial work. */
+      el('svTitle').textContent = w ? w.name
+        : (row.waypoint_id === null ? 'Waypoint deleted, this stop needs a new waypoint'
+                                    : 'Waypoint ' + row.waypoint_id);
       el('svCity').textContent = row.city;
 
       // ---- left: the waypoint ----
@@ -1117,12 +1142,15 @@
       if (!window.confirm('Delete ' + name + ' in ' + row.city + '? '
           + 'The waypoint and the challenge are untouched; only the stop goes.')) return;
       try {
-        // FILTERED ON THE KEY, WHICH IS THE PAIR. There is no id on this table
-        // any more, and filtering on the city alone would take the whole city.
-        const res = await fetch(restUrl(TABLE, {
-          city: 'eq.' + row.city,
-          waypoint_id: 'eq.' + row.waypoint_id
-        }), {
+        /* FILTERED ON THE ROW'S OWN id. It was the pair (city, waypoint_id),
+           which was the key when this room was built and stopped being an
+           identity the moment a waypoint could be stripped (2026083117): the
+           filter becomes `waypoint_id=eq.null`, PostgREST matches nothing, and
+           the delete reports that the database refused it. The row you most
+           want to fix would be the one row you could not remove.
+             THE PAIR IS STILL THE UNIQUE that stops one waypoint being two stops
+           in a city. It is simply not how a row is addressed. */
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + row.id }), {
           method: 'DELETE',
           headers: authHeaders({ Prefer: 'return=representation' })
         });

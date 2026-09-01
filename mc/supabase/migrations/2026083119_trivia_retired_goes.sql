@@ -1,0 +1,98 @@
+-- ============================================================================
+-- THE TRIVIA TABLE GOES. THE QUESTIONS ARE CHALLENGES.
+-- ============================================================================
+--
+-- Applied 2026-08-31 with `supabase db query --linked --file`.
+--
+-- WHAT THIS DROPS: `public.trivia_retired`, 38 rows, which is the table
+-- `public.trivia` was renamed to on 2026-08-31 by 2026083107 when its rows were
+-- merged into `public.challenges` as `kind = 'trivia'`. It has been read by
+-- nothing since that morning.
+--
+-- A DROP IS THE ONE IRREVERSIBLE MOVE AVAILABLE and this project normally
+-- refuses it -- `public.maps`, `waypoints.tour_id`, `destinations_retired` and
+-- the two soundtrack timestamps are all retired in place for that reason. Three
+-- things make this one different:
+--
+--   1. IT IS A DUPLICATE, NOT HISTORY. Proved against the live tables
+--      immediately before this file was written, column for column rather than
+--      by counting: 38 rows in `trivia_retired`, 38 in `challenges` with
+--      kind = 'trivia', 38 where the question, the answer, the options and the
+--      ladder key are ALL identical, and 0 rows in the retired table with no
+--      match. There is nothing in it that is not in `challenges`.
+--
+--   2. NOTHING DEPENDS ON IT. 0 foreign keys into it, 0 dependent views, and
+--      0 functions in `public` that name it -- asked of the catalog rather than
+--      assumed, because a plpgsql body is stored as TEXT and resolves at
+--      RUNTIME, so a function still naming it would not fail until something
+--      called it. This project has been bitten by that property four times.
+--
+--   3. A DUPLICATE NOTHING READS IS WHAT MAKES THE NEXT READER ASK WHICH COPY
+--      IS TRUE. That is the fault the destinations rebuild, the teams rebuild
+--      and the soundtrack cleanup each removed, and leaving a second copy of
+--      the questions is the same fault by another name.
+--
+-- THE ROOM WENT IN THE SAME COMMIT. `/mc/trivia/` is deleted and 404s -- GitHub
+-- Pages serves no 301, so that is a hard break like every move here -- and its
+-- nav entry went with it, because a stale href 404s silently and this project
+-- has already paid for one of those with a deleted trigger id.
+--
+-- WHAT THE ROOM DID THAT THE CHALLENGE BANK DOES NOT, said plainly rather than
+-- left to be discovered:
+--
+--   * MEETING A QUESTION THE WAY A TEAM MEETS IT. The popup drew the buttons or
+--     the text box, shuffled the options on every open, judged the answer and
+--     locked the row. A question that reads fine in a table can be unanswerable
+--     standing in a street, and nothing checks that now.
+--   * THE TWO PICKERS, CITY and TEAM, which answered two different questions on
+--     purpose: everything a team would be asked THERE, against questions about
+--     one club. The Challenge Bank's search box reaches a key by typing it.
+--   * RANDOM, and the deck it shuffled.
+--
+--   THE ORPHAN CHECK IS THE ONE THING THAT DID NOT GO. It moved into the
+--   Challenge Bank as a CHECK_RULE, because it is the only finding no other
+--   screen can ever report: `ladder_key` is not a foreign key and cannot be
+--   one, a rung being any of four shapes across three tables, so a mistyped key
+--   resolves to nothing, the row reads perfectly, and the question is simply
+--   never asked of anybody.
+--
+-- ----------------------------------------------------------------------------
+-- THE SEED, so 38 rows are a paste rather than an afternoon.
+-- ----------------------------------------------------------------------------
+-- The rows are NOT written out here, and that is deliberate rather than a
+-- shortcut: unlike `public.leagues`, whose ten rows were written into its own
+-- drop, every one of these rows is still in the database. To rebuild the table
+-- exactly as it stood:
+--
+--   create table public.trivia_retired as
+--   select id, question, answer, choices, ladder_key
+--     from public.challenges where kind = 'trivia';
+--
+-- The retired table's own column was `id` where challenges call it
+-- `ladder_key`, and its `question` is `prompt`; alias them back if the old
+-- shape is wanted.
+-- ============================================================================
+
+begin;
+
+drop table if exists public.trivia_retired;
+
+commit;
+
+-- ----------------------------------------------------------------------------
+-- VERIFY. Read the numbers rather than the absence of an error.
+-- ----------------------------------------------------------------------------
+-- Expect: gone = 0, trivia = 38, total = 62.
+--
+-- select
+--   (select count(*) from pg_class
+--     where relname = 'trivia_retired' and relnamespace = 'public'::regnamespace) as gone,
+--   (select count(*) from public.challenges where kind = 'trivia') as trivia,
+--   (select count(*) from public.challenges) as total;
+--
+-- AND THAT NO FUNCTION NAMES IT. `prokind = 'f'` is not optional here:
+-- pg_get_functiondef raises on the first aggregate it meets.
+--
+-- select proname from pg_proc
+--  where prokind = 'f' and pronamespace = 'public'::regnamespace
+--    and pg_get_functiondef(oid) ilike '%trivia_retired%';

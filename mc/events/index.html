@@ -602,8 +602,19 @@
 
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title" id="eventTitle">? ANCHOR EVENTS</h1>
-        <p class="room-blurb">Each game we build is based on a real-world event, an Anchor Event! It could be a sporting event, a historical moment, a concert, a convention, or anything else that attracts an audience and is game-worthy.</p>
+        <!-- THE TITLE IS THE ROOM'S NAME AND IS NOT PAINTED. The count led it
+             until 2026-08-31, which is this project's convention everywhere
+             else -- and that convention leads with the room's OWN NOUN. It
+             works here (`3,051 ANCHOR EVENTS` reads) and the count still moved,
+             because the blurb is where a figure belongs beside the sentence
+             that explains it. Same call the Waypoint Library, the Challenge
+             Bank and the Stops Builder all made the same day. -->
+        <h1 class="room-title">ANCHOR EVENTS</h1>
+        <!-- IT SHIPS ITS OWN `?`, or the wrong answer is on screen for the
+             first second whatever the painter does afterwards. It is never `0`:
+             the first page and the server's own count arrive together, so a
+             zero on the way would be WRONG rather than not yet known. -->
+        <p class="room-blurb"><span id="eventTitle">? Anchor Events</span>. Each game we build is based on a real-world event, an Anchor Event! It could be a sporting event, a historical moment, a concert, a convention, or anything else that attracts an audience and is game-worthy.</p>
       </div>
       <span class="room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
     </div>
@@ -754,8 +765,8 @@
 
           <fieldset class="prompt-options prompt-options--sg" aria-label="Where and when">
             <legend class="prompt-options-label">Which cities or leagues, and when</legend>
-            <input type="text" id="sgCity" placeholder="Denver, Chicago, NFL, NFL International" autocomplete="off"
-                   title="A city, a league, or a mix of both, separated by commas. A league may carry a region: NFL International for every game abroad, or name one: NFL Europe, NFL Mexico, NBA Canada.">
+            <input type="text" id="sgCity" placeholder="Denver, Chicago, NFL, NFL International, Falcons" autocomplete="off"
+                   title="A city, a league, a team mascot, or a mix, separated by commas. A term is read as a league, then a venue town, then a club: Falcons gives every Atlanta Falcons game in the window, home and away. A league may carry a region: NFL International for every game abroad, or name one: NFL Europe, NFL Mexico, NBA Canada.">
             <label class="prompt-option">from <input type="date" id="sgFrom"></label>
             <label class="prompt-option">to <input type="date" id="sgTo"></label>
             <button class="btn small primary" id="sgFetchBtn" type="button">Fetch</button>
@@ -801,12 +812,43 @@
     // `state.issues`: pressing Check runs the sweep and then sets it to `yes`,
     // and putting the picker back to `any` is what Show all does.
 
+    /* TWENTY-ONE KINDS, AND `events.kind` HAS NO CHECK CONSTRAINT -- checked
+       against the live table rather than assumed, which carries only
+       `events_issues_check` and `events_issues_detail_check`. So a new kind
+       needs NO MIGRATION and exactly one edit: this is the only list. The row's
+       picker, the manual form and the batch bar are all built from it, and
+       `FIELD_META` reads it too -- which was not always true, and three
+       hand-kept copies drifted before it was.
+
+       `historical` IS OURS, NOT SEATGEEK'S. Sixteen of these are their own
+       taxonomy slugs, read off /2/taxonomies; the rest exist because they say
+       something their tree does not. A commemoration, an anniversary, a
+       re-enactment or a centenary fills a town the way a fixture does, and they
+       have no category for any of it -- because none of it sells seats through
+       them. SO THE IMPORTER WILL NEVER EMIT IT, which is what the OTHER prompt
+       and the manual form are for.
+
+       ALPHABETICAL (2026-08-31). It used to group -- the three sports shapes
+       together, then music, then the theatre slugs -- which reads well once you
+       already know the list and is no help at all when you are hunting one of
+       twenty-one in a dropdown. **Alphabetical is the order you can predict**,
+       which is the same call the Tape Room made when it deleted its three sort
+       buttons and settled on city A to Z.
+
+       WHAT IT COSTS: `other` is no longer last. It is the catch-all and it read
+       well at the end of a grouped list; in an alphabetical one it sits between
+       `music_festival` and `sports`, and pinning it would be one exception to
+       remember for the sake of one row.
+
+       AND THE ORDER IS ASSERTED, not remembered. A kind appended in the wrong
+       place is invisible in a diff and obvious in the dropdown, so the check
+       compares this list with its own sort. */
     const KIND_VALUES = [
-      'sports', 'sports-nonteam', 'sports-tournament',
-      'concert', 'music_festival',
       'broadway', 'circus', 'cirque_du_soleil', 'classical', 'comedy',
-      'dance', 'entertainment', 'family', 'film', 'literary', 'theater',
-      'convention', 'expo', 'festival', 'other'
+      'concert', 'convention', 'dance', 'entertainment', 'expo',
+      'family', 'festival', 'film', 'historical', 'literary',
+      'music_festival', 'other', 'sports', 'sports-nonteam',
+      'sports-tournament', 'theater'
     ];
 
     const EDITABLE_FIELDS = [
@@ -1237,6 +1279,55 @@
       name.addEventListener('input', () => markDirty());
       name.addEventListener('change', () => markDirty());
 
+      /* THE TITLE SAVES ITSELF WHEN IT LOSES FOCUS (2026-08-31).
+
+         IT IS THE ONE FIELD ON A CLOSED ROW, and a closed row has no Save
+         button -- the body is not built until it is opened. So a title typed in
+         the list could only be committed from the floating SAVE ALL in the
+         corner, which is a long way from what you just typed and easy to miss:
+         it read as an edit that would not save.
+
+         ONLY THE TITLE. Every other field is inside the body, next to its own
+         Save button, and a form that commits each box as you tab through it is
+         a different kind of room -- this one batches deliberately, which is
+         what SAVE ALL and the unsaved mark are for.
+
+         AND ONLY WHEN SOMETHING CHANGED. `is-dirty` is written by markDirty on
+         a keystroke, so tabbing through a title nobody touched sends nothing. */
+      name.addEventListener('blur', () => { autosaveTitle(); });
+
+      let autosaving = false;
+      async function autosaveTitle() {
+        /* A ROW BEING TORN DOWN BY A RENDER FIRES BLUR TOO, so a save here
+           would patch a row nobody is looking at any more -- and `el` would be
+           detached, so clearing its mark would do nothing visible. */
+        if (!el.isConnected) return;
+        if (!el.classList.contains('is-dirty')) return;
+        /* A SECOND BLUR WHILE THE FIRST IS IN THE AIR. The blur-and-click pair
+           is caught in `saveRow` instead, where every path meets -- a flag in
+           this handler could never see the button's own call. */
+        if (autosaving) return;
+        autosaving = true;
+        try {
+          /* A DETACHED BUTTON STANDS IN when the row is closed, exactly as
+             SAVE ALL does: `saveRow` only ever sets a label and a disabled
+             flag. Requiring the real one skipped every closed row in silence
+             the first time SAVE ALL was written.
+
+             `noRender: true` IS THE WHOLE REASON THIS NEEDED A NEW FLAG. A
+             render rebuilds every row, which would tear out the element the
+             pointer or the keyboard has just moved to -- the save would work
+             and the page would jump. `quiet` was the wrong tool: it also
+             silences the FAILURE, and a write that fails without saying so is
+             a bug in itself. */
+          const btn = el.querySelector('.event-actions .btn.primary')
+                   || document.createElement('button');
+          await saveRow(row, el, btn, { noRender: true });
+        } finally {
+          autosaving = false;
+        }
+      }
+
       const markDirty = () => {
         el.classList.add('is-dirty');
         syncSaveAll();
@@ -1375,12 +1466,17 @@
       return Object.assign({}, row, readForm(el));
     }
 
+    /* THE COUNT AND ITS NOUN, so the sentence can be singular. It is THE WHOLE
+       TABLE, never what a filter has left: a number that shrank as you typed
+       would read as the filter breaking, and the panel below already says how
+       much a filter left.
+         `?` KEEPS THE PLURAL, because the unknown count is not one. */
     function updateTitle() {
       if (titleEl) {
         const known = state.loaded || state.total !== null;
         const n = (state.total !== null && !state.loaded) ? state.total : state.rows.length;
         titleEl.textContent = (known ? String(n) : '?') +
-          (known && n === 1 ? ' ANCHOR EVENT' : ' ANCHOR EVENTS');
+          (known && n === 1 ? ' Anchor Event' : ' Anchor Events');
       }
     }
 
@@ -2048,6 +2144,64 @@
         .map(resolveSearchTerm);
     }
 
+    /* A TEAM IS A PERFORMER, AND A MASCOT IS HOW A PERSON NAMES ONE.
+
+       `venue.city=Falcons` returns nothing, so typing a mascot used to be a
+       search that quietly found no events. SeatGeek keeps clubs as PERFORMERS
+       and answers `/events?performers.slug=` with every game a club plays,
+       HOME AND AWAY, which is what "all Falcons games" means.
+
+       WHY NOT `/events?q=Falcons`: measured on the live API, that returns 163
+       events over three months and the first six are Bowling Green State
+       Falcons volleyball and Air Force Falcons soccer. A free-text search over
+       event TITLES matches every college programme sharing the mascot.
+
+       `has_upcoming_events=true` IS LOAD-BEARING. Without it `q=Falcons`
+       returns 66 performers led by a BAND called Falcons and a dead [nfl]
+       performer with ZERO events, and Atlanta Falcons is SEVENTEENTH.
+       SeatGeek own relevance ordering is no use here.
+
+       `taxonomies.name` IS IGNORED ON THIS ENDPOINT -- adding it still returns
+       all 66, band first -- so the narrowing has to be ours. */
+    const SG_MAJOR = ['nfl', 'nba', 'mlb', 'nhl', 'mls', 'wnba'];
+
+    /* A MAJOR-LEAGUE CLUB IS `<City> <Mascot>` AND ITS NAME ENDS WITH THE WORD
+       SOMEBODY TYPED; a college entry appends the sport -- `Falcons Football`,
+       `Falcons Mens Hockey` -- so it does not. That one test does most of the
+       work and the league tier breaks the ties it leaves. Proved on ten real
+       mascots: Falcons, Saints, Bears, Cubs, Lakers, Yankees, Tigers, Red Sox
+       and Broncos all resolve to the pro club with a wide margin. */
+    function sgPerformerScore(p, low) {
+      const name = String((p && p.name) || '').toLowerCase();
+      let out = 0;
+      if (name === low) out += 40;
+      else if (name.endsWith(' ' + low)) out += 30;
+      else if (name.indexOf(low) !== -1) out += 5;
+      if (SG_MAJOR.indexOf(p && p.type) !== -1) out += 20;
+      const words = name.split(' ').filter(Boolean).length;
+      out -= Math.max(0, words - 2) * 3;
+      return out;
+    }
+
+    async function sgFindPerformer(key, term) {
+      const low = String(term || '').trim().toLowerCase();
+      if (!low) return null;
+      const body = await sgApi(key, 'performers',
+        { q: term, has_upcoming_events: 'true', per_page: 30 });
+      const list = (body && body.performers) || [];
+      let best = null;
+      list.forEach((p) => {
+        const sc = sgPerformerScore(p, low);
+        if (!best || sc > best.score) best = { score: sc, performer: p };
+      });
+      /* A FLOOR, so a term that merely shares a letter is not called a club.
+         25 means either the name ENDS with the word (30) or it is a major
+         league and the word is in there somewhere (25). Below that the term
+         stays a city, which is the standing rule. */
+      if (!best || best.score < 25) return null;
+      return { slug: best.performer.slug, name: best.performer.name, type: best.performer.type };
+    }
+
     // A REGION IS A FILTER ON THE VENUE, NOT A QUERY. SeatGeek has no
     // `venue.country` filter, and an international fixture is a handful of rows
     // in a league of nine hundred, so the whole league is read and then sieved.
@@ -2280,12 +2434,16 @@
           let got = 0;
           let kept = 0;
           for (let page = 1; ; page += 1) {
+            /* THE FILTER PER KIND. A league asks its taxonomy, a club asks its
+               performer slug -- which answers every game it plays, home and
+               away -- and anything else is a venue town. */
+            const filter = term.kind === 'league' ? { 'taxonomies.name': term.taxonomy }
+                         : term.kind === 'team' ? { 'performers.slug': term.slug }
+                         : { 'venue.city': term.city };
             const body = await sgApi(key, 'events', Object.assign({
               'datetime_local.gte': from + 'T00:00:00',
               per_page: PER_PAGE, page: page, sort: 'datetime_local.asc'
-            }, term.kind === 'league'
-              ? { 'taxonomies.name': term.taxonomy }
-              : { 'venue.city': term.city },
+            }, filter,
               to ? { 'datetime_local.lte': to + 'T23:59:59' } : {}));
             const events = (body && body.events) || [];
             if (body && body.meta && body.meta.total) total = body.meta.total;
@@ -2302,6 +2460,37 @@
             if (events.length < PER_PAGE) break;
             if (total && got >= total) break;
           }
+          /* A CITY THAT FOUND NOTHING MIGHT BE A CLUB. The city is tried FIRST
+             and always -- an unknown term is still a city, which is the
+             standing rule and is what keeps `Denver` meaning the town rather
+             than whatever performers happen to share the word. Only when that
+             finds nothing is the term offered to the performer lookup, so this
+             costs one extra request in exactly the case that used to return
+             zero. */
+          if (!kept && term.kind === 'city') {
+            const club = await sgFindPerformer(key, term.raw);
+            if (club) {
+              term.kind = 'team';
+              term.slug = club.slug;
+              term.teamName = club.name;
+              for (let page = 1; ; page += 1) {
+                const body = await sgApi(key, 'events', Object.assign({
+                  'datetime_local.gte': from + 'T00:00:00',
+                  per_page: PER_PAGE, page: page, sort: 'datetime_local.asc',
+                  'performers.slug': club.slug
+                }, to ? { 'datetime_local.lte': to + 'T23:59:59' } : {}));
+                const events = (body && body.events) || [];
+                events.forEach((ev) => {
+                  kept += 1;
+                  if (seen.has(ev.id)) return;
+                  seen.add(ev.id);
+                  all.push(ev);
+                });
+                sgSet('Reading ' + club.name + '\u2026 ' + all.length);
+                if (events.length < PER_PAGE) break;
+              }
+            }
+          }
           if (!kept) empties.push(term.raw);
         }
 
@@ -2310,18 +2499,29 @@
         sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
         renderSg();
         const dropped = all.length - sgState.rows.length;
+        /* THE BOX DECIDES BETWEEN THREE MEANINGS, SO IT SAYS WHICH IT TOOK.
+           A club read is the one most worth reporting: `Bulldogs` resolves to a
+           real minor-league hockey club because NO PRO CLUB HAS THAT MASCOT,
+           which is honest and is not what somebody typing it expects. */
         const leagues = terms.filter((t) => t.kind === 'league');
-        const said = leagues.length
-          ? ' Read as ' + leagues.map((t) => t.raw + ' = the ' + t.taxonomy.toUpperCase().split('_').join(' ') +
-              (t.regionName ? ' in ' + t.regionName : '')).join(', ') + '.'
-          : '';
+        const clubs = terms.filter((t) => t.kind === 'team');
+        const said = [
+          leagues.length
+            ? 'Read as ' + leagues.map((t) => t.raw + ' = the ' + t.taxonomy.toUpperCase().split('_').join(' ') +
+                (t.regionName ? ' in ' + t.regionName : '')).join(', ') + '.'
+            : '',
+          clubs.length
+            ? 'Read as ' + clubs.map((t) => t.raw + ' = the ' + t.teamName).join(', ') + '.'
+            : ''
+        ].filter(Boolean).map((x) => ' ' + x).join('');
         sgSet(sgState.rows.length
           ? 'Found ' + plural(sgState.rows.length, 'event') + '.' + said +
             (empties.length ? ' Nothing for ' + empties.join(' or ') + '.' : '') +
             (dropped ? ' ' + dropped + ' had no readable date and were left out.' : '') +
             ' Untick anything you do not want.'
           : 'Nothing in that window.' + said +
-            ' A city is matched on the venue town, so try another spelling or a wider range.',
+            ' A term is read as a league, then a venue town, then a club, so try' +
+            ' another spelling or a wider range.',
           sgState.rows.length ? 'success' : null);
       } catch (err) {
         console.error(err);
@@ -3074,9 +3274,27 @@
 
     async function saveRow(row, el, btn, opts) {
       const quiet = !!(opts && opts.quiet);
+      /* NO REDRAW, BUT STILL REPORT. A render rebuilds every row from the
+         stored values, so it tears out whatever the keyboard has just moved to
+         -- which is exactly what an autosave on blur must not do. */
+      const noRender = !!(opts && opts.noRender);
       const payload = withDefaults(readForm(el));
       const id = clean(row.id);
       if (!id) { setStatus('That row has no ID, so there is nothing to save against.', 'error'); return false; }
+
+      /* ONE SAVE PER ROW IN THE AIR AT A TIME, and the flag lives on the
+         ELEMENT because that is what every path shares.
+           CLICKING SAVE BLURS THE TITLE FIRST, so the autosave and the button
+         are one gesture producing two calls -- and a flag inside either handler
+         cannot see the other. Here it catches both, and anything added later.
+           IT RETURNS TRUE, not false: a save for this row IS happening, with
+         the same form values, because nothing can change between a blur and the
+         click that caused it. Reporting a failure would make SAVE ALL name a
+         row that saved perfectly well.
+           SAVE ALL NEVER REACHES THIS. It awaits each row in turn, so its calls
+         cannot overlap; the guard is for the blur-and-click pair. */
+      if (el.__saving) return true;
+      el.__saving = true;
 
       btn.disabled = true;
       const orig = btn.textContent;
@@ -3096,11 +3314,16 @@
         // A BATCH RENDERS ONCE, AT THE END. Rendering per row would rebuild
         // the list under the loop and every element it still held would be
         // detached -- so the second row would save nothing, silently.
+        /* THREE OUTCOMES, NOT TWO. `quiet` meant BOTH `do not redraw` and `say
+           nothing`, which is right for a batch (SAVE ALL reports the whole run
+           itself) and wrong for an autosave: that one must not redraw and must
+           still speak, because a write that fails silently is a bug in itself.
+           So the redraw and the reporting are two flags now. */
+        el.classList.remove('is-dirty');
+        syncSaveAll();
         if (!quiet) {
-          render();
+          if (!noRender) render();
           setStatus('Saved ' + displayTitle(row) + '.', 'success');
-        } else {
-          el.classList.remove('is-dirty');
         }
         return true;
       } catch (err) {
@@ -3109,6 +3332,11 @@
         btn.disabled = false;
         btn.textContent = orig;
         return false;
+      } finally {
+        /* CLEARED ON EVERY PATH OUT. Left set by a refusal, the row could never
+           be saved again for the life of the page -- and it would look exactly
+           like a button that had stopped working. */
+        el.__saving = false;
       }
     }
 

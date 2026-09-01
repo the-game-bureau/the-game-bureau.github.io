@@ -5,30 +5,33 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  /* WHAT BOTH ENGINES SEND AT PLAY TIME, and it must name only columns the
+     `teams` view really has: PostgREST 400s the WHOLE request on one unknown
+     name, so a stale entry here does not degrade club resolution, it stops it.
+       SEVEN NAMES CAME OUT ON 2026-09-01 with the columns behind them --
+     espn_id, conference, division, first_name, fanbase, venue_city, timezone.
+     None was read by anything here; they were selected and never used. */
   const TEAM_SELECT = [
     'audience_id',
     'team_key',
-    'espn_id',
     'league',
-    'conference',
-    'division',
     'code',
     'full_name',
-    'first_name',
-    'fanbase',
     'mascot',
     'sport',
     'shell',
     'stripe',
     'mask',
     'text_color',
-    'game_city',
-    'venue_city',
-    'timezone'
+    'game_city'
   ].join(',');
   const LEGACY_TEAM_SELECT = TEAM_SELECT
     .split(',')
-    .filter((column) => !['audience_id', 'team_key', 'espn_id', 'division', 'text_color'].includes(column))
+    /* `espn_id` and `division` are gone from TEAM_SELECT entirely now, so
+       naming them here would be filtering for something that is not in the
+       list. Harmless, and a line that describes a state that no longer exists
+       is how the next reader is misled. */
+    .filter((column) => !['audience_id', 'team_key', 'text_color'].includes(column))
     .join(',');
   const loadCache = new Map();
 

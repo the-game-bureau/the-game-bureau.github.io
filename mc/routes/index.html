@@ -322,7 +322,7 @@
     .varbar button:hover { background: var(--cut-panel-bg); }
 
     /* ---- the two columns ------------------------------------------------
-       WAYPOINTS LEFT, ROUTE RIGHT, because you are moving places out of a
+       WAYPOINTS LEFT, ROUTE RIGHT, because you are moving waypoints out of a
        catalogue and into a walk, and the drag runs the way reading does.
        The route column is wider: its rows carry an ordinal, a challenge and
        the words that lead to the next stop. */
@@ -339,14 +339,14 @@
     .col-count { font: 400 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
     .col-body { padding: 7px; overflow-y: auto; max-height: 70vh; }
 
-    /* ---- a place in the library ------------------------------------------ */
+    /* ---- a waypoint in the library ---------------------------------------- */
     .lib { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px;
            border: 1px solid transparent; border-radius: 7px; }
     .lib:hover { background: #fff; border-color: var(--line); }
     .lib-name { flex: 1 1 auto; min-width: 0; font-size: 0.9rem; line-height: 1.35; }
     .lib-where { display: block; font: 400 0.66rem/1.3 'IBM Plex Mono', monospace;
                  color: var(--muted); margin-top: 2px; }
-    /* A PLACE ALREADY ON THE ROUTE IS TINTED, NEVER FADED. It is still
+    /* A WAYPOINT ALREADY ON THE ROUTE IS TINTED, NEVER FADED. It is still
        draggable, still editable, and may be added again to close a loop, so
        fading it would say disabled, which is a lie. */
     .lib.is-used { background: rgba(var(--bic-blue-rgb), 0.08);
@@ -610,7 +610,7 @@
       { key: 'no-point',
         test: (s) => { const w = wpById(s.wpid);
           return !w || w.lat === null || w.lon === null || w.lat === undefined || w.lon === undefined; },
-        say: 'This place has no coordinates, so nothing can measure or draw the walk. Fix it in Waypoints.' }
+        say: 'This waypoint has no coordinates, so nothing can measure or draw the walk. Fix it in Waypoints.' }
     ];
     function faultsOf(stop, i, all) {
       const out = [];
@@ -709,7 +709,8 @@
       el('libTitle').textContent = 'Waypoint Library: ' + city;
       const rows = state.waypoints.filter((w) => clean(w.city).toLowerCase() === city.toLowerCase());
       const used = new Set(openStops().map((s) => String(s.wpid)));
-      el('libCount').textContent = rows.length + (rows.length === 1 ? ' place' : ' places');
+      el('libCount').textContent = rows.length
+        + (rows.length === 1 ? ' waypoint' : ' waypoints');
       if (!rows.length) {
         body.appendChild(emptyNode('No waypoints in ' + city + ' yet. Add them in Waypoints.'));
         return;
@@ -728,7 +729,7 @@
         const add = document.createElement('button');
         add.className = 'arrow lib-add';
         add.type = 'button';
-        // A PLACE MAY APPEAR TWICE ON A ROUTE. A loop that comes home names the
+        // A WAYPOINT MAY APPEAR TWICE ON A ROUTE. A loop that comes home names the
         // square it started from again, so Add stays live on a used row.
         add.textContent = '>';
         add.title = 'Add ' + clean(w.name) + ' to the end of this route';
@@ -761,7 +762,7 @@
       el('routeCount').textContent = stops.length + ' stops'
         + (bad ? ' | ' + bad + ' need work' : '');
       if (!stops.length) {
-        body.appendChild(emptyNode('Nothing here yet. Press an arrow in the library to add a place.'));
+        body.appendChild(emptyNode('Nothing here yet. Press an arrow in the library to add a waypoint.'));
         return;
       }
       stops.forEach((stop, i) => {
@@ -789,7 +790,14 @@
       head.appendChild(ord);
       const name = document.createElement('span');
       name.className = 'stop-name';
-      name.textContent = w ? clean(w.name) : ('waypoint ' + stop.wpid);
+      /* A STOP WHOSE WAYPOINT WAS DELETED KEEPS ITS CHALLENGE, its position and
+         its direction, and needs a new one: 2026083117 strips the waypoint
+         rather than removing the stop. `waypoint null` is what it read before,
+         which names nothing anybody can act on. */
+      name.textContent = w ? clean(w.name)
+        : (stop.wpid === null || stop.wpid === undefined
+            ? 'waypoint deleted, needs a new one'
+            : 'waypoint ' + stop.wpid);
       head.appendChild(name);
 
       const acts = document.createElement('span');
@@ -799,7 +807,7 @@
       // REMOVE TAKES THE STOP OFF THE ROUTE AND KEEPS THE WAYPOINT. That is the
       // entire reason these are two tables, so the control is an arrow back to
       // the library rather than a bin.
-      acts.appendChild(arrowBtn('<', 'Take off this route, keep the place', false, () => removeAt(i)));
+      acts.appendChild(arrowBtn('<', 'Take off this route, keep the waypoint', false, () => removeAt(i)));
       head.appendChild(acts);
       box.appendChild(head);
 

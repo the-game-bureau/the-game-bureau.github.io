@@ -24,9 +24,9 @@ instead.**
 
 ---
 
-## 2. THE ID: WHO OR WHERE THE QUESTION IS ABOUT
+## 2. THE LADDER KEY: WHO OR WHERE THE QUESTION IS ABOUT
 
-`trivia.id` takes one of exactly two shapes, and choosing between them is the
+`challenges.ladder_key` takes one of exactly two shapes, and choosing between them is the
 editorial call that makes the whole table work.
 
 | shape | the id | use it when |
@@ -256,7 +256,7 @@ Fix the row; do not remove the constraint.
 
 ### THE QUESTION MAY NOT CONTAIN ITS OWN ANSWER
 
-**Enforced, as `trivia_answer_not_in_question`.** A team reads the question
+**Enforced, as `challenges_trivia_answer_not_in_prompt`.** A team reads the question
 aloud in the street, so an answer sitting inside it is an answer already in
 their mouth. The row that prompted the rule is on file: *"Which river is dyed
 bright green through downtown CHICAGO every St Patrick's Day?"*, answer

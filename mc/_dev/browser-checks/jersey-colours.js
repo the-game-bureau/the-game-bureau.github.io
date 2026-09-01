@@ -7,7 +7,7 @@
  * colour rather than the markup.
  */
 const fs = require('fs');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('C:/tmp/node_modules/puppeteer-core');
 
 const PORT = process.env.PORT || 8994;
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';

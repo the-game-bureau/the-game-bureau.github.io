@@ -19,15 +19,51 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* ---- the box ------------------------------------------------------------- */
+/* ---- STATUS LIVES IN THE NAV ROW, NOT IN A BOX (2026-08-31) -------------
+   It was a seventh bar at the foot of the page for a few hours. It is the one
+   DECISION here -- whether anybody can buy this game -- so it belongs with New,
+   Duplicate, Save and Preview, which are the other things you DO to the open
+   game rather than facts you fill in about it.
+   MOVED, NEVER COPIED: every id came with it, so the painter, the writer and
+   all the wiring needed no edit -- which is what the assertions below still
+   exercise unchanged. */
 const bars = [...d.querySelectorAll('fieldset.game-id-bar')];
-t('six bars now', bars.length === 6, bars.length);
-t('Status is the last one, after Tags',
-  bars[bars.length - 1].id === 'statusBar'
-  && bars[bars.length - 2].id === 'tagsBar',
-  bars.map((b) => b.id).join(','));
-t('and it is a fieldset with its own folder tab',
-  bars[bars.length - 1].querySelector('legend').textContent === 'Status');
+t('six bars now, Status having left them', bars.length === 6, bars.length);
+t('and Tags is the last of them',
+  bars[bars.length - 1].id === 'tagsBar', bars.map((b) => b.id).join(','));
+t('the status box is gone entirely', !d.getElementById('statusBar'));
+
+/* ---- AND IT HAS A BOX OF ITS OWN, THE THIRD ON THAT LINE ----------------
+   It sat INSIDE the tool row for an hour, which made it read as a fourth
+   control among Save and Preview -- and it is not the same kind of thing. Save
+   and Preview ACT and are done; this is a STATE the game is left in, and the
+   filled button is a standing answer rather than something that just happened.
+   The row now reads as what you MAKE, what you DO with the open one, and what
+   STATE you leave it in. */
+const rows = d.getElementById('gameStatusRow');
+const group = d.getElementById('gameStatusToggle');
+t('status has a box of its own', !!rows && rows.contains(group));
+t('and it is not inside the tool row',
+  !d.getElementById('mbNav').contains(group));
+/* THE THREE BOXES ARE SIBLINGS on one line, in the order the work runs. */
+t('three boxes on the line, status last',
+  [...d.querySelector('.builder-nav-rows').children].map((n) => n.id || n.className).join(' | ')
+    .indexOf('gameStatusRow') > 0
+  && d.querySelector('.builder-nav-rows').lastElementChild === rows,
+  [...d.querySelector('.builder-nav-rows').children].map((n) => n.id || n.className).join(' | '));
+t('and it wears the same box as the two beside it',
+  /\bbuilder-nav-row\b/.test(rows.className), rows.className);
+/* THE #mbNav HIDE RULE MUST NOT STILL NAME IT. That rule hides every child of
+   the tool row but two; status is not a child of it now, so a `:not()` for it
+   would be a selector naming an element that is not there. */
+t('and the tool-row hide rule no longer names it',
+  !/:not\(#gameStatusToggle\)/.test(s));
+/* THEY WEAR THE ROW'S OWN BUTTON, borrowed rather than drawn again: a control
+   invented here would read as a different KIND of thing from the four beside
+   it. */
+t('the three wear the same button as New, Duplicate, Save and Preview',
+  [...group.querySelectorAll('span')].every((n) => /builder-nav-btn/.test(n.className)),
+  [...group.querySelectorAll('span')].map((n) => n.className).join(' | '));
 
 /* ---- three options, because there are three states ----------------------- */
 const radios = [...d.querySelectorAll('input[name="gameStatus"]')];
@@ -52,8 +88,30 @@ t('the group is announced as a radiogroup',
    usable until a game is open, and the painter is what turns them on. */
 t('they ship disabled, so a page with no game open offers nothing',
   radios.every((r) => r.disabled));
-t('and a note element is there to say what the choice means',
-  !!d.getElementById('gameStatusNote'));
+/* ---- THE BOX IS A LEGEND AND THREE PILLS (2026-08-31) -------------------
+   THREE THINGS WENT, and each was the box saying something twice.
+     THE LABEL: the legend already says STATUS and this is the only field under
+   it -- the same call the anchor, the city and the map boxes made the same day.
+     THE INFO BUBBLE: `Post puts the game on sale. Build is written and
+   deliberately not for sale. Skip is off the shelf.` is the three pills
+   expanded into three sentences, behind a hover -- and a hover tooltip is
+   unreachable on a touch screen, which makes it the worst place on the page for
+   a rule that matters.
+     THE NOTE UNDER THE PILLS: `On sale.` beneath a lit POST is the control
+   describing itself back to you.
+   AND THE WIRING WENT WITH THEM, per the standing rule that a control and its
+   code go in one pass. */
+t('no label repeating the legend',
+  !d.querySelector('#gameStatusField .field-label'));
+t('and no info bubble', !d.querySelector('#gameStatusField .field-info'));
+t('and no note under the pills', !d.getElementById('gameStatusNote'));
+t('and nothing left writing one',
+  s.replace(/\/\*[\s\S]*?\*\//g, ' ').indexOf('gameStatusNote') === -1);
+/* THE GROUP KEEPS ITS OWN NAME, or removing the label leaves a control with no
+   accessible name at all: a legend names the GROUP, not the field. */
+t('and the radiogroup is still named for a screen reader',
+  d.getElementById('gameStatusToggle').getAttribute('aria-label') === 'Game status',
+  d.getElementById('gameStatusToggle').getAttribute('aria-label'));
 
 /* ---- it writes `status`, which is the whole reason it exists -------------- */
 /* `archived` IS 'YES' FOR BOTH BUILDING AND SKIPPED, so a control writing the

@@ -6,7 +6,10 @@ const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
 const AUTH = fs.readFileSync('C:/Code/the-game-bureau/mc/js/admin-auth.js', 'utf8');
-const ROOMS = ['trivia', 'routes', 'challenges', 'events', 'waypoints'];
+// THE TRIVIA ROOM LEFT THIS LIST ON 2026-08-31 with the room itself; its
+// questions are challenges now. A check naming a deleted page fails on the
+// page being gone rather than on the fault it is for.
+const ROOMS = ['routes', 'challenges', 'events', 'waypoints'];
 
 let ok = 0, bad = 0;
 const t = (m, c, got) => c ? (ok++, console.log('  ok  ' + m))

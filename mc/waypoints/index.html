@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>WAYPOINTS | THE GAME BUREAU</title>
+  <title>WAYPOINT LIBRARY | THE GAME BUREAU</title>
   <link rel="icon" href="/favicon.ico?v=2" sizes="any">
   <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -66,7 +66,7 @@
     .command-bar--find { flex: 1 1 auto; min-width: 0; }
     .command-bar--check { flex: 0 0 auto; }
     /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
-       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       between `Check` and `Checking...`. Declared AFTER
        `.command-bar .btn`, which sets `min-width: 0` at the same weight and
        would otherwise win on source order. */
     .command-bar--check .btn { min-width: 11ch; }
@@ -168,15 +168,13 @@
     .batch-all input, .wp-pick {
       width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
     }
-    .batch-row input[type="text"] {
-      width: 13ch; min-height: 30px; padding: 3px 7px;
-      border: 1px solid var(--line); border-radius: 6px;
-      background: #fff; color: var(--ink); font-size: 0.78rem;
-    }
+    /* THE TEXT-BOX AND HAIRLINE RULES WENT WITH THE CONTROLS THEY DRESSED
+       (2026-08-31) -- Set city, Set state, and the separator between Apply and
+       Delete. A control and its stylesheet go in one pass; this repo has lost
+       an hour to a rule outliving the markup it was written for. */
     /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
        at all, so on a touch screen the reason it is off is unreachable. */
     .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
-    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
     .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
 
     .wp-name { font-weight: 700; font-size: 0.95rem; }
@@ -216,7 +214,27 @@
     .wp-pin {
       background: var(--ink); color: #fff; border: 2px solid #fff; border-radius: 50%;
       width: 14px; height: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      cursor: pointer;
     }
+    /* THE PIN DOING THE FILTERING IS BIGGER AND IN THE ACCENT, not merely a
+       different shade: at 14px a colour change alone is not a difference you
+       can find on a map of five hundred. The ring is what makes it readable
+       whatever is under it. */
+    .wp-pin.is-pinned {
+      background: var(--accent, #2d4880);
+      width: 20px; height: 20px; margin: -3px 0 0 -3px;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 2px 8px rgba(0,0,0,0.45);
+    }
+
+    /* THE ACTION SITS BESIDE THE BOX AND KEEPS ITS OWN WIDTH, so a long url
+       does not shrink the button. */
+    .field-with-action { display: flex; gap: 6px; align-items: stretch; }
+    .field-with-action input { flex: 1 1 auto; min-width: 0; }
+    .field-with-action .btn { flex: 0 0 auto; }
+    /* AN ANCHOR CANNOT BE `disabled`, so the off state is no `href` -- not
+       focusable, not followable -- plus `aria-disabled` and a class. It keeps
+       its place, or the box beside it would change width the moment you type. */
+    #fSourceOpen[aria-disabled="true"] { opacity: 0.45; cursor: help; }
 
     /* ---- the editor ------------------------------------------------------ */
     .dlg {
@@ -264,7 +282,7 @@
     @media (max-width: 760px) {
       .command-bar { flex: 1 1 100%; }
     }
-  
+
     /* admin-shell.css clamps every room's sentence to 62ch, which is right for
        a short one and cuts this one mid-word, after "challenge t". The second
        half is an equation and must not break across lines at all. Same
@@ -285,12 +303,26 @@
          four different title sizes. -->
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title" id="roomTitle">? WAYPOINTS</h1>
+        <!-- THE ROOM IS THE WAYPOINT LIBRARY (2026-08-31), and the title is
+             its NAME rather than a count. It read `536 WAYPOINTS`, which is this
+             project's convention everywhere -- and that convention leads with a
+             count of the room's own noun, which only works while the name IS
+             that noun. `536 WAYPOINT LIBRARY` is not a sentence.
+             THE COUNT IS NOT LOST: it moved to the list panel, which already
+             carried a figure, and it says the same thing one line down. -->
+        <h1 class="room-title" id="roomTitle">WAYPOINT LIBRARY</h1>
         <!-- THE TAGLINE IS NOT A STATUS LINE. It is the standing description of
              the room, and a message that overwrote it would take the
              explanation away exactly when something had gone wrong. Notices go
              in the scribble beside it. -->
-        <p class="room-blurb">A Waypoint is a real world location where a game's challenge takes place. Waypoint + Challenge = Game Stop</p>
+        <!-- THE COUNT LEADS THE BLURB. The number is the room's own total and
+             it is painted; the rest is the standing sentence. `?` until the
+             table is in, never `0` -- a zero on the way is a figure that is
+             WRONG rather than one not known yet. -->
+        <!-- THE COUNT LEADS THE ROOM OWN NOUN and is painted, `?` until the
+             table is in: a zero on the way would be a figure that is WRONG
+             rather than one not known yet. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> Waypoints. A Waypoint is a real world location where a game's challenge takes place, and Waypoint + Challenge = Game Stop. Find one, see them all on the map, and fix what is missing.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -299,7 +331,7 @@
       <fieldset class="command-bar">
         <legend>Add</legend>
         <div class="command-bar-inner">
-          <button class="btn primary" id="addBtn" type="button" title="Type a place in by hand">Waypoint</button>
+          <button class="btn primary" id="addBtn" type="button" title="Type a waypoint in by hand">Waypoint</button>
           <button class="btn" id="promptBtn" type="button"
                   title="Build a prompt for an AI with a browser: ten strange walking stops in the cities you name, with coordinates.">Prompt</button>
         </div>
@@ -308,7 +340,22 @@
       <fieldset class="command-bar command-bar--find">
         <legend>Find</legend>
         <div class="command-bar-inner">
-          <input type="search" id="q" placeholder="Search name, address, city, state, country…" autocomplete="off">
+          <!-- A SEARCH BOX AND A DROPDOWN IN ONE CONTROL, which is the shape
+               this project uses wherever a field is typed OR picked. IT IS NOT
+               ONE ANY MORE, and the reason is worth keeping: a datalist opens
+               on FOCUS showing every option it holds, so clicking into the box
+               dropped 536 names over the list underneath -- and the list
+               underneath is the answer. You had to click away from the control
+               to read what it had found.
+                 SO IT FILTERS AS YOU TYPE AND OFFERS NOTHING. The list below
+               was always narrowing on every keystroke; what changed is that
+               nothing now covers it up.
+                 WHAT IS LOST: picking a name from a list without typing. Small,
+               because typing a name still narrows to that waypoint -- the
+               search reads NAME as well as address, city, state, country, zip
+               and description, so every option the dropdown held is still
+               reachable by typing a few letters of it. -->
+          <input type="search" id="q" placeholder="Search waypoints…" autocomplete="off">
           <label class="inline" for="placeFilter" hidden></label>
           <select id="placeFilter" title="Narrow to one place"></select>
           <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
@@ -334,18 +381,36 @@
 
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-title">Waypoint Library</span>
+        <!-- THE TOTAL IS IN THE BLURB, so the panel says only what the blurb
+             cannot: how much of it a filter has left. Blank when nothing is
+             filtered, or the same number would sit on screen twice. -->
+        <span class="panel-title">Waypoints</span>
         <span class="panel-count" id="listCount"></span>
       </div>
       <div class="batch-row" id="batchBar">
         <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
         <span class="batch-count" id="batchCount">none selected</span>
+        <!-- SET CITY, SET STATE AND APPLY ARE GONE (2026-08-31), asked for
+             outright. Setting a city across a selection is now SQL, or the
+             editor one row at a time -- which still writes both fields.
+             THE HAIRLINE WENT WITH THEM. It stood between Apply and Delete to
+             say they were not two options of one kind: one wrote two fields and
+             the other destroys the rows. With one button left there is nothing
+             to separate. -->
         <span class="batch-actions">
-          <input type="text" id="batchCity" placeholder="Set city…" autocomplete="off">
-          <input type="text" id="batchState" placeholder="Set state…" autocomplete="off"
-                 title="Two letter code in the US, the country name everywhere else. CO for Denver, Portugal for Lisbon.">
-          <button class="btn" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
-          <span class="bar-sep" aria-hidden="true"></span>
+          <!-- FILL LOOKS UP WHAT IS MISSING on the ticked rows. Left of Delete
+               because that is the order of consequence: the one that mends
+               before the one that destroys. -->
+          <button class="btn" id="batchFillBtn" type="button" aria-disabled="true"
+                  title="Look up the blank fields on the ticked waypoints.">Fix</button>
+          <!-- OUTSOURCE FIX IS THE SAME ERRAND, HANDED TO SOMEBODY ELSE. Fix
+               looks the blanks up here, one request a second, from a geocoder
+               and an encyclopedia; Outsource Fix writes the same job out as a
+               prompt for an AI with a browser, which can read a page we
+               cannot. Between the two because it is the second thing to try,
+               and before Delete because that is the order of consequence. -->
+          <button class="btn" id="batchPromptBtn" type="button" aria-disabled="true"
+                  title="Write a prompt for an AI to fill the blanks on the ticked waypoints, and hand back the SQL.">Outsource fix</button>
           <button class="btn warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
         </span>
       </div>
@@ -356,6 +421,45 @@
   <!-- THE EDITOR. One waypoint at a time, in a dialog holding a working copy:
        Save writes it, Close discards it. That is what a dialog buys over a
        card page, which needed a dirty set, a Save all and an edit lock. -->
+  <!-- OUTSOURCE FIX. The ADD prompt asks for NEW waypoints and hands back an
+       `insert`; this one takes the ticked ones and hands back an `update`. Two
+       different jobs, and they share their rules rather than each carrying a
+       copy. Built part for part on the dialog below it: when either changes,
+       change both. -->
+  <div class="dlg" id="fixDlg" role="dialog" aria-modal="true" aria-labelledby="fixTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <span class="dlg-title" id="fixTitle">Outsource the fix</span>
+      </div>
+      <div class="dlg-body">
+        <p class="ai-howto">
+          The waypoints you ticked, and what each one is missing.
+          Edit the prompt if you like, then copy it into an AI that can browse.
+          Paste what it hands back into the website's database (Supabase).
+          It updates only the blank fields on those waypoints and touches nothing else.
+          If the SQL will not run, or the waypoints come back wrong, mail
+          <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
+        </p>
+
+        <textarea id="fixPrompt" class="ai-sheet" spellcheck="false" aria-label="The prompt"></textarea>
+        <p class="dlg-msg" id="fixMsg"></p>
+      </div>
+      <div class="dlg-foot">
+        <fieldset class="ai-doors">
+          <legend class="ai-options-label">Copy prompt to clipboard &amp; open</legend>
+          <a class="btn" data-fix-door href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+          <a class="btn" data-fix-door href="https://grok.com/" target="_blank" rel="noopener noreferrer">Grok</a>
+          <a class="btn" data-fix-door href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
+        </fieldset>
+        <span class="spacer"></span>
+        <button class="btn" id="fixCloseBtn" type="button">Close</button>
+        <a class="btn primary" id="fixSqlBtn"
+           href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
+           target="_blank" rel="noopener noreferrer">Insert results</a>
+      </div>
+    </div>
+  </div>
+
   <div class="dlg" id="aiDlg" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
     <div class="dlg-panel dlg-panel--wide">
       <div class="dlg-head">
@@ -366,7 +470,7 @@
           Ten strange walking stops per run, anywhere in the world.
           Name the cities, edit the prompt if you like, then copy it into an AI that can browse.
           Paste what it hands back into the website's database (Supabase).
-          If the SQL will not run, or the places come back wrong, mail
+          If the SQL will not run, or the waypoints come back wrong, mail
           <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
         </p>
 
@@ -422,9 +526,21 @@
         <label class="field"><span>Zip</span>
           <input type="text" id="fZip" placeholder="80203" autocomplete="off">
         </label>
-        <label class="field field--wide" id="sourceField"><span>Source</span>
-          <input type="text" id="fSourceUrl" placeholder="https://en.wikipedia.org/wiki/…" autocomplete="off">
-        </label>
+        <!-- SOURCE CARRIES AN OPEN, because a url is the one field here you
+             cannot check by reading: a page that has moved, a 404 and a good
+             address all look identical in a text box. It acts on this ONE
+             value, so it sits beside the box rather than in the foot, which
+             acts on the whole waypoint.
+             IT IS THE ONLY WAY TO FOLLOW A SOURCE now that the name in the list
+             is plain text. -->
+        <div class="field field--wide" id="sourceField">
+          <label for="fSourceUrl"><span>Source</span></label>
+          <div class="field-with-action">
+            <input type="text" id="fSourceUrl" placeholder="https://en.wikipedia.org/wiki/…" autocomplete="off">
+            <a class="btn" id="fSourceOpen" target="_blank" rel="noopener noreferrer"
+               aria-disabled="true">Open</a>
+          </div>
+        </div>
         <label class="field" id="latField"><span>Latitude</span>
           <input type="text" id="fLat" placeholder="39.7392" autocomplete="off">
         </label>
@@ -479,7 +595,8 @@
     const cols = { country: false, source_url: false, latlon: false };
 
     const state = { authed: false, rows: [], q: '', place: 'any', editing: null,
-                    reviewOnly: false, loaded: false };
+                    reviewOnly: false,
+      checking: false, pinned: '', filling: false, loaded: false };
 
     /* ---- plumbing -------------------------------------------------------- */
 
@@ -500,6 +617,11 @@
     }
 
     let statusTimer = 0;
+    /* ONE PLURALISER. `1 issues found` is what a hand-written plural gives
+       the first time it meets a one, and this room counts things in three
+       places now. */
+    function plural(n, one, many) { return n === 1 ? one : many; }
+
     function setStatus(text, kind) {
       const node = el('pageStatus');
       if (!node) return;
@@ -524,6 +646,28 @@
       if (/country/.test(detail) && /column/.test(detail)) {
         return 'This database has no waypoints.country yet. Run ' +
                'mc/supabase/migrations/2026082901_waypoints_country.sql in the Supabase SQL editor.';
+      }
+
+      /* A FOREIGN KEY REFUSAL NAMES THE TABLE HOLDING THE WAYPOINT, which is
+         the one thing a person can act on. It reached the room raw once --
+         `violates foreign key constraint stops_retired_waypoint_id_fkey` --
+         which is a statement about our schema, in our schema's words, in front
+         of somebody who wanted to delete a row. Every key into `waypoints`
+         cascades or sets null since 2026083116, so this should now be
+         unreachable; it says something useful if a new one ever blocks. */
+      /* TWO `on table` CLAUSES AND THE FIRST IS THE WRONG ONE: it names the
+         table being deleted FROM, which whoever pressed Delete already knows.
+         The useful one is the table still holding a reference, which comes
+         after the constraint -- so the match is anchored there rather than
+         taking the first, which reported `in waypoints` and said nothing. */
+      const fk = detail.match(/constraint "[a-z_]+" on table "([a-z_]+)"/);
+      if (/foreign key constraint/.test(detail)) {
+        return 'Something else still points at that waypoint'
+          + (fk ? ', in ' + fk[1] : '')
+          + '. Every table that references a waypoint is meant to give it up when '
+          + 'the waypoint goes, so this is a missing ON DELETE rule rather than '
+          + 'anything you have done: see mc/supabase/migrations/'
+          + '2026083116_a_retired_table_may_not_block_a_delete.sql.';
       }
       return detail || ('the database answered ' + res.status);
     }
@@ -576,53 +720,168 @@
       return true;
     }
 
-    // ---- WHAT COUNTS AS AN ISSUE ----------------------------------------
+    // ---- WHAT COUNTS AS A GAP -------------------------------------------
     //
-    // ONE RULE TO BEGIN WITH, and the list is meant to grow. Each carries the
-    // sentence a person acts on rather than a category: the Events room learned
-    // that a finding explaining the product is a paragraph to read before you
-    // can do anything, and a call to action is not.
+    // ONE LIST, TWO RENDERINGS: a PILL that names the gap, and a MESSAGE that
+    // says what to do about it. They were two lists and they had already
+    // drifted -- `missingBits` watched `city` and the checks did not, so a row
+    // with no city wore a pill and was told nothing, while a row with no point
+    // was told something and wore no pill. **Every gap now has both, and they
+    // cannot disagree because they come from the same row of this table.**
     //
-    // NOTHING IS STORED. `public.waypoints` has no `issues` column -- that
-    // flag is the Events table's -- so this is computed over the rows in
-    // memory on every render. What that costs, plainly: a finding cannot be
-    // found from anywhere but this room, and there is no record that anybody
-    // looked. Every rule here is derivable from the row itself, so nothing is
-    // lost by recomputing it; the day one is not, it needs a column.
+    // THE PILL IS THE LABEL AND THE MESSAGE IS THE INSTRUCTION. That is why
+    // both are drawn rather than one: a pill is scanned down a list of five
+    // hundred, and a message is read once you have found the row. `point` used
+    // to be message-only for exactly this reason and it was the odd one out.
+    //
+    // EACH `say` IS A CALL TO ACTION, never a category and never a paragraph
+    // about the product: the Events room learned that a finding explaining what
+    // a waypoint is for is something to read before you can do anything.
+    //
+    // NOTHING IS STORED. `public.waypoints` has no `issues` column -- that flag
+    // is the Events table's -- so this is computed over the rows in memory on
+    // every render. What that costs, plainly: a finding cannot be found from
+    // anywhere but this room, and there is no record that anybody looked. Every
+    // rule is derivable from the row itself, so nothing is lost by recomputing
+    // it; the day one is not, it needs a column.
+    /* THE PILL IS THE FIELD, AND THE RED IS WHAT SAYS IT IS MISSING.
+       They read `no coordinates`, `no address`, which spends the first word of
+       every pill on a word that is the same on all of them -- and says in ink
+       what the pen is already saying in colour. **A pill only ever appears on a
+       gap**, so there is nothing for `no` to distinguish it from. `COORDINATES`
+       in red is a missing coordinate.
+         IT IS THE FORM'S OWN LABEL, so the pill is the thing you go and fill
+       in: Address, City, Country, Description, Source. `coordinates` is the
+       honest collective for the two boxes the form calls Latitude and
+       Longitude.
+
+       EACH `say` NAMES THE THING, THEN ITS STATE: `Coordinates missing.`
+         THE NOUN COMES FIRST BECAUSE THE NOUN IS WHAT YOU ARE SCANNING FOR.
+       They opened `Add a...`, which puts the same word at the front of every
+       line on a row that has four of them, so the part that differs was the
+       part you had to read past the identical part to reach.
+         AND THE NOUN IS THE FIELD, SPELLED OUT. `Source web page` says in
+       itself what a trailing clause used to have to explain -- that it means
+       the page which says something about the waypoint, not where we found the
+       row -- so naming the thing properly retired the sentence after it.
+         A SECOND CLAUSE EARNS ITS PLACE ONLY WHEN IT CHANGES WHAT YOU TYPE,
+       and exactly one of the six does: a description is READ ALOUD, so knowing
+       that changes the sentence you write. The rest were explaining waypoints
+       in general to somebody already looking at one -- the fault the Events
+       room recorded, where a finding that teaches the product is a paragraph
+       to read before you can do anything.
+         AND NONE OF THEM MENTIONS FILL. It was on two rules word for word, so
+       a row missing both read the same instruction twice; it was true of
+       four, so the two that named it were arbitrary; and FILL is sitting in
+       the batch bar with a count on it while the rows are already ticked. */
     const CHECK_RULES = [
       {
         key: 'no-point',
+        tag: 'coordinates',
         // The row cannot be drawn on the map, cannot be measured against
         // another, and cannot be walked to. It is the one gap that stops a
-        // waypoint being usable at all.
+        // waypoint being usable at all, so it leads.
         test: (w) => cols.latlon && !hasPoint(w),
-        say: 'Add coordinates. Open it and press Fill, or type them in.'
+        fill: 'point',
+        say: 'Coordinates missing.'
+      },
+      {
+        key: 'no-address',
+        tag: 'address',
+        test: (w) => !clean(w.address),
+        fill: 'address',
+        // An address is also what Fill geocodes FROM, so a row without one is
+        // harder to locate as well as harder to reach.
+        say: 'Street address missing.'
+      },
+      {
+        /* A WAYPOINT MAY HAVE NO STATE AND MUST ALWAYS HAVE A COUNTRY.
+           Nine rows genuinely have no subdivision -- Lisbon is not in a state
+           -- so `state` is not a gap and is not flagged. Every waypoint on earth
+           is in a country, so that one is.
+             IT IS NOT IN THE FILL LIST. A country is derivable from the state
+           for a coded row, and for the rest it is a fact about the waypoint
+           rather than a lookup, which is the line Fill already draws at name
+           and city. 2026083115 filled every existing row from what it already
+           held; a new row that arrives without one is a writer's mistake and
+           this is what says so.
+             DRAWN ONLY WHERE THE COLUMN EXISTS, like the point and the source:
+           against a database that has not run 2026082901 the field is hidden,
+           and a pill for a box nobody can see is a fault nobody can fix. */
+        key: 'no-country',
+        tag: 'country',
+        test: (w) => cols.country && !clean(w.country),
+        say: 'Country missing.'
+      },
+      {
+        key: 'no-city',
+        tag: 'city',
+        test: (w) => !clean(w.city),
+        // The city is how a waypoint is grouped, filtered and found here, and
+        // it is half of what Fill searches on. A row without one is reachable
+        // by name alone.
+        say: 'City missing.'
+      },
+      {
+        key: 'no-description',
+        tag: 'description',
+        test: (w) => !clean(w.description),
+        fill: 'description',
+        // The description is read aloud at the stop, which is the one thing on
+        // this row a player ever meets.
+        say: 'Description missing. It is read aloud at the stop.'
+      },
+      {
+        key: 'no-source',
+        tag: 'source',
+        test: (w) => cols.source_url && !clean(w.source_url),
+        fill: 'source',
+        // Without it there is no way to check the claim that this place is
+        // worth standing in front of.
+        say: 'Source web page missing.'
+      },
+      {
+        // THE ZIP IS THE ONE ROW OF THIS TABLE THAT FILL CAN MEND AND THE
+        // ROOM DOES NOT COMPLAIN ABOUT. It carries no `tag` and no `say`, so
+        // it draws no pill and no message; it is here because Fill reads this
+        // same table, and a second list of what Fill can look up is exactly
+        // the drift that had `blanksOf` watching a field no rule did.
+        //   WHETHER IT SHOULD BE FLAGGED IS AN EDITORIAL CALL, not a repair:
+        // 11 rows have no zip, and pilling them says they are unfinished when
+        // a street and a city already place them. Give it a `tag` and a `say`
+        // the day that changes.
+        key: 'no-zip',
+        test: (w) => !clean(w.zip),
+        fill: 'zip'
       }
     ];
 
-    function reviewReasons(w) {
+    /* THE GAPS A ROW HAS, as rule objects. Both the pills and the messages are
+       built from this, so a row can never wear a pill nothing explains or carry
+       a message nothing labels. */
+    /* WHAT THE ROOM CHECKS, FOR A HARNESS TO READ. Exported rather than
+       re-listed in the check, so the assertion that the prompt names every
+       rule is comparing against the rules themselves. */
+    window.__rules = CHECK_RULES.filter((r) => r.tag).map((r) => r.say);
+
+    function gapsOf(w) {
       const out = [];
       CHECK_RULES.forEach((rule) => {
-        try { if (rule.test(w)) out.push(rule.say); }
         // A BUG IN ONE RULE MUST NOT TELL SOMEBODY THEIR TABLE IS FINE.
+        // A RULE WITH NO `tag` IS FILL-ONLY AND IS NOT A FINDING.
+        if (!rule.tag) return;
+        try { if (rule.test(w)) out.push(rule); }
         catch (err) { console.error('check rule ' + rule.key + ' threw', err); }
       });
       return out;
     }
 
-    function isInReview(w) { return reviewReasons(w).length > 0; }
+    function reviewReasons(w) { return gapsOf(w).map((r) => r.say); }
+
+    function isInReview(w) { return gapsOf(w).length > 0; }
 
     function issueCount() { return state.rows.filter(isInReview).length; }
 
-    function missingBits(w) {
-      const out = [];
-      if (!clean(w.address)) out.push('address');
-      if (!clean(w.city)) out.push('city');
-      if (cols.latlon && !hasPoint(w)) out.push('point');
-      if (!clean(w.description)) out.push('description');
-      if (cols.source_url && !clean(w.source_url)) out.push('source');
-      return out;
-    }
 
     function placeOf(w) {
       return [clean(w.city), clean(w.state), cols.country ? clean(w.country) : '']
@@ -631,7 +890,13 @@
 
     /* ---- filtering ------------------------------------------------------- */
 
-    function matches(w) {
+    /* EVERY FILTER EXCEPT THE PIN. The map is drawn from this, and that is the
+       whole reason it is a separate function: fed the fully filtered list, the
+       map would narrow to the one pin somebody just pressed and there would be
+       NO WAY TO PICK A DIFFERENT WAYPOINT without clearing first -- and the
+       refit would zoom the viewport onto it. Drawn from this, the pins stay put
+       and the press only moves the highlight. */
+    function matchesExceptPin(w) {
       if (state.reviewOnly && !isInReview(w)) return false;
       if (state.place !== 'any' && placeOf(w) !== state.place) return false;
       if (!state.q) return true;
@@ -640,9 +905,33 @@
       return hay.includes(state.q);
     }
 
-    function visible() { return state.rows.filter(matches); }
+    /* PICKING ONE WAYPOINT CLEARS EVERY OTHER NARROWING FIRST, whether it is
+       picked on the map or out of the Find box. Both mean "this one", and a
+       leftover place filter or a half-typed search could hide the very
+       waypoint just chosen -- a press that appears to do nothing, which is the
+       worst answer a control can give.
+       ONE FUNCTION, so the two doors cannot drift. */
+    function clearOtherFilters() {
+      state.place = 'any';
+      state.reviewOnly = false;
+      const sel = el('placeFilter');
+      if (sel) sel.value = 'any';
+    }
 
-    function anyFilterOn() { return !!(state.q || state.place !== 'any' || state.reviewOnly); }
+    /* A PIN IS THE NARROWEST FILTER -- pressing one means "this one" -- so it is
+       applied last and outranks anything else still set. */
+    function matches(w) {
+      if (state.pinned && String(w.wpid) !== state.pinned) return false;
+      return matchesExceptPin(w);
+    }
+
+    function visible() { return state.rows.filter(matches); }
+    function visibleForMap() { return state.rows.filter(matchesExceptPin); }
+
+    /* THE PIN COUNTS AS A FILTER, so Clear lights up for it and clears it. A
+       narrowing with no visible way out is the thing this room has removed
+       before. */
+    function anyFilterOn() { return !!(state.q || state.place !== 'any' || state.reviewOnly || state.pinned); }
 
     /* ---- the place picker ------------------------------------------------ */
 
@@ -650,6 +939,12 @@
     // public.cities on 2026-08-29: a waypoint carries its own place, so the
     // only places worth offering are the ones some waypoint actually claims.
     // An empty result is not a state this control can produce.
+    /* THE NAME DROPDOWN WENT ON 2026-08-31 with the datalist it filled, per the
+       standing rule that a control and the code that fills it go in one pass.
+       `renderNameList` built one option per distinct name, guarded on a
+       signature so a rebuild could not shut the list under the pointer -- which
+       is the guard the PLACE picker still needs and still keeps. */
+
     let placeSig = '';
     function renderPlaceFilter() {
       const counts = new Map();
@@ -713,7 +1008,8 @@
       all.checked = total > 0 && n === total;
       all.indeterminate = n > 0 && n < total;
 
-      [['batchApplyBtn', 'Apply'], ['batchDeleteBtn', 'Delete']].forEach(([id, word]) => {
+      [['batchFillBtn', 'Fix'], ['batchPromptBtn', 'Outsource fix'],
+       ['batchDeleteBtn', 'Delete']].forEach(([id, word]) => {
         const btn = el(id);
         const off = n === 0;
         btn.setAttribute('aria-disabled', off ? 'true' : 'false');
@@ -724,26 +1020,24 @@
       });
     }
 
-    // `?` UNTIL THE TABLE IS IN, NEVER `0`. Everything is loaded before the
-    // first render, so a zero on the way would be a figure that is wrong rather
-    // than a figure that is not known yet.
-    function updateTitle() {
-      const t = el('roomTitle');
-      if (!t) return;
-      const n = state.rows.length;
-      t.textContent = (state.loaded ? String(n) : '?')
-        + (state.loaded && n === 1 ? ' WAYPOINT' : ' WAYPOINTS');
-    }
+    /* `updateTitle` IS GONE (2026-08-31). The title is the room's NAME now and
+       is not painted at all; the count it carried moved to the list panel --
+       which `render()` was already writing one line later, so keeping both would
+       have been two writers for one element with the second silently winning. */
 
     function render() {
-      updateTitle();
       prunePicked();
       renderPlaceFilter();
       paintCheckBtn();
       const rows = visible();
-      el('listCount').textContent = rows.length === state.rows.length
-        ? state.rows.length + ' waypoints'
-        : rows.length + ' of ' + state.rows.length + ' waypoints';
+      /* THE BLURB CARRIES THE TOTAL. This says only what the blurb cannot --
+         how much of it a filter has left -- and says nothing when nothing is
+         filtered, or the same figure would be on screen twice. */
+      const bc = el('blurbCount');
+      if (bc) bc.textContent = state.loaded ? String(state.rows.length) : '?';
+      el('listCount').textContent = (!state.loaded || rows.length === state.rows.length)
+        ? ''
+        : rows.length + ' of ' + state.rows.length + ' shown';
 
       const clearBtn = el('clearBtn');
       clearBtn.setAttribute('aria-disabled', anyFilterOn() ? 'false' : 'true');
@@ -766,7 +1060,7 @@
         return;
       }
       rows.forEach((w) => list.appendChild(rowNode(w)));
-      renderMap(rows);
+      renderMap(visibleForMap());
       paintBatch();
     }
 
@@ -782,9 +1076,10 @@
       row.className = 'wp';
       row.dataset.wpid = String(w.wpid);
       row.addEventListener('click', (e) => {
-        // The source is a real link out; clicking it must not also open the
-        // editor underneath. Nor must the tick, which is a control of its own.
-        if (e.target.closest('a')) return;
+        /* THE WHOLE ROW OPENS THE EDITOR. The tick is the one exemption, being
+           a control of its own -- without it, selecting a row would open a
+           dialog over the list. The anchor guard went with the name's link:
+           there is no longer anything in a row that goes anywhere else. */
         if (e.target.closest('.wp-pick')) return;
         openEditor(w);
       });
@@ -802,30 +1097,13 @@
 
       const name = document.createElement('span');
       name.className = 'wp-name';
-      // A NAME IS A LINK TO ITS SOURCE where there is one, and plain text where
-      // there is not -- an anchor that goes nowhere invites the click. Whether
-      // we recorded a source is not a fact about the PLACE, so it must not
-      // change how the place reads in a list.
-      const src = cols.source_url ? clean(w.source_url) : '';
-      let ok = false;
-      if (src) {
-        try {
-          const u = new URL(src);
-          ok = u.protocol === 'http:' || u.protocol === 'https:';
-        } catch (e) { ok = false; }
-      }
-      if (ok) {
-        const a = document.createElement('a');
-        a.href = src;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = clean(w.name) || '(unnamed)';
-        a.title = 'Open the source: ' + src;
-        name.appendChild(a);
-      } else {
-        name.textContent = clean(w.name) || '(unnamed)';
-        name.title = src ? 'The source is not a web address.' : 'No source recorded.';
-      }
+      /* THE NAME IS PLAIN TEXT (2026-08-31). It was a link to the waypoint's
+         SOURCE, which made it the one part of the row that did NOT open the
+         editor -- so the row meant two different things depending on which
+         pixel you hit. THE WHOLE ROW OPENS THE POPUP NOW, and the source is
+         followed from the editor's own Source field, which grew an Open beside
+         it in the same pass. Nothing is stranded; it is one press further. */
+      name.textContent = clean(w.name) || '(unnamed)';
       row.appendChild(name);
 
       const where = document.createElement('span');
@@ -835,18 +1113,18 @@
 
       const tags = document.createElement('span');
       tags.className = 'wp-tags';
-      // THE `missing` TAG STAYS FOR THE GAPS NO RULE COVERS. It reports the
-      // other five -- address, city, description, source -- and drops the one
-      // the check now draws in words underneath, or the row would say the same
-      // thing twice a few pixels apart.
-      const gaps = missingBits(w).filter((g) => g !== 'point');
-      if (gaps.length) {
+      /* ONE PILL PER GAP, NAMED. It was a single `missing` pill whatever the
+         gap, so a row with no address and a row with no source read the same --
+         and the pill's own tooltip was the only place the difference was said.
+         A pill is scanned down a list of five hundred; a word it does not carry
+         is a word nobody sees. */
+      gapsOf(w).forEach((rule) => {
         const t = document.createElement('span');
         t.className = 'wp-tag wp-tag--missing';
-        t.textContent = 'missing';
-        t.title = 'No ' + gaps.join(', no ') + '.';
+        t.textContent = rule.tag;
+        t.title = rule.say;
         tags.appendChild(t);
-      }
+      });
       row.appendChild(tags);
 
       const why = reviewReasons(w);
@@ -862,6 +1140,77 @@
       return row;
     }
 
+
+    /* ---- SHARED BETWEEN THE TWO PROMPTS -----------------------------
+       The ADD prompt asks for new waypoints and hands back an `insert`; the
+       MEND prompt takes the ones on screen and hands back an `update`. Two
+       different jobs, and these two blocks are the same in both -- so they
+       are written once. A second copy drifts the first time either is
+       edited, which is the fault this repo keeps paying for. */
+    const WHERE_TO_LOOK = [
+      "WHERE TO GO LOOKING",
+      "",
+      "These four catalogues are the best hunting grounds for exactly this, and are",
+      "the ones Make My Drive Fun built its own 89,000 record catalogue from:",
+      "",
+      "  atlasobscura.com    curated oddities, worldwide, with coordinates",
+      "  theclio.com         historical and cultural sites, mostly US, with coordinates",
+      "  roadsideamerica.com US roadside oddities",
+      "  sillyamerica.com    US roadside attractions",
+      "",
+      "Wikipedia's own list articles are the other rich seam, because they carry an",
+      "address AND coordinates per row: \"List of public art in <city>\", \"National",
+      "Register of Historic Places listings in <county> County\", \"Category:Tourist",
+      "attractions in <city>\", and the city article's own Landmarks section.",
+      "",
+      "BUT THOSE ARE WHERE YOU FIND IT, NOT WHAT YOU CITE. A curated list is one",
+      "person's say so and can vanish. `source_url` must be the page that ACTUALLY",
+      "SAYS SOMETHING ABOUT THE WAYPOINT and will still be there in five years: its",
+      "English Wikipedia article, its own official page, the museum's own site, the",
+      "council's listing. If the only thing you can find is a roundup entry, use it,",
+      "but prefer an article.",
+      "",
+      "Do not cite a map or a geocoder. openstreetmap.org and Google Maps are the",
+      "things that FOUND the waypoint, not things that say anything about it.",
+      "",
+    ];
+
+    const HARD_LESSONS = [
+      "AND FOUR THINGS WE HAVE LEARNED THE HARD WAY",
+      "",
+      "1. THE ADDRESS IS A STREET LINE, NOT A POSTAL ADDRESS. Across the rows we",
+      "   already hold it is `301 Massachusetts Ave`, `233 S Wacker Dr`, `57",
+      "   Forsyth St`. The city, the state and the postcode have their own columns",
+      "   and repeating them in the street makes your rows look unlike every row a",
+      "   human has typed.",
+      "",
+      "2. A CORNER OR A BLOCK IS A REAL ADDRESS, and better than a blank. Plenty",
+      "   of markers, statues and plaques have no door and never will. Write what",
+      "   somebody standing there would say:",
+      "     E Colfax Ave and Broadway",
+      "     Larimer St between 14th St and 15th St",
+      "   We can turn either of those into a point. What we cannot use is a",
+      "   guessed street number on a building the thing is merely near.",
+      "",
+      "3. THE SOURCE MUST BE ABOUT THE WAYPOINT, not about something it is named",
+      "   after, and not about an earlier thing of the same name. Two real ones we",
+      "   were caught by:",
+      "     `Nathan Hale Statue`     the article `Nathan Hale` is the man, not the",
+      "                              monument. `Statue of Nathan Hale (New York",
+      "                              City)` is the right one.",
+      "     `Pride of Baltimore II`  the article `Pride of Baltimore` is the FIRST",
+      "                              ship of that name, lost at sea in 1986, and",
+      "                              its coordinates are in the mid-Atlantic.",
+      "   A title may say MORE than the name. It may never say less.",
+      "",
+      "4. CHECK THE COORDINATE IS IN THE CITY YOU NAMED. A search for a marker in",
+      "   Portland, Oregon will happily answer with one in Portland, Maine, and a",
+      "   wrong point looks exactly like a right one: it draws on the map, it",
+      "   passes every eye, and nobody finds out until a team is standing in the",
+      "   wrong state. Read the coordinate back against the city before you write",
+      "   it down. If the two disagree, drop the row.",
+      "",
+    ];
 
     const AI_PROMPT_LINES = [
       "You are finding WAYPOINTS for The Game Bureau.",
@@ -895,30 +1244,8 @@
       "explain it to somebody, it qualifies. If it is the single most famous thing in",
       "the city, it probably does not.",
       "",
-      "WHERE TO GO LOOKING",
-      "",
-      "These four catalogues are the best hunting grounds for exactly this, and are",
-      "the ones Make My Drive Fun built its own 89,000 record catalogue from:",
-      "",
-      "  atlasobscura.com    curated oddities, worldwide, with coordinates",
-      "  theclio.com         historical and cultural sites, mostly US, with coordinates",
-      "  roadsideamerica.com US roadside oddities",
-      "  sillyamerica.com    US roadside attractions",
-      "",
-      "Wikipedia's own list articles are the other rich seam, because they carry an",
-      "address AND coordinates per row: \"List of public art in <city>\", \"National",
-      "Register of Historic Places listings in <county> County\", \"Category:Tourist",
-      "attractions in <city>\", and the city article's own Landmarks section.",
-      "",
-      "BUT THOSE ARE WHERE YOU FIND IT, NOT WHAT YOU CITE. A curated list is one",
-      "person's say so and can vanish. `source_url` must be the page that ACTUALLY",
-      "SAYS SOMETHING ABOUT THE PLACE and will still be there in five years: its",
-      "English Wikipedia article, its own official page, the museum's own site, the",
-      "council's listing. If the only thing you can find is a roundup entry, use it,",
-      "but prefer an article.",
-      "",
-      "Do not cite a map or a geocoder. openstreetmap.org and Google Maps are the",
-      "things that FOUND the place, not things that say anything about it.",
+
+      "__LOOKING__",
       "",
       "COORDINATES ARE NOT OPTIONAL",
       "",
@@ -930,7 +1257,7 @@
       "  Take them from the article's own coordinates or the catalogue entry.",
       "  Point at the THING, not at the centre of the town it is in. A row sitting on",
       "  the city centroid is worse than a row with nothing, because it looks located.",
-      "  If you cannot find a real point for a place, drop that place and find another.",
+      "  If you cannot find a real point for a waypoint, drop it and find another.",
       "",
       "NEVER INVENT AN ADDRESS FROM COORDINATES. A point is not an address, and",
       "reverse geocoding one produces a plausible, wrong, uncheckable street line.",
@@ -943,13 +1270,13 @@
       "",
       "```sql",
       "insert into public.waypoints",
-      "  (name, description, address, city, state, zip, lat, lon, source_url, ai_model)",
+      "  (name, description, address, city, state, country, zip, lat, lon, source_url, ai_model)",
       "values",
       "  ('The Mustang', 'A thirty two foot blue horse with glowing red eyes that killed the man who made it.',",
-      "   '8500 Pena Blvd', 'Denver', 'CO', '80249', 39.849300, -104.673800,",
+      "   '8500 Pena Blvd', 'Denver', 'CO', 'USA', '80249', 39.849300, -104.673800,",
       "   'https://en.wikipedia.org/wiki/Blue_Mustang', 'Anthropic Claude Opus 5'),",
       "  ('Casa dos Bicos', 'A sixteenth century house faced with more than a thousand stone spikes.',",
-      "   'R. dos Bacalhoeiros 10', 'Lisbon', 'Portugal', '1100-135', 38.709700, -9.132700,",
+      "   'R. dos Bacalhoeiros 10', 'Lisbon', null, 'Portugal', '1100-135', 38.709700, -9.132700,",
       "   'https://en.wikipedia.org/wiki/Casa_dos_Bicos', 'Anthropic Claude Opus 5');",
       "```",
       "",
@@ -957,22 +1284,46 @@
       "",
       "  DO NOT SEND wpid. It is assigned by the database. A value you invent will",
       "               collide with a real row.",
-      "  name         What the place is called. Not a sentence, not a description.",
+      "  name         What the waypoint is called. Not a sentence, not a description.",
       "  description  One or two sentences, READ ALOUD AT THE STOP, so write it to be",
       "               spoken. Say the strange thing plainly. No marketing voice.",
       "  address      The street address, or null. Never derived from coordinates.",
       "  city         The city on its own: Denver, Lisbon, Osaka.",
-      "  state        The two letter state code in the US, and THE COUNTRY NAME",
-      "               everywhere else: CO for Denver, Portugal for Lisbon. That is how",
-      "               the table already holds it and how the room reads a place back.",
+      "  state        The subdivision, where the waypoint has one, as its own short code:",
+      "               CO for Denver, ON for Toronto, NSW for Sydney. NULL where there",
+      "               is none. Lisbon is not in a state, so Lisbon gets null.",
+      "  country      ALWAYS. Every waypoint is in a country, so this is the one",
+      "               geographic field that is never null. USA for the United States,",
+      "               and the ordinary English name everywhere else: Canada, Portugal,",
+      "               Japan. One name per country, never two -- do not write England",
+      "               on one row and United Kingdom on the next.",
+      "               DO NOT PUT THE COUNTRY IN state. It was kept there until this",
+      "               column existed, and nine rows still had Portugal and Slovakia",
+      "               sitting in the state box: a subdivision and a country are two",
+      "               facts and the room now reads them separately.",
       "  zip          The postal code, looked up from the street address, or null.",
       "  lat, lon     Decimal degrees, six places. Both or neither, and never 0, 0.",
-      "  source_url   The page that says something about the place. It must resolve.",
+      "  source_url   The page that says something about the waypoint. It must resolve.",
       "  ai_model     The make and model of the AI writing this, exactly as you would",
       "               name yourself: 'Anthropic Claude Opus 5', 'OpenAI GPT-5',",
       "               'Google Gemini 3 Pro', 'xAI Grok 4'. The same value on every",
       "               row. Not the family, not 'AI'. If you do not know which model",
       "               you are, leave it out rather than guessing.",
+      "",
+      "BEFORE YOU HAND IT BACK, RUN IT PAST OUR OWN CHECKS",
+      "",
+      "Our room checks every row the moment it lands and draws a red flag on",
+      "anything missing. These are those checks, so you can mend a row while you",
+      "still have the article open rather than leaving somebody to chase it:",
+      "",
+      "__CHECKS__",
+      "",
+      "A row that trips one of these is not wrong, it is unfinished, and it sits",
+      "in the room until a human finishes it. Ten finished rows beat fifteen that",
+      "each need somebody to go back to the article you were just reading.",
+      "",
+
+      "__LESSONS__",
       "",
       "HOUSE STYLE",
       "",
@@ -997,6 +1348,159 @@
         .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at);
     }
 
+    /* ---- OUTSOURCE FIX: THE SAME ERRAND, WRITTEN OUT FOR SOMEBODY ELSE ---
+       FIX looks the blanks up here: a geocoder and an encyclopedia, one request
+       a second. It is exact where it works and it cannot read a page. Measured
+       on the live rows, most of what is left after it are markers, statues and
+       monuments that NO GEOCODER HOLDS -- and an AI with a browser can read the
+       historical society page that does.
+         SO THIS IS THE SECOND THING TO TRY, not a different feature. It takes
+       the rows already on screen, says what each one is missing, and asks for
+       `update` statements back.
+
+       IT SHARES THE ADD PROMPT RULES RATHER THAN COPYING THEM. `WHERE_TO_LOOK`
+       and `HARD_LESSONS` are written once and spliced into both. What differs
+       is the job and the SQL, which is all that should differ. */
+    const FIX_PROMPT_LINES = [
+      "You are MENDING waypoints for The Game Bureau.",
+      "",
+      "A waypoint is a real world location where a game's challenge takes place.",
+      "These ones are already on file and each is missing something. I want the",
+      "missing fields found, and the SQL to write them back.",
+      "",
+      "THESE ARE NOT NEW WAYPOINTS. Do not judge whether they belong, do not",
+      "suggest replacements, and do not add any. Somebody already decided each of",
+      "these is worth standing in front of. Your job is only what is blank.",
+      "",
+      "THE WAYPOINTS, AND WHAT EACH ONE NEEDS",
+      "",
+      "__ROWS__",
+      "",
+      "__LOOKING__",
+      "",
+      "WHAT TO HAND BACK",
+      "",
+      "One SQL block and nothing else. No prose around it, no explanation. One",
+      "UPDATE per waypoint, keyed on its wpid:",
+      "",
+      "```sql",
+      "update public.waypoints set",
+      "  address = '1558 Camp St', zip = '70130',",
+      "  source_url = 'https://en.wikipedia.org/wiki/Example'",
+      " where wpid = 134;",
+      "",
+      "update public.waypoints set",
+      "  lat = 39.739200, lon = -104.984700,",
+      "  description = 'A thirty two foot blue horse with glowing red eyes.'",
+      " where wpid = 401;",
+      "```",
+      "",
+      "  SET ONLY THE FIELDS I ASKED FOR ON THAT ROW. Everything else on it was",
+      "               typed by a person or checked by one, and an UPDATE that",
+      "               names a column you were not asked about overwrites their",
+      "               work. If a row needs three things and you found two, set",
+      "               those two.",
+      "  wpid         Copy it from the list above, exactly. It is how the row is",
+      "               found and it is permanent. Never invent one, never change",
+      "               one, and never use the name instead.",
+      "  A ROW YOU CANNOT MEND gets no UPDATE at all. Say so underneath instead.",
+      "               A wrong value is worse than a blank one: a blank is visible",
+      "               in our room and a wrong one looks finished.",
+      "",
+      "THE FIELDS, and the rules that are not obvious",
+      "",
+      "  address      The street line, and see the address rules below.",
+      "  city         The city on its own: Denver, Lisbon, Osaka.",
+      "  state        The subdivision, where the waypoint has one, as its own",
+      "               short code: CO, ON, NSW. NULL where there is none.",
+      "  country      USA, or the ordinary English name: Canada, Portugal, Japan.",
+      "  zip          The postal code, looked up from the street address.",
+      "  lat, lon     Decimal degrees, six places. Both or neither, never 0, 0.",
+      "  description  One or two sentences, READ ALOUD AT THE STOP, so write it to",
+      "               be spoken. Say the strange thing plainly. No marketing voice.",
+      "  source_url   The page that says something about the waypoint. It must",
+      "               resolve.",
+      "",
+      "__LESSONS__",
+      "",
+      "HOUSE STYLE",
+      "",
+      "  Escape an apostrophe in SQL by doubling it: 'Macy''s'.",
+      "  NO EM DASHES anywhere in what you return, and not the &mdash; entity",
+      "  either. Use a comma, a colon, a semicolon, a full stop or brackets; one",
+      "  always fits. An em dash is the clearest tell that a machine wrote the",
+      "  line, and these descriptions are read aloud at the stop. This prompt uses",
+      "  none either.",
+      "  Five mended properly beat twelve with three invented coordinates in them.",
+      "",
+      "Then, under the SQL block, print this line so I can run it:",
+      "https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true",
+      "",
+      "And after that, in two or three lines: which pages you read, and any",
+      "waypoint you could not mend, saying what you could not find and why.",
+    ];
+
+    /* THE ROWS ARE WRITTEN OUT WITH WHAT THEY HAVE AND WHAT THEY NEED, and the
+       needs come from `gapsOf` -- the same table the pills are drawn from. So
+       the prompt asks for exactly what the room would go on flagging, and
+       cannot ask for something no rule wants.
+         NOT `fillableGaps`, WHICH IS WHAT FIX READS. That list is narrower on
+       purpose: a country is a fact about the waypoint rather than something a
+       geocoder returns. An AI reading the page can supply one, so a row whose
+       only gap is a country would otherwise be a row neither button mends. */
+    function fixRowLines(w) {
+      const has = [];
+      const line = (k, v) => { if (clean(v)) has.push("    " + k + ": " + clean(v)); };
+      line("name", w.name);
+      line("address", w.address);
+      line("city", w.city);
+      line("state", w.state);
+      if (cols.country) line("country", w.country);
+      line("zip", w.zip);
+      if (hasPoint(w)) has.push("    lat, lon: " + w.lat + ", " + w.lon);
+      line("description", w.description);
+      if (cols.source_url) line("source_url", w.source_url);
+
+      /* NAMED IN THE COLUMNS THE SQL WILL SET, not in the room own words. The
+         pills say `coordinates` and the UPDATE has to say `lat` and `lon`. */
+      /* NAMED IN THE COLUMNS THE SQL WILL SET. The pill says `coordinates`
+         and an UPDATE has to say `lat` and `lon`. Keyed on the rule `key`,
+         so a rule added to the table appears here or fails this map loudly
+         rather than being silently left out of the prompt. */
+      const COLUMN = {
+        "no-point": "lat and lon", "no-address": "address", "no-city": "city",
+        "no-country": "country", "no-description": "description",
+        "no-source": "source_url", "no-zip": "zip"
+      };
+      const needs = gapsOf(w).map((r) => COLUMN[r.key] || r.key);
+
+      return ["  wpid " + w.wpid + " -- needs " + (needs.join(", ") || "nothing")]
+        .concat(has).join(String.fromCharCode(10));
+    }
+
+    function buildFixPrompt(rows) {
+      const body = rows.map(fixRowLines).join(String.fromCharCode(10) + String.fromCharCode(10));
+      return FIX_PROMPT_LINES.join(String.fromCharCode(10))
+        .split("__ROWS__").join(body)
+        .split("__LOOKING__").join(WHERE_TO_LOOK.join(String.fromCharCode(10)))
+        .split("__LESSONS__").join(HARD_LESSONS.join(String.fromCharCode(10)));
+    }
+
+    function openFixPrompt() {
+      const ids = pickedIds();
+      if (!ids.length) { setStatus("Tick some waypoints first.", "error"); return; }
+      /* ONLY THE ONES WITH A GAP. A complete row in the prompt is a row the AI
+         is invited to change, and there is nothing on it to change. */
+      const rows = state.rows.filter((r) =>
+        ids.indexOf(String(r.wpid)) !== -1 && gapsOf(r).length);
+      if (!rows.length) {
+        setStatus("Nothing to outsource: nothing is missing on the ticked waypoints.", "success");
+        return;
+      }
+      el("fixPrompt").value = buildFixPrompt(rows);
+      el("fixMsg").textContent = "";
+      el("fixDlg").classList.add("is-open");
+    }
     function buildAiPrompt() {
       const cities = aiCities();
       // NAMING NO CITY IS A REAL ANSWER, and it is the default: "anywhere in the
@@ -1008,7 +1512,24 @@
             ? 'Spread across these cities, and only these: ' + cities.join(', ') + '.'
             : 'Anywhere in the world. Spread them across several cities and countries '
               + 'rather than ten in one place.');
-      return AI_PROMPT_LINES.join(String.fromCharCode(10)).split('__WHERE__').join(where);
+      /* THE CHECK LIST IS BUILT FROM `CHECK_RULES`, NEVER WRITTEN OUT AGAIN.
+         A prompt that lists our checks by hand is a second copy of them, and
+         it drifts the first time a rule is added, reworded or removed -- which
+         is the exact fault that had `blanksOf` watching a field no rule did.
+         Derived, the prompt cannot describe a check the room does not run, and
+         cannot miss one it does.
+           IT USES EACH RULE'S OWN `say`, so what the AI is told to avoid is
+         word for word what the row will say if it arrives without it. */
+      const checks = CHECK_RULES.filter((r) => r.tag)
+        .map((r) => '  ' + r.say).join(String.fromCharCode(10));
+      return AI_PROMPT_LINES.join(String.fromCharCode(10))
+        .split('__WHERE__').join(where)
+        .split('__CHECKS__').join(checks)
+        /* THE TWO SHARED BLOCKS ARE SPLICED IN HERE, the same way the city
+           line and the check list are. Written once and used by both
+           prompts: a second copy drifts the first time either is edited. */
+        .split('__LOOKING__').join(WHERE_TO_LOOK.join(String.fromCharCode(10)))
+        .split('__LESSONS__').join(HARD_LESSONS.join(String.fromCharCode(10)));
     }
 
     function paintAiPrompt() { el('aiPrompt').value = buildAiPrompt(); }
@@ -1023,6 +1544,23 @@
     function closeAiDialog() {
       el('aiDlg').classList.remove('is-open');
       el('promptBtn').focus();
+    }
+
+    function closeFixPrompt() { el("fixDlg").classList.remove("is-open"); }
+
+    /* THE COPY HAPPENS INSIDE THE CLICK, before anything is awaited: the
+       clipboard needs the gesture, and activation does not survive a wait. The
+       door is an anchor and nothing is prevented, so the browser opens the tab
+       itself -- awaiting the clipboard first is what a popup blocker refuses. */
+    function copyFixPrompt() {
+      const text = el("fixPrompt").value;
+      try {
+        navigator.clipboard.writeText(text).then(
+          () => { el("fixMsg").textContent = "Prompt copied. Paste it into the tab that just opened."; },
+          () => { el("fixMsg").textContent = "Could not reach the clipboard. Select the prompt and copy it by hand."; });
+      } catch (err) {
+        el("fixMsg").textContent = "Could not reach the clipboard. Select the prompt and copy it by hand.";
+      }
     }
 
     function copyAiPrompt() {
@@ -1090,10 +1628,46 @@
         // the one gesture with no undo and no confirmation: a nudge nobody
         // meant moved a waypoint and saved it. The coordinates are edited in
         // the form, where the value is visible before it is committed.
+        /* THE PIN THAT IS FILTERING IS MARKED, or the list narrows to one row
+           with nothing on the map saying which press did it. */
+        const on = state.pinned === String(w.wpid);
         const marker = L.marker(ll, {
-          icon: L.divIcon({ className: '', html: '<div class="wp-pin"></div>', iconSize: [14, 14] })
+          icon: L.divIcon({
+            className: '',
+            html: '<div class="wp-pin' + (on ? ' is-pinned' : '') + '"></div>',
+            iconSize: [14, 14]
+          })
         });
         marker.bindTooltip(clean(w.name) || '(unnamed)');
+        /* CLICKING A PIN FILTERS THE LIST TO THAT WAYPOINT, and clicking it
+           again puts the list back: the pin is its own way out, the same rule
+           the game cards on /games/ keep. */
+        marker.on('click', () => {
+          const id = String(w.wpid);
+          const off = state.pinned === id;
+          state.pinned = off ? '' : id;
+          if (!off) {
+            /* THE SEARCH BOX GOES TOO. It is the one narrowing that can be set
+               and forgotten, and left on it would hide the pin just pressed. */
+            clearOtherFilters();
+            state.q = '';
+            el('q').value = '';
+          }
+          render();
+          if (state.pinned) {
+            setStatus('Showing ' + (clean(w.name) || 'that waypoint')
+              + ' only. Press the pin again, or Clear, to put the list back.');
+          } else {
+            setStatus('');
+          }
+          /* THE LIST IS BROUGHT INTO VIEW, because the map is tall and the row
+             the press just produced can be below the fold. `nearest`, so a list
+             already on screen does not move. */
+          const list = el('list');
+          if (state.pinned && list && list.scrollIntoView) {
+            list.scrollIntoView({ block: 'nearest' });
+          }
+        });
         layer.addLayer(marker);
       });
       // REFIT ONLY WHEN THE SET OF POINTS CHANGES. Yanking the viewport while
@@ -1144,6 +1718,7 @@
       el('fModel').textContent = row && clean(row.ai_model) ? clean(row.ai_model) : 'a person';
       // DELETE IS HIDDEN ON A ROW THAT DOES NOT EXIST YET.
       el('deleteBtn').hidden = isNew;
+      paintSourceOpen();
       el('dlg').classList.add('is-open');
       el('fName').focus();
     }
@@ -1181,7 +1756,7 @@
     async function saveEditor() {
       const body = readForm();
       if (!body.name) {
-        el('dlgMsg').textContent = 'A waypoint needs a name. It is the only thing a place cannot be without.';
+        el('dlgMsg').textContent = 'A waypoint needs a name. It is the only thing one cannot be without.';
         return;
       }
       if (cols.latlon) {
@@ -1221,49 +1796,752 @@
 
     function inFilter(ids) { return 'in.(' + ids.join(',') + ')'; }
 
-    async function batchApply() {
-      const ids = pickedIds();
-      if (!ids.length) { setStatus('Tick some waypoints first.', 'error'); return; }
+    /* `batchApply` WENT WITH THE THREE CONTROLS THAT FED IT (2026-08-31),
+       being their only caller. WHAT IT COSTS: nothing sets a city or a state
+       across a selection any more -- that is SQL, or the editor one row at a
+       time. `inFilter` STAYS, since the delete still uses it. */
+
+    /* ---- FILL: look up what is blank ------------------------------------
+       IT FILLS BLANKS AND NOTHING ELSE. A value somebody typed always wins, so
+       running it twice changes nothing the second time and it can never
+       overwrite a correction.
+       WHAT IT MAY WRITE: address, zip, lat, lon, source_url, description --
+       the `fill` column of CHECK_RULES, which is the same table the pills are
+       drawn from, so what Fill mends and what the room complains about cannot
+       drift apart. WHAT IT MAY NOT: name, city, state. Those are identity and
+       editorial rather than lookups, the same line `tgb_fill_waypoint_gaps`
+       draws.
+
+       ONE REQUEST A SECOND TO NOMINATIM, SEQUENTIALLY, and that is its usage
+       policy rather than a tuning knob: a parallel version gets this project
+       blocked, which has happened once already. WIKIPEDIA IS A DIFFERENT HOST
+       AND IS NOT PACED WITH IT -- pacing it too spent a second per row waiting
+       on a limit that does not apply, which on a run wanting descriptions was
+       most of the wall clock. The wait is taken BEFORE a Nominatim call and
+       only when one has already been made, so a row that needs no geocoding at
+       all costs nothing. */
+    const FILL_GAP_MS = 1100;
+    let fillStop = false;
+    let lastGeoAt = 0;
+
+    /* THE GAP IS MEASURED FROM THE LAST NOMINATIM CALL, ACROSS THE WHOLE RUN.
+       A per-row counter was wrong in both directions: the first call of the
+       next row followed the last call of this one with NO gap at all, which is
+       the policy broken at every row boundary; and a flat sleep charged a full
+       second even when the reply itself had already taken one. By the clock,
+       time already spent counts -- so the run is faster and can never be
+       early. */
+    async function paceGeo() {
+      const wait = FILL_GAP_MS - (Date.now() - lastGeoAt);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      lastGeoAt = Date.now();
+    }
+
+    /* WHAT FILL COULD LOOK UP ON THIS ROW, read off CHECK_RULES rather than
+       written out again. `blanksOf` was a second list and it had ALREADY
+       drifted -- it watched `zip`, which no rule did, and the two disagreed
+       about what a gap was. Now `flag` decides whether a gap earns a pill and
+       `fill` decides whether Fill can mend it, and the zip is one row of that
+       table saying yes to the second and no to the first. */
+    function fillableGaps(w) {
+      const out = [];
+      CHECK_RULES.forEach((rule) => {
+        if (!rule.fill) return;
+        try { if (rule.test(w)) out.push(rule.fill); }
+        catch (err) { console.error('check rule ' + rule.key + ' threw', err); }
+      });
+      return out;
+    }
+
+    /* AN ADMINISTRATIVE AREA IS NOT A WAYPOINT, and accepting one is the fault
+       this project has already paid for: a ladder that fell back to the city
+       alone put FOURTEEN Minneapolis markers on one point, every one of them
+       looking like a success. A city boundary contributes NOTHING -- not the
+       point, and not the postcode that comes off the same reply. */
+    function isArea(hit) {
+      if (!hit) return true;
+      if (hit.class === 'boundary' || hit.type === 'administrative') return true;
+      const t = String(hit.addresstype || '').toLowerCase();
+      return ['city', 'town', 'village', 'county', 'state', 'postcode', 'country'].indexOf(t) !== -1;
+    }
+
+    async function geo(qs) {
+      const res = await fetch('https://nominatim.openstreetmap.org/' + qs,
+        { headers: { Accept: 'application/json' } });
+      /* A 429 STOPS THE WHOLE RUN RATHER THAN RETRYING. A blocked geocoder is a
+         reason to stop, not to try harder. */
+      if (res.status === 429) throw new Error('RATE');
+      if (!res.ok) return null;
+      return res.json();
+    }
+
+    /* ---- WHETHER A HIT IS THE PLACE WE ASKED ABOUT ----------------------
+       THERE WAS NO SANITY CHECK ON A RETURNED COORDINATE AT ALL, and that is
+       the whole silently-wrong-point class: a name search for a marker in
+       Portland, Oregon answers with one in Portland, Maine, we write it, and
+       nothing on the row or the map ever says otherwise. A wrong point looks
+       exactly like a right one.
+         SO A HIT MUST AGREE WITH WHAT THE ROW ALREADY CLAIMS. The state is the
+       strong test, because ours is a code and Nominatim answers with the name
+       and the ISO code side by side. The city is the weaker one and is only
+       applied when the reply names one, since a hit inside a park or a campus
+       often names the suburb instead. */
+    const ST = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+      CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+      HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
+      KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts',
+      MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
+      NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico',
+      NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+      OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+      SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+      VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin',
+      WY: 'Wyoming', DC: 'District of Columbia' };
+
+    function sameState(hit, code) {
+      const want = clean(code).toUpperCase();
+      if (!want) return true;                       // nothing to disagree with
+      const a = (hit && hit.address) || {};
+      const iso = clean(a['ISO3166-2-lvl4']).toUpperCase();   // e.g. US-MI
+      if (iso) return iso.split('-').pop() === want;
+      const name = clean(a.state).toLowerCase();
+      if (!name) return true;                       // the reply does not say
+      return name === (ST[want] || want).toLowerCase();
+    }
+
+    function hitCity(hit) {
+      const a = (hit && hit.address) || {};
+      return clean(a.city || a.town || a.village || a.municipality || '');
+    }
+
+    function sameCity(hit, city) {
+      const want = clean(city).toLowerCase();
+      const got = hitCity(hit).toLowerCase();
+      if (!want || !got) return true;               // one of them does not say
+      // A BOROUGH OR A SUBURB IS NOT A DISAGREEMENT: Brooklyn inside New York,
+      // Hollywood inside Los Angeles. Containment either way is enough.
+      return got === want || got.indexOf(want) !== -1 || want.indexOf(got) !== -1;
+    }
+
+    /* AN ADMINISTRATIVE AREA IS NOT A WAYPOINT, and accepting one is the fault
+       this project has already paid for: a ladder that fell back to the city
+       alone put FOURTEEN Minneapolis markers on one point, every one of them
+       looking like a success. A city boundary contributes NOTHING -- not the
+       point, and not the postcode that comes off the same reply. */
+    function isArea(hit) {
+      if (!hit) return true;
+      if (hit.class === 'boundary' || hit.type === 'administrative') return true;
+      const t = String(hit.addresstype || '').toLowerCase();
+      return ['city', 'town', 'village', 'county', 'state', 'postcode', 'country'].indexOf(t) !== -1;
+    }
+
+    /* ---- THE POINT: ASK FOR SEVERAL AND CHOOSE ---------------------------
+       It asked for `limit=1` and took whatever came back, so the only choice
+       available was yes or no to Nominatim's own first guess. Asking for five
+       and scoring them costs the same one request and lets a wrong-state match
+       be stepped over rather than accepted. `place_rank` is Nominatim's own
+       measure of how specific a match is -- 30 is a building, 16 is a city --
+       so the most specific surviving candidate wins. */
+    async function pickHit(params, w) {
+      const rows = await geo('search?format=jsonv2&addressdetails=1&limit=5&' + params);
+      if (!Array.isArray(rows)) return null;
+      /* A ROAD IS NOT A POINT EITHER, and this is the city-centroid rule one
+         level down. 'Larimer St between 14th and 15th' and 'Colfax at
+         Broadway' both reduce to a street name, and a street's centroid can
+         be a mile from the corner somebody is meant to stand on -- which is
+         a point that renders perfectly and sends a team to the wrong block.
+         REVERSE IS UNAFFECTED and still takes a road happily: there the road
+         is the answer to 'what is at this exact spot', which is a different
+         question with a different meaning. */
+      const good = rows.filter((h) => !isArea(h)
+        && String(h.addresstype || '').toLowerCase() !== 'road'
+        && sameState(h, w.state) && sameCity(h, w.city));
+      if (!good.length) return null;
+      good.sort((a, b) => (Number(b.place_rank) || 0) - (Number(a.place_rank) || 0));
+      return good[0];
+    }
+
+    /* ---- ADJUSTING THE ADDRESS TO GET THE REST --------------------------
+       The address is not fixed input, it is the best lead we have, and a lead
+       that misses as written often hits when it is tidied. Each variant is a
+       DIFFERENT question rather than the same one repeated, so they are tried
+       in order of how much they assume and the first that survives the checks
+       above wins.
+         A SUITE, FLOOR OR UNIT DEFEATS A GEOCODE outright -- Nominatim has no
+       idea what floor 4 of a building is and answers with nothing at all.
+         A RANGE OR A HYPHEN ('1201-1205 Main St') is likewise not a house
+       number it holds; the first number in the range is.
+         AND THE BARE STREET, with no number, is what finds a marker that sits
+       on a road rather than at a door. */
+    function addressVariants(address) {  // eslint-disable-line no-param-reassign
+      const out = [];
+      const push = (v) => { v = clean(v); if (v && out.indexOf(v) === -1) out.push(v); };
+      push(address);
+
+      /* THE STREET OFTEN CARRIES THE WHOLE PLACE ALREADY. Measured on the
+         live table: `E Colfax Ave and Broadway, Denver, CO 80203`. Sent as
+         `street=` beside `city=Denver&state=CO&postalcode=80203`, that is the
+         city said three times, which is how a structured query misses a place
+         it holds perfectly well. The tail comes off first.
+           WRITTEN WITH CHARACTER CLASSES AND NO BACKSLASH AT ALL. The first
+         cut used the ordinary escapes and reached this file having lost a
+         level, so it matched a literal letter s -- the seventeenth instance of
+         that scar in this repo, and a pattern that quietly matches nothing is
+         the shape of it that survives review. */
+      const noPlace = address.replace(
+        /,[ ]*[^,]+,[ ]*[A-Za-z][A-Za-z]([ ]+[0-9]{5}(-[0-9]{4})?)?[ ]*$/, '');
+      push(noPlace);
+      address = noPlace;
+
+      // suite / ste / unit / apt / floor / fl / room / bldg, to the end
+      const noUnit = address.replace(
+        /[,\s]+(suite|ste\.?|unit|apt\.?|apartment|floor|fl\.?|rm\.?|room|bldg\.?|building)\s+\S+.*$/i, '');
+      push(noUnit);
+
+      // a ranged or hyphenated house number keeps only its first number
+      push(noUnit.replace(/^(\d+)\s*[-–]\s*\d+/, '$1'));
+
+      // and the street on its own, for a place with no door
+      push(noUnit.replace(/^[\d\-–]+\s+/, ''));
+      return out;
+    }
+
+    /* ---- AN INTERSECTION IS A DIFFERENT KIND OF PLACE ---------------------
+       NOMINATIM HOLDS NO ANSWER FOR ONE, which was measured rather than
+       assumed: `E Colfax Ave and Broadway, Denver, CO`, `Colfax Avenue at
+       Broadway, Denver, CO` and `Cat Alley, Denver, CO` all come back with
+       nothing at all. A street geocoder answers questions about doors, and a
+       corner has no door.
+         OSM'S OWN QUERY API DOES HOLD IT, because it holds the geometry: ask
+       for the node shared by a way called Colfax and a way called Broadway and
+       it answers 39.7401457, -104.9874010, which is the signalled corner.
+         AND THE ADDRESS THEN COMES FROM REVERSING THAT NODE, which is the
+       nearest addressable thing to the corner -- so an intersection ends up
+       with a real point and a real street line, neither of which any amount of
+       geocoding the name could produce.
+
+       IT IS A FREE SHARED ENDPOINT AND IS TREATED AS ONE: at most one request
+       per row, only for a row that actually looks like a crossing, paced like
+       Nominatim, and a refusal or a timeout is simply no answer rather than a
+       retry. */
+    /* OVERPASS IS SLOWER THAN NOMINATIM AND IS PACED ON ITS OWN TERMS.
+       At Nominatim's one-a-second it answered 429, which was measured rather
+       than guessed: it runs a couple of query slots and each of these is real
+       work over a ten-kilometre box. Two and a half seconds is polite and
+       still finishes a row in a moment.
+         AND A REFUSAL STOPS OVERPASS FOR THE REST OF THE RUN, not the run
+       itself. Nominatim and Wikipedia are unaffected and the other fields go
+       on being filled; what stops is the one lookup that is being refused,
+       because retrying a busy free endpoint is how you get blocked from it. */
+    const OVERPASS_GAP_MS = 2500;
+    let lastOverpassAt = 0;
+    let overpassOff = false;
+    async function paceOverpass() {
+      const wait = OVERPASS_GAP_MS - (Date.now() - lastOverpassAt);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      lastOverpassAt = Date.now();
+    }
+
+    /* THE DISTINCTIVE WORD OF A STREET NAME. Our rows say `E Colfax Ave` and
+       OSM says `East Colfax Avenue`, so an exact match finds nothing -- which is
+       why the first probe of this returned zero elements and looked like the
+       method not working. The direction and the type both come off, and what is
+       left is what the two spellings share. */
+    const DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw',
+      'north', 'south', 'east', 'west', 'northeast', 'northwest',
+      'southeast', 'southwest'];
+    const TYPES = ['st', 'street', 'ave', 'av', 'avenue', 'rd', 'road', 'blvd',
+      'boulevard', 'dr', 'drive', 'ln', 'lane', 'ct', 'court', 'pl', 'place',
+      'pkwy', 'parkway', 'ter', 'terrace', 'way', 'hwy', 'highway', 'cir',
+      'circle', 'trl', 'trail', 'alley', 'aly'];
+    function streetCore(v) {
+      const parts = clean(v).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      while (parts.length > 1 && DIRS.indexOf(parts[0]) !== -1) parts.shift();
+      while (parts.length > 1 && TYPES.indexOf(parts[parts.length - 1]) !== -1) parts.pop();
+      while (parts.length > 1 && DIRS.indexOf(parts[parts.length - 1]) !== -1) parts.pop();
+      return parts.join(' ');
+    }
+
+    /* WHAT SHAPE OF PLACE IS THIS STRING DESCRIBING?
+         `A at B`, `A and B`, `A & B`   -> a CROSSING, one point
+         `A between B and C`            -> a SPAN, whose point is the middle of
+                                           its two ends
+       Read off the address first and the name second, because the address is
+       the more deliberate of the two. */
+    /* THE PLACE TAIL COMES OFF FIRST, and it has to happen HERE rather than
+       only inside `addressVariants`: this reader sees the raw address, so
+       `E Colfax Ave and Broadway, Denver, CO 80203` split into `E Colfax Ave`
+       and `Broadway, Denver, CO 80203`, and the second went to Overpass as a
+       street called `broadway denver co 80203`, which matches no road on
+       earth. It looked exactly like the method not working. */
+    function dropPlaceTail(v) {
+      return clean(v).replace(
+        /,[ ]*[^,]+,[ ]*[A-Za-z][A-Za-z]([ ]+[0-9]{5}(-[0-9]{4})?)?[ ]*$/, '');
+    }
+
+    function readCrossing(v) {
+      const t = dropPlaceTail(v);
+      if (!t) return null;
+      const span = t.match(/^(.+?)\s+between\s+(.+?)\s+and\s+(.+?)$/i);
+      if (span) {
+        return { kind: 'span', a: streetCore(span[1]), b: streetCore(span[2]), c: streetCore(span[3]) };
+      }
+      const cross = t.match(/^(.+?)\s+(?:at|and|&|\/)\s+(.+?)$/i);
+      if (cross) {
+        const a = streetCore(cross[1]), b = streetCore(cross[2]);
+        // BOTH HALVES HAVE TO LOOK LIKE STREETS. `Hall of Fame and Museum` is
+        // one name with the word `and` in it, not two roads.
+        if (a && b && a !== b) return { kind: 'cross', a: a, b: b };
+      }
+      return null;
+    }
+
+    /* THE BOX TO SEARCH IN, WHICH IS NOT THE FORBIDDEN CITY FALLBACK.
+       Geocoding a city to PLACE a waypoint is the fault that put fourteen
+       markers on one point. Geocoding it to BOUND a search is a different act
+       with a different failure: the worst a wrong box does is find nothing.
+
+       AND IT HAS TO BE SMALL. Measured: a whole-city box over Denver, scanning
+       every highway by name, is refused outright by the public Overpass with
+       `the server is probably too busy` -- and so is the `area[name=Denver]`
+       form. A box around the ROW'S OWN POSTCODE is about ten kilometres across
+       and answers in under a second. So the ladder is postcode, then a fixed
+       box around the city's point, and never the city's own extent.
+
+       CLAMPED, because a rural postcode can be enormous and a huge box is the
+       expensive query this exists to avoid. One lookup per key per run. */
+    const SEARCH_BOX_DEG = 0.09;      // roughly 10km at these latitudes
+    const boxes = {};
+
+    function clampBox(b) {
+      const midLat = (b[0] + b[1]) / 2, midLon = (b[2] + b[3]) / 2;
+      const dLat = Math.min((b[1] - b[0]) / 2, SEARCH_BOX_DEG);
+      const dLon = Math.min((b[3] - b[2]) / 2, SEARCH_BOX_DEG * 1.3);
+      return [midLat - dLat, midLat + dLat, midLon - dLon, midLon + dLon];
+    }
+
+    async function searchBox(w) {
+      const zip = clean(w.zip);
+      const key = zip || (clean(w.city) + '|' + clean(w.state));
+      if (Object.prototype.hasOwnProperty.call(boxes, key)) return boxes[key];
+      boxes[key] = null;
+
+      // THE POSTCODE FIRST: it is the smallest thing the row knows.
+      if (zip) {
+        await paceGeo();
+        const rows = await geo('search?format=jsonv2&limit=1&postalcode='
+          + encodeURIComponent(zip) + '&country=us');
+        const b = Array.isArray(rows) && rows[0] && rows[0].boundingbox;
+        if (b && b.length === 4) { boxes[key] = clampBox(b.map(Number)); return boxes[key]; }
+      }
+
+      if (!clean(w.city)) return null;
+      await paceGeo();
+      const rows = await geo('search?format=jsonv2&limit=1&q='
+        + encodeURIComponent([clean(w.city), clean(w.state)].filter(Boolean).join(', ')));
+      const hit = Array.isArray(rows) ? rows[0] : null;
+      if (!hit) return null;
+      const la = Number(hit.lat), lo = Number(hit.lon);
+      if (!isFinite(la) || !isFinite(lo)) return null;
+      boxes[key] = clampBox([la - SEARCH_BOX_DEG, la + SEARCH_BOX_DEG,
+                             lo - SEARCH_BOX_DEG * 1.3, lo + SEARCH_BOX_DEG * 1.3]);
+      return boxes[key];
+    }
+
+    async function overpass(body) {
+      if (overpassOff) return null;
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: body
+      });
+      // A BUSY OVERPASS ANSWERS 429 OR 504, AND THAT IS NOT A REASON TO PUSH.
+      if (res.status === 429 || res.status === 504) { overpassOff = true; return null; }
+      if (!res.ok) return null;
+      const text = await res.text();
+      /* IT ANSWERS XML ON AN ERROR EVEN WHEN JSON WAS ASKED FOR, with a 200,
+         and one of those errors is `the server is probably too busy` -- so a
+         status code alone does not tell you it refused. */
+      if (text.charAt(0) !== '{') {
+        if (text.indexOf('too busy') !== -1 || text.indexOf('timeout') !== -1) overpassOff = true;
+        return null;
+      }
+      try { return JSON.parse(text); } catch (e) { return null; }
+    }
+
+    function metresBetween(a, b) {
+      const R = 6371000, rad = Math.PI / 180;
+      const dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
+      const la = a[0] * rad, lb = b[0] * rad;
+      const h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        + Math.cos(la) * Math.cos(lb) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    /* WHERE TWO NAMED WAYS SHARE A NODE. Returns one point, or null.
+       SEVERAL NODES USUALLY MEAN ONE JUNCTION described by several ways -- a
+       signal, a crossing, a kerb -- and they sit within a few metres. FAR APART
+       MEANS THE TWO STREETS CROSS TWICE, which is genuinely ambiguous, and a
+       guess between them is the wrong-point class again. Refused. */
+    async function crossingPoint(a, b, box) {
+      if (!a || !b || !box) return null;
+      const bb = box[0] + ',' + box[2] + ',' + box[1] + ',' + box[3];
+      const q = '[out:json][timeout:25];'
+        + 'way(' + bb + ')[highway][name~"' + a + '",i]->.w1;'
+        + 'way(' + bb + ')[highway][name~"' + b + '",i]->.w2;'
+        + 'node(w.w1)(w.w2);out 12;';
+      await paceOverpass();
+      const data = await overpass(q);
+      const nodes = (data && data.elements) || [];
+      const pts = nodes.filter((n) => isFinite(n.lat) && isFinite(n.lon))
+        .map((n) => [Number(n.lat), Number(n.lon)]);
+      if (!pts.length) return null;
+      const far = pts.some((p) => metresBetween(pts[0], p) > 150);
+      if (far) return null;
+      return pts[0];
+    }
+
+    /* A SPAN'S POINT IS THE MIDDLE OF ITS TWO ENDS, which is the honest answer
+       for `Larimer St between 14th St and 15th St`: the block itself. Taking
+       the street's own centroid instead would be the road-centroid fault, and
+       can be a mile from the block being named. */
+    async function crossingFor(w, box) {
+      const c = readCrossing(w.address) || readCrossing(w.name);
+      if (!c) return null;
+      if (c.kind === 'cross') return crossingPoint(c.a, c.b, box);
+      const one = await crossingPoint(c.a, c.b, box);
+      if (fillStop) return null;
+      const two = await crossingPoint(c.a, c.c, box);
+      if (!one || !two) return null;
+      // TOO FAR APART IS NOT A BLOCK. Two ends a kilometre apart mean one of
+      // the cross streets was matched somewhere else entirely.
+      if (metresBetween(one, two) > 1200) return null;
+      return [(one[0] + two[0]) / 2, (one[1] + two[1]) / 2];
+    }
+
+    /* THE POINT IS ESTABLISHED FIRST AND EVERYTHING ELSE IS READ OFF IT.
+       Three separate guesses -- a point from one search, an address from
+       another, a postcode from a third -- can disagree with each other, and on
+       a row nobody would ever notice. Anchoring on one coordinate makes them
+       agree by construction. */
+    async function findPoint(w, pace) {
+      const city = clean(w.city);
+      const stateCode = clean(w.state);
+      const zip = clean(w.zip);
+      const address = clean(w.address);
+      const place = [city, stateCode].filter(Boolean).join(', ');
+
+      // 1. A CROSSING, WHERE THE ROW DESCRIBES ONE. First, because a street
+      //    geocoder has no answer for a corner and will either miss or hand
+      //    back one of the two roads, whose centroid can be a mile away.
+      if (readCrossing(w.address) || readCrossing(w.name)) {
+        const box = await searchBox(w);
+        if (!fillStop) {
+          const pt = await crossingFor(w, box);
+          if (pt) return { lat: String(pt[0]), lon: String(pt[1]), address: {}, __crossing: true };
+        }
+      }
+
+      // 2. THE STREET, STRUCTURED, IN ITS VARIANTS. Structured matches the
+      //    parts separately, so a comma in a value cannot be read as a
+      //    separator and a road name cannot be read as a place name.
+      const variants = address ? addressVariants(address) : [];
+      for (let i = 0; i < variants.length; i++) {
+        if (fillStop) return null;
+        const p = new URLSearchParams({ street: variants[i] });
+        if (city) p.set('city', city);
+        if (stateCode) p.set('state', stateCode);
+        if (zip) p.set('postalcode', zip);
+        await pace();
+        const hit = await pickHit(p.toString(), w);
+        if (hit) return hit;
+      }
+
+      // 3. THE NAME, WHICH IS THE RUNG THAT CAN BE WRONG -- so the state and
+      //    city checks above are doing the work, and there is deliberately NO
+      //    city-only rung below this. A place we cannot find stays unlocated,
+      //    which is visible, rather than located wrongly, which is not.
+      if (!fillStop && clean(w.name)) {
+        // THE ZIP IS A STRONGER NARROWER THAN THE CITY and was going unused: it
+        // is unique where a city name is shared by a dozen states.
+        const q = [clean(w.name), place, zip].filter(Boolean).join(', ');
+        await pace();
+        const hit = await pickHit('q=' + encodeURIComponent(q), w);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    /* ---- WIKIPEDIA: BY COORDINATE WHERE WE HAVE ONE ---------------------
+       A TEXT SEARCH IS THE WEAKEST WAY TO FIND AN ARTICLE ABOUT A PLACE. It
+       is a global index, so a marker's name matches a book, a band or the same
+       monument in another state, and the name test then throws away the search
+       rather than improving it.
+         GEOSEARCH ASKS WHICH ARTICLES ARE NEAR THIS COORDINATE, which is a
+       different question with a far better answer: probed against two real
+       rows, `Michigan Soldiers' and Sailors' Monument` comes back at **0m**,
+       and the markers by Saint Anthony Falls come back with the mill district
+       articles that are genuinely about them.
+         THE NAME STILL HAS TO AGREE, and that is what stops the improvement
+       turning into a new fault: geosearch returns what is NEARBY, so without
+       the check a marker would be cited to whatever monument stands beside it. */
+    async function wikiTitlesNear(lat, lon) {
+      const u = 'https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query'
+        + '&list=geosearch&gsradius=400&gslimit=8'
+        + '&gscoord=' + encodeURIComponent(lat + '|' + lon);
+      const res = await fetch(u);
+      if (res.status === 429) throw new Error('RATE');
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rows = (data && data.query && data.query.geosearch) || [];
+      return rows.map((r) => r.title);
+    }
+
+    async function wikiTitlesByName(name, city) {
+      const q = name + (city ? ' ' + city : '');
+      const u = 'https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query'
+        + '&list=search&srlimit=5&srsearch=' + encodeURIComponent(q);
+      const res = await fetch(u);
+      if (res.status === 429) throw new Error('RATE');
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rows = (data && data.query && data.query.search) || [];
+      return rows.map((r) => r.title);
+    }
+
+    /* THE TITLE MUST BE THE PLACE, NOT SOMETHING NEAR IT, NAMED LIKE IT, OR
+       NAMED AFTER IT. The original test was `indexOf` either way, which lets
+       `Park` answer for `Central Park`.
+         EVERY SIGNIFICANT WORD OF THE ROW'S NAME MUST APPEAR IN THE TITLE, and
+       the direction matters: comparing the SHORTER against the longer, which
+       is what the first cut of this did, accepts a title that is a PREFIX of
+       the name -- and probing the live rows found two that would have been
+       filed, both badly wrong:
+           `Pride of Baltimore II`   would have taken `Pride of Baltimore`,
+             which is the FIRST ship of that name, lost with her captain in
+             1986, and whose article carries coordinates in the mid-Atlantic.
+           `Nathan Hale Statue`      would have taken `Nathan Hale`, which is
+             the man rather than the monument.
+       Requiring the name's own words instead refuses both, and still accepts
+       `Statue of Nathan Hale (New York City)`, which is the right article: a
+       title may say MORE than the name, never less. */
+    const NOISE = ['the', 'of', 'and', 'a', 'at', 'in', 'on'];
+    function words(v) {
+      return clean(v).toLowerCase().split(/[^a-z0-9]+/)
+        .filter((x) => x && NOISE.indexOf(x) === -1);
+    }
+    function titleFits(title, name) {
+      const t = words(title), n = words(name);
+      // A ONE-WORD NAME IS A COINCIDENCE AT THIS SCALE, so it is never enough.
+      if (t.length < 2 || n.length < 2) return false;
+      return n.every((x) => t.indexOf(x) !== -1);
+    }
+
+    async function wikiExtract(title) {
+      const u = 'https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query'
+        + '&prop=extracts&exintro=1&explaintext=1&exsentences=2'
+        + '&titles=' + encodeURIComponent(title);
+      const res = await fetch(u);
+      if (res.status === 429) throw new Error('RATE');
+      if (!res.ok) return null;
+      const data = await res.json();
+      const pages = data && data.query && data.query.pages;
+      const page = pages ? pages[Object.keys(pages)[0]] : null;
+      return page ? clean(page.extract) : null;
+    }
+
+    async function wikipedia(w, lat, lon) {
+      const name = clean(w.name);
+      if (!name) return null;
+      let titles = [];
+      // BY COORDINATE FIRST, which is the better question, then by name.
+      if (lat !== null && lat !== undefined && lon !== null && lon !== undefined) {
+        try { titles = await wikiTitlesNear(lat, lon); } catch (e) { if (e.message === 'RATE') throw e; }
+      }
+      let title = titles.filter((t) => titleFits(t, name))[0] || null;
+      if (!title) {
+        const byName = await wikiTitlesByName(name, clean(w.city));
+        title = byName.filter((t) => titleFits(t, name))[0] || null;
+      }
+      if (!title) return null;
+      const extract = await wikiExtract(title);
+      return {
+        title: title,
+        url: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(title.split(' ').join('_')),
+        extract: extract || ''
+      };
+    }
+
+    /* THE STREET LINE, WHICH IS WHAT THIS COLUMN HOLDS. Measured across the 510
+       rows that have one: `301 Massachusetts Ave`, `233 S Wacker Dr` -- a street
+       line, never a complete postal address. Writing the fuller form would make
+       Fill's rows look unlike every row a human has typed. */
+    function streetOf(hit) {
+      const a = (hit && hit.address) || {};
+      return [a.house_number, a.road].filter(Boolean).join(' ');
+    }
+
+    async function fillOne(w) {
       const body = {};
-      const city = clean(el('batchCity').value);
-      const st = clean(el('batchState').value);
-      if (city) body.city = city;
-      if (st) body.state = st;
-      if (!Object.keys(body).length) {
-        setStatus('Type a city or a state to set, then press Apply.', 'error');
-        el('batchCity').focus();
+      const notes = [];
+      const want = fillableGaps(w);
+      if (!want.length) return { got: [], notes: notes };
+      const wants = (k) => want.indexOf(k) !== -1;
+
+      let lat = hasPoint(w) ? Number(w.lat) : null;
+      let lon = hasPoint(w) ? Number(w.lon) : null;
+
+      // ---- 1. THE POINT, WHICH EVERYTHING ELSE HANGS OFF ------------------
+      if (lat === null && (wants('point') || wants('address') || wants('zip'))) {
+        const hit = await findPoint(w, paceGeo);
+        if (hit) {
+          const la = Number(hit.lat), lo = Number(hit.lon);
+          /* A PAIR OR NOTHING, and never 0,0. `Number(null)` is 0 and
+             `isFinite(0)` is true, so a half-filled point would read as located
+             at the equator. */
+          if (isFinite(la) && isFinite(lo) && !(la === 0 && lo === 0)) {
+            lat = la; lon = lo;
+            if (wants('point') && cols.latlon) { body.lat = la; body.lon = lo; }
+          }
+        }
+      }
+
+      // ---- 2. THE ADDRESS AND THE ZIP, READ OFF THAT ONE POINT ------------
+      // So they agree with each other and with the point by construction,
+      // rather than being three separate guesses that can disagree on a row
+      // nobody would ever check.
+      if (!fillStop && lat !== null && (wants('address') || wants('zip'))) {
+        await paceGeo();
+        const rev = await geo('reverse?format=jsonv2&addressdetails=1&zoom=18&lat='
+          + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon));
+        if (rev && !isArea(rev)) {
+          /* AND HERE IS A FAULT NOTHING ELSE IN THIS PROJECT WOULD EVER FIND:
+             the coordinate on the row is in a different place from the city on
+             the row. One of the two is wrong and only a person can say which,
+             so Fill writes NOTHING off it and says so by name. */
+          if (!sameState(rev, w.state) || !sameCity(rev, w.city)) {
+            notes.push('its point is in ' + (hitCity(rev) || 'somewhere else')
+              + ', not ' + (clean(w.city) || 'the city on the row'));
+          } else {
+            if (wants('address')) { const line = streetOf(rev); if (line) body.address = line; }
+            if (wants('zip') && rev.address && rev.address.postcode) body.zip = rev.address.postcode;
+          }
+        }
+      }
+
+      // ---- 3. THE DESCRIPTION AND THE SOURCE ------------------------------
+      // NO PACING: Wikipedia is a different host and does not share
+      // Nominatim's limit.
+      if (!fillStop && (wants('source') || wants('description'))) {
+        const wiki = await wikipedia(w, lat, lon);
+        if (wiki) {
+          /* THE SOURCE AND THE DESCRIPTION COME OFF THE SAME ARTICLE, so a page
+             cannot cite one article and quote another. */
+          if (wants('source') && cols.source_url) body.source_url = wiki.url;
+          if (wants('description') && wiki.extract) body.description = wiki.extract;
+        }
+      }
+
+      /* REPORTED IN THE ROOM'S OWN WORDS, never the column names. 'lat, lon,
+         source_url' is our schema talking; the boxes on the editor say point
+         and source, and so does every message beside them. */
+      const WORD = { lat: 'point', lon: 'point', source_url: 'source' };
+      const got = [];
+      Object.keys(body).forEach((k) => {
+        const w2 = WORD[k] || k;
+        if (got.indexOf(w2) === -1) got.push(w2);
+      });
+      if (!got.length) return { got: [], notes: notes };
+      const saved = await patch(w.wpid, body);
+      return { got: saved ? got : [], notes: notes };
+    }
+
+    async function batchFill() {
+      const ids = pickedIds();
+      const btn = el('batchFillBtn');
+
+      /* IT CAN BE STOPPED, because a hundred rows is two minutes at one request
+         a second and nobody should have to reload the page to get out of it.
+         Everything already written stays written. */
+      if (state.filling) { fillStop = true; setStatus('Stopping after this one...'); return; }
+      if (!ids.length) { setStatus('Tick some waypoints first.', 'error'); return; }
+
+      const rows = state.rows.filter(function (r) {
+        return ids.indexOf(String(r.wpid)) !== -1 && fillableGaps(r).length;
+      });
+      if (!rows.length) {
+        setStatus('Nothing to fill: every ticked waypoint already has what Fill can look up.', 'success');
         return;
       }
-      const btn = el('batchApplyBtn');
-      btn.setAttribute('aria-disabled', 'true');
+
+      state.filling = true;
+      fillStop = false;
+      btn.setAttribute('aria-disabled', 'false');
+      btn.textContent = 'Stop';
+      btn.title = 'Stop after the one in flight. Everything already written stays.';
+
+      let done = 0, rated = false;
+      const filled = [], missed = [], odd = [];
       try {
-        // ONE REQUEST FOR THE LOT, not a loop.
-        const res = await fetch(restUrl(TABLE, { wpid: inFilter(ids) }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) throw new Error('Nothing was saved: ' + await readError(res));
-        const saved = await res.json();
-        // POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, and a
-        // SHORT reply is the partial case. Reporting the number asked for
-        // would be saying "12 updated" about 9.
-        if (!saved.length) throw new Error('The database refused that change. Check you are signed in as an admin.');
-        saved.forEach((row) => {
-          const at = state.rows.findIndex((r) => String(r.wpid) === String(row.wpid));
-          if (at !== -1) state.rows[at] = row;
-        });
-        el('batchCity').value = '';
-        el('batchState').value = '';
+        for (let i = 0; i < rows.length; i++) {
+          if (fillStop) break;
+          const w = rows[i];
+          const who = clean(w.name) || 'wpid ' + w.wpid;
+          /* REPORTED BY NAME, not as a bare number: a run over dozens of rows
+             at one request a second is long enough that you need to see it
+             move. */
+          setStatus('Filling ' + who + '  (' + (done + 1) + ' of ' + rows.length + ')');
+          try {
+            const out = await fillOne(w);
+            if (out.got.length) filled.push(who + ' (' + out.got.join(', ') + ')');
+            else missed.push(who);
+            /* A ROW WHOSE OWN FIELDS DISAGREE IS NOT A MISS, IT IS A
+               FINDING. Fill met it, refused to write off it, and is the
+               only thing that will ever notice. */
+            out.notes.forEach((n) => odd.push(who + ': ' + n));
+          } catch (err) {
+            if (err && err.message === 'RATE') { rated = true; break; }
+            console.error(err);
+            missed.push(who);
+          }
+          done++;
+        }
         render();
-        const missed = ids.length - saved.length;
-        setStatus('Updated ' + saved.length + ' of ' + ids.length + '.'
-          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
-          missed ? 'error' : 'success');
-      } catch (err) {
-        console.error(err);
-        setStatus(err.message, 'error');
+
+        /* THE LIST IS THE REPORT, AND THE SCRIBBLE IS ONE LINE.
+           The first cut wrote every row and every field it had filled into the
+           red pen, and on screen that was a paragraph of handwriting across the
+           room's own title and over two controls. It was also saying twice what
+           the page already says once: the rows it could not mend are STILL ON
+           SCREEN, still ticked, each wearing its own pills and its own
+           instructions. So the pen says how the run went and points at them.
+             THE FIELD-BY-FIELD DETAIL GOES TO THE CONSOLE, which is where a
+           record of what a write path actually wrote belongs -- available when
+           somebody wants it, costing the room nothing when they do not. */
+        if (filled.length) console.log('Fill wrote: ' + filled.join('; '));
+        if (missed.length) console.log('Fill found nothing for: ' + missed.join(', '));
+        if (odd.length) console.log('Fill will not write to: ' + odd.join('; '));
+
+        const parts = ['Filled ' + filled.length + ' of ' + rows.length];
+        /* NAMED WHEN THERE IS ONE TO NAME, counted when there are several: a
+           single name is the useful thing and a list of nine is a paragraph. */
+        if (missed.length === 1) parts.push('Nothing found for ' + missed[0] + ', still ticked below');
+        else if (missed.length) parts.push(missed.length + ' found nothing, still ticked below');
+        if (odd.length === 1) parts.push(odd[0]);
+        else if (odd.length) parts.push(odd.length + ' have a point that disagrees with their city');
+        if (rated) parts.push('the geocoder asked us to stop');
+        else if (fillStop) parts.push('stopped');
+
+        /* A REPORT THAT POINTS AT UNFINISHED WORK MUST NOT CLEAR ITSELF.
+           `setStatus` wipes a success after six seconds, which is right for a
+           bare 'saved' and wrong for a line telling somebody what is still
+           ticked in front of them. A clean run clears; a run with a shortfall
+           in it stays. */
+        const cleanRun = filled.length && !missed.length && !odd.length && !rated && !fillStop;
+        setStatus(parts.join('. ') + '.', cleanRun ? 'success' : 'error');
       } finally {
+        state.filling = false;
+        fillStop = false;
         paintBatch();
       }
     }
@@ -1271,7 +2549,11 @@
     async function batchDelete() {
       const ids = pickedIds();
       if (!ids.length) { setStatus('Tick some waypoints first.', 'error'); return; }
-      if (!window.confirm('Delete ' + ids.length + ' waypoints for good? This cannot be undone.')) return;
+      if (!window.confirm('Delete ' + ids.length + ' '
+        + plural(ids.length, 'waypoint', 'waypoints') + ' for good?'
+        + String.fromCharCode(10) + String.fromCharCode(10)
+        + 'Any stop that used one keeps its challenge and will need a new waypoint. '
+        + 'This cannot be undone.')) return;
       const btn = el('batchDeleteBtn');
       btn.setAttribute('aria-disabled', 'true');
       try {
@@ -1304,7 +2586,15 @@
       const row = state.editing;
       if (!row || !row.wpid) return;
       const name = clean(row.name) || 'this waypoint';
-      if (!window.confirm('Delete ' + name + ' for good? This cannot be undone.')) return;
+      /* THE QUESTION SAYS WHAT HAPPENS TO THE STOPS, because the answer is not
+         the obvious one: a stop is a waypoint plus a challenge, and deleting
+         the waypoint STRIPS it rather than removing the stop. The challenge,
+         the position and the direction are editorial work and survive; the
+         stop is left needing a new waypoint. 2026083117. */
+      if (!window.confirm('Delete ' + name + ' for good?'
+        + String.fromCharCode(10) + String.fromCharCode(10)
+        + 'Any stop that used it keeps its challenge and will need a new waypoint. '
+        + 'This cannot be undone.')) return;
       el('deleteBtn').disabled = true;
       try {
         const res = await fetch(restUrl(TABLE, { wpid: 'eq.' + row.wpid }), {
@@ -1338,8 +2628,15 @@
       else ids.forEach((id) => picked.delete(id));
       render();
     });
-    el('batchApplyBtn').addEventListener('click', batchApply);
+    el('batchFillBtn').addEventListener('click', batchFill);
     el('batchDeleteBtn').addEventListener('click', batchDelete);
+
+    el('batchPromptBtn').addEventListener('click', openFixPrompt);
+    el('fixCloseBtn').addEventListener('click', closeFixPrompt);
+    el('fixDlg').addEventListener('click', (e) => { if (e.target === el('fixDlg')) closeFixPrompt(); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fix-door]'), (door) => {
+      door.addEventListener('click', copyFixPrompt);
+    });
 
     el('promptBtn').addEventListener('click', openAiDialog);
     el('aiCloseBtn').addEventListener('click', closeAiDialog);
@@ -1349,15 +2646,53 @@
       door.addEventListener('click', copyAiPrompt);
     });
 
+    /* IT FOLLOWS WHAT YOU TYPE, not what was loaded: a url corrected in the box
+       should be openable before it is saved. */
+    function paintSourceOpen() {
+      const a = el('fSourceOpen');
+      if (!a) return;
+      const v = clean(el('fSourceUrl').value);
+      let ok = false;
+      if (v) {
+        try {
+          const u = new URL(v);
+          /* THE PROTOCOL CHECK IS THE SECURITY, not tidiness:
+             `javascript:alert(1)` parses perfectly well as a URL, and without
+             this that string would become a live href on an admin page. */
+          ok = u.protocol === 'http:' || u.protocol === 'https:';
+        } catch (e) { ok = false; }
+      }
+      if (ok) {
+        a.href = v;
+        a.setAttribute('aria-disabled', 'false');
+        a.title = 'Open the source in a new tab: ' + v;
+      } else {
+        a.removeAttribute('href');
+        a.setAttribute('aria-disabled', 'true');
+        a.title = v ? 'That is not a web address, so there is nothing to open.'
+                    : 'No source recorded.';
+      }
+    }
+    el('fSourceUrl').addEventListener('input', paintSourceOpen);
+
     el('closeBtn').addEventListener('click', closeEditor);
     el('deleteBtn').addEventListener('click', deleteEditing);
     el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el('fixDlg').classList.contains('is-open')) { closeFixPrompt(); return; }
       if (e.key === 'Escape' && el('dlg').classList.contains('is-open')) closeEditor();
     });
 
     el('q').addEventListener('input', (e) => {
       state.q = clean(e.target.value).toLowerCase();
+      /* SEARCHING OR PICKING CLEARS EVERY OTHER NARROWING, so what you typed is
+         what you get: a place filter left set could hide the very waypoint you
+         just picked out of the dropdown, and the press would appear to do
+         nothing.
+         AND IT LETS THE PIN GO, or a map selection made a moment ago would go
+         on narrowing to one row while the box says something else. */
+      clearOtherFilters();
+      state.pinned = '';
       render();
     });
     el('placeFilter').addEventListener('change', (e) => {
@@ -1369,49 +2704,89 @@
       state.q = '';
       state.place = 'any';
       state.reviewOnly = false;
+      state.pinned = '';
       el('q').value = '';
       el('placeFilter').value = 'any';
       render();
       setStatus('Filters cleared.', 'success');
     });
 
-    // THE FACE NAMES WHAT THE PRESS WILL DO, and carries the count. One
-    // control, two states -- `Check (137)`, then `Show all`.
+    /* THE FACE IS A VERB, NOT A TALLY: `Check`, `Checking...` while it runs,
+       and nothing else: it is a verb, so it always reads as one.
+         IT CARRIED THE COUNT AND NO LONGER DOES. `Check (24)` reads as a verb
+       with a bare figure after it, and twenty-four of WHAT is the only question
+       anybody asks of it. Spelling that out on the button made it the loudest
+       thing in the bar for an answer you get the moment you press it -- so the
+       count went where a count belongs: the scribble says it after the press,
+       and the rows it names are on screen underneath.
+         `Checking...` IS NOT A DECORATION. The rules run over every row in the
+       table, and the button saying so is the only acknowledgement a press gets
+       on a run that takes a moment.
+         THE WAY OUT IS CLEAR, NOT THIS BUTTON. A narrowing with no visible way
+       out is a thing this room has removed before, and Clear is that way out:
+       it lights up the moment the check narrows, it puts every filter back,
+       and the scribble names it. One button, one job -- pressing Check checks,
+       whatever the list is currently showing. */
     function paintCheckBtn() {
       const btn = el('checkBtn');
       if (!btn) return;
-      const n = issueCount();
-      btn.textContent = state.reviewOnly ? 'Show all' : (n ? 'Check (' + n + ')' : 'Check');
-      btn.title = state.reviewOnly
-        ? 'Show every waypoint again.'
-        : (n ? 'Show only the ' + n + ' with something wrong.'
-             : 'Nothing is wrong with any of them.');
-    }
-
-    el('checkBtn').addEventListener('click', () => {
-      if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
-      if (state.reviewOnly) {
-        state.reviewOnly = false;
-        render();
-        setStatus('Showing every waypoint again.', 'success');
+      if (state.checking) {
+        btn.textContent = 'Checking...';
+        btn.title = 'Looking over every waypoint.';
         return;
       }
+      btn.textContent = 'Check';
+      btn.title = 'Look over every waypoint and show the ones with something missing.';
+    }
+    el('checkBtn').addEventListener('click', () => {
+      if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+      /* THE BUTTON SAYS IT IS WORKING BEFORE THE WORK STARTS, and the frame is
+         yielded so the browser actually draws it. Setting the flag and running
+         the rules in the same tick paints `Checking...` and repaints over it
+         before anything reaches the screen, which is the same as not having
+         it. */
+      state.checking = true;
+      paintCheckBtn();
+      window.requestAnimationFrame(() => window.setTimeout(runCheck, 0));
+    });
+
+    function runCheck() {
       // EVERY FILTER COMES OFF FIRST. The check reads `state.rows`, so it was
       // never narrowed -- but its ANSWER would be: a search left in the box
       // would hide faulty rows from the very list the count promises.
       state.q = '';
       state.place = 'any';
+      state.pinned = '';
       el('q').value = '';
       el('placeFilter').value = 'any';
-      const n = issueCount();
+      const flagged = state.rows.filter(isInReview);
+      const n = flagged.length;
       state.reviewOnly = n > 0;
+      /* AND THEY ARE TICKED. Finding the faulty rows and acting on them is one
+         errand: every one of them is a candidate for Fill, and ticking a
+         narrowed list by hand is a press per row for an answer the check has
+         already worked out.
+         THE SELECTION IS REPLACED, NEVER ADDED TO. A tick left over from
+         something else would put a row nobody chose into the next batch press,
+         which is the failure this room prunes for on every render. */
+      picked.clear();
+      if (n) flagged.forEach((w) => picked.add(String(w.wpid)));
       render();
+      /* THE PEN IS ONE LINE OF HANDWRITING BESIDE THE ROOM'S NAME, and it was
+         three across the title. Everything it used to say is already on
+         screen: that the filters came off is visible in the bar, the ticks
+         are visible on the rows, and FILL and CLEAR are both sitting there
+         lit. So the pen says the one thing nothing else does -- the count --
+         and stops. */
       setStatus(n
-        ? 'Filters cleared, and showing the ' + n + ' of ' + state.rows.length
-          + ' with something wrong. Press Show all for the rest.'
+        ? n + ' of ' + state.rows.length + ' need something.'
         : 'Checked all ' + state.rows.length + '. Nothing wrong with any of them.',
         'success');
-    });
+      /* CLEARED LAST, or the repaint above would put the face back to Check
+         before the list it narrowed had been drawn. */
+      state.checking = false;
+      paintCheckBtn();
+    }
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,

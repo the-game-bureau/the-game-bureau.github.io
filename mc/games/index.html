@@ -3118,11 +3118,55 @@ code{font-family:"IBM Plex Mono",monospace;}
   display:inline-flex;align-items:center;justify-content:center;
   padding:0 6px;border:1px solid rgba(119,255,165,.22);border-right:none;
   background:rgba(0,0,0,.26);cursor:pointer;
+  /* THE DOT IS DRAWN HERE, so it needs somewhere to sit. */
+  position:relative;
 }
-/* !important wins against the generic ".field input" rules elsewhere in
-   the stylesheet that otherwise force width:100%, big padding, and rounded
-   text-input chrome onto this <input type="radio">. */
-.tag-primary-radio input{
+/* THE DOT ITSELF. Nothing else on this page styles this pseudo-element, so it
+   cannot lose the specificity fight the input kept losing -- which is the whole
+   reason it is drawn rather than left to `appearance`. */
+.tag-primary-radio::before{
+  content:"";
+  display:block;
+  width:12px;height:12px;
+  border-radius:50%;
+  border:1.5px solid rgba(149,255,182,.6);
+  background:transparent;
+  box-sizing:border-box;
+}
+/* `:has()` IS NOT REACHED FOR. This file serves whatever browser the admin
+   happens to have, and the class is already written by the renderer from the
+   same `isPrimary` the input is checked from -- so the two cannot disagree. */
+.tag-primary-radio.is-primary::before{
+  background:#94f8ad;
+  border-color:rgba(149,255,182,.95);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.32);
+}
+/* FOCUS HAS TO BE VISIBLE ON THE DOT, because the input it belongs to is
+   invisible: without this a keyboard user moving through the group gets no
+   answer at all. */
+.tag-primary-radio:focus-within::before{
+  outline:2px solid rgba(149,255,182,.9);
+  outline-offset:2px;
+}
+/* SCOPED THROUGH THE PICKER'S ID, and that is the whole fix. `.tag-primary-radio
+   input` is (0,1,1) and carried `!important` on every line -- and it still came
+   out 12x40, MEASURED, because a stronger selector elsewhere sets the height.
+   With `appearance:none` stripping the native dot and nothing drawing one,
+   there was no way to see which tag was primary at all.
+
+   AN ID BEATS A CLASS WHATEVER THE ORDER, which is the fix this file already
+   records for the waypoint editor's buttons: a class-scoped rule loses to a
+   host stylesheet that loads later, and no amount of `!important` on the
+   losing side settles a specificity fight. */
+/* OUT OF THE LAYOUT, NOT OUT OF THE DOM. The label draws the dot; this is what
+   `:checked`, the keyboard and the change handler still act on. */
+#nodeTagPicker .tag-primary-radio input{
+  position:absolute !important;
+  inset:0 !important;
+  opacity:0 !important;
+  width:100% !important;
+  height:100% !important;
+  margin:0 !important;
   appearance:none !important;-webkit-appearance:none !important;
   width:12px !important;height:12px !important;
   min-width:0 !important;
@@ -3133,21 +3177,13 @@ code{font-family:"IBM Plex Mono",monospace;}
   box-shadow:none !important;
   cursor:pointer;flex:0 0 auto;
 }
-.tag-primary-radio input:checked{
+#nodeTagPicker .tag-primary-radio input:checked{
   background:#94f8ad !important;
   box-shadow:inset 0 0 0 2px rgba(0,0,0,.32) !important;
   border-color:rgba(149,255,182,.95) !important;
 }
 .tag-primary-radio.is-primary{border-color:rgba(149,255,182,.85);}
 
-.tag-delete-btn{
-  font-size:.72rem;font-weight:700;line-height:1;
-  padding:4px 6px;border:1px solid rgba(119,255,165,.22);
-  border-radius:0;background:rgba(0,0,0,.26);color:rgba(148,248,173,.5);
-  cursor:pointer;
-}
-.tag-delete-btn:hover{background:rgba(180,30,30,.4);border-color:rgba(255,120,120,.5);color:#ffb3b3;}
-.tag-delete-btn:disabled{opacity:.42;cursor:not-allowed;}
 
 .team-names-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;}
 
@@ -5093,7 +5129,6 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-btn,
 .var-correct-label,
 .tag-pill,
-.tag-delete-btn,
 #nodeTagNewInput,
 .tag-add-btn,
 .insp-btn,
@@ -5147,7 +5182,6 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-btn,
 .var-correct-label,
 .tag-pill,
-.tag-delete-btn,
 #nodeTagNewInput,
 .tag-add-btn,
 .insp-btn{
@@ -5169,7 +5203,6 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-option:hover .mode-toggle-btn,
 .var-correct-label:hover,
 .tag-pill:hover,
-.tag-delete-btn:hover,
 .insp-btn:hover,
 .tag-add-btn:hover{
   border-color:rgba(var(--bic-blue-rgb), .32);
@@ -5180,11 +5213,6 @@ code{font-family:"IBM Plex Mono",monospace;}
   color:#1a2233;
 }
 
-.tag-delete-btn:hover{
-  background:rgba(255,236,234,.96);
-  border-color:rgba(180,77,63,.28);
-  color:#b44d3f;
-}
 
 .insp-btn--danger{
   color:#b44d3f;
@@ -5318,7 +5346,6 @@ code{font-family:"IBM Plex Mono",monospace;}
 .insp-btn,
 .tag-add-btn,
 .tag-pill,
-.tag-delete-btn,
 .var-correct-label{
   transition:transform .12s ease, background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
 }
@@ -5327,14 +5354,12 @@ code{font-family:"IBM Plex Mono",monospace;}
 .insp-btn:hover,
 .tag-add-btn:hover,
 .tag-pill:hover,
-.tag-delete-btn:hover,
 .var-correct-label:hover{
   transform:translateY(-1px);
 }
 
 .insp-btn:disabled,
 .tag-add-btn:disabled,
-.tag-delete-btn:disabled,
 #nodeTagNewInput:disabled,
 .var-correct-radio:disabled + .var-correct-label{
   box-shadow:none;
@@ -6834,7 +6859,6 @@ body.builder-page--editor .field-info,
 body.builder-page--editor .field-tooltip,
 body.builder-page--editor #fieldTooltipLayer,
 body.builder-page--editor .tag-pill,
-body.builder-page--editor .tag-delete-btn,
 body.builder-page--editor #nodeTagNewInput,
 body.builder-page--editor .tag-add-btn,
 body.builder-page--editor .stat-label,
@@ -7297,11 +7321,6 @@ body.builder-page--editor .tag-pill{
   border-radius:14px 0 0 14px;
 }
 
-body.builder-page--editor .tag-delete-btn{
-  border-radius:0 14px 14px 0;
-  font-size:.68rem;
-  padding:3px 7px;
-}
 
 body.builder-page--editor #nodeTagNewInput{
   flex:1 1 132px;
@@ -7346,55 +7365,61 @@ body.builder-page--editor .game-id-bar{
   box-shadow:0 1px 4px rgba(var(--bic-blue-rgb), .12);
 }
 body.builder-page--editor .game-id-bar[hidden]{ display:none; }
-/* THE THREE SIT SIDE BY SIDE AND SHARE THE ROW'S SLACK. `align-items:
-   stretch` so the three tabs line up along the top and the three boxes end
-   level, whatever each one's contents come to -- the audience box carries
-   swatches and the atlas box a note, so their natural heights differ.
-   THE BARS KEEP THEIR OWN BOTTOM MARGIN and the row cancels it, or the gap
-   under the row would be the margin plus the row's own. */
-body.builder-page--editor .gid-row{
-  display:flex;
-  align-items:stretch;
-  gap:12px;
-  margin:0 0 var(--stack-gap, 14px);
-}
-body.builder-page--editor .gid-row > .game-id-bar{ margin-bottom:0; min-width:0; }
-/* THE ANCHOR TAKES THE MOST, because an event's label is a whole sentence --
-   a date, a kind, and two clubs or a title -- where an atlas is a name and a
-   count. The audience box holds TWO fields, so it is the widest of the three.
-   `min-width: 0` on each, or a long value inside a flex item refuses to
-   shrink and pushes the row wider than the page. */
-body.builder-page--editor .gid-row > #anchorBar{ flex:1.15 1 0; }
-body.builder-page--editor .gid-row > #audienceBar{ flex:1.6 1 0; }
-body.builder-page--editor .gid-row > #atlasBar{ flex:1 1 0; }
-/* AND THE ROW BREAKS UP RATHER THAN SQUEEZING. Three boxes holding four
-   fields between them is a desktop arrangement; below this each is its own
-   full-width bar again, which is what they were before today. */
-/* THE THREE ARE NAMED BY ID HERE, and that is not tidiness. The rules above
-   give each box its share with `#anchorBar` / `#audienceBar` / `#atlasBar`, and
-   AN ID BEATS A CLASS WHATEVER THE MEDIA QUERY -- a media query adds no
-   specificity of its own. Written as `> .game-id-bar` this block lost the tie
-   and the row never wrapped: at 1100px the three stayed side by side and
-   squeezed to 279px, which is a form nobody can fill in.
-   NOTHING IN jsdom COULD SEE IT. The rule was present and correct-looking; only
-   a real browser resolving the cascade at a real width says which one won.
 
-   AND THE BREAKPOINT WAS FAR TOO EARLY AT 1240px, which is a common laptop
-   window: the three stacked on exactly the screens they were designed for.
-   MEASURED WITH THE QUERY LIFTED OUT rather than guessed -- at 900px the three
-   combos are still 230, 320 and 200 pixels wide, which is a form somebody can
-   fill in. Below that is phone territory, where a full-width bar each is right
-   anyway. */
-@media (max-width: 900px){
-  body.builder-page--editor .gid-row{ flex-wrap:wrap; }
-  body.builder-page--editor .gid-row > #anchorBar,
-  body.builder-page--editor .gid-row > #audienceBar,
-  body.builder-page--editor .gid-row > #atlasBar{
-    flex:1 1 100%;
-    margin-bottom:var(--stack-gap, 14px);
-  }
-  body.builder-page--editor .gid-row > .game-id-bar:last-child{ margin-bottom:0; }
+/* ---- THE BARS TAKE THE PAGE'S OWN MEASURE ----------------------------
+   REPORTED AS: the elements start the right width and then pop to the full
+   page. They did, and the cause is one class.
+
+   `.games-page` is capped at `min(1180px, 100vw - 32px)` and centred ONLY
+   under `body.builder-page--editor.is-header-only`. That class is toggled off
+   the moment the flow canvas is shown -- which is right for a canvas, and takes
+   the cap off everything else in the page with it. Measured at a 1600px window:
+   the bars went from 1180 to **1537**, nearly edge to edge, while the header,
+   the title and the game bar directly above them stayed at 1180. **Two measures
+   on one page, and the form was the wider of them.**
+
+   SO THE BARS CARRY THE MEASURE THEMSELVES rather than inheriting it from a
+   mode. This is the treatment `.builder-nav-rows` -- the NEW / DUPLICATE / SAVE
+   row immediately above -- has always had, so the two now line up down both
+   edges instead of one.
+
+   IT IS A NO-OP IN HEADER-ONLY MODE, where the parent is already 1180: a
+   `max-width` cannot widen anything. So this changes the canvas mode only,
+   which is where the fault was.
+
+   `min()` RATHER THAN A FLAT 1180, or a window narrower than that would give
+   the bars no side margin at all -- the same 16px-a-side the page keeps. */
+body.builder-page--editor .game-id-bar,
+/* AND THE ROOM HEAD, which was the last thing out of line. Measured at 1600px:
+   the head was 1537 starting at x=24 while the nav row and every bar were 1180
+   starting at x=203 -- the room name hard left above a centred column.
+     THAT MISALIGNMENT PREDATES THIS CHANGE: `.builder-nav-rows` has always
+   carried `max-width: 1180px; margin: 0 auto`, so the head was already out of
+   step with the row under it. It only became the ONLY thing out of step once
+   the bars stopped going full width.
+     SCOPED TO THIS PAGE'S EDITOR MODE, never to `.room-head` itself: that class
+   comes from the shared admin-shell.css and is the same object in every room,
+   which is the fork that sheet exists to prevent. */
+body.builder-page--editor .room-head{
+  /* WIDTH AS WELL AS MAX-WIDTH. The page is a COLUMN flex container, and an
+     auto margin on a flex item BEATS `align-items: stretch` -- so the head
+     stopped stretching and shrank to its content, 741px centred, which is the
+     centred-column recipe missing its first line. */
+  width:100%;
+  max-width:min(var(--mc-shell-width, 1180px), calc(100vw - 32px));
+  margin-left:auto;
+  margin-right:auto;
 }
+/* THE `.gid-row` FLEX ROW AND ITS THREE SHARES WENT ON 2026-08-31, with the
+   markup, per the standing rule that a control and its CSS go in one pass.
+   It put the anchor, the audiences and the map side by side for a day; each
+   has its own line again, which is what they were before.
+   WHAT THE ROW TAUGHT AND IS WORTH KEEPING: it named its three boxes BY ID to
+   set their shares, and the wrap query written as `> .game-id-bar` then LOST
+   the tie -- an id beats a class whatever the media query, because a media
+   query adds no specificity of its own. The row never wrapped, and nothing in
+   jsdom could see it: the rule was present and correct-looking, and only a real
+   browser resolving the cascade at a real width says which one won. */
 body.builder-page--editor .game-id-bar > legend{
   float:none;
   width:auto;
@@ -7452,6 +7477,17 @@ body.builder-page--editor .btn-guess[aria-disabled="true"]{
   cursor:help;
 }
 body.builder-page--editor .gid-field--city{ flex:0 1 240px; }
+/* A DOOR BESIDE A FIELD. It shares every visual property with GUESS -- see the
+   `.btn-guess` block above -- and adds only what sitting next to an input
+   needs: it does not stretch, it does not wrap, and it is an anchor so it
+   carries no underline. */
+body.builder-page--editor .gid-new{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  text-decoration:none;
+  white-space:nowrap;
+}
 body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
 /* Its own line under the pair above: flex-basis 100% forces the wrap, so the
    name and id keep the first row to themselves at any width. */
@@ -7482,12 +7518,16 @@ body.builder-page--editor .gid-label-link{
   text-decoration:none;
   border-bottom:1px dotted currentColor;
 }
+/* HOVER TO BLACK. It took `--accent`, a pale blue, on a bar whose ink is
+   already blue -- a shift small enough that nobody reads it as a state change.
+   Black is the darkest thing on the bar, so the word under the pointer is the
+   word that stands out. `focus-visible` takes it too, or a keyboard would get
+   no answer at all. */
 body.builder-page--editor .gid-label-link:hover,
 body.builder-page--editor .gid-label-link:focus-visible{
-  color:var(--accent, #7aa2ff);
+  color:#000;
   border-bottom-color:currentColor;
 }
-body.builder-page--editor .game-id-bar-inner--settings > .field{ flex:0 1 220px; min-width:0; }
 body.builder-page--editor .game-id-bar-inner--copy{
   flex-direction:column;
   align-items:stretch;
@@ -7496,28 +7536,140 @@ body.builder-page--editor .game-id-bar-inner--copy{
 }
 body.builder-page--editor .game-id-bar-inner--copy .field{ width:100%; min-width:0; }
 body.builder-page--editor .game-id-bar-inner--copy textarea{ min-height:96px; }
-/* The atlas box is one field, so it is capped rather than stretched across
+/* The map box is one field, so it is capped rather than stretched across
    the whole bar: a lone control the width of the room reads as an input
    that has lost its neighbour. */
-body.builder-page--editor #atlasBar .gid-field{ flex:1 1 0; min-width:0; }
-body.builder-page--editor .atlas-note{
+body.builder-page--editor #mapBar .gid-field{ flex:1 1 0; min-width:0; }
+body.builder-page--editor .map-note{
   margin-top:4px;
   font:500 0.68rem/1.35 'IBM Plex Mono', monospace;
   color:var(--muted);
 }
-body.builder-page--editor .atlas-note:empty{ display:none; }
+body.builder-page--editor .map-note:empty{ display:none; }
+
 /* The tag picker is a wrapping row of chips, so it takes the bar's whole
    width rather than sitting in a column beside nothing. */
 body.builder-page--editor #tagsBar .field{ width:100%; min-width:0; }
 /* THE ANCHOR IS ONE FIELD NOW, so it is capped rather than stretched across
    the whole bar -- a lone control the width of the room reads as an input
-   that has lost its neighbour. Wider than the atlas box because an event's
+   that has lost its neighbour. Wider than the map box because an event's
    label is a whole sentence: a date, a kind, and two clubs or a title. */
 /* NO CAP ON THE FIELD ANY MORE: the BOX is the cap now that three share a
    row, and a max-width inside it would leave a gap at the end of its own
    bar. The reason for the old cap -- a lone control the width of the room --
    is gone with the full-width bar. */
 body.builder-page--editor .gid-field--anchor{ flex:1 1 0; min-width:0; }
+/* THE BOX AND ITS DOOR SHARE A LINE. `align-items: flex-end` rather than
+   stretch, so the button sits on the input's own baseline whatever else the
+   field grows -- stretched, a 34px control beside a 34px input is right by
+   luck and wrong the moment either changes. */
+body.builder-page--editor .gid-anchor-row{
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
+}
+/* THE INPUT TAKES THE SLACK AND THE BUTTON HOLDS ITS WIDTH, or a long event
+   label would push `new` off the end of the bar. */
+body.builder-page--editor .gid-anchor-row > input{ flex:1 1 auto; min-width:0; }
+
+/* ---- HOW WIDE A FIELD IS ---------------------------------------------
+   EVERY BAR IS FULL WIDTH -- they are the page's structure and they should
+   line up down the left edge. THE CONTROLS INSIDE THEM ARE NOT. A 40-character
+   event label in a 1,384px box reads as an input that has lost its neighbour,
+   and the page had six of them stacked: the anchor, the map, the tagline, the
+   intro, the tag box and the game name were all the width of the room.
+
+   MEASURED IN CHARACTERS, NOT PIXELS, so a field is sized by what it holds and
+   follows the type if that ever changes. Three widths, and every field takes
+   one of them:
+     --gid-w-line   a sentence      an event label, a map name, a tagline
+     --gid-w-name   a short phrase  a game name, a city
+     --gid-w-read   a paragraph     the intro, at a readable measure
+   THE INTRO IS THE ONE THAT IS NOT ABOUT TIDINESS: prose past about 75
+   characters a line is measurably harder to read, and it is the only field
+   here somebody writes rather than picks. */
+body.builder-page--editor .game-id-bar{
+  --gid-w-line:46rem;
+  --gid-w-name:30rem;
+  --gid-w-read:44rem;
+  /* TWO COMBOS SIDE BY SIDE, each wide enough for its own guide sentence. */
+  --gid-w-pair:68rem;
+}
+/* THE FIELD IS CAPPED AND SITS LEFT, which is what `flex: 0 1 <cap>` does in a
+   row that already wraps: it takes its cap, shrinks below it on a narrow
+   window, and never grows past it. */
+body.builder-page--editor .gid-field--anchor{ flex:0 1 var(--gid-w-line); }
+body.builder-page--editor #mapBar .gid-field--map{ flex:0 1 var(--gid-w-line); }
+body.builder-page--editor .gid-field--name{ flex:0 1 var(--gid-w-line); }
+body.builder-page--editor .gid-field--city{ flex:0 1 var(--gid-w-name); }
+/* THE FIELD AND ITS EXAMPLE ON ONE LINE. `align-items:center` rather than
+   `stretch`, or the example would be as tall as the input and its text would
+   sit at the top of that box instead of beside the value. */
+/* THE ROW TAKES THE BAR, AND THE CAP STAYS ON THE FIELD INSIDE IT. Sized to
+   its own content the row was squeezed and the example wrapped underneath --
+   367px of input where the cap is 480. `flex: 1 1 100%` gives it the line and
+   `.gid-field--city` keeps the measure, so the example sits in the room that
+   is already there to the right of a capped field. */
+body.builder-page--editor .gid-city-row{
+  display:flex; align-items:center; gap:10px; min-width:0; flex-wrap:wrap;
+  flex:1 1 100%;
+}
+/* QUIET, AND IT NEVER SHRINKS THE FIELD. `flex:0 0 auto` so the example keeps
+   its own width and the box beside it keeps its cap; `nowrap` because a
+   two-word example broken across lines reads as a value rather than a hint. */
+body.builder-page--editor .gid-example{
+  flex:0 0 auto;
+  white-space:nowrap;
+  font:500 0.68rem/1.35 'IBM Plex Mono', monospace;
+  color:var(--muted, rgba(255,255,255,.62));
+}
+/* THE TWO AUDIENCE COMBOS SPLIT A LINE OF THEIR OWN, so the pair together comes
+   to the same measure as the single fields above and the boxes line up down
+   the page rather than each bar being a different width. */
+/* THE PAIR IS TWO FIELDS, so it takes two fields' worth: capping it at one
+   line's measure gave each half 362px, which clipped its own guide text
+   mid-word. A field narrower than the sentence printed inside it cannot be
+   read before it is used. */
+body.builder-page--editor .game-id-bar-inner--audience{ max-width:var(--gid-w-pair); }
+/* AND THE TWO FIELDS IN THE GAME BOX THAT WERE FULL WIDTH. `.field--wide` is
+   the class the tagline and the intro carry, and it meant `1 / -1` -- the whole
+   bar. It means a readable measure now. */
+/* NAMED BY ID, because these two are `.field` rather than `.gid-field`: they
+   came out of the inspector whole and kept its class, which is the right call
+   and leaves no modifier here to hang a width on.
+
+   `max-width`, NOT `flex`. Their row is `flex-direction: column`, so a
+   flex-basis is a HEIGHT -- written as `flex: 0 1 44rem` each field came out
+   704px tall with its label stranded at the top and its box at the bottom.
+   The existing `.field{ width: 100% }` already sets the width; this only caps
+   it. */
+/* THE TAGLINE IS A `.gid-field` IN A ROW NOW, not a `.field` in a column, so it
+   is capped the way every other single field on this page is. `max-width` alone
+   would still work; `flex: 0 1` is what the boxes either side of it use. */
+body.builder-page--editor #taglineField{ flex:0 1 var(--gid-w-line); }
+/* AN ID IS A SHORT KEY, AN EMOJI IS ONE OR TWO CHARACTERS, AND AN ICON IS A
+   SHORT LIST. Each takes a measure that fits what it holds rather than the
+   width of the room -- a lone control the width of the bar reads as an input
+   that has lost its neighbour. */
+body.builder-page--editor #selectionId{ flex:0 1 var(--gid-w-name); }
+body.builder-page--editor .gid-field--emoji{ flex:0 1 8rem; }
+/* A PRICE IS FIVE CHARACTERS AND AN ENGINE IS ONE OF TWO. Both kept the 220px
+   the settings row gave them, which is the measure they were designed at. */
+body.builder-page--editor .gid-field--price{ flex:0 1 220px; }
+body.builder-page--editor .gid-field--engine{ flex:0 1 220px; }
+/* THE ENGINE FIELD HOLDS TWO THINGS ON ONE LINE -- the select and the bubble --
+   and `.gid-field` is a COLUMN, so without this they stack and the `i` sits
+   under the control it annotates. The Category Icon box needed the same. */
+body.builder-page--editor .gid-field--engine{ flex-direction:row; align-items:center; gap:8px; }
+body.builder-page--editor .gid-field--engine select{ flex:1 1 auto; min-width:0; }
+body.builder-page--editor .gid-field--icon{ flex:0 1 var(--gid-w-name); }
+/* THE ICON FIELD HOLDS TWO THINGS ON ONE LINE -- the select and the bubble that
+   says which icon the PUBLIC card takes -- and `.gid-field` is a COLUMN, so
+   without this they stack and the `i` sits under the control it annotates. */
+body.builder-page--editor .gid-field--icon{ flex-direction:row; align-items:center; gap:8px; }
+body.builder-page--editor .gid-field--icon select{ flex:1 1 auto; min-width:0; }
+body.builder-page--editor #descriptionField{ max-width:var(--gid-w-read); }
+body.builder-page--editor #tagsBar .field{ max-width:var(--gid-w-line); }
 /* `min-width: 0`, or a long value inside a flex item refuses to shrink and
    pushes the row wider than the bar. */
 body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
@@ -7528,8 +7680,7 @@ body.builder-page--editor .gid-field .ta-swatches{ min-height:0; }
    a desktop arrangement and 300px is not on offer. */
 @media (max-width: 1100px){
   body.builder-page--editor .game-id-bar-inner--audience{ flex-wrap:wrap; }
-  body.builder-page--editor .gid-field--anchor,
-  body.builder-page--editor .gid-field--audience{ flex:1 1 100%; max-width:none; }
+  body.builder-page--editor .gid-field--audience{ flex:1 1 100%; max-width:var(--gid-w-line); }
 }
 body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
 body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:0; }
@@ -7647,72 +7798,133 @@ body.builder-page--editor .guide-moved-note a{ color:inherit; }
    the select rather than under it because it is the confirmation that you
    chose the right character - a list of names is easy to mis-click and a face
    is not. Fixed square so the row does not jump as portraits load. */
-body.builder-page--editor .guide-pick-row{
+body.builder-page--editor .guide-pick-row,
+body.builder-page--editor .logo-pick-row{
   display:flex;
-  align-items:flex-start;
+  /* STRETCH, so the portrait panel is as tall as the controls beside it and
+     the box reads as SPLIT rather than as a thumbnail with a form next to it. */
+  align-items:stretch;
   gap:12px;
   min-width:0;
+  /* THE ROW IS THE FIELD, so the row takes the field measure -- portrait and
+     all. The cap was on the column BESIDE the portrait, which put the picker
+     at the full 46rem and then pushed it 76px right, so it ended 137px past
+     every other control on the page. Measured, not eyeballed: the anchor and
+     the map inputs both end at x=891 and this one ran to 1028. */
+  max-width:var(--gid-w-line);
 }
 /* THE FRAME IS THE GAME'S PRIMARY COLOUR, ALWAYS - portrait or silhouette. It
    is the one place on this section that belongs to the game rather than to the
    guide, and an empty seat still belongs to a game. A neutral border on the
    empty state and a coloured one on the full state would also make the box
    flicker between two looks every time the picker changes. */
-body.builder-page--editor .guide-pick-shot{
+body.builder-page--editor .guide-pick-shot,
+body.builder-page--editor .logo-pick-shot{
   position:relative;
   flex:0 0 auto;
-  width:64px;
-  height:64px;
+  width:96px;
+  /* NO FIXED HEIGHT: the panel stretches to the controls beside it, with a
+     floor so it is still a portrait frame when they are short. */
+  min-height:76px;
   display:flex;
   align-items:center;
   justify-content:center;
   border:2px solid var(--game-primary, #5468a7);
   border-radius:8px;
   overflow:hidden;
-  background:rgba(255,255,255,.05);
-  padding:0;
+  /* WHITE, AND THE IMAGE IS `contain` BECAUSE OF IT. The two go together: a
+     covered image fills the frame edge to edge, so the ground would never be
+     seen and there would be no slack for "centred" to mean anything. */
+  background:#fff;
+  padding:6px;
+  box-sizing:border-box;
   cursor:zoom-in;
 }
 /* Disabled means there is no portrait behind it, so it must not offer the
    zoom cursor or the hover lift — the silhouette is not something to open. */
-body.builder-page--editor .guide-pick-shot:disabled{ cursor:default; }
+body.builder-page--editor .guide-pick-shot:disabled,
+body.builder-page--editor .logo-pick-shot:disabled{ cursor:default; }
+/* A WORD, NOT AN INVENTED MARK. The guide slot falls back to a silhouette,
+   which is an empty SEAT and says the right thing; there is no neutral
+   equivalent for a logo, and drawing one would assert a mark nobody chose. */
+body.builder-page--editor .logo-pick-none{
+  font-family:'IBM Plex Mono', monospace; font-size:0.55rem; letter-spacing:0.1em;
+  color:var(--muted, #6b7280);
+}
+body.builder-page--editor .logo-pick-image[hidden]{ display:none; }
 body.builder-page--editor .guide-pick-shot:not(:disabled):hover{ filter:brightness(1.08); }
-body.builder-page--editor .guide-pick-image{ width:100%; height:100%; object-fit:cover; display:block; }
-body.builder-page--editor .guide-pick-main{
+/* CONTAIN, NOT COVER: the whole portrait, centred in its own white panel,
+   whatever its aspect ratio. `block` or the inline baseline sits it low, and
+   `margin:auto` is what centres it in both axes once it no longer fills. */
+body.builder-page--editor .guide-pick-image,
+body.builder-page--editor .logo-pick-image{
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  display:block;
+  margin:auto;
+}
+body.builder-page--editor .guide-pick-main,
+body.builder-page--editor .logo-pick-main{
   display:flex;
   flex-direction:column;
+  /* TOP OF ITS OWN HALF (2026-08-31), which reverses the centring made earlier
+     the same day. That was not wrong -- it answered a different question: the
+     two halves of a split box agreeing about where their content sat. Aligned
+     to the top, the CONTROL lines up with the top of the frame beside it, and
+     a column of these bars reads as a column.
+
+     THE PICTURE IS STILL CENTRED IN ITS FRAME. Only the controls moved: a
+     logo or a portrait floating at the top of a white panel would be the
+     frame looking broken rather than the field looking aligned. */
+  justify-content:flex-start;
   gap:6px;
   min-width:0;
   flex:1;
 }
-body.builder-page--editor .guide-pick-main select{ width:100%; box-sizing:border-box; }
-/* Sits under the dropdown and only as wide as its words - it leaves the page,
-   so it should not read as the section's primary action. */
-body.builder-page--editor .guide-greenroom-btn{
-  align-self:flex-start;
+body.builder-page--editor .guide-pick-controls,
+body.builder-page--editor .logo-pick-controls{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+/* THE SELECT TAKES THE SLACK AND THE DOOR KEEPS ITS WIDTH. `min-width:0` or a
+   long guide name refuses to shrink and pushes the door off the bar. */
+body.builder-page--editor .guide-pick-controls select,
+body.builder-page--editor .logo-pick-controls select{ flex:1 1 auto; min-width:0; box-sizing:border-box; }
+/* BESIDE THE DROPDOWN AND ONLY AS WIDE AS ITS WORDS - it leaves the page, so
+   it should not read as the section's primary action. `nowrap`, or three
+   words wrap the moment the bar narrows and the row grows a second line. */
+body.builder-page--editor .guide-greenroom-btn,
+body.builder-page--editor .logo-studio-btn{
+  flex:0 0 auto;
   display:inline-block;
+  white-space:nowrap;
   text-decoration:none;
   cursor:pointer;
 }
-body.builder-page--editor .guide-pick-status{
+body.builder-page--editor .guide-pick-status,
+body.builder-page--editor .logo-pick-status{
   font-family:'IBM Plex Mono',monospace;
   font-size:.68rem;
   letter-spacing:.06em;
   min-height:1em;
   opacity:.75;
 }
-body.builder-page--editor .guide-pick-status[data-state="error"]{ color:#ff9d9d; opacity:1; }
-body.builder-page--editor .guide-pick-status[data-state="success"]{ color:#8fe0a8; opacity:1; }
+/* AN EMPTY STATUS TAKES NO ROOM, or the reserved line under the controls pulls
+   them off the centre they were just given -- for a line with nothing in it.
+   The same rule `.map-note` keeps. It costs no jump: the row is sized by the
+   portrait's own min-height, not by this column. */
+body.builder-page--editor .guide-pick-status:empty,
+body.builder-page--editor .logo-pick-status:empty{ display:none; }
+body.builder-page--editor .guide-pick-status[data-state="error"],
+body.builder-page--editor .logo-pick-status[data-state="error"]{ color:#ff9d9d; opacity:1; }
+body.builder-page--editor .guide-pick-status[data-state="success"],
+body.builder-page--editor .logo-pick-status[data-state="success"]{ color:#8fe0a8; opacity:1; }
 
-body.builder-page--editor #detailsGuideSection .details-section-title{
-  display:block;
-  font-size:.62rem;
-  font-weight:600;
-  letter-spacing:.1em;
-  text-transform:uppercase;
-  color:rgba(var(--bic-blue-rgb),.5);
-  margin-bottom:4px;
-}
 
 body.builder-page--editor #inspectorContent.is-game-details{
   display:block;
@@ -7896,8 +8108,6 @@ body.builder-page--editor #inspector .guide-image-asset-btn{
 body.builder-page--editor #inspector .tag-pill,
 body.builder-page--editor #inspector .tag-pill:hover,
 body.builder-page--editor #inspector .tag-pill.on,
-body.builder-page--editor #inspector .tag-delete-btn,
-body.builder-page--editor #inspector .tag-delete-btn:hover,
 body.builder-page--editor #inspector #nodeTagNewInput{
   color:var(--game-primary, #5468a7);
 }
@@ -7965,7 +8175,6 @@ body.builder-page--editor #nodeTagNewInput{
 }
 
 body.builder-page--editor #nodeGuideImageInput,
-body.builder-page--editor #nodeGameLogoInput,
 body.builder-page--editor #nodeGuideBioInput,
 body.builder-page--editor #nodeGuideBackgroundInput{
   width:100%;
@@ -8384,13 +8593,11 @@ body.builder-page--editor .guide-image-asset-item-name{
   white-space:nowrap;
 }
 
-body.builder-page--editor #gameLogoAssetStatus,
 body.builder-page--editor #guideImageAssetStatus{
   margin-top:6px;
   color:rgba(var(--bic-blue-rgb), .72);
 }
 
-body.builder-page--editor #gameLogoAssetStatus.is-error,
 body.builder-page--editor #guideImageAssetStatus.is-error{
   color:#f3b15b;
 }
@@ -9759,6 +9966,74 @@ body.builder-auth-ready .builder-admin-signout{
 .builder-nav-row .builder-nav-btn:disabled,
 .builder-nav-row .builder-nav-btn[aria-disabled="true"]{opacity:.5;cursor:default;pointer-events:none;}
 .builder-nav-row .builder-nav-btn--danger{color:#a03f2d;border-color:rgba(160,63,45,.3);}
+
+/* ---- STATUS, AS THREE BUTTONS IN THE NAV ROW -------------------------
+   THEY WEAR `.builder-nav-btn`, borrowed rather than drawn again: a control
+   invented here would read as a different KIND of thing from New, Duplicate,
+   Save and Preview sitting beside it. What is added is only what a set of three
+   needs -- they touch, and the chosen one is filled.
+
+   THE RADIO IS HIDDEN, NOT REMOVED. `appearance: none` plus zero size would
+   still leave it in the layout; `position: absolute` with `opacity: 0` keeps it
+   focusable and keyboard-operable while the SPAN is what is painted. It must
+   NOT be `display: none`, which takes it out of the tab order and out of the
+   radiogroup a screen reader sees. */
+/* A BOX OF ITS OWN, sized to its buttons rather than taking a share of the
+   line. `.builder-nav-rows #mbNav` is `flex: 1 1 320px` and takes the slack, so
+   this and the lifecycle box either side of it are both `0 0 auto` -- which is
+   what keeps the status buttons hard right at every width without an auto
+   margin anywhere. */
+.builder-nav-row--status{
+  flex:0 0 auto;
+}
+.builder-nav-status{
+  display:inline-flex;
+  align-items:center;
+  /* THEY TOUCH, so the three read as one control with three positions rather
+     than three separate buttons that happen to sit together. */
+  gap:0;
+}
+.builder-nav-statusopt{ display:inline-flex; position:relative; }
+.builder-nav-statusinput{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  margin:0;
+  opacity:0;
+  cursor:pointer;
+}
+.builder-nav-statusinput:disabled{ cursor:default; }
+/* THE SAME METRICS AS SAVE, which is the other small control in this row: a
+   42px button beside a 34px one reads as two different kinds of thing. */
+.builder-nav-row .builder-nav-btn--status{
+  min-height:34px;
+  padding:0 12px;
+  font-size:.78rem;
+  border-radius:0;
+}
+/* ONE SET, SO ONLY THE OUTER CORNERS ARE ROUND and the shared borders do not
+   double into a 2px seam. */
+.builder-nav-statusopt:first-child .builder-nav-btn--status{ border-radius:8px 0 0 8px; }
+.builder-nav-statusopt:last-child .builder-nav-btn--status{ border-radius:0 8px 8px 0; }
+.builder-nav-statusopt + .builder-nav-statusopt .builder-nav-btn--status{ margin-left:-1px; }
+/* DARK BLUE IS THE CHOSEN ONE, and `:checked` is the whole mechanism: the
+   painter writes `checked` from `games.status`, so what is filled and what is
+   stored cannot disagree. Only one can be checked because they share a `name`,
+   which is the browser enforcing it rather than code. */
+.builder-nav-statusinput:checked + .builder-nav-btn--status{
+  background:var(--bic-blue);
+  border-color:var(--bic-blue);
+  color:#fff;
+}
+/* THE FOCUS RING GOES ON THE PAINTED SPAN, since the input it belongs to is
+   invisible -- without this the control is unusable by keyboard. */
+.builder-nav-statusinput:focus-visible + .builder-nav-btn--status{
+  outline:2px solid var(--bic-blue);
+  outline-offset:2px;
+}
+.builder-nav-statusinput:disabled + .builder-nav-btn--status{ opacity:.5; cursor:default; }
+.builder-nav-statusinput:not(:disabled):not(:checked):hover + .builder-nav-btn--status{ background:#fff; }
 #mbNav[data-view="builder"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn){display:none!important;}
 #mbNav[data-view="builder"] #gamePickerSaveBtn{flex:0 0 auto;}
 #mbNav[data-view="details"] #gamePickerSaveBtn{flex:0 0 auto;}
@@ -9974,6 +10249,48 @@ html.admin-embedded .builder-section-head{
           </div>
           <button class="builder-nav-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false" title="Save (Ctrl/Cmd+S)">Save</button>
           <a class="builder-nav-btn" id="builderViewGameBtn" href="/mc/game/run/index.html" target="_blank" rel="noopener" aria-disabled="true" title="Preview the public game">Preview</a>
+
+        </div>
+
+        <!-- STATUS, IN A BOX OF ITS OWN (2026-08-31). It sat inside the tool
+             row for an hour, which made it read as a fourth control among Save
+             and Preview -- and it is not the same kind of thing. Save and
+             Preview ACT and are done; this is a STATE the game is left in, and
+             the filled button is a standing answer rather than something that
+             just happened.
+
+             THE THIRD BOX ON THIS LINE, so the row reads as what you MAKE (New,
+             Duplicate), what you DO with the open one (open, save, preview), and
+             what STATE you leave it in. It takes the WHITE treatment rather than
+             the lifecycle box's filled ink, because the chosen button is already
+             the dark thing here and two darks would cancel each other out.
+
+             STILL RADIOS UNDER THE PAINT, and that is deliberate. They look like
+             the buttons in the boxes beside them and behave like a radiogroup,
+             which is what they are: exactly one at a time, arrow keys working,
+             and one accessible name for the group. Three <button>s would mean a
+             hand-rolled `aria-pressed` set and its own mutual exclusion --
+             reimplementing what the browser already does.
+
+             ONE ACTIVE AT A TIME IS THE `name` ATTRIBUTE, not code. The dark
+             blue is `:checked`, and `:checked` is what the painter writes from
+             `games.status`, so what is filled and what is stored cannot
+             disagree. -->
+        <div class="builder-nav-row builder-nav-row--status" id="gameStatusRow">
+          <div class="builder-nav-status" role="radiogroup" aria-label="Game status" id="gameStatusToggle">
+            <label class="builder-nav-statusopt" for="gameStatusLive">
+              <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusLive" value="live" disabled>
+              <span class="builder-nav-btn builder-nav-btn--status">Post</span>
+            </label>
+            <label class="builder-nav-statusopt" for="gameStatusBuilding">
+              <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusBuilding" value="building" disabled>
+              <span class="builder-nav-btn builder-nav-btn--status">Build</span>
+            </label>
+            <label class="builder-nav-statusopt" for="gameStatusArchived">
+              <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusArchived" value="archived" disabled>
+              <span class="builder-nav-btn builder-nav-btn--status">Skip</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -10012,7 +10329,7 @@ html.admin-embedded .builder-section-head{
            all while every fandom game has both audiences.
            The fill is unchanged: it still reaches across the two boxes, and it
            still never overwrites an audience somebody has set. -->
-      <!-- ANCHOR, AUDIENCE AND ATLAS ON ONE ROW (2026-08-31). The three answer
+      <!-- ANCHOR, AUDIENCE AND MAP ON ONE ROW (2026-08-31). The three answer
            the same question in three parts -- WHY they are in town, WHO the game
            is for, and WHICH walk they take -- and all three are settled before
            you write a word of the game. Stacked they were three full-width bars
@@ -10021,33 +10338,74 @@ html.admin-embedded .builder-section-head{
            THEY ARE STILL THREE FIELDSETS, not one with three groups: each keeps
            its own folder tab, so the row says what each part is without a legend
            having to name all three. -->
-      <div class="gid-row">
+      <!-- THE ANCHOR EVENT IS ON ITS OWN LINE AND IT COMES FIRST (2026-08-31).
+           It shared a row with the audience and the map for a day, on the
+           argument that the three answer one question in three parts. They do,
+           and the anchor is still the FIRST of them -- what brought people to
+           the city, before who the game is for and which walk they take -- so
+           giving it the full width says it is answered first rather than
+           alongside.
+           IT ALSO EARNS THE WIDTH ON ITS OWN: an event label is a whole
+           sentence (a date, a kind, and two clubs or a title), and it now
+           carries a NEW button beside it. -->
       <fieldset class="game-id-bar" id="anchorBar">
-        <legend>Anchor</legend>
+        <!-- THE LEGEND IS THE DOOR (2026-08-31). It is the one label on this
+             page worth following: an anchor event is filed in another room, so
+             you meet this field, find the event you want is not on the list,
+             and the way to make it is the word you are already looking at.
+
+             SAME TAB, which is what the button it replaces did: filing an
+             event is leaving rather than glancing, and a same-tab navigation
+             fires `beforeunload` -- so this gets the page's existing
+             unsaved-work warning with no new code. -->
+        <legend><a class="gid-label-link" id="anchorEventRoomLink" href="/mc/events/">Anchor Event</a></legend>
         <div class="game-id-bar-inner">
           <div class="gid-field gid-field--anchor" id="anchorEventField">
-            <label class="gid-label" for="anchorEventInput">Event</label>
-            <input id="anchorEventInput" type="text" list="anchorEventList"
-                   autocomplete="off" spellcheck="false" disabled
-                   placeholder="Nothing in particular">
-          </div>
+            <!-- NO LABEL ABOVE THE BOX. The legend already says ANCHOR EVENT
+                 and this is the only field under it, so a label reading `Event`
+                 was the box named twice a few pixels apart. The input keeps an
+                 `aria-label`, or it would be a control with no name at all for
+                 a screen reader -- a legend names the GROUP, not the field. -->
+            <div class="gid-anchor-row">
+              <input id="anchorEventInput" type="text" list="anchorEventList"
+                     autocomplete="off" spellcheck="false" disabled
+                     aria-label="Anchor event"
+                     placeholder="Type or tap here to choose an existing Anchor Event.">
         </div>
       </fieldset>
 
-      <!-- AUDIENCE: THE TWO FANDOMS IN PLAY. A Bears fan in New Orleans has
+      <!-- AUDIENCES: THE TWO FANDOMS IN PLAY. A Bears fan in New Orleans has
            their own and the one they are surrounded by, and the pair is one
            thought -- who this game is FOR, and who they are up against -- so
            they stay on one line together. The target leads because a game is
            pitched at the travelling side, which is the same asymmetry the copy,
-           the palette and the game id all have. -->
+           the palette and the game id all have.
+
+           PLURAL, BECAUSE THE BOX HOLDS TWO. `Audience` over a pair of pickers
+           read as one of them being the audience and the other something about
+           it. The room it points at is Audiences too.
+
+           AND IT HAS THE LINE TO ITSELF (2026-08-31), like the anchor above.
+           The three shared a row for a day; what that cost is that the box
+           holding TWO fields had a third of the width, so both combos were
+           narrower than the one field beside them. On its own line the pair
+           gets the room, and the page reads as one question per line. -->
       <fieldset class="game-id-bar" id="audienceBar">
-        <legend>Audience</legend>
+        <!-- THE LEGEND IS THE DOOR, as the Anchor Event box does. This one has
+             no alternative: the box holds TWO fields, so there is no single
+             label to hang a link on.
+
+             SAME TAB, for the anchor door's reason: going to add or correct a
+             fandom is leaving rather than glancing, and a same-tab navigation
+             fires `beforeunload`, so it inherits the page's unsaved-work
+             warning with no new code. -->
+        <legend><a class="gid-label-link" id="audienceRoomLink" href="/mc/audiences/">Audiences</a></legend>
         <div class="game-id-bar-inner game-id-bar-inner--audience">
           <div class="gid-field gid-field--audience" id="targetAudienceField">
             <label class="gid-label" for="targetAudienceInput">Target audience</label>
             <input id="targetAudienceInput" type="text" list="audienceList"
                    autocomplete="off" spellcheck="false" disabled
-                   placeholder="Nobody in particular">
+                   placeholder="Auto filled or type or tap to choose an Existing Target Audience.">
             <!-- THE PALETTE SITS UNDER ITS OWN FIELD, because a game wears the
                  target's colours and three hex values in a table say nothing:
                  the swatches are the only way to see that the choice took. -->
@@ -10057,13 +10415,52 @@ html.admin-embedded .builder-section-head{
             <label class="gid-label" for="rivalAudienceInput">Rival audience</label>
             <input id="rivalAudienceInput" type="text" list="audienceList"
                    autocomplete="off" spellcheck="false" disabled
-                   placeholder="Nobody in particular">
+                   placeholder="Auto filled or type or tap to choose an Existing Rival Audience.">
             <div class="ta-swatches" id="rivalAudienceSwatches"></div>
           </div>
         </div>
       </fieldset>
 
-      <!-- ATLAS, UNDER THE ANCHOR (2026-08-31). The anchor says what brought
+      <!-- THE CITY, ON ITS OWN LINE UNDER THE AUDIENCES (2026-08-31).
+           It was a field in the GAME box, beside the name -- and it is not the
+           same kind of fact: a name is what the game is CALLED, and the city is
+           WHERE it is walked, which is the third answer in the run the anchor
+           and the audiences begin. Under them it reads in that order: why they
+           are in town, who the game is for, and where they walk.
+
+           IT IS MOVED, NEVER COPIED. `nodeCityInput` and every line that reads
+           it are untouched, so applyGeoControls, syncGeoControlsToMeta and the
+           geocoder all still find it. The STATE and COUNTRY boxes stay in the
+           drawer: the three compose `meta.city` together, and the city is the
+           half you read a game by.
+
+           THE PLACEHOLDER IS THE ONLY THING TEACHING THE FORMAT, since nothing
+           checks the value against a catalogue -- so it shows the whole shape
+           rather than a bare city. "City, ST" is what the anchor event supplies
+           and what `parseGeo` reads the state half out of. -->
+      <fieldset class="game-id-bar" id="cityBar">
+        <legend>Game City</legend>
+        <div class="game-id-bar-inner">
+          <!-- THE FIELD AND ITS EXAMPLE SHARE A LINE, so the row is the thing
+               that wraps rather than the field growing a second line. -->
+          <div class="gid-city-row">
+          <div class="gid-field gid-field--city" id="cityField">
+            <!-- NO LABEL ABOVE THE BOX: the legend says CITY and this is the
+                 only field under it, so a label was the box named twice a few
+                 pixels apart. The input keeps an `aria-label`, or it is a
+                 control with no name at all for a screen reader -- a legend
+                 names the GROUP, not the field. -->
+            <input id="nodeCityInput" type="text" autocomplete="off"
+                   aria-label="City" placeholder="Chicago, IL" disabled>
+          </div>
+          <!-- `aria-hidden`: it is an EXAMPLE, not a second name for the
+               control. Read aloud after the field own label it would be one. -->
+          <span class="gid-example" id="cityExample" aria-hidden="true">ex.: New Orleans, LA</span>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- MAP, UNDER THE ANCHOR (2026-08-31). The anchor says what brought
            people to the city; this says which walk they take when they get
            there. It is the same kind of fact and the next question, so it is the
            next box rather than a field in the drawer.
@@ -10072,44 +10469,37 @@ html.admin-embedded .builder-section-head{
            field shows a LABEL and the column holds a KEY. It is also the shape
            the audiences and the anchor event above it already use.
 
-           IT OFFERS ONLY ATLASES THAT EXIST, and that is where the guard lives:
-           `games.atlas_id` is NOT a foreign key and cannot be one, because
-           `public.atlases` is keyed by (atlas_id, stop_number), so the id alone
-           is not unique. Nothing downstream will tell you a game names an atlas
+           IT OFFERS ONLY MAPS THAT EXIST, and that is where the guard lives:
+           `games.map_id` is NOT a foreign key and cannot be one, because
+           `public.maps` is keyed by (map_id, stop_number), so the id alone
+           is not unique. Nothing downstream will tell you a game names a map
            that is not there. -->
-      <fieldset class="game-id-bar" id="atlasBar">
-        <legend>Atlas</legend>
+      <fieldset class="game-id-bar" id="mapBar">
+        <!-- THE LEGEND IS THE DOOR, as the Anchor Event and Audiences boxes
+             do. A map is built in TGB Atlas and named here, so this is a label
+             worth following: you meet the field, find the map you want does not
+             exist, and the way to make it is the word you are already reading.
+
+             A NEW TAB, unlike the other two: TGB Atlas is a GLANCE at a list
+             rather than somewhere you go to file something, and a half-edited
+             game must not be lost to a glance.
+
+             THE FOLDER NAMES THE ROOM, not the things in it: the room is TGB
+             ATLAS and it holds MAPS. `/mc/atlas/`, and a blind rename once
+             pointed this at `/mc/maps/`, which 404s for exactly that reason. -->
+        <legend><a class="gid-label-link" id="mapRoomLink" href="/mc/atlas/" target="_blank" rel="noopener noreferrer">Map</a></legend>
         <div class="game-id-bar-inner">
-          <div class="gid-field gid-field--atlas" id="atlasField">
-            <!-- THE LABEL IS A DOOR TO THE ATLASES ROOM. An atlas is built
-                 there and named here, so this is the one field on the page whose
-                 own label is worth following: you come to it, find the atlas you
-                 want does not exist yet, and the way to make one is the word you
-                 are already looking at.
-
-                 IT IS AN ANCHOR RATHER THAN A `<label for>`, and it cannot be
-                 both: a label's click focuses its input and a link's navigates,
-                 so one element doing both is a control that does two things at
-                 once. The input carries `aria-label` instead, so it is still
-                 named for a screen reader. Same shape the Stop Builder's two
-                 `new` links already use -- an anchor inside a label is the
-                 nesting browsers disagree about.
-
-                 A NEW TAB, because the Game Builder is where you are working and
-                 a half-edited game must not be lost to a glance at a list. -->
-            <div class="gid-label">
-              <a class="gid-label-link" href="/mc/atlases/" target="_blank" rel="noopener noreferrer"
-                 title="Open the Atlases room in a new tab. This page keeps what you have typed.">Atlas</a>
+          <div class="gid-field gid-field--map" id="mapField">
+            <div class="gid-anchor-row">
+              <input id="gameMapInput" list="gameMapList" autocomplete="off"
+                     aria-label="Map"
+                     placeholder="Choose a Map" disabled>
             </div>
-            <input id="gameAtlasInput" list="gameAtlasList" autocomplete="off"
-                   aria-label="Atlas"
-                   placeholder="The walk this game takes" disabled>
-            <datalist id="gameAtlasList"></datalist>
-            <div class="atlas-note" id="gameAtlasNote"></div>
+            <datalist id="gameMapList"></datalist>
+            <div class="map-note" id="gameMapNote"></div>
           </div>
         </div>
       </fieldset>
-      </div>
 
       <!-- THE GAME'S IDENTITY, ON THE PAGE RATHER THAN IN THE INSPECTOR.
            Name and id are not fields you go looking for among Brand, Payment
@@ -10118,15 +10508,19 @@ html.admin-embedded .builder-section-head{
            So they sit above the workspaces, in the socials rooms' cut-panel
            frame -- one labelled fieldset, full width, mono legend on a folder
            tab. Hidden until a game is open (see updateSelectionUi). -->
-      <fieldset class="game-id-bar" id="gameIdentityBar">
-        <legend>Game</legend>
+      <!-- THE NAME IS ITS OWN BOX (2026-08-31). Moved, not copied: the block
+           came across whole, so `titleField`, `nodeTitleInput` and the Guess
+           button all still resolve and no wiring changed.
+
+           NO LABEL: the legend says GAME NAME and this is the only field under
+           it. The `aria-label` is what keeps it named for a screen reader,
+           since a legend is not an accessible name for an input. -->
+      <fieldset class="game-id-bar" id="gameNameBar">
+        <legend>Game Name</legend>
         <div class="game-id-bar-inner">
           <div class="gid-field gid-field--name" id="titleField">
-            <label class="gid-label" id="nodeTitleLabel" for="nodeTitleInput">
-              <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
-            </label>
             <div class="gid-name-row">
-              <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
+              <input id="nodeTitleInput" type="text" autocomplete="off" aria-label="Game name" disabled>
               <!-- THE NAME THE CATALOGUE ALREADY USES, offered rather than
                    imposed. Every generated game is called "<away city> Fans
                    Takeover <host city>", and both halves are sitting in the
@@ -10136,25 +10530,37 @@ html.admin-embedded .builder-section-head{
                       title="Name it from the two audiences">Guess</button>
             </div>
           </div>
-          <!-- THE CITY, MOVED RATHER THAN ADDED. `games.city` already had a
-               control -- "Start City" in the inspector -- and a second one for
-               one column is the duplication this repo keeps removing. The STATE
-               and COUNTRY boxes stay where they are: the three compose
-               `meta.city` together, and the city is the half you read a game by.
+        </div>
+      </fieldset>
 
-               THE PLACEHOLDER IS THE ONLY THING TEACHING THE FORMAT now that
-               nothing checks the value against the catalogue, so it shows the
-               whole shape rather than a bare city: "City, ST" is what the anchor
-               event supplies and what every other table here spells.
-
-               THE ID AND THE WIRING ARE UNCHANGED, so applyGeoControls and the
-               geocoder still find it. -->
-          <div class="gid-field gid-field--city" id="cityField">
-            <label class="gid-label" for="nodeCityInput">City</label>
-            <input id="nodeCityInput" type="text" autocomplete="off"
-                   placeholder="Chicago, IL" disabled>
+      <!-- THE TAGLINE IS ITS OWN BOX (2026-08-31), same move and same reason:
+           it is the one line of copy that goes out under the game name, and it
+           shared a row with the intro, which is a paragraph. -->
+      <fieldset class="game-id-bar" id="taglineBar">
+        <legend>Tagline</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field" id="taglineField">
+            <input id="nodeTaglineInput" type="text" autocomplete="off" aria-label="Tagline" disabled>
           </div>
         </div>
+      </fieldset>
+
+      <!-- THE GAME ID IS ITS OWN BOX (2026-08-31), out of the Basics drawer.
+           It is the row PERMANENT KEY -- six tables reference it -- which is
+           why it was kept in the drawer in the first place, and why it is worth
+           reading rather than buried. The rename warning is unchanged. -->
+      <fieldset class="game-id-bar" id="gameIdBar">
+        <legend>Game ID</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field" id="selectionId">
+            <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
+                   aria-label="Game ID" placeholder="none">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="game-id-bar" id="gameIdentityBar">
+        <legend>Game</legend>
         <!-- ROW 2: THE TAGLINE AND THE INTRO (2026-08-31).
              MOVED OUT OF THE INSPECTOR, NOT COPIED. Both were fields in the
              Basics drawer; a second control for one column is the duplication
@@ -10173,10 +10579,6 @@ html.admin-embedded .builder-section-head{
              `replyModeField` travels inside the description block as it always
              did and keeps its own `hidden`. -->
         <div class="game-id-bar-inner game-id-bar-inner--copy">
-            <div class="field" id="taglineField">
-              <label class="field-label" for="nodeTaglineInput">Tagline</label>
-              <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
-            </div>
             <div class="field" id="descriptionField">
               <label class="field-label field-label--with-meta" for="nodeBodyInput">
                 <span id="nodeBodyLabel">Intro</span>
@@ -10229,23 +10631,204 @@ html.admin-embedded .builder-section-head{
              engine is one of two, so the row is capped rather than stretched:
              two short controls spread across the width of the box read as
              fields that have lost their neighbours. -->
-        <div class="game-id-bar-inner game-id-bar-inner--settings">
-                    <div class="field" id="priceField">
-                      <label class="field-label" for="nodePriceInput">Price</label>
-                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
-                    </div>
+      </fieldset>
 
-                    <div class="field" id="engineField">
-                      <label class="field-label field-label--with-meta" for="nodeEngineInput">
-                        <span class="field-label-text">Engine</span>
-                        <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
-                      </label>
-                      <select id="nodeEngineInput" autocomplete="off" disabled>
-                        <option value="text">Text Message</option>
-                        <option value="map">Map</option>
-                      </select>
-                    </div>
+      <!-- HOW IT IS SOLD, AND HOW IT IS PLAYED (2026-08-31). They shared row 3
+           of the GAME box, which was right while that box was the game's
+           identity and its copy; one thing per box is the shape this room
+           settled on, and these are two different facts -- a price is what a
+           buyer pays and an engine is what they walk into.
 
+           MOVED, NOT COPIED: every id came across, so the save path, the
+           price-cents trigger and the engine default all needed no edit. -->
+      <fieldset class="game-id-bar" id="priceBar">
+        <legend>Price</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--price" id="priceField">
+            <input id="nodePriceInput" type="text" autocomplete="off" aria-label="Price" disabled>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- THE BUBBLE STAYS: it says which engine a game uses and that players
+           land in it from the run page Start button, which the legend does not.
+           Same call the Category Icon box made. -->
+      <fieldset class="game-id-bar" id="engineBar">
+        <legend>Engine</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--engine" id="engineField">
+            <select id="nodeEngineInput" autocomplete="off" aria-label="Engine" disabled>
+              <option value="text">Text Message</option>
+              <option value="map">Map</option>
+            </select>
+            <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- THE GUIDE, ON THE PAGE RATHER THAN IN THE DRAWER (2026-08-31).
+           It sat in the inspector among Brand, Payment and the rest. It is not
+           a setting: the guide is the VOICE IN THE PLAYER'S EAR, which is part
+           of what the game IS -- so it belongs directly under GAME, which says
+           what the game is called and what it says.
+
+           MOVED, NEVER COPIED. Every id came across, so the picker, the
+           portrait, the greenroom link and the save path all needed no edit --
+           INCLUDING THE FOUR HIDDEN FIELDS. Those hold the loaded name, bio,
+           background and portrait and hand them straight back; delete them and
+           every save from here writes four empty strings over a guide somebody
+           wrote in the Green Room next door.
+
+           NO LABEL ABOVE THE PICKER: the legend says GUIDE and it is the only
+           field under it, which is the call the anchor, the city, the map and
+           the status boxes all made today. The tooltip stays -- it is the
+           standing explanation of what a guide IS and where it is edited, and
+           it is read once rather than on every game. -->
+      <!-- WHAT THE PUBLIC CARD WEARS (2026-08-31). Two boxes rather than one,
+           because they are not two halves of a choice: the emoji is a glyph the
+           ROW carries and the icon is one of a fixed set the card falls back
+           to. `/games/` reads `default_emoji` first and `category_icon` second,
+           so a row can carry either, both or neither. -->
+      <fieldset class="game-id-bar" id="emojiBar">
+        <legend>Default Emoji</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--emoji" id="defaultEmojiField">
+            <input id="nodeDefaultEmojiInput" type="text" autocomplete="off" aria-label="Default emoji" disabled>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- THE INFO BUBBLE STAYS: it says which icon the PUBLIC card takes,
+           which the legend does not. -->
+      <fieldset class="game-id-bar" id="categoryIconBar">
+        <legend>Category Icon</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--icon" id="categoryIconField">
+            <select id="nodeCategoryIconInput" autocomplete="off" aria-label="Category icon" disabled>
+              <option value="">None / Auto</option>
+              <option value="football">Football Helmet</option>
+              <option value="basketball">Basketball</option>
+              <option value="baseball">Baseball</option>
+              <option value="music">8 Bit Musical Notes</option>
+            </select>
+            <span class="field-info" tabindex="0" role="note" aria-label="Choose the public card icon for this game.">i<span class="field-tooltip" role="tooltip">Choose the public card icon for this game.</span></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="game-id-bar" id="guideBar">
+        <legend>Guide</legend>
+        <div class="game-id-bar-inner">
+
+                      <!-- MOVED TO /mc/greenroom/ on 2026-08-09. The guide is one
+                           object - name, bio, background and portrait - and it was
+                           being edited in two rooms with only one of them able to
+                           upload the picture. Guides now owns all of it and edits
+                           across every game at once.
+
+                           THE FIELDS BELOW ARE STILL HERE, HIDDEN, AND THAT IS
+                           DELIBERATE. This page's save path reads them; delete them
+                           and every save from Game Profiles would write four empty
+                           strings over a guide somebody wrote next door. They hold
+                           the loaded values and hand them straight back. -->
+                      <!-- ONE CONTROL: pick the character, and that is the whole
+                           section. The game stores a guide_id and nothing else;
+                           the name, bio and background arrive on the row from the
+                           games_pull_guide trigger, and the portrait is read from
+                           public.guides. Writing any of those from here is what
+                           the trigger exists to prevent. -->
+                      <div class="field" id="guidePickField">
+                        <!-- The standing points live in the hover, not under the
+                             control. They are true of every game and are read once;
+                             a permanent paragraph restating them on every profile
+                             is the kind of text people stop seeing by the third
+                             game. The tooltip layer takes plain text, so this is
+                             one span with no markup in it. -->
+                        <!-- NO LABEL: the legend says GUIDE and this is the only
+                             field under it, so a label would be the box named
+                             twice -- the call the anchor, the city, the map and
+                             the status boxes all made today.
+
+                             AND NO INFO BUBBLE. It carried one genuinely
+                             non-obvious rule -- THIS FIELD SAVES ITSELF, which
+                             every other field on this page contradicts -- and it
+                             carried it in a hover, which is unreachable on a
+                             touch screen. AND NO NOTE EITHER as of 2026-08-31,
+                             so nothing on screen says the picker saves itself;
+                             that rule is in CLAUDE.md. The rest of the tooltip
+                             described what a guide IS, which the picker and the
+                             Green Room door say between them. -->
+                        <div class="guide-pick-row">
+                          <!-- The slot always holds a picture: a chosen guide's
+                               portrait, or the silhouette. Words in an image frame
+                               ("NO GUIDE") read as an error; a silhouette reads as
+                               an empty seat, which is what it is. -->
+                          <button class="guide-pick-shot" id="guidePickShot" type="button" disabled aria-label="No portrait">
+                            <img class="guide-pick-image" id="guidePickImage" alt="" src="/mc/assets/guideplaceholder.jpg">
+                          </button>
+                          <div class="guide-pick-main">
+                            <!-- THE PICKER AND THE DOOR SHARE A LINE: choosing a
+                                 guide and going to write one are the same errand,
+                                 and stacked they read as two separate decisions.
+                                 The select takes the slack; the door keeps its
+                                 own width. -->
+                            <div class="guide-pick-controls">
+                              <select id="nodeGuideSelect" disabled></select>
+                              <!-- An <a> wearing the button class: it navigates,
+                                   so it keeps middle-click and open-in-new-tab.
+                                   New tab deliberately — you are mid-edit on a
+                                   game here. -->
+                              <a class="insp-btn guide-greenroom-btn" id="guideGreenroomBtn" href="/mc/greenroom/" target="_blank" rel="noopener">Guide Green Room</a>
+                            </div>
+                            <span class="guide-pick-status" id="guidePickStatus" aria-live="polite"></span>
+                            <!-- THE ONE RULE NOBODY COULD GUESS, in words rather
+                                 than in a hover: this picker WRITES ON CHOOSING,
+                                 and every other box on this page waits for Save.
+                                 The second half says where the character is
+                                 written, which is the next question somebody asks
+                                 when the bio is wrong and there is no box for it. -->
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="details-section-grid details-section-grid--guide" hidden>
+                        <div class="field" id="guideNameField">
+                          <label class="field-label field-label--with-meta" for="nodeGuideNameInput">Guide Name<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game.">i<span class="field-tooltip" role="tooltip">The narrator of the game.</span></span></label>
+                          <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
+                        </div>
+
+                        <div class="field" id="guideBioField">
+                          <label class="field-label" for="nodeGuideBioInput">Guide Bio</label>
+                          <textarea id="nodeGuideBioInput" disabled></textarea>
+                        </div>
+
+                        <div class="field" id="guideBackgroundField">
+                          <label class="field-label field-label--with-meta" for="nodeGuideBackgroundInput">Guide Background<span class="field-info" tabindex="0" role="note" aria-label="Used for game development.">i<span class="field-tooltip" role="tooltip">Used for game development.</span></span></label>
+                          <textarea id="nodeGuideBackgroundInput" disabled></textarea>
+                          <button class="insp-btn" id="guideImagePromptBtn" type="button" title="Open an AI image prompt built from the guide name, bio, and background — paste it into ChatGPT or another image generator to create the guide portrait" style="margin-top:8px;" disabled>Generate Image Prompt</button>
+                        </div>
+
+                        <div class="field" id="guideImageField">
+                          <label class="field-label">Guide Image</label>
+                          <div class="guide-image-input-row guide-image-input-row--with-asset">
+                            <button class="guide-image-thumb" id="guideImgThumbBtn" type="button" disabled aria-label="Open guide image">
+                              <img class="guide-image-thumb-image" id="guideImgThumbImage" alt="Guide image" hidden>
+                              <span class="guide-image-thumb-placeholder" id="guideImgPlaceholder">NOT YET UPLOADED</span>
+                            </button>
+                            <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;">
+                              <input id="guideImageUrlInput" type="url" placeholder="Paste an image URL…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;" disabled>
+                              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                <button class="guide-image-asset-btn" id="guideImageUrlUploadBtn" type="button" disabled>Upload</button>
+                                <button class="guide-image-asset-btn" id="guideImageFileBtn" type="button" disabled title="Upload an image from this computer">Upload file…</button>
+                                <span id="guideImageUploadStatus" aria-live="polite" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;"></span>
+                              </div>
+                            </div>
+                          </div>
+                          <p class="field-hint" id="guideImageNote">Paste an image URL and click Upload, or Upload file… to pick one from this computer — either way it is saved to Supabase and shown in the game.</p>
+                          <input id="guideImageFileInput" type="file" accept="image/*" hidden>
+                          <input id="nodeGuideImageInput" type="hidden">
+                        </div>
+                      </div>
         </div>
       </fieldset>
 
@@ -10261,13 +10844,54 @@ html.admin-embedded .builder-section-head{
            a word shared with every other game wearing it, which is also why
            deleting one here deletes it everywhere. It reads as the footnote it
            is rather than as a third thing to fill in before you start. -->
+      <!-- THE LOGO BAR (2026-08-31), built to the GUIDE BAR's shape because a
+           logo is the same kind of object: a thing chosen from a catalogue,
+           whose picture lives IN the row rather than at an address that rots.
+           The CSS is SHARED with the guide bar -- each rule names both -- so
+           the two cannot drift into two ways of drawing one idea.
+
+           IT WRITES `logo_id` AND NOTHING ELSE. `games.logo_url` is the older
+           hosted copy the ENGINES read, and the drawer widget that maintains
+           it is untouched -- the same split `guide_id` and `guide_image_url`
+           already have. When the engines are next opened, the fix is for them
+           to read `logos.image` through this pointer.
+
+           NO LABEL: the legend says LOGO and this is the only field under it.
+           The select keeps an `aria-label`, since a legend is not one. -->
+      <fieldset class="game-id-bar" id="logoBar">
+        <legend>Logo</legend>
+        <div class="game-id-bar-inner">
+          <div class="logo-pick-row">
+            <!-- THE FRAME ALWAYS HOLDS SOMETHING: the chosen logo, or the word.
+                 An empty bordered box reads as an image that failed to load. -->
+            <button class="logo-pick-shot" id="logoPickShot" type="button" disabled aria-label="No logo">
+              <img class="logo-pick-image" id="logoPickImage" alt="" hidden>
+              <span class="logo-pick-none" id="logoPickNone">NO LOGO</span>
+            </button>
+            <div class="logo-pick-main">
+              <div class="logo-pick-controls">
+                <select id="nodeLogoSelect" aria-label="Logo" disabled></select>
+                <!-- An <a> wearing the button class: it navigates, so it keeps
+                     middle-click and open-in-new-tab. New tab deliberately --
+                     you are mid-edit on a game here. -->
+                <a class="insp-btn logo-studio-btn" id="logoStudioBtn" href="/mc/logostudio/" target="_blank" rel="noopener">Logo Studio</a>
+              </div>
+              <span class="logo-pick-status" id="logoPickStatus" aria-live="polite"></span>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
       <fieldset class="game-id-bar" id="tagsBar">
         <legend>Tags</legend>
         <div class="game-id-bar-inner">
+          <!-- NO LABEL AND NO BUBBLE. The legend says TAGS and this is the only
+               field under it. The bubble described the radio dot and the delete
+               button: the button is gone, and a dot you cannot see without
+               hovering is a dot that needs drawing rather than explaining. -->
           <div class="field" id="tagsField">
-            <label class="field-label field-label--with-meta" for="nodeTagNewInput">Tags<span class="field-info" tabindex="0" role="note" aria-label="Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.">i<span class="field-tooltip" role="tooltip">Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.</span></span></label>
             <div class="tag-picker" id="nodeTagPicker">
-              <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
+              <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" aria-label="New tag" disabled>
               <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
             </div>
           </div>
@@ -10288,32 +10912,11 @@ html.admin-embedded .builder-section-head{
            IT WRITES `status` AND NOTHING ELSE. A trigger keeps `archived` in
            step both ways, so the public page, the footer and `/games/` all go on
            reading the flag they always read. -->
-      <fieldset class="game-id-bar" id="statusBar">
-        <legend>Status</legend>
-        <div class="game-id-bar-inner">
-          <div class="field" id="gameStatusField">
-            <label class="field-label field-label--with-meta" for="gameStatusLive">
-              <span class="field-label-text">Status</span>
-              <span class="field-info" tabindex="0" role="note" aria-label="Post puts the game on sale. Build is written and deliberately not for sale. Skip is off the shelf. Only a posted game reaches a buyer.">i<span class="field-tooltip" role="tooltip">Post puts the game on sale. Build is written and deliberately not for sale. Skip is off the shelf. Only a posted game reaches a buyer.</span></span>
-            </label>
-            <div class="mode-toggle mode-toggle--triple" role="radiogroup" aria-label="Game status" id="gameStatusToggle">
-              <label class="mode-toggle-option" for="gameStatusLive">
-                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusLive" value="live" disabled>
-                <span class="mode-toggle-btn">Post</span>
-              </label>
-              <label class="mode-toggle-option" for="gameStatusBuilding">
-                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusBuilding" value="building" disabled>
-                <span class="mode-toggle-btn">Build</span>
-              </label>
-              <label class="mode-toggle-option" for="gameStatusArchived">
-                <input class="mode-toggle-input" type="radio" name="gameStatus" id="gameStatusArchived" value="archived" disabled>
-                <span class="mode-toggle-btn">Skip</span>
-              </label>
-            </div>
-            <div class="mini-note" id="gameStatusNote"></div>
-          </div>
-        </div>
-      </fieldset>
+      <!-- THE STATUS BOX MOVED INTO THE NAV ROW (2026-08-31). It is the one
+           DECISION on the page rather than a fact about the game, so it sits
+           with New, Duplicate, Save and Preview -- the things you DO to the open
+           game. MOVED, NEVER COPIED: every id came with it, so the painter, the
+           writer and all six wiring points needed no edit. -->
 
       <div id="inspectorCopyStrings" hidden>
         <span data-copy="anytime-reply">A PLAYER MSG with ANYTIME turned on. Its paired GUIDE MSG responds whenever the player message matches.</span>
@@ -10359,40 +10962,9 @@ html.admin-embedded .builder-section-head{
                       <div class="field-hint" id="varNameHint" hidden></div>
                     </div>
 
-                    <div class="field" id="gameLogoField">
-                      <label class="field-label field-label--with-meta" for="nodeGameLogoInput">Game Logo<span class="field-info" tabindex="0" role="note" aria-label="Provide image web address or choose from existing library.">i<span class="field-tooltip" role="tooltip">Provide image web address or choose from existing library.</span></span></label>
-                      <div class="guide-image-input-row guide-image-input-row--with-asset">
-                        <button class="guide-image-thumb" id="gameLogoThumbBtn" type="button" disabled aria-label="No game logo selected">
-                          <img class="guide-image-thumb-image" id="gameLogoThumbImage" alt="Game logo thumbnail" hidden>
-                          <span class="guide-image-thumb-placeholder" id="gameLogoThumbPlaceholder">No image</span>
-                        </button>
-                        <input id="nodeGameLogoInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                        <button class="guide-image-asset-btn" id="gameLogoUrlUploadBtn" type="button" disabled title="Fetch the image at this URL and host it on Supabase, then use it as this game's logo">Upload</button>
-                        <button class="guide-image-asset-btn" id="gameLogoFileBtn" type="button" disabled title="Upload an image from this computer">Upload file…</button>
-                        <button class="guide-image-asset-btn" id="gameLogoOnlinePickBtn" type="button" disabled aria-label="Choose logo asset" title="Choose logo asset" aria-expanded="false" aria-controls="gameLogoOnlineMenu">Choose</button>
-                      </div>
-                      <div class="guide-image-asset-menu" id="gameLogoOnlineMenu" hidden>
-                        <div class="guide-image-asset-list" id="gameLogoOnlineList" role="listbox" aria-label="Uploaded logo assets"></div>
-                      </div>
-                      <input id="gameLogoFileInput" type="file" accept="image/*" hidden>
-                      <div class="field-hint" id="gameLogoAssetStatus" aria-live="polite"></div>
-                    </div>
 
-                    <div class="field" id="defaultEmojiField">
-                      <label class="field-label" for="nodeDefaultEmojiInput">Default Emoji</label>
-                      <input id="nodeDefaultEmojiInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="categoryIconField">
-                      <label class="field-label field-label--with-meta" for="nodeCategoryIconInput">CATEGORY_ICON<span class="field-info" tabindex="0" role="note" aria-label="Choose the public card icon for this game.">i<span class="field-tooltip" role="tooltip">Choose the public card icon for this game.</span></span></label>
-                      <select id="nodeCategoryIconInput" autocomplete="off" disabled>
-                        <option value="">None / Auto</option>
-                        <option value="football">Football Helmet</option>
-                        <option value="basketball">Basketball</option>
-                        <option value="baseball">Baseball</option>
-                        <option value="music">8 Bit Musical Notes</option>
-                      </select>
-                    </div>
+                    <!-- THE DEFAULT EMOJI AND THE CATEGORY ICON MOVED OUT TO
+                         boxes of their own (2026-08-31). -->
 
                   </div>
                 </section>
@@ -10406,11 +10978,7 @@ html.admin-embedded .builder-section-head{
                          every id and every listener is untouched, so the rename
                          warning on the id and the tagline's own handler still
                          work exactly as they did. -->
-                    <div class="field" id="selectionId">
-                      <label class="field-label" for="selectionIdInput">Game ID</label>
-                      <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
-                             aria-label="Game ID" placeholder="none">
-                    </div>
+                    <!-- THE GAME ID MOVED OUT TO ITS OWN BOX (2026-08-31). -->
                     <!-- TAKEOVER DATE, SUGGESTED START AND TARGET END ARE GONE
                          (2026-08-31), asked for outright. The ANCHOR EVENT above
                          is where a date lives now: it carries `start_date` and
@@ -10461,21 +11029,28 @@ html.admin-embedded .builder-section-head{
                          a state that DISAGREES with the city, which was never a
                          thing anybody wanted. -->
 
-                    <div class="field" id="countryField">
-                      <label class="field-label field-label--with-meta" for="nodeCountryInput">Country<span class="field-info" tabindex="0" role="note" aria-label="Country. Non-US countries show a country badge instead of a state.">i<span class="field-tooltip" role="tooltip">Country. Non-US countries show a country badge instead of a state.</span></span></label>
-                      <select id="nodeCountryInput" autocomplete="off" disabled>
-                        <option value="">—</option>
-                      </select>
-                    </div>
+                    <!-- THE COUNTRY PICKER, START NAME AND START ADDRESS ARE
+                         GONE (2026-08-31), asked for outright.
 
-                    <div class="field" id="startNameField">
-                      <label class="field-label field-label--with-meta" for="nodeStartNameInput">Start Name<span class="field-info" tabindex="0" role="note" aria-label="Friendly name for the meeting spot — e.g. 'Jackson Square Statue'.">i<span class="field-tooltip" role="tooltip">Friendly name for the meeting spot &mdash; e.g. &lsquo;Jackson Square Statue&rsquo;.</span></span></label>
-                      <input id="nodeStartNameInput" type="text" autocomplete="off" disabled>
-                    </div>
+                         THE LAST TWO WERE WRITING TO COLUMNS THAT NO LONGER
+                         EXISTED. 2026083105 dropped the seven start-location
+                         columns earlier the same day and left these boxes on
+                         the page: inputs that look like they save and do not,
+                         which is worse than no field at all.
 
-                    <div class="field" id="startAddressField">
-                      <label class="field-label field-label--with-meta" for="nodeStartAddressInput">Start Address<span class="field-info" tabindex="0" role="note" aria-label="Street address of the meeting spot, for navigation apps.">i<span class="field-tooltip" role="tooltip">Street address of the meeting spot, for navigation apps.</span></span></label>
-                      <input id="nodeStartAddressInput" type="text" autocomplete="off" disabled>
+                         THE COUNTRY IS DERIVED, NOT PICKED, and it always was.
+                         `games.city` is the canonical "City, State" string and
+                         `parseGeo` reads a country code out of it, so the
+                         picker existed only to set one that DISAGREED with the
+                         city -- the same field-with-one-right-answer the STATE
+                         picker was deleted for hours earlier. `country_code`
+                         and `country_name` went from public.games with it
+                         (2026083120), values kept in games_country_retired.
+
+                         WHAT IT COSTS, plainly: a game cannot be given a
+                         country that its city does not imply. Nothing wanted
+                         that, and nothing outside this room ever read either
+                         column -- checked rather than assumed. -->
                     </div>
 
                     <!-- Start Plus Code field removed: the rendezvous now uses the
@@ -10501,92 +11076,12 @@ html.admin-embedded .builder-section-head{
                      engines; nothing is cleared. A row whose audience and whose
                      legacy team disagree can now only be corrected in SQL. -->
 
-                <section class="details-section" id="detailsGuideSection">
-                  <div class="details-section-title">Guide</div>
-
-                  <!-- MOVED TO /mc/greenroom/ on 2026-08-09. The guide is one
-                       object - name, bio, background and portrait - and it was
-                       being edited in two rooms with only one of them able to
-                       upload the picture. Guides now owns all of it and edits
-                       across every game at once.
-
-                       THE FIELDS BELOW ARE STILL HERE, HIDDEN, AND THAT IS
-                       DELIBERATE. This page's save path reads them; delete them
-                       and every save from Game Profiles would write four empty
-                       strings over a guide somebody wrote next door. They hold
-                       the loaded values and hand them straight back. -->
-                  <!-- ONE CONTROL: pick the character, and that is the whole
-                       section. The game stores a guide_id and nothing else;
-                       the name, bio and background arrive on the row from the
-                       games_pull_guide trigger, and the portrait is read from
-                       public.guides. Writing any of those from here is what
-                       the trigger exists to prevent. -->
-                  <div class="field" id="guidePickField">
-                    <!-- The standing points live in the hover, not under the
-                         control. They are true of every game and are read once;
-                         a permanent paragraph restating them on every profile
-                         is the kind of text people stop seeing by the third
-                         game. The tooltip layer takes plain text, so this is
-                         one span with no markup in it. -->
-                    <label class="field-label field-label--with-meta" for="nodeGuideSelect">Guide<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game. Saved the moment you choose. The character itself is written in the Guide Green Room, and editing it there changes every game that points at it.">i<span class="field-tooltip" role="tooltip">The narrator of the game — the voice in the player's ear. Saved the moment you choose; there is nothing to press. The game stores only which guide it points at, so the character itself — name, bio, background, portrait — is written in the Guide Green Room, and editing it there changes every game using it.</span></span></label>
-                    <div class="guide-pick-row">
-                      <!-- The slot always holds a picture: a chosen guide's
-                           portrait, or the silhouette. Words in an image frame
-                           ("NO GUIDE") read as an error; a silhouette reads as
-                           an empty seat, which is what it is. -->
-                      <button class="guide-pick-shot" id="guidePickShot" type="button" disabled aria-label="No portrait">
-                        <img class="guide-pick-image" id="guidePickImage" alt="" src="/mc/assets/guideplaceholder.jpg">
-                      </button>
-                      <div class="guide-pick-main">
-                        <select id="nodeGuideSelect" disabled></select>
-                        <!-- An <a> wearing the button class: it navigates, so
-                             it keeps middle-click and open-in-new-tab. New tab
-                             deliberately — you are mid-edit on a game here. -->
-                        <a class="insp-btn guide-greenroom-btn" id="guideGreenroomBtn" href="/mc/greenroom/" target="_blank" rel="noopener">Guide Green Room</a>
-                        <span class="guide-pick-status" id="guidePickStatus" aria-live="polite"></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="details-section-grid details-section-grid--guide" hidden>
-                    <div class="field" id="guideNameField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideNameInput">Guide Name<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game.">i<span class="field-tooltip" role="tooltip">The narrator of the game.</span></span></label>
-                      <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="guideBioField">
-                      <label class="field-label" for="nodeGuideBioInput">Guide Bio</label>
-                      <textarea id="nodeGuideBioInput" disabled></textarea>
-                    </div>
-
-                    <div class="field" id="guideBackgroundField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideBackgroundInput">Guide Background<span class="field-info" tabindex="0" role="note" aria-label="Used for game development.">i<span class="field-tooltip" role="tooltip">Used for game development.</span></span></label>
-                      <textarea id="nodeGuideBackgroundInput" disabled></textarea>
-                      <button class="insp-btn" id="guideImagePromptBtn" type="button" title="Open an AI image prompt built from the guide name, bio, and background — paste it into ChatGPT or another image generator to create the guide portrait" style="margin-top:8px;" disabled>Generate Image Prompt</button>
-                    </div>
-
-                    <div class="field" id="guideImageField">
-                      <label class="field-label">Guide Image</label>
-                      <div class="guide-image-input-row guide-image-input-row--with-asset">
-                        <button class="guide-image-thumb" id="guideImgThumbBtn" type="button" disabled aria-label="Open guide image">
-                          <img class="guide-image-thumb-image" id="guideImgThumbImage" alt="Guide image" hidden>
-                          <span class="guide-image-thumb-placeholder" id="guideImgPlaceholder">NOT YET UPLOADED</span>
-                        </button>
-                        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;">
-                          <input id="guideImageUrlInput" type="url" placeholder="Paste an image URL…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;" disabled>
-                          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                            <button class="guide-image-asset-btn" id="guideImageUrlUploadBtn" type="button" disabled>Upload</button>
-                            <button class="guide-image-asset-btn" id="guideImageFileBtn" type="button" disabled title="Upload an image from this computer">Upload file…</button>
-                            <span id="guideImageUploadStatus" aria-live="polite" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;"></span>
-                          </div>
-                        </div>
-                      </div>
-                      <p class="field-hint" id="guideImageNote">Paste an image URL and click Upload, or Upload file… to pick one from this computer — either way it is saved to Supabase and shown in the game.</p>
-                      <input id="guideImageFileInput" type="file" accept="image/*" hidden>
-                      <input id="nodeGuideImageInput" type="hidden">
-                    </div>
-                  </div>
-                </section>
+                <!-- THE GUIDE MOVED OUT OF THIS DRAWER AND ONTO THE PAGE
+                     (2026-08-31), as a bar of its own directly under GAME. It is
+                     part of what the game IS -- the voice in the player's ear --
+                     rather than a setting, and the drawer is settings.
+                     MOVED, NEVER COPIED: every id came with it, including the four
+                     hidden fields the save path reads. -->
 
                 <section class="details-section" id="detailsTeamNamesSection">
                   <div class="details-section-title">Team Names</div>
@@ -10946,7 +11441,6 @@ const SUPABASE_GAMES_SCHEMA = {
   category_icon: true,
   guide_background: true,
   fandom_game: true,
-  starting_location_plus_code: true,
   game_date: true,
   start_time: true,
   end_time: true,
@@ -10957,12 +11451,41 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_key: true,
   home_team_key: true,
   target_audience_id: true,
-  atlas_id: true,
-  /* IN THE MAP SO A DATABASE THAT HAS NOT RUN 2026083028 CAN TURN IT OFF. An
-     absent key already passes the filter (`!== false`), so this changes nothing
-     today -- what it buys is that `disableGamesColumn('status')` can take it out
-     of every select at once when PostgREST reports it missing, instead of the
-     whole read 400ing on one unknown column. */
+  map_id: true,
+  logo_id: true,
+  /* IN THE MAP SO A COLUMN CAN BE TURNED OFF IN ONE PLACE. `buildGamesSelectColumns`
+     filters every select through this object, so setting one to `false` takes it
+     out of all of them at once; an absent key already passes (`!== false`), so
+     listing one at `true` changes nothing today.
+
+     AND SETTING ONE TO `false` IS THE FIX WHEN A READ 400s. PostgREST refuses
+     the WHOLE request on one unknown column -- it does not drop the field and
+     carry on -- so a column the games VIEW lacks takes the entire read down and
+     the page falls back to its local snapshot. That has now happened twice in
+     one day, with `status` and then `anchor_event_id`, and both times the real
+     fix was to put the column on the view (2026083104, 2026083124). Turning it
+     off here is the stopgap for a database that is behind.
+
+     AND A COLUMN IS TURNED OFF AT RUNTIME, BY `markMissingGamesColumn()`. A
+     400 naming a column is parsed by `getMissingGamesColumnName` and the name
+     is set `false` HERE -- which is a sensible guard against a database that is
+     behind the code, and has exactly one nasty property:
+
+       THE READ IS AGAINST THE VIEW AND THE WRITE IS AGAINST THE TABLE.
+
+     So a column present on `games` and missing from `games_with_graph_and_teams`
+     is switched off by a failed READ and then silently OMITTED FROM EVERY SAVE
+     for the rest of the session. That is precisely how `anchor_event_id` went
+     unsaveable on 2026-08-31 while `target_audience_id` -- same shape, same
+     table, but not in any select list -- saved perfectly well beside it.
+     Measured: with the column off the view the payload has no `anchor_event_id`
+     key at all; with it on, the id is there.
+
+     SO WHEN A COLUMN WILL NOT SAVE, CHECK THE VIEW BEFORE THE WRITE PATH.
+     2026083124 and 2026083125 put every column the room writes onto the view.
+
+     (An earlier version of this comment said no such function existed. It does;
+     I had grepped for the wrong name.) */
   status: true,
   rival_audience_id: true,
   venue_name: true,
@@ -11088,31 +11611,10 @@ async function deleteTagFromSupabase(tagName) {
   }
 }
 
-function deleteTagGlobally(tagName) {
-  const tagLower = tagName.toLowerCase();
-  if (tagLower === FEATURED_TAG.toLowerCase()) return;
-  const idx = allTags.findIndex(t => t.toLowerCase() === tagLower);
-  if (idx !== -1) allTags.splice(idx, 1);
-  const sIdx = supabaseTags.findIndex(t => t.toLowerCase() === tagLower);
-  if (sIdx !== -1) supabaseTags.splice(sIdx, 1);
-
-  const removeFromDoc = (doc) => {
-    doc.nodes.forEach((node) => {
-      if (node.tags) node.tags = node.tags.filter(t => t.toLowerCase() !== tagLower);
-      if (typeof node.primaryTag === 'string' && node.primaryTag.toLowerCase() === tagLower) {
-        const fallback = (node.tags || []).find((t) => t.toLowerCase() !== FEATURED_TAG.toLowerCase());
-        node.primaryTag = fallback || '';
-      }
-    });
-  };
-  state.store.games.forEach((game) => removeFromDoc(game));
-  removeFromDoc(state.doc);
-
-  deleteTagFromSupabase(tagName).catch(err => console.warn('Failed to delete tag from Supabase:', err));
-
-  renderTagPicker(getGameNode());
-  scheduleRecoverySync();
-}
+/* deleteTagGlobally WENT WITH THE BUTTON (2026-08-31). It rewrote every
+ document that carried the tag and then the tag list itself, from an x on a
+ pill -- a global act reached from one game's editor. Tags are managed in
+ their own room now. */
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -11527,7 +12029,8 @@ function normalizeGameRow(row, index = 0) {
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
     target_audience_id:    row && row.target_audience_id,
-    atlas_id:              row && row.atlas_id,
+    map_id:              row && row.map_id,
+    logo_id:             row && row.logo_id,
     rival_audience_id:     row && row.rival_audience_id,
     venue_name:            row && row.venue_name,
     venue_city:            row && row.venue_city,
@@ -11565,6 +12068,21 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'guide_image_url',
     'logo_url',
     'anchor_event_id',
+    /* WRITTEN ON EVERY SAVE, SO THEY HAVE TO BE READ BACK. Both were absent
+       from every select until 2026-08-31, so a game whose audiences were set BY
+       HAND opened blank -- and the room only ever looked right because picking
+       an anchor event re-derives them from the fixture. */
+    'target_audience_id',
+    'rival_audience_id',
+    /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
+       identifies the character the three guide_* fields describe, and the three
+       geo columns are filled by a trigger from `city`. Written and unread is
+       still written and unread. */
+    'guide_id',
+    'logo_id',
+    'city_name',
+    'state_code',
+    'state_name',
     'link_url',
     'button_url',
     'tertiary_color',
@@ -11694,6 +12212,21 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'guide_image_url',
     'logo_url',
     'anchor_event_id',
+    /* WRITTEN ON EVERY SAVE, SO THEY HAVE TO BE READ BACK. Both were absent
+       from every select until 2026-08-31, so a game whose audiences were set BY
+       HAND opened blank -- and the room only ever looked right because picking
+       an anchor event re-derives them from the fixture. */
+    'target_audience_id',
+    'rival_audience_id',
+    /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
+       identifies the character the three guide_* fields describe, and the three
+       geo columns are filled by a trigger from `city`. Written and unread is
+       still written and unread. */
+    'guide_id',
+    'logo_id',
+    'city_name',
+    'state_code',
+    'state_name',
     'link_url',
     'button_url',
     'tertiary_color',
@@ -12275,14 +12808,12 @@ const builderViewTrigger = document.getElementById('builderViewTrigger');
 const builderViewButtons = Array.from(document.querySelectorAll('[data-builder-view]'));
 
 const guideNameField = document.getElementById('guideNameField');
-const gameLogoField = document.getElementById('gameLogoField');
 const guideImageField = document.getElementById('guideImageField');
 const guideBioField = document.getElementById('guideBioField');
 const guideBackgroundField = document.getElementById('guideBackgroundField');
 const priceField = document.getElementById('priceField');
 const cityField = document.getElementById('cityField');
-const startNameField = document.getElementById('startNameField');
-const startAddressField = document.getElementById('startAddressField');
+
 const categoryIconField = document.getElementById('categoryIconField');
 const tagsField = document.getElementById('tagsField');
 const teamsField = document.getElementById('teamsField');
@@ -12329,7 +12860,7 @@ const GAME_LOGO_FALLBACK_ASSET_NAMES = [
   'games/Passport.avif',
   'games/TampaBay.gif',
   'games/army.png',
-  'games/atlas.png',
+  'games/map.png',
   'games/dealer-tire.svg',
   'games/dealertire.jpeg',
   'games/gbw.png',
@@ -12348,7 +12879,6 @@ const teamInputs = TEAM_FIELD_KEYS.map((key) => document.getElementById(key + 'I
 const descriptionField = document.getElementById('descriptionField');
 const objectDescriptionField = document.getElementById('objectDescriptionField');
 const ifThenField = document.getElementById('ifThenField');
-const nodeTitleLabelText = document.getElementById('nodeTitleLabelText');
 const nodeTitleInput = document.getElementById('nodeTitleInput');
 const stopNameInput = document.getElementById('stopNameInput');
 const objectStopNameField = document.getElementById('objectStopNameField');
@@ -12396,6 +12926,10 @@ const nodeTaglineInput = document.getElementById('nodeTaglineInput');
 const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
+/* THE GUIDE TEXT, WRITTEN ONCE. The markup carries it so it is on screen
+   before the painter runs, and the painter carries it so a repaint puts it
+   back -- two copies of one sentence, kept in step by naming it here. */
+const ANCHOR_EVENT_GUIDE = 'Type or tap here to choose an existing Anchor Event.';
 const anchorEventInput = document.getElementById('anchorEventInput');
 
 // Teams dropdown — sourced from the public.teams Supabase catalog (the single
@@ -12572,9 +13106,11 @@ function audienceLabel(a) {
    repo has paid for more than once. */
 const AUDIENCE_SLOTS = [
   { field: 'targetAudienceId', input: 'targetAudienceInput',
-    swatches: 'targetAudienceSwatches', hint: 'A city, a club or a league' },
+    swatches: 'targetAudienceSwatches',
+    hint: 'Auto filled or type or tap to choose an Existing Target Audience.' },
   { field: 'rivalAudienceId', input: 'rivalAudienceInput',
-    swatches: 'rivalAudienceSwatches', hint: 'A city, a club or a league' }
+    swatches: 'rivalAudienceSwatches',
+    hint: 'Auto filled or type or tap to choose an Existing Rival Audience.' }
 ];
 
 function fillAudienceDatalist() {
@@ -12616,21 +13152,21 @@ function populateTargetAudienceSelect() {
   paintGuessButton();
 }
 
-/* ---- THE ATLAS ------------------------------------------------------------
-   `public.atlases` is a row per STOP, so the id repeats once for every stop in
-   the atlas. This groups them, which is also why the list can only ever offer
-   an atlas that exists: it is built from the rows themselves.
+/* ---- THE MAP ------------------------------------------------------------
+   `public.maps` is a row per STOP, so the id repeats once for every stop in
+   the map. This groups them, which is also why the list can only ever offer
+   a map that exists: it is built from the rows themselves.
 
-   AND THAT IS THE ONLY GUARD THERE IS. `games.atlas_id` is not a foreign key
-   and cannot be one -- the table is keyed by (atlas_id, stop_number), so the id
-   alone is not unique. Nothing downstream will say a game names an atlas that
+   AND THAT IS THE ONLY GUARD THERE IS. `games.map_id` is not a foreign key
+   and cannot be one -- the table is keyed by (map_id, stop_number), so the id
+   alone is not unique. Nothing downstream will say a game names a map that
    is not there. */
-let builderAtlasList = [];
+let builderMapList = [];
 
-async function loadBuilderAtlases() {
+async function loadBuilderMaps() {
   if (!hasSupabaseStore()) return;
   const url = buildSupabaseUrl(
-    { select: 'atlas_id,atlas_name,stop_number', order: 'atlas_id.asc' }, 'atlases');
+    { select: 'map_id,map_name,stop_number', order: 'map_id.asc' }, 'maps');
   if (!url) return;
   try {
     const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
@@ -12638,90 +13174,234 @@ async function loadBuilderAtlases() {
     const rows = await response.json();
     const by = new Map();
     (Array.isArray(rows) ? rows : []).forEach((r) => {
-      if (!r || !r.atlas_id) return;
+      if (!r || !r.map_id) return;
       /* THE NAME COMES OFF ANY ROW AND THAT IS SAFE: a trigger keeps every row
-         of an atlas on one name, so they cannot disagree. */
-      if (!by.has(r.atlas_id)) by.set(r.atlas_id, { id: r.atlas_id, name: r.atlas_name, stops: 0 });
-      by.get(r.atlas_id).stops += 1;
+         of a map on one name, so they cannot disagree. */
+      if (!by.has(r.map_id)) by.set(r.map_id, { id: r.map_id, name: r.map_name, stops: 0 });
+      by.get(r.map_id).stops += 1;
     });
-    builderAtlasList = [...by.values()];
+    builderMapList = [...by.values()];
   } catch (err) {
-    console.warn('atlases fetch failed for the Game Builder:', err);
-    builderAtlasList = [];
+    console.warn('maps fetch failed for the Game Builder:', err);
+    builderMapList = [];
   }
-  paintAtlasField();
+  paintMapField();
 }
 
 /* THE LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
    on the option's value and nothing else: the name, the key, and how many stops
-   it holds -- which is the one figure that tells a finished atlas from a started
+   it holds -- which is the one figure that tells a finished map from a started
    one at the moment you are choosing. */
-function atlasLabel(a) {
+function mapLabel(a) {
   return a.name + '  ·  ' + a.id + '  ·  ' + a.stops + (a.stops === 1 ? ' stop' : ' stops');
 }
-function atlasFromTyped(text) {
+function mapFromTyped(text) {
   const v = String(text == null ? '' : text).trim().toLowerCase();
   if (!v) return '';
-  const byLabel = builderAtlasList.find((a) => atlasLabel(a).toLowerCase() === v);
+  const byLabel = builderMapList.find((a) => mapLabel(a).toLowerCase() === v);
   if (byLabel) return byLabel.id;
   /* A BARE KEY IS ACCEPTED TOO, so a value pasted out of the database resolves
      rather than being called a mistake. */
-  const byId = builderAtlasList.find((a) => a.id.toLowerCase() === v);
+  const byId = builderMapList.find((a) => a.id.toLowerCase() === v);
   return byId ? byId.id : null;
 }
 
-function paintAtlasField() {
-  const input = document.getElementById('gameAtlasInput');
-  const list = document.getElementById('gameAtlasList');
-  const note = document.getElementById('gameAtlasNote');
+function paintMapField() {
+  const input = document.getElementById('gameMapInput');
+  const list = document.getElementById('gameMapList');
+  const note = document.getElementById('gameMapNote');
   if (!input) return;
 
   if (list) {
     list.innerHTML = '';
-    builderAtlasList.forEach((a) => {
+    builderMapList.forEach((a) => {
       const opt = document.createElement('option');
-      opt.value = atlasLabel(a);
+      opt.value = mapLabel(a);
       list.appendChild(opt);
     });
   }
 
-  const stored = String((state.currentGameMeta && state.currentGameMeta.atlasId) || '').trim();
-  const known = builderAtlasList.find((a) => a.id === stored);
+  const stored = String((state.currentGameMeta && state.currentGameMeta.mapId) || '').trim();
+  const known = builderMapList.find((a) => a.id === stored);
   if (document.activeElement !== input) {
-    input.value = known ? atlasLabel(known) : stored;
+    input.value = known ? mapLabel(known) : stored;
   }
   input.removeAttribute('data-invalid');
 
   /* A GREYED FIELD SAYS WHY. Greyed is the common state here -- the whole bar
      is disabled until a game is open -- and greyed while empty is
      indistinguishable from a picker that failed to load. */
-  input.placeholder = !builderAtlasList.length
-    ? 'No atlases yet. Make one in the Atlases room.'
-    : (input.disabled ? 'Open a game first' : 'The walk this game takes');
+  input.placeholder = !builderMapList.length
+    ? 'No maps yet. Make one in the Maps room.'
+    : (input.disabled ? 'Open a game first' : 'Choose a Map');
 
   if (note) {
-    /* A STORED ATLAS THAT IS NOT ON FILE IS NAMED, not silently blanked. There
+    /* A STORED MAP THAT IS NOT ON FILE IS NAMED, not silently blanked. There
        is no foreign key, so this note is the only thing that will ever say it. */
     note.textContent = stored && !known
-      ? 'No atlas called ' + stored + '. It may have been emptied, or the id is wrong.'
+      ? 'No map called ' + stored + '. It may have been emptied, or the id is wrong.'
       : (known ? known.stops + (known.stops === 1 ? ' stop' : ' stops') : '');
   }
 }
 
-function commitAtlasField() {
-  const input = document.getElementById('gameAtlasInput');
+/* ---- THE LOGO PICKER (2026-08-31) --------------------------------------
+   `public.logos` is a catalogue of marks a game can wear, with the image IN
+   the row -- the shape `guides` already uses, and for the same reason: a url
+   pointing somewhere else rots, and 390 of 395 guide image urls were 404
+   before anybody looked.
+
+   THIS WRITES `logo_id` AND NOTHING ELSE. `games.logo_url` is the older hosted
+   copy the ENGINES read; the drawer widget that maintains it is untouched, the
+   same split `guide_id` and `guide_image_url` already have. */
+let builderLogoList = [];
+
+async function loadBuilderLogos() {
+  if (!hasSupabaseStore()) return;
+  try {
+    /* IT NAMES ITS COLUMNS, and `image` is one of them: the picture is what
+       the frame draws, so a `select` without it would paint an empty box on
+       every game that has a logo. It does NOT page -- a logo catalogue is a
+       few dozen -- and the day it might, this needs the Range loop every other
+       read here carries. */
+    const url = buildSupabaseUrl({ select: 'id,name,image', order: 'name.asc' }, 'logos');
+    if (!url) return;
+    const res = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    builderLogoList = Array.isArray(rows) ? rows : [];
+  } catch (err) {
+    /* THE ROOM STILL WORKS WITHOUT IT. A catalogue that will not load leaves
+       the picker empty and saying so, rather than taking the page down. */
+    console.warn('logos did not load:', err);
+    builderLogoList = [];
+  }
+  paintLogoField();
+}
+
+function setLogoPickStatus(message, tone) {
+  const box = document.getElementById('logoPickStatus');
+  if (!box) return;
+  box.textContent = message || '';
+  if (tone) box.dataset.state = tone; else box.removeAttribute('data-state');
+  if (message && tone !== 'error') {
+    const snapshot = message;
+    setTimeout(() => {
+      if (box.textContent === snapshot) setLogoPickStatus('');
+    }, 2500);
+  }
+}
+
+function paintLogoField() {
+  const select = document.getElementById('nodeLogoSelect');
+  const shot = document.getElementById('logoPickShot');
+  const img = document.getElementById('logoPickImage');
+  const none = document.getElementById('logoPickNone');
+  if (!select) return;
+
+  /* THE GATE IS `showGameDetails`, NOT `isGameNode`. A logo is a column on the
+     ROW, and 28 of the 395 games have an empty flow document -- the gate that
+     greyed five fields over an open game earlier today. */
+  /* `state.currentGameMeta` IS THE HONEST TEST and the only one reachable
+     from here: `showGameDetails` is a local const inside the paint function,
+     not something this can call. It is set the moment a row is opened, with or
+     without a flow node. */
+  const open = !!(state && state.currentGameMeta);
+  select.disabled = !open;
+
+  const stored = String((state.currentGameMeta && state.currentGameMeta.logoId) || '').trim();
+
+  /* REBUILT ONLY WHEN THE OPTION SET CHANGES, keyed on a signature. This runs
+     from the paint path, which fires far more often than the catalogue moves,
+     and rebuilding a select under the pointer shuts it mid-choice. */
+  const sig = String(open) + '|' + stored + '|' + builderLogoList.map((l) => l.id + ':' + l.name).join(',');
+  if (select.dataset.sig !== sig) {
+    select.dataset.sig = sig;
+    select.textContent = '';
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = !open ? 'Open a game first'
+      : (builderLogoList.length ? 'No logo' : 'No logos yet. Make one in the Logo Studio.');
+    select.appendChild(blank);
+    builderLogoList.forEach((l) => {
+      const o = document.createElement('option');
+      o.value = String(l.id);
+      o.textContent = String(l.name || ('Logo #' + l.id));
+      select.appendChild(o);
+    });
+    /* A STORED LOGO THE LIST NO LONGER HOLDS KEEPS ITS OWN OPTION, MARKED.
+       Without it, opening the game would silently reset the column to nothing:
+       a select cannot hold a value it has no option for. */
+    if (stored && !builderLogoList.some((l) => String(l.id) === stored)) {
+      const o = document.createElement('option');
+      o.value = stored;
+      o.textContent = 'Logo #' + stored + ' (not in catalog)';
+      select.appendChild(o);
+    }
+  }
+  /* NEVER REPAINTED WHILE IT HAS FOCUS, or a repaint mid-choice moves the
+     selection out from under somebody using the arrow keys. */
+  if (document.activeElement !== select) select.value = stored;
+
+  const hit = builderLogoList.find((l) => String(l.id) === stored);
+  const src = hit && hit.image ? String(hit.image) : '';
+  if (img) {
+    img.hidden = !src;
+    if (src) img.src = src; else img.removeAttribute('src');
+    img.alt = hit ? String(hit.name || '') : '';
+  }
+  if (none) none.hidden = !!src;
+  if (shot) {
+    shot.disabled = !src;
+    shot.setAttribute('aria-label', hit ? ('Logo: ' + (hit.name || '')) : 'No logo');
+  }
+}
+
+/* IT SAVES ITSELF, like the guide. A logo is a pointer with nothing else to
+   decide, so waiting for Save would be a second press for a decision already
+   made -- and `return=representation` is what tells a refusal from a success,
+   since PostgREST answers 200 with an empty array when RLS refuses. */
+async function commitLogoField() {
+  const select = document.getElementById('nodeLogoSelect');
+  if (!select || select.disabled || !state.currentGameMeta || !state.currentGameId) return;
+  const next = String(select.value || '').trim();
+  if (next === String(state.currentGameMeta.logoId || '').trim()) return;
+  state.currentGameMeta.logoId = next;
+  paintLogoField();
+  if (!hasSupabaseStore()) { markDirty(); return; }
+  try {
+    setLogoPickStatus('Saving...');
+    const url = buildSupabaseUrl({ id: 'eq.' + state.currentGameId }, 'games');
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: Object.assign({}, getSupabaseHeaders(), {
+        'Content-Type': 'application/json', Prefer: 'return=representation'
+      }),
+      body: JSON.stringify({ logo_id: next ? Number(next) : null })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) throw new Error('the database refused it');
+    setLogoPickStatus(next ? 'Logo saved.' : 'Logo cleared.', 'success');
+  } catch (err) {
+    /* A WRITE THAT FAILS WITHOUT SAYING SO IS A BUG IN ITSELF. */
+    setLogoPickStatus('Could not save the logo: ' + err.message, 'error');
+  }
+}
+
+function commitMapField() {
+  const input = document.getElementById('gameMapInput');
   if (!input || input.disabled || !state.currentGameMeta) return;
-  const resolved = atlasFromTyped(input.value);
+  const resolved = mapFromTyped(input.value);
   if (resolved === null) {
     input.setAttribute('data-invalid', 'true');
-    const note = document.getElementById('gameAtlasNote');
-    if (note) note.textContent = 'No atlas called that. Pick one from the list, or clear the box.';
+    const note = document.getElementById('gameMapNote');
+    if (note) note.textContent = 'No map called that. Pick one from the list, or clear the box.';
     return;
   }
   input.removeAttribute('data-invalid');
-  state.currentGameMeta.atlasId = resolved;
+  state.currentGameMeta.mapId = resolved;
   markDirty();
-  paintAtlasField();
+  paintMapField();
 }
 
 /* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
@@ -12855,15 +13535,51 @@ function populateTeamSelects() {
 // Load the shared anchor_events catalog and let the builder pick one; picking
 // an event stamps games.anchor_event_id and auto-fills the away/home team
 // selects (which then apply the palette exactly as a manual pick would).
+/* IT PAGES, AND THAT IS WHY PAST EVENTS WERE MISSING (2026-08-31).
+
+   REPORTED AS: past anchor events do not show. They did not, and there was no
+   date filter anywhere to blame -- **PostgREST caps a response at 1000 rows and
+   truncates in silence**, and this was one unpaged fetch of a table holding
+   3,051. The order is `start_date.desc`, newest first, so the 1000 rows that
+   arrived were the furthest-FUTURE ones and **all 63 past events sat beyond the
+   cap**. Ordered the other way the same bug would have hidden the future.
+
+   THE TELL IS EXACTLY 1000 ROWS, which this file has recorded more than once:
+   the Waypoints room lost a row to it, the soundtrack catalogue crossed it, and
+   the Tape Room prompt carries its own note. **Anything reading a whole table
+   here has to page.**
+
+   ONE REQUEST FOR A TABLE UNDER THE CAP, since a short page ends the loop. */
 async function loadBuilderAnchorEvents() {
   if (!hasSupabaseStore()) return;
   const url = buildSupabaseUrl({ select: '*', order: 'start_date.desc.nullslast,id.asc' }, 'events');
   if (!url) return;
+  const PAGE = 1000;
   try {
-    const res = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
-    builderAnchorEvents = Array.isArray(rows) ? rows : [];
+    const out = [];
+    const seen = new Set();
+    for (let from = 0; ; from += PAGE) {
+      const headers = Object.assign({}, getSupabaseHeaders(),
+        { Range: from + '-' + (from + PAGE - 1) });
+      const res = await fetch(url, { headers: headers, cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const page = await res.json();
+      if (!Array.isArray(page) || !page.length) break;
+      /* DEDUPED ON THE ID, and that is the loop guard rather than tidiness: if
+         anything between here and Postgres ignored the `Range` header, every
+         request would hand back the same first page and this would run for
+         ever. A page that adds nothing new ends it. */
+      let added = 0;
+      page.forEach((row) => {
+        const id = String(row && row.id);
+        if (seen.has(id)) return;
+        seen.add(id);
+        out.push(row);
+        added++;
+      });
+      if (added === 0 || page.length < PAGE) break;
+    }
+    builderAnchorEvents = out;
     builderAnchorEventsById = new Map(builderAnchorEvents.map((e) => [String(e.id), e]));
     populateAnchorEventSelect();
   } catch (err) { console.warn('loadBuilderAnchorEvents failed:', err); }
@@ -13184,9 +13900,13 @@ function populateAnchorEventSelect() {
   anchorEventInput.value = ev ? anchorEventLabel(ev)
                         : (cur ? cur + ' (not in catalog)' : '');
   anchorEventInput.removeAttribute('data-invalid');
+  /* THE THREE STATES SAY THREE DIFFERENT THINGS AND ONLY ONE IS THE GUIDE.
+     A picker that is greyed while reading its guide text is indistinguishable
+     from one that failed to load, which is why the OFF and the BROKEN states
+     keep their own words. */
   anchorEventInput.placeholder = !builderAnchorEvents.length ? 'Events did not load'
                                : (anchorEventInput.disabled ? 'Open a game first'
-                                                            : 'Type a city, a club or a year');
+                                                            : ANCHOR_EVENT_GUIDE);
 }
 
 /* WHAT WAS TYPED, BACK TO AN ID, then the existing selection logic runs on it.
@@ -13268,13 +13988,41 @@ function fillCityFromEvent(ev) {
   state.currentGameMeta.stateCode = '';
   state.currentGameMeta.countryCode = '';
   applyGeoControls(state.currentGameMeta);
-  /* AND THE BOX IS WRITTEN EXPLICITLY. `applyGeoControls` derives the city name
-     through `parseGeo`, which is a fetched module and can decline a spelling --
-     and this filler is the one place that KNOWS what it just wrote, so it says
-     so rather than hoping the round trip through the parser comes back. */
+  /* AND THE BOX IS WRITTEN EXPLICITLY, IN THE SHORT FORM: "Chicago, IL".
+
+     THE BOX IS DESIGNED TO HOLD THE WHOLE PLACE, which is easy to miss. The
+     state picker was deleted on 2026-08-31 and `syncGeoControlsToMeta` reads
+     the state half back out of this one box with `parseGeo`; its placeholder
+     has taught "Chicago, IL" ever since. THIS FILLER WAS WRITING THE BARE CITY
+     NAME, so an event-filled game lost its state half and the box disagreed
+     with the guide printed inside it.
+
+     THE CODE, NOT THE STATE NAME. `venue_city` is the canonical "Chicago,
+     Illinois"; `parseGeo` is what turns that into a code, and it is the same
+     reader `syncGeoControlsToMeta` uses -- so what is shown and what is stored
+     cannot disagree about the state.
+
+     AND IT FALLS BACK TO WHAT THE EVENT SAID. `parseGeo` is a FETCHED module
+     and can decline a spelling, and a city outside the US has no state half at
+     all; neither is a reason to write nothing, because a blank box reads as an
+     event that carries no city. */
   if (nodeCityInput && document.activeElement !== nodeCityInput) {
-    nodeCityInput.value = String(city).split(',')[0].trim() || city;
+    nodeCityInput.value = shortPlace(city);
   }
+}
+
+/* "City, State" -> "City, ST", and the canonical string back whenever it cannot
+   be shortened. Named rather than inlined because the anchor fill and anything
+   else that ever writes this box have to agree about the shape it holds. */
+function shortPlace(canonical) {
+  const whole = String(canonical || '').trim();
+  if (!whole) return '';
+  const parsed = TGB_GEO ? (TGB_GEO.parseGeo(whole) || {}) : {};
+  const name = String(parsed.cityName || '').trim()
+            || whole.split(',')[0].trim();
+  const code = String(parsed.stateCode || '').trim();
+  if (!name) return whole;
+  return code ? (name + ', ' + code) : whole;
 }
 
 function fillAudiencesFromEvent(ev) {
@@ -13302,6 +14050,36 @@ function syncFandomFlag() {
   state.currentGameMeta.fandomGame = !!String(state.currentGameMeta.targetAudienceId || '').trim();
 }
 
+/* THE LEGACY TEAM CITY IS `City, FullStateName` OR IT IS NOT WRITTEN.
+   `games_away_team_city_format_check` and its home twin refuse anything else --
+   one comma, and never a two-letter code -- and `events.away_team_geo` is a
+   BARE CITY on all 608 sports events we hold. So the prefill was writing a
+   value the table refuses, PostgREST answered 23514, and the ENTIRE upsert was
+   rejected: the anchor, the audiences and every other edit in that save went
+   with it. 0 of 395 games carried an anchor because of this one line.
+
+   THE STATE IS NOT ON THE EVENT AND IS NEVER GUESSED. It comes from the
+   AUDIENCE the same event resolves to, whose `home_place_id` is a real place;
+   `TgbGeo.canonicalCity` expands `Charlotte, NC` to `Charlotte, North
+   Carolina`, which is the form the whole catalogue already spells.
+
+   AND IT REFUSES RATHER THAN APPROXIMATES. A side with no audience, no place,
+   or no geo module leaves the legacy field ALONE -- the columns have no editor
+   on this page and are read by the engines, so a stale value is a smaller
+   fault than a save nobody can complete. */
+function legacyTeamCityFromEvent(ev, side) {
+  const geo = window.TgbGeo;
+  if (!geo || typeof geo.canonicalCity !== 'function') return '';
+  const hit = audienceForEventSide(ev, side);
+  const label = hit ? String(hit.placeLabel || '').trim() : '';
+  if (!label) return '';
+  const canonical = String(geo.canonicalCity(label) || '').trim();
+  /* THE CHECK ITSELF, so this cannot drift from what the database accepts. */
+  if (!/^[^,]+, [^,]+$/.test(canonical)) return '';
+  if (/, [A-Z]{2}$/.test(canonical)) return '';
+  return canonical;
+}
+
 function applyAnchorEventSelection(nextId) {
   /* THE META, NOT THE NODE. A game opened from the picker always has meta; it
      does not always have a game node, and the link is a column on the row. */
@@ -13324,15 +14102,19 @@ function applyAnchorEventSelection(nextId) {
     /* THE PREFILL STILL WRITES THE LEGACY TEAM FIELDS, it just no longer has a
        select to paint. The columns are read by the engines, so an event that
        names two clubs should still fill them; what went is the control. */
+    /* THE MASCOT IS UNCONSTRAINED AND ALWAYS WRITTEN; THE CITY ONLY WHEN IT
+       CAN BE WRITTEN IN THE FORM THE TABLE ACCEPTS. See the note above. */
     if (named(ev.away_team_geo) || named(ev.away_team_nickname)) {
       if (state.currentGameMeta) {
-        state.currentGameMeta.awayTeamCity = ev.away_team_geo || '';
+        const awayCity = legacyTeamCityFromEvent(ev, 'away');
+        if (awayCity) state.currentGameMeta.awayTeamCity = awayCity;
         state.currentGameMeta.awayTeamMascot = ev.away_team_nickname || '';
       }
     }
     if (named(ev.home_team_geo) || named(ev.home_team_nickname)) {
       if (state.currentGameMeta) {
-        state.currentGameMeta.homeTeamCity = ev.home_team_geo || '';
+        const homeCity = legacyTeamCityFromEvent(ev, 'home');
+        if (homeCity) state.currentGameMeta.homeTeamCity = homeCity;
         state.currentGameMeta.homeTeamMascot = ev.home_team_nickname || '';
       }
     }
@@ -13406,19 +14188,8 @@ let guidePickPortraitSrc = '';
 // own, because the frame around it is the game's primary colour and a white
 // gutter inside that border would read as a broken image.
 const GUIDE_PLACEHOLDER_SRC = '/mc/assets/guideplaceholder.jpg';
-const nodeGameLogoInput = document.getElementById('nodeGameLogoInput');
-const gameLogoUrlUploadBtn = document.getElementById('gameLogoUrlUploadBtn');
-const gameLogoFileBtn = document.getElementById('gameLogoFileBtn');
-const gameLogoFileInput = document.getElementById('gameLogoFileInput');
 const guideImageFileBtn = document.getElementById('guideImageFileBtn');
 const guideImageFileInput = document.getElementById('guideImageFileInput');
-const gameLogoOnlinePickBtn = document.getElementById('gameLogoOnlinePickBtn');
-const gameLogoOnlineMenu = document.getElementById('gameLogoOnlineMenu');
-const gameLogoOnlineList = document.getElementById('gameLogoOnlineList');
-const gameLogoAssetStatus = document.getElementById('gameLogoAssetStatus');
-const gameLogoThumbBtn = document.getElementById('gameLogoThumbBtn');
-const gameLogoThumbImage = document.getElementById('gameLogoThumbImage');
-const gameLogoThumbPlaceholder = document.getElementById('gameLogoThumbPlaceholder');
 const nodeGuideImageInput = document.getElementById('nodeGuideImageInput');
 const guideImageUploadBtn = document.getElementById('guideImageUploadBtn');
 const guideImageUploadInput = document.getElementById('guideImageUploadInput');
@@ -13458,9 +14229,7 @@ const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleI
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
-const nodeCountryInput = document.getElementById('nodeCountryInput');
-const nodeStartNameInput = document.getElementById('nodeStartNameInput');
-const nodeStartAddressInput = document.getElementById('nodeStartAddressInput');
+
 const nodeVenueNameInput = document.getElementById('nodeVenueNameInput');
 const nodeVenueCityInput = document.getElementById('nodeVenueCityInput');
 const nodeCoordinatesInput = document.getElementById('nodeCoordinatesInput');
@@ -13511,6 +14280,11 @@ const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('va
 const selectionId = document.getElementById('selectionId');
 const selectionIdInput = document.getElementById('selectionIdInput');
 const gameIdentityBar = document.getElementById('gameIdentityBar');
+const gameNameBar = document.getElementById('gameNameBar');
+const taglineBar = document.getElementById('taglineBar');
+const gameIdBar = document.getElementById('gameIdBar');
+const emojiBar = document.getElementById('emojiBar');
+const categoryIconBar = document.getElementById('categoryIconBar');
 const objectSelectionId = document.getElementById('objectSelectionId');
 const builderNewGameBtn = document.getElementById('builderNewGameBtn');
 const builderViewGameBtn = document.getElementById('builderViewGameBtn');
@@ -13521,7 +14295,6 @@ const builderMapperBtn = document.getElementById('builderMapperBtn');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
 const featureGameBtn = document.getElementById('featureGameBtn');
 const gameStatusToggle = document.getElementById('gameStatusToggle');
-const gameStatusNote = document.getElementById('gameStatusNote');
 const gameStatusRadios = [...document.querySelectorAll('input[name="gameStatus"]')];
 const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
@@ -16218,9 +16991,6 @@ function setGameDetailsCollapsed(collapsed) {
   }
 }
 
-function getCurrentGameLogoUrl() {
-  return String((state.currentGameMeta && state.currentGameMeta.logoUrl) || '').trim();
-}
 
 function normalizeAssetFileName(value) {
   const s = String(value || '').trim();
@@ -16232,7 +17002,7 @@ function normalizeAssetFileName(value) {
   return s.replace(/\\/g, '/');
 }
 
-function buildPublishedGameLogoAssetUrl(fileName) {
+function buildPublishedAssetUrl(fileName) {
   const normalizedFileName = normalizeAssetFileName(fileName);
   return normalizedFileName
     ? GAME_LOGO_ASSET_BASE_URL + normalizedFileName.split('/').map(encodeURIComponent).join('/')
@@ -16265,7 +17035,7 @@ function getGuideImageAssetFileName(value) {
     .pop()
     .replace(/[\0\r\n]+/g, ' ')
     .trim();
-  if (!isPublishedGameLogoAssetFileName(fileName)) return '';
+  if (!isPublishedImageFileName(fileName)) return '';
   return fileName;
 }
 
@@ -16281,33 +17051,15 @@ function normalizeGuideImageAssetUrl(value) {
     if (!/\/assets\/guides\//i.test(pathname)) return raw;
   }
   const fileName = getGuideImageAssetFileName(raw);
-  return fileName ? buildPublishedGameLogoAssetUrl(GUIDE_IMAGE_ASSET_FOLDER + fileName) : '';
+  return fileName ? buildPublishedAssetUrl(GUIDE_IMAGE_ASSET_FOLDER + fileName) : '';
 }
 
-function isPublishedGameLogoAssetFileName(fileName) {
+function isPublishedImageFileName(fileName) {
   return /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(String(fileName || '').trim());
 }
 
-let gameLogoOnlineAssetsCache = null;
-let gameLogoOnlineAssetsPromise = null;
 
-function buildPublishedGameLogoAssetsFromNames(names) {
-  return (Array.isArray(names) ? names : [])
-    .map((name) => String(name || '').trim())
-    .filter((name) => !!name && isPublishedGameLogoAssetFileName(name))
-    .map((name) => ({
-      name,
-      url: buildPublishedGameLogoAssetUrl(name)
-    }))
-    .filter((item) => !!item.name && !!item.url)
-    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
-}
 
-function normalizePublishedGameLogoAssetPayload(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload && payload.files)) return payload.files;
-  return [];
-}
 
 async function fetchAssetManifestNames(url) {
   const response = await fetch(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, {
@@ -16316,7 +17068,90 @@ async function fetchAssetManifestNames(url) {
   if (!response.ok) {
     throw new Error(await response.text() || `Asset manifest failed with ${response.status}.`);
   }
-  return normalizePublishedGameLogoAssetPayload(await response.json());
+  return normalizePublishedAssetPayload(await response.json());
+}
+
+/* THE PUBLISHED ASSET MENU, SHARED BY THE GUIDE AND BUBBLE IMAGE PICKERS.
+   Written for the game logo picker and named after it, which is why deleting
+   that picker on 2026-08-31 took these with it and the room threw
+   `setGameLogoAssetStatus is not defined` on first render. Renamed to say what
+   they actually serve.
+
+   `registerUploadedAsset` KEEPS THE CACHE WARM after an upload, so a freshly
+   uploaded image appears in the menu without a refetch. */
+let publishedAssetsCache = null;
+
+let publishedAssetsPromise = null;
+
+function buildPublishedAssetsFromNames(names) {
+  return (Array.isArray(names) ? names : [])
+    .map((name) => String(name || '').trim())
+    .filter((name) => !!name && isPublishedImageFileName(name))
+    .map((name) => ({
+      name,
+      url: buildPublishedAssetUrl(name)
+    }))
+    .filter((item) => !!item.name && !!item.url)
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
+function normalizePublishedAssetPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload && payload.files)) return payload.files;
+  return [];
+}
+
+async function fetchPublishedAssets(forceRefresh = false) {
+  if (!forceRefresh && Array.isArray(publishedAssetsCache)) {
+    return publishedAssetsCache;
+  }
+  if (!forceRefresh && publishedAssetsPromise) {
+    return publishedAssetsPromise;
+  }
+
+  publishedAssetsPromise = (async () => {
+    let names = [];
+    try {
+      names = await fetchAssetManifestNames(GAME_LOGO_ASSET_MANIFEST_URL);
+    } catch (publishedError) {
+      try {
+        names = await fetchAssetManifestNames(GAME_LOGO_LOCAL_ASSET_MANIFEST_URL);
+      } catch (localError) {
+        names = GAME_LOGO_FALLBACK_ASSET_NAMES;
+      }
+    }
+
+    const assets = buildPublishedAssetsFromNames(names);
+    if (!assets.length) {
+      throw new Error(GAME_LOGO_ONLINE_ASSET_ERROR_MESSAGE);
+    }
+    publishedAssetsCache = assets;
+    return assets;
+  })()
+    .finally(() => {
+      publishedAssetsPromise = null;
+    });
+
+  return publishedAssetsPromise;
+}
+
+function registerUploadedAsset(assetName) {
+  const normalizedName = normalizeAssetFileName(assetName);
+  if (!normalizedName) return;
+  const uploadedAsset = {
+    name: normalizedName,
+    url: buildPublishedAssetUrl(normalizedName)
+  };
+  if (Array.isArray(publishedAssetsCache)) {
+    const existingIndex = publishedAssetsCache.findIndex((asset) =>
+      normalizeAssetFileName(asset && asset.name) === normalizedName);
+    if (existingIndex >= 0) {
+      publishedAssetsCache[existingIndex] = uploadedAsset;
+    } else {
+      publishedAssetsCache = [...publishedAssetsCache, uploadedAsset]
+        .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+    }
+  }
 }
 
 function probeImageUrl(url) {
@@ -16338,19 +17173,6 @@ function probeImageUrl(url) {
   });
 }
 
-function setGameLogoAssetStatus(message = '') {
-  const nextMessage = String(message || '').trim();
-  const hasError = !!nextMessage;
-  if (gameLogoAssetStatus) {
-    const msg = hasError ? nextMessage : GAME_LOGO_ASSET_DEFAULT_MESSAGE;
-    gameLogoAssetStatus.textContent = msg;
-    gameLogoAssetStatus.hidden = !msg;
-    gameLogoAssetStatus.classList.toggle('is-error', hasError);
-  }
-  if (nodeGameLogoInput) {
-    nodeGameLogoInput.classList.toggle('is-invalid', hasError);
-  }
-}
 
 function setGuideImageAssetStatus(message = '', options = {}) {
   const nextMessage = String(message || '').trim();
@@ -16415,24 +17237,6 @@ function getCurrentGuideImagePreviewUrl() {
   return imageUrl;
 }
 
-function registerUploadedGuideImageAsset(assetName) {
-  const normalizedName = normalizeAssetFileName(assetName);
-  if (!normalizedName) return;
-  const uploadedAsset = {
-    name: normalizedName,
-    url: buildPublishedGameLogoAssetUrl(normalizedName)
-  };
-  if (Array.isArray(gameLogoOnlineAssetsCache)) {
-    const existingIndex = gameLogoOnlineAssetsCache.findIndex((asset) =>
-      normalizeAssetFileName(asset && asset.name) === normalizedName);
-    if (existingIndex >= 0) {
-      gameLogoOnlineAssetsCache[existingIndex] = uploadedAsset;
-    } else {
-      gameLogoOnlineAssetsCache = [...gameLogoOnlineAssetsCache, uploadedAsset]
-        .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
-    }
-  }
-}
 
 async function requestFileWritePermission(handle) {
   if (!handle || typeof handle.queryPermission !== 'function' || typeof handle.requestPermission !== 'function') {
@@ -16499,7 +17303,7 @@ async function uploadGuideImageFile(file) {
 
   const fileName = sanitizeGuideImageUploadFileName(file);
   const assetName = buildGuideImageAssetName(fileName);
-  const assetUrl = buildPublishedGameLogoAssetUrl(assetName);
+  const assetUrl = buildPublishedAssetUrl(assetName);
   const previewUrl = URL.createObjectURL(file);
 
   try {
@@ -16509,7 +17313,7 @@ async function uploadGuideImageFile(file) {
       guideImageUploadBtn.textContent = 'Uploading';
     }
     await writeGuideImageUploadFile(file, fileName);
-    registerUploadedGuideImageAsset(assetName);
+    registerUploadedAsset(assetName);
     setGuideImageUploadPreview(assetUrl, previewUrl);
     nodeGuideImageInput.value = assetUrl;
     syncSelectedGameGuideImageFromInput({ canonicalize: true });
@@ -16535,126 +17339,10 @@ async function uploadGuideImageFile(file) {
   }
 }
 
-async function fetchPublishedGameLogoAssets(forceRefresh = false) {
-  if (!forceRefresh && Array.isArray(gameLogoOnlineAssetsCache)) {
-    return gameLogoOnlineAssetsCache;
-  }
-  if (!forceRefresh && gameLogoOnlineAssetsPromise) {
-    return gameLogoOnlineAssetsPromise;
-  }
 
-  gameLogoOnlineAssetsPromise = (async () => {
-    let names = [];
-    try {
-      names = await fetchAssetManifestNames(GAME_LOGO_ASSET_MANIFEST_URL);
-    } catch (publishedError) {
-      try {
-        names = await fetchAssetManifestNames(GAME_LOGO_LOCAL_ASSET_MANIFEST_URL);
-      } catch (localError) {
-        names = GAME_LOGO_FALLBACK_ASSET_NAMES;
-      }
-    }
 
-    const assets = buildPublishedGameLogoAssetsFromNames(names);
-    if (!assets.length) {
-      throw new Error(GAME_LOGO_ONLINE_ASSET_ERROR_MESSAGE);
-    }
-    gameLogoOnlineAssetsCache = assets;
-    return assets;
-  })()
-    .finally(() => {
-      gameLogoOnlineAssetsPromise = null;
-    });
 
-  return gameLogoOnlineAssetsPromise;
-}
 
-function setGameLogoOnlineMenuOpen(isOpen) {
-  const shouldOpen = !!isOpen;
-  if (gameLogoOnlineMenu) gameLogoOnlineMenu.hidden = !shouldOpen;
-  if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-}
-
-function populateGameLogoOnlineMenu(assets) {
-  if (!gameLogoOnlineList) return;
-
-  const currentFileName = normalizeAssetFileName(getCurrentGameLogoUrl());
-  gameLogoOnlineList.innerHTML = '';
-
-  assets.forEach((asset) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'guide-image-asset-item';
-    if (asset.name === currentFileName) item.classList.add('is-selected');
-    item.setAttribute('role', 'option');
-    item.setAttribute('aria-selected', asset.name === currentFileName ? 'true' : 'false');
-    item.dataset.assetUrl = asset.url;
-
-    const thumbWrap = document.createElement('span');
-    thumbWrap.className = 'guide-image-asset-item-thumb-wrap';
-    const thumb = document.createElement('img');
-    thumb.className = 'guide-image-asset-item-thumb';
-    thumb.alt = '';
-    thumb.loading = 'lazy';
-    thumb.src = asset.url;
-    thumbWrap.appendChild(thumb);
-
-    const name = document.createElement('span');
-    name.className = 'guide-image-asset-item-name';
-    name.textContent = asset.name;
-
-    item.appendChild(thumbWrap);
-    item.appendChild(name);
-    gameLogoOnlineList.appendChild(item);
-  });
-
-  setGameLogoOnlineMenuOpen(!!assets.length);
-}
-
-async function applyPublishedGameLogoUrl(url) {
-  const node = getGameNode();
-  if (!node || node.type !== 'game' || !nodeGameLogoInput) return false;
-  const nextUrl = String(url || '').trim();
-  if (!nextUrl) return false;
-  const existsOnline = await probeImageUrl(nextUrl);
-  if (!existsOnline) {
-    setGameLogoAssetStatus(GAME_LOGO_ASSET_NOT_FOUND_MESSAGE);
-    return false;
-  }
-  nodeGameLogoInput.value = nextUrl;
-  setGameLogoAssetStatus('');
-  syncSelectedGameLogoFromInput();
-  updateSelectionUi();
-  return true;
-}
-
-async function openGameLogoOnlinePicker(forceRefresh = false) {
-  if (!gameLogoOnlinePickBtn || !gameLogoOnlineMenu || !gameLogoOnlineList || !nodeGameLogoInput || nodeGameLogoInput.disabled) return false;
-
-  if (!forceRefresh && !gameLogoOnlineMenu.hidden) {
-    setGameLogoOnlineMenuOpen(false);
-    return true;
-  }
-
-  setGameLogoAssetStatus('');
-  gameLogoOnlinePickBtn.disabled = true;
-  gameLogoOnlinePickBtn.textContent = 'Loading';
-
-  try {
-    const assets = await fetchPublishedGameLogoAssets(forceRefresh);
-    populateGameLogoOnlineMenu(assets);
-    const firstItem = gameLogoOnlineList.querySelector('.guide-image-asset-item');
-    if (firstItem && typeof firstItem.focus === 'function') firstItem.focus();
-    return true;
-  } catch (error) {
-    setGameLogoOnlineMenuOpen(false);
-    setGameLogoAssetStatus(GAME_LOGO_ONLINE_ASSET_ERROR_MESSAGE);
-    return false;
-  } finally {
-    gameLogoOnlinePickBtn.disabled = !nodeGameLogoInput || !!nodeGameLogoInput.disabled;
-    gameLogoOnlinePickBtn.textContent = 'Choose';
-  }
-}
 
 function getCurrentGuideImageUrl() {
   return String((state.currentGameMeta && state.currentGameMeta.guideImageUrl) || '').trim();
@@ -16693,61 +17381,8 @@ function openGuideImageLightbox(srcOverride = '') {
   return true;
 }
 
-function updateGameLogoPreview() {
-  const imageUrl = getCurrentGameLogoUrl();
-  const hasImage = !!imageUrl;
 
-  if (gameLogoThumbBtn) {
-    gameLogoThumbBtn.disabled = !hasImage;
-    gameLogoThumbBtn.classList.toggle('is-empty', !hasImage);
-    gameLogoThumbBtn.classList.remove('is-broken');
-    gameLogoThumbBtn.setAttribute('aria-label', hasImage ? 'Open game logo preview' : 'No game logo selected');
-  }
 
-  if (!hasImage) {
-    if (gameLogoThumbImage) {
-      gameLogoThumbImage.hidden = true;
-      gameLogoThumbImage.removeAttribute('src');
-    }
-    if (gameLogoThumbPlaceholder) {
-      gameLogoThumbPlaceholder.hidden = false;
-      gameLogoThumbPlaceholder.textContent = 'No image';
-    }
-    return;
-  }
-
-  if (gameLogoThumbImage) {
-    if (gameLogoThumbImage.src !== imageUrl) {
-      gameLogoThumbImage.hidden = true;
-      gameLogoThumbImage.src = imageUrl;
-    }
-  }
-  if (gameLogoThumbPlaceholder) {
-    gameLogoThumbPlaceholder.hidden = true;
-  }
-  if (isGuideImageLightboxOpen() && guideImageLightboxImage) {
-    guideImageLightboxImage.src = imageUrl;
-  }
-}
-
-function openGameLogoLightbox() {
-  const imageUrl = getCurrentGameLogoUrl();
-  if (!imageUrl || !guideImageLightboxBackdrop || !guideImageLightboxImage) return false;
-  state.guideImageLightboxPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  guideImageLightboxImage.src = imageUrl;
-  guideImageLightboxBackdrop.hidden = false;
-  document.body.classList.add('guide-image-lightbox-open');
-  if (guideImageLightboxCloseBtn) guideImageLightboxCloseBtn.focus();
-  return true;
-}
-
-function syncSelectedGameLogoFromInput() {
-  if (!getGameNode() || !state.currentGameMeta || !nodeGameLogoInput) return false;
-  const nextValue = String(nodeGameLogoInput.value || '');
-  if ((state.currentGameMeta.logoUrl || '') === nextValue) return false;
-  state.currentGameMeta.logoUrl = nextValue;
-  return true;
-}
 
 // The guide avatar is served from /assets/guides/{gameId}.png at play time,
 // so the builder just tells the user the exact filename to drop in that folder.
@@ -16967,7 +17602,7 @@ async function openBubbleImageOnlinePicker(forceRefresh = false) {
   objectBubbleImageOnlinePickBtn.disabled = true;
   objectBubbleImageOnlinePickBtn.textContent = 'Loading';
   try {
-    const assets = await fetchPublishedGameLogoAssets(forceRefresh);
+    const assets = await fetchPublishedAssets(forceRefresh);
     populateBubbleImageOnlineMenu(assets);
     const firstItem = objectBubbleImageOnlineList.querySelector('.guide-image-asset-item');
     if (firstItem) firstItem.focus();
@@ -17221,9 +17856,20 @@ function normalizeDoc(raw) {
 
 function getDocName(doc = state.doc) {
   const gameNode = doc.nodes.find((node) => node.type === 'game');
-  return gameNode && gameNode.title && gameNode.title.trim()
-    ? gameNode.title.trim()
-    : 'Untitled Game';
+  if (gameNode && gameNode.title && gameNode.title.trim()) return gameNode.title.trim();
+  /* THEN THE OPEN GAME'S OWN META, and this is not belt and braces.
+
+     THE NAME BOX WRITES BOTH -- the node when there is one, and the meta
+     always, since ELEVEN OF THE 395 GAMES HAVE AN EMPTY FLOW DOCUMENT and the
+     box was made editable on those. Reading the node alone meant a name typed
+     on such a game reached the meta, was ignored here, and was SAVED AS
+     "Untitled Game" -- a typed value replaced by a placeholder, silently.
+
+     ONLY AS A FALLBACK. A node with a title always wins, so nothing about a
+     game that has one changes. */
+  const meta = state.currentGameMeta;
+  if (meta && typeof meta.title === 'string' && meta.title.trim()) return meta.title.trim();
+  return 'Untitled Game';
 }
 
 function getGridSlotPosition(type, col, row) {
@@ -17720,7 +18366,8 @@ function initGameMeta(game) {
     targetAudienceId:     g.target_audience_id ?? g.targetAudienceId ?? gn.targetAudienceId ?? '',
     /* snake ?? camel ?? node, all three: the recovery draft holds only
        camelCase, so a snake-only read blanks the field on every reload. */
-    atlasId:              g.atlas_id ?? g.atlasId ?? gn.atlasId ?? '',
+    mapId:              g.map_id ?? g.mapId ?? gn.mapId ?? '',
+    logoId:             g.logo_id ?? g.logoId ?? gn.logoId ?? '',
     rivalAudienceId:      g.rival_audience_id  ?? g.rivalAudienceId  ?? gn.rivalAudienceId  ?? '',
     venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
     venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
@@ -18331,8 +18978,10 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   city_name: 'cityName',
   state_code: 'stateCode',
   state_name: 'stateName',
-  country_code: 'countryCode',
-  country_name: 'countryName',
+  /* country_code and country_name were mapped here until 2026-08-31. They are
+     DERIVED from the city by `parseGeo` -- still carried on the meta, because
+     `composeGeo` needs them to build the canonical city string -- and the two
+     columns are gone from public.games (2026083120). */
   body: 'body',
   price: 'price',
   default_emoji: 'defaultEmoji',
@@ -18351,18 +19000,15 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   button_url: 'buttonUrl',
   tertiary_color: 'tertiaryColor',
   quaternary_color: 'quaternaryColor',
-  starting_location_name: 'startingLocationName',
-  starting_location_address: 'startingLocationAddress',
-  starting_location_plus_code: 'startingLocationPlusCode',
-  starting_location_lat: 'startingLocationLat',
-  starting_location_lon: 'startingLocationLon',
-  location_based: 'locationBased',
+  /* THE SIX START-POINT COLUMNS went with 2026083105 on 2026-08-31 and were
+     left mapped here for a day. A game is located by its CITY now. */
   fandom_game: 'fandomGame',
   kind: 'kind',
   engine: 'engine',
   var_name: 'varName',
   stop_group: 'stopGroup',
-  waypoint_group: 'stopGroup',
+  /* `waypoint_group` is not a column on public.games and has not been for a
+     long time -- `stop_group` is, and is mapped above it. */
   accept_any: 'acceptAny',
   anytime: 'anytime',
   anytime_pair_id: 'anytimePairId',
@@ -18377,7 +19023,8 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   away_team_mascot: 'awayTeamMascot',
   away_team_key: 'awayTeamKey',
   target_audience_id: 'targetAudienceId',
-  atlas_id: 'atlasId',
+  map_id: 'mapId',
+  logo_id: 'logoId',
   rival_audience_id: 'rivalAudienceId',
   venue_name: 'venueName',
   venue_city: 'venueCity'
@@ -18477,7 +19124,8 @@ function normalizeSavedGame(raw, index) {
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
     target_audience_id:    raw && raw.target_audience_id,
-    atlas_id:              raw && raw.atlas_id,
+    map_id:              raw && raw.map_id,
+    logo_id:             raw && raw.logo_id,
     rival_audience_id:     raw && raw.rival_audience_id,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
@@ -19001,9 +19649,8 @@ function renderGamePickerSelect() {
     const building = groupMap.get('BUILDING').games.length;
     const archived = groupMap.get('ARCHIVED').games.length;
     gameProfileStat.textContent = games.length
-      ? ('GAME STATS: ' + live + ' posted + ' + building + ' building + ' +
-         archived + ' skipped = ' + games.length + ' game' +
-         (games.length === 1 ? '' : 's'))
+      ? (games.length + ' Game' + (games.length === 1 ? '' : 's') + '. '
+         + live + ' posted, ' + building + ' building, ' + archived + ' skipped.')
       : '';
   }
 
@@ -19513,23 +20160,10 @@ function renderTagPicker(node) {
       scheduleRecoverySync();
     });
 
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'tag-delete-btn';
-    delBtn.textContent = '×';
-    delBtn.setAttribute('aria-label', 'Delete tag ' + tag);
-    delBtn.disabled = !isGameNode || isProtectedTag;
-    if (isProtectedTag) {
-      delBtn.hidden = true;
-    }
-    delBtn.addEventListener('click', () => {
-      if (!isGameNode) return;
-      if (isProtectedTag) return;
-      deleteTagGlobally(tag);
-    });
-
+    /* NO DELETE (2026-08-31). It removed the tag from EVERY game, from a small
+       x on a pill inside one game's editor -- the widest-reaching control on
+       the page drawn as the smallest. Tags are managed in their own room. */
     wrap.appendChild(pill);
-    wrap.appendChild(delBtn);
     nodeTagPicker.insertBefore(wrap, nodeTagNewInput);
   });
 }
@@ -20853,19 +21487,21 @@ function updateSelectionUi(options = {}) {
   syncInspectorHosts(selectedNode, selectedLink);
   if (inspectorContent) inspectorContent.classList.add('is-game-details');
 
-  titleField.hidden = !showGameDetails;
+  if (gameNameBar) gameNameBar.hidden = !showGameDetails;
   stopNameField.hidden = true;
   varNameField.hidden = true;
   varValuesField.hidden = true;
   descriptionField.hidden = !showGameDetails;
   ifThenField.hidden = true;
-  taglineField.hidden = !showGameDetails;
+  if (taglineBar) taglineBar.hidden = !showGameDetails;
 
   if (cityField) cityField.hidden = !showGameDetails;
-  if (startNameField) startNameField.hidden = !showGameDetails;
-  if (startAddressField) startAddressField.hidden = !showGameDetails;
+
   if (coordinatesField) coordinatesField.hidden = !showGameDetails;
-  if (categoryIconField) categoryIconField.hidden = !showGameDetails;
+  if (categoryIconBar) categoryIconBar.hidden = !showGameDetails;
+  /* THE EMOJI HAD NO LINE, because its parent section carried it. Alone in a
+     box it needs its own. */
+  if (emojiBar) emojiBar.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
   if (guideBackgroundField) guideBackgroundField.hidden = !showGameDetails;
@@ -20876,7 +21512,6 @@ function updateSelectionUi(options = {}) {
   tagsField.hidden = !showGameDetails;
   if (anytimeRepliesField) anytimeRepliesField.hidden = !showGameDetails;
   if (teamsField) teamsField.hidden = !showGameDetails;
-  if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = 'INTRO';
   if (nodeBodyInfo) nodeBodyInfo.hidden = true;
   if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = true;
@@ -20903,12 +21538,13 @@ function updateSelectionUi(options = {}) {
     if (el) el.disabled = !showGameDetails;
   });
   /* `showGameDetails`, NOT `isGameNode`, for the same reason as the audiences
-     above: an atlas is a property of the GAME ROW, and 28 of the 395 rows have
+     above: a map is a property of the GAME ROW, and 28 of the 395 rows have
      an empty flow document. Gating on the node made five fields on this page
      un-editable over a perfectly open game. */
-  const atlasBox = document.getElementById('gameAtlasInput');
-  if (atlasBox) atlasBox.disabled = !showGameDetails;
-  paintAtlasField();
+  const mapBox = document.getElementById('gameMapInput');
+  if (mapBox) mapBox.disabled = !showGameDetails;
+  paintMapField();
+  paintLogoField();
   /* REPAINTED AFTER the disabled flags are set, because the placeholder reads
      them. Set before, an open game would be told to open a game. */
   populateTargetAudienceSelect();
@@ -20917,16 +21553,9 @@ function updateSelectionUi(options = {}) {
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.disabled = !isGameNode;
   nodeDefaultEmojiInput.disabled = !isGameNode;
   if (nodeCategoryIconInput) nodeCategoryIconInput.disabled = !isGameNode;
-  nodeGameLogoInput.disabled = !isGameNode;
-  if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.disabled = !isGameNode;
-  if (gameLogoUrlUploadBtn) gameLogoUrlUploadBtn.disabled = !isGameNode;
-  if (gameLogoFileBtn) gameLogoFileBtn.disabled = !isGameNode;
-  if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
-  if (nodeCountryInput) nodeCountryInput.disabled = !isGameNode;
-  if (nodeStartNameInput) nodeStartNameInput.disabled = !isGameNode;
-  if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
+
   if (nodeVenueNameInput) nodeVenueNameInput.disabled = !isGameNode;
   if (nodeVenueCityInput) nodeVenueCityInput.disabled = !isGameNode;
   if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
@@ -21022,16 +21651,6 @@ function updateSelectionUi(options = {}) {
          selection out from under somebody using the arrow keys. */
       if (document.activeElement !== radio) radio.checked = radio.value === want;
     });
-    if (gameStatusNote) {
-      /* THE NOTE SAYS WHAT THE CHOICE MEANS FOR A BUYER, which is the only thing
-         about it that is not obvious from three words. */
-      gameStatusNote.textContent = !entry
-        ? 'Open a game first.'
-        : want === 'live' ? 'On sale. This is the only status a buyer can reach.'
-        : want === 'building' ? 'Written, and deliberately not for sale.'
-        : want === 'archived' ? 'Off the shelf.'
-        : '';
-    }
   }
 
 
@@ -21081,11 +21700,6 @@ function updateSelectionUi(options = {}) {
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamCity || '') : '';
   nodeDefaultEmojiInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.defaultEmoji || '') : '';
   if (nodeCategoryIconInput) nodeCategoryIconInput.value = isGameNode ? normalizeCategoryIconValue(state.currentGameMeta && state.currentGameMeta.categoryIcon) : '';
-  nodeGameLogoInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.logoUrl || '') : '';
-  setGameLogoAssetStatus('');
-  if (gameLogoOnlineMenu && isGameNode && !gameLogoOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
-    populateGameLogoOnlineMenu(gameLogoOnlineAssetsCache);
-  }
 
   const meta = state.currentGameMeta || {};
   /* THE OPEN GAME, NOT THE FLOW NODE -- the third field to need this today.
@@ -21093,8 +21707,7 @@ function updateSelectionUi(options = {}) {
      from the picker may have none, so every repaint passed null and
      applyGeoControls cleared the city box. The city belongs to the ROW. */
   applyGeoControls(showGameDetails ? meta : null);
-  if (nodeStartNameInput) nodeStartNameInput.value = isGameNode ? (meta.startingLocationName || '') : '';
-  if (nodeStartAddressInput) nodeStartAddressInput.value = isGameNode ? (meta.startingLocationAddress || '') : '';
+
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
   if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
   if (nodeCoordinatesInput) {
@@ -21145,7 +21758,6 @@ function updateSelectionUi(options = {}) {
       ? (String(meta.engine || '').trim() || DEFAULT_GAME_ENGINE)
       : '';
   }
-  updateGameLogoPreview();
   updateGuideImagePreview();
   updateGuideImageNote(isGameNode);
   updateGuideImageStatus(isGameNode);
@@ -21172,7 +21784,7 @@ function updateSelectionUi(options = {}) {
       ? 'Rename this game ID (must be unique)'
       : '';
   }
-  if (selectionId) selectionId.hidden = !showGameDetails;
+  if (gameIdBar) gameIdBar.hidden = !showGameDetails;
   // The bar carries both fields, so it follows the same condition they do —
   // an empty framed panel above the workspaces is worse than no panel.
   if (gameIdentityBar) gameIdentityBar.hidden = !showGameDetails;
@@ -22603,7 +23215,26 @@ function rememberPlayPreview(savedGame) {
 }
 
 function shouldStageCurrentGameForSave() {
-  if (!hasGameNode()) return false;
+  /* A GAME ROW IS OPEN, OR A GAME NODE EXISTS -- NOT the node alone.
+
+     `hasGameNode()` asks whether the FLOW DOCUMENT has a game node;
+     `state.currentGameMeta` asks whether a game ROW is open. ELEVEN OF THE 395
+     GAMES HAVE AN EMPTY FLOW DOCUMENT, and on those the node test was false, so
+     stageCurrentGameIntoStore returned null and NOTHING ON THE PAGE SAVED --
+     not the anchor event, not the audiences, not the name, not one field.
+
+     AND IT REPORTED SUCCESS, which is what made it expensive: `canSaveCurrentGame`
+     reads `hasUnsavedChanges`, which compares a snapshot that DOES include the
+     meta -- so the button lit, the press ran, and the row was written from the
+     values it was loaded with.
+
+     THE FIELDS BEING EDITABLE ON SUCH A GAME IS WHAT MADE IT REACHABLE. They
+     were gated on `isGameNode` and were moved onto `showGameDetails` earlier
+     the same day; this is that same distinction one layer down, in the save.
+
+     `stageCurrentGameIntoStore` ALREADY TOLERATES A MISSING NODE -- it takes
+     `_gn` as `... || {}` -- so the guard was the only thing in the way. */
+  if (!hasGameNode() && !state.currentGameMeta) return false;
   if (!state.currentGameId) return true;
   if (hasUnsavedChanges()) return true;
   return !state.store.games.some((game) => game.id === state.currentGameId);
@@ -22713,8 +23344,9 @@ function stageCurrentGameIntoStore() {
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
     target_audience_id:    _meta.targetAudienceId || null,
     // NULL, NEVER '': the column is text and a blank string would read as an
-    // atlas whose id is empty rather than as no atlas at all.
-    atlas_id:              _meta.atlasId || null,
+    // map whose id is empty rather than as no map at all.
+    map_id:              _meta.mapId || null,
+    logo_id:             _meta.logoId ? Number(_meta.logoId) : null,
     rival_audience_id:     _meta.rivalAudienceId || null,
     venue_name:            _meta.venueName || null,
     venue_city:            _meta.venueCity || null,
@@ -23425,12 +24057,6 @@ if (nodeCategoryIconInput) {
    gone is the way to type one here. */
 
 
-if (nodeStartNameInput) {
-  nodeStartNameInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.startingLocationName = nodeStartNameInput.value;
-  });
-}
 
 if (nodeVenueNameInput) {
   nodeVenueNameInput.addEventListener('input', () => {
@@ -23446,12 +24072,6 @@ if (nodeVenueCityInput) {
   });
 }
 
-if (nodeStartAddressInput) {
-  nodeStartAddressInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.startingLocationAddress = nodeStartAddressInput.value;
-  });
-}
 
 // --- Robust geocoding -------------------------------------------------------
 // Direct browser → Nominatim is fragile: their policy caps you at ~1 req/sec
@@ -23582,25 +24202,21 @@ function fillSelect(sel, options, placeholder) {
    outliving its only caller. `TgbGeo.usStateOptions` and `provinceOptions` are
    untouched and still used by other rooms. */
 
-// Populate the country dropdown + default (US) state list. Countries come from
-// public.countries via geo.js, so (re)fill once it's hydrated, keeping the pick.
-function fillCountrySelect() {
-  if (!(TGB_GEO && nodeCountryInput)) return;
-  const keep = nodeCountryInput.value;
-  fillSelect(nodeCountryInput, TGB_GEO.countryOptions(), '—');
-  if (keep) nodeCountryInput.value = keep;
-}
-if (TGB_GEO && nodeCountryInput) {
-  fillCountrySelect();
-  if (TGB_GEO.countriesReady) TGB_GEO.countriesReady.then(fillCountrySelect).catch(() => {});
-}
+/* THE COUNTRY DROPDOWN AND ITS FILLER WENT ON 2026-08-31, with `country_code`
+   and `country_name` on public.games (2026083120). The country is derived from
+   the city, which is what `parseGeo` has always done -- the picker existed only
+   to set one that disagreed with it.
+   `TgbGeo.countryOptions` and `countriesReady` are untouched and still used by
+   other rooms; only this control left. */
 
-// Paint the three controls from a game's meta (null = non-game node → clear).
+// Paint the city box from a game's meta (null = non-game node → clear).
+// ONE CONTROL NOW: the state picker went earlier on 2026-08-31 and the country
+// picker with this change, so the city box carries the whole place and every
+// structured half is read back out of it by `parseGeo`.
 function applyGeoControls(meta) {
   if (!nodeCityInput) return;
   if (!meta) {
     nodeCityInput.value = '';
-    if (nodeCountryInput) nodeCountryInput.value = '';
     return;
   }
   // Prefer structured fields; fall back to parsing the composed city string.
@@ -23614,10 +24230,11 @@ function applyGeoControls(meta) {
   const cityName = (meta.cityName != null && meta.cityName !== '')
     ? meta.cityName
     : (parsed.cityName || String(meta.city || '').split(',')[0].trim());
-  const stateCode = (meta.stateCode || parsed.stateCode || '');
-  const countryCode = (meta.countryCode || parsed.countryCode || (stateCode ? 'USA' : ''));
-  nodeCityInput.value = cityName;
-  if (nodeCountryInput) nodeCountryInput.value = countryCode;
+  /* THE WHOLE PLACE, NOT THE BARE CITY. The box is what `parseGeo` reads the
+     state half back out of, and its placeholder has taught "Chicago, IL" since
+     the state picker went. Painting only the city name here would strip the
+     state from every game the moment it was opened. */
+  nodeCityInput.value = shortPlace(meta.city || cityName) || cityName;
 }
 
 // Recompute meta.city + structured fields from the three controls, then reuse
@@ -23635,10 +24252,18 @@ function syncGeoControlsToMeta(runGeocode) {
      which is ordinary outside the US. */
   const parsedCity = TGB_GEO ? (TGB_GEO.parseGeo(cityName) || {}) : {};
   const stateCode = parsedCity.stateCode || '';
-  const countryCode = nodeCountryInput ? nodeCountryInput.value : '';
+  /* THE COUNTRY COMES OFF THE CITY TOO, now that the picker is gone. `parseGeo`
+     answers it from the same string it answers the state from, so the two can
+     never disagree -- which is what a second control for it could always do. */
+  const countryCode = parsedCity.countryCode || (stateCode ? 'USA' : '');
+  /* THE PARSED CITY, NOT THE WHOLE BOX. The box holds the WHOLE place --
+     "Denver, CO" -- so passing it as the city NAME and then composing a state
+     onto it produced "Denver, CO, Colorado", which is what `games.city` stored
+     the moment anybody typed in this field. `parseGeo` has already split it;
+     the raw value is the fallback for a spelling it declines. */
   const parts = TGB_GEO
     ? {
-        cityName: cityName,
+        cityName: parsedCity.cityName || cityName,
         stateCode: stateCode,
         stateName: stateCode ? (TGB_GEO.US_STATE_CODE_TO_NAME[stateCode] || TGB_GEO.CA_PROVINCE_CODE_TO_NAME[stateCode] || '') : '',
         countryCode: countryCode,
@@ -23698,13 +24323,6 @@ if (nodeCityInput) {
 
    `TgbCities` is still loaded and still used elsewhere on this page; only this
    control left. */
-if (nodeCountryInput) {
-  nodeCountryInput.addEventListener('change', () => {
-    syncGeoControlsToMeta(true);
-    scheduleRecoverySync();
-    scheduleUpdateActionUi();
-  });
-}
 
 // --- Google Plus Codes (Open Location Code) ---------------------------------
 // Compact encode/decode of the Open Location Code spec (https://plus.codes).
@@ -23967,41 +24585,11 @@ if (nodeGuideBackgroundInput) {
   });
 }
 
-nodeGameLogoInput.addEventListener('input', () => {
-  setGameLogoAssetStatus('');
-  syncSelectedGameLogoFromInput();
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-});
 
-nodeGameLogoInput.addEventListener('change', () => {
-  setGameLogoAssetStatus('');
-  syncSelectedGameLogoFromInput();
-  updateSelectionUi();
-});
 
-if (gameLogoOnlinePickBtn && gameLogoOnlineList) {
-  gameLogoOnlinePickBtn.addEventListener('click', async () => {
-    if (gameLogoOnlinePickBtn.disabled) return;
-    await openGameLogoOnlinePicker(false);
-  });
-
-  gameLogoOnlineList.addEventListener('click', async (event) => {
-    const assetItem = event.target instanceof Element
-      ? event.target.closest('.guide-image-asset-item')
-      : null;
-    const nextUrl = assetItem ? String(assetItem.getAttribute('data-asset-url') || '').trim() : '';
-    if (!nextUrl) return;
-    const applied = await applyPublishedGameLogoUrl(nextUrl);
-    if (applied) setGameLogoOnlineMenuOpen(false);
-  });
-}
 
 document.addEventListener('click', (event) => {
   const target = event.target;
-  if (gameLogoOnlineMenu && !gameLogoOnlineMenu.hidden && gameLogoField && !gameLogoField.contains(target)) {
-    setGameLogoOnlineMenuOpen(false);
-  }
   if (objectBubbleImageOnlineMenu && !objectBubbleImageOnlineMenu.hidden && objectBubbleImageField && !objectBubbleImageField.contains(target)) {
     setBubbleImageOnlineMenuOpen(false);
   }
@@ -24317,61 +24905,8 @@ if (guideImageUrlInput) {
 // but targets the `logos` bucket; the returned public URL is stored raw in
 // games.logo_url (the landing page, engines, and shop all read it straight
 // through — no normalization). Mirrors the guide uploader above.
-// gameLogoUrlUploadBtn is declared with the other logo consts near the top.
-function setGameLogoUrlUploadStatus(message, isError) {
-  if (!gameLogoAssetStatus) return;
-  const msg = String(message || '');
-  gameLogoAssetStatus.textContent = msg;
-  gameLogoAssetStatus.hidden = !msg;
-  gameLogoAssetStatus.classList.toggle('is-error', !!isError);
-}
 
-async function uploadGameLogoFromUrl() {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') { setGameLogoUrlUploadStatus('Select a game first.', true); return; }
-  const gameId = String(state.currentGameId || '').trim();
-  if (!gameId) { setGameLogoUrlUploadStatus('Save the game so it has an id first.', true); return; }
-  const sourceUrl = String((nodeGameLogoInput && nodeGameLogoInput.value) || '').trim();
-  if (!/^https?:\/\//i.test(sourceUrl)) { setGameLogoUrlUploadStatus('Enter a valid image URL (http/https).', true); return; }
-  const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
-  const token = session && session.access_token ? session.access_token : '';
-  if (!token) { setGameLogoUrlUploadStatus('Sign in as an admin to upload.', true); return; }
 
-  if (gameLogoUrlUploadBtn) { gameLogoUrlUploadBtn.disabled = true; gameLogoUrlUploadBtn.textContent = 'Uploading…'; }
-  setGameLogoUrlUploadStatus('Uploading…', false);
-  try {
-    const endpoint = supabaseConfig.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: supabaseConfig.publishableKey,
-        Authorization: 'Bearer ' + token
-      },
-      body: JSON.stringify({ url: sourceUrl, gameId, bucket: 'logos' })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
-    const publicUrl = String((data && data.url) || '').trim();
-    if (!publicUrl) throw new Error('no url returned');
-    // Record on the game (change event -> sync -> currentGameMeta -> preview) and persist.
-    nodeGameLogoInput.value = publicUrl;
-    nodeGameLogoInput.dispatchEvent(new Event('change', { bubbles: true }));
-    try { await saveDoc({ silent: true }); } catch (saveErr) {}
-    setGameLogoUrlUploadStatus('Uploaded ✓', false);
-  } catch (err) {
-    setGameLogoUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
-  } finally {
-    if (gameLogoUrlUploadBtn) {
-      gameLogoUrlUploadBtn.disabled = !String(state.currentGameId || '').trim();
-      gameLogoUrlUploadBtn.textContent = 'Upload';
-    }
-  }
-}
-
-if (gameLogoUrlUploadBtn) {
-  gameLogoUrlUploadBtn.addEventListener('click', uploadGameLogoFromUrl);
-}
 
 // ── Local desktop file upload (guide image + game logo) ──────────────────────
 // Local files have no CORS constraint, so they go straight from the browser to
@@ -24440,32 +24975,6 @@ if (guideImageFileBtn && guideImageFileInput) {
 }
 
 // Game logo — pick a local file.
-if (gameLogoFileBtn && gameLogoFileInput) {
-  gameLogoFileBtn.addEventListener('click', () => { if (!gameLogoFileBtn.disabled) gameLogoFileInput.click(); });
-  gameLogoFileInput.addEventListener('change', async () => {
-    const file = gameLogoFileInput.files && gameLogoFileInput.files[0];
-    gameLogoFileInput.value = '';
-    if (!file) return;
-    const node = getGameNode();
-    if (!node || node.type !== 'game') { setGameLogoUrlUploadStatus('Select a game first.', true); return; }
-    const gameId = String(state.currentGameId || '').trim();
-    if (!gameId) { setGameLogoUrlUploadStatus('Save the game so it has an id first.', true); return; }
-    gameLogoFileBtn.disabled = true; gameLogoFileBtn.textContent = 'Uploading…';
-    setGameLogoUrlUploadStatus('Uploading…', false);
-    try {
-      const publicUrl = await uploadImageFileToSupabase(file, gameId, 'logos');
-      nodeGameLogoInput.value = publicUrl;
-      nodeGameLogoInput.dispatchEvent(new Event('change', { bubbles: true }));
-      try { await saveDoc({ silent: true }); } catch (e) {}
-      setGameLogoUrlUploadStatus('Uploaded ✓', false);
-    } catch (err) {
-      setGameLogoUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
-    } finally {
-      gameLogoFileBtn.disabled = !String(state.currentGameId || '').trim();
-      gameLogoFileBtn.textContent = 'Upload file…';
-    }
-  });
-}
 
 if (guideImageUploadBtn && guideImageUploadInput) {
   guideImageUploadBtn.addEventListener('click', async () => {
@@ -24491,34 +25000,7 @@ if (guideImageUploadBtn && guideImageUploadInput) {
   });
 }
 
-if (gameLogoThumbImage) {
-  gameLogoThumbImage.addEventListener('error', () => {
-    if (gameLogoThumbBtn) {
-      gameLogoThumbBtn.disabled = true;
-      gameLogoThumbBtn.classList.add('is-broken');
-    }
-    if (gameLogoThumbImage) gameLogoThumbImage.hidden = true;
-    if (gameLogoThumbPlaceholder) {
-      gameLogoThumbPlaceholder.hidden = false;
-      gameLogoThumbPlaceholder.textContent = 'Bad image';
-    }
-  });
 
-  gameLogoThumbImage.addEventListener('load', () => {
-    if (gameLogoThumbBtn) {
-      gameLogoThumbBtn.disabled = !getCurrentGameLogoUrl();
-      gameLogoThumbBtn.classList.remove('is-broken');
-    }
-    if (gameLogoThumbImage) gameLogoThumbImage.hidden = false;
-    if (gameLogoThumbPlaceholder) gameLogoThumbPlaceholder.hidden = true;
-  });
-}
-
-if (gameLogoThumbBtn) {
-  gameLogoThumbBtn.addEventListener('click', () => {
-    openGameLogoLightbox();
-  });
-}
 
 if (guideImageThumbImage) {
   guideImageThumbImage.addEventListener('error', () => {
@@ -25912,14 +26394,20 @@ async function initializeBuilder() {
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
   loadBuilderAudiences().catch((err) => console.warn('loadBuilderAudiences failed:', err));
-  loadBuilderAtlases().catch((err) => console.warn('loadBuilderAtlases failed:', err));
+  loadBuilderMaps().catch((err) => console.warn('loadBuilderMaps failed:', err));
+  loadBuilderLogos().catch((err) => console.warn('loadBuilderLogos failed:', err));
   /* COMMIT ON CHANGE, NOT ON EVERY KEYSTROKE. A datalist fires `change` when
      an option is picked and when the box is left, which is exactly the two
      moments a value is meant. Committing per keystroke would refuse every
      half-typed name in the red pen while somebody was still typing it. */
-  const atlasBox = document.getElementById('gameAtlasInput');
-  if (atlasBox) atlasBox.addEventListener('change', commitAtlasField);
-  else console.warn('game builder: no #gameAtlasInput');
+  const mapBox = document.getElementById('gameMapInput');
+  if (mapBox) mapBox.addEventListener('change', commitMapField);
+  else console.warn('game builder: no #gameMapInput');
+  /* THE LOGO IS A SELECT, so `change` is a pick rather than a keystroke and
+     there is nothing to resolve: the value IS the id. */
+  const logoBox = document.getElementById('nodeLogoSelect');
+  if (logoBox) logoBox.addEventListener('change', commitLogoField);
+  else console.warn('game builder: no #nodeLogoSelect');
   loadBuilderAnchorEvents().catch((err) => console.warn('loadBuilderAnchorEvents failed:', err));
   loadBuilderGuides().catch((err) => console.warn('loadBuilderGuides failed:', err));
   await loadDoc();

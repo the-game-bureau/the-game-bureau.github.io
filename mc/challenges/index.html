@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>CHALLENGES | THE GAME BUREAU</title>
+  <title>CHALLENGE BANK | THE GAME BUREAU</title>
   <link rel="icon" href="/favicon.ico?v=2" sizes="any">
   <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -329,8 +329,13 @@
 
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title" id="roomTitle">? CHALLENGES</h1>
-        <p class="room-blurb">A Challenge is what a team does when they get there. Waypoint + Challenge = Game Stop</p>
+        <h1 class="room-title" id="roomTitle">CHALLENGE BANK</h1>
+        <!-- THE COUNT LEADS THE ROOM OWN NOUN and is painted, `?` until the
+             table is in: everything loads before the first render, so a zero
+             on the way would be WRONG rather than not yet known. The markup
+             ships the `?` too, or the wrong answer is on screen for the first
+             second whatever the painter does afterwards. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> Challenges. A Challenge is what a team does when they get there, and Waypoint + Challenge = Game Stop. Trivia lives here too, keyed to a fandom or a city rather than to a scope.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -431,6 +436,15 @@
           <select id="fScopeWpid"></select>
         </label>
 
+        <!-- THE TWO FIELDS THAT ARE TRIVIA'S OWN. Hidden on every other kind,
+             because a ladder key on a stop challenge is refused outright by
+             challenges_ladder_key_belongs_to_trivia -- so a box that could only
+             ever produce a refusal is worse than no box. -->
+        <label class="field field--wide" id="ladderField" hidden><span>Where it is asked, a key ladder rung</span>
+          <input type="text" id="fLadder" list="ladderList" placeholder="new-orleans-la-nfl-saints" autocomplete="off">
+          <datalist id="ladderList"></datalist>
+        </label>
+
         <label class="field field--wide"><span>Prompt, read by the team at the stop</span>
           <textarea id="fPrompt" rows="3" placeholder="Stand on the steps and sing the {{away_team_nickname}} fight song, loudly enough that a stranger looks."></textarea>
         </label>
@@ -445,6 +459,14 @@
 
         <label class="field field--wide"><span>Answer, blank when nothing is marked. Variables work here too</span>
           <input type="text" id="fAnswer" placeholder="Jefferson Davis" autocomplete="off">
+        </label>
+
+        <!-- ONE OPTION PER LINE, NEVER COMMA SEPARATED. No option on file holds
+             a comma today and plenty of true answers would (`Chicago, Illinois`),
+             so a comma separator is a rule that breaks on the first option that
+             needs one. Lines also read as the four buttons they become. -->
+        <label class="field field--wide" id="choicesField" hidden><span>Options, one per line. Blank means the answer is typed</span>
+          <textarea id="fChoices" rows="4" placeholder="Chicago River&#10;Lake Michigan&#10;Calumet River&#10;Des Plaines River"></textarea>
         </label>
 
         <label class="field field--wide"><span>Tags, comma separated</span>
@@ -474,9 +496,33 @@
     };
     const TABLE = 'challenges';
 
+    // BUILT, NOT WRITTEN AS AN ESCAPE. A backslash-n written through this
+    // repo's edit tooling has reached a file as a real line break inside a
+    // string literal more than once, which is a syntax error rather than a
+    // bug you can see.
+    const NEWLINE = String.fromCharCode(10);
+
     // THE KINDS ARE A CHECK CONSTRAINT, unlike events.kind which is free text.
     // Adding one here needs a migration, so the list is not merely a UI choice.
-    const KIND_VALUES = ['question', 'minigame', 'photo', 'freeform'];
+    //
+    // ALL SIX, AND THE LIST HAD TO BE COMPLETE BEFORE THE ROOM COULD LIST
+    // EVERY ROW. It held four while trivia and consent were filtered out; the
+    // moment they are drawn, a picker missing their kind is worse than a
+    // missing option -- opening the waiver would show `question` selected and
+    // saving would silently rewrite what kind of thing it is.
+    const KIND_VALUES = ['question', 'minigame', 'photo', 'freeform', 'consent', 'trivia'];
+
+    // TRIVIA IS THE ONE KIND WITH A SHAPE OF ITS OWN. It carries a key-ladder
+    // rung instead of a scope and may carry multiple choice options, and nine
+    // CHECK constraints hold that shape. `isTrivia` is asked in one place so
+    // the form, the payload and the row cannot disagree about it.
+    function isTrivia(row) { return clean(row && row.kind) === 'trivia'; }
+
+    // THE RUNGS OF THE KEY LADDER, in the order tgb_content_keys emits them.
+    // A rung is a destination id, its city-and-state prefix, a league family,
+    // wp-<wpid>, or the portable star.
+    const PORTABLE_KEY = '*';
+    const WP_KEY = 'wp-';
 
     // ---- VARIABLES ARE WHAT MAKE A CHALLENGE PORTABLE ---------------------
     //
@@ -510,7 +556,7 @@
     }
     function unknownVarsIn(text) { return varsIn(text).filter((k) => VAR_KEYS.indexOf(k) === -1); }
 
-    const state = { teams: [], waypoints: [],
+    const state = { teams: [], waypoints: [], destinations: [], families: [],
                     authed: false, rows: [], q: '', kind: 'any', scope: 'any',
                     editing: null, reviewOnly: false, loaded: false };
     const cols = { scope: false, tags: false, bind: false };
@@ -544,6 +590,43 @@
              + 'city, and a place challenge names a waypoint.';
       }
       if (/challenges_scope_check/.test(text)) return 'Scope must be portable, team, city or place.';
+
+      // ---- the nine that came with the trivia rows -----------------------
+      if (/challenges_ladder_key_belongs_to_trivia/.test(text)) {
+        return 'A key ladder rung belongs to a trivia question and to nothing '
+             + 'else, and a trivia question must have one and must be portable. '
+             + 'Change the kind, or fill the rung in.';
+      }
+      if (/challenges_answer_is_a_choice/.test(text)) {
+        return 'The answer has to be one of the options, spelled the same way. '
+             + 'Add it to the list, or clear the options so the answer is typed.';
+      }
+      if (/challenges_choices_enough/.test(text)) {
+        return 'Two options at least, or none at all. One option is not a choice.';
+      }
+      if (/challenges_trivia_free_answer_is_one_word/.test(text)) {
+        return 'A typed trivia answer has to be ONE word, because a team is '
+             + 'typing it outdoors on a phone. If the only good answer is two '
+             + 'words, give the question options instead.';
+      }
+      if (/challenges_trivia_answer_not_in_prompt/.test(text)) {
+        return 'The question contains its own answer, so it tests nothing. '
+             + 'Reword it so the answer is not one of its words.';
+      }
+      if (/challenges_trivia_no_one_word_prefix/.test(text)) {
+        return 'A question may not open with "One word". Name something that IS '
+             + 'one word instead; the box already says what it takes.';
+      }
+      if (/challenges_trivia_has_a_prompt/.test(text)) {
+        return 'A trivia question needs its question written out.';
+      }
+      if (/challenges_trivia_has_an_answer/.test(text)) {
+        return 'A trivia question needs an answer. Unlike a photo, it is marked against one.';
+      }
+      if (/PGRST204.*ladder_key|column .*ladder_key|column .*choices/.test(text)) {
+        return 'The database has no ladder_key or choices column yet. Run '
+             + 'mc/supabase/migrations/2026083107_trivia_becomes_a_challenge.sql.';
+      }
       if (/challenges_kind_check/.test(text)) return 'That is not a kind this table allows.';
       if (/PGRST204|column .*scope|column .*tags/.test(text)) {
         return 'The database has no scope or tags column yet. Run '
@@ -573,15 +656,13 @@
     async function loadAll() {
       const out = [];
       for (let from = 0; ; from += 1000) {
-        // THE STOP CHALLENGES, NOT THE TRIVIA. `trivia` was merged into this
-        // table on 2026-08-31 and the two remain different jobs: a stop
-        // challenge is answered by LOOKING and is edited here, with a scope
-        // and variables; a trivia question is answered by KNOWING, carries a
-        // key-ladder rung instead of a scope, and has CHOICES this editor has
-        // no field for. Listing them would be 38 rows this room could only
-        // half-edit. The Trivia room is built for them and reads the same
-        // table with the filter the other way round.
-        const res = await fetch(restUrl(TABLE, { select: '*', kind: 'neq.trivia', order: 'name.asc' }), {
+        // EVERY ROW, WHATEVER ITS KIND. This read carried `kind=neq.trivia`
+        // while the Trivia room existed, on the argument that a trivia row has
+        // a shape this editor could only half-edit. That argument was answered
+        // rather than overruled: the ladder key and the options are fields
+        // here now, so there is nothing left for the filter to protect and one
+        // room holds every challenge.
+        const res = await fetch(restUrl(TABLE, { select: '*', order: 'name.asc' }), {
           headers: authHeaders({ Range: from + '-' + (from + 999) })
         });
         if (!res.ok) throw new Error('Could not read challenges: ' + await readError(res));
@@ -596,6 +677,77 @@
       // that cannot be set, which is worth saying; it is not worth taking the
       // room down for, since every other kind of editing still works.
       if (cols.bind) { await loadBindCatalogues(); }
+      await loadLadderCatalogue();
+    }
+
+    /* THE ORPHAN CHECK CAME WITH THE TRIVIA ROWS, and it is the one thing
+       about them no other screen can ever report: `ladder_key` is not a
+       foreign key and CANNOT be one, because a rung may be a destination id,
+       a city-and-state PREFIX of one, a league family or a waypoint -- four
+       shapes across three tables, none of them unique on its own. So a typo
+       resolves to nothing, the row reads perfectly, and the question is never
+       asked of anybody.
+         IT FAILS SOFT, like the two catalogues above. A destinations read
+       that will not answer costs the orphan finding and nothing else. */
+    async function loadLadderCatalogue() {
+      try {
+        const res = await fetch(restUrl('destinations', { select: 'id', order: 'id.asc' }),
+          { headers: authHeaders() });
+        if (res.ok) {
+          state.destinations = (await res.json()).map((d) => clean(d.id)).filter(Boolean);
+          // A FAMILY IS READ OFF THE KEYS THEMSELVES rather than from a list
+          // this page would have to keep in step with the database.
+          state.families = [...new Set(state.destinations
+            .map((id) => (id.split('-')[2] || ''))
+            .filter(Boolean))];
+        }
+      } catch (err) { state.destinations = []; state.families = []; }
+      buildLadderList();
+    }
+
+    /* BUILT FROM THE ROWS THAT EXIST, so the list can only offer a rung that
+       resolves -- which is the whole fault the orphan check exists to report,
+       answered at the point somebody types rather than after they have saved.
+       A key already in use leads, because most questions join a set. */
+    function buildLadderList() {
+      const list = el('ladderList');
+      if (!list) return;
+      const used = [...new Set(state.rows.map((r) => clean(r.ladder_key)).filter(Boolean))].sort();
+      const cities = [...new Set(state.destinations
+        .map((d) => d.split('-').slice(0, 2).join('-'))
+        .filter((c) => c.indexOf('-') > 0))].sort();
+      const all = used
+        .concat([PORTABLE_KEY])
+        .concat(state.families.slice().sort())
+        .concat(cities)
+        .concat(state.destinations.slice().sort());
+      list.textContent = '';
+      all.filter((k, at, l) => l.indexOf(k) === at).forEach((k) => {
+        const o = document.createElement('option');
+        o.value = k;
+        list.appendChild(o);
+      });
+    }
+
+    /* THE FOUR SHAPES A RUNG MAY TAKE, or '' when it names nothing. Returning
+       the SHAPE rather than a boolean is what lets the editor say which kind
+       of thing a key was read as, so a key that resolves to the wrong thing is
+       visible too. */
+    function ladderShape(key) {
+      const v = clean(key);
+      if (!v) return '';
+      if (v === PORTABLE_KEY) return 'anywhere';
+      if (v.indexOf(WP_KEY) === 0) {
+        const wpid = v.slice(WP_KEY.length);
+        return (state.waypoints || []).some((w) => String(w.wpid) === wpid) ? 'waypoint' : '';
+      }
+      // NOT KNOWN UNTIL THE CATALOGUE IS IN. Reporting every key as an orphan
+      // while the read is in flight would redden all 38 rows for a second.
+      if (!(state.destinations || []).length) return 'unknown';
+      if (state.families.indexOf(v) >= 0) return 'a whole league';
+      if (state.destinations.indexOf(v) >= 0) return 'one fandom';
+      if (state.destinations.some((d) => d.indexOf(v + '-') === 0)) return 'one city';
+      return '';
     }
 
     async function loadBindCatalogues() {
@@ -778,6 +930,20 @@
                   + '. That is not a variable, so it prints as it is written.'
       },
       {
+        key: 'orphan-ladder-key',
+        // THE ONE FINDING NO OTHER SCREEN CAN EVER REPORT. `ladder_key` is not
+        // a foreign key and cannot be one, so a mistyped rung is refused by
+        // nothing: the row reads perfectly and the question is simply never
+        // asked of anybody. It came here with the trivia rows from the room
+        // that used to hold it.
+        //   `unknown` IS NOT AN ORPHAN. It is what ladderShape answers while
+        // the destinations read is still in flight, and treating it as a fault
+        // would redden all 38 rows for a second on every load.
+        test: (c) => isTrivia(c) && ladderShape(c.ladder_key) === '',
+        say: (c) => 'Nothing is keyed to ' + (clean(c.ladder_key) || 'that key')
+                  + '. Pick a rung from the list, or this question is asked of nobody.'
+      },
+      {
         key: 'place-bound-variable',
         // A contradiction rather than a typo: it says it travels nowhere and
         // then asks for the away club, which only a travelling game has.
@@ -842,12 +1008,19 @@
 
     /* ---- rendering ------------------------------------------------------- */
 
-    // `?` UNTIL THE TABLE IS IN, NEVER `0`: everything loads before the first
-    // render, so a zero on the way would be wrong rather than not yet known.
+    /* THE BLURB CARRIES THE COUNT, NOT THE TITLE. The title is the room name
+       now, and a count in front of a name reads as a quantity of that name.
+         `?` UNTIL THE TABLE IS IN, NEVER `0`: everything loads before the
+       first render, so a zero on the way would be WRONG rather than not yet
+       known.
+         AND IT DOES NOT MOVE WITH A FILTER. It is the standing measure of the
+       room; a figure that shrank as you typed would read as the filter
+       breaking. The panel says how much a filter has left. */
     function updateTitle() {
       const n = state.rows.length;
-      el('roomTitle').textContent = (state.loaded ? String(n) : '?')
-        + (state.loaded && n === 1 ? ' CHALLENGE' : ' CHALLENGES');
+      const el2 = el('blurbCount');
+      if (!el2) return;
+      el2.textContent = state.loaded ? String(n) : '?';
     }
 
     function paintCheckBtn() {
@@ -942,7 +1115,31 @@
       kind.textContent = clean(c.kind) || 'no kind';
       line.appendChild(kind);
 
-      if (cols.scope) {
+      // A TRIVIA ROW WEARS ITS RUNG WHERE A CHALLENGE WEARS ITS SCOPE. Both
+      // answer the same question -- where does this get used -- so they take the
+      // same place on the line rather than opening a second column that is
+      // empty on two rows out of three. Portable is in ink for the same reason
+      // it is on a challenge: it is the one saying this row will be used again.
+      if (isTrivia(c)) {
+        const shape = ladderShape(c.ladder_key);
+        const key = clean(c.ladder_key);
+        const chip = document.createElement('span');
+        chip.className = 'ch-scope is-' + (key === PORTABLE_KEY ? 'portable' : 'team')
+                       + (shape === '' ? ' is-loose' : '');
+        chip.textContent = key === PORTABLE_KEY ? 'portable' : (key || 'keyed to nothing');
+        chip.title = shape === '' ? 'This key resolves to nothing.'
+                   : shape === 'unknown' ? 'Reading the destinations to check this key.'
+                   : 'Asked of ' + shape + '.';
+        line.appendChild(chip);
+        if (Array.isArray(c.choices) && c.choices.length) {
+          const n = document.createElement('span');
+          n.className = 'ch-tag';
+          // THE COUNT, NOT THE OPTIONS. Four options on a list row is the row
+          // reading as the question rather than as an entry about it.
+          n.textContent = c.choices.length + ' options';
+          line.appendChild(n);
+        }
+      } else if (cols.scope) {
         const sc = scopeOf(c);
         const bound = cols.bind ? bindLabel(c) : '';
         const loose = cols.bind && needsBind(c) && !bindOf(c);
@@ -1106,11 +1303,16 @@
       el('dlgMsg').textContent = '';
       el('fName').value = row ? clean(row.name) : '';
       el('fKind').value = row ? (clean(row.kind) || 'question') : 'question';
+      el('fLadder').value = row ? clean(row.ladder_key) : '';
+      // AN ARRAY, NOT A STRING. `choices` is text[], so a null is a typed
+      // answer and an array is the options in the order they were written.
+      el('fChoices').value = row && Array.isArray(row.choices) ? row.choices.join(NEWLINE) : '';
       el('fScope').value = row ? scopeOf(row) : 'portable';
       el('fScopeTeam').value = row && row.scope_team ? clean(row.scope_team) : '';
       el('fScopeCity').value = row && row.scope_city ? clean(row.scope_city) : '';
       el('fScopeWpid').value = row && row.scope_wpid ? String(row.scope_wpid) : '';
       paintBindFields();
+      paintTriviaFields();
       el('fPrompt').value = row ? clean(row.prompt) : '';
       el('fAnswer').value = row ? clean(row.answer) : '';
       el('fTags').value = row ? tagsOf(row).join(', ') : '';
@@ -1121,6 +1323,24 @@
       paintPreview();
       el('dlg').classList.add('is-open');
       el('fName').focus();
+    }
+
+    /* THE SHAPE FOLLOWS THE KIND, IN ONE PLACE, so the boxes on screen and the
+       payload cannot disagree about what a trivia row is. Trivia is portable by
+       construction -- the CHECK says so -- so its scope picker is put out of the
+       way rather than left offering three settings the database will refuse. */
+    function paintTriviaFields() {
+      const t = clean(el('fKind').value) === 'trivia';
+      el('ladderField').hidden = !t;
+      el('choicesField').hidden = !t;
+      if (cols.scope) {
+        el('fScope').closest('.field').hidden = t;
+        if (t) el('fScope').value = 'portable';
+      }
+      if (t) { el('bindTeamField').hidden = true;
+               el('bindCityField').hidden = true;
+               el('bindPlaceField').hidden = true; }
+      else paintBindFields();
     }
 
     function closeEditor() {
@@ -1135,14 +1355,29 @@
         prompt: clean(el('fPrompt').value) || null,
         answer: clean(el('fAnswer').value) || null
       };
-      if (cols.scope) body.scope = clean(el('fScope').value) || 'portable';
+      // TRIVIA IS PORTABLE AND CARRIES NO SCOPE KEY, which is not a preference
+      // here: challenges_ladder_key_belongs_to_trivia refuses anything else, and
+      // it refuses a ladder key on every other kind in the same breath. The two
+      // halves are written together or the write is refused for a state nobody
+      // meant -- the same either/or the Trivia room learned about an answer and
+      // its choices.
+      const trivia = body.kind === 'trivia';
+      if (cols.scope) body.scope = trivia ? 'portable' : (clean(el('fScope').value) || 'portable');
       if (cols.bind) {
         const sc = body.scope;
-        body.scope_team = sc === 'team'  ? (clean(el('fScopeTeam').value) || null) : null;
-        body.scope_city = sc === 'city'  ? (clean(el('fScopeCity').value) || null) : null;
-        body.scope_wpid = sc === 'place' && clean(el('fScopeWpid').value)
+        body.scope_team = !trivia && sc === 'team'  ? (clean(el('fScopeTeam').value) || null) : null;
+        body.scope_city = !trivia && sc === 'city'  ? (clean(el('fScopeCity').value) || null) : null;
+        body.scope_wpid = !trivia && sc === 'place' && clean(el('fScopeWpid').value)
           ? Number(el('fScopeWpid').value) : null;
       }
+      body.ladder_key = trivia ? (clean(el('fLadder').value).toLowerCase() || null) : null;
+      // AN EMPTY LIST IS NULL, NOT []. A null means the answer is typed; an
+      // empty array would trip challenges_choices_enough with a message about
+      // cardinality, which says nothing to whoever cleared the box.
+      const opts = trivia
+        ? el('fChoices').value.split(NEWLINE).map((x) => clean(x)).filter(Boolean)
+        : [];
+      body.choices = opts.length ? opts : null;
       if (cols.tags) {
         body.tags = clean(el('fTags').value).split(',')
           .map((t) => clean(t)).filter(Boolean)
@@ -1366,6 +1601,10 @@
     // box that names what it binds to. Without this the field would only ever
     // appear when the editor was opened on a row that already had one.
     el('fScope').addEventListener('change', paintBindFields);
+    // WITHOUT THIS THE FORM LIES ABOUT WHAT IT WILL SAVE: choosing trivia would
+    // leave the scope picker on screen and the two trivia boxes hidden, while
+    // the payload silently forced portable and sent no key.
+    el('fKind').addEventListener('change', paintTriviaFields);
     el('fPrompt').addEventListener('input', paintPreview);
     el('fAnswer').addEventListener('input', paintPreview);
     el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });

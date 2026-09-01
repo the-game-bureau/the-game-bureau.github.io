@@ -68,6 +68,14 @@
     .btn.primary:hover:not(:disabled) { background: #24396a; }
     .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
     .btn:disabled { opacity: 0.45; cursor: default; }
+    /* GREYED BUT PRESSABLE. `cursor: help`, not `not-allowed`: the button IS
+       pressable and what it does is explain itself. */
+    .btn[aria-disabled="true"] { opacity: 0.5; cursor: help; }
+
+    /* THE SORT TOGGLES WEAR THE ROOM'S OWN BUTTON. Everything else in these
+       fieldsets is a `.btn`, so a differently drawn control in among them would
+       read as a different KIND of thing. The span carries every metric the
+       button carries; only the pressed state is added. */
     /* [hidden] RE-ASSERTED over .btn's author display, or setting .hidden does
        nothing at all. A dozen instances of this in the repo. */
     .btn[hidden] { display: none !important; }
@@ -83,32 +91,188 @@
       border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
       box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
     }
-    .panel-head {
-      display: flex; align-items: center; gap: 10px;
-      padding: 7px 12px; background: var(--cut-panel-bg); border-bottom: 1px solid var(--line);
-    }
-    .panel-title { font: 600 0.74rem/1 'IBM Plex Mono', monospace;
-                   letter-spacing: 0.1em; text-transform: uppercase; }
-    .panel-head .spacer { margin-left: auto; }
-    .count { font: 600 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
     /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
        so the bars stay on screen over a hundred rows. */
     .panel-body { max-height: 72vh; overflow: auto; }
 
-    table { width: 100%; border-collapse: collapse; }
-    thead th {
-      position: sticky; top: 0; z-index: 1;
-      background: var(--cut-panel-bg); text-align: left; white-space: nowrap;
-      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    /* ONE COLUMN TEMPLATE, DECLARED ONCE ON THE LIST, and the header and every
+       badge inherit it. It was three copies of one string in the Tape Room and
+       they drifted; here the header would silently stop sitting over the values
+       it names, which is the one place a disagreement is invisible in a diff. */
+    .aud-list, .aud-head { --aud-cols: 30px minmax(0, 1fr) 110px minmax(0, 220px) 92px; }
+
+    /* THE HEADER WORD IS A BUTTON, so it wears the header's own type rather
+       than the browser's: a control that reads as a different KIND of thing
+       from the row of labels it sits in is worse than no control. */
+    .th-sort {
+      font: inherit; letter-spacing: inherit; text-transform: inherit;
+      color: inherit; background: none; border: 0; padding: 0;
+      cursor: pointer; white-space: nowrap;
+    }
+    .th-sort:hover { color: var(--ink); }
+    /* PRESSED IS THE ROOM'S INK, and an underline as well as a colour: a
+       header is small muted mono, and a shade of blue alone is not a state
+       anybody can find along a row of five. */
+    .th-sort.is-on {
+      color: var(--ink);
+      text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px;
+    }
+    .th-sort:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+    /* THE HEADER IS DETACHED and STICKY: the list scrolls inside its own panel,
+       and column names that scroll away are column names that are not there.
+       It is the only thing naming the three cells on a badge. */
+    .aud-head {
+      position: sticky; top: 0; z-index: 2;
+      display: grid; grid-template-columns: var(--aud-cols);
+      align-items: center; gap: 10px;
+      padding: 6px 14px; margin-bottom: 8px;
+      background: var(--cut-panel-bg); border-bottom: 1px solid var(--line);
       font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
       letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
     }
-    tbody td {
-      padding: 8px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
-      font-size: 0.86rem; vertical-align: top;
+
+    /* DETACHED BADGES, NOT A TABLE. A grid gave a name, a pill and a delete
+       button the same weight; a card gives each of them its own. */
+    .aud-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 14px; }
+    .aud {
+      --aud-card-font-size: 24pt;
+      position: relative;
+      font-size: var(--aud-card-font-size);
+      line-height: 1.12;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      border-radius: 8px;
+      /* THE BORDER IS THE AUDIENCE'S OWN PRIMARY COLOUR, set per badge as
+         `--aud-line`. A club is known by its colours before it is known by its
+         name, so a list of 641 is scannable by something other than reading.
+           IT FALLS BACK TO THE ROOM'S OWN LINE, which is what an audience with
+         no primary gets -- a border of nothing would read as a card that failed
+         to draw. */
+      border: 1px solid var(--aud-line, var(--line));
+      overflow: hidden;
+      box-shadow:
+        inset 5px 0 0 var(--aud-line, var(--line)),
+        0 1px 2px rgba(var(--bic-blue-rgb), 0.08),
+        0 8px 22px rgba(var(--bic-blue-rgb), 0.055);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
     }
-    tbody tr:last-child td { border-bottom: 0; }
-    tbody tr:hover { background: var(--panel-soft); }
+    .aud::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0; height: 3px;
+      background: linear-gradient(90deg, var(--aud-line, var(--control-line)), transparent 72%);
+      opacity: 0.68;
+      pointer-events: none;
+    }
+    .aud:hover {
+      border-color: var(--aud-line, var(--cut-panel-line));
+      box-shadow:
+        inset 5px 0 0 var(--aud-line, var(--line)),
+        0 2px 5px rgba(var(--bic-blue-rgb), 0.1),
+        0 12px 28px rgba(var(--bic-blue-rgb), 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* THE CUBE SITS BESIDE ONE FIELD COLUMN. The colour block is positioned as
+       the badge mark, and the data column can flow top-to-bottom beside it
+       without the first row inheriting the cube's height. */
+    .aud .fields {
+      --colour-size: 220px;
+      --colour-height: 312px;
+      --colour-gap: 28px;
+      --fields-left: 22px;
+      --fields-right: 78px;
+      --fields-top: 20px;
+      --fields-bottom: 20px;
+      position: relative;
+      display: flex; flex-direction: column; align-items: stretch;
+      gap: 12px;
+      min-height: calc(var(--fields-top) + var(--colour-height) + var(--fields-bottom));
+      padding:
+        var(--fields-top)
+        var(--fields-right)
+        var(--fields-bottom)
+        calc(var(--fields-left) + var(--colour-size) + var(--colour-gap));
+    }
+    .field--colours {
+      position: absolute;
+      inset: var(--fields-top) auto auto var(--fields-left);
+      width: var(--colour-size);
+      align-self: start;
+    }
+    .aud-delete {
+      position: absolute; top: 10px; right: 12px; z-index: 3;
+      width: 44px; height: 44px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(194, 55, 55, 0.42); border-radius: 6px;
+      background: rgba(255, 255, 255, 0.92); color: var(--bic-red);
+      font: 800 var(--aud-card-font-size)/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(194, 55, 55, 0.08);
+    }
+    .aud-delete:hover {
+      background: rgba(194, 55, 55, 0.1);
+      border-color: var(--bic-red);
+    }
+    .aud-delete:focus-visible {
+      outline: 2px solid var(--bic-red);
+      outline-offset: 2px;
+    }
+
+    /* A SMALL CUBE, NOT A BAR ACROSS THE CARD. Four stripes stacked into one
+       square block: the four colours are ONE fact about a club, so they read as
+       one object, and at a quarter of the width they stop competing with the
+       fields beside them. */
+    .colourbar {
+      display: grid; grid-template-rows: repeat(4, minmax(72px, auto));
+      width: var(--colour-size); min-height: var(--colour-height);
+      border: 1px solid var(--control-line); border-radius: 8px; overflow: hidden;
+      box-shadow: 0 6px 18px rgba(var(--bic-blue-rgb), 0.08);
+    }
+    .colourbar .stripe {
+      /* THE GROUND IS THE ROOM'S PAPER WHERE THERE IS NO COLOUR, never a bare
+         transparent: an unfilled stripe has to look like an empty slot rather
+         than a hole in the block. */
+      background: var(--paper); color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font: 600 var(--aud-card-font-size)/0.92 'IBM Plex Mono', monospace; letter-spacing: 0;
+      min-width: 0; overflow: hidden; white-space: nowrap;
+    }
+    /* THE HEX IS THE DATA, the name is its caption, so it follows the same
+       value-over-label order the rest of the badge uses. */
+    .colourbar .stripe { flex-direction: column; gap: 2px; padding: 0 6px; }
+    .stripe-k { opacity: 0.72; letter-spacing: 0.06em; }
+    .stripe-v { font-variant-numeric: tabular-nums; }
+    /* STACKED, so the rule between them is horizontal. */
+    .colourbar .stripe + .stripe { border-top: 1px solid var(--control-line); }
+    .colourbar .stripe:hover { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+    @media (max-width: 1100px) {
+      .aud .fields { --colour-size: 210px; --colour-height: 304px; }
+    }
+    @media (max-width: 820px) {
+      .aud .fields { --colour-size: 200px; --colour-height: 304px; --colour-gap: 18px; }
+    }
+    @media (max-width: 560px) {
+      .aud .fields {
+        --colour-size: 100%;
+        --colour-height: 304px;
+        --fields-left: 18px;
+        --fields-right: 18px;
+        --fields-top: 62px;
+        --fields-bottom: 18px;
+        gap: 10px;
+        min-height: auto;
+        padding:
+          var(--fields-top)
+          var(--fields-right)
+          var(--fields-bottom)
+          var(--fields-left);
+      }
+      .field--colours { position: static; inset: auto; width: 100%; }
+      .aud-delete { top: 9px; right: 9px; width: 42px; height: 42px; }
+      .colourbar .stripe { padding: 0 4px; }
+    }
     /* THE TABLE FITS ITS PANEL AGAIN, because a closed row is seven cells. It
        carried `width: max-content` with a FROZEN FIRST COLUMN and a group band
        while it drew all thirty-three at once: 4,526px in a 1,178px panel. All
@@ -122,7 +286,12 @@
       color: var(--muted); white-space: nowrap;
     }
     .col-text, .col-place { white-space: nowrap; }
+    .aud .col-key,
+    .aud .col-text,
+    .aud .col-place,
+    .aud .col-aliases { white-space: normal; }
     .col-aliases { font-size: 0.76rem; color: var(--muted); min-width: 12ch; }
+    .aud .col-aliases { font-size: var(--aud-card-font-size); min-width: 0; }
     /* FIGURES LINE UP IN A COLUMN, which is the only reason to right-align them
        and the only thing tabular-nums is for. */
     .col-num { text-align: right; font-variant-numeric: tabular-nums;
@@ -140,11 +309,16 @@
                   color: var(--muted); text-transform: uppercase; }
     .col-act { text-align: right; white-space: nowrap; }
 
-    /* THE SHARED 62ch CLAMP IS CLEARED FOR THIS ROOM'S SENTENCE, and nowhere
-       else. `admin-shell.css` is right to clamp a short blurb; this one runs to
-       three clauses and would break after "our games." The same one-line
-       override the Tape Room and the Events room already carry. */
-    .room-head .room-blurb { max-width: 74ch; }
+    /* THE SENTENCE RUNS ON ONE LINE. The shared sheet clamps a blurb to 62ch,
+       which is right for a short one and breaks this one after "our games."
+       With the title gone it is the only thing in the head, so it has the whole
+       width to use and reads as one statement rather than three stacked lines.
+
+       IT MAY WRAP AGAIN ON A NARROW WINDOW, and must: at 390px one line is not
+       on offer and `nowrap` alone would simply overflow the page. Same bargain
+       /games/ makes with its own 35-character strapline. */
+    .room-head .room-blurb { max-width: none; white-space: nowrap; }
+    @media (max-width: 1100px) { .room-head .room-blurb { white-space: normal; } }
 
     /* ---- the row that opens ------------------------------------------------ */
     .col-caret { width: 30px; padding-left: 8px; padding-right: 0; }
@@ -158,45 +332,67 @@
     .caret span[aria-hidden] { display: block; transition: transform 0.12s ease; }
     @media (prefers-reduced-motion: reduce) { .caret span[aria-hidden] { transition: none; } }
     /* A LABEL FOR A SCREEN READER AND NOT FOR THE EYE. `display: none` would
-       take it out of the accessibility tree along with the pixels. */
+       take it out of the accessibility tree along with the pixels.
+
+       IT MUST HAVE A POSITIONED ANCESTOR INSIDE THE SCROLL CONTAINER, and that
+       is what `.sr-host` is for -- see the rule below. */
     .sr {
       position: absolute; width: 1px; height: 1px; overflow: hidden;
       clip-path: inset(50%); white-space: nowrap;
     }
-    .row-head { cursor: pointer; }
-    .row-head.is-open > td { background: var(--panel-soft); }
-    .row-head.is-open > td:first-child { background-image:
-      linear-gradient(var(--panel-soft), var(--panel-soft)); }
-    /* `[hidden]` HAS TO BE RE-ASSERTED over any author display. A table row's
-       own `display: table-row` from the UA sheet is not an author rule, so this
-       is the belt for the day someone gives .row-detail a display of its own. */
-    .row-detail[hidden] { display: none; }
-    .row-detail > td { padding: 0; background: var(--panel-soft); }
+    /* THIS ONE DECLARATION IS WHAT KEEPS THE PAGE ITS OWN HEIGHT, and the
+       mechanism is worth knowing because nothing about it is obvious.
+
+       OVERFLOW CLIPPING ONLY REACHES A BOX WHOSE CONTAINING-BLOCK CHAIN PASSES
+       THROUGH THE CLIPPER. Every `.sr` span sits in a `.caret` button, and the
+       button, its cell, its row, the table and `.panel-body` were all `static`
+       -- so each span's containing block was `main.app`, which is OUTSIDE the
+       scroll container. The 641 spans escaped the clip and sat at their static
+       positions, the last of them 34,260px down, and THE DOCUMENT GREW TO HOLD
+       THEM: a 900px room with 33,000px of empty page under it.
+
+       MEASURED, NOT REASONED ABOUT. Emptying `.panel-body` dropped the document
+       from 34,260 to 900; forcing `overflow: hidden` on the panel AND the body
+       changed nothing, which is what said the clip was not the problem.
+
+       `position: relative` PUTS THE CONTAINING BLOCK BACK INSIDE THE BUTTON, so
+       the spans are clipped like everything else. It changes nothing visually
+       and nothing about what a screen reader is told. */
+    .sr-host { position: relative; }
+    /* `.row-head` AND `.row-detail` WENT WITH THE COLLAPSE. There is no face
+       and no panel, so a cursor saying the card is pressable would be a lie --
+       the only things you can press on a badge are a field or the X. */
 
     .fields {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       gap: 10px 18px; padding: 14px 18px 18px;
     }
-    /* THE GROUP HEADING SPANS THE WHOLE GRID, so the fields under it read as a
-       run rather than as one more cell in the flow. */
-    .fgroup {
-      grid-column: 1 / -1; margin: 6px 0 0;
-      font: 600 0.6rem/1 'IBM Plex Mono', monospace;
-      letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
-      padding-bottom: 5px; border-bottom: 1px solid var(--line);
-    }
-    .fgroup:first-child { margin-top: 0; }
-    .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    /* `.fgroup` WENT WITH THE HEADINGS. A control and its stylesheet go in one
+       pass -- a rule for markup that is no longer emitted is the dead CSS this
+       repo sweeps for. */
+    .field { display: flex; flex-direction: column-reverse; gap: 3px; min-width: 0; }
     .flabel {
-      font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
-      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+      font: 700 var(--aud-card-font-size)/1.05 'IBM Plex Mono', monospace;
+      letter-spacing: 0; text-transform: uppercase; color: rgba(var(--bic-blue-rgb), 0.58);
     }
-    .fval { font-size: 0.86rem; min-height: 1.3em; word-break: break-word; }
+    .fval {
+      font-size: var(--aud-card-font-size);
+      line-height: 1.12; min-height: 1.12em; word-break: break-word;
+    }
+    .field:has([data-field="full_name"]) .fval {
+      font-size: var(--aud-card-font-size); font-weight: 700; color: var(--ink);
+    }
+    .field:has([data-field="id"]) .fval,
+    .field:has([data-field="created"]) .fval,
+    .field:has([data-field="updated"]) .fval {
+      font-family: 'IBM Plex Mono', monospace; font-size: var(--aud-card-font-size);
+    }
     .fval.col-num { text-align: left; }
     /* A LOCKED FIELD KEEPS ITS LOOK AND LOSES THE AFFORDANCE, and says WHY on
        hover. A field that silently ignores a click is indistinguishable from one
        that is broken. */
     .fval.is-locked { color: var(--muted); cursor: help; }
+    .fval.is-bad { color: var(--bic-red); font-weight: 700; }
     .fval .none { font-style: italic; color: var(--muted); }
 
     /* BLACK AND BOLD MEANS YOU CAN CHANGE IT, at rest rather than on hover: a
@@ -211,12 +407,15 @@
       color: var(--ink); background: #fff;
       border: 1px solid var(--ink); border-radius: 6px; padding: 4px 6px;
     }
+    .aud .ed-box { font-size: var(--aud-card-font-size); line-height: 1.12; }
 
     .chip {
-      display: inline-flex; align-items: center; padding: 3px 8px;
-      border: 1px solid var(--control-line); border-radius: 999px;
-      font: 600 0.6rem/1 'IBM Plex Mono', monospace;
-      letter-spacing: 0.08em; text-transform: uppercase;
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 5px;
+      font: 600 var(--aud-card-font-size)/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0; text-transform: uppercase;
+      width: max-content; max-width: 100%;
     }
     /* A KIND IS TOLD BY ITS GROUND, and each still carries its word so colour is
        never the only signal. Contrast measured the way the trivia chips were. */
@@ -226,6 +425,12 @@
                       border-color: rgba(122, 84, 12, 0.42); color: rgb(122, 84, 12); }
     .chip--interest { background: rgba(39, 103, 64, 0.12);
                       border-color: rgba(39, 103, 64, 0.42); color: var(--success); }
+    /* THE FOURTH KIND TAKES THE VIOLET THIS PROJECT ALREADY MEASURED -- the
+       Stop Builder and TGB Atlas both wear #6b3fa0 for a challenge, at 7.38:1
+       on this panel. Borrowed rather than picked again, so a fourth hue is one
+       the eye has already met here. */
+    .chip--historical { background: rgba(107, 63, 160, 0.12);
+                      border-color: rgba(107, 63, 160, 0.42); color: rgb(107, 63, 160); }
     /* A CLUB WITH NO HOME IS A FAULT NOTHING ELSE REPORTS. Red pen. */
     .chip--bad { background: rgba(194, 55, 55, 0.10);
                  border-color: var(--bic-red); color: var(--bic-red); }
@@ -259,13 +464,13 @@
       padding: 12px 16px; border-top: 1px solid var(--line);
     }
     .dlg-foot .spacer { margin-left: auto; }
-    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .field > span {
+    .dlg .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .dlg .field > span {
       font: 600 0.64rem/1 'IBM Plex Mono', monospace;
       letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
     }
-    .field input, .field select { width: 100%; }
-    .field small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+    .dlg .field input, .dlg .field select { width: 100%; }
+    .dlg .field small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
     .dlg-msg { color: var(--bic-red); font-size: 0.84rem; line-height: 1.4; padding: 0 16px 12px; }
     .dlg-msg:empty { display: none; }
     .key-preview {
@@ -292,8 +497,18 @@
 
     <div class="room-head">
       <div class="room-titlecol">
-        <h1 class="room-title" id="roomTitle">? AUDIENCES</h1>
-        <p class="room-blurb">Audiences are built-in fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience. Game locations are also pulled from the audiences table.</p>
+        <!-- THE TITLE IS A NAME, NOT A COUNT. It read `640 AUDIENCES` over a
+             sentence opening `Audiences are ...`, which is the room named
+             twice a line apart -- and the repetition was the COUNT and the
+             shared noun rather than the title itself. Not painted: a room's
+             name does not change. -->
+        <h1 class="room-title">AUDIENCE QUEUE</h1>
+        <!-- THE COUNT LEADS, and says only the number: the next word is
+             `Audiences`, so `641 Audiences` would put the noun twice in one
+             sentence. It ships a `?` rather than a `0` -- everything loads
+             before the first render, so a zero on the way would be wrong
+             rather than not yet known. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> on file. Audiences are existing fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -303,37 +518,55 @@
         <legend>Add</legend>
         <div class="command-bar-inner">
           <button type="button" class="btn" id="manualBtn">Manual</button>
+          <!-- PROMPT, FOR FUTURE USE. It is here so the door exists where every
+               other room puts one -- ADD holds the ways in, and this room's
+               second way in is a prompt, since audiences are to be populated
+               that way rather than typed one at a time.
+                 `aria-disabled`, NEVER `disabled`. A disabled button dispatches
+               no click at all, so on a touch screen -- no hover, therefore no
+               tooltip -- the reason it is off would be completely unreachable.
+               Pressing it says what it is for. This project has made that call
+               for every greyed control it has. -->
+          <button type="button" class="btn" id="promptBtn" aria-disabled="true"
+                  title="Not written yet. It will hand you a prompt to paste into an AI, which answers with SQL you run in Supabase.">Prompt</button>
         </div>
       </fieldset>
 
       <fieldset class="command-bar command-bar--find">
         <legend>Find</legend>
         <div class="command-bar-inner">
-          <input type="search" id="q" placeholder="A name, a key, an alias" autocomplete="off">
+          <!-- NO GUIDE TEXT. The box sits under a tab that says FIND, and a
+               placeholder listing what it matches is the control explaining
+               itself when the legend has already named it. -->
+          <input type="search" id="q" aria-label="Find an audience" autocomplete="off">
         </div>
       </fieldset>
 
       <fieldset class="command-bar command-bar--filter">
         <legend>Filter</legend>
         <div class="command-bar-inner">
-          <select id="familyPick" aria-label="Family"><option value="">Any family</option></select>
-          <select id="kindPick" aria-label="Kind">
-            <option value="">Any kind</option>
+          <select id="familyPick" aria-label="League"><option value="">Any league</option></select>
+          <select id="kindPick" aria-label="Type">
+            <option value="">Any type</option>
             <option value="fandom">fandom</option>
             <option value="artist">artist</option>
             <option value="interest">interest</option>
+            <option value="historical">historical</option>
           </select>
           <button type="button" class="btn" id="clearBtn" aria-disabled="true">Clear</button>
         </div>
       </fieldset>
+
+      <!-- NO SORT BAR. The column headers ARE the toggles -- one control for
+           one thing, and it sits over the column it orders. -->
     </div>
 
     <section class="panel">
-      <div class="panel-head">
-        <span class="panel-title">Audiences</span>
-        <span class="spacer"></span>
-        <span class="count" id="tally"></span>
-      </div>
+      <!-- NO PANEL HEAD. It read `AUDIENCES` with `641 audiences` at the far
+           end: the left half repeating the panel it sat on, the right half a
+           count. WHAT IT COSTS: with the painted title gone, nothing in the
+           room now says how many audiences there are, nor how many a filter
+           has left. -->
       <div class="panel-body" id="tableHost"></div>
     </section>
   </main>
@@ -346,30 +579,24 @@
       </div>
       <div class="dlg-body">
         <label class="field">
-          <span>Family</span>
-          <input type="text" id="addFamily" list="familyList" autocomplete="off"
-                 placeholder="nfl, music, history">
-          <datalist id="familyList"></datalist>
-          <small>A league for a club, a domain otherwise. It is also the ladder's
-            broadest named rung, so a question keyed to it reaches every audience
-            in the family.</small>
+          <span>full_name</span>
+          <input type="text" id="addFullName" autocomplete="off"
+                 placeholder="Chicago Bears, Alabama Crimson Tide, Taylor Swift">
+          <small>The whole name, as it is written. IT IS ALSO THE KEY: everything
+            else about an audience can be edited, and this is the one field the
+            row's identity is made of.</small>
         </label>
         <label class="field">
-          <span>Name</span>
-          <input type="text" id="addName" autocomplete="off" placeholder="Bears, Taylor Swift">
-          <small>What its members call themselves. The nickname for a pro club,
-            the school for a college one. Nobody says "Crimson Tide fan".</small>
-        </label>
-        <label class="field">
-          <span>Kind</span>
-          <select id="addKind">
+          <span>type</span>
+          <select id="addType">
             <option value="fandom">fandom</option>
             <option value="artist">artist</option>
             <option value="interest">interest</option>
+            <option value="historical">historical</option>
           </select>
         </label>
         <label class="field">
-          <span>At home in</span>
+          <span>home_city</span>
           <input type="text" id="addHome" list="placeList" autocomplete="off"
                  placeholder="leave empty for an artist or an interest">
           <datalist id="placeList"></datalist>
@@ -379,7 +606,7 @@
         </label>
         <div class="field">
           <span>The key it will get</span>
-          <div class="key-preview" id="keyPreview">family-name</div>
+          <div class="key-preview" id="keyPreview">full-name</div>
         </div>
       </div>
       <p class="dlg-msg" id="addMsg"></p>
@@ -426,7 +653,7 @@
     const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
     const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-    const KINDS = ['fandom', 'artist', 'interest'];
+    const KINDS = ['fandom', 'artist', 'interest', 'historical'];
 
     /* EVERY COLUMN THE TABLE HAS, IN ONE LIST, and the header, the cells, the
        editable set and the search all read it. Two hand-kept lists is the drift
@@ -437,51 +664,149 @@
        a swatch because six characters of hex cannot be read, a sort order is
        right-aligned tabular figures, a stamp is a date nobody types. */
     const COLUMNS = [
+      /* THE COLOURS LEAD. They are the one thing on a badge you can read from
+         across a list without reading -- and the cube is a single object, so it
+         sets the card's left edge rather than interrupting a run of fields.
+         `g` is the ORDER now that the headings are gone, so this is simply the
+         first group. */
+      { g: 'Colours',  k: 'primary',         t: 'Primary',   kind: 'colour' },
+      { g: 'Colours',  k: 'secondary',       t: 'Secondary', kind: 'colour' },
+      { g: 'Colours',  k: 'tertiary',        t: 'Tertiary',  kind: 'colour' },
+      { g: 'Colours',  k: 'text',            t: 'Text',      kind: 'colour' },
+
+      { g: 'Identity', k: 'full_name',     t: 'Full name',  kind: 'text', strong: true },
       { g: 'Identity', k: 'id',            t: 'Key',        kind: 'key',   edit: false },
-      { g: 'Identity', k: 'family',        t: 'Family',     kind: 'key' },
-      { g: 'Identity', k: 'name',          t: 'Name',       kind: 'name', head: true },
-      { g: 'Identity', k: 'nickname',      t: 'Mascot',     kind: 'text', head: true },
-      { g: 'Identity', k: 'kind',          t: 'Kind',       kind: 'chip', head: true },
-      { g: 'Identity', k: 'full_name',     t: 'Full name',  kind: 'text' },
-      { g: 'Identity', k: 'first_name',    t: 'First name', kind: 'text' },
-      { g: 'Identity', k: 'fanbase',       t: 'Fanbase',    kind: 'text' },
+      /* TYPE REPLACED FAMILY AND KIND. It is the badge's pill now, and the
+         league the old family held is the first segment of the key. */
+      { g: 'Identity', k: 'type',          t: 'Type',       kind: 'text', head: true },
+      { g: 'Identity', k: 'nickname',      t: 'Mascot',     kind: 'text' },
+      /* `family` AND `kind` ARE GONE FROM THE TABLE (2026090107), so they are
+         gone from here. They were drawn read-only while the five functions
+         still read them; those moved to `type` and to the key's first segment
+         in the same migration, and a field for a dropped column renders `none`
+         on every badge -- which looks like missing data rather than an absent
+         column. */
+      /* WHAT THIS FANDOM IS KNOWN FOR -- the traditions, the chant, the thing
+         they are famous for doing. It is the only column that says anything
+         about the PEOPLE rather than the club, which is what a game is pitched
+         at, and it is the reason this table is not a sports-team reference. */
+      { g: 'Identity', k: 'description',   t: 'Known for',  kind: 'long' },
 
-      { g: 'Where',    k: 'home_place_id', t: 'At home in', kind: 'place', head: true },
-      { g: 'Where',    k: 'venue_city',    t: 'Venue city', kind: 'text' },
-      { g: 'Where',    k: 'timezone',      t: 'Timezone',   kind: 'key' },
+      /* THE CITY IS PLAIN TEXT. It was `home_place_id`, a lookup constrained
+         to `public.places`, so a town we did not already hold could not be
+         typed at all -- the same trade `events.venue_city` and
+         `waypoints.city` both made. `home_place_id` is still on the row and
+         still maintained; see the commit branch for why. */
+      { g: 'Where',    k: 'home_city',     t: 'City',       kind: 'text', head: true },
+      /* NO PLACE KEY ON THE BADGE. `home_place_id` is still on the row and
+         still written -- the room keeps it in step with the city, and it is what
+         decides a game's rival -- but it is a derived key nobody reads, and a
+         field showing `none` on 381 badges is noise rather than news. */
 
-      { g: 'Sport',    k: 'conference',    t: 'Conference', kind: 'text' },
-      { g: 'Sport',    k: 'division',      t: 'Division',   kind: 'text' },
-      { g: 'Sport',    k: 'team_sort',     t: 'Tm sort',    kind: 'num' },
+      /* PARED DOWN (2026-09-01). `first_name`, `fanbase`, `venue_city`,
+         `timezone`, `conference` and `division` are no longer drawn, and the
+         `Sport` group went with the last two.
+           WHY: an audience is a FANDOM, and it can be a band's or an interest's
+         as easily as a club's. A conference, a division and a venue city are
+         facts about a SPORTS FRANCHISE -- meaningless on the row for a band,
+         and six fields to read past on the 639 where they do apply.
+           NONE OF THEM IS DROPPED, only unlisted, and that distinction is the
+         whole safety of this change: all six are selected by the `teams` view,
+         which is what both engines resolve a club through at play time. They
+         are still on the row and still readable in SQL; the room simply does
+         not draw them. Dropping one is a migration and a view rebuild. */
+      /* NO `team_sort`. It is a sort key nobody sorts a list of audiences by,
+         and the room offers no ordering it feeds -- the header words do that.
+         THE COLUMN IS NOT DROPPED, only unlisted: the `teams` view still selects
+         it, and that view is what both engines resolve a club through at play
+         time. Dropping it is a migration and a view rebuild, not a room edit. */
 
-      { g: 'Colours',  k: 'shell',         t: 'Shell',      kind: 'colour' },
-      { g: 'Colours',  k: 'stripe',        t: 'Stripe',     kind: 'colour' },
-      { g: 'Colours',  k: 'mask',          t: 'Mask',       kind: 'colour' },
-      { g: 'Colours',  k: 'text_color',    t: 'Text',       kind: 'colour' },
+      /* PRIMARY, SECONDARY, TERTIARY -- and the columns are still `shell`,
+         `stripe` and `mask`. In the fandom palette the shell IS the primary
+         colour, the stripe the secondary and the mask the tertiary, so these
+         are the words the rest of the product already uses; the stored names
+         describe a HELMET, which is where the palette came from rather than
+         what it is for.
+           TEXT KEEPS ITS OWN NAME, because it is not a fourth colour in that
+         series: nothing reads it, and `teamPalette` derives readable ink from
+         the primary by luminance instead.
+           VISIBLE COPY ONLY. `team-palette.js` reads `shell`, `stripe` and
+         `mask` BY NAME at play time, so the columns do not follow -- the same
+         bargain the Tape Room made through five renames of its verbs. */
 
-      { g: 'Keys',     k: 'team_key',      t: 'Team key',   kind: 'key' },
-      { g: 'Keys',     k: 'espn_id',       t: 'ESPN id',    kind: 'key' },
-      { g: 'Keys',     k: 'aliases',       t: 'Aliases',    kind: 'aliases' },
+      /* NO team_key ON THE BADGE. It is a derived club code nobody reads off a
+         list -- and it is NOT dead: since 2026090108 it is where the LEAGUE
+         lives, so `teams.league`, `destinations.id`, the same-league rival rule
+         and the ladder rungs all split it. The column stays; the field goes. */
+      { g: 'Keys',     k: 'audience_aliases', t: 'Aliases', kind: 'aliases' },
 
-      { g: 'Filed',    k: 'created_at',    t: 'Added',      kind: 'stamp', edit: false },
-      { g: 'Filed',    k: 'updated_at',    t: 'Changed',    kind: 'stamp', edit: false }
+      { g: 'Play',     k: 'team_name_suggestions', t: 'Team names', kind: 'long' },
+
+      { g: 'Filed',    k: 'created',       t: 'Created',    kind: 'stamp', edit: false },
+      { g: 'Filed',    k: 'updated',       t: 'Updated',    kind: 'stamp', edit: false }
     ];
 
     /* DERIVED, NEVER WRITTEN OUT AGAIN. A column marked `edit: false` is one the
        database owns: `id` is generated from family and name, and the two stamps
        are records of when something happened rather than fields to fill in. */
+    /* THE LEAGUE, RECOVERED FROM THE KEY. `family` held it and is dropped;
+       the key is `family-name` and was frozen with its values, so its first
+       segment is the same string -- measured at 641 of 641 before the drop. */
+    const leagueOf = (r) => String(r && r.id || '').split('-')[0];
+
+    /* THE STRIPE INK IS CONTRAST, not inversion. These little labels sit on top
+       of every club colour we have, so the rule has to answer "can I read it?"
+       rather than "what is mathematically opposite?" */
+    function colourInk(hex) {
+      const h = String(hex || '').replace('#', '');
+      if (!/^[0-9a-f]{6}$/i.test(h)) return '#000000';
+      const channels = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+      const linear = channels.map((c) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+      const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+      return luminance > 0.42 ? '#062159' : '#ffffff';
+    }
+
     const EDITABLE = COLUMNS.filter((c) => c.edit !== false).map((c) => c.k);
-    /* THE FIVE A CLOSED ROW CARRIES. Everything else is one click away, which is
-       the whole shape: 640 rows of 33 fields is a table nobody can read across,
-       and a row you can scan is worth more than a row that says everything. */
-    const HEAD_COLS = COLUMNS.filter((c) => c.head);
+    /* THE THREE A CLOSED ROW CARRIES: what it is called, what kind of thing it
+       is, and where it is at home. Everything else is one click away, which is
+       the whole shape -- 641 rows of 33 fields is a table nobody can read
+       across, and a row you can scan is worth more than a row that says
+       everything.
+
+       NAMED AND ORDERED HERE, not filtered out of COLUMNS by a `head` flag. The
+       flag gave the closed row COLUMNS' own order, which is grouped for the
+       opened detail (Identity, Where, Sport...) and is not the order these three
+       read in. Two different questions, so two different orders. */
+    const HEAD_KEYS = ['full_name', 'type', 'home_city'];
+    const HEAD_COLS = HEAD_KEYS.map((k) => COLUMNS.find((c) => c.k === k));
+    if (HEAD_COLS.some((c) => !c)) throw new Error('a head column names no column');
+    /* THE DETAIL SHOWS EVERY FIELD, including the three above it.
+         It skipped `id` and `name` while the closed row drew them. The closed
+       row draws neither now, so skipping them would make `name` -- which is
+       editable -- REACHABLE FROM NOWHERE, and that is the test for taking a
+       field off a form. The three it does repeat are repeated on purpose: they
+       are editable, and a reader opening a row to work through every field
+       would otherwise find three gaps. */
+    const DETAIL_COLS = COLUMNS;
+    /* EMPTY TODAY, and deliberately kept. `team_sort` was the only `num` column
+       and it is no longer listed, so the guard below it is unreachable -- but it
+       is DERIVED from COLUMNS rather than written out, so a numeric column added
+       later is covered without anybody remembering to. */
     const NUMERIC = COLUMNS.filter((c) => c.kind === 'num').map((c) => c.k);
     const COLOURS = COLUMNS.filter((c) => c.kind === 'colour').map((c) => c.k);
 
     /* `open` IS A SET OF IDS, NOT A FLAG ON A ROW OBJECT. Every save reloads and
        replaces the rows, so a flag on one would be thrown away by the next read. */
     const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '',
-                    loaded: false, open: new Set() };
+                    /* NAME, A TO Z, IS THE ARRIVAL STATE, and the markup ships
+                       `checked` on that radio -- so the control and the state
+                       agree before a line of script runs. */
+                    /* THE FIRST COLUMN, so the arrival order is the one the eye
+                       reads down. It was `name`, which is no longer a column --
+                       a default naming a toggle that is not there would leave
+                       the header with nothing lit and no way to tell why. */
+                    sort: HEAD_KEYS[0],
+                    loaded: false };
     let adminAuth = null;
 
     function restUrl(table, params) {
@@ -508,7 +833,7 @@
         return 'That key is already taken. Family and name together have to be '
              + 'unique, which is why a college audience is named for its school.';
       }
-      if (/audiences_kind/.test(text)) return 'A kind is fandom, artist or interest.';
+      if (/audiences_kind/.test(text)) return 'A kind is fandom, artist, interest or historical.';
       if (/audiences_home_needs_nickname/.test(text)) {
         return 'A club at home somewhere needs a mascot, or it disappears from '
              + 'destinations without a word. Add one, or clear the home place.';
@@ -572,8 +897,8 @@
       const p = state.places.find((x) => x.id === clean(id));
       return p ? p.city + ', ' + p.state : clean(id);
     };
-    const aliasText = (r) => Array.isArray(r.aliases) && r.aliases.length
-      ? r.aliases.join(' / ') : '';
+    const aliasText = (r) => Array.isArray(r.audience_aliases) && r.audience_aliases.length
+      ? r.audience_aliases.join(' / ') : '';
 
     /* EVERY WRITE ASKS FOR THE ROW BACK. PostgREST answers 200 with an EMPTY
        ARRAY when RLS refuses, so without reading it a refused edit reports
@@ -593,11 +918,18 @@
 
     /* ---- the list ---------------------------------------------------------- */
 
+    /* WHAT A ROW SORTS ON. Every head column is now the value the cell draws,
+       so there is nothing to translate -- the city was the one that held a key
+       and showed a label, and it holds the label itself now. */
+    function sortKeyOf(r) {
+      return clean(r[state.sort]);
+    }
+
     function visible() {
       const q = state.q.toLowerCase();
-      return state.rows.filter((r) => {
-        if (state.family && r.family !== state.family) return false;
-        if (state.kind && r.kind !== state.kind) return false;
+      const rows = state.rows.filter((r) => {
+        if (state.family && leagueOf(r) !== state.family) return false;
+        if (state.kind && clean(r.type) !== state.kind) return false;
         if (!q) return true;
         /* THE SEARCH READS EVERY COLUMN THE TABLE DRAWS, or a field you can
            see is a field you cannot find. Built from COLUMNS for the same
@@ -607,6 +939,22 @@
           .join(' ').toLowerCase();
         return hay.indexOf(q) >= 0;
       });
+
+      /* A BLANK SINKS TO THE END, IN EVERY ORDER. A club with no mascot has no
+         position in an alphabet, so putting it at the top of A to Z would be
+         the list asserting something it does not know. The Events room draws
+         the same line for a row with no date.
+
+         AND TIES BREAK ON THE KEY, which is what makes the order STABLE. Kind
+         has four values across 640 rows, so a tie is the common case there
+         rather than the exception, and without a second key a row could move
+         under you as you type in the search box. */
+      return rows.sort((a, b) => {
+        const x = sortKeyOf(a), y = sortKeyOf(b);
+        if (!x !== !y) return x ? -1 : 1;
+        const c = x.localeCompare(y, undefined, { sensitivity: 'base', numeric: true });
+        return c || a.id.localeCompare(b.id);
+      });
     }
 
     /* WHAT EACH CELL LOOKS LIKE, keyed off the column's own `kind`. One
@@ -615,8 +963,12 @@
   function cellOf(r, c) {
       const v = clean(r[c.k]);
       if (c.kind === 'chip') {
-        return '<span class="chip chip--' + (KINDS.indexOf(r.kind) >= 0 ? r.kind : 'bad')
-          + '">' + esc(r.kind) + '</span>';
+        /* THE COLUMN'S OWN VALUE, never a hardcoded `r.kind`. It read the
+           dropped column and drew an EMPTY pill on all 641 -- a chip that is
+           there and says nothing, which looks like a styling fault rather than
+           a field pointed at the wrong place. */
+        return '<span class="chip chip--' + (KINDS.indexOf(v) >= 0 ? v : 'bad')
+          + '">' + esc(v) + '</span>';
       }
       if (c.kind === 'aliases') return esc(aliasText(r));
       if (c.kind === 'place')   return esc(v ? placeLabel(v) : '');
@@ -634,18 +986,19 @@
     }
 
   function emptyOf(r, c, homeless, needsNick) {
-      return c.k === 'home_place_id' ? (homeless ? 'no home' : 'nowhere')
+      return c.k === 'home_city' ? (homeless ? 'no home' : 'nowhere')
            : c.k === 'nickname' ? (needsNick ? 'no mascot' : 'none')
-           : c.k === 'aliases' ? 'none'
+           : c.k === 'audience_aliases' ? 'none'
            : c.k === 'team_key' ? 'no colours' : c.t.toLowerCase();
     }
 
     function paintTable() {
       const rows = visible();
       const host = el('tableHost');
-      el('tally').textContent = rows.length === state.rows.length
-        ? state.rows.length + ' audiences'
-        : rows.length + ' of ' + state.rows.length;
+      /* `state.rows.length`, NEVER `rows.length`. The first is the room's
+         standing total; the second is what a filter has left, and a figure
+         that shrank as you typed would read as the filter breaking. */
+      el('blurbCount').textContent = state.loaded ? String(state.rows.length) : '?';
 
       if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
       if (!rows.length) {
@@ -659,62 +1012,103 @@
       const body = rows.map((r) => {
         /* A CLUB WITH NO HOME CAN NEVER BE ANYBODY'S ENEMY, because the
            anti-audience is reached through this column. Nothing else reports it. */
-        const homeless = r.kind === 'fandom' && !clean(r.home_place_id);
+        const homeless = r.type === 'fandom' && !clean(r.home_city);
         /* THE MASCOT IS NOT THE NAME. Alabama and Crimson Tide are both true. A
            club at home without one leaves `destinations` silently. */
-        const needsNick = r.kind === 'fandom' && clean(r.home_place_id) && !clean(r.nickname);
+        const needsNick = r.type === 'fandom' && clean(r.home_city) && !clean(r.nickname);
 
-        const heads = HEAD_COLS.map((c) => {
-          const bad = (c.k === 'home_place_id' && homeless) || (c.k === 'nickname' && needsNick);
-          return '<td class="col-' + c.kind + ' ed' + (bad ? ' is-bad' : '') + '"'
-            + ' data-field="' + c.k + '" data-empty="' + esc(emptyOf(r, c, homeless, needsNick))
-            + '">' + cellOf(r, c) + '</td>';
-        }).join('');
-
-        /* THE CARET IS A REAL BUTTON WITH `aria-expanded`, and the rest of the
-           head is not. The row holds editable cells, so it cannot be a <button>
-           -- interactive content inside a button is invalid HTML and browsers
-           disagree about what to do with it. Same rule the Events room keeps. */
-        return '<tr class="row-head" data-row="' + esc(r.id) + '">'
-          + '<td class="col-caret"><button type="button" class="caret" data-open="'
-            + esc(r.id) + '" aria-expanded="false" title="Show every field">'
-            + '<span aria-hidden="true">&#9656;</span>'
-            + '<span class="sr">Show every field</span></button></td>'
-          + '<td class="col-key">' + esc(r.id) + '</td>'
-          + heads
-          + '<td class="col-act"><button type="button" class="btn warn" data-del="'
-            + esc(r.id) + '">Delete</button></td></tr>'
-          /* THE DETAIL IS EMPTY UNTIL IT IS OPENED. Building it anyway would put
-             640 x 33 fields in the document -- 21,000 controls -- and pay for
-             them again on every keystroke in the search box, which is what
-             re-renders this list. */
-          + '<tr class="row-detail" data-row="' + esc(r.id) + '" data-detail="' + esc(r.id)
-            + '" hidden><td colspan="' + (HEAD_COLS.length + 3) + '"></td></tr>';
+        /* THE BADGE WEARS ITS OWN PRIMARY. Only a value that is really a
+           colour is used: `shell` is free text, so a half-typed one would put
+           an invalid custom property on the card and the border would silently
+           fall back -- which is fine, and checking first is what makes the
+           fallback mean "no colour on file" rather than "somebody is typing". */
+        const line = /^#[0-9a-f]{6}$/i.test(clean(r.primary)) ? clean(r.primary) : '';
+        /* ONE SOLID BADGE. There is no head and no detail, so there is nothing
+           to expand and NO FIELD CAN APPEAR TWICE -- the duplication is gone by
+           construction rather than by a skip list somebody has to maintain. */
+        return '<article class="aud" data-row="' + esc(r.id) + '"'
+          + (line ? ' style="--aud-line: ' + esc(line) + '"' : '') + '>'
+          + '<button type="button" class="aud-delete" data-del="' + esc(r.id)
+            + '" aria-label="Delete ' + esc(r.id) + '" title="Delete">X</button>'
+          + fieldsHtml(r)
+          + '</article>';
       }).join('');
 
-      host.innerHTML = '<table><thead><tr>'
-        + '<th class="col-caret"></th><th>Key</th>'
-        + HEAD_COLS.map((c) => '<th>' + esc(c.t) + '</th>').join('')
-        + '<th></th></tr></thead><tbody>' + body + '</tbody></table>';
+      /* THE HEADER WORD IS THE CONTROL. It names the column AND orders by it,
+         which is one thing rather than two, and it says it over the column it
+         acts on -- the reason the separate SORT bar could go.
 
-      /* A ROW THAT WAS OPEN STAYS OPEN. Every save repaints the whole list, so
-         without this, committing one field would shut the panel you are working
-         in. Rebuilt rather than remembered, because the values have changed. */
-      state.open.forEach((id) => openDetail(id, true));
+         REBUILT FROM `state.sort` EVERY RENDER, so exactly one can be on and
+         there is no exclusion set to keep in step with the paint. */
+      /* THE HEADER IS NO LONGER A `thead`, SO IT IS NO LONGER `aria-sort`.
+         That attribute belongs to a real table cell, and inventing a table's
+         ARIA around a list of cards would be describing a structure that is not
+         there. `aria-pressed` is what a toggle button says, and it is the honest
+         signal here: exactly one is pressed, which is the whole rule. */
+      const th = (k, label) => {
+        const on = state.sort === k;
+        return '<div class="aud-hcell">'
+          + '<button type="button" class="th-sort' + (on ? ' is-on' : '')
+          + '" aria-pressed="' + (on ? 'true' : 'false')
+          + '" data-sort="' + esc(k) + '">' + esc(label) + '</button></div>';
+      };
+      /* THE SORT BAR. With one solid badge there are no columns for a header
+         to sit over, so it is a labelled bar again rather than a column head --
+         but it is the SAME three toggles and the same state, so nothing about
+         ordering changed. */
+      host.innerHTML = '<div class="aud-head">'
+        + '<span class="aud-head-label">Sort</span>'
+        + HEAD_COLS.map((c) => th(c.k, c.k)).join('')
+        + '</div><div class="aud-list">' + body + '</div>';
     }
+
+    /* EVERY FIELD, ALWAYS LABELLED, THREE ACROSS. It was the opened detail; it
+       is the whole badge now.
+         WHAT THAT COSTS, and it is the reason the collapse existed: 641 badges
+       x 17 fields is about 10,900 boxes in the document, rebuilt on every
+       keystroke in the search box. Half what the 33-column detail would have
+       been, and still the heaviest thing this room does. */
+    function fieldsHtml(r) {
 
     /* ---- one row, every field ----------------------------------------------- */
 
-    function detailHtml(r) {
-      const homeless = r.kind === 'fandom' && !clean(r.home_place_id);
-      const needsNick = r.kind === 'fandom' && clean(r.home_place_id) && !clean(r.nickname);
+      const homeless = r.type === 'fandom' && !clean(r.home_city);
+      const needsNick = r.type === 'fandom' && clean(r.home_city) && !clean(r.nickname);
       let out = '', group = '';
-      COLUMNS.forEach((c) => {
-        if (c.g !== group) {
-          group = c.g;
-          out += '<h3 class="fgroup">' + esc(group) + '</h3>';
+      DETAIL_COLS.forEach((c) => {
+        /* NO GROUP HEADINGS. Every field now carries its own column name, so
+           IDENTITY, WHERE, KEYS and the rest were a second layer of labelling
+           over a set of things already labelled -- and they cost a full row of
+           the card each.
+             `g` IS KEPT ON EVERY COLUMN and still does real work: it is the
+           ORDER the fields come out in, which is why identity leads and the
+           stamps trail. It is simply no longer drawn. */
+        /* THE FOUR COLOURS ARE ONE BLOCK OF FOUR STRIPES, each filled with its
+           own value and carrying its own code. Four hex strings in four boxes
+           is four things to read; four stripes is one thing to look at.
+             STILL EDITABLE, and that is why the stripe itself carries
+           `data-field` and `ed` -- the in-place editor finds the row through
+           `[data-row]` on the badge, so it works here exactly as on any other
+           field. Losing that would have made the colours read-only. */
+        if (c.kind === 'colour') {
+          if (c.k === COLOURS[0]) {
+            out += '<div class="field field--colours"><div class="colourbar">'
+              + COLOURS.map((k) => {
+                  const col = COLUMNS.find((x) => x.k === k);
+                  const hex = clean(r[k]);
+                  const fill = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '';
+                  return '<div class="stripe ed" data-field="' + k + '"'
+                    + ' data-empty="' + esc(k) + '"'
+                    + (fill ? ' style="background:' + esc(fill)
+                              + ';color:' + esc(colourInk(fill)) + '"' : '')
+                    + '><span class="stripe-v">' + esc(hex || '') + '</span>'
+                    + '<span class="stripe-k">' + esc(k) + '</span></div>';
+                }).join('')
+              + '</div></div>';
+          }
+          return;
         }
-        const bad = (c.k === 'home_place_id' && homeless) || (c.k === 'nickname' && needsNick);
+        const bad = (c.k === 'home_city' && homeless) || (c.k === 'nickname' && needsNick);
         /* THE VALUE CARRIES `data-field`, NOT THE FIELD BOX AROUND IT, so the
            one in-place editor works here exactly as it does on the closed row:
            it finds the row through `[data-row]`, which the detail also carries. */
@@ -726,32 +1120,25 @@
           : '<div class="fval col-' + c.kind + ' ed' + (bad ? ' is-bad' : '') + '"'
             + ' data-field="' + c.k + '" data-empty="' + esc(emptyOf(r, c, homeless, needsNick))
             + '">' + cellOf(r, c) + '</div>';
-        out += '<div class="field"><span class="flabel">' + esc(c.t) + '</span>' + val + '</div>';
+        /* THE REAL COLUMN NAME, not a friendly label. `c.t` is what the room
+           called it; `c.k` is what the database calls it, and on a page whose
+           whole job is editing that table the second is the useful one -- it is
+           what an SQL query, a migration and an error message all say.
+             IT ALSO SETTLES `created_at` vs `updated_at`. Drawn as Added and
+           Changed they read as wrong, because 639 of 641 rows carry an
+           `updated_at` EARLIER than their `created_at`: the club rows were
+           migrated into this table on 2026-08-30, and `updated_at` came across
+           from the old one untouched since June. The stamps are not swapped;
+           the friendly words were describing something else. */
+        out += '<div class="field"><span class="flabel">' + esc(c.k) + '</span>' + val + '</div>';
       });
       return '<div class="fields">' + out + '</div>';
     }
 
-    function openDetail(id, quiet) {
-      const tr = byData('data-detail', id);
-      const row = state.rows.find((r) => r.id === id);
-      if (!tr || !row) return;
-      tr.firstElementChild.innerHTML = detailHtml(row);
-      tr.hidden = false;
-      const caret = byData('data-open', id);
-      if (caret) caret.setAttribute('aria-expanded', 'true');
-      state.open.add(id);
-      if (!quiet) tr.previousElementSibling.classList.add('is-open');
-      else if (tr.previousElementSibling) tr.previousElementSibling.classList.add('is-open');
-    }
-
-    function closeDetail(id) {
-      const tr = byData('data-detail', id);
-      if (tr) { tr.hidden = true; tr.firstElementChild.innerHTML = ''; }
-      const caret = byData('data-open', id);
-      if (caret) caret.setAttribute('aria-expanded', 'false');
-      if (tr && tr.previousElementSibling) tr.previousElementSibling.classList.remove('is-open');
-      state.open.delete(id);
-    }
+    /* NO openDetail / closeDetail. The badge is solid, so there is nothing to
+       open -- and `state.open`, the caret, `aria-expanded` and the whole
+       reopen-after-save dance went with them. A save repaints the list and the
+       fields are simply there. */
 
     /* FOUND BY WALKING THE ROWS, NEVER BY BUILDING A SELECTOR OUT OF AN ID.
        An id is row data, so `[data-detail="' + id + '"]` needs escaping, and the
@@ -773,8 +1160,8 @@
       const row = state.rows.find((r) => r.id === tr.dataset.row);
       if (!row) return;
       const field = td.dataset.field;
-      const was = field === 'aliases' ? aliasText(row)
-                : field === 'home_place_id' ? clean(row.home_place_id)
+      const was = field === 'audience_aliases' ? aliasText(row)
+                : field === 'home_city' ? clean(row.home_city)
                 : clean(row[field]);
 
       /* THE TOKEN, NOT A BARE `if (editing)`. Opening a second cell focuses its
@@ -788,8 +1175,10 @@
       input.type = 'text';
       input.className = 'ed-box';
       input.value = was;
-      if (field === 'home_place_id') input.setAttribute('list', 'placeList');
-      if (field === 'family') input.setAttribute('list', 'familyList');
+      /* THE LIST IS A SUGGESTION NOW, NOT A CONSTRAINT. A datalist on a text
+         input offers the places we hold and still lets anything be typed,
+         which is exactly the difference this change is about. */
+      if (field === 'home_city') input.setAttribute('list', 'placeList');
       td.appendChild(input);
       input.focus();
       input.select();
@@ -810,44 +1199,39 @@
 
     function commit(row, field, value) {
       const patch = {};
-      if (field === 'aliases') {
+      if (field === 'audience_aliases') {
         /* MATCH ONLY, NEVER PRINTED, so they are lowercased on the way in rather
            than refused by the CHECK for carrying a capital. An empty line is an
            empty array, not null: the column is NOT NULL with a default. */
         const list = clean(value).split('/').map((v) => v.trim().toLowerCase()).filter(Boolean);
-        patch.aliases = list;
-      } else if (field === 'home_place_id') {
+        patch.audience_aliases = list;
+      } else if (field === 'home_city') {
+        /* THE TEXT IS WHAT IS STORED, AND THE KEY IS KEPT IN STEP BESIDE IT.
+           Anything can be typed -- that is the whole point of the change -- but
+           `home_place_id` is read by six things, and one of them decides a
+           game's ENEMY: `tgb_anti_audience` reaches the rival through the home
+           place. Writing the text and leaving the key stale would let a club's
+           city and its enemy disagree with nothing saying so.
+             SO THE PAIR TRAVELS IN ONE PATCH. A city that names a place we hold
+           keeps everything downstream working; one that does not sets the key
+           NULL, which is visibly not linked rather than quietly wrong. */
         const v = clean(value);
-        if (!v) { patch.home_place_id = null; }
-        else {
-          /* THE CELL SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so a typed label
-             is resolved back. Without this, editing the cell at all would send
-             "Chicago, IL" into a foreign key. */
-          const p = state.places.find((x) => x.id === v)
-                 || state.places.find((x) => (x.city + ', ' + x.state).toLowerCase() === v.toLowerCase());
-          if (!p) {
-            setStatus('There is no place called ' + v + '. Pick one from the list, '
-              + 'or add it in Places first.', 'error');
-            paintTable();
-            return;
-          }
-          patch.home_place_id = p.id;
+        patch.home_city = v || null;
+        const p = !v ? null
+          : state.places.find((x) => x.id === v)
+            || state.places.find((x) => (x.city + ', ' + x.state).toLowerCase() === v.toLowerCase());
+        patch.home_place_id = p ? p.id : null;
+        if (v && !p) {
+          setStatus(v + ' is stored, but it is not a place we hold, so nothing '
+            + 'that reads the place key will see it. Add it in Places to link it up.', 'hold');
         }
-      } else if (field === 'family' || field === 'name') {
-        /* RENAMING CHANGES THE KEY, because the id is generated from these two.
-           Nothing points at an audience id yet, which is the only reason this is
-           offered; it is asked about rather than done quietly. */
-        const next = field === 'family'
-          ? slug(value) + '-' + slug(row.name)
-          : slug(row.family) + '-' + slug(value);
-        if (next !== row.id) {
-          const okToRename = window.confirm(
-            'This changes the key from\n\n  ' + row.id + '\n\nto\n\n  ' + next
-            + '\n\nThe key is generated from the family and the name. Anything '
-            + 'written down that names the old key will stop matching.');
-          if (!okToRename) { paintTable(); return; }
-        }
-        patch[field] = field === 'family' ? slug(value) : clean(value);
+      /* THE RENAME BRANCH IS GONE WITH THE COLUMNS IT READ. It rebuilt the key
+         from `family` and `name` and asked before changing it; both were
+         dropped (2026090107, 2026090112) and the key is `slug(full_name)` now,
+         written once when the row is added. **A rename is a database job**: the
+         three tables that reference it CASCADE ON UPDATE, so moving a key is
+         one statement -- and offering it from a cell edit would move 395 games'
+         pointers on a keystroke. */
       } else if (NUMERIC.indexOf(field) >= 0) {
         /* A NUMBER OR NOTHING. Sending a word to an integer column answers with
            a raw `22P02`, which is a statement about our schema rather than
@@ -901,7 +1285,6 @@
            otherwise take the row off the screen until a reload brought it back. */
         if (!back.length) throw new Error('The database refused the delete. Sign in again.');
         state.rows = state.rows.filter((r) => r.id !== id);
-        paintCount();
         buildPickers();
         paintTable();
         setStatus('Deleted ' + id + '.', '');
@@ -914,12 +1297,14 @@
 
     function buildPickers() {
       const fams = {};
-      state.rows.forEach((r) => { fams[r.family] = (fams[r.family] || 0) + 1; });
+      /* THE LEAGUE IS THE KEY'S FIRST SEGMENT. `family` is dropped, and this
+         built the picker from it -- so every option was `undefined`. */
+      state.rows.forEach((r) => { const f = leagueOf(r); if (f) fams[f] = (fams[f] || 0) + 1; });
       const sel = el('familyPick');
       const keep = state.family;
       sel.textContent = '';
       const any = document.createElement('option');
-      any.value = ''; any.textContent = 'Any family (' + state.rows.length + ')';
+      any.value = ''; any.textContent = 'Any league (' + state.rows.length + ')';
       sel.appendChild(any);
       /* BUILT FROM THE ROWS, so it cannot offer a family with nothing behind it. */
       Object.keys(fams).sort().forEach((f) => {
@@ -929,12 +1314,6 @@
       });
       sel.value = Array.prototype.some.call(sel.options, (o) => o.value === keep) ? keep : '';
       if (sel.value !== keep) state.family = '';
-
-      const fl = el('familyList');
-      fl.textContent = '';
-      Object.keys(fams).sort().forEach((f) => {
-        const o = document.createElement('option'); o.value = f; fl.appendChild(o);
-      });
 
       const pl = el('placeList');
       pl.textContent = '';
@@ -951,48 +1330,54 @@
       b.setAttribute('aria-disabled', on ? 'false' : 'true');
       b.style.opacity = on ? '' : '0.45';
     }
-    function paintCount() {
-      const n = state.rows.length;
-      el('roomTitle').textContent = n + (n === 1 ? ' AUDIENCE' : ' AUDIENCES');
-    }
 
     /* ---- adding -------------------------------------------------------------- */
 
+    /* THE KEY IS THE FULL NAME, so the preview is not a courtesy: `id` is what
+       three tables reference, and this is the only moment anybody sees it before
+       it is permanent. */
     function previewKey() {
-      const k = slug(el('addFamily').value) + '-' + slug(el('addName').value);
-      el('keyPreview').textContent = k === '-' ? 'family-name' : k;
+      const k = slug(el('addFullName').value);
+      el('keyPreview').textContent = k || 'full-name';
     }
     function openAdd() {
-      ['addFamily', 'addName', 'addHome'].forEach((k) => { el(k).value = ''; });
-      el('addKind').value = 'fandom';
+      ['addFullName', 'addHome'].forEach((k) => { el(k).value = ''; });
+      el('addType').value = 'fandom';
       el('addMsg').textContent = '';
       previewKey();
       el('addDlg').classList.add('is-open');
-      el('addFamily').focus();
+      el('addFullName').focus();
     }
     function closeAdd() { el('addDlg').classList.remove('is-open'); }
 
     async function saveAdd() {
-      const family = slug(el('addFamily').value);
-      const name = clean(el('addName').value);
-      const kind = el('addKind').value;
+      const fullName = clean(el('addFullName').value);
+      const kind = el('addType').value;
       const home = clean(el('addHome').value);
       const msg = el('addMsg');
 
       /* CHECKED HERE AND ENFORCED THERE. Every one of these is refused by the
          database too; catching them first means a sentence rather than a round
          trip, and the constraints remain what actually decides. */
-      if (!family || !name) { msg.textContent = 'A family and a name are both required.'; return; }
-      const id = family + '-' + slug(name);
+      if (!fullName) { msg.textContent = 'A full name is required.'; return; }
+      const id = slug(fullName);
+      /* A NAME OF ONLY PUNCTUATION SLUGS TO NOTHING, and the database refuses it
+         by name. Caught here so it reads as a sentence rather than a 23514. */
+      if (!id) { msg.textContent = 'That name has no letters or numbers in it, so it makes no key.'; return; }
       if (state.rows.some((r) => r.id === id)) {
         msg.textContent = id + ' already exists.';
         return;
       }
-      if (home && !state.places.some((p) => p.id === home)) {
-        msg.textContent = 'There is no place called ' + home
-          + '. Pick one from the list, or add it in Places first.';
-        return;
-      }
+      /* THE ADD DIALOG TAKES WHATEVER THE EDITOR TAKES, or the room would
+         refuse on the way in a city it is perfectly happy to accept on the way
+         past -- which is the kind of inconsistency somebody meets once and
+         never forgets. It resolves to a place where it can and stores the text
+         either way, exactly as `commit` does. */
+      const homePlace = !home ? null
+        : state.places.find((p) => p.id === home)
+          || state.places.find((p) => (p.city + ', ' + p.state).toLowerCase() === home.toLowerCase());
+      const homeLabel = homePlace ? (homePlace.city + ', ' + homePlace.state) : home;
+      const homeId = homePlace ? homePlace.id : null;
       if (kind !== 'fandom' && home) {
         msg.textContent = 'An ' + kind + ' is not at home anywhere. Clear the place, '
           + 'or make it a fandom.';
@@ -1004,15 +1389,22 @@
         const res = await fetch(restUrl('audiences', {}), {
           method: 'POST',
           headers: authHeaders({ Prefer: 'return=representation' }),
-          body: JSON.stringify({ family: family, name: name, kind: kind,
-                                 home_place_id: home || null })
+          /* BOTH, exactly as the editor writes them: the text is what is
+             stored and the key is kept in step beside it. `home` is picked from
+             the place list here, so it always resolves -- but sending only one
+             of the pair would put a row on file the room could not have made. */
+          /* THE KEY IS SENT, not left to the database: the expression was
+             dropped in 2026090106 so `id` is an ordinary column, and the row
+             the preview promised is the row that has to be written. */
+          body: JSON.stringify({ id: id, full_name: fullName, type: kind,
+                                 home_city: homeLabel || null,
+                                 home_place_id: homeId })
         });
         if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
         const back = await res.json();
         if (!back.length) throw new Error('The database refused it. Sign in again.');
         state.rows.push(back[0]);
         closeAdd();
-        paintCount();
         buildPickers();
         paintTable();
         setStatus('Added ' + back[0].id + '.', '');
@@ -1036,15 +1428,14 @@
         state.rows = rows; state.places = places; state.dests = dests;
         state.loaded = true;
 
-        paintCount();
         buildPickers();
         paintClear();
         paintTable();
 
         /* A CLUB WITH NO HOME CAN NEVER BE AN ANTI-AUDIENCE, which is the one
            fault in this table that nothing else will ever report. */
-        const noNick = rows.filter((r) => r.kind === 'fandom'
-          && clean(r.home_place_id) && !clean(r.nickname));
+        const noNick = rows.filter((r) => r.type === 'fandom'
+          && clean(r.home_city) && !clean(r.nickname));
         if (noNick.length) {
           setStatus(noNick.length + (noNick.length === 1 ? ' club has' : ' clubs have')
             + ' no mascot, so they are missing from destinations: '
@@ -1060,8 +1451,11 @@
            saying once, quietly, with a number. It is only news when a club that
            should have a town does not, which is what the second sentence is for
            -- and THAT list is short enough to name. */
-        const homeless = rows.filter((r) => r.kind === 'fandom' && !clean(r.home_place_id));
-        const oddities = homeless.filter((r) => r.family !== 'ncaaf');
+        const homeless = rows.filter((r) => r.type === 'fandom' && !clean(r.home_city));
+        /* A COLLEGE CLUB WITH NO HOME IS EXPECTED, NOT A FAULT, and this
+           filtered on `family` -- which is dropped, so `undefined !== 'ncaaf'`
+           was true for all 380 and the red pen filled the room's own title. */
+        const oddities = homeless.filter((r) => leagueOf(r) !== 'ncaaf');
         if (oddities.length) {
           setStatus(oddities.length + (oddities.length === 1 ? ' fandom has' : ' fandoms have')
             + ' no home place, so no game can ever treat them as the enemy: '
@@ -1087,26 +1481,25 @@
        keystroke in the search box, so binding there stacks a listener per
        repaint and the count grows all session. */
     el('tableHost').addEventListener('click', (e) => {
-      const del = e.target.closest('[data-del]');
-      if (del) { removeRow(del.dataset.del); return; }
-      const caret = e.target.closest('[data-open]');
-      if (caret) {
-        const id = caret.dataset.open;
-        if (state.open.has(id)) closeDetail(id); else openDetail(id);
+      /* THE HEADER IS INSIDE THIS HOST and is rebuilt on every render, so the
+         listener has to be here rather than on the buttons -- bound per button
+         it would stack a listener per repaint and the count would grow all
+         session. FIRST, because a header click is not a row click. */
+      const sortBtn = e.target.closest('[data-sort]');
+      if (sortBtn) {
+        if (sortBtn.dataset.sort !== state.sort) {
+          state.sort = sortBtn.dataset.sort;
+          paintTable();
+        }
         return;
       }
+      const del = e.target.closest('[data-del]');
+      if (del) { removeRow(del.dataset.del); return; }
+      /* A CLICK ON A FIELD OPENS THAT FIELD, and a click anywhere else on the
+         badge does nothing. There is no caret and nothing to expand, so the
+         only gesture left is editing the value you pointed at. */
       const cell = e.target.closest('.ed');
       if (cell && !editing) startEdit(cell);
-      /* CLICKING THE ROW ANYWHERE ELSE OPENS IT, so the caret is the affordance
-         rather than the only target. A click that lands on an editable cell is
-         taken by the branch above, or typing a name would toggle the panel. */
-      if (!cell) {
-        const head = e.target.closest('.row-head');
-        if (head) {
-          const id = head.dataset.row;
-          if (state.open.has(id)) closeDetail(id); else openDetail(id);
-        }
-      }
     });
 
     el('q').addEventListener('input', () => {
@@ -1129,10 +1522,16 @@
     });
 
     el('manualBtn').addEventListener('click', openAdd);
+    /* IT SAYS WHAT IT IS FOR RATHER THAN DOING NOTHING. A control that is
+       visibly there and silently inert is indistinguishable from one that is
+       broken -- which is the whole reason it answers instead of ignoring you. */
+    el('promptBtn').addEventListener('click', () => {
+      setStatus('The audience prompt is not written yet. When it is, this hands you '
+        + 'text to paste into an AI, and the AI answers with SQL you run in Supabase.', 'hold');
+    });
     el('addCancel').addEventListener('click', closeAdd);
     el('addSave').addEventListener('click', saveAdd);
-    el('addFamily').addEventListener('input', previewKey);
-    el('addName').addEventListener('input', previewKey);
+    el('addFullName').addEventListener('input', previewKey);
     el('addDlg').addEventListener('click', (e) => { if (e.target === el('addDlg')) closeAdd(); });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && el('addDlg').classList.contains('is-open')) closeAdd();
