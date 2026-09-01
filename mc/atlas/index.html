@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>TGB ATLAS | THE GAME BUREAU</title>
+  <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/png" href="/icon-32.png?v=2" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+      /* THE SOCIALIZER'S PALETTE. Copied, not approximated: mc/socializer/index.html
+         is the reference room and this is a copy of it, so when either one's
+         chrome changes, change both. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --bic-red: #c23737;
+      --success: #276740;
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+
+      /* THE STOP BUILDER'S TWO HUES, copied rather than re-picked: a waypoint
+         and a challenge must read the same wherever you meet them, and the
+         pair was measured there -- forest 7.98:1 and violet 7.38:1 on the
+         panel, dE 94.4 apart, and neither near the red pen or the room ink.
+         WHEN EITHER ROOM'S PAIR CHANGES, CHANGE BOTH. */
+      --wp-ink: #1d5c33;
+      --ch-ink: #6b3fa0;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    .app { width: min(100%, var(--mc-shell-width, 1400px)); margin: 0 auto; padding: 0 18px 60px; }
+
+    /* ---- bars ------------------------------------------------------------ */
+    .bar-row { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; flex-wrap: wrap; }
+
+    .command-bar {
+      margin: 0; border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      background: var(--cut-panel-bg); padding: 2px 9px 8px;
+    }
+    .command-bar > legend {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      padding: 0 6px; margin-left: 2px;
+    }
+    .command-bar-inner { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* FIND TAKES THE SLACK, ADD DOES NOT. One flexible bar per row, or the free
+       space splits between them and neither end stays pinned. */
+    .command-bar--find { flex: 1 1 auto; min-width: 0; }
+    .command-bar--check { flex: 0 0 auto; }
+    /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
+       between `Check`, `Check (137)` and `Show all`. Declared AFTER
+       `.command-bar .btn`, which sets `min-width: 0` at the same weight and
+       would otherwise win on source order. */
+    .command-bar--check .btn { min-width: 11ch; }
+    .command-bar--find input[type="search"] { flex: 1 1 220px; min-width: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 12px;
+      border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font: 600 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; text-decoration: none; cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .btn.primary:hover:not(:disabled) { background: #24396a; }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.5); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    /* [hidden] HAS TO BE RE-ASSERTED over .btn's author display, or setting
+       .hidden silently does nothing. This project has hit that rule a dozen
+       times; it is cheaper to write the line than to find it again. */
+    .btn[hidden] { display: none !important; }
+
+    input[type="text"], input[type="search"], input[type="number"], textarea, select {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--control-line); border-radius: 7px;
+      padding: 7px 9px; min-height: 34px;
+    }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    /* ---- panels ---------------------------------------------------------- */
+    .panel {
+      border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+      box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; background: var(--cut-panel-bg);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title {
+      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .panel-head .spacer { margin-left: auto; }
+
+    /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
+       so the head stays on screen over 500-odd rows. */
+    .panel-body { max-height: 70vh; overflow-y: auto; }
+
+    /* ---- a waypoint row -------------------------------------------------- */
+    .ch {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 7px 12px; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+      cursor: pointer;
+    }
+    .ch:last-child { border-bottom: 0; }
+    .ch:hover { background: var(--panel-soft); }
+    .dlg-panel--wide { width: min(920px, 100%); }
+    .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
+    .ai-options, .ai-doors {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+      padding: 6px 10px 9px; border: 1px solid var(--line); border-radius: 8px;
+    }
+    .ai-doors { margin: 0; }
+    .ai-options-label {
+      padding: 0 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .ai-options input[type="text"] {
+      flex: 1 1 260px; min-width: 0; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .ai-sheet {
+      width: 100%; min-height: 330px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: repeating-linear-gradient(
+        to bottom, #fff, #fff 21px, rgba(var(--bic-blue-rgb), 0.09) 21px, rgba(var(--bic-blue-rgb), 0.09) 22px);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
+      white-space: pre; overflow: auto;
+    }
+    .batch-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    }
+    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .batch-all, .batch-count {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
+       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
+    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+    .batch-all input, .ch-pick {
+      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
+    }
+    .batch-row input[type="text"] {
+      width: 13ch; min-height: 30px; padding: 3px 7px;
+      border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--ink); font-size: 0.78rem;
+    }
+    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+       at all, so on a touch screen the reason it is off is unreachable. */
+    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
+    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
+    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    .ch-name { font-weight: 700; font-size: 0.95rem; }
+    .ch-name a { color: inherit; text-decoration: none; }
+    .ch-name a:hover { text-decoration: underline dotted; }
+    .ch-where { color: var(--muted); font-size: 0.82rem; }
+    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    .ch-tag {
+      font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
+      border: 1px solid var(--control-line); color: var(--muted);
+    }
+    /* MISSING IS THE ONLY TAG WITH A COLOUR. A row that is short of something
+       is the one you act on; everything else is furniture. */
+    .ch-tag--missing { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
+
+    /* THE ROW ITSELF IS THE FLAG, as in the Events room: a red left edge and
+       the reason written underneath, so nothing has to be opened to find out
+       what is wrong. */
+    .ch.is-review {
+      border-color: rgba(194, 55, 55, 0.55);
+      box-shadow: inset 3px 0 0 var(--bic-red);
+      background: rgba(194, 55, 55, 0.035);
+    }
+    .ch-note {
+      flex: 1 0 100%;
+      margin: 2px 0 0;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.01em;
+    }
+    .ch-empty { padding: 22px 14px; color: var(--muted); font-size: 0.9rem; }
+
+    /* ---- map ------------------------------------------------------------- */
+    #map { height: 340px; width: 100%; }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .dlg {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 16px; overflow-y: auto;
+      background: rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg.is-open { display: flex; }
+    .dlg-panel {
+      width: min(680px, 100%); background: #fff;
+      border: 1px solid var(--cut-panel-line); border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .dlg-head {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--cut-panel-bg);
+      border-radius: 12px 12px 0 0;
+    }
+    .dlg-title { font: 700 0.9rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dlg-sub { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .dlg-body { padding: 14px 16px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .dlg-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    /* DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them is
+       the point: Delete is the only irreversible control on this form. */
+    .dlg-foot .spacer { margin-left: auto; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    .field > span {
+      font: 600 0.64rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .field input, .field textarea { width: 100%; }
+    .field-read {
+      font: 500 0.78rem/1.4 'IBM Plex Mono', monospace; color: var(--muted);
+      padding: 7px 0;
+    }
+    .dlg-msg { padding: 0 16px 12px; color: var(--bic-red); font-size: 0.82rem; }
+    .dlg-msg:empty { display: none; }
+
+    @media (max-width: 760px) {
+      .command-bar { flex: 1 1 100%; }
+    }
+  
+
+    /* ---- what a challenge row shows -------------------------------------- */
+    .ch { align-items: flex-start; }
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    .ch-prompt {
+      flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
+      font-size: 0.86rem; line-height: 1.45;
+    }
+    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+       writer can see at a glance which words the game fills in. */
+    .var {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
+      padding: 0 3px; border-radius: 3px;
+      background: rgba(var(--bic-blue-rgb), 0.1); color: var(--bic-blue);
+    }
+    .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
+
+    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
+       rather than words in a sentence. Scope carries the outline because it is
+       the one that decides whether a challenge can be reused; kind does not. */
+    .ch-kind {
+      font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
+      white-space: nowrap;
+    }
+    .ch-scope {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
+      border: 1px solid transparent; white-space: nowrap;
+    }
+    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
+       will be used again. The three narrow scopes are quieter and told apart by
+       the word rather than by hue: a colour each would make a list of chips
+       read as a legend to learn. A scope naming nothing takes the red pen. */
+    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
+    .ch-scope.is-team,
+    .ch-scope.is-city,
+    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
+
+    /* ---- the editor ------------------------------------------------------ */
+    .preview {
+      border: 1px solid var(--line); border-radius: 7px;
+      background: var(--panel-soft); padding: 10px 12px;
+      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
+    }
+    .preview-empty { color: var(--muted); font-style: italic; }
+    .preview-answer {
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .preview-answer-label {
+      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
+    .varbar button {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
+      padding: 3px 7px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff; color: var(--bic-blue);
+    }
+    .varbar button:hover { background: var(--cut-panel-bg); }
+</style>  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+  <style>
+    /* ---- the add form -----------------------------------------------------
+       ONE LINE, because adding a stop to a map is one thought: this map,
+       this stop, at this number. */
+    /* THE ADD FORM'S RULES WENT WITH THE ADD FORM (2026-08-31) --
+       `.map-form`, `.map-field`, `.map-field--num`, `.map-new`. A control
+       and its stylesheet go in one pass; this repo has lost an hour to a
+       rule outliving the markup it was written for. */
+
+    /* ---- a map is a heading and its stops in order ---------------------
+       GROUPED, NOT A FLAT LIST OF ROWS. The table is flat -- the name repeats on
+       every row -- and reading it that way would put the map name on every
+       line and make the order impossible to see. */
+    .map { border-bottom: 1px solid var(--line); }
+    .map-head {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 9px 12px; background: var(--panel-soft);
+    }
+    .map-name { font-weight: 700; font-size: 1rem; }
+    /* THE NAME IS EDITABLE HERE AND NOWHERE ELSE, because renaming is an act on
+       the MAP and the trigger rewrites every row of it. On a stop row it would
+       look like a per-row field and would silently rewrite the lot. */
+    .map-name-input {
+      font: inherit; font-weight: 700; font-size: 1rem;
+      color: var(--ink); background: transparent;
+      border: 1px solid transparent; border-radius: 6px;
+      padding: 2px 6px; min-width: 0; width: 22ch;
+    }
+    .map-name-input:hover, .map-name-input:focus {
+      border-color: var(--control-line); background: #fff; outline: none;
+    }
+    .map-key { font: 500 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    .map-count { font: 500 0.68rem/1 'IBM Plex Mono', monospace; color: var(--muted); margin-left: auto; }
+    /* AFTER the count, which takes the auto margin, so the button sits at the
+       far end of the head and every map has it in the same place. */
+
+    /* ---- a stop in the walk ----------------------------------------------
+       THE SAME TWO HUES THE STOP BUILDER USES, so a waypoint and a challenge
+       read the same wherever you meet them. Measured there: forest 7.98:1 and
+       violet 7.38:1 on the panel, dE 94.4 apart, and neither near the red pen. */
+    .astop {
+      display: grid;
+      grid-template-columns: 44px minmax(110px, max-content) 1fr 1fr auto;
+      align-items: start;
+      gap: 8px 14px;
+      padding: 9px 12px 9px 22px;
+      border-top: 1px solid var(--line);
+    }
+    .astop:hover { background: rgba(var(--bic-blue-rgb), 0.03); }
+    /* THE NUMBER IS THE POINT OF A MAP, so it leads and it is the loudest
+       thing on the row. Tabular figures, or a column of them does not line up. */
+    .astop-num {
+      font: 700 0.95rem/1.35 'IBM Plex Mono', monospace;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink); align-self: center;
+    }
+    .astop-city {
+      font: 700 0.66rem/1.35 'IBM Plex Mono', monospace;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+      overflow-wrap: anywhere; align-self: center;
+    }
+    .astop-half { min-width: 0; padding-left: 9px; border-left: 3px solid var(--half-ink, var(--line)); }
+    .astop-half--wp { --half-ink: var(--wp-ink); }
+    .astop-half--ch { --half-ink: var(--ch-ink); }
+    .astop-kicker {
+      font: 700 0.56rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--half-ink, var(--muted)); display: block; margin-bottom: 3px;
+    }
+    .astop-name { font-weight: 700; overflow-wrap: anywhere; }
+    .astop-name.is-random { color: var(--ch-ink); font-style: italic; }
+    .astop-sub { font-size: 0.76rem; color: var(--muted); display: block; margin-top: 2px; }
+    .astop-del { align-self: start; }
+    .map-empty { padding: 18px 12px; color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .astop { grid-template-columns: 44px 1fr; }
+      .astop-del { justify-self: start; }
+    }
+  </style>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="roomTitle">TGB ATLAS</h1>
+        <!-- THE COUNT LEADS THE BLURB, painted from the room's own total. -->
+        <p class="room-blurb"><span id="blurbCount">?</span> Maps made up of ordered lists of stops. A stop can be in as many maps as you'd like.</p>
+        <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <!-- THE ADD BAR IS GONE (2026-08-31), asked for outright, and with it the
+           ONLY WAY THIS ROOM COULD PUT A STOP ON A MAP. That is the whole cost
+           and it is not recoverable by accident: adding a stop is SQL until an
+           add path is put back.
+             insert into public.maps (map_id, map_name, stop_id, stop_number)
+             values ('some-map', 'Some Map', 4, 1);
+           The trigger still adopts the map's name on the way in, so a row added
+           by hand cannot give a map a second name.
+           WHAT THE ROOM STILL DOES: it lists every map with its stops in order,
+           renames a map (which renames every row of it), and takes a stop off
+           one. Reading and correcting, not building. -->
+
+      <!-- ADD SITS LEFT OF FIND, which is the order this project's rooms all
+           read in: what you PUT IN, then how you look at what is there. -->
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn primary" id="addMapBtn" type="button"
+                  title="Make a map. The key is generated from its name and its city.">Map</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--find">
+        <legend>Find</legend>
+        <div class="command-bar-inner">
+          <input type="search" id="q" placeholder="Search map, city, place or challenge..." autocomplete="off">
+          <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
+        </div>
+      </fieldset>
+    </div>
+
+
+    <!-- ADD A MAP. Two questions and a key that follows from them.
+         THE KEY IS GENERATED AND SHOWN, NOT TYPED. It was a field once, next to
+         the name -- the same fact asked for twice, and the half nobody could get
+         right: it had to be lowercase, and a near miss made a second map rather
+         than an error. `slug(city) + '-' + slug(name)` is the shape the one map
+         on file already has, so nothing had to be taught a new one.
+         IT IS SHOWN BECAUSE IT IS PERMANENT. A game points at a map by this
+         string, so it is the one value here worth reading before you commit it. -->
+    <div class="dlg" id="mapDlg" role="dialog" aria-modal="true" aria-labelledby="mapDlgTitle">
+      <div class="dlg-panel">
+        <div class="dlg-head">
+          <span class="dlg-title" id="mapDlgTitle">Add a map</span>
+          <span class="dlg-sub">A name, a city, and the key follows</span>
+        </div>
+        <div class="dlg-body">
+          <label class="field">
+            <span>Name</span>
+            <input id="mapNameInput" autocomplete="off" placeholder="Murder Map"
+                   title="What the map is called. Every row of the map carries it, and renaming any one renames them all.">
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input id="mapCityInput" list="mapCityList" autocomplete="off" placeholder="New Orleans, LA"
+                   title="Where the walk is. NOT derived from the stops -- a map's stops are not all in one place.">
+          </label>
+          <div class="field">
+            <span>Key</span>
+            <div class="field-read" id="mapKeyPreview">-</div>
+          </div>
+        </div>
+        <div class="dlg-msg" id="mapDlgMsg"></div>
+        <div class="dlg-foot">
+          <span class="spacer"></span>
+          <button class="btn" id="mapCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="mapSaveBtn" type="button">Add map</button>
+        </div>
+      </div>
+    </div>
+    <datalist id="mapCityList"></datalist>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Maps</span>
+        <span class="panel-count" id="listCount"></span>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'maps';
+    const RANDOM_LABEL = 'RANDOM';
+
+    const state = {
+      cities: [], rows: [], stops: [], waypoints: [], challenges: [],
+                    q: '', authed: false, loaded: false };
+
+    function el(id) { return document.getElementById(id); }
+    function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function restUrl(table, params) {
+      const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
+      Object.keys(params || {}).forEach((k) => u.searchParams.set(k, params[k]));
+      return u.toString();
+    }
+    function authHeaders(extra) {
+      const s = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + ((s && s.access_token) || SUPABASE_CONFIG.publishableKey)
+      }, extra || {});
+    }
+
+    // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23505 is a
+    // statement about our schema and tells nobody what to do about it.
+    async function readError(res) {
+      let text = '';
+      try { text = await res.text(); } catch (e) { /* body already consumed */ }
+      if (/maps_pkey|duplicate key/.test(text)) {
+        return 'That map already has a stop at that number. A map cannot have '
+             + 'two stop 3s; give it the next number, or renumber the one there.';
+      }
+      if (/maps_number_positive/.test(text)) return 'A stop number starts at 1.';
+      if (/maps_id_lower/.test(text)) return 'A map key must be lowercase.';
+      if (/maps_id_not_blank/.test(text)) return 'The map needs a key.';
+      if (/maps_name_not_blank/.test(text)) return 'The map needs a name.';
+      if (/maps_stop_id_fkey/.test(text)) return 'That stop is not on file any more. Reload and pick again.';
+      if (/PGRST205|does not exist/.test(text)) {
+        return 'public.maps is not there. Run mc/supabase/migrations/2026083108_maps.sql.';
+      }
+      return 'The database refused it (' + res.status + '). ' + text.slice(0, 200);
+    }
+
+    function say(message, tone) {
+      const box = el('pageStatus');
+      if (!box) return;
+      box.textContent = message || '';
+      box.className = 'status room-scribble' + (tone ? ' ' + tone : '');
+    }
+
+    /* ---- reading ---------------------------------------------------------
+       EVERY READ PAGES. PostgREST caps a response at 1000 rows and truncates in
+       SILENCE, and a map is a row per stop, so this table grows fastest of
+       any of them. */
+    async function readAll(table, params) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const res = await fetch(restUrl(table, params), {
+          headers: authHeaders({ Range: from + '-' + (from + 999) })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const page = await res.json();
+        if (!Array.isArray(page) || !page.length) break;
+        out.push.apply(out, page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    }
+
+    /* THE CITIES ARE THE ONES AN AUDIENCE IS AT HOME IN, read through `places`
+       -- the same source and the same reason as the Stop Builder's own list:
+       an audience carries a home PLACE, not a town, and `city_name` on the club
+       row was dropped on 2026-08-30 precisely because it disagreed with the
+       place for 21 clubs. WHEN EITHER ROOM'S LIST CHANGES, CHANGE BOTH. */
+    async function loadCities() {
+      const rows = await readAll('audiences', {
+        select: 'home_place_id,places!inner(city,state)', order: 'name.asc'
+      });
+      const seen = {};
+      rows.forEach(function (r) {
+        const p = r && r.places;
+        if (!p || !p.city) return;
+        seen[p.state ? p.city + ', ' + p.state : p.city] = true;
+      });
+      return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+    }
+
+    async function loadAll() {
+      const parts = await Promise.all([
+        readAll(TABLE, { select: '*', order: 'map_id.asc,stop_number.asc' }),
+        readAll('stops', { select: '*', order: 'city.asc,id.asc' }),
+        readAll('waypoints', { select: 'wpid,name,city,state,address', order: 'name.asc' }),
+        // NOT THE TRIVIA ROWS: a stop's challenge is a thing you DO at a place,
+        // and trivia carries a ladder key instead of a scope. Same filter the
+        // Stop Builder and the Route Builder use.
+        readAll('challenges', { select: 'id,name,kind', kind: 'neq.trivia', order: 'name.asc' }),
+        loadCities()
+      ]);
+      state.rows = parts[0];
+      state.stops = parts[1];
+      state.waypoints = parts[2];
+      state.challenges = parts[3];
+      state.cities = parts[4];
+      state.loaded = true;
+    }
+
+    /* ---- labels ---------------------------------------------------------- */
+    function wpById(id) {
+      return state.waypoints.filter(function (w) { return String(w.wpid) === String(id); })[0] || null;
+    }
+    function chalById(id) {
+      return state.challenges.filter(function (c) { return String(c.id) === String(id); })[0] || null;
+    }
+    function stopById(id) {
+      return state.stops.filter(function (s) { return String(s.id) === String(id); })[0] || null;
+    }
+    // A LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
+    // on the option's value and nothing else.
+    function stopLabel(s) {
+      const w = wpById(s.waypoint_id);
+      return (w ? w.name : 'waypoint ' + s.waypoint_id) + ' - ' + s.city;
+    }
+    /* `stopFromLabel` WENT WITH THE FORM: it turned a typed label back into a
+       stop, and nothing types one now. `stopLabel` and `stopById` STAY -- the
+       list draws every stop's name with them. */
+
+    function maps() {
+      // GROUPED IN THE ORDER THE ROWS ARRIVE, which the read already sorted by
+      // map then number, so the walk reads down the page.
+      const by = {};
+      const order = [];
+      state.rows.forEach(function (r) {
+        if (!by[r.map_id]) { by[r.map_id] = { id: r.map_id, name: r.map_name, city: r.city, rows: [] };
+                               order.push(r.map_id); }
+        // THE NAME IS TAKEN FROM THE FIRST ROW AND THAT IS SAFE, because a
+        // trigger keeps every row of a map on one name. It could not disagree.
+        /* A ROW WITH NO `stop_id` IS THE MAP ITSELF, not a stop on it: it is
+           what lets a map exist before its first stop. It is never drawn as a
+           row and never counted, and it is deleted the moment a real stop lands
+           on that map -- see `addMap`. */
+        if (r.stop_id === null || r.stop_id === undefined) return;
+        by[r.map_id].rows.push(r);
+      });
+      return order.map(function (k) { return by[k]; });
+    }
+
+    /* ---- the list --------------------------------------------------------- */
+    function matches(a) {
+      const q = state.q.toLowerCase();
+      if (!q) return true;
+      if (a.id.toLowerCase().indexOf(q) !== -1) return true;
+      if (a.name.toLowerCase().indexOf(q) !== -1) return true;
+      return a.rows.some(function (r) {
+        const s = stopById(r.stop_id);
+        if (!s) return false;
+        const w = wpById(s.waypoint_id);
+        const c = s.challenge_id == null ? RANDOM_LABEL : (chalById(s.challenge_id) || {}).name;
+        return [s.city, w && w.name, c].filter(Boolean).some(function (v) {
+          return String(v).toLowerCase().indexOf(q) !== -1;
+        });
+      });
+    }
+
+    function half(kicker, name, sub, isRandom, which) {
+      const box = document.createElement('div');
+      box.className = 'astop-half astop-half--' + which;
+      const k = document.createElement('span');
+      k.className = 'astop-kicker';
+      k.textContent = kicker;
+      box.appendChild(k);
+      const n = document.createElement('span');
+      n.className = 'astop-name' + (isRandom ? ' is-random' : '');
+      n.textContent = name;
+      box.appendChild(n);
+      if (sub) {
+        const s = document.createElement('span');
+        s.className = 'astop-sub';
+        s.textContent = sub;
+        box.appendChild(s);
+      }
+      return box;
+    }
+
+    function render() {
+      const all = maps();
+      const shown = all.filter(matches);
+      /* THE TITLE IS THE ROOM'S NAME AND IS NOT PAINTED. It led with a count,
+         which is this project's convention everywhere else -- and that
+         convention says how many of the ROOM'S OWN NOUN there are. The room's
+         noun is a proper name now, so the count moved to the line that already
+         carries a figure rather than being lost. */
+      /* THE BLURB CARRIES THE MAP COUNT, so the panel says the stops and the
+         narrowing -- the two figures the blurb cannot. */
+      const bc = el('blurbCount');
+      if (bc) bc.textContent = state.loaded ? String(all.length) : '?';
+      const count = el('listCount');
+      if (count) {
+        count.textContent = !state.loaded ? ''
+          : shown.length === all.length
+            ? state.rows.length + ' stops'
+            : shown.length + ' of ' + all.length + ' maps shown';
+      }
+      const clear = el('clearBtn');
+      if (clear) clear.setAttribute('aria-disabled', state.q ? 'false' : 'true');
+
+      const list = el('list');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!shown.length) {
+        const p = document.createElement('p');
+        p.className = 'map-empty';
+        p.textContent = state.loaded
+          ? (all.length ? 'Nothing matches that search.' : 'No maps yet. Add a stop to one above.')
+          : 'Loading...';
+        list.appendChild(p);
+        return;
+      }
+
+      shown.forEach(function (a) {
+        const box = document.createElement('div');
+        box.className = 'map';
+        box.dataset.map = a.id;
+
+        const head = document.createElement('div');
+        head.className = 'map-head';
+
+        // THE NAME IS EDITED HERE AND NOWHERE ELSE. Renaming is an act on the
+        // MAP: the database rewrites every row of it, so a field on a stop row
+        // would look per-row and silently change the lot.
+        const nameBox = document.createElement('input');
+        nameBox.className = 'map-name-input';
+        nameBox.value = a.name;
+        nameBox.title = 'Rename this map. Every row of it follows.';
+        nameBox.addEventListener('change', function () { renameMap(a, nameBox); });
+        head.appendChild(nameBox);
+
+        const key = document.createElement('span');
+        key.className = 'map-key';
+        key.textContent = a.id;
+        head.appendChild(key);
+
+        const n = document.createElement('span');
+        n.className = 'map-count';
+        n.textContent = a.rows.length + (a.rows.length === 1 ? ' stop' : ' stops');
+        head.appendChild(n);
+
+        /* THE PER-MAP `Add a stop` BUTTON WENT WITH THE BAR IT AIMED. Its whole
+           job was to fill that form in and put the cursor in the Stop box; with
+           no form it would be a control that does nothing, which is worse than
+           no control. */
+
+        box.appendChild(head);
+
+        a.rows.forEach(function (r) {
+          const s = stopById(r.stop_id);
+          const w = s ? wpById(s.waypoint_id) : null;
+          const c = s && s.challenge_id != null ? chalById(s.challenge_id) : null;
+
+          const line = document.createElement('div');
+          line.className = 'astop';
+
+          const num = document.createElement('div');
+          num.className = 'astop-num';
+          num.textContent = r.stop_number;
+          line.appendChild(num);
+
+          const city = document.createElement('div');
+          city.className = 'astop-city';
+          city.textContent = s ? s.city : '';
+          line.appendChild(city);
+
+          // A STOP WE NO LONGER HOLD IS NAMED BY ITS ID rather than drawn blank:
+          // a blank reads as a row that failed to load. It should not happen --
+          // the foreign key cascades -- so if it ever does, it is worth seeing.
+          line.appendChild(half('Waypoint',
+            w ? w.name : (s ? 'waypoint ' + s.waypoint_id : 'stop ' + r.stop_id),
+            w ? (w.address || '') : 'not on file any more', false, 'wp'));
+
+          line.appendChild(half('Challenge',
+            c ? c.name : RANDOM_LABEL,
+            c ? (c.kind || '') : 'whatever fits at play time',
+            !c, 'ch'));
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'btn small astop-del';
+          del.textContent = 'Remove';
+          del.title = 'Take this stop out of the map. The stop itself is untouched.';
+          del.addEventListener('click', function () { removeRow(a, r); });
+          line.appendChild(del);
+
+          box.appendChild(line);
+        });
+
+        list.appendChild(box);
+      });
+    }
+
+    /* ---- writing ----------------------------------------------------------
+       `return=representation` ON EVERY WRITE. PostgREST answers 200 with an
+       EMPTY ARRAY when RLS refuses, so without reading the row back a refused
+       write reports success and the page shows something the table never took. */
+
+    /* ---- adding a map ----------------------------------------------------
+       THE KEY IS `slug(city) + '-' + slug(name)`, which is the shape the one map
+       on file already had -- New Orleans + Murder Map is `new-orleans-murder-map`
+       exactly -- so nothing had to be taught a new one. Lowercase and hyphenated
+       satisfies `maps_id_lower` by construction, which is what the old key field
+       asked a person to remember.
+       THE CITY'S STATE IS DROPPED FROM THE KEY. "New Orleans, LA" keys as
+       `new-orleans`: the state is worth storing and is noise in a string people
+       read and paste into a game. */
+    function slug(v) {
+      return String(v == null ? '' : v).toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+    function mapKey(name, city) {
+      const c = slug(String(city || '').split(',')[0]);
+      const nm = slug(name);
+      if (!nm) return '';
+      return c ? c + '-' + nm : nm;
+    }
+
+    function dlgMsg(m) { const b = el('mapDlgMsg'); if (b) b.textContent = m || ''; }
+
+    function paintMapKey() {
+      const box = el('mapKeyPreview');
+      if (!box) return;
+      const key = mapKey(el('mapNameInput').value, el('mapCityInput').value);
+      /* SHOWN BECAUSE IT IS PERMANENT: a game points at a map by this string,
+         so it is the one value on the form worth reading before committing. */
+      box.textContent = key || '-';
+      const taken = !!key && state.rows.some(function (r) { return r.map_id === key; });
+      dlgMsg(taken ? 'A map with that key already exists. Change the name or the city.' : '');
+      const save = el('mapSaveBtn');
+      /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
+         at all, so on a touch screen -- no hover, therefore no tooltip -- the
+         reason it is off would be unreachable. Pressing it says what is wrong. */
+      if (save) save.setAttribute('aria-disabled', (!key || taken) ? 'true' : 'false');
+    }
+
+    function openMapDialog() {
+      const box = el('mapCityList');
+      if (box) {
+        box.innerHTML = '';
+        state.cities.forEach(function (c) {
+          const o = document.createElement('option');
+          o.value = c;
+          box.appendChild(o);
+        });
+      }
+      el('mapNameInput').value = '';
+      el('mapCityInput').value = '';
+      dlgMsg('');
+      paintMapKey();
+      el('mapDlg').classList.add('is-open');
+      el('mapNameInput').focus();
+    }
+    function closeMapDialog() { el('mapDlg').classList.remove('is-open'); }
+
+    async function addMap() {
+      const save = el('mapSaveBtn');
+      const name = clean(el('mapNameInput').value);
+      const city = clean(el('mapCityInput').value);
+      if (!name) { dlgMsg('A map needs a name.'); el('mapNameInput').focus(); return; }
+      if (!city) { dlgMsg('A map needs a city. It is half the key.'); el('mapCityInput').focus(); return; }
+      const key = mapKey(name, city);
+      if (!key) { dlgMsg('That name and city make no key. Use some letters or numbers.'); return; }
+      if (state.rows.some(function (r) { return r.map_id === key; })) {
+        dlgMsg('A map with that key already exists. Change the name or the city.');
+        return;
+      }
+      if (save) save.setAttribute('aria-disabled', 'true');
+      try {
+        const res = await fetch(restUrl(TABLE), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          /* THE MAP IS A ROW WITH NO STOP, at number 0. That is what lets it
+             exist before anybody has put anything on it, and a CHECK makes 0 the
+             only number such a row may hold -- see 2026083114. */
+          body: JSON.stringify({ map_id: key, map_name: name, city: city, stop_id: null, stop_number: 0 })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        /* POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so a
+           refused write would otherwise report success and draw a map the table
+           never took. */
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the write and said nothing. Check you are signed in.');
+        }
+        state.rows.push(rows[0]);
+        closeMapDialog();
+        render();
+        say('Added ' + name + ' (' + key + '). It has no stops yet.', 'success');
+      } catch (err) {
+        dlgMsg(err.message);
+      } finally {
+        if (save) save.setAttribute('aria-disabled', 'false');
+      }
+    }
+
+    /* `addRow` AND ITS HELPERS WENT WITH THE ADD-A-STOP BAR (2026-08-31).
+       NOTHING IN THIS ROOM PUTS A STOP ON A MAP ANY MORE -- see the note on the
+       markup. Making a map is what this room adds; filling one is SQL. */
+
+    async function renameMap(map, box) {
+      const name = clean(box.value);
+      if (!name) { box.value = map.name; say('A map needs a name.', 'error'); return; }
+      if (name === map.name) return;
+      try {
+        // ONE ROW IS PATCHED AND THE DATABASE RENAMES THE REST. A trigger
+        // propagates it, so patching every row here would be the same write
+        // several times over -- and the two could not disagree anyway.
+        const first = map.rows[0];
+        const res = await fetch(restUrl(TABLE, {
+          map_id: 'eq.' + map.id, stop_number: 'eq.' + first.stop_number
+        }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ map_name: name })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the rename and said nothing. Check you are signed in.');
+        }
+        state.rows.forEach(function (r) { if (r.map_id === map.id) r.map_name = name; });
+        render();
+        say('Renamed to ' + name + '.', 'success');
+      } catch (err) {
+        box.value = map.name;
+        say(err.message, 'error');
+      }
+    }
+
+    async function removeRow(map, row) {
+      const s = stopById(row.stop_id);
+      const label = s ? stopLabel(s) : 'stop ' + row.stop_id;
+      if (!window.confirm('Take ' + label + ' out of ' + map.name + '? '
+          + 'The stop itself is untouched and stays in any other map.')) return;
+      try {
+        const res = await fetch(restUrl(TABLE, {
+          map_id: 'eq.' + row.map_id, stop_number: 'eq.' + row.stop_number
+        }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=representation' })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the delete and said nothing. Check you are signed in.');
+        }
+        state.rows = state.rows.filter(function (r) {
+          return !(r.map_id === row.map_id && r.stop_number === row.stop_number);
+        });
+        render();
+        // THE NUMBERS ARE NOT CLOSED UP, and that is deliberate: renumbering
+        // would rewrite every row after this one, and a gap in a map is
+        // visible and harmless where a silent renumber is neither.
+        say('Removed ' + label + '. The numbers after it are unchanged.', 'success');
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    /* `aimFormAt` WENT WITH THE FORM IT AIMED. */
+
+    /* `sortRows` WENT WITH THE ADD: it re-sorted the in-memory rows after one
+       was pushed, and nothing pushes now. The list arrives sorted -- the read
+       asks for `map_id.asc,stop_number.asc` -- and a removal cannot disturb an
+       order it only takes from. */
+
+    /* `paintPickers` FILLED THE TWO DATALISTS THE FORM USED, and both are
+       gone. */
+
+    /* ---- wiring -----------------------------------------------------------
+       DEFENSIVE, because one dead reference here kills the rest of the block
+       INCLUDING adminAuth.init(), and admin-shell.css hides every child of
+       body.mc-auth-protected until init() adds .mc-auth-authorized. */
+    function on(id, event, fn) {
+      const node = el(id);
+      if (node) node.addEventListener(event, fn);
+      else console.warn('maps: no element #' + id);
+    }
+
+    on('q', 'input', function () { state.q = clean(el('q').value); render(); });
+    on('clearBtn', 'click', function () { el('q').value = ''; state.q = ''; render(); });
+    // THE NAME BOX FILLS ITSELF FOR A MAP THAT EXISTS, and says so by going
+    /* THE MAP/NAME LISTENER WENT WITH THE TWO FIELDS IT KEPT IN STEP. */
+
+    on('addMapBtn', 'click', openMapDialog);
+    on('mapCancelBtn', 'click', closeMapDialog);
+    on('mapSaveBtn', 'click', addMap);
+    /* THE KEY FOLLOWS BOTH BOXES AS THEY ARE TYPED, because it is derived from
+       both and a preview that lagged would be worse than none. */
+    on('mapNameInput', 'input', paintMapKey);
+    on('mapCityInput', 'input', paintMapKey);
+    /* THE BACKDROP AND ESCAPE BOTH CLOSE IT, and neither adds anything --
+       dismissing is cancelling. */
+    const mapDlg = el('mapDlg');
+    if (mapDlg) {
+      mapDlg.addEventListener('click', function (e) { if (e.target === mapDlg) closeMapDialog(); });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && mapDlg && mapDlg.classList.contains('is-open')) closeMapDialog();
+    });
+
+    const adminAuth = TgbMcAdminAuth.create({
+      // THE OPTION IS `supabaseConfig`, AN OBJECT. Passing supabaseUrl and
+      // supabaseKey reads naturally, lands in Object.assign, is never looked at,
+      // and the room then blames the PROJECT for a fault in its own call.
+      supabaseConfig: {
+        url: SUPABASE_CONFIG.url,
+        publishableKey: SUPABASE_CONFIG.publishableKey
+      },
+      onAuthorized: async function () {
+        state.authed = true;
+        try {
+          await loadAll();
+          render();
+        } catch (err) {
+          say(err.message, 'error');
+        }
+      }
+    });
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
