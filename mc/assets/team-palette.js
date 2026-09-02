@@ -291,7 +291,16 @@
     if (!base || !key) return [];
     const url = new URL(`${base}/rest/v1/teams`);
     url.searchParams.set('select', select);
-    url.searchParams.set('order', 'league_sort.asc,team_sort.asc');
+    /* `team_sort` IS GONE. 2026090119 split `team_key` into `league` and `code`
+       and dropped the sort columns with it, and this line was not swept -- so
+       PostgREST answered 400 on the WHOLE request, `fetchTeamRows` threw, the
+       LEGACY fallback repeated the same order and threw too, and `loadTeams`
+       rejected for every caller. **Both engines resolve a club through this at
+       play time**, so a fandom game lost its palette.
+         `full_name` REPLACES IT rather than nothing, because `dedupeTeams` keeps
+       the FIRST row for a key -- an unordered read makes which one wins depend
+       on whatever Postgres returned. */
+    url.searchParams.set('order', 'league_sort.asc,full_name.asc');
     const response = await fetch(url.toString(), {
       cache: 'no-store',
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' }

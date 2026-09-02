@@ -12973,33 +12973,67 @@ function getBuilderTeamGameCity(value, fallback = '') {
   return TEAM_GAME_CITY_OVERRIDES[overrideKey] || formatTeamCityName(fallback);
 }
 
+/* PULLED FROM `public.audiences`, THE TABLE ITSELF.
+   It read the `teams` VIEW ordered by `league_sort.asc,team_sort.asc`, and
+   2026090119 dropped `team_sort` -- so PostgREST answered 400 on the WHOLE
+   request and this returned nothing at all. The view also lost `first_name`
+   and `fanbase`, which the mapping below read, so even a repaired order would
+   have produced rows the caller's own `fanbase && mascot` filter discarded:
+   TWO faults, and the second is the silent one.
+     THE VIEW'S OWN RULE IS MIRRORED, not guessed: `type = 'sports'` and a
+   league. Everything the view computed -- the sport, the uppercase league, the
+   team key -- is computed here from the same columns, so the two cannot
+   disagree about a club.
+     IT PAGES. PostgREST caps a response at 1000 rows and truncates in SILENCE,
+   and this table went from 111 rows to 640 in a day. */
 async function loadBuilderTeamsFromSupabase() {
   if (!hasSupabaseStore()) return null;
-  const url = buildSupabaseUrl(
-    { select: '*', order: 'league_sort.asc,team_sort.asc' },
-    'teams'
-  );
-  if (!url) return null;
-  const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const rows = await response.json();
-  if (!Array.isArray(rows) || !rows.length) return null;
-  return rows.map((r) => ({
-    team_key: r.team_key || '',
-    league: r.league || '',
-    teamKey: r.team_key || '',
-    code: r.code || '',
-    firstName: r.first_name || '',
-    fanbase: r.fanbase || r.first_name || '',
-    gameCity: getBuilderTeamGameCity(r, r.fanbase || r.first_name || ''),
-    mascot: r.mascot || '',
-    sport: r.sport || '',
-    shell: r.shell || '',
-    stripe: r.stripe || '',
-    mask: r.mask || '',
-    text_color: r.text_color || '',
-    textColor: r.text_color || ''
-  }));
+  const SPORT_BY_LEAGUE = {
+    nfl: 'football', ncaaf: 'football', nba: 'basketball',
+    mlb: 'baseball', nhl: 'hockey'
+  };
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const url = buildSupabaseUrl(
+      { select: '*', type: 'eq.sports', league: 'not.is.null', order: 'full_name.asc' },
+      'audiences'
+    );
+    if (!url) return null;
+    const headers = Object.assign({}, getSupabaseHeaders(),
+      { Range: from + '-' + (from + 999) });
+    const response = await fetch(url, { headers: headers, cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const page = await response.json();
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push.apply(rows, page);
+    if (page.length < 1000) break;
+  }
+  if (!rows.length) return null;
+  return rows.map((r) => {
+    const league = String(r.league || '').toUpperCase();
+    /* `fanbase` WAS `city, ST` FOR A PRO CLUB AND THE SCHOOL FOR A COLLEGE ONE,
+       and 196 college rows still carry no city -- so falling back to the name's
+       own first half is what keeps them in the list rather than being dropped
+       by the caller's `fanbase && mascot` filter. */
+    const fanbase = String(r.city || r.first || '').trim();
+    const mapped = {
+      team_key: league && r.code ? league + ':' + r.code : '',
+      league: league,
+      teamKey: league && r.code ? league + ':' + r.code : '',
+      code: r.code || '',
+      firstName: r.first || '',
+      fanbase: fanbase,
+      mascot: r.last || '',
+      sport: SPORT_BY_LEAGUE[String(r.league || '').toLowerCase()] || '',
+      shell: r.primary || '',
+      stripe: r.secondary || '',
+      mask: r.tertiary || '',
+      text_color: r.text || '',
+      textColor: r.text || ''
+    };
+    mapped.gameCity = getBuilderTeamGameCity(mapped, fanbase);
+    return mapped;
+  });
 }
 
 function builderTeamKey(team) {
@@ -13037,44 +13071,54 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
    nothing else, or it would offer a value the column cannot take. */
 let builderAudiencesList = [];
 
+/* EVERY COLUMN NAMED HERE EXISTS. It asked for
+   `id,name,family,nickname,kind,shell,stripe,mask,home_place_id,team_key` and
+   **not one of those is on the table any more** -- `name`, `family`,
+   `nickname` and `kind` went on 2026-09-01, the three colours were renamed to
+   `primary/secondary/tertiary`, and `home_place_id` and `team_key` were dropped
+   by 2026090119 and 2026090120. PostgREST answers 400 on the WHOLE request for
+   one unknown column, so **both audience pickers opened empty** and every typed
+   name came back "No audience called ...".
+     `public.places` IS NOT READ. The city is TEXT on the row since 2026090120,
+   and that read could not answer for every club anyway: 196 audiences carry a
+   town `places` does not hold, so `placeCity` came back EMPTY for all of them.
+     IT PAGES, because 640 rows is close enough to PostgREST's silent 1000-row
+   cap to matter and this table quintupled in a day. */
 async function loadBuilderAudiences() {
   if (!hasSupabaseStore()) return;
-  const url = buildSupabaseUrl(
-    { select: 'id,name,family,nickname,kind,shell,stripe,mask,home_place_id,team_key',
-      order: 'family.asc,name.asc' },
-    'audiences'
-  );
-  if (!url) return;
-  const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const rows = await response.json();
-
-  /* THE TOWN COMES FROM `places`, BECAUSE IT IS NOT ON THE AUDIENCE ANY MORE.
-     2026083026 dropped city_name and state_code from that table -- 21 of them
-     disagreed with the place they pointed at, which is how the 49ers were
-     stored as San Jose. Two small reads and a join here is the price of them
-     not being able to disagree again. */
-  let places = [];
-  const purl = buildSupabaseUrl({ select: 'id,city,state', order: 'id.asc' }, 'places');
-  if (purl) {
-    try {
-      const pres = await fetch(purl, { headers: getSupabaseHeaders(), cache: 'no-store' });
-      if (pres.ok) places = await pres.json();
-    } catch (err) { console.warn('places fetch failed for the audience picker:', err); }
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const url = buildSupabaseUrl(
+      { select: 'id,full_name,first,last,type,league,code,city,"primary",secondary,tertiary',
+        order: 'full_name.asc' },
+      'audiences'
+    );
+    if (!url) return;
+    const headers = Object.assign({}, getSupabaseHeaders(),
+      { Range: from + '-' + (from + 999) });
+    const response = await fetch(url, { headers: headers, cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const page = await response.json();
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push.apply(rows, page);
+    if (page.length < 1000) break;
   }
-  const placeById = new Map((places || []).map((p) => [p.id, p]));
 
-  builderAudiencesList = (Array.isArray(rows) ? rows : []).map((a) => {
-    const p = a.home_place_id ? placeById.get(a.home_place_id) : null;
-    return Object.assign({}, a, {
-      placeLabel: p ? (p.city + ', ' + p.state) : '',
-      /* THE CITY ON ITS OWN, because `name` is NOT always one. 2026083024 kept
-         the MASCOT as the name for the fourteen clubs that share a city --
-         Cubs, White Sox, Giants, Jets -- since one name cannot answer for two.
-         So a sentence that wants a place has to take the place. */
-      placeCity: p ? p.city : ''
-    });
-  });
+  builderAudiencesList = rows.map((a) => Object.assign({}, a, {
+    /* THE SHAPES THE REST OF THIS PAGE STILL SPEAKS, mapped once here so no
+       caller has to know the column names moved. */
+    family: a.type || '',
+    name: a.full_name || '',
+    nickname: a.last || '',
+    shell: a.primary || '',
+    stripe: a.secondary || '',
+    mask: a.tertiary || '',
+    team_key: a.league && a.code ? String(a.league).toUpperCase() + ':' + a.code : '',
+    placeLabel: String(a.city || '').trim(),
+    /* THE CITY ON ITS OWN, for a sentence that wants a place. It is the text
+       before the comma -- `audiences.city` is the canonical "City, ST". */
+    placeCity: String(a.city || '').split(',')[0].trim()
+  }));
   populateTargetAudienceSelect();
 }
 
@@ -13086,17 +13130,29 @@ async function loadBuilderAudiences() {
 
    NO EM DASH, per the standing rule; the separator is a middle dot. */
 function audienceLabel(a) {
-  const family = String(a.family || '').toUpperCase();
+  /* THE LEAGUE, NOT THE TYPE. `family` is mapped from `type` above, which is
+     `sports` for every club -- so heading every option with it would print
+     "SPORTS Chicago Bears" 638 times and say nothing. */
+  const league = String(a.league || '').toUpperCase();
   const nick = String(a.nickname || '').trim();
   const name = String(a.name || '');
-  const head = (family ? family + ' ' : '') + name
-             + (nick && nick !== name ? ' (' + nick + ')' : '');
+  const head = (league ? league + ' ' : '') + name
+             + (nick && name.toLowerCase().indexOf(nick.toLowerCase()) === -1
+                 ? ' (' + nick + ')' : '');
   /* THE TOWN IS OMITTED WHEN IT REPEATS THE NAME, which is most pro clubs:
      "NFL Chicago (Bears) - Chicago, IL" says Chicago twice. It earns its place
      for a college club, where the name is a school and the town is news --
      "NCAAF Alabama (Crimson Tide) - Tuscaloosa, AL". */
+  /* THE TEST ASKS WHETHER THE NAME OPENS WITH THE TOWN, not the reverse. It
+     was `place.startsWith(name + ',')`, which was right while `name` held
+     `Chicago` -- with `full_name` holding `Chicago Bears` it started asking
+     whether "chicago, il" opens with "chicago bears,", never true, so every pro
+     club gained a town it already says. **That broke the RESOLVER, not just the
+     look**: what somebody types is matched back against this same label, so a
+     label nobody would type is an audience nobody can choose. */
   const place = String(a.placeLabel || '');
-  const sameTown = place && place.toLowerCase().indexOf(name.toLowerCase() + ',') === 0;
+  const town = place.split(',')[0].trim().toLowerCase();
+  const sameTown = town && name.toLowerCase().indexOf(town) === 0;
   return place && !sameTown ? head + ' · ' + place : head;
 }
 
@@ -13954,18 +14010,21 @@ function resolveTypedEvent() {
 function audienceForEventSide(ev, side) {
   const nick = String((side === 'home' ? ev.home_team_nickname : ev.away_team_nickname) || '').trim();
   if (!nick) return null;
-  const family = String(ev.league || '').trim().toLowerCase();
+  const league = String(ev.league || '').trim().toLowerCase();
   const low = nick.toLowerCase();
   /* THE LEAGUE NARROWS IT, and it has to: three clubs are called the Tigers and
      two the Bulldogs, so a nickname alone would resolve to whichever came
      first. Without a league we match on the mascot ONLY IF IT IS UNIQUE --
-     a wrong fandom is worse than none, because it reads as a decision. */
-  const inFamily = family
-    ? builderAudiencesList.filter((a) => String(a.family).toLowerCase() === family)
+     a wrong fandom is worse than none, because it reads as a decision.
+       IT COMPARES `league`, NOT `family`. That field is mapped from `type`,
+     which is `sports` on every club since 2026090122 -- so comparing it against
+     the event's `NFL` matched NOTHING and no event could fill a fandom. */
+  const inLeague = league
+    ? builderAudiencesList.filter((a) => String(a.league || '').toLowerCase() === league)
     : builderAudiencesList;
-  const hits = inFamily.filter((a) => String(a.nickname || '').toLowerCase() === low);
+  const hits = inLeague.filter((a) => String(a.nickname || '').toLowerCase() === low);
   if (hits.length === 1) return hits[0];
-  if (hits.length > 1 && family) return hits[0];
+  if (hits.length > 1 && league) return hits[0];
   return null;
 }
 

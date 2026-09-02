@@ -22,9 +22,15 @@ const CH = [
   { id: 8, name: 'Count the panels', kind: 'question', scope: 'place',
     prompt: 'How many?', answer: '168' }
 ];
+/* THE ROOM READS `city`, NOT A JOIN. `home_place_id` was dropped on 2026090119
+   and `audiences.city` already holds the composed `City, ST` string the join
+   was building. A fixture in the old shape leaves the city list empty, which
+   reads as the room failing rather than as a stub that has stopped modelling
+   the read -- and this one PASSED with the old shape, which is worse: it was
+   asserting nothing about the list at all. */
 const AUD = [
-  { home_place_id: 'chicago-il', places: { city: 'Chicago', state: 'IL' } },
-  { home_place_id: 'new-orleans-la', places: { city: 'New Orleans', state: 'LA' } }
+  { city: 'Chicago, IL' },
+  { city: 'New Orleans, LA' }
 ];
 /* THREE FIELDS. No id, because (city, waypoint_id) is the key. */
 /* THE ROWS CARRY THEIR OWN `id`, which is the primary key and is how a stop is

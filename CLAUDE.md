@@ -14220,6 +14220,635 @@ Fields that escaped the bug historically did so by accident — their snake_case
 
 **How to apply:** When adding a meta field to `initGameMeta`, always write the fallback chain as `g.snake_name ?? g.camelName ?? gn.camelName ?? default`. Same rule applies to numeric/boolean fields — check both casings before falling back to the node-level shape.
 
+## CLOSING AN EDITOR REPAINTED THE ROOM, AND THAT IS WHY NOTHING COULD BE EDITED (2026-09-01)
+
+Reported as **"can't edit fields from web page"**. The first field you clicked
+opened; no field after it did.
+
+- **`finish()` CALLED `paintTable()` WHEN NOTHING HAD CHANGED**, which replaces
+  every badge. So clicking from one field straight to the next -- the ordinary
+  gesture -- blurred the open box, rebuilt the list, and left **the cell the
+  click was already travelling to detached from the document**.
+- **A DISPATCHED EVENT ON A DETACHED NODE DOES NOT BUBBLE TO THE ATTACHED
+  HOST.** The click handler is delegated on `#tableHost`, so it never ran at
+  all -- not a guard refusing, not a branch returning early, **nothing**. That
+  is why it looked like the room had stopped working rather than like one
+  control misbehaving.
+- **THE FIX IS TO PUT ONE CELL BACK INSTEAD.** `restoreCell(td, row)` rewrites
+  the cell that was being edited and leaves the other hundred badges where they
+  are. **It is also the cheaper answer**: cancelling an edit was rebuilding
+  about eleven hundred boxes to undo one `textContent = ''`.
+- **THE STRIPE'S INSIDES ARE WRITTEN ONCE**, in `stripeInner`, because the badge
+  builds them and the restore puts them back -- two copies of one bit of markup
+  is the drift this project keeps removing.
+- **A RE-FIND IN THE CLICK HANDLER WAS TRIED FIRST AND CANNOT WORK.** It looks
+  right -- if the cell is detached, look the row and field up again -- and the
+  handler is never reached, so there is nothing to re-find with. **The repaint
+  had to stop happening.**
+
+### AND NO CHECK COULD HAVE CAUGHT IT, WHICH IS THE PART TO FIX
+
+Both suites asserted that **one** cell opened -- the aliases in one, `first` in
+the other -- so a room where every field after the first was dead passed 108
+assertions.
+
+- **`every field marked editable really opens a box`** sweeps all of them.
+- **`clicking straight on to the next opens THAT one`** is the one that
+  reproduces the report, and it needs a **real `mousedown` then `blur` then
+  `click`**: a bare `.click()` never fires a blur, so the sweep above it passes
+  on a page with this exact fault.
+- **THE FIRST SWEEP REPORTED TEN DEAD FIELDS ON A PAGE WHERE ALL OF THEM WORK**,
+  because it held a card reference taken before the loop and closing an editor
+  detached it. **The harness had the same bug as the page**, one layer up.
+- **`editing` IS ONE FLAG FOR THE WHOLE ROOM, so a probe that leaves a box open
+  breaks its NEIGHBOUR** -- which then reports `(nothing sent)` and reads as the
+  page refusing to save. It happened twice, to two different probes, and which
+  one failed depended only on the order they ran in. `closeAnyEditor()` runs
+  before every write probe now.
+
+## ONE FILTER, AND IT IS THE CITY (2026-09-01)
+
+The FILTER box held two pickers -- league and type. It holds one.
+
+- **THE SEARCH BOX ALREADY REACHED BOTH.** Typing `nfl` or `artist` narrows on
+  either, because the search reads every column the badge draws. **A picker
+  earns its place by reaching something you cannot type**, and the city is that:
+  a name typed into the box matches anywhere it appears, so `Chicago` finds the
+  club whose NAME is Chicago as well as the ones at home there.
+- **`NOWHERE` IS ITS OWN OPTION AND ITS OWN SENTINEL.** Blank already means "any
+  city", so a third meaning on that value would make NO CITY and NO FILTER
+  indistinguishable -- the shape the Waypoints room's `ALL_WAYPOINTS` already
+  uses. It is also the majority and the set the red pen reports, so leaving it
+  unreachable would put the room's own finding behind a filter that could not
+  select it.
+- **BUILT FROM THE ROWS, WITH COUNTS, AND COUNTED OVER THE WHOLE TABLE.** It
+  cannot offer a city with nothing behind it, and a figure that shrank as you
+  typed would read as the filter breaking.
+- **NEITHER SUITE ASSERTED ANYTHING ABOUT EITHER OLD PICKER**, so replacing them
+  passed 108 assertions while proving nothing at all. **That is the worse kind
+  of green**: a change with no coverage reads exactly like a covered one. The
+  assertions that were missing are there now -- one picker, its id, the counts,
+  the sentinel, narrowing, `Nowhere`, and Clear putting it back.
+
+## THE KEY IS THE BADGE'S FOOT (2026-09-01)
+
+One black cell across the bottom of the card, centred, reading
+`ID: chicago-bears`.
+
+- **IT IS NOT A FACT ABOUT THE AUDIENCE LIKE THE OTHERS.** It is the row's own
+  permanent name -- what a migration, an error message and three foreign keys
+  all say -- and it is the one value on the card nobody types. Reversed out, it
+  stops reading as a twelfth field.
+- **OUTSIDE `.fields`, not a full-width cell inside it.** Both would draw the
+  same, and outside it needs no `grid-column` and cannot be reordered by a
+  change to the field list.
+- **THE KEY'S TOOLTIP MOVED WITH IT**, and the check that reads it had to move
+  too: it took the first locked cell it found, which became `created` the moment
+  the key stopped being a field -- **so it was asserting a sentence about the
+  stamps as though it were about the key.**
+
+## 154 COLLEGE TOWNS, AND THE 224 LEFT BLANK ON PURPOSE (2026-09-01)
+
+[college-towns-the-confident-ones.sql](mc/supabase/seeds/college-towns-the-confident-ones.sql), applied. NCAAF rows with a city went
+from **136 to 290**, and `destinations` grew **259 to 287** -- 28 of the newly
+placed clubs turned out to have a town `public.places` already holds.
+
+- **378 CARRIED NO CITY AND EVERY ONE WAS NCAAF.** `teams.city_name` was NULL on
+  every college row when the club list was merged in, so none of them ever had
+  one.
+- **THE REST ARE LEFT BLANK DELIBERATELY.** A wrong city here is not cosmetic:
+  `tgb_slug(city)` is how `destinations` is keyed and how `tgb_anti_audience`
+  finds a game's rival, so **a plausible mistake resolves silently and looks
+  exactly like a right answer.** A blank is visible; a wrong town is not. Same
+  rule this project already keeps for a waypoint's coordinates and a Spotify id.
+- **WHAT WENT IN**: the Ivies, the FCS conferences, the HBCUs, the service
+  academies and the well-known Division III programmes -- schools whose town is
+  a matter of record rather than recall.
+- **WHAT DID NOT, and why**: a name that does not identify one school
+  (**`Monmouth` is a New Jersey university and an Illinois college, and both
+  play football**), and the long tail of Division II and III programmes.
+- **127 AUDIENCES NOW CARRY A CITY THAT IS NOT IN `places`**, so those do not
+  reach `destinations`. That is the documented cost of dropping the foreign key
+  and the room's own warning is what says so.
+- **THE REST ARE A JOB FOR THE ROOM'S PROMPT**, which is still a stub. That is
+  the mechanism this project already uses for bulk research it cannot do from
+  memory: an AI with a browser reads each school's own page and hands back one
+  `update` block a person runs.
+
+## THREE COLUMNS GO: `nickname`, `team_key`, `home_place_id` (2026-09-01)
+
+[2026090118](mc/supabase/migrations/2026090118_nickname_goes_last_holds_it.sql) and [2026090119](mc/supabase/migrations/2026090119_team_key_becomes_league_and_code_and_home_place_id_goes.sql), **both applied**. `public.audiences` is **17
+columns**, and each of the three went for a different reason.
+
+| | |
+|---|---|
+| `nickname` | a duplicate. `last` IS the mascot. |
+| `team_key` | **split into `league` and `code`, then dropped.** Deleting it outright was asked for and would have broken a key -- see below. |
+| `home_place_id` | derivable. `tgb_slug(city)` reproduces it on all 260. |
+
+### DROPPING THE LEAGUE MADE `destinations.id` COLLIDE, AND ONLY MEASURING FOUND IT
+
+Deleting `team_key` outright was asked for and the listed losses accepted:
+`teams` loses four columns, the ids change, the rival loses its same-league
+guard. **Measuring it turned up a loss that was not on that list and is a
+different kind of thing.**
+
+    259 destinations  ->  258 distinct ids
+    miami-fl-panthers = Florida Panthers (NHL:FLA)
+                      + Florida International Panthers (NCAAF:FIU)
+
+- **SAME CITY, SAME MASCOT, TWO CLUBS -- and the league is the only thing that
+  has ever told them apart.** A key that is not unique is not a lesser key, it
+  is a broken one, and every trivia row and every ladder rung is keyed to it.
+- **SO THE COLUMN STILL WENT AND THE INFORMATION DID NOT.** `league` and `code`
+  are two honest columns where one packed string was; every reader already did
+  `split_part(team_key, ':', 1)` and reads a column now.
+- **`teams.team_key` KEEPS EXISTING**, recomposed as `league || ':' || code`.
+  **Both engines resolve a club by matching `games.away_team_key` against it**
+  through `team-palette.js`, so removing that OUTPUT column would have been a
+  change to the paid product. Its full 14-column select answers 200.
+- **THE LESSON IS THE MEASUREMENT, NOT THE ANSWER.** "We accept the loss" was a
+  decision about the losses that had been counted. **Count them before quoting
+  them**: the collision was one query away and would otherwise have shipped as
+  a duplicate primary-shaped key.
+
+### `last` IS THE MASCOT, AND `destinations` PROVED IT BOTH WAYS
+
+- **COMPUTED FROM `last` INSTEAD OF `nickname` THE VIEW COMES OUT 259 ROWS, 0
+  LOST, 0 GAINED** -- byte for byte the same set, measured before the file was
+  written. That is the whole safety argument.
+- **ONLY THREE ROWS EVER DISAGREED and none was in that view**: `Eastern Oregon`
+  (whose nickname DUPLICATED its whole name -- the bad data 2026090117
+  corrected), `Taylor Swift` and `JFK Assassination` (an artist and an interest,
+  no league, so never destinations).
+- **`last` IS NEVER NULL where `nickname` was null on two**, so every reader
+  gets a value where it used to get nothing.
+
+### `home_place_id` WAS A REAL FOREIGN KEY, AND I SAID IT WAS NOT
+
+- **`audiences_home_place_id_fkey REFERENCES places(id) ON DELETE SET NULL`.**
+  An earlier answer in this session said it was not one; that was wrong, and it
+  changes what the drop costs: the VALUE is derivable and the GUARANTEE is not.
+- **`tgb_slug(city)` reproduces it on all 260**, with 0 cities resolving to no
+  place and 0 rows carrying a city and no place. So every reader derives the key
+  from the text and the two can no longer disagree.
+- **WHAT IS LOST: a city we do not hold is now stored in silence.** The same
+  trade `events.venue_city` and `waypoints.city` already made. The audiences
+  room's own warning is the only thing that says so, which is why it is kept.
+
+### WHAT READ THEM, AND THE TWO THAT LOOKED LIKE THEY DID
+
+Three views and five functions: `destinations`, `teams`, `game_possibilities`,
+`tgb_audience_label`, `tgb_anti_audience`, `tgb_content_keys`, `tgb_trivia_for`,
+`tgb_pull_walking_tours`.
+
+- **`games_with_teams` AND `games_with_graph_and_teams` NEEDED NO CHANGE.**
+  Their `team_key` lines are `game.away_team_key` and `game.home_team_key` --
+  columns of `public.games`. **Reading the lines rather than counting the
+  matches is what kept two views out of a rewrite they did not need**, and it is
+  the same trap as `events.away_team_nickname` an hour earlier.
+- **`infer_team_key` READS `team.team_key`, THE VIEW COLUMN**, so it survives
+  untouched -- which matters, because `infer_game_team_keys` is a BEFORE trigger
+  on `public.games` and a broken one **stopped every game save for a day** on
+  2026-08-31.
+- **THE VIEWS WOULD HAVE BLOCKED THE DROP; THE FUNCTIONS WOULD NOT.** A plpgsql
+  body is stored as TEXT and resolved at runtime, so those three would have
+  failed on their next call, unattended. That asymmetry is why they are patched
+  from their LIVE definitions, one named expression at a time, each asserting
+  how many times it should match -- and why the migration ends with a catalogue
+  sweep that stands in for the dependency check Postgres cannot make.
+- **`audiences_keys_retired` HOLDS BOTH COLUMNS FOR ALL 640 ROWS.** A drop is
+  the one irreversible move; the retired table is what makes a mistake here
+  recoverable at all.
+- **PROVED BY CALLS THAT MADE THE CODE DO ITS JOB**, never by the absence of an
+  error: 640 rows, 638 teams, **259 destinations with 259 DISTINCT ids**, both
+  Miami Panthers still apart, `new-orleans-la-nfl-saints` unchanged, **7 trivia
+  keys still resolving**, `teams.team_key` `NFL:CHI`, `game_city` `Chicago, IL`,
+  the label, the rival and all nine ladder rungs.
+
+### AND A `create or replace view` REFUSED, WHICH WAS THE GUARD WORKING
+
+`42P16 cannot drop columns from view`. The live `destinations` selects
+`audience_aliases` **twice** -- once as `aliases` and once under its own name --
+and a rewrite returning six columns where there are seven is refused outright.
+
+- **THE WHOLE TRANSACTION ROLLED BACK AND NOTHING CHANGED**, which is the
+  argument for one transaction.
+- **IT IS WHY THE REWRITE WAS READ OFF `pg_get_viewdef`** rather than written
+  from the shape the view ought to have. Tidying that duplicate away cannot be
+  done with a replace at all, only a drop and recreate.
+
+### THE FOUR PAGES, AND THE FIXTURE THAT PASSED WHILE MODELLING NOTHING
+
+`mc/audiences/`, `mc/games/`, `mc/atlas/` and `mc/stop-builder/` all read at
+least one dropped column. **PostgREST 400s the whole request on one unknown
+column**, so every one of them would have gone quietly empty.
+
+- **THE TWO ROOMS' CITY LISTS DO LESS THAN THEY DID.** They read
+  `home_place_id,places!inner(city,state)` and rebuilt `City, ST`;
+  `audiences.city` already holds that string, so the join is gone rather than
+  repointed. Proved: the old select answers **400**, the new one **200**.
+- **AND `stop-builder`'s FIXTURE PASSED 48/48 WITH THE OLD SHAPE**, which is
+  worse than failing: it was asserting nothing at all about the city list. Only
+  `maps-room` caught it, because that suite actually reads the list.
+- **`league` AND `code` ARE NOT DRAWN ON THE BADGE**, inheriting `team_key`'s own
+  exemption -- nobody reads a club code off a list. **The league IS on screen**,
+  as the filter at the top of the room, which is where it is useful.
+
+**PRE-EXISTING AND NOT CAUSED BY THIS**: `mc/challenges/index.html` selects
+`teams.city_name`, which has answered **400** since that column was dropped on
+2026-08-30. Reported here rather than fixed.
+
+## `full_name` SPLITS INTO `first` AND `last` (2026-09-01)
+
+[2026090117](mc/supabase/migrations/2026090117_full_name_splits_into_first_and_last.sql), **applied**. `Air Force Falcons` is `Air Force` + `Falcons`;
+`Boston Red Sox` is `Boston` + `Red Sox`.
+
+- **`full_name` IS KEPT AND IS STILL THE NAME.** It is what the key is
+  generated from, what every label prints and what the badge draws; these two
+  are its halves, stored so nothing has to work them out again. **The display
+  did not change** -- the badge already broke its heading at this boundary and
+  now READS the boundary off the row instead of recomputing it on every render.
+- **THE SPLIT IS `nickname`, AND IT RESOLVED 636 OF 641 WITH NO GUESSING**,
+  measured by word count before anything was written:
+
+      words   rows   resolved
+        1        1       0
+        2      273     269
+        3      284     284      <- every one
+        4       71      71
+        5       10      10
+        6        2       2
+
+  **A THREE-WORD NAME IS THE AMBIGUOUS SHAPE and the nickname settles all 284**:
+  227 take the last word (`Air Force` / `Falcons`), 57 take the last two
+  (`Boston` / `Red Sox`). **Neither a first-word rule nor a last-word rule can
+  produce both**, which is why this is not a word count -- and it is the same
+  rule `tgb_audience_label` already uses, so the halves and the copy a game
+  prints cannot disagree about where one stops and the other starts.
+- **THE FIVE IT COULD NOT SPLIT WERE DECIDED ONE BY ONE**, because three of them
+  carry a `nickname` that DUPLICATES the whole name -- bad data rather than a
+  two-word mascot -- and two are not clubs at all.
+
+  | | |
+  |---|---|
+  | `Athletics` | first NULL, last `Athletics`. The name is entirely the mascot; the A's carry no place in it. |
+  | `Eastern Oregon` | first `Eastern Oregon`, last `Mountaineers` -- **written, not derived**. Splitting at the space would have cut the school's own name in half and called Oregon a mascot. |
+  | `Taylor Swift` | first `Taylor`, last `Swift`. The one row that is a literal first and last name. |
+  | `JFK Assassination` | first `JFK`, last `Assassination`. |
+  | `Bethany (Ks)` | **DELETED.** |
+
+- **THE DELETE WAS CHECKED, NOT HOPED.** 0 games, 0 game templates, 0
+  destinations, 0 trivia keys named it. The three incoming foreign keys would
+  have done something either way -- `game_templates` CASCADES and both `games`
+  columns SET NULL -- **so knowing the count is what made it a decision.** Its
+  values are written out in the migration, being the one row in that file that
+  is not recoverable. 641 rows to **640**, teams 639 to **638**, destinations
+  unchanged at 259.
+- **`first` AND `last` ARE UNRESERVED IN POSTGRES**, checked with
+  `pg_get_keywords()` rather than assumed, so neither needs quoting. **That is
+  NOT true of `primary` beside them**, which is reserved and must be written
+  `a."primary"` -- do not read one as licence for the other.
+- **THE BADGE FALLS BACK WHERE THE HALVES DO NOT SPELL THE NAME.** `Eastern
+  Oregon` was given the mascot it was missing, so its two halves are LONGER than
+  its `full_name`; drawn from them the badge would show a word the name does not
+  contain. The split is used only where it reconstructs what is there.
+- **AND THEY ARE NOT FIELDS ON THE BADGE**, for a different reason from the
+  mascot: they are HALVES OF A FIELD IT ALREADY SHOWS. Drawn as their own rows
+  the card would print the name three times -- whole, then in pieces -- and the
+  pieces exist only to say where the heading breaks.
+
+### WHAT THE TABLE ACTUALLY ENFORCES, AND WHO WRITES THE KEY
+
+Read off the live catalogue rather than the migrations, because this is what a
+CSV import or any other writer meets:
+
+| | |
+|---|---|
+| **NOT NULL** | `id`, `full_name`, `type`, `audience_aliases`, `updated` |
+| **CHECK** | `audiences_type` -- fandom / artist / interest / historical |
+| | `audiences_full_name_slugs` -- the name must slug to something, so a name of only punctuation is refused |
+| | `audiences_aliases_lower` -- an alias may not carry a capital |
+| | `audiences_aliases_not_blank` -- no empty string in the array |
+| **KEY** | `audiences_pkey` on `id` |
+| **TRIGGER** | `audiences_touch` -- writes `updated` on every insert and update |
+| **DEFAULTS** | `audience_aliases` `{}`, `created` and `updated` `now()` |
+
+- **NOTHING GENERATES THE ID, and the room's own tooltip said otherwise for
+  months.** It was `generated always as (family || '-' || slug(name)) stored`
+  until [2026090106](mc/supabase/migrations/2026090106_family_and_kind_become_type.sql) dropped the expression so the key could stop moving
+  when other columns changed -- **and `family` and `name` are both gone as
+  well.** The room composes `slug(full_name)` in the browser when a row is
+  added, and never writes it again.
+- **SO A CSV IMPORT MUST SUPPLY ITS OWN `id`**, and **nothing checks that it is
+  `slug(full_name)`** -- that is a convention the room keeps, not a rule the
+  database holds. Nothing checks that `first || ' ' || last` spells `full_name`
+  either.
+- **`home_place_id` WAS A REAL FOREIGN KEY, AND THIS FILE SAID IT WAS NOT.**
+  `audiences_home_place_id_fkey REFERENCES places(id) ON DELETE SET NULL`,
+  checked against `pg_constraint` after the claim was made. **It is moot now** --
+  2026090119 dropped the column -- but the correction matters for the shape of
+  the argument: the VALUE was derivable and the GUARANTEE was not, which is what
+  made the drop a trade rather than a tidy-up.
+
+### THE BADGE, AND THE ONE LABEL THAT WAS LYING
+
+- **A RULE UNDER EVERY LABEL EXCEPT THE TWO STAMPS.** A field is a
+  `column-reverse` flex, so the label sits BELOW its value and the line closes
+  each pair -- which is what makes ten stacked fields read as ten rather than as
+  one run of alternating sizes. **On the FIELD, never the label**: `.flabel` is
+  a `<span>`, so a border on it would stop at nine characters. The stamps share
+  a line, so a rule under each would draw two short segments with a gap between
+  them.
+- **THE KEY'S TOOLTIP READ "Generated from the family and the name"**, which
+  named a dropped column AND claimed a generation that had been removed. **A
+  sentence naming a column that is gone is the page lying about the row it is
+  on**, and it is the exact thing the draw-the-real-column-name rule exists to
+  prevent.
+  - **THE CHECK IS THE GENERAL FORM, not a fix for that one string**: every
+    label the room prints -- badge, colour stripes, sort bar, add dialog -- is
+    compared against the live column list, and a word that is not a column
+    fails. That would have caught it the day `family` was dropped.
+
+### THE HASH ON A COLOUR IS PUNCTUATION, NOT A DECISION
+
+`0b162a`, `#1A2B3C` and `##4D5E6F` all store `#0B162A`-shaped values now: every
+leading hash is dropped and exactly one is put back.
+
+- **SIX HEX DIGITS PASTED OUT OF A BRAND GUIDE ARRIVE WITH NO HASH**, and
+  typing one in front of a value that already has one gives two. Both were
+  refused with a sentence about a character rather than the colour being saved.
+- **THE SIX DIGITS ARE STILL NOT FORGIVEN**, which is the half that matters: a
+  value that is not a colour draws NOTHING on a swatch and looks exactly like
+  an empty cell, so it is refused as it always was.
+
+### AND THE PROBE WAS THE BROKEN HALF TWICE MORE
+
+- **`writes[].body` IS ALREADY PARSED.** The interceptor runs `JSON.parse` when
+  it records a request, so parsing it again threw `"[object Object]" is not
+  valid JSON` -- which reads as the page sending something malformed.
+- **THE WRITES ARE RECORDED IN NODE, NOT IN THE PAGE.** A first version reached
+  for a `window.__writes` from inside `page.evaluate`, found nothing, and would
+  have reported every colour refused.
+- **AND BACKTICKS INSIDE A DOUBLE-QUOTED BASH STRING ARE COMMAND SUBSTITUTION.**
+  A comment written as `` `full_name` `` through `python -c "..."` reached the
+  file as *"THE TWO HALVES OF , added"* -- bash ran it, found no such command,
+  and deleted the word. **A new face of the escaping scar**, and the same
+  remedy: a quoted heredoc, or the Write tool.
+
+## THE BADGES GO ON THE PAGE, THREE ACROSS, A HUNDRED AT A TIME (2026-09-01)
+
+The room drew 641 full-width badges in a 72vh scroller. It is a **three-column
+grid of a hundred, on the page**, with a pager under it.
+
+- **THREE ACROSS.** A column of full-width cards made a badge as wide as the
+  room, so a field holding a two-letter state code stretched across 1,300
+  pixels. At a third of the width a badge is about as wide as it is tall, which
+  is what makes a grid of them scannable. **The column count is what narrows,
+  not the card** -- two up at 1100px, one at 760 -- because three at 900px is a
+  280px card, narrower than the colour cube plus one field.
+- **EVERY KNOB MOVED WITH IT, and that is the whole reason there is one of
+  each.** `--aud-card-font-size` went 24pt to **9pt**, the colour cube 220x312
+  to 92x116, the padding and the delete button with them. Leaving any of them
+  would have produced a badge whose contents did not fit it.
+- **A HUNDRED TO A PAGE.** A badge is about 10,900 boxes across the catalogue
+  and the list is rebuilt on **every keystroke in the search box**, so drawing
+  641 was the heaviest thing this room did and it did it again per letter.
+  **IT IS NOT A SILENT CAP** -- the bar says which hundred of how many, every
+  row is two presses away, and a check walks every page and asserts the
+  concatenation is 641 rows, none twice, still in order across the seam. That is
+  the assertion a pager needs and the one a per-page check cannot make.
+  - **CLAMPED, NEVER WRAPPED.** A filter that shortens the list under you can
+    leave the page past the end, and an empty page reads as a filter that
+    matched nothing rather than as a position that no longer exists.
+  - **A FILTER OR A SORT RESETS TO THE TOP**, in one `repaint()` rather than a
+    line at five call sites. Holding the position lands you on whatever happens
+    to be 300th in a completely different list.
+  - **AND A NEW PAGE STARTS AT THE TOP OF THE PAGE**, not at the top of the
+    list. The pager is at the foot of about twelve thousand pixels, so pressing
+    Next left you at the bottom of the hundred you had just left looking at the
+    bottom of the next -- and `scrollIntoView` on the list only brought its
+    first row up, still leaving the room's head and its filters off screen.
+    **THIS IS THE OPPOSITE CALL FROM THE TAPE ROOM**, whose arrows live in a
+    STICKY header: those are on screen wherever you are reading, so moving the
+    page would take you away from what you were looking at. These are not --
+    you had to travel to reach them. Measured from a scrolled position, or the
+    assertion would pass whatever the button did.
+- **THE PANEL NO LONGER SCROLLS INSIDE ITSELF.** It was `max-height: 72vh;
+  overflow: auto` -- a scrollbar inside a scrollbar, where the wheel meant two
+  different things an inch apart and a badge could never be read against the
+  room's own head. **The pager is what makes that affordable**; capping the page
+  is the reason the inner scroller could go rather than a separate tidy-up.
+- **THE MASCOT LEFT THE BADGE AND THE COLUMN STAYED.** `nickname` is
+  load-bearing -- `destinations` is built from it and five functions read it --
+  so only the field went. **What it costs: a mascot cannot be typed in this room
+  and the red-pen cell that marked a club at home without one is gone.** The
+  report survives, which was always what made that fault findable.
+- **A BLANK IS BLANK.** `.fval .none` drew the word `none`, and
+  `.ed:empty::before` drew `no home` / `no mascot` / `nowhere` out of a
+  `data-empty` -- **words in the shape of data**, on a badge whose whole job is
+  showing what the row holds. `emptyOf` went with them. The field keeps its
+  `min-height`, so an empty cell is still a target you can click into.
+- **BLACK VALUES, GREY LABELS, AND NEITHER IS `--ink`.** That token is `#2d4880`,
+  the house blue, which on a card whose left edge and top rule already carry the
+  CLUB'S colour made three blues on one badge. Scoped to `.aud`: the bar, the
+  pager and the dialogs stay the room's ink, and only the badge is the club's.
+### THE NAME IS TWO LABELLED FIELDS (2026-09-01)
+
+**FIRST over its label, LAST over its own.** It was one field holding the whole
+`full_name`, broken at the mascot by two spans inside it, and **the break was
+the only thing saying where one half stopped.**
+
+- **`full_name` IS NOT DRAWN AT ALL.** Its two halves are, and the whole name
+  beside them would be the same words three times on one card.
+- **IT IS STILL THE COLUMN, AND IT IS REWRITTEN FROM THE PAIR ON EVERY EDIT, IN
+  THE SAME PATCH.** It is NOT NULL and it is not on screen, so a save that moved
+  a half and left it alone would put a row on file whose name contradicts its
+  own two halves -- **invisibly, because the badge draws the halves and never
+  the name.** The other half is read off the ROW, never off the screen: the
+  editor runs from one cell and only ever knows what it was given.
+  - **AN EMPTY HALF IS ALLOWED AND IS NOT A BLANK NAME.** `Athletics` has no
+    first at all, so the two are joined and trimmed rather than concatenated. A
+    pair that is empty BOTH ways is refused with a sentence, or the database
+    would answer with a constraint name.
+- **`full_name` STAYS IN `COLUMNS` AND LEAVES `DETAIL_COLS`, AND A BLANK ROOM
+  IS WHAT TAUGHT THE DIFFERENCE.** `HEAD_COLS` looks the SORT keys up in
+  COLUMNS and `HEAD_KEYS[0]` is `full_name`; removing the entry made it
+  `undefined`, the header builder threw, and **the whole room rendered nothing
+  at all**. **COLUMNS is the catalogue; DETAIL_COLS is what the badge draws** --
+  take a field off the badge there, never here.
+- **THE `2.1em` FLOOR CAME DOWN TO ONE LINE.** Two lines was right while the
+  heading was ONE field holding a name that wrapped on some cards and not
+  others; **as two fields the pair is two lines by construction**, and the old
+  floor would have made it four.
+- **A LABEL IS SMALLER THAN ITS VALUE.** It was set at the card's own size, so
+  every field read as two lines of equal weight and the eye had to work out
+  which was the data -- across eleven stacked fields. **0.74em of the card's one
+  size, in `em` rather than a second number**, so it follows
+  `--aud-card-font-size` instead of being kept in step by hand; the colour
+  stripe's caption takes the same, or the colour block would carry the only
+  labels on the badge still at full size. **Asserted as a RATIO of the two**,
+  which is what makes it survive a change to that one size.
+- **AND A VERTICAL RULE BETWEEN `created` AND `updated`.** They are the one pair
+  that shares a line, so where every other field is closed by a rule UNDER its
+  label these two are separated by one BETWEEN them -- otherwise two dates and
+  two labels sit side by side with nothing saying which belongs to which. **On
+  the SECOND of the pair** (`.field--stamp + .field--stamp`), so it falls
+  between them rather than to the left of the first, and matched as an adjacent
+  sibling so the rule is not tied to which stamp comes second.
+
+### WHAT IT REPLACED, AND THE RULE THAT DECIDED THE BREAK
+
+Kept because the reasoning is what any future split would need.
+
+- **THE NAME WAS TWO LINES ON EVERY BADGE, AND IT BROKE BEFORE ITS MASCOT.**
+  `Chicago Bears` wraps at 1.9em and `Alabama` does not, so the heading was one
+  line on some cards and two on others and every field below sat at a different
+  height from the card beside it. **A FLOOR, NEVER A CLAMP** -- `-webkit-line-clamp`
+  would cut the tail, which is exactly the half that tells `Miami (OH) RedHawks`
+  from `Miami Hurricanes`.
+  - **THE BREAK WAS THE MASCOT**, the same rule `tgb_audience_label` uses to
+    derive the label a game prints -- the whole name less the mascot at the end
+    of it. **That rule is what 2026090117 stored as `first` and `last`**, so
+    the two fields drawn today are the same split, made once in a migration
+    rather than recomputed on every render.
+  - **IT WAS THE FIRST WORD FOR AN HOUR AND THAT IS WHY IT IS NOT.** First-word
+    gives `Air / Force Falcons`, which splits an institution's own name; the
+    mascot rule gives `Air Force / Falcons`.
+  - **THE TWO RULES DISAGREE ON EXACTLY ONE SHAPE, AND NEITHER CAN SATISFY
+    BOTH.** A name whose PLACE is two words needs two words before the break;
+    one whose MASCOT is two words needs one. So `Alabama A&M Bulldogs` reads
+    `Alabama A&M / Bulldogs` here -- its `nickname` is `Bulldogs`, so that is
+    where the mascot begins. **The fix for that one row is its own data**, not a
+    third rule for the other 640.
+  - **THE CLASSES ARE `nm-first` / `nm-rest`, naming the two POSITIONS rather
+    than the rule that decided them** -- the split moved from the first word to
+    the mascot inside an hour, and a class named for the rule would now be
+    lying about what it wraps.
+  - **MARKUP IN THAT CELL IS SAFE, checked rather than assumed**: `startEdit`
+    reads `row[field]` off the stored row, never the cell own `textContent`,
+    so the box opens on the whole name however the badge drew it. A check
+    asserts it.
+  - **THE ONE DIVIDER ON THE BADGE IS UNDER THAT LABEL.** The heading is what
+    the card is called and everything below it is what the row holds; the rule
+    marks that boundary, which is why no other label has one. **On the FIELD,
+    never the label** -- `.flabel` is a span in a `column-reverse` flex, so a
+    border on it would stop at nine characters.
+- **`home_city` IS `city`** ([2026090116](mc/supabase/migrations/2026090116_home_city_is_city.sql), applied). The badge draws the real
+  column name as each label, so renaming the field and renaming the column are
+  one act here. `home_` distinguished it from nothing once `home_place_id`
+  became a derived key the badge does not draw.
+  - **`like '%home_city%'` IS THE WRONG TEST AND IT ANSWERED WRONG.** `_` is a
+    single-character wildcard, so it matched the words "home city" inside a
+    sentence in `tgb_pull_walking_tours` and reported a dependency that is not
+    one. **A column name is a literal; search for it with `strpos`.** Nothing in
+    the database reads it: no function, no view, no constraint.
+
+- **AND A FIFTH, IN THE CHECK RATHER THAN THE PAGE.** The two-line assertion
+  compared the mascot's rect TOP against the first word's BOTTOM -- and
+  `line-height: 1.05` is NEGATIVE LEADING, so an inline span overflows its own
+  line box and starts a pixel or two ABOVE the block above it while sitting
+  perfectly on the next line. **It reported 98 of 100 on one line about a page
+  breaking every one of them correctly.** Compare the two TOPS against the line
+  height; never a top against a bottom.
+
+### THE FOUR CSS RULES THAT LOOKED CORRECT AND LOST
+
+Every one of these was a rule sitting in the file reading exactly as intended,
+and only a computed read in a real browser could tell.
+
+| what happened | why |
+|---|---|
+| the two-track grid never existed | `.aud .fields` is (0,2,0) and was **flex column**; it beat the `.fields` grid, so `grid-column` on the stamps was inert and they stacked |
+| the name stayed at the card's size | a second rule for it, same (0,3,0), **written later**, resetting `font-size` |
+| every value stayed house blue | the colour was set on the name's own rule alone, so everything else inherited `--ink` from the body |
+| the colour cube sat **on top of four fields** | an abspos child of a FLEX container is placed against the container's PADDING box; a child of a GRID container is placed against **the grid area it was put in** -- and `.field` gives every field a definite `grid-column: 1 / -1` |
+
+- **THE LAST ONE IS THE ONE TO REMEMBER, because it is a property of the
+  DISPLAY TYPE rather than of anything written.** The cube measured its 12px
+  from inside the 116px of left padding that exists to hold it. Only all-auto
+  placement restores the padding box.
+- **AND THE FIX FOR IT BROKE THE STAMPS.** Writing the span rule as
+  `.field:not(.field--colours)` raises it to (0,2,0) and beats
+  `.field--stamp` (0,1,0) outright. **Both exceptions are (0,2,0) now**, so
+  neither can be undone by moving a block up the sheet.
+
+### `leagueOf` READ THE KEY, AND THE KEY MOVED THIS MORNING
+
+`String(r.id).split('-')[0]` was right while the key was `family-name` --
+`nfl-chicago` gave `nfl`. **[2026090113](mc/supabase/migrations/2026090113_the_key_is_the_full_name.sql) made the key `slug(full_name)`**, so it
+started answering `alabama` for the Crimson Tide and `cornell` for the Big Red.
+
+- **IT WAS SILENT IN BOTH ITS READERS AND LOUD IN NEITHER.** The league picker
+  filled with first words, and the red pen reported **all 380 homeless college
+  clubs as oddities** -- 228px of handwriting climbing over the room's own title
+  -- because `'NCAAF' !== 'ncaaf'` was never even reached: every row answered
+  with its own name.
+- **[2026090108](mc/supabase/migrations/2026090108_the_league_moves_to_the_team_key.sql) MOVED THE LEAGUE TO `team_key` FOR EXACTLY THIS DAY**, and
+  said so. This is the reader that was missed. **When a key changes, grep for
+  everything that splits it.**
+
+## THE GAME BUILDER'S AUDIENCE PICKERS WERE DEAD (2026-09-01)
+
+Found by running a suite that had never been able to run. Both pickers in the
+**paid product's own editor** were empty, and Guess refused with *"Set a target
+and a rival audience first"*.
+
+- **`loadBuilderAudiences` SELECTED SIX COLUMNS THAT WERE DROPPED THIS
+  MORNING**: `name`, `family`, `kind`, and `shell` / `stripe` / `mask` -- the
+  last three being the **`teams` VIEW's** output names, where the table's own
+  are `primary` / `secondary` / `tertiary`.
+- **PostgREST 400s THE WHOLE REQUEST ON ONE UNKNOWN COLUMN**, so the fetch
+  threw, `builderAudiencesList` stayed empty, and nothing in the room said a
+  column had moved. **Proved by calling it**: the old select answers **400**,
+  the new one **200**.
+- **AND THREE MORE READERS OF THE SAME DROPPED COLUMNS**, each failing its own
+  way and none of them loudly:
+
+  | reader | what it did |
+  |---|---|
+  | `audienceForEventSide` | `String(a.family)` was `"undefined"`, so **every league list came back empty** and no event could fill a fandom |
+  | `gameIdCode` | fell through to `a.name`, returning an **empty code**, which `composeGameId` reads as "no fixture" |
+  | the picker's sort | compared undefined with undefined, so **it did nothing at all** |
+
+- **AND `audienceLabel` ASKED THE TEST BACKWARDS.** `sameTown` checked whether
+  the TOWN opens with the NAME -- right while `name` held `Chicago`, since
+  `"chicago, il"` starts with `"chicago,"`. With `full_name` holding `Chicago
+  Bears` it started asking whether `"chicago, il"` opens with `"chicago bears,"`,
+  which is never true, so every pro club gained a town it already says.
+  - **THAT BROKE THE RESOLVER, NOT JUST THE LOOK.** What a person types is
+    matched back against this same label to find the id, so **a label nobody
+    would type is an audience nobody can choose** -- which is why both fields
+    came back *"No audience called NFL Chicago Bears"*.
+
+**AND TWO FIXTURES WERE STALE, WHICH IS ITS OWN LESSON.** `fx-aud.json` still
+had `home_city` and `fx-games.json` still pointed at `mlb-cubs`. **A fixture is
+a photograph of the schema on the day it was taken**, so a suite driven by one
+goes on testing the shape that has gone -- and reports a page fault that is its
+own. Both were refreshed from live before anything was blamed on the page.
+
+### AND THE SUITE THAT COULD NOT REPORT ANY OF IT
+
+[audiences-in-a-real-browser.js](mc/_dev/browser-checks/audiences-in-a-real-browser.js) had **two faults, either of which looked like
+coverage from outside**: every selector in it named the old collapsible table
+(`tbody tr`, `tr.row-head`, `[data-open]`), which was replaced before this
+session; and it required a bare `puppeteer-core`, which cannot resolve here, so
+it could not start to say so. **Fourth file in this repo to need that repoint.**
+
+- **REWRITTEN AGAINST THE BADGE rather than deleted**, which is the opposite
+  call from `audiences-room.js` and for a good reason: that one was a jsdom
+  twin of a suite that already existed, and this is **the only thing measuring
+  geometry in this room** -- on the one day the whole layout changed. 25
+  assertions, and **six of them failed on the first run**, four being real bugs
+  in the page.
+- **IT WRITES A SCREENSHOT**, which is what caught the two-line heading not
+  lining up and what confirmed the invisible fixes were visible.
+
+**AND A COUNT THAT DID NOT MOVE NEARLY READ AS "NO CHANGE".** The Game Builder
+suite reported **20 FAIL before and 20 FAIL after** the picker was repaired --
+different failures entirely, the first set being an empty list and the second
+the labels having changed shape. **Read the failures, never the total.**
+
 ## THE AUDIENCE QUEUE, CUT TO SIXTEEN COLUMNS (2026-09-01)
 
 Fifteen migrations in a day. `public.audiences` went from **32 columns to 16**,
@@ -14449,6 +15078,1074 @@ reference and it is permanent.**
   `adminAuth.init()`, and `admin-shell.css` hides every child of
   `body.mc-auth-protected` until that runs.** The failure at the top of this
   file, met again. **Delete a control and everything that fills it in one pass.**
+
+## THE CITY IS THE CITY. NOTHING LOOKS IT UP. (2026-09-01)
+
+[2026090120](mc/supabase/migrations/2026090120_the_city_is_the_city_no_lookup.sql), **applied**. Asked for as *"sever city lookup, store city
+in audiences table. no links"* -- and **the storing half was already done**:
+2026090119 dropped `home_place_id`, so `audiences.city` has been plain text on
+the row since. **What was left was four readers still joining `public.places`
+to take it apart again.**
+
+- **THAT WAS COSTING 128 CLUBS.** `destinations` goes from **287 to 415**, and
+  every new row is a club that has had a city all along -- it simply named a
+  town the catalogue does not hold, so it fell out of the table a game finds
+  its rival through and could never be one. **415 rows, 415 distinct ids, no
+  collisions**, measured before the file was written.
+- **THE TOWN COMES OFF THE STRING, WHICH WAS MEASURED RATHER THAN ASSUMED**:
+  **0 of 640 cities carry no comma and 0 have an empty state half**, so
+  `split_part(city, ', ', 1)` and `split_part(city, ', ', 2)` resolve
+  everywhere and neither needs a table.
+- **`game_possibilities` LOOKS LIKE A FIFTH READER AND IS NOT.** It joins
+  `places` on `game_templates.place_id`, the TEMPLATE's place, which has
+  nothing to do with an audience. **Reading the line rather than counting the
+  match is what kept it out of a rewrite it does not need** -- the same trap as
+  `games.away_team_key` and `events.away_team_nickname`.
+- **`public.places` IS NOT DROPPED AND IS NOT RETIRED.** `game_templates` keys
+  on it, `waypoints` and `events` resolve through it. **This severs the
+  AUDIENCE's link to it and nothing else.**
+- **WHAT IS GIVEN UP: nothing checks a city at any level now.** It was already
+  true of the value -- the foreign key went with `home_place_id` -- and it is
+  now true of every reader, so **a typo makes its own destination rather than
+  silently making none.** A wrong town is invisible and a missing one is not,
+  which is why the room's red pen and its `Nowhere` filter are what this leans
+  on.
+- **PROVED BY CALLS THAT MADE THE CODE DO ITS JOB**, never by the absence of an
+  error: 415 / 415 distinct, `new-orleans-la-nfl-saints` unchanged, **both
+  Miami Panthers present** (the NHL club and Florida International, told apart
+  by the league in the key), all 7 trivia keys still resolving, 638 teams,
+  `game_possibilities` still 23, the Bears' `game_city` still `Chicago, IL`,
+  and both labels and the rival lookup answering as they did.
+
+### AND THE ROOMS FOLLOWED, INCLUDING ONE THAT WAS ABOUT TO DISAGREE
+
+- **THE GAME BUILDER'S SECOND READ IS GONE.** It fetched `places` for one
+  purpose -- turning `Chicago, IL` into `Chicago` -- and the reason recorded for
+  it was that a lookup beats a second parser. **2026090120 settles that the
+  other way at the database level**, so keeping it would have left this room the
+  one place that could still disagree with the views. **It could not answer for
+  every club either**: 127 audiences carry a town `places` does not hold, so
+  `placeCity` came back EMPTY on all of them and the sentence that wants a place
+  got nothing rather than the town sitting on the row.
+- **THE ROOM'S CITY DATALIST IS ITS OWN CITIES NOW**, built from the same map
+  the filter is: it can only suggest a town some audience claims, and anything
+  may still be typed. Offering a catalogue would have suggested towns nothing
+  uses while leaving the ones in use unlisted.
+- **THE WARNING CHANGED FROM A LOOKUP TO A FORM.** It said a city was stored but
+  not a place we hold; **there is nothing to hold it against.** What is left is
+  a real rule -- `destinations` splits on the comma, so a value with no state
+  half builds a key from a bare town -- and it is a warning rather than a
+  refusal, because the column takes anything and this room is not the place to
+  start refusing what the database accepts.
+- **TWO ROOMS' COMMENTS SAID THEY READ `places` AND HAD STOPPED HOURS EARLIER.**
+  Atlas and the Stop Builder. **A comment describing a read the code no longer
+  makes is worse than none**, which is the same rule this file keeps for a
+  finding naming a trigger that has been renamed.
+- **A CHECK ASSERTS THE ROOM NEVER READS `places`, AND IT READS THE REQUESTS
+  RATHER THAN THE SOURCE.** A grep would match the comment explaining the
+  removal -- the trap this project has been caught by four times. **Run against
+  a room with the read put back it fails**, naming the url.
+
+### AND THE SLICE ATE THE FUNCTION NEXT DOOR
+
+Deleting `placeLabel` took **`aliasText`** with it: the slice ran from its
+declaration to the next blank line, and there was no blank line between them.
+The room then rendered **zero cards** and said `aliasText is not defined`.
+
+- **THE GUARD WAS A LENGTH CEILING AND A LENGTH CEILING IS NOT A BOUNDARY.** It
+  asserted the slice was under 400 characters and contained `state.places`; the
+  two functions together were under 400 and the first one contained it, so both
+  assertions passed over a slice that was twice the size it should have been.
+  **Assert what the slice must NOT contain**, or take exact bounds.
+- **THIS IS THE THIRD TIME A SLICE HERE HAS TAKEN A NEIGHBOUR.** `buildTrackHead`
+  went to a slice keyed on a doc comment; `collectFindings` took the block below
+  it because three comment paragraphs had run together. **A slice keyed on
+  whitespace or a comment is keyed on something another edit can move.**
+- **IT WAS FOUND BY RENDERING THE ROOM**, not by reading the diff -- and the
+  suite's own timeout reported it as *"waiting failed"*, which reads as the
+  harness rather than as a page that threw on load.
+
+### THE GUESS BUTTON NEVER REPAINTED ITSELF (2026-09-01)
+
+Pressing Guess wrote the name and **left the button armed over it**, with a
+tooltip reading `Name it "<the name already in the box>"`.
+
+- **WRITING `.value` RAISES NO `input` EVENT**, so the handler that stands the
+  button down never ran. Guess stands down once a game has a name -- that rule
+  was correct and nothing was asking it again.
+- **`scheduleRender()` WOULD EVENTUALLY REDRAW IT, WHICH IS WORSE THAN NOT
+  REDRAWING IT AT ALL.** A control invalidated by a click and restanded by a
+  later frame is the paint-here-read-there fault this project keeps recording,
+  and it is why the assertion was intermittent rather than simply red. **The
+  thing that changed the name restands the control.**
+- **IT SURFACED WHILE THE SUITE WAS BEING RE-RUN FOR SOMETHING ELSE**, which is
+  the argument for running the whole sweep rather than the suite you touched.
+
+### THE NAME IS ONE FIELD, VALUES OVER LABELS (2026-09-01)
+
+`first` and `last` were two fields stacked, so FIRST's label fell **between the
+two halves of one name**: the badge read `Chicago / FIRST / Bears / LAST` and
+the heading was cut in half by a word. They are one field now -- the two values
+stacked, then the two labels stacked under them.
+
+- **STRUCTURE SETTLED IT, NOT A `:not()`.** The first answer was to exempt
+  `first` from the rule-under-every-label; that removes the LINE and leaves the
+  WORD sitting between the halves. With the two in one field there is no rule
+  between them to exempt, and the block keeps the closing line that separates
+  what the card is CALLED from what the row HOLDS.
+- **BOTH CELLS KEEP THEIR OWN `data-field`**, so the in-place editor reaches
+  each half exactly as before and every selector in both suites still resolves.
+  **This moved labels; it did not merge two columns into one control.**
+- **`first` OPENS THE BLOCK AND `last` CLOSES IT**, which is safe only because
+  `DETAIL_COLS` is ordered by the column list and they are adjacent in it. **A
+  column inserted between them would land inside the name.**
+- **THE LABELS WENT SIDE BY SIDE FIRST AND THEN STACKED.** The values stack, so
+  labels running across read as one line of two words rather than as a label
+  each.
+- **NOTHING ASSERTED THE RULES AT ALL until this**, so removing the RIGHT one
+  and removing the WRONG one both passed. Six assertions now read the computed
+  border and the four boxes' geometry: which fields carry a line, which are
+  exempt and why, that the values stack, that the labels stack under them.
+  **Three existing assertions were correctly broken** -- the field count went
+  ten to nine, and the label probe returned `first/first` because looking each
+  up from its own value now finds the shared block's first label.
+
+### THE EDIT BOX WEARS THE TYPE OF THE TEXT IT REPLACES (2026-09-01)
+
+`font: inherit`, not a size. Clicking the name opened a **9pt box over a 22.8px
+heading**, and clicking a colour opened a **sans box over mono**.
+
+- **THE CELLS ARE NOT ALL ONE SIZE, which is the whole reason a pinned size
+  cannot work**: the name is the badge's heading, the key and the two stamps are
+  mono, a colour stripe is small mono, and everything else is the card's own
+  size. One number matched exactly one of them.
+- **IT IS EXACT BECAUSE THE INPUT IS APPENDED INTO THE CELL.** `startEdit`
+  empties the cell and puts the box inside it, so inheriting takes that cell's
+  own computed family, size and weight whatever they are. **A second list of
+  per-field sizes would be a copy of the first** and would drift the first time
+  either was edited.
+- **IT HAS TO BE `.aud .ed-box`, AND COLLAPSING IT TO ONE CLASS PUT THE FAULT
+  BACK.** The page's own `input[type="text"], input[type="search"], select` rule
+  is **(0,1,1)** -- an attribute selector plus a type selector -- so a bare
+  `.ed-box` at (0,1,0) loses to it **whatever the source order**, and every box
+  came back at that rule's 0.86rem Space Grotesk. The two-class form is (0,2,0)
+  and wins outright. It was written that way for exactly this reason.
+- **AND THE SAME RULE'S `min-height: 34px` MADE THE BADGE JUMP.** It is right
+  for a form and 6px taller than a 28px stripe row, so clicking a colour grew
+  the colourbar from **130px to 143px** and the whole card moved as the editor
+  opened. Pre-existing, and the same click. **Scoped to the stripe**: 34px is a
+  sensible target everywhere else on a card whose fields are small, and dropping
+  it globally would shrink every editor to answer a fault in one cell. 13px
+  became 2px.
+- **ASSERTED PER FIELD AGAINST THE CELL, never against a number.** A number
+  would be that second copy of the sizes; comparing the box with the cell it
+  sits in IS the claim. **Run against the pinned size it fails naming both
+  faults**: `22.8px 800 -> 12px 400` on the name, mono to sans on a stripe, and
+  `13px` of jump.
+
+**AND MY OWN PROBE HELD THE LOCK.** The city-dropdown check clicks a city cell
+and left the editor open; `editing` is ONE flag for the whole room, so
+`startEdit` refused for every probe after it and the font check reported
+`undefined -> undefined`. **That reads as the page having lost its editor rather
+than as a probe holding it.** Third time in this suite. Every probe that opens
+one closes it.
+
+### NO LABELS. AN EMPTY FIELD NAMES ITS OWN COLUMN. (2026-09-01)
+
+A filled field draws its value and nothing else; an empty one draws the column
+name as a placeholder. **`CITY` appears exactly where there is no city.**
+
+- **A WORD UNDER EVERY VALUE ON EVERY CARD IS A COLUMN HEADING REPEATED A
+  HUNDRED TIMES.** Nine fields on a hundred badges is a page of chrome around
+  the data, and the badge's whole job is showing what the row holds.
+- **THE NAME IS DRAWN IN THE ONE PLACE THERE IS NOTHING ELSE TO READ**, which
+  is what makes it worth drawing at all. It is the REAL column name out of
+  `data-empty`, not an invented phrase: **this mechanism drew `no home` /
+  `no mascot` / `nowhere` once and was removed for it** -- words in the shape of
+  data. `CITY` is what an SQL query, a migration and an error message all say.
+- **DRAWN AS A PLACEHOLDER, NOT AS A VALUE** -- muted, italic and smaller -- or
+  a card with several blanks reads as a card full of words rather than as a card
+  with gaps in it.
+- **A COLOUR STRIPE KEEPS THE SAME RULE**, applied to the one block that draws
+  its name INSIDE the value rather than under it: a filled stripe is a colour
+  and its hex, an empty one is the word `TERTIARY`. `.stripe-v:empty +
+  .stripe-k` is an adjacent-sibling match on the value's emptiness, so nothing
+  is branched in the builder and the caption cannot fall out of step with the
+  hex beside it. **The four are still told apart when filled, by their order** --
+  primary through text -- which is the order every reader of those columns uses.
+- **THE RULE UNDER EACH FIELD DOES MORE WORK THAN IT DID.** It closed a
+  value-and-label pair; with the labels gone it is the ONLY thing separating one
+  field from the next.
+- **ELEVEN ASSERTIONS ACROSS THE TWO SUITES WERE CORRECTLY BROKEN** and
+  rewritten rather than worked around -- the field count, the label probes, the
+  geometry of the name block, and **one that inverted outright**: `and not one
+  of them says a word` was the rule that a blank is blank, which is now exactly
+  wrong. What replaced it reads `::before` through `getComputedStyle(el,
+  ':before')`, since pseudo-element content is not in `textContent` and nothing
+  else can see it.
+  - **AND IT ASSERTS THE OTHER HALF TOO**: a FILLED field draws no name.
+    Without that the check would pass on a page that drew the column name in
+    every field, empty or not -- `:empty` is the only thing standing between the
+    placeholder and every card in the room saying CITY.
+
+### THE PAGER IS ONE LIST THAT GROWS AS YOU REACH IT (2026-09-01)
+
+A hundred badges arrive; the next hundred are drawn when the foot of the list
+comes into view. Back and Next are gone.
+
+- **THE GUARANTEE IS THE SAME AND IT IS THE THING TO KEEP.** A top-N and a
+  growing list are indistinguishable on first paint, so **the foot SAYS how many
+  of how many are drawn** and scrolling is what draws the rest. That line is the
+  difference between this and the silent cap this project has deleted before.
+  It is removed once everything is drawn rather than reading `641 of 641`, which
+  is a line that can never change again.
+- **IT APPENDS, IT DOES NOT REPAINT.** `paintTable` rebuilds the list wholesale,
+  which would throw away an open editor and every badge on screen -- and it is
+  the expensive thing this room does. `growList` inserts the next chunk and
+  touches nothing already there. **An editor open at the top survives a grow at
+  the bottom**, asserted.
+- **AN OBSERVER, NOT A SCROLL LISTENER.** A scroll handler runs on every frame
+  and then has to measure. **Disconnected before re-observing**, or a repaint
+  leaves the old observer on a detached node and a second on the new one, so one
+  scroll grows the list twice. `rootMargin: 600px` starts the next hundred
+  before the foot is on screen.
+- **A FILTER RESETS THE LIST AND THE PAGE, AND THE SECOND HALF IS NOT
+  OPTIONAL.** Resetting the count alone is not enough on a list that grows by
+  scrolling: filtered from 12,000px down you are still 12,000px down, the foot
+  is instantly in view, and the observer fills the list back out to reach you.
+  **Measured: a search matching 111 rows drew all 111, and clearing it drew
+  600.** The pager reset to page 0 AND scrolled to the top for the same reason,
+  and the reason outlived the control.
+- **THE SCROLL-TO-TOP IS GUARDED**, so it is a no-op at rest -- which is nearly
+  always, since the search box and the sort toggles are both at the top and you
+  have to be up there to reach them.
+- **NOTHING MOVES THE PAGE WHEN THE LIST GROWS**, which is the opposite of what
+  Next did. That button put you back at the top because a hundred badges is
+  twelve thousand pixels; scrolling has no such moment, and the new rows arrive
+  below the ones you are reading. **Asserted on the scroll position AND on the
+  first badge's own rect** -- appending cannot move it, repainting would.
+- **THE WALK ASSERTION SURVIVED THE CHANGE OF MECHANISM**, which is the point of
+  it: every row reachable, none drawn twice, the order still right across the
+  seam. It presses no button now; it scrolls until the count stops moving.
+  **It settles rather than counting scrolls**, since the observer fires on its
+  own schedule and a fixed number would be a clock -- which this suite has
+  already been caught by once today.
+- **PROVED AGAINST A SILENT CAP**: with `growList` returning early and the foot
+  suppressed, three assertions fail naming `100 of 640`.
+
+### THE TWO STAMPS ARE ONE FIELD, HALF EACH (2026-09-01)
+
+`created` and `updated` took a grid track each. They are one field that splits
+itself `1fr 1fr` with no gap, each date centred in its half.
+
+- **A GRID TRACK IS 50% OF THE ROW LESS HALF THE COLUMN GAP**, so the rule
+  between them -- a border on the second track -- drew **six pixels right of
+  centre**. One field of two equal halves puts it on the middle by construction
+  rather than by a correction somebody has to maintain. **Asserted as
+  `6px off` against the old arrangement**, which is the measurement rather than
+  the declaration.
+- **SAME SHAPE AS THE NAME BLOCK**, and for the same reason: two values that
+  belong together are one field, and what sits between them is the block's
+  business rather than the grid's.
+- **AND IT TOOK THE GRID'S ONLY EXCEPTION WITH IT.** `.field` spanned both
+  tracks and `.field--stamp` was the one thing that did not, which is where a
+  real specificity fault lived: both were (0,1,0), settled by source order, and
+  a `:not()` on the span rule raised it to (0,2,0) and beat the exception
+  outright -- **which is how the stamps quietly stopped pairing once already.**
+  Every field spans now and there is nothing left to lose that fight.
+- **A LOCKED CELL NAMES ITS COLUMN ON HOVER**, `CREATED -- ...`, and with the
+  labels gone that is the only thing that can say which column it is. **The
+  stamps are why**: two dates side by side and nothing on screen telling them
+  apart. **The reason still follows the name** -- a locked field has to say why
+  it ignores a click, or it is indistinguishable from one that is broken.
+
+### THE BODY GREW AND THE TITLE HELD (2026-09-01)
+
+`--aud-card-font-size` 9pt to 11pt, and the name stayed at 22.8px.
+
+- **TWO NAMED SIZES, NOT A MULTIPLIER.** The title was `1.9em` of the body,
+  which is exactly what would have grown the heading by a fifth along with it.
+  `--aud-title-size` is its own property now, so moving one does not drag the
+  other along behind it.
+- **17.1pt IS AN ODD NUMBER BECAUSE IT IS A MEASUREMENT**, not a choice: it is
+  where the name already was, held while the body went up 2pt.
+- **AND THE SIZE ASSERTION HAD TO STOP BEING A RATIO.** `name > body * 1.6` was
+  a fair proxy while the title literally was `1.9em` of the body; with two
+  independent properties it measures nothing about the design and went red on a
+  page that is correct. It compares the name against **every other size on the
+  badge** now, plus a floor, which is the claim itself.
+
+### `No city`, NOT `Nowhere` (2026-09-01)
+
+The city filter's second option. It is the second choice of a picker whose first
+reads `Any city` and whose rest are city names, so it wants to be a statement
+about the same column -- `Nowhere` read as a place.
+
+### `fandom` IS `sports` (2026-09-01)
+
+[2026090122](mc/supabase/migrations/2026090122_fandom_becomes_sports.sql), **applied**. The type value, not the concept: **a fandom is the
+FOLLOWING rather than the kind of thing followed**, and an artist has one too.
+639 rows, and every downstream count unchanged -- destinations 492, teams 638,
+possibilities 23, the rival still resolving.
+
+- **NINE OBJECTS MATCH THE WORD AND ONLY FOUR MEAN THIS VALUE.**
+  `games.fandom_game` and `waypoints.partner_fandom` are different columns, so a
+  sweep that counted matches rather than reading them would have rewritten five
+  objects with nothing to do with `audiences.type`. **Third time in two days**
+  that reading the line rather than counting the match has saved a rewrite.
+- **THE ORDER IS NOT NEGOTIABLE: widen, move, narrow.** The CHECK has to admit
+  both words before the rows pass through it and only the new one after.
+- **THE WORD SURVIVES EVERYWHERE IT MEANS THE CONCEPT.** The Game Builder's prose
+  about a travelling fandom is untouched; only the value moved.
+
+### `type` IS FREE TEXT, AND MAY BE UNSET (2026-09-01)
+
+[2026090121](mc/supabase/migrations/2026090121_type_may_be_unset.sql) dropped the NOT NULL and [2026090123](mc/supabase/migrations/2026090123_type_is_free_text.sql) dropped the CHECK.
+
+- **`history` WHERE THE LIST SAID `historical` CAME BACK AS A REFUSAL ABOUT A
+  WORD** rather than a saved value -- and a fifth kind needed a migration AND an
+  edit in the room. The column takes anything now, or nothing.
+- **`KINDS` SURVIVES AND IS ONLY A PALETTE.** It says which four the room draws
+  in their own colour; a fifth renders in the `bad` chip, **which is the one
+  thing on screen that says a value is unrecognised.**
+- **LOWERCASED ON THE WAY IN.** Three views filter on `type = 'sports'`, so
+  `Sports` would drop a club out of all three in silence.
+- **WHAT IT COSTS IS THE TRADE `waypoints.city` ALREADY MAKES**: a typo drops the
+  row out of `destinations`, `teams` and `game_possibilities` and nothing says
+  so. Both statements to put the constraints back are at the foot of their
+  migrations.
+
+### A TYPE FILTER, TO THE RIGHT OF CITY (2026-09-01)
+
+- **BUILT FROM THE ROWS, NEVER FROM `KINDS`.** The column is free text, so a list
+  of the four the room colours would miss a fifth somebody typed and offer
+  choices with nothing behind them.
+- **`No type` IS ITS OWN OPTION AND ITS OWN SENTINEL**, exactly as `No city` is:
+  blank already means any, so a third meaning on that value would make UNTYPED
+  and UNFILTERED indistinguishable -- **and untyped is the state every MANUAL row
+  arrives in**, so leaving it unreachable would put the room's newest rows behind
+  a filter that could not select them.
+- **COUNTED OVER THE WHOLE TABLE**, and Clear clears it.
+
+### `team_sort` WAS DROPPED AND THREE READERS 400d IN SILENCE (2026-09-01)
+
+Reported as the builder's audiences not pulling. **It was worse than one room.**
+2026090119 split `team_key` into `league` and `code` and dropped the sort
+columns, and three readers still ordered by `team_sort` -- **PostgREST answers
+400 on the WHOLE request for one unknown column**, so each of them got nothing:
+
+| reader | what it cost |
+|---|---|
+| **`mc/assets/team-palette.js`** | `loadTeams()` REJECTED for every caller |
+| `mc/games/index.html` | the Game Builder's club list |
+| `mc/builder/index.html` | the Flow Builder's club list |
+
+- **THE FIRST ONE IS THE PAID PRODUCT.** Both engines, the landing page and the
+  public gift shop all resolve a club through `TgbTeamPalette.loadTeams`, so a
+  fandom game lost its palette at play time. **The LEGACY fallback repeated the
+  same order**, so there was no path that worked -- it changed the select list
+  and not the thing that was failing.
+- **THE VIEW HAD ALSO LOST `first_name` AND `fanbase`**, which both mappings
+  read, so a repaired order alone would have produced rows the callers' own
+  `fanbase && mascot` filter discarded. **Two faults, and the second is the
+  quiet one.**
+- **BOTH BUILDERS READ `public.audiences` DIRECTLY NOW**, mirroring the view's
+  own rule (`type = 'sports'` and a league) rather than guessing it, computing
+  the sport, the uppercase league and the team key from the same columns so the
+  two cannot disagree about a club. **They page**, because this table went from
+  111 rows to 640 in a day.
+- **`fanbase` FALLS BACK TO THE NAME'S FIRST HALF.** It was `city, ST` for a pro
+  club and the school for a college one, and **196 college rows still carry no
+  city** -- so without the fallback every one of them is dropped by the caller's
+  own filter.
+- **`/mc/data/teams.json` IS GONE FROM THE FLOW BUILDER**, with
+  `loadBuilderTeamsFromJson` and `mergeBuilderTeams`. **That file does not exist
+  and did not before this was written**, so the fetch threw on every load,
+  warned, and contributed nothing but noise. Two stale comments describing the
+  merge went with it.
+
+**AND A SECOND STALE READ IN THE GAME BUILDER, which is the one that was
+reported.** `loadBuilderAudiences` selected
+`id,name,family,nickname,kind,shell,stripe,mask,home_place_id,team_key` and
+**not one of those columns exists any more** -- so both audience pickers opened
+empty and every typed name came back *"No audience called ..."*. It reads the
+real columns and maps them once, so no caller has to know the names moved.
+
+- **`audienceForEventSide` COMPARED `family`, which is `sports` on every club**
+  since 2026090122, against the event's `NFL` -- so it matched nothing and **no
+  event could fill a fandom.** It compares `league`.
+- **`audienceLabel` ASKED ITS OWN TEST BACKWARDS.** `sameTown` checked whether
+  the TOWN opens with the NAME, right while `name` held `Chicago`; with
+  `full_name` holding `Chicago Bears` it started asking whether "chicago, il"
+  opens with "chicago bears," -- never true, so every pro club gained a town it
+  already says. **That broke the RESOLVER, not just the look**: what somebody
+  types is matched back against this same label, so a label nobody would type is
+  an audience nobody can choose.
+
+**[builder-audiences.js](mc/_dev/browser-checks/builder-audiences.js), 21 assertions AGAINST THE LIVE DATABASE**, because the
+claim is about what PostgREST accepts and a stub would be testing the stub. Only
+the admin gate is faked. **Run against the previous state it fails 13 ways**,
+starting with the 400 itself.
+
+- **NEITHER ROOM DRAWS A TEAM DROPDOWN, and the check says so rather than
+  asserting one.** The Game Builder's pickers were deleted on 2026-08-31; the
+  Flow Builder still loops over two ids and **neither is in its markup** -- the
+  same consts-with-no-markup state this file already records for its
+  `fandomGameToggle`. **When that markup comes back the assertion fails**, which
+  is the prompt to cover the control rather than the list behind it.
+- **`builderTeamsList` IS A BARE IDENTIFIER, NEVER `window.builderTeamsList`.**
+  It is `let` at the top level of a classic script, which does **not** create a
+  window property -- so the first cut reported an empty list on a page that had
+  loaded 638 rows.
+- **AND TWELVE CLUBS ARE CALLED THE BEARS.** Matching on the mascot found Baylor
+  and reported its colour as wrong for a row that is perfectly correct. Match on
+  the key.
+
+#### AND I OVERWROTE `mc/games/index.html` WITH THE FLOW BUILDER
+
+Backing both files up with `cp "$f" "/tmp/$(basename $f).new"` -- and
+**`basename` is `index.html` for both**, so the second clobbered the first and
+the restore copied one file over both.
+
+- **RECOVERED FROM HEAD**, which had the day's earlier work; what was lost was
+  the two edits made after it, both re-applied. **Verified before trusting it**:
+  `paintGuessButton` present, no `places` read, `map_id` present, the guide bar
+  there.
+- **A BACKUP PATH BUILT FROM `basename` IS NOT A BACKUP** when the files are
+  `<room>/index.html`, which is every room in this repo.
+
+### A TOOLTIP IS `COLUMN | Click to edit.`, AND TAB REACHES THE FIELDS (2026-09-01)
+
+**Every editable cell was a `div`, so none of them was in the tab order.** Tab
+skipped the whole card and landed on the next one -- and the first thing it
+found there was **Delete**, the most destructive control on the badge, because
+that button was the card's FIRST child.
+
+- **`tabindex="0"` ON EVERY EDITABLE CELL.** A field disguised as text is still
+  a field.
+- **DELETE IS THE LAST CHILD OF THE ARTICLE NOW.** It is absolutely positioned,
+  so **moving it in the DOM changes nothing on screen and everything about the
+  keyboard**: it is the last stop on a card, then Tab leaves for the next one.
+- **FOCUS OPENS THE FIELD**, which is what makes Tab behave like a form rather
+  than like a list of divs -- it lands you IN the field ready to type. `focusin`,
+  because focus does not bubble and a delegated handler never sees it.
+  **Passing through writes nothing**: a commit only fires when the value
+  actually changed.
+- **THERE IS NO SEPARATE "Enter opens it", and it was written and then
+  removed.** Blur fires before focusin, so `editing` is always null by the time
+  a cell receives focus -- a cell focused-but-closed cannot happen, and the
+  handler was unreachable. **One path that turns a cell into an editor beats two
+  that have to agree about when.**
+- **TAB FROM AN OPEN EDITOR IS HANDLED, NOT LEFT TO THE BROWSER.** `restoreCell`
+  replaces the node the browser would measure from, so the landing spot was not
+  reliably the next field. `stepField` reads the cell order off the document
+  **fresh every time** -- a list taken before the commit holds detached nodes,
+  which is the fault that made clicking from one field to the next dead.
+- **THE RING IS `:focus-visible`, NOT `:focus`**, or every mouse click would
+  draw one on the cell it just opened. Without it the caret is nowhere and the
+  page looks inert while the keyboard is working.
+
+**PROVED BY WALKING IT WITH REAL KEY PRESSES.** A dispatched `KeyboardEvent`
+moves focus nowhere at all, so a check written that way would pass on a page
+where Tab does nothing. **Run against the previous state it fails five ways**,
+and the walk reads exactly like the report: `DELETE -> DELETE -> DELETE`, card
+after card, with every field skipped.
+
+### THE NEW ROW IS HELD AT THE TOP (2026-09-01)
+
+`?new=<id>`. MANUAL writes a `_NAME` placeholder and reloads; **that name sorts
+to the top only while it is still called that**, so the moment you type a real
+one the row sorts away mid-edit -- and with a filter on it can leave the list
+altogether.
+
+- **IN THE URL, so it survives the reload MANUAL performs** and so it is
+  visible: the address says which row is held.
+- **IT FOLLOWS A RENAME, AND THAT IS THE WHOLE DIFFICULTY.** Editing a name
+  re-slugs the key, so without this **the first keystroke releases the hold** --
+  exactly the moment the pin is for. `repointPin` is called from `patchRow`,
+  which is the ONE place an id actually moves, so every renaming path is covered
+  without any of them remembering to.
+- **IT IS IN THE LIST WHETHER OR NOT IT MATCHES.** Held only by the sort it
+  would still vanish behind a filter, and the row is a blank placeholder so it
+  matches almost none of them. **Pinning it and then letting a filter hide it
+  would be the worst of both.**
+- **TAKEN OUT AND PUT BACK, never sorted to the front by a comparator.** A
+  comparator that always returns -1 for one row is not a valid ordering and a
+  browser may sort with it in a way that scrambles everything else.
+- **CLEAR IS THE RELEASE**, which is what makes it escapable -- the one control
+  on that bar that means "put the room back" -- and it says so when it lets go.
+- **A HELD CARD SAYS SO**, with a ring and a tooltip naming the way out.
+  Otherwise the pin is invisible state: the row refuses to sort and nothing on
+  screen explains why. **An outline, not a border** -- a border would change the
+  card's box and make a held card measurably a different size from its
+  neighbours.
+- **A PIN NAMING A ROW THAT IS NOT THERE IS DROPPED**, the same rule the two
+  pickers keep.
+
+### AUDIENCE ALIASES MAY CARRY CAPITALS (2026-09-01)
+
+[2026090124](mc/supabase/migrations/2026090124_aliases_may_carry_capitals.sql), **applied**. `audiences_aliases_lower` refused any value with
+one, so `Roll Tide` came back as a refusal about a CHARACTER -- and the room
+lowercased on the way in, which **silently rewrote what somebody typed**.
+
+- **WHAT IT COSTS, AND IT IS A REAL RULE NOW: the column no longer guarantees
+  case, so anything matching an alias must lowercase BOTH sides.** Storing them
+  lowercase was what let a lookup skip a function around the column.
+- **NOTHING MATCHES ON THEM TODAY, checked rather than assumed**: no function
+  names the column, and the only view that does is `destinations`, which passes
+  it straight through.
+- **`audiences_aliases_not_blank` STAYS.** An empty member is a value no lookup
+  can match and no reader can interpret, which is a different thing from a
+  capital letter.
+
+### NORTH CAROLINA WESLEYAN, AND THE 211 ROWS BEHIND IT (2026-09-01)
+
+[north-carolina-wesleyan-colours.sql](mc/supabase/seeds/north-carolina-wesleyan-colours.sql), applied. Navy `#12284B` and gold
+`#C5A253`.
+
+- **IT CARRIED THE PLACEHOLDER, not wrong colours** -- `#000000 / #FFFFFF /
+  #FFFFFF`, **which 211 of the 638 club rows still carry.** So this is one row
+  out of a gap rather than a correction, and the other 210 are the same job.
+- **THE COLOURS ARE FROM RECOLLECTION, NOT A CHECKED SOURCE**, and the seed says
+  so plainly: this project's own rule is that a plausible wrong value looks
+  exactly like a right one. **Do not read that file as evidence the palette was
+  verified.**
+- **MEASURED, which is the half that is not recollection**: the derived ink
+  clears 14.68 on the primary and the gold and the white are separated in
+  LIGHTNESS as well as hue -- the cassette fault is two colours a greyscale
+  reader cannot tell apart.
+
+### AND A CHECK THAT PASSED TWO RUNS IN THREE
+
+`Guess stands down once the game is named` read the button in the statement
+after a click, and the room repaints on its own schedule. **A check that passes
+only sometimes is worth nothing**: the next person re-runs it, sees green and
+deletes the report. It waits on the condition now -- four consecutive clean runs.
+
+### THE FILTERS LIVE IN THE URL (2026-09-01)
+
+`?q=bears&city=Chicago%2C+IL&type=sports`. A reload keeps them, and a narrowed
+room can be sent to somebody.
+
+- **`replaceState`, NEVER `pushState`.** The search box writes on every
+  keystroke, so pushing would stack one history entry per letter and **the back
+  button would walk backwards through a word rather than leaving the room**. The
+  same call the Socializer's `#edit=` made, and a check types seven characters
+  and asserts `history.length` does not move.
+- **THE SENTINELS GO IN AS THEY ARE.** `__nowhere__` and `__untyped__` are what
+  `state` holds, so writing them raw means ONE representation of a filter rather
+  than a translation layer that can drift -- and neither can collide with a real
+  city or a real type.
+- **AN EMPTY FILTER WRITES NO PARAMETER AT ALL**, so an unfiltered room has a
+  clean address rather than `?q=&city=&type=`, and Clear empties it -- or the
+  room would come back filtered after being cleared.
+- **READ BEFORE `buildPickers`, AND WRITTEN BACK AFTER IT.** That function
+  already drops a stored value the rows do not carry, so **a link naming a city
+  that has since been filled in lands on the whole list rather than an empty
+  one** with no extra code -- and the write-back stops the address claiming a
+  filter that is not in effect.
+
+**AND IT WOULD HAVE BROKEN THE MANUAL BUTTON, SILENTLY.** That control writes a
+`_NAME` placeholder and reloads, and **`_NAME` matches almost no filter** -- so
+pressing it in a filtered room would have written the row, reloaded into the
+filter, and landed you on a list it is not in. **A control that appears to do
+nothing is the worst outcome available here**, and before the filters were in the
+URL a reload cleared them for free. It navigates to the bare path now.
+
+**PROVED BY RELOADING, which is the whole claim.** Reading the address after a
+change proves only that something was written; only coming back to it proves the
+room reads it. **The list itself is asserted, not just the controls** -- a room
+that restored the boxes and drew every row would be the worst of both. Run with
+the feature disabled it fails seven ways, ending in `100 vs 1`.
+
+- **AND `drawn()` COULD NOT BE REUSED FOR THE FILTERED RELOAD.** It waits for
+  EXACTLY one page of cards, which is right for an unfiltered room and
+  impossible after a filtered load -- so the first run timed out and **read as
+  the room failing to render.** Fourth time this session the harness has reported
+  a page fault that was its own.
+
+### TAYLOR SWIFT GETS FOUR COLOURS (2026-09-01)
+
+[taylor-swift-colours.sql](mc/supabase/seeds/taylor-swift-colours.sql), applied. All four were NULL. Midnight navy
+`#1C1B3A`, pale lavender `#D8CBE8`, antique gold `#A8823C`, and `#FFFFFF`.
+
+- **AN EDITORIAL CHOICE, NOT AN OFFICIAL BRAND PALETTE, and it says so in the
+  seed.** There is no single published palette to copy: hers is era-specific and
+  changes. **It is one UPDATE and four click-to-edit cells in the Audience Queue**
+  if somebody wants different ones.
+- **THE FIRST PAIRING PUT THE LAVENDER AND THE GOLD AT THE SAME LIGHTNESS --
+  1.01 -- which is the cassette fault exactly**: two colours told apart by HUE
+  alone, identical in greyscale, in print, and to a viewer who cannot separate
+  those hues. Measured before anything was written, and separated to **2.30**.
+  The derived ink clears **16.57** on the primary.
+- **`text` IS `#FFFFFF` BECAUSE ALL 639 OTHER ROWS ARE**, and it is read by
+  nothing: `team-palette.js` derives readable ink from `primary` by luminance on
+  purpose, because a brand's own text colour can be white on its own white
+  ground.
+- **`primary` IS A RESERVED WORD** and must be double-quoted in hand-written SQL.
+- **PROVED BY RENDERING THE CARD**, not by the absence of an error: four filled
+  stripes, each hex readable against its own fill, the badge's left edge in the
+  midnight, and **0 empty colour cells**.
+
+### AND THE REFRESHED FIXTURE FOUND A CHECK THAT HAD ROTTED
+
+Refreshing `fx-aud.json` turned `game-builder-target-audience` red on an
+assertion that had been passing for days: it read
+`gameIdCode('jfk-assassination', '')`, and **2026090113 re-slugged that row to
+`john-f-kennedy`**. So the check had been passing on a stale copy of the table
+and went red the moment the copy caught up -- **reading as a page fault when the
+page was right.**
+
+- **A LITERAL ID IN A CHECK IS A COPY OF THE TABLE THAT ROTS.** It finds a
+  keyless row IN THE FIXTURE now and asserts the SHAPE -- three letters of the
+  audience's own name, visibly a guess rather than a club code, which is the
+  point of the fallback.
+- **AND THE FIRST FILTER FOR "keyless" MATCHED EVERY ROW.** It tested
+  `!r.team_key`, and **that column was split into `league` and `code` and dropped
+  by 2026090119** -- so it picked a club with a perfectly good code and reported
+  `cmb` as a failure of a fallback it had never reached. **Third time this
+  session a check has named a column that is gone.**
+
+### A TOOLTIP IS `COLUMN | Click to edit.` AND NOTHING ELSE (2026-09-01)
+
+Every cell on a badge: the column name, then whether you can type in it.
+
+- **IT WAS AN ESSAY ON THREE CELLS AND ABSENT ON THE REST**, which is the wrong
+  way round twice over. The long ones explained the SCHEMA -- *"generated always
+  as (family || slug(name)) until 2026090106 dropped the expression"* -- to
+  somebody who wanted to change a value; and **the editable cells, the hundred
+  you actually click, carried no tooltip at all.**
+- **WHAT A HOVER IS FOR HERE IS NAMING THE COLUMN.** The labels are gone and only
+  an EMPTY field draws its name as a placeholder, so on a filled field the hover
+  is **the only thing that can say which column it is.**
+- **THE REAL COLUMN NAME, uppercased, never the friendly one** -- the same word
+  the empty-field placeholder draws, so the two cannot disagree about what a
+  field is called.
+- **A LOCKED CELL SAYS `Not editable.` RATHER THAN `Click to edit.`**, which
+  would be a lie about the two stamps. **That much of the old rule stays**: a
+  field that silently ignores a click is indistinguishable from one that is
+  broken.
+- **ONE HELPER, `tip(k, editable)`, FOR ALL FOUR CELL KINDS** -- the body cells,
+  the four colour stripes and the key on the foot. Four hand-written `title`
+  strings is how three of them end up saying different things.
+
+**AND THE PROMPT BUTTON'S OWN TOOLTIP STILL SAID `Not written yet`**, hours
+after the prompt was built. **A tooltip describing a control that no longer
+behaves that way is the page lying about itself** -- the same fault as the key's
+sentence naming a dropped column, one control over.
+
+**ONE ASSERTION WAS CORRECTLY BROKEN AND HALF OF IT SURVIVES.** It required the
+key's hover to EXPLAIN that nothing generates the id, which was the essay; what
+it may never do is **CLAIM the id is generated or derived**, which is what it did
+for months. The check is that half now, and it still fails on the sentence it was
+written for.
+
+**EIGHT ASSERTIONS, and the ones that matter are the general form**: every
+editable field, every stripe and the key all match `COLUMN | Click to edit.`;
+neither stamp claims a click does anything; **no cell is left without a tooltip**
+(a value nobody can identify); and **none is over 40 characters**, or the essays
+come back one cell at a time.
+
+### THE PROMPT FILLS IN THE MISSING CITIES (2026-09-01)
+
+The PROMPT button was a stub. It builds a prompt naming **the schools that are
+actually blank**, and asks for one `update` block back.
+
+- **BUILT FROM THE ROWS, so it cannot ask about a row that is already filled in
+  and cannot miss one.** A list written into the page would be stale the first
+  time somebody filled one in by hand.
+- **THE THREE CLAUSES THE CATALOGUE'S ACCURACY RESTS ON**, each paid for by a row
+  this project has already got wrong or come within one row of getting wrong:
+  **leave a row out rather than guess** (a wrong town resolves silently and looks
+  exactly like a right answer); **a name that does not identify one school**
+  (Bluefield, Monmouth); and **a school named after something that is not its
+  town** (Austin College is in Sherman, Concord University is in Athens).
+- **THE GUARD IN THE SQL IS NOT OPTIONAL**, and the prompt says so: the
+  blanks-only `where` is what stops the block overwriting a town somebody has
+  already checked.
+- **IT ASKS FOR THE NAMES IT LEFT OUT, AND WHY.** That list is the useful half
+  for the next person.
+- **THE SHEET IS EDITABLE AND THE COPY READS THE BOX**, not the generated text --
+  a prompt is often run against part of the job, and copying what was built would
+  throw an edit away silently.
+- **`(1) SCHOOLS` READS BADLY**, so one blank says `THE ONE SCHOOL`.
+
+#### AND IT NOW COVERS EVERY BLANK, NOT ONLY THE COLLEGES (2026-09-01)
+
+It listed every blank row and then keyed the UPDATE on `a.first` with
+`a.league = 'NCAAF'` beside it. **So four rows were named in the prompt and
+silently skipped by the query it handed back** -- the worst shape this could
+take, because the AI answers about a row and the SQL quietly does not move it.
+
+- **KEYED ON `id`, NOT ON THE NAME, AND THAT WAS MEASURED.** 129 blank rows and
+  **128 distinct `first` values**, so two of them share a name: keyed on the
+  name that pair sets both rows or the wrong one. **The id is the primary key,
+  it is on every row, and it does not move when somebody edits a name** --
+  whereas the room re-slugs the id from the name, so the key is the stable half
+  of the two.
+- **THE LEAGUE FILTER IS GONE ENTIRELY.** The three non-college blanks are the
+  MANUAL placeholders and the two real ones, `taylor-swift` and
+  `john-f-kennedy`; a filter that excluded them was excluding exactly the rows
+  nothing else will ever fill in.
+- **THE PROSE FOLLOWED THE QUERY.** It said *"They are American college football
+  programmes"* and *"MATCH ON THE NAME EXACTLY"*; it says **mostly** colleges
+  now, tells the AI the first column is a key rather than a name, and adds a
+  leave-it-out case for a row that is not an institution at all. **A prompt whose
+  preamble contradicts its own SQL template is a prompt that gets one of the two
+  wrong.**
+- **PROVED BY RUNNING THE NEW ASSERTIONS AGAINST THE OLD PROMPT**, where they
+  fail five ways ending in `missing: taylor-swift, john-f-kennedy` -- the exact
+  rows the old query dropped. An assertion that has never failed on the bug it
+  is for is one nobody should trust.
+
+##### AND THE OLD `named` ASSERTION COULD NOT FAIL
+
+It read `is('and names the blank schools', prompt.named >= 0, prompt.named)`.
+**A count is never negative**, so that is the `|| true` shape this file keeps
+warning about, written into a check by the person who wrote the warning. It
+compares the listed count against the **room's own blanks** now, and asserts the
+non-college ids are among them.
+
+- **THE EXPECTED COUNT COMES FROM NODE, NOT FROM THE DOM.** Counting `.aud`
+  cards counts only the hundred DRAWN -- the first cut reported `132 listed of 1
+  blank` and read as a page fault. **The list is paged; the suite's own copy of
+  the table is not.**
+- **AND THE SET CHECK IS SNAPSHOTTED BEFORE ANY PROBE RUNS.** The stub PUSHES a
+  POSTed row into `audiences`, the suite presses MANUAL twice and then renames
+  what it created -- **so by the end of the run Node holds two rows under ids the
+  page has since re-slugged**, and the check reported `-name-last` missing from
+  a prompt that correctly listed it as `zed-last`. Third time this session the
+  harness has reported a page fault that was its own.
+- **THE LISTED LINES ARE THE ONES AFTER THE HEADER.** Filtering the whole text
+  for an indented line containing " = " also matched the SQL's own
+  `btrim(a.city) = ''`.
+
+### AND FOUR HARNESS FAULTS IN ONE SITTING, ALL READING AS PAGE FAULTS
+
+Worth recording together, because each one reported the room as broken.
+
+- **THE STUB'S PATCH REPLY INVENTED `id: 'x'`.** It answered
+  `Object.assign({ id: 'x', ... }, sentBody)`, so a PATCH that did not itself
+  carry an id came back claiming the row's key was `x` -- and `patchRow` assigns
+  the reply onto the row, **so every row the suite edited became `x` in the
+  page's memory.** A real server answers with the row it updated.
+- **THE TWO MANUAL PRESSES HAD TO BE ADJACENT.** Every probe edits
+  `document.querySelector('.aud')` -- the FIRST card -- which is the placeholder
+  MANUAL just wrote, because `_NAME` sorts to the top. A second press later in
+  the suite was reading a row another probe had renamed.
+- **THE WALK BROKE ON ONE QUIET SAMPLE.** The observer fires on its own
+  schedule, so two consecutive reads can match while a chunk is still on its way
+  -- it ended at 300 of 641 and **reported the list as capped, which is the one
+  thing that walk exists to disprove.** Three quiet samples now.
+- **AND THE RELOAD NEEDED TWO WAITS, NOT A SLEEP.** `drawn()` is satisfied by the
+  OLD document, and `authorize()` calls a hook the page only sets when its own
+  script runs -- so the press had to wait for the navigation, then for
+  `__authorize`, then for the room's own row count to reach what the stub is
+  serving.
+
+### MANUAL WRITES A PLACEHOLDER ROW AND RELOADS. NO DIALOG. (2026-09-01)
+
+Pressing MANUAL inserts `_NAME` / `_LAST` and reloads the page.
+
+- **THE DIALOG WAS A SECOND WAY TO DO ONE THING.** It collected a name, a type
+  and a city and then handed you the same four fields to edit on the badge --
+  and every one of them is editable in place, checked rather than assumed.
+- **THE UNDERSCORE IS DOING REAL WORK.** The list sorts by name, so a new row
+  lands at the TOP where you can see it rather than in the middle of 640.
+- **IT NUMBERS ITSELF, AND ONLY THE FIRST HALF.** `id` is `slug(full_name)` and
+  nothing generates it, so two presses would compose the same key and the second
+  would be refused by the primary key. Numbering both gave `_NAME 2 _LAST 2`,
+  which reads as two counters for one row.
+- **`first`, `last` AND `full_name` ALL THREE.** The badge draws the HALVES and
+  `full_name` is NOT NULL; writing one without the others is the fault the
+  dialog shipped.
+- **AND IT PICKS NO TYPE.** It wrote `fandom`, which unlike `_NAME` **looks
+  exactly like an answer** -- so a row five seconds old claimed a type nobody had
+  chosen. [2026090121](mc/supabase/migrations/2026090121_type_may_be_unset.sql) dropped the NOT NULL, so the column is simply
+  unset and the badge draws `TYPE` in the empty cell.
+  - **WHAT A NULL TYPE COSTS IS EXACTLY WHAT IT SHOULD.** `destinations`, the
+    `teams` view and the room's own filters all test `type = 'fandom'`, and a
+    NULL fails that -- so an untyped row is absent from them until somebody
+    types it. **The CHECK is unchanged and still refuses a fifth value**, since
+    a CHECK passes on NULL by construction: this relaxes WHETHER a type is
+    given, not WHICH.
+- **A FULL RELOAD, as asked.** It costs a re-read and cannot disagree with what
+  was written, and the new row is at the top so no scroll position is worth
+  keeping.
+
+**AND THE RELOAD IS WHY THE PRESS CANNOT BE MADE FROM INSIDE
+`page.evaluate`.** It destroys the execution context, so the call never returns
+and the run dies with `Execution context was destroyed` -- **which reads as the
+page crashing rather than as a control doing what it says.** Click from Node and
+watch the navigation from Node. Two probes in the real-browser suite were
+pressing MANUAL to read the dialog's labels and had to stop.
+
+### THE KEY IS EDITED LIKE EVERY OTHER FIELD (2026-09-01)
+
+The foot carried a tooltip and nothing else -- the one value on the badge you
+could read and not change -- and the room's answer to a wrong key was SQL.
+
+- **IT IS SAFE BECAUSE OF THE CASCADE, and that is the whole argument.**
+  2026090113 gave all three incoming foreign keys `ON UPDATE CASCADE`, so
+  `game_templates` and both `games` columns follow in one statement. A
+  hand-written remap could miss a row and leave a game pointing at nothing; a
+  cascade cannot.
+- **AND THE KEY FOLLOWS THE NAME, LIVE.** Editing `first` or `last` recomposes
+  `full_name` and re-slugs the key in the same patch. **This reverses a
+  deliberate refusal** -- the room would not rename from a cell edit -- and the
+  cascade is what changed.
+  - **THE FILTER IS THE OLD KEY AND THE BODY IS THE NEW ONE**, which is the half
+    that is easy to get backwards: `patchRow` addresses the row by `row.id`, so
+    a patch that had already moved it in memory would address a row that does
+    not exist and answer 200 with an empty array.
+  - **A TAKEN KEY IS REFUSED HERE**, so the answer is a sentence rather than a
+    23505 -- and the row keeps the name it had rather than half-moving.
+  - **A NAME THAT SLUGS TO NOTHING KEEPS THE OLD KEY.** `id` is NOT NULL and a
+    name may legitimately be all punctuation; the name moves and the key stays.
+- **THE `ID: ` PREFIX IS GONE, and it had to be.** It was drawn as a `::before`
+  so the editor would not open holding it -- **and that is the same mechanism
+  the empty-field placeholder uses**, so the foot was a filled field drawing a
+  `::before` on all 641 and the check that keeps every other field bare could
+  not tell the two apart. It was also the last label on the badge.
+
+### `type` IS VALIDATED IN THE ROOM (2026-09-01)
+
+Four values and nothing else. `audiences_type` is a CHECK, so a typo was refused
+with a bare `23514` naming a constraint -- a statement about our schema rather
+than something the person typing can act on. It reads as a sentence naming the
+four now, is **lowercased on the way in** because the CHECK is case-sensitive and
+`Fandom` is a spelling nobody expects to be refused, and **may be cleared**,
+since an untyped row is a real state.
+
+### THE SORT HEADER IS GONE (2026-09-01)
+
+Three toggles -- name, type, city -- over the list. The list is **one order:
+name, A to Z**, which is the order this room has opened on since it was built.
+
+- **WHAT IS LOST, PLAINLY: nothing orders by type or by city any more.** Both
+  are still searchable and the city has its own filter, so what is gone is
+  reading the catalogue in those orders rather than reaching a row through them.
+- **THE KEY IS A CONSTANT AND IS STILL CHECKED ON LOAD.** A sort key that names
+  no column orders the list by `undefined` -- every row equal, so the order
+  becomes whatever PostgREST happened to return, silently.
+- **EIGHT ASSERTIONS WENT WITH THE CONTROL and the ones that mattered stayed.**
+  How many toggles were on and which is gone; the ORDER itself is still walked
+  over the whole list, and the blank-sinks rule moved to the name, which is the
+  column the list is ordered on now.
+- **AND THE PROBE WAS READING A COLUMN THAT IS NOT DRAWN.** `names()` read
+  `[data-field="full_name"]`, which the badge does not draw -- it draws the two
+  halves -- so it returned an empty string on every row and reported the whole
+  catalogue as nameless. It joins the halves now, exactly as the row spells it.
+
+### AND THE SLICE TOOK THE NAV WITH IT (2026-09-01)
+
+Reported as *"where did the mc page nav go?"*. Cutting the add dialog used an
+end marker that ended in `<script`, so **the slice took the opening tag of the
+nav script** and `admin-site-nav.js` was never loaded.
+
+- **THE GUARD ASSERTED WHAT THE SLICE MUST CONTAIN AND WHAT IT MUST NOT**, and
+  the must-not list named the wrong things -- `tableHost`, `cityPick` -- so it
+  passed over a slice that ended one tag too late. **A slice's end marker is
+  part of the slice.**
+- **FOURTH TIME A SLICE HERE HAS TAKEN A NEIGHBOUR.** `buildTrackHead`,
+  `collectFindings`, `aliasText`, and now the nav. **A count of open and close
+  script tags catches this one in a second** and is worth running after any cut
+  that spans markup.
+
+### A PLACEHOLDER ROW IS NOT A FINDING (2026-09-01)
+
+Reported as *"1 fandom has no home place"*, with the note that cross-table links
+were not the concern.
+
+- **IT WAS REPORTING THE ROW YOU HAD JUST MADE.** MANUAL writes a row with no
+  city, so the red pen accused it before there was a chance to type in it -- and
+  accused it of being an ODDITY, which is the one thing a row five seconds old
+  cannot be. Placeholder rows are exempt; the finding returns the moment the
+  name is filled in.
+- **AND IT NAMED A COLUMN THAT DOES NOT EXIST.** `home place` is
+  `home_place_id`, dropped by 2026090119. **A finding naming a dropped column is
+  the page lying about the row it is on** -- the same fault the key's own tooltip
+  had. The column is `city`.
+
+### A MANUALLY ADDED ROW HAD A NAME ITS OWN BADGE COULD NOT DRAW (2026-09-01)
+
+Reported as a new badge showing `FIRST` where its name should be. **That was the
+placeholder, and it was telling the truth**: the add dialog collected
+`full_name` alone and wrote no `first` and no `last`, and the badge draws the
+HALVES rather than the whole name. So a manual entry came out with two
+placeholders in its heading and the name it really had was invisible.
+
+- **THE HALVES CANNOT BE SPLIT AFTERWARDS, which is why the dialog has to ask.**
+  2026090117 split all 640 by the MASCOT, off `nickname`, and that column is
+  gone. **A last-word rule gives `Boston Red` / `Sox` and a first-word rule
+  gives `Air` / `Force Falcons`** -- the two rules disagree on exactly the shape
+  a new name is most likely to be, and **the only thing that knows where a name
+  breaks is the person typing it.**
+- **`full_name` IS COMPOSED FROM THE TWO**, which is what the badge's own editor
+  already does: editing either half rewrites the whole name in the same patch.
+  Three paths, one rule. The key is slugged from the composed name, so the
+  preview still shows what the row will be keyed by before it is permanent.
+- **EITHER HALF WILL DO, NEITHER WILL NOT.** `Athletics` is a real row with no
+  first half at all, so a missing half is joined and trimmed rather than
+  concatenated; both empty is refused with a sentence rather than a 23502.
+- **AN EMPTY HALF IS SENT AS NULL, NOT `''`.** The badge's placeholder reads
+  `:empty`, so an empty string would draw a blank box where a name should be.
+- **NO ROW IS IN THAT STATE TODAY**, checked rather than assumed: 0 audiences
+  carry a name and neither half. The fault was reachable and had not been used.
+
+**AND REMOVING THE OLD BOX NEARLY BLANKED THE ROOM.** `el('addFullName')
+.addEventListener('input', ...)` outlived the element it named -- `el()` is
+`getElementById`, so it returns null, throws, and **takes the rest of the wiring
+block with it including `adminAuth.init()`**, and the shell hides every child of
+`body.mc-auth-protected` until that runs. **The standing id-check is what caught
+it**, which is the check at the top of this file earning its place again.
+
+**AND THE SUITE PASSED OVER THE BUG FOR AS LONG AS IT EXISTED.** Its add probe
+typed a name, read the key preview and asserted the dialog opened -- **all true
+of a dialog writing a row with no name on its card.** What was missing is the
+assertion that matters: what actually LEFT the page. It reads the POST body now,
+and run against the old dialog it fails printing the shipping payload verbatim,
+`full_name` present and both halves absent.
+
+
+### TEN MORE COLLEGE TOWNS (2026-09-01)
+
+[ten-more-college-towns.sql](mc/supabase/seeds/ten-more-college-towns.sql), applied. NCAAF rows with a city **308 to
+318**, blanks 206 to 196, and `destinations` **432 to 442 -- all distinct**.
+
+- **SEVEN OF THE TEN ARE SCHOOLS NAMED FOR THEIR OWN TOWN**, which is the safest
+  class there is: Adrian, Ashland, Beloit, Bemidji State, Bloomsburg, Chadron
+  State and Clarion. The other three are campuses whose town is a matter of
+  record rather than recall -- Golden, Greencastle and Granville.
+- **THE SAME RULE AS THE FIRST 154 AND FOR THE SAME REASON.** A wrong city here
+  is not cosmetic: `tgb_slug(city)` is how `destinations` is keyed and how
+  `tgb_anti_audience` finds a game's rival, so a plausible mistake resolves
+  silently and looks exactly like a right answer. **A blank is visible; a wrong
+  town is not.**
+- **EVERY ONE REACHES `destinations` NOW**, which it would not have before
+  2026090120 severed the `places` join -- none of these ten towns is in that
+  catalogue. Checked per row rather than inferred from the total.
+- **196 ARE STILL BLANK**, and that is the honest state rather than a backlog
+  nobody has looked at. They are the long tail of Division II and III programmes
+  whose town would be a guess, and the job for the room's own prompt, which is
+  still a stub.
+
+
+### TWENTY-FIVE MORE, C TO E (2026-09-01)
+
+[twentyfive-college-towns-c-to-e.sql](mc/supabase/seeds/twentyfive-college-towns-c-to-e.sql), applied. Capital down to Eastern New
+Mexico. NCAAF with a city **343 to 368**, blanks 171 to 146, `destinations`
+**467 to 492, all distinct**.
+
+**FIVE IN THE RUN WERE SKIPPED, EACH FOR ITS OWN REASON**, and two are worth
+keeping:
+
+- **CONCORD.** Concord University is in **ATHENS, West Virginia** -- a school
+  whose name is a town it is not in, with Concords in North Carolina and New
+  Hampshire to be wrong about. **The exact shape of the `Austin` trap** from the
+  batch before, met from the other direction.
+- **DES MOINES.** `first` is the TOWN and the code is `GRANDVIEW`, so the row is
+  Grand View University and its own name half is already a city. **That is a
+  data question rather than a lookup**, and filling `city` would paper over it.
+
+The other three -- Bluefield, Crown, Cumberlands -- are the same rule as before:
+a name that does not identify one school, or a town I would be recalling rather
+than knowing.
+
+### TWENTY-FIVE MORE, ALPHABETICALLY (2026-09-01)
+
+[twentyfive-college-towns-a-to-c.sql](mc/supabase/seeds/twentyfive-college-towns-a-to-c.sql), applied. The blanks in `first` order,
+Adams State down to Campbellsville. NCAAF with a city **318 to 343**, blanks 196
+to 171, `destinations` **442 to 467, all distinct**.
+
+- **ONE IN THE RUN WAS SKIPPED AND IT IS WORTH NAMING: `BLUEFIELD`.** There are
+  two schools of that name in two states -- Bluefield University in Bluefield,
+  Virginia and Bluefield State in Bluefield, West Virginia -- and the mascot on
+  the row does not cleanly settle which. **A name that does not identify one
+  school is exactly the case the first seed left out**, the same reasoning that
+  left `Monmouth` alone. So the twenty-five run one row further down the alphabet
+  rather than the run being one short.
+- **THE TRAP IN THIS BATCH IS `Austin`.** **Austin College is in SHERMAN,
+  Texas**, not in Austin -- a school named for a PERSON sitting among a dozen
+  named for their towns. Filling it from the name is precisely the plausible
+  mistake this whole rule exists to stop, and it would have looked right.
+- **`Bridgewater` WAS SETTLED BY ITS MASCOT.** Bridgewater College (Virginia)
+  are the Eagles and Bridgewater State (Massachusetts) are the Bears; the row
+  says Eagles. **That is the same evidence that could not settle Bluefield**,
+  which is why one was filled and the other was not.
+- **24 OF THE 25 TOWNS ARE NOT IN `public.places`**, checked per row -- only
+  Minneapolis, Kansas City and Vancouver are. So before 2026090120 severed that
+  join every one of them would have been stored and still invisible to the table
+  a game finds its rival through.
+- **`Vancouver, BC` IS THE ONE NON-US ROW.** The form is `City, ST` and a
+  Canadian province happens to be two letters, so it keys the same way -- the
+  same coincidence this file already records for Toronto and the eight Canadian
+  NHL clubs. **A country whose subdivisions are longer needs a column, not a
+  workaround.**
+
+
+### THE COLOURED EDGE AND THE KEY'S BLACK BAR WERE STACKED (2026-09-01)
+
+The badge's left edge is a 5px inset shadow in the audience's own primary. The
+key's foot is a full-width child with a black background, so **it painted over
+the stripe** and the column of colour narrowed to a SINGLE PIXEL across the
+bottom 28px of every card -- that pixel being the card's 1px border rather than
+the stripe.
+
+- **AN EDGE THAT IS 6px FOR MOST OF A CARD AND 1px AT THE FOOT READS AS A STRIPE
+  THAT HAS BEEN CUT**, which is what was reported.
+- **THE FOOT IS INSET BY THE STRIPE'S OWN WIDTH**, so the two are adjacent
+  rather than stacked: the colour runs unbroken from the top of the badge to its
+  bottom corner and the black bar sits inside it.
+- **AN INSET SHADOW PAINTS UNDER A CHILD'S BACKGROUND**, which is the whole
+  mechanism and is worth knowing before drawing another full-bleed element on
+  this card. **A child cannot cover the BORDER either way** -- `overflow:
+  hidden` clips it at the padding edge -- so the 1px frame is beside the foot on
+  all three sides and always was.
+- **PROVED BY SAMPLING THE PIXELS, with a vivid primary rather than the Bears'
+  near-black `#0B162A`** -- which is why it was hard to see and easy to ship.
+  Above the foot the row read six red pixels; across the foot it read one red
+  then black.
+- **ASSERTED AS GEOMETRY, NEVER AS A DECLARATION**: where the foot STARTS
+  relative to the card, which is 6px -- the 1px border plus the 5px stripe. A
+  `margin-left` reads as correct whatever it resolves to. **Run without it the
+  check fails with `1px from the card edge`.**
+- **ONE OLDER ASSERTION WAS CORRECTLY BROKEN.** The foot was `last thing on the
+  card, FULL WIDTH`; it is inset on the left now, and full width is the thing
+  that caused this.
+
+### THE CITY FIELD IS TYPED. THE CITY FILTER IS STILL A PICKER. (2026-09-01)
+
+Reported as *"WHY IS city still a dropdown"*, and there were two and only one
+was wrong.
+
+- **THE FIELD CARRIED A DATALIST** -- `public.places` until 2026090120 severed
+  that read, then the table's own cities after it. **A dropdown on a field
+  nothing resolves claims a constraint the column does not have**: it takes any
+  string, and a list beside it invites the reading that a town not on the list
+  is refused. Gone, with the datalist and its builder.
+- **THE FILTER AT THE TOP IS A `<select>` AND MUST STAY ONE.** It narrows what
+  is on screen to cities the table HAS, so it cannot offer a choice with nothing
+  behind it -- a different question from what to STORE. **The check asserts both
+  halves**, or deleting the wrong control would have passed.
+- **PROVED BY PUTTING THE DROPDOWN BACK**, where two assertions fail naming the
+  list.
+
+### AND A CHECK THAT PASSED FOUR RUNS IN FIVE (2026-09-01)
+
+The colour probe waited a flat **160ms** for its PATCH and then read what had
+arrived. On a busy machine it had not, so three assertions went red about a page
+that was perfectly correct, reporting `(nothing sent)`.
+
+- **WAIT ON THE WRITE, NEVER ON A CLOCK**, which is the rule this same suite
+  states two hundred lines further up about waiting for the room to render.
+- **AND THE SILENT PATH WENT WITH IT.** `if (!box) return;` -- `editing` is ONE
+  flag for the whole room, so an editor left open anywhere makes `startEdit`
+  refuse, and a quiet return reported the same `(nothing sent)` for a completely
+  different reason. It says `(no editor opened)` now, which are two different
+  faults with two different fixes.
+- **A CHECK THAT PASSES ONLY SOMETIMES IS WORTH NOTHING**, and it is worse than
+  a red one: the next person re-runs it, sees green, and deletes the report.
 
 ## ONE WORD IS ONE TAG, AND `public.tags` ALREADY EXISTED (2026-09-01)
 

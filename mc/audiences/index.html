@@ -93,50 +93,83 @@
     }
     /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
        so the bars stay on screen over a hundred rows. */
-    .panel-body { max-height: 72vh; overflow: auto; }
+    /* THE BADGES ARE ON THE PAGE, NOT IN A WINDOW ON IT. This was
+       `max-height: 72vh; overflow: auto`, which put a scrollbar inside a
+       scrollbar: the room scrolled, and then a box a little shorter than the
+       screen scrolled inside it, so a badge could never be read against the
+       room's own head and the wheel meant different things an inch apart.
+         THE PAGER IS WHAT MAKES IT AFFORDABLE. A hundred badges is a long page
+       and 641 was an unusable one; capping the page is the reason the inner
+       scroller can go rather than a separate tidy-up. */
+    .panel-body { overflow: visible; }
 
     /* ONE COLUMN TEMPLATE, DECLARED ONCE ON THE LIST, and the header and every
        badge inherit it. It was three copies of one string in the Tape Room and
        they drifted; here the header would silently stop sitting over the values
        it names, which is the one place a disagreement is invisible in a diff. */
-    .aud-list, .aud-head { --aud-cols: 30px minmax(0, 1fr) 110px minmax(0, 220px) 92px; }
 
-    /* THE HEADER WORD IS A BUTTON, so it wears the header's own type rather
-       than the browser's: a control that reads as a different KIND of thing
-       from the row of labels it sits in is worse than no control. */
-    .th-sort {
-      font: inherit; letter-spacing: inherit; text-transform: inherit;
-      color: inherit; background: none; border: 0; padding: 0;
-      cursor: pointer; white-space: nowrap;
-    }
-    .th-sort:hover { color: var(--ink); }
-    /* PRESSED IS THE ROOM'S INK, and an underline as well as a colour: a
-       header is small muted mono, and a shade of blue alone is not a state
-       anybody can find along a row of five. */
-    .th-sort.is-on {
-      color: var(--ink);
-      text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px;
-    }
-    .th-sort:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-    /* THE HEADER IS DETACHED and STICKY: the list scrolls inside its own panel,
-       and column names that scroll away are column names that are not there.
-       It is the only thing naming the three cells on a badge. */
-    .aud-head {
-      position: sticky; top: 0; z-index: 2;
-      display: grid; grid-template-columns: var(--aud-cols);
-      align-items: center; gap: 10px;
-      padding: 6px 14px; margin-bottom: 8px;
-      background: var(--cut-panel-bg); border-bottom: 1px solid var(--line);
-      font: 600 0.62rem/1.2 'IBM Plex Mono', monospace;
-      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
-    }
 
     /* DETACHED BADGES, NOT A TABLE. A grid gave a name, a pill and a delete
        button the same weight; a card gives each of them its own. */
-    .aud-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 14px; }
+    /* THREE ACROSS. A column of full-width badges made the card as wide as the
+       room, so a field holding a two-letter state code stretched across 1,300
+       pixels -- and 641 of them was a page nobody could see the shape of. At a
+       third of the width a badge is about as wide as it is tall, which is what
+       makes a grid of them scannable.
+         EVERY KNOB BELOW MOVES WITH IT. The type, the colour cube and the
+       padding were all sized for a full-width card, so leaving any of them
+       would have produced a badge whose contents did not fit it. */
+    .aud-list {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px; padding: 4px 12px 14px; align-items: start;
+    }
+    /* A HELD CARD. The pin is otherwise invisible state -- the row refuses to
+       sort and nothing on screen says why -- so it takes a ring.
+         AN OUTLINE, NOT A BORDER: a border would change the card's box and move
+       every field inside it by a pixel, so a held card would be measurably a
+       different size from its neighbours. */
+    /* A DISGUISED FIELD IS STILL A FIELD. Every editable cell is a `div`, so
+       it was not in the tab order at all -- Tab skipped the entire card and
+       landed on the next one. `tabindex="0"` puts them in it, and the ring is
+       what says which one you are on: without it the caret is nowhere and the
+       page looks inert while the keyboard is working.
+         `:focus-visible`, NOT `:focus`, or every mouse click would draw a ring
+       on the cell it opened. */
+    .aud .ed:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-radius: 3px;
+    }
+    .aud.is-pinned {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .aud {
-      --aud-card-font-size: 24pt;
+      /* THE VALUES ARE BLACK AND THE LABELS ARE GREY, and neither is the
+         room's own ink: `--ink` is #2d4880, the house blue, which on a card
+         whose left edge and top rule already carry the CLUB'S colour made three
+         blues on one badge. Black is the one ground colour that never argues
+         with a club's palette, and a real neutral grey demotes the labels
+         without tinting them.
+           SCOPED TO `.aud`. The bar and the dialogs are the room
+         speaking and keep the room's ink; only the badge is the club's. */
+      --aud-text: #000000;
+      --aud-label: #6b7280;
+      /* 9pt. It was 24pt on a full-width card, which is a headline rather
+         than a field, and at a third of the width it would not have fitted at
+         all. Every child of a badge inherits this one value -- the labels, the
+         values, the hex codes and the X -- so the card scales from one place
+         rather than from a dozen declarations that could drift apart. */
+      /* THE BODY OF THE BADGE. Everything but the name takes this, and the
+         name takes `--aud-title-size` -- two named sizes rather than the title
+         being a multiplier of the body, so growing one does not drag the other
+         along behind it. It was `1.9em` of this, which is exactly what made
+         `9pt -> 11pt` grow the heading by a fifth as well. */
+      --aud-card-font-size: 11pt;
+      /* 22.8px, WHICH IS WHERE THE NAME ALREADY WAS. An odd number because it
+         is a measurement rather than a choice: the body went up 2pt and the
+         heading stayed where it was. */
+      --aud-title-size: 17.1pt;
       position: relative;
       font-size: var(--aud-card-font-size);
       line-height: 1.12;
@@ -176,16 +209,23 @@
        the badge mark, and the data column can flow top-to-bottom beside it
        without the first row inheriting the cube's height. */
     .aud .fields {
-      --colour-size: 220px;
-      --colour-height: 312px;
-      --colour-gap: 28px;
-      --fields-left: 22px;
-      --fields-right: 78px;
-      --fields-top: 20px;
-      --fields-bottom: 20px;
+      --colour-size: 92px;
+      --colour-height: 116px;
+      --stripe-row: 28px;
+      --colour-gap: 12px;
+      --fields-left: 12px;
+      --fields-right: 34px;
+      --fields-top: 12px;
+      --fields-bottom: 12px;
       position: relative;
-      display: flex; flex-direction: column; align-items: stretch;
-      gap: 12px;
+      /* GRID, NOT FLEX COLUMN. This rule is (0,2,0) and beat the `.fields`
+         grid below it, so the two tracks never existed and `grid-column` on
+         the stamps did nothing -- they stacked like everything else and the
+         pairing silently failed. ONE OF THESE TWO RULES DECIDES THE LAYOUT and
+         it is this one. */
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      gap: 6px 12px;
       min-height: calc(var(--fields-top) + var(--colour-height) + var(--fields-bottom));
       padding:
         var(--fields-top)
@@ -193,15 +233,71 @@
         var(--fields-bottom)
         calc(var(--fields-left) + var(--colour-size) + var(--colour-gap));
     }
+    /* `grid-area: auto` IS LOAD-BEARING, AND IT IS THE GRID'S OWN RULE.
+       An absolutely positioned child of a FLEX container is placed against the
+       container's PADDING box; a child of a GRID container is placed against
+       THE GRID AREA IT WAS PLACED INTO -- and `.field` gives every field
+       `grid-column: 1 / -1`, which is a definite placement. So the moment
+       `.aud .fields` became a grid the cube started measuring its 12px from
+       inside the 116px left padding that exists to hold it, and sat on top of
+       the first four fields. Only all-auto placement restores the padding box. */
     .field--colours {
       position: absolute;
+      grid-area: auto;
       inset: var(--fields-top) auto auto var(--fields-left);
       width: var(--colour-size);
       align-self: start;
     }
+    /* THE KEY, AS THE BADGE'S FOOT. Black ground, white text, centred, and
+       the full width of the card: it is the row's permanent name rather than
+       one of its facts, and it is what a migration, an error message and a
+       foreign key all say. Reversing it out is what stops it reading as a
+       twelfth field.
+         `border-radius` ON THE BOTTOM TWO CORNERS ONLY, so it meets the card's
+       own rounding instead of squaring it off -- `.aud` carries
+       `overflow: hidden`, which would clip it anyway, but a shape that agrees
+       with its container does not depend on the clip.
+         IT IS NOT EDITABLE and carries no `.ed`: the key is generated from the
+       name when a row is added and never written again, and three tables
+       reference it. */
+    .aud-id {
+      margin-top: 8px;
+      padding: 7px 10px;
+      background: var(--aud-text, #000);
+      color: #fff;
+      text-align: center;
+      font: 700 0.74em/1.2 'IBM Plex Mono', monospace;
+      letter-spacing: 0.06em;
+      word-break: break-all;
+      border-radius: 0 0 7px 7px;
+      /* NO `ID: ` PREFIX. It was drawn as a `::before` so the editor would not
+         open holding it -- and **that is the same mechanism the empty-field
+         placeholder uses**, so the foot was a filled field drawing a `::before`
+         on all 641 and the check that keeps every other field bare could not
+         tell the two apart.
+           IT IS ALSO THE LAST LABEL ON THE BADGE. Every other field shows its
+         column name only where it is EMPTY; the key now does the same, and the
+         reversed-out bar is what says which value it is. */
+      cursor: pointer;
+      /* IT STARTS WHERE THE COLOURED EDGE ENDS. The badge's left edge is a 5px
+         inset shadow in the audience's own primary, and the foot is a
+         full-width child with a background -- so the black painted OVER the
+         stripe and the column of colour NARROWED to a single pixel across the
+         bottom 28px of the card, that pixel being the border rather than the
+         stripe. An edge that is 6px for most of a card and 1px at the foot
+         reads as a stripe that has been cut rather than as a stripe.
+           INSET BY THE STRIPE'S OWN WIDTH, so the two are adjacent rather than
+         stacked: the colour runs unbroken from the top of the badge to its
+         bottom corner and the black bar sits inside it.
+           MEASURED, NOT EYEBALLED. With a vivid primary the pixels at the foot
+         read `1 red then black`; they read 6 red now, the same as every row
+         above. */
+      margin-left: 5px;
+    }
+
     .aud-delete {
-      position: absolute; top: 10px; right: 12px; z-index: 3;
-      width: 44px; height: 44px; padding: 0;
+      position: absolute; top: 8px; right: 8px; z-index: 3;
+      width: 22px; height: 22px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center;
       border: 1px solid rgba(194, 55, 55, 0.42); border-radius: 6px;
       background: rgba(255, 255, 255, 0.92); color: var(--bic-red);
@@ -223,7 +319,7 @@
        one object, and at a quarter of the width they stop competing with the
        fields beside them. */
     .colourbar {
-      display: grid; grid-template-rows: repeat(4, minmax(72px, auto));
+      display: grid; grid-template-rows: repeat(4, minmax(var(--stripe-row, 72px), auto));
       width: var(--colour-size); min-height: var(--colour-height);
       border: 1px solid var(--control-line); border-radius: 8px; overflow: hidden;
       box-shadow: 0 6px 18px rgba(var(--bic-blue-rgb), 0.08);
@@ -240,18 +336,38 @@
     }
     /* THE HEX IS THE DATA, the name is its caption, so it follows the same
        value-over-label order the rest of the badge uses. */
-    .colourbar .stripe { flex-direction: column; gap: 2px; padding: 0 6px; }
-    .stripe-k { opacity: 0.72; letter-spacing: 0.06em; }
+    /* A LITTLE ROOM INSIDE THE BLOCK. The hex and its caption sat hard against
+       the edge of their stripe, which on four stacked fills reads as text
+       clipped by the box rather than set in it. */
+    .colourbar .stripe { flex-direction: column; gap: 2px; padding: 5px 8px; }
+    /* A STRIPE'S CAPTION IS ITS PLACEHOLDER, drawn ONLY when the stripe has no
+       colour -- the same rule the nine fields above it keep, applied to the one
+       block that draws its name inside the value rather than under it. A filled
+       stripe is a colour and its hex; an empty one is the word `TERTIARY`,
+       which is the only thing that could say what the blank slot is for.
+         THE FOUR ARE STILL TOLD APART WHEN FILLED, and by the thing that
+       actually distinguishes them: their order, primary through text, which is
+       the order every reader of these columns uses.
+         `.stripe-v:empty + .stripe-k` IS AN ADJACENT-SIBLING MATCH on the
+       value's emptiness, so nothing has to be branched in the builder and the
+       caption cannot fall out of step with the hex beside it. */
+    .stripe-k { display: none;
+                font-size: 0.74em; opacity: 0.72; letter-spacing: 0.06em;
+                text-transform: uppercase; font-style: italic; }
+    .stripe-v:empty + .stripe-k { display: block; }
     .stripe-v { font-variant-numeric: tabular-nums; }
     /* STACKED, so the rule between them is horizontal. */
     .colourbar .stripe + .stripe { border-top: 1px solid var(--control-line); }
     .colourbar .stripe:hover { outline: 2px solid var(--ink); outline-offset: -2px; }
 
+    /* THE COLUMN COUNT IS WHAT NARROWS, NOT THE CARD. Three badges at 900px
+       is a 280px card, which is narrower than the colour cube plus one field --
+       so the grid drops a column rather than squeezing all three. */
     @media (max-width: 1100px) {
-      .aud .fields { --colour-size: 210px; --colour-height: 304px; }
+      .aud-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 820px) {
-      .aud .fields { --colour-size: 200px; --colour-height: 304px; --colour-gap: 18px; }
+    @media (max-width: 760px) {
+      .aud-list { grid-template-columns: minmax(0, 1fr); }
     }
     @media (max-width: 560px) {
       .aud .fields {
@@ -270,7 +386,7 @@
           var(--fields-left);
       }
       .field--colours { position: static; inset: auto; width: 100%; }
-      .aud-delete { top: 9px; right: 9px; width: 42px; height: 42px; }
+      .aud-delete { top: 8px; right: 8px; width: 26px; height: 26px; }
       .colourbar .stripe { padding: 0 4px; }
     }
     /* THE TABLE FITS ITS PANEL AGAIN, because a closed row is seven cells. It
@@ -285,11 +401,18 @@
       font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
       color: var(--muted); white-space: nowrap;
     }
-    .col-text, .col-place { white-space: nowrap; }
+    .col-text { white-space: nowrap; }
     .aud .col-key,
     .aud .col-text,
-    .aud .col-place,
     .aud .col-aliases { white-space: normal; }
+    /* THE KEY, THE STAMPS AND THE ALIASES ARE VALUES, and they were drawn in
+       the muted blue -- which is a LABEL'S colour, so on the badge they read as
+       captions for the fields above them rather than as the data.
+         WHAT IT COSTS: `.fval.is-locked` was muted too, and that was the only
+       thing on screen saying the key and the two stamps cannot be typed. The
+       `help` cursor and the title survive; the colour does not. */
+    .aud .col-key, .aud .col-stamp, .aud .col-aliases,
+    .aud .fval.is-locked { color: var(--aud-text, var(--ink)); }
     .col-aliases { font-size: 0.76rem; color: var(--muted); min-width: 12ch; }
     .aud .col-aliases { font-size: var(--aud-card-font-size); min-width: 0; }
     /* FIGURES LINE UP IN A COLUMN, which is the only reason to right-align them
@@ -358,30 +481,143 @@
        `position: relative` PUTS THE CONTAINING BLOCK BACK INSIDE THE BUTTON, so
        the spans are clipped like everything else. It changes nothing visually
        and nothing about what a screen reader is told. */
+    /* THE FOOT OF THE LIST. It says how many of how many are drawn and it is
+       the element the observer watches, so the thing being watched is the thing
+       that says why -- and it is REMOVED once everything is drawn rather than
+       reading `641 of 641`, which is a line that can never change again.
+         IT REPLACED THE PAGER, whose Back and Next buttons and their whole
+       stylesheet went in the same pass. Quiet, because it is a progress note
+       rather than a control: there is nothing here to press. */
+    .more {
+      margin: 0; padding: 12px 12px 20px; text-align: center;
+      font: 600 0.72rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
     .sr-host { position: relative; }
     /* `.row-head` AND `.row-detail` WENT WITH THE COLLAPSE. There is no face
        and no panel, so a cursor saying the card is pressable would be a lie --
        the only things you can press on a badge are a field or the X. */
 
+    /* ONE COLUMN INSIDE A THIRD-WIDTH BADGE. `minmax(210px, 1fr)` was right
+       beside a full-width card and would fit exactly one track here anyway;
+       naming it stops the count changing with the viewport, which would make
+       the three badges on a row disagree about their own layout. */
+    /* TWO TRACKS, AND ALMOST EVERY FIELD SPANS BOTH. A badge at a third of the
+       width holds one column of values -- a full name or a description cut in
+       half is unreadable -- so the second track exists for the ONE pair that is
+       naturally two short things: the stamps.
+         `created` AND `updated` ARE ONE FACT SEEN TWICE, ten characters each,
+       and stacked they took two rows of the card to say what fits on one. */
     .fields {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 10px 18px; padding: 14px 18px 18px;
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px; padding: 14px 18px 18px;
     }
+    /* EVERY FIELD SPANS BOTH TRACKS. The stamps were the exception -- one
+       track each -- and are one field that splits itself now, so the grid has
+       no exception left and the specificity fight that came with it is gone:
+       `.field` and `.field--stamp` were both (0,1,0), settled by whichever was
+       written later, and a `:not()` on the span rule raised it to (0,2,0) and
+       beat the exception outright, which is how the stamps quietly stopped
+       pairing once already. */
+    .field { grid-column: 1 / -1; }
+    /* THE CUBE MUST HAVE NO DEFINITE PLACEMENT AT ALL. An absolutely positioned
+       child of a GRID container is placed against the grid AREA it was put in;
+       one with all-auto placement is placed against the container's PADDING
+       box, which is where the 116px of left padding that holds the cube lives.
+       With `1 / -1` it measured its 12px from inside that padding and sat on
+       top of the first four fields. */
+    .fields .field--colours { grid-column: auto; grid-row: auto; }
+    /* THE STAMP BLOCK SPANS THE CARD and splits itself, rather than taking two
+       of the grid's tracks. `1fr 1fr` with no gap is what makes each date half
+       the row exactly, and what puts the rule between them on the centre line. */
+    .aud .field--stamps {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    }
+    .aud .field--stamps .stamp { min-width: 0; }
+    /* CENTRED IN ITS OWN HALF. A date is a fixed-width value in a fixed-width
+       cell, so left-aligned it sat against the rule on one side and left a gap
+       on the other. */
+    .aud .field--stamps .fval { text-align: center; }
     /* `.fgroup` WENT WITH THE HEADINGS. A control and its stylesheet go in one
        pass -- a rule for markup that is no longer emitted is the dead CSS this
        repo sweeps for. */
     .field { display: flex; flex-direction: column-reverse; gap: 3px; min-width: 0; }
-    .flabel {
-      font: 700 var(--aud-card-font-size)/1.05 'IBM Plex Mono', monospace;
-      letter-spacing: 0; text-transform: uppercase; color: rgba(var(--bic-blue-rgb), 0.58);
-    }
+    /* THE VALUES ARE BLACK, SAID ONCE. It was set on the name's own rule
+       alone, so every other field inherited `--ink` from the body -- the house
+       blue -- and read as the room speaking rather than as the row's data. */
     .fval {
-      font-size: var(--aud-card-font-size);
+      font-size: var(--aud-card-font-size); color: var(--aud-text, var(--ink));
       line-height: 1.12; min-height: 1.12em; word-break: break-word;
     }
-    .field:has([data-field="full_name"]) .fval {
-      font-size: var(--aud-card-font-size); font-weight: 700; color: var(--ink);
+    /* THE NAME IS THE BADGE'S OWN HEADING. Every other field is a fact about
+       the audience; this one is WHICH audience, and at the shared field size it
+       sat in a column of equals with nothing saying which to read first. 1.9x,
+       in `em` so it stays in proportion when the card's one size moves rather
+       than needing a second number kept in step by hand.
+         IT IS THIS RULE AND NOT A SECOND ONE. A separate `.aud .fval[data-field=
+       "full_name"]` block is the SAME (0,3,0) weight, so the two would be
+       settled by source order -- and the one written later, resetting the size
+       back to the card's, is what silently won. */
+    .field--name .fval {
+      font-size: var(--aud-title-size); line-height: 1.05; font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--aud-text, var(--ink));
+      /* ONE LINE EACH, NOT TWO. The floor was `2.1em` -- two lines -- while
+         the heading was ONE field holding the whole name: `Chicago Bears`
+         wrapped at this size and `Alabama` did not, so the card below sat at a
+         different height from the card beside it. **As two fields the pair is
+         two lines by construction**, and the old floor would have made it four.
+           A FLOOR, NEVER A CLAMP, and that half still holds: a long half is
+         allowed to wrap onto a second line rather than being cut, because the
+         tail is exactly what tells `Miami (OH) RedHawks` from `Miami
+         Hurricanes`. What is fixed is the minimum. */
+      min-height: 1.05em;
     }
+
+    /* A RULE UNDER EVERY FIELD, and it does more work than it did. It closed a
+       value-and-label pair; with the labels gone it is the ONLY thing separating
+       one field from the next, so nine stacked values read as nine rather than
+       as one run of sentences.
+         IT IS ON THE FIELD, NOT THE VALUE, so it runs the width of the card
+       rather than the width of the text.
+         THE TWO STAMPS ARE EXEMPT. They share a line, so a rule under each
+       would draw two short segments side by side with a gap between them --
+       and they are the foot of the card, where a closing line separates the
+       badge from nothing. `.field--colours` is exempt because it has no label
+       to put a line under.
+         THE NAME NEEDS NO EXEMPTION, and briefly had one. FIRST and LAST were
+       two fields, so the rule under FIRST fell BETWEEN the two halves of one
+       name and cut the heading in half. They are one field now, so there is no
+       rule between them to exempt and the block keeps its closing line -- which
+       is the one doing the real work, separating what the card is CALLED from
+       what the row HOLDS. **Structure settled it rather than a `:not()`.** */
+    .aud .field:not(.field--stamps):not(.field--colours) {
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--control-line);
+    }
+    /* A VERTICAL RULE BETWEEN THE TWO STAMPS, ON THE CENTRE LINE. They are the
+       one pair that shares a line, so where every other field is closed by a
+       rule UNDER it, these two are separated by one BETWEEN them.
+         ON THE SECOND HALF, so the line falls between them rather than to the
+       left of the first -- and because the two halves are `1fr 1fr` with no gap
+       inside one field, the second half's left edge IS the centre. It was a
+       border on the second of two GRID TRACKS, which is 50% less half the
+       column gap, so it drew six pixels right of centre.
+         `+` IS AN ADJACENT-SIBLING MATCH rather than a named column, so the
+       rule is tied to the position rather than to which stamp comes second. */
+    .aud .field--stamps .stamp + .stamp {
+      border-left: 1px solid var(--control-line);
+    }
+    /* THE NAME KEEPS A LITTLE MORE ROOM UNDER IT. It is the badge's heading and
+       its line is the one that separates what the card is CALLED from what the
+       row HOLDS, so it is not drawn as tight as the rest. */
+    .aud .field--name { padding-bottom: 8px; }
+    /* THE TWO HALVES OF THE NAME STACK. `.field` is `column-reverse`, which was
+       there to put a label UNDER its value; with no labels left it has to be
+       said the other way round or the two halves come out reversed. */
+    .aud .field--name { flex-direction: column; gap: 0; }
     .field:has([data-field="id"]) .fval,
     .field:has([data-field="created"]) .fval,
     .field:has([data-field="updated"]) .fval {
@@ -393,21 +629,68 @@
        that is broken. */
     .fval.is-locked { color: var(--muted); cursor: help; }
     .fval.is-bad { color: var(--bic-red); font-weight: 700; }
-    .fval .none { font-style: italic; color: var(--muted); }
+    /* AN EMPTY FIELD SHOWS ITS COLUMN NAME. A FILLED ONE SHOWS ONLY ITS VALUE.
+       With the labels gone this placeholder is the only thing that can say what
+       a blank box is for -- and it is the one place a name is worth drawing,
+       because it appears exactly where there is nothing else to read.
+         IT IS THE REAL COLUMN NAME, out of `data-empty`, not an invented
+       phrase. This mechanism drew `no home` / `no mascot` / `nowhere` once and
+       was removed for it: those are **words in the shape of data** on a badge
+       whose whole job is showing what the row holds. `CITY` is the column,
+       which is what an SQL query, a migration and an error message all say.
+         IT IS DRAWN AS A PLACEHOLDER, not as a value -- muted, italic and small
+       -- or a card with several blanks would read as a card full of words.
+         THE FIELD KEEPS ITS HEIGHT AND STAYS PRESSABLE either way. `.fval`
+       carries `min-height: 1.12em`, so an empty cell is still a target you can
+       click into. */
+    .aud .ed:empty::before {
+      content: attr(data-empty);
+      color: var(--muted); font-style: italic; text-transform: uppercase;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74em;
+      letter-spacing: 0.04em;
+    }
 
     /* BLACK AND BOLD MEANS YOU CAN CHANGE IT, at rest rather than on hover: a
        dotted underline that only appears under the pointer says nothing about
        the other cells you are looking at. */
     .ed { cursor: text; }
     .ed:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
-    .ed:empty::before { content: attr(data-empty); color: var(--muted); font-style: italic; }
-    .ed-box {
+    /* THE BOX WEARS THE TYPE OF THE TEXT IT REPLACES. `font: inherit` rather
+       than a size, because the cells are NOT all one size: the name is the
+       badge's heading, the key and the two stamps are mono, a colour stripe is
+       small mono, and everything else is the card's own size. A pinned size
+       matched exactly one of those, so clicking the name opened a 9pt box over
+       a heading and clicking a stamp opened a sans box over mono.
+         IT IS EXACT BECAUSE THE INPUT IS APPENDED INTO THE CELL -- `startEdit`
+       empties the cell and puts the box inside it -- so inheriting takes that
+       cell's own computed family, size and weight whatever they are. **A second
+       list of per-field sizes would be a copy of the first**, and it would
+       drift the next time either was edited.
+         COLOUR IS NOT INHERITED. A stripe sets its ink to read against its own
+       fill, and the box has a white ground.
+         **IT HAS TO BE `.aud .ed-box`, NOT `.ed-box`.** The page's own
+       `input[type="text"], input[type="search"], select` rule is (0,1,1) -- an
+       attribute selector plus a type selector -- so a bare `.ed-box` at (0,1,0)
+       LOSES to it whatever the source order, and the box came back at that
+       rule's 0.86rem Space Grotesk on every field including the mono ones. The
+       two-class form is (0,2,0) and wins outright. This was a `.aud .ed-box`
+       for exactly this reason and collapsing it to one class put the fault
+       back. */
+    .aud .ed-box {
       width: 100%; min-width: 0;
-      font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 0.86rem;
+      font: inherit; line-height: 1.12;
       color: var(--ink); background: #fff;
       border: 1px solid var(--ink); border-radius: 6px; padding: 4px 6px;
     }
-    .aud .ed-box { font-size: var(--aud-card-font-size); line-height: 1.12; }
+    /* A STRIPE'S BOX FITS ITS STRIPE. The page's own input rule carries
+       `min-height: 34px`, which is right for a form and 6px taller than a
+       28px stripe row -- so clicking a colour grew the colourbar from 130px to
+       143px and **the whole badge jumped as the editor opened**. Pre-existing,
+       and the same click: the box is sized by its type and its padding here.
+         SCOPED TO THE STRIPE. Everywhere else 34px is a sensible target on a
+       card whose fields are small, and dropping it would shrink every editor on
+       the badge to answer a fault in one cell. */
+    .aud .stripe .ed-box { min-height: 0; padding: 2px 4px; }
 
     .chip {
       display: inline-flex; align-items: center; justify-content: center;
@@ -419,7 +702,7 @@
     }
     /* A KIND IS TOLD BY ITS GROUND, and each still carries its word so colour is
        never the only signal. Contrast measured the way the trivia chips were. */
-    .chip--fandom   { background: rgba(var(--bic-blue-rgb), 0.12);
+    .chip--sports   { background: rgba(var(--bic-blue-rgb), 0.12);
                       border-color: rgba(var(--bic-blue-rgb), 0.45); color: var(--ink); }
     .chip--artist   { background: rgba(122, 84, 12, 0.13);
                       border-color: rgba(122, 84, 12, 0.42); color: rgb(122, 84, 12); }
@@ -473,6 +756,21 @@
     .dlg .field small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
     .dlg-msg { color: var(--bic-red); font-size: 0.84rem; line-height: 1.4; padding: 0 16px 12px; }
     .dlg-msg:empty { display: none; }
+    .dlg-panel--wide { max-width: 920px; width: 92vw; }
+    .prompt-howto {
+      margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--muted);
+    }
+    /* A RULED SHEET, and it is EDITABLE: a prompt is often run against one part
+       of the job rather than all of it, and a read-only box makes that a copy,
+       a paste and an edit somewhere else. */
+    .prompt-sheet {
+      width: 100%; min-height: 320px; resize: vertical;
+      padding: 12px 14px; border: 1px solid var(--control-line); border-radius: 8px;
+      background: repeating-linear-gradient(var(--paper), var(--paper) 21px,
+        rgba(var(--bic-blue-rgb), 0.06) 21px, rgba(var(--bic-blue-rgb), 0.06) 22px);
+      font: 400 0.76rem/22px 'IBM Plex Mono', monospace; color: var(--ink);
+    }
+    .copy-status { font: 600 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
     .key-preview {
       font: 600 0.8rem/1 'IBM Plex Mono', monospace; color: var(--ink);
       background: rgba(var(--bic-blue-rgb), 0.07); border-radius: 6px;
@@ -527,8 +825,8 @@
                tooltip -- the reason it is off would be completely unreachable.
                Pressing it says what it is for. This project has made that call
                for every greyed control it has. -->
-          <button type="button" class="btn" id="promptBtn" aria-disabled="true"
-                  title="Not written yet. It will hand you a prompt to paste into an AI, which answers with SQL you run in Supabase.">Prompt</button>
+          <button type="button" class="btn" id="promptBtn"
+                  title="Hands you a prompt to paste into an AI. It answers with SQL you run in Supabase.">Prompt</button>
         </div>
       </fieldset>
 
@@ -545,14 +843,12 @@
       <fieldset class="command-bar command-bar--filter">
         <legend>Filter</legend>
         <div class="command-bar-inner">
-          <select id="familyPick" aria-label="League"><option value="">Any league</option></select>
-          <select id="kindPick" aria-label="Type">
-            <option value="">Any type</option>
-            <option value="fandom">fandom</option>
-            <option value="artist">artist</option>
-            <option value="interest">interest</option>
-            <option value="historical">historical</option>
-          </select>
+          <select id="cityPick" aria-label="City"><option value="">Any city</option></select>
+          <!-- TYPE, TO THE RIGHT OF CITY. **It is built from the rows, not from
+               `KINDS`**: the column is free text since 2026090123, so a list of
+               the four the room happens to colour would miss a fifth somebody
+               typed and offer choices with nothing behind them. -->
+          <select id="typePick" aria-label="Type"><option value="">Any type</option></select>
           <button type="button" class="btn" id="clearBtn" aria-disabled="true">Clear</button>
         </div>
       </fieldset>
@@ -571,49 +867,33 @@
     </section>
   </main>
 
-  <div class="dlg" id="addDlg" role="dialog" aria-modal="true" aria-labelledby="addTitle">
-    <div class="dlg-panel">
+  <!-- THE PROMPT DIALOG. It is the shape the Socializer and the Events room
+       both use: four sentences saying what the errand is, the prompt on a ruled
+       sheet, and the doors that copy it and open an AI. **When any of those
+       rooms changes, change them all.** -->
+  <div class="dlg" id="promptDlg" role="dialog" aria-modal="true" aria-labelledby="promptTitle">
+    <div class="dlg-panel dlg-panel--wide">
       <div class="dlg-head">
-        <span class="dlg-title" id="addTitle">Add an audience</span>
-        <span class="dlg-sub">Named by what its members call themselves</span>
+        <span class="dlg-title" id="promptTitle">Fill in the missing cities</span>
+        <span class="dlg-sub">AI prompt</span>
       </div>
       <div class="dlg-body">
-        <label class="field">
-          <span>full_name</span>
-          <input type="text" id="addFullName" autocomplete="off"
-                 placeholder="Chicago Bears, Alabama Crimson Tide, Taylor Swift">
-          <small>The whole name, as it is written. IT IS ALSO THE KEY: everything
-            else about an audience can be edited, and this is the one field the
-            row's identity is made of.</small>
-        </label>
-        <label class="field">
-          <span>type</span>
-          <select id="addType">
-            <option value="fandom">fandom</option>
-            <option value="artist">artist</option>
-            <option value="interest">interest</option>
-            <option value="historical">historical</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>home_city</span>
-          <input type="text" id="addHome" list="placeList" autocomplete="off"
-                 placeholder="leave empty for an artist or an interest">
-          <datalist id="placeList"></datalist>
-          <small>Only if they are at home somewhere. An artist is not. This is
-            also what a game reads to find the ANTI-AUDIENCE, so a club without
-            it can never be anybody's enemy.</small>
-        </label>
-        <div class="field">
-          <span>The key it will get</span>
-          <div class="key-preview" id="keyPreview">full-name</div>
-        </div>
+        <p class="prompt-howto">Edit it if you like, then copy it into your AI.
+          Paste what it hands back into the website's database (Supabase).
+          <strong>It answers with one UPDATE block and nothing else</strong>, so
+          it can be run as it stands. If a school's town is not a matter of
+          record the prompt tells it to leave that row out, so expect fewer rows
+          back than there are blanks. Questions:
+          <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a></p>
+        <textarea id="promptText" class="prompt-sheet" spellcheck="false"></textarea>
       </div>
-      <p class="dlg-msg" id="addMsg"></p>
       <div class="dlg-foot">
-        <button type="button" class="btn" id="addCancel">Cancel</button>
+        <button type="button" class="btn" id="promptClose">Close</button>
         <span class="spacer"></span>
-        <button type="button" class="btn primary" id="addSave">Add audience</button>
+        <span class="copy-status" id="promptStatus"></span>
+        <button type="button" class="btn primary" id="promptCopy">Copy prompt</button>
+        <a class="btn" id="promptSql" target="_blank" rel="noopener noreferrer"
+           href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true">Insert results</a>
       </div>
     </div>
   </div>
@@ -639,8 +919,10 @@
      *
      *  THERE IS NO ANTI-AUDIENCE COLUMN AND THERE MUST NOT BE. Every game
      *  has one -- the fandom you are surrounded by -- and it is reached
-     *  through `home_place_id`: the audience at home in the place you are
-     *  visiting. Two records of one fact drift.
+     *  through the CITY: the audience at home in the place you are visiting.
+     *  It went through `home_place_id` until 2026090119 dropped that column;
+     *  `tgb_anti_audience` derives the key with `tgb_slug(city)` now. Two
+     *  records of one fact drift, which is why there was never a column.
      *
      *  IT READS AND WRITES `audiences` ONLY. Places and destinations are
      *  read for their names.
@@ -653,7 +935,12 @@
     const clean = (v) => (v === null || v === undefined ? '' : String(v).trim());
     const slug = (v) => clean(v).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-    const KINDS = ['fandom', 'artist', 'interest', 'historical'];
+    /* `sports`, NOT `fandom`. [2026090122] renamed the value: a fandom is the
+       FOLLOWING rather than the kind of thing followed, and an artist has one
+       too. **The word survives everywhere it means the concept** -- a game is
+       pitched at a travelling fandom -- and moved only where it was a value of
+       this column. */
+    const KINDS = ['sports', 'artist', 'interest', 'historical'];
 
     /* EVERY COLUMN THE TABLE HAS, IN ONE LIST, and the header, the cells, the
        editable set and the search all read it. Two hand-kept lists is the drift
@@ -674,12 +961,28 @@
       { g: 'Colours',  k: 'tertiary',        t: 'Tertiary',  kind: 'colour' },
       { g: 'Colours',  k: 'text',            t: 'Text',      kind: 'colour' },
 
+      /* `full_name` STAYS IN THIS LIST AND IS NOT DRAWN, and the distinction
+         is what a blank room cost: the header looked its SORT keys up in
+         COLUMNS, and the first was `full_name` -- removing the entry made
+         that `undefined`, the header builder threw on it, and the whole room
+         rendered nothing at all. **COLUMNS is the catalogue; DETAIL_COLS is
+         what the badge draws.** Take a field off the badge there, never here.
+         Found by a suite that waits for a badge to exist. */
       { g: 'Identity', k: 'full_name',     t: 'Full name',  kind: 'text', strong: true },
+      /* THE NAME IS TWO FIELDS, EACH WITH ITS OWN LABEL. It was one -- the
+         whole `full_name`, drawn as two spans that broke at the mascot -- and
+         the break was the only thing saying where one half stopped. Now each
+         half is a field: FIRST over its label, LAST over its label.
+           `full_name` IS NOT DRAWN, because it would be the name a third time.
+         It is still the column, still NOT NULL, still what the key was made
+         from -- and it is REWRITTEN FROM THE PAIR whenever either half is
+         edited, in the same patch, so the three can never disagree. */
+      { g: 'Identity', k: 'first',         t: 'First',      kind: 'text', name: true },
+      { g: 'Identity', k: 'last',          t: 'Last',       kind: 'text', name: true },
       { g: 'Identity', k: 'id',            t: 'Key',        kind: 'key',   edit: false },
       /* TYPE REPLACED FAMILY AND KIND. It is the badge's pill now, and the
          league the old family held is the first segment of the key. */
       { g: 'Identity', k: 'type',          t: 'Type',       kind: 'text', head: true },
-      { g: 'Identity', k: 'nickname',      t: 'Mascot',     kind: 'text' },
       /* `family` AND `kind` ARE GONE FROM THE TABLE (2026090107), so they are
          gone from here. They were drawn read-only while the five functions
          still read them; those moved to `type` and to the key's first segment
@@ -692,16 +995,19 @@
          at, and it is the reason this table is not a sports-team reference. */
       { g: 'Identity', k: 'description',   t: 'Known for',  kind: 'long' },
 
-      /* THE CITY IS PLAIN TEXT. It was `home_place_id`, a lookup constrained
-         to `public.places`, so a town we did not already hold could not be
-         typed at all -- the same trade `events.venue_city` and
-         `waypoints.city` both made. `home_place_id` is still on the row and
-         still maintained; see the commit branch for why. */
-      { g: 'Where',    k: 'home_city',     t: 'City',       kind: 'text', head: true },
-      /* NO PLACE KEY ON THE BADGE. `home_place_id` is still on the row and
-         still written -- the room keeps it in step with the city, and it is what
-         decides a game's rival -- but it is a derived key nobody reads, and a
-         field showing `none` on 381 badges is noise rather than news. */
+      /* IT IS `city`, NOT `home_city` (2026090116), AND IT IS THE ONLY PLACE
+         COLUMN LEFT. The badge draws the real column name as the label, so
+         renaming the field and renaming the column are one act here -- and
+         `home_` distinguished it from nothing.
+           IT WAS `home_place_id`, a lookup constrained to `public.places`, so a
+         town we did not already hold could not be typed at all. The key was
+         kept in step beside the text until 2026090119 dropped it; every reader
+         derives it with `tgb_slug(city)` now, which is what makes the text the
+         link rather than a label on one.
+           WHAT THAT COSTS is the foreign key: a city we do not hold is stored
+         in silence. The same trade `events.venue_city` and `waypoints.city`
+         both made, and the editor's own warning is what says so. */
+      { g: 'Where',    k: 'city',     t: 'City',       kind: 'text', head: true },
 
       /* PARED DOWN (2026-09-01). `first_name`, `fanbase`, `venue_city`,
          `timezone`, `conference` and `division` are no longer drawn, and the
@@ -752,7 +1058,26 @@
     /* THE LEAGUE, RECOVERED FROM THE KEY. `family` held it and is dropped;
        the key is `family-name` and was frozen with its values, so its first
        segment is the same string -- measured at 641 of 641 before the drop. */
-    const leagueOf = (r) => String(r && r.id || '').split('-')[0];
+    /* THE LEAGUE IS ITS OWN COLUMN NOW. It was the first segment of
+       `team_key`, which 2026090119 split into `league` and `code` and dropped
+       -- so this is one column read rather than a string taken apart, and the
+       note below is the history of how it got here.
+         IT WAS THE FIRST SEGMENT OF THE KEY BEFORE THAT, NOT OF THE KEY.
+       It read `id.split('-')[0]`, which was right while the key was
+       `family-name` -- `nfl-chicago` gave `nfl`. **2026090113 made the key
+       `slug(full_name)`**, so it started answering `alabama` for the Crimson
+       Tide and `cornell` for the Big Red: 641 rows, hundreds of distinct
+       "leagues", none of them a league.
+         IT WAS SILENT IN BOTH ITS READERS AND LOUD IN NEITHER. The picker
+       filled with first words, and the red pen reported ALL 380 homeless
+       college clubs as oddities -- 228px of handwriting climbing over the
+       room's own title -- because `'NCAAF' !== 'ncaaf'` was never even reached:
+       every one of them answered with its own name.
+         2026090108 MOVED THE LEAGUE TO `team_key` FOR EXACTLY THIS DAY, and
+       said so; this is the reader that was missed. Lowercased, because the
+       column holds `NCAAF:ALA` and every comparison here is written in lower. */
+    const leagueOf = (r) =>
+      String(r && r.league || '').toLowerCase();
 
     /* THE STRIPE INK IS CONTRAST, not inversion. These little labels sit on top
        of every club colour we have, so the rule has to answer "can I read it?"
@@ -777,9 +1102,47 @@
        flag gave the closed row COLUMNS' own order, which is grouped for the
        opened detail (Identity, Where, Sport...) and is not the order these three
        read in. Two different questions, so two different orders. */
-    const HEAD_KEYS = ['full_name', 'type', 'home_city'];
-    const HEAD_COLS = HEAD_KEYS.map((k) => COLUMNS.find((c) => c.k === k));
-    if (HEAD_COLS.some((c) => !c)) throw new Error('a head column names no column');
+    /* ONE LIST, DRAWN A HUNDRED AT A TIME AS YOU REACH THEM. A badge is about
+       10,900 boxes across the whole catalogue and the list is rebuilt on EVERY
+       KEYSTROKE in the search box, so drawing 641 of them was the heaviest thing
+       this room did and it did it again per letter typed. The first hundred is
+       what arrives; the rest are drawn when the foot of the list comes into
+       view.
+         IT IS NOT A SILENT CAP, which is the whole difference between this and
+       the top-N this project has deleted before: the foot SAYS how many of how
+       many are drawn, and scrolling is what draws the rest. It replaced a pager
+       -- same chunk, same guarantee, one fewer control.
+         IT APPENDS, IT DOES NOT REPAINT. Rebuilding the list to grow it would
+       throw away an open editor and every badge already on screen; appending
+       touches nothing that is already there. */
+    const CHUNK = 100;
+
+    /* A SENTINEL, NOT AN EMPTY STRING. Blank already means "any city", which is
+       the state the picker returns to, and a third meaning on that value would
+       make NO CITY and NO FILTER indistinguishable. Same shape the Waypoints
+       room's own `ALL_WAYPOINTS` uses, and for the same reason. */
+    const NO_CITY = '__nowhere__';
+    const NO_TYPE = '__untyped__';
+    /* THE PINNED ROW. MANUAL writes a placeholder and reloads, and `_NAME` sorts
+       to the top only while it is still called that -- the moment you type a
+       real name the row sorts away mid-edit, and with a filter on it can vanish
+       from the list altogether. **A row that moves out from under you as you
+       fill it in is the fault this pin exists to remove.**
+         IT IS THE ID, IN THE URL, so it survives the reload MANUAL performs and
+       so it is visible: the address says which row is held.
+         IT FOLLOWS A RENAME. Editing a name re-slugs the key, so the pin is
+       repointed in the same commit -- otherwise the first thing you type
+       releases it. */
+    const PIN_PARAM = 'new';
+
+    /* THE ONE ORDER. It was three toggles and `state.sort`; with the header
+       gone there is nothing to choose, so the key is a constant and the sort
+       reads it exactly as it did.
+         IT IS STILL A NAMED COLUMN, checked on load, because a sort key that
+       does not exist orders the list by `undefined` -- every row equal, so the
+       order becomes whatever PostgREST happened to return, silently. */
+    const SORT_KEY = 'full_name';
+    if (!COLUMNS.some((c) => c.k === SORT_KEY)) throw new Error('the sort key names no column');
     /* THE DETAIL SHOWS EVERY FIELD, including the three above it.
          It skipped `id` and `name` while the closed row drew them. The closed
        row draws neither now, so skipping them would make `name` -- which is
@@ -787,7 +1150,33 @@
        field off a form. The three it does repeat are repeated on purpose: they
        are editable, and a reader opening a row to work through every field
        would otherwise find three gaps. */
-    const DETAIL_COLS = COLUMNS;
+    /* THE MASCOT IS `last` NOW, AND IT IS NOT A COLUMN OF ITS OWN. It was
+       `nickname`; 2026090117 split `full_name` into `first` and `last`, `last`
+       IS the mascot, and 2026090118 dropped the duplicate and repointed the two
+       views and the three functions that read it -- `destinations`,
+       `teams.mascot`, `tgb_audience_label`, `tgb_content_keys`,
+       `tgb_trivia_for`.
+         WHAT THAT COSTS: a mascot cannot be typed in this room. `last` decides
+       where the heading breaks and is not drawn as a field, so correcting one
+       is SQL. **The report survives** -- the scribble still names the clubs
+       missing from destinations on every load, which was always the thing that
+       made that fault findable rather than the pen on one badge. */
+    /* `first` AND `last` ARE NOT DRAWN: they are HALVES OF A FIELD THE BADGE
+       ALREADY SHOWS. Drawn as their own two rows the card would print the name
+       three times -- whole, then in pieces -- and the pieces are only there to
+       say where the heading breaks. They are edited nowhere in this room;
+       `full_name` is.
+         `nickname` IS NOT FILTERED HERE ANY MORE BECAUSE IT IS NOT A COLUMN.
+       2026090118 dropped it -- `last` IS the mascot, so the column was a second
+       copy of a fact the row already carried. */
+    /* `full_name` IS NOT DRAWN: `first` and `last` are, and the whole name
+       beside its own two halves would be the same words three times. It stays
+       in COLUMNS because the SORT bar looks its key up there. */
+    /* THE KEY IS NOT A FIELD EITHER. It is drawn as the badge's FOOT -- one
+       black cell reading `ID: chicago-bears` -- because it is not a fact about
+       the audience like the others, it is the row's own permanent name, and it
+       is the one value on the card nobody types. */
+    const DETAIL_COLS = COLUMNS.filter((c) => c.k !== 'full_name' && c.k !== 'id');
     /* EMPTY TODAY, and deliberately kept. `team_sort` was the only `num` column
        and it is no longer listed, so the guard below it is unreachable -- but it
        is DERIVED from COLUMNS rather than written out, so a numeric column added
@@ -797,7 +1186,7 @@
 
     /* `open` IS A SET OF IDS, NOT A FLAG ON A ROW OBJECT. Every save reloads and
        replaces the rows, so a flag on one would be thrown away by the next read. */
-    const state = { rows: [], places: [], dests: [], q: '', family: '', kind: '',
+    const state = { rows: [], dests: [], q: '', family: '', kind: '', type: '', pin: '', shown: 100,
                     /* NAME, A TO Z, IS THE ARRIVAL STATE, and the markup ships
                        `checked` on that radio -- so the control and the state
                        agree before a line of script runs. */
@@ -805,7 +1194,9 @@
                        reads down. It was `name`, which is no longer a column --
                        a default naming a toggle that is not there would leave
                        the header with nothing lit and no way to tell why. */
-                    sort: HEAD_KEYS[0],
+                    sort: SORT_KEY,
+                page: 0,
+                city: '',
                     loaded: false };
     let adminAuth = null;
 
@@ -829,26 +1220,44 @@
     async function readError(res, fallback) {
       let text = '';
       try { text = await res.text(); } catch (e) { text = ''; }
+      /* EVERY SENTENCE HERE NAMES A RULE THE DATABASE ACTUALLY HOLDS, and
+         four of them did not. `family` and `name` were dropped in 2026090107
+         and 2026090112, the constraint is `audiences_type` rather than
+         `audiences_kind`, and both nickname checks went with the column in
+         2026090118 -- so three of these could never fire and the fourth
+         explained the key by two columns that are gone.
+           A MESSAGE THAT NAMES A DROPPED COLUMN IS WORSE THAN A RAW 23514: the
+         raw code sends you to the schema, and this sends you to a schema that
+         no longer exists. */
       if (/audiences_pkey|duplicate key/.test(text)) {
-        return 'That key is already taken. Family and name together have to be '
-             + 'unique, which is why a college audience is named for its school.';
+        return 'That key is already taken. The key is the full name, lowercased '
+             + 'and hyphenated, so two audiences cannot share a name.';
       }
-      if (/audiences_kind/.test(text)) return 'A kind is fandom, artist, interest or historical.';
-      if (/audiences_home_needs_nickname/.test(text)) {
-        return 'A club at home somewhere needs a mascot, or it disappears from '
-             + 'destinations without a word. Add one, or clear the home place.';
+      if (/audiences_type/.test(text)) {
+        /* KEPT AS A BACKSTOP AND IT SHOULD NEVER FIRE. `audiences_type` was
+           dropped by 2026090123, so a message about it would mean something
+           outside this room put the CHECK back. */
+        return 'A type is sports, artist, interest or historical.';
       }
-      if (/audiences_nickname_is_a_club/.test(text)) {
-        return 'Only a fandom has a mascot. An artist or an interest does not.';
+      if (/audiences_full_name_slugs/.test(text)) {
+        return 'That name makes no key. It needs at least one letter or digit, '
+             + 'because the key is the name lowercased and hyphenated.';
       }
       if (/audiences_aliases_lower/.test(text)) {
         return 'Aliases are lowercase. They are matched, never printed.';
       }
       if (/audiences_aliases_not_blank/.test(text)) return 'An alias cannot be blank.';
-      if (/audiences_family_not_blank|audiences_name_not_blank/.test(text)) {
-        return 'A family and a name are both required.';
+      if (/null value in column "full_name"|full_name.*not-null/.test(text)) {
+        return 'A full name is required. It is what the key is made of.';
       }
-      if (/audiences_home_place_id_fkey|places/.test(text) && /violates foreign key/.test(text)) {
+      /* THE PLACE FOREIGN KEY IS GONE (2026090119), so this can only fire for
+         some other table's key now -- kept for that, narrowed off the dropped
+         constraint's name. */
+      if (/places/.test(text) && /violates foreign key/.test(text)) {
+        /* KEPT AS A BACKSTOP AND IT SHOULD NEVER FIRE. The foreign key went
+           with `home_place_id` in 2026090119 and the last read of `places` went
+           in 2026090120, so a message naming it would mean something outside
+           this room put the link back. */
         return 'There is no such place. Pick one from the list, or add it in Places first.';
       }
       if (/PGRST205.*audiences|relation .*audiences/.test(text)) {
@@ -893,10 +1302,7 @@
                      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    const placeLabel = (id) => {
-      const p = state.places.find((x) => x.id === clean(id));
-      return p ? p.city + ', ' + p.state : clean(id);
-    };
+
     const aliasText = (r) => Array.isArray(r.audience_aliases) && r.audience_aliases.length
       ? r.audience_aliases.join(' / ') : '';
 
@@ -912,6 +1318,10 @@
       if (!res.ok) throw new Error(await readError(res, 'Could not save.'));
       const rows = await res.json();
       if (!rows.length) throw new Error('The database refused the change. Sign in again.');
+      /* THE PIN FOLLOWS THE KEY, AND IT IS DONE HERE rather than in `commit` --
+         this is the ONE place an id actually moves, so every path that renames
+         a row is covered without any of them remembering to. */
+      repointPin(row.id, rows[0].id);
       Object.assign(row, rows[0]);
       return rows[0];
     }
@@ -922,19 +1332,38 @@
        so there is nothing to translate -- the city was the one that held a key
        and showed a label, and it holds the label itself now. */
     function sortKeyOf(r) {
-      return clean(r[state.sort]);
+      return clean(r[SORT_KEY]);
     }
 
     function visible() {
       const q = state.q.toLowerCase();
       const rows = state.rows.filter((r) => {
-        if (state.family && leagueOf(r) !== state.family) return false;
-        if (state.kind && clean(r.type) !== state.kind) return false;
+        /* ONE FILTER, AND IT IS THE CITY. It was two -- league and type --
+           and the SEARCH BOX already reaches both: typing `nfl` or `artist`
+           narrows on either, because the search reads every column the badge
+           draws. **A picker earns its place by reaching something you cannot
+           type**, and the city is that: a name typed into the box matches
+           anywhere it appears, so `Chicago` finds the club whose NAME is
+           Chicago as well as the ones at home there.
+             `NOWHERE` IS ITS OWN OPTION, and it is the majority: 380 of 640
+           carry no city, every one of them a college club. It is also the set
+           the red pen reports, so leaving it unreachable would put the room's
+           own finding behind a filter that could not select it. */
+        /* NO TYPE IS ITS OWN OPTION AND ITS OWN SENTINEL, exactly as the city's
+           is: blank already means "any type", so a third meaning on that value
+           would make UNTYPED and UNFILTERED indistinguishable -- and untyped is
+           the state every MANUAL row arrives in, so leaving it unreachable would
+           put the room's newest rows behind a filter that could not select
+           them. */
+        if (state.type === NO_TYPE) { if (clean(r.type)) return false; }
+        else if (state.type && clean(r.type) !== state.type) return false;
+        if (state.city === NO_CITY) { if (clean(r.city)) return false; }
+        else if (state.city && clean(r.city) !== state.city) return false;
         if (!q) return true;
         /* THE SEARCH READS EVERY COLUMN THE TABLE DRAWS, or a field you can
            see is a field you cannot find. Built from COLUMNS for the same
            reason the header is. */
-        const hay = COLUMNS.map((c) => c.kind === 'place' ? placeLabel(r[c.k]) : clean(r[c.k]))
+        const hay = COLUMNS.map((c) => clean(r[c.k]))
           .concat(Array.isArray(r.aliases) ? r.aliases : [])
           .join(' ').toLowerCase();
         return hay.indexOf(q) >= 0;
@@ -949,17 +1378,79 @@
          has four values across 640 rows, so a tie is the common case there
          rather than the exception, and without a second key a row could move
          under you as you type in the search box. */
-      return rows.sort((a, b) => {
+      rows.sort((a, b) => {
         const x = sortKeyOf(a), y = sortKeyOf(b);
         if (!x !== !y) return x ? -1 : 1;
         const c = x.localeCompare(y, undefined, { sensitivity: 'base', numeric: true });
         return c || a.id.localeCompare(b.id);
       });
+
+      /* THE PINNED ROW IS FIRST, AND IT IS IN THE LIST WHETHER OR NOT IT
+         MATCHES. Held only by the sort it would still disappear behind a filter
+         it does not satisfy -- and the row is a blank placeholder, so it
+         satisfies almost none of them. **Pinning it and then letting a filter
+         hide it would be the worst of both.**
+           IT IS TAKEN OUT AND PUT BACK, never sorted to the front by a
+         comparator: a comparator that always returns -1 for one row is not a
+         valid ordering, and a browser may sort with it in a way that scrambles
+         everything else. */
+      if (!state.pin) return rows;
+      const held = state.rows.filter((r) => r.id === state.pin);
+      if (!held.length) return rows;
+      return held.concat(rows.filter((r) => r.id !== state.pin));
     }
 
     /* WHAT EACH CELL LOOKS LIKE, keyed off the column's own `kind`. One
        function, so a new column is drawn without touching the renderer, and
        the closed row and the opened detail cannot disagree about a value. */
+    /* THE INSIDE OF A COLOUR STRIPE, written once. The badge builds it and
+       `restoreCell` puts it back after a cancelled edit; two copies of one bit
+       of markup is the drift this project keeps removing. */
+    /* THE TOOLTIP ON EVERY CELL: the column name, then whether you can type in
+       it. Nothing else.
+         IT WAS AN ESSAY ON THREE CELLS AND ABSENT ON THE REST, which is the
+       wrong way round twice over: the long ones explained the SCHEMA to
+       somebody who wanted to change a value, and the editable ones -- the
+       hundred you actually click -- said nothing at all. **What a hover is for
+       here is naming the column**, since the labels are gone and only an EMPTY
+       field draws its name.
+         THE REAL COLUMN NAME, uppercased, never the friendly one. It is what an
+       SQL query, a migration and an error message all say, and it is the same
+       word the empty-field placeholder draws -- so the two cannot disagree
+       about what a field is called.
+         A LOCKED CELL SAYS SO RATHER THAN SAYING "Click to edit", which would
+       be a lie about the two stamps. That much has to stay: a field that
+       silently ignores a click is indistinguishable from one that is broken. */
+    function tip(k, editable) {
+      return esc(k.toUpperCase() + ' | '
+        + (editable ? 'Click to edit.' : 'Not editable.'));
+    }
+
+    function stripeInner(k, hex) {
+      return '<span class="stripe-v">' + esc(hex || '') + '</span>'
+           + '<span class="stripe-k">' + esc(k) + '</span>';
+    }
+
+    /* PUT ONE CELL BACK, rather than repainting a hundred badges.
+       **THIS IS THE FIX FOR "can't edit fields".** Closing an editor called
+       `paintTable()`, which replaces the whole list -- so clicking from one
+       field straight to the next (the ordinary gesture) blurred the open box,
+       rebuilt every badge, and left the cell the click was travelling to
+       DETACHED. A dispatched event on a detached node does not bubble to the
+       still-attached host, so the delegated click handler never ran at all: the
+       first field opened and no field after it did.
+         IT IS ALSO THE CHEAPER ANSWER. Cancelling an edit rebuilt about a
+       hundred badges and eleven hundred boxes to undo one `textContent = ''`. */
+    function restoreCell(td, row) {
+      const field = td.dataset.field;
+      if (td.classList.contains('stripe')) {
+        td.innerHTML = stripeInner(field, clean(row[field]));
+        return;
+      }
+      const col = COLUMNS.filter((c) => c.k === field)[0];
+      td.innerHTML = col ? cellOf(row, col) : esc(clean(row[field]));
+    }
+
   function cellOf(r, c) {
       const v = clean(r[c.k]);
       if (c.kind === 'chip') {
@@ -971,7 +1462,6 @@
           + '">' + esc(v) + '</span>';
       }
       if (c.kind === 'aliases') return esc(aliasText(r));
-      if (c.kind === 'place')   return esc(v ? placeLabel(v) : '');
       /* A STAMP IS SHOWN SHORT. Nobody reads a timezone offset off an admin
          table and the whole ISO string is wider than the field is worth. */
       if (c.kind === 'stamp')   return v ? esc(v.slice(0, 10)) : '';
@@ -982,41 +1472,49 @@
         return '<span class="swatch" style="background:' + esc(v) + '"></span>'
           + '<span class="swatch-hex">' + esc(v) + '</span>';
       }
+      /* THE NAME BREAKS BEFORE ITS MASCOT. `Air Force / Falcons`,
+         `Tulane / Green Wave`, `Tulsa / Golden Hurricane` -- rather than
+         wherever the box happens to end, which put `Golden` on the first line
+         for one club and not for the next, so a column of headings broke in a
+         different place on every card.
+           THE SPLIT IS STORED, in `first` and `last`. It was DERIVED from
+         `nickname` when 2026090117 populated them, and that column has since
+         been dropped -- `last` is the mascot now, and `tgb_audience_label`
+         reads `first` for the same label it used to compute. So the badge and
+         the copy a game prints cannot disagree about where one stops and the
+         other starts: they read the same two columns.
+           **IT WAS THE FIRST WORD FOR AN HOUR AND THAT IS WHY IT IS NOT.**
+         First-word gives `Air / Force Falcons`, splitting an institution's own
+         name; the mascot rule gives `Air Force / Falcons`. **THE TWO RULES
+         DISAGREE ON EXACTLY ONE SHAPE and neither can satisfy both**: a name
+         whose place is two words needs two words before the break, and one
+         whose mascot is two words needs one. `Alabama A&M Bulldogs` therefore
+         reads `Alabama A&M / Bulldogs` here -- its `last` is `Bulldogs`, so
+         that is where the mascot begins. **The fix for that one row is its own
+         data**, not a third rule for the other 640.
+           NO SPLIT WHEN IT WOULD LEAVE A HALF EMPTY: an interest with no
+         mascot, or a row whose name IS its mascot, keeps one span and takes its
+         two lines from the `min-height` instead.
+           IT IS SAFE TO PUT MARKUP IN THIS CELL, checked rather than assumed:
+         `startEdit` reads `row[field]` off the stored row, never the cell's
+         `textContent`, so the box opens on the real value however the badge
+         chose to draw it. */
+      /* THE SPLIT IS TWO FIELDS NOW, so there is nothing to break here. This
+         drew `full_name` as `<span class="nm-first">` plus `<span
+         class="nm-rest">` and read the boundary off `first` and `last`; those
+         two are drawn as fields of their own, each with its own label, so the
+         whole name is not drawn at all and the spans went with it. */
       return esc(v);
     }
 
-  function emptyOf(r, c, homeless, needsNick) {
-      return c.k === 'home_city' ? (homeless ? 'no home' : 'nowhere')
-           : c.k === 'nickname' ? (needsNick ? 'no mascot' : 'none')
-           : c.k === 'audience_aliases' ? 'none'
-           : c.k === 'team_key' ? 'no colours' : c.t.toLowerCase();
-    }
-
-    function paintTable() {
-      const rows = visible();
-      const host = el('tableHost');
-      /* `state.rows.length`, NEVER `rows.length`. The first is the room's
-         standing total; the second is what a filter has left, and a figure
-         that shrank as you typed would read as the filter breaking. */
-      el('blurbCount').textContent = state.loaded ? String(state.rows.length) : '?';
-
-      if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
-      if (!rows.length) {
-        host.innerHTML = '<p class="empty">' + (state.rows.length
-          ? 'Nothing matches. Clear the filters, or press Manual to add one.'
-          : 'No audiences on file. Run <b>mc/supabase/migrations/2026083017_audiences.sql</b>.')
-          + '</p>';
-        return;
-      }
-
-      const body = rows.map((r) => {
+    /* THE BADGE ITSELF, LIFTED OUT SO IT CAN BE APPENDED. `paintTable` draws
+       the first chunk with it and `growList` draws every chunk after; two copies
+       of a card builder is the drift this project keeps removing, and the second
+       copy is the one that would quietly stop matching. */
+    function cardsHtml(rows) {
+      return rows.map((r) => {
         /* A CLUB WITH NO HOME CAN NEVER BE ANYBODY'S ENEMY, because the
            anti-audience is reached through this column. Nothing else reports it. */
-        const homeless = r.type === 'fandom' && !clean(r.home_city);
-        /* THE MASCOT IS NOT THE NAME. Alabama and Crimson Tide are both true. A
-           club at home without one leaves `destinations` silently. */
-        const needsNick = r.type === 'fandom' && clean(r.home_city) && !clean(r.nickname);
-
         /* THE BADGE WEARS ITS OWN PRIMARY. Only a value that is really a
            colour is used: `shell` is free text, so a half-typed one would put
            an invalid custom property on the card and the border would silently
@@ -1026,40 +1524,160 @@
         /* ONE SOLID BADGE. There is no head and no detail, so there is nothing
            to expand and NO FIELD CAN APPEAR TWICE -- the duplication is gone by
            construction rather than by a skip list somebody has to maintain. */
-        return '<article class="aud" data-row="' + esc(r.id) + '"'
+        /* A HELD ROW SAYS SO ON THE CARD, or the pin is invisible state: the
+           row simply refuses to sort and nothing on screen explains why. The
+           ring is the signal at rest and the tooltip names the way out. */
+        const pinned = state.pin && r.id === state.pin;
+        return '<article class="aud' + (pinned ? ' is-pinned' : '') + '"'
+          + ' data-row="' + esc(r.id) + '"'
+          + (pinned ? ' title="Held at the top while you edit it. Clear releases it."' : '')
           + (line ? ' style="--aud-line: ' + esc(line) + '"' : '') + '>'
+          + fieldsHtml(r)
+          /* THE FOOT, OUTSIDE `.fields`. It spans the whole badge and is the
+             last thing on it, so it sits below the grid rather than inside it
+             -- a full-width cell in a two-track grid would work, and putting it
+             outside means it needs no `grid-column` and cannot be reordered by
+             a change to the field list. */
+          /* THE KEY IS EDITED LIKE EVERY OTHER FIELD. It carried `title` and
+             nothing else -- the one value on the badge you could read and not
+             change -- and the room's answer to a wrong key was SQL.
+               IT IS SAFE FOR THE SAME REASON THE LIVE RENAME IS: 2026090113 gave
+             all three incoming foreign keys `ON UPDATE CASCADE`, so
+             `game_templates` and both `games` columns follow in one statement.
+             A hand-written remap could miss a row and leave a game pointing at
+             nothing; a cascade cannot.
+               `ID: ` IS A PREFIX ON THE CELL, NOT PART OF THE VALUE, or the
+             editor would open holding it and save it into the column. It is a
+             `::before`, so `textContent` is the key and nothing else. */
+          + '<div class="aud-id ed" data-field="id" data-empty="id"'
+            + ' tabindex="0" title="' + tip('id', true) + '">'
+            + esc(r.id) + '</div>'
+          /* LAST IN THE CARD, AND THAT IS ITS TAB POSITION. It was the FIRST
+             child, so tabbing into a card landed on Delete before any field --
+             the most destructive control on the badge, reached first. It is
+             absolutely positioned, so moving it in the DOM changes nothing on
+             screen and everything about the keyboard. */
           + '<button type="button" class="aud-delete" data-del="' + esc(r.id)
             + '" aria-label="Delete ' + esc(r.id) + '" title="Delete">X</button>'
-          + fieldsHtml(r)
           + '</article>';
       }).join('');
+    }
 
-      /* THE HEADER WORD IS THE CONTROL. It names the column AND orders by it,
-         which is one thing rather than two, and it says it over the column it
-         acts on -- the reason the separate SORT bar could go.
+    function paintTable() {
+      const all = visible();
+      const host = el('tableHost');
+      /* CLAMPED, NEVER WRAPPED. A filter that shortens the list under you can
+         leave the page number past the end, and an empty page reads as a filter
+         that matched nothing rather than as a position that no longer exists.
+         So it lands on the last page that has anything on it. */
+      /* NEVER BELOW ONE CHUNK. A filter that shortens the list under you can
+         leave `shown` past its end, which is harmless for a slice; what it must
+         not do is fall under the first hundred and quietly shrink the list. */
+      if (state.shown < CHUNK) state.shown = CHUNK;
+      const rows = all.slice(0, state.shown);
+      /* `state.rows.length`, NEVER `rows.length`. The first is the room's
+         standing total; the second is what a filter has left, and a figure
+         that shrank as you typed would read as the filter breaking. */
+      el('blurbCount').textContent = state.loaded ? String(state.rows.length) : '?';
 
-         REBUILT FROM `state.sort` EVERY RENDER, so exactly one can be on and
-         there is no exclusion set to keep in step with the paint. */
-      /* THE HEADER IS NO LONGER A `thead`, SO IT IS NO LONGER `aria-sort`.
-         That attribute belongs to a real table cell, and inventing a table's
-         ARIA around a list of cards would be describing a structure that is not
-         there. `aria-pressed` is what a toggle button says, and it is the honest
-         signal here: exactly one is pressed, which is the whole rule. */
-      const th = (k, label) => {
-        const on = state.sort === k;
-        return '<div class="aud-hcell">'
-          + '<button type="button" class="th-sort' + (on ? ' is-on' : '')
-          + '" aria-pressed="' + (on ? 'true' : 'false')
-          + '" data-sort="' + esc(k) + '">' + esc(label) + '</button></div>';
-      };
-      /* THE SORT BAR. With one solid badge there are no columns for a header
-         to sit over, so it is a labelled bar again rather than a column head --
-         but it is the SAME three toggles and the same state, so nothing about
-         ordering changed. */
-      host.innerHTML = '<div class="aud-head">'
-        + '<span class="aud-head-label">Sort</span>'
-        + HEAD_COLS.map((c) => th(c.k, c.k)).join('')
-        + '</div><div class="aud-list">' + body + '</div>';
+      if (!state.loaded) { host.innerHTML = '<p class="empty">Loading.</p>'; return; }
+      if (!all.length) {
+        host.innerHTML = '<p class="empty">' + (state.rows.length
+          ? 'Nothing matches. Clear the filters, or press Manual to add one.'
+          : 'No audiences on file. Run <b>mc/supabase/migrations/2026083017_audiences.sql</b>.')
+          + '</p>';
+        return;
+      }
+
+      const body = cardsHtml(rows);
+
+      /* NO SORT HEADER. It was three toggles over the list -- name, type,
+         city -- and the list is one order now: **name, A to Z**, which is the
+         order this room has opened on since it was built and the one you can
+         predict well enough to find a row in.
+           WHAT IS LOST, PLAINLY: nothing orders by type or by city any more.
+         Both are still SEARCHABLE, and the city has its own filter, so what is
+         gone is reading the catalogue in those orders rather than reaching a
+         row through them. */
+      host.innerHTML = '<div class="aud-list">' + body + '</div>'
+        + footHtml(rows.length, all.length);
+      watchFoot();
+    }
+
+    /* THE FOOT COUNTS WHAT IS DRAWN OF WHAT THE FILTER LEFT, never of the room's
+       standing total -- the two are the same only when nothing is filtered, and
+       a foot reporting 641 under a search that matched 12 would be describing a
+       different list. The room's own total is the blurb's, one line up.
+         IT IS DRAWN ONLY WHILE THERE IS MORE, so a list you have reached the end
+       of says nothing rather than `641 of 641`, which is a line that can never
+       change again.
+         IT IS THE SENTINEL AS WELL AS THE MESSAGE. One element, so the thing
+       being watched is the thing that says why. */
+    function footHtml(drawn, total) {
+      if (drawn >= total) return '';
+      return '<p class="more" data-more="1">' + drawn + ' of ' + total
+        + '. Scroll for more.</p>';
+    }
+
+    /* GROW BY APPENDING, NEVER BY REPAINTING. `paintTable` rebuilds the list
+       wholesale, which would throw away an open editor and every badge already
+       on screen -- and it is the expensive thing this room does. Appending
+       touches nothing that is already there. */
+    function growList() {
+      const host = el('tableHost');
+      const list = host.querySelector('.aud-list');
+      if (!list) return;
+      const all = visible();
+      if (state.shown >= all.length) return;
+      const from = state.shown;
+      state.shown = Math.min(all.length, state.shown + CHUNK);
+      list.insertAdjacentHTML('beforeend', cardsHtml(all.slice(from, state.shown)));
+      const foot = host.querySelector('[data-more]');
+      if (state.shown >= all.length) { if (foot) foot.remove(); return; }
+      if (foot) foot.textContent = state.shown + ' of ' + all.length + '. Scroll for more.';
+      watchFoot();
+    }
+
+    /* AN OBSERVER, NOT A SCROLL LISTENER. A scroll handler runs on every frame
+       of every scroll and then has to measure; this fires once, when the foot
+       actually comes into view.
+         RE-OBSERVED ON EVERY PAINT, because `paintTable` replaces the node --
+       and DISCONNECTED FIRST, or a repaint leaves the old observer watching a
+       detached element and a second one watching the new one, so one scroll
+       would grow the list twice.
+         `rootMargin` STARTS THE NEXT HUNDRED BEFORE THE FOOT IS ON SCREEN, so
+       the list is usually already longer by the time you reach the end of it. */
+    let footWatch = null;
+    function watchFoot() {
+      if (footWatch) { footWatch.disconnect(); footWatch = null; }
+      if (typeof IntersectionObserver !== 'function') return;
+      const foot = el('tableHost').querySelector('[data-more]');
+      if (!foot) return;
+      footWatch = new IntersectionObserver((es) => {
+        if (es.some((e) => e.isIntersecting)) growList();
+      }, { rootMargin: '600px 0px' });
+      footWatch.observe(foot);
+    }
+
+    /* A FILTER OR A SORT RESETS TO THE TOP. Holding the position would land you
+       on whatever happens to be 300th in a completely different list, which is
+       the rule the Tape Room's place filter and the Waypoints room's pager both
+       already keep. It is also why this is one function rather than a line
+       repeated at five call sites that could fall out of step. */
+    function repaint() {
+      state.shown = CHUNK;
+      paintTable();
+      /* AND BACK TO THE TOP OF THE PAGE. Resetting `shown` is not enough on a
+         list that grows by scrolling: filtered from 12,000px down you are still
+         12,000px down, the foot is instantly in view, and the observer fills the
+         list back out to reach you -- so a search that matched 111 rows drew all
+         111 and a cleared search drew 600, neither of which anybody asked for.
+           IT IS THE PAGER'S OWN RULE, kept. That control reset to page 0 AND
+         scrolled to the top for the same reason, and the reason outlived it.
+           GUARDED, so it is a no-op at rest -- which is nearly always, since the
+         search box and the sort toggles are both at the top of the page and you
+         have to be up there to reach them. */
+      if (window.scrollY > 0) window.scrollTo(0, 0);
     }
 
     /* EVERY FIELD, ALWAYS LABELLED, THREE ACROSS. It was the opened detail; it
@@ -1072,9 +1690,8 @@
 
     /* ---- one row, every field ----------------------------------------------- */
 
-      const homeless = r.type === 'fandom' && !clean(r.home_city);
-      const needsNick = r.type === 'fandom' && clean(r.home_city) && !clean(r.nickname);
-      let out = '', group = '';
+      const homeless = r.type === 'sports' && !clean(r.city);
+      let out = '', group = '', nameOpen = '', stampOpen = '';
       DETAIL_COLS.forEach((c) => {
         /* NO GROUP HEADINGS. Every field now carries its own column name, so
            IDENTITY, WHERE, KEYS and the rest were a second layer of labelling
@@ -1098,28 +1715,32 @@
                   const hex = clean(r[k]);
                   const fill = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '';
                   return '<div class="stripe ed" data-field="' + k + '"'
-                    + ' data-empty="' + esc(k) + '"'
+                    + ' tabindex="0" title="' + tip(k, true) + '"'
                     + (fill ? ' style="background:' + esc(fill)
                               + ';color:' + esc(colourInk(fill)) + '"' : '')
-                    + '><span class="stripe-v">' + esc(hex || '') + '</span>'
-                    + '<span class="stripe-k">' + esc(k) + '</span></div>';
+                    + '>' + stripeInner(k, hex) + '</div>';
                 }).join('')
               + '</div></div>';
           }
           return;
         }
-        const bad = (c.k === 'home_city' && homeless) || (c.k === 'nickname' && needsNick);
+        const bad = c.k === 'city' && homeless;
         /* THE VALUE CARRIES `data-field`, NOT THE FIELD BOX AROUND IT, so the
            one in-place editor works here exactly as it does on the closed row:
            it finds the row through `[data-row]`, which the detail also carries. */
+        /* THE COLUMN NAME LEADS EITHER WAY, and with the labels gone that is
+           the only thing that can say which column a cell is. **The two stamps
+           are why it matters most on a locked one**: they share a line, so
+           `2026-01-01` sits beside `2026-01-02` with nothing on screen saying
+           which is CREATED and which is UPDATED. */
         const val = c.edit === false
-          ? '<div class="fval col-' + c.kind + ' is-locked" title="'
-            + (c.k === 'id' ? 'Generated from the family and the name.'
-                            : 'Written by the database, not by hand.') + '">'
-            + (cellOf(r, c) || '<span class="none">none</span>') + '</div>'
+          ? '<div class="fval col-' + c.kind + ' is-locked"'
+            + ' title="' + tip(c.k, false) + '">'
+            + cellOf(r, c) + '</div>'
           : '<div class="fval col-' + c.kind + ' ed' + (bad ? ' is-bad' : '') + '"'
-            + ' data-field="' + c.k + '" data-empty="' + esc(emptyOf(r, c, homeless, needsNick))
-            + '">' + cellOf(r, c) + '</div>';
+            + ' data-field="' + c.k + '" data-empty="' + esc(c.k) + '"'
+            + ' tabindex="0" title="' + tip(c.k, true) + '">'
+            + cellOf(r, c) + '</div>';
         /* THE REAL COLUMN NAME, not a friendly label. `c.t` is what the room
            called it; `c.k` is what the database calls it, and on a page whose
            whole job is editing that table the second is the useful one -- it is
@@ -1130,7 +1751,44 @@
            migrated into this table on 2026-08-30, and `updated_at` came across
            from the old one untouched since June. The stamps are not swapped;
            the friendly words were describing something else. */
-        out += '<div class="field"><span class="flabel">' + esc(c.k) + '</span>' + val + '</div>';
+        /* NO LABELS. A badge is what the row HOLDS, and a word under every
+           value on every card is a column heading repeated a hundred times --
+           on a page of a hundred badges that is a page of chrome around the
+           data. **The name a field needs is drawn only where the field is
+           EMPTY**, as its placeholder, which is the one place there is nothing
+           else to read.
+             THE NAME IS STILL ONE FIELD, values stacked. It was two fields, so
+           FIRST's label fell BETWEEN the two halves of one name; with the
+           labels gone the halves simply stack, and the block is what keeps the
+           closing rule under the heading rather than between its halves.
+             `first` OPENS THE BLOCK AND `last` CLOSES IT, which is safe because
+           `DETAIL_COLS` is ordered by the column list and they are adjacent in
+           it; a column inserted between them would land inside the name. */
+        if (c.k === 'first') { nameOpen = val; return; }
+        if (c.k === 'last') {
+          out += '<div class="field field--name">' + nameOpen + val + '</div>';
+          nameOpen = '';
+          return;
+        }
+        /* THE TWO STAMPS ARE ONE FIELD, HALF EACH. They took a grid track each,
+           which is 50% of the row LESS HALF THE COLUMN GAP -- so the rule
+           between them, drawn as a border on the second, landed six pixels past
+           centre. One field of two equal halves with no gap puts it exactly at
+           the middle by construction rather than by a correction somebody has
+           to maintain.
+             SAME SHAPE AS THE NAME BLOCK, and for the same reason: two values
+           that belong together are one field, and what sits between them is the
+           block's business rather than the grid's. */
+        if (c.k === 'created') { stampOpen = val; return; }
+        if (c.k === 'updated') {
+          out += '<div class="field field--stamps">'
+            + '<div class="stamp">' + stampOpen + '</div>'
+            + '<div class="stamp">' + val + '</div>'
+            + '</div>';
+          stampOpen = '';
+          return;
+        }
+        out += '<div class="field">' + val + '</div>';
       });
       return '<div class="fields">' + out + '</div>';
     }
@@ -1161,7 +1819,7 @@
       if (!row) return;
       const field = td.dataset.field;
       const was = field === 'audience_aliases' ? aliasText(row)
-                : field === 'home_city' ? clean(row.home_city)
+                : field === 'city' ? clean(row.city)
                 : clean(row[field]);
 
       /* THE TOKEN, NOT A BARE `if (editing)`. Opening a second cell focuses its
@@ -1175,10 +1833,6 @@
       input.type = 'text';
       input.className = 'ed-box';
       input.value = was;
-      /* THE LIST IS A SUGGESTION NOW, NOT A CONSTRAINT. A datalist on a text
-         input offers the places we hold and still lets anything be typed,
-         which is exactly the difference this change is about. */
-      if (field === 'home_city') input.setAttribute('list', 'placeList');
       td.appendChild(input);
       input.focus();
       input.select();
@@ -1187,43 +1841,203 @@
         if (!editing || editing.token !== token) return;
         const value = input.value;
         editing = null;
-        if (!save || value === was) { paintTable(); return; }
+        /* NOTHING CHANGED, SO NOTHING IS REBUILT. `paintTable()` here is what
+           made the room feel broken: it replaced every badge on the way out of
+           an editor, detaching the cell a click was already travelling to.
+           Putting one cell back leaves the rest of the list exactly where it
+           is, so the next click lands on a node that is still in the document. */
+        if (!save || value === was) { restoreCell(td, row); return; }
         commit(row, field, value);
       };
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); finish(true); }
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+        /* TAB COMMITS AND OPENS THE NEXT FIELD, which is what a form does. Left
+           to the browser it would blur (committing) and then land on whatever
+           the RESTORED cell's neighbour turned out to be -- and `restoreCell`
+           replaces the node the browser was measuring from, so the landing spot
+           was not reliably the next field.
+             DOING IT HERE MAKES IT DETERMINISTIC: the cell order is read off
+           the document, the next one is opened, and Shift+Tab walks back. */
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const from = td;
+          finish(true);
+          stepField(from, e.shiftKey ? -1 : 1);
+        }
       });
       input.addEventListener('blur', () => finish(true));
+    }
+
+    /* THE NEXT FIELD, IN DOCUMENT ORDER. Read fresh every time rather than
+       cached: committing a cell can repaint the row it is in, so a list taken
+       before the commit would hold detached nodes -- the same fault that made
+       clicking from one field to the next dead.
+         IT WALKS OFF THE END OF A CARD ONTO THE NEXT CARD'S FIRST FIELD, and
+       the card's own Delete is the LAST stop before that, which is why the
+       button is the last child of the article. */
+    function stepField(fromTd, dir) {
+      const all = [].slice.call(document.querySelectorAll('#tableHost .ed'));
+      const cardOf = (el) => el && el.closest('[data-row]');
+      const card = cardOf(fromTd);
+      const row = card ? card.dataset.row : '';
+      /* THE CELL IS FOUND BY ITS ROW AND FIELD, never by identity. `restoreCell`
+         rewrites the cell's contents and a commit can replace the whole card, so
+         the node this started from may no longer be the one in the document. */
+      const field = fromTd.dataset.field;
+      let i = all.findIndex((c) => c.dataset.field === field && cardOf(c)
+        && cardOf(c).dataset.row === row);
+      if (i < 0) i = all.indexOf(fromTd);
+      if (i < 0) return;
+      /* FORWARD OFF THE LAST FIELD OF A CARD GOES TO THAT CARD'S DELETE, which
+         is the last thing on it. */
+      if (dir > 0) {
+        const next = all[i + 1];
+        const sameCard = next && cardOf(next) === cardOf(all[i]);
+        if (!sameCard) {
+          const del = cardOf(all[i]) && cardOf(all[i]).querySelector('.aud-delete');
+          if (del) { del.focus(); return; }
+        }
+        /* FOCUS ONLY. The `focusin` handler above opens it, so there is ONE
+           path that turns a cell into an editor rather than two that have to
+           agree about when. */
+        if (next) next.focus();
+        return;
+      }
+      const prev = all[i - 1];
+      if (prev) prev.focus();
+    }
+
+    /* THE PIN FOLLOWS THE KEY. Editing a name re-slugs `id`, so without this the
+       FIRST thing you type releases the hold and the row sorts away -- which is
+       exactly the moment the pin is for. */
+    function repointPin(oldId, newId) {
+      if (!state.pin || state.pin !== oldId || oldId === newId) return;
+      state.pin = newId;
+      writeFiltersToUrl();
     }
 
     function commit(row, field, value) {
       const patch = {};
       if (field === 'audience_aliases') {
-        /* MATCH ONLY, NEVER PRINTED, so they are lowercased on the way in rather
-           than refused by the CHECK for carrying a capital. An empty line is an
-           empty array, not null: the column is NOT NULL with a default. */
-        const list = clean(value).split('/').map((v) => v.trim().toLowerCase()).filter(Boolean);
+        /* WHAT IS TYPED IS WHAT IS STORED. It was lowercased on the way in,
+           because `audiences_aliases_lower` refused a capital -- so `Roll Tide`
+           came back as a refusal about a character, and the room silently
+           rewrote what somebody typed. 2026090124 dropped that constraint.
+             WHAT THAT COSTS: the column no longer guarantees case, so **anything
+           matching an alias must lowercase BOTH sides.** Nothing does today.
+             An empty line is an empty array, not null: the column is NOT NULL
+           with a default, and a blank member is still refused by
+           `audiences_aliases_not_blank`. */
+        const list = clean(value).split('/').map((v) => v.trim()).filter(Boolean);
         patch.audience_aliases = list;
-      } else if (field === 'home_city') {
-        /* THE TEXT IS WHAT IS STORED, AND THE KEY IS KEPT IN STEP BESIDE IT.
-           Anything can be typed -- that is the whole point of the change -- but
-           `home_place_id` is read by six things, and one of them decides a
-           game's ENEMY: `tgb_anti_audience` reaches the rival through the home
-           place. Writing the text and leaving the key stale would let a club's
-           city and its enemy disagree with nothing saying so.
-             SO THE PAIR TRAVELS IN ONE PATCH. A city that names a place we hold
-           keeps everything downstream working; one that does not sets the key
-           NULL, which is visibly not linked rather than quietly wrong. */
+      } else if (field === 'first' || field === 'last') {
+        /* THE PAIR AND THE WHOLE NAME TRAVEL IN ONE PATCH. `full_name` is NOT
+           NULL and is not drawn, so a save that moved a half and left it alone
+           would put a row on file whose name contradicts its own two halves --
+           invisibly, because the badge draws the halves.
+             THE OTHER HALF IS READ OFF THE ROW, never off the screen: this runs
+           from a single cell's editor and only ever knows what it was given.
+             AN EMPTY HALF IS ALLOWED AND IS NOT A BLANK NAME. `Athletics` has
+           no first at all -- its name is entirely the mascot -- so the two are
+           joined and trimmed rather than concatenated. A pair that is empty
+           BOTH ways is refused: `full_name` is NOT NULL, and the database would
+           answer with a constraint name rather than a sentence. */
         const v = clean(value);
-        patch.home_city = v || null;
-        const p = !v ? null
-          : state.places.find((x) => x.id === v)
-            || state.places.find((x) => (x.city + ', ' + x.state).toLowerCase() === v.toLowerCase());
-        patch.home_place_id = p ? p.id : null;
-        if (v && !p) {
-          setStatus(v + ' is stored, but it is not a place we hold, so nothing '
-            + 'that reads the place key will see it. Add it in Places to link it up.', 'hold');
+        patch[field] = v || null;
+        const other = field === 'first' ? clean(row.last) : clean(row.first);
+        const whole = (field === 'first' ? [v, other] : [other, v])
+          .filter(Boolean).join(' ').trim();
+        if (!whole) {
+          setStatus('An audience needs a name. Fill in the other half first, or '
+            + 'this would leave it with none.', 'error');
+          paintTable();
+          return;
+        }
+        patch.full_name = whole;
+        /* AND THE KEY FOLLOWS THE NAME, LIVE. `id` is `slug(full_name)` -- the
+           room's whole naming convention, which nothing in the database enforces
+           -- so a renamed row that kept its old key would be the one place that
+           convention is broken, and it would be broken silently.
+             **THIS REVERSES A DELIBERATE REFUSAL, and the reason it is now safe
+           is the cascade.** The room would not rename from a cell edit because
+           moving a key moves what points at it; 2026090113 gave all three
+           incoming foreign keys `ON UPDATE CASCADE`, so `game_templates` and
+           both `games` columns follow in the same statement. A hand-written
+           remap could miss a row and leave a game pointing at nothing; a cascade
+           cannot.
+             A KEY THAT IS ALREADY TAKEN IS REFUSED HERE, so the answer is a
+           sentence rather than a 23505 naming a constraint -- and the row keeps
+           the name it had rather than half-moving.
+             A NAME THAT SLUGS TO NOTHING KEEPS THE OLD KEY. `audiences_pkey` is
+           NOT NULL and `full_name` may legitimately be all punctuation for an
+           artist; the name moves and the key stays, which is the only outcome
+           that loses nothing. */
+        const nextId = slug(whole);
+        if (nextId && nextId !== row.id) {
+          if (state.rows.some((r) => r.id === nextId)) {
+            setStatus(nextId + ' is already a key, so the name cannot move there. '
+              + 'Rename the other row first.', 'error');
+            paintTable();
+            return;
+          }
+          patch.id = nextId;
+        }
+      } else if (field === 'id') {
+        /* A KEY IS TYPED AS IT WILL BE STORED, and it is slugged rather than
+           refused: every other key in the table is `slug(full_name)`, so a key
+           with a capital or a space in it would be the one row that breaks the
+           convention -- and it would break it silently, because nothing in the
+           database enforces it. */
+        const v = slug(value);
+        if (!v) {
+          setStatus('A key needs letters or numbers in it.', 'error');
+          paintTable();
+          return;
+        }
+        if (v === row.id) { paintTable(); return; }
+        if (state.rows.some((r) => r.id === v)) {
+          setStatus(v + ' is already a key. Rename the other row first.', 'error');
+          paintTable();
+          return;
+        }
+        patch.id = v;
+      } else if (field === 'type') {
+        /* FREE TEXT. It was checked against `KINDS` and refused anything else,
+           which meant a fifth kind needed a migration AND an edit here -- and
+           `history` where the list said `historical` came back as a refusal
+           about a word rather than a saved value. **2026090123 dropped the CHECK
+           too**, so the column takes anything and the room refuses nothing.
+             `KINDS` SURVIVES AND IS NOW ONLY A PALETTE. It says which four the
+           room draws in their own colour; a fifth renders in the `bad` chip,
+           which is the one thing on screen that says a value is unrecognised.
+             LOWERCASED ON THE WAY IN. Three views filter on `type = 'sports'`,
+           so `Sports` would drop a club out of all three in silence -- and case
+           is not a distinction anybody means to make in this column.
+             AND IT MAY BE CLEARED. 2026090121 dropped the NOT NULL, so an
+           untyped row is a real state -- the one MANUAL leaves behind -- and a
+           field that can arrive empty has to be allowed to go back. */
+        patch.type = clean(value).toLowerCase() || null;
+      } else if (field === 'city') {
+        /* THE CITY IS THE ONLY PLACE COLUMN NOW. It travelled with
+           `home_place_id`, which was kept in step beside it because six things
+           read the key -- including `tgb_anti_audience`, which reaches a game's
+           ENEMY through it. 2026090119 dropped that column: every reader
+           derives the key with `tgb_slug(city)` instead, so the text IS the
+           link and the two can no longer disagree.
+             WHAT WENT WITH IT IS THE FOREIGN KEY, so a city we do not hold is
+           now stored in silence rather than refused. The warning below is the
+           only thing left that says so, which is why it is kept. */
+        const v = clean(value);
+        patch.city = v || null;
+        /* THE FORM IS THE ONLY RULE LEFT, and it is a real one: `destinations`
+           splits this string on the comma, so a value with no state half comes
+           out with an empty state and a key built from a bare town. It is a
+           WARNING rather than a refusal -- the column takes anything and this
+           room is not the place to start refusing what the database accepts. */
+        if (v && v.indexOf(',') < 0) {
+          setStatus(v + ' is stored, but a city reads as "City, ST" everywhere '
+            + 'else, and the state half is what tells two towns of one name apart.', 'hold');
         }
       /* THE RENAME BRANCH IS GONE WITH THE COLUMNS IT READ. It rebuilt the key
          from `family` and `name` and asked before changing it; both were
@@ -1246,14 +2060,24 @@
       } else if (COLOURS.indexOf(field) >= 0) {
         /* A COLOUR IS DRAWN AS A SWATCH, so a value that is not a colour draws
            nothing and looks exactly like an empty cell. Refused with a sentence
-           rather than stored as something no eye can check. */
-        const v = clean(value);
+           rather than stored as something no eye can check.
+             BUT THE HASH IS PUNCTUATION, NOT A DECISION. Six hex digits pasted
+           out of a brand guide, a picker or another row arrive with no `#`, or
+           with two when one is typed in front of one that was already there --
+           and refusing those meant a sentence about a character rather than the
+           colour being saved. Every leading hash is dropped and exactly one is
+           put back, so `0B162A`, `#0B162A` and `##0B162A` all store the same
+           value. **What is NOT forgiven is the six digits**: anything that is
+           not a colour after this is still refused, because that is the part no
+           eye can check on a swatch. */
+        const v = clean(value).replace(/^#+/, '');
         if (!v) { patch[field] = null; }
-        else if (!/^#[0-9a-fA-F]{6}$/.test(v)) {
-          setStatus(v + ' is not a colour. Write it as six hex digits, like #0B162A.', 'error');
+        else if (!/^[0-9a-fA-F]{6}$/.test(v)) {
+          setStatus(clean(value) + ' is not a colour. Write it as six hex digits, '
+            + 'like 0B162A -- the hash is optional.', 'error');
           paintTable();
           return;
-        } else { patch[field] = v.toUpperCase(); }
+        } else { patch[field] = '#' + v.toUpperCase(); }
       } else {
         patch[field] = clean(value) || null;
       }
@@ -1296,36 +2120,81 @@
     /* ---- the pickers -------------------------------------------------------- */
 
     function buildPickers() {
-      const fams = {};
-      /* THE LEAGUE IS THE KEY'S FIRST SEGMENT. `family` is dropped, and this
-         built the picker from it -- so every option was `undefined`. */
-      state.rows.forEach((r) => { const f = leagueOf(r); if (f) fams[f] = (fams[f] || 0) + 1; });
-      const sel = el('familyPick');
-      const keep = state.family;
+      const cities = {};
+      let homeless = 0;
+      state.rows.forEach((r) => {
+        const c = clean(r.city);
+        if (c) cities[c] = (cities[c] || 0) + 1; else homeless += 1;
+      });
+      const sel = el('cityPick');
+      const keep = state.city;
       sel.textContent = '';
       const any = document.createElement('option');
-      any.value = ''; any.textContent = 'Any league (' + state.rows.length + ')';
+      any.value = ''; any.textContent = 'Any city (' + state.rows.length + ')';
       sel.appendChild(any);
-      /* BUILT FROM THE ROWS, so it cannot offer a family with nothing behind it. */
-      Object.keys(fams).sort().forEach((f) => {
+      /* THE COUNTS ARE THE WHOLE REASON IT IS A LIVE CONTROL. A closed picker
+         that cannot say how many audiences are in Chicago is one you have to
+         press to learn anything from -- the same argument the Tape Room's place
+         filter and the Events room's kind picker both make.
+           COUNTED OVER THE WHOLE TABLE, never over what the search has left: a
+         figure that shrank as you typed would read as the filter breaking. */
+      if (homeless) {
+        const none = document.createElement('option');
+        /* `No city`, NOT `Nowhere`. It is the second option of a picker whose
+           first reads `Any city` and whose rest are city names, so it wants to
+           be a statement about the same column: `Nowhere` read as a place. */
+        none.value = NO_CITY; none.textContent = 'No city (' + homeless + ')';
+        sel.appendChild(none);
+      }
+      /* BUILT FROM THE ROWS, so it cannot offer a city with nothing behind it:
+         an empty result is not a state this control can produce. */
+      Object.keys(cities).sort(function (a, b) { return a.localeCompare(b); }).forEach((c) => {
         const o = document.createElement('option');
-        o.value = f; o.textContent = f + ' (' + fams[f] + ')';
+        o.value = c; o.textContent = c + ' (' + cities[c] + ')';
         sel.appendChild(o);
       });
+      /* A STORED CHOICE THE TABLE NO LONGER HOLDS FALLS BACK TO ANY, rather
+         than leaving the picker naming a city with nothing under it. */
       sel.value = Array.prototype.some.call(sel.options, (o) => o.value === keep) ? keep : '';
-      if (sel.value !== keep) state.family = '';
+      if (sel.value !== keep) state.city = '';
 
-      const pl = el('placeList');
-      pl.textContent = '';
-      state.places.slice().sort((a, b) => a.id.localeCompare(b.id)).forEach((p) => {
-        const o = document.createElement('option');
-        o.value = p.id; o.textContent = p.city + ', ' + p.state;
-        pl.appendChild(o);
+      /* THE TYPE PICKER, BUILT THE SAME WAY AND FOR THE SAME REASONS. **From the
+         ROWS, never from `KINDS`**: the column is free text since 2026090123, so
+         a list of the four the room colours would miss a fifth somebody typed
+         and offer choices with nothing behind them.
+           COUNTED OVER THE WHOLE TABLE, never over what the search has left -- a
+         figure that shrank as you typed would read as the filter breaking. */
+      const types = {};
+      let untyped = 0;
+      state.rows.forEach((r) => {
+        const t = clean(r.type);
+        if (t) types[t] = (types[t] || 0) + 1; else untyped += 1;
       });
+      const tsel = el('typePick');
+      const tkeep = state.type;
+      tsel.textContent = '';
+      const tany = document.createElement('option');
+      tany.value = ''; tany.textContent = 'Any type (' + state.rows.length + ')';
+      tsel.appendChild(tany);
+      /* UNTYPED IS THE STATE EVERY MANUAL ROW ARRIVES IN, so leaving it
+         unreachable would put the room's newest rows behind a filter that could
+         not select them -- the same argument that gives the city its `No city`. */
+      if (untyped) {
+        const none = document.createElement('option');
+        none.value = NO_TYPE; none.textContent = 'No type (' + untyped + ')';
+        tsel.appendChild(none);
+      }
+      Object.keys(types).sort(function (a, b) { return a.localeCompare(b); }).forEach((t) => {
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t + ' (' + types[t] + ')';
+        tsel.appendChild(o);
+      });
+      tsel.value = Array.prototype.some.call(tsel.options, (o) => o.value === tkeep) ? tkeep : '';
+      if (tsel.value !== tkeep) state.type = '';
     }
 
     function paintClear() {
-      const on = !!(state.q || state.family || state.kind);
+      const on = !!(state.q || state.city || state.type || state.pin);
       const b = el('clearBtn');
       b.setAttribute('aria-disabled', on ? 'false' : 'true');
       b.style.opacity = on ? '' : '0.45';
@@ -1336,83 +2205,121 @@
     /* THE KEY IS THE FULL NAME, so the preview is not a courtesy: `id` is what
        three tables reference, and this is the only moment anybody sees it before
        it is permanent. */
-    function previewKey() {
-      const k = slug(el('addFullName').value);
-      el('keyPreview').textContent = k || 'full-name';
-    }
-    function openAdd() {
-      ['addFullName', 'addHome'].forEach((k) => { el(k).value = ''; });
-      el('addType').value = 'fandom';
-      el('addMsg').textContent = '';
-      previewKey();
-      el('addDlg').classList.add('is-open');
-      el('addFullName').focus();
-    }
-    function closeAdd() { el('addDlg').classList.remove('is-open'); }
 
-    async function saveAdd() {
-      const fullName = clean(el('addFullName').value);
-      const kind = el('addType').value;
-      const home = clean(el('addHome').value);
-      const msg = el('addMsg');
-
-      /* CHECKED HERE AND ENFORCED THERE. Every one of these is refused by the
-         database too; catching them first means a sentence rather than a round
-         trip, and the constraints remain what actually decides. */
-      if (!fullName) { msg.textContent = 'A full name is required.'; return; }
-      const id = slug(fullName);
-      /* A NAME OF ONLY PUNCTUATION SLUGS TO NOTHING, and the database refuses it
-         by name. Caught here so it reads as a sentence rather than a 23514. */
-      if (!id) { msg.textContent = 'That name has no letters or numbers in it, so it makes no key.'; return; }
-      if (state.rows.some((r) => r.id === id)) {
-        msg.textContent = id + ' already exists.';
-        return;
+    /* PRESSING MANUAL WRITES A ROW AND RELOADS. There is no dialog: the badge
+       is the editor, so a form that collected four fields and then handed you
+       the same four to edit again was a second way to do one thing -- and every
+       one of them (`type`, `city`, both halves of the name) is editable in
+       place, checked rather than assumed.
+         `_NAME` IS THE PLACEHOLDER NAME, and the leading underscore is doing
+       real work: the list sorts by name, so a new row lands at the TOP where
+       you can see it rather than in the middle of 640 alphabetically.
+         IT NUMBERS ITSELF. `id` is `slug(full_name)` and nothing generates it,
+       so two presses would compose the same key and the second would be refused
+       by the primary key -- `_NAME 2` is the first free one. **The check reads
+       the rows in memory, which a reload has just refreshed.**
+         THE KEY COMES OUT `-name`, and that is the naming convention followed
+       rather than an accident: `slug` turns every run of non-alphanumerics into
+       a hyphen, so a leading underscore leads a hyphen. It is a placeholder key
+       for a placeholder row and renaming is a database job.
+         A FULL RELOAD, as asked, rather than pushing the row and repainting.
+       It costs a re-read of 640 rows and it cannot disagree with what was
+       written -- and the new row is at the top of the list, so there is no
+       scroll position worth keeping. */
+    async function addBlankRow() {
+      if (!state.loaded) { setStatus('Still loading.', ''); return; }
+      const btn = el('manualBtn');
+      /* BOTH HALVES, because the badge draws both -- a row with only a first
+         showed `_NAME` over the placeholder `LAST`, which reads as half a name
+         rather than as two boxes waiting to be filled in. */
+      const last = '_LAST';
+      let first = '_NAME';
+      /* ONLY THE FIRST HALF IS NUMBERED. Numbering both gave `_NAME 2 _LAST 2`,
+         which keys as `-name-2-last-2` and reads as two counters for one row --
+         one is enough to make the pair unique, and the second half stays the
+         same word on every placeholder. */
+      for (let n = 2; state.rows.some((r) => r.id === slug(first + ' ' + last)); n += 1) {
+        first = '_NAME ' + n;
       }
-      /* THE ADD DIALOG TAKES WHATEVER THE EDITOR TAKES, or the room would
-         refuse on the way in a city it is perfectly happy to accept on the way
-         past -- which is the kind of inconsistency somebody meets once and
-         never forgets. It resolves to a place where it can and stores the text
-         either way, exactly as `commit` does. */
-      const homePlace = !home ? null
-        : state.places.find((p) => p.id === home)
-          || state.places.find((p) => (p.city + ', ' + p.state).toLowerCase() === home.toLowerCase());
-      const homeLabel = homePlace ? (homePlace.city + ', ' + homePlace.state) : home;
-      const homeId = homePlace ? homePlace.id : null;
-      if (kind !== 'fandom' && home) {
-        msg.textContent = 'An ' + kind + ' is not at home anywhere. Clear the place, '
-          + 'or make it a fandom.';
-        return;
-      }
-
-      el('addSave').disabled = true;
+      const name = first + ' ' + last;
+      btn.disabled = true;
       try {
         const res = await fetch(restUrl('audiences', {}), {
           method: 'POST',
           headers: authHeaders({ Prefer: 'return=representation' }),
-          /* BOTH, exactly as the editor writes them: the text is what is
-             stored and the key is kept in step beside it. `home` is picked from
-             the place list here, so it always resolves -- but sending only one
-             of the pair would put a row on file the room could not have made. */
-          /* THE KEY IS SENT, not left to the database: the expression was
-             dropped in 2026090106 so `id` is an ordinary column, and the row
-             the preview promised is the row that has to be written. */
-          body: JSON.stringify({ id: id, full_name: fullName, type: kind,
-                                 home_city: homeLabel || null,
-                                 home_place_id: homeId })
+          /* ALL THREE, because the badge draws the HALVES and `full_name` is
+             NOT NULL: writing one without the others is what gave a manually
+             added row a name its own card could not show. */
+          /* NO TYPE. It wrote `fandom` -- now `sports` -- which is a decision the button was
+             making on somebody's behalf -- and unlike `_NAME` and `_LAST` it
+             looks exactly like an answer, so a row created five seconds ago
+             claimed a type nobody had chosen. 2026090121 dropped the NOT NULL,
+             so the column is simply unset and the badge draws its own name
+             (`TYPE`) in the empty cell until it is filled in. */
+          body: JSON.stringify({ id: slug(name), full_name: name,
+                                 first: first, last: last })
         });
-        if (!res.ok) throw new Error(await readError(res, 'Could not add it.'));
+        if (!res.ok) throw new Error(await readError(res, 'Could not add a row.'));
+        /* PostgREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so a
+           reload on an unread reply would look exactly like a successful add
+           that then vanished. */
         const back = await res.json();
         if (!back.length) throw new Error('The database refused it. Sign in again.');
-        state.rows.push(back[0]);
-        closeAdd();
-        buildPickers();
-        paintTable();
-        setStatus('Added ' + back[0].id + '.', '');
+        /* IT DROPS THE FILTERS, WHICH A PLAIN RELOAD WOULD NOW KEEP. The filters
+           went into the URL on 2026-09-01, and `_NAME` matches almost none of
+           them -- so pressing MANUAL in a filtered room would write the row,
+           reload, and land you on a list it is not in. **A control that appears
+           to do nothing is the worst outcome available here**, and before the
+           URL carried the filters a reload cleared them for free.
+             AND IT PINS THE ROW IT JUST MADE. `_NAME` sorts to the top only
+           while it is still called that, so the moment you type a real name the
+           row sorts away mid-edit. `?new=<id>` holds it at position one until
+           Clear releases it. **The id is the one the database returned**, not
+           the one that was sent -- a trigger or a default could have changed it,
+           and a pin naming a row that is not there holds nothing. */
+        const made = back[0] && back[0].id ? back[0].id : '';
+        window.location.href = window.location.pathname
+          + (made ? '?' + PIN_PARAM + '=' + encodeURIComponent(made) : '');
       } catch (err) {
-        msg.textContent = err.message || 'Could not add it.';
-      } finally {
-        el('addSave').disabled = false;
+        btn.disabled = false;
+        setStatus(err.message || 'Could not add a row.', 'error');
       }
+    }
+
+    /* THE FILTERS LIVE IN THE URL, so a reload keeps them and a narrowed room
+       can be sent to somebody.
+         `replaceState`, NEVER `pushState`. The search box writes on every
+       keystroke, so pushing would stack one history entry per letter and the
+       back button would walk backwards through a word rather than leaving the
+       room. It is the same call the Socializer's `#edit=` made.
+         THE SENTINELS GO IN AS THEY ARE. `__nowhere__` and `__untyped__` are
+       what `state` holds, so writing them raw means ONE representation of a
+       filter rather than a translation layer that can drift -- and neither can
+       collide with a real city or a real type.
+         AN EMPTY FILTER WRITES NO PARAMETER AT ALL, so an unfiltered room has a
+       clean address rather than `?q=&city=&type=`. */
+    function writeFiltersToUrl() {
+      const p = new URLSearchParams();
+      if (state.q) p.set('q', state.q);
+      if (state.city) p.set('city', state.city);
+      if (state.type) p.set('type', state.type);
+      if (state.pin) p.set(PIN_PARAM, state.pin);
+      const qs = p.toString();
+      history.replaceState(null, '', qs ? location.pathname + '?' + qs : location.pathname);
+    }
+
+    /* READ BEFORE THE FIRST PAINT, and it only sets `state` and the search box.
+       **The two pickers are filled later, by `buildPickers`, which already drops
+       a stored value the catalogue no longer holds** -- so a link naming a city
+       that has since been filled in lands on the whole list rather than on an
+       empty one, with no extra code here. */
+    function readFiltersFromUrl() {
+      const p = new URLSearchParams(location.search);
+      state.q = clean(p.get('q') || '');
+      state.city = clean(p.get('city') || '');
+      state.type = clean(p.get('type') || '');
+      state.pin = clean(p.get(PIN_PARAM) || '');
+      el('q').value = state.q;
     }
 
     /* ---- boot ---------------------------------------------------------------- */
@@ -1420,22 +2327,37 @@
     async function boot() {
       try {
         setStatus('Loading.', '');
-        const [rows, places, dests] = await Promise.all([
+        /* `public.places` IS NOT READ. The city is text on the row and every
+           reader derives what it needs by splitting it, so there is nothing
+           left for this room to look one up in. `destinations` is still read,
+           and it is a different question: not `is this a real town` but `does
+           this club reach the table a game finds its rival through`. */
+        const [rows, dests] = await Promise.all([
           pageAll('audiences', { select: '*', order: 'id.asc' }),
-          pageAll('places', { select: 'id,city,state', order: 'id.asc' }),
           pageAll('destinations', { select: 'id', order: 'id.asc' }).catch(() => [])
         ]);
-        state.rows = rows; state.places = places; state.dests = dests;
+        state.rows = rows; state.dests = dests;
         state.loaded = true;
 
+        /* BEFORE `buildPickers`, which is what validates a city or a type
+           against the rows that actually arrived. */
+        readFiltersFromUrl();
+        /* A PIN NAMING A ROW THAT IS NOT THERE IS DROPPED, the same rule the two
+           pickers keep: a link to a row somebody has since deleted holds
+           nothing rather than leaving the address claiming it. */
+        if (state.pin && !state.rows.some((r) => r.id === state.pin)) state.pin = '';
         buildPickers();
+        /* AND WRITTEN BACK, because a value the catalogue no longer holds was
+           just dropped -- so the address stops naming a filter that is not in
+           effect. */
+        writeFiltersToUrl();
         paintClear();
         paintTable();
 
         /* A CLUB WITH NO HOME CAN NEVER BE AN ANTI-AUDIENCE, which is the one
            fault in this table that nothing else will ever report. */
-        const noNick = rows.filter((r) => r.type === 'fandom'
-          && clean(r.home_city) && !clean(r.nickname));
+        const noNick = rows.filter((r) => r.type === 'sports'
+          && clean(r.city) && !clean(r.last));
         if (noNick.length) {
           setStatus(noNick.length + (noNick.length === 1 ? ' club has' : ' clubs have')
             + ' no mascot, so they are missing from destinations: '
@@ -1451,14 +2373,25 @@
            saying once, quietly, with a number. It is only news when a club that
            should have a town does not, which is what the second sentence is for
            -- and THAT list is short enough to name. */
-        const homeless = rows.filter((r) => r.type === 'fandom' && !clean(r.home_city));
+        const homeless = rows.filter((r) => r.type === 'sports' && !clean(r.city));
         /* A COLLEGE CLUB WITH NO HOME IS EXPECTED, NOT A FAULT, and this
            filtered on `family` -- which is dropped, so `undefined !== 'ncaaf'`
            was true for all 380 and the red pen filled the room's own title. */
-        const oddities = homeless.filter((r) => leagueOf(r) !== 'ncaaf');
+        /* A PLACEHOLDER ROW IS NOT A FINDING. Pressing MANUAL writes `_NAME
+           _LAST` with no city, so the red pen reported the row you had just made
+           **before you had a chance to type in it** -- and it reported it as an
+           oddity, which is the one thing a row five seconds old cannot be. It
+           becomes news the moment the name is filled in. */
+        const oddities = homeless.filter((r) => leagueOf(r) !== 'ncaaf'
+          && !/^_NAME( \d+)?$/.test(clean(r.first)));
         if (oddities.length) {
-          setStatus(oddities.length + (oddities.length === 1 ? ' fandom has' : ' fandoms have')
-            + ' no home place, so no game can ever treat them as the enemy: '
+          /* `city`, NOT `home place`. That named `home_place_id`, which
+             2026090119 dropped -- **a finding naming a column the table does not
+             have is the page lying about the row it is on**, which is the same
+             fault the key's own tooltip had. The column is `city`. */
+          setStatus(oddities.length + (oddities.length === 1
+              ? ' sports audience has' : ' sports audiences have')
+            + ' no city, so no game can ever treat them as the enemy: '
             + oddities.slice(0, 6).map((r) => r.id).join(', ')
             + (oddities.length > 6 ? ' and more' : '') + '.', 'error');
         } else {
@@ -1480,62 +2413,247 @@
     /* BOUND ONCE, ON THE HOST, NOT INSIDE paintTable -- that runs on every
        keystroke in the search box, so binding there stacks a listener per
        repaint and the count grows all session. */
+    /* ENTER OR SPACE OPENS THE FOCUSED FIELD. Tabbing in from outside a card --
+       from the search box, or from the previous card's Delete -- lands ON a cell
+       rather than in its editor, and without this there is nothing the keyboard
+       can do with it: the field is focusable and inert, which is worse than not
+       being focusable at all.
+         SPACE IS PREVENTED, or it scrolls the page under the cell it just
+       opened. */
+    /* FOCUS OPENS THE FIELD, which is what makes Tab behave like a form rather
+       than like a list of divs: it lands you IN the field ready to type instead
+       of beside it. **That is the whole ask** -- a text field disguised as text
+       is still a text field.
+         `focusin`, NOT `focus`: focus does not bubble, so a delegated handler
+       never sees it.
+         PASSING THROUGH WRITES NOTHING. `finish(true)` commits only when the
+       value actually changed, so tabbing across a card sends no PATCH.
+         THE INPUT IS IGNORED, or opening a cell would re-enter this the instant
+       `startEdit` focused the box it just made. */
+    el('tableHost').addEventListener('focusin', (e) => {
+      const cell = e.target.closest && e.target.closest('.ed');
+      if (!cell || editing || e.target.tagName === 'INPUT') return;
+      startEdit(cell);
+    });
+
+    /* THERE IS NO SEPARATE "Enter opens it". It was here for a cell that was
+       focused but not open, and `focusin` above means that state cannot happen:
+       blur fires before focusin, so `editing` is always null by the time a cell
+       receives focus. **One path that turns a cell into an editor beats two
+       that have to agree about when.** */
+
     el('tableHost').addEventListener('click', (e) => {
-      /* THE HEADER IS INSIDE THIS HOST and is rebuilt on every render, so the
-         listener has to be here rather than on the buttons -- bound per button
-         it would stack a listener per repaint and the count would grow all
-         session. FIRST, because a header click is not a row click. */
-      const sortBtn = e.target.closest('[data-sort]');
-      if (sortBtn) {
-        if (sortBtn.dataset.sort !== state.sort) {
-          state.sort = sortBtn.dataset.sort;
-          paintTable();
-        }
-        return;
-      }
+      /* `aria-disabled`, NEVER `disabled`. A disabled button dispatches no click
+         at all, so on a touch screen -- no hover, therefore no tooltip -- the
+         reason it is off would be unreachable. Pressing the off state says why.
+           THERE IS NO PAGER ANY MORE and its handler went with it, per the
+         standing rule that a control and its wiring go in one pass. It was Back
+         and Next over a hundred at a time; the list is one list now and the next
+         hundred is drawn when you reach the foot of it. What went with the
+         buttons is `window.scrollTo(0, 0)`, which was there because the pager
+         sat at the FOOT of twelve thousand pixels -- with nothing to press,
+         nothing moves the page and you stay exactly where you were reading. */
       const del = e.target.closest('[data-del]');
       if (del) { removeRow(del.dataset.del); return; }
       /* A CLICK ON A FIELD OPENS THAT FIELD, and a click anywhere else on the
          badge does nothing. There is no caret and nothing to expand, so the
-         only gesture left is editing the value you pointed at. */
+         only gesture left is editing the value you pointed at.
+           THE CELL IS RE-FOUND IF THE LIST WAS REBUILT UNDER THE CLICK, and
+         that is the whole fix for "can't edit fields". Clicking from one field
+         straight to the next -- the ordinary gesture -- BLURS the open box
+         first, `finish` runs, and an unchanged value calls `paintTable()`,
+         which replaces every badge. **By the time the click arrives its target
+         is detached**, so `startEdit` appended a box to a node that is no
+         longer in the document and nothing appeared. The first field opened and
+         no field after it did, which reads as the room being broken.
+           FOUND BY ROW AND FIELD, NOT BY A SELECTOR BUILT FROM THE ID. A
+         detached node still answers `closest`, so the row is knowable; matching
+         `dataset.row` needs no escaping, where an id dropped into an attribute
+         selector would. */
       const cell = e.target.closest('.ed');
-      if (cell && !editing) startEdit(cell);
+      if (!cell || editing) return;
+      let live = cell;
+      if (!cell.isConnected) {
+        const host = cell.closest('[data-row]');
+        const rowId = host ? host.dataset.row : '';
+        const field = cell.dataset.field;
+        live = null;
+        if (rowId && field) {
+          const cards = el('tableHost').querySelectorAll('[data-row]');
+          for (let i = 0; i < cards.length && !live; i += 1) {
+            if (cards[i].dataset.row === rowId) {
+              live = cards[i].querySelector('[data-field="' + field + '"]');
+            }
+          }
+        }
+      }
+      if (live) startEdit(live);
     });
 
     el('q').addEventListener('input', () => {
       state.q = clean(el('q').value);
-      paintClear(); paintTable();
+      paintClear(); writeFiltersToUrl(); repaint();
     });
-    el('familyPick').addEventListener('change', () => {
-      state.family = el('familyPick').value; paintClear(); paintTable();
+    el('cityPick').addEventListener('change', () => {
+      state.city = el('cityPick').value; paintClear(); writeFiltersToUrl(); repaint();
     });
-    el('kindPick').addEventListener('change', () => {
-      state.kind = el('kindPick').value; paintClear(); paintTable();
+    el('typePick').addEventListener('change', () => {
+      state.type = el('typePick').value; paintClear(); writeFiltersToUrl(); repaint();
     });
     el('clearBtn').addEventListener('click', () => {
       if (el('clearBtn').getAttribute('aria-disabled') === 'true') {
         setStatus('Nothing is filtered.', ''); return;
       }
-      state.q = ''; state.family = ''; state.kind = '';
-      el('q').value = ''; el('familyPick').value = ''; el('kindPick').value = '';
-      paintClear(); paintTable();
+      /* CLEAR IS THE RELEASE, which is what makes the pin escapable at all --
+         it is the one control on this bar that means "put the room back". */
+      const wasPinned = !!state.pin;
+      state.q = ''; state.city = ''; state.type = ''; state.pin = '';
+      el('q').value = ''; el('cityPick').value = ''; el('typePick').value = '';
+      paintClear(); writeFiltersToUrl(); repaint();
+      if (wasPinned) setStatus('The new row is no longer held at the top.', '');
     });
 
-    el('manualBtn').addEventListener('click', openAdd);
+    el('manualBtn').addEventListener('click', addBlankRow);
     /* IT SAYS WHAT IT IS FOR RATHER THAN DOING NOTHING. A control that is
        visibly there and silently inert is indistinguishable from one that is
        broken -- which is the whole reason it answers instead of ignoring you. */
-    el('promptBtn').addEventListener('click', () => {
-      setStatus('The audience prompt is not written yet. When it is, this hands you '
-        + 'text to paste into an AI, and the AI answers with SQL you run in Supabase.', 'hold');
+    /* THE PROMPT IS BUILT FROM THE ROWS THAT ARE ACTUALLY BLANK, never from a
+       list written down here. It names each school once, so the AI is not asked
+       to work out which are missing and cannot answer about a row that is
+       already filled in.
+         THE TEXT IS THE PRODUCT. Every clause below was paid for by a bad row:
+       the `Austin` trap, the `Bluefield` ambiguity, the venue-town rule and the
+       `City, ST` form are all mistakes this catalogue has already made or come
+       within one row of making. **Move it, do not rewrite it.** */
+    function buildCityPrompt() {
+      /* EVERY BLANK ROW, whatever it is. It listed names and keyed the UPDATE on
+         `a.first` with `a.league = 'NCAAF'` beside it -- so the three blanks that
+         are NOT college clubs were listed and then **silently skipped by the
+         query**, which is the worst shape this could take: the AI answers about
+         a row and the SQL quietly does not move it.
+           KEYED ON `id`, NOT ON THE NAME. Two of the blank rows share a `first`,
+         so a name is not an identifier here -- it would set both rows or the
+         wrong one. The key is the primary key, it is on every row, and it does
+         not move when somebody edits a name. */
+      const blanks = state.rows.filter((r) => !clean(r.city))
+        .map((r) => ({ id: r.id, name: clean(r.full_name)
+                         || [clean(r.first), clean(r.last)].filter(Boolean).join(' ') }))
+        .filter((r) => r.id)
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      const one = blanks.length === 1;
+      return [
+        'You are filling in the home town of each audience below. They are the',
+        'groups a walking game is pitched at: mostly American college football',
+        'programmes, and a few that are not a club at all.',
+        '',
+        'FOR EACH ONE, FIND THE CITY IT IS AT HOME IN. For a school that is the',
+        'town its main campus is in. Read its own site or its encyclopedia entry.',
+        'Do not answer from memory.',
+        '',
+        'THE FORM IS "City, ST" -- the town, a comma, a space, and the two letter',
+        'state code. Alamosa, CO. Jefferson City, TN. Washington, DC. Never the',
+        'state spelled out, never the county, never the campus address.',
+        '',
+        'LEAVE A ROW OUT RATHER THAN GUESS, and this is the most important line',
+        'here. A wrong town is not a cosmetic error: this column is what a game',
+        'reads to find its rival, so a plausible mistake resolves silently and',
+        'looks exactly like a right answer. A blank is visible; a wrong town is',
+        'not. Fewer rows back is the better answer.',
+        '',
+        'LEAVE IT OUT IN PARTICULAR WHEN:',
+        '  - the name does not identify ONE school. There are two Bluefields in',
+        '    two states, and Monmouth is a university in New Jersey and a college',
+        '    in Illinois -- both play football.',
+        '  - it is not a club or an institution at all, and has no home town.',
+        '  - you would be recalling rather than reading.',
+        '',
+        'AND WATCH FOR A SCHOOL NAMED AFTER SOMETHING THAT IS NOT ITS TOWN.',
+        'Austin College is in SHERMAN, Texas. Concord University is in ATHENS,',
+        'West Virginia. A name that looks like a place is the easiest way to be',
+        'confidently wrong here.',
+        '',
+        'THE TOWN OF THE CAMPUS, not the nearest big city and not the town of a',
+        'stadium the team happens to play in.',
+        '',
+        'ANSWER WITH ONE SQL BLOCK AND NOTHING ELSE. No preamble, no notes after',
+        'it, no markdown outside the fence. It has to run as it stands:',
+        '',
+        '```sql',
+        'update public.audiences a set city = v.city',
+        '  from (values',
+        '    (\'adams-state-grizzlies\', \'Alamosa, CO\'),',
+        '    (\'albright-lions\', \'Reading, PA\')',
+        '  ) as v(id, city)',
+        ' where a.id = v.id',
+        '   and (a.city is null or btrim(a.city) = \'\');',
+        '```',
+        '',
+        'THE FIRST COLUMN IS THE KEY ON THE LEFT BELOW, copied character for',
+        'character. **It is not the name.** Two of these rows share a name, so a',
+        'name would set both or the wrong one; the key is unique and does not move',
+        'when somebody edits a name. A key you alter matches nothing and that row',
+        'is silently skipped.',
+        '',
+        'THE LAST LINE OF THE QUERY IS NOT OPTIONAL. It is what stops the block',
+        'overwriting a town somebody has already checked.',
+        '',
+        'THEN, AFTER THE BLOCK, LIST THE ONES YOU LEFT OUT AND WHY -- one line',
+        'each. That list is the useful half for the next person.',
+        '',
+        'NO EM DASH, in the SQL, the comments or the list.',
+        '',
+        one ? 'THE ONE AUDIENCE, as key = name:'
+            : ('ALL ' + blanks.length + ' AUDIENCES WITH NO CITY, as key = name:'),
+        ''
+      ].concat(blanks.map((r) => '  ' + r.id + ' = ' + r.name)).join('\n');
+    }
+
+    function openPrompt() {
+      if (!state.loaded) { setStatus('Still loading.', ''); return; }
+      const blanks = state.rows.filter((r) => !clean(r.city)).length;
+      if (!blanks) {
+        setStatus('Every audience has a city. There is nothing to fill in.', '');
+        return;
+      }
+      el('promptText').value = buildCityPrompt();
+      el('promptStatus').textContent = '';
+      el('promptDlg').classList.add('is-open');
+      el('promptText').focus();
+      el('promptText').setSelectionRange(0, 0);
+    }
+    function closePrompt() { el('promptDlg').classList.remove('is-open'); }
+
+    el('promptBtn').addEventListener('click', openPrompt);
+    el('promptClose').addEventListener('click', closePrompt);
+    el('promptDlg').addEventListener('click', (e) => {
+      if (e.target === el('promptDlg')) closePrompt();
     });
-    el('addCancel').addEventListener('click', closeAdd);
-    el('addSave').addEventListener('click', saveAdd);
-    el('addFullName').addEventListener('input', previewKey);
-    el('addDlg').addEventListener('click', (e) => { if (e.target === el('addDlg')) closeAdd(); });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && el('addDlg').classList.contains('is-open')) closeAdd();
+      if (e.key === 'Escape' && el('promptDlg').classList.contains('is-open')) closePrompt();
     });
+    /* IT COPIES WHAT IS IN THE BOX, not what was built -- the sheet is editable
+       on purpose, and copying the generated text would silently throw an edit
+       away.
+         A REFUSED CLIPBOARD IS REPORTED, never claimed as a success: a copy that
+       says nothing is one you do twice. */
+    el('promptCopy').addEventListener('click', () => {
+      const text = el('promptText').value;
+      navigator.clipboard.writeText(text).then(() => {
+        el('promptStatus').textContent = 'Copied.';
+        setTimeout(() => { el('promptStatus').textContent = ''; }, 2600);
+      }).catch(() => {
+        el('promptStatus').textContent = 'Could not copy. Select it and copy by hand.';
+      });
+    });
+
+    /* NO DIALOG, SO NO BACKDROP CLICK AND NO ESCAPE. Both went with it, per
+       the standing rule that a control and its wiring go in one pass -- and a
+       stray lookup of a dialog id would be `getElementById` on nothing, which
+       throws and takes the rest of this block down with `adminAuth.init()`.
+         WRITTEN WITHOUT THE CALL IN IT, deliberately: the standing id-check
+       searches the SOURCE, so a comment naming `el(...)` of a removed element
+       reports it as a missing id. **Comments are not code** -- this project has
+       been caught by that four times. */
 
     adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: { url: SUPABASE_URL, publishableKey: SUPABASE_KEY },

@@ -11544,9 +11544,10 @@ const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 
-// Teams dropdown — merge the canonical mc/data/teams.json cities with the
-// broader public.teams catalog. Selecting the away team also fills the
-// editable Away Team City with its TGB game city.
+// Teams dropdown, filled from public.audiences (type = 'sports'). Selecting
+// the away team also fills the editable Away Team City with its TGB game city.
+// It merged a canonical mc/data/teams.json over the database until 2026-09-01;
+// that file does not exist, so the merge only ever warned.
 let builderTeamsList = [];
 const TEAM_REGION_NAMES = {
   AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
@@ -11584,76 +11585,49 @@ function getBuilderTeamGameCity(value, fallback = '') {
 
 async function loadBuilderTeamsFromSupabase() {
   if (!hasSupabaseStore()) return null;
-  const url = buildSupabaseUrl(
-    { select: '*', order: 'league_sort.asc,team_sort.asc' },
-    'teams'
-  );
-  if (!url) return null;
-  const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const rows = await response.json();
-  if (!Array.isArray(rows) || !rows.length) return null;
-  return rows.map((r) => ({
-    league: r.league || '',
-    teamKey: r.team_key || '',
-    firstName: r.first_name || '',
-    fanbase: r.fanbase || r.first_name || '',
-    gameCity: getBuilderTeamGameCity(r, r.fanbase || r.first_name || ''),
-    mascot: r.mascot || '',
-    sport: r.sport || '',
-    shell: r.shell || '',
-    stripe: r.stripe || '',
-    mask: r.mask || '',
-    textColor: r.text_color || ''
-  }));
-}
-
-async function loadBuilderTeamsFromJson() {
-  const response = await fetch('/mc/data/teams.json', { cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const doc = await response.json();
-  if (doc && Array.isArray(doc.teams)) {
-    return doc.teams.map((t) => ({
-      league: t.League || t.league || '',
-      teamKey: t.team_key || t.teamKey || '',
-      firstName: t.firstName || t.first_name || t.GeoName || '',
-      fanbase: t.fanbase || t.firstName || t.first_name || t.GeoName || '',
-      gameCity: getBuilderTeamGameCity(t, t.fanbase || t.firstName || t.first_name || t.GeoName || ''),
-      mascot: t.mascot || t.MascotName || '',
-      sport: t.sport || '',
-      shell: t.shell || t.primary || '',
-      stripe: t.stripe || t.secondary || '',
-      mask: t.mask || t.tertiary || '',
-      textColor: t.text_color || t.textColor || t.quaternary || ''
-    }));
-  }
-  const teams = [];
-  const walk = (node) => {
-    if (!node || typeof node !== 'object') return;
-    Object.keys(node).forEach((k) => {
-      const v = node[k];
-      if (!v || typeof v !== 'object') return;
-      if ('fullName' in v || 'primary' in v || 'shell' in v) {
-        teams.push({
-          league: v.League || v.league || '',
-          teamKey: v.team_key || v.teamKey || '',
-          firstName: v.firstName || '',
-          fanbase: v.fanbase || v.firstName || '',
-          gameCity: getBuilderTeamGameCity(v, v.fanbase || v.firstName || ''),
-          mascot: v.mascot || '',
-          sport: v.sport || '',
-          shell: v.shell || v.primary || '',
-          stripe: v.stripe || v.secondary || '',
-          mask: v.mask || v.tertiary || '',
-          textColor: v.text_color || v.textColor || v.quaternary || ''
-        });
-      } else {
-        walk(v);
-      }
-    });
+  const SPORT_BY_LEAGUE = {
+    nfl: 'football', ncaaf: 'football', nba: 'basketball',
+    mlb: 'baseball', nhl: 'hockey'
   };
-  walk(doc.leagues || {});
-  return teams;
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const url = buildSupabaseUrl(
+      { select: '*', type: 'eq.sports', league: 'not.is.null', order: 'full_name.asc' },
+      'audiences'
+    );
+    if (!url) return null;
+    const headers = Object.assign({}, getSupabaseHeaders(),
+      { Range: from + '-' + (from + 999) });
+    const response = await fetch(url, { headers: headers, cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const page = await response.json();
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push.apply(rows, page);
+    if (page.length < 1000) break;
+  }
+  if (!rows.length) return null;
+  return rows.map((r) => {
+    const league = String(r.league || '').toUpperCase();
+    /* `fanbase` WAS `city, ST` FOR A PRO CLUB AND THE SCHOOL FOR A COLLEGE ONE,
+       and 196 college rows still carry no city -- so falling back to the name's
+       own first half is what keeps them in the list rather than being dropped
+       by the caller's `fanbase && mascot` filter. */
+    const fanbase = String(r.city || r.first || '').trim();
+    const mapped = {
+      league: league,
+      teamKey: league && r.code ? league + ':' + r.code : '',
+      firstName: r.first || '',
+      fanbase: fanbase,
+      mascot: r.last || '',
+      sport: SPORT_BY_LEAGUE[String(r.league || '').toLowerCase()] || '',
+      shell: r.primary || '',
+      stripe: r.secondary || '',
+      mask: r.tertiary || '',
+      textColor: r.text || ''
+    };
+    mapped.gameCity = getBuilderTeamGameCity(mapped, fanbase);
+    return mapped;
+  });
 }
 
 function builderTeamKey(team) {
@@ -11667,32 +11641,22 @@ function builderTeamKey(team) {
   return league + '|' + mascot;
 }
 
-function mergeBuilderTeams(baseTeams, overrideTeams) {
-  const rows = (Array.isArray(baseTeams) ? baseTeams : []).map((team) => ({ ...team }));
-  (Array.isArray(overrideTeams) ? overrideTeams : []).forEach((team) => {
-    const key = builderTeamKey(team);
-    const index = key ? rows.findIndex((row) => builderTeamKey(row) === key) : -1;
-    if (index >= 0) rows[index] = { ...rows[index], ...team };
-    else rows.push({ ...team });
-  });
-  return rows;
-}
-
 function inferBuilderTeamKey(city, mascot, existingKey = '') {
   if (!window.TgbTeamPalette) return existingKey || '';
   const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { key: existingKey, city, mascot });
   return window.TgbTeamPalette.teamKey(team) || existingKey || '';
 }
 
+/* ONE SOURCE. It merged `/mc/data/teams.json` over the database, and that file
+   does not exist and did not before this was written -- so the fetch threw on
+   every load, warned, and contributed nothing but noise. `mergeBuilderTeams`
+   went with it, having no second list left to merge. */
 async function loadBuilderTeams() {
   let teams = [];
-  try { teams = await loadBuilderTeamsFromJson(); }
-  catch (err) { console.warn('Failed to load /mc/data/teams.json for builder:', err); }
   try {
-    const supabaseTeams = await loadBuilderTeamsFromSupabase();
-    if (supabaseTeams && supabaseTeams.length) teams = mergeBuilderTeams(teams, supabaseTeams);
+    teams = await loadBuilderTeamsFromSupabase();
   } catch (err) {
-    console.warn('Supabase teams fetch failed for builder:', err);
+    console.warn('Supabase audiences fetch failed for builder:', err);
   }
   if (!teams || !teams.length) return;
   builderTeamsList = (teams || [])
@@ -11734,7 +11698,7 @@ function populateTeamSelects() {
       opt.dataset.teamKey = window.TgbTeamPalette ? window.TgbTeamPalette.teamKey(team) : (team.teamKey || '');
       select.appendChild(opt);
     });
-    // Re-apply the current game's pick so a late teams.json fetch doesn't
+    // Re-apply the current game's pick so a late audiences fetch doesn't
     // silently blank a selection that was rendered earlier.
     if (state && state.currentGameMeta) {
       setTeamSelectValue(select, state.currentGameMeta[cityKey] || '', state.currentGameMeta[mascotKey] || '', state.currentGameMeta[keyKey] || '');

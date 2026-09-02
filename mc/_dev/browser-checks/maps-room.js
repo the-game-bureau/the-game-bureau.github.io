@@ -12,14 +12,17 @@ const WP = [
   { wpid: 101, name: 'Cloud Gate', city: 'Chicago', state: 'IL', address: '201 E Randolph St' },
   { wpid: 103, name: 'Jackson Square', city: 'New Orleans', state: 'LA', address: '701 Decatur St' }
 ];
-/* THE CITIES COME THROUGH `places`, embedded, because an audience carries a
-   home PLACE rather than a town. Two audiences share New Orleans on purpose:
-   the list must dedupe. */
+/* Two audiences share New Orleans on purpose: the list must dedupe. */
+/* THE ROOM READS `city`, NOT A JOIN. `home_place_id` was dropped on
+   2026090119 and `audiences.city` already holds the composed `City, ST` string
+   the join was building -- so a fixture in the old shape leaves the city list
+   EMPTY, which reads as the room failing to load rather than as a stub that
+   has stopped modelling the read. */
 const AUD = [
-  { home_place_id: 'new-orleans-la', places: { city: 'New Orleans', state: 'LA' } },
-  { home_place_id: 'new-orleans-la', places: { city: 'New Orleans', state: 'LA' } },
-  { home_place_id: 'chicago-il', places: { city: 'Chicago', state: 'IL' } },
-  { home_place_id: null, places: null }
+  { city: 'New Orleans, LA' },
+  { city: 'New Orleans, LA' },
+  { city: 'Chicago, IL' },
+  { city: null }
 ];
 const CH = [{ id: 7, name: 'Sing the fight song', kind: 'minigame' }];
 const STOPS = [

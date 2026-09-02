@@ -712,20 +712,25 @@
     }
 
     // THE CITY LIST IS THE AUDIENCES TABLE'S OWN, as asked: every city an
-    // audience is at home in. It is read through `places` because an audience
-    // carries a home PLACE, not a town -- and `city_name` on the club row was
-    // dropped on 2026-08-30 precisely because it disagreed with the place for
-    // 21 clubs, saying San Jose for the 49ers.
+    // audience is at home in, off the audience's own row. It went through
+    // `places` until 2026090120 severed every read of that catalogue from an
+    // audience; the town is text on the row now and nothing resolves it.
     async function loadCities() {
+      /* `city` IS THE TOWN, AND THE JOIN IS GONE. It read
+         `home_place_id,places!inner(city,state)`, and 2026090119 dropped that
+         column -- **PostgREST 400s the whole request on one unknown column**,
+         so this room's city list would have come back empty with nothing
+         saying why.
+           `audiences.city` IS ALREADY THE COMPOSED STRING (`New Orleans, LA`),
+         which is exactly what this list wanted the join to build, so the room
+         does less than it did rather than more. */
       const rows = await readAll('audiences', {
-        select: 'home_place_id,places!inner(city,state)',
-        order: 'full_name.asc'
+        select: 'city', order: 'city.asc'
       });
       const seen = {};
       rows.forEach(function (r) {
-        const p = r && r.places;
-        if (!p || !p.city) return;
-        seen[p.state ? p.city + ', ' + p.state : p.city] = true;
+        const c = r && r.city ? String(r.city).trim() : '';
+        if (c) seen[c] = true;
       });
       return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
     }

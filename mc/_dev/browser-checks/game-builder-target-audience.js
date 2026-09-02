@@ -98,15 +98,21 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('it is called Anchor Event', /^anchor event$/i.test(m.legend), m.legend);
   t('and it sits ABOVE the Game section', m.aboveGame);
   t('the list is filled from the audiences table (' + m.options + ')', m.options > 600, m.options);
+  /* THE LABEL IS `full_name`, NOT `name (nickname)`. `name` was dropped on
+     2026-09-01 and `full_name` holds the WHOLE name -- `Chicago Bears` where
+     `name` held `Chicago` -- so the mascot is appended only when the name does
+     not already end with it, or every pro club would read
+     "NFL Chicago Bears (Bears)". */
   t('an option names the audience, not a mascot alone',
-    /NFL Chicago \(Bears\)/.test(m.names), m.firstReal);
+    /NFL Chicago Bears/.test(m.names) && !/NFL Chicago Bears \(Bears\)/.test(m.names),
+    m.firstReal);
   /* THE TOWN IS IN THE LABEL WHERE IT IS NEWS, and left out where it repeats
      the name -- most pro clubs are already named for their city. */
   t('a college option carries its town',
-    /NCAAF Alabama \(Crimson Tide\) · Tuscaloosa, AL/.test(m.names),
+    /NCAAF Alabama Crimson Tide · Tuscaloosa, AL/.test(m.names),
     (m.names.split('|').find((x) => /Crimson Tide/.test(x)) || 'not found'));
   t('and a pro option does not say its city twice',
-    !/NFL Chicago \(Bears\) · Chicago/.test(m.names),
+    !/NFL Chicago Bears · Chicago/.test(m.names),
     (m.names.split('|').find((x) => /NFL Chicago/.test(x)) || 'not found'));
   /* A PRO CLUB IS NAMED BY ITS CITY -- 2026083024 put that in the column, so a
      picker showing "Bears" would mean the room had reached past it. */
@@ -129,7 +135,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   const patched = await page.evaluate(() => {
     const sel = document.getElementById('targetAudienceInput');
     if (!sel || sel.disabled) return { disabled: true };
-    sel.value = 'nfl-chicago';
+    sel.value = 'chicago-bears';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
     const meta = window.state && window.state.currentGameMeta;
     return {
@@ -180,7 +186,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     const type = (v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
     type('not a real audience at all');
     const bad = { invalid: el.hasAttribute('data-invalid'), title: el.title };
-    type('NFL Chicago (Bears)');
+    type('NFL Chicago Bears');
     return { bad: bad, goodInvalid: el.hasAttribute('data-invalid'), value: el.value };
   });
   t('a label the list does not hold is refused', typed.bad.invalid);
@@ -452,8 +458,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     };
     tin.disabled = false; rin.disabled = false;
     const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
-    type(tin, 'NFL Chicago (Bears)');
-    type(rin, 'NFL New Orleans (Saints)');
+    type(tin, 'NFL Chicago Bears');
+    type(rin, 'NFL New Orleans Saints');
     return {
       exists: !!document.getElementById('rivalAudienceInput'),
       legend: 'in the Anchor box',
@@ -474,7 +480,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   t('and the whole box is above the Game section', pair.beforeGame);
   t('both fields point at the same datalist', pair.sameList,
     pair.sameList + ' (' + pair.oneList + ' datalists on the page, one is the city picker)');
-  t('each resolves its own audience', pair.tTitle === 'nfl-chicago' && pair.rTitle === 'nfl-new-orleans',
+  t('each resolves its own audience', pair.tTitle === 'chicago-bears' && pair.rTitle === 'new-orleans-saints',
     pair.tTitle + ' | ' + pair.rTitle);
   t('and holds its own label', /Chicago/.test(pair.tValue) && /New Orleans/.test(pair.rValue),
     pair.tValue + ' | ' + pair.rValue);
@@ -504,14 +510,18 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       home: sample ? (window.__tgbAudienceForEventSide(sample, 'home') || {}).id : null
     };
   });
+  /* EVERY AUDIENCE ID IN THIS FILE MOVED ON 2026-09-01. 2026090113 made the
+     key `slug(full_name)`, so `mlb-cubs` is `chicago-cubs` and `nfl-chicago`
+     is `chicago-bears` -- and the labels moved with it, `name` having been
+     dropped the migration before. These assertions were correctly broken. */
   t('the event-to-fandom resolver is reachable', fill.hasResolver, fill.hasResolver);
   if (fill.hasResolver) {
-    t('an event away club resolves to the target fandom', fill.away === 'mlb-atlanta', fill.away);
+    t('an event away club resolves to the target fandom', fill.away === 'atlanta-braves', fill.away);
     /* `mlb-cubs`, NOT `mlb-chicago`: Chicago holds two MLB clubs, so 2026083024
        kept the mascot for both rather than letting one answer to the city. The
        first version of this assertion expected the city and the page was
        right. */
-    t('and its home club to the rival', fill.home === 'mlb-cubs', fill.home);
+    t('and its home club to the rival', fill.home === 'chicago-cubs', fill.home);
   }
 
   /* THE WRITE, END TO END. It could not be exercised while the fields were
@@ -529,7 +539,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     type(rin, '');
     const cleared = swatches('targetAudienceSwatches') + swatches('rivalAudienceSwatches');
 
-    type(tin, 'NFL Chicago (Bears)');
+    type(tin, 'NFL Chicago Bears');
     const afterTyping = swatches('targetAudienceSwatches');
 
     /* AND THE EVENT FILLS THE BLANK ONE WITHOUT TOUCHING THE ONE JUST SET. */
@@ -555,21 +565,33 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   /* THE RULE THE WHOLE FILL TURNS ON: a value somebody typed is never
      overwritten by the event. */
   t('and does NOT overwrite the target that was typed',
-    /Chicago \(Bears\)/.test(wrote.target), wrote.target + ' after ' + wrote.picked);
+    /Chicago Bears/.test(wrote.target), wrote.target + ' after ' + wrote.picked);
 
   /* THE GENERATED GAME ID. The shape is the catalogue's own -- host code, year,
      visitor code -- read off real rows rather than invented, and the codes come
      from `team_key` because `chc` is the Cubs' code and not the first three
      letters of Chicago. */
-  const gid = await page.evaluate(() => {
+  /* THE KEYLESS ROW IS FOUND IN THE FIXTURE, NEVER NAMED HERE. This probe read
+     `gameIdCode('jfk-assassination', '')`, and that id was re-slugged to
+     `john-f-kennedy` by 2026090113 -- so the assertion **had been passing on a
+     stale fixture** and went red the moment the fixture was refreshed, reading
+     as a page fault. A literal id in a check is a copy of the table that rots;
+     the shape is what is being tested. */
+  /* `code`, NOT `team_key`. That column was split into `league` and `code` and
+     DROPPED by 2026090119, so filtering on it matched every row and this picked
+     a club with a perfectly good code -- reporting `cmb` as a failure of the
+     fallback it never reached. */
+  const keyless = JSON.parse(AUDIENCES)
+    .filter((r) => !String(r.code || '').trim() && String(r.full_name || '').trim())[0];
+  const gid = await page.evaluate((keylessId) => {
     const ev = document.getElementById('anchorEventInput');
     const tin = document.getElementById('targetAudienceInput');
     const rin = document.getElementById('rivalAudienceInput');
     const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
     const out = {};
 
-    type(tin, 'MLB Cubs · Chicago, IL');
-    type(rin, 'MLB Baltimore (Orioles)');
+    type(tin, 'MLB Chicago Cubs');
+    type(rin, 'MLB Baltimore Orioles');
     out.fixture = composeGameId();
 
     /* NO FANDOMS: it falls back to the event's own title and town. */
@@ -582,15 +604,21 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
 
     out.free = freeGameId('bal2026chc', new Set(['bal2026chc', 'bal2026chc2']));
     out.freeFirst = freeGameId('nothing-like-this', new Set(['bal2026chc']));
-    out.code = gameIdCode('mlb-cubs', '');
-    out.fallbackCode = gameIdCode('history-jfk', '');
+    out.code = gameIdCode('chicago-cubs', '');
+    out.fallbackCode = gameIdCode(keylessId, '');
     return out;
-  });
+  }, keyless ? keyless.id : '');
   t('a fixture builds host + year + visitor', /^bal\d{4}chc$/.test(gid.fixture), gid.fixture);
   t('the code is the club code, not three letters of the city',
     gid.code === 'chc', gid.code);
+  /* THREE LETTERS OF ITS OWN NAME, which is visibly a guess rather than a club
+     code -- that is the point of the fallback. Compared against the fixture's
+     own row rather than a word written here. */
   t('an audience with no club key falls back to its name',
-    gid.fallbackCode === 'jfk', gid.fallbackCode);
+    !!keyless && gid.fallbackCode.length === 3
+      && keyless.full_name.toLowerCase().replace(/[^a-z]/g, '')
+           .indexOf(gid.fallbackCode) === 0,
+    (keyless ? keyless.id + ' -> ' : '(no keyless row) ') + gid.fallbackCode);
   t('with no fandoms it uses the event', gid.noFandoms.length > 4, gid.noFandoms);
   t('and with nothing at all it still returns something',
     gid.nameOnly.length > 0, gid.nameOnly);
@@ -690,8 +718,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     const tin = document.getElementById('targetAudienceInput');
     const rin = document.getElementById('rivalAudienceInput');
     const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
-    type(tin, 'NFL Chicago (Bears)');
-    type(rin, 'NFL New Orleans (Saints)');
+    type(tin, 'NFL Chicago Bears');
+    type(rin, 'NFL New Orleans Saints');
     const armed = { off: btn.getAttribute('aria-disabled'), title: btn.title };
     btn.click();
     const first = document.getElementById('nodeTitleInput').value;
@@ -700,7 +728,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
        first, because Guess stands down once a game is named. */
     const tt = document.getElementById('nodeTitleInput');
     tt.value = ''; tt.dispatchEvent(new Event('input', { bubbles: true }));
-    type(rin, 'MLB Cubs · Chicago, IL');
+    type(rin, 'MLB Chicago Cubs');
     btn.click();
     const shared = document.getElementById('nodeTitleInput').value;
 
@@ -724,14 +752,25 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
 
   /* AND IT STANDS DOWN ONCE THE GAME HAS A NAME. Somebody chose those words --
      possibly with this very button -- so replacing them has to be deliberate. */
+  /* WAIT ON THE CONDITION, NEVER READ STRAIGHT AFTER A CLICK. The room repaints
+     on its own schedule, so reading the button in the next statement was a race
+     -- this failed about one run in three, and **a check that passes only
+     sometimes is worth nothing**: the next person re-runs it, sees green and
+     deletes the report. */
+  const settled = (want) => page.waitForFunction(
+    (v) => document.getElementById('guessNameBtn').getAttribute('aria-disabled') === v,
+    { timeout: 4000 }, want).then(() => want).catch(() => 'timed out waiting for ' + want);
+  const namedOff = await settled('true');
   const afterNaming = await page.evaluate(() => {
     const btn = document.getElementById('guessNameBtn');
     const named = { off: btn.getAttribute('aria-disabled'), title: btn.title };
     const t = document.getElementById('nodeTitleInput');
     t.value = '';
     t.dispatchEvent(new Event('input', { bubbles: true }));
-    return { named: named, cleared: btn.getAttribute('aria-disabled') };
+    return { named: named };
   });
+  afterNaming.named.off = namedOff;
+  afterNaming.cleared = await settled('false');
   t('Guess stands down once the game is named', afterNaming.named.off === 'true', afterNaming.named.off);
   t('and says why', /already has a name/.test(afterNaming.named.title), afterNaming.named.title);
   t('clearing the name arms it again', afterNaming.cleared === 'false', afterNaming.cleared);
