@@ -149,11 +149,21 @@
     const matchupCodes = inferMatchupCodes(game);
     /* TARGET is the visiting fandom and RIVAL is the home one, which is the
        standing rule rather than a new one: a game takes its copy and its palette
-       from the away club. */
+       from the away club.
+         THE COLUMNS ARE `target` AND `rival` (2026090204). They were
+       `target_audience_id` / `rival_audience_id`, and the camelCase twins went
+       with the rename: the column and the field are one word now, so there is
+       no casing left to fall back through.
+         THIS TIER NO LONGER MATCHES ANYTHING, and that is not a regression to
+       fix. 2026090203 turned both columns into PROSE -- `Chicago Cubs fans` --
+       so `audienceId(team) === requestedAudience` can never be true, and every
+       game falls through to the team key below. It was measured before that
+       conversion: all 367 games with a target carry an `away_team_key` that
+       resolves in `public.teams` AND names the same club, 0 disagreeing. The
+       read is kept because the column may hold a key again one day and this is
+       where that would be honoured. */
     return {
-      audience: game && (prefix === 'away'
-        ? (game.target_audience_id || game.targetAudienceId)
-        : (game.rival_audience_id || game.rivalAudienceId)),
+      audience: game && (prefix === 'away' ? game.target : game.rival),
       key: game && (game[`${prefix}_team_key`] || game[`${prefix}TeamKey`]),
       league: inferLeague(game),
       code: matchupCodes[prefix],

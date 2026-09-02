@@ -7499,11 +7499,6 @@ body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
    event's label is a whole sentence (a date, a kind, and two clubs or a title)
    and an audience's is a few words. `min-width: 0` on both, or a long value
    inside a flex item refuses to shrink and pushes the row wider than the bar. */
-/* THE TWO AUDIENCES SHARE A LINE, which is what the anchor row used to do
-   with three. `align-items: flex-start` because only the audience fields
-   carry swatches under them, so without it the taller field would drag the
-   other's label down with it. */
-body.builder-page--editor .game-id-bar-inner--audience{ align-items:flex-start; flex-wrap:nowrap; }
 /* ROW 2 IS PROSE, so it stacks rather than sharing a line: a tagline is one
    line and an intro is a paragraph, and side by side the textarea would be
    half a column wide. `.field` brings its own label-above-control layout
@@ -7602,6 +7597,13 @@ body.builder-page--editor .gid-field--anchor{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor #mapBar .gid-field--map{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--name{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--city{ flex:0 1 var(--gid-w-name); }
+/* TWO FIELDS SHARING A LINE, which is what `--gid-w-pair` was measured for: a
+   pair each wide enough for its own guide sentence. `nowrap` so they stay side
+   by side, `flex:1 1 0` so they split the measure evenly. */
+body.builder-page--editor .game-id-bar-inner--audience{
+  align-items:flex-start; flex-wrap:nowrap; max-width:var(--gid-w-pair);
+}
+body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
 /* THE FIELD AND ITS EXAMPLE ON ONE LINE. `align-items:center` rather than
    `stretch`, or the example would be as tall as the input and its text would
    sit at the top of that box instead of beside the value. */
@@ -7623,14 +7625,6 @@ body.builder-page--editor .gid-example{
   font:500 0.68rem/1.35 'IBM Plex Mono', monospace;
   color:var(--muted, rgba(255,255,255,.62));
 }
-/* THE TWO AUDIENCE COMBOS SPLIT A LINE OF THEIR OWN, so the pair together comes
-   to the same measure as the single fields above and the boxes line up down
-   the page rather than each bar being a different width. */
-/* THE PAIR IS TWO FIELDS, so it takes two fields' worth: capping it at one
-   line's measure gave each half 362px, which clipped its own guide text
-   mid-word. A field narrower than the sentence printed inside it cannot be
-   read before it is used. */
-body.builder-page--editor .game-id-bar-inner--audience{ max-width:var(--gid-w-pair); }
 /* AND THE TWO FIELDS IN THE GAME BOX THAT WERE FULL WIDTH. `.field--wide` is
    the class the tagline and the intro carry, and it meant `1 / -1` -- the whole
    bar. It means a readable measure now. */
@@ -7672,28 +7666,11 @@ body.builder-page--editor #descriptionField{ max-width:var(--gid-w-read); }
 body.builder-page--editor #tagsBar .field{ max-width:var(--gid-w-line); }
 /* `min-width: 0`, or a long value inside a flex item refuses to shrink and
    pushes the row wider than the bar. */
-body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
-/* THE SWATCHES SIT UNDER THEIR OWN FIELD and take no height when there are
-   none, so an audience with no colours does not open a gap in the row. */
-body.builder-page--editor .gid-field .ta-swatches{ min-height:0; }
 /* AND THE PAIR STACKS ON A NARROW WINDOW, because two fields side by side is
    a desktop arrangement and 300px is not on offer. */
 @media (max-width: 1100px){
   body.builder-page--editor .game-id-bar-inner--audience{ flex-wrap:wrap; }
   body.builder-page--editor .gid-field--audience{ flex:1 1 100%; max-width:var(--gid-w-line); }
-}
-body.builder-page--editor .gid-field--audience-palette{ flex:0 0 auto; }
-body.builder-page--editor .ta-swatches{ display:flex; gap:6px; align-items:center; min-height:0; }
-body.builder-page--editor .ta-swatches:not(:empty){ margin-top:6px; }
-/* A SWATCH IS A BOX AND NOT A SPAN ON A BASELINE. Width and height are ignored
-   on an inline element, which is how this project shipped an invisible pin. */
-body.builder-page--editor .ta-swatch{
-  display:block;
-  width:26px;
-  height:26px;
-  border-radius:6px;
-  /* A RING, or a white club colour is invisible on a white bar. */
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);
 }
 body.builder-page--editor .gid-field--tagline input{ font-weight:500; }
 body.builder-page--editor .gid-label{
@@ -7759,7 +7736,6 @@ body.builder-page--editor #selectionIdInput{
 /* THE ROOM'S EXISTING IDIOM FOR A VALUE THE DATABASE WOULD REFUSE, borrowed
    rather than invented: the id box has worn it since this bar was built. */
 body.builder-page--editor #anchorEventInput[data-invalid],
-body.builder-page--editor #targetAudienceInput[data-invalid],
 body.builder-page--editor #selectionIdInput[data-invalid]{
   border-color:#c23737;
   box-shadow:0 0 0 3px rgba(194, 55, 55, .14);
@@ -7773,10 +7749,11 @@ body.builder-page--editor .details-section-title{
   display:none;
 }
 
+/* THE TWO EMPTY SECTIONS BELOW THE TAGS BAR WERE DELETED (2026-09-02) and
+   their selectors went with them -- a rule for markup that is no longer emitted
+   is the dead CSS this repo sweeps for. `#detailsBrandSection` stays: it still
+   holds the stop-name and var-name fields for a flow node. */
 body.builder-page--editor #detailsBrandSection .details-section-title,
-body.builder-page--editor #detailsGameDetailsSection .details-section-title,
-body.builder-page--editor #detailsRendezvousSection .details-section-title,
-body.builder-page--editor #detailsTeamNamesSection .details-section-title,
 body.builder-page--editor .guide-moved-note{
   border:1px dashed rgba(255,255,255,.28);
   border-radius:8px;
@@ -10294,50 +10271,11 @@ html.admin-embedded .builder-section-head{
         </div>
       </div>
 
-      <!-- WHO THE GAME IS FOR, ABOVE WHAT THE GAME IS.
-           A game is pitched at a travelling fandom, and that choice decides the
-           copy AND the palette -- so it is asked before the name, not filed
-           among Brand and Payment. It writes `games.target_audience_id`, a
-           foreign key into public.audiences, which is what a generated game
-           already carries.
-
-           It wears the Game bar's own frame, because the two answer the same
-           kind of question: which game is this, and who is it for. -->
       <!-- WHAT THE GAME IS ANCHORED TO, ON ONE LINE.
-           The event, the fandom it is pitched at, and the fandom they are up
-           against are one thought: they are read together and they change
-           together, since choosing the event fills the other two. Three bars
-           stacked said they were three decisions.
-
-           ALL THREE ARE COMBOS. The event picker was a `<select>` holding one
-           option per row of public.events -- 4,123 of them -- and the audience
-           pickers 641 each, which is past what a select is for. An input bound
-           to a datalist lets you type to narrow, and what is typed is resolved
-           back to an id before it is stored. -->
+           The event can still help name the people in play, but target and
+           rival are plain game-row text for now. -->
       <datalist id="anchorEventList"></datalist>
-      <!-- ONE DATALIST FOR BOTH AUDIENCE FIELDS. They offer the same 641 rows,
-           so a second copy would be 641 duplicate option nodes and two lists to
-           keep in step, which is the copy-and-drift this repo has lost to. -->
-      <datalist id="audienceList"></datalist>
 
-      <!-- ANCHOR IS THE EVENT AND NOTHING ELSE (2026-08-31). The three shared
-           one box because choosing an event FILLS the other two, and that is
-           still true and is still the reason they sit next to each other. What
-           it obscured is that they are different KINDS of fact: an anchor event
-           is a real thing in the world with a date, and an audience is who the
-           game is pitched at -- and 12 of the 31 live games have no event at
-           all while every fandom game has both audiences.
-           The fill is unchanged: it still reaches across the two boxes, and it
-           still never overwrites an audience somebody has set. -->
-      <!-- ANCHOR, AUDIENCE AND MAP ON ONE ROW (2026-08-31). The three answer
-           the same question in three parts -- WHY they are in town, WHO the game
-           is for, and WHICH walk they take -- and all three are settled before
-           you write a word of the game. Stacked they were three full-width bars
-           to scroll past; side by side they read as one decision with three
-           halves, and the Game box is the first thing under them.
-           THEY ARE STILL THREE FIELDSETS, not one with three groups: each keeps
-           its own folder tab, so the row says what each part is without a legend
-           having to name all three. -->
       <!-- THE ANCHOR EVENT IS ON ITS OWN LINE AND IT COMES FIRST (2026-08-31).
            It shared a row with the audience and the map for a day, on the
            argument that the three answer one question in three parts. They do,
@@ -10374,59 +10312,56 @@ html.admin-embedded .builder-section-head{
         </div>
       </fieldset>
 
-      <!-- AUDIENCES: THE TWO FANDOMS IN PLAY. A Bears fan in New Orleans has
-           their own and the one they are surrounded by, and the pair is one
-           thought -- who this game is FOR, and who they are up against -- so
-           they stay on one line together. The target leads because a game is
-           pitched at the travelling side, which is the same asymmetry the copy,
-           the palette and the game id all have.
-
-           PLURAL, BECAUSE THE BOX HOLDS TWO. `Audience` over a pair of pickers
-           read as one of them being the audience and the other something about
-           it. The room it points at is Audiences too.
-
-           AND IT HAS THE LINE TO ITSELF (2026-08-31), like the anchor above.
-           The three shared a row for a day; what that cost is that the box
-           holding TWO fields had a third of the width, so both combos were
-           narrower than the one field beside them. On its own line the pair
-           gets the room, and the page reads as one question per line. -->
+      <!-- AUDIENCES: WHO THE GAME IS FOR, AND WHO THEY ARE UP AGAINST.
+           Two plain text boxes over two plain text columns -- `games.target`
+           and `games.rival`. No picker, no catalogue, no key: what is typed is
+           what is stored, and 2026090204 renamed the columns to say so.
+             THE BOX AND ITS COLUMN SHARE A NAME, deliberately. The pair spent a
+           day as a box called `target` over a column called `target_audience_id`,
+           and the mapping in AUDIENCE_TEXTBOXES was then the only thing tying
+           them together -- which made it the only place the connection could
+           break. Now the id, the meta field and the column are all one word.
+             IT SITS SECOND because it is the second question: the anchor says
+           why anybody is in town, this says who the game is pitched at, and the
+           city says where they walk. -->
       <fieldset class="game-id-bar" id="audienceBar">
-        <!-- THE LEGEND IS THE DOOR, as the Anchor Event box does. This one has
-             no alternative: the box holds TWO fields, so there is no single
-             label to hang a link on.
-
-             SAME TAB, for the anchor door's reason: going to add or correct a
-             fandom is leaving rather than glancing, and a same-tab navigation
-             fires `beforeunload`, so it inherits the page's unsaved-work
-             warning with no new code. -->
-        <legend><a class="gid-label-link" id="audienceRoomLink" href="/mc/audiences/">Audiences</a></legend>
+        <!-- THE LEGEND IS THE DOOR, the shape the anchor and the map bars
+             already use: the room a field comes from is named by the field's
+             own heading rather than by a button beside it.
+               A NEW TAB, LIKE THE MAP AND UNLIKE THE ANCHOR. Filing an event is
+             a departure, and a same-tab navigation inherits this page's own
+             unsaved-work warning for free. A list of fandoms is a GLANCE, and a
+             half-edited game must not be lost to one.
+               `rel="noopener noreferrer"`: the destination has no business
+             holding a handle on this window. -->
+        <legend><a class="gid-label-link" id="audienceRoomLink" href="/mc/audiences/" target="_blank" rel="noopener noreferrer">Audiences</a></legend>
         <div class="game-id-bar-inner game-id-bar-inner--audience">
-          <div class="gid-field gid-field--audience" id="targetAudienceField">
-            <label class="gid-label" for="targetAudienceInput">Target audience</label>
-            <input id="targetAudienceInput" type="text" list="audienceList"
-                   autocomplete="off" spellcheck="false" disabled
-                   placeholder="Auto filled or type or tap to choose an Existing Target Audience.">
-            <!-- THE PALETTE SITS UNDER ITS OWN FIELD, because a game wears the
-                 target's colours and three hex values in a table say nothing:
-                 the swatches are the only way to see that the choice took. -->
-            <div class="ta-swatches" id="targetAudienceSwatches"></div>
+          <!-- EACH BOX KEEPS ITS OWN LABEL, unlike the anchor and the map. Those
+               are one field under a legend, so a label there would be the box
+               named twice a few pixels apart; this box holds TWO fields and one
+               legend cannot name either of them. -->
+          <div class="gid-field gid-field--audience" id="targetField">
+            <label class="gid-label" for="target">Target</label>
+            <input id="target" type="text"
+                   autocomplete="off" spellcheck="false"
+                   placeholder="Who the game is pitched at.">
           </div>
-          <div class="gid-field gid-field--audience" id="rivalAudienceField">
-            <label class="gid-label" for="rivalAudienceInput">Rival audience</label>
-            <input id="rivalAudienceInput" type="text" list="audienceList"
-                   autocomplete="off" spellcheck="false" disabled
-                   placeholder="Auto filled or type or tap to choose an Existing Rival Audience.">
-            <div class="ta-swatches" id="rivalAudienceSwatches"></div>
+          <div class="gid-field gid-field--audience" id="rivalField">
+            <label class="gid-label" for="rival">Rival</label>
+            <input id="rival" type="text"
+                   autocomplete="off" spellcheck="false"
+                   placeholder="Who they are up against.">
           </div>
         </div>
       </fieldset>
 
-      <!-- THE CITY, ON ITS OWN LINE UNDER THE AUDIENCES (2026-08-31).
+      <!-- THE CITY, ON ITS OWN LINE UNDER THE ANCHOR (2026-08-31).
            It was a field in the GAME box, beside the name -- and it is not the
            same kind of fact: a name is what the game is CALLED, and the city is
-           WHERE it is walked, which is the third answer in the run the anchor
-           and the audiences begin. Under them it reads in that order: why they
-           are in town, who the game is for, and where they walk.
+           WHERE it is walked. Under the anchor it reads in that order: why they
+           are in town, then where they walk.
+             IT SAT UNDER THE AUDIENCES UNTIL 2026-09-02, when that bar was
+           deleted; the order it belongs to is the same one short.
 
            IT IS MOVED, NEVER COPIED. `nodeCityInput` and every line that reads
            it are untouched, so applyGeoControls, syncGeoControlsToMeta and the
@@ -10467,7 +10402,7 @@ html.admin-embedded .builder-section-head{
 
            A COMBO, NOT A SELECT, which is the shape this room uses wherever a
            field shows a LABEL and the column holds a KEY. It is also the shape
-           the audiences and the anchor event above it already use.
+           the anchor event above it already uses.
 
            IT OFFERS ONLY MAPS THAT EXIST, and that is where the guard lives:
            `games.map_id` is NOT a foreign key and cannot be one, because
@@ -10475,8 +10410,8 @@ html.admin-embedded .builder-section-head{
            is not unique. Nothing downstream will tell you a game names a map
            that is not there. -->
       <fieldset class="game-id-bar" id="mapBar">
-        <!-- THE LEGEND IS THE DOOR, as the Anchor Event and Audiences boxes
-             do. A map is built in TGB Atlas and named here, so this is a label
+        <!-- THE LEGEND IS THE DOOR, as the Anchor Event box does. A map is
+             built in TGB Atlas and named here, so this is a label
              worth following: you meet the field, find the map you want does not
              exist, and the way to make it is the word you are already reading.
 
@@ -10521,13 +10456,6 @@ html.admin-embedded .builder-section-head{
           <div class="gid-field gid-field--name" id="titleField">
             <div class="gid-name-row">
               <input id="nodeTitleInput" type="text" autocomplete="off" aria-label="Game name" disabled>
-              <!-- THE NAME THE CATALOGUE ALREADY USES, offered rather than
-                   imposed. Every generated game is called "<away city> Fans
-                   Takeover <host city>", and both halves are sitting in the
-                   Anchor box above -- so this writes the sentence rather than
-                   making somebody retype what they have just chosen. -->
-              <button type="button" class="btn-guess" id="guessNameBtn" disabled
-                      title="Name it from the two audiences">Guess</button>
             </div>
           </div>
         </div>
@@ -10969,112 +10897,24 @@ html.admin-embedded .builder-section-head{
                   </div>
                 </section>
 
-                <section class="details-section" id="detailsGameDetailsSection">
-                  <div class="details-section-title">Basics</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-                    <!-- THE TAGLINE AND THE ID MOVED DOWN HERE (2026-08-30), so
-                         the GAME box is the two things that answer "which game
-                         is this": its name and its city. Moved, not deleted --
-                         every id and every listener is untouched, so the rename
-                         warning on the id and the tagline's own handler still
-                         work exactly as they did. -->
-                    <!-- THE GAME ID MOVED OUT TO ITS OWN BOX (2026-08-31). -->
-                    <!-- TAKEOVER DATE, SUGGESTED START AND TARGET END ARE GONE
-                         (2026-08-31), asked for outright. The ANCHOR EVENT above
-                         is where a date lives now: it carries `start_date` and
-                         `start_time` and is the real thing in the world that
-                         gives a game its when.
-                         WHAT IT COSTS, and it is worth knowing before somebody
-                         goes looking. `games.game_date`, `start_time` and
-                         `end_time` are still stored and still READ: the public
-                         `/games/` page prints "Start whenever you like. We
-                         suggest 1pm, so you finish about when other teams do."
-                         off `start_time`, on 18 of the 31 rows that had one.
-                         That sentence can no longer be SET from this page --
-                         it is SQL, or the anchor event's own time. Nothing was
-                         cleared. -->
-
-
-                  </div>
-                </section>
 
                 <!-- THE PAYMENT SECTION IS GONE (2026-08-31). Price was the
                      only field in it, and it is in the GAME box now; a drawer
                      section holding nothing is a heading over a gap. -->
 
                 <!-- Starting locations card -->
-                <section class="details-section rendezvous-card" id="detailsRendezvousSection">
-                  <div class="details-section-title">Starting Location</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-
-                    <!-- LOCATION BASED IS GONE, AND SO IS EVERY START FIELD
-                         (2026-08-31). Asked for outright: a game's location is
-                         the CITY on its own row and nothing else, so there is no
-                         longer such a thing as a game that is not located. The
-                         toggle asked a question with one answer, and the four
-                         start fields were a second, finer location competing
-                         with the city for the same job.
-                         The seven columns went with them; see
-                         2026083105_games_lose_their_start_point.sql. -->
-
-
-                    <!-- STATE / PROVINCE IS GONE (2026-08-31), asked for
-                         outright. The CITY box in the Game box carries the whole
-                         place -- "Chicago, IL" is the shape every other table
-                         here spells -- so a second control for the half of it
-                         was a second place to say one thing.
-                         `meta.stateCode` and `meta.stateName` are still WRITTEN,
-                         derived from the city by `applyGeoControls`, so nothing
-                         downstream lost a value. What is gone is the way to set
-                         a state that DISAGREES with the city, which was never a
-                         thing anybody wanted. -->
-
-                    <!-- THE COUNTRY PICKER, START NAME AND START ADDRESS ARE
-                         GONE (2026-08-31), asked for outright.
-
-                         THE LAST TWO WERE WRITING TO COLUMNS THAT NO LONGER
-                         EXISTED. 2026083105 dropped the seven start-location
-                         columns earlier the same day and left these boxes on
-                         the page: inputs that look like they save and do not,
-                         which is worse than no field at all.
-
-                         THE COUNTRY IS DERIVED, NOT PICKED, and it always was.
-                         `games.city` is the canonical "City, State" string and
-                         `parseGeo` reads a country code out of it, so the
-                         picker existed only to set one that DISAGREED with the
-                         city -- the same field-with-one-right-answer the STATE
-                         picker was deleted for hours earlier. `country_code`
-                         and `country_name` went from public.games with it
-                         (2026083120), values kept in games_country_retired.
-
-                         WHAT IT COSTS, plainly: a game cannot be given a
-                         country that its city does not imply. Nothing wanted
-                         that, and nothing outside this room ever read either
-                         column -- checked rather than assumed. -->
-                    </div>
-
-                    <!-- Start Plus Code field removed: the rendezvous now uses the
-                         Start Address directly. Plus Code helpers below are inert
-                         (their elements no longer exist) and may be revisited. -->
-
-                  </div>
-                </section>
 
                 <!-- THE AWAY AND HOME TEAM PICKERS ARE GONE (2026-08-31),
-                     asked for outright. The AUDIENCE box above says the same
-                     thing better: a target audience IS the away club and a rival
-                     IS the home one, and it says so with a colour swatch beside
-                     it and a list that reaches artists and interests too, which
-                     a teams dropdown never could.
-                     THE PALETTE ALREADY CAME FROM THE AUDIENCE. `team-palette.js`
-                     scores an exact `audience_id` match at 30000, above the team
-                     key, so nothing about how a game is coloured changed.
+                     asked for outright.
                      WHAT IT COSTS, plainly: `games.away_team_key`,
                      `home_team_key` and the four `*_team_city` / `*_team_mascot`
                      columns have no editor on this page any more. They are still
                      written by the anchor-event prefill and still read by the
-                     engines; nothing is cleared. A row whose audience and whose
-                     legacy team disagree can now only be corrected in SQL. -->
+                     engines; nothing is cleared, and a wrong one is now an SQL
+                     fix.
+                     THEY ARE ALSO WHAT THE PALETTE FALLS BACK TO. With the
+                     audience bar deleted on 2026-09-02, `away_team_key` is the
+                     ONLY thing left on this page tying a game to a club. -->
 
                 <!-- THE GUIDE MOVED OUT OF THIS DRAWER AND ONTO THE PAGE
                      (2026-08-31), as a bar of its own directly under GAME. It is
@@ -11083,48 +10923,6 @@ html.admin-embedded .builder-section-head{
                      MOVED, NEVER COPIED: every id came with it, including the four
                      hidden fields the save path reads. -->
 
-                <section class="details-section" id="detailsTeamNamesSection">
-                  <div class="details-section-title">Team Names</div>
-                  <div class="details-section-grid">
-                    <div class="field" id="teamsField">
-                      <div class="field-label field-label--with-meta">TGB TEAM NAMES<span class="field-info" tabindex="0" role="note" aria-label="Order team names from most desirable to least.">i<span class="field-tooltip" role="tooltip">Order team names from most desirable to least.</span></span></div>
-                      <div class="team-names-grid">
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team01</div>
-                          <input id="team01Input" type="text" placeholder="Team 1" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team02</div>
-                          <input id="team02Input" type="text" placeholder="Team 2" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team03</div>
-                          <input id="team03Input" type="text" placeholder="Team 3" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team04</div>
-                          <input id="team04Input" type="text" placeholder="Team 4" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team05</div>
-                          <input id="team05Input" type="text" placeholder="Team 5" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team06</div>
-                          <input id="team06Input" type="text" placeholder="Team 6" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team07</div>
-                          <input id="team07Input" type="text" placeholder="Team 7" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team08</div>
-                          <input id="team08Input" type="text" placeholder="Team 8" autocomplete="off" disabled>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
 
 
               <section class="details-section" id="detailsLogicSection">
@@ -11450,7 +11248,6 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_mascot: true,
   away_team_key: true,
   home_team_key: true,
-  target_audience_id: true,
   map_id: true,
   logo_id: true,
   /* IN THE MAP SO A COLUMN CAN BE TURNED OFF IN ONE PLACE. `buildGamesSelectColumns`
@@ -11475,11 +11272,7 @@ const SUPABASE_GAMES_SCHEMA = {
 
      So a column present on `games` and missing from `games_with_graph_and_teams`
      is switched off by a failed READ and then silently OMITTED FROM EVERY SAVE
-     for the rest of the session. That is precisely how `anchor_event_id` went
-     unsaveable on 2026-08-31 while `target_audience_id` -- same shape, same
-     table, but not in any select list -- saved perfectly well beside it.
-     Measured: with the column off the view the payload has no `anchor_event_id`
-     key at all; with it on, the id is there.
+     for the rest of the session.
 
      SO WHEN A COLUMN WILL NOT SAVE, CHECK THE VIEW BEFORE THE WRITE PATH.
      2026083124 and 2026083125 put every column the room writes onto the view.
@@ -11487,10 +11280,11 @@ const SUPABASE_GAMES_SCHEMA = {
      (An earlier version of this comment said no such function existed. It does;
      I had grepped for the wrong name.) */
   status: true,
-  rival_audience_id: true,
   venue_name: true,
   venue_city: true,
-  anchor_event_id: true
+  anchor_event_id: true,
+  target: true,
+  rival: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
 const DEFAULT_CATEGORY_ICON = '';
@@ -11961,6 +11755,22 @@ function serializeGameRow(game, index = 0) {
 
   // Anchor-event link: write explicitly (not via emitColumn) so clearing the
   // picker persists a null and actually unlinks the game.
+  /* THE TWO AUDIENCES, WRITTEN EXPLICITLY FOR THE ANCHOR EVENT'S OWN REASON:
+     `emitColumn` SKIPS AN EMPTY VALUE, deliberately, so that a column the page
+     knows nothing about is never wiped -- and that makes CLEARING a box
+     impossible through it. The blank is dropped from the payload, the row keeps
+     what it had, and the box comes back filled on the next load. An audience is
+     exactly the kind of thing somebody clears.
+       TOP-LEVEL ONLY, no `gameNode` rung, because these are row columns and the
+     boxes are gated on the ROW.
+       THEY ARE NOT IN `GAME_COLUMN_TO_NODE_FIELD` for both of those reasons,
+     and putting them there would silently reintroduce both. */
+  if (SUPABASE_GAMES_SCHEMA.target !== false) {
+    payload.target = audienceColumnValue(normalizedGame.target);
+  }
+  if (SUPABASE_GAMES_SCHEMA.rival !== false) {
+    payload.rival = audienceColumnValue(normalizedGame.rival);
+  }
   if (SUPABASE_GAMES_SCHEMA.anchor_event_id !== false) {
     payload.anchor_event_id = (gameNode.anchorEventId || normalizedGame.anchor_event_id) || null;
   }
@@ -11995,6 +11805,8 @@ function normalizeGameRow(row, index = 0) {
     guide_image_url:       normalizeGuideImageAssetUrl(row && (row.guide_image_url ?? row.guideImageUrl)),
     logo_url:              row && row.logo_url,
     anchor_event_id:       row && row.anchor_event_id,
+    target:                row && row.target,
+    rival:                 row && row.rival,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
     tertiary_color:        row && row.tertiary_color,
@@ -12028,10 +11840,8 @@ function normalizeGameRow(row, index = 0) {
     away_team_mascot:      row && row.away_team_mascot,
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
-    target_audience_id:    row && row.target_audience_id,
     map_id:              row && row.map_id,
     logo_id:             row && row.logo_id,
-    rival_audience_id:     row && row.rival_audience_id,
     venue_name:            row && row.venue_name,
     venue_city:            row && row.venue_city,
   }, index);
@@ -12068,12 +11878,12 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'guide_image_url',
     'logo_url',
     'anchor_event_id',
-    /* WRITTEN ON EVERY SAVE, SO THEY HAVE TO BE READ BACK. Both were absent
-       from every select until 2026-08-31, so a game whose audiences were set BY
-       HAND opened blank -- and the room only ever looked right because picking
-       an anchor event re-derives them from the fixture. */
-    'target_audience_id',
-    'rival_audience_id',
+    /* THE TWO AUDIENCES HAVE TO BE ASKED FOR. A column the room WRITES and
+       does not READ is written blind: it saves perfectly well and never comes
+       home, so a game whose audiences were set by hand opens with two empty
+       boxes. Both were in no select list at all until this was found. */
+    'target',
+    'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
        geo columns are filled by a trigger from `city`. Written and unread is
@@ -12212,12 +12022,12 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'guide_image_url',
     'logo_url',
     'anchor_event_id',
-    /* WRITTEN ON EVERY SAVE, SO THEY HAVE TO BE READ BACK. Both were absent
-       from every select until 2026-08-31, so a game whose audiences were set BY
-       HAND opened blank -- and the room only ever looked right because picking
-       an anchor event re-derives them from the fixture. */
-    'target_audience_id',
-    'rival_audience_id',
+    /* THE TWO AUDIENCES HAVE TO BE ASKED FOR. A column the room WRITES and
+       does not READ is written blind: it saves perfectly well and never comes
+       home, so a game whose audiences were set by hand opens with two empty
+       boxes. Both were in no select list at all until this was found. */
+    'target',
+    'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
        geo columns are filled by a trigger from `city`. Written and unread is
@@ -12875,7 +12685,6 @@ const GAME_LOGO_FALLBACK_ASSET_NAMES = [
   'games/utsa.jpg'
 ];
 const TEAM_FIELD_KEYS = Array.from({ length: 8 }, (_, index) => `team${String(index + 1).padStart(2, '0')}`);
-const teamInputs = TEAM_FIELD_KEYS.map((key) => document.getElementById(key + 'Input'));
 const descriptionField = document.getElementById('descriptionField');
 const objectDescriptionField = document.getElementById('objectDescriptionField');
 const ifThenField = document.getElementById('ifThenField');
@@ -12910,15 +12719,6 @@ function getTeamFieldState(source) {
   return teamState;
 }
 
-function setTeamFieldValue(target, index, value) {
-  if (!target || index < 0 || index >= TEAM_FIELD_KEYS.length) return;
-  const nextValues = getNormalizedTeamValues(target);
-  nextValues[index] = typeof value === 'string' ? value : '';
-  target.teams = [...nextValues];
-  TEAM_FIELD_KEYS.forEach((key, valueIndex) => {
-    target[key] = nextValues[valueIndex] || '';
-  });
-}
 const objectStopNameInput = document.getElementById('objectStopNameInput');
 const objectStopGroupField = document.getElementById('objectStopGroupField');
 const objectStopGroupButtons = Array.from(document.querySelectorAll('[data-stop-group-btn]'));
@@ -13064,148 +12864,53 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
   return window.TgbTeamPalette.teamKey(team) || existingKey || '';
 }
 
-/* THE AUDIENCES, WHICH ARE NOT THE TEAMS LIST. `builderTeamsList` is the
-   `teams` VIEW -- fandoms with a club key, 639 of them -- and an audience can
-   also be an artist or an interest. `games.target_audience_id` is a foreign key
-   into public.audiences, so the picker is built from that table and from
-   nothing else, or it would offer a value the column cannot take. */
-let builderAudiencesList = [];
-
-/* EVERY COLUMN NAMED HERE EXISTS. It asked for
-   `id,name,family,nickname,kind,shell,stripe,mask,home_place_id,team_key` and
-   **not one of those is on the table any more** -- `name`, `family`,
-   `nickname` and `kind` went on 2026-09-01, the three colours were renamed to
-   `primary/secondary/tertiary`, and `home_place_id` and `team_key` were dropped
-   by 2026090119 and 2026090120. PostgREST answers 400 on the WHOLE request for
-   one unknown column, so **both audience pickers opened empty** and every typed
-   name came back "No audience called ...".
-     `public.places` IS NOT READ. The city is TEXT on the row since 2026090120,
-   and that read could not answer for every club anyway: 196 audiences carry a
-   town `places` does not hold, so `placeCity` came back EMPTY for all of them.
-     IT PAGES, because 640 rows is close enough to PostgREST's silent 1000-row
-   cap to matter and this table quintupled in a day. */
-async function loadBuilderAudiences() {
-  if (!hasSupabaseStore()) return;
-  const rows = [];
-  for (let from = 0; ; from += 1000) {
-    const url = buildSupabaseUrl(
-      { select: 'id,full_name,first,last,type,league,code,city,"primary",secondary,tertiary',
-        order: 'full_name.asc' },
-      'audiences'
-    );
-    if (!url) return;
-    const headers = Object.assign({}, getSupabaseHeaders(),
-      { Range: from + '-' + (from + 999) });
-    const response = await fetch(url, { headers: headers, cache: 'no-store' });
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-    const page = await response.json();
-    if (!Array.isArray(page) || !page.length) break;
-    rows.push.apply(rows, page);
-    if (page.length < 1000) break;
-  }
-
-  builderAudiencesList = rows.map((a) => Object.assign({}, a, {
-    /* THE SHAPES THE REST OF THIS PAGE STILL SPEAKS, mapped once here so no
-       caller has to know the column names moved. */
-    family: a.type || '',
-    name: a.full_name || '',
-    nickname: a.last || '',
-    shell: a.primary || '',
-    stripe: a.secondary || '',
-    mask: a.tertiary || '',
-    team_key: a.league && a.code ? String(a.league).toUpperCase() + ':' + a.code : '',
-    placeLabel: String(a.city || '').trim(),
-    /* THE CITY ON ITS OWN, for a sentence that wants a place. It is the text
-       before the comma -- `audiences.city` is the canonical "City, ST". */
-    placeCity: String(a.city || '').split(',')[0].trim()
-  }));
-  populateTargetAudienceSelect();
-}
-
-/* EVERY WORD SOMEBODY MIGHT TYPE GOES IN THE LABEL, because a datalist matches
-   on the option's value and nothing else. So the league, the audience's own name
-   (the CITY for a pro club, the school for a college one -- 2026083024 put that
-   in the column), the mascot, and the town it is at home in. Typing `Saints`,
-   `New Orleans`, `LA` or `NFL` all reach the right row.
-
-   NO EM DASH, per the standing rule; the separator is a middle dot. */
-function audienceLabel(a) {
-  /* THE LEAGUE, NOT THE TYPE. `family` is mapped from `type` above, which is
-     `sports` for every club -- so heading every option with it would print
-     "SPORTS Chicago Bears" 638 times and say nothing. */
-  const league = String(a.league || '').toUpperCase();
-  const nick = String(a.nickname || '').trim();
-  const name = String(a.name || '');
-  const head = (league ? league + ' ' : '') + name
-             + (nick && name.toLowerCase().indexOf(nick.toLowerCase()) === -1
-                 ? ' (' + nick + ')' : '');
-  /* THE TOWN IS OMITTED WHEN IT REPEATS THE NAME, which is most pro clubs:
-     "NFL Chicago (Bears) - Chicago, IL" says Chicago twice. It earns its place
-     for a college club, where the name is a school and the town is news --
-     "NCAAF Alabama (Crimson Tide) - Tuscaloosa, AL". */
-  /* THE TEST ASKS WHETHER THE NAME OPENS WITH THE TOWN, not the reverse. It
-     was `place.startsWith(name + ',')`, which was right while `name` held
-     `Chicago` -- with `full_name` holding `Chicago Bears` it started asking
-     whether "chicago, il" opens with "chicago bears,", never true, so every pro
-     club gained a town it already says. **That broke the RESOLVER, not just the
-     look**: what somebody types is matched back against this same label, so a
-     label nobody would type is an audience nobody can choose. */
-  const place = String(a.placeLabel || '');
-  const town = place.split(',')[0].trim().toLowerCase();
-  const sameTown = town && name.toLowerCase().indexOf(town) === 0;
-  return place && !sameTown ? head + ' · ' + place : head;
-}
-
-/* THE TWO SLOTS ARE ONE CONTROL TOLD WHICH SIDE IT IS. Everything below takes a
-   slot rather than being written twice: the alternative is two copies of a
-   resolver and a painter that have to agree by hand, which is the drift this
-   repo has paid for more than once. */
-const AUDIENCE_SLOTS = [
-  { field: 'targetAudienceId', input: 'targetAudienceInput',
-    swatches: 'targetAudienceSwatches',
-    hint: 'Auto filled or type or tap to choose an Existing Target Audience.' },
-  { field: 'rivalAudienceId', input: 'rivalAudienceInput',
-    swatches: 'rivalAudienceSwatches',
-    hint: 'Auto filled or type or tap to choose an Existing Rival Audience.' }
+/* THE BOX, THE META FIELD AND THE COLUMN -- ALL ONE WORD, AND TIED TOGETHER
+   HERE. This list is the whole of what makes a box paint, sync and reach a
+   column, so a box that is not in it is a box connected to nothing.
+     THE THREE NAMES MATCHING IS THE POINT. The pair spent a day as a box called
+   `target` over a column called `target_audience_id`, and then this mapping was
+   the only thing saying they belonged together -- the only place the connection
+   could break. 2026090204 renamed the columns; there is nothing left to map. */
+const AUDIENCE_TEXTBOXES = [
+  { field: 'target', input: 'target', column: 'target' },
+  { field: 'rival', input: 'rival', column: 'rival' }
 ];
 
-function fillAudienceDatalist() {
-  const list = document.getElementById('audienceList');
-  if (!list) return;
-  list.innerHTML = '';
-  builderAudiencesList.forEach((a) => {
-    const opt = document.createElement('option');
-    opt.value = audienceLabel(a);
-    list.appendChild(opt);
+/* PAINT FROM THE META, AND IT TAKES ONE RATHER THAN READING `state` -- that is
+   `applyGeoControls`'s own shape, and for the same reason: the caller knows
+   whether a game is OPEN, and a closed game must clear the boxes rather than
+   leave the last game's audiences sitting in them.
+     NEVER PAINTED WHILE IT HAS FOCUS. A repaint mid-edit would yank the text out
+   from under the cursor -- the guard the Game ID box has carried since
+   2026-08-10, and this page repaints on a rAF loop. */
+function paintAudienceTextboxes(meta) {
+  AUDIENCE_TEXTBOXES.forEach((slot) => {
+    const input = document.getElementById(slot.input);
+    if (!input || document.activeElement === input) return;
+    input.value = String((meta && meta[slot.field]) || '');
   });
 }
 
-function paintAudienceSlot(slot) {
-  const input = document.getElementById(slot.input);
-  if (!input) return;
-
-  /* THE FIELD SHOWS A LABEL AND THE COLUMN HOLDS A KEY, so what is drawn is
-     resolved FROM the stored id rather than being the id itself. Without this,
-     opening a game would show `nfl-chicago` in a box a person is meant to read. */
-  const id = String((state.currentGameMeta && state.currentGameMeta[slot.field]) || '');
-  const row = id ? builderAudiencesList.find((a) => a.id === id) : null;
-  input.value = row ? audienceLabel(row)
-              : (id ? id + ' (no longer in audiences)' : '');
-  input.removeAttribute('data-invalid');
-
-  /* A DISABLED FIELD SAYS WHY IT IS OFF. The whole identity bar is greyed until
-     a game is open, so that is the common state here -- and greyed with a
-     placeholder reading "Nobody in particular" is indistinguishable from a
-     picker that failed to load. */
-  input.placeholder = !builderAudiencesList.length ? 'Audiences did not load'
-                    : (input.disabled ? 'Open a game first' : slot.hint);
-  paintAudienceSwatches(slot);
+/* AND BACK THE OTHER WAY, FROM THE BOXES THEMSELVES. The `input` listeners keep
+   the meta in step as you type, so this is for the one moment it has to be
+   right: the instant before a save reads the snapshot. A box committed by a
+   click straight on to Save -- no blur, no keystroke after it -- is the case a
+   listener alone can miss, and the cost of missing it is a save that reports
+   success and leaves the typed audience behind. */
+function syncAudienceTextboxesToMeta() {
+  if (!state.currentGameMeta) return;
+  AUDIENCE_TEXTBOXES.forEach((slot) => {
+    const input = document.getElementById(slot.input);
+    if (!input) return;
+    state.currentGameMeta[slot.field] = input.value;
+  });
 }
 
-function populateTargetAudienceSelect() {
-  fillAudienceDatalist();
-  AUDIENCE_SLOTS.forEach(paintAudienceSlot);
-  paintGuessButton();
+/* BLANK IS NULL, IN ONE PLACE, so the staged row and the PATCH cannot disagree
+   about what an empty box means. */
+function audienceColumnValue(value) {
+  const text = value == null ? '' : String(value);
+  return text.trim() ? text : null;
 }
 
 /* ---- THE MAP ------------------------------------------------------------
@@ -13458,68 +13163,6 @@ function commitMapField() {
   state.currentGameMeta.mapId = resolved;
   markDirty();
   paintMapField();
-}
-
-/* WHAT WAS TYPED, BACK TO AN ID. A blank clears the column; anything the list
-   does not hold is REFUSED rather than stored, because the column is a foreign
-   key and PostgREST would answer with a constraint name nobody can act on. */
-function resolveTypedAudience(slot) {
-  const input = document.getElementById(slot.input);
-  if (!input) return;
-  const typed = String(input.value || '').trim();
-  /* WHETHER A NAME EXISTS HAS NOTHING TO DO WITH WHETHER A GAME IS OPEN, so the
-     resolution and the red pen run either way and only the WRITE is guarded.
-     Behind the guard, a typed value that matches nothing was accepted in
-     silence on any path where the field was reachable without a game node. */
-  const canWrite = !!state.currentGameMeta;
-
-  if (!typed) {
-    if (canWrite) {
-      state.currentGameMeta[slot.field] = '';
-      syncFandomFlag();
-    }
-    input.removeAttribute('data-invalid');
-    paintAudienceSwatches(slot);
-    paintGuessButton();
-    return;
-  }
-
-  const low = typed.toLowerCase();
-  const hit = builderAudiencesList.find((a) => audienceLabel(a).toLowerCase() === low)
-    /* A BARE ID IS ACCEPTED TOO, so a value pasted from the database resolves
-       rather than being called a mistake. */
-    || builderAudiencesList.find((a) => String(a.id).toLowerCase() === low);
-
-  if (!hit) {
-    input.setAttribute('data-invalid', '');
-    input.title = 'No audience called ' + typed + '. Pick one from the list.';
-    return;
-  }
-  input.removeAttribute('data-invalid');
-  input.title = hit.id;
-  input.value = audienceLabel(hit);
-  if (canWrite) {
-    state.currentGameMeta[slot.field] = hit.id;
-    syncFandomFlag();
-  }
-  paintAudienceSwatches(slot);
-  paintGuessButton();
-}
-
-function paintAudienceSwatches(slot) {
-  const host = document.getElementById(slot.swatches);
-  if (!host) return;
-  const id = String((state.currentGameMeta && state.currentGameMeta[slot.field]) || '');
-  const a = id ? builderAudiencesList.find((x) => x.id === id) : null;
-  const colours = a ? [a.shell, a.stripe, a.mask].filter(Boolean) : [];
-  host.innerHTML = '';
-  colours.forEach((c) => {
-    const sw = document.createElement('span');
-    sw.className = 'ta-swatch';
-    sw.style.background = c;
-    sw.title = c;
-    host.appendChild(sw);
-  });
 }
 
 async function loadBuilderTeams() {
@@ -13998,36 +13641,6 @@ function resolveTypedEvent() {
   if (canWrite) applyAnchorEventSelection(String(hit.id));
 }
 
-/* THE EVENT NAMES BOTH FANDOMS, so choosing one fills them: the AWAY club is
-   who the game is pitched at, and the HOME club is who they are up against.
-   That is the standing rule rather than a new one -- a game takes its copy and
-   its palette from the away club, and the rival is the fandom they are
-   surrounded by.
-
-   IT FILLS A BLANK AND NEVER OVERWRITES. On a new game both are empty, which is
-   the case this is for; on a game somebody has already set by hand, changing
-   the event must not quietly rewrite their choice. */
-function audienceForEventSide(ev, side) {
-  const nick = String((side === 'home' ? ev.home_team_nickname : ev.away_team_nickname) || '').trim();
-  if (!nick) return null;
-  const league = String(ev.league || '').trim().toLowerCase();
-  const low = nick.toLowerCase();
-  /* THE LEAGUE NARROWS IT, and it has to: three clubs are called the Tigers and
-     two the Bulldogs, so a nickname alone would resolve to whichever came
-     first. Without a league we match on the mascot ONLY IF IT IS UNIQUE --
-     a wrong fandom is worse than none, because it reads as a decision.
-       IT COMPARES `league`, NOT `family`. That field is mapped from `type`,
-     which is `sports` on every club since 2026090122 -- so comparing it against
-     the event's `NFL` matched NOTHING and no event could fill a fandom. */
-  const inLeague = league
-    ? builderAudiencesList.filter((a) => String(a.league || '').toLowerCase() === league)
-    : builderAudiencesList;
-  const hits = inLeague.filter((a) => String(a.nickname || '').toLowerCase() === low);
-  if (hits.length === 1) return hits[0];
-  if (hits.length > 1 && league) return hits[0];
-  return null;
-}
-
 /* THE EVENT KNOWS WHERE IT IS, so a game anchored to it does too. `venue_city`
    is the canonical "City, State" string, which is the same shape `games.city`
    holds -- so it goes across whole rather than being taken apart and rebuilt.
@@ -14084,31 +13697,6 @@ function shortPlace(canonical) {
   return code ? (name + ', ' + code) : whole;
 }
 
-function fillAudiencesFromEvent(ev) {
-  if (!ev || !state.currentGameMeta) return;
-  [['away', 'targetAudienceId'], ['home', 'rivalAudienceId']].forEach(([side, field]) => {
-    if (String(state.currentGameMeta[field] || '').trim()) return;
-    const hit = audienceForEventSide(ev, side);
-    if (hit) state.currentGameMeta[field] = hit.id;
-  });
-  syncFandomFlag();
-  AUDIENCE_SLOTS.forEach(paintAudienceSlot);
-  paintGuessButton();
-}
-
-/* `fandom_game` IS DERIVED NOW, NOT TOGGLED. It used to be an INCLUDE ANCHOR
-   switch somebody set by hand, which is a second statement of something the
-   target audience already makes: a game pitched at a travelling fandom IS a
-   fandom game. Two places recording one fact is how they end up disagreeing,
-   and this one decides whether the palette comes from the away club at all.
-
-   The COLUMN is unchanged and still written by serializeGameRow; only the way
-   it is arrived at has moved. */
-function syncFandomFlag() {
-  if (!state.currentGameMeta) return;
-  state.currentGameMeta.fandomGame = !!String(state.currentGameMeta.targetAudienceId || '').trim();
-}
-
 /* THE LEGACY TEAM CITY IS `City, FullStateName` OR IT IS NOT WRITTEN.
    `games_away_team_city_format_check` and its home twin refuse anything else --
    one comma, and never a two-letter code -- and `events.away_team_geo` is a
@@ -14117,20 +13705,15 @@ function syncFandomFlag() {
    rejected: the anchor, the audiences and every other edit in that save went
    with it. 0 of 395 games carried an anchor because of this one line.
 
-   THE STATE IS NOT ON THE EVENT AND IS NEVER GUESSED. It comes from the
-   AUDIENCE the same event resolves to, whose `home_place_id` is a real place;
-   `TgbGeo.canonicalCity` expands `Charlotte, NC` to `Charlotte, North
-   Carolina`, which is the form the whole catalogue already spells.
-
-   AND IT REFUSES RATHER THAN APPROXIMATES. A side with no audience, no place,
+   AND IT REFUSES RATHER THAN APPROXIMATES. A side with no usable place string
    or no geo module leaves the legacy field ALONE -- the columns have no editor
    on this page and are read by the engines, so a stale value is a smaller
    fault than a save nobody can complete. */
 function legacyTeamCityFromEvent(ev, side) {
   const geo = window.TgbGeo;
   if (!geo || typeof geo.canonicalCity !== 'function') return '';
-  const hit = audienceForEventSide(ev, side);
-  const label = hit ? String(hit.placeLabel || '').trim() : '';
+  const prefix = side === 'home' ? 'home' : 'away';
+  const label = String((ev && ev[prefix + '_team_geo']) || '').trim();
   if (!label) return '';
   const canonical = String(geo.canonicalCity(label) || '').trim();
   /* THE CHECK ITSELF, so this cannot drift from what the database accepts. */
@@ -14154,9 +13737,7 @@ function applyAnchorEventSelection(nextId) {
   const eventHasTeams = !!(ev && (named(ev.away_team_nickname) || named(ev.home_team_nickname)
                                 || named(ev.away_team_geo) || named(ev.home_team_geo)));
   if (ev && eventHasTeams) {
-    // A SPORTS event (has teams) behaves as a fandom anchor: turn the toggle on
-    // so the away-team palette applies (bindTeamSelect gates on fandomGame), and
-    // auto-fill the team selects.
+    // A sports event still fills the legacy team fields for engine compatibility.
     state.currentGameMeta.fandomGame = true;
     /* THE PREFILL STILL WRITES THE LEGACY TEAM FIELDS, it just no longer has a
        select to paint. The columns are read by the engines, so an event that
@@ -14177,7 +13758,6 @@ function applyAnchorEventSelection(nextId) {
         state.currentGameMeta.homeTeamMascot = ev.home_team_nickname || '';
       }
     }
-    fillAudiencesFromEvent(ev);
   }
   fillCityFromEvent(ev);
   // Non-sports events (concert/convention/…) just record the link — no team
@@ -15353,27 +14933,16 @@ const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 /* A GAME ID, BUILT FROM WHAT THE GAME ALREADY KNOWS.
  *
- * THE SHAPE IS THE ONE THE CATALOGUE ALREADY USES, read off the real rows
- * rather than invented: `bal2026chc`, `nyk2026nop`, `atl2026tam` -- **the HOST
- * first, then the year, then the VISITOR**, each a club's own code. So the
- * rival (the home fandom) leads and the target (the travelling one) closes.
- *
- * `chc` IS NOT THE FIRST THREE LETTERS OF CHICAGO. It is the Cubs' code, as
- * `nop` is the Pelicans' and `sfo` San Francisco's; there is no rule that
- * derives them, so they come from `team_key`, which is `LEAGUE:CODE`. A fandom
- * with no key falls back to three letters of its name, which is the best guess
- * available and is visibly a guess.
+ * An anchor event can provide the home/away side text; otherwise the game name
+ * is the fallback.
  *
  * IT IS A SUGGESTION, NEVER A DECISION. It is offered in the prompt that
  * already asks for an id, so a person sees it and can type over it -- and
  * `games.id` is referenced by SIX tables, so an id that arrives without anybody
  * looking at it is an id nobody can safely change later.
  */
-function gameIdCode(audienceId, fallbackText) {
-  const a = audienceId ? builderAudiencesList.find((x) => x.id === audienceId) : null;
-  const key = a && a.team_key ? String(a.team_key) : '';
-  const code = key.indexOf(':') >= 0 ? key.split(':')[1] : '';
-  const source = code || (a ? a.name : '') || fallbackText || '';
+function gameIdCode(text) {
+  const source = text || '';
   return String(source).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 3);
 }
 
@@ -15386,8 +14955,8 @@ function composeGameId() {
   const year = (ev && ev.start_date && String(ev.start_date).slice(0, 4))
             || String(new Date().getFullYear());
 
-  const host = gameIdCode(meta.rivalAudienceId, ev && ev.home_team_geo);
-  const away = gameIdCode(meta.targetAudienceId, ev && ev.away_team_geo);
+  const host = gameIdCode(ev && (ev.home_team_geo || ev.home_team_name));
+  const away = gameIdCode(ev && (ev.away_team_geo || ev.away_team_name));
   if (host && away) return host + year + away;
 
   /* NO FIXTURE. An event that names no clubs -- a concert, a convention -- is
@@ -15398,9 +14967,6 @@ function composeGameId() {
     const town = String(ev.venue_city || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 3);
     if (title || town) return (title || 'event') + year + (town || '');
   }
-
-  /* ONE FANDOM AND NO EVENT is still better than nothing to go on. */
-  if (host || away) return (host || away) + year;
 
   /* THEN THE GAME'S OWN NAME, which is what a person would reach for. */
   const named = String(meta.title || getDocName() || '').toLowerCase()
@@ -17980,6 +17546,17 @@ function getDocSnapshot(doc = state.doc) {
       categoryIcon: normalizeCategoryIconValue(meta.categoryIcon),
       logoUrl: meta.logoUrl || '',
       anchorEventId: meta.anchorEventId || '',
+      /* WITHOUT THESE TWO, TYPING AN AUDIENCE LEAVES SAVE DEAD.
+         `hasUnsavedChanges` compares this snapshot, so a field it does not
+         read is a field nothing notices you changed: the box takes the text,
+         the meta takes the box, and the button never lights. */
+      target: meta.target || '',
+      rival: meta.rival || '',
+      /* WITHOUT THESE TWO, TYPING AN AUDIENCE LEAVES SAVE DEAD. `hasUnsavedChanges`
+         compares this snapshot, so a field the snapshot does not read is a field
+         nothing notices you changed -- the box takes the text, the meta takes
+         the box, and the button never lights. It is the half of the bridge that
+         is invisible until somebody types. */
       city: meta.city || '',
       startingLocationName: meta.startingLocationName || '',
       startingLocationAddress: meta.startingLocationAddress || '',
@@ -18386,6 +17963,16 @@ function initGameMeta(game) {
     categoryIcon:         normalizeCategoryIconValue(g.category_icon ?? g.categoryIcon ?? gn.categoryIcon ?? gn.category_icon),
     logoUrl:              g.logo_url        ?? g.logoUrl          ?? gn.logoUrl         ?? gn.logo         ?? '',
     anchorEventId:        g.anchor_event_id ?? g.anchorEventId    ?? gn.anchorEventId   ?? '',
+    /* ONE RUNG, NOT THE USUAL THREE. The standing rule here is
+       `snake ?? camel ?? node`, because the recovery draft holds only
+       camelCase and a snake-only read blanks the field on every reload.
+       These two need no second rung: the column and the meta field are the
+       same word, so there is no casing to disagree about -- which is most of
+       what the rename to `target` / `rival` bought. There is no node rung
+       either, because an audience is a property of the ROW and 28 of the 395
+       games carry an empty flow document. */
+    target:               g.target ?? '',
+    rival:                g.rival  ?? '',
     city:                 g.city            ?? gn.city            ?? '',
     cityName:             g.city_name       ?? g.cityName         ?? gn.cityName        ?? '',
     stateCode:            g.state_code      ?? g.stateCode        ?? gn.stateCode       ?? '',
@@ -18422,12 +18009,10 @@ function initGameMeta(game) {
     awayTeamCity:         g.away_team_city    ?? g.awayTeamCity    ?? gn.awayTeamCity    ?? '',
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
     awayTeamKey:          g.away_team_key     ?? g.awayTeamKey     ?? gn.awayTeamKey     ?? '',
-    targetAudienceId:     g.target_audience_id ?? g.targetAudienceId ?? gn.targetAudienceId ?? '',
     /* snake ?? camel ?? node, all three: the recovery draft holds only
        camelCase, so a snake-only read blanks the field on every reload. */
     mapId:              g.map_id ?? g.mapId ?? gn.mapId ?? '',
     logoId:             g.logo_id ?? g.logoId ?? gn.logoId ?? '',
-    rivalAudienceId:      g.rival_audience_id  ?? g.rivalAudienceId  ?? gn.rivalAudienceId  ?? '',
     venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
     venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
   };
@@ -19081,10 +18666,8 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   away_team_city: 'awayTeamCity',
   away_team_mascot: 'awayTeamMascot',
   away_team_key: 'awayTeamKey',
-  target_audience_id: 'targetAudienceId',
   map_id: 'mapId',
   logo_id: 'logoId',
-  rival_audience_id: 'rivalAudienceId',
   venue_name: 'venueName',
   venue_city: 'venueCity'
 };
@@ -19163,6 +18746,8 @@ function normalizeSavedGame(raw, index) {
     guide_image_url:       normalizeGuideImageAssetUrl(raw && (raw.guide_image_url ?? raw.guideImageUrl)),
     logo_url:              raw && raw.logo_url,
     anchor_event_id:       raw && raw.anchor_event_id,
+    target:                raw && raw.target,
+    rival:                 raw && raw.rival,
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
     tertiary_color:        raw && raw.tertiary_color,
@@ -19182,10 +18767,8 @@ function normalizeSavedGame(raw, index) {
     home_team_city:        raw && raw.home_team_city,
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
-    target_audience_id:    raw && raw.target_audience_id,
     map_id:              raw && raw.map_id,
     logo_id:             raw && raw.logo_id,
-    rival_audience_id:     raw && raw.rival_audience_id,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
     away_team_key:         raw && raw.away_team_key,
@@ -21585,28 +21168,19 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !showGameDetails;
-  /* GATED ON `showGameDetails`, NOT `isGameNode`, and the difference is the
-     whole bug: `isGameNode` means a NODE is selected in the flow graph, and a
-     game opened from the picker may have no game node at all -- 28 of the 395
-     rows have an empty document. The anchor, the target and the rival are
-     properties of the GAME ROW, so they are editable whenever a row is open.
-     `showGameDetails` is `gameNode || currentGameEntry`, which is what the Game
-     ID box has always used. */
-  AUDIENCE_SLOTS.forEach((slot) => {
-    const el = document.getElementById(slot.input);
-    if (el) el.disabled = !showGameDetails;
-  });
-  /* `showGameDetails`, NOT `isGameNode`, for the same reason as the audiences
-     above: a map is a property of the GAME ROW, and 28 of the 395 rows have
-     an empty flow document. Gating on the node made five fields on this page
-     un-editable over a perfectly open game. */
+  /* `showGameDetails`, NOT `isGameNode`: a map is a property of the GAME ROW,
+     and 28 of the 395 rows have an empty flow document. */
   const mapBox = document.getElementById('gameMapInput');
   if (mapBox) mapBox.disabled = !showGameDetails;
+  /* THE TWO AUDIENCE BOXES ARE DELIBERATELY NOT GATED. Every other field on
+     this bar is disabled until a game is open; these are scratch boxes while
+     the audience model is parked, and `game-builder-target-audience.js` asserts
+     they carry no `disabled` in the markup. **Typing into them with no game
+     open writes nothing** -- the listener and the sync both return early on a
+     null meta -- so what an ungated box costs is a keystroke that goes nowhere
+     rather than a value that goes somewhere wrong. */
   paintMapField();
   paintLogoField();
-  /* REPAINTED AFTER the disabled flags are set, because the placeholder reads
-     them. Set before, an open game would be told to open a game. */
-  populateTargetAudienceSelect();
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.disabled = !isGameNode;
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.disabled = !isGameNode;
@@ -21634,7 +21208,6 @@ function updateSelectionUi(options = {}) {
   if (_guideImagePromptBtn) _guideImagePromptBtn.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
-  teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
   nodeBodyInput.disabled = !isGameNode;
 
   const currentGameArchived = isCurrentGameArchived();
@@ -21736,7 +21309,6 @@ function updateSelectionUi(options = {}) {
      emptied, and typing over the default produced `!AAA Great GameHello There`.
      The Game ID box beside it has carried this exact guard since 2026-08-10;
      the name never got it. */
-  paintGuessButton();
   if (document.activeElement !== nodeTitleInput) {
     nodeTitleInput.value = (gameNode && gameNode.title)
       || (currentGameEntry ? (currentGameEntry.name || '') : '');
@@ -21751,9 +21323,6 @@ function updateSelectionUi(options = {}) {
   });
   nodeTaglineInput.value = showGameDetails
     ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
-  /* REPOPULATED RATHER THAN JUST SET, because a stored audience that is not in
-     the list needs its own option adding before the value can take. */
-  populateTargetAudienceSelect();
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '') : '';
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamCity || '') : '';
@@ -21766,6 +21335,10 @@ function updateSelectionUi(options = {}) {
      from the picker may have none, so every repaint passed null and
      applyGeoControls cleared the city box. The city belongs to the ROW. */
   applyGeoControls(showGameDetails ? meta : null);
+  /* PAINTED FROM THE ROW, NOT THE NODE, for the reason above it: an audience
+     is a column on `public.games`, and a game opened from the picker may
+     carry no game node at all. */
+  paintAudienceTextboxes(showGameDetails ? meta : null);
 
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
   if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
@@ -21822,9 +21395,6 @@ function updateSelectionUi(options = {}) {
   updateGuideImageStatus(isGameNode);
   nodeTagNewInput.value = '';
   renderTagPicker(gameNode);
-  teamInputs.forEach((inp, i) => {
-    if (inp) inp.value = isGameNode ? (getNormalizedTeamValues(meta)[i] || '') : '';
-  });
   if (document.activeElement !== nodeBodyInput) {
     nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
   }
@@ -23366,6 +22936,10 @@ function stageCurrentGameIntoStore() {
     guide_image_url:       guideImageUrl || null,
     logo_url:              _meta.logoUrl || null,
     anchor_event_id:       _meta.anchorEventId || null,
+    target:                audienceColumnValue(_meta.target),
+    rival:                 audienceColumnValue(_meta.rival),
+    /* BLANK IS NULL, THROUGH THE ONE HELPER, so the staged row and the PATCH
+       agree about what an empty box means. */
     link_url:              _gn.linkUrl || null,
     button_url:            _gn.buttonUrl || null,
     checkout_url:          _meta.checkoutUrl || _gn.checkoutUrl || null,
@@ -23401,12 +22975,10 @@ function stageCurrentGameIntoStore() {
     away_team_city:        awayTeamCity || null,
     away_team_mascot:      _meta.awayTeamMascot || null,
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
-    target_audience_id:    _meta.targetAudienceId || null,
     // NULL, NEVER '': the column is text and a blank string would read as an
     // map whose id is empty rather than as no map at all.
     map_id:              _meta.mapId || null,
     logo_id:             _meta.logoId ? Number(_meta.logoId) : null,
-    rival_audience_id:     _meta.rivalAudienceId || null,
     venue_name:            _meta.venueName || null,
     venue_city:            _meta.venueCity || null,
     nodes:                 docPayload.nodes,
@@ -23428,6 +23000,16 @@ function stageCurrentGameIntoStore() {
 
 async function saveDoc(options = {}) {
   const silent = !!options.silent;
+  /* THE BOXES ARE READ BEFORE ANYTHING ASKS WHETHER THERE IS ANYTHING TO SAVE,
+     and the order is the whole point: `hasPendingSaveChanges` on the next line
+     compares the snapshot, which reads the META -- so a value still sitting in
+     an input is a change this function decides does not exist. It would return
+     `skipped: true`, report the idle state, and leave the typed audience behind
+     having said nothing.
+       CLICKING SAVE BLURS THE BOX FIRST in most browsers, which is why the
+     `input` listeners are usually enough -- and "usually" is not what a write
+     path gets to rely on. */
+  syncAudienceTextboxesToMeta();
   const needsCurrentGameStage = shouldStageCurrentGameForSave();
   const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
 
@@ -23689,89 +23271,18 @@ if (stopLibraryList) {
   });
 }
 
-/* THE NAME THE CATALOGUE ALREADY USES: "<away city> Fans Takeover <host city>".
- * Away is the TARGET audience and host is the RIVAL, which is the same
- * asymmetry the id and the copy already have -- the game is pitched at the
- * travelling side.
- *
- * THE AUDIENCE'S `name` IS ALREADY THE CITY for a pro club, since 2026083024
- * put it there, so nothing here has to know the trademark rule. It falls back
- * to the event's own geo, which is a place string rather than a club.
- */
-function guessedGameName() {
-  const meta = state.currentGameMeta || {};
-  const ev = meta.anchorEventId ? builderAnchorEventsById.get(String(meta.anchorEventId)) : null;
-  /* THE PLACE FIRST, THE NAME SECOND. `name` is the city for most clubs and the
-     MASCOT for the fourteen that share one, so reading it produced "Chicago Fans
-     Takeover Cubs". The home place is a city by construction. The name is still
-     the fallback, for an audience with no home -- a college club or an artist --
-     where it is the best thing there is. */
-  const cityOf = (audienceId, fallback) => {
-    const a = audienceId ? builderAudiencesList.find((x) => x.id === audienceId) : null;
-    return String((a && a.placeCity) || (a && a.name) || fallback || '').trim();
-  };
-  const away = cityOf(meta.targetAudienceId, ev && ev.away_team_geo);
-  const host = cityOf(meta.rivalAudienceId, ev && ev.home_team_geo);
-  if (!away || !host) return '';
-  return away + ' Fans Takeover ' + host;
-}
-
-function paintGuessButton() {
-  const btn = document.getElementById('guessNameBtn');
-  if (!btn) return;
-  const guess = guessedGameName();
-  const open = !!state.currentGameMeta;
-  /* A GAME THAT ALREADY HAS A NAME IS NOT OFFERED A GUESS. Somebody chose those
-     words -- possibly by pressing this very button -- and a control that
-     silently replaces them is one press from losing a line nobody has saved
-     yet. Clear the box and it arms again, which makes overwriting a deliberate
-     two-step rather than a single click. */
-  const named = !!String(nodeTitleInput && nodeTitleInput.value || '').trim();
-  btn.disabled = false;
-  btn.setAttribute('aria-disabled', String(!open || !guess || named));
-  btn.title = !open ? 'Open a game first'
-            : named ? 'This game already has a name. Clear it and press Guess again.'
-            : guess ? 'Name it "' + guess + '"'
-            : 'Set a target and a rival audience first, and this writes the name.';
-}
-
-const guessNameBtn = document.getElementById('guessNameBtn');
-if (guessNameBtn) {
-  guessNameBtn.addEventListener('click', () => {
-    /* PRESSING THE OFF STATE SAYS WHAT TO DO, rather than doing nothing: the
-       button is `aria-disabled`, so the click still arrives. */
-    if (guessNameBtn.getAttribute('aria-disabled') === 'true') {
-      window.alert(guessNameBtn.title);
-      return;
-    }
-    const node = getGameNode();
-    const guess = guessedGameName();
-    if (!guess) return;
-    /* IT OVERWRITES, and that is the difference between this and the audience
-       fill: you pressed a button called Guess, which is a request rather than a
-       side effect. Undo is retyping, and the old name is still on screen until
-       you do. */
-    if (node) node.title = guess;
-    if (state.currentGameMeta) state.currentGameMeta.title = guess;
-    nodeTitleInput.value = guess;
-    renderGamePickerSelect();
-    scheduleRender();
-  });
-}
-
 nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
   /* THE META ALWAYS EXISTS ON AN OPEN GAME; the node may not. Without this the
      box accepted every keystroke and stored none of them. */
   if (state.currentGameMeta) state.currentGameMeta.title = nodeTitleInput.value;
-  if (!node || node.type !== 'game') { renderGamePickerSelect(); paintGuessButton(); return; }
+  if (!node || node.type !== 'game') { renderGamePickerSelect(); return; }
   /* THE RAW VALUE WHILE TYPING, defaulted only on the way OUT. `value ||
      TYPE_CONFIG.title` stored the placeholder the instant the box went empty,
      which is exactly the state you pass through when replacing a name -- and
      with the repaint above writing it straight back, the box could never be
      emptied at all. A game still gets a title: see the blur below. */
   node.title = nodeTitleInput.value;
-  paintGuessButton();
   renderGamePickerSelect();
   scheduleRender();
 });
@@ -24010,66 +23521,21 @@ nodeTaglineInput.addEventListener('input', () => {
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
 
-/* `change` FIRES WHEN A DATALIST OPTION IS PICKED and again on blur after
-   typing, which covers both ways in. `blur` as well, because a value typed and
-   then clicked away from does not always raise `change` in every browser. */
-AUDIENCE_SLOTS.forEach((slot) => {
-  const el = document.getElementById(slot.input);
-  if (!el) return;
-  el.addEventListener('change', () => resolveTypedAudience(slot));
-  el.addEventListener('blur', () => resolveTypedAudience(slot));
-});
-
-// Team selects fire `change`, not `input`. Each pick encodes "fanbase|mascot"
-// and writes both halves to state. The (now hidden) mascot text inputs are
-// kept in sync so any downstream code that still reads them sees the right
-// value.
-function bindTeamSelect(select, mascotInput, cityField, mascotField, options = {}) {
-  if (!select) return;
-  select.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    const raw = select.value || '';
-    const [city, mascot] = raw.split('|');
-    const selectedOption = select.options[select.selectedIndex];
-    const selectedCity = options.useGameCity
-      ? String(selectedOption && selectedOption.dataset && selectedOption.dataset.gameCity || city || '')
-      : (city || '');
-    state.currentGameMeta[cityField] = selectedCity;
-    state.currentGameMeta[mascotField] = mascot || '';
-    const teamKey = String(selectedOption && selectedOption.dataset && selectedOption.dataset.teamKey || '');
-
-    if (options.keyField) state.currentGameMeta[options.keyField] = teamKey;
-    if (options.applyPalette && state.currentGameMeta.fandomGame && window.TgbTeamPalette) {
-      const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { key: teamKey, city: selectedCity, mascot });
-      if (team) {
-        const palette = window.TgbTeamPalette.teamPalette(team);
-        setCurrentGameColors({
-          primaryColor: palette.primary,
-          secondaryColor: palette.secondary,
-          tertiaryColor: palette.tertiary,
-          quaternaryColor: palette.quaternary
-        });
-        // Repaint so the new palette lands on the page (--game-* vars are only
-        // rewritten by updatePhoneChrome, which otherwise runs on renderAll).
-        updatePhoneChrome();
-        renderGameshelf();
-      }
-    }
-    if (options.cityInput) options.cityInput.value = selectedCity;
-    if (mascotInput) mascotInput.value = mascot || '';
-    // <select> change events aren't caught by the delegated INPUT/TEXTAREA
-    // dirty-marker (see inspector 'input' listener), so mark the game dirty
-    // and enable Save here — same as the category-icon select.
-    scheduleRecoverySync();
+/* TYPING AN AUDIENCE MARKS THE GAME UNSAVED. The meta is written on every
+   keystroke, which is what the snapshot then reads, and `scheduleUpdateActionUi`
+   is what makes Save notice on the frame rather than on the next render.
+     WITHOUT THAT CALL THE BOX WORKS AND THE BUTTON DOES NOT LIGHT, which reads
+   as the field not saving rather than as the button not repainting. */
+AUDIENCE_TEXTBOXES.forEach((slot) => {
+  const box = document.getElementById(slot.input);
+  if (!box) return;
+  box.addEventListener('input', () => {
+    if (!state.currentGameMeta) return;
+    state.currentGameMeta[slot.field] = box.value;
     scheduleUpdateActionUi();
   });
-}
-/* `bindTeamSelect` HAD TWO CALLERS AND NOW HAS NONE. It is left defined rather
-   than deleted: it is the only thing that knows how a team select writes a city,
-   a mascot, a key AND the palette together, and rediscovering that would be the
-   expensive half if a picker ever comes back. The palette it applied is not
-   lost -- `team-palette.js` resolves by audience at a higher tier than by team
-   key, which is why removing these two changed nothing about a game's colours. */
+});
+
 if (anchorEventInput) {
   anchorEventInput.addEventListener('change', resolveTypedEvent);
   anchorEventInput.addEventListener('blur', resolveTypedEvent);
@@ -25118,15 +24584,6 @@ if (nodeEngineInput) {
   });
 }
 
-teamInputs.forEach((inp, i) => {
-  if (!inp) return;
-  inp.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    setTeamFieldValue(state.currentGameMeta, i, inp.value);
-    scheduleRecoverySync();
-    scheduleUpdateActionUi();
-  });
-});
 
 // Hidden base prompt. Combined per-game with team/city info by the GENERATE
 // PROMPT button in the Guide section, then pasted into an AI to author the
@@ -26452,7 +25909,6 @@ async function initializeBuilder() {
   applyZoom();
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
-  loadBuilderAudiences().catch((err) => console.warn('loadBuilderAudiences failed:', err));
   loadBuilderMaps().catch((err) => console.warn('loadBuilderMaps failed:', err));
   loadBuilderLogos().catch((err) => console.warn('loadBuilderLogos failed:', err));
   /* COMMIT ON CHANGE, NOT ON EVERY KEYSTROKE. A datalist fires `change` when

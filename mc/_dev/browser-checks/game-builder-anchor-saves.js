@@ -86,7 +86,11 @@ const is = (what, cond, got) => {
     const row = w ? (() => { const j = JSON.parse(w.b); return Array.isArray(j) ? j[0] : j; })() : {};
 
     is('the payload carries the anchor', typeof row.anchor_event_id === 'string' && row.anchor_event_id.length > 0, row.anchor_event_id);
-    is('the payload carries the target audience', !!row.target_audience_id, row.target_audience_id);
+    /* THE AUDIENCE BAR IS BACK (2026-09-02) over `games.target` and
+       `games.rival`, so the payload carries both again -- explicitly, which is
+       what lets a cleared box write a NULL. */
+    is('the payload carries the target audience',
+       typeof row.target === 'string' && row.target.length > 0, row.target);
     /* THE TWO THAT FAIL ON THE OLD FILE. */
     is('away_team_city satisfies the CHECK, or is not written',
        !row.away_team_city || OK_CITY(row.away_team_city), row.away_team_city);

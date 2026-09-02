@@ -31,6 +31,7 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
+/* SEVEN. The AUDIENCES bar came back on 2026-09-02, second. */
 const ORDER = ['anchorBar', 'audienceBar', 'cityBar', 'mapBar',
                'gameIdentityBar', 'guideBar', 'tagsBar'];
 const bars = ORDER.map((id) => doc.getElementById(id)).filter(Boolean);
@@ -66,7 +67,12 @@ const read = (p) => p.evaluate(() => {
       return { id: b.id, x: px(r.x), w: px(r.width), y: px(r.y), h: px(r.height) };
     }),
     anchor: w('#anchorEventInput'), map: w('#gameMapInput'), city: w('#nodeCityInput'),
-    target: w('#targetAudienceInput'), rival: w('#rivalAudienceInput'),
+    target: w('#target'), rival: w('#rival'),
+    /* THE IDS MOVED WHEN THE PICKERS BECAME PLAIN BOXES, and these two were
+       left naming the old ones -- so both measured 0 and the assertion below
+       reported `0/0/736` about fields that are perfectly wide. **A measurement
+       of an element that is not there reads as a page fault**, which is why it
+       is worth repointing rather than relaxing. */
     name: w('#nodeTitleInput'), tagline: w('#nodeTaglineInput'), intro: w('#nodeBodyInput'),
     tag: w('#nodeTagNewInput'),
     /* THE DOOR BUTTONS ARE GONE -- see below. */
@@ -182,6 +188,10 @@ async function realPage(browser) {
     /* AND NONE IS TOO NARROW TO READ ITS OWN GUIDE TEXT. The audience pair came
        to 362px each when it split one line's measure, which clipped its own
        placeholder mid-word: `Auto filled or type or tap to choose an Exist`. */
+    /* THE PAIR SPLITS ONE MEASURE, so each half must still be wide enough to
+       read its own guide sentence. They came to 362px each when they split a
+       LINE's measure rather than a PAIR's, which clipped the placeholder
+       mid-word. */
     t('and none is too narrow for the sentence printed in it',
       m.target >= 460 && m.rival >= 460 && m.anchor >= 460,
       [m.target, m.rival, m.anchor].join('/'));
@@ -213,7 +223,8 @@ async function realPage(browser) {
       t('at ' + width + 'px no field is the width of the room',
         [n.anchor, n.map, n.city, n.target, n.rival, n.name, n.tagline, n.intro, n.tag]
           .every((v) => v <= n.bars[0].w * 0.99),
-        n.bars[0].w + ' bar');
+        [n.anchor, n.map, n.city, n.target, n.rival, n.name, n.tagline, n.intro, n.tag].join('/')
+          + ' vs bar ' + n.bars[0].w);
       t('and the page still never scrolls sideways at ' + width + 'px', !n.sideways);
     }
     /* THE ANCHOR IS THE ONE THAT WAS BEING RELEASED, so it is asserted directly:

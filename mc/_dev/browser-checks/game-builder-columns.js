@@ -26,16 +26,24 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* Read from public.games on 2026-08-31, after 2026083120. */
-const REAL = new Set(('accept_any,anchor_event_id,anytime,anytime_pair_id,archived,away_team_city,'
-  + 'away_team_key,away_team_mascot,away_team_tgbid,body,button_url,category_icon,checkout_url,'
-  + 'city,city_name,created_at,currency,default_emoji,end_time,engine,erased,fandom_game,featured,'
-  + 'game_date,guide_background,guide_bio,guide_id,guide_image_url,guide_name,home_team_city,'
-  + 'home_team_key,home_team_mascot,home_team_tgbid,id,kind,link_url,logo_id,logo_url,map_id,name,price,'
-  + 'price_cents,primary_color,primary_tag,quaternary_color,rival_audience_id,secondary_color,'
-  + 'start_time,state_code,state_name,status,stop_group,tagline,tagline_approved,tags,'
-  + 'target_audience_id,team01,team02,team03,team04,team05,team06,team07,team08,teams,'
-  + 'tertiary_color,timezone,updated_at,var_name,venue_city,venue_name').split(','));
+/* Read from public.games on 2026-09-02, after 2026090204 renamed
+   target_audience_id -> target and rival_audience_id -> rival. 71 columns.
+   REFRESH IT FROM THE TABLE rather than editing a name by hand:
+     select string_agg(column_name, ',' order by column_name)
+       from information_schema.columns
+      where table_schema='public' and table_name='games'; */
+const REAL = new Set(('accept_any,anchor_event_id,anytime,anytime_pair_id,archived,'
+  + 'away_team_city,away_team_key,away_team_mascot,away_team_tgbid,body,'
+  + 'button_url,category_icon,checkout_url,city,city_name,created_at,currency,'
+  + 'default_emoji,end_time,engine,erased,fandom_game,featured,game_date,'
+  + 'guide_background,guide_bio,guide_id,guide_image_url,guide_name,'
+  + 'home_team_city,home_team_key,home_team_mascot,home_team_tgbid,id,kind,'
+  + 'link_url,logo_id,logo_url,map_id,name,price,price_cents,primary_color,'
+  + 'primary_tag,quaternary_color,rival,secondary_color,start_time,state_code,'
+  + 'state_name,status,stop_group,tagline,tagline_approved,tags,target,team01,'
+  + 'team02,team03,team04,team05,team06,team07,team08,teams,tertiary_color,'
+  + 'timezone,updated_at,var_name,venue_city,venue_name'
+  ).split(','));
 
 /* THE THREE PLACES A COLUMN NAME APPEARS ON THE WRITE PATH. */
 function keysIn(startNeedle, endNeedle, indent) {

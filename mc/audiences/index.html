@@ -624,6 +624,30 @@
       font-family: 'IBM Plex Mono', monospace; font-size: var(--aud-card-font-size);
     }
     .fval.col-num { text-align: left; }
+    /* THE MORE FIELD IS A ROW: the url, then the door that follows it.
+       `.field` is `column-reverse`, which was there to put a label under a
+       value -- left alone it would stack the link ABOVE the address it opens.
+         THE VALUE TAKES THE SLACK AND THE DOOR KEEPS ITS OWN WIDTH, so a long
+       url wraps inside the cell rather than pushing the button off the card.
+       `min-width: 0`, or a flex item refuses to shrink below its content. */
+    .aud .field--more {
+      flex-direction: row; align-items: flex-start; gap: 8px;
+    }
+    .aud .field--more .fval { flex: 1 1 auto; min-width: 0; }
+    /* A BORDERED CONTROL, NOT A BARE WORD. Borderless it reads as a second
+       value beside the first; this is the one thing on a badge that leaves the
+       page, so it looks like something you press. */
+    .aud .fopen {
+      flex: 0 0 auto; text-decoration: none; cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.74em;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--aud-text, var(--ink));
+      border: 1px solid var(--control-line); border-radius: 5px;
+      padding: 2px 7px; line-height: 1.3;
+    }
+    .aud .fopen:hover, .aud .fopen:focus-visible {
+      border-color: var(--accent); color: var(--accent);
+    }
     /* A LOCKED FIELD KEEPS ITS LOOK AND LOSES THE AFFORDANCE, and says WHY on
        hover. A field that silently ignores a click is indistinguishable from one
        that is broken. */
@@ -995,6 +1019,17 @@
          at, and it is the reason this table is not a sports-team reference. */
       { g: 'Identity', k: 'description',   t: 'Known for',  kind: 'long' },
 
+      /* SOMEWHERE TO READ MORE. One url: the club's own site, an artist's
+         page, an article about the thing. Nothing depends on it -- it is a
+         door for whoever is looking at the row, not a key.
+           THE SCHEME IS OPTIONAL AND THE VALUE IS STORED AS TYPED.
+         `thegamebureau.com` and `https://thegamebureau.com` are both kept as
+         written and `moreHref` adds the scheme when it builds the link. A room
+         that rewrote the value on the way in would show something other than
+         what was typed, which is the silent-rewrite fault this table already
+         fixed once when `audience_aliases` was being lowercased. */
+      { g: 'Identity', k: 'more',          t: 'More',       kind: 'url' },
+
       /* IT IS `city`, NOT `home_city` (2026090116), AND IT IS THE ONLY PLACE
          COLUMN LEFT. The badge draws the real column name as the label, so
          renaming the field and renaming the column are one act here -- and
@@ -1183,6 +1218,7 @@
        later is covered without anybody remembering to. */
     const NUMERIC = COLUMNS.filter((c) => c.kind === 'num').map((c) => c.k);
     const COLOURS = COLUMNS.filter((c) => c.kind === 'colour').map((c) => c.k);
+    const URLS = COLUMNS.filter((c) => c.kind === 'url').map((c) => c.k);
 
     /* `open` IS A SET OF IDS, NOT A FLAG ON A ROW OBJECT. Every save reloads and
        replaces the rows, so a flag on one would be thrown away by the next read. */
@@ -1424,6 +1460,29 @@
     function tip(k, editable) {
       return esc(k.toUpperCase() + ' | '
         + (editable ? 'Click to edit.' : 'Not editable.'));
+    }
+
+    /* THE HREF, FROM WHATEVER WAS TYPED. The column takes a url with or without
+       a scheme, because that is how one is pasted out of an address bar half the
+       time, so `https://` is added HERE rather than on the way into the
+       database -- the value on screen is the value in the row.
+         IT REFUSES ANYTHING THAT IS NOT http OR https, and that is the security
+       half rather than tidiness: `javascript:alert(1)` parses perfectly well as
+       a URL, so without the protocol test that string would become a live
+       `href` on an admin page. The same guard the waypoint editor's Source
+       field carries.
+         AN EMPTY ANSWER MEANS NO LINK IS DRAWN, which is what makes the value
+       safe to store either way: a cell holding something the browser cannot
+       follow shows the text and no door, rather than a door that goes nowhere. */
+    function moreHref(v) {
+      const raw = clean(v);
+      if (!raw) return '';
+      const full = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw;
+      let u;
+      try { u = new URL(full); } catch (err) { return ''; }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      if (!u.hostname) return '';
+      return u.href;
     }
 
     function stripeInner(k, hex) {
@@ -1788,6 +1847,27 @@
           stampOpen = '';
           return;
         }
+        /* THE LINK IS A SIBLING OF THE CELL, NEVER INSIDE IT, and that is the
+           whole reason this field is built here rather than in `cellOf`. Both
+           the click handler and the `focusin` handler ask
+           `e.target.closest('.ed')`, so an anchor INSIDE the value would bubble
+           to it: the click would navigate AND open the editor over the cell it
+           was leaving. As a sibling the two gestures are simply separate --
+           press the text to type, press the door to go.
+             DRAWN ONLY WHEN THERE IS SOMEWHERE TO GO. An empty field, or one
+           holding something `moreHref` refuses, shows no door: a control that
+           leads nowhere is worse than none, because it invites the press. */
+        if (c.kind === 'url') {
+          const href = moreHref(r[c.k]);
+          out += '<div class="field field--more">' + val
+            + (href
+                ? '<a class="fopen" href="' + esc(href) + '" target="_blank"'
+                  + ' rel="noopener noreferrer" title="'
+                  + esc(href + ' -- opens in a new tab.') + '">Open</a>'
+                : '')
+            + '</div>';
+          return;
+        }
         out += '<div class="field">' + val + '</div>';
       });
       return '<div class="fields">' + out + '</div>';
@@ -1877,7 +1957,13 @@
        the card's own Delete is the LAST stop before that, which is why the
        button is the last child of the article. */
     function stepField(fromTd, dir) {
-      const all = [].slice.call(document.querySelectorAll('#tableHost .ed'));
+      /* THE DOORS ARE IN THE WALK TOO. Tab from an editor is handled here
+         rather than by the browser, so a selector of `.ed` alone would step
+         straight past the MORE field's link and leave it reachable by no
+         keyboard at all -- the field's own cell opens on focus, so there is no
+         other way to land on it. Focusing a door opens nothing: the `focusin`
+         handler asks for `.ed` and an anchor is not one. */
+      const all = [].slice.call(document.querySelectorAll('#tableHost .ed, #tableHost .fopen'));
       const cardOf = (el) => el && el.closest('[data-row]');
       const card = cardOf(fromTd);
       const row = card ? card.dataset.row : '';
@@ -2057,6 +2143,22 @@
           paintTable();
           return;
         } else { patch[field] = Number(v); }
+      } else if (URLS.indexOf(field) >= 0) {
+        /* STORED EXACTLY AS TYPED, scheme or no scheme -- `moreHref` is what
+           adds one when the link is drawn. What is REFUSED is a value the link
+           could never use, because that is a cell holding text with no door
+           beside it and nothing on screen saying why.
+             IT IS THE SAME FUNCTION THE ANCHOR ASKS, so the room cannot store a
+           value it then declines to link. Two rules for one question is how the
+           two end up disagreeing. */
+        const v = clean(value);
+        if (!v) { patch[field] = null; }
+        else if (!moreHref(v)) {
+          setStatus(v + ' is not a web address. Write it as thegamebureau.com '
+            + 'or https://thegamebureau.com -- the https:// is optional.', 'error');
+          paintTable();
+          return;
+        } else { patch[field] = v; }
       } else if (COLOURS.indexOf(field) >= 0) {
         /* A COLOUR IS DRAWN AS A SWATCH, so a value that is not a colour draws
            nothing and looks exactly like an empty cell. Refused with a sentence

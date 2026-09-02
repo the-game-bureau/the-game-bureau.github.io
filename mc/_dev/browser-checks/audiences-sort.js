@@ -995,6 +995,99 @@ async function readAll(table, select) {
   is('and two hashes come back as one', two === '#4D5E6F', two);
   is('but six hex digits are still required', junk === '(nothing sent)', junk);
 
+  /* ---- MORE: ONE URL, WITH OR WITHOUT A SCHEME -----------------------------
+     THE COLUMN TAKES IT EITHER WAY AND STORES WHAT WAS TYPED. `https://` is
+     added when the LINK is built, not on the way into the database, so the cell
+     shows the value the row really holds -- and these two assertions are what
+     would catch a normaliser being added on the write path, which is the
+     silent-rewrite fault this table already fixed once for its aliases.
+       THE DOOR IS A SIBLING OF THE CELL, and that is the load-bearing half.
+     Both the click handler and the `focusin` handler ask
+     `closest('.ed')`, so an anchor INSIDE the value would bubble to them and a
+     press would navigate AND open the editor over the cell it was leaving. */
+  const typeMore = async (text) => {
+    await closeAnyEditor();
+    const before = writes.length;
+    const opened = await page.evaluate((v) => {
+      const cell = document.querySelector('.aud [data-field="more"]');
+      if (!cell) return false;
+      cell.click();
+      const box = cell.querySelector('input');
+      if (!box) return false;
+      box.value = v;
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    }, text);
+    if (!opened) return '(no editor opened)';
+    for (let i = 0; i < 100 && writes.length === before; i += 1) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const sent = writes.slice(before).filter((w) => w.method === 'PATCH').pop();
+    return sent && sent.body && 'more' in sent.body ? sent.body.more : '(nothing sent)';
+  };
+  /* THE DOOR AS THE BROWSER RESOLVES IT. `a.href` is the ABSOLUTE url, which is
+     exactly what is wanted here -- the claim is that a scheme-less value ends up
+     somewhere a browser can go. */
+  /* IT SETTLES RATHER THAN READING ONCE. `typeMore` waits for the PATCH to be
+     RECORDED, and the badge is not repainted until the reply RESOLVES -- so a
+     single read after the write returned the door the row had BEFORE it, and
+     one assertion went red about a page that was perfectly correct. The colour
+     probe never met this because it only ever reads the request body.
+       A TIMEOUT RETURNS THE STALE VALUE, so a door that never updates fails
+     naming what it is still pointing at rather than hanging. */
+  const doorOf = async (want) => {
+    let state = await readDoor();
+    for (let i = 0; i < 100 && want && state.href !== want; i += 1) {
+      await new Promise((r) => setTimeout(r, 20));
+      state = await readDoor();
+    }
+    return state;
+  };
+  const readDoor = () => page.evaluate(() => {
+    const field = document.querySelector('.aud .field--more');
+    const a = field && field.querySelector('.fopen');
+    return {
+      drawn: !!a,
+      href: a ? a.href : '',
+      target: a ? a.getAttribute('target') : '',
+      rel: a ? a.getAttribute('rel') : '',
+      insideCell: !!(a && a.closest('.ed')),
+      text: field ? (field.querySelector('.fval') || {}).textContent : ''
+    };
+  });
+
+  const emptyDoor = await doorOf('');
+  is('an empty MORE draws no door', emptyDoor.drawn === false, emptyDoor);
+
+  const bareUrl = await typeMore('thegamebureau.com');
+  const bareDoor = await doorOf('https://thegamebureau.com/');
+  is('a url with no scheme is stored as typed',
+    bareUrl === 'thegamebureau.com', bareUrl);
+  is('and the door adds https:// for it',
+    bareDoor.href === 'https://thegamebureau.com/', bareDoor.href);
+  is('and the cell still shows what was typed',
+    bareDoor.text === 'thegamebureau.com', bareDoor.text);
+  is('the door is a sibling of the cell, not inside it',
+    bareDoor.drawn && bareDoor.insideCell === false, bareDoor);
+  is('and it opens in a new tab, with the opener cut',
+    bareDoor.target === '_blank' && /noopener/.test(bareDoor.rel), bareDoor);
+
+  const schemed = await typeMore('https://example.org/x?a=1');
+  const schemedDoor = await doorOf('https://example.org/x?a=1');
+  is('a url that carries a scheme keeps exactly one',
+    schemed === 'https://example.org/x?a=1', schemed);
+  is('and the door is that url unchanged',
+    schemedDoor.href === 'https://example.org/x?a=1', schemedDoor.href);
+
+  /* `javascript:alert(1)` PARSES PERFECTLY WELL AS A URL, so without the
+     protocol test that string would become a live `href` on an admin page. */
+  const evil = await typeMore('javascript:alert(1)');
+  const evilDoor = await doorOf('https://example.org/x?a=1');
+  is('a javascript: url is refused rather than linked',
+    evil === '(nothing sent)', evil);
+  is('and the row keeps the address it had',
+    evilDoor.href === 'https://example.org/x?a=1', evilDoor.href);
+
 
     /* NOTHING LOOKS A CITY UP. 2026090120 severed every read of
        `public.places` from an audience -- the city is text on the row and

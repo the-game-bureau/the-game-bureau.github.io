@@ -109,7 +109,7 @@
         {
           href: '/mc/audiences/',
           label: 'Audiences',
-          description: 'Audiences are existing fandoms interested in the subject matter of our games. Each game has a TARGET audience and a RIVAL audience.'
+          description: 'Audience records are the working catalogue of fandoms, interests, artists, and other groups.'
         },
         {
           // AND LAST, because a map is stops in an ORDER and there is nothing

@@ -26,6 +26,8 @@ const bars = [...d.querySelectorAll('fieldset.game-id-bar')];
 /* FIFTEEN. One thing per box is the shape this room converged on across
    2026-08-31: the name, the tagline, the game id, the emoji, the category icon,
    the logo, and last the price and the engine. */
+/* FIFTEEN. The AUDIENCES bar came back on 2026-09-02, second, over
+   `games.target` and `games.rival`. */
 t('fifteen bars', bars.length === 15, bars.length);
 /* THE ORDER IS THE ARGUMENT: why they are in town, who the game is for, where
    they walk, which walk, then what the game IS, how it is tagged, and whether
@@ -49,21 +51,33 @@ t('every bar is a direct child of the page, in order',
     === 'anchorBar,audienceBar,cityBar,mapBar,gameNameBar,taglineBar,gameIdBar,gameIdentityBar,priceBar,engineBar,emojiBar,categoryIconBar,guideBar,logoBar,tagsBar',
   bars.map((b) => b.id).join(','));
 
-/* ---- the anchor is the event, and the audiences are their own box -------- */
+/* ---- the anchor is the event, and there is no audience bar --------------- */
 t('the anchor box holds the event and nothing else',
   bars[0].querySelectorAll('.gid-field').length === 1 && !!bars[0].querySelector('#anchorEventInput'));
-t('the audience box holds both fandoms, target first',
+/* THE AUDIENCES BAR: TWO BOXES, TARGET FIRST, EACH OVER A COLUMN OF THE SAME
+   NAME. `target` -> games.target, `rival` -> games.rival. The three names
+   matching is the point: the pair spent a day as a box called `target` over a
+   column called `target_audience_id`, and the slot map was then the only thing
+   tying them together. */
+t('the audience box holds both boxes, target first',
   [...bars[1].querySelectorAll('.gid-field')].map((f) => f.id).join(',')
-    === 'targetAudienceField,rivalAudienceField',
+    === 'targetField,rivalField',
   [...bars[1].querySelectorAll('.gid-field')].map((f) => f.id).join(','));
-t('with both swatch strips',
-  !!bars[1].querySelector('#targetAudienceSwatches') && !!bars[1].querySelector('#rivalAudienceSwatches'));
-/* ONE DATALIST FOR BOTH: a second copy would be 641 duplicate option nodes and
-   two lists to keep in step. */
-t('one datalist still serves both audience fields',
-  d.getElementById('targetAudienceInput').getAttribute('list') === 'audienceList'
-  && d.getElementById('rivalAudienceInput').getAttribute('list') === 'audienceList'
-  && d.querySelectorAll('#audienceList').length === 1);
+t('as plain text boxes, not pickers',
+  !!d.getElementById('target') && !!d.getElementById('rival')
+  && !d.getElementById('target').hasAttribute('list')
+  && !d.getElementById('rival').hasAttribute('list')
+  && d.querySelectorAll('#audienceList').length === 0);
+/* EACH KEEPS ITS OWN LABEL, unlike the anchor and the map: those are one field
+   under a legend, so a label there would be the box named twice; this box holds
+   TWO fields and one legend cannot name either. */
+t('and each carries its own label',
+  [...bars[1].querySelectorAll('.gid-label')].map((l) => l.textContent).join('/')
+    === 'Target/Rival',
+  [...bars[1].querySelectorAll('.gid-label')].map((l) => l.textContent).join('/'));
+t('and its CSS is back',
+  css.indexOf('gid-field--audience') !== -1
+  && css.indexOf('game-id-bar-inner--audience') !== -1);
 t('the dead wrapper class went with the split', s.indexOf('game-id-bar-inner--anchor') === -1);
 
 /* ---- the legacy team pickers are gone ------------------------------------ */
@@ -73,11 +87,7 @@ t('and both selects with it',
 t('the words are gone from what a reader sees',
   noComments.indexOf("Away Team (Fan's Team)") === -1);
 t('no dead selector is left for the section', s.indexOf('#detailsTeamsSection') === -1);
-/* `bindTeamSelect` IS KEPT ON PURPOSE, with no callers: it is the only thing
-   that knows how a team select writes a city, a mascot, a key and the palette
-   together. Asserted so a later sweep does not delete it as dead by accident. */
-t('bindTeamSelect is still defined, deliberately', /function bindTeamSelect/.test(s));
-t('and has no callers left', noComments.indexOf('bindTeamSelect(node') === -1);
+t('the dead team select binder is gone', !/function bindTeamSelect/.test(s));
 /* THE PREFILL STILL WRITES THE LEGACY FIELDS; only the control went.
 
    THIS MATCHED AN EXACT SOURCE LINE AND WAS WRONG TO. `awayTeamCity =
@@ -230,26 +240,18 @@ t('the published-asset helpers are still there, renamed',
   /function fetchPublishedAssets/.test(s) && /function registerUploadedAsset/.test(s)
   && noComments.toLowerCase().indexOf('gamelogo') === -1);
 
-/* ---- THE MAP DOOR IS A BUTTON BESIDE THE BOX (2026-08-31) ---------------
-   It was the field LABEL, which read well and said MAP directly under a legend
-   already reading MAP -- the box named twice. Beside the field it is the same
-   shape the Anchor Event box uses, so the two doors on this page read as one
-   kind of control rather than two. */
-/* ---- THREE DOORS, AND ALL THREE ARE LEGENDS (2026-08-31) -----------------
-   The anchor door was a button beside its field, the map door was a button
-   beside its field, and both are the legend now -- so the page has ONE shape
-   for "the room this field comes from" rather than a legend here and a button
-   there. SIX ASSERTIONS ABOUT THOSE BUTTONS WERE CORRECTLY BROKEN and are
-   replaced by a loop over the three, which is the check the page actually
-   needs: three boxes doing one thing three ways is the drift this shape exists
-   to prevent.
+/* ---- THE ROOM DOORS ARE LEGENDS ------------------------------------------
+   The anchor door was a button beside its field and the map door was a button
+   beside its field; all three are the legend now -- the room a field comes from
+   is named by the field's own heading rather than by a control next to it.
 
-   THE MAP KEEPS A NEW TAB AND THE OTHER TWO DO NOT, deliberately: TGB Atlas is
-   a GLANCE at a list and a half-edited game must not be lost to one, where
-   filing an event or correcting a fandom is leaving. */
+   THE TAB DIFFERS AND THE DIFFERENCE IS THE POINT. The anchor is a DEPARTURE --
+   somewhere you go to file an event -- and a same-tab navigation inherits this
+   page's own unsaved-work warning for free. The map and the audiences are a
+   GLANCE at a list, and a half-edited game must not be lost to one. */
 [
   ['anchorEventRoomLink', '/mc/events/', 'same'],
-  ['audienceRoomLink', '/mc/audiences/', 'same'],
+  ['audienceRoomLink', '/mc/audiences/', 'new'],
   ['mapRoomLink', '/mc/atlas/', 'new']
 ].forEach(([id, href, tab]) => {
   const a = d.getElementById(id);
@@ -290,8 +292,8 @@ const named = (id) => {
   if (el.getAttribute('aria-label')) return true;
   return [...d.querySelectorAll('label[for]')].some((l) => l.getAttribute('for') === id);
 };
-t('and every field in a box with a door is still named',
-  ['gameMapInput', 'anchorEventInput', 'targetAudienceInput', 'rivalAudienceInput']
+t('and the anchor, map, target and rival fields are still named',
+  ['gameMapInput', 'anchorEventInput', 'target', 'rival']
     .every(named));
 /* HOVER IS BLACK, NOT THE ACCENT -- a pale blue on a bar whose ink is already
    blue is a shift nobody reads as a state change. Read from the stylesheet,
@@ -369,5 +371,21 @@ t('and the four save fields are in a hidden block, as they were in the drawer',
 
 
 console.log('');
+/* ---- THE TGB TEAM NAMES SECTION IS GONE (2026-09-02) ----------------------
+   Eight boxes over games.team01..team08, deleted with `teamInputs`, its three
+   loops and `setTeamFieldValue` -- a control and its wiring go in one pass.
+     THE COLUMNS ARE UNTOUCHED and still serialized from the node, so nothing is
+   cleared and nothing on this page can edit them. Same trade the away/home team
+   pickers and the three date fields already made. */
+t('the TGB team names section is gone',
+  !d.getElementById('detailsTeamNamesSection') && !d.getElementById('team01Input'));
+t('and its inputs and setter went with it',
+  !/teamInputs|setTeamFieldValue/.test(noComments));
+t('but the columns are still written',
+  noComments.indexOf('team01:                row && row.team01') !== -1
+  && noComments.indexOf('getTeamFieldState') !== -1);
+t('and its CSS went with it', css.indexOf('detailsTeamNamesSection') === -1);
+
+
 console.log(ok + ' ok, ' + bad + ' FAIL');
 process.exit(bad ? 1 : 0);

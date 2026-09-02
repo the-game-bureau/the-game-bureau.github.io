@@ -32,7 +32,7 @@ const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascrip
 const mkGame = (nodes) => ({
   id: 'probe', name: 'Probe Game', city: 'New Orleans, Louisiana',
   archived: 'YES', status: 'building', tagline: 'A walk',
-  anchor_event_id: null, target_audience_id: null, rival_audience_id: null,
+  anchor_event_id: null, target: null, rival: null,
   nodes: nodes, links: [], updated_at: '2026-01-01T00:00:00Z'
 });
 

@@ -16295,3 +16295,441 @@ row -- so adding it there would silently delete the diagram.
     `scrollWidth` is **1733 on the previous file too**, measured by stashing
     and re-running rather than reasoned about, and the blurb ends at 1155px of a
     1500px viewport. Pre-existing.
+
+## `audiences.more` IS ONE URL, WITH OR WITHOUT A SCHEME (2026-09-01)
+
+[2026090202](mc/supabase/migrations/2026090202_audiences_more.sql), **applied**. Plain nullable text, no CHECK, 641 rows and 0
+filled. A field on the badge with an **Open** door beside it.
+
+- **THE VALUE IS STORED AS TYPED AND THE SCHEME IS ADDED WHEN THE LINK IS
+  BUILT.** `thegamebureau.com` and `https://thegamebureau.com` are both kept
+  exactly as written; `moreHref()` prefixes `https://` when there is no scheme.
+  **Normalising on the way in would show something other than what was typed**,
+  which is the silent-rewrite fault this table already fixed once when
+  `audience_aliases` was being lowercased.
+  - **SO ANYTHING ELSE THAT DRAWS THIS COLUMN MUST NORMALISE TOO.** One
+    implementation today; a second reader copies the rule or gets a dead link on
+    every scheme-less row.
+- **THE PROTOCOL TEST IS THE SECURITY HALF, not tidiness.** `javascript:alert(1)`
+  parses perfectly well as a URL, so without it that string would become a live
+  `href` on an admin page. The same guard the waypoint editor's Source field
+  carries. **The room refuses what the link would refuse**, through the same
+  function, so it cannot store a value it then declines to link.
+- **THE DOOR IS A SIBLING OF THE CELL, NEVER INSIDE IT, and that is the whole
+  reason this field is built in the badge builder rather than in `cellOf`.** The
+  click handler and the `focusin` handler both ask `closest('.ed')`, so an
+  anchor INSIDE the value would bubble to them and a press would **navigate AND
+  open the editor** over the cell it was leaving. As a sibling the two gestures
+  are simply separate.
+- **AND THE TAB WALK HAD TO LEARN ABOUT IT.** `stepField` handles Tab itself, so
+  a selector of `.ed` alone stepped straight past the door and left it reachable
+  **by no keyboard at all** -- the cell opens on focus, so there is no other way
+  to land on it. It walks `.ed, .fopen` now; focusing a door opens nothing,
+  because `focusin` asks for `.ed` and an anchor is not one.
+- **NO DOOR WHERE THERE IS NOWHERE TO GO.** An empty field, or one holding
+  something `moreHref` refuses, draws the cell and no button: **a control that
+  leads nowhere is worse than none, because it invites the press.**
+- **`.field` IS `column-reverse`**, which was there to put a label under a value
+  -- left alone it would have stacked the link ABOVE the address it opens.
+  `.field--more` is a row.
+- **PROVED BY DRIVING IT** against the real 641: 12 assertions in
+  [audiences-sort.js](mc/_dev/browser-checks/audiences-sort.js), and **ten of them fail on the previous page**. They read
+  what LEAVES the page and what the browser RESOLVES the href to -- a
+  scheme-less value coming back `https://thegamebureau.com/` is the claim.
+  - **THE DOOR READ HAD TO SETTLE RATHER THAN READING ONCE.** The probe waits
+    for the PATCH to be RECORDED and the badge is not repainted until the reply
+    RESOLVES, so a single read returned the door the row had BEFORE the write
+    and one assertion went red about a page that was correct. **The colour probe
+    never met this because it only ever reads the request body.**
+- **ONE EXISTING ASSERTION WAS CORRECTLY BROKEN AND ONE WAS ALREADY THERE TO
+  CATCH THIS.** `a badge draws all eight of its fields` is nine; and **`the
+  expand shows every column the table has` failed with `["more"]`** the moment
+  the column existed, which is that check doing exactly its job.
+- **`audiences-in-a-real-browser.js` AND `builder-audiences.js` NEED A SERVER OF
+  THEIR OWN**, unlike `audiences-sort.js` which starts one: `python -m
+  http.server 8975` and `8981` in the repo root. **Without it they die with
+  `ERR_CONNECTION_REFUSED`, which reads as the page being broken.**
+
+## THE AUDIENCE BOXES WRITE TO `public.games` (2026-09-01)
+
+Two plain text boxes on the Game Builder's AUDIENCES bar, over
+`games.target_audience_id` and `games.rival_audience_id` -- **which are plain
+text now, not foreign keys**, checked against the live table rather than
+assumed: the only three keys left on `games` are the anchor event, the guide and
+the logo. 395 games, 367 carrying a target and 366 a rival.
+
+- **THE BRIDGE IS TWO HALVES AND EACH FAILS ITS OWN WAY.** `paintAudienceTextboxes`
+  fills the boxes from `currentGameMeta` when a game opens;
+  `syncAudienceTextboxesToMeta` reads them back. Neither is optional and neither
+  is enough on its own.
+- **THE PAINT HALF STARTS AT THE SELECT, AND THAT IS THE QUIETER FAULT.**
+  Both columns were in **no select list at all**, so they SAVED perfectly well
+  and simply never came home: a game whose audiences were set by hand opened
+  with two empty boxes. **A column the room writes and cannot read is written
+  blind.** This is the same shape as `anchor_event_id` a day earlier and the
+  opposite failure -- that one was missing from the VIEW, so the read 400d and
+  the column was switched off for the whole session, which is loud once you
+  look.
+- **THE SYNC RUNS AT THE TOP OF `saveDoc`, BEFORE ANYTHING ASKS WHETHER THERE IS
+  ANYTHING TO SAVE**, and the order is the whole point. `hasPendingSaveChanges()`
+  compares a snapshot built from the META, so a value still sitting in an input
+  is a change that function decides does not exist: it returns `skipped: true`,
+  reports the idle state, and **leaves the typed audience behind having said
+  nothing.** Clicking Save blurs the box first in most browsers, which is why
+  the `input` listeners are usually enough -- and "usually" is not what a write
+  path gets to rely on.
+- **THE SNAPSHOT HAD TO LEARN THEM TOO, OR SAVE STAYS DEAD.** `getDocSnapshot`
+  is what `hasUnsavedChanges` reads, so a field it does not carry is a field
+  nothing notices you changed: the box takes the text, the meta takes the box,
+  and the button never lights. **It reads as the field not saving rather than as
+  the button not repainting** -- the same shape as the Guess button that never
+  restood itself.
+- **THE PATCH WRITES BOTH EXPLICITLY, FOR THE ANCHOR EVENT'S OWN REASON.**
+  `emitColumn` deliberately SKIPS an empty value so a column the page knows
+  nothing about is never wiped, **and that makes clearing a box impossible
+  through it**: the blank is dropped from the payload, the row keeps what it
+  had, and the box comes back filled on the next load. An audience is exactly
+  the kind of thing somebody clears. `audienceColumnValue` is the one place a
+  blank becomes a null, so the staged row and the PATCH cannot disagree.
+- **NEITHER IS IN `GAME_COLUMN_TO_NODE_FIELD`**, and putting one there would
+  silently reintroduce both faults: it routes through `emitColumn`, and it reads
+  a NODE field where an audience is a property of the ROW.
+- **THE BOXES ARE DELIBERATELY NOT GATED.** Every other field on that bar is
+  disabled until a game is open; these are scratch boxes while the audience
+  model is parked, and the suite asserts they carry no `disabled`. **Typing into
+  one with no game open writes nothing** -- the listener and the sync both return
+  on a null meta -- so an ungated box costs a keystroke that goes nowhere rather
+  than a value that goes somewhere wrong. **I gated them and had to take it back
+  out**; the suite is what said so.
+- **SEVEN WIRING POINTS, AND MISSING ONE IS SILENT IN A DIFFERENT WAY EACH
+  TIME**: the schema flag, both select lists, `normalizeGameRow`,
+  `normalizeSavedGame`, `initGameMeta`, `getDocSnapshot`,
+  `stageCurrentGameIntoStore` and `serializeGameRow`. Only the flag was there.
+
+### AND FOUR ASSERTIONS IN THE SUITE WERE VACUOUS
+
+[game-builder-target-audience.js](mc/_dev/browser-checks/game-builder-target-audience.js) stripped comments across the WHOLE FILE and
+then lifted the scripts out of the result. **An opening block-comment marker in
+the CSS pairs with a closing one thousands of lines away, and a line-comment
+match fires inside every `https://` and eats the rest of that line: it left
+1,730 characters of a 923,422-character file.**
+
+- **SO EVERY `scriptText` ASSERTION PASSED ON A PAGE THAT PLAINLY CONTAINED WHAT
+  IT SAID WAS GONE**, including `there is no target/rival audience state or
+  serialization` while the page was being wired to those very columns. That is
+  the `|| true` shape this file keeps warning about, reached by a different road.
+- **THE SCRIPTS ARE LIFTED FIRST AND COMMENTED-OUT AFTERWARDS NOW**, and a line
+  comment is only one when it does not follow a colon. **Comments are still
+  stripped and have to be**: a negative assertion that reads raw source matches
+  the COMMENT explaining a removal, which this repo has been caught by four
+  times.
+- **IT REFUSES TO REPORT ON A FILE IT PLAINLY FAILED TO READ**, under a quarter
+  of the source. A stripper that eats the document answers every negative
+  assertion with a confident yes, which is indistinguishable from a clean page.
+- **AND THE ONE ASSERTION THAT WAS SIMPLY OBSOLETE WAS TURNED ROUND RATHER THAN
+  DELETED.** *There is no serialization* was true while the audience model was
+  being ripped out and stopped being true the moment the boxes were wired; it
+  names all seven wiring points now, **and checks the RIVAL is wired wherever
+  the target is** -- seven assertions about one of a pair say nothing about the
+  other, and on HEAD the rival was wired at one point fewer.
+
+**PROVED IN REAL CHROME, BOTH SHAPES OF GAME**: [game-builder-audience-textboxes.js](mc/_dev/browser-checks/game-builder-audience-textboxes.js),
+16 assertions over a game with a flow node and one with an empty document -- the
+28-of-395 case this page has broken on before. It asserts the READ asks for both
+columns, both boxes open on the values the row holds, typing arms Save, the
+PATCH carries the typed text, **and carries a NULL for the box that was
+cleared.** With the select entries and the snapshot entries taken back out it
+fails ten ways.
+
+- **TYPED, NOT ASSIGNED.** `.value = x` raises no `input` event, so a probe that
+  set it would test nothing about the listener that keeps the meta in step --
+  and the listener is half the bridge.
+- **THE STUB ANSWERS EVERY `/games` GET WITH THE WHOLE ROW whatever the select
+  says**, so the painting assertions cannot catch a missing select entry. **The
+  assertion on the REQUEST is what does**, and it is the one that failed.
+- **`game-builder-logo-bar.js` CRASHES AND `game-builder-status.js` FAILS ONE,
+  ON HEAD TOO.** The first needs two seed rows in `public.logos`, which ships
+  empty; the second counts six bars and finds fifteen. Neither is this change.
+
+### AND THE TARGET IS A SCRATCH BOX AGAIN, FOR AN AFTERNOON (2026-09-01)
+
+`targetAudienceTextbox` was replaced by **`target`**, a box connected to
+nothing, and **wired back to `games.target_audience_id` the same day** once the
+ask was settled. **The id stayed `target`.**
+
+- **SO THE BOX AND ITS COLUMN NO LONGER SHARE A NAME**, and that is the one
+  thing about this bar that is not obvious from either end. `AUDIENCE_TEXTBOXES`
+  is the only place the two are tied together -- box, meta field, column -- so
+  **it is the only place the connection can break**, and it is asserted as a
+  line rather than as a behaviour.
+- **THE ROUND TRIP IS WHAT PROVES THE MAPPING IS RIGHT rather than merely
+  present.** A source grep can say `input: 'target'` is there; only typing into
+  the box and reading the PATCH says it reaches `target_audience_id`.
+- **WHAT THE UNWIRING TAUGHT, and it is worth keeping**: the column was ABSENT
+  from the payload rather than null. **A null would have been the page clearing
+  a column it no longer edits** -- 367 of 395 games emptied one save at a time
+  with nothing on screen saying so -- and a payload that omits a key and one
+  that sends it as null look the same length on screen and are opposite in
+  effect.
+- **"connect it to the target field in the TEAMS table" WAS ASKED AND COULD NOT
+  BE DONE, WHICH IS WHY IT WAS ASKED BACK.** There is no `target` on
+  `public.teams`; that view has 14 columns and is computed from
+  `public.audiences`, which has no `target` either. **The only target-named
+  column anywhere is `games.target_audience_id`**, which is what was meant.
+  Proceeding on the literal reading would have meant inventing a column on a
+  638-row shared table and then guessing which row a GAME-level box edits --
+  and typing on one game would have changed every game pitched at that fandom.
+
+### THE AUDIENCES LEGEND IS A DOOR, IN A NEW TAB (2026-09-01)
+
+Three legends are doors now: **ANCHOR EVENT** to `/mc/events/`, **AUDIENCES** to
+`/mc/audiences/`, **MAP** to `/mc/atlas/`.
+
+- **THE TAB DIFFERS AND THE DIFFERENCE IS THE POINT.** The anchor is a
+  DEPARTURE -- somewhere you go to file an event -- and **a same-tab navigation
+  inherits this page's own unsaved-work warning for free**. The map and the
+  audiences are a GLANCE at a list, and a half-edited game must not be lost to
+  one.
+- **EXACTLY THREE, ASSERTED**, so a fourth box growing a door is a decision
+  somebody takes rather than something that arrives.
+- **A LEGEND IS NOT A LABEL**, which is what makes this safe: an anchor inside a
+  `<label>` is the nesting browsers disagree about, and a label whose click both
+  focuses an input and navigates does two things at once. The audience box's two
+  inputs keep their own `<label for>`, because that box holds two fields and one
+  legend cannot name either.
+
+**FIVE SUITES MOVED WITH IT, THREE OF THEM TWICE IN ONE DAY** -- unwired, then
+wired again -- and every one was correctly broken at each step:
+
+| suite | what it had to learn |
+|---|---|
+| `game-builder-target-audience` | rewritten twice: the absence of every connection, then all seven wiring points and the box-to-column line |
+| `game-builder-audience-textboxes` | the round trip under the new id, and a NULL for the box that was cleared |
+| `game-builder-boxes` | the field is `targetField` / `target`, three doors rather than two, and it CRASHED on `getElementById('targetAudienceTextbox').hasAttribute` |
+| `game-builder-anchor-saves` | *the payload carries the target audience*, off and then on again |
+| `game-builder-widths` | see below |
+
+- **ONE FAILURE WAS ALREADY THERE AND WAS WORTH FIXING WHILE I WAS IN IT.**
+  `game-builder-widths` measured `#targetAudienceInput` and `#rivalAudienceInput`
+  -- ids that went when the pickers became plain boxes -- so both came back **0**
+  and it reported `0/0/736` about two fields that are perfectly wide. **A
+  measurement of an element that is not there reads as a page fault**, which is
+  why it is worth repointing rather than relaxing.
+- **`game-builder-logo-bar` STILL CRASHES AND `game-builder-status` STILL FAILS
+  ONE, ON HEAD TOO.** The first needs two seed rows in `public.logos`, which
+  ships empty; the second counts six bars and finds fifteen.
+
+### AND THE ESCAPING SCAR MADE THREE ASSERTIONS VACUOUS, IN THE CHECK WRITTEN TO CATCH VACUOUS ASSERTIONS
+
+Rewriting that suite through a Python heredoc, **a backslash-b escape reached the file as a
+literal BACKSPACE** -- so `!/<BS>disabled<BS>/` was true of every string on
+earth and three assertions passed on anything at all. **Eighteenth instance, and
+the first inside a file whose whole subject is checks that cannot fail.**
+
+- **IT READS AS A CLEAN PAGE, which is what makes this shape survive review.**
+  Two of the five failed loudly (a pattern that matches nothing), and three
+  passed -- so the run said `25 passed, 2 failed` and looked like two ordinary
+  bugs rather than a corrupted file.
+- **`cat -A` OR A BYTE SCAN IS THE ONLY THING THAT SHOWS IT.** In an editor and
+  in a diff the line reads exactly as intended.
+- **THE SUITE NOW REFUSES TO REPORT ON ITSELF if it carries a control byte**,
+  scanned numerically by char code -- **with no literal control character in the
+  check**, because writing the class out is how the bytes got in: the first cut
+  of that guard put six of them in the file and caught itself.
+- **THE REMEDY IS THE STANDING ONE AND I DID NOT FOLLOW IT.** Write a file
+  through the Write tool, or with `chr(92)`; never a regex with backslashes
+  through a heredoc into Python into a file.
+
+## A GAME'S AUDIENCES ARE WORDS (2026-09-02)
+
+[2026090203](mc/supabase/migrations/2026090203_game_audiences_become_words.sql), **applied**. `games.target_audience_id` and
+`rival_audience_id` held KEYS -- 367 and 366 `chicago-bears`-shaped ids into
+`public.audiences`, every one resolving. They hold prose now: **Chicago Bears
+fans**.
+
+- **THE COLUMN AND THE BOX DISAGREED ABOUT WHAT AN AUDIENCE IS, and that was the
+  fault rather than anything in the save path.** The Game Builder's audience box
+  is free text with no foreign key and no check behind it, so it **showed a slug
+  nobody wants to read and accepted a sentence nothing could resolve, in
+  silence.** A text box sitting on top of a key column.
+- **THE 367 WERE CONVERTED RATHER THAN LEFT**, because a column holding two
+  kinds of thing is the worse state: new games reading `Cubs fans on tour` and
+  old ones `chicago-cubs`, in one field, with nothing saying which is which.
+- **WHY IT IS SAFE FOR THE PAID PRODUCT, MEASURED BEFORE IT WAS WRITTEN.**
+  `team-palette.js` is loaded by BOTH ENGINES and scores an exact `audience_id`
+  match at **30000, above the team key at 10000** -- so prose stops that tier
+  matching and every game falls through to the key:
+
+      367 of 367 games with a target carry an away_team_key
+      367 of 367 of those keys resolve in public.teams
+      367 of 367 name the SAME CLUB the audience id named    <- 0 disagree
+      366 of 366 on the rival side likewise
+
+  **Re-run those four counts before touching either column again**: the day one
+  disagrees, this conversion starts repainting games.
+- **THE KEYS ARE KEPT IN `games_audience_keys_retired`.** The conversion is
+  reversible in principle -- strip ` fans` and slug what is left -- and that is
+  arithmetic on a guess where the retired table is the values themselves. It is
+  also the only record of which club a game was pitched at.
+- **WHAT IS GIVEN UP: nothing can join a game to an audience.** That column was a
+  foreign key in everything but name. Anything needing the club reads
+  `away_team_key`, which is what the palette already does.
+- **AND THE COLUMN NAMES NOW LIE.** `target_audience_id` holds no id. Renaming
+  them is eight wiring points in the Game Builder plus a rebuild of
+  `games_with_graph_and_teams`, so it is its own day's work and was not done.
+- **PROVED BY DRIVING THE REAL PAGE AGAINST THE REAL DATABASE**, reads through
+  and only the write caught: `ari2026chc1` opens on **Chicago Cubs fans** and
+  **Arizona Diamondbacks fans**, typing replaces them, and the upsert carries
+  what was typed. 0 failed requests, 0 page errors.
+
+### AND THE DAY'S REAL LESSON: I FIXED THE PLUMBING ON THE WRONG FLOOR
+
+Hours went into wiring, unwiring and rewiring these two boxes, with four test
+suites rewritten around each state. **None of it was the problem.**
+
+- **THE FIRST QUESTION ON ANY "IT DOES NOT WORK" IS WHAT IS ACTUALLY RUNNING**,
+  and it was asked last. One `curl` at `thegamebureau.com/mc/games/` shows the
+  live site serving the OLD picker page -- whose audiences read names ten
+  columns that were dropped, answers **400**, and therefore opens both pickers
+  empty and refuses every typed name. **Nothing from this work is deployed.**
+- **AND THE SECOND IS WHAT THE PERSON IS SEEING.** No error text was asked for,
+  no "does the rival save but not the target", no "live or localhost". The
+  symptom was inferred from the code instead.
+- **ELABORATE VERIFICATION AIMED AT THE WRONG TARGET IS WORSE THAN NONE**: every
+  suite ran against a stubbed fixture on a local file, which produced confidence
+  that had not been earned. The one honest probe -- real page, real database,
+  write intercepted -- took ten minutes and answered it immediately. **Write
+  that probe first.**
+
+## THREE CONTAINERS DELETED FROM THE GAME BUILDER (2026-09-02)
+
+**AUDIENCES**, **TGB TEAM NAMES**, and the two empty drawer sections below the
+tags bar -- **Basics** and **Starting Location**. Fourteen bars now, in the order
+anchor, city, map, name, tagline, id, identity, price, engine, emoji, category
+icon, guide, logo, tags.
+
+- **A CONTROL AND ITS WIRING GO IN ONE PASS**, which here meant: the audience
+  markup, `AUDIENCE_TEXTBOXES`, `paintAudienceTextboxes`,
+  `syncAudienceTextboxesToMeta`, `audienceColumnValue`, both call sites, the
+  schema flags, both select lists, `normalizeGameRow`, `normalizeSavedGame`,
+  `initGameMeta`, `getDocSnapshot`, `stageCurrentGameIntoStore`,
+  `serializeGameRow` and five CSS rules. For the team names: the section,
+  `teamInputs`, its three loops and `setTeamFieldValue`.
+- **THE COLUMNS ARE UNTOUCHED, AND THAT IS THE COST.**
+  `games.target_audience_id` and `rival_audience_id` hold prose on 367 and 366
+  rows; `team01..team08` still serialize from the node. **No screen can show or
+  change any of them.** Same trade the away/home team pickers and the three date
+  fields already made. The audience columns are now written by nothing at all --
+  absent from the payload, never null, because a null would empty 367 rows one
+  save at a time with nothing saying so.
+- **`away_team_key` IS NOW THE ONLY THING ON THIS PAGE TYING A GAME TO A CLUB**,
+  which is what `team-palette.js` falls back to and what both engines resolve
+  through. It is written by the anchor-event prefill.
+- **TWO SECTIONS STAYED AND IT IS WORTH SAYING WHY.** `detailsBrandSection` and
+  `detailsLogicSection` sit below the tags bar too and look like the same kind
+  of thing; they hold **20 live controls for FLOW NODES** -- stop name, var
+  name, var values, if/then -- so deleting them would break editing every node
+  that is not the game. **Basics and Starting Location held zero controls**:
+  headings over gaps.
+- **A SLICE THAT ENDS ON `});` TAKES THE INNER ONE.** Removing the audience
+  listener cut to the first `});` after its body, which was the inner
+  `addEventListener` -- leaving an orphan `});` and a page that would not parse.
+  Caught by the standing parse check, which is what it is for. **Fifth slice in
+  this repo to take a neighbour.**
+- **PROVED AGAINST THE REAL DATABASE**, reads through and only the write caught:
+  `ari2026chc1` loads, renames, and saves 39 columns with **no audience keys in
+  the payload**, `team01` still present, **0 failed requests and 0 page errors**.
+  Ten builder suites green; `game-builder-target-audience` and
+  `game-builder-audience-textboxes` are deleted with their subject.
+- **`game-builder-status` STILL FAILS ONE, AS IT DID ON HEAD.** It asserts SIX
+  bars and finds fourteen -- a premise from long before today. Left alone rather
+  than guessed at.
+
+## `target` AND `rival`, AND THE AUDIENCES BOX IS BACK (2026-09-02)
+
+[2026090204](mc/supabase/migrations/2026090204_target_and_rival.sql) and [2026090205](mc/supabase/migrations/2026090205_index_names_follow_the_columns.sql), **both applied**.
+`games.target_audience_id` is `target`, `rival_audience_id` is `rival`, and the
+Game Builder has an AUDIENCES bar again -- two plain boxes, second in the row,
+its legend a door to `/mc/audiences/` in a new tab.
+
+- **THE NAMES HAD STOPPED BEING TRUE.** 2026090203 turned both columns into
+  prose, so `_audience_id` promised an id that is not there -- and `_id` on a
+  free-text column sends the next reader looking for a join that does not exist.
+- **THE BOX, THE META FIELD AND THE COLUMN ARE NOW ONE WORD**, which is most of
+  what the rename bought. The pair spent a day as a box called `target` over a
+  column called `target_audience_id`, and the slot map was then **the only thing
+  saying they belonged together** -- the only place the connection could break.
+  It also collapses `initGameMeta`'s usual `snake ?? camel ?? node` to one rung:
+  there is no casing left to disagree about.
+- **THE VIEW IS RENAMED, NOT REBUILT, and the difference is the whole mechanic.**
+  `games_with_graph_and_teams` selects both as plain column references, so it
+  follows a base rename BY ITSELF (it holds an attnum, not a name) -- **and
+  keeps its own OUTPUT names.** After the base rename alone the view still
+  exposed `target_audience_id`, now sourced from `games.target`, which is the
+  worst of both. `alter view ... rename column` fixes that in place.
+  **NOT `create or replace view`**, which cannot rename an output column and
+  answers 42P16; **not a drop and recreate**, which would hand-copy 79 columns.
+- **PROVED IN A ROLLED-BACK TRANSACTION BEFORE THE FILE WAS WRITTEN**, because a
+  statement that returns without error says nothing about what it left behind:
+  the view's output names went `target_audience_id` -> `target`, both reads
+  answered `Chicago Cubs fans`, 79 view columns and 367 rows throughout.
+
+### TWO SUBSTRING TRAPS IN ONE SITTING, AND BOTH READ AS REAL FINDINGS
+
+Neither was a fault in the schema. Both were faults in the QUESTION.
+
+- **`like '%_audience_id%'` MATCHED `t.audience_id`**, because `_` is a
+  single-character WILDCARD in LIKE. It reported `tgb_build_game` and
+  `tgb_content_keys` as stale -- two functions that read `game_templates` and
+  have nothing to do with these columns. **This file already recorded that trap
+  for `home_city` and I walked into it anyway.**
+- **`strpos(indexdef, 'target_audience_id') > 0` MATCHED THE INDEX'S OWN NAME.**
+  `games_target_audience_idx` contains `target_audience_id` -- it is that string
+  plus an `x`. The definitions had followed the rename correctly all along.
+- **A COLUMN NAME IS A WORD, NOT A SUBSTRING.** Match it with a boundary, or
+  read the matching line before believing the count. **Both false positives
+  looked exactly like the real thing**, and the second nearly had me "fix" two
+  indexes that were already right.
+- **WHAT THE SECOND ONE DID TURN UP IS REAL AND IS FIXED**: an index keeps its
+  own NAME through a column rename, so `games_target_audience_idx` half-
+  remembered its old column. It is `games_target_idx` now -- the same rule that
+  says a table called `routes` may not keep `paths_pkey`.
+
+### THE BOX
+
+- **THE LEGEND IS THE DOOR, IN A NEW TAB.** Three doors now: the anchor to
+  `/mc/events/` in the SAME tab -- filing an event is a departure, and a
+  same-tab navigation inherits this page's own unsaved-work warning for free --
+  and the audiences and the map in a NEW one, because a list is a GLANCE and a
+  half-edited game must not be lost to one.
+- **EACH BOX KEEPS ITS OWN `<label>`**, unlike the anchor and the map. Those are
+  one field under a legend, where a label would be the box named twice a few
+  pixels apart; **this box holds two fields and one legend cannot name either.**
+- **EIGHT WIRING POINTS, and missing one is silent in a different way each
+  time**: the schema flag, both select lists, `normalizeGameRow`,
+  `normalizeSavedGame`, `initGameMeta`, `getDocSnapshot`,
+  `stageCurrentGameIntoStore`, `serializeGameRow`. A column left out of the
+  SELECT saves fine and never comes home; one left out of the snapshot leaves
+  Save dead; one left out of `serializeGameRow` never reaches the PATCH.
+- **THE PATCH WRITES BOTH EXPLICITLY, NEVER THROUGH `emitColumn`**, which skips
+  an empty value so a column the page knows nothing about is never wiped -- and
+  that makes CLEARING a box impossible through it.
+- **`team-palette.js` READS `game.target` NOW**, and the camelCase twins went
+  with the rename. **That tier still matches nothing and that is not a bug to
+  fix**: the columns hold prose, so every game falls through to the team key --
+  measured at 367 of 367 before the conversion. The read is kept because this is
+  where a key would be honoured if the column ever held one again.
+- **PROVED AGAINST THE REAL DATABASE**, reads through and only the write caught:
+  `ari2026chc1` opens on **Chicago Cubs fans** / **Arizona Diamondbacks fans**,
+  both labels read Target and Rival, the two share a line, the legend carries
+  `target="_blank"` and `noopener`, typing arms Save, and the PATCH carries the
+  typed target with a **NULL** for the cleared rival. 0 failed requests, 0 page
+  errors. The select asks for 63 columns including both, and for neither old
+  name.
+- **AND MY OWN PROBE'S "read asks for target: false" WAS THE PROBE.** It tested
+  the raw URL with a comma-anchored regex against a percent-encoded query. The
+  URL was parsed properly instead and answered `target: true, rival: true`.
+  **A measurement of the wrong string reads exactly like a page fault.**
+- **THE COMMITTED COLUMN LIST IN `game-builder-columns.js` WAS REFRESHED FROM
+  THE TABLE, not hand-edited.** It is a snapshot of `public.games` and it goes
+  stale; the query to regenerate it is now in its own comment.

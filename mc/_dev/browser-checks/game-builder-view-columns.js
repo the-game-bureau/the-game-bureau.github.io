@@ -13,8 +13,8 @@ const T = { '.html':'text/html','.css':'text/css','.js':'text/javascript','.json
    that matters here -- the columns are what is under test, not the values. */
 const ROW = { id: 'probe', name: 'Carolina Fans Takeover New Orleans',
   city: 'New Orleans, Louisiana', archived: 'YES', status: 'building',
-  tagline: 'x', anchor_event_id: null, target_audience_id: null,
-  rival_audience_id: null, links: [], updated_at: '2026-01-01T00:00:00Z',
+  tagline: 'x', anchor_event_id: null, target: null,
+  rival: null, links: [], updated_at: '2026-01-01T00:00:00Z',
   nodes: [{ id: 'n1', type: 'game', title: 'Carolina Fans Takeover New Orleans',
             city: 'New Orleans, Louisiana' }] };
 const EVENTS = [{

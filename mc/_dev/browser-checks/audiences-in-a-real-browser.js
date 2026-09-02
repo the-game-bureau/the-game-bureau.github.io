@@ -385,7 +385,10 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      halves, and the two stamps, which split themselves 50/50 rather than taking
      a grid track each. A count that drifts means a column has silently stopped
      being drawn. */
-  t('a badge draws all eight of its fields', m.fields === 8, m.fields);
+  /* NINE. `more` joined them on 2026-09-01 -- one url per audience, drawn as
+     its own field with the door beside it. A count that drifts means a column
+     has silently stopped being drawn. */
+  t('a badge draws all nine of its fields', m.fields === 9, m.fields);
   t('with no two on top of each other', m.overlaps === 0, m.overlaps + ': ' + m.ovList);
   t('and none squeezed to nothing', m.tiny === 0, m.tiny + ' collapsed');
   t('created and updated share a line', m.stampsPaired, m.stampsPaired);
