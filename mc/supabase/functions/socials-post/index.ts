@@ -6,8 +6,9 @@
 // as Supabase secrets, the same arrangement stripe-webhook and gs-send-code use.
 //
 // Auth: requires the caller's JWT AND that the JWT is a photo admin (via
-// is_photo_admin()), the same gate upload-guide-image uses. The row is then read
-// and written with the service role. A human decides; this only carries it out.
+// is_photo_admin()), the same gate upload-guide-image uses. Direct clicks read
+// the row with the service role and carry the post out, but they do not file the
+// row as posted; FILE AS POSTED in the page is the human decision that moves it.
 //
 // WHAT IT WILL AND WILL NOT POST
 //   facebook   POST /{page-id}/feed        link post, caption + url. Works with
@@ -415,6 +416,34 @@ function json(status: number, body: unknown) {
 }
 
 type Outcome = { platform: string; ok: boolean; id?: string; error?: string; skipped?: boolean };
+
+const PLATFORM_LABEL: Record<string, string> = {
+  facebook:  'Facebook',
+  instagram: 'Instagram',
+  threads:   'Threads',
+  x:         'X',
+};
+
+function receiptPatch(row: any, results: Outcome[]): Record<string, unknown> {
+  const posted = results.filter((r) => r.ok).map((r) => r.platform);
+  const labels = posted.map((p) => PLATFORM_LABEL[p] ?? p);
+  const existingLabels: string[] = Array.isArray(row?.posted_platforms)
+    ? row.posted_platforms.map((p: unknown) => String(p))
+    : [];
+  const postedIds: Record<string, string> = {};
+  for (const result of results) {
+    if (result.ok && result.id) postedIds[result.platform] = String(result.id);
+  }
+  const existingIds = row && typeof row.posted_ids === 'object' && row.posted_ids && !Array.isArray(row.posted_ids)
+    ? (row.posted_ids as Record<string, string>)
+    : {};
+  const mergedIds = { ...existingIds, ...postedIds };
+  const patch: Record<string, unknown> = {
+    posted_platforms: Array.from(new Set([...existingLabels, ...labels])),
+  };
+  if (Object.keys(mergedIds).length) patch.posted_ids = mergedIds;
+  return patch;
+}
 
 /** Caption + blank line + link — the same shape the admin puts on the clipboard,
  *  so what goes out by machine reads identically to what goes out by hand. */
@@ -878,114 +907,18 @@ async function postX(row: any): Promise<Outcome> {
   }
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return out === 0;
-}
-
-// ── THE SWEEP ───────────────────────────────────────────────────────────────
-//
-// Claims what is due and sends it down the SAME path a human press takes, so a
-// scheduled post and a pressed one cannot behave differently. The claim is one
-// SQL statement (`tgb_claim_due_socials`), which is what stops two overlapping
-// sweeps posting the same candidate twice -- and a post that goes out twice
-// cannot be taken back.
-async function runSweep(): Promise<Response> {
-  const { data: due, error: claimErr } = await supa.rpc('tgb_claim_due_socials', { p_limit: 5 });
-  if (claimErr) return json(500, { error: 'claim failed: ' + claimErr.message });
-  const rows: Array<{ id: string; platforms: string[] | null }> = Array.isArray(due) ? due : [];
-  if (!rows.length) return json(200, { sweep: true, claimed: 0 });
-
-  const done: unknown[] = [];
-  for (const claimed of rows) {
-    // WHAT WAS AGREED AT SCHEDULING TIME, not re-derived now. A candidate that
-    // gains an image between then and now must not silently acquire Instagram.
-    const wanted = (Array.isArray(claimed.platforms) ? claimed.platforms : [])
-      .map((p) => String(p).toLowerCase().trim())
-      .filter((p) => p === 'facebook' || p === 'instagram' || p === 'threads' || p === 'x');
-
-    if (!wanted.length) {
-      await supa.from('socials').update({
-        scheduled_state: 'failed',
-        scheduled_error: 'no machine account was recorded when this was scheduled',
-      }).eq('id', claimed.id);
-      done.push({ id: claimed.id, posted: [], error: 'no platforms' });
-      continue;
-    }
-
-    const { data: row, error: rowErr } = await supa
-      .from('socials').select('*').eq('id', claimed.id).maybeSingle();
-    if (rowErr || !row) {
-      await supa.from('socials').update({
-        scheduled_state: 'failed',
-        scheduled_error: 'the candidate could not be read: ' + (rowErr?.message ?? 'not found'),
-      }).eq('id', claimed.id);
-      done.push({ id: claimed.id, posted: [], error: 'lookup failed' });
-      continue;
-    }
-
-    const results: Outcome[] = [];
-    if (wanted.includes('facebook'))  results.push(await postFacebook(row));
-    if (wanted.includes('instagram')) results.push(await postInstagram(row));
-    if (wanted.includes('threads'))   results.push(await postThreads(row));
-    if (wanted.includes('x'))         results.push(await postX(row));
-
-    const posted = results.filter((r) => r.ok).map((r) => r.platform);
-    const PLATFORM_LABEL: Record<string, string> = {
-      facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', x: 'X',
-    };
-
-    if (posted.length) {
-      const existing: string[] = Array.isArray(row.posted_platforms) ? row.posted_platforms : [];
-      const merged = Array.from(new Set([...existing, ...posted.map((p) => PLATFORM_LABEL[p] ?? p)]));
-      await supa.from('socials').update({
-        status: 'posted',
-        posted_platforms: merged,
-        // THE SCHEDULE IS SPENT, so the state goes back to null rather than to
-        // a fourth value. `status = posted` is the record that it went.
-        scheduled_state: null,
-        scheduled_error: null,
-      }).eq('id', claimed.id);
-    } else {
-      // FAILED, NOT RETRIED. Every failure here is a credential or a refusal
-      // from the platform, and a sweep that retries every minute turns one bad
-      // token into a thousand refused requests. It waits for a person.
-      await supa.from('socials').update({
-        scheduled_state: 'failed',
-        scheduled_error: results.map((r) => r.platform + ': ' + (r.error ?? 'refused')).join('; ').slice(0, 500),
-      }).eq('id', claimed.id);
-    }
-    done.push({ id: claimed.id, posted, results });
-  }
-
-  return json(200, { sweep: true, claimed: rows.length, done });
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST')    return json(405, { error: 'POST only' });
 
+  // Send-later was removed from /mc/socializer/ on 2026-09-03. If an old cron
+  // call is still pointed here, it must fail closed and post nothing.
+  if (req.headers.get('x-tgb-scheduler')) {
+    return json(410, { error: 'scheduled social posting has been removed' });
+  }
+
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader) return json(401, { error: 'missing Authorization' });
-
-  // ── THE SECOND DOOR: THE SCHEDULER ────────────────────────────────────
-  //
-  // `pg_cron` has no JWT, so the admin gate below is unreachable to it. A
-  // shared secret in `x-tgb-scheduler` lets the sweep in and NOTHING ELSE:
-  // this branch takes no id, no platform list and no body worth speaking of,
-  // so it cannot be used to post an arbitrary payload to our accounts. What it
-  // can do is exactly what a due row already says.
-  //
-  // THE SECRET IS COMPARED IN CONSTANT TIME. A timing oracle on a 64-character
-  // hex string is not a realistic attack here, but the comparison costs
-  // nothing and the alternative is a footnote explaining why it is fine.
-  const schedHeader = req.headers.get('x-tgb-scheduler') ?? '';
-  const schedSecret = Deno.env.get('TGB_SCHEDULER_SECRET') ?? '';
-  const isScheduler = !!schedSecret && !!schedHeader && timingSafeEqual(schedHeader, schedSecret);
-
-  if (isScheduler) return await runSweep();
 
   // Admin gate, same shape as upload-guide-image: the caller's own JWT is used
   // for the check so the answer is about them, not about the service role.
@@ -1175,33 +1108,21 @@ Deno.serve(async (req: Request) => {
 
   const posted = results.filter((r) => r.ok).map((r) => r.platform);
 
-  // The row is stamped here, by the service role, so the receipt cannot
-  // disagree with what actually happened -- the client never decides this.
+  // Direct button presses do NOT move the row. They only record the account
+  // receipt so the page can tick whichever buttons succeeded, then FILE AS
+  // POSTED writes the final status and moves the candidate. Otherwise a
+  // successful Facebook/Instagram/Threads run would silently leave Review before
+  // a human had finished the sitting.
+  let warning = '';
   if (posted.length) {
-    // A LOOKUP, NOT A TERNARY. This was `p === 'facebook' ? 'Facebook' :
-    // 'Instagram'` back when those were the only two, so the day Threads went
-    // live every Threads post would have been filed on the row as Instagram --
-    // a receipt that names the wrong account, which is the one kind of wrong
-    // this table cannot survive being. A map has no default to be wrong.
-    const PLATFORM_LABEL: Record<string, string> = {
-      facebook:  'Facebook',
-      instagram: 'Instagram',
-      threads:   'Threads',
-    };
-    const labels = posted.map((p) => PLATFORM_LABEL[p] ?? p);
-    const existing: string[] = Array.isArray(row.posted_platforms) ? row.posted_platforms : [];
-    const merged = Array.from(new Set([...existing, ...labels]));
     const { error: upErr } = await supa
       .from('socials')
-      .update({ status: 'posted', posted_platforms: merged })
+      .update(receiptPatch(row, results))
       .eq('id', id);
-    if (upErr) {
-      // It genuinely went out; say so, and say the bookkeeping failed.
-      return json(207, { posted, results, warning: 'posted, but marking the row failed: ' + upErr.message });
-    }
+    if (upErr) warning = 'Posted, but saving the account checks failed: ' + upErr.message;
   }
 
   // 200 even on a total failure: the call itself succeeded and the body says
   // what happened per platform. The caller decides what to show.
-  return json(200, { posted, results });
+  return json(200, { posted, results, warning });
 });

@@ -4151,10 +4151,10 @@ the command bar above it.
 with the order swapped that margin would have pushed the wrong thing, so it is
 on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
 
-- **SET KIND AND SET SOURCE, THEN APPLY. AND DELETE.** Those two fields are the
-  ones a batch can be right about: a date, a venue or a title is per event.
-- **AN EMPTY CONTROL MEANS LEAVE IT ALONE, never clear it.** Clearing a column
-  across a selection is not something an empty box should do by accident.
+- **SET KIND, SET SOURCE, APPLY AND THE PIPE ARE GONE (2026-09-02).** See the
+  section below; the bar is **Select all, the count and Delete**. The two
+  bullets that were here described those controls and their reasoning is kept
+  there rather than deleted.
 - **ONE REQUEST FOR THE LOT**, `id=in.(...)`, with `return=representation`, and
   **the shortfall is named, not counted**: "12 updated" about 9 is the quiet
   sort of lie this project has been caught by before. The delete builds its
@@ -4162,16 +4162,12 @@ on `#toggleAllBtn` now and `.panel-head` no longer needs `justify-content`.
   exact bug the issues room shipped and had to fix.
 - **THE SELECTION IS PRUNED TO WHAT IS DRAWN, on every render.** A tick that
   outlived its row would be a batch press landing on something you cannot see.
-- **A HAIRLINE STANDS BETWEEN APPLY AND DELETE.** They are not two options of
-  one kind: one writes two fields and the other destroys the rows, and flush
-  together they read as a pair you choose between. **`.bar-sep` is declared only
-  under `.command-bar--find`**, so the batch row needs a rule of its own or the
-  span draws nothing.
-- **BOTH BUTTONS CARRY THE COUNT**, `Apply to 300` and `Delete 300`. Delete had
-  only its verb, which made **the quieter of the two faces the irreversible
-  one**; the number is the last thing you read before pressing it. Each keeps
-  its bare verb when nothing is ticked, so neither changes width the moment a
-  first row is ticked and shoves the other along the row.
+- **DELETE CARRIES THE COUNT**, `Delete 300`, and keeps its bare verb when
+  nothing is ticked so it does not change width the moment a first row is
+  ticked. It had only its verb once, which made **the quieter of the two faces
+  the irreversible one**; the number is the last thing you read before pressing
+  it. (Apply carried one too, and the hairline between them said they were not
+  two options of one kind. Both went on 2026-09-02.)
 - **`aria-disabled`, NEVER `disabled`**, so a press on the off state can say what
   to do first. It would be unreachable on a touch screen otherwise.
 - **THE TICK STOPS ITS OWN CLICK**, or ticking a box would open the row under it.
@@ -6894,6 +6890,90 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 - **The panel is at the top of [mc/index.html](mc/index.html)**, above Ancillary Things, and is **hidden when nothing is pending** rather than showing an empty box. It tolerates the migration not being applied: a 404 from the table hides the panel instead of erroring, the same tolerance the Tape Room extends to a missing issues table.
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
+
+## A CAPTION OPENS WITH THE PLACE AND SAYS IT ONCE (2026-09-03)
+
+`Tulsa, Oklahoma: The street grid wraps around an 11 ounce mug. Walk the blocks
+first, then drink out of them.` A `"City, State: "` prefix on every caption,
+`"City, Country: "` outside the US, and the body never names the place again.
+
+- **IT REVERSES THE 2026-08-21 SPLIT RULE OUTRIGHT.** That one said `"Tulsa,
+  Oklahoma"` is an address label and told the bot to put the city in one
+  sentence and the state in the next, *"which is two people talking"*. The
+  argument was real and it is overruled: **a prefix is a dateline**, it is the
+  shape a wire story has used for a century, and it frees the whole sentence to
+  be about the thing rather than about smuggling a state into it.
+- **SAY IT ONCE IS THE HALF THAT IS EASY TO LOSE.** Without it the prefix simply
+  becomes a third mention: *"Tulsa, Oklahoma: Nobody in Tulsa will say who
+  started it. Oklahoma has decided not to ask."* Both copies carry the rule with
+  that worked example under it.
+- **THE 120-160 CHARACTER AIM NOW INCLUDES THE PREFIX**, which is about 20 of
+  them, so the body is shorter than it was. Said explicitly, or the count drifts.
+- **WHAT SURVIVED THE REWRITE, because it is the part paid for by bad rows**:
+  never invent a place, use the largest honest one when the story is regional,
+  and outside the US the state becomes the country. **Losing those with the split
+  rule would have been the real cost of this change.**
+
+### THERE ARE THREE COPIES OF THIS PROMPT AND ALL THREE HAD DRIFTED
+
+Measured rather than assumed, which is the only reason the fix was scoped right:
+
+| copy | held |
+|---|---|
+| the PROMPT dialog in [mc/socializer/index.html](mc/socializer/index.html) | the new prefix rule, **uncommitted** |
+| the stored prompt on `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | the old split rule |
+| [socializer-bot.prompt.md](mc/_dev/prompt-tools/socializer-bot.prompt.md) | an older draft with **neither** |
+
+**THE STAGED FILE WAS THE WORST OF THE THREE and its own header said so** --
+*"THIS IS NOT THE SOURCE OF TRUTH... edit it only as a drafting surface"*. It
+was 39KB against the trigger's 49KB, 961 diff lines apart, and it staged the
+PAGE variant rather than the routine's. **It holds the ROUTINE variant now**,
+because that is the copy that cannot be edited from a terminal, and everything
+below its rule is paste-ready.
+
+### WHY THE ROUTINE'S PROMPT IS PASTED BY A PERSON
+
+`RemoteTrigger` can read this routine and can write it. It is not used for a
+prompt edit, and the reason is worth writing down before somebody tries:
+
+- **A `job_config` UPDATE REPLACES THE WHOLE THING.** This file already records
+  that -- sending it with only `environment_id` and `events` silently dropped
+  `session_context.model` and `session_context.sources`. So changing one
+  paragraph means re-transmitting **all 49,871 characters** by hand.
+- **THROUGH A LAYER THAT ESCAPES IT.** The prompt carries `curl` line
+  continuations and a nested JSON payload block, so the retype is a few thousand
+  backslashes and quotes going through a tool call. **That is the escaping scar
+  exactly, which this project has recorded nineteen times and twice lost a file
+  to** -- and a corrupted prompt on a routine that fires at `14 8,20` UTC
+  unattended is worse than one that is a paragraph out of date, with no rollback
+  that is not the same coin toss.
+- **CHECKED FOR A SMALLER DOOR AND THERE IS NONE.** `derived_state.prompt` is
+  derived and read-only; `session_request` is config. The prompt lives only at
+  `job_config.ccr.events[0].data.message.content`.
+- **SO THE STAGED FILE IS THE DELIVERABLE**, and the paste is a person's. **A
+  cron-only or `enabled`-only change is still safe from here**, both being
+  top-level fields.
+
+### AND THE NOTICE AFTER A MACHINE POST
+
+*"Posted to Facebook + Instagram + Threads. Press FILE AS POSTED when this
+finished."* -- `card is` removed, as asked.
+
+- **AND THE CHECK PINNED THE OLD WORDING, which is a check testing the copy
+  rather than the claim.** `post-and-skip.js` required the exact sentence, so a
+  deliberate copy edit read as a regression. It asserts the INSTRUCTION now --
+  that the notice names FILE AS POSTED and says when -- which is what that
+  assertion is actually for. The four failures left in that suite are the Game
+  Builder's status work and are pre-existing: **8 at HEAD, 4 now.**
+
+### AND A CHECK THAT COULD NOT RUN AT ALL
+
+[socializer-boring-stuff.js](mc/_dev/browser-checks/socializer-boring-stuff.js) required a bare `jsdom`, which does not resolve here --
+this machine's modules are at `C:/tmp/node_modules`. **The fifth file in this
+repo to need that repoint**, after `games-in-a-real-browser.js`,
+`game-builder-target-audience.js` and two others. It passes 16/16 and had been
+**silently absent from every sweep**, which is the worse half: a suite that
+crashes on require reports nothing and is easy to read as one that was not run.
 
 ## THE SOCIALIZER — the social post admin page
 
@@ -10274,7 +10354,11 @@ The strip and the schedule are gone; the dialog is the prompt box.
 - **IT IMPORTED WITHOUT A COPY-PASTE**, straight into the table, chunked, with a
   per-row error report and a retry that named the row the database refused.
 - **IT READ THE FEED IN THE BROWSER.** No key, no server, no build step, because
-  `site.api.espn.com` sends `Access-Control-Allow-Origin: *`.
+  `site.api.espn.com` sends `Access-Control-Allow-Origin: *`. **A note here
+  claimed on 2026-09-02 that it no longer does, and THAT WAS WRONG twice
+  over -- see the 2026-09-03 section on the top-up. A server only emits
+  that header when an Origin is SENT, and the host a browser can actually
+  reach is `site.web.api.espn.com`.
 - The venue-local timezone maps (`STATE_TZ`, `COUNTRY_TZ`, `COUNTRY_ALIAS`), the
   UTC-vs-local date re-filter, and the id shapes went too.
 
@@ -11122,6 +11206,839 @@ never about the status.**
   the trigger keeping `archived` in step (`live` -> NULL, `building` -> YES), and
   **no function in `public` names a dropped column any more.**
 
+## A KICKOFF SAYS WHICH CLOCK IT IS ON (2026-09-03)
+
+[2026090301](mc/supabase/migrations/2026090301_events_timezone.sql), **applied**, plus [events-timezone-backfill.sql](mc/supabase/seeds/events-timezone-backfill.sql).
+`public.events.timezone`, an IANA name. **272 rows, 272 zones, 0 without a
+kickoff.**
+
+- **`start_time` IS THE CLOCK OUTSIDE THE VENUE AND NOTHING SAID WHICH CLOCK.**
+  That is survivable while one importer writes local time and it stops being
+  survivable the moment a second source arrives: **the league scoreboard gives a
+  UTC INSTANT and nothing else**, so a row filed from it either carried no time
+  at all -- which is what we did, and what the room's own finding was pointing
+  at -- or carried a number nobody could interpret.
+- **THE RULE THE COLUMN MAKES POSSIBLE: the goal is the LOCAL clock, and any
+  zone is acceptable so long as the row says which.** `start_time` and
+  `timezone` are true together or not at all.
+- **AN IANA NAME, NEVER AN OFFSET AND NEVER AN ABBREVIATION**, and Saint-Denis
+  is why rather than an argument: **it kicks off at 13:30 UTC on 2026-10-25,
+  which is the very Sunday Europe puts its clocks back**, and `Europe/Paris`
+  reads it as 14:30 while a stored `+02:00` would say 15:30. `CST` is ambiguous
+  besides -- two different things depending on the hemisphere.
+- **NULLABLE, AND A NULL IS NOT A DEFAULT OF UTC.** A default would make every
+  unfilled row claim a zone it was never told, which is the shape of fault this
+  project keeps paying for: a value that looks answered and is invented.
+
+### SEATGEEK ALREADY KNEW AND WAS NEVER ASKED
+
+**Its venue object carries an IANA timezone on all 851 NFL events**, and
+`datetime_local` is already that clock -- so the SeatGeek half of this is one
+line, and every date it files was already the local one.
+
+### THE SCOREBOARD KNOWS NOTHING, SO A CITY MAP THEN A STATE MAP
+
+Read off the real feed rather than assumed: an ESPN event carries `date` (UTC),
+`timeValid`, and a venue of `fullName` / `address` / `indoor`. **No zone, no
+offset, no local string.**
+
+- **CITY FIRST, BECAUSE A COUNTRY MAP IS WRONG FOR EXACTLY THESE FIXTURES.**
+  Brazil and Australia hold several zones each. **`VENUE_ZONE_STATE` is second
+  and is the shape this file already defends** -- every major-league venue in a
+  split-zone state sits in the zone named there, so it changes only if a state
+  does, which is what the deleted schedule importer used.
+  - **AND THE CITY MAP IS WHAT SAVED MELBOURNE**: ESPN reports its state as
+    `VIC`, which is two characters and in no state map on earth, so a
+    state-first order would have answered nothing for the one fixture furthest
+    from home.
+- **AN UNKNOWN PLACE RESOLVES TO NOTHING, and that is the point.** A guessed
+  zone renders a plausible wrong clock and looks exactly like a right one; a
+  null leaves the date as the source gave it, the time blank, and the room's own
+  no-time finding pointing at the row.
+- **`Intl.DateTimeFormat` DOES THE DST ARITHMETIC**, which is the whole reason
+  the maps hold names rather than offsets. **It emits 24 for midnight on some
+  engines under `hour12: false`** and that is guarded.
+
+### THE DATE ON A NON-US GAME IS THE LOCAL ONE, AND ONE FIXTURE PROVES IT
+
+All nine internationals were converted and compared before anything was built:
+
+    Melbourne     utc 2026-09-11T00:35Z  ->  2026-09-11 10:35  Australia/Melbourne
+    Rio           utc 2026-09-27T20:25Z  ->  2026-09-27 17:25  America/Sao_Paulo
+    Saint-Denis   utc 2026-10-25T13:30Z  ->  2026-10-25 14:30  Europe/Paris
+    Mexico City   utc 2026-11-23T01:20Z  ->  2026-11-22 19:20  America/Mexico_City   <- DIFFERS
+
+**Mexico City is the only 2026 fixture whose local date is not its UTC date**,
+and slicing the instant files it on the 23rd. **A game is played the day BEFORE
+its anchor**, so a day out is a day out for the product, not a display quirk --
+and it also decides which held row the gap matcher pairs it with, since
+everything already on file came from SeatGeek and is local.
+
+- **SEATGEEK SUPPLIED THAT ONE CORRECTLY**, so it was never wrong on file. What
+  changed is that a top-up can no longer get it wrong either.
+- **THE TWO SOURCES DISAGREE BY AN HOUR ABOUT THAT KICKOFF** -- SeatGeek 18:20,
+  ESPN 19:20 -- **and each is internally consistent** (both are their own UTC
+  less six). That is a disagreement about the fixture, not about the conversion,
+  and the marketplace row wins because it is the row we file.
+
+### THE BACKFILL IS A READ OF WHAT THE SOURCE SAID, NOT A DERIVATION
+
+269 rows take **SeatGeek's own venue timezone**, keyed on our `SG-<id>`; the 3
+top-ups take the city map. **All 272 resolved, none left over.**
+
+- **THE PAGE'S MAP WAS PROVED AGAINST SEATGEEK FIRST, using the page's own maps
+  rather than a copy of them** -- a third copy proves nothing. Across **34
+  distinct venues it agrees on 32 and is LESS SPECIFIC on 2**:
+  `America/Detroit` and `America/Indiana/Indianapolis`, where it says
+  `America/New_York`. **Sampled across the season those three give an identical
+  offset on every day**, so the clock is the same and the map is not wrong.
+  **The source's own name is used anyway: a value we were told beats one we
+  worked out.**
+- **THE THREE TOP-UPS GAINED THEIR KICKOFF** -- 10:35, 17:25 and 14:30 -- and
+  all three keep the date they already had.
+
+### AND THE CHECK FOUND A REAL ROOM BUG THE MOMENT THE DATA WAS FIXED
+
+**Pressing Check on a clean table emptied the room.** `setIssuesFilter('yes')`
+ran whatever the sweep found, so 272 rows were replaced by nothing, under a
+message reading *"Nothing wrong with any of them"* which **does not name the way
+back** -- the narrowing-with-no-visible-way-out this room has removed before,
+and here there was not even a narrowing to undo. **Nothing to narrow to is not a
+narrowing**, so the filter is only set when something is in review.
+
+### THE SUITE'S OWN PREMISE WAS REMOVED BY THE FIX, WHICH IS THE LESSON
+
+[events-no-start-time.js](mc/_dev/browser-checks/events-no-start-time.js) read the live table and asserted the room narrows to
+*"the N fixtures with no time"*. **N was 3 when it was written and is 0 now that
+the backfill has filled them in -- and at 0 the comparison is `0 === 0` and
+CANNOT FAIL.** The check would have gone green over a rule that had been
+deleted. **A check that demands production data be in one shape is a check that
+rots the moment somebody fixes the data**, which this session has now hit three
+times.
+
+- **THE RULE IS DRIVEN WITH ROWS WE MAKE UP.** The page script is a plain
+  classic script, so `reviewReasons` and `noteReasons` are top-level function
+  declarations and therefore reachable from `page.evaluate`. Five synthetic rows
+  prove **both sides at once, for ever, whatever the table holds**: a fixture
+  with no time is a FINDING, a plain `sports` row is too, a timed fixture says
+  nothing, and a concert and a convention are muted NOTES.
+- **THE LIVE TABLE IS STILL ASSERTED AGAINST, for what is actually true of it**
+  -- no row carries a kickoff with no zone -- and the narrowing is asserted in
+  **both branches**, so neither can go vacuous.
+
+**135 assertions across the room, all green**: fetch 32, no-start-time 12,
+row-date 12, kinds 11, batch-bar 14, title-autosave 14, mascot 14, exclusions
+12, details 14.
+
+## A FIXTURE WITH NO KICKOFF IS AN ISSUE AGAIN (2026-09-03)
+
+The internal check flags a sports row with no `start_time`. **Measured on the
+live table: 3 of 272**, and all three are the fixtures FETCH tops up from the
+league scoreboard.
+
+### IT REVERSES THE 2026-08-25 DECISION AND KEEPS ITS REASONING
+
+That call was measured on **4,123 rows that were mostly concerts**: forcing
+`no-time` put **524** of them into a list of things to do with nothing to do,
+because a promoter who has not announced a slot is a gap that fills itself.
+**That is still true, and it is still how a concert behaves.**
+
+**A FIXTURE IS THE OTHER CASE.** The league has published a kickoff, so a blank
+is OUR gap rather than the source's -- and the rows carrying one are exactly the
+ones the top-up files, which deliberately writes no time because converting a
+UTC instant to the clock outside the venue needs a per-venue timezone table this
+project has already called brittle. **So the room now closes that loop: FETCH
+brings the fixture, the check says it wants a kickoff.**
+
+- **`noReview` MAY BE A FUNCTION OF THE ROW NOW.** It was a flag on the rule,
+  which is right for `multi-day` -- a run of days is never a fault -- and too
+  blunt here, where whether a blank accuses depends on what kind of event the
+  row is. `multi-day` keeps the flag; only `no-time` uses the function.
+- **SO THE OLD COST CANNOT COME BACK.** Re-import a season of concerts and they
+  are muted notes again, exactly as they were. **The 524 are not one edit away
+  from returning.**
+
+### AND TWO OF MY OWN ASSERTIONS WERE WRONG BEFORE THE RULE WAS
+
+Both passed, and both were the check's fault rather than the room's.
+
+- **ONE PASSED ON AN ERROR MESSAGE.** The stub echoed the PATCH *request* body,
+  which is an object where the room expects an array -- so the page correctly
+  reported *"Could not write the issues flag on 3 rows"*, and an assertion
+  looking for the count found the 3 **inside the failure** and went green. **A
+  number appearing somewhere is not the same as the page reporting it**: it now
+  requires the count AND that the line is not an error, and the stub answers
+  with a row array so the page sees a real success.
+- **ONE WAS A RACE.** The scribble clears itself after six seconds on a
+  success, and the probe waited exactly 6000ms -- empty on one run, right on
+  the next. **WAIT ON THE CONDITION, NEVER ON A CLOCK.** Three consecutive
+  clean runs.
+
+**[events-no-start-time.js](mc/_dev/browser-checks/events-no-start-time.js), 7 assertions against the LIVE table** with the
+`issues` PATCH intercepted -- a check has no business editing the table it
+audits. It asserts BOTH sides: a fixture with no time is a FINDING and appears
+in no note, and a non-sports row keeps the muted note.
+
+## 272, AND THE MORE BUTTON IS DELETED (2026-09-03)
+
+**An NFL fetch reads 272 -- the regular season exactly.** The Add bar is
+**MANUAL and FETCH**, and there is no third button.
+
+### THE 273rd WAS JUNK AND I EXPLAINED IT AWAY TWICE
+
+`TBD at Tennessee Titans`, dated **2027-02-01** -- past the regular season, with
+no away club. SeatGeek sells it; it was reaching the import and making the count
+read 273 for a 272-game season. **I reported it as "269 real plus one
+placeholder" twice rather than dropping it**, which is a count nobody can use
+dressed up as an explanation.
+
+- **A FIXTURE WHOSE CLUBS ARE NOT SETTLED IS NOT A FIXTURE WE CAN USE.** The
+  away club is the whole product -- a game takes its copy and its palette from
+  the travelling fandom -- so a row that does not name one can anchor nothing.
+- **IT REUSES `isPlaceholderClub`**, the test the room's own `placeholder-club`
+  finding already applies, so there is ONE idea of what a placeholder is rather
+  than two that can disagree. It reads TBD, TBA, `winner`, `loser`, a seed and a
+  bare conference name.
+- **DROPPED ON A LEAGUE TERM ONLY.** A city search still shows it, marked,
+  because there the person ticking is the filter.
+
+### AND MORE IS GONE, WITH ITS WHOLE PROMPT
+
+The button, the dialog, `CV_PROMPT_LINES` and every `cv*` function --
+**27,982 characters**, plus 722 of CSS that lost its last wearer.
+
+- **THE TOP-UP IS WHY IT COULD GO.** MORE existed to fetch what no ticketing
+  feed carries, and the three fixtures it was most recently needed for now come
+  from the league's own scoreboard inside FETCH. The workflow it was half of --
+  *SeatGeek first, then MORE for the rest* -- collapsed into one button.
+- **WHAT IT COSTS, PLAINLY, AND IT IS NOT SMALL: there is no way to add a
+  convention, an expo or a festival in bulk any more.** That was the whole
+  reason OTHER existed -- *"everything no ticketing feed carries"* -- and the
+  research behind it is recorded above: convention centres send no CORS header,
+  render their calendars in JavaScript, publish no `schema.org/Event` and expose
+  no feed, so an AI with a browser was the only thing that could read them.
+  **MANUAL, one row at a time, is what is left.** If bulk conventions are ever
+  wanted back, that section is the brief; do not rebuild it from memory.
+- **WHAT WAS SHARED WAS KEPT, checked rather than assumed.**
+  `resolveSearchTerm` is FETCH's own term parser; `prompt-howto`,
+  `prompt-options`, `prompt-dialog-title`, `prompt-lightbox` and
+  `prompt-copy-status` all still have wearers in the MANUAL and FETCH dialogs.
+  Only `.prompt-sheet` and `.prompt-doors` lost their last one.
+  **`LEAGUE_SCHEDULE` went and `LEAGUE_SCOREBOARD` stayed** -- two adjacent maps
+  one letter apart in purpose, and the slice guard is what stopped the wrong one
+  going.
+
+### THE SLICE GUARD EARNED ITS PLACE FOUR TIMES IN ONE REMOVAL
+
+Every cut asserted what the slice MUST contain, what it must NOT, and a length
+ceiling. **It refused four times and wrote nothing on any of them:**
+
+| refused because | what it would have taken |
+|---|---|
+| slice 4,981 chars, ceiling 700 | the whole Add fieldset, not one button |
+| `LEAGUE_SCOREBOARD` in the slice | the top-up's own league map |
+| end anchor was BEFORE the start | nothing -- `sgTerms` sits earlier in the file |
+| `resolveSearchTerm` in the slice | it was a CALL, not the definition -- the guard was too blunt |
+
+**A LENGTH CEILING ALONE IS NOT A BOUNDARY**, which is how a slice in this repo
+has taken its neighbour five times. The must-not list is the half that works,
+and the fourth row is the warning about it: **name the DEFINITION
+(`function resolveSearchTerm`), not the identifier**, or the guard fires on
+every caller.
+
+**[events-fetch-nfl.js](mc/_dev/browser-checks/events-fetch-nfl.js), 27 assertions**, now including that the MORE button and
+its dialog are absent and that **the Add bar is MANUAL and FETCH and nothing
+else** -- so a third button arriving is a decision somebody takes rather than
+something that drifts back.
+**`events-prompt-finds-missing-fixtures.js` is deleted with its subject.**
+
+## FETCH TOPS UP FROM THE LEAGUE'S OWN SCOREBOARD (2026-09-03)
+
+A league term reads the marketplace first and then fills what it does not sell.
+**An NFL fetch reaches 273 -- the whole 272-game regular season plus one
+`TBD at ...` placeholder -- where it used to reach 270.**
+
+### A TICKET MARKETPLACE IS NOT A SCHEDULE AND NEVER WILL BE
+
+SeatGeek lists what it SELLS, and the three it does not sell are not reachable
+by any query -- checked before writing a line of the fix:
+
+    venue.city=Rio de Janeiro ....... 0 events of any kind
+    venue.city=Paris ................ 0
+    venue.city=Saint-Denis .......... 0
+    venue.city=Melbourne ............ 29, every one in Melbourne FLORIDA
+    performers.slug per short club .. no non-US game but Mexico City
+
+So the answer was never a better query.
+
+### THE HOST IS THE WHOLE TRICK
+
+    site.api.espn.com       browser: FAILED TO FETCH
+    site.web.api.espn.com   browser: 200, and the whole season
+
+Both answer curl. From a page on our own origin, `site.web.api` returns **272
+games and all nine internationals, each carrying its own `neutralSite` flag**.
+
+- **AND I HAD RECORDED THE OPPOSITE THE DAY BEFORE.** On 2026-09-02 I measured
+  ESPN sending no `access-control-*` header, concluded it was not CORS-open,
+  and **corrected two true statements in this file to say so.** Wrong twice:
+  **a server emits that header only when an Origin is SENT** and my curl sent
+  none, and the host that fails in a browser is `site.api`, not `site.web.api`.
+  The corrections are reverted.
+- **THE LESSON IS THE SHAPE OF THE TEST.** A CORS check without an Origin
+  header is not a CORS check, and one host of a service says nothing about
+  another. **A negative result that leads you to edit standing notes deserves a
+  second measurement before the edit, not after.**
+
+### SEATGEEK FIRST, DELIBERATELY
+
+The top-up runs AFTER the marketplace rows are built, so a SeatGeek row always
+wins: it carries a ticket url, a venue and a kickoff time. Only what is absent
+is added.
+
+- **NO KICKOFF TIME ON A TOPPED-UP ROW, AND THAT IS DELIBERATE.** The scoreboard
+  gives a UTC instant and `start_time` is the clock OUTSIDE THE VENUE, which
+  needs the venue's zone -- the per-venue table this file already calls brittle.
+  A blank is a muted note in the room; **an invented clock is a wrong one.**
+- **ONLY THE NFL IS MAPPED**, because only the NFL was measured. An entry in
+  `LEAGUE_SCOREBOARD` is a promise the path returns that league's schedule, so
+  adding one means checking it rather than guessing a slug.
+- **A SCOREBOARD THAT WILL NOT ANSWER MUST NOT LOSE THE FETCH.** The
+  marketplace rows are already in hand and are the bulk of it; the failure is
+  reported in the status line and the rows stand.
+
+### THE DIVISIONAL REMATCH, MET FOR THE THIRD TIME
+
+Two clubs meet twice a season, so the club pair alone cannot say WHICH meeting a
+row is -- and a greedy walk in date order gets it wrong in the worst way. The
+49ers and the Rams play in **Melbourne in September** and **Santa Clara in
+December**; we held only December, and walking by date matched MELBOURNE to it
+and reported SANTA CLARA missing. **It added a duplicate of a game we had and
+still missed the one we did not.**
+
+**The fix is the one the ESPN audit already needed: consume the CLOSEST pairing
+first across the whole pair.** If a fourth reader of these two lists is ever
+written, it needs the same thing.
+
+### AND THE PAGED READ ITSELF DROPS ROWS
+
+One run topped up **3** and the next **4**, the fourth being `Cleveland Browns
+at New York Jets` -- **still in the feed, simply skipped**. SeatGeek's own total
+moved **850 to 849** between two runs minutes apart, and paging by page NUMBER
+over a list that is changing under you loses rows at the boundaries.
+
+- **SO THE TOP-UP DOES MORE THAN THE INTERNATIONALS.** It also covers whatever
+  the marketplace read happened to miss, which is why the season still came out
+  whole on the run that skipped one.
+- **AND THE CHECK MUST NOT PIN THE COUNT.** Asserting "exactly three" is
+  asserting SeatGeek's inventory on one afternoon. What is invariant is that
+  the three unsold ones are always topped up and the season comes out whole.
+
+### THE STATUS LINE COUNTED WRONG TWICE, IN OPPOSITE DIRECTIONS
+
+`dropped` is the undated marketplace rows and nothing else. It read **27** when
+the non-games filter arrived (blaming the wrong filter) and then **MINUS THREE**
+when the top-up started ADDING rows the marketplace never had -- **a count taken
+from a list that has since grown is not a count of what was dropped.** It is
+taken before the top-up now, and a check asserts **no count in that line is
+negative**: a negative in a status line is the page admitting it cannot count,
+in front of the person deciding what to import.
+
+**[events-fetch-nfl.js](mc/_dev/browser-checks/events-fetch-nfl.js), 25 assertions against the LIVE SeatGeek API and the
+LIVE scoreboard**, with only the Supabase write intercepted.
+
+## FETCH, MORE, AND AN NFL FETCH THAT BRINGS GAMES ONLY (2026-09-03)
+
+**SEATGEEK is FETCH and OTHER is MORE.** Visible copy only -- `seatgeekBtn`,
+`conventionsBtn` and the whole `sg*` / `cv*` family do not move. This room has
+now been CONVENTIONS, OTHER and MORE without a single identifier following,
+which is the same bargain the Tape Room made through five renames of its verbs.
+
+### A LEAGUE TERM RETURNS GAMES AND NOTHING ELSE
+
+Typing NFL asks for the NFL's fixtures. SeatGeek answers the `nfl` taxonomy
+with **850 rows**, and measured on 2026-09-03:
+
+    550   stadium tours          already excluded by title pattern
+     27   watch parties, rally days, season-ticket events, VIP tailgates
+    270   fixtures
+
+`2026 Ravens Kick Off Watch Party`, `Season Ticket Holder/Suite Holder Rally
+Day`, `2026 Pages & Purple`, `VIP Tailgate Party: Denver Broncos at Kansas City
+Chiefs` -- every one carrying the nfl taxonomy and not one of them a game.
+
+- **A FIXTURE IS A ROW THAT RESOLVED TWO CLUBS**, which is the same test the
+  kind turns on, so there is ONE idea of what a game is rather than two that
+  can disagree.
+- **`sports-nonteam` AND `sports-tournament` ARE KEPT WITHOUT CLUBS, and that
+  exemption is load-bearing**: a race and a golf tournament are league events
+  with no two sides, so the plain rule would empty a NASCAR search entirely.
+- **IT IS SCOPED TO THE TERM, NOT THE BATCH.** `NFL, Denver` in one box must
+  still bring Denver's conventions, so a row carries `__viaLeague` from the
+  search that found it. **A club term counts as a league term** -- typing
+  `Falcons` means the club's GAMES, not its watch parties.
+- **THE COUNT IS REPORTED, NEVER SILENT**, and each reason counts its own rows:
+  the first cut reported the 27 non-games as *"27 had no readable date"*,
+  because `dropped` was not subtracting them. **A false reason is worse than no
+  reason.**
+
+### SEATGEEK'S HOME AND AWAY ARE WRONG ON AN INTERNATIONAL GAME
+
+Measured across all six non-US NFL events in the feed:
+
+    flags say Eagles HOME    title "Eagles vs Jaguars"    league: Eagles AT Jaguars
+    flags say Vikings HOME   title "Vikings vs 49ers"     league: Vikings AT 49ers
+    MUNICH CARRIES NO FLAGS AT ALL, both null
+
+**The flags are inverted where they exist and absent where they are not. The
+TITLE is right on all six.** That is what produced three rows with the sides
+swapped and one with no clubs -- the faults reported earlier as *what games are
+wrong*.
+
+- **SO THE TITLE WINS when it names two clubs found among the performers.**
+  `A vs B` is A away, B home, agreeing with the league on every one.
+- **THE CLUBS ARE PICKED BY NAME, NOT BY POSITION**, because an international
+  row carries a THIRD performer -- `NFL International Series` is itself a
+  performer on all six, which is why a positional read fell over.
+- **PROVED AGAINST THE LEAGUE'S OWN DESIGNATION**, not against itself: the
+  check carries ESPN's away/home for all six and asserts every one agrees.
+
+### AN NFL FIXTURE IS `sports-nfl`, AND IS NAMED CITY NICKNAME at CITY NICKNAME
+
+`New England Patriots at Seattle Seahawks`. Both sides get a city and a
+nickname, the separator is `at`, **and it stays `at` at a neutral site** -- a
+game in Rio still has a nominal home side the league designates.
+
+- **THE KIND DUPLICATES `league`, WHICH THIS PROJECT USUALLY REFUSES.** Asked
+  for outright; the concern is that two copies of one fact drift and nothing
+  says so. **The one expression that decides it lives in `sgRow` and `league`
+  is still what anything else should read.** A second league is one line.
+- **IT IS DECIDED WHERE THE CLUBS ARE KNOWN, not in `sgKind`**, which is what
+  keeps a watch party from being typed `sports-nfl`.
+- **THIS DEPARTS FROM THE OLDER RULE that a fixture's title is NULL** because
+  the row reads as its two clubs. That was true when the two clubs were
+  reliable, and it is not what SeatGeek hands back for an international game.
+- **THE ASTERISK IS NOT IN THE TITLE.** A neutral site is a COLUMN; a marker
+  baked into the name would still be there after the flag was cleared. The room
+  draws it from `neutral_site`, tight against the name, with the reason on its
+  tooltip.
+- **THE MORE PROMPT WAS TAUGHT THE SAME RULE**, or the three fixtures it exists
+  to find would arrive looking like a different kind of row -- including the
+  warning that a ticket listing routinely names an international game the other
+  way round from the league.
+
+### THE CEILING IS 270, AND IT IS A NUMBER RATHER THAN A HOPE
+
+272 regular-season games exist. **SeatGeek carries 269 of them plus one
+`TBD at Tennessee Titans` placeholder**, and does NOT carry Melbourne, Rio or
+Saint-Denis -- measured against the whole feed, not a window. So a fetch tops
+out at 270 and **the remaining three are the MORE prompt's errand**, which is
+exactly the workflow: FETCH first, then MORE.
+
+**[events-fetch-nfl.js](mc/_dev/browser-checks/events-fetch-nfl.js), 19 assertions against the LIVE SeatGeek API** with only
+the Supabase write intercepted, because the whole claim is about what SeatGeek
+hands back. If it ever reads above 270, SeatGeek has started carrying one of the
+three; below, something stopped resolving clubs. Either is worth looking at.
+
+### AND ALL 269 EVENTS WERE CLEARED (2026-09-03)
+
+Asked for, and checked first: **0 games pointed at an anchor event**, so the
+foreign key had nothing to refuse. `delete from public.events` returned 269 and
+the table reads 0. Everything in it was a SeatGeek NFL import and re-fetchable.
+
+### TWO CHECKS DEMANDED PRODUCTION DATA BE IN ONE SHAPE
+
+Both went red on a page that was perfectly correct, and both were the check's
+fault rather than the room's.
+
+- **THE CLUBLESS WARNING.** Written while one row carried no clubs; that row was
+  corrected, and the assertion was then **demanding broken data**.
+- **THE WHOLE PROMPT CHECK.** Seven assertions required a partly-filled NFL
+  season, so clearing the events failed them all. **A check that insists the
+  table hold one shape is a check that breaks when somebody does their job.**
+  It branches on what is actually there now -- empty, even, or short -- and each
+  branch asserts the thing that is true of it.
+
+### AND TWO MORE INSTANCES OF THE ESCAPING SCAR, ONE OF THEM NEW
+
+- **NINETEENTH: a word boundary reached a check as a literal BACKSPACE**, so
+  `/‹BS›TBD‹BS›/` matched nothing and the run **reported a page fault that was
+  its own**. Replaced with a plain `indexOf`, which cannot be eaten.
+- **AND A COUSIN WORTH ITS OWN NAME: DOUBLED LINE ENDINGS.** A Python
+  text-mode write over a string that already held CRLF produces `\r\r\n`, and
+  a second read turns each into two breaks. `events-fetch-nfl.js` ended up with
+  **192 doubled endings** -- it still ran, and **every later edit anchor silently
+  failed to match**, which reads as the anchor being wrong. **Write bytes, or
+  pass `newline=''`.** A byte scan for `\r\r\n` alongside the control-byte
+  scan catches it in a second.
+
+## THE DATE IS BACK ON THE CLOSED ROW, AS MONTH DD, YYYY (2026-09-03)
+
+`September 27, 2026`, after the name and before the city, and **gone the moment
+the row is opened**.
+
+- **THAT SHAPE WAS PREDICTED WHEN THE DATE LEFT ON 2026-08-24**, and the note
+  is a few hundred lines up: *if it is wanted back it belongs on the CLOSED row
+  only, hidden the moment the row opens, which is the shape that has no
+  duplication in it.* The When band sits directly under the head with the same
+  value in an editable box, so leaving it on would be the same fact twice a few
+  pixels apart -- **and the head's copy is the one you cannot act on**, which is
+  why it went the first time.
+- **HIDDEN BY CSS ON `.is-open`, NOT REBUILT.** Opening a row costs no DOM work
+  for this, and closing it brings the date back with nothing to repaint.
+- **A ROW WITH NO DATE DRAWS NOTHING.** Not a dash, not a placeholder: the
+  `no-date` finding is what reports that, and an empty gap in the head would
+  say nothing anybody could act on. **0 of the 269 rows on file are undated
+  today**, so this is a guard rather than an observation.
+- **`nowrap`, because the head wraps and a date does not.** There is nowhere
+  useful to break `September 27, 2026`, and split across two lines it reads as
+  two dates.
+
+### IT IS BUILT FROM THE STRING, AND `new Date(iso)` IS THE TRAP
+
+**`new Date('2026-09-27')` IS PARSED AS UTC MIDNIGHT**, so west of Greenwich it
+renders as the 26th. That is the same off-by-one this room already documents
+for the week headings and the split arithmetic, met a third time.
+
+- **AND `toLocaleDateString` FOLLOWS THE READER'S LOCALE**, which in en-GB is
+  `27 September 2026` -- not the shape asked for. Two risks, neither worth
+  taking for nine lines that index a month array.
+- **PROVED BY RUNNING THE ROOM IN TWO TIMEZONES**, because a check in one only
+  would pass straight over it. Swapped to the naive parse and run in
+  `America/Los_Angeles` it fails naming the real values:
+
+      September 27, 2026  ->  September 26, 2026
+      November 5, 2026    ->  November 4, 2026
+      January 1, 2027     ->  December 31, 2026     <- a year out
+      London and LA disagree with each other
+
+  **The New Year's Day row is the one that shows how bad it gets**: a date on a
+  year boundary comes back in the wrong YEAR, which on a table sorted by date
+  and grouped by ISO week is a row that lands nowhere near itself.
+
+**[events-row-date.js](mc/_dev/browser-checks/events-row-date.js), 12 assertions in real Chrome**, driving four rows chosen
+for the edges -- a September day, a single-digit day, the first of a month and
+one with no date -- in `America/Los_Angeles` and again in `Europe/London`.
+**Four of the twelve fail on the naive build.**
+
+## THE PROMPT FINDS THE MISSING FIXTURES BY COUNTING (2026-09-02)
+
+Type a league into the OTHER box and the prompt names **that league's own
+schedule page**, works out **which clubs are a game short**, and asks for those
+fixtures and nothing else.
+
+### THE FIRST CUT ASKED FOR A DIFF AND IT DID NOT WORK
+
+It printed the **269 NFL fixtures we hold** and said *"return only what is not
+on this list"*. **Four are missing out of 272.** That is a needle in a
+haystack, it was 6.7KB of haystack, and the instruction ended by offering the
+model the exit of *"say so and return nothing rather than padding it"* --
+which is close to an instruction to return nothing. **Reported as: it is not
+picking up the missing NFL games.**
+
+**THE COUNTS FIND THEM INSTEAD.** Every club in a league plays the same number
+of fixtures, so a club appearing FEWER times than the rest has a game we do not
+hold. The errand stops being *diff 272 against 269* and becomes *find the
+49ers' seventeenth game* -- four specific lookups.
+
+- **NOTHING IS HARDCODED.** The 17 is the modal count of the rows themselves,
+  so it works for any league without being told a season length.
+- **AND IT IS SMALLER, not bigger**: 11,429 characters against 13,959, because
+  only the SHORT clubs' own fixtures are listed rather than all 269.
+- **THE ARITHMETIC IS ALSO THE DEDUPE.** A club that is one short is missing
+  exactly one fixture, and its other sixteen are listed, so a model returning
+  one we already hold contradicts a count it can see.
+
+### WHAT IS ACTUALLY MISSING, DIFFED AGAINST ESPN
+
+    2026-09-27  Ravens   at Cowboys   Rio de Janeiro, Brazil
+    2026-10-25  Steelers at Saints    Saint-Denis, France
+    2026-11-15  Patriots at Lions     Munich, Germany     <- ON FILE, no clubs
+    2026-12-13  Rams     at 49ers     Santa Clara, USA
+
+**268 rows with clubs plus 4 is 272, and nothing on our side is
+unaccounted for.** Three of the four are the standing limitation this file
+already records from the other end: **SeatGeek is a US resale marketplace and
+lists what it sells**, so a game sold through the NFL's own channels or a
+European ticketer is invisible to it. The Saints and Steelers game in France is
+the one that was reported in August.
+
+- **A ROW WITH NO CLUBS MAKES TWO CLUBS LOOK SHORT WHEN THEY ARE NOT.**
+  `SG-18240105` is *NFL International Series: Patriots vs Lions* in Munich and
+  carries **neither club field**, so both count 16 while the fixture is on
+  file. **The prompt names those rows under DO NOT FILE THESE AGAIN**, or the
+  model hunts a game we have and files a duplicate.
+- **THE MULTISET MATTERS.** A first diff keyed on the club pair alone answered
+  **3**, because two clubs meet twice a season and the second leg matched the
+  first. Counting matches rather than testing membership answered 4, and only
+  then did the total close.
+
+### THE FOUR OTHER STATES, EACH SAYING SOMETHING TRUE
+
+- **STILL PAGING IN**: the room paints fifty rows and pages the rest behind
+  them, so a count taken early is **wrong rather than incomplete** -- it would
+  name clubs as short that are not. It refuses, says the room had not finished
+  loading, and asks the model to say which fixtures it was unsure about.
+- **NOTHING SHORT**: *every club appears 17 times, so nothing looks missing* --
+  and it asks the model to check the TOTAL against the league page, which is
+  the only gap even counts cannot show.
+- **WE HOLD NONE**: list them all.
+- **A CITY TERM ADDS NO BLOCK AT ALL.** The count is per league; a city has no
+  league to be short in.
+
+### AND nfl.com/schedules SHOWS ONE WEEK, WHICHEVER URL YOU ASK FOR
+
+Asked to look at the page the prompt points at, which was the right question:
+**it does not contain the games we are missing.**
+
+    /schedules/            /schedules/2026/REG3/       /schedules/2026/REG14/
+    /schedules/2026/REG3   /schedules/2026/REG3/?week=3
+
+**All five return a BYTE-IDENTICAL document** -- same md5, 1,587,378 bytes --
+carrying **16 matchups, the current week only**. In the whole payload, scripts
+included: `Melbourne` 8 times, and **`Rio` 0, `Saint-Denis` 0, `Munich` 0,
+`London` 0, `Madrid` 0, `Mexico` 0.** The week is resolved client-side, so a
+plain fetch gets week 1 forever and a browser has to step through eighteen
+pages.
+
+- **THE FOUR MISSING FIXTURES ARE IN WEEKS 3, 7, 10 AND 14.** A model told to
+  read that page once was being sent somewhere the answer is not. **That is the
+  other half of "it is not picking up the missing NFL games"** -- the first half
+  was asking for a diff, and fixing the ask alone would not have been enough.
+- **SO THE PROMPT SAYS IT, WITH THE MEASUREMENT IN IT.** Step through the
+  weeks, and do not conclude a fixture does not exist because the first page
+  did not have it. `LEAGUE_SCHEDULE` carries a `weekly` flag; **ncaa_football is
+  marked too**, being the same shape of page.
+- **AND IT SAYS WHERE THEY REALLY ARE.** A fixture we are missing is missing
+  *because* it was not sold through the US marketplace we import from, so it is
+  usually **played abroad** -- and leagues publish those in ONE list rather than
+  a week at a time. Wikipedia's `2026 NFL season` carries all nine internationals
+  in a single paragraph, matching ESPN: Rio, Stade de France, Allianz Arena,
+  Wembley, Tottenham, Bernabeu, Melbourne, Estadio Azteca.
+- **FINDING AND VERIFYING STAY TWO STEPS**, which is the rule this file already
+  settled for the deleted PROMPT route: find on whatever lists them, **verify on
+  the league's own week page**, and put the league url in `url`. Only the second
+  step has to be the league itself.
+
+**FIVE ASSERTIONS COVER IT AND ALL FIVE FAIL WITH THE PARAGRAPHS REMOVED.** An
+assertion that has never failed on the bug it is for is one nobody should trust.
+
+### THE SCHEDULE PAGES WERE FETCHED, NOT INVENTED
+
+`LEAGUE_SCHEDULE` maps a taxonomy to its official schedule and **all eight
+answered 200 on 2026-09-02**: nfl, nba, mlb, nhl, mls, wnba, ncaa_football and
+mma. A league not in the map falls back to the prompt's generic sentence --
+**better than sending a model at a url nobody checked**, which is the rule this
+project already keeps for a coordinate. **NASCAR IS DELIBERATELY ABSENT**: its
+schedule page answers 403 behind a bot wall.
+
+### ESPN 403s node, AND I READ THAT AS NOT CORS-OPEN. IT WAS WRONG.
+
+Measured while building the check, because the obvious way to verify the eight
+clubs is to read the real schedule:
+
+    curl, no user agent ................... 200
+    curl -A "Mozilla/5.0" ................. 403
+    node https.get, with or without a UA .. 403
+    python urllib ......................... 200
+
+**So it is not the user agent, it is the TLS fingerprint.** That part stands.
+
+**WHAT DOES NOT IS THE CONCLUSION I DREW FROM IT.** I also reported that
+`site.api.espn.com` sends no `access-control-*` header and that a browser
+therefore cannot reach it, and **CORRECTED TWO TRUE STATEMENTS IN THIS FILE ON
+THE STRENGTH OF IT.** Both halves were wrong: a server emits that header only
+when an **Origin is sent**, and my curl sent none; and the host a browser can
+reach is **`site.web.api.espn.com`**, not `site.api`. See the 2026-09-03
+section -- the browser reads the whole 272-game season from it. **The corrections
+have been reverted.**
+
+**[events-prompt-finds-missing-fixtures.js](mc/_dev/browser-checks/events-prompt-finds-missing-fixtures.js), 11 assertions against the LIVE
+table**, and **two of them are not self-referential**: the eight clubs the room
+names are diffed against ESPN's own 272, and the total is made to close. Asking
+the page whether it agrees with itself would pass on a count that was wrong in
+both places. **curl is shelled out to, since nothing else here reaches ESPN**,
+and if it is missing that half SKIPS and says so rather than reporting a pass
+it did not earn.
+
+## THE BATCH BAR IS SELECT ALL, THE COUNT AND DELETE (2026-09-02)
+
+**Set kind, Set source, Apply and the hairline between Apply and Delete are all
+deleted**, with `batchApply`, both consts, the `KIND_VALUES` fill and four CSS
+rules. The Waypoints room made the same cut on 2026-08-31 and this is that
+call arriving here.
+
+- **WHAT IT COSTS, PLAINLY: nothing sets a kind or a source across a selection
+  any more.** That is SQL, or the row editor one at a time.
+- **NOTHING IS STRANDED, and that is the test for removing a write path.**
+  `kind` is in the What band and `source` in the Why band, so both are still
+  editable on an opened row and on the manual form -- **a capability went, not
+  a field.** Asserted, because removing the only way to set a value would be a
+  different change entirely.
+- **A CONTROL AND ITS STYLESHEET GO IN ONE PASS.**
+  `.batch-row select, .batch-row input[type="text"]` is a group of two
+  selectors and **both were dead** -- no select and no text box is left in that
+  row -- so the whole rule went. **`.batch-actions` and the aria-disabled rule
+  stay**, because Delete wears both, and **`.bar-sep` keeps its other rule
+  under `.command-bar--find`**, which is the separator in the Search & filter
+  bar and is untouched.
+- **`KIND_VALUES` STAYS AND STILL HAS TWO READERS**, the row picker and the
+  manual form. What went is the third copy, which is one fewer thing that could
+  drift.
+- **THE PAINTER CHANGED SHAPE**, from a loop over two buttons to one branch, so
+  the enable path is **driven rather than read off the markup**: ticking turns
+  Delete on and gives it the count, unticking turns it off.
+
+### AND THE ASSERTION IT REPLACED WENT VACUOUS BEFORE IT WENT RED
+
+`events-kinds.js` had three assertions on `#batchKind`. Two failed honestly
+when the picker went -- and **`and lists them alphabetically on screen` PASSED,
+because it compared an EMPTY list against itself sorted.** So a control that
+had ceased to exist still reported one green.
+
+**AN EMPTINESS CHECK IS NOT AN ORDERING CHECK**, and this is the `|| true`
+shape this file keeps warning about reached by a third road. What replaced it
+asserts the **absence** of all four controls, because a control coming back is
+a decision somebody takes rather than something that arrives.
+
+**[events-batch-bar.js](mc/_dev/browser-checks/events-batch-bar.js), 14 assertions in real Chrome**: two controls in the bar,
+no pipe, the words, both enable states, the count on the face, both columns
+still editable on an opened row, and **nothing written** -- a probe that let a
+write through is how a check damages the table it is testing.
+
+## EVERY SEATGEEK ROW HAS A DETAILS DOOR, HARD RIGHT (2026-09-02)
+
+A small **Details** button at the end of each row in the SeatGeek results list,
+opening that event on SeatGeek in a new tab.
+
+- **THE URL WAS ALREADY ON THE ROW AND WAS READ BY NOTHING.** `sgRow` has
+  captured `url` since the importer was written, and it went into the event's
+  own `url` column on import -- but while you were deciding what to tick, the
+  only thing on screen was a title, a venue and a date. **Checking a listing
+  meant leaving the dialog.**
+- **A NEW TAB, because the dialog is where you are working.** Half a fetch is
+  a real amount of work -- the terms, the window, the ticking -- and a same-tab
+  navigation throws it away. `rel="noopener noreferrer"`: it is somebody else's
+  site.
+- **NO DOOR WITHOUT SOMEWHERE TO GO.** A row with no url draws nothing rather
+  than a dead button, which invites the press. Every SeatGeek event carries one
+  today, so this is a guard rather than an observation.
+
+### THE ROW IS A DIV NOW, AND THE TICKABLE PART IS THE LABEL INSIDE IT
+
+`.sg-item` was a `<label>` end to end, which is what made the whole row tick
+its own checkbox. **An anchor inside a label is the nesting browsers disagree
+about**, and a press could navigate AND toggle the row under it.
+
+- **THE DOOR IS A SIBLING OF THE LABEL, not a child**, which is the rule this
+  repo already keeps in the Stop Builder and on the audience badge. `.sg-pick`
+  takes the slack (`flex: 1 1 auto`), so the button is at the right end by
+  construction rather than by an auto margin fighting `.sg-when`'s.
+- **AND THE STRUCTURAL ASSERTION IS THE LOAD-BEARING ONE, measured rather than
+  assumed.** With the door put back INSIDE the label, **this Chrome still
+  refuses to forward the label's activation to an interactive descendant**, so
+  both behavioural assertions pass and only *the anchor is NOT inside the
+  label* fails. **The behaviour check cannot see the fault in the browser it
+  runs in** -- which is exactly why the door goes outside rather than trusting
+  one browser to get it right.
+- **BOTH GESTURES ARE ASSERTED, BOTH WAYS ROUND**: pressing Details does not
+  tick the row, and clicking the row text still does. Either alone would pass
+  on a page that had traded one for the other.
+
+### RIGHT ALIGNED IS A MEASUREMENT, AND SO IS THE COST
+
+The gap from the button to the row edge is **10px, the row's own padding and
+nothing more** -- read off `getBoundingClientRect`, never off a declaration.
+
+- **THE BUTTON DOES SET THE ROW HEIGHT and no size stops that**, so what is
+  worth stating is the cost against the alternative rather than a number I
+  picked: **35px with no door, 39px with this, 47px at `.btn.small`'s own
+  32px.** The list is capped at 46vh, so the 8px trim is two more rows on
+  screen on every fetch.
+- **MY FIRST COMMENT AND MY FIRST ASSERTION BOTH OVERSTATED IT** -- *"at 32px
+  the button, not the text, would set the height"*, and a threshold of 34px
+  picked before anything was measured. The comment says the three numbers now
+  and the check compares the trimmed row against `.btn.small` applied inline,
+  which is the claim itself.
+- **IT WEARS `.btn small` plus a scoped trim**, so restyling the room's button
+  restyles this. A control drawn to its own metrics reads as its own kind of
+  control, which is the argument the Socializer's reel button already settled.
+
+**[events-seatgeek-details.js](mc/_dev/browser-checks/events-seatgeek-details.js), 14 assertions in real Chrome**, because every claim here
+is layout or gesture and jsdom can see neither.
+
+## A STADIUM TOUR IS NOT AN ANCHOR EVENT (2026-09-02)
+
+`SG_EXCLUDE_TITLES` in [mc/events/index.html](mc/events/index.html), one pattern:
+**`AT&T Stadium * Tour`**, where `*` is any run of characters.
+
+- **IT ARRIVES AS A FIXTURE, WHICH IS THE WORST SHAPE.** SeatGeek types a
+  stadium tour `football > nfl > sports > stadium_tours`, so `sgKind` reads
+  `sports` and files it as a game -- a row that looks like a Cowboys fixture in
+  a list of Cowboys fixtures, with two clubs' worth of columns waiting to be
+  filled by nothing.
+- **AND A LEAGUE FETCH IS HOW MOST PEOPLE MEET THEM, NOT A CITY FETCH.**
+  Measured on the live API: **81 of the first 100 events on a plain `nfl` term
+  are AT&T Stadium tours.** Typing NFL into that box gave a list four-fifths of
+  which was somebody's stadium tour, sorted to the front because they run daily
+  and fixtures do not.
+- **IT FAILS THE ONLY TEST THIS TABLE APPLIES.** A game is played the day before
+  the thing that filled the hotels. Nobody flies to Dallas for a stadium tour
+  and nobody books a room around one.
+
+### THE MATCH IS NOT ANCHORED AT THE END, AND THAT IS MEASURED RATHER THAN TIDY
+
+**550 events carry the `stadium_tours` taxonomy site-wide and ALL 550 ARE AT&T
+STADIUM**, in 7 distinct titles. **Only 499 of them END on the word Tour** --
+51 carry a suffix (`... + Dallas Cowboys Locker Room`, `... + Jerry Jones
+Experience`), so **a pattern anchored at the end would let one in eleven
+through**, silently, and the ones it let through would be the expensive
+packages.
+
+- **SO THE PATTERN IS A CONTAINS MATCH with `*` standing for any run.** The
+  title must hold the segments in order and may hold anything either side.
+- **NO REGEX, AND THAT IS DELIBERATE.** `AT&T` carries an ampersand and two of
+  these titles carry a `+`, so a regex would need escaping -- **and this repo
+  has now lost eighteen things to an escape eaten between a heredoc and a
+  file.** The matcher walks the segments either side of each `*` with
+  `indexOf`, which needs no escaping and cannot be eaten.
+- **THE COUNT IS REPORTED, NEVER SILENT**: *"Found 2 events. Read as NFL = the
+  NFL. 6 stadium tours left out."* A list that quietly drops rows is what this
+  room has removed before, and `dropped` -- the undated count -- had to stop
+  counting these or one figure would have described two different things.
+
+### THE TAXONOMY IS THE STRONGER NET AND IS NOT USED, WHICH IS WORTH KNOWING
+
+`taxonomies.name=stadium_tours` is SeatGeek's own label, it needs no title
+pattern, and **it would survive a rename** -- which a title pattern cannot.
+It is not used because the title list is the general mechanism that was asked
+for: **another venue's tours are one line**, and a taxonomy filter would be a
+second, invisible rule doing the same job. **Today the two select exactly the
+same 550 rows.** If a second venue's tours ever show up under a different
+wording, that is the moment to consider swapping.
+
+### PROVED AGAINST THE LIVE CATALOGUE, NOT A FIXTURE
+
+[events-seatgeek-exclusions.js](mc/_dev/browser-checks/events-seatgeek-exclusions.js), **12 assertions**, and **it fails four ways with the
+pattern removed**. The claim is about what SeatGeek actually lists, so titles
+of my own would only be testing my own guess; **SeatGeek being down is not a
+fault here, so an unreachable run SKIPS and exits 0.**
+
+- **THE MATCHER IS LIFTED OUT OF THE PAGE rather than retyped**, or the copy
+  drifts the first time either is edited and goes on passing.
+- **IT ASSERTS BOTH DIRECTIONS.** All 550 excluded; the 51 with a suffix
+  excluded; **the other 31 events at AT&T Stadium kept**, which is the set most
+  at risk from a loose pattern; every real NFL fixture kept; and
+  `Tour of the AT&T Stadium` and `The Eras Tour` both kept.
+- **AND ONE OF ITS OWN ASSERTIONS WAS WRITTEN ON A FALSE PREMISE.** *"No NFL
+  fixture is excluded"* failed on the first run naming three tours -- because a
+  tour IS under `nfl`. **The premise was wrong, not the page**, and the
+  assertion now says the true thing in two halves: a league fetch really does
+  carry tours, and no fixture among them is touched.
+- **THE ROOM WAS DRIVEN AS WELL AS THE MATCHER**, because a correct function
+  proves nothing about what reaches the list: six real tour titles and two real
+  events go in, two come out, and the status line names the six.
+
 ### THE SEATGEEK BOX TAKES A TEAM MASCOT (2026-08-31)
 
 Type **Falcons** and get every Atlanta Falcons game in the window, home and
@@ -11546,7 +12463,7 @@ The card went through both failures in one day, which is worth recording as a pa
 - **THE HEAD CARRIES NO DATE OR TIME** (2026-08-24). The date led the row for as long as this page existed; it moved to a box upper right, and then went entirely, one day apart. Both moves were right and the reasons are different.
   - **WHY IT LEFT THE LEFT:** you scan a list of events by NAME, and a mono date at the head of every line is a column of near-identical strings to read past before reaching the words. **The least readable thing on the row sat in front of the most.** The name leads now.
   - **WHY IT LEFT THE HEAD ALTOGETHER:** with the When band boxed directly under the collapse row, an opened card said the same three facts twice a few pixels apart, and **the head's copy was the one you could not act on**.
-  - **WHAT IT COSTS, stated plainly.** A closed row no longer says when the event is, so a list sorted by date is ordered on something invisible — **the same objection that brought the kind chip back under a type sort**. Accepted as asked. If it is wanted back it belongs on the CLOSED row only, hidden the moment the row opens, which is the shape that has no duplication in it.
+  - **WHAT IT COSTS, stated plainly.** A closed row no longer says when the event is, so a list sorted by date is ordered on something invisible — **the same objection that brought the kind chip back under a type sort**. Accepted as asked. If it is wanted back it belongs on the CLOSED row only, hidden the moment the row opens, which is the shape that has no duplication in it. **IT WAS WANTED BACK ON 2026-09-03 AND CAME BACK IN EXACTLY THAT SHAPE** — see the section below. The prediction was the useful half of this note.
   - **`displayDate()` / `displayTime()` / `displayWhen()` ALL SURVIVE** — the annotation lines and the row head still say when an event is. `.event-datebox`, `.event-when` and `.event-time` were deleted with the markup, per the standing rule that a control and its CSS go in the same pass.
   - **`margin-left: auto` went back onto `.event-id`** when the box that had taken it was removed. Two autos in one flex row split the free space between them, so exactly one element in the head may carry it.
 - **THE CONTAINERS WERE COMPACTED AGAIN** (2026-08-24), sixteen declarations, **all of them padding, gap, margin, radius or control height — no type sizes**. Those were already cut once and cutting them again is how a room ends up unreadable. Row gap 6→4px, card head 7/10→5/9, body 9/10/10→7/9/8, field gaps 6/8→5/7, panel and bar padding 4/12/12→2/9/8, radius 10→8, bar gap 12→8, controls 42→36px, and the folder-tab legend 0.92→0.74rem. **The tab was the tallest thing on a bar holding one control**, which is the giveaway that a label had been sized for a different room.
@@ -11737,7 +12654,9 @@ once, which squeezed the name the row exists to show.
   row in the **muted** pen, under any real faults, and never turn it red or put
   it into review.
   - **`no-time` STOPPED FORCING because a missing start time means the SOURCE has
-    not announced the slot yet.** That is a gap which fills itself when the
+    not announced the slot yet.** **NARROWED ON 2026-09-03: it forces again for a
+    FIXTURE and stays a note for everything else -- see that section. The
+    reasoning below is exactly why the non-sports half was kept.** That is a gap which fills itself when the
     league or the promoter publishes it, not something anybody can act on.
     Forcing it put **524 rows** — most of the concert catalogue — into a list of
     things to do with nothing to do. An ERRORS press went from **567 rows (14%)
@@ -11963,7 +12882,7 @@ instead of a regex.** The page is verified to contain zero control characters.
 
 ### SCHEDULE — the league importer, and the two pages it replaced
 
-The events page's **SCHEDULE** button reads a real league schedule straight from **ESPN's public scoreboard feed** (`site.api.espn.com/apis/site/v2/sports/{path}/scoreboard?dates=YYYYMMDD-YYYYMMDD`) and imports the games you tick into `anchor_events`. The feed answers a whole date range in one request and sends `Access-Control-Allow-Origin: *`, so **the browser reads it directly** — no key, no Edge Function, no build step, and nothing scheduled.
+The events page's **SCHEDULE** button reads a real league schedule straight from **ESPN's public scoreboard feed** (`site.api.espn.com/apis/site/v2/sports/{path}/scoreboard?dates=YYYYMMDD-YYYYMMDD`) and imports the games you tick into `anchor_events`. The feed answers a whole date range in one request and sent `Access-Control-Allow-Origin: *`, so **the browser read it directly** — no key, no Edge Function, no build step, and nothing scheduled. **A NOTE HERE CLAIMED ON 2026-09-02 THAT THIS IS NO LONGER TRUE, AND IT WAS WRONG.** The feed is CORS-open; the test that said otherwise sent no Origin header, and the host that fails in a browser is `site.api`, not `site.web.api`. It 403s node on a TLS fingerprint, which is a different thing from CORS. See the 2026-09-03 top-up section.
 
 **It absorbed `mc/get_games.html` and `mc/mlb.html`, both deleted 2026-08-07.** All three pages had the same agenda — get real-world matchups into the building — and the two older ones each did it the long way round while **writing the wrong table**:
 
@@ -16540,6 +17459,302 @@ the first inside a file whose whole subject is checks that cannot fail.**
   through the Write tool, or with `chr(92)`; never a regex with backslashes
   through a heredoc into Python into a file.
 
+## A STOP IS A WAYPOINT AND A CHALLENGE. THE CITY GOES. (2026-09-03)
+
+[2026090302](mc/supabase/migrations/2026090302_a_stop_is_a_waypoint_and_a_challenge.sql), **applied**. `public.stops` is **three ids** -- `id`,
+`waypoint_id`, `challenge_id` -- and the town is the fourth line of the
+waypoint badge in [mc/stop-builder/index.html](mc/stop-builder/index.html).
+
+- **THE CITY WAS A SECOND COPY OF THE WAYPOINT'S OWN, AND IT HAD ALREADY
+  DRIFTED.** A waypoint is in exactly one place, so `stops.city` could disagree
+  with it -- and did, on one of six rows:
+
+      id  stops.city         the waypoint's own city
+      1   Baton Rouge, LA    New York, NY        <- DISAGREED
+      2   Cincinnati, OH     Cincinnati, OH
+      3   Cincinnati, OH     Cincinnati, OH
+      4   New Orleans, LA    New Orleans, LA
+      6   Boston, MA         Boston, MA
+      7   New Orleans, LA    New Orleans, LA
+
+  **That row is both the argument for the change and the one thing it
+  discards**, so the six values are written into the migration's header: the
+  column does not survive the file. Only the waypoint is the physical place, so
+  the claim goes rather than the waypoint.
+- **NOTHING IN THE DATABASE READ IT, checked by printing the lines rather than
+  counting the matches.** `game_stops` is a view over **`stops_retired`** and
+  selects `s.city_slug` from THAT table, so both game builders are untouched;
+  and **no function names `public.stops` at all** -- every match for the word is
+  `route_stops`, a JSON key, or prose.
+  - **`s.city` MATCHED `routes.city`**, which ends in those six characters, and
+    `like '%_audience_id%'` has already matched `audience_id` here because `_`
+    is a LIKE wildcard. **A column name is a word, not a substring**; the sweep
+    that answered honestly used `~* '(^|[^_a-z])stops($|[^_a-z])'` and printed
+    what it found.
+- **THE UNIQUE IS THE SAME RULE WITH THE REDUNDANT HALF REMOVED.**
+  `(city, waypoint_id)` was exactly `waypoint_id` whenever the city was right,
+  so `stops_one_per_waypoint` preserves **ONE PLACE IS ONE STOP** rather than
+  loosening it. **`(waypoint_id, challenge_id)` would let one waypoint be
+  several stops**, which is a different product decision and was not asked for.
+  - **A NULL WAYPOINT IS STILL NOT A COLLISION.** 2026083117 made the column
+    nullable so a stop survives its waypoint, and Postgres reads two NULLs in a
+    unique index as distinct -- the property the old pair already relied on.
+- **PROVED BY A WRITE THAT MADE IT REFUSE, rolled back**: the same waypoint
+  twice answers **23505 `stops_one_per_waypoint`**. A create that returns
+  without error says nothing about a constraint.
+
+### THE ROOM ASKS FOR TWO THINGS AND DRAWS THE CITY WHERE IT BELONGS
+
+- **THE CITY IS THE WAYPOINT'S FOURTH LINE** -- kicker, name, address, town --
+  and it keeps the voice it had as a column of its own, mono and uppercase, so
+  it still reads as a key rather than as a second address. **The challenge half
+  has no such line and `half()` draws one only when passed it**: a challenge is
+  not anywhere, so giving it a town would be inventing a fact.
+- **THE ADDRESS STOPPED FALLING BACK TO THE CITY.** It was `w.address ||
+  wpWhere(w)`, which was right when the town was drawn once; with both lines
+  drawn, a waypoint with no address would have printed its town **twice**.
+  Asserted on a real address-less waypoint.
+- **THE CITY FIELD, ITS DATALIST AND THE `audiences` READ ALL WENT TOGETHER.**
+  That read existed to fill the picker, so this room now depends on one fewer
+  table. **`loadCities` was deleted rather than renamed aside** -- a reader with
+  no caller is what somebody re-points at the wrong thing, which is the state
+  the nav's own For Review group is a list of -- and its `on('cityInput', ...)`
+  went with it, or the room would warn about a missing element on every load.
+- **EVERY WAYPOINT IS OFFERED NOW.** The list narrowed to the chosen city and
+  there is nothing to narrow by; what pays for the longer list is `wpLabel`,
+  which carries the town in the option itself, so **typing a city still reaches
+  its waypoints** -- a datalist matches on the whole option value.
+- **THE ORDER MOVED TO `waypoint_id.asc` AND HAD TO.** It was `city.asc`, and an
+  order naming a column that is gone **400s the WHOLE request** -- the room
+  would have come back empty with nothing saying why. Which is exactly what the
+  previous page does against the migrated table: run the new check against it
+  and it does not load at all, so **the migration and the page are one commit**.
+  The client-side sort after an add matches it, NULLS last, since two orders
+  that disagree would move a row on its own the moment you added one.
+- **A DATABASE THAT HAS NOT RUN THE MIGRATION IS TOLD WHICH FILE TO RUN.** That
+  is the direction that really happens -- the page deploys and the SQL goes in
+  by hand -- and until it does, `city` is NOT NULL and every insert from this
+  room is refused for a column the page no longer knows exists. Asserted.
+
+## `public.maps` IS `public.atlas`, AND ITS ORDER IS `stop_order` (2026-09-03)
+
+[2026090306](mc/supabase/migrations/2026090306_maps_stop_number_becomes_stop_order.sql) and [2026090307](mc/supabase/migrations/2026090307_maps_becomes_atlas.sql), **both applied**. `stop_number` is
+`stop_order`, and the table wears the room's name.
+
+- **THE COLUMN IS A POSITION IN A WALK, not a count and not an identifier.**
+  `stop_number` reads as *which number stop is this*; `stop_order` is what
+  `route_stops.ord` has meant on the other side of the product all along.
+- **THE TABLE RENAME PARTLY REVERSES [2026083112](mc/supabase/migrations/2026083112_atlases_become_maps.sql), which is said rather than
+  done quietly.** That file renamed `atlases` to `maps` on 2026-08-31 precisely
+  so *"the room is the ATLAS -- the book -- and the things in it are MAPS"*.
+  **What it costs is that the room and the table are called one thing again**,
+  which is the distinction that rename was made to draw. Asked for directly.
+- **`games.map_id` IS NOT RENAMED AND WAS NEVER A FOREIGN KEY**, because the
+  table is keyed by `(map_id, stop_order)` so the id alone is not unique --
+  nothing downstream says a game names a map that is not there. **The COLUMNS
+  still say `map_` inside a table called `atlas`**; whether they follow is a
+  separate decision and was not asked for.
+
+### THE TRIGGER NAMES BOTH, AND THAT IS WHERE THE DANGER IS
+
+`tgb_atlas_one_name` is `BEFORE INSERT OR UPDATE` on this table, and its body
+named `stop_number` twice and `public.maps` twice.
+
+- **A PLPGSQL BODY IS STORED AS TEXT AND RESOLVED AT RUNTIME**, so either rename
+  on its own raises nothing at the time and nothing at deploy -- **it waits for
+  a caller, and then every write to the table fails.** Fifth and sixth time this
+  project has met that property; the expensive one was `infer_game_team_keys`
+  after `teams.tgbid` was dropped, which **stopped every game save for a day.**
+- **PATCHED FROM THE LIVE DEFINITION, one named expression, with the match count
+  asserted** -- never re-typed. A `create or replace` written afresh rewrites the
+  whole body and this project has silently lost a column that way.
+- **PROVED BY A WRITE, twice.** A `create or replace` that returns without error
+  proves nothing about a trigger, so each verify block inserts two rows on one
+  map, checks the second **adopted** the first's name, renames one and checks the
+  other **followed** -- then deletes them. `0 probe leftovers` after.
+
+### EVERY NAME THAT HALF-REMEMBERED WAS RENAMED WITH IT
+
+A constraint, an index, a trigger, a function and a sequence **all keep their
+own name through a table or column rename**. `routes` kept `paths_pkey` once,
+and this file has since had to correct `games_target_audience_idx` and four
+`stops_retired_*`.
+
+| was | is |
+|---|---|
+| `maps_pkey`, `maps_stop_idx` | `atlas_pkey`, `atlas_stop_idx` |
+| `maps_id_lower`, `maps_id_not_blank`, `maps_name_not_blank` | `atlas_*` |
+| `maps_number_positive` | `atlas_order_positive` |
+| `maps_placeholder_is_numbered` | `atlas_placeholder_is_zero` |
+| `maps_stop_id_fkey` | `atlas_stop_id_fkey` |
+| `maps_one_name` / `tgb_maps_one_name` | `atlas_one_name` / `tgb_atlas_one_name` |
+
+- **`maps_id_seq`, `maps_retired` AND ITS TWO INDEXES ARE LEFT**, and that is
+  reported rather than swept: they belong to the OLD dead maps table retired on
+  2026-08-31. **A sequence does not follow a table rename either**, so
+  `maps_id_seq` is that table's and is named for what it used to be called.
+
+### AND A SECOND LIVE READ WAS BROKEN, FOUND BY GREP RATHER THAN BY A CHECK
+
+`loadBuilderMaps` in the Game Builder reads
+`select: 'map_id,map_name,stop_number'`, which **400s the whole request** the
+moment the column moves -- and it is caught by a `try/catch` that only
+`console.warn`s, so `builderMapList` stays empty and **the map picker silently
+offers nothing.**
+
+- **THAT IS TWICE IN ONE SESSION**, after the Atlas room's `city.asc`. Both were
+  found by grepping the ROOMS for the table name, which is a second's work and
+  is the half a database-side sweep does not cover.
+- **CONFIRMED BY CALLING THE ENDPOINT rather than reasoning about it**: `400
+  42703 column maps.stop_number does not exist`, then `200` after.
+- **NEITHER ROOM'S SUITE COULD HAVE CAUGHT IT.** `maps-room.js` stubs its reads
+  and `game-builder-map.js` reads the SOURCE for the select string -- **both
+  pass against a live read that is failing.**
+
+### THE ROOM NAMED A MIGRATION THAT DOES NOT EXIST
+
+Its no-such-table message said *"Run mc/supabase/migrations/2026083108_maps.sql"*
+and **that file was never written** -- it is `2026083108_atlases.sql`, a stale
+name left by the August sweep. **A page that needs a migration must name it**,
+and naming the wrong one is worse than naming none: it sends somebody looking
+for a file that is not there.
+
+### AND TWO COMMENTS SAY `public.maps` CORRECTLY
+
+`mc/games/` and `mc/builder/` both carry *"public.maps was superseded on
+2026-07-30 by public.stops"*, which is about the **OLD** maps table -- now
+`maps_retired` -- and is a record of what was true on the day. **A blind sweep
+would have rewritten them into nonsense**, which this file has already had to
+revert once. Both now say which maps they mean, so the next sweep leaves them.
+
+### THE KEY IS `stop_id`, AND `maps` ALREADY CALLED IT THAT (2026-09-03)
+
+[2026090303](mc/supabase/migrations/2026090303_the_stop_key_is_stop_id.sql), **applied**. The table read `id, waypoint_id, challenge_id` --
+two columns saying what they point at and one saying nothing.
+
+- **THE OTHER HALF OF THE KEY WAS ALREADY NAMED FOR IT.**
+  `maps_stop_id_fkey` is `FOREIGN KEY (stop_id) REFERENCES stops(id)`, so one
+  key had two names for its two ends. They share one now.
+- **A FOREIGN KEY FOLLOWS THE COLUMN BY `attnum`, NOT BY NAME**, so the
+  constraint carried the rename by itself -- and the verify block reads
+  `pg_get_constraintdef` back rather than trusting it, because a statement that
+  returns without error says nothing about what it left behind.
+- **BOTH CONSTRAINT NAMES STAY CORRECT AND THAT IS NOT AUTOMATIC.** An index or
+  a constraint keeps its OWN name through a column rename -- which is how
+  `games_target_audience_idx` half-remembered its column a day earlier. Here
+  `stops_pkey` is named for the TABLE and `maps_stop_id_fkey` for the
+  REFERENCING column, so neither names the column that moved.
+- **THE IDENTITY FOLLOWS TOO**, being attached to the column rather than to its
+  name. **Only a write says so**: the verify block inserts a row, reads the
+  assigned `stop_id` back and rolls it away.
+- **AND MY OWN VERIFY BLOCK WAS THE FIRST THING TO FAIL**, on a dead line
+  reaching for `waypoints.waypoint_id` -- that column is `wpid`. **The whole
+  transaction rolled back and nothing changed**, which is the argument for the
+  single transaction rather than four loose statements.
+
+### AND THE DROP BROKE TGB ATLAS, SILENTLY, FOR AN HOUR
+
+`mc/atlas/index.html` read `stops` with `order: 'city.asc,id.asc'`.
+**PostgREST 400s the WHOLE request on one unknown column**, so `state.stops`
+came back EMPTY and every map row drew **`stop <id>`** where a waypoint name
+belongs -- a page that loads, renders and shows the wrong thing.
+
+- **I SWEPT THE DATABASE AND NOT THE ROOMS.** The migration's own note records
+  four views and functions checked line by line; **two HTML pages read that
+  table and neither was looked at.** This file's rule says to grep the
+  migrations for a column's name before dropping it, and the rooms are where
+  the other half of the readers live.
+- **`grep -rln "'stops'" mc --include=*.html` IS THE WHOLE SWEEP** and it takes
+  a second: `waypoint-prompts.js`, `atlas/index.html`, `stop-builder/index.html`.
+- **IT WAS FOUND BY A GREP FOR THE NEXT CHANGE, not by a check**, which is luck.
+  Confirmed by calling the endpoint rather than reasoning about it:
+  `order=city.asc` answers **400 `42703 column stops.city does not exist`**.
+- **AND THE ATLAS SUITE COULD NOT HAVE CAUGHT IT, because it stubs its reads.**
+  `maps-room.js` served `{ id, city, waypoint_id, challenge_id }` -- the shape
+  the table had that morning -- so it passed 51/51 over a room whose live read
+  was 400ing, and then failed TWICE on the repaired room. **A FIXTURE IS A
+  PHOTOGRAPH OF THE SCHEMA ON THE DAY IT WAS TAKEN**: left alone it reports a
+  page fault that is its own, which is the fifth time this session. Refreshed
+  to the three ids, 51/51 again.
+
+### `stops_retired` IS `stops_old`, AND `game_stops` HOLDS NOTHING (2026-09-03)
+
+[2026090304](mc/supabase/migrations/2026090304_stops_retired_becomes_stops_old.sql) and [2026090305](mc/supabase/migrations/2026090305_stops_old_constraints_follow_the_table.sql), **both applied**. Asked as
+*"combine stops_retired and game_stops into stops_old"*.
+
+- **THEY WERE ALREADY ONE THING, and saying so is the answer rather than
+  quietly acting on it.** Measured first:
+
+      stops_retired   TABLE   41 rows      <- all the data there is
+      game_stops      VIEW    490 rows     <- a projection of those 41
+
+  `game_stops` is `stops_retired` joined to `games` through `cities`, so 41
+  stops expand to 490 game-and-stop pairs. **It stores nothing**, so the only
+  thing to rename is the table and the view follows it.
+- **A VIEW FOLLOWS ITS TABLE BY OID**, the same property that carried it through
+  the `stops` rebuild and `anchor_events` through its rename. **The definition
+  is read back afterwards** rather than assumed: it names `stops_old` and no
+  longer names `stops_retired`.
+- **THE VIEW KEEPS ITS OWN NAME AND HAS TO.** **Both game builders read
+  `game_stops` by name** -- `MAPS_TABLE` in `mc/games/` and `mc/builder/`, both
+  called from `loadWaypointStopsForCurrentGame` **on every game open** -- and
+  those are the editors for the paid product. Renaming it to `stops_old` is
+  impossible anyway (one name, one object), and **dropping it means teaching
+  both builders the games/cities join themselves**, which is a change to the
+  paid product and its own decision.
+- **SO THERE ARE TWO STOPS TABLES AND ONE VIEW**: `stops` (live, three ids,
+  left alone as asked), `stops_old` (the 41 retired rows), and `game_stops`,
+  which exists only because two editors read it.
+- **THE CONSTRAINTS DID NOT FOLLOW AND WERE RENAMED SEPARATELY.** A constraint
+  keeps its OWN name through a TABLE rename, so `stops_old` was left carrying
+  four `stops_retired_*` names -- **a table half-remembering what it used to be
+  called**, which this project has paid for twice (`routes` keeping
+  `paths_pkey`, and `games_target_audience_idx`).
+  - **NOTHING READ THOSE NAMES, checked rather than assumed.** The Waypoints
+    room translates a foreign-key refusal with a GENERIC pattern --
+    `constraint "[a-z_]+" on table "([a-z_]+)"` -- and prints the TABLE it
+    captures, never the constraint. So it says *"in stops_old"* now, which is
+    the true thing.
+- **PROVED BY THE BUILDERS' OWN QUERY**, not by a count: `game_stops?select=
+  waypoint_id,ord,end&game_id=eq.den2026jax&order=ord.asc` answers **200** with
+  real ordered stops.
+
+### THE SEARCH READS EVERY FIELD, DERIVED RATHER THAN LISTED
+
+The box is **SEARCH** (it was Find) and takes *"Any word on the waypoint or the
+challenge..."*.
+
+- **IT WAS FOUR TERMS BY HAND** -- city, name, address, challenge name -- so a
+  description, a zip, a source, a prompt, an answer, a kind, a scope and every
+  option of a multiple choice were all on screen and **none of them findable**.
+  The placeholder named three of them, which described a narrower box than the
+  one that was there.
+- **`searchTerms` WALKS THE ROW**, so a column added to either `select` is
+  searchable **without anybody remembering to add it here**. An array is
+  flattened, so `choices` is searched option by option; a number is read as its
+  own text, which is what makes a zip work. `wpWhere` and `RANDOM_LABEL` are
+  appended because neither is a column.
+- **`command-bar--find`, `#q` AND `#clearBtn` DO NOT MOVE.** Identifiers, the
+  same bargain the Tape Room made through five renames of its verbs.
+
+**[stop-builder-no-city.js](mc/_dev/browser-checks/stop-builder-no-city.js), 30 assertions in real Chrome** against the live tables
+with the write intercepted -- **and it asserts BOTH halves**, because a room
+that stopped sending a city and stopped showing one is not the change that was
+asked for. **Run against the previous search it fails NINE ways**, naming the
+terms it could not reach: `45202`, `photograph`, `portable`, `Freedom`.
+
+- **THE TERMS ARE TAKEN FROM THE LOADED ROWS, never pinned.** A check that
+  demanded production data hold one shape is a check that rots the moment
+  somebody edits a row -- which has cost this project four times. It takes the
+  longest word of five letters or more from each field, because **a search for a
+  short term proves nothing**: "a" matches everything whatever the code does.
+- **ONE ASSERTION PASSED ON THE OLD SEARCH BY COINCIDENCE** -- the waypoint
+  description whose distinctive word also appears in its name. That is luck
+  rather than coverage, and it is why the other eight matter.
+- **A ROOM THAT NEVER LOADS FAILS BY NAME.** Run against the previous page this
+  check died inside `waitForFunction`, which reads as the harness rather than
+  the page; it reports the load as a failed assertion and prints the stops read.
+
 ## A GAME'S AUDIENCES ARE WORDS (2026-09-02)
 
 [2026090203](mc/supabase/migrations/2026090203_game_audiences_become_words.sql), **applied**. `games.target_audience_id` and
@@ -16600,6 +17815,341 @@ suites rewritten around each state. **None of it was the problem.**
   that had not been earned. The one honest probe -- real page, real database,
   write intercepted -- took ten minutes and answered it immediately. **Write
   that probe first.**
+
+## THE STOP POPUP PLAYS THE CHALLENGE (2026-09-03)
+
+The right half listed Challenge / Kind / Scope / Prompt / **Answer**. It is a
+rehearsal now: the prompt, the right answer control, a verdict, and the answer
+revealed only afterwards.
+
+- **IT HANDED YOU THE ANSWER BEFORE YOU HAD MET THE QUESTION**, which is the
+  one thing a preview must not do. **A challenge that reads fine in a list can
+  be unanswerable standing in a street**, and the only way to find that out is
+  to meet it the way a team does -- the same argument the Trivia room makes for
+  its own popup, and the Challenge Bank for its preview.
+- **THE ANSWER CONTROL FOLLOWS THE ROW, NEVER A SETTING**, so the panel cannot
+  offer a shape the row does not have. Measured on the live table before it was
+  built: **31 of 38 trivia rows carry `choices` and 7 do not; question rows
+  never do; and photo, freeform and most minigames carry NO ANSWER AT ALL.**
+- **NO STORED ANSWER IS NOT A GAP.** A photo, a freeform reply and most
+  minigames are judged by the team that did them, so there is nothing to check
+  against and a box would be inventing a rule. It says so and offers Mark as
+  done.
+- **`choices` HAD TO BE ADDED TO THE READ.** The select named six columns and
+  not that one, so every multiple choice would have come back `undefined` and
+  **silently become a text box** -- the column-missing-from-the-select fault
+  this file already records twice from the Game Builder.
+- **SHUFFLED ONCE PER OPEN, NEVER IN THE PAINTER**, which runs again the instant
+  an answer is judged: shuffling there would rearrange the buttons under the
+  pointer at exactly the moment somebody is reading which one they got wrong.
+  **Judged by VALUE, not by index**, which is what lets the shown order differ
+  from the row's own array safely.
+- **THE RIGHT ONE IS MARKED WHICHEVER WAS PRESSED**, or a wrong answer tells you
+  only that you were wrong.
+- **CASE AND SURROUNDING SPACE ARE THE ONLY THINGS FORGIVEN** on a typed answer,
+  which is the Trivia room's rule: forgiving more starts accepting a different
+  word.
+
+### THE STOP FILLS TWO VARIABLES FOR REAL
+
+**This is the difference between rehearsing HERE and previewing in the Challenge
+Bank.** That room has only a worked example; this one is standing at an actual
+waypoint in an actual city, so `{{waypoint}}` and `{{venue_city}}` come from the
+stop itself and the other seven stay the worked example.
+
+- **AN UNKNOWN VARIABLE IS LEFT IN ITS BRACES AND DRAWN IN THE RED PEN**, which
+  is exactly what a team would see. **Showing it resolved would hide the
+  fault** -- a mistyped token is not an error anywhere else in the system.
+- **NOTHING IS RECORDED AND EVERY REHEARSAL SAYS SO.** `game_responses` is
+  append-only and written by the ENGINE at play time; a rehearsal in an admin
+  room must not land in it, and a panel that looks like play is one somebody
+  will assume was recorded.
+- **A RANDOM STOP HAS NOTHING TO PLAY**, and says that rather than drawing an
+  empty control.
+
+### AND THE CHECK DROVE WHAT PRODUCTION DOES NOT CARRY
+
+**[stop-builder-simulates.js](mc/_dev/browser-checks/stop-builder-simulates.js), 20 assertions in real Chrome**, reads live and every
+write intercepted.
+
+- **NO STOP ON FILE IS RANDOM AND NONE CARRIES A `{{waypoint}}` PROMPT**, so
+  both are driven with rows made up in the page. **A check that waits for the
+  table to grow the right shape is a check that rots**, which this session has
+  now hit four times.
+- **TWO HARNESS FAULTS FIRST, BOTH READING AS A BROKEN PAGE.** `window.state` is
+  undefined -- `state` is a top-level `const` in a classic script, which creates
+  no window property -- and a stub token of `'p'` is not a JWT, so Supabase
+  answered `Expected 3 parts in JWT; got 1`. **Both are already recorded in this
+  file and I walked into both.** Returning NO session is the fix: `authHeaders`
+  then falls back to the publishable key.
+- **AND ONE ASSERTION FAILED ON CORRECT BEHAVIOUR**: it read the rehearsal
+  footer after opening a RANDOM stop, which has no rehearsal and so no footer.
+
+## RESEND IS OFF THE HUB (2026-09-03)
+
+External Tools goes 13 to 12. The entry linked `resend.com/emails`, described as
+the transactional-email log for access codes and receipts.
+
+- **THE NAV DATA IS THE ONE PLACE IT LIVED**, so removing the row takes it off
+  BOTH surfaces at once -- the dropdown and the hub's directory both render from
+  [admin-nav-menu.js](mc/js/admin-nav-menu.js).
+- **NOTHING ELSE POINTED AT IT**, checked rather than assumed: the only other
+  mentions of the word in the repo are a comment in `gs-buy-modal.js` saying the
+  webhook emails the code through Resend, and `RESEND_API_KEY` / `RESEND_FROM`
+  in the Edge Function secrets. **The service is untouched** -- this removes a
+  bookmark, not an integration, and `gs-send-code` still sends through it.
+- **22 internal nav links, 0 dead**, and the rendered hub carries no Resend text
+  and no Resend href.
+
+## DELETE, IN THE LIFECYCLE BOX (2026-09-03)
+
+**NEW | DUPLICATE | DELETE**, with a hairline before the last one.
+
+- **THE WHOLE FLOW ALREADY EXISTED AND WAS REACHABLE FROM NOTHING.**
+  `openGameEraseFlow`, `openGameEraseDialog`, `applyCurrentGameDisposition` and
+  the `#gameEraseBackdrop` dialog were all here, and the click handler was
+  bound. **`const gameEraseBtn` read an id that was in NO MARKUP**, so it was
+  null, the handler bound to nothing, and a block in `updateSelectionUi` then
+  set `hidden` and `disabled` on that null every render. This is exactly the
+  "reachable, real code, linked from nothing" state the nav's own Under
+  Construction group is a list of -- **only the button was missing.**
+- **THE LIFECYCLE BOX IS THE LOGICAL HOME, and the box is the argument.** New,
+  Duplicate and Delete are a game's EXISTENCE -- make one, copy one, destroy one
+  -- where the boxes after them are what you DO with the open one, how you MOVE
+  through them, and what STATE you leave one in. It is also the FAR LEFT of the
+  row, which is where this project puts an irreversible control: as far from
+  Save as the line goes, the same arrangement the waypoint editor's foot uses.
+- **A HAIRLINE, NOT A GAP.** New and Duplicate are cheap and repeatable and this
+  one is not; a wider gap reads as the row breathing, a line says the button
+  after it is a different kind of thing.
+- **THE RED PEN HAD TO BE RESTATED FOR THE DARK GROUND.**
+  `.builder-nav-btn--danger` is written for the white boxes (`#a03f2d` on paper)
+  and is unreadable reversed out of the lifecycle box's filled ink.
+- **`aria-disabled`, AND THE PRESS IS A NO-OP**, the same as the step arrows and
+  for the same reason: no notice channel near the nav.
+
+### THE QUESTION NAMES THE GAME, AND SAYS WHAT DELETE ACTUALLY IS
+
+It read **"Erase?"** -- and `#gameEraseMessage` was never written to, so every
+game asked the same three words.
+
+- **THE HONEST ANSWER IS NOT WHAT THE WORD SUGGESTS.**
+  `applyCurrentGameDisposition` SAVES the game and then sets `games.erased`, so
+  **the row remains**: this is a flag, not a removal, and it can be undone in
+  the database. The message says so.
+- **WHICH IS ALSO WHY "SKIP INSTEAD" IS A REAL ALTERNATIVE** on that dialog
+  rather than a softer wording of the same act: `erased` is a SECOND flag and is
+  not `archived`, and this file already records that anything counting live
+  games has to ask both.
+- **ONE WORD FOR ONE ACT.** The trigger said Delete and the confirm said Erase.
+  The confirm says Delete now; **the COLUMN is still `erased`**, identifiers not
+  moving with visible copy being the bargain the Tape Room made through five
+  renames of its own verbs.
+
+### AND THE CHECK'S FIRST PREMISE WAS WRONG
+
+It asserted the button is off with no game open. **The page opens a game on
+load, so that is not a state you can arrive in**, and two assertions failed on a
+page that was correct. **The real off case is a game that is not in the database
+yet**: press New, and there is nothing to delete. Third time this session a
+check has demanded a state production is not in.
+
+**[game-builder-delete.js](mc/_dev/browser-checks/game-builder-delete.js), 13 assertions in real Chrome** with the write
+intercepted: where the button sits and in what order, the hairline, off on an
+unsaved game with its reason, a press then opening nothing, on once a saved game
+is open, the dialog naming the game, Skip offered, both words matching, and
+**nothing written on cancel.**
+
+## THE GAME BUILDER'S CHROME SAT ON THE SCREEN, NOT THE COLUMN (2026-09-03)
+
+Reported as the graphic up top going far left on a big screen. Two things were
+wrong and they have ONE cause.
+
+    at 2200px          gears     brand     links end
+    every other room   x=445     x=503     1625
+    the Game Builder   x=-58     x=24      2103      <- content is 503..1683
+
+- **BOTH ARE POSITIONED BY THE SHARED `admin-site-nav.js`, AGAINST
+  `.admin-site-nav-host`.** The gears are `left: -58px`; the bar is full bleed
+  by `margin: ... calc(50% - 50vw)` and pulls its own contents back with
+  `padding: 14px max(16px, calc(50vw - 50%))`.
+- **EVERY OTHER MC ROOM'S HOST IS `main.app`, WHICH IS THE 1180px COLUMN.** So
+  `50%` is half the column: the padding resolves to about 510px and the brand
+  lands at x=503 with the room head, and -58px puts the gears 58px outside it.
+  **The overhang is the design.**
+- **THE GAME BUILDER'S HOST IS `main.games-page`, WHICH IS FULL WIDTH**, because
+  `.games-page` is capped only under `is-header-only` and that class comes off
+  the moment the canvas is shown. So `50vw - 50%` collapsed to nothing, the
+  16px floor won, and -58px became the screen edge.
+
+### THE FIX IS THE RULE THIS PAGE ALREADY LIVES BY
+
+**The elements carry the measure themselves**, which is what the bars were
+taught after the same fault was found in the row widths.
+
+- **THE NAV IS THE ORIGINAL ARITHMETIC WITH ONE TERM REPLACED**: `50vw` less
+  HALF THE COLUMN, rather than `50vw` less half of whatever the host happens to
+  be. **`50%` was tried first and is 32px out** -- percentage padding resolves
+  against the host, so it inherits the very assumption that is wrong here.
+- **THE GEARS TAKE `max(-58px, calc(50% - half the column - 58px))`.**
+- **`max()` KEEPS THE NARROW CASE HONEST.** Under the column width the calc goes
+  negative and the original values are what is wanted; without it both would
+  march further off-screen as the window narrows.
+- **`body.builder-page--editor` IS LOAD-BEARING ON BOTH.** The shared sheet is
+  injected into `<head>` AT RUNTIME, so it lands after this page's own `<style>`
+  and beats an equal-weight rule on source order. Its selectors are (0,2,0);
+  these are (0,3,0). **That is the same trap that drew a 4px arrow in the step
+  box an hour earlier**, met from a second direction on the same afternoon.
+- **THE MARGIN IS LEFT ALONE.** `calc(50% - 50vw)` already resolves to about
+  -7px here, which is what makes the bar reach both screen edges -- correct on
+  every room, and correct here.
+
+**MEASURED AT SIX WIDTHS, not eyeballed**: brand and content share an x at 2560,
+1920 and 1400, the gears hold a constant 58px overhang, both fall back to their
+own gutters below the column width, and there is no sideways scroll anywhere.
+**Four assertions in [game-builder-widths.js](mc/_dev/browser-checks/game-builder-widths.js)**, which already loads the real page at
+a wide viewport -- jsdom can see none of this.
+
+## BACK AND FORWARD, BETWEEN THE CHOOSER AND THE STATUS BOX (2026-09-03)
+
+A fourth box on the nav line, so it reads **NEW DUPLICATE | chooser SAVE PREVIEW
+| < > | POST SKIP** -- what you MAKE, what you OPEN, how you MOVE through them,
+and what STATE you leave one in.
+
+- **IT STEPS THE PICKER'S OWN LIST, THROUGH THE PICKER'S OWN ORDERING.**
+  `gamePickerOrderedGames` was lifted out of `renderGamePickerSelect` and both
+  now read it, so **the arrows and the dropdown cannot disagree about what comes
+  next.** Two copies of that sort would drift the first time either was edited,
+  and the arrows would then walk an order the list does not show.
+- **AND IT OPENS THROUGH THE PICKER'S OWN CALL.** `openSavedGameById(id, {
+  preserveRecovery: hasPendingSaveChanges() })`, the same line the chooser runs,
+  so unsaved work is treated identically however you moved. **Two ways to open a
+  game is how they drift.**
+- **CLAMPED, NEVER WRAPPED.** Running off the end onto the first of 394 makes a
+  list feel endless; the button greys out instead. Same call the Tape Room made
+  for its tape pager.
+- **THE TOOLTIP CARRIES THE POSITION** -- `Next game  (1 of 394)` -- because a
+  list that long gives no other sign of where in it you are.
+- **ARROWS ARE DRAWN, NOT TYPED.** Neither face this site loads carries the
+  horizontal pair, so a typed left arrow renders from whatever the machine falls
+  back to and sits visibly wrong beside its partner -- which is what the
+  Waypoints room found when it replaced all four of its arrows with one drawn
+  shape. **These are ONE path rotated 180 degrees, so the two are mirror images
+  by construction.**
+
+### THE PRESS IS A NO-OP, WHICH DEPARTS FROM THE ROOM'S USUAL RULE
+
+`aria-disabled` rather than `disabled`, so the pair stays focusable and is
+announced with its reason. **But pressing the off state does nothing**, where
+this project's standing rule is that it should say why.
+
+- **THAT RULE IS FOR A REASON NOBODY COULD GUESS** -- *"tick two or more tracks
+  first"* -- and here the reason IS the position: an arrow at the end of a list
+  that does not move is what every player, pager and carousel already does.
+- **AND THE HONEST PART: this page has no notice channel anywhere near the
+  nav.** Its only inline one renders into `#duplicateGameStatus`, which sits in
+  the inspector at the FOOT of the page, and a message 800px below the button
+  you pressed explains nothing. **If a scribble is ever added up here, this is
+  the first thing that should use it.**
+
+### `admin-shell.css` BEAT BOTH RULES, AND THE STATUS PAIR HAS BEEN LOSING ALL ALONG
+
+The arrow rendered **4px wide** inside a 34px button. The cause is a trap this
+file already documents from the other direction.
+
+- **`.toolbar .btn, .builder-nav-row .builder-nav-btn { min-height: ...;
+  padding: 0 14px }` LIVES IN `admin-shell.css`**, which is linked AFTER this
+  page's own `<style>` -- *"that is how these rules win without `!important`"*.
+  It is (0,2,0), so **an equal-weight rule in this file loses on source order
+  however late it sits.** 14px of side padding on a 34px control leaves a 4px
+  content box, and the SVG is a flex item, so it shrank to fill it.
+- **THE FIX IS THE PAGE'S OWN IDIOM**: `body.builder-page--editor` takes the
+  selector to (0,3,0), the same way `#tagsBar .field` already does.
+- **AND THE SAME RULE HAS BEEN BEATING `.builder-nav-row .builder-nav-btn--status`
+  SINCE THAT CONTROL WAS BUILT.** Chrome's own matched-rules list shows its
+  `min-height: 34px; padding: 0 12px` overridden, so **the status buttons are
+  42px with 14px padding, not the 34/12 their rule and their comment claim.**
+  Reported rather than changed: they end up matching Save and Preview, which is
+  what that comment says it wanted, so the RESULT is right and only the stated
+  mechanism is wrong. The step pair is sized to what the row actually is.
+- **ONLY `CSS.getMatchedStylesForNode` COULD SAY THIS.** A computed read says
+  what won; it does not say what it beat, and both rules read as correct sitting
+  in the file. This is the fourth kind of "the markup is right and the page
+  renders wrong" this project has recorded, and the first needing CDP to see.
+
+**[game-builder-step.js](mc/_dev/browser-checks/game-builder-step.js), 14 assertions in real Chrome** against the live catalogue with
+the write intercepted: where the box sits in the row AND on screen, two drawn
+buttons with no text, the row's own control height, the ends greyed with their
+reasons, forward and back landing on the picker's own neighbours, the chooser
+following, and **a press on the off end not wrapping round.** All eleven builder
+suites green.
+
+## THE EMPTY DRAWER AT THE FOOT OF THE GAME BUILDER (2026-09-03)
+
+Reported as an empty container at the bottom of the page, and it was: a
+**1180x25 grey pill under the tags bar**, drawn on every load with nothing
+inside it.
+
+- **IT WAS `#inspector` PAINTING ITSELF.** That element carries a background, a
+  1px border, a 16px radius and a drop shadow, so it draws whether or not it has
+  content -- and every field it used to hold moved out into the bars between
+  2026-08-31 and 2026-09-02. What was left was two `.details-section` blocks
+  that only ever open for a selected FLOW NODE.
+- **AND THIS PAGE HAS NO CANVAS AND NO STENCIL BAR**, checked rather than
+  assumed: one panel in the tab shell, zero matches for a canvas or a stencil.
+  **So no node can be selected here and neither section can ever open.** The
+  drawer was empty every time.
+- **THE ONLY THING HOLDING IT OPEN WAS AN EMPTY DIV.**
+  `.inspector-actions--footer` is empty in the markup and **no JavaScript has
+  ever named it** -- only CSS did, giving it a `border-top` and 4px of padding,
+  which is the 5px that kept the drawer 25px tall. Deleted, with its rule, per
+  the standing rule that a control and its stylesheet go in one pass.
+  - **`.inspector-actions--header` IS THE SAME SHAPE AND IS LEFT**: five CSS
+    rules and **zero markup**. Reported rather than swept, because it sits in a
+    group with the live `.inspector-actions` and removing a selector that shares
+    a rule is how this project once lost a whole stylesheet.
+
+### THE SECTIONS STAY, AND THAT IS THE PART WORTH KEEPING
+
+Deleting them is the obvious tidy-up and it would blank the room.
+`refreshSelectionUi` writes `stopNameField.hidden`, `varNameField.hidden`,
+`varValuesField.hidden` and `ifThenField.hidden` **unconditionally**, so with the
+markup gone those four are null, the assignment throws, and **the throw takes
+the rest of the render with it including the auth call** -- and
+`admin-shell.css` hides every child of `body.mc-auth-protected` until that runs.
+That is the failure this file opens with, and the 2026-09-02 note already
+records it for these same two sections.
+
+**SO THE TEST IS "IS ANYTHING VISIBLE IN IT", NOT "IS THIS THE GAMES PAGE".**
+`syncInspectorEmptiness` hides the drawer when no child of `#inspectorContent`
+is visible, which means **it comes back by itself the day something in it is
+shown again** rather than needing somebody to remember. It runs AFTER
+`syncDetailsSectionVisibility`, never before: it reads what that function left
+behind, and a check asserts the order.
+
+- **NOT `:has()`**, which would express it in one CSS rule. This file serves
+  whatever browser the admin happens to have, which is the same call the
+  audiences room made for its sort radios.
+- **AND IT REFUSES TO UNHIDE.** `inspector.hidden` is already set from
+  `showGameDetails` earlier in the same function, so the guard only ever hides;
+  a drawer hidden for its own reason stays hidden.
+
+### PROVED BY PUTTING THE BUG BACK
+
+**19 assertions in [game-builder-widths.js](mc/_dev/browser-checks/game-builder-widths.js)**, which already loads the real page --
+*nothing empty paints below the last bar* -- and **6 more in
+[game-builder-boxes.js](mc/_dev/browser-checks/game-builder-boxes.js)**, which is structural: the div is gone, its CSS is gone,
+**both sections and all four node fields are still there**, and the guard runs
+in the right order.
+
+- **THE STASH COMPARISON WAS USELESS HERE AND SAYING SO IS THE POINT.** Stashing
+  `mc/games/index.html` reverts to HEAD, which predates the bars entirely, so
+  the suite bailed at *"could not lift every bar"* and **never reached the new
+  assertion**. A check that cannot run is not a check that passed.
+- **SO THE EMPTY DIV WAS PUT BACK, with its rule, and the suite run against
+  it**: `FAIL nothing empty paints below the last bar   got: div 284x5`. Then
+  restored and compared byte for byte. **An assertion that has never failed on
+  the bug it is for is an assertion nobody should trust.**
 
 ## THREE CONTAINERS DELETED FROM THE GAME BUILDER (2026-09-02)
 

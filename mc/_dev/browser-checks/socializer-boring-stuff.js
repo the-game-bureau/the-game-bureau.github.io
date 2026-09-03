@@ -1,6 +1,6 @@
 /* BORING STUFF is a section, not a dialog, and the button is gone. */
 const fs = require('fs');
-const { JSDOM } = require('jsdom');
+const { JSDOM } = require('C:/tmp/node_modules/jsdom');
 
 const HTML = fs.readFileSync('C:/Code/the-game-bureau/mc/socializer/index.html', 'utf8');
 let ok = 0, bad = 0;

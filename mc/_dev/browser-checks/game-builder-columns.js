@@ -26,23 +26,20 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* Read from public.games on 2026-09-02, after 2026090204 renamed
-   target_audience_id -> target and rival_audience_id -> rival. 71 columns.
+/* Read from public.games on 2026-09-02, AFTER THE TABLE WAS CUT FROM 71
+   COLUMNS TO 31. That is why this list is worth refreshing rather than
+   trusting: 35 of the 62 names the page was asking for stopped existing, and
+   PostgREST refuses the WHOLE request on one unknown column, so a single stale
+   name took every read down and no game could be opened at all.
    REFRESH IT FROM THE TABLE rather than editing a name by hand:
      select string_agg(column_name, ',' order by column_name)
        from information_schema.columns
       where table_schema='public' and table_name='games'; */
-const REAL = new Set(('accept_any,anchor_event_id,anytime,anytime_pair_id,archived,'
-  + 'away_team_city,away_team_key,away_team_mascot,away_team_tgbid,body,'
-  + 'button_url,category_icon,checkout_url,city,city_name,created_at,currency,'
-  + 'default_emoji,end_time,engine,erased,fandom_game,featured,game_date,'
-  + 'guide_background,guide_bio,guide_id,guide_image_url,guide_name,'
-  + 'home_team_city,home_team_key,home_team_mascot,home_team_tgbid,id,kind,'
-  + 'link_url,logo_id,logo_url,map_id,name,price,price_cents,primary_color,'
-  + 'primary_tag,quaternary_color,rival,secondary_color,start_time,state_code,'
-  + 'state_name,status,stop_group,tagline,tagline_approved,tags,target,team01,'
-  + 'team02,team03,team04,team05,team06,team07,team08,teams,tertiary_color,'
-  + 'timezone,updated_at,var_name,venue_city,venue_name'
+const REAL = new Set(('accept_any,anchor_event_id,anytime,body,button_url,category_icon,'
+  + 'checkout_url,city,created_at,currency,default_emoji,engine,'
+  + 'featured,guide_id,home_team_tgbid,id,link_url,logo_id,map,name,'
+  + 'price,price_cents,primary_tag,rival,state_name,status,tagline,'
+  + 'tags,target,tgb_date,updated_at,var_name'
   ).split(','));
 
 /* THE THREE PLACES A COLUMN NAME APPEARS ON THE WRITE PATH. */
@@ -55,13 +52,55 @@ function keysIn(startNeedle, endNeedle, indent) {
 }
 
 const mapped = keysIn('const GAME_COLUMN_TO_NODE_FIELD', '};', 2);
-const schema = keysIn('const SUPABASE_GAMES_SCHEMA', '};', 2);
 
-const strayMap = mapped.filter((c) => !REAL.has(c));
-const straySchema = schema.filter((c) => !REAL.has(c));
+/* THE SCHEMA MAP'S JOB IS TO NAME DEAD COLUMNS (2026-09-02), so "it names
+   nothing the table lacks" is exactly backwards for it now. `emitColumn` skips
+   anything set false and `buildGamesSelectColumns` filters the select through
+   the same map, so ONE entry takes a dropped column out of the read and out of
+   the PATCH at once -- which is what let 35 of them be switched off in one
+   place after the table was cut from 71 columns to 31.
+     SO THE RULE IS ABOUT THE VALUE, NOT THE KEY. A dropped column set to false
+   is the fix. A dropped column set to TRUE is the fault: it reaches the select,
+   and PostgREST refuses the whole request on it. */
+const schemaEntries = [...SRC.slice(SRC.indexOf('const SUPABASE_GAMES_SCHEMA'),
+                                   SRC.indexOf('};', SRC.indexOf('const SUPABASE_GAMES_SCHEMA')))
+  .matchAll(/^\s{2}([a-z0-9_]+):\s*(true|false),?$/gm)].map((m) => ({ col: m[1], on: m[2] === 'true' }));
 
-t('the column map writes nothing the table lacks', strayMap.length === 0, strayMap.join(', '));
-t('and the schema map names nothing the table lacks', straySchema.length === 0, straySchema.join(', '));
+/* `nodes` and `links` were never columns on the table -- they came from
+   games_with_graph_and_teams, the view the page used to read. They are in the
+   map set to false, which is the only thing keeping them out of the select now
+   that the reads go to public.games directly. Exempt by NAME; anything else
+   stray is still a real finding. */
+const NOT_COLUMNS = ['nodes', 'links'];
+
+const liveButUnreal = schemaEntries
+  .filter((e) => e.on && !REAL.has(e.col) && NOT_COLUMNS.indexOf(e.col) === -1)
+  .map((e) => e.col);
+t('no column is switched ON that the table lacks', liveButUnreal.length === 0,
+  liveButUnreal.join(', '));
+
+/* AND EVERY DEAD KEY ON THE WRITE PATH MUST BE GATED. This is the original
+   fault restated for the world the page is in: a key in
+   GAME_COLUMN_TO_NODE_FIELD for a column that no longer exists costs nothing
+   while the schema map has it false, and 400s the save the moment it does not.
+   Removing the key would work too; gating it is what is actually relied on. */
+/* `schema` is what the page actually ASKS FOR -- the columns switched on --
+   which is what the dropped-column checks below want to test against. A name
+   present but set to false is the gate doing its job, not a regression. */
+const schema = schemaEntries.filter((e) => e.on).map((e) => e.col);
+
+const off = new Set(schemaEntries.filter((e) => !e.on).map((e) => e.col));
+const ungated = mapped.filter((c) => !REAL.has(c) && !off.has(c));
+t('every dead column on the write path is gated off', ungated.length === 0,
+  ungated.join(', '));
+
+/* A DUPLICATE KEY IS SILENT AND THE LAST ONE WINS. Two entries for one column
+   is how `venue_name: false` was undone by a `venue_name: true` further down
+   the same object, leaving the read 400ing on a column the map plainly said to
+   skip. */
+const seen = {}, dupes = [];
+schemaEntries.forEach((e) => { if (seen[e.col]) dupes.push(e.col); seen[e.col] = 1; });
+t('the schema map has no duplicate keys', dupes.length === 0, dupes.join(', '));
 
 /* THE NINE BY NAME, so a regression says which one came back rather than only
    that the count moved. */

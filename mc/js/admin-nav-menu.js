@@ -245,11 +245,6 @@
           description: 'Issued access codes, play stats, and the live-game workflow.'
         },
         {
-          href: '/mc/taglines/',
-          label: 'Taglines',
-          description: 'Generate, compare and approve the public one-liner on every game.'
-        },
-        {
           href: '/mc/picmaker/',
           label: 'Picmaker',
           description: 'Sport marks, takeover heroes, and the reusable portrait prompts.'
@@ -363,12 +358,6 @@
           external: true
         },
         {
-          href: 'https://resend.com/emails',
-          label: 'Resend',
-          description: 'Transactional email — every access-code and receipt message the shop sends, with its delivery log.',
-          external: true
-        },
-        {
           href: 'https://console.anthropic.com/',
           // The API key behind the anthropic-proxy and shop-coherence-check
           // functions. NOT where the four bots live — those run on the Claude
@@ -422,15 +411,6 @@
           // in the row you file items from.
           label: 'Google Cloud',
           description: 'Console for GOOGLE_BOOKS_API_KEY — the optional key behind the gift shop\'s Auto Fill book lookup.',
-          external: true
-        },
-        {
-          href: 'https://www.printful.com/dashboard',
-          // Dormant, not dead: stripe-webhook still creates Printful orders when
-          // PRINTFUL_API_KEY is set and returns quietly when it is not. Listed
-          // so the dashboard is one click away if print-on-demand comes back.
-          label: 'Printful',
-          description: 'Print-on-demand orders from the legacy gift-shop path in stripe-webhook. Dormant unless PRINTFUL_API_KEY is set.',
           external: true
         },
         {

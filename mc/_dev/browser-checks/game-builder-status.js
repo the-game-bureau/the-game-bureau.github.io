@@ -28,7 +28,13 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
    all the wiring needed no edit -- which is what the assertions below still
    exercise unchanged. */
 const bars = [...d.querySelectorAll('fieldset.game-id-bar')];
-t('six bars now, Status having left them', bars.length === 6, bars.length);
+/* THE COUNT IS 15, NOT 6 (corrected 2026-09-02). The 6 was a premise from
+   the day Status left the boxes, and the page has grown nine bars since --
+   audiences, city, map, name, tagline, id, emoji, category icon, guide,
+   logo. It had been failing on HEAD for weeks, which is a check nobody can
+   read: a suite with a standing red goes green in people's heads.
+     WHAT IT IS FOR IS UNCHANGED: Status is not one of them. */
+t("Status is not a bar; the bars are the fields of the game itself", bars.length === 15, bars.length);
 t('and Tags is the last of them',
   bars[bars.length - 1].id === 'tagsBar', bars.map((b) => b.id).join(','));
 t('the status box is gone entirely', !d.getElementById('statusBar'));
@@ -67,12 +73,15 @@ t('the three wear the same button as New, Duplicate, Save and Preview',
 
 /* ---- three options, because there are three states ----------------------- */
 const radios = [...d.querySelectorAll('input[name="gameStatus"]')];
-t('three radios', radios.length === 3, radios.length);
+/* TWO SINCE 2026090209, not three. `building` was dropped as a state: 393 of
+   the 394 rows sat in it, which is a bucket that has stopped sorting anything,
+   and a game is either on sale or it is not. */
+t('two radios', radios.length === 2, radios.length);
 t('exclusive by construction: one name, type radio',
   radios.every((r) => r.type === 'radio' && r.name === 'gameStatus'));
-t('Post / Build / Skip, over live / building / archived',
+t('Post / Skip, over live / archived',
   radios.map((r) => r.value + '=' + r.nextElementSibling.textContent).join(' ')
-    === 'live=Post building=Build archived=Skip',
+    === 'live=Post archived=Skip',
   radios.map((r) => r.value + '=' + r.nextElementSibling.textContent).join(' '));
 /* THE WORD IS PART OF THE CONTROL, not a caption beside it, so clicking either
    picks the option. Same rule the Tape Room's filter group keeps. */
@@ -118,8 +127,12 @@ t('and the radiogroup is still named for a screen reader',
    flag can never tell those two apart -- which is exactly what the nav's
    two-way button could not do. */
 t('the writer PATCHes status', /body: JSON\.stringify\(\{ status: next \}\)/.test(s));
-t('and refuses a status that is not one of the three',
-  /next !== 'live' && next !== 'building' && next !== 'archived'/.test(s));
+t('and refuses a status that is not one of the two',
+  /next !== 'live' && next !== 'archived'/.test(s));
+/* THE VALUE THAT WENT MUST NOT COME BACK QUIETLY. `building` is refused by the
+   CHECK as well, so this is about the page saying a sentence rather than
+   handing back a 23514 naming a constraint. */
+t('and building is gone from the writer', !/next !== 'building'/.test(s));
 /* POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES. */
 t('it asks for the row back', /Prefer: 'return=representation'/.test(s));
 t('and reports an empty reply as a refusal, never as a success',

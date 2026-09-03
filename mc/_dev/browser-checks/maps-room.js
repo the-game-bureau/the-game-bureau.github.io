@@ -25,16 +25,21 @@ const AUD = [
   { city: null }
 ];
 const CH = [{ id: 7, name: 'Sing the fight song', kind: 'minigame' }];
+/* THREE IDS, WHICH IS THE TABLE'S OWN SHAPE SINCE 2026090302 and 2026090303:
+   `city` went (it was the waypoint's, and one of six rows disagreed with it)
+   and `id` became `stop_id`. A FIXTURE IS A PHOTOGRAPH OF THE SCHEMA ON THE DAY
+   IT WAS TAKEN -- left alone, this one made the room look broken in two places
+   while the page was right. */
 const STOPS = [
-  { id: 1, city: 'Chicago, IL', waypoint_id: 101, challenge_id: 7 },
-  { id: 2, city: 'New Orleans, LA', waypoint_id: 103, challenge_id: null }
+  { stop_id: 1, waypoint_id: 101, challenge_id: 7 },
+  { stop_id: 2, waypoint_id: 103, challenge_id: null }
 ];
 /* THE SAME STOP IN TWO MAPS, which is the whole reason this table exists and
    the reason a stop needed a single-column identity to be pointed at. */
 let ROWS = [
-  { map_id: 'murder-map', map_name: 'Murder Map', stop_id: 1, stop_number: 1 },
-  { map_id: 'murder-map', map_name: 'Murder Map', stop_id: 2, stop_number: 2 },
-  { map_id: 'jazz-walk',  map_name: 'Jazz Walk',  stop_id: 2, stop_number: 1 }
+  { map_id: 'murder-map', map_name: 'Murder Map', stop_id: 1, stop_order: 1 },
+  { map_id: 'murder-map', map_name: 'Murder Map', stop_id: 2, stop_order: 2 },
+  { map_id: 'jazz-walk',  map_name: 'Jazz Walk',  stop_id: 2, stop_order: 1 }
 ];
 
 const dom = new JSDOM(HTML, { runScripts: 'outside-only', pretendToBeVisual: true,
@@ -58,7 +63,7 @@ w.fetch = (url, opt) => {
     // own, which has already happened once in this repo.
     const a = decodeURIComponent(((u.match(/map_id=eq\.([^&]*)/) || [])[1] || '')
       .split('+').join(' '));
-    const n = Number((u.match(/stop_number=eq\.(\d+)/) || [])[1]);
+    const n = Number((u.match(/stop_order=eq\.(\d+)/) || [])[1]);
     return { a, n };
   };
   if (m === 'POST') {
@@ -74,7 +79,7 @@ w.fetch = (url, opt) => {
   if (m === 'PATCH') {
     const { a, n } = key();
     const patch = JSON.parse(opt.body);
-    const hit = ROWS.filter((r) => r.map_id === a && r.stop_number === n);
+    const hit = ROWS.filter((r) => r.map_id === a && r.stop_order === n);
     // A TRIGGER PROPAGATES A RENAME to every row of the map. Modelled, because
     // the room patches ONE row and relies on it.
     if (patch.map_name) {
@@ -85,12 +90,12 @@ w.fetch = (url, opt) => {
   }
   if (m === 'DELETE') {
     const { a, n } = key();
-    const gone = ROWS.filter((r) => r.map_id === a && r.stop_number === n);
-    ROWS = ROWS.filter((r) => !(r.map_id === a && r.stop_number === n));
+    const gone = ROWS.filter((r) => r.map_id === a && r.stop_order === n);
+    ROWS = ROWS.filter((r) => !(r.map_id === a && r.stop_order === n));
     return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(gone),
                              text: () => Promise.resolve('') });
   }
-  if (u.indexOf('/maps?') !== -1) return reply(ROWS);
+  if (u.indexOf('/atlas?') !== -1) return reply(ROWS);
   if (u.indexOf('/stops?') !== -1) return reply(STOPS);
   if (u.indexOf('/waypoints?') !== -1) return reply(WP);
   if (u.indexOf('/challenges?') !== -1) return reply(CH);
@@ -239,8 +244,8 @@ authorized().then(() => setTimeout(() => {
       body.map_name + ' / ' + body.city);
     /* A MAP EXISTS BEFORE ITS FIRST STOP: a row with no stop, at number 0, which
        a CHECK makes the only number such a row may hold. */
-    t('and no stop, at number 0', body.stop_id === null && body.stop_number === 0,
-      body.stop_id + ' / ' + body.stop_number);
+    t('and no stop, at number 0', body.stop_id === null && body.stop_order === 0,
+      body.stop_id + ' / ' + body.stop_order);
     t('it asks for the row back, or a refused write reports success',
       String(last.headers.Prefer).indexOf('return=representation') !== -1);
     t('the dialog closes', !el('mapDlg').classList.contains('is-open'));
@@ -260,7 +265,7 @@ authorized().then(() => setTimeout(() => {
     setTimeout(() => {
       const patch = sent.filter((x) => x.method === 'PATCH').pop();
       t('a rename patches ONE row and lets the database do the rest',
-        !!patch && /stop_number=eq\./.test(patch.url), patch && patch.url);
+        !!patch && /stop_order=eq\./.test(patch.url), patch && patch.url);
       t('and every row of the map follows',
         ROWS.filter((r) => r.map_id === 'murder-map').every((r) => r.map_name === 'The Murder Map'));
       t('the head shows the new name',
@@ -274,7 +279,7 @@ authorized().then(() => setTimeout(() => {
       setTimeout(() => {
         const del = sent.filter((x) => x.method === 'DELETE').pop();
         t('the delete filters on the map AND the number, which is the key',
-          del.url.indexOf('map_id=eq.') !== -1 && del.url.indexOf('stop_number=eq.') !== -1,
+          del.url.indexOf('map_id=eq.') !== -1 && del.url.indexOf('stop_order=eq.') !== -1,
           del.url);
         t('the row is gone from the map', stopsOf('murder-map').length === n - 1, stopsOf('murder-map').length);
         /* TAKING A STOP OUT OF ONE MAP LEAVES IT IN THE OTHERS, which is the

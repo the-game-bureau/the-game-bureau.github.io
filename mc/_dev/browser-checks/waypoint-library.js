@@ -219,7 +219,7 @@ const LOCATED = WP.filter((w) => w.lat !== null && w.lon !== null).length;
                        'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS' },
             body: JSON.stringify({ code: '23503', message: 'update or delete on table '
               + Q + 'waypoints' + Q + ' violates foreign key constraint '
-              + Q + 'stops_retired_waypoint_id_fkey' + Q + ' on table ' + Q + 'stops_retired' + Q }) });
+              + Q + 'stops_old_waypoint_id_fkey' + Q + ' on table ' + Q + 'stops_old' + Q }) });
           return;
         }
         if (req.method() === 'PATCH') {
@@ -391,7 +391,7 @@ const LOCATED = WP.filter((w) => w.lat !== null && w.lon !== null).length;
        row for an answer the check has already worked out. */
     /* ---- DELETING A WAYPOINT (2026-08-31) -------------------------------
        REPORTED FROM THE ROOM: a waypoint could not be deleted, and what came
-       back was `violates foreign key constraint stops_retired_waypoint_id_fkey`.
+       back was `violates foreign key constraint stops_old_waypoint_id_fkey`.
        Two tables nobody was maintaining were refusing the delete, and **60 of
        the 564 waypoints could not be deleted at all**. 2026083116 makes every
        key into waypoints cascade or set null, so this is now unreachable --
@@ -422,7 +422,7 @@ const LOCATED = WP.filter((w) => w.lat !== null && w.lon !== null).length;
     /* AND A REFUSAL IS A SENTENCE, NEVER THE CONSTRAINT NAME. */
     const refused = await p.evaluate(() => document.getElementById('pageStatus').textContent);
     t('a blocked delete names the table, not the constraint',
-      refused.indexOf('stops_retired') !== -1
+      refused.indexOf('stops_old') !== -1
       && refused.indexOf('foreign key constraint') === -1
       && refused.indexOf('_fkey') === -1,
       refused);

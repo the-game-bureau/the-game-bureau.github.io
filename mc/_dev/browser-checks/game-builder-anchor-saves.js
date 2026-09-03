@@ -19,7 +19,7 @@ const T = { '.html':'text/html','.css':'text/css','.js':'text/javascript','.json
             '.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon' };
 
 /* THE CONSTRAINT ITSELF, so the check cannot drift from the database. */
-const OK_CITY = (v) => /^[^,]+, [^,]+$/.test(v) && !/, [A-Z]{2}$/.test(v);
+/* OK_CITY went with the CHECK it mirrored: the column is gone. */
 
 let ok = 0, fail = 0;
 const is = (what, cond, got) => {
@@ -91,19 +91,26 @@ const is = (what, cond, got) => {
        what lets a cleared box write a NULL. */
     is('the payload carries the target audience',
        typeof row.target === 'string' && row.target.length > 0, row.target);
-    /* THE TWO THAT FAIL ON THE OLD FILE. */
-    is('away_team_city satisfies the CHECK, or is not written',
-       !row.away_team_city || OK_CITY(row.away_team_city), row.away_team_city);
-    is('home_team_city satisfies the CHECK, or is not written',
-       !row.home_team_city || OK_CITY(row.home_team_city), row.home_team_city);
-    is('the mascot is still written', typeof row.away_team_mascot === 'string' && row.away_team_mascot.length > 0, row.away_team_mascot);
+    /* THE CLUB COLUMNS ARE GONE, AND THE CONTRACT INVERTED WITH THEM
+       (2026-09-02). This block used to assert that picking an event COPIED the
+       two clubs onto the game, in the one city format
+       `games_away_team_city_format_check` accepted. All six of those columns
+       were dropped from public.games -- away/home city, mascot and key -- along
+       with the CHECK itself, so there is nothing left to satisfy.
+         SO IT ASSERTS THE OPPOSITE, which is the shape the table is being moved
+       to: the game holds the event's ID and the clubs are read THROUGH it. A
+       payload that carries a club column again is a regression to duplicating a
+       fact the anchor event already holds, and this is what would catch it. */
+    const CLUB_COLS = ['away_team_city', 'away_team_mascot', 'away_team_key',
+                       'home_team_city', 'home_team_mascot', 'home_team_key',
+                       'fandom_game'];
+    const copied = CLUB_COLS.filter((c) => Object.prototype.hasOwnProperty.call(row, c));
+    is('no club column is copied onto the game', copied.length === 0, copied.join(', ') || 'none');
 
-    /* IT REFUSES RATHER THAN APPROXIMATES. */
-    const refuses = await p.evaluate(() => {
-      if (typeof legacyTeamCityFromEvent !== 'function') return '(no helper)';
-      return legacyTeamCityFromEvent({ away_team_geo: 'Nowhereville', away_team_nickname: 'Nobodies' }, 'away');
-    });
-    is('a side with no audience writes nothing rather than a bare city', refuses === '', refuses);
+    /* AND THE LINK IS NOT THE ONLY THING THE EVENT FILLS. `games.city` still
+       exists and is still copied, because it is what a game is sold as being
+       IN and a person edits it afterwards. */
+    is('the event still fills the city', typeof row.city === 'string' && row.city.length > 0, row.city);
 
     /* REAL PAGE ERRORS, COLLECTED FROM THE BROWSER. This read `window.__err`,
        which nothing on the page ever sets -- so it was always `[]` and the

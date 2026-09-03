@@ -180,10 +180,15 @@ async function run(browser, nodes, label) {
       none.row && none.row.name === 'Renamed By Hand',
       none.row && JSON.stringify(none.row.name));
     /* THE EVENT NAMES BOTH CLUBS, so choosing it fills the legacy team fields. */
-    t('  and the clubs the event named',
-      none.row && none.row.away_team_mascot === 'Bears'
-      && none.row && none.row.home_team_mascot === 'Saints',
-      none.row && (none.row.away_team_mascot + ' / ' + none.row.home_team_mascot));
+    /* THE CLUBS ARE NO LONGER COPIED (2026-09-02). All six club columns were
+       dropped from public.games, so a game holds the event's ID and the clubs
+       are read through it. The assertion inverts: the payload must carry the
+       LINK and none of the columns that used to duplicate what it points at. */
+    t('  and no club column rides along with it',
+      !!none.row && !['away_team_mascot', 'home_team_mascot', 'away_team_city',
+                      'home_team_city', 'away_team_key', 'home_team_key']
+        .some((c) => Object.prototype.hasOwnProperty.call(none.row, c)),
+      none.row && Object.keys(none.row).filter((k) => k.indexOf('team') !== -1).join(', ') || 'none');
     t('  with no console errors', none.errs.length === 0, none.errs.join(' | '));
 
     /* ---- AND THE ORDINARY GAME IS UNCHANGED ----------------------------- */

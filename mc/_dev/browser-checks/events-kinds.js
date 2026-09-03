@@ -1,7 +1,9 @@
 /* A NEW KIND REACHES EVERY CONTROL THAT OFFERS ONE.
-   `KIND_VALUES` is meant to be the ONLY list -- the row's picker, the manual
-   form and the batch bar are all built from it. Three hand-kept copies drifted
-   before that was true, so the point of this check is that one edit is enough. */
+   `KIND_VALUES` is meant to be the ONLY list -- the row's picker and the
+   manual form are both built from it. Three hand-kept copies drifted before
+   that was true, so the point of this check is that one edit is enough.
+   THE BATCH BAR WAS THE THIRD and no longer offers a kind at all; what is
+   asserted about it now is that absence. */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -96,19 +98,29 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     t('and holds every kind exactly once',
       new Set(declared).size === declared.length, declared.length);
 
-    /* THE BATCH BAR'S PICKER, which was a fourth hand-kept copy until it was
-       built from the constant. */
-    const batch = await p.evaluate(() =>
-      [...document.querySelectorAll('#batchKind option')].map((o) => o.value));
-    t('the batch picker offers historical', batch.indexOf('historical') !== -1, batch.join(','));
-    /* THE FIRST OPTION IS `Set kind`, a placeholder rather than a kind, so it is
-       dropped before the order is judged. */
-    const batchKinds = batch.filter(Boolean);
-    t('and lists them alphabetically on screen',
-      batchKinds.join(',') === batchKinds.slice().sort().join(','),
-      batchKinds.join(','));
-    /* AND IT IS NOT `other`, which is where an unknown kind used to land. */
-    t('and still offers other beside it', batch.indexOf('other') !== -1);
+    /* THE BATCH BAR HAS NO KIND PICKER (2026-09-02), so there is no third copy
+       of the list left to drift -- and what is asserted is its ABSENCE, because
+       a control coming back is a decision somebody takes rather than something
+       that arrives. Set kind, Set source, Apply and the pipe went together;
+       both columns are still editable on an opened row and on the manual form,
+       so nothing is stranded and only the batch capability is gone.
+
+       THE ASSERTION IT REPLACED WENT VACUOUS BEFORE IT WENT RED. `and lists
+       them alphabetically on screen` compared an EMPTY list against itself
+       sorted and passed, while the two beside it failed -- so a control that
+       had ceased to exist still reported one green. An emptiness check is not
+       an ordering check. */
+    const batchBits = await p.evaluate(() => ({
+      kind: !!document.getElementById('batchKind'),
+      source: !!document.getElementById('batchSource'),
+      apply: !!document.getElementById('batchApplyBtn'),
+      sep: !!document.querySelector('.batch-row .bar-sep'),
+      del: !!document.getElementById('batchDeleteBtn')
+    }));
+    t('the batch bar offers no kind, source, apply or pipe',
+      !batchBits.kind && !batchBits.source && !batchBits.apply && !batchBits.sep,
+      JSON.stringify(batchBits));
+    t('and Delete is still there', batchBits.del);
 
     /* THE ROW'S OWN PICKER, built when the row is opened. */
     await p.evaluate(() => {

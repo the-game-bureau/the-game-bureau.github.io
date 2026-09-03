@@ -428,7 +428,7 @@
            ONLY WAY THIS ROOM COULD PUT A STOP ON A MAP. That is the whole cost
            and it is not recoverable by accident: adding a stop is SQL until an
            add path is put back.
-             insert into public.maps (map_id, map_name, stop_id, stop_number)
+             insert into public.atlas (map_id, map_name, stop_id, stop_order)
              values ('some-map', 'Some Map', 4, 1);
            The trigger still adopts the map's name on the way in, so a row added
            by hand cannot give a map a second name.
@@ -512,7 +512,9 @@
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
-    const TABLE = 'maps';
+    /* THE TABLE IS `atlas` SINCE 2026090307. It was `atlases` until
+       2026-08-31, then `maps`, and is back on the room's own name. */
+    const TABLE = 'atlas';
     const RANDOM_LABEL = 'RANDOM';
 
     const state = {
@@ -540,17 +542,21 @@
     async function readError(res) {
       let text = '';
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
-      if (/maps_pkey|duplicate key/.test(text)) {
+      if (/atlas_pkey|duplicate key/.test(text)) {
         return 'That map already has a stop at that number. A map cannot have '
              + 'two stop 3s; give it the next number, or renumber the one there.';
       }
-      if (/maps_number_positive/.test(text)) return 'A stop number starts at 1.';
-      if (/maps_id_lower/.test(text)) return 'A map key must be lowercase.';
-      if (/maps_id_not_blank/.test(text)) return 'The map needs a key.';
-      if (/maps_name_not_blank/.test(text)) return 'The map needs a name.';
-      if (/maps_stop_id_fkey/.test(text)) return 'That stop is not on file any more. Reload and pick again.';
+      if (/atlas_order_positive/.test(text)) return 'A stop order starts at 1.';
+      if (/atlas_id_lower/.test(text)) return 'A map key must be lowercase.';
+      if (/atlas_id_not_blank/.test(text)) return 'The map needs a key.';
+      if (/atlas_name_not_blank/.test(text)) return 'The map needs a name.';
+      if (/atlas_placeholder_is_zero/.test(text)) {
+        return 'A row with no stop is the map itself and must be order 0.';
+      }
+      if (/atlas_stop_id_fkey/.test(text)) return 'That stop is not on file any more. Reload and pick again.';
       if (/PGRST205|does not exist/.test(text)) {
-        return 'public.maps is not there. Run mc/supabase/migrations/2026083108_maps.sql.';
+        return 'public.atlas is not there. Run mc/supabase/migrations/2026083108_atlases.sql '
+             + 'and then 2026090307_maps_becomes_atlas.sql.';
       }
       return 'The database refused it (' + res.status + '). ' + text.slice(0, 200);
     }
@@ -610,8 +616,13 @@
 
     async function loadAll() {
       const parts = await Promise.all([
-        readAll(TABLE, { select: '*', order: 'map_id.asc,stop_number.asc' }),
-        readAll('stops', { select: '*', order: 'city.asc,id.asc' }),
+        readAll(TABLE, { select: '*', order: 'map_id.asc,stop_order.asc' }),
+        /* ORDERED BY THE STOP'S OWN KEY. It was `city.asc,id.asc` until
+           2026090302 dropped the city and 2026090303 renamed `id` to
+           `stop_id` -- and an order naming a column that is gone 400s the
+           WHOLE read, so this room drew `stop <id>` on every row with nothing
+           saying why. */
+        readAll('stops', { select: '*', order: 'stop_id.asc' }),
         readAll('waypoints', { select: 'wpid,name,city,state,address', order: 'name.asc' }),
         // NOT THE TRIVIA ROWS: a stop's challenge is a thing you DO at a place,
         // and trivia carries a ladder key instead of a scope. Same filter the
@@ -635,7 +646,7 @@
       return state.challenges.filter(function (c) { return String(c.id) === String(id); })[0] || null;
     }
     function stopById(id) {
-      return state.stops.filter(function (s) { return String(s.id) === String(id); })[0] || null;
+      return state.stops.filter(function (s) { return String(s.stop_id) === String(id); })[0] || null;
     }
     // A LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
     // on the option's value and nothing else.
@@ -784,7 +795,7 @@
 
           const num = document.createElement('div');
           num.className = 'astop-num';
-          num.textContent = r.stop_number;
+          num.textContent = r.stop_order;
           line.appendChild(num);
 
           const city = document.createElement('div');
@@ -828,7 +839,7 @@
        THE KEY IS `slug(city) + '-' + slug(name)`, which is the shape the one map
        on file already had -- New Orleans + Murder Map is `new-orleans-murder-map`
        exactly -- so nothing had to be taught a new one. Lowercase and hyphenated
-       satisfies `maps_id_lower` by construction, which is what the old key field
+       satisfies `atlas_id_lower` by construction, which is what the old key field
        asked a person to remember.
        THE CITY'S STATE IS DROPPED FROM THE KEY. "New Orleans, LA" keys as
        `new-orleans`: the state is worth storing and is noise in a string people
@@ -901,7 +912,7 @@
           /* THE MAP IS A ROW WITH NO STOP, at number 0. That is what lets it
              exist before anybody has put anything on it, and a CHECK makes 0 the
              only number such a row may hold -- see 2026083114. */
-          body: JSON.stringify({ map_id: key, map_name: name, city: city, stop_id: null, stop_number: 0 })
+          body: JSON.stringify({ map_id: key, map_name: name, city: city, stop_id: null, stop_order: 0 })
         });
         if (!res.ok) throw new Error(await readError(res));
         const rows = await res.json();
@@ -936,7 +947,7 @@
         // several times over -- and the two could not disagree anyway.
         const first = map.rows[0];
         const res = await fetch(restUrl(TABLE, {
-          map_id: 'eq.' + map.id, stop_number: 'eq.' + first.stop_number
+          map_id: 'eq.' + map.id, stop_order: 'eq.' + first.stop_order
         }), {
           method: 'PATCH',
           headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
@@ -963,7 +974,7 @@
           + 'The stop itself is untouched and stays in any other map.')) return;
       try {
         const res = await fetch(restUrl(TABLE, {
-          map_id: 'eq.' + row.map_id, stop_number: 'eq.' + row.stop_number
+          map_id: 'eq.' + row.map_id, stop_order: 'eq.' + row.stop_order
         }), {
           method: 'DELETE',
           headers: authHeaders({ Prefer: 'return=representation' })
@@ -974,7 +985,7 @@
           throw new Error('The database refused the delete and said nothing. Check you are signed in.');
         }
         state.rows = state.rows.filter(function (r) {
-          return !(r.map_id === row.map_id && r.stop_number === row.stop_number);
+          return !(r.map_id === row.map_id && r.stop_order === row.stop_order);
         });
         render();
         // THE NUMBERS ARE NOT CLOSED UP, and that is deliberate: renumbering
@@ -990,7 +1001,7 @@
 
     /* `sortRows` WENT WITH THE ADD: it re-sorted the in-memory rows after one
        was pushed, and nothing pushes now. The list arrives sorted -- the read
-       asks for `map_id.asc,stop_number.asc` -- and a removal cannot disturb an
+       asks for `map_id.asc,stop_order.asc` -- and a removal cannot disturb an
        order it only takes from. */
 
     /* `paintPickers` FILLED THE TWO DATALISTS THE FORM USED, and both are

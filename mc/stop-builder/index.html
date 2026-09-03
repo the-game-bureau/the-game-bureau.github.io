@@ -386,23 +386,19 @@
     .stop-field--wp { --half-ink: var(--wp-ink); }
     .stop-field--ch { --half-ink: var(--ch-ink); }
 
-    /* ---- a stop is a city and TWO EQUAL HALVES ----------------------------
+    /* ---- a stop is TWO EQUAL HALVES --------------------------------------
        THE TWO BLOCKS ARE `1fr 1fr`, NOT `auto`, which is the whole ask: a stop
        is a waypoint AND a challenge, and a grid sized to content would make the
        one with more words look like the point of the row. Equal columns say
        they are two of the same kind of thing.
-       THE CITY LEADS ON ITS OWN LINE because it is what the pair have in
-       common: one city, two halves. Inside a column it would read as a third
-       block competing with them. */
-    /* CITY, WAYPOINT, CHALLENGE, and the delete at the end.
-       THE TWO HALVES ARE STILL `1fr 1fr` AND THAT IS STILL THE POINT: a stop is
-       a waypoint AND a challenge, and sizing them to content would make the one
-       with more words look like the point of the row. The city takes only what
-       it needs, so it cannot eat into the pair; `max-content` with a floor keeps
-       a column of them lined up without a long name wrapping. */
+       THE CITY LOST ITS OWN COLUMN ON 2026-09-03 and is the fourth line of the
+       waypoint, because that is whose fact it is: a waypoint is in exactly one
+       place, and `stops.city` was a second copy of it that could disagree --
+       and did, on one of six rows. A leading column here would be that copy
+       drawn back on. */
     .stop {
       display: grid;
-      grid-template-columns: minmax(120px, max-content) 1fr 1fr auto;
+      grid-template-columns: 1fr 1fr auto;
       align-items: start;
       gap: 8px 16px;
       padding: 10px 12px;
@@ -411,30 +407,8 @@
     }
     .stop:hover { background: var(--panel-soft); }
     .stop:focus-visible { outline: 2px solid var(--bic-blue); outline-offset: -2px; }
-    /* THE CITY LEADS THE ROW, on its own column. It sat above the pair as a
-       full-width banner until 2026-08-31; on the left it reads as the first of
-       three things you scan across, and a column of cities lines up down the
-       list, which a banner per row could not do.
-       IT KEEPS ITS OWN VOICE -- mono, uppercase, muted -- so it is plainly the
-       key the two halves hang off rather than a third block competing with
-       them. It is the only cell with no kicker above it, for the same reason. */
-    .stop-city {
-      font: 700 0.68rem/1.35 'IBM Plex Mono', monospace;
-      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
-      overflow-wrap: anywhere;
-      /* CENTRED AGAINST THE PAIR, not aligned to the top of them. The row's
-         height is set by the taller of the two halves, each of which is a name
-         over a second line, so a one-line city pinned to the top sat against
-         the kickers and read as a third heading. Centred it reads as the key
-         the pair hang off, which is what it is.
-         `align-self`, because the grid sets `align-items: start` for everything
-         else: a half must start at the top or its kicker would drift down as
-         the other half grew. */
-      align-self: center;
-    }
-    /* THE DELETE IS THE LAST COLUMN, not a passenger in the city cell, so
-       neither half carries a control the other does not and the city is free to
-       be the width of a city. */
+    /* THE DELETE IS THE LAST COLUMN, so neither half carries a control the
+       other does not. */
     .stop-del { align-self: start; }
 
     /* THE KICKER CARRIES THE COLOUR AND THE EDGE CONFIRMS IT, which is the
@@ -466,6 +440,17 @@
        the two halves coloured, an accent here would be a THIRD colour in a row
        that has just been given two, and a reader would have to learn what it
        meant. In the half's own hue it reads as that half speaking up. */
+    /* THE CITY IS THE WAYPOINT'S FOURTH LINE, and it keeps the voice it had as
+       a column of its own -- mono, uppercase, muted -- so it still reads as a
+       key rather than as a second address. Under the address, because the
+       address is the more specific of the two and this is what it is in.
+       THE CHALLENGE HALF HAS NO SUCH LINE, and that is the point: a challenge
+       is not anywhere. `half()` draws it only when it is passed one. */
+    .stop-where {
+      font: 700 0.66rem/1.35 'IBM Plex Mono', monospace;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+      display: block; margin-top: 3px; overflow-wrap: anywhere;
+    }
     .stop-name.is-random { color: var(--ch-ink); font-style: italic; }
     .stop-empty { padding: 18px 12px; color: var(--muted); }
 
@@ -537,6 +522,52 @@
     }
     .sv-value { overflow-wrap: anywhere; }
     .sv-value.is-empty { color: var(--muted); font-style: italic; }
+
+    /* ---- PLAYING THE CHALLENGE ------------------------------------------
+       The right half is a rehearsal, so it is laid out as a question and an
+       answer control rather than as a list of columns. */
+    .sv-playhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sv-playname { font-weight: 800; color: var(--ch-ink); }
+    .sv-kind {
+      font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--ch-ink); border: 1px solid rgba(var(--ch-rgb), .35);
+      border-radius: 999px; padding: 1px 7px;
+    }
+    .sv-prompt { font-size: 1.02rem; line-height: 1.45; margin-bottom: 14px; }
+    /* A FILLED VARIABLE IS MARKED, so it is obvious which words the row wrote
+       and which the stop supplied. An UNFILLED one is the red pen: that is
+       exactly what a team would see, braces and all. */
+    .sv-var { background: rgba(var(--ch-rgb), .10); border-radius: 3px; padding: 0 3px; }
+    .sv-var.is-unknown { background: rgba(160, 63, 45, .12); color: #a03f2d; }
+
+    .sv-choices { display: grid; gap: 8px; margin-bottom: 12px; }
+    .sv-choice {
+      font: inherit; text-align: left; padding: 9px 12px; cursor: pointer;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      color: var(--ink);
+    }
+    .sv-choice:hover:not(:disabled) { border-color: var(--ch-ink); }
+    .sv-choice:disabled { cursor: default; }
+    /* THE RIGHT ONE IS ALWAYS MARKED, whichever was pressed, or a wrong answer
+       tells you only that you were wrong. */
+    .sv-choice.is-right { border-color: #276740; background: rgba(39, 103, 64, .10); font-weight: 700; }
+    .sv-choice.is-wrong { border-color: #a03f2d; background: rgba(160, 63, 45, .10); }
+
+    .sv-typed { display: flex; gap: 8px; margin-bottom: 12px; }
+    .sv-answerbox {
+      font: inherit; flex: 1 1 auto; min-width: 0; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    }
+    .sv-verdict { font-weight: 800; margin: 4px 0 10px; }
+    .sv-verdict.is-right { color: #276740; }
+    .sv-verdict.is-wrong { color: #a03f2d; }
+    .sv-verdict.is-done { color: var(--ch-ink); }
+    /* SAID EVERY TIME, because a rehearsal that looks like play is one somebody
+       will assume was recorded. */
+    .sv-playfoot {
+      margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line);
+      font-size: .72rem; color: var(--muted);
+    }
     .sv-prompt { white-space: pre-wrap; }
     @media (max-width: 820px) {
       .sv-body { grid-template-columns: 1fr; }
@@ -569,12 +600,6 @@
       <fieldset class="command-bar command-bar--find" style="flex: 1 1 100%;">
         <legend>Add a stop</legend>
         <div class="command-bar-inner stop-form">
-          <label class="stop-field">
-            <span>City</span>
-            <input id="cityInput" list="cityList" autocomplete="off"
-                   placeholder="Chicago, IL"
-                   title="The cities the audiences table holds a home place for.">
-          </label>
           <div class="stop-field stop-field--wp">
             <span><label for="wpInput">Waypoint</label>
               <a class="stop-new" href="/mc/waypoints/" target="_blank" rel="noopener noreferrer"
@@ -582,7 +607,7 @@
             </span>
             <input id="wpInput" list="wpList" autocomplete="off"
                    placeholder="Type a place"
-                   title="Every waypoint we hold. Narrows to the city once one is chosen.">
+                   title="Every waypoint we hold. Each one carries its own city.">
           </div>
           <div class="stop-field stop-field--ch">
             <span><label for="chalInput">Challenge</label>
@@ -598,15 +623,14 @@
       </fieldset>
 
       <fieldset class="command-bar command-bar--find">
-        <legend>Find</legend>
+        <legend>Search</legend>
         <div class="command-bar-inner">
-          <input type="search" id="q" placeholder="Search city, place or challenge..." autocomplete="off">
+          <input type="search" id="q" placeholder="Any word on the waypoint or the challenge..." autocomplete="off">
           <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
         </div>
       </fieldset>
     </div>
 
-    <datalist id="cityList"></datalist>
     <datalist id="wpList"></datalist>
     <datalist id="chalList"></datalist>
 
@@ -650,8 +674,8 @@
     // is the code still to be written, and this column is its shape.
     const RANDOM_LABEL = 'RANDOM';
 
-    const state = { rows: [], waypoints: [], challenges: [], cities: [],
-                    q: '', authed: false, loaded: false, open: null };
+    const state = { rows: [], waypoints: [], challenges: [],
+                    q: '', authed: false, loaded: false, open: null, play: null };
 
     function el(id) { return document.getElementById(id); }
     function clean(v) { return String(v == null ? '' : v).trim(); }
@@ -674,14 +698,24 @@
     async function readError(res) {
       let text = '';
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
-      if (/stops_pkey|duplicate key/.test(text)) {
-        return 'That waypoint is already a stop in that city. One waypoint is one stop, '
-             + 'so edit the one that is there rather than adding a second.';
+      /* ONE WAYPOINT IS ONE STOP. `stops_one_per_waypoint` replaced
+         `(city, waypoint_id)` on 2026090302 -- the same rule with the redundant
+         half removed, since a waypoint is in exactly one place. */
+      if (/stops_one_per_waypoint|stops_pkey|duplicate key/.test(text)) {
+        return 'That waypoint is already a stop. One waypoint is one stop, so edit '
+             + 'the one that is there rather than adding a second.';
       }
-      if (/stops_city_not_blank/.test(text)) return 'A stop needs a city.';
       if (/stops_waypoint_id_fkey/.test(text)) return 'That waypoint is not on file any more. Reload and pick again.';
       if (/PGRST205|does not exist/.test(text)) {
         return 'public.stops is not there. Run mc/supabase/migrations/2026083103_stops_rebuilt.sql.';
+      }
+      /* A DATABASE THAT HAS NOT RUN THE DROP IS NAMED, not handed a raw 23502.
+         `city` is NOT NULL there, so every insert from this room is refused
+         until the migration is applied -- and the reason is a column this page
+         no longer knows exists. */
+      if (/\bcity\b/i.test(text)) {
+        return 'public.stops still has a city column. Run '
+             + 'mc/supabase/migrations/2026090302_a_stop_is_a_waypoint_and_a_challenge.sql.';
       }
       return 'The database refused it (' + res.status + '). ' + text.slice(0, 200);
     }
@@ -711,46 +745,34 @@
       return out;
     }
 
-    // THE CITY LIST IS THE AUDIENCES TABLE'S OWN, as asked: every city an
-    // audience is at home in, off the audience's own row. It went through
-    // `places` until 2026090120 severed every read of that catalogue from an
-    // audience; the town is text on the row now and nothing resolves it.
-    async function loadCities() {
-      /* `city` IS THE TOWN, AND THE JOIN IS GONE. It read
-         `home_place_id,places!inner(city,state)`, and 2026090119 dropped that
-         column -- **PostgREST 400s the whole request on one unknown column**,
-         so this room's city list would have come back empty with nothing
-         saying why.
-           `audiences.city` IS ALREADY THE COMPOSED STRING (`New Orleans, LA`),
-         which is exactly what this list wanted the join to build, so the room
-         does less than it did rather than more. */
-      const rows = await readAll('audiences', {
-        select: 'city', order: 'city.asc'
-      });
-      const seen = {};
-      rows.forEach(function (r) {
-        const c = r && r.city ? String(r.city).trim() : '';
-        if (c) seen[c] = true;
-      });
-      return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
-    }
-
+    /* THE AUDIENCES READ IS GONE, and it went with the field it filled. This
+       room asked `audiences` for a list of towns so the add bar could offer
+       one; a stop does not carry a town any more, so that is one fewer table
+       this room depends on. The function is kept nowhere -- a reader with no
+       caller is what makes somebody re-point it at the wrong thing. */
     async function loadAll() {
       const parts = await Promise.all([
-        // THREE FIELDS, so `select=*` is the whole row and there is no id to ask
-        // for: (city, waypoint_id) is the key, and it is what a delete filters on.
-        readAll(TABLE, { select: '*', order: 'city.asc,waypoint_id.asc' }),
+        /* THREE IDS AND NOTHING ELSE, so `select=*` is the whole row.
+           ORDERED BY WAYPOINT. It was `city.asc` until 2026090302 dropped the
+           column, and an order naming a column that is gone 400s the WHOLE
+           request -- the room would have come back empty with nothing saying
+           why. Postgres puts NULLs last on an ascending order and the
+           client-side sort after an add matches it; two orders that disagree
+           would move a row on its own the moment you added one. */
+        readAll(TABLE, { select: '*', order: 'waypoint_id.asc' }),
         readAll('waypoints', {
           select: 'wpid,name,city,state,address,zip,description,lat,lon,source_url',
           order: 'name.asc'
         }),
-        readAll('challenges', { select: 'id,name,prompt,answer,kind,scope', order: 'name.asc' }),
-        loadCities()
+        /* `choices` IS WHAT DECIDES THE ANSWER CONTROL, so the simulation cannot
+           work without it: present it draws buttons, absent it draws a box. A
+           column the page does not ask for comes back undefined and every
+           multiple choice would silently become a text box. */
+        readAll('challenges', { select: 'id,name,prompt,answer,kind,scope,choices', order: 'name.asc' })
       ]);
       state.rows = parts[0];
       state.waypoints = parts[1];
       state.challenges = parts[2];
-      state.cities = parts[3];
       state.loaded = true;
     }
 
@@ -787,31 +809,16 @@
     }
 
     /* ---- the pickers ------------------------------------------------------
-       THE WAYPOINT LIST NARROWS TO THE CHOSEN CITY, because 536 waypoints is not a
-       list anybody scrolls and the city is already known by the time you reach
-       that box. It falls back to ALL of them when the city matches nothing, so
-       a city typed by hand can still take a waypoint. */
+       EVERY WAYPOINT IS OFFERED. The list narrowed to a chosen city until
+       2026090302 and there is no city here to narrow by -- so what is lost is a
+       shorter list, and what pays for it is `wpLabel`, which carries the town
+       in the option itself: typing a city still reaches its waypoints, because
+       a datalist matches on the whole option value rather than on a prefix. */
     function paintPickers() {
-      const cityBox = el('cityList');
-      if (cityBox) {
-        cityBox.innerHTML = '';
-        state.cities.forEach(function (c) {
-          const o = document.createElement('option');
-          o.value = c;
-          cityBox.appendChild(o);
-        });
-      }
-
-      const cityField = el('cityInput');
-      const city = clean(cityField ? cityField.value : '').toLowerCase();
-      const town = city.split(',')[0].trim();
-      const near = town
-        ? state.waypoints.filter(function (w) { return clean(w.city).toLowerCase() === town; })
-        : [];
       const wpBox = el('wpList');
       if (wpBox) {
         wpBox.innerHTML = '';
-        (near.length ? near : state.waypoints).forEach(function (w) {
+        state.waypoints.forEach(function (w) {
           const o = document.createElement('option');
           o.value = wpLabel(w);
           wpBox.appendChild(o);
@@ -834,31 +841,56 @@
       }
     }
 
-    /* ---- the list --------------------------------------------------------- */
+    /* ---- the list ---------------------------------------------------------
+       THE SEARCH READS EVERY FIELD ON BOTH HALVES, and it is DERIVED from the
+       rows rather than written out: a column added to either `select` is
+       searchable without anybody remembering to add it here. It was four terms
+       by hand -- the city, the name, the address and the challenge's name --
+       so a description, a zip, a source, a prompt, an answer, a kind and a
+       scope were all on screen and none of them was findable.
+         AN ARRAY IS FLATTENED, so `choices` is searched option by option; a
+       number is read as its own text, which is what makes a wpid or a zip work.
+         `wpWhere` AND `RANDOM_LABEL` ARE APPENDED because neither is a column:
+       one is the town composed from two fields, the other is the word this room
+       draws where a null challenge is. */
+    function searchTerms(obj) {
+      const out = [];
+      if (!obj) return out;
+      Object.keys(obj).forEach(function (k) {
+        const v = obj[k];
+        if (v === null || v === undefined) return;
+        if (Array.isArray(v)) { v.forEach(function (x) { if (x != null) out.push(String(x)); }); return; }
+        if (typeof v === 'object') return;
+        out.push(String(v));
+      });
+      return out;
+    }
+
     function matches(row) {
       const q = state.q.toLowerCase();
       if (!q) return true;
       const w = wpById(row.waypoint_id);
-      const c = row.challenge_id == null ? RANDOM_LABEL : (chalById(row.challenge_id) || {}).name;
-      return [row.city, w && w.name, w && w.address, c].filter(Boolean).some(function (v) {
-        return String(v).toLowerCase().indexOf(q) !== -1;
+      const c = row.challenge_id == null ? null : chalById(row.challenge_id);
+      const terms = searchTerms(w).concat(searchTerms(c));
+      if (w) terms.push(wpWhere(w));
+      if (!c) terms.push(RANDOM_LABEL);
+      return terms.some(function (v) {
+        return v.toLowerCase().indexOf(q) !== -1;
       });
     }
 
-    // THE ROW IS IDENTIFIED BY ITS OWN `id`, NOT BY (city, waypoint_id). That
-    // pair is still the UNIQUE that stops one waypoint being two stops in a city,
-    // and it stopped being an identity the moment a waypoint could be stripped
-    // (2026083117): the filter becomes waypoint_id=eq.null, which matches
-    // nothing, so the one row you most want to fix is the one you could not
-    // remove.
-    // (city, waypoint_id) IS THE KEY, so it is also how a row is identified in
-    // the DOM and in a delete. There is no id to fall back on.
-    /* A ROW IS IDENTIFIED BY ITS OWN `id`. It was the pair, which cannot
-       identify a stop whose waypoint has been stripped -- two of those in one
-       city are both [city, null] and would be treated as the same row. */
-    function rowKey(row) { return String(row.id); }
+    /* A ROW IS IDENTIFIED BY ITS OWN `stop_id`, in the DOM and in a delete
+       alike. It was `(city, waypoint_id)`, which cannot identify a stop whose
+       waypoint has been stripped -- two of those were both `[city, null]` and
+       were treated as the same row.
+         THE KEY IS `stop_id` SINCE 2026090303, so the three columns all say
+       what they point at and `maps.stop_id` shares the name of the column it
+       references. */
+    function rowKey(row) { return String(row.stop_id); }
 
-    function half(kicker, name, sub, isRandom, which) {
+    /* `where` IS THE FOURTH LINE AND ONLY THE WAYPOINT GETS ONE. A challenge is
+       not anywhere, so passing it one would be inventing a fact. */
+    function half(kicker, name, sub, isRandom, which, where) {
       const box = document.createElement('div');
       box.className = 'stop-half stop-half--' + which;
       const k = document.createElement('span');
@@ -874,6 +906,12 @@
         s.className = 'stop-sub';
         s.textContent = sub;
         box.appendChild(s);
+      }
+      if (where) {
+        const p = document.createElement('span');
+        p.className = 'stop-where';
+        p.textContent = where;
+        box.appendChild(p);
       }
       return box;
     }
@@ -922,19 +960,17 @@
         line.setAttribute('role', 'button');
         line.title = 'Open this stop';
 
-        // THE ORDER IS THE ORDER YOU READ IT: where, then the waypoint, then what
-        // you do there, then the one control.
-        const city = document.createElement('div');
-        city.className = 'stop-city';
-        city.textContent = row.city;
-        line.appendChild(city);
-
-        // A WAYPOINT WE NO LONGER HOLD IS NAMED BY ITS ID rather than drawn
-        // blank: a blank reads as a row that failed to load.
+        /* THE ROW IS THE PAIR AND THE ONE CONTROL. A WAYPOINT WE NO LONGER HOLD
+           IS NAMED BY ITS ID rather than drawn blank: a blank reads as a row
+           that failed to load.
+           THE ADDRESS IS THE THIRD LINE AND THE CITY IS THE FOURTH, and the
+           address no longer falls back to the city -- with both drawn, a
+           waypoint with no address would have printed its town twice. */
         line.appendChild(half('Waypoint',
           w ? w.name : (row.waypoint_id === null ? 'waypoint deleted'
                                                  : 'waypoint ' + row.waypoint_id),
-          w ? (w.address || wpWhere(w)) : 'not on file any more', false, 'wp'));
+          w ? clean(w.address) : 'not on file any more', false, 'wp',
+          w ? wpWhere(w) : ''));
 
         line.appendChild(half('Challenge',
           c ? c.name : RANDOM_LABEL,
@@ -991,6 +1027,231 @@
       return wrap;
     }
 
+    /* ---- PLAYING A CHALLENGE, NOT READING ONE ---------------------------
+       The right half used to list Challenge / Kind / Scope / Prompt / Answer,
+       which hands you the answer before you have met the question. A challenge
+       that reads fine in a list can be unanswerable standing in a street, and
+       the only way to find that out is to meet it the way a team does -- which
+       is the whole argument the Trivia room already makes for its own popup.
+
+       THE ANSWER CONTROL FOLLOWS THE ROW, NEVER A SETTING, so the panel cannot
+       offer a shape the row does not have. Measured on the live table:
+       31 of 38 trivia rows carry `choices` and 7 do not; question rows never
+       do; and photo, freeform and most minigames carry NO ANSWER AT ALL, which
+       is not a gap to fill but the fact that a person judges them. */
+    const VARIABLES = {
+      away_team_geo: 'Chicago', away_team_nickname: 'Bears',
+      home_team_geo: 'Denver', home_team_nickname: 'Broncos',
+      league: 'NFL', sport: 'Football',
+      venue: 'Empower Field at Mile High', venue_city: 'Denver, Colorado',
+      waypoint: ''
+    };
+    const VAR_RE = /\{\{\s*([a-z_]+)\s*\}\}/g;
+
+    /* THE STOP KNOWS TWO OF THEM FOR REAL, which is the difference between
+       simulating here and previewing in the Challenge Bank: that room has only
+       a worked example, and this one is standing at an actual waypoint in an
+       actual city. The rest stay the worked example, because a stop knows
+       nothing about which clubs are playing. */
+    function varsFor(row, w) {
+      const v = Object.assign({}, VARIABLES);
+      if (w && clean(w.name)) v.waypoint = clean(w.name);
+      /* THE CITY COMES OFF THE WAYPOINT. It was `row.city` until 2026090302
+         dropped that column, and reading it now would leave `{{venue_city}}`
+         on the worked example's Denver in a rehearsal standing in Boston --
+         a variable that is filled, plausible and wrong, which is the one
+         shape this panel exists to catch. */
+      if (w && wpWhere(w)) v.venue_city = wpWhere(w);
+      return v;
+    }
+
+    /* AN UNKNOWN VARIABLE IS LEFT UNFILLED AND MARKED, exactly as it would be
+       at play time. Showing it resolved would hide the fault -- and a mistyped
+       token is not an error anywhere else in the system, it simply prints as
+       braces in front of a team standing in the street. */
+    function promptNode(text, vals) {
+      const box = document.createElement('div');
+      box.className = 'sv-value sv-prompt';
+      const src = clean(text);
+      let at = 0;
+      src.replace(VAR_RE, (token, key, i) => {
+        if (i > at) box.appendChild(document.createTextNode(src.slice(at, i)));
+        const filled = Object.prototype.hasOwnProperty.call(vals, key) && vals[key];
+        const span = document.createElement('span');
+        span.className = filled ? 'sv-var' : 'sv-var is-unknown';
+        span.textContent = filled ? vals[key] : token;
+        if (!filled) span.title = 'No such variable, so a team would see the braces.';
+        box.appendChild(span);
+        at = i + token.length;
+        return token;
+      });
+      if (at < src.length) box.appendChild(document.createTextNode(src.slice(at)));
+      return box;
+    }
+
+    /* CASE AND SURROUNDING SPACE ARE THE ONLY THINGS FORGIVEN, which is the
+       Trivia room's rule and the right one: forgiving more starts accepting a
+       different word. */
+    function sameAnswer(a, b) {
+      return clean(a).toLowerCase() === clean(b).toLowerCase();
+    }
+
+    function shuffled(list) {
+      const out = list.slice();
+      for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = out[i]; out[i] = out[j]; out[j] = t;
+      }
+      return out;
+    }
+
+    /* SHUFFLED ONCE PER OPEN, INTO state.shown, NEVER IN THE PAINTER. The
+       painter runs again the instant an answer is judged, so shuffling there
+       would rearrange the buttons under the pointer at exactly the moment
+       somebody is reading which one they got wrong. */
+    function paintPlay() {
+      const right = el('svChallenge');
+      right.innerHTML = '';
+      const play = state.play;
+      if (!play) return;
+      const c = play.challenge;
+
+      const head = document.createElement('div');
+      head.className = 'sv-playhead';
+      const name = document.createElement('span');
+      name.className = 'sv-playname';
+      name.textContent = c.name;
+      const kind = document.createElement('span');
+      kind.className = 'sv-kind';
+      kind.textContent = clean(c.kind);
+      head.appendChild(name); head.appendChild(kind);
+      right.appendChild(head);
+
+      right.appendChild(promptNode(c.prompt, play.vars));
+
+      const answered = play.verdict !== '';
+      const opts = play.shown;
+      const hasAnswer = !!clean(c.answer);
+
+      if (opts && opts.length) {
+        const list = document.createElement('div');
+        list.className = 'sv-choices';
+        opts.forEach((opt) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'sv-choice';
+          b.textContent = opt;
+          if (answered) {
+            /* JUDGED BY VALUE, NEVER BY INDEX, which is what lets the shown
+               order differ from the row's own array safely. */
+            if (sameAnswer(opt, c.answer)) b.classList.add('is-right');
+            else if (sameAnswer(opt, play.given)) b.classList.add('is-wrong');
+            b.disabled = true;
+          } else {
+            b.addEventListener('click', () => {
+              play.given = opt;
+              play.verdict = sameAnswer(opt, c.answer) ? 'right' : 'wrong';
+              paintPlay();
+            });
+          }
+          list.appendChild(b);
+        });
+        right.appendChild(list);
+      } else if (hasAnswer) {
+        const row2 = document.createElement('div');
+        row2.className = 'sv-typed';
+        const box = document.createElement('input');
+        box.type = 'text';
+        box.className = 'sv-answerbox';
+        box.placeholder = clean(c.kind) === 'consent' ? 'Type AGREE' : 'Type the answer';
+        box.value = play.given;
+        box.disabled = answered;
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'btn small';
+        go.textContent = 'Check';
+        go.disabled = answered;
+        const judge = () => {
+          play.given = box.value;
+          if (!clean(play.given)) return;
+          play.verdict = sameAnswer(play.given, c.answer) ? 'right' : 'wrong';
+          paintPlay();
+        };
+        go.addEventListener('click', judge);
+        box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); judge(); } });
+        row2.appendChild(box); row2.appendChild(go);
+        right.appendChild(row2);
+        if (!answered) setTimeout(() => { try { box.focus(); } catch (e) { /* not focusable yet */ } }, 0);
+      } else {
+        /* NO ANSWER IS NOT A GAP. A photo, a freeform reply and most minigames
+           are judged by the team that did them, so there is nothing to check
+           against and inventing a box would be inventing a rule. */
+        const note = document.createElement('div');
+        note.className = 'sv-value is-empty';
+        note.textContent = 'This one is judged by the team that did it. There is no '
+          + 'stored answer to check against.';
+        right.appendChild(note);
+        if (!answered) {
+          const done = document.createElement('button');
+          done.type = 'button';
+          done.className = 'btn small';
+          done.textContent = 'Mark as done';
+          done.addEventListener('click', () => { play.verdict = 'done'; paintPlay(); });
+          right.appendChild(done);
+        }
+      }
+
+      if (answered) {
+        const said = document.createElement('div');
+        said.className = 'sv-verdict is-' + play.verdict;
+        said.textContent = play.verdict === 'right' ? 'Right.'
+          : play.verdict === 'wrong' ? 'Wrong.' : 'Done.';
+        right.appendChild(said);
+        /* THE ANSWER IS SHOWN ONLY AFTER IT HAS BEEN MET. Up front it makes the
+           panel a listing again. */
+        if (hasAnswer) field(right, 'Answer', clean(c.answer));
+        const again = document.createElement('button');
+        again.type = 'button';
+        again.className = 'btn small';
+        again.textContent = 'Play again';
+        again.addEventListener('click', () => { startPlay(state.open); });
+        right.appendChild(again);
+      }
+
+      /* NOTHING IS RECORDED, AND THE PANEL SAYS SO. `game_responses` is
+         append-only and is written by the ENGINE at play time; a rehearsal in
+         an admin room must not land in it. */
+      const foot = document.createElement('div');
+      foot.className = 'sv-playfoot';
+      foot.textContent = 'A rehearsal. Nothing is recorded.';
+      right.appendChild(foot);
+    }
+
+    function startPlay(row) {
+      const c = row && row.challenge_id != null ? chalById(row.challenge_id) : null;
+      const right = el('svChallenge');
+      right.innerHTML = '';
+      if (!c) {
+        state.play = null;
+        field(right, 'Challenge', RANDOM_LABEL);
+        const note = document.createElement('div');
+        note.className = 'sv-value is-empty';
+        note.textContent = 'No challenge is fixed on this stop, so there is nothing to '
+          + 'play: it takes whatever fits at play time, and nothing picks one yet.';
+        right.appendChild(note);
+        return;
+      }
+      const opts = Array.isArray(c.choices) ? c.choices.filter((x) => clean(x)) : [];
+      state.play = {
+        challenge: c,
+        vars: varsFor(row, wpById(row.waypoint_id)),
+        shown: opts.length ? shuffled(opts) : null,
+        given: '',
+        verdict: ''
+      };
+      paintPlay();
+    }
+
     function openStop(row) {
       const w = wpById(row.waypoint_id);
       const c = row.challenge_id == null ? null : chalById(row.challenge_id);
@@ -1002,7 +1263,10 @@
       el('svTitle').textContent = w ? w.name
         : (row.waypoint_id === null ? 'Waypoint deleted, this stop needs a new waypoint'
                                     : 'Waypoint ' + row.waypoint_id);
-      el('svCity').textContent = row.city;
+      /* THE HEAD SAYS WHERE, off the waypoint. A stop no longer carries a town
+         of its own, and this line is the only place in the popup that says one
+         before you reach the address. */
+      el('svCity').textContent = w ? wpWhere(w) : '';
 
       // ---- left: the waypoint ----
       const left = el('svWaypoint');
@@ -1042,23 +1306,8 @@
         }
       }
 
-      // ---- right: the challenge ----
-      const right = el('svChallenge');
-      right.innerHTML = '';
-      if (!c) {
-        field(right, 'Challenge', RANDOM_LABEL);
-        const note = document.createElement('div');
-        note.className = 'sv-value is-empty';
-        note.textContent = 'No challenge is fixed on this stop, so it takes whatever '
-          + 'fits at play time. Nothing picks one yet.';
-        right.appendChild(note);
-      } else {
-        field(right, 'Challenge', c.name);
-        field(right, 'Kind', clean(c.kind));
-        field(right, 'Scope', clean(c.scope));
-        field(right, 'Prompt', clean(c.prompt), true);
-        field(right, 'Answer', clean(c.answer));
-      }
+      // ---- right: play the challenge ----
+      startPlay(row);
 
       el('svBackdrop').hidden = false;
       el('svClose').focus();
@@ -1073,6 +1322,7 @@
       // the same about a hidden Spotify embed, which kept playing.
       el('svWaypoint').innerHTML = '';
       el('svChallenge').innerHTML = '';
+      state.play = null;
       state.open = null;
     }
 
@@ -1081,20 +1331,13 @@
        EMPTY ARRAY when RLS refuses, so without reading the row back a refused
        write reports success and the page shows a stop the table never took. */
     async function addStop() {
-      const cityField = el('cityInput');
       const wpField = el('wpInput');
       const chalField = el('chalInput');
-      const city = clean(cityField.value);
       const wpText = clean(wpField.value);
       const chalText = clean(chalField.value);
 
-      [cityField, wpField, chalField].forEach(function (f) { f.removeAttribute('data-invalid'); });
+      [wpField, chalField].forEach(function (f) { f.removeAttribute('data-invalid'); });
 
-      if (!city) {
-        cityField.setAttribute('data-invalid', 'true');
-        say('A stop needs a city. Pick one from the list.', 'error');
-        return;
-      }
       const wp = wpFromLabel(wpText);
       if (!wp) {
         wpField.setAttribute('data-invalid', 'true');
@@ -1117,8 +1360,10 @@
         const res = await fetch(restUrl(TABLE), {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          /* THREE IDS, AND THE ROW'S OWN IS THE DATABASE'S TO ASSIGN. `city`
+             went on 2026090302: sending it now would be refused as an unknown
+             column and the whole insert would fail. */
           body: JSON.stringify({
-            city: city,
             waypoint_id: wp.wpid,
             challenge_id: chal === 'random' ? null : chal.id
           })
@@ -1129,13 +1374,20 @@
           throw new Error('The database refused the write and said nothing. Check you are signed in.');
         }
         state.rows.push(rows[0]);
+        /* SORTED THE WAY THE SERVER SENT THEM: waypoint id ascending, NULLS
+           LAST, which is what Postgres does on an ascending order. A bare
+           subtraction is NaN against a null and leaves the new row wherever it
+           landed, so the list would disagree with itself until a reload. */
         state.rows.sort(function (a, b) {
-          return a.city.localeCompare(b.city) || (a.waypoint_id - b.waypoint_id);
+          if (a.waypoint_id == null && b.waypoint_id == null) return 0;
+          if (a.waypoint_id == null) return 1;
+          if (b.waypoint_id == null) return -1;
+          return a.waypoint_id - b.waypoint_id;
         });
         wpField.value = '';
         chalField.value = '';
         render();
-        say('Added ' + wp.name + ' in ' + city + '.', 'success');
+        say('Added ' + wp.name + (wpWhere(wp) ? ' in ' + wpWhere(wp) : '') + '.', 'success');
       } catch (err) {
         say(err.message, 'error');
       }
@@ -1144,18 +1396,16 @@
     async function removeStop(row) {
       const w = wpById(row.waypoint_id);
       const name = w ? w.name : 'this stop';
-      if (!window.confirm('Delete ' + name + ' in ' + row.city + '? '
+      const where = w ? wpWhere(w) : '';
+      if (!window.confirm('Delete ' + name + (where ? ' in ' + where : '') + '? '
           + 'The waypoint and the challenge are untouched; only the stop goes.')) return;
       try {
-        /* FILTERED ON THE ROW'S OWN id. It was the pair (city, waypoint_id),
-           which was the key when this room was built and stopped being an
-           identity the moment a waypoint could be stripped (2026083117): the
-           filter becomes `waypoint_id=eq.null`, PostgREST matches nothing, and
-           the delete reports that the database refused it. The row you most
-           want to fix would be the one row you could not remove.
-             THE PAIR IS STILL THE UNIQUE that stops one waypoint being two stops
-           in a city. It is simply not how a row is addressed. */
-        const res = await fetch(restUrl(TABLE, { id: 'eq.' + row.id }), {
+        /* FILTERED ON THE ROW'S OWN `stop_id`, which is now the only thing that
+           could address it: `waypoint_id` is the unique, and it is NULLABLE, so
+           two stripped stops are both `waypoint_id=eq.null` -- a filter that
+           matches nothing and reports as the database refusing the delete. The
+           row you most want to fix would be the one you could not remove. */
+        const res = await fetch(restUrl(TABLE, { stop_id: 'eq.' + row.stop_id }), {
           method: 'DELETE',
           headers: authHeaders({ Prefer: 'return=representation' })
         });
@@ -1185,7 +1435,6 @@
     }
 
     on('addBtn', 'click', addStop);
-    on('cityInput', 'input', paintPickers);
     on('q', 'input', function () { state.q = clean(el('q').value); render(); });
     on('clearBtn', 'click', function () { el('q').value = ''; state.q = ''; render(); });
     on('svClose', 'click', closeStop);

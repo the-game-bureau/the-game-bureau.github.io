@@ -9,7 +9,15 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-[['the schema map', 'map_id: true,'],
+/* `games.map_id` WAS DROPPED (2026-09-02), so the schema map now has it FALSE
+   -- which is what keeps a column the table lacks out of the select and out of
+   the PATCH. The other five wiring points are left asserted deliberately: they
+   are what a restored column would come back through, and losing them would
+   turn a one-line migration into a re-wiring job.
+     SO THE MAP BAR READS AND CANNOT SAVE. It is the one bar in that state, and
+   it is the next thing to settle: the direction is that games holds IDs and
+   pulls from other tables, which is precisely what map_id was. */
+[['the schema map gates the dropped column off', 'map_id: false,'],
  ['normalizeGameRow', 'map_id:              row && row.map_id'],
  ['initGameMeta, snake ?? camel ?? node', 'mapId:              g.map_id ?? g.mapId ?? gn.mapId'],
  ['the column-to-node map', "map_id: 'mapId'"],
@@ -18,7 +26,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
 ].forEach(([n, p]) => t('wired: ' + n, s.indexOf(p) !== -1));
 
 t('the write sends null, never an empty string', s.indexOf('_meta.mapId || null') !== -1);
-t('the loader reads the maps table', /select: 'map_id,map_name,stop_number'/.test(s));
+t('the loader reads the maps table', /select: 'map_id,map_name,stop_order'/.test(s));
 t('and groups the rows, since the id repeats per stop', /by\.set\(r\.map_id/.test(s));
 t('a typed value is resolved back to an id', /function mapFromTyped/.test(s));
 t('a bare key resolves too', /byId \? byId\.id : null/.test(s));

@@ -28,13 +28,23 @@ const bars = [...d.querySelectorAll('fieldset.game-id-bar')];
    the logo, and last the price and the engine. */
 /* FIFTEEN. The AUDIENCES bar came back on 2026-09-02, second, over
    `games.target` and `games.rival`. */
-t('fifteen bars', bars.length === 15, bars.length);
+const LEGEND_ORDER = ('Game | Anchor Event | Game Date | Audiences | Game City | Map | '
+  + 'Tagline | Game | Price | Engine | Default Emoji | Category Icon | '
+  + 'Guide | Logo | Tags').split(' | ');
+
+/* THE COUNT IS THE ORDER LIST'S, NOT A LITERAL. It was a hard number written
+   out twice -- the word and the comparison -- so adding GAME DATE failed this
+   twice while the page was perfectly correct. There is one number now, and it
+   is the same list the order assertion below reads. */
+t('one bar per field, and no more', bars.length === LEGEND_ORDER.length,
+  bars.length + ' vs ' + LEGEND_ORDER.length);
 /* THE ORDER IS THE ARGUMENT: why they are in town, who the game is for, where
    they walk, which walk, then what the game IS, how it is tagged, and whether
    it is on sale. */
+
 t('the legends read in the order the work runs',
   bars.map((b) => b.querySelector('legend').textContent).join(' | ')
-    === 'Anchor Event | Audiences | Game City | Map | Game Name | Tagline | Game ID | Game | Price | Engine | Default Emoji | Category Icon | Guide | Logo | Tags',
+    === LEGEND_ORDER.join(' | '),
   bars.map((b) => b.querySelector('legend').textContent).join(' | '));
 
 /* ---- EACH ON ITS OWN LINE ------------------------------------------------
@@ -48,21 +58,30 @@ t('the row wrapper is gone', d.querySelectorAll('.gid-row').length === 0,
 t('and so did its CSS', css.indexOf('.gid-row') === -1);
 t('every bar is a direct child of the page, in order',
   bars.map((b) => b.id).join(',')
-    === 'anchorBar,audienceBar,cityBar,mapBar,gameNameBar,taglineBar,gameIdBar,gameIdentityBar,priceBar,engineBar,emojiBar,categoryIconBar,guideBar,logoBar,tagsBar',
+    === 'gameNameBar,anchorBar,tgbDateBar,audienceBar,cityBar,mapBar,taglineBar,gameIdentityBar,priceBar,engineBar,emojiBar,categoryIconBar,guideBar,logoBar,tagsBar',
   bars.map((b) => b.id).join(','));
 
 /* ---- the anchor is the event, and there is no audience bar --------------- */
+/* BY ID, NOT BY POSITION (2026-09-02). These two assertions indexed the bar
+   list by number, so moving GAME NAME to the front of the page silently pointed
+   them at the name bar and the anchor bar. They failed, which was lucky: a
+   shift of one bar further along would have had them checking the wrong box and
+   PASSING. This suite already finds its cards by heading for the same reason. */
+const barById = (id) => { const b = d.getElementById(id); if (!b) throw new Error('no ' + id); return b; };
+const anchorBox = barById('anchorBar');
+const audienceBox = barById('audienceBar');
+
 t('the anchor box holds the event and nothing else',
-  bars[0].querySelectorAll('.gid-field').length === 1 && !!bars[0].querySelector('#anchorEventInput'));
+  anchorBox.querySelectorAll('.gid-field').length === 1 && !!anchorBox.querySelector('#anchorEventInput'));
 /* THE AUDIENCES BAR: TWO BOXES, TARGET FIRST, EACH OVER A COLUMN OF THE SAME
    NAME. `target` -> games.target, `rival` -> games.rival. The three names
    matching is the point: the pair spent a day as a box called `target` over a
    column called `target_audience_id`, and the slot map was then the only thing
    tying them together. */
 t('the audience box holds both boxes, target first',
-  [...bars[1].querySelectorAll('.gid-field')].map((f) => f.id).join(',')
+  [...audienceBox.querySelectorAll('.gid-field')].map((f) => f.id).join(',')
     === 'targetField,rivalField',
-  [...bars[1].querySelectorAll('.gid-field')].map((f) => f.id).join(','));
+  [...audienceBox.querySelectorAll('.gid-field')].map((f) => f.id).join(','));
 t('as plain text boxes, not pickers',
   !!d.getElementById('target') && !!d.getElementById('rival')
   && !d.getElementById('target').hasAttribute('list')
@@ -72,9 +91,9 @@ t('as plain text boxes, not pickers',
    under a legend, so a label there would be the box named twice; this box holds
    TWO fields and one legend cannot name either. */
 t('and each carries its own label',
-  [...bars[1].querySelectorAll('.gid-label')].map((l) => l.textContent).join('/')
+  [...audienceBox.querySelectorAll('.gid-label')].map((l) => l.textContent).join('/')
     === 'Target/Rival',
-  [...bars[1].querySelectorAll('.gid-label')].map((l) => l.textContent).join('/'));
+  [...audienceBox.querySelectorAll('.gid-label')].map((l) => l.textContent).join('/'));
 t('and its CSS is back',
   css.indexOf('gid-field--audience') !== -1
   && css.indexOf('game-id-bar-inner--audience') !== -1);
@@ -88,23 +107,38 @@ t('the words are gone from what a reader sees',
   noComments.indexOf("Away Team (Fan's Team)") === -1);
 t('no dead selector is left for the section', s.indexOf('#detailsTeamsSection') === -1);
 t('the dead team select binder is gone', !/function bindTeamSelect/.test(s));
-/* THE PREFILL STILL WRITES THE LEGACY FIELDS; only the control went.
+/* THE PREFILL NO LONGER COPIES THE CLUBS (2026-09-02), and this assertion
+   inverted with the contract. It used to require that picking an event wrote
+   both cities through `legacyTeamCityFromEvent` and both mascots straight off
+   the event -- the fix for a bare city being refused by
+   `games_away_team_city_format_check`.
+     ALL SEVEN OF THOSE COLUMNS WERE DROPPED FROM public.games, the CHECK with
+   them, so there is nothing left to satisfy and the helper is deleted. The game
+   holds the event's ID and the clubs are read THROUGH it, which is the direction
+   the table is being moved in: ids that pull from other tables rather than
+   copies that drift.
+     SO IT ASSERTS THE ABSENCE. A prefill that starts writing a club column again
+   is a regression to duplicating what the anchor event already holds. */
+/* SCOPED TO THE PREFILL, NOT THE FILE. Those meta field names still exist in
+   `normalizeGameRow`, `initGameMeta`, the column map and the node inspector --
+   a whole-file search matches all of them and reports a clean prefill as dirty.
+   The claim is about ONE function. */
+const PREFILL = (() => {
+  const a = noComments.indexOf('function applyAnchorEventSelection');
+  if (a === -1) return '';
+  const b = noComments.indexOf('function ', a + 40);
+  return noComments.slice(a, b === -1 ? undefined : b);
+})();
+t('the prefill was found at all', PREFILL.length > 60 && PREFILL.length < 4000, PREFILL.length);
+t('the anchor prefill copies no club onto the game',
+  ['awayTeamCity', 'homeTeamCity', 'awayTeamMascot', 'homeTeamMascot',
+   'legacyTeamCityFromEvent', 'fandomGame']
+    .every((x) => PREFILL.indexOf(x) === -1));
 
-   THIS MATCHED AN EXACT SOURCE LINE AND WAS WRONG TO. `awayTeamCity =
-   ev.away_team_geo` wrote a BARE CITY, which `games_away_team_city_format_check`
-   refuses -- so the whole save was rejected and no game could carry an anchor.
-   The fix routes both sides through `legacyTeamCityFromEvent`, and this
-   assertion failed on it while the behaviour it protects was intact.
-
-   SO IT ASKS FOR THE BEHAVIOUR: both cities go through the canonical helper,
-   and both mascots still come straight off the event. */
-t('an anchor event still fills the legacy team fields',
-  noComments.indexOf("legacyTeamCityFromEvent(ev, 'away')") !== -1
-  && noComments.indexOf("legacyTeamCityFromEvent(ev, 'home')") !== -1
-  && noComments.indexOf('awayTeamCity = awayCity') !== -1
-  && noComments.indexOf('homeTeamCity = homeCity') !== -1
-  && noComments.indexOf('awayTeamMascot = ev.away_team_nickname') !== -1
-  && noComments.indexOf('homeTeamMascot = ev.home_team_nickname') !== -1);
+/* AND IT STILL FILLS THE CITY, which is the one thing it does copy: games.city
+   exists, it is what a game is sold as being in, and a person edits it after. */
+t('but it still fills the city from the event',
+  noComments.indexOf('fillCityFromEvent(ev)') !== -1);
 
 const all = [...s.matchAll(/id="([\w-]+)"/g)].map((x) => x[1]);
 t('no repeated ids', all.filter((v, i) => all.indexOf(v) !== i).length === 0);
@@ -179,18 +213,88 @@ t('and it is the intro',
    assertions above. */
 t('and holds no second row',
   !_bar.querySelectorAll('.game-id-bar-inner')[1]);
-/* THE GAME ID TOOK A BOX OF ITS OWN (2026-08-31). It is the row's permanent
-   key -- six tables reference it -- which is why it was kept in the drawer for
-   a day, and why it is worth reading rather than buried.
+/* THE GAME ID SHARES THE NAME'S ROW (2026-09-02). It had a box of its own from
+   2026-08-31 until then, two places further down; name and id are the pair that
+   answers "which game is this", so they read together.
 
    THE ONE THING THIS HAS ALWAYS PROTECTED is that there is exactly ONE of it:
-   a second box writing `id` would be the duplication this repo keeps removing,
-   on the one column nothing downstream could recover from. */
-t('the Game ID is in a box of its own',
-  !!d.getElementById('gameIdBar')
-  && !!d.getElementById('selectionIdInput')
-  && !_bar.contains(d.getElementById('selectionIdInput'))
-  && d.querySelectorAll('#selectionIdInput').length === 1);
+   a second control writing `id` would be the duplication this repo keeps
+   removing, on the one column nothing downstream could recover from. That is
+   what the count asserts, and it survives the move. */
+/* IT READS AS UNDERLINED TEXT, NOT A BOX (2026-09-02). Asserted from the
+   STYLESHEET rather than a computed value, because this suite is jsdom and
+   jsdom does not resolve a var() -- `border-bottom-color:var(--bic-blue)` comes
+   back as that literal string, so a computed check would pass against a broken
+   rule and fail against a correct one. This project already records that
+   limitation for the Events room's hairline and the pin's ink.
+     WHAT IT PROTECTS: the id is the box's own title, read far more often than
+   it is changed, so a bordered field on the folder tab reads as a form control
+   stuck to the frame. The line under it is the whole affordance. */
+const idCss = (() => {
+  const i = s.indexOf('#selectionIdInput{');
+  return i === -1 ? '' : s.slice(i, s.indexOf('}', i));
+})();
+t('the Game ID is drawn as plain text, with no line at rest',
+  /border:\s*0/.test(idCss) && /border-bottom:\s*1px solid transparent/.test(idCss)
+  && /background:\s*transparent/.test(idCss) && /border-radius:\s*0/.test(idCss),
+  idCss.replace(/\s+/g, ' ').slice(0, 120));
+/* AND NOTHING ON FOCUS EITHER. Two things drew there and only one was a
+   border: the shared `.game-id-bar input:focus` rule puts a 3px box-shadow ring
+   around the control, which is what read as a rectangle. Both are off, so the
+   caret is the only indication -- asserted so a future focus style has to be a
+   decision rather than something inherited back from the shared rule. */
+t('and nothing is drawn on focus, ring included',
+  /#selectionIdInput:focus[\s\S]{0,240}box-shadow:none/.test(s)
+  && /#selectionIdInput:focus[\s\S]{0,240}border-bottom-color:transparent/.test(s));
+/* AND IT IS STILL AN INPUT. Underlined TEXT that cannot be typed into would be
+   the affordance lying; the rename flow reads this element's value on blur. */
+/* THE UNDERLINE HUGS THE TEXT, AND ONE WRITER IS WHAT KEEPS IT THERE.
+   Setting `.value` fires no `input` event, so a write that skips the sizer
+   leaves the line the width of whatever was there before -- 61px of rule
+   hanging off an 11-character key after Escape, which is what a fixed-width
+   input looked like at 224px.
+     SIX PLACES SET THIS VALUE: the paint, Escape, and four restore paths in the
+   rename. This asserts there is exactly ONE direct assignment left -- the one
+   inside `setGameIdValue` -- so the seventh cannot be added without failing. */
+t('exactly one place writes the Game ID value',
+  (noComments.match(/selectionIdInput\.value\s*=/g) || []).length === 1,
+  (noComments.match(/selectionIdInput\.value\s*=/g) || []).length);
+t('and it sizes the box to what it wrote',
+  /function setGameIdValue[\s\S]{0,220}sizeGameIdInput\(\)/.test(noComments));
+/* WIDTH FROM `size`, NOT FROM A FIXED FLEX BASIS. `0 0 14rem` is what drew the
+   long line in the first place. */
+t('the Game ID box is sized by its content',
+  /flex:0 0 auto/.test(idCss) && /width:auto/.test(idCss),
+  idCss.replace(/\s+/g, ' ').slice(0, 90));
+
+t('and is still an input, so it is still editable',
+  d.getElementById('selectionIdInput').tagName === 'INPUT');
+
+/* A NEW GAME IS NOT ASKED FOR AN ID (2026-09-02). `saveDoc` used to open a
+   window.prompt whose default was a composed id the page had already checked,
+   so the common answer was Enter. It mints one instead.
+     WHAT IS ASSERTED IS THE SHAPE THAT MADE THAT SAFE: the save path names
+   `mintNewGameId` and not the prompt, and minting still clears the id against
+   both the loaded games and Supabase -- two admins composing from one fixture
+   would otherwise mint the same key. The DUPLICATE paths still prompt and are
+   meant to. */
+t('a new game mints its id rather than asking for one',
+  /if \(!state\.currentGameId\)[\s\S]{0,120}mintNewGameId\(\)/.test(noComments)
+  && !/promptForNewGameId\(\{ purpose: 'create'/.test(noComments));
+t('and minting still clears it against the catalogue and Supabase',
+  /function mintNewGameId[\s\S]{0,900}freeGameId/.test(noComments)
+  && /function mintNewGameId[\s\S]{0,900}fetchGameRowFromSupabase/.test(noComments));
+/* THE OLD GATE WAS `hasGameNode()`, which asks about the flow DOCUMENT -- and
+   no game has a node since the graph views were dropped, so a new game would
+   have fallen past it with no id at all. An id belongs to the ROW. */
+t('gated on the row, not on the flow document',
+  !/if \(!state\.currentGameId && hasGameNode\(\)\)/.test(noComments));
+
+t('the Game ID sits with the name, and there is exactly one of it',
+  !!d.getElementById('selectionIdInput')
+  && d.getElementById('gameNameBar').contains(d.getElementById('selectionIdInput'))
+  && d.querySelectorAll('#selectionIdInput').length === 1
+  && !d.getElementById('gameIdBar'));
 /* AND SO ARE THE OTHER FOUR, each exactly once. */
 t('name, tagline, emoji and icon are each in one box, once',
   d.querySelectorAll('#nodeTitleInput').length === 1
@@ -387,5 +491,39 @@ t('but the columns are still written',
 t('and its CSS went with it', css.indexOf('detailsTeamNamesSection') === -1);
 
 
+
+console.log('');
+/* ---- THE EMPTY INSPECTOR DRAWER (2026-09-03) -----------------------------
+   `#inspector` paints a background, a 1px border, a 16px radius and a drop
+   shadow, so it drew a grey pill under the tags bar whether or not anything
+   was inside it -- and nothing was. Every field it held moved out into the bars
+   between 2026-08-31 and 2026-09-02, and the only thing left holding it open
+   was an empty `.inspector-actions--footer` div that no JS has ever filled. */
+t('the empty inspector-actions footer is gone',
+  !d.querySelector('.inspector-actions--footer'));
+t('and its CSS went with it', css.indexOf('inspector-actions--footer') === -1);
+
+/* THE TWO DETAILS SECTIONS STAY, AND THIS IS THE ASSERTION THAT MATTERS.
+   `refreshSelectionUi` writes `stopNameField.hidden` and three more
+   unconditionally, so deleting the markup makes them null, the assignment
+   throws, and the throw takes the auth call with it -- a blank page. */
+t('the two details sections are still in the markup',
+  !!d.getElementById('detailsBrandSection') && !!d.getElementById('detailsLogicSection'));
+t('and the four node fields they guard are still there',
+  ['stopNameField', 'varNameField', 'varValuesField', 'ifThenField']
+    .every((id) => !!d.getElementById(id)));
+
+/* THE TEST IS "IS ANYTHING VISIBLE IN IT", NOT "IS THIS THE GAMES PAGE", so
+   the drawer comes back by itself the day something in it is shown again. */
+t('an empty drawer hides itself',
+  /function inspectorHasVisibleContent/.test(noComments)
+  && /function syncInspectorEmptiness/.test(noComments));
+/* AND IT RUNS AFTER THE SECTIONS HAVE DECIDED, never before: it reads what
+   they left behind. */
+t('and it runs after the sections have decided',
+  noComments.indexOf('syncDetailsSectionVisibility();') <
+  noComments.indexOf('syncInspectorEmptiness();'));
+
+console.log('');
 console.log(ok + ' ok, ' + bad + ' FAIL');
 process.exit(bad ? 1 : 0);

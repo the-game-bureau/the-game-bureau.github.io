@@ -31,12 +31,14 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* SEVEN. The AUDIENCES bar came back on 2026-09-02, second. */
-const ORDER = ['anchorBar', 'audienceBar', 'cityBar', 'mapBar',
+/* SEVEN. The AUDIENCES bar came back on 2026-09-02, and the NAME moved to the
+   front of the page the same day -- it sat fifth, so the first four things you
+   answered were about a game you had not named yet. */
+const ORDER = ['gameNameBar', 'anchorBar', 'tgbDateBar', 'audienceBar', 'cityBar', 'mapBar',
                'gameIdentityBar', 'guideBar', 'tagsBar'];
 const bars = ORDER.map((id) => doc.getElementById(id)).filter(Boolean);
 if (bars.length !== ORDER.length) {
-  console.log('  FAIL could not lift all seven bars   got: ' + bars.length);
+  console.log('  FAIL could not lift every bar   got: ' + bars.length);
   process.exit(1);
 }
 
@@ -159,11 +161,15 @@ async function realPage(browser) {
     const m = await read(p);
 
     /* THE BARS ARE THE PAGE'S STRUCTURE and line up down the left edge. */
-    /* SEVEN SINCE 2026-08-31. Status LEFT for the nav row, being the one
-       DECISION on the page rather than a fact about the game; GUIDE ARRIVED
-       from the inspector drawer, being part of what the game IS. */
-    t('seven bars, each on its own line, all the same width',
-      m.bars.length === 7
+    /* THE COUNT IS ORDER'S, NOT A LITERAL (2026-09-02). It was a hard 7, so
+       adding GAME NAME to the list above failed this assertion while the page
+       was perfectly correct -- two places holding one number, kept in step by
+       hand. Now there is one.
+         Status LEFT for the nav row on 2026-08-31, being the one DECISION on
+       the page rather than a fact about the game; GUIDE ARRIVED from the
+       inspector drawer, being part of what the game IS. */
+    t('every bar on its own line, all the same width',
+      m.bars.length === ORDER.length
       && m.bars.every((b) => b.x === m.bars[0].x && b.w === m.bars[0].w),
       m.bars.map((b) => b.id + ' x' + b.x + ' w' + b.w).join('  '));
     t('and in the order the work runs in',
@@ -267,6 +273,68 @@ async function realPage(browser) {
          fault that was reported. */
       t('and that column is the shell measure, not the window',
         col.bar.w <= 1180, col.bar.w);
+
+      /* NOTHING EMPTY PAINTS BELOW THE LAST BAR.
+         The inspector drawer drew a 1180x25 grey pill under the tags bar with
+         nothing in it. Only a browser can say so: the markup was correct at
+         every stage, and what made it visible was `#inspector` carrying its own
+         background, border, radius and shadow while every child was hidden. */
+      const tail = await real.evaluate(() => {
+        const bars = [...document.querySelectorAll('.game-id-bar')]
+          .filter((b) => b.getBoundingClientRect().height > 4);
+        const last = bars[bars.length - 1];
+        if (!last) return { noBars: true };
+        const floor = last.getBoundingClientRect().bottom + window.scrollY;
+        const junk = [];
+        document.querySelectorAll('main *').forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.height < 4 || r.width < 60) return;
+          if (r.top + window.scrollY < floor + 2) return;
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return;
+          const paints = cs.borderTopWidth !== '0px'
+            || (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)')
+            || (cs.boxShadow && cs.boxShadow !== 'none');
+          if (!paints) return;
+          if ((el.textContent || '').replace(/[\s\u00a0]+/g, '')) return;
+          junk.push((el.tagName + (el.id ? '#' + el.id : '')).toLowerCase()
+            + ' ' + Math.round(r.width) + 'x' + Math.round(r.height));
+        });
+        return { junk: junk };
+      });
+      t('nothing empty paints below the last bar',
+        !tail.noBars && tail.junk.length === 0, tail.junk);
+
+      /* THE CHROME SITS ON THE COLUMN TOO.
+         The nav bar and the gears watermark are both positioned by the SHARED
+         `admin-site-nav.js`, against `.admin-site-nav-host`. On every other mc
+         room that host IS the content column; on this page it is a full-width
+         `main`, so both landed at the screen edge -- the brand at x=24 with the
+         links flung out to x=2103, and the gears a thousand pixels left of
+         anything. Only a real browser at a wide viewport can see it. */
+      await real.setViewport({ width: 2200, height: 900 });
+      await new Promise((r) => setTimeout(r, 900));
+      const chrome = await real.evaluate(() => {
+        const x = (sel) => { const n = document.querySelector(sel);
+          return n ? Math.round(n.getBoundingClientRect().x) : null; };
+        const r = (sel) => { const n = document.querySelector(sel);
+          return n ? Math.round(n.getBoundingClientRect().right) : null; };
+        return { brand: x('.asn-brand'), head: x('.room-head'),
+                 links: r('.asn-links'), headEnd: r('.room-head'),
+                 gear: x('.asn-page-gear'),
+                 wide: document.documentElement.scrollWidth > window.innerWidth };
+      });
+      t('the nav brand starts on the content column',
+        chrome.brand !== null && chrome.brand === chrome.head, chrome);
+      t('and the nav links end with it',
+        chrome.links !== null && Math.abs(chrome.links - chrome.headEnd) <= 60, chrome);
+      /* THE GEARS OVERHANG THE COLUMN BY THE SHARED SHEET'S OWN 58px, which is
+         the whole point of them: they sit just outside the content, not at the
+         edge of the screen. */
+      t('and the gears overhang that column rather than the screen',
+        chrome.gear !== null && chrome.head - chrome.gear === 58,
+        { gear: chrome.gear, head: chrome.head, overhang: chrome.head - chrome.gear });
+      t('with no sideways scroll at 2200px', chrome.wide === false);
     } finally {
       await real.close();
     }

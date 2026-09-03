@@ -7597,6 +7597,10 @@ body.builder-page--editor .gid-field--anchor{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor #mapBar .gid-field--map{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--name{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--city{ flex:0 1 var(--gid-w-name); }
+/* THE NAME KEEPS ITS CAP. It took the slack for the hour the ID shared this
+   row; with the ID up on the legend the box holds one field again, and a lone
+   control the width of the room reads as an input that has lost its neighbour
+   -- which is what `game-builder-widths` asserts and what caught this. */
 /* TWO FIELDS SHARING A LINE, which is what `--gid-w-pair` was measured for: a
    pair each wide enough for its own guide sentence. `nowrap` so they stay side
    by side, `flex:1 1 0` so they split the measure evenly. */
@@ -7645,7 +7649,93 @@ body.builder-page--editor #taglineField{ flex:0 1 var(--gid-w-line); }
    SHORT LIST. Each takes a measure that fits what it holds rather than the
    width of the room -- a lone control the width of the bar reads as an input
    that has lost its neighbour. */
-body.builder-page--editor #selectionId{ flex:0 1 var(--gid-w-name); }
+/* THE ID IS ON THE LEGEND LINE, so it is sized as part of the box's title
+   rather than as a field. It reads at the legend's own weight and letter
+   spacing but NOT its case: `text-transform: uppercase` is inherited, and an
+   id is lower case -- CIN2026CHC2 is not what the row is keyed by, and a box
+   that shouts a value back differently from how it is stored is the page
+   disagreeing with the database about what the key is.
+     TRANSPARENT UNTIL YOU REACH FOR IT. A bordered box on the folder tab reads
+   as a form control stuck to the frame; the border arrives on hover and focus,
+   which is the same bargain the name editor makes in the Waypoints room. */
+/* THE SENTENCE AND THE COUNT SHARE A LINE. It wraps under a narrow window
+   rather than pushing the head wider, and sits on the baseline so the two
+   sizes read as one line rather than two things that happen to be adjacent. */
+body.builder-page--editor .room-headline{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:10px;
+}
+body.builder-page--editor .room-headline > p{ margin:0; }
+body.builder-page--editor .game-id-bar > legend{ display:flex; align-items:baseline; gap:8px; }
+body.builder-page--editor .gid-legend-word{ flex:0 0 auto; }
+/* PLAIN TEXT WITH A LINE UNDER IT, NOT A BOX (2026-09-02). It wore a bordered
+   field that appeared on hover; on the folder tab that read as a form control
+   stuck to the frame, when what it is is the box's own title -- the row's
+   permanent key, which you read far more often than you change.
+     THE UNDERLINE IS THE WHOLE AFFORDANCE and it is always there, which is the
+   difference from the Waypoints room's tape-name editor: that one hides its
+   border until you reach for it because it sits in a list of thirty, and this
+   is one value on a title line.
+     IT IS STILL AN <input>, so it is still typed into, still renamed on blur by
+   `renameCurrentGameId`, still put back by Escape and still refuses a duplicate.
+   Nothing about the behaviour moved -- only the paint.
+     `border-bottom` RATHER THAN `text-decoration`: an underline drawn by the
+   text sits tight against the glyphs and breaks across the descenders, and it
+   cannot take the 2px it needs on focus. */
+body.builder-page--editor #selectionIdInput{
+  /* WIDTH COMES FROM THE `size` ATTRIBUTE, not from flex -- see
+     sizeGameIdInput. `0 0 auto` is what lets it, and the cap is a backstop for
+     an id longer than anything in the catalogue. */
+  flex:0 0 auto;
+  width:auto;
+  max-width:14rem;
+  min-width:0;
+  /* THE BOX HUGS ITS LINE OF TEXT, and this is the whole reason the underline
+     was floating. `.game-id-bar input` sets `min-height:40px`, which is right
+     for a field in a bar and wrong for a word on a title line: the border-bottom
+     is drawn at the bottom of the BOX, so a 40px box under a 15px glyph put the
+     line 28px below the text -- reading as a stray rule under the legend rather
+     than as an underline.
+       `line-height:1` matters as much as the height: without it the input keeps
+     the inherited leading and the box grows again. */
+  min-height:0;
+  height:auto;
+  line-height:1;
+  padding:0 1px 2px;
+  /* NO LINE AT REST (2026-09-02). It is the box's own title, so it reads as
+     part of the legend and nothing else -- see the focus rule below for the one
+     state that still draws one, and why. */
+  border:0;
+  border-bottom:1px solid transparent;
+  border-radius:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-transform:none;
+  letter-spacing:.04em;
+}
+/* AND NONE ON HOVER EITHER, or the line somebody asked to remove comes back
+   the moment the pointer crosses it. */
+/* FOCUS TAKES A HEAVIER LINE RATHER THAN A RING. `outline:none` alone would
+   leave a keyboard with no answer at all, so the line thickens and the padding
+   gives the pixel back, or the text would shift down as you tab into it. */
+/* NOTHING IS DRAWN ON FOCUS EITHER (2026-09-02). Two things were, and only one
+   of them was mine: the border-bottom above, and a `box-shadow: 0 0 0 3px` ring
+   from the shared `.game-id-bar input:focus` rule -- which is what drew the
+   rectangle around the id, not a border. Both are off here.
+     WHAT IS LEFT AS THE INDICATION IS THE CARET, and on this control that is
+   enough: it is a text input, so focusing it blinks a cursor in the text and
+   selecting shows the selection. That is weaker than a ring and it is the
+   trade being made deliberately -- the id is the box's own title and is meant
+   to read as part of the legend.
+     `border-bottom-color` STAYS TRANSPARENT rather than the border being
+   removed, so no width appears or disappears and the text cannot shift by a
+   pixel as you tab in. */
+body.builder-page--editor #selectionIdInput:focus:not(:disabled){
+  outline:none;
+  box-shadow:none;
+  border-bottom-color:transparent;
+}
+body.builder-page--editor #selectionIdInput:disabled{ opacity:.45; }
 body.builder-page--editor .gid-field--emoji{ flex:0 1 8rem; }
 /* A PRICE IS FIVE CHARACTERS AND AN ENGINE IS ONE OF TWO. Both kept the 220px
    the settings row gave them, which is the measure they were designed at. */
@@ -8220,13 +8310,6 @@ body.builder-page--editor #inspector .insp-btn.inspector-eraser-btn{
   color:#b44d3f;
   border-color:#b44d3f;
   background:#ffffff;
-}
-
-body.builder-page--editor .inspector-actions--footer{
-  justify-content:flex-start;
-  padding-top:4px;
-  border-top:1px solid rgba(var(--bic-blue-rgb), .08);
-  margin-top:2px;
 }
 
 body.builder-page--editor .guide-insert-menu{
@@ -10011,6 +10094,121 @@ body.builder-auth-ready .builder-admin-signout{
 }
 .builder-nav-statusinput:disabled + .builder-nav-btn--status{ opacity:.5; cursor:default; }
 .builder-nav-statusinput:not(:disabled):not(:checked):hover + .builder-nav-btn--status{ background:#fff; }
+/* THE WATERMARK HUGS THE CONTENT COLUMN, NOT THE SCREEN EDGE.
+   ---------------------------------------------------------------------
+   `admin-site-nav.js` injects the gears as `.asn-page-gear` and positions them
+   `left: -58px` against `.admin-site-nav-host`. On every OTHER mc room that
+   host is `main.app`, which is capped at the shell measure and centred -- so
+   at 2200px the gears land at x=445, 58px left of a column starting at 503,
+   which is the whole idea: they overhang the content.
+
+   THIS PAGE IS THE ODD ONE OUT. Its host is `main.games-page`, which is FULL
+   WIDTH, because `.games-page` is capped only under `is-header-only` and that
+   class comes off the moment the canvas is shown. So the same -58px put the
+   gears at the far left of the screen, a thousand pixels from anything.
+
+   SO THE GEARS CARRY THE MEASURE THEMSELVES, which is the rule this page
+   already follows for every bar on it after the same fault was found in the
+   row widths. `50%` of a full-width host is the centre, less half the column,
+   less the 58px overhang.
+
+   `max()` KEEPS THE NARROW CASE HONEST: under the column width the content is
+   flush left, so the calc goes negative and the original -58px is what is
+   wanted. Without it the gears would march further off-screen as the window
+   narrows.
+
+   `body.builder-page--editor` IS LOAD-BEARING. The injected sheet is appended
+   to <head> at RUNTIME, so it comes after this page's own <style> and beats an
+   equal-weight rule on source order. The shared selector is (0,2,0); this is
+   (0,3,0). */
+/* AND THE NAV'S CONTENTS SIT ON THE COLUMN, FOR THE SAME REASON.
+   ---------------------------------------------------------------------
+   The bar is full bleed on every room and that is deliberate. What puts its
+   BRAND and its LINKS back on the content column is
+   `padding: 14px max(16px, calc(50vw - 50%))`, and `50%` there is half the
+   HOST. On every other mc room the host is the 1180px column, so that resolves
+   to about 510px and the brand lands at x=503 with the room head. Here the host
+   is full width, `50vw - 50%` collapses to roughly nothing, the `max()` floor
+   of 16px wins, and the brand ends up at x=24 with the links flung out to
+   x=2103 -- a bar spread across the whole screen over content a thousand pixels
+   in from it.
+
+   SO THE COLUMN IS NAMED OUTRIGHT INSTEAD OF INFERRED FROM THE HOST. It is
+   the original arithmetic with the one term that was wrong replaced: `50vw`
+   less HALF THE COLUMN, rather than `50vw` less half of whatever the host
+   happens to be. The
+   `max()` keeps the narrow case: under the column width the calc goes negative
+   and the original 16px gutter is what is wanted.
+
+   THE MARGIN IS LEFT ALONE. `calc(50% - 50vw)` already resolves to about -7px
+   here, which is what makes the bar reach both screen edges, and it is correct
+   on every room for the same reason it looks wrong in the padding. */
+body.builder-page--editor .admin-site-nav-host > .admin-site-nav{
+  padding-left:max(16px, calc(50vw - (var(--mc-shell-width, 1180px) / 2)));
+  padding-right:max(16px, calc(50vw - (var(--mc-shell-width, 1180px) / 2)));
+}
+
+body.builder-page--editor .admin-site-nav-host > .asn-page-gear{
+  left:max(-58px, calc(50% - (var(--mc-shell-width, 1180px) / 2) - 58px));
+  right:auto;
+}
+
+/* THE STEP BOX. It holds its own width like the lifecycle and status boxes;
+   only #mbNav takes the slack. */
+.builder-nav-row--step{
+  flex:0 0 auto;
+}
+.builder-nav-steps{
+  display:inline-flex;
+  align-items:center;
+  /* THEY TOUCH, so the pair reads as one control with two ends rather than two
+     buttons that happen to sit together -- the same treatment as the status
+     pair, and the same reason. */
+  gap:0;
+}
+/* SQUARE, AT THE ROW'S OWN CONTROL HEIGHT. A control invented at its own size
+   reads as a different KIND of thing from the buttons beside it, which is the
+   argument the Socializer's reel button already settled.
+
+   `body.builder-page--editor` IS LOAD-BEARING HERE AND IS NOT DECORATION.
+   `admin-shell.css` carries
+   `.toolbar .btn, .builder-nav-row .builder-nav-btn { min-height:...; padding:0 14px }`
+   at (0,2,0) and is linked AFTER this page's own <style>, so an equal-weight
+   rule LOSES to it on source order however late it sits in this file. Written
+   without the body prefix these buttons kept 14px of side padding, which on a
+   34px control leaves a 4px content box -- and the arrow inside was drawn 4px
+   wide. The prefix takes it to (0,3,0), which is the idiom this page already
+   uses for `#tagsBar .field`. */
+body.builder-page--editor .builder-nav-row .builder-nav-btn--step{
+  width:var(--mc-control-height, 42px);
+  padding:0;
+  border-radius:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.builder-nav-btn--step:first-child{ border-radius:8px 0 0 8px; }
+.builder-nav-btn--step + .builder-nav-btn--step{ border-radius:0 8px 8px 0; margin-left:-1px; }
+/* THE GLYPH TAKES `currentColor`, so hover, focus and the greyed state all
+   reach it with no second rule and no second asset. `display:block` or its
+   inline baseline sits it low in the button. */
+.builder-nav-btn--step svg{
+  display:block;
+  /* `flex: 0 0 auto`, or the glyph is a flex item that shrinks: with the side
+     padding above it was squeezed to 4px, and a shrinking arrow is the same
+     fault waiting for a narrower button. */
+  flex:0 0 auto;
+  width:16px;
+  height:16px;
+}
+/* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click at
+   all, so on a touch screen -- no hover, therefore no tooltip -- the reason it
+   is off would be completely unreachable. Pressing it says why. */
+.builder-nav-btn--step[aria-disabled="true"]{
+  opacity:.4;
+  cursor:default;
+}
+
 #mbNav[data-view="builder"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn){display:none!important;}
 #mbNav[data-view="builder"] #gamePickerSaveBtn{flex:0 0 auto;}
 #mbNav[data-view="details"] #gamePickerSaveBtn{flex:0 0 auto;}
@@ -10089,6 +10287,36 @@ body.builder-auth-ready .builder-admin-signout{
   background:#fff;
   border-color:#fff;
   color:var(--ink);
+}
+/* A HAIRLINE, NOT A GAP. A wider gap would read as the row breathing; a line
+   says the button after it is a different kind of thing from the two before. */
+.builder-nav-row--lifecycle .builder-nav-sep{
+  width:1px;
+  align-self:stretch;
+  margin:4px 2px;
+  background:rgba(255,255,255,0.28);
+}
+/* THE RED PEN, ON THE DARK GROUND THIS BOX ACTUALLY HAS. `.builder-nav-btn--danger`
+   is written for the WHITE boxes (`color:#a03f2d` on paper) and is unreadable
+   reversed out, so the lifecycle box states its own. The specificity has to
+   clear `body.builder-page--editor` too, since `admin-shell.css` is injected
+   after this sheet and beats an equal-weight rule on source order -- the same
+   trap that drew a 4px arrow in the step box. */
+body.builder-page--editor .builder-nav-row--lifecycle .builder-nav-btn--danger{
+  color:#ffd9d1;
+  border-color:rgba(255,150,130,0.55);
+  background:rgba(255,120,100,0.12);
+}
+body.builder-page--editor .builder-nav-row--lifecycle .builder-nav-btn--danger:hover{
+  background:#a03f2d;
+  border-color:#a03f2d;
+  color:#fff;
+}
+/* `aria-disabled`, NEVER `disabled`, so the reason is reachable on a touch
+   screen where there is no hover and therefore no tooltip. */
+body.builder-page--editor .builder-nav-row--lifecycle .builder-nav-btn--danger[aria-disabled="true"]{
+  opacity:.42;
+  cursor:default;
 }
 
 @media(max-width:700px){
@@ -10180,12 +10408,21 @@ html.admin-embedded .builder-section-head{
       <div class="room-head">
         <div class="room-titlecol">
           <h1 class="room-title">Game Builder</h1>
-          <!-- What the room is, then what is in it. The sentence is static and
-               always present; the counts line below it arrives with the games
-               and hides itself until then (.room-substat:empty), so the head
-               never opens with a blank line under the title. -->
-          <p class="room-blurb">Admins and AI build games here.</p>
-          <p class="room-substat" id="gameProfileStat"></p>
+          <!-- WHAT THE ROOM IS AND WHAT IS IN IT, ON ONE LINE (2026-09-02).
+               They were stacked, which spent two lines of the head on one
+               thought -- what this room is for, and how much of it there is.
+                 THE WRAPPER IS WHAT PUTS THEM SIDE BY SIDE, not a change to
+               either class. `.room-blurb` and `.room-substat` come from the
+               shared admin-shell.css and are the same object in every room;
+               restyling them here would fork the sheet that exists to stop
+               exactly that.
+                 THE COUNTS STILL HIDE THEMSELVES UNTIL THE GAMES LOAD
+               (.room-substat:empty), so the line opens as the sentence alone
+               rather than with a trailing gap. -->
+          <div class="room-headline">
+            <p class="room-blurb">Admins and AI build games here.</p>
+            <p class="room-substat" id="gameProfileStat"></p>
+          </div>
         </div>
       </div>
 
@@ -10193,10 +10430,11 @@ html.admin-embedded .builder-section-head{
       <div class="builder-nav-rows">
         <!-- Game lifecycle nav: create / duplicate.
              THE SKIP BUTTON IS GONE (2026-08-31). It was a TWO-WAY control over
-             a THREE-WAY column: `archived` is 'YES' for both building and
-             skipped, so it could say posted or not and could never reach
-             BUILDING. The STATUS box says all three, in the three words this
-             project now uses everywhere -- Post, Build, Skip.
+             a column with a third state in it. The STATUS box says both, in
+             the two words this project uses everywhere -- Post, Skip.
+             BUILD WENT ON 2026-09-02 (migration 2026090209): 393 of the 394
+             rows sat in it, which is a bucket that has stopped sorting
+             anything, and a game is either on sale or it is not.
              TWO CONTROLS FOR ONE COLUMN IS THE DUPLICATION THIS REPO KEEPS
              REMOVING, and this pair was the worse kind: one of them could not
              express the state most games are actually in.
@@ -10207,6 +10445,28 @@ html.admin-embedded .builder-section-head{
         <div class="builder-nav-row builder-nav-row--lifecycle" aria-label="Game lifecycle">
           <button class="builder-nav-btn" id="builderNewGameBtn" type="button" title="New game">New</button>
           <button class="builder-nav-btn" id="duplicateGameBtn" type="button" title="Duplicate (Ctrl/Cmd+Shift+D)">Duplicate</button>
+          <!-- DELETE LIVES WITH NEW AND DUPLICATE, and the box is the argument:
+               those three are the game's EXISTENCE -- make one, copy one,
+               destroy one -- where the boxes after them are what you DO with
+               the open one, how you MOVE through them, and what STATE you leave
+               one in. It is also the FAR LEFT of the row, which is where this
+               project puts an irreversible control: as far from Save as the
+               line goes, the same arrangement the waypoint editor's foot uses.
+
+               THE HAIRLINE SAYS IT IS NOT A THIRD OPTION OF THE SAME KIND. New
+               and Duplicate are cheap and repeatable; this one is not, and it
+               sits one button away from them.
+
+               THE FLOW BEHIND IT ALREADY EXISTED AND WAS REACHABLE FROM
+               NOTHING. `openGameEraseFlow`, `openGameEraseDialog` and
+               `#gameEraseBackdrop` were all here; the const read an id that was
+               in no markup, so it was null, and a block in `updateSelectionUi`
+               then hid and disabled that null on every render. This is the
+               "wired, working, linked from nothing" state the nav's own For
+               Review group is a list of. -->
+          <span class="builder-nav-sep" aria-hidden="true"></span>
+          <button class="builder-nav-btn builder-nav-btn--danger" id="gameEraseBtn" type="button"
+                  aria-disabled="true" title="Delete this game">Delete</button>
         </div>
 
         <!-- Secondary nav row: builder tools. -->
@@ -10227,6 +10487,47 @@ html.admin-embedded .builder-section-head{
           <button class="builder-nav-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false" title="Save (Ctrl/Cmd+S)">Save</button>
           <a class="builder-nav-btn" id="builderViewGameBtn" href="/mc/game/run/index.html" target="_blank" rel="noopener" aria-disabled="true" title="Preview the public game">Preview</a>
 
+        </div>
+
+        <!-- FLIP THROUGH THE GAMES (2026-09-03).
+             It sits between the chooser and the status box because that is the
+             order the row already reads: what you MAKE, what you OPEN, how you
+             MOVE through them, and what STATE you leave one in.
+
+             IT STEPS THE PICKER'S OWN LIST, through the same ordering function
+             the datalist is built from, so the arrows and the dropdown can
+             never disagree about what comes next. It also opens through the
+             same `openSavedGameById` call the chooser uses -- two ways to open
+             a game is how they drift.
+
+             CLAMPED, NEVER WRAPPED. Running off the end onto the first game
+             makes a list of 394 feel endless; the button greys out instead and
+             says why. Same call the Tape Room made for its tape pager.
+
+             ARROWS ARE DRAWN, NOT TYPED. Neither face this site loads carries
+             the horizontal pair, so a typed left arrow renders from whatever
+             font the machine falls back to and sits visibly wrong beside its
+             partner -- which is exactly what the Waypoints room found when it
+             replaced all four of its arrows with one drawn shape. These are ONE
+             path rotated, so the two are mirror images by construction. -->
+        <div class="builder-nav-row builder-nav-row--step" aria-label="Flip through games">
+          <div class="builder-nav-steps">
+            <button class="builder-nav-btn builder-nav-btn--step" id="gameStepPrevBtn" type="button"
+                    aria-label="Previous game" title="Previous game" aria-disabled="true">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M10 3 L5 8 L10 13" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="builder-nav-btn builder-nav-btn--step" id="gameStepNextBtn" type="button"
+                    aria-label="Next game" title="Next game" aria-disabled="true">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M10 3 L5 8 L10 13" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      transform="rotate(180 8 8)"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- STATUS, IN A BOX OF ITS OWN (2026-08-31). It sat inside the tool
@@ -10259,10 +10560,6 @@ html.admin-embedded .builder-section-head{
               <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusLive" value="live" disabled>
               <span class="builder-nav-btn builder-nav-btn--status">Post</span>
             </label>
-            <label class="builder-nav-statusopt" for="gameStatusBuilding">
-              <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusBuilding" value="building" disabled>
-              <span class="builder-nav-btn builder-nav-btn--status">Build</span>
-            </label>
             <label class="builder-nav-statusopt" for="gameStatusArchived">
               <input class="builder-nav-statusinput" type="radio" name="gameStatus" id="gameStatusArchived" value="archived" disabled>
               <span class="builder-nav-btn builder-nav-btn--status">Skip</span>
@@ -10275,6 +10572,63 @@ html.admin-embedded .builder-section-head{
            The event can still help name the people in play, but target and
            rival are plain game-row text for now. -->
       <datalist id="anchorEventList"></datalist>
+
+      <!-- THE NAME LEADS (2026-09-02). It sat fifth, after the anchor, the
+           audiences, the city and the map -- so the first four things you
+           answered were all about a game you had not named yet.
+             MOVED, NEVER COPIED: the block came across whole, so `titleField`,
+           `nodeTitleInput` and every listener still resolve and no wiring
+           changed. -->
+      <!-- THE NAME IS ITS OWN BOX (2026-08-31).
+
+           NO LABEL: the legend says GAME NAME and this is the only field under
+           it. The `aria-label` is what keeps it named for a screen reader,
+           since a legend is not an accessible name for an input.
+
+           THERE IS NO GUESS BUTTON, and this comment claimed there was until
+           2026-09-02. It composed a name from the two audiences -- "Chicago
+           Fans Takeover Phoenix" -- and went with the markup; no id, no
+           handler, nothing left to resolve. So the name is typed or it is
+           nothing, and nothing saves as "Untitled Game". -->
+      <fieldset class="game-id-bar" id="gameNameBar">
+        <!-- THE ID SITS ON THE LEGEND LINE (2026-09-02), immediately right of
+             the word GAME. It is the row's permanent key rather than a field
+             you fill in, so it reads as part of the box's own title -- and the
+             name then gets the whole row below instead of three quarters of it.
+               A LEGEND MAY HOLD AN INPUT: its content model is phrasing
+             content and an input is phrasing content. This page already puts
+             an ANCHOR in three legends for the same reason.
+               STILL EDITABLE, AND IT ALWAYS WAS. `renameCurrentGameId` runs on
+             blur, Escape puts the old value back, and the box refuses a
+             duplicate -- none of that moved. It is disabled only while there
+             is no saved id to rename. -->
+        <legend><span class="gid-legend-word">Game</span><input id="selectionIdInput"
+                 type="text" autocomplete="off" spellcheck="false" disabled
+                 aria-label="Game ID" placeholder="none"></legend>
+        <div class="game-id-bar-inner game-id-bar-inner--name">
+          <!-- EACH BOX KEEPS ITS OWN LABEL, unlike the anchor and the map: those
+               are one field under a legend, where a label would be the box named
+               twice a few pixels apart. This box holds TWO fields and one legend
+               cannot name either.
+                 THE ID SHARES THE ROW (2026-09-02). It had a bar of its own two
+               places down, under the tagline -- and name and id are the pair
+               that answers "which game is this", which is the question every
+               box below assumes you have already answered. MOVED, NOT COPIED:
+               `selectionId`, `selectionIdInput` and every listener came across
+               whole, so no wiring changed. -->
+          <!-- NO LABEL. With the id up on the legend the name is the only
+               field in this box again, so a label reading "Name" under a legend
+               reading "Game" is the box named twice a few pixels apart -- the
+               call the anchor, the city and the map boxes all made.
+                 THE `aria-label` IS WHAT KEEPS IT NAMED for a screen reader: a
+               legend is not an accessible name for an input. -->
+          <div class="gid-field gid-field--name" id="titleField">
+            <div class="gid-name-row">
+              <input id="nodeTitleInput" type="text" autocomplete="off" aria-label="Game name" disabled>
+            </div>
+          </div>
+        </div>
+      </fieldset>
 
       <!-- THE ANCHOR EVENT IS ON ITS OWN LINE AND IT COMES FIRST (2026-08-31).
            It shared a row with the audience and the map for a day, on the
@@ -10312,13 +10666,39 @@ html.admin-embedded .builder-section-head{
         </div>
       </fieldset>
 
+      <!-- THE DATE THE GAME IS PLAYED (2026-09-02), directly under the name
+           because the two together are what identify a game. 394 games carry
+           only 325 distinct names -- a baseball series is one game per day for
+           three days, twice a season -- so the name alone names no game and the
+           DATE is what tells them apart. The picker's label says both.
+
+           TYPED BY HAND. Nothing derives it and no trigger maintains it.
+           NEXT: suggest the anchor event's own start date MINUS ONE, since our
+           game is played the day before the thing that brought people to town.
+           A suggestion, never a write -- and it needs anchor events attached
+           first, which 0 of the 97 same-named games have today.
+
+           A `date` INPUT, so the browser draws its own picker and its value is
+           already the yyyy-mm-dd the column stores. NO LABEL: the legend names
+           the one field under it, and the aria-label is what keeps it named for
+           a screen reader, since a legend is not an accessible name. -->
+      <fieldset class="game-id-bar" id="tgbDateBar">
+        <legend>Game Date</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--date" id="tgbDateField">
+            <input id="tgbDate" type="date" autocomplete="off"
+                   aria-label="Game date" disabled>
+          </div>
+        </div>
+      </fieldset>
+
       <!-- AUDIENCES: WHO THE GAME IS FOR, AND WHO THEY ARE UP AGAINST.
            Two plain text boxes over two plain text columns -- `games.target`
            and `games.rival`. No picker, no catalogue, no key: what is typed is
            what is stored, and 2026090204 renamed the columns to say so.
              THE BOX AND ITS COLUMN SHARE A NAME, deliberately. The pair spent a
            day as a box called `target` over a column called `target_audience_id`,
-           and the mapping in AUDIENCE_TEXTBOXES was then the only thing tying
+           and the mapping in GAME_ROW_TEXTBOXES was then the only thing tying
            them together -- which made it the only place the connection could
            break. Now the id, the meta field and the column are all one word.
              IT SITS SECOND because it is the second question: the anchor says
@@ -10406,7 +10786,7 @@ html.admin-embedded .builder-section-head{
 
            IT OFFERS ONLY MAPS THAT EXIST, and that is where the guard lives:
            `games.map_id` is NOT a foreign key and cannot be one, because
-           `public.maps` is keyed by (map_id, stop_number), so the id alone
+           `public.atlas` is keyed by (map_id, stop_order), so the id alone
            is not unique. Nothing downstream will tell you a game names a map
            that is not there. -->
       <fieldset class="game-id-bar" id="mapBar">
@@ -10441,25 +10821,11 @@ html.admin-embedded .builder-section-head{
            and Rendezvous: they answer "which game is this", which is the
            question every other panel below assumes you have already answered.
            So they sit above the workspaces, in the socials rooms' cut-panel
-           frame -- one labelled fieldset, full width, mono legend on a folder
-           tab. Hidden until a game is open (see updateSelectionUi). -->
-      <!-- THE NAME IS ITS OWN BOX (2026-08-31). Moved, not copied: the block
-           came across whole, so `titleField`, `nodeTitleInput` and the Guess
-           button all still resolve and no wiring changed.
-
-           NO LABEL: the legend says GAME NAME and this is the only field under
-           it. The `aria-label` is what keeps it named for a screen reader,
-           since a legend is not an accessible name for an input. -->
-      <fieldset class="game-id-bar" id="gameNameBar">
-        <legend>Game Name</legend>
-        <div class="game-id-bar-inner">
-          <div class="gid-field gid-field--name" id="titleField">
-            <div class="gid-name-row">
-              <input id="nodeTitleInput" type="text" autocomplete="off" aria-label="Game name" disabled>
-            </div>
-          </div>
-        </div>
-      </fieldset>
+           frame, each a labelled fieldset with a mono legend on a folder tab.
+           Hidden until a game is open (see updateSelectionUi).
+             THE NAME NO LONGER SITS BESIDE THE ID (2026-09-02) -- it leads the
+           page, above the anchor event. This comment covers the id and the
+           bars under it. -->
 
       <!-- THE TAGLINE IS ITS OWN BOX (2026-08-31), same move and same reason:
            it is the one line of copy that goes out under the game name, and it
@@ -10477,16 +10843,6 @@ html.admin-embedded .builder-section-head{
            It is the row PERMANENT KEY -- six tables reference it -- which is
            why it was kept in the drawer in the first place, and why it is worth
            reading rather than buried. The rename warning is unchanged. -->
-      <fieldset class="game-id-bar" id="gameIdBar">
-        <legend>Game ID</legend>
-        <div class="game-id-bar-inner">
-          <div class="gid-field" id="selectionId">
-            <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
-                   aria-label="Game ID" placeholder="none">
-          </div>
-        </div>
-      </fieldset>
-
       <fieldset class="game-id-bar" id="gameIdentityBar">
         <legend>Game</legend>
         <!-- ROW 2: THE TAGLINE AND THE INTRO (2026-08-31).
@@ -10831,11 +11187,14 @@ html.admin-embedded .builder-section-head{
            buy it. It is last because it is the thing you answer when the rest is
            finished.
 
-           THREE OPTIONS, BECAUSE THERE ARE THREE STATES. `games.status` is
-           live / building / archived, and BUILDING is the one the nav's Skip
-           button could never reach: `archived` is 'YES' for both building and
-           skipped, so a two-way toggle can only ever say posted or not. That is
-           the whole reason this control exists rather than a second button.
+           TWO OPTIONS, BECAUSE THERE ARE TWO STATES. `games.status` is
+           live / archived and nothing else since 2026090209 -- a game is on
+           sale or it is not, and `building` had stopped sorting anything with
+           393 of the 394 rows in it.
+             THE CONTROL STILL EARNS ITS PLACE. It replaced the nav's Skip
+           button, which was a two-way toggle over a three-way column; what it
+           keeps now is being the ONE writer of the column, where two controls
+           for one thing is how they drift.
 
            IT WRITES `status` AND NOTHING ELSE. A trigger keeps `archived` in
            step both ways, so the public page, the footer and `/games/` all go on
@@ -10982,8 +11341,6 @@ html.admin-embedded .builder-section-head{
                 </div>
               </section>
 
-              <div class="inspector-actions inspector-actions--footer">
-              </div>
               <div class="mini-note duplicate-game-status" id="duplicateGameStatus" hidden aria-live="polite"></div>
             </div>
           </section>
@@ -11038,7 +11395,7 @@ html.admin-embedded .builder-section-head{
     <div class="erase-note" role="dialog" aria-modal="true" aria-labelledby="gameEraseMessage">
       <p class="erase-note-message" id="gameEraseMessage">Erase?</p>
       <div class="erase-note-actions">
-        <button class="erase-note-btn erase-note-btn--confirm" id="gameEraseConfirmBtn" type="button">Erase</button>
+        <button class="erase-note-btn erase-note-btn--confirm" id="gameEraseConfirmBtn" type="button">Delete</button>
         <button class="erase-note-btn erase-note-btn--archive" id="gameArchiveConfirmBtn" type="button">Skip instead</button>
         <button class="erase-note-btn erase-note-btn--cancel" id="gameEraseCancelBtn" type="button">Cancel</button>
       </div>
@@ -11224,31 +11581,79 @@ const HEADER_GAME_PLACEHOLDER_VALUE = '__pick-game__';
 const HEADER_GAME_NEW_VALUE = '__new-game__';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
-const SUPABASE_GAMES_GRAPH_VIEW = 'games_with_graph_and_teams';
-const SUPABASE_LEGACY_GAMES_GRAPH_VIEW = 'games_with_graph';
+/* THE PAGE READS THE TABLE, NOT A VIEW (2026-09-02). Both graph views were
+   dropped, so every read answered 404 PGRST205 and no game could be opened at
+   all -- the anchor field sat disabled saying "Open a game first" while the
+   events datalist behind it had loaded all 3,051 rows perfectly.
+     WHAT THAT COSTS, AND IT IS THE NEXT DECISION RATHER THAN A GAP TO IGNORE:
+   the views were where `nodes` and `links` came from, so a game now opens with
+   an EMPTY FLOW DOCUMENT. The graph itself is not lost -- `public.game_nodes`
+   still holds it and `replace_game_graph` still writes it -- but nothing reads
+   it back until either a view is rebuilt or this page learns to fetch that
+   table. Every game is the "nodeless" shape until then, which this page already
+   handles: the row's own fields all edit and save. */
+const SUPABASE_GAMES_GRAPH_VIEW = 'games';
+const SUPABASE_LEGACY_GAMES_GRAPH_VIEW = 'games';
 const SUPABASE_REPLACE_GAME_GRAPH_RPC = 'replace_game_graph';
 const SUPABASE_STORAGE_KIND = 'supabase';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
 const FEATURED_GAME_VALUE = 'YES';
 const SUPABASE_GAMES_SCHEMA = {
+  /* ---- OFF, BECAUSE THE COLUMN NO LONGER EXISTS (2026-09-02) --------------
+     `public.games` went from 71 columns to 31. This map gates BOTH halves --
+     `buildGamesSelectColumns` filters every select through it and `emitColumn`
+     skips anything set false -- so one entry takes a dead column out of the
+     read and out of the PATCH at once.
+       THAT IS WHY THIS IS THE FIX RATHER THAN 35 EDITS. PostgREST refuses the
+     WHOLE request on one unknown column, so a single stale name in the select
+     took the entire read down and the page fell back to its local snapshot.
+       `nodes` AND `links` ARE HERE FOR A DIFFERENT REASON: they were never
+     columns on the table, only on the dropped views. */
+  primary_color: false,
+  secondary_color: false,
+  tertiary_color: false,
+  quaternary_color: false,
+  archived: false,
+  nodes: false,
+  links: false,
+  guide_name: false,
+  guide_bio: false,
+  guide_background: false,
+  guide_image_url: false,
+  logo_url: false,
+  city_name: false,
+  state_code: false,
+  fandom_game: false,
+  teams: false,
+  kind: false,
+  stop_group: false,
+  anytime_pair_id: false,
+  team01: false,
+  team02: false,
+  team03: false,
+  team04: false,
+  team05: false,
+  team06: false,
+  team07: false,
+  team08: false,
+  game_date: false,
+  start_time: false,
+  end_time: false,
+  home_team_city: false,
+  home_team_mascot: false,
+  away_team_city: false,
+  away_team_mascot: false,
+  away_team_key: false,
+  home_team_key: false,
+  venue_name: false,
+  venue_city: false,
+  map_id: false,
   tagline: true,
   featured: true,
   city: true,
   engine: true,
   category_icon: true,
-  guide_background: true,
-  fandom_game: true,
-  game_date: true,
-  start_time: true,
-  end_time: true,
-  home_team_city: true,
-  home_team_mascot: true,
-  away_team_city: true,
-  away_team_mascot: true,
-  away_team_key: true,
-  home_team_key: true,
-  map_id: true,
   logo_id: true,
   /* IN THE MAP SO A COLUMN CAN BE TURNED OFF IN ONE PLACE. `buildGamesSelectColumns`
      filters every select through this object, so setting one to `false` takes it
@@ -11280,10 +11685,9 @@ const SUPABASE_GAMES_SCHEMA = {
      (An earlier version of this comment said no such function existed. It does;
      I had grepped for the wrong name.) */
   status: true,
-  venue_name: true,
-  venue_city: true,
   anchor_event_id: true,
   target: true,
+  tgb_date: true,
   rival: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
@@ -11707,16 +12111,43 @@ function serializeGameRow(game, index = 0) {
   const gameNode = normalizedNodes.find((node) => node && node.type === 'game') || {};
 
   const gameIsFandom = normalizeBooleanFlag(normalizedGame.fandom_game ?? gameNode.fandomGame);
+  /* THE PAYLOAD LITERAL CARRIED THREE DROPPED COLUMNS, AND IT RETRIED FOREVER
+     (2026-09-02). `archived`, `primary_color` and `secondary_color` were written
+     in here rather than through `emitColumn`, so the schema gate could not reach
+     them -- and the page's own self-healing made that catastrophic rather than
+     merely broken: a 400 names the column, `markMissingGamesColumn` switches it
+     off, the save retries, and the NEXT payload still contains it. **Measured at
+     3,443 write attempts in six seconds, climbing.**
+       AND THAT IS WHY THE TOOLBAR WENT DEAD. `saveUiState` stays 'saving' for as
+     long as the loop runs, and Duplicate, Save and the status radios are all
+     disabled while it is -- so the reported symptom, "duplicate greys out after
+     save", was this loop never ending. A save that fails is survivable; a save
+     that cannot finish failing is not.
+       EVERY COLUMN GOES THROUGH THE GATE NOW. `id` and `updated_at` are the two
+     that may not: one addresses the row and the other is what the write is for. */
   const payload = {
     id: normalizedGame.id,
-    name: normalizedGame.name || 'Untitled Game',
-    archived: normalizedGame.archived || null,
-    status: normalizedGame.status || null,
+    /* THE STORED NAME IS THE LAST RUNG, and it is what stops a save renaming a
+       game. `getDocName()` reads the game NODE's title, and the flow document
+       has no reader since the graph views were dropped -- so on every one of the
+       394 games it fell through to the placeholder and a successful save would
+       have written "Untitled Game" over the real name. The row's own name is
+       what it already had; using it can only ever be a no-op or a correction. */
+    name: normalizedGame.name || gameNode.title || normalizedGame.id || 'Untitled Game',
     updated_at: timestamp
   };
+  if (SUPABASE_GAMES_SCHEMA.status !== false) payload.status = normalizedGame.status || null;
+  if (SUPABASE_GAMES_SCHEMA.archived !== false) payload.archived = normalizedGame.archived || null;
+  /* THE TWO COLOURS GO THROUGH THE GATE TOO. Same fault as the three above:
+     written straight in, they survived being switched off and the save retried
+     on them forever. Both columns were dropped when public.games was cut. */
   if (!gameIsFandom) {
-    payload.primary_color = normalizedGame.primaryColor || null;
-    payload.secondary_color = normalizedGame.secondaryColor || null;
+    if (SUPABASE_GAMES_SCHEMA.primary_color !== false) {
+      payload.primary_color = normalizedGame.primaryColor || null;
+    }
+    if (SUPABASE_GAMES_SCHEMA.secondary_color !== false) {
+      payload.secondary_color = normalizedGame.secondaryColor || null;
+    }
   }
 
   // Prefer the authoritative top-level column value over the node's potentially stale value.
@@ -11766,10 +12197,17 @@ function serializeGameRow(game, index = 0) {
        THEY ARE NOT IN `GAME_COLUMN_TO_NODE_FIELD` for both of those reasons,
      and putting them there would silently reintroduce both. */
   if (SUPABASE_GAMES_SCHEMA.target !== false) {
-    payload.target = audienceColumnValue(normalizedGame.target);
+    payload.target = rowColumnValue(normalizedGame.target);
   }
   if (SUPABASE_GAMES_SCHEMA.rival !== false) {
-    payload.rival = audienceColumnValue(normalizedGame.rival);
+    payload.rival = rowColumnValue(normalizedGame.rival);
+  }
+  /* THE DATE IS WRITTEN THE SAME WAY AND MUST BE. `emitColumn` skips an empty
+     value, so a date routed through it could never be CLEARED -- and blank has
+     to reach the column as NULL rather than '', which a date column refuses
+     outright. `rowColumnValue` is the one place that turns blank into null. */
+  if (SUPABASE_GAMES_SCHEMA.tgb_date !== false) {
+    payload.tgb_date = rowColumnValue(normalizedGame.tgbDate);
   }
   if (SUPABASE_GAMES_SCHEMA.anchor_event_id !== false) {
     payload.anchor_event_id = (gameNode.anchorEventId || normalizedGame.anchor_event_id) || null;
@@ -11806,6 +12244,7 @@ function normalizeGameRow(row, index = 0) {
     logo_url:              row && row.logo_url,
     anchor_event_id:       row && row.anchor_event_id,
     target:                row && row.target,
+    tgbDate:               row && row.tgb_date,
     rival:                 row && row.rival,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
@@ -11858,7 +12297,7 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'featured',
     /* `status` HAS TO BE ASKED FOR, and leaving it out is silent: the PATCH
        lands, the row comes home without it, and `getHeaderGameGroup` falls
-       through to its BUILDING default -- so a game posted successfully snaps
+       through to its SKIPPED default -- so a game posted successfully snaps
        straight back to Build with no error anywhere. Reported exactly that way.
        `archived` STAYS BESIDE IT. They cannot disagree (a trigger keeps them in
        step) and every other reader on this page still reads the flag. */
@@ -11883,6 +12322,7 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
        home, so a game whose audiences were set by hand opens with two empty
        boxes. Both were in no select list at all until this was found. */
     'target',
+    'tgb_date',
     'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
@@ -11980,6 +12420,7 @@ async function loadHeaderGameStoreFromSupabase() {
       'featured',
       'archived',
       'status',
+      'tgb_date',
       'created_at',
       'updated_at'
     ]));
@@ -12002,7 +12443,7 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'featured',
     /* `status` HAS TO BE ASKED FOR, and leaving it out is silent: the PATCH
        lands, the row comes home without it, and `getHeaderGameGroup` falls
-       through to its BUILDING default -- so a game posted successfully snaps
+       through to its SKIPPED default -- so a game posted successfully snaps
        straight back to Build with no error anywhere. Reported exactly that way.
        `archived` STAYS BESIDE IT. They cannot disagree (a trigger keeps them in
        step) and every other reader on this page still reads the flag. */
@@ -12027,6 +12468,7 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
        home, so a game whose audiences were set by hand opens with two empty
        boxes. Both were in no select list at all until this was found. */
     'target',
+    'tgb_date',
     'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
@@ -12339,7 +12781,9 @@ async function setGameStatusInSupabase(gameId, status) {
   if (!targetId || !hasSupabaseStore()) {
     return { serverSaved: false, error: new Error('Supabase is not configured.'), savedGame: null };
   }
-  if (next !== 'live' && next !== 'building' && next !== 'archived') {
+  /* TWO VALUES SINCE 2026090209. `building` is refused here as well as by the
+     CHECK, so a caller gets a sentence rather than a 23514 naming a constraint. */
+  if (next !== 'live' && next !== 'archived') {
     return { serverSaved: false, error: new Error('Unknown status: ' + status), savedGame: null };
   }
   try {
@@ -12557,6 +13001,8 @@ const phoneStage = document.getElementById('phoneStage');
 const phone = document.getElementById('phone');
 // GAME PICKER
 const gamePickerSaveBtn = document.getElementById('gamePickerSaveBtn');
+const gameStepPrevBtn = document.getElementById('gameStepPrevBtn');
+const gameStepNextBtn = document.getElementById('gameStepNextBtn');
 const linkLayer = document.getElementById('linkLayer');
 const nodeLayer = document.getElementById('nodeLayer');
 const gameshelf = document.getElementById('gameshelf');
@@ -12871,9 +13317,17 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
    `target` over a column called `target_audience_id`, and then this mapping was
    the only thing saying they belonged together -- the only place the connection
    could break. 2026090204 renamed the columns; there is nothing left to map. */
-const AUDIENCE_TEXTBOXES = [
+const GAME_ROW_TEXTBOXES = [
   { field: 'target', input: 'target', column: 'target' },
-  { field: 'rival', input: 'rival', column: 'rival' }
+  { field: 'rival', input: 'rival', column: 'rival' },
+  /* THE DATE IS THE THIRD, AND IT IS WHY THIS LIST STOPPED BEING CALLED
+     GAME_ROW_TEXTBOXES (2026-09-02). The mechanism was never about audiences --
+     it is a plain box over a plain game-row column -- and a date sitting in a
+     list named for audiences is the kind of name this project keeps removing.
+       A `date` INPUT NEEDS NO SPECIAL HANDLING: the browser's value is
+     yyyy-mm-dd and PostgREST hands a `date` column back in the same form, so
+     paint and sync are the same two lines as the other two. */
+  { field: 'tgbDate', input: 'tgbDate', column: 'tgb_date' }
 ];
 
 /* PAINT FROM THE META, AND IT TAKES ONE RATHER THAN READING `state` -- that is
@@ -12883,8 +13337,8 @@ const AUDIENCE_TEXTBOXES = [
      NEVER PAINTED WHILE IT HAS FOCUS. A repaint mid-edit would yank the text out
    from under the cursor -- the guard the Game ID box has carried since
    2026-08-10, and this page repaints on a rAF loop. */
-function paintAudienceTextboxes(meta) {
-  AUDIENCE_TEXTBOXES.forEach((slot) => {
+function paintRowTextboxes(meta) {
+  GAME_ROW_TEXTBOXES.forEach((slot) => {
     const input = document.getElementById(slot.input);
     if (!input || document.activeElement === input) return;
     input.value = String((meta && meta[slot.field]) || '');
@@ -12897,9 +13351,9 @@ function paintAudienceTextboxes(meta) {
    click straight on to Save -- no blur, no keystroke after it -- is the case a
    listener alone can miss, and the cost of missing it is a save that reports
    success and leaves the typed audience behind. */
-function syncAudienceTextboxesToMeta() {
+function syncRowTextboxesToMeta() {
   if (!state.currentGameMeta) return;
-  AUDIENCE_TEXTBOXES.forEach((slot) => {
+  GAME_ROW_TEXTBOXES.forEach((slot) => {
     const input = document.getElementById(slot.input);
     if (!input) return;
     state.currentGameMeta[slot.field] = input.value;
@@ -12908,18 +13362,18 @@ function syncAudienceTextboxesToMeta() {
 
 /* BLANK IS NULL, IN ONE PLACE, so the staged row and the PATCH cannot disagree
    about what an empty box means. */
-function audienceColumnValue(value) {
+function rowColumnValue(value) {
   const text = value == null ? '' : String(value);
   return text.trim() ? text : null;
 }
 
 /* ---- THE MAP ------------------------------------------------------------
-   `public.maps` is a row per STOP, so the id repeats once for every stop in
+   `public.atlas` is a row per STOP, so the id repeats once for every stop in
    the map. This groups them, which is also why the list can only ever offer
    a map that exists: it is built from the rows themselves.
 
    AND THAT IS THE ONLY GUARD THERE IS. `games.map_id` is not a foreign key
-   and cannot be one -- the table is keyed by (map_id, stop_number), so the id
+   and cannot be one -- the table is keyed by (map_id, stop_order), so the id
    alone is not unique. Nothing downstream will say a game names a map that
    is not there. */
 let builderMapList = [];
@@ -12927,7 +13381,7 @@ let builderMapList = [];
 async function loadBuilderMaps() {
   if (!hasSupabaseStore()) return;
   const url = buildSupabaseUrl(
-    { select: 'map_id,map_name,stop_number', order: 'map_id.asc' }, 'maps');
+    { select: 'map_id,map_name,stop_order', order: 'map_id.asc' }, 'atlas');
   if (!url) return;
   try {
     const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
@@ -13697,31 +14151,6 @@ function shortPlace(canonical) {
   return code ? (name + ', ' + code) : whole;
 }
 
-/* THE LEGACY TEAM CITY IS `City, FullStateName` OR IT IS NOT WRITTEN.
-   `games_away_team_city_format_check` and its home twin refuse anything else --
-   one comma, and never a two-letter code -- and `events.away_team_geo` is a
-   BARE CITY on all 608 sports events we hold. So the prefill was writing a
-   value the table refuses, PostgREST answered 23514, and the ENTIRE upsert was
-   rejected: the anchor, the audiences and every other edit in that save went
-   with it. 0 of 395 games carried an anchor because of this one line.
-
-   AND IT REFUSES RATHER THAN APPROXIMATES. A side with no usable place string
-   or no geo module leaves the legacy field ALONE -- the columns have no editor
-   on this page and are read by the engines, so a stale value is a smaller
-   fault than a save nobody can complete. */
-function legacyTeamCityFromEvent(ev, side) {
-  const geo = window.TgbGeo;
-  if (!geo || typeof geo.canonicalCity !== 'function') return '';
-  const prefix = side === 'home' ? 'home' : 'away';
-  const label = String((ev && ev[prefix + '_team_geo']) || '').trim();
-  if (!label) return '';
-  const canonical = String(geo.canonicalCity(label) || '').trim();
-  /* THE CHECK ITSELF, so this cannot drift from what the database accepts. */
-  if (!/^[^,]+, [^,]+$/.test(canonical)) return '';
-  if (/, [A-Z]{2}$/.test(canonical)) return '';
-  return canonical;
-}
-
 function applyAnchorEventSelection(nextId) {
   /* THE META, NOT THE NODE. A game opened from the picker always has meta; it
      does not always have a game node, and the link is a column on the row. */
@@ -13729,39 +14158,18 @@ function applyAnchorEventSelection(nextId) {
   const id = String(nextId || '');
   state.currentGameMeta.anchorEventId = id;
   const ev = id ? builderAnchorEventsById.get(id) : null;
-  /* A SPORTS EVENT IS ONE THAT NAMES CLUBS, and it names them in words. It was
-     tested by the presence of a numeric id, which is the one thing about a club
-     an event does not need to carry: the geo and the nickname are what the
-     picker matches on anyway. */
-  const named = (v) => String(v == null ? '' : v).trim() !== '';
-  const eventHasTeams = !!(ev && (named(ev.away_team_nickname) || named(ev.home_team_nickname)
-                                || named(ev.away_team_geo) || named(ev.home_team_geo)));
-  if (ev && eventHasTeams) {
-    // A sports event still fills the legacy team fields for engine compatibility.
-    state.currentGameMeta.fandomGame = true;
-    /* THE PREFILL STILL WRITES THE LEGACY TEAM FIELDS, it just no longer has a
-       select to paint. The columns are read by the engines, so an event that
-       names two clubs should still fill them; what went is the control. */
-    /* THE MASCOT IS UNCONSTRAINED AND ALWAYS WRITTEN; THE CITY ONLY WHEN IT
-       CAN BE WRITTEN IN THE FORM THE TABLE ACCEPTS. See the note above. */
-    if (named(ev.away_team_geo) || named(ev.away_team_nickname)) {
-      if (state.currentGameMeta) {
-        const awayCity = legacyTeamCityFromEvent(ev, 'away');
-        if (awayCity) state.currentGameMeta.awayTeamCity = awayCity;
-        state.currentGameMeta.awayTeamMascot = ev.away_team_nickname || '';
-      }
-    }
-    if (named(ev.home_team_geo) || named(ev.home_team_nickname)) {
-      if (state.currentGameMeta) {
-        const homeCity = legacyTeamCityFromEvent(ev, 'home');
-        if (homeCity) state.currentGameMeta.homeTeamCity = homeCity;
-        state.currentGameMeta.homeTeamMascot = ev.home_team_nickname || '';
-      }
-    }
-  }
+  /* IT RECORDS THE LINK AND FILLS THE CITY. IT NO LONGER COPIES THE CLUBS
+     (2026-09-02), and that is the shape rather than a casualty: a game holds
+     the anchor event's ID and the clubs are read THROUGH it, instead of being
+     duplicated onto the row where the two can drift.
+       IT ALSO CANNOT COPY THEM ANY MORE. away_team_city / away_team_mascot /
+     home_team_city / home_team_mascot / away_team_key / home_team_key /
+     fandom_game were all dropped from public.games, so the old prefill was
+     writing five fields into a meta whose columns are gated off -- true for the
+     session, gone on the next load, which is worse than never setting them.
+       THE CITY IS DIFFERENT AND IS STILL COPIED. games.city exists, it is what
+     a game is sold as being IN, and a person edits it afterwards. */
   fillCityFromEvent(ev);
-  // Non-sports events (concert/convention/…) just record the link — no team
-  // fill, no palette change, so the game keeps its own colors.
   scheduleRecoverySync();
   scheduleUpdateActionUi();
 }
@@ -13916,12 +14324,11 @@ const objectVarNameHint = document.getElementById('objectVarNameHint');
 const varValuesField = document.getElementById('varValuesField');
 const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
-const selectionId = document.getElementById('selectionId');
 const selectionIdInput = document.getElementById('selectionIdInput');
 const gameIdentityBar = document.getElementById('gameIdentityBar');
 const gameNameBar = document.getElementById('gameNameBar');
+const tgbDateBar = document.getElementById('tgbDateBar');
 const taglineBar = document.getElementById('taglineBar');
-const gameIdBar = document.getElementById('gameIdBar');
 const emojiBar = document.getElementById('emojiBar');
 const categoryIconBar = document.getElementById('categoryIconBar');
 const objectSelectionId = document.getElementById('objectSelectionId');
@@ -13937,6 +14344,7 @@ const gameStatusToggle = document.getElementById('gameStatusToggle');
 const gameStatusRadios = [...document.querySelectorAll('input[name="gameStatus"]')];
 const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
+const gameEraseMessage = document.getElementById('gameEraseMessage');
 const deleteBtn = document.getElementById('deleteBtn');
 const objectInsertBtn = document.getElementById('objectInsertBtn');
 const objectDeleteBtn = document.getElementById('objectDeleteBtn');
@@ -14988,6 +15396,46 @@ function freeGameId(base, knownIds) {
     if (!knownIds.has(candidate)) return candidate;
   }
   return root + Date.now().toString(36).slice(-4);
+}
+
+/* A NEW GAME NAMES ITSELF (2026-09-02). Saving used to open a `window.prompt`
+   asking for an id, with a composed one already in the box -- so the common
+   answer was to press Enter on a suggestion the page had already worked out and
+   already checked. A dialog whose default is right nearly every time is a
+   dialog in the way.
+     THE ID IS STILL THE ROW'S PERMANENT KEY and three tables reference it, so
+   this does not make it casual: it is still shown on the legend and still
+   renamed there, deliberately, with the cascade behind it. What changed is that
+   you are no longer asked for one before the game exists.
+     THE COLLISION CHECK IS THE PART THAT MATTERS AND IT IS KEPT. `composeGameId`
+   builds from the anchor and the two fandoms, `freeGameId` clears it against
+   every id already loaded, and Supabase is asked as well -- because two admins
+   composing from one fixture would otherwise mint the same key. A taken id is
+   bumped and retried rather than reported.
+     A VERIFICATION THAT CANNOT RUN DOES NOT BLOCK THE SAVE. Supabase being
+   unreachable is not a reason to refuse to name a game; the save is the next
+   thing that happens and it reports its own failure. */
+async function mintNewGameId() {
+  const known = new Set([
+    ...state.store.games.map((g) => g && g.id),
+    ...(state.headerGames || []).map((g) => g && g.id)
+  ].filter(Boolean));
+  let candidate = freeGameId(composeGameId(), known);
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (!GAME_ID_PATTERN.test(candidate)) break;
+    if (!hasSupabaseStore()) return candidate;
+    try {
+      const existing = await fetchGameRowFromSupabase(candidate, 'id');
+      if (!existing) return candidate;
+      known.add(candidate);
+      candidate = freeGameId(candidate, known);
+    } catch (error) {
+      return candidate;
+    }
+  }
+  /* NOTHING USABLE CAME OUT, which means composeGameId returned something the
+     pattern refuses -- so fall back to the thing that cannot collide. */
+  return freeGameId('game-' + Date.now().toString(36), known);
 }
 
 async function promptForNewGameId({ purpose = 'create', suggestedFrom = '' } = {}) {
@@ -17551,6 +17999,7 @@ function getDocSnapshot(doc = state.doc) {
          read is a field nothing notices you changed: the box takes the text,
          the meta takes the box, and the button never lights. */
       target: meta.target || '',
+      tgbDate: meta.tgbDate || '',
       rival: meta.rival || '',
       /* WITHOUT THESE TWO, TYPING AN AUDIENCE LEAVES SAVE DEAD. `hasUnsavedChanges`
          compares this snapshot, so a field the snapshot does not read is a field
@@ -17972,6 +18421,19 @@ function initGameMeta(game) {
        either, because an audience is a property of the ROW and 28 of the 395
        games carry an empty flow document. */
     target:               g.target ?? '',
+    tgbDate:              g.tgb_date ?? g.tgbDate ?? '',
+    /* THE ROW'S OWN NAME, SEEDED HERE, IS WHAT STOPS A SAVE RENAMING A GAME
+       (2026-09-02). `getDocName()` reads the game NODE's title and falls back to
+       `meta.title` -- and this function never set it, so on a game whose flow
+       document has no reader (which since the graph views were dropped is ALL
+       394 of them) it fell through to the placeholder. A successful save then
+       wrote "Untitled Game" over the real name, silently.
+         IT WAS HARMLESS ONLY BECAUSE SAVES WERE REFUSED. Gating the three stray
+       columns above made saves land again, which armed this -- so the two are
+       one change and must not be separated.
+         THE NODE STILL WINS where there is one: this is the last rung, and it
+       can only ever be a no-op or a correction. */
+    title:                g.name ?? gn.title ?? '',
     rival:                g.rival  ?? '',
     city:                 g.city            ?? gn.city            ?? '',
     cityName:             g.city_name       ?? g.cityName         ?? gn.cityName        ?? '',
@@ -18611,6 +19073,23 @@ async function applyCurrentGameDisposition(action) {
 
 async function openGameEraseFlow() {
   if (state.gameEraseActionBusy || !getCurrentGameArchiveEntry()) return false;
+  /* THE QUESTION NAMES THE GAME AND WHAT ACTUALLY HAPPENS. It read "Erase?",
+     which names neither -- and the message element was never written to, so
+     every game asked the same three words.
+
+     AND IT SAYS WHAT ERASE IS, because the honest answer is not what the word
+     suggests: `applyCurrentGameDisposition` saves the game and then sets
+     `games.erased`, so the ROW REMAINS and this is a flag rather than a
+     removal. `erased` is a SECOND flag and is not `archived`, which is why
+     "Skip instead" is a real alternative on this dialog and not a softer
+     wording of the same act. */
+  const entry = getCurrentGameArchiveEntry();
+  const named = String((entry && (entry.name || entry.id)) || 'this game').trim();
+  if (gameEraseMessage) {
+    gameEraseMessage.textContent = 'Delete ' + named + '? It comes off every list, '
+      + 'and the row is kept so it can be undone in the database. Skip takes it '
+      + 'off sale without deleting it.';
+  }
   const action = await openGameEraseDialog();
   if (!action) return false;
   return applyCurrentGameDisposition(action);
@@ -18747,6 +19226,7 @@ function normalizeSavedGame(raw, index) {
     logo_url:              raw && raw.logo_url,
     anchor_event_id:       raw && raw.anchor_event_id,
     target:                raw && raw.target,
+    tgbDate:               raw && (raw.tgb_date ?? raw.tgbDate),
     rival:                 raw && raw.rival,
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
@@ -19151,7 +19631,11 @@ function getHeaderGameGroup(game) {
   const status = String((game && game.status) || '').trim().toLowerCase();
   if (status === 'live') return 'LIVE';
   if (status === 'archived') return 'ARCHIVED';
-  if (status === 'building') return 'BUILDING';
+  /* `building` WAS THE THIRD STATE AND IS GONE (2026090209). A row still
+     carrying it can only be a stale LOCAL snapshot now -- the CHECK refuses it
+     -- and it was never on sale, so it classifies as skipped rather than
+     falling through to a guess. */
+  if (status === 'building') return 'ARCHIVED';
   if (normalizeArchivedFlag(game && game.archived) === ARCHIVED_GAME_VALUE) return 'ARCHIVED';
   /* A GAME WE CANNOT CLASSIFY IS BUILDING, NEVER POSTED (2026-08-31).
      This line is only reached by a row carrying NO `status` at all, which since
@@ -19160,20 +19644,20 @@ function getHeaderGameGroup(game) {
      column existed. `archived` is null on those, so returning LIVE counted them
      as ON SALE -- which is how the counts line read `1 posted + 395 building`
      over a catalogue where nothing is posted.
-     BUILDING is also the safer answer if the remote read ever fails again: an
+     SKIPPED is also the safer answer if the remote read ever fails again: an
      unclassifiable game claiming to be on sale is the one wrong answer here,
-     and it is the one the old default gave. */
-  return 'BUILDING';
+     and it is the one the old default gave. It is now a REAL option rather
+     than a third state, so such a row paints as Skip instead of leaving the
+     control with nothing checked, which reads as broken. */
+  return 'ARCHIVED';
 }
 
 function compareHeaderGames(a, b) {
   const groupOrder = {
-    /* THE ORDER IS THE WORKFLOW: what is on sale, what is being written, what is
-       off the shelf. BUILDING sits between them because it is the one you are
-       most likely to be coming back to. */
+    /* WHAT IS ON SALE, THEN WHAT IS OFF THE SHELF. BUILDING sat between them
+       until 2026090209 dropped it as a state. */
     LIVE: 0,
-    BUILDING: 1,
-    ARCHIVED: 2
+    ARCHIVED: 1
   };
   const groupDiff = (groupOrder[getHeaderGameGroup(a)] ?? 99) - (groupOrder[getHeaderGameGroup(b)] ?? 99);
   if (groupDiff !== 0) return groupDiff;
@@ -19200,6 +19684,16 @@ function buildHeaderGameList(games = []) {
     if (previous && !String(normalizedGame.status || '').trim()
                  && String(previous.status || '').trim()) {
       normalizedGame.status = previous.status;
+    }
+    /* AND `tgb_date` FOR THE SAME REASON (2026-09-02). The local snapshot was
+       written before that column existed, so it carries an empty one -- and
+       merged last it would blank the date the database had just supplied,
+       which is the `status` fault above happening a second time to a second
+       column. Anything added to public.games that the local snapshot predates
+       needs a line here. */
+    if (previous && !String(normalizedGame.tgbDate || '').trim()
+                 && String(previous.tgbDate || '').trim()) {
+      normalizedGame.tgbDate = previous.tgbDate;
     }
     gameMap.set(gameId, normalizedGame);
   });
@@ -19229,20 +19723,61 @@ function getHeaderGames() {
   return buildHeaderGameList(games);
 }
 
-function gamePickerLabel(game, group) {
-  /* NAME, THEN ID, THEN WHETHER IT IS ON THE SHELF. The id is not decoration:
-     three rows share the name "Chicago Fans Takeover Baltimore", so without it
-     the list offers three identical lines and picking one is a coin toss. It
-     also makes the id searchable, which is how somebody arrives from a link. */
+/* yyyy/mm/dd, FROM THE COLUMN'S OWN yyyy-mm-dd. Read as text rather than
+   through `new Date`, which would parse a bare date as UTC midnight and then
+   print the day before it anywhere west of Greenwich -- the DST trap this
+   project already records for its week headings. */
+function gameDateLabel(game) {
+  const raw = String((game && (game.tgbDate ?? game.tgb_date)) || '').slice(0, 10);
+  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(raw) ? raw.split('-').join('/') : '';
+}
+
+function gamePickerLabel(game) {
+  /* THE NAME AND NOTHING ELSE (2026-09-02). It read
+     `name  ·  id  ·  building`, and both trailing parts are gone.
+
+     WHAT THAT COSTS, AND IT IS MEASURED RATHER THAN GUESSED AT: 394 games
+     carry only 325 DISTINCT NAMES, so 97 of them sit in a duplicate-name
+     group. A datalist collapses identical option values, so those 97 collapse
+     to 28 lines and the other 69 games CANNOT BE REACHED BY NAME. Three rows
+     really are all called "Chicago Fans Takeover Baltimore".
+       TWO THINGS SOFTEN IT AND NEITHER IS AN ACCIDENT. `openTyped` still
+     accepts a BARE ID, so any game is one paste away; and the input's `title`
+     carries the open game's id, so the thing the label stopped saying is one
+     hover away. If a game is ever genuinely unreachable, that is the fix to
+     reach for -- not the id coming back into the label.
+
+     THE STATUS WORD WENT WITH IT, so nothing in the list says a game is off
+     sale. The ORDER still groups them -- posted, then building, then skipped --
+     which is the half that survives without a word. */
   const name = game.name || 'Untitled Game';
-  /* POSTED IS THE UNMARKED CASE. A word on every row would be a column, not
-     news; what is worth saying is that a game is NOT on sale, and which of
-     the two reasons it is not.
-     THE WORD COMES FROM A MAP, NOT FROM THE KEY. Lowercasing the group key
-     printed `archived`, which is the column's word rather than the room's. */
-  const GROUP_WORD = { LIVE: '', BUILDING: 'building', ARCHIVED: 'skipped' };
-  const mark = group === 'LIVE' ? '' : '  ·  ' + (GROUP_WORD[group] || String(group || '').toLowerCase());
-  return name + '  ·  ' + game.id + mark;
+  /* THE DATE IS WHAT TELLS TWO GAMES OF ONE NAME APART, so it earns its place
+     where the id did not: 394 games carry only 325 distinct names, because a
+     baseball series is one game a day for three days, twice a season. A game
+     with no date yet is just its name -- 42 of them today. */
+  const when = gameDateLabel(game);
+  return when ? name + ' - ' + when : name;
+}
+
+/* THE ORDER THE PICKER OFFERS, AS A LIST OF IDS.
+   Extracted so the datalist and the step arrows read the SAME ordering: two
+   copies of it would drift the first time either was edited, and the arrows
+   would then walk an order the dropdown does not show. */
+function gamePickerOrderedGames() {
+  const games = getHeaderGames();
+  const groups = [
+    { key: 'LIVE', games: [] },
+    { key: 'ARCHIVED', games: [] }
+  ];
+  const groupMap = new Map(groups.map((group) => [group.key, group]));
+  games.forEach((game) => {
+    const group = groupMap.get(getHeaderGameGroup(game));
+    if (group) group.games.push(game);
+  });
+  return groups
+    .reduce((all, group) => all.concat(group.games), [])
+    .map((game) => ({ game: game, label: gamePickerLabel(game) }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 }
 
 function renderGamePickerSelect() {
@@ -19252,7 +19787,6 @@ function renderGamePickerSelect() {
   const list = document.getElementById('gamePickerList');
   const groups = [
     { key: 'LIVE', label: 'POSTED', games: [] },
-    { key: 'BUILDING', label: 'BUILDING', games: [] },
     { key: 'ARCHIVED', label: 'SKIPPED', games: [] }
   ];
   const groupMap = new Map(groups.map((group) => [group.key, group]));
@@ -19261,24 +19795,33 @@ function renderGamePickerSelect() {
     if (group) group.games.push(game);
   });
 
-  /* LIVE FIRST, THEN ARCHIVED. A datalist has no optgroups, so the grouping
-     that the select drew as headings survives as ORDER plus the word on the
-     archived rows -- which is the half that carries information. */
+  /* ALPHABETICAL, ONE LIST (2026-09-02). It ran posted, then building, then
+     skipped -- an order that was carrying the grouping a datalist cannot draw.
+     With the status word gone from the label that order was invisible, so it
+     was sorting the list by something nothing on screen could explain.
+       ALPHABETICAL IS THE ORDER YOU CAN PREDICT, which is the same call the
+     Tape Room made when it deleted its three sort buttons. Within one name the
+     dates sort chronologically for free, zero-padded yyyy/mm/dd being what it
+     is. The counts line still reads the groups; only the ORDER stopped. */
   gamePickerByLabel = new Map();
   if (list) list.innerHTML = '';
-  groups.forEach((group) => {
-    group.games.forEach((game) => {
-      const label = gamePickerLabel(game, group.key);
-      gamePickerByLabel.set(label.toLowerCase(), game.id);
-      if (!list) return;
-      const opt = document.createElement('option');
-      opt.value = label;
-      list.appendChild(opt);
-    });
+  const ordered = gamePickerOrderedGames();
+  ordered.forEach((entry) => {
+    const label = entry.label;
+    /* FIRST WINS, NOT LAST. Two games can still share a label -- same name and
+       no date on either -- and `set` would leave the box opening whichever came
+       last. Keeping the first makes a repeat resolve to one game rather than
+       silently to a different one each time the list is rebuilt. */
+    const key = label.toLowerCase();
+    if (!gamePickerByLabel.has(key)) gamePickerByLabel.set(key, entry.game.id);
+    if (!list) return;
+    const opt = document.createElement('option');
+    opt.value = label;
+    list.appendChild(opt);
   });
 
   const current = state.currentGameId && games.find((game) => game.id === state.currentGameId);
-  gamePickerInput.value = current ? gamePickerLabel(current, getHeaderGameGroup(current)) : '';
+  gamePickerInput.value = current ? gamePickerLabel(current) : '';
   gamePickerInput.removeAttribute('data-invalid');
   gamePickerInput.title = current ? current.id : 'Open game';
 
@@ -19288,15 +19831,53 @@ function renderGamePickerSelect() {
   const gameProfileStat = document.getElementById('gameProfileStat');
   if (gameProfileStat) {
     const live = groupMap.get('LIVE').games.length;
-    const building = groupMap.get('BUILDING').games.length;
     const archived = groupMap.get('ARCHIVED').games.length;
     gameProfileStat.textContent = games.length
       ? (games.length + ' Game' + (games.length === 1 ? '' : 's') + '. '
-         + live + ' posted, ' + building + ' building, ' + archived + ' skipped.')
+         + live + ' posted, ' + archived + ' skipped.')
       : '';
   }
 
+  paintGameStepButtons();
   updateActionUi();
+}
+
+/* WHERE THE OPEN GAME SITS IN THAT LIST, or -1. */
+function gameStepIndex() {
+  if (!state.currentGameId) return -1;
+  return gamePickerOrderedGames().findIndex((entry) => entry.game.id === state.currentGameId);
+}
+
+function paintGameStepButtons() {
+  const total = gamePickerOrderedGames().length;
+  const at = gameStepIndex();
+  [[gameStepPrevBtn, -1, 'Previous game'], [gameStepNextBtn, 1, 'Next game']].forEach(([btn, delta, name]) => {
+    if (!btn) return;
+    let why = '';
+    if (!total) why = 'No games loaded yet.';
+    else if (at === -1) why = 'Open a game first.';
+    else if (at + delta < 0) why = 'This is the first game.';
+    else if (at + delta >= total) why = 'This is the last game.';
+    btn.setAttribute('aria-disabled', why ? 'true' : 'false');
+    /* THE POSITION IS ON THE TOOLTIP, because a list of 394 gives no other
+       sign of where you are in it. */
+    btn.title = why || (name + '  (' + (at + 1) + ' of ' + total + ')');
+  });
+}
+
+/* CLAMPED, NEVER WRAPPED, and it opens through the picker's own call so there
+   is ONE open path rather than two that can drift. `preserveRecovery` matches
+   what the chooser passes, so unsaved work is treated identically however you
+   moved. */
+async function stepGame(delta) {
+  const ordered = gamePickerOrderedGames();
+  const at = gameStepIndex();
+  if (at === -1 || !ordered.length) return;
+  const next = at + delta;
+  if (next < 0 || next >= ordered.length) return;
+  const id = ordered[next].game.id;
+  if (id === state.currentGameId) return;
+  await openSavedGameById(id, { preserveRecovery: hasPendingSaveChanges() });
 }
 
 function getSelectedGamePickerId() {
@@ -19524,6 +20105,21 @@ function getLinkSelectionLabel(link) {
 function openSavedGame(gameId, options = {}) {
   const game = state.store.games.find((entry) => entry.id === gameId);
   if (!game) return;
+  /* REOPENING THE GAME THAT IS ALREADY OPEN LOCKED THE PAGE (2026-09-02).
+     `setCurrentGameStatus` calls this after a status write, so that
+     un-archiving a game you are looking at brings it back -- and with every
+     game skipped, `wasArchived` is true for all of them, so pressing POST
+     reached it every time on the game already in front of you.
+       IT HUNG THE MAIN THREAD OUTRIGHT: no error, no console output, the tab
+     simply stopped answering. `renderAll` ends in `updateSelectionUi`, whose
+     last line is `scheduleRecoverySync()`, which calls `setSaveStatus`, which
+     repaints -- and the guard that breaks that cycle is `saveUiState` already
+     reading 'unsaved', which a freshly reopened game does not.
+       `openSavedGameById` HAS ALWAYS HAD THIS GUARD -- `nextGameId ===
+     state.currentGameId` returns early -- and this twin never did. Reopening
+     the current game was a no-op by intent anyway: the work is the status
+     write, which has already happened by the time this is called. */
+  if (gameId === state.currentGameId) return;
 
   runWithoutRecoverySync(() => {
     setHeaderOnlyMode(false);
@@ -20900,6 +21496,39 @@ function updateStencilAvailability() {
   }
 }
 
+/* AN EMPTY DRAWER DOES NOT PAINT.
+   ---------------------------------------------------------------------
+   `#inspector` carries a background, a 1px border, a 16px radius and a drop
+   shadow, so it draws a grey pill whether or not anything is inside it -- and
+   on this page nothing IS. Every field it used to hold moved out into the bars
+   between 2026-08-31 and 2026-09-02, and what is left is two `.details-section`
+   blocks that only ever show for a selected FLOW NODE. THIS PAGE HAS NO CANVAS
+   AND NO STENCIL BAR, so no node can be selected here and neither section can
+   ever open: the drawer was a 25px empty box under the tags bar, every time.
+
+   THE SECTIONS THEMSELVES STAY, and that is not timidity. `refreshSelectionUi`
+   writes `stopNameField.hidden`, `varNameField.hidden`, `varValuesField.hidden`
+   and `ifThenField.hidden` unconditionally, so deleting the markup makes those
+   four null and the assignment throws -- which takes the rest of the render
+   with it INCLUDING the auth call, and `admin-shell.css` hides every child of
+   `body.mc-auth-protected` until that runs. A blank page, which is the failure
+   this project opens its notes with.
+
+   SO THE TEST IS "IS ANYTHING VISIBLE IN IT", NOT "IS THIS THE GAMES PAGE".
+   Written that way the drawer comes back by itself the day something in it is
+   shown again, rather than needing somebody to remember. */
+function inspectorHasVisibleContent() {
+  if (!inspectorContent) return false;
+  return Array.from(inspectorContent.children)
+    .some((child) => !child.hidden);
+}
+
+function syncInspectorEmptiness() {
+  if (!inspector) return;
+  if (inspector.hidden) return;          /* already hidden for its own reason */
+  inspector.hidden = !inspectorHasVisibleContent();
+}
+
 function syncDetailsSectionVisibility() {
   if (!inspectorContent) return;
   inspectorContent.querySelectorAll('.details-section').forEach((section) => {
@@ -21130,6 +21759,9 @@ function updateSelectionUi(options = {}) {
   if (inspectorContent) inspectorContent.classList.add('is-game-details');
 
   if (gameNameBar) gameNameBar.hidden = !showGameDetails;
+  if (tgbDateBar) tgbDateBar.hidden = !showGameDetails;
+  const tgbDateInput = document.getElementById('tgbDate');
+  if (tgbDateInput) tgbDateInput.disabled = !showGameDetails;
   stopNameField.hidden = true;
   varNameField.hidden = true;
   varValuesField.hidden = true;
@@ -21295,10 +21927,15 @@ function updateSelectionUi(options = {}) {
     deleteBtn.disabled = true;
     deleteBtn.textContent = '';
   }
+  /* PAINTED FROM STATE, not force-hidden. This block used to set `hidden` and
+     `disabled` on a null every render, because the id it names was in no
+     markup at all. */
   if (gameEraseBtn) {
-    gameEraseBtn.hidden = true;
-    gameEraseBtn.disabled = true;
-    gameEraseBtn.title = 'Game erase disabled';
+    const eraseWhy = state.gameEraseActionBusy
+      ? 'Working...'
+      : (getCurrentGameArchiveEntry() ? '' : 'Open a game first.');
+    gameEraseBtn.setAttribute('aria-disabled', eraseWhy ? 'true' : 'false');
+    gameEraseBtn.title = eraseWhy || 'Delete this game';
     gameEraseBtn.setAttribute('aria-label', gameEraseBtn.title);
   }
 
@@ -21338,7 +21975,7 @@ function updateSelectionUi(options = {}) {
   /* PAINTED FROM THE ROW, NOT THE NODE, for the reason above it: an audience
      is a column on `public.games`, and a game opened from the picker may
      carry no game node at all. */
-  paintAudienceTextboxes(showGameDetails ? meta : null);
+  paintRowTextboxes(showGameDetails ? meta : null);
 
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
   if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
@@ -21405,19 +22042,21 @@ function updateSelectionUi(options = {}) {
   const currentId = currentGameEntry && currentGameEntry.id ? String(currentGameEntry.id).trim() : '';
   if (selectionIdInput) {
     if (document.activeElement !== selectionIdInput) {
-      selectionIdInput.value = currentId;
+      setGameIdValue(currentId);
     }
+    sizeGameIdInput();
     selectionIdInput.disabled = !(showGameDetails && currentId);
     selectionIdInput.removeAttribute('data-invalid');
     selectionIdInput.title = showGameDetails && currentId
       ? 'Rename this game ID (must be unique)'
       : '';
   }
-  if (gameIdBar) gameIdBar.hidden = !showGameDetails;
   // The bar carries both fields, so it follows the same condition they do —
   // an empty framed panel above the workspaces is worse than no panel.
   if (gameIdentityBar) gameIdentityBar.hidden = !showGameDetails;
   syncDetailsSectionVisibility();
+  /* AFTER the sections have decided, never before: it reads what they left. */
+  syncInspectorEmptiness();
   if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
   updateObjectInspectorUi(selectedNode, selectedLink, objectCopyText);
   updateActionUi();
@@ -22574,6 +23213,38 @@ function serializeDoc() {
   return serializeDocState(state.doc, { touchUpdatedAt: true });
 }
 
+/* THE ID'S UNDERLINE HUGS ITS TEXT (2026-09-02). The input was a fixed 14rem,
+   so the line ran 224px whatever the id was -- a rule sticking out well past
+   `tam2026nor` and stopping in the middle of nowhere, a few pixels from the
+   fieldset's own top border resuming after the legend. Two short lines at
+   slightly different heights read as a mistake.
+     `size` RATHER THAN `field-sizing: content`, which is Chrome 123+ and does
+   the same job in one declaration: this page is served to whatever browser the
+   admin happens to have, and `size` has worked everywhere for twenty years.
+   The font is monospace, so a character count IS the width.
+     THE +1 IS THE CARET. Without it the cursor sits on the last glyph at the
+   end of the line. The floor keeps the empty state -- placeholder `none` --
+   from collapsing to a stub of a line.
+     CALLED FROM THE PAINT AND FROM THE KEYSTROKE, so it is right when a game is
+   opened and stays right while an id is being retyped. */
+function sizeGameIdInput() {
+  if (!selectionIdInput) return;
+  const shown = String(selectionIdInput.value || selectionIdInput.placeholder || '');
+  selectionIdInput.size = Math.max(5, shown.length + 1);
+}
+
+/* ONE WRITER FOR THE BOX, so the line cannot fall out of step with the text.
+   SIX PLACES SET THIS VALUE -- the paint, Escape, and four restore paths in the
+   rename -- and setting `.value` fires no `input` event, so any one of them
+   left on its own keeps the width of whatever was typed before it. Sizing after
+   each is the arrangement where the SEVENTH is missed; this is the one where it
+   cannot be. */
+function setGameIdValue(next) {
+  if (!selectionIdInput) return;
+  selectionIdInput.value = String(next == null ? '' : next);
+  sizeGameIdInput();
+}
+
 function setSaveStatus(kind, text) {
   const next = kind || 'idle';
   if (state.saveUiState === next) return;
@@ -22936,8 +23607,9 @@ function stageCurrentGameIntoStore() {
     guide_image_url:       guideImageUrl || null,
     logo_url:              _meta.logoUrl || null,
     anchor_event_id:       _meta.anchorEventId || null,
-    target:                audienceColumnValue(_meta.target),
-    rival:                 audienceColumnValue(_meta.rival),
+    target:                rowColumnValue(_meta.target),
+    tgbDate:               rowColumnValue(_meta.tgbDate),
+    rival:                 rowColumnValue(_meta.rival),
     /* BLANK IS NULL, THROUGH THE ONE HELPER, so the staged row and the PATCH
        agree about what an empty box means. */
     link_url:              _gn.linkUrl || null,
@@ -23009,7 +23681,7 @@ async function saveDoc(options = {}) {
        CLICKING SAVE BLURS THE BOX FIRST in most browsers, which is why the
      `input` listeners are usually enough -- and "usually" is not what a write
      path gets to rely on. */
-  syncAudienceTextboxesToMeta();
+  syncRowTextboxesToMeta();
   const needsCurrentGameStage = shouldStageCurrentGameForSave();
   const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
 
@@ -23033,19 +23705,13 @@ async function saveDoc(options = {}) {
   }
 
   setSaveStatus('saving');
-  if (!state.currentGameId && hasGameNode()) {
-    const newId = await promptForNewGameId({ purpose: 'create' });
-    if (!newId) {
-      setSaveStatus('idle', 'Save cancelled');
-      return {
-        savedGame: null,
-        serverSaved: false,
-        localOnly: false,
-        skipped: true,
-        error: new Error('Game ID is required to save.')
-      };
-    }
-    state.currentGameId = newId;
+  /* NO PROMPT ON A NEW GAME. It mints one and saves; see mintNewGameId.
+       `hasGameNode()` IS NOT THE TEST ANY MORE. It asks whether the flow
+     DOCUMENT has a game node, and since the graph views were dropped no game
+     has one -- so a new game would have fallen straight past this with no id at
+     all and saved as a row keyed on nothing. An id is a property of the ROW. */
+  if (!state.currentGameId) {
+    state.currentGameId = await mintNewGameId();
   }
   const savedGame = stageCurrentGameIntoStore();
   if (!savedGame && !state.store.updatedAt) {
@@ -23149,7 +23815,7 @@ async function loadDoc() {
     }
     // Fall back to most recently updated game
     try {
-      const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'status', 'archived', 'nodes', 'links', 'created_at', 'updated_at']);
+      const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'status', 'archived', 'tgb_date', 'nodes', 'links', 'created_at', 'updated_at']);
       const recentRows = await fetchGameRowsFromSupabase(recentSelect);
       recentRows.sort((a, b) => Date.parse(b && b.updated_at || 0) - Date.parse(a && a.updated_at || 0));
       if (recentRows.length > 0) {
@@ -23526,7 +24192,7 @@ nodeTaglineInput.addEventListener('input', () => {
    is what makes Save notice on the frame rather than on the next render.
      WITHOUT THAT CALL THE BOX WORKS AND THE BUTTON DOES NOT LIGHT, which reads
    as the field not saving rather than as the button not repainting. */
-AUDIENCE_TEXTBOXES.forEach((slot) => {
+GAME_ROW_TEXTBOXES.forEach((slot) => {
   const box = document.getElementById(slot.input);
   if (!box) return;
   box.addEventListener('input', () => {
@@ -25188,8 +25854,36 @@ if (gameStatusToggle) {
 if (builderNewGameBtn) {
   builderNewGameBtn.addEventListener('click', () => startNewPhone());
 }
+/* GUARDED PER BUTTON, NOT INSIDE ANOTHER CONTROL'S BLOCK. These do not depend
+   on the New button existing, and nesting them there would take both arrows out
+   the day that button moves.
+
+   `aria-disabled`, NOT `disabled`, so the pair stays focusable and is announced
+   with its reason rather than skipped over. THE PRESS IS A NO-OP, and that is
+   the one place this departs from the room's usual rule that an off control
+   must say why when pressed. That rule is for a reason nobody could guess --
+   "tick two or more tracks first" -- and here the reason is the position
+   itself: an arrow at the end of a list that does not move is what every
+   player, pager and carousel already does.
+
+   THE HONEST PART: this page has no notice channel anywhere near the nav. Its
+   only inline one renders into `#duplicateGameStatus`, which sits in the
+   inspector at the FOOT of the page, and a message 800px below the button you
+   pressed explains nothing. If a scribble is ever added up here, this is the
+   first thing that should use it. */
+[[gameStepPrevBtn, -1], [gameStepNextBtn, 1]].forEach(([btn, delta]) => {
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (btn.getAttribute('aria-disabled') === 'true') return;
+    await stepGame(delta);
+  });
+});
 if (gameEraseBtn) {
   gameEraseBtn.addEventListener('click', () => {
+    /* The off state is a no-op, the same as the step arrows and for the same
+       reason: this page has no notice channel near the nav, and the button is
+       visibly greyed with its reason on the tooltip and the accessible name. */
+    if (gameEraseBtn.getAttribute('aria-disabled') === 'true') return;
     openGameEraseFlow();
   });
 }
@@ -25246,7 +25940,15 @@ if (gamePickerInput) {
     const games = getHeaderGames();
     const byLabel = gamePickerByLabel.get(typed.toLowerCase());
     const byId = games.find((g) => String(g.id).toLowerCase() === typed.toLowerCase());
-    const selectedValue = byLabel || (byId ? byId.id : '');
+    /* OR A BARE NAME, WHERE ONLY ONE GAME CARRIES IT (2026-09-02). The label
+       gained the date, so a name typed on its own stops matching one -- and
+       typing a name is the obvious thing to do. It opens the game only when the
+       name is UNAMBIGUOUS: 325 of the 394 names are, and for the other 69 the
+       date is exactly what has to be said, so guessing between them would be
+       the coin toss this label change exists to remove. */
+    const named = games.filter((g) => String(g.name || '').trim().toLowerCase() === typed.toLowerCase());
+    const byName = named.length === 1 ? named[0].id : '';
+    const selectedValue = byLabel || (byId ? byId.id : '') || byName;
 
     if (!selectedValue) {
       /* REFUSED IN THE ROOM'S OWN IDIOM rather than silently reopening the last
@@ -26155,7 +26857,9 @@ if (objectBubbleAudioInput) {
 // the `maps` table (game_id -> waypoint_id, ord) and the referenced `waypoints`
 // rows, then synthesize one stop node per waypoint (stamped with waypointId so
 // STOP GROUP + attached challenges survive save/reload). See plan + CLAUDE.md.
-// public.maps was superseded on 2026-07-30 by public.stops, which is keyed by
+// public.maps (THE OLD ONE, retired as public.maps_retired -- not the
+// public.atlas the Atlas room writes) was superseded on 2026-07-30 by
+// public.stops, which is keyed by
 // CITY rather than by game: every game in a city shares its stops. game_stops is
 // the view that projects them back per game, so the "stops for game X" query
 // below is unchanged. Read-only here either way — this page synthesizes a stop
@@ -26580,6 +27284,10 @@ if (selectionIdInput) {
     const value = normalizeGameIdInput(selectionIdInput.value || '');
     const invalid = value && !GAME_ID_PATTERN.test(value);
     selectionIdInput.toggleAttribute('data-invalid', !!invalid);
+    /* THE LINE HAS TO FOLLOW WHAT IS TYPED, or it stops hugging the text the
+       moment the id gets longer -- which is the fault this sizing exists to
+       remove, arrived at from the other side. */
+    sizeGameIdInput();
   });
 
   selectionIdInput.addEventListener('keydown', (event) => {
@@ -26588,8 +27296,13 @@ if (selectionIdInput) {
       selectionIdInput.blur();
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      selectionIdInput.value = idBeforeEdit;
+      setGameIdValue(idBeforeEdit);
       selectionIdInput.removeAttribute('data-invalid');
+      /* SETTING `.value` FIRES NO `input` EVENT, so the line would keep the
+         width of whatever was typed before Escape put the old id back -- 61px
+         of rule hanging off the end of an 11-character key. Every path that
+         writes this value has to size it. */
+      sizeGameIdInput();
       selectionIdInput.blur();
     }
   });
@@ -26603,7 +27316,7 @@ if (selectionIdInput) {
     idBeforeEdit = '';
 
     if (!proposed || proposed === previous) {
-      selectionIdInput.value = previous || (state.currentGameId || '');
+      setGameIdValue(previous || (state.currentGameId || ''));
       selectionIdInput.removeAttribute('data-invalid');
       return;
     }
@@ -26611,7 +27324,7 @@ if (selectionIdInput) {
     if (!window.confirm(`Rename game ID from "${previous}" to "${proposed}"?
 
 All references in other tables must already allow ON UPDATE CASCADE.`)) {
-      selectionIdInput.value = previous;
+      setGameIdValue(previous);
       selectionIdInput.removeAttribute('data-invalid');
       return;
     }
@@ -26619,12 +27332,12 @@ All references in other tables must already allow ON UPDATE CASCADE.`)) {
     const result = await renameCurrentGameId(proposed);
     if (!result.ok) {
       window.alert(result.error || 'Could not rename game ID.');
-      selectionIdInput.value = previous;
+      setGameIdValue(previous);
       selectionIdInput.setAttribute('data-invalid', 'true');
       return;
     }
     selectionIdInput.removeAttribute('data-invalid');
-    selectionIdInput.value = state.currentGameId || '';
+    setGameIdValue(state.currentGameId || '');
   });
 }
 

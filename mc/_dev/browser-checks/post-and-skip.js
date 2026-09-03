@@ -1,4 +1,4 @@
-/* POST AND SKIP, THE SAME TWO VERBS IN ALL FOUR ROOMS (2026-08-31).
+/* POST AND SKIP DECISION SURFACES (2026-08-31; Socializer renamed 2026-09-02).
    These read the SOURCE for the faces a room builds and the maps it builds them
    from, plus a rendered check that the old words are gone from what a reader
    sees. The identifiers must NOT have moved: renaming a column or a class would
@@ -20,6 +20,10 @@ const TAPE = read('mc/soundtracks/index.html');
 const GIFT = read('mc/gifts/index.html');
 const SOC  = read('mc/socializer/index.html');
 const GAME = read('mc/games/index.html');
+const EDGE = read('mc/supabase/functions/socials-post/index.ts');
+const DIRECT_POST_START = EDGE.lastIndexOf('const { data: row, error: rowErr } = await supa');
+const DIRECT_POST_END = EDGE.indexOf('// 200 even on a total failure', DIRECT_POST_START);
+const DIRECT_POST = EDGE.slice(DIRECT_POST_START, DIRECT_POST_END === -1 ? EDGE.length : DIRECT_POST_END);
 
 console.log('\n-- the Tape Room --');
 t('the two maps say Post and Skip',
@@ -63,7 +67,8 @@ t('the values and the class did NOT move',
   && /process-shelve/.test(GIFT) && /id="processLive"/.test(GIFT));
 
 console.log('\n-- the Socializer --');
-t('the decision button reads Post', /doneBtn\.textContent = 'Post'/.test(SOC));
+t('the decision button reads FILE AS POSTED',
+  /doneBtn\.textContent = 'FILE AS POSTED'/.test(SOC));
 t('and Skip is still beside it', /queued \? 'Skip queued' : 'Skip'/.test(SOC));
 t('its tooltip says FILE, so the face cannot be read as an action',
   /'File this as posted to ' \+ used\.join/.test(SOC)
@@ -73,6 +78,26 @@ t('the id and the class did NOT move',
   /doneBtn/.test(SOC) && /post-done/.test(SOC));
 t('the account buttons are still named for accounts, not for the verb',
   /PLATFORM_NAME/.test(SOC));
+t('machine posts tick account buttons and stay in Review',
+  /postSessionReceipts/.test(SOC)
+  && /storedLabels/.test(SOC)
+  && /posted_platforms/.test(SOC)
+  && /noteUsed\(k, r\.id\)/.test(SOC)
+  && /Press FILE AS POSTED when this/.test(SOC)
+  && !/function finishMachineRun/.test(SOC));
+t('FILE AS POSTED is what marks the row posted',
+  /doneBtn\.addEventListener\('click'/.test(SOC)
+  && /markPosted\(used\.slice\(\), false\)/.test(SOC));
+t('Socializer has no send-later controls',
+  !/post-platform--later|schedBackdrop|schedCard|schedGo|openScheduleDialog|writeSchedule/.test(SOC));
+t('direct socials-post does not auto-file the row',
+  /Direct button presses do NOT move the row/.test(EDGE)
+  && /receiptPatch\(row, results\)/.test(DIRECT_POST)
+  && !/update\(\{[\s\S]*status:\s*'posted'/.test(DIRECT_POST));
+t('scheduler calls are disabled',
+  /x-tgb-scheduler/.test(EDGE)
+  && /scheduled social posting has been removed/.test(EDGE)
+  && !/async function runSweep|tgb_claim_due_socials/.test(EDGE));
 
 console.log('\n-- the Game Builder --');
 t('the picker groups read POSTED / BUILDING / SKIPPED',
@@ -104,7 +129,8 @@ const gone = [
                            /tape-air-word--on">Live</, /'shelved, ' \+ total/]],
   ['the Gift Shop', GIFT, [/>\s*GO LIVE<\/button>/, />\s*SHELVE<\/button>/,
                            /off: 'Go live'/, /off: 'Shelve'/, /Filter: Shelved</]],
-  ['the Socializer', SOC, [/doneBtn\.textContent = 'Done'/]],
+  ['the Socializer', SOC, [/doneBtn\.textContent = 'Done'/,
+                           /doneBtn\.textContent = 'Post'/]],
   ['the Game Builder', GAME, [/label: 'LIVE'/, /label: 'ARCHIVED'/,
                               /'Unarchive' : 'Archive'/, /' live \+ '/, /' archived = '/]]
 ];

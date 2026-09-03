@@ -254,6 +254,20 @@
       outline: 2px solid var(--accent); outline-offset: -1px;
     }
     .event-name::placeholder { color: var(--muted); font-weight: 500; font-style: italic; opacity: 1; }
+    /* IT SITS TIGHT AGAINST THE NAME, so the head's 8px gap is pulled back:
+       an asterisk floating a word away from what it marks reads as a bullet. */
+    .event-neutral {
+      flex: 0 0 auto; margin-left: -6px;
+      font-weight: 700; color: var(--muted); cursor: help;
+    }
+    .event-when {
+      flex: 0 0 auto;
+      font-size: 0.78rem; color: var(--muted); white-space: nowrap;
+    }
+    /* A DATE HAS NOWHERE USEFUL TO BREAK, so it is nowrap -- and it is the one
+       thing in the head that must not wrap, since the head already wraps and a
+       date split across two lines reads as two dates. */
+    .event-row.is-open .event-when { display: none; }
     .event-where {
       font-size: 0.78rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere;
     }
@@ -483,6 +497,20 @@
       margin-left: auto; flex: 0 0 auto;
       font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
+    /* THE ROW IS A DIV AND THE TICKABLE PART IS THE LABEL INSIDE IT, so the
+       Details door is a SIBLING of the label rather than a child of it. An
+       anchor inside a label is the nesting browsers disagree about, and this
+       repo already keeps the door outside for that reason in the Stop Builder
+       and on the audience badge. */
+    .sg-pick {
+      display: flex; align-items: center; gap: 10px;
+      flex: 1 1 auto; min-width: 0; cursor: pointer;
+    }
+    /* SHORTER THAN .btn.small ON PURPOSE, and it still sets the row height --
+       measured 35px with no door, 39px with this, 47px at .btn.small's own
+       32px. The list is capped at 46vh, so those 8px are two rows off screen
+       on every fetch. */
+    .sg-item .sg-details { min-height: 24px; padding: 0 8px; font-size: 0.7rem; flex: 0 0 auto; }
 
     .batch-row {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -505,21 +533,7 @@
       width: 15px; height: 15px; margin: 0 2px 0 0;
       accent-color: var(--accent); cursor: pointer;
     }
-    .batch-row select, .batch-row input[type="text"] {
-      min-height: 30px; padding: 3px 7px;
-      border: 1px solid var(--control-line); border-radius: 6px;
-      background: #fff; color: var(--ink); font-size: 0.78rem;
-    }
-    .batch-row input[type="text"] { width: 13ch; }
     .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
-
-    .batch-row .bar-sep {
-      flex: 0 0 auto;
-      align-self: stretch;
-      width: 1px;
-      margin: 2px 2px;
-      background: var(--control-line);
-    }
 
     .event-pick {
       flex: 0 0 auto; width: 15px; height: 15px; margin: 0 2px 0 0;
@@ -568,23 +582,6 @@
       min-height: 1.2em; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
     }
 
-    .prompt-sheet {
-      width: 100%; min-height: 340px; resize: vertical;
-      padding: 12px 14px; border: 1px solid var(--control-line); border-radius: 8px;
-      background: repeating-linear-gradient(
-        to bottom, #fff, #fff 21px, rgba(45, 72, 128, 0.09) 21px, rgba(45, 72, 128, 0.09) 22px);
-      color: var(--ink);
-      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
-      white-space: pre; overflow: auto;
-    }
-
-    .prompt-doors {
-      display: flex; align-items: center; gap: 8px; margin: 0;
-      padding: 4px 10px 8px; border: 1px solid var(--line); border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-    }
-    .prompt-doors > legend { padding: 0 6px; }
-
     .pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 0; flex-wrap: wrap; }
     .pager-info { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted); }
 
@@ -626,9 +623,7 @@
           <button class="btn" id="addEventBtn" type="button"
                   title="Add one event yourself, straight onto this page.">MANUAL</button>
           <button class="btn" id="seatgeekBtn" type="button"
-                  title="Pull real events from SeatGeek for one city and a date range, and import the ones you tick.">SEATGEEK</button>
-          <button class="btn" id="conventionsBtn" type="button"
-                  title="Everything no ticketing feed carries. Name cities or leagues and it builds a prompt for an AI with a browser: a league's own schedule, a city's convention centres and visitors bureau.">OTHER</button>
+                  title="Fetch real events from SeatGeek for a city, a league or a club, and import the ones you tick.">FETCH</button>
         </div>
       </fieldset>
 
@@ -674,12 +669,6 @@
         <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
         <span class="batch-count" id="batchCount">none selected</span>
         <span class="batch-actions">
-          <select id="batchKind" class="command-bar-select" aria-label="Set kind">
-            <option value="">Set kind</option>
-          </select>
-          <input type="text" id="batchSource" placeholder="Set source…" autocomplete="off">
-          <button class="btn small" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
-          <span class="bar-sep" aria-hidden="true"></span>
           <button class="btn small warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
         </span>
       </div>
@@ -704,46 +693,6 @@
     </div>
 
     <button class="btn primary save-all" id="saveAllBtn" type="button" hidden>Save all</button>
-
-    <div class="prompt-lightbox" id="cvLightbox" role="dialog" aria-modal="true" aria-labelledby="cvDialogTitle" hidden>
-      <div class="prompt-dialog">
-        <div class="prompt-dialog-head">
-          <h2 class="prompt-dialog-title" id="cvDialogTitle">Add Anchor Events with AI</h2>
-          <button class="btn small" id="closeCvBtn" type="button">Close</button>
-        </div>
-        <div class="prompt-dialog-body">
-          <p class="prompt-howto">
-            For everything a ticketing feed does not carry. Name cities or leagues and a window, and it reads the web instead:
-            a league's own schedule, a city's convention centres and visitors bureau.
-            Edit the prompt if you like, copy it into an AI that can browse, then paste what it hands back into the website's database (Supabase).
-            If the SQL will not run, or the events come back wrong, mail
-            <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
-          </p>
-
-          <fieldset class="prompt-options prompt-options--sg" aria-label="Which cities or leagues, and when">
-            <legend class="prompt-options-label">Which cities or leagues, and when</legend>
-            <input type="text" id="cvCity" placeholder="Denver, Chicago, NFL, Premier League" autocomplete="off"
-                   title="A city, a league, or a mix of both, separated by commas. A city is read as its convention centres and visitors bureau; a league as its own published schedule.">
-            <label class="prompt-option">from <input type="date" id="cvFrom"></label>
-            <label class="prompt-option">to <input type="date" id="cvTo"></label>
-          </fieldset>
-
-          <textarea id="cvPrompt" class="prompt-sheet" spellcheck="false" aria-label="The prompt"></textarea>
-          <p class="prompt-copy-status" id="cvStatus" aria-live="polite"></p>
-        </div>
-        <div class="prompt-dialog-foot">
-          <fieldset class="prompt-doors">
-            <legend class="prompt-options-label">Copy prompt to clipboard &amp; open</legend>
-            <a class="btn small" data-cv-door href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
-            <a class="btn small" data-cv-door href="https://grok.com/" target="_blank" rel="noopener noreferrer">Grok</a>
-            <a class="btn small" data-cv-door href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
-          </fieldset>
-          <a class="btn small primary" id="cvSqlBtn"
-             href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
-             target="_blank" rel="noopener noreferrer">Insert results</a>
-        </div>
-      </div>
-    </div>
 
     <div class="prompt-lightbox" id="sgLightbox" role="dialog" aria-modal="true" aria-labelledby="sgDialogTitle" hidden>
       <div class="prompt-dialog">
@@ -847,12 +796,13 @@
       'broadway', 'circus', 'cirque_du_soleil', 'classical', 'comedy',
       'concert', 'convention', 'dance', 'entertainment', 'expo',
       'family', 'festival', 'film', 'historical', 'literary',
-      'music_festival', 'other', 'sports', 'sports-nonteam',
+      'music_festival', 'other', 'sports', 'sports-nfl', 'sports-nonteam',
       'sports-tournament', 'theater'
     ];
 
     const EDITABLE_FIELDS = [
       'kind', 'title', 'league', 'sport', 'start_date', 'end_date', 'start_time',
+      'timezone',
       'home_team_geo', 'home_team_nickname', 'away_team_geo', 'away_team_nickname',
       'venue', 'venue_city', 'neutral_site', 'home_team_score', 'away_team_score',
       'url', 'source', 'description'
@@ -868,6 +818,7 @@
       start_date:      { label: 'Start date', type: 'date' },
       end_date:        { label: 'End date',   type: 'date' },
       start_time:      { label: 'Start time (local)', type: 'time' },
+      timezone:        { label: 'Timezone', type: 'text', placeholder: 'America/Chicago' },
       home_team_geo:     { label: 'Home team geo',      type: 'text', placeholder: 'Carolina' },
       home_team_nickname:     { label: 'Home team nickname', type: 'text', placeholder: 'Panthers' },
       away_team_geo:     { label: 'Away team geo',      type: 'text', placeholder: 'Chicago' },
@@ -888,7 +839,7 @@
                  'home_team_geo', 'home_team_nickname', 'home_team_score',
                  'away_team_geo', 'away_team_nickname', 'away_team_score'] },
       { key: 'what',  label: 'What',  fields: ['kind', 'description'] },
-      { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time'] },
+      { key: 'when',  label: 'When',  fields: ['start_date', 'end_date', 'start_time', 'timezone'] },
       { key: 'where', label: 'Where', fields: ['venue', 'venue_city', 'neutral_site'] },
       { key: 'why',   label: 'Why',   fields: ['url', 'source'] }
     ];
@@ -940,31 +891,8 @@
     const batchBar = document.getElementById('batchBar');
     const batchAllBox = document.getElementById('batchAllBox');
     const batchCount = document.getElementById('batchCount');
-    const batchKind = document.getElementById('batchKind');
-
-    // THE BATCH ROW'S KINDS ARE BUILT FROM KIND_VALUES. They were markup, a
-    // fourth hand-kept copy of the list, so the row and the form would have
-    // gone on offering six kinds while the constant held twenty.
-    if (batchKind) {
-      KIND_VALUES.forEach((k) => {
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.textContent = k;
-        batchKind.appendChild(opt);
-      });
-    }
-    const batchSource = document.getElementById('batchSource');
-    const batchApplyBtn = document.getElementById('batchApplyBtn');
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
     const seatgeekBtn = document.getElementById('seatgeekBtn');
-    const conventionsBtn = document.getElementById('conventionsBtn');
-    const cvLightbox = document.getElementById('cvLightbox');
-    const cvCityEl = document.getElementById('cvCity');
-    const cvFromEl = document.getElementById('cvFrom');
-    const cvToEl = document.getElementById('cvTo');
-    const cvPromptEl = document.getElementById('cvPrompt');
-    const cvStatus = document.getElementById('cvStatus');
-    const closeCvBtn = document.getElementById('closeCvBtn');
     const sgLightbox = document.getElementById('sgLightbox');
     const closeSgBtn = document.getElementById('closeSgBtn');
     const sgKeyBox = document.getElementById('sgKeyBox');
@@ -1231,6 +1159,33 @@
       });
 
       head.append(pick, caret, name);
+
+      /* THE DATE IS ON THE CLOSED ROW ONLY, which is the shape this room
+         settled on when the date last left the head: the When band sits
+         directly under the head with the same value in an editable box, so
+         leaving this on would be the same fact twice a few pixels apart and
+         the head's copy is the one you cannot act on. Hidden by CSS on
+         `.is-open` rather than rebuilt, so opening a row costs no DOM work.
+         A row with no date draws nothing -- the `no-date` finding is what
+         reports that, and an empty gap would say nothing. */
+      /* A NEUTRAL SITE GETS AN ASTERISK NEXT TO THE NAME, because the name
+         says `A at B` there too and `at` is nominal: neither club is at home
+         and both fanbases travel. DRAWN FROM `neutral_site`, never baked into
+         the title -- a marker stored in the name would still be there after
+         somebody cleared the flag, which is the two-copies-of-one-fact rule
+         this project keeps. */
+      if (row.neutral_site) {
+        const star = document.createElement('span');
+        star.className = 'event-neutral';
+        star.textContent = '*';
+        star.title = 'Neutral site: neither club is at home, so "at" is the league\'s nominal designation.';
+        head.appendChild(star);
+      }
+
+      const when = document.createElement('span');
+      when.className = 'event-when';
+      when.textContent = longDate(row.start_date);
+      head.appendChild(when);
 
       const where = document.createElement('span');
       where.className = 'event-where';
@@ -1536,6 +1491,24 @@
       return { start: utcToIso(mon), end: utcToIso(sun) };
     }
 
+    /* MONTH DD, YYYY, BUILT FROM THE STRING AND NOT FROM A Date.
+       `new Date('2026-09-27')` is parsed as UTC MIDNIGHT, so west of Greenwich
+       it renders as the 26th -- the off-by-one this room already documents for
+       the week headings and the split arithmetic. And `toLocaleDateString`
+       follows the READER's locale, which in en-GB is "27 September 2026",
+       which is not the shape asked for. Neither risk is worth taking for nine
+       lines that can simply index an array. */
+    const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+
+    function longDate(iso) {
+      const p = clean(iso).slice(0, 10).split('-');
+      if (p.length !== 3) return '';
+      const m = Number(p[1]), d = Number(p[2]), y = Number(p[0]);
+      if (!MONTH_NAMES[m - 1] || !d || !y) return '';
+      return MONTH_NAMES[m - 1] + ' ' + d + ', ' + y;
+    }
+
     function weekHeading(row) {
       const w = isoWeek(row.start_date);
       if (!w) return { key: 'undated', label: 'No date', span: '' };
@@ -1807,7 +1780,25 @@
       },
       {
         key: 'no-time',
-        level: 'check', noReview: true,
+        level: 'check',
+        /* A FIXTURE WITH NO KICKOFF IS A FAULT. ANYTHING ELSE IS A NOTE.
+           ---------------------------------------------------------------
+           This reverses the 2026-08-25 decision that a missing start time
+           never accuses, AND KEEPS ITS REASONING WHERE IT APPLIED. That call
+           was measured on a table of 4,123 rows that was mostly concerts:
+           forcing it put 524 of them into a list of things to do with nothing
+           to do, because a promoter who has not announced a slot is a gap that
+           fills itself.
+             A FIXTURE IS THE OTHER CASE. The league has published a kickoff,
+           so a blank is OUR gap rather than the source's -- and the rows that
+           carry one are exactly the ones FETCH tops up from the scoreboard,
+           which deliberately files no time because converting a UTC instant to
+           the clock outside the venue needs a per-venue timezone table this
+           project has already called brittle. Measured 2026-09-03: 3 of the
+           272 rows on file, and all three are those.
+             SO THE OLD COST CANNOT COME BACK. Re-import a season of concerts
+           and they are notes again, exactly as they were. */
+        noReview: (r) => String(clean(r.kind) || '').indexOf('sports') !== 0,
         test: (r) => clean(r.start_time) ? '' : 'Add a Start Time.'
       },
 {
@@ -1866,9 +1857,17 @@
       },
 ];
 
+    /* A RULE MAY DECIDE PER ROW WHETHER IT ACCUSES. `noReview` was a flag,
+       which is right for `multi-day` -- a run of days is never a fault -- and
+       too blunt for a missing start time, where whether it is a fault depends
+       on what kind of event the row is. A function keeps both shapes. */
+    function ruleIsNote(rule, row) {
+      return typeof rule.noReview === 'function' ? !!rule.noReview(row) : !!rule.noReview;
+    }
+
     function reviewReasons(row) {
       const reasons = CHECK_RULES
-        .filter((rule) => !rule.noReview)
+        .filter((rule) => !ruleIsNote(rule, row))
         .map((rule) => {
           try { return rule.test(row) || ''; }
           catch (err) { console.error('check rule ' + rule.key + ' threw', err); return ''; }
@@ -1890,7 +1889,7 @@
 
     function noteReasons(row) {
       return CHECK_RULES
-        .filter((rule) => rule.noReview)
+        .filter((rule) => ruleIsNote(rule, row))
         .map((rule) => {
           try { return rule.test(row) || ''; }
           catch (err) { console.error('check rule ' + rule.key + ' threw', err); return ''; }
@@ -1993,11 +1992,17 @@
             + ' Check you are signed in as an admin.', 'error');
         }
 
-        setIssuesFilter('yes');
+        /* NOTHING TO NARROW TO IS NOT A NARROWING.
+           Pressing Check set the filter to `yes` whatever it found, so on a
+           clean table the room REPLACED 272 rows with nothing -- under a
+           message saying all was well and not naming the way back. A narrowing
+           with no visible way out is the thing this room has removed before,
+           and here there was not even a narrowing to undo. */
+        const inReview = state.rows.filter(isInReview).length;
+        setIssuesFilter(inReview ? 'yes' : 'any');
         state.page = 1;
         render();
         if (!flagFailed) {
-          const inReview = state.rows.filter(isInReview).length;
           const flagNote = flagged
             ? ' Issues flag updated on ' + plural(flagged, 'row') + '.'
             : '';
@@ -2113,6 +2118,38 @@
       brazil: ['BR', 'BRA', 'BRAZIL'],
       japan: ['JP', 'JPN', 'JAPAN'],
       australia: ['AU', 'AUS', 'AUSTRALIA']
+    };
+
+    /* A TICKET MARKETPLACE IS NOT A SCHEDULE, AND NEVER WILL BE.
+       ------------------------------------------------------------------
+       SeatGeek lists what it SELLS. Measured 2026-09-03: it carries 269 of
+       the NFL's 272 regular-season fixtures and is missing Melbourne, Rio and
+       Saint-Denis -- not under the nfl taxonomy, not by club performer, and
+       not by venue city, where `Rio de Janeiro`, `Paris` and `Saint-Denis` all
+       return ZERO events of any kind and `Melbourne` returns 29 in Melbourne
+       FLORIDA. They are simply not for sale there.
+
+       SO A LEAGUE TERM TOPS UP FROM THE LEAGUE'S OWN SCOREBOARD after the
+       marketplace has been read. SeatGeek first, because its rows carry a
+       ticket url and a venue; the scoreboard fills what it does not sell.
+
+       THE HOST IS THE WHOLE TRICK, and it cost an afternoon to find:
+
+         site.api.espn.com       browser: FAILED TO FETCH
+         site.web.api.espn.com   browser: 200, and the whole season
+
+       Both answer curl. THIS FILE PREVIOUSLY RECORDED THAT ESPN IS NOT
+       CORS-OPEN AT ALL, and that was wrong twice over: a server only emits
+       `access-control-allow-origin` when an Origin header is SENT, and my
+       test sent none -- and the host that failed in a browser was the wrong
+       one. Verified from a page on our own origin: 272 games, all nine
+       internationals, each carrying its own neutralSite flag.
+
+       ONLY THE NFL IS MAPPED, because only the NFL was measured. A league
+       here is a promise that the path returns that league's schedule, so
+       adding one means checking it rather than guessing the slug. */
+    const LEAGUE_SCOREBOARD = {
+      nfl: 'football/nfl'
     };
 
     function resolveSearchTerm(raw) {
@@ -2243,6 +2280,54 @@
 
     const NON_TEAM_SPORTS = /racing|nascar|formula|motogp|golf|tennis|boxing|ufc|mma|fighting|wrestling|rodeo|track|gymnastics|swimming|cycling|marathon|horse/;
 
+    /* TITLES SEATGEEK LISTS THAT ARE NOT AN ANCHOR EVENT.
+       ------------------------------------------------------------------
+       A STADIUM TOUR IS A TICKET, NOT A REASON TO BE IN TOWN. Nobody flies
+       to Dallas for one and nobody books a hotel around it, so it fails the
+       only test this table applies: did this fill the hotels.
+
+       AND IT ARRIVES AS A FIXTURE, WHICH IS THE WORST SHAPE. SeatGeek types
+       these `football > nfl > sports > stadium_tours`, so `sgKind` sees
+       `sports` and files them as a game -- a row that looks like a Cowboys
+       fixture in a list of Cowboys fixtures.
+
+       MEASURED ON THE LIVE CATALOGUE, 2026-09-02: 550 events carry the
+       `stadium_tours` taxonomy site-wide and ALL 550 ARE AT&T STADIUM, in 7
+       distinct titles.
+
+       `*` IS ANY RUN OF CHARACTERS AND THE PATTERN IS MATCHED ANYWHERE IN
+       THE TITLE. That second half is not a detail: only 499 of the 550 END
+       on the word Tour -- 51 carry a suffix (`... + Dallas Cowboys Locker
+       Room`, `... + Jerry Jones Experience`) -- so a pattern anchored at the
+       end would let one in eleven through.
+
+       NO REGEX, so a pattern needs no escaping and cannot be eaten by one:
+       `AT&T` has an ampersand and two of these titles carry a `+`. The match
+       walks the segments either side of each `*` with indexOf.
+
+       THE COUNT IS REPORTED, NEVER SILENT. A list that quietly drops rows is
+       the thing this room has removed before. */
+    const SG_EXCLUDE_TITLES = [
+      'AT&T Stadium * Tour'
+    ];
+
+    function sgExcluded(title) {
+      const hay = String(title == null ? '' : title).toLowerCase();
+      if (!hay) return false;
+      return SG_EXCLUDE_TITLES.some((pattern) => {
+        const parts = String(pattern).toLowerCase().split('*');
+        let at = 0;
+        for (let k = 0; k < parts.length; k += 1) {
+          const seg = parts[k].trim();
+          if (!seg) continue;
+          const found = hay.indexOf(seg, at);
+          if (found === -1) return false;
+          at = found + seg.length;
+        }
+        return true;
+      });
+    }
+
     // MORE THAN TWO CLUBS MEANS A TOURNAMENT, and SeatGeek says so in a shape
     // worth knowing. An ordinary fixture carries exactly two performers, both
     // flagged home_team / away_team. A tournament carries NO flags, a `primary`
@@ -2271,9 +2356,8 @@
       if (names.indexOf('sports') !== -1 || t.indexOf('sport') !== -1) {
         const perf = (ev && ev.performers) || [];
         const flagged = perf.filter((x) => x && (x.home_team || x.away_team)).length;
-        if (flagged === 2) return 'sports';
         if (NON_TEAM_SPORTS.test(all)) return 'sports-nonteam';
-        if (sgClubCount(ev) > 2) return 'sports-tournament';
+        if (flagged !== 2 && sgClubCount(ev) > 2) return 'sports-tournament';
         return 'sports';
       }
 
@@ -2323,6 +2407,7 @@
       const tax = sgTaxonomy(ev);
       const row = {
         id: '',
+        __viaLeague: !!(ev && ev.__viaLeague),
         kind: kind,
         league: tax.league,
         sport: tax.sport,
@@ -2331,6 +2416,10 @@
         start_date: date || null,
         end_date: date || null,
         start_time: time || null,
+        /* SEATGEEK GIVES AN IANA ZONE ON EVERY VENUE -- all 851 NFL events
+           carry one -- and `datetime_local` above is already that clock. The
+           two are true together, which is the whole contract of the column. */
+        timezone: clean(venue.timezone) || null,
         venue: clean(venue.name) || null,
         venue_city: city || null,
         url: clean(ev && ev.url) || null,
@@ -2353,11 +2442,79 @@
           }
           return { geo: null, nick: short || full || null };
         };
-        const a2 = split(away), h2 = split(home);
+
+        /* SEATGEEK'S HOME/AWAY FLAGS ARE WRONG ON AN INTERNATIONAL GAME, and
+           this is measured rather than suspected. All six non-US NFL events in
+           the feed on 2026-09-03:
+
+             flags say Eagles HOME   title says "Eagles vs Jaguars"   league: Eagles AT Jaguars
+             flags say Vikings HOME  title says "Vikings vs 49ers"    league: Vikings AT 49ers
+             MUNICH CARRIES NO FLAGS AT ALL, both null
+
+           So the flags are inverted where they exist and absent where they do
+           not -- which is why three rows imported with the sides swapped and
+           one imported with no clubs. THE TITLE IS RIGHT ON ALL SIX: `A vs B`
+           is A away, B home, agreeing with the league on every one.
+
+           So the title wins whenever it names two clubs we can find among the
+           performers. `NFL International Series` is itself a performer on
+           those rows, which is why the clubs are picked by NAME rather than by
+           position. */
+        let a = away, h = home;
+        const clubs = perf.filter((x) => {
+          const nm = clean(x && x.name);
+          if (!nm) return false;
+          const t = clean(ev && (ev.short_title || ev.title));
+          return nm !== t && t.indexOf(nm) === -1;
+        });
+        const vs = /(?:^|:\s*)([^:]+?)\s+(?:vs\.?|v\.?)\s+(.+?)\s*$/i
+          .exec(clean(ev && (ev.short_title || ev.title)));
+        if (vs && clubs.length >= 2) {
+          const find = (word) => {
+            const w = clean(word).toLowerCase();
+            if (!w) return null;
+            return clubs.filter((x) => clean(x.short_name).toLowerCase() === w)[0]
+                || clubs.filter((x) => clean(x.name).toLowerCase() === w)[0]
+                || clubs.filter((x) => clean(x.name).toLowerCase().slice(-w.length) === w)[0]
+                || null;
+          };
+          const fa = find(vs[1]), fh = find(vs[2]);
+          if (fa && fh && fa !== fh) { a = fa; h = fh; }
+        }
+
+        const a2 = split(a), h2 = split(h);
         row.home_team_geo = h2.geo;
         row.home_team_nickname = h2.nick;
         row.away_team_geo = a2.geo;
         row.away_team_nickname = a2.nick;
+
+        /* THE NAME IS CITY AND NICKNAME EITHER SIDE OF `at`, EVEN AT A NEUTRAL
+           SITE. Asked for outright, and it departs from the older rule that a
+           fixture's title is NULL because the row reads as its two clubs --
+           which was true when the two clubs were reliable and is not what
+           SeatGeek hands back for an international game.
+             THE ASTERISK IS NOT IN THE TITLE. A neutral site is a COLUMN, and
+           baking a marker into the name would leave it there after the flag
+           was cleared. The room draws it from `neutral_site` instead. */
+        const full = (g, k) => [clean(g), clean(k)].filter(Boolean).join(' ');
+        const an = full(a2.geo, a2.nick), hn = full(h2.geo, h2.nick);
+        if (an && hn) row.title = an + ' at ' + hn;
+
+        /* AN NFL FIXTURE CARRIES ITS LEAGUE IN THE KIND. Asked for outright,
+           and it does duplicate `league` -- which this project usually refuses,
+           because two copies of one fact drift and nothing says so. So the ONE
+           expression that decides it is here and `league` stays what anything
+           else should read. A second league is one line.
+
+           IT IS DECIDED HERE RATHER THAN IN sgKind BECAUSE A WATCH PARTY IS
+           NOT A FIXTURE. The NFL term returns 297 rows and about 25 of them
+           are `2026 Ravens Kick Off Watch Party`, `Season Ticket Holder Rally
+           Day`, `2026 Pages & Purple` -- all carrying the nfl taxonomy and
+           none of them a game. They resolve no two clubs, so they keep plain
+           `sports` and only a real fixture is typed sports-nfl. */
+        if (an && hn && String(row.league || '').toUpperCase() === 'NFL') {
+          row.kind = 'sports-nfl';
+        }
       }
       // SEATGEEK'S OWN EVENT ID, which is permanent on their side and unique
       // by construction. It is the only id that can still recognise a row on a
@@ -2403,6 +2560,245 @@
       if (tax && tax.genre) lines.push(tax.genre + '.');
       lines.push('Listed on SeatGeek.');
       return lines.join(' ');
+    }
+
+    /* THE SEASON YEAR IS THE WINDOW'S, WOUND BACK OVER NEW YEAR. An NFL
+       season labelled 2026 runs to January 2027, so a window opening in
+       January belongs to the year before it. */
+    function seasonYear(from) {
+      const d = clean(from).slice(0, 10).split('-');
+      const y = Number(d[0]), m = Number(d[1]);
+      if (!y) return new Date().getFullYear();
+      return (m && m < 3) ? y - 1 : y;
+    }
+
+    /* WHICH CLOCK A KICKOFF IS ON.
+       ------------------------------------------------------------------
+       The scoreboard gives a UTC INSTANT and nothing else -- no zone, no
+       offset, no local string. `start_time` is the clock OUTSIDE THE VENUE,
+       so a row filed from it either carried no time at all, which is what we
+       did, or carried a number nobody could interpret.
+
+       SEATGEEK NEEDS NONE OF THIS: its venue object carries an IANA timezone
+       on all 851 NFL events, and `datetime_local` is already the venue's own
+       clock. This is only for the top-up.
+
+       A CITY MAP FIRST AND A STATE MAP SECOND, never a per-venue table. Brazil
+       and Australia hold several zones each, so a country map would be wrong
+       for exactly the fixtures this exists for; a US state map is the shape
+       the deleted schedule importer used and this file already defends -- every
+       major-league venue in a split-zone state sits in the zone named here, so
+       it changes only if a state does.
+
+       AN UNKNOWN PLACE RESOLVES TO NOTHING, and that is the point. A guessed
+       zone renders a plausible wrong clock and looks exactly like a right one;
+       a null leaves the date as the source gave it, the time blank, and the
+       room's own no-time finding pointing at the row. */
+    const VENUE_ZONE_CITY = {
+      'london': 'Europe/London',
+      'dublin': 'Europe/Dublin',
+      'madrid': 'Europe/Madrid',
+      'munich': 'Europe/Berlin',
+      'berlin': 'Europe/Berlin',
+      'frankfurt': 'Europe/Berlin',
+      'paris': 'Europe/Paris',
+      'saint-denis': 'Europe/Paris',
+      'st. denis': 'Europe/Paris',
+      'mexico city': 'America/Mexico_City',
+      'ciudad de mexico': 'America/Mexico_City',
+      'toronto': 'America/Toronto',
+      'sao paulo': 'America/Sao_Paulo',
+      'rio de janeiro': 'America/Sao_Paulo',
+      'melbourne': 'Australia/Melbourne',
+      'sydney': 'Australia/Sydney'
+    };
+
+    const VENUE_ZONE_STATE = {
+      AL: 'America/Chicago', AK: 'America/Anchorage', AZ: 'America/Phoenix',
+      AR: 'America/Chicago', CA: 'America/Los_Angeles', CO: 'America/Denver',
+      CT: 'America/New_York', DE: 'America/New_York', DC: 'America/New_York',
+      FL: 'America/New_York', GA: 'America/New_York', HI: 'Pacific/Honolulu',
+      ID: 'America/Boise', IL: 'America/Chicago', IN: 'America/New_York',
+      IA: 'America/Chicago', KS: 'America/Chicago', KY: 'America/New_York',
+      LA: 'America/Chicago', ME: 'America/New_York', MD: 'America/New_York',
+      MA: 'America/New_York', MI: 'America/New_York', MN: 'America/Chicago',
+      MS: 'America/Chicago', MO: 'America/Chicago', MT: 'America/Denver',
+      NE: 'America/Chicago', NV: 'America/Los_Angeles', NH: 'America/New_York',
+      NJ: 'America/New_York', NM: 'America/Denver', NY: 'America/New_York',
+      NC: 'America/New_York', ND: 'America/Chicago', OH: 'America/New_York',
+      OK: 'America/Chicago', OR: 'America/Los_Angeles', PA: 'America/New_York',
+      RI: 'America/New_York', SC: 'America/New_York', SD: 'America/Chicago',
+      TN: 'America/Chicago', TX: 'America/Chicago', UT: 'America/Denver',
+      VT: 'America/New_York', VA: 'America/New_York', WA: 'America/Los_Angeles',
+      WV: 'America/New_York', WI: 'America/Chicago', WY: 'America/Denver',
+      ON: 'America/Toronto', QC: 'America/Toronto', BC: 'America/Vancouver',
+      AB: 'America/Edmonton', MB: 'America/Winnipeg', SK: 'America/Regina',
+      NS: 'America/Halifax', NB: 'America/Halifax', NL: 'America/St_Johns'
+    };
+
+    function venueZone(city, state, country) {
+      const c = clean(city).toLowerCase();
+      if (VENUE_ZONE_CITY[c]) return VENUE_ZONE_CITY[c];
+      const st = clean(state).toUpperCase();
+      if (st.length === 2 && VENUE_ZONE_STATE[st]) return VENUE_ZONE_STATE[st];
+      const co = clean(country).toUpperCase();
+      if (!co || co === 'USA' || co === 'US' || co === 'UNITED STATES') return null;
+      return null;
+    }
+
+    /* A UTC INSTANT READ ON A NAMED CLOCK.
+       `Intl.DateTimeFormat` with a `timeZone` does the DST arithmetic itself,
+       which is the whole reason the maps hold IANA NAMES rather than offsets:
+       an offset is wrong twice a year, and Saint-Denis kicks off on the very
+       Sunday Europe puts its clocks back. */
+    function zonedParts(instant, zone) {
+      const raw = clean(instant);
+      if (!raw || !zone) return null;
+      const at = new Date(raw);
+      if (isNaN(at.getTime())) return null;
+      let fmt;
+      try {
+        fmt = new Intl.DateTimeFormat('en-CA', {
+          timeZone: zone, hour12: false,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        });
+      } catch (e) { return null; }
+      const part = {};
+      fmt.formatToParts(at).forEach((x) => { part[x.type] = x.value; });
+      if (!part.year || !part.month || !part.day) return null;
+      /* SOME ENGINES EMIT 24 FOR MIDNIGHT under hour12:false. */
+      const hh = part.hour === '24' ? '00' : part.hour;
+      return {
+        date: part.year + '-' + part.month + '-' + part.day,
+        time: (hh || '') && part.minute ? hh + ':' + part.minute : null
+      };
+    }
+
+    async function scoreboardSeason(pathName, year, onWeek) {
+      const games = [];
+      for (let wk = 1; wk <= 18; wk += 1) {
+        if (onWeek) onWeek(wk, games.length);
+        const url = 'https://site.web.api.espn.com/apis/site/v2/sports/' + pathName
+          + '/scoreboard?dates=' + year + '&seasontype=2&week=' + wk;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('The league scoreboard answered ' + res.status + '.');
+        const body = await res.json();
+        (body.events || []).forEach((ev) => {
+          const c = (ev.competitions || [])[0] || {};
+          const side = {};
+          (c.competitors || []).forEach((x) => {
+            const t = x && x.team;
+            if (!t) return;
+            side[x.homeAway] = { geo: clean(t.location), nick: clean(t.name) };
+          });
+          if (!side.away || !side.home) return;
+          const v = c.venue || {};
+          const ad = v.address || {};
+          /* THE LOCAL DATE, NEVER THE UTC ONE, AND THIS IS NOT COSMETIC.
+             Mexico City kicks off at 18:20 local on the 22nd, which is 00:20
+             UTC on the 23rd -- so slicing the instant files the fixture on the
+             wrong calendar day, and a game is played the day BEFORE its anchor.
+             It also decides which held row the gap matcher pairs it with, since
+             everything already on file came from SeatGeek and is local.
+             With no zone it falls back to the UTC date and says so by leaving
+             the time and the zone blank. */
+          const zone = venueZone(ad.city, ad.state, ad.country);
+          const at = zonedParts(ev.date, zone);
+          games.push({
+            date: (at && at.date) || clean(ev.date).slice(0, 10),
+            time: (at && at.time) || null,
+            zone: zone || null,
+            utc: clean(ev.date) || null,
+            away: side.away, home: side.home,
+            venue: clean(v.fullName) || null,
+            city: clean(ad.city) || null,
+            state: clean(ad.state) || null,
+            country: clean(ad.country) || null,
+            neutral: !!c.neutralSite,
+            url: clean(ev.links && ev.links[0] && ev.links[0].href) || null
+          });
+        });
+      }
+      return games;
+    }
+
+    /* WHICH FIXTURES THE MARKETPLACE DOES NOT HAVE.
+       ------------------------------------------------------------------
+       TWO CLUBS MEET TWICE A SEASON, so the club pair alone cannot say WHICH
+       meeting a row is. A greedy walk in date order gets it wrong in the worst
+       possible way: the 49ers and the Rams play in Melbourne in September and
+       in Santa Clara in December, we hold only the December one, and walking
+       by date matches MELBOURNE to it and then reports SANTA CLARA as missing
+       -- adding a duplicate of a game we have and still missing the one we do
+       not. That is the same fault the ESPN audit had and it is the same fix:
+       consume the CLOSEST pairing first, across the whole pair, rather than
+       taking them in order. */
+    function scoreboardGap(have, want) {
+      const key = (a, h) => [clean(a), clean(h)].sort().join('|');
+      const mine = {};
+      have.forEach((r) => {
+        const a = clean(r.away_team_nickname), h = clean(r.home_team_nickname);
+        if (!a || !h) return;
+        const k = key(a, h);
+        (mine[k] = mine[k] || []).push(clean(r.start_date).slice(0, 10));
+      });
+      const day = (x) => Number(new Date(x + 'T00:00:00Z'));
+      const gap = [];
+      const byPair = {};
+      want.forEach((g) => {
+        const k = key(g.away.nick, g.home.nick);
+        (byPair[k] = byPair[k] || []).push(g);
+      });
+      Object.keys(byPair).forEach((k) => {
+        const games = byPair[k];
+        const rows = (mine[k] || []).slice();
+        const links = [];
+        games.forEach((g, gi) => rows.forEach((d, ri) => {
+          links.push([Math.abs(day(g.date) - day(d)), gi, ri]);
+        }));
+        links.sort((x, y) => x[0] - y[0]);
+        const tookG = {}, tookR = {};
+        links.forEach((l) => {
+          if (tookG[l[1]] || tookR[l[2]]) return;
+          tookG[l[1]] = 1; tookR[l[2]] = 1;
+        });
+        games.forEach((g, gi) => { if (!tookG[gi]) gap.push(g); });
+      });
+      gap.sort((x, y) => String(x.date).localeCompare(String(y.date)));
+      return gap;
+    }
+
+    function scoreboardRow(g, league) {
+      const full = (c) => [c.geo, c.nick].filter(Boolean).join(' ');
+      const row = {
+        id: '',
+        kind: String(league).toUpperCase() === 'NFL' ? 'sports-nfl' : 'sports',
+        league: String(league).toUpperCase(),
+        sport: null,
+        description: null,
+        title: full(g.away) + ' at ' + full(g.home),
+        start_date: g.date || null,
+        end_date: g.date || null,
+        /* THE KICKOFF ON THE VENUE'S OWN CLOCK, with the zone beside it so it
+           means something. Both come from `venueZone` plus `zonedParts`; a
+           venue neither map knows leaves both blank rather than inventing a
+           clock, and the room's no-time finding is what says so. */
+        start_time: g.time || null,
+        timezone: g.zone || null,
+        venue: g.venue,
+        venue_city: [g.city, g.state || g.country].filter(Boolean).join(', ') || null,
+        url: g.url,
+        source: 'League scoreboard',
+        neutral_site: !!g.neutral,
+        issues: 'NO',
+        away_team_geo: g.away.geo || null,
+        away_team_nickname: g.away.nick || null,
+        home_team_geo: g.home.geo || null,
+        home_team_nickname: g.home.nick || null
+      };
+      row.id = composeEventId(row);
+      return row;
     }
 
     async function sgFetch() {
@@ -2452,6 +2848,7 @@
               kept += 1;
               if (seen.has(ev.id)) return;
               seen.add(ev.id);
+              ev.__viaLeague = term.kind === 'league';
               all.push(ev);
             });
             got += events.length;
@@ -2484,6 +2881,9 @@
                   kept += 1;
                   if (seen.has(ev.id)) return;
                   seen.add(ev.id);
+                  /* A CLUB READ IS A LEAGUE READ FOR THIS PURPOSE: typing
+                     `Falcons` means the club's GAMES, not its watch parties. */
+                  ev.__viaLeague = true;
                   all.push(ev);
                 });
                 sgSet('Reading ' + club.name + '\u2026 ' + all.length);
@@ -2494,11 +2894,104 @@
           if (!kept) empties.push(term.raw);
         }
 
-        sgState.rows = all.map(sgRow).filter((r) => r.start_date);
+        const mapped = all.map(sgRow);
+        const kicked = mapped.filter((r) => sgExcluded(r.title)).length;
+
+        /* A LEAGUE OR A CLUB TERM RETURNS GAMES AND NOTHING ELSE.
+           ---------------------------------------------------------------
+           Typing NFL asks for the NFL's fixtures, and SeatGeek answers with
+           850 rows of which 550 are stadium tours and another 27 are watch
+           parties, rally days, season-ticket events and VIP tailgates -- all
+           carrying the nfl taxonomy, none of them a game. Measured 2026-09-03:
+           297 in the window, 270 of them fixtures.
+
+           A FIXTURE IS A ROW THAT RESOLVED TWO CLUBS, which is the same test
+           the kind already turns on, so there is one idea of what a game is.
+           `sports-nonteam` and `sports-tournament` are kept without clubs
+           BECAUSE THEY LEGITIMATELY HAVE NONE -- a race and a golf tournament
+           are league events with no two sides, and dropping them would empty a
+           NASCAR search entirely.
+
+           IT IS SCOPED TO THE TERM, NOT THE BATCH. `NFL, Denver` in one box
+           must still bring Denver's conventions, so a row filtered here is one
+           that came from a league or club search. */
+        const isLeagueGame = (r) => {
+          if (!r.__viaLeague) return true;
+          const k = String(r.kind || '');
+          if (k === 'sports-nonteam' || k === 'sports-tournament') return true;
+          if (!(r.away_team_nickname && r.home_team_nickname)) return false;
+          /* A FIXTURE WHOSE CLUBS ARE NOT SETTLED IS NOT A FIXTURE WE CAN USE.
+             SeatGeek sells `TBD at Tennessee Titans` on 2027-02-01 -- a
+             post-season placeholder -- and it was reaching the import and
+             making an NFL fetch read 273 for a 272-game season.
+               THE AWAY CLUB IS THE WHOLE PRODUCT: a game takes its copy and
+             its palette from the travelling fandom, so a row that does not
+             name one can anchor nothing. `isPlaceholderClub` is the test the
+             room's own `placeholder-club` finding already uses, so there is
+             one idea of what a placeholder is rather than two.
+               IT IS DROPPED ON A LEAGUE TERM ONLY. A city search still shows
+             it, marked, because there the person ticking is the filter. */
+          return !isPlaceholderClub(clean(r.away_team_nickname))
+              && !isPlaceholderClub(clean(r.home_team_nickname))
+              && !isPlaceholderClub(clean(r.away_team_geo))
+              && !isPlaceholderClub(clean(r.home_team_geo));
+        };
+        const notGames = mapped.filter((r) => r.start_date && !sgExcluded(r.title)
+                                              && !isLeagueGame(r)).length;
+        sgState.rows = mapped.filter((r) => r.start_date && !sgExcluded(r.title)
+                                            && isLeagueGame(r));
+        sgState.rows.forEach((r) => { delete r.__viaLeague; });
+        /* Held before the league schedule adds anything, so the drop count
+           below is about the marketplace read and only that. */
+        const kept0 = all.length;
+        const marketRows = sgState.rows.length;
+
+        /* TOP UP FROM THE LEAGUE'S OWN SCOREBOARD. SeatGeek is a marketplace
+           and lists what it sells; a scoreboard lists what is played. Measured
+           2026-09-03: SeatGeek has 269 of the NFL's 272 and the three it lacks
+           are the Melbourne, Rio and Saint-Denis games -- not for sale there by
+           any query.
+             IT RUNS AFTER, SO THE MARKETPLACE ROW WINS. A SeatGeek row carries
+           a ticket url, a venue and a kickoff time; only what it does not have
+           is added. */
+        let topped = 0;
+        const scoreboards = terms.filter((t) => t.kind === 'league' && LEAGUE_SCOREBOARD[t.taxonomy]);
+        for (const t of scoreboards) {
+          try {
+            const year = seasonYear(from);
+            const season = await scoreboardSeason(LEAGUE_SCOREBOARD[t.taxonomy], year,
+              (wk) => sgSet('Reading the ' + t.taxonomy.toUpperCase() + ' schedule\u2026 week ' + wk + ' of 18'));
+            const inWindow = season.filter((g) => g.date
+              && (!from || g.date >= from) && (!to || g.date <= to));
+            const mine = sgState.rows.filter((r) =>
+              String(clean(r.league)).toLowerCase() === t.taxonomy.toLowerCase());
+            const gap = scoreboardGap(mine, inWindow);
+            gap.forEach((g) => {
+              const row = scoreboardRow(g, t.taxonomy);
+              if (sgExcluded(row.title)) return;
+              sgState.rows.push(row);
+              topped += 1;
+            });
+          } catch (err) {
+            /* A SCOREBOARD THAT WILL NOT ANSWER MUST NOT LOSE THE FETCH. The
+               marketplace rows are already in hand and are the bulk of it. */
+            console.error(err);
+            sgState.rows.__scoreboardFailed = (err && err.message) || 'The league scoreboard did not answer.';
+          }
+        }
+        if (topped) {
+          sgState.rows.sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+        }
         const have = new Set(state.rows.map((r) => clean(r.id)));
         sgState.checked = new Set(sgState.rows.filter((r) => !have.has(r.id)).map((r) => r.id));
         renderSg();
-        const dropped = all.length - sgState.rows.length;
+        /* EACH REASON COUNTS ITS OWN ROWS, AND IT IS COUNTED BEFORE THE TOP-UP.
+           `dropped` is the undated marketplace rows and nothing else. It has
+           been wrong twice: reading 27 non-games as `27 had no readable date`,
+           and then -- once the league schedule started ADDING rows the
+           marketplace never had -- reading MINUS THREE. A count taken from a
+           list that has since grown is not a count of what was dropped. */
+        const dropped = kept0 - marketRows - kicked - notGames;
         /* THE BOX DECIDES BETWEEN THREE MEANINGS, SO IT SAYS WHICH IT TOOK.
            A club read is the one most worth reporting: `Bulldogs` resolves to a
            real minor-league hockey club because NO PRO CLUB HAS THAT MASCOT,
@@ -2518,6 +3011,15 @@
           ? 'Found ' + plural(sgState.rows.length, 'event') + '.' + said +
             (empties.length ? ' Nothing for ' + empties.join(' or ') + '.' : '') +
             (dropped ? ' ' + dropped + ' had no readable date and were left out.' : '') +
+            (kicked ? ' ' + plural(kicked, 'stadium tour') + ' left out.' : '') +
+            (notGames ? ' ' + plural(notGames, 'row') + ' left out for not being'
+              + ' a settled fixture: watch parties, rally days and games whose'
+              + ' clubs are still TBD.' : '') +
+            (topped ? ' ' + plural(topped, 'fixture') + ' the marketplace does not'
+              + ' sell came from the league schedule.' : '') +
+            (sgState.rows.__scoreboardFailed
+              ? ' The league schedule did not answer, so anything it does not sell'
+                + ' is still missing.' : '') +
             ' Untick anything you do not want.'
           : 'Nothing in that window.' + said +
             ' A term is read as a league, then a venue town, then a club, so try' +
@@ -2576,245 +3078,15 @@
     }
 
 
-    const CV_PROMPT_LINES = [
-      "You are filling in a table of ANCHOR EVENTS for The Game Bureau.",
-      "",
-      "An anchor event is a real thing that brings visitors to a city and fills its",
-      "hotels. We build a walking game around one, for people who are already in town",
-      "with an afternoon free. So the date is the field nothing works without.",
-      "",
-      "WHAT I AM ASKING FOR",
-      "",
-      "__ASK__",
-      "",
-      "  Window: __FROM__ to __TO__",
-      "",
-      "WHERE TO LOOK",
-      "",
-      "FOR A LEAGUE, read the league's OWN published schedule, and the clubs' own",
-      "sites for anything it leaves out. The league site is the authoritative list;",
-      "a club site is where a kickoff time and a venue change appear first. Read the",
-      "schedule page itself, not a summary of it and not a preview article.",
-      "",
-      "FOR A CITY, in this order:",
-      "",
-      "1. The convention centres, expo halls, fairgrounds and civic centres in that",
-      "   city, and READ THEIR OWN EVENT CALENDARS.",
-      "2. The city's convention and visitors bureau, which publishes a citywide",
-      "   calendar that catches events held in hotels rather than the main hall.",
-      "3. The event's own website, for the exact dates and the public url.",
-      "",
-      "DO NOT use a ticket resale site as your source, for either. It carries an",
-      "event only when that event sells seats through it, which for a convention is",
-      "almost never, and it will make you think a busy month is empty. We already",
-      "read one of those separately; this prompt exists for what it does not have.",
-      "",
-      "READ THE PAGE, NOT A SUMMARY OF IT. Ask your tool for the page source if it",
-      "hands you back a cleaned-up article. A summariser will invent a plausible date,",
-      "and the date is the one field we cannot recover from.",
-      "",
-      "WHAT COUNTS",
-      "",
-      "  A LEAGUE: every fixture in the window. Not preseason friendlies nobody",
-      "       travels for, unless the league lists them as part of the season.",
-      "  A CITY:  trade shows, professional conferences, comic and anime conventions,",
-      "       gaming conventions, home and garden shows, auto shows, boat shows,",
-      "       craft fairs at scale, expos and festivals of any kind.",
-      "  A CONCERT AT A CONVENTION CENTRE IS A CONCERT, not a convention. The",
-      "       venue is not the category, and mislabelling one is the mistake this",
-      "       line exists to stop.",
-      "",
-      "  No:  a private corporate meeting nobody can attend, and anything with fewer",
-      "       than a few thousand attendees. If nobody travelled for it, it is not an",
-      "       anchor.",
-      "",
-      "IF YOU CANNOT ESTABLISH A DATE, LEAVE THE EVENT OUT. Do not guess, do not",
-      "carry last year's dates forward, and do not write 'TBD' into any field.",
-      "",
-      "WHAT TO HAND BACK",
-      "",
-      "One SQL block and nothing else. No prose around it, no explanation:",
-      "",
-      "```sql",
-      "insert into public.events",
-      "  (id, kind, league, sport, title, description,",
-      "   start_date, end_date, start_time,",
-      "   home_team_geo, home_team_nickname, away_team_geo, away_team_nickname,",
-      "   venue, venue_city, neutral_site, url, source)",
-      "values",
-      "  ('NFL-2027-09-12-CHI-DEN', 'sports', 'NFL', 'Football', null,",
-      "   'Chicago Bears at Denver Broncos at Empower Field.',",
-      "   '2027-09-12', '2027-09-12', '14:25',",
-      "   'Denver', 'Broncos', 'Chicago', 'Bears',",
-      "   'Empower Field at Mile High', 'Denver, Colorado', false,",
-      "   'https://www.nfl.com/schedules/', 'NFL published schedule'),",
-      "  ('CONVENTION-2027-03-05-EXAMPLE-DEN', 'convention', null, null,",
-      "   'Example Con 2027',",
-      "   'A three day fan convention at the Colorado Convention Center.',",
-      "   '2027-03-05', '2027-03-07', null,",
-      "   null, null, null, null,",
-      "   'Colorado Convention Center', 'Denver, Colorado', false,",
-      "   'https://example.com/2027', 'Colorado Convention Center calendar')",
-      "on conflict (id) do nothing;",
-      "```",
-      "",
-      "THE COLUMNS, and the rules that are not obvious",
-      "",
-      "  id           Upper case, A to Z and 0 to 9 and hyphens only, and PERMANENT",
-      "               once stored, so it must be unique. For a fixture compose it as",
-      "               LEAGUE-DATE-AWAY-HOME with the clubs cut to three characters:",
-      "               NFL-2027-09-12-CHI-DEN. For anything else,",
-      "               KIND-DATE-FIRSTWORDOFTITLE-CITY, the last two cut to 10 and 3:",
-      "               CONVENTION-2027-03-05-EXAMPLE-DEN.",
-      "  kind         One of: sports, sports-tournament, sports-nonteam, convention,",
-      "               expo, festival, concert, music_festival, comedy, theater,",
-      "               broadway, classical, dance, family, film, literary, circus,",
-      "               entertainment, other. Two clubs is 'sports'; more than two is",
-      "               'sports-tournament'; a race, a fight or a golf tournament is",
-      "               'sports-nonteam'.",
-      "  league       Upper case, as the league writes it: NFL, NCAAF, MLS. Null for",
-      "               anything that is not a fixture.",
-      "  sport        Title case: Football, Basketball. Null for anything else.",
-      "  title        A convention's own name, including the year where it uses one.",
-      "               LEAVE IT NULL FOR A FIXTURE: the row reads as its two clubs.",
-      "  description  One or two plain sentences.",
-      "  start_date   ISO, YYYY-MM-DD. The first public day, not the setup day.",
-      "  end_date     ISO. The last public day. Same as start_date for a one day",
-      "               event. Never null.",
-      "  start_time   24 hour VENUE-LOCAL clock, HH:MM, or null. A league publishes in",
-      "               one timezone, so convert it to the clock a person standing",
-      "               outside the venue would read. Null is correct and ordinary for a",
-      "               multi-day convention, which has opening hours rather than a",
-      "               start time. Never invent one.",
-      "  home/away    Two fields each: the geo is where they are from (a city, or a",
-      "               region such as New England) and the nickname is what the copy",
-      "               calls them. Home first. Null for anything that is not a fixture.",
-      "  venue        The stadium or hall, spelled as it spells itself.",
-      "  venue_city   'City, State' with the STATE SPELLED OUT for a US city, and",
-      "               'City, Country' elsewhere. 'Denver, Colorado', not 'Denver, CO'.",
-      "               It is the VENUE's town, so the Chargers are Inglewood and the",
-      "               Giants are East Rutherford. Nothing checks this, so the spelling",
-      "               you give is the spelling stored.",
-      "  neutral_site true when NEITHER club is at home: an international series game,",
-      "               a bowl, a championship at a chosen venue. false otherwise, and",
-      "               false for anything that is not a fixture.",
-      "  url          The event's own page where there is one, otherwise the league's",
-      "               or hall's listing for it. It must resolve.",
-      "  source       The site you actually read, in words: 'NFL published schedule',",
-      "               'Colorado Convention Center calendar'.",
-      "",
-      "HOUSE STYLE",
-      "",
-      "  Escape an apostrophe in SQL by doubling it: 'Macy''s'.",
-      "  No em dashes anywhere, in any field. Use a comma, a colon or a full stop.",
-      "  Every row must carry the same columns in the same order, nulls included.",
-      "  Give me every event you can stand behind. A short honest list beats a long",
-      "  one with three invented dates in it.",
-      "",
-      "Then, under the SQL block, print this line so I can run it:",
-      "https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true",
-      "",
-      "And after that, in two or three lines: which schedules, halls and calendars",
-      "you read, how many events you found for each thing I asked about, and anything",
-      "you deliberately left out because you could not pin the date down.",
-    ];
-
-    // THE SAME RESOLVER THE SEATGEEK BOX USES, so the two dialogs cannot
-    // disagree about whether a word is a league. What differs is what is done
-    // with the answer: one queries a taxonomy, the other writes a sentence.
-    function cvTerms() {
-      return clean(cvCityEl && cvCityEl.value).split(',')
-        .map((c) => clean(c)).filter(Boolean)
-        .filter((c, at, list) => list.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === at)
-        .map(resolveSearchTerm);
-    }
-
-    function cvSet(text, kind) {
-      if (!cvStatus) return;
-      cvStatus.textContent = text || '';
-      cvStatus.style.color = kind === 'error' ? 'var(--danger)'
-        : (kind === 'success' ? 'var(--success)' : 'var(--muted)');
-    }
-
-    // `international` IS NOT A PLACE, so it cannot be dropped into "played in
-    // ___". The other regions are, and read correctly with `in`.
-    function cvWhere(region) {
-      if (region === 'international' || region === 'abroad' || region === 'overseas') {
-        return 'outside the United States';
-      }
-      const name = region.charAt(0).toUpperCase() + region.slice(1);
-      return 'in ' + (region === 'uk' ? 'the United Kingdom' : name);
-    }
-
-    function buildCvPrompt() {
-      const terms = cvTerms();
-      const from = clean(cvFromEl && cvFromEl.value);
-      const to = clean(cvToEl && cvToEl.value);
-
-      // THE ASK IS WRITTEN OUT PER TERM, naming which errand each one is, so
-      // the model is not left to work out whether `NFL` is a town.
-      const lines = terms.map((t) => (t.kind === 'league'
-        ? '  ' + t.raw + ' -- a LEAGUE. Read its own published schedule'
-          + (t.regionName ? ', and keep only the fixtures played ' + cvWhere(t.regionName) + '.' : '.')
-        : '  ' + t.raw + ' -- a CITY. Read its convention centres, expo halls and visitors bureau.'));
-      const ask = lines.length
-        ? 'Find every event in the window below for each of these:'
-          + String.fromCharCode(10) + String.fromCharCode(10) + lines.join(String.fromCharCode(10))
-        : 'Name at least one city or league above and this will fill itself in.';
-
-      return CV_PROMPT_LINES.join(String.fromCharCode(10))
-        .split('__ASK__').join(ask)
-        .split('__FROM__').join(from || 'today')
-        .split('__TO__').join(to || 'a year from today');
-    }
-
-    function paintCvPrompt() {
-      if (!cvPromptEl) return;
-      cvPromptEl.value = buildCvPrompt();
-    }
-
-    function openCvDialog() {
-      if (!cvLightbox) return;
-      if (cvFromEl && !cvFromEl.value) cvFromEl.value = todayIso();
-      if (cvToEl && !cvToEl.value) cvToEl.value = isoPlusDays(366);
-      paintCvPrompt();
-      cvSet('');
-      cvLightbox.hidden = false;
-      cvLightbox.classList.add('is-open');
-      if (cvCityEl) cvCityEl.focus();
-    }
-
-    function closeCvDialog() {
-      if (!cvLightbox) return;
-      cvLightbox.classList.remove('is-open');
-      cvLightbox.hidden = true;
-      if (conventionsBtn) conventionsBtn.focus();
-    }
-
-    function copyCvPrompt() {
-      if (!cvTerms().length) {
-        cvSet('Name at least one city or league first, or the prompt has nowhere to look.', 'error');
-        if (cvCityEl) cvCityEl.focus();
-        return false;
-      }
-      const text = cvPromptEl ? cvPromptEl.value : buildCvPrompt();
-      try {
-        navigator.clipboard.writeText(text).then(
-          () => cvSet('Prompt copied. Paste it into the tab that just opened.', 'success'),
-          () => cvSet('Could not reach the clipboard. Select the prompt and copy it by hand.', 'error'));
-      } catch (e) {
-        cvSet('Could not reach the clipboard. Select the prompt and copy it by hand.', 'error');
-      }
-      return true;
-    }
-
     function renderSg() {
       if (!sgList) return;
       sgList.textContent = '';
       const have = new Set(state.rows.map((r) => clean(r.id)));
       sgState.rows.forEach((row) => {
-        const item = document.createElement('label');
+        const item = document.createElement('div');
         item.className = 'sg-item' + (have.has(row.id) ? ' is-dupe' : '');
+        const pick = document.createElement('label');
+        pick.className = 'sg-pick';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = sgState.checked.has(row.id);
@@ -2833,10 +3105,23 @@
         const when = document.createElement('span');
         when.className = 'sg-when';
         when.textContent = [row.start_date, row.start_time].filter(Boolean).join(' ');
-        item.appendChild(cb);
-        item.appendChild(name);
-        item.appendChild(sub);
-        item.appendChild(when);
+        pick.appendChild(cb);
+        pick.appendChild(name);
+        pick.appendChild(sub);
+        pick.appendChild(when);
+        item.appendChild(pick);
+        /* NO DOOR WITHOUT SOMEWHERE TO GO. A button that leads nowhere is
+           worse than none, because it invites the press. */
+        if (row.url) {
+          const go = document.createElement('a');
+          go.className = 'btn small sg-details';
+          go.href = row.url;
+          go.target = '_blank';
+          go.rel = 'noopener noreferrer';
+          go.textContent = 'Details';
+          go.title = 'Open this event on SeatGeek in a new tab.';
+          item.appendChild(go);
+        }
         sgList.appendChild(item);
       });
       paintSgCount();
@@ -3495,17 +3780,8 @@
         batchAllBox.checked = all > 0 && n === all;
         batchAllBox.indeterminate = n > 0 && n < all;
       }
-      [batchApplyBtn, batchDeleteBtn].forEach((btn) => {
-        if (!btn) return;
-        btn.setAttribute('aria-disabled', n ? 'false' : 'true');
-      });
-      if (batchApplyBtn) {
-        batchApplyBtn.textContent = n ? 'Apply to ' + n : 'Apply';
-        batchApplyBtn.title = n
-          ? 'Write the fields set beside this to the ' + plural(n, 'selected event') + '.'
-          : 'Tick some events first.';
-      }
       if (batchDeleteBtn) {
+        batchDeleteBtn.setAttribute('aria-disabled', n ? 'false' : 'true');
         batchDeleteBtn.textContent = n ? 'Delete ' + n : 'Delete';
         batchDeleteBtn.title = n
           ? 'Delete the ' + plural(n, 'selected event') + ' for good.'
@@ -3517,59 +3793,55 @@
       return 'in.(' + ids.map((id) => '"' + String(id).replace(/"/g, '""') + '"').join(',') + ')';
     }
 
-    async function batchApply() {
-      if (batchApplyBtn && batchApplyBtn.getAttribute('aria-disabled') === 'true') {
-        setStatus('Tick some events first.', 'error');
-        return;
-      }
-      const rows = pickedRows();
-      if (!rows.length) return;
+    /* THE DELETE GOES IN CHUNKS, AND THAT IS NOT AN OPTIMISATION (2026-09-02).
+       It sent ONE request with every id in the URL -- `id=in.("a","b",...)` --
+       and selecting all 3,051 events builds 74,800 characters of raw id before
+       the quoting and percent-encoding that roughly double it. A URL near 100KB
+       never leaves the browser: `fetch` rejects with a bare **"Failed to
+       fetch"**, which names nothing and reads as the database being down.
+         CHUNKED BY LENGTH, NOT BY COUNT. Ids here run 24 to 36 characters, so a
+       fixed number of rows is a URL of unpredictable size; capping the FILTER
+       string is what actually keeps the request legal.
+         AND A REFUSED CHUNK IS RETRIED ONE AT A TIME. A DELETE is all-or-nothing
+       per request, so one event a game is built on used to take the whole batch
+       down with it -- the old message said so and told you to go and find it by
+       hand. The chunk that failed is walked row by row now, so everything
+       deletable goes and only the genuinely linked events are left, named in
+       the result. That is what "delete all" should do: the ones that can go,
+       go. */
+    const DELETE_FILTER_CHARS = 3000;
 
-      const payload = {};
-      const kind = clean(batchKind && batchKind.value);
-      const source = clean(batchSource && batchSource.value);
-      if (kind) payload.kind = kind;
-      if (source) payload.source = source;
-      if (!Object.keys(payload).length) {
-        setStatus('Nothing to apply: set a kind or a source first.', 'error');
-        return;
-      }
-
-      const ids = rows.map((r) => clean(r.id));
-      if (!window.confirm('Set ' + Object.keys(payload).join(' and ') + ' on ' +
-            plural(ids.length, 'event') + '?')) return;
-
-      batchApplyBtn.disabled = true;
-      const orig = batchApplyBtn.textContent;
-      batchApplyBtn.textContent = 'Applying\u2026';
-      try {
-        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(await readError(res, 'The change was refused.'));
-        const saved = await res.json();
-        if (!Array.isArray(saved) || !saved.length) {
-          throw new Error('The database refused that write, so nothing changed. Check you are signed in as an admin.');
+    function chunkIdsForUrl(ids) {
+      const chunks = [];
+      let current = [];
+      let length = 0;
+      ids.forEach((id) => {
+        const cost = encodeURIComponent('"' + String(id).replace(/"/g, '""') + '",').length;
+        if (current.length && length + cost > DELETE_FILTER_CHARS) {
+          chunks.push(current);
+          current = [];
+          length = 0;
         }
-        saved.forEach((r) => {
-          const i = state.rows.findIndex((x) => clean(x.id) === clean(r.id));
-          if (i !== -1) state.rows[i] = r;
-        });
-        render();
-        const short = ids.length - saved.length;
-        setStatus('Updated ' + plural(saved.length, 'event') + '.' +
-          (short ? ' ' + plural(short, 'event') + (short === 1 ? ' was' : ' were')
-            + ' refused and is unchanged.' : ''), 'success');
-      } catch (err) {
-        console.error(err);
-        setStatus(err && err.message ? err.message : 'That did not work.', 'error');
-      } finally {
-        batchApplyBtn.disabled = false;
-        batchApplyBtn.textContent = orig;
-        paintBatchBar();
+        current.push(id);
+        length += cost;
+      });
+      if (current.length) chunks.push(current);
+      return chunks;
+    }
+
+    async function deleteIds(ids) {
+      const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
+        method: 'DELETE',
+        headers: authHeaders({ Prefer: 'return=representation' })
+      });
+      if (!res.ok) {
+        const raw = await readError(res, 'The delete was refused.');
+        const err = new Error(raw);
+        err.linked = /23503|foreign key/i.test(raw);
+        throw err;
       }
+      const gone = await res.json();
+      return Array.isArray(gone) ? gone.map((r) => clean(r.id)) : [];
     }
 
     async function batchDelete() {
@@ -3577,38 +3849,78 @@
         setStatus('Tick some events first.', 'error');
         return;
       }
-      const ids = pickedRows().map((r) => clean(r.id));
+      const ids = pickedRows().map((r) => clean(r.id)).filter(Boolean);
       if (!ids.length) return;
-      if (!window.confirm('Delete ' + plural(ids.length, 'event') + ' for good?' + '\n\n' +
-            'This cannot be undone. Any event a game is built on will refuse to be deleted.')) return;
+      /* NO BACKSLASH ESCAPE HERE. A newline written as one reached this file
+         AS a real newline and broke the string across two lines -- the parse
+         check caught it, which is exactly what that check is for. */
+      const BREAK = String.fromCharCode(10, 10);
+      if (!window.confirm('Delete ' + plural(ids.length, 'event') + ' for good?' + BREAK +
+            'This cannot be undone. Any event a game is built on will be left behind.')) return;
 
       batchDeleteBtn.disabled = true;
       const orig = batchDeleteBtn.textContent;
-      batchDeleteBtn.textContent = 'Deleting\u2026';
+      const chunks = chunkIdsForUrl(ids);
+      const removed = new Set();
+      const linked = [];
+      let refusedOutright = 0;
+      let failure = null;
+
       try {
-        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
-          method: 'DELETE',
-          headers: authHeaders({ Prefer: 'return=representation' })
-        });
-        if (!res.ok) {
-          const raw = await readError(res, 'The delete was refused.');
-          throw new Error(/23503|foreign key/i.test(raw)
-            ? 'A game is built on one of those events, so none of them were deleted. Delete them one at a time to find it.'
-            : raw);
+        for (let i = 0; i < chunks.length; i++) {
+          /* THE COUNT IS THE PROGRESS. 3,051 events is about thirty requests,
+             long enough that a button reading "Deleting..." throughout looks
+             like a page that has stopped. */
+          batchDeleteBtn.textContent = 'Deleting ' + removed.size + '/' + ids.length + '…';
+          let ok = null;
+          try {
+            ok = await deleteIds(chunks[i]);
+            if (!ok.length) refusedOutright += chunks[i].length;
+          } catch (err) {
+            if (!err.linked) { failure = err; break; }
+            ok = [];
+            for (const id of chunks[i]) {
+              try {
+                const one = await deleteIds([id]);
+                if (one.length) ok.push(one[0]);
+                else refusedOutright += 1;
+              } catch (rowErr) {
+                if (rowErr.linked) linked.push(id);
+                else { failure = rowErr; break; }
+              }
+            }
+            if (failure) break;
+          }
+          ok.forEach((id) => removed.add(id));
         }
-        const gone = await res.json();
-        if (!Array.isArray(gone) || !gone.length) {
-          throw new Error('The database refused that delete, so nothing changed. Check you are signed in as an admin.');
-        }
-        const removed = new Set(gone.map((r) => clean(r.id)));
+
         state.rows = state.rows.filter((r) => !removed.has(clean(r.id)));
         removed.forEach((id) => picked.delete(id));
         if (state.total != null) state.total = Math.max(0, state.total - removed.size);
         render();
-        const short = ids.length - removed.size;
-        setStatus('Deleted ' + plural(removed.size, 'event') + '.' +
-          (short ? ' ' + plural(short, 'event') + (short === 1 ? ' was' : ' were')
-            + ' refused and is still here.' : ''), 'success');
+
+        if (failure) {
+          throw new Error('Deleted ' + plural(removed.size, 'event') + ' before this stopped it: '
+            + (failure.message || 'the delete was refused.'));
+        }
+        if (!removed.size && !linked.length) {
+          throw new Error('The database refused that delete, so nothing changed. '
+            + 'Check you are signed in as an admin.');
+        }
+        /* THE SHORTFALL IS NAMED, NEVER COUNTED. "12 refused" leaves you hunting
+           a list where every row looks alike; the ones still there are exactly
+           the ones you have to deal with. */
+        let msg = 'Deleted ' + plural(removed.size, 'event') + '.';
+        if (linked.length) {
+          msg += ' ' + plural(linked.length, 'event') + ' ' + (linked.length === 1 ? 'is' : 'are')
+            + ' still here because a game is built on ' + (linked.length === 1 ? 'it' : 'them') + ': '
+            + linked.slice(0, 6).join(', ')
+            + (linked.length > 6 ? ' and ' + (linked.length - 6) + ' more' : '') + '.';
+        }
+        if (refusedOutright) {
+          msg += ' ' + plural(refusedOutright, 'event') + ' the database refused without saying why.';
+        }
+        setStatus(msg, linked.length || refusedOutright ? 'error' : 'success');
       } catch (err) {
         console.error(err);
         setStatus(err && err.message ? err.message : 'That did not work.', 'error');
@@ -3739,7 +4051,6 @@
     }
 
     if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
-    if (batchApplyBtn) batchApplyBtn.addEventListener('click', batchApply);
     if (batchDeleteBtn) batchDeleteBtn.addEventListener('click', batchDelete);
     if (batchAllBox) {
       batchAllBox.addEventListener('change', () => {
@@ -3752,19 +4063,6 @@
 
     if (saveAllBtn) saveAllBtn.addEventListener('click', saveAll);
     if (seatgeekBtn) seatgeekBtn.addEventListener('click', openSgDialog);
-    if (conventionsBtn) conventionsBtn.addEventListener('click', openCvDialog);
-    if (closeCvBtn) closeCvBtn.addEventListener('click', closeCvDialog);
-    if (cvCityEl) cvCityEl.addEventListener('input', paintCvPrompt);
-    if (cvFromEl) cvFromEl.addEventListener('change', paintCvPrompt);
-    if (cvToEl) cvToEl.addEventListener('change', paintCvPrompt);
-    if (cvLightbox) {
-      cvLightbox.addEventListener('click', (e) => { if (e.target === cvLightbox) closeCvDialog(); });
-      cvLightbox.querySelectorAll('[data-cv-door]').forEach((door) => {
-        door.addEventListener('click', (e) => {
-          if (!copyCvPrompt()) e.preventDefault();
-        });
-      });
-    }
     if (closeSgBtn) closeSgBtn.addEventListener('click', closeSgDialog);
     if (sgFetchBtn) sgFetchBtn.addEventListener('click', sgFetch);
     if (sgImportBtn) sgImportBtn.addEventListener('click', sgImport);
