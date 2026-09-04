@@ -7007,6 +7007,255 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
 
+## THE BOOKMARKLET REPLACES THE PROMPT BUTTON (2026-09-04)
+
+The Socializer's ADD bar is **MANUAL | BOOKMARKLET | TGB SOCIALIZER BOT**. The
+new one opens a dialog holding **TGB SHARE CANDIDATE**, a bookmark you drag onto
+the browser bar: press it on any page and that page is filed here as a
+candidate, with its headline, its picture, a caption, its tags and the moment
+you pressed it already read.
+
+### IT CANNOT WRITE THE ROW, AND THAT DECIDES THE WHOLE SHAPE
+
+`public.socials` is `authenticated` in both directions and a bookmarklet runs in
+somebody else's page with **no session and no key**. So it does not post: it
+opens the Socializer, which is signed in, carrying the page's details in a
+`#share=` hash, and the room files them.
+
+- **THE ALTERNATIVE WAS A `SECURITY DEFINER` RPC EXPOSED TO `anon`**, like the
+  five pulls. **Refused**: those are insert-only with every dangerous field
+  hardcoded -- `status`, `origin`, the caps -- and this one would take a
+  caller-supplied url, headline and image. **A public write channel into the
+  queue for the convenience of one bookmark.**
+- **WHAT THE DETOUR BUYS, and it is why this beats MANUAL at the same job: the
+  bookmarklet is INSIDE the page.** It reads the real `<title>`, the real
+  `og:title` and the real `og:image`. MANUAL can only fetch the destination from
+  here, cross-origin, which most news sites refuse -- **and `submitManualPost`
+  drops the image even on the occasions its metadata read finds one.**
+  Instagram's API refuses a post with no image, so an empty one is that account
+  going dark on the story.
+- **THE IMAGE IS MADE ABSOLUTE IN THE PAGE IT CAME FROM.** A relative
+  `og:image` is ordinary, and resolved anywhere else it would point at the
+  Socializer's own origin -- **a url that looks perfectly right and 404s.**
+
+### THE BOOKMARKLET CARRIES NO DOUBLE QUOTE, AND THAT IS WHY IT WALKS THE TAGS
+
+`querySelector('meta[property="og:title"]')` is the obvious way and needs quotes
+round the value -- the colon makes the selector invalid without them. **The
+string has to survive being written into an href, read back, and pasted into a
+bookmark by hand**, so the meta tags are walked with `getElementsByTagName`
+instead, which needs none. One expression, no line breaks: a bookmarklet is a
+URL, and a newline in one is where browsers differ.
+
+- **`noopener` IS SAFE HERE because nothing reads what `window.open` returns.**
+  With it, that call answers null even on success -- the trap this project has
+  recorded three times -- and it is wanted, because the page it opens from is
+  somebody else's.
+- **THE ORIGIN IS THE PAGE'S OWN, never hardcoded.** One dragged from localhost
+  points at localhost; one dragged from the live site points at the live site,
+  and neither is ever wrong about itself. **The dialog prints which**, because
+  that is the one thing about the button a reader cannot check by looking at it.
+- **THE HREF IS WRITTEN BY SCRIPT, not sat in the markup**, which keeps a line
+  full of quotes out of an HTML attribute -- and it is set with `setAttribute`,
+  never `.href`, since reading an anchor back gives the ABSOLUTE url and that is
+  the lesson `/games/` learned when it stamped a harness's own origin onto every
+  card.
+- **CLICKING IT HERE WOULD FILE THE SOCIALIZER ITSELF.** It has to be a real
+  anchor or no browser will take it onto the bar, and a real anchor is
+  clickable -- so the click is refused and says the one useful thing, which is
+  that it wants dragging. **`cursor: grab`** says so before you try.
+- **AND THE ADDRESS IS COPYABLE, which is not a nicety**: a phone has no
+  bookmarks bar to drag onto, and neither does a locked-down browser. There you
+  make a bookmark by hand and paste it in as the address.
+
+### IT CARRIES A CAPTION, A FOUND TIME AND TAGS (2026-09-04)
+
+Three more fields, and each is something only a script INSIDE the page can get.
+
+#### THE SELECTION IS THE CAPTION, AND THE DESCRIPTION IS THE FALLBACK
+
+Highlight a sentence, press the button, and that sentence is the caption.
+
+- **THAT ORDER IS THE WHOLE POINT.** The selection is the one thing on the page
+  that is YOUR judgement; `og:description` is the outlet's marketing. **Run the
+  other way round it files `The description, which the selection beats.` over a
+  sentence somebody had deliberately picked out**, which is what the check
+  prints when the two are swapped.
+- **A CAPTION IS THE COPY THAT GETS PUBLISHED**, so it is capped at 200 -- both
+  prompts' own cap, and what X leaves room for at 280 with a link counted as 23
+  however long it is. Cut at a word and marked with an ellipsis, **because a
+  caption that ends mid-thought obviously wants editing and a neat short one
+  does not.**
+- **IT IS A STARTING POINT AND CANNOT GO OUT BY ITSELF.** Nothing here posts
+  without a press, and the caption is the first and largest thing on the card,
+  so what a page called itself is read before it could ever be published under
+  our name.
+- **THE SELECTION IS SENT RAW AND SQUASHED IN THE ROOM.** Collapsing it in the
+  bookmarklet needs a whitespace class, and **a backslash in that string has to
+  survive being written into an href, read back, and pasted into a bookmark by
+  hand.** `squashText` walks the characters on `charCodeAt(0) <= 32` instead --
+  no escape of any kind, which is the standing remedy for a scar this repo has
+  now recorded twenty times. `cleanText` only trims, so something had to.
+
+#### THE FOUND TIME IS THE PRESS, NOT THE FILING
+
+- **`created_at` DEFAULTS TO `now()` AND THAT IS THE WRONG MOMENT.** The two are
+  the same second normally and are not when the share arrives SIGNED OUT: the
+  hash waits for the sign-in, which can be hours. So the bookmarklet carries the
+  moment it was pressed.
+- **A TIMESTAMP WE WERE HANDED IS CHECKED BEFORE IT IS STORED.** It comes off the
+  clock of whatever machine pressed the button, and **a `created_at` in 2041
+  sorts the queue wrong for ever.** Undated, unparseable or more than a day ahead
+  falls back to the column's own `now()` -- late by however long the sign-in
+  took, and never nonsense.
+
+##### AND `candidateLabel` READ `Manual` ON EVERY HAND-FILED ROW
+
+That function takes the date out of the ID, which only a bot row carries. A
+`manual-` id matched nothing, so it returned the bare word -- **saying HOW it
+arrived and nothing about WHEN, on every row this room has ever filed by hand,
+including every one MANUAL has ever added.**
+
+- **`created_at` IS NOT NULL ON EVERY ROW**, so it answers for all of them, and
+  the fix reaches MANUAL as well as the bookmarklet.
+- **THE ORIGIN CHIP COMES BACK BY ITSELF, which is the neat part.** It is drawn
+  on a `candidateLabel(post) !== originLabel(post)` test, written when both said
+  Manual and the card would otherwise have said it twice. With the label saying
+  WHEN, the two are different facts again and the kicker reads
+  **`FOUND FRI, SEP 4 | MANUAL`** with no change to that guard.
+
+#### TAGS FROM `article:tag` AND `keywords`, WHICH ARE TWO SHAPES
+
+- **`article:tag` REPEATS**, so it needs a collector rather than the first-match
+  reader beside it: **run through the first-match one it files ONE of three**,
+  which is what the check prints when the two are swapped. `keywords` is a comma
+  list, which is the other shape, and both go in.
+- **LOWERCASED AND DEDUPED**, the same shape `patchFor` writes when the strip's
+  own editor is used -- so a tag typed in the room and a tag captured here are
+  one tag rather than two.
+- **CAPPED AT SIX, AND EACH AT FORTY CHARACTERS.** A page that stuffs forty
+  keywords into its head would otherwise put forty pills on a kicker that is one
+  line, and keyword stuffing produces phrases rather than words.
+
+#### WHAT IS DELIBERATELY NOT SENT
+
+**`source` and `published`**, which the preview card draws and which show as
+*no source / no date*. `og:site_name` and `article:published_time` are right
+there and would fill both -- **they were not asked for**, and adding them is two
+lines in `bookmarkletSource` and two in the row. Said here rather than left to
+be found.
+
+**40 assertions**, and **eight of them fail with the four faults put back**,
+naming the real values: the description over the selection, `["Chicago"]` where
+three tags were meant, and `{"label":"Manual","origin":null}` on a card that
+should say when it was found.
+
+- **THE FIXTURE PAGE IS BUILT TO TELL THE CASES APART**: an `og:title` that
+  differs from its `<title>`, a RELATIVE `og:image`, a description the selection
+  has to beat, three `article:tag`s, a `keywords` list that repeats one of them
+  in a different case, and a paragraph carrying a newline and doubled spaces.
+- **AND ONE OF MY OWN ASSERTIONS THREW RATHER THAN FAILING.**
+  `new Date(undefined).toISOString()` raises, so with the found time removed the
+  whole run stopped there and **the three assertions after it went unreported**
+  -- the first regression pass looked like five failures and was eight. **An
+  assertion that can throw is an assertion that hides its neighbours.**
+
+
+### WHAT THE ROOM DOES WITH `#share=`
+
+- **IT FILES, rather than prefilling the Add box**, which is what was asked for:
+  one press from anywhere and the candidate is in the queue.
+- **AFTER THE QUEUE HAS LOADED, never beside it.** The duplicate check reads the
+  rows that are actually in memory, so an empty `posts` would let the same page
+  in twice. Same reasoning `#edit=` already carries, and a sharper one: this
+  WRITES.
+- **A SHARE THAT ARRIVES SIGNED OUT SIMPLY WAITS.** The receiver is guarded on
+  the admin class and `onAuthorized` runs it after sign-in, with the hash still
+  there.
+- **AND A HASHCHANGE FIRES IT TOO**, because a browser may reuse a tab already
+  open at that URL, in which case only the hash changes and nothing reloads.
+  **That is not hypothetical** -- it is what happened inside the check, and it
+  is what made the duplicate probe read as broken.
+- **THE HASH IS CLEARED WHATEVER HAPPENS.** Left behind it re-files the same
+  page on the next reload -- a worse version of the stale `#manual` this room
+  already fixed once, because this one writes a row.
+- **A WRITE THAT FAILS HANDS THE CAPTURE TO THE ADD BOX**, prefilled, and says
+  why. The hash is still cleared, so nothing re-files; what is not lost is the
+  link. **A write that fails without saying so is a bug in itself**, and this
+  room has shipped three of those.
+
+### WHAT WENT WITH THE PROMPT BUTTON, AND WHERE THE TEXT IS
+
+The dialog, the editable sheet, the five platform toggles, the accounts block,
+the localStorage store and its fingerprint, the three AI doors, and about 700
+lines of markup with 2,900 characters of CSS.
+
+- **THE PAGE VARIANT OF THE PROMPT IS KEPT** at
+  [socializer-page.prompt.md](mc/_dev/prompt-tools/socializer-page.prompt.md) -- 38,145 characters.
+  **The text is the product**: every clause in it was paid for by a bad run, and
+  deleting the dialog would otherwise have been the only copy of that variant
+  gone. Nothing reads it; it is a record.
+- **THE ROUTINE IS UNAFFECTED.** TGB SOCIALIZER BOT holds its own copy on
+  `trig_01KDYndJhZ9ymgUgX5Xx6LsL` and still runs twice a day. **What is lost is
+  the HUMAN path**: paste the brief into any chat AI and get five candidates
+  back as SQL. That is a real capability and it is gone rather than moved.
+- **THE ACCOUNTS BLOCK IS GONE WITH IT**, so there is no longer any way to run
+  the prompt against a subset of the five accounts.
+- **AND THE SCROLL LOCK WAS READING `promptCard` INSIDE `closeTool`.** With that
+  var deleted the line was a ReferenceError on EVERY close, which would have
+  **left the page unscrollable for the rest of the session** the first time any
+  dialog was dismissed -- the exact fault this room already had when the health
+  card stopped being a dialog. It reads `bookmarkletCard` now, and the check
+  presses Escape and asserts the scroll came back.
+
+### AND MY OWN SWEEP DELETED THE `<head>`
+
+The dead-CSS script wrote `new_css + s[css_b:]` and **never put `s[:css_a]`
+back**, so the doctype, every meta tag, the title, the favicon and both
+stylesheet links went -- 1,556 characters, silently, on a file that still looked
+plausible because it began with `<style>`.
+
+- **EVERY GUARD IN IT WAS ABOUT THE CSS BLOCKS AND SAID NOTHING ABOUT THE
+  DOCUMENT.** They asserted each rule was unique and that no live selector
+  shared it, which was true, while the result was missing a third of the file.
+- **SO A SCRIPT THAT REWRITES A WHOLE FILE ASSERTS THE RESULT'S OWN
+  LANDMARKS** -- `<!DOCTYPE html>`, `<head>`, a known id, `</html>` -- not only
+  that the slice it cut was right. It is a different question and only the
+  second one was being asked.
+- **IT WAS FOUND BY THE STANDING ID CHECK**, which reported `appleTitle` missing
+  where HEAD reports only `pageIcon`. **Diffing the check's output against HEAD
+  is what told them apart**; the raw list looked like two ordinary gaps.
+- **THE BACKUP IS WHAT MADE IT CHEAP.** `cp` to a scratch file before the sweep,
+  restored in one command. `git stash` is the wrong tool here and this file
+  already says so.
+
+### AND THE COMMENT TRAP, FOR THE FIFTH TIME
+
+The check asserted no `copyPromptText` survives, read the RAW source, and
+**matched the comment explaining the removal** -- a CSS note the sweep had
+orphaned. Comments come out before the search now. **Three orphaned comments
+were left by that sweep** and all three went: a comment describing a control
+that is gone is the page lying about itself, and one of them named a function
+that no longer exists.
+
+**[socializer-bookmarklet.js](mc/_dev/browser-checks/socializer-bookmarklet.js), 29 assertions in real Chrome.** The claim is end
+to end, so it is checked that way: **the bookmarklet is RUN, for real**, against
+a fixture page whose `og:title` differs from its `<title>` and whose `og:image`
+is relative, and what it hands `window.open` is fed back in as a `#share=` hash.
+Asserting the source string would prove nothing about whether it works.
+
+- **THE STUB CARRIES A SESSION, unlike the other rooms' stubs.** This room's
+  `authHeaders` THROWS without an `access_token`, so a session-less stub sent
+  the whole run down the error path -- **which read as the receiver being broken
+  and was the room's own fallback working perfectly.** It is an assertion now.
+- **THE WRITE COUNT ASKS FOR THE TABLE, NOT FOR ANY POST.** `checkAccounts`
+  posts `{diagnose:true}` at the `socials-post` Edge Function on every load, and
+  counting that as a filing reads exactly like the room writing twice.
+- **AND A `goto` THAT DIFFERS ONLY IN THE HASH DOES NOT RELOAD.** The duplicate
+  probe's stubbed rows were never fetched, so the room filed -- correctly, on a
+  page that had never seen them. `about:blank` first.
+
+
 ## A CAPTION OPENS WITH THE PLACE AND SAYS IT ONCE (2026-09-03)
 
 `Tulsa, Oklahoma: The street grid wraps around an 11 ounce mug. Walk the blocks
