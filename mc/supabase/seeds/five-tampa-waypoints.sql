@@ -1,5 +1,9 @@
 -- FIVE TAMPA WAYPOINTS, all downtown and all free to stand in front of.
 --
+-- APPLIED 2026-09-04 through the Management API (see CLAUDE.md section 1b);
+-- the verify block read exactly what it expects. The apply-by-hand note below
+-- is kept as the record of why the file was written that way.
+--
 -- APPLY BY HAND. The publishable key cannot write public.waypoints (RLS grants
 -- writes to authenticated only) and this session has no supabase CLI, so it
 -- goes in through the SQL editor:

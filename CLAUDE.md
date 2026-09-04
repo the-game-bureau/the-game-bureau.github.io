@@ -48,6 +48,39 @@ be editing history to match a tool that arrived later.
 
 ---
 
+## 1b. FROM A REMOTE SESSION, THE CLI HANGS. USE THE MANAGEMENT API. (2026-09-04)
+
+Section 1 is written for the desktop, where `supabase login` has cached a token
+and the CLI is already linked. **A Claude Code cloud session has neither, and
+even with a token the CLI does not work there.** What does, and why:
+
+- **THE LINK IS NOT IN THE REPO.** `supabase/.temp/` is gitignored, so a fresh
+  clone answers *"Cannot find project ref"* from inside `mc/` too. `supabase
+  link --project-ref qmaafbncpzrdmqapkkgr` fixes that in a second.
+- **`db query --linked` THEN HANGS, SILENTLY, EVEN WITH `--debug`.** This CLI
+  version (2.116) opens a direct Postgres connection for it, and the remote
+  container lets only HTTPS out through the agent proxy. It printed nothing for
+  180 seconds and was killed by its own timeout, having written nothing.
+- **THE MANAGEMENT API IS HTTPS AND IS WHAT THE TOKEN AUTHORISES.** One POST
+  runs a whole seed, `begin` to `commit`, as one transaction:
+
+```bash
+python3 -c "import json,sys; print(json.dumps({'query': open(sys.argv[1]).read()}))" \
+  mc/supabase/seeds/<file>.sql > /tmp/body.json
+curl -s -X POST "https://api.supabase.com/v1/projects/qmaafbncpzrdmqapkkgr/database/query" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+  --data-binary @/tmp/body.json
+```
+
+  It answers 201 with the LAST statement's rows, so a seed whose verify block
+  ends in a `select` reports itself. **Run the other verify queries as their own
+  POSTs and read the numbers**; the apply-then-prove rule is unchanged.
+- **THE TOKEN IS A PERSONAL ACCESS TOKEN** from supabase.com/dashboard/account
+  /tokens, pasted into the chat, exported for the commands and never written to
+  a file. It grants everything the account can do, so revoke it afterwards.
+- **`pkill -f "supabase db query"` KILLS THE SHELL THAT RUNS IT**, because the
+  pattern matches the `bash -c` line carrying the command. Kill by pid.
+
 ## 2. PENDING MIGRATIONS — SQL THAT IS WRITTEN BUT NOT YET APPLIED
 
 **Nothing in `mc/supabase/migrations/` runs itself.** Remote migration history in
@@ -61,8 +94,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| [seeds/five-tampa-waypoints.sql](mc/supabase/seeds/five-tampa-waypoints.sql) | Written 2026-09-04, **not applied**: five downtown Tampa waypoints. Nothing breaks without it; Tampa stays at 11 rows, ten of them Ybor City. Same apply-by-hand reason as the row below. **Delete this row once its verify block reads every column 5 and `tampa_now 16`.** |
-| [seeds/ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql) | Written 2026-09-04, **not applied**: ten NFL multiple choice questions, a second per club for ten clubs. Nothing breaks without it; the Challenge Bank simply lacks the ten. The publishable key cannot write `challenges`, so it goes in through the SQL editor. **Delete this row once its own verify block reads `filed 10`.** |
+| *(none)* | **Cleared 2026-08-31, and PROVED rather than assumed** -- see below. |
 
 **BOTH ENTRIES WERE APPLIED AND VERIFIED BY CALLS THAT MADE THE FUNCTIONS DO
 THEIR JOB.** `tgb_pull_walking_tours` files a real four-stop Green Bay walk
@@ -17548,12 +17580,13 @@ the first inside a file whose whole subject is checks that cannot fail.**
   through the Write tool, or with `chr(92)`; never a regex with backslashes
   through a heredoc into Python into a file.
 
-## FIVE DOWNTOWN TAMPA WAYPOINTS, WRITTEN AND NOT APPLIED (2026-09-04)
+## FIVE DOWNTOWN TAMPA WAYPOINTS (2026-09-04)
 
-[five-tampa-waypoints.sql](mc/supabase/seeds/five-tampa-waypoints.sql), **apply by hand**, same reason
-as the NFL seed below: the publishable key is refused a write and this session
-has no CLI. Tampa Theatre, Tampa City Hall, Rivergate Tower, Curtis Hixon
-Waterfront Park, and the Plant Hall minarets.
+[five-tampa-waypoints.sql](mc/supabase/seeds/five-tampa-waypoints.sql), **applied 2026-09-04** through the
+Management API from a remote session -- see the section below on how. Tampa
+Theatre, Tampa City Hall, Rivergate Tower, Curtis Hixon Waterfront Park, and the
+Plant Hall minarets: wpid 576 to 580. **Verified: every column 5, `tampa_now
+16`, `duplicate_names 0`**, and the publishable key reads 16 Tampa rows.
 
 - **TAMPA WAS TEN YBOR CITY ROWS AND ONE BAR**, measured first. All ten came
   off one walking tour TGB PATH BOT filed, so the downtown a visiting fandom
@@ -17586,18 +17619,18 @@ Waterfront Park, and the Plant Hall minarets.
 - **NO `ai_model` IS WRITTEN**, deliberately: the rows were composed here and
   the column is for the model a prompt ran through.
 
-## TEN MORE NFL QUESTIONS, WRITTEN AND NOT APPLIED (2026-09-04)
+## TEN MORE NFL QUESTIONS (2026-09-04)
 
-[ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql), **apply by hand**. A second
-`multiple_choice` question for ten clubs: Packers, Bears, Cowboys, Steelers,
-49ers, Falcons, Saints, Lions, Browns, Seahawks. Five tagged `positive`, five
-`negative`.
+[ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql), **applied 2026-09-04** through the
+Management API from a remote session. A second `multiple_choice` question for
+ten clubs: Packers, Bears, Cowboys, Steelers, 49ers, Falcons, Saints, Lions,
+Browns, Seahawks. Five tagged `positive`, five `negative`. Ids 153 to 162.
+**Verified: `filed 10, keys_resolving 10, positive 5, negative 5`**, 113 rows,
+and the publishable key reads 88 multiple choice rows.
 
-- **IT COULD NOT BE APPLIED FROM THIS SESSION, and that is said rather than
-  glossed.** The publishable key reads `challenges` fine and is refused a write
-  with `42501`; the remote container has no supabase CLI and no cached
-  credential, so `db query --linked` was not available. The apply-then-prove
-  rule holds and the proving is the paste's own verify block.
+- **IT WAS WRITTEN AS A HAND-APPLIED SEED FIRST**, because the publishable key
+  is refused a write with `42501` and the remote container held no credential.
+  A token pasted into the chat is what applied it, an hour later.
 - **EVERY CLUB ALREADY HAD ONE**, checked against the live 103 rows first: the
   room's own NFL prompt filed one per club on 2026-09-03 (and several twice).
   So these are written to that prompt's rules rather than to a new brief, and
