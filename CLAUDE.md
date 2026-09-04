@@ -61,7 +61,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| *(none)* | **Cleared 2026-08-31, and PROVED rather than assumed** -- see below. |
+| [seeds/ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql) | Written 2026-09-04, **not applied**: ten NFL multiple choice questions, a second per club for ten clubs. Nothing breaks without it; the Challenge Bank simply lacks the ten. The publishable key cannot write `challenges`, so it goes in through the SQL editor. **Delete this row once its own verify block reads `filed 10`.** |
 
 **BOTH ENTRIES WERE APPLIED AND VERIFIED BY CALLS THAT MADE THE FUNCTIONS DO
 THEIR JOB.** `tgb_pull_walking_tours` files a real four-stop Green Bay walk
@@ -17546,6 +17546,36 @@ the first inside a file whose whole subject is checks that cannot fail.**
 - **THE REMEDY IS THE STANDING ONE AND I DID NOT FOLLOW IT.** Write a file
   through the Write tool, or with `chr(92)`; never a regex with backslashes
   through a heredoc into Python into a file.
+
+## TEN MORE NFL QUESTIONS, WRITTEN AND NOT APPLIED (2026-09-04)
+
+[ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql), **apply by hand**. A second
+`multiple_choice` question for ten clubs: Packers, Bears, Cowboys, Steelers,
+49ers, Falcons, Saints, Lions, Browns, Seahawks. Five tagged `positive`, five
+`negative`.
+
+- **IT COULD NOT BE APPLIED FROM THIS SESSION, and that is said rather than
+  glossed.** The publishable key reads `challenges` fine and is refused a write
+  with `42501`; the remote container has no supabase CLI and no cached
+  credential, so `db query --linked` was not available. The apply-then-prove
+  rule holds and the proving is the paste's own verify block.
+- **EVERY CLUB ALREADY HAD ONE**, checked against the live 103 rows first: the
+  room's own NFL prompt filed one per club on 2026-09-03 (and several twice).
+  So these are written to that prompt's rules rather than to a new brief, and
+  each is a different question from the one its club carries.
+- **[nfl-seed-shape.js](mc/_dev/browser-checks/nfl-seed-shape.js) RUNS THE TABLE'S OWN CHECKS OVER THE FILE**
+  before anybody pastes it: every `challenges_mc_*` rule, the ladder key
+  resolving in `public.destinations`, the four-tag vocabulary, and the Challenge
+  Bank's word-for-word duplicate rule against the LIVE rows. 165 assertions,
+  **and it fails three ways when a row is broken on purpose** -- an answer put
+  into its own question, a key one letter off -- which is the only reason to
+  trust it. It parses the SQL with a hand walker rather than a regex, per the
+  escaping scar.
+- **THE FACTS WERE CHOSEN FOR NOT MOVING** and for being the ones a fan knows
+  cold: Super Bowl I and XX opponents, the career rushing record, four rings in
+  the seventies, The Catch; and on the other side 28 to 3, the Aints, one
+  playoff win in 66 years, four clubs never in a Super Bowl, and the goal line
+  in XLIX. **Verify or omit was the rule and nothing here is a guess.**
 
 ## A STOP FILTERS CHALLENGES BY TAG (2026-09-03)
 
