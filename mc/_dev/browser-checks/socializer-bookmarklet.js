@@ -1,5 +1,10 @@
 /* THE BOOKMARKLET IN THE SOCIALIZER (2026-09-04).
 
+   THE CHIP IS CALLED `SHARE AS TGB` and holds nothing else. Its text is what a
+   browser takes as the BOOKMARK'S NAME when the anchor is dragged, so anything
+   in there is in the name -- which is why the check counts the anchor's children
+   rather than only reading its words.
+
    IT REPLACED THE `PROMPT` BUTTON, which handed you the page's own copy of the
    socials brief to paste into a chat AI. That text is kept at
    mc/_dev/prompt-tools/socializer-page.prompt.md and the ROUTINE is untouched.
@@ -179,6 +184,8 @@ const FIXTURE = [
       return {
         open: !document.getElementById('bookmarkletCard').hidden,
         word: a.textContent.trim(),
+        inside: a.childElementCount,
+        title: document.getElementById('bookmarkletTitle').textContent.trim(),
         href: a.getAttribute('href'),
         code: document.getElementById('bookmarkletCode').value,
         origin: document.getElementById('bookmarkletOrigin').textContent,
@@ -186,8 +193,22 @@ const FIXTURE = [
       };
     });
     t('pressing it opens the dialog', dlg.open);
-    t('and the draggable thing is called TGB SHARE CANDIDATE',
-      dlg.word === 'TGB SHARE CANDIDATE', dlg.word);
+    /* THE CHIP'S TEXT IS THE BOOKMARK'S NAME. Dragging an anchor onto the bar
+       takes its text as the title, so this is the string that ends up on the
+       bar and the string you hunt for there. */
+    t('the draggable thing is called SHARE AS TGB',
+      dlg.word === 'SHARE AS TGB', dlg.word);
+    /* THE HEADING NAMES THE THING YOU ARE DRAGGING, so it follows it: left
+       behind it would name a button that is not there. NO MARK ON IT, though --
+       the heading is the room's uppercase mono and a picture in it is
+       decoration, where on the chip it is the thing itself. */
+    t('and the dialog is titled the same, without the mark',
+      dlg.title === 'SHARE AS TGB', dlg.title);
+    /* AND NOTHING ELSE IS IN THERE. A mark, a badge or a wrapper inside the
+       anchor is part of the name, so reading the words alone would pass on a
+       chip carrying a picture the bookmark would then be called by. */
+    t('and nothing else rides along inside the name',
+      dlg.inside === 0, dlg.inside);
     /* IT HAS TO BE A REAL `javascript:` ANCHOR. That is the only thing a
        browser will take onto the bookmarks bar, and it is the whole mechanism. */
     t('and it is a real javascript: link', /^javascript:/.test(dlg.href || ''),

@@ -7010,7 +7010,7 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 ## THE BOOKMARKLET REPLACES THE PROMPT BUTTON (2026-09-04)
 
 The Socializer's ADD bar is **MANUAL | BOOKMARKLET | TGB SOCIALIZER BOT**. The
-new one opens a dialog holding **TGB SHARE CANDIDATE**, a bookmark you drag onto
+new one opens a dialog holding **SHARE AS TGB**, a bookmark you drag onto
 the browser bar: press it on any page and that page is filed here as a
 candidate, with its headline, its picture, a caption, its tags and the moment
 you pressed it already read.
@@ -7067,6 +7067,60 @@ URL, and a newline in one is where browsers differ.
 - **AND THE ADDRESS IS COPYABLE, which is not a nicety**: a phone has no
   bookmarks bar to drag onto, and neither does a locked-down browser. There you
   make a bookmark by hand and paste it in as the address.
+
+### THE CHIP IS `SHARE AS TGB`, AND HOLDS NOTHING ELSE (2026-09-04)
+
+It was `TGB SHARE CANDIDATE`, then `📤 SHARE AS TGB` for an hour, and the
+mark came back out.
+
+- **THE CHIP'S TEXT IS THE BOOKMARK'S NAME.** Dragging an anchor onto the bar
+  takes its text as the title, so this is the string that ends up on the bar and
+  the string you hunt for there. **A mark INSIDE the anchor is a mark in the
+  name** -- which is why the two asks are the same string and the name wins.
+- **THE HEADING FOLLOWED IT, and it was titled with the chip's own words on
+  purpose**: the heading names the thing you are dragging, so left behind it
+  would name a button that is not there.
+- **THE CHECK COUNTS THE ANCHOR'S CHILDREN, not only its words.** Reading the
+  text alone passes on a chip carrying a picture the bookmark would then be
+  called by, which is exactly the state this note is correcting.
+
+#### CHROME'S GLOBE IS NOT A MISSING FAVICON, AND NO `.ico` CAN FIX IT
+
+Reported as a globe on the bookmark, guessed at as the popup lacking an icon.
+**The guess is wrong in a way worth writing down, because the obvious fix does
+not exist.**
+
+- **A `javascript:` URL HAS NO ORIGIN**, so there is nowhere for Chrome to
+  fetch a favicon FROM. It draws its generic globe for **every** bookmarklet on
+  every site, and there is no supported way to give one a custom icon.
+- **THE SITE ALREADY SERVES `/favicon.ico`** -- the amber waypoint pin, seven
+  sizes, on 113 pages -- **and the Socializer already links it**, along with
+  `icon-32.png` and the apple-touch-icon. So the premise fails twice: the icon
+  is there, and it is irrelevant to a bookmarklet either way.
+- **SO THE NAME WAS THE ONLY LEVER ON HOW THE BOOKMARK LOOKS**, and the mark in
+  it was the only thing that had ever changed it. Taking it out is a deliberate
+  trade: the bar shows a globe and the words, which is what every bookmarklet
+  looks like.
+- **IF A PICTURE IS EVER WANTED ON THE CHIP ITSELF** it has to sit OUTSIDE the
+  anchor, and it needs an emoji font stack named on it -- this page is IBM Plex
+  Mono and **neither face this site loads carries an emoji glyph**, so an
+  astral-plane codepoint falls through to whatever the browser picks last. That
+  warning is left in the CSS where the rule was, because it is the thing whoever
+  puts one back would not know.
+
+#### AND TWO SCARS FROM THE HOUR THE MARK WAS THERE
+
+Kept because neither is about the emoji.
+
+- **WRITTEN AS `&#128228;`, NOT AS THE CHARACTER.** The file goes through the
+  edit tooling as text and this repo has lost twenty-two things to a byte eaten
+  between a heredoc and a file, one of them a whole file. An entity is ASCII,
+  cannot be mangled by any layer, and reaches the DOM as the same codepoint.
+- **THE ESCAPING SCAR, TWENTY-SECOND TIME, IN A NEW COSTUME.** The assertion
+  written as a `u{1F4E4}` regex **broke PYTHON's own string parser** on the way
+  into the file, so nothing was written at all. `String.fromCodePoint(0x1F4E4)`
+  needs nothing from any layer.
+
 
 ### THE DIALOG HAD NO PADDING AT ALL (2026-09-04)
 
@@ -19192,9 +19246,10 @@ and the rows carried no tags, so **the wrap assertion and the third-line
 assertion both had nothing to measure.** A fixture is an argument about what the
 real rows look like.
 
-**AND THE ESCAPING SCAR, TWENTIETH INSTANCE, IN THE OPPOSITE DIRECTION.** ``
+**AND THE ESCAPING SCAR, TWENTIETH INSTANCE, IN THE OPPOSITE DIRECTION.** `\b`
 written into a check through a heredoc reached the file as a literal
-**BACKSPACE**, so `/‹BS›is-known‹BS›/` **failed on a page that was correct** --
+**BACKSPACE** -- shown here as its source form, since the note
+was carrying the byte itself and `grep` called this file binary, so `/‹BS›is-known‹BS›/` **failed on a page that was correct** --
 where this fault normally makes an assertion pass vacuously. Replaced with
 `className.split(' ').indexOf(...)`: a class list is a list of words, there is
 nothing a regex does better, and there is nothing for a layer of quoting to eat.
