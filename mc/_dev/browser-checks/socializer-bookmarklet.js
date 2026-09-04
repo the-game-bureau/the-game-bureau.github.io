@@ -211,6 +211,66 @@ const FIXTURE = [
     t('and carries no double quote and no line break',
       dlg.href.indexOf('"') === -1 && dlg.href.indexOf(NL) === -1);
 
+    /* ---- THE LOOK, WHICH ONLY A BROWSER CAN ANSWER ------------------------
+       THE BODY HAD NO PADDING AT ALL. The room's 16px lives on `.modal-form`,
+       and this dialog's content sat as loose children of the `<section>` -- so
+       the text ran to the panel edges, and it was not the panel's scrolling
+       element either, since `section.tool-modal-panel > .modal-form` names that
+       by selector. A short window would have clipped it with nothing to
+       scroll. */
+    const look = await p.evaluate(() => {
+      const card = document.getElementById('bookmarkletCard');
+      const body = card.querySelector('.bookmarklet-body');
+      const first = card.querySelector('.bookmarklet-body > p');
+      const well = card.querySelector('.bookmarklet-drag');
+      const chip = document.getElementById('bookmarkletLink');
+      const foot = card.querySelector('.modal-actions');
+      const cs = (el) => getComputedStyle(el);
+      const box = (el) => el.getBoundingClientRect();
+      return {
+        bodyIsModalForm: body.classList.contains('modal-form'),
+        bodyPad: cs(body).padding,
+        bodyScrolls: cs(body).overflowY,
+        // The gap between the panel's left edge and the first line of prose.
+        textInset: Math.round(box(first).left - box(card).left),
+        footInset: Math.round(box(card).right - box(foot.querySelector('.btn:last-of-type')).right),
+        wellDashed: cs(well).borderTopStyle,
+        wellPad: parseInt(cs(well).paddingTop, 10),
+        chipInWell: well.contains(chip),
+        chipH: Math.round(box(chip).height),
+        panelW: Math.round(box(card).width),
+        /* THE RENDERED WIDTH, NOT THE SOURCE'S LINE BREAKS. Counting the
+           latter answered 71 about lines running past 100 characters on
+           screen, which is a metric that cannot see the thing it is for.
+           Roughly 7px a character at this size, so 540px is about 75 -- the
+           top of the range anybody reads comfortably. */
+        proseW: Math.round(box(first).width)
+      };
+    });
+    t("the dialog body is the room's own padded, scrolling one",
+      look.bodyIsModalForm && look.bodyScrolls === 'auto', look);
+    /* MEASURED FROM THE PANEL EDGE, never read off a declaration: a `padding`
+       that is present and beaten by something else reads as correct in the file
+       and wrong on screen. */
+    t('and the prose is inset from the panel edge rather than touching it',
+      look.textInset >= 14 && look.textInset <= 20, look.textInset);
+    t('and the foot is inset by the same amount',
+      Math.abs(look.footInset - look.textInset) <= 1,
+      { text: look.textInset, foot: look.footInset });
+
+    /* THE WELL. The chip is the point of the dialog, so it is set in something
+       rather than floating in prose -- and the border is DASHED, which is the
+       drop-zone idiom read backwards: this is the thing you take OUT of here. */
+    t('the chip sits in a dashed well of its own',
+      look.chipInWell && look.wellDashed === 'dashed' && look.wellPad >= 12, look);
+    t('and is a real target rather than a word', look.chipH >= 34, look.chipH);
+
+    /* THE PANEL IS THE MEASURE. 780px is the room's default for a two-column
+       form; this dialog is a paragraph, a chip and a code box, and set that wide
+       the lines ran past 100 characters. */
+    t('the panel is narrowed to a readable measure',
+      look.panelW <= 600 && look.proseW <= 540, look);
+
     const clicked = await p.evaluate(() => {
       const before = location.href;
       document.getElementById('bookmarkletLink').click();
@@ -456,6 +516,33 @@ const FIXTURE = [
       refused);
     t('and the share hash is cleared even then, so a reload cannot re-file',
       refused.hash !== '' ? refused.hash.indexOf('#share=') !== 0 : true, refused.hash);
+
+    /* AN ID BEATS A CLASS WHATEVER THE MEDIA QUERY -- a media query adds no
+       specificity of its own -- so `#bookmarkletCard`'s own width kept applying
+       on a phone and the panel sat 8px from the left with 24px on the right:
+       off centre by exactly the 16px the two arithmetics differ by. */
+    await p.setViewport({ width: 390, height: 760 });
+    await p.goto(base + '/mc/socializer/', { waitUntil: 'domcontentloaded' });
+    await authorize();
+    await p.click('#bookmarkletBtn');
+    const phone = await p.evaluate(() => {
+      const c = document.getElementById('bookmarkletCard').getBoundingClientRect();
+      const hint = document.querySelector('.bookmarklet-hint');
+      return { left: Math.round(c.left),
+               right: Math.round(document.documentElement.clientWidth - c.right),
+               sideways: document.documentElement.scrollWidth
+                         > document.documentElement.clientWidth,
+               hintShown: !!hint && getComputedStyle(hint).display !== 'none' };
+    });
+    t('on a phone it uses the width evenly and does not scroll sideways',
+      phone.left === phone.right && !phone.sideways, phone);
+    /* THE HINT IS STILL SHOWN HERE, and that is right: this is a narrow WINDOW
+       with a mouse, not a touch screen. The `pointer: coarse` guard asks about
+       the input rather than the width, because a narrow desktop window drags
+       perfectly well -- so a breakpoint would be a guess about the device. */
+    t('and the drag hint is still there, since a narrow window can still drag',
+      phone.hintShown, phone);
+    await p.setViewport({ width: 1500, height: 1000 });
 
     t('no page errors', errs.length === 0, errs);
   } finally { await br.close(); srv.close(); }

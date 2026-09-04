@@ -7068,6 +7068,83 @@ URL, and a newline in one is where browsers differ.
   bookmarks bar to drag onto, and neither does a locked-down browser. There you
   make a bookmark by hand and paste it in as the address.
 
+### THE DIALOG HAD NO PADDING AT ALL (2026-09-04)
+
+The text ran to the panel edges. **The room keeps its dialog padding on
+`.modal-form`**, and this dialog's content sat as loose children of the
+`<section>`, so it had none -- the head above it did, which made the mismatch
+worse rather than hiding it.
+
+- **AND IT WAS NOT THE PANEL'S SCROLLING BODY EITHER, which is the half that
+  would have bitten later.** `section.tool-modal-panel > .modal-form,
+  section.tool-modal-panel > .confirm-body` names the scrolling element BY
+  SELECTOR, and `> .panel-head, > .prompt-foot, > .modal-actions` names the
+  fixed ones. A pile of loose children is neither, so **a short window would
+  have clipped the dialog with nothing to scroll.** The foot was fine
+  throughout, being `.modal-actions` and therefore named.
+- **THE WRAPPER IS A `<div class="modal-form">` rather than a form**, since
+  there is nothing here to submit. It brings the 16px, the grid, the 12px gap
+  and the room's own textarea metrics with it.
+- **THE GAP DOES THE SPACING, so every child carries `margin: 0`.** Left with
+  their own margins they add to the gap and the dialog breathes unevenly -- one
+  gap here, a different one there, decided by whichever element came first.
+
+#### THE PANEL IS THE MEASURE, SO THE PROSE NEEDS NO SECOND ONE
+
+**780px is the room's default for a TWO-COLUMN form**, and this dialog is a
+paragraph, a chip and a code box. Set that wide the lines ran **746px** -- past
+100 characters, half again what anybody reads comfortably. `#bookmarkletCard` is
+`min(560px, calc(100vw - 32px))`, which also makes it read as an object rather
+than as a sheet.
+
+- **`.prompt-howto`'s OWN 58ch CAP IS CLEARED HERE.** It is written for a 980px
+  panel; in a 528px body it would leave a third of every line empty for no
+  reason. **The panel decides the measure now, so a second one would fight it.**
+- **AN ID BEATS A CLASS WHATEVER THE MEDIA QUERY** -- a media query adds no
+  specificity of its own -- so that 560px cap kept applying on a phone, where
+  the room's rule wants `calc(100vw - 16px)` at `left: 8px`. The panel sat **8px
+  from the left and 24px from the right**, off centre by exactly the 16px the
+  two arithmetics differ by. `#bookmarkletCard` is named in that media query.
+  **Third time this project has recorded that tie**, after the Game Builder's
+  row that never wrapped and the step arrow drawn 4px wide.
+
+#### THE CHIP SITS IN A WELL, AND THE BORDER IS DASHED
+
+It is the point of the dialog, so it is set in something rather than floating in
+prose -- and **dashed is the drop-zone idiom read backwards**: this is the thing
+you take OUT of here.
+
+- **THE FALLBACK IS ONE BLOCK BELOW A RULE.** The *cannot drag it* line, the
+  address and the destination are one errand and read as three loose things.
+  Grouped, the dialog is the object first and the way round it second.
+- **`DRAG ME UP TO THE BAR` IS A LIE ON A TOUCH SCREEN**, where there is no
+  bookmarks bar -- which is exactly what the paragraph below it says. It is
+  hidden under `@media (pointer: coarse)`. **THE TEST IS THE INPUT, NOT THE
+  WIDTH**: a narrow desktop window drags perfectly well, so a breakpoint here
+  would be a guess about the device, and the check asserts the hint is STILL
+  THERE at 390px for that reason.
+
+#### AND TWO OF MY OWN MEASUREMENTS WERE THE WRONG ONES
+
+Both read as a fault in the page and were faults in the question.
+
+- **`card.right - modalActions.right` ANSWERED 1px**, the border -- because
+  `.modal-actions` spans the full width and keeps its 16px INSIDE. It read as a
+  foot jammed against the panel edge. **What lines up with the prose is the
+  BUTTON**, so that is what is measured.
+- **THE LINE-LENGTH METRIC COUNTED THE SOURCE'S OWN LINE BREAKS**, so on the
+  780px panel it answered **71** about lines rendering past 100 characters, and
+  only the panel-width half of that assertion caught the fault. **A metric that
+  cannot see the thing it is for is worse than none.** It measures the rendered
+  width now, and against the wide panel it fails with `proseW: 746`.
+
+**48 assertions, and five fail with the three layout faults put back**, naming
+the real values: `"bodyPad":"0px"`, `"textInset":1`, `"wellDashed":"none"`.
+**Every one of these is geometry**, so it is read with `getComputedStyle` and
+`getBoundingClientRect` in a real browser -- a `padding` that is present and
+beaten by something else reads as correct in the file and wrong on screen.
+
+
 ### IT CARRIES A CAPTION, A FOUND TIME AND TAGS (2026-09-04)
 
 Three more fields, and each is something only a script INSIDE the page can get.

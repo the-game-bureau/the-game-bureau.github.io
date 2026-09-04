@@ -1349,20 +1349,47 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    /* THE DRAGGABLE CHIP. It is a link and has to look like something you
-       would pick up: a filled control with a grab cursor, sized like the room's
-       own primary button so it reads as a thing rather than as prose. */
+    /* THE BODY IS A GRID AND THE GAP DOES THE SPACING, so every child here
+       carries `margin: 0`. Left with their own margins they would add to the
+       12px gap and the dialog would breathe unevenly -- a paragraph gap here, a
+       different one there, decided by whichever element came first. */
+    /* THE PANEL IS THE MEASURE, so the prose needs no second one. 780px is the
+       room's default for a two-column form and this dialog is a paragraph, a
+       chip and a code box -- set that wide the lines run past 100 characters,
+       which is half again the width anybody reads comfortably. Narrowed, it
+       also reads as an object rather than as a sheet. */
+    #bookmarkletCard { width: min(560px, calc(100vw - 32px)); }
+    .bookmarklet-body { gap: 14px; align-content: start; }
+    /* THE GAP DOES THE SPACING, so every child carries `margin: 0`. Left with
+       their own, they would add to the 12px gap and the dialog would breathe
+       unevenly -- one gap here, a different one there, decided by whichever
+       element happened to come first.
+         `max-width` GOES WITH THEM: `.prompt-howto` caps itself at 58ch for a
+       980px panel, which in a 528px body would leave a third of the line empty
+       for no reason. */
+    .bookmarklet-body > p,
+    .bookmarklet-body .prompt-howto { margin: 0; max-width: none; }
+
+    /* THE WELL. The chip is the whole point of the dialog, so it is set in
+       something rather than floating in prose -- and the border is DASHED,
+       which is the drop-zone idiom read backwards: this is the thing you take
+       OUT of here. */
     .bookmarklet-drag {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      margin: 0 0 14px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 16px; border: 1px dashed var(--control-line); border-radius: 10px;
+      background: rgba(var(--bic-blue-rgb), 0.045);
     }
+    /* IT IS A LINK AND HAS TO LOOK LIKE SOMETHING YOU WOULD PICK UP: a filled
+       control, drawn to the room's own primary button so it reads as a thing
+       rather than as a word in a sentence. */
     .bookmarklet-chip {
       display: inline-flex; align-items: center; justify-content: center;
-      padding: 10px 18px; border-radius: 8px;
+      padding: 12px 20px; border-radius: 8px;
       background: var(--accent, #2d4880); color: #fff;
       font: 700 0.78rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
       text-transform: uppercase; text-decoration: none;
       border: 1px solid rgba(0, 0, 0, 0.25);
+      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.28);
       /* GRAB, NOT POINTER. The gesture this control wants is a drag, and the
          cursor is the only thing on screen that can say so before you try. */
       cursor: grab;
@@ -1370,21 +1397,42 @@
     }
     .bookmarklet-chip:active { cursor: grabbing; }
     .bookmarklet-hint {
-      font: 600 0.62rem/1.3 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
+      font: 600 0.62rem/1.4 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
       text-transform: uppercase; color: var(--muted);
     }
-    /* THE ADDRESS, for a phone or a browser that will not take a drag. Monospace
-       and small: it is machine text nobody reads, and it exists to be copied. */
-    .bookmarklet-code {
-      display: block; width: 100%; min-height: 74px; resize: vertical;
-      font: 400 0.68rem/1.45 'IBM Plex Mono', monospace;
-      word-break: break-all; margin: 0 0 12px;
+    /* A TOUCH SCREEN HAS NO BOOKMARKS BAR TO DRAG ONTO, so the hint is a lie
+       there -- and the paragraph below it, which is the way through, is the
+       thing to read instead. THE TEST IS THE INPUT RATHER THAN THE WIDTH: a
+       narrow desktop window drags perfectly well, so a breakpoint here would be
+       a guess about the device. */
+    @media (pointer: coarse) {
+      .bookmarklet-hint { display: none; }
+      .bookmarklet-chip { cursor: pointer; }
     }
+
+    /* THE FALLBACK IS ONE BLOCK BELOW A RULE. Loose, its three parts read as
+       three more things to do; grouped, the dialog is the object first and the
+       way round it second. */
+    .bookmarklet-fallback {
+      display: grid; gap: 8px;
+      padding-top: 14px; border-top: 1px solid var(--line);
+    }
+    /* THE ADDRESS. Machine text nobody reads, so it is quiet and small -- it
+       exists to be copied. `.modal-form textarea` is (0,1,1) and would beat a
+       bare class, so this is scoped to win the properties it means to set. */
+    .modal-form .bookmarklet-code {
+      display: block; width: 100%; min-height: 76px; resize: vertical;
+      padding: 10px; border-radius: 8px;
+      font: 400 0.66rem/1.5 'IBM Plex Mono', monospace;
+      color: var(--muted); background: rgba(var(--bic-blue-rgb), 0.03);
+      word-break: break-all; margin: 0;
+    }
+    .modal-form .bookmarklet-code:focus { color: var(--ink); }
     .bookmarklet-dest {
-      font: 400 0.7rem/1.4 'IBM Plex Mono', monospace;
-      color: var(--muted); margin: 0 0 4px;
+      font: 400 0.68rem/1.4 'IBM Plex Mono', monospace;
+      color: var(--muted); margin: 0;
     }
-    .bookmarklet-dest span { color: var(--ink); }
+    .bookmarklet-dest span { color: var(--ink); word-break: break-all; }
     .prompt-panel.is-blocked .prompt-ai,
     .prompt-panel.is-blocked .prompt-sql-btn {
       opacity: 0.45;
@@ -1801,7 +1849,8 @@
          corners at the edges, and pinned rather than centred by transform. */
       .tool-modal-panel,
       .tool-modal-panel--wide,
-      .tool-modal-panel--ask {
+      .tool-modal-panel--ask,
+      #bookmarkletCard {
         top: 8px;
         left: 8px;
         width: calc(100vw - 16px);
@@ -2317,6 +2366,12 @@
           </div>
           <button class="btn small ghost" type="button" data-bookmarklet-close>Close</button>
         </div>
+        <!-- `.modal-form` IS WHERE THE ROOM KEEPS ITS DIALOG PADDING, and it is
+             also what `section.tool-modal-panel > .modal-form` names as the
+             scrolling body. Without it this panel had neither: the text ran to
+             the edges and a short window clipped it. It is a `<div>` rather than
+             a form because there is nothing here to submit. -->
+        <div class="modal-form bookmarklet-body">
         <p class="prompt-howto">
           Drag the button below onto your browser&rsquo;s bookmarks bar. Then, on
           any page worth sharing, press it: this room opens and the page is filed
@@ -2347,6 +2402,7 @@
         <!-- THE OTHER WAY IN, and it is not a nicety: a phone has no bookmarks
              bar to drag onto, and neither does a locked-down browser. There you
              make a bookmark by hand and paste this in as its address. -->
+        <div class="bookmarklet-fallback">
         <p class="prompt-howto">
           Cannot drag it? Make a bookmark by hand, call it what you like, and
           paste this in as its address.
@@ -2358,6 +2414,8 @@
              hardcoded: the one thing a reader cannot check by looking at the
              button is printed instead. -->
         <p class="bookmarklet-dest">Files into <span id="bookmarkletOrigin"></span></p>
+        </div>
+        </div>
 
         <div class="modal-actions">
           <span class="modal-status" id="bookmarkletStatus" aria-live="polite"></span>
