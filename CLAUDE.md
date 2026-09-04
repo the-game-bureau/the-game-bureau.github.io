@@ -61,6 +61,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
+| [seeds/five-tampa-waypoints.sql](mc/supabase/seeds/five-tampa-waypoints.sql) | Written 2026-09-04, **not applied**: five downtown Tampa waypoints. Nothing breaks without it; Tampa stays at 11 rows, ten of them Ybor City. Same apply-by-hand reason as the row below. **Delete this row once its verify block reads every column 5 and `tampa_now 16`.** |
 | [seeds/ten-nfl-challenges.sql](mc/supabase/seeds/ten-nfl-challenges.sql) | Written 2026-09-04, **not applied**: ten NFL multiple choice questions, a second per club for ten clubs. Nothing breaks without it; the Challenge Bank simply lacks the ten. The publishable key cannot write `challenges`, so it goes in through the SQL editor. **Delete this row once its own verify block reads `filed 10`.** |
 
 **BOTH ENTRIES WERE APPLIED AND VERIFIED BY CALLS THAT MADE THE FUNCTIONS DO
@@ -17546,6 +17547,44 @@ the first inside a file whose whole subject is checks that cannot fail.**
 - **THE REMEDY IS THE STANDING ONE AND I DID NOT FOLLOW IT.** Write a file
   through the Write tool, or with `chr(92)`; never a regex with backslashes
   through a heredoc into Python into a file.
+
+## FIVE DOWNTOWN TAMPA WAYPOINTS, WRITTEN AND NOT APPLIED (2026-09-04)
+
+[five-tampa-waypoints.sql](mc/supabase/seeds/five-tampa-waypoints.sql), **apply by hand**, same reason
+as the NFL seed below: the publishable key is refused a write and this session
+has no CLI. Tampa Theatre, Tampa City Hall, Rivergate Tower, Curtis Hixon
+Waterfront Park, and the Plant Hall minarets.
+
+- **TAMPA WAS TEN YBOR CITY ROWS AND ONE BAR**, measured first. All ten came
+  off one walking tour TGB PATH BOT filed, so the downtown a visiting fandom
+  actually stays in held nothing to stand in front of. These five are a spine
+  down Franklin Street, across Kennedy and over the river, none more than a
+  kilometre from the next.
+- **EVERY POINT WAS READ BACK AGAINST ITS ADDRESS, not taken on trust.** Two
+  came off Wikipedia, three off Nominatim, and
+  [tampa-seed-shape.js](mc/_dev/browser-checks/tampa-seed-shape.js) asserts each sits within 150 m of what
+  Nominatim returns for the street line AND inside a Tampa bounding box. That
+  is the fourteen-markers-on-one-centroid lesson applied before the paste
+  rather than after. 60 assertions, and **it fails on a point moved to the
+  centroid and on a source one letter off**, which is the only reason to trust
+  it.
+- **WIKIPEDIA ANSWERS 429 THROUGH THE SHARED PROXY** on anything faster than
+  one request every few seconds, and the API endpoint stayed blocked after the
+  page endpoint recovered. The check spaces its requests at six seconds, uses
+  plain page HEADs, and **SKIPS rather than fails** when either free service
+  will not answer. A blocked geocoder is a reason to stop, not to try harder.
+- **AND THE CHECK'S FIRST RUN FAILED SIX WAYS ON A CORRECT SEED.** It sent
+  Supabase's bearer token to Wikipedia, which answers 400 to a token it did not
+  issue, and it searched the whole file for `wpid` and matched the comment
+  saying wpid is never sent. **Eighth harness fault this week reading as a page
+  fault**, and the second time a check has matched the sentence explaining a
+  rule.
+- **FREE IS THE RULE AND PLANT HALL IS THE EDGE OF IT.** The museum inside
+  charges; the thirteen minarets are on the outside and are what the row points
+  at. Sulphur Springs Water Tower was left out for being eight kilometres from
+  everything else, and Sacred Heart because its interior is the point.
+- **NO `ai_model` IS WRITTEN**, deliberately: the rows were composed here and
+  the column is for the model a prompt ran through.
 
 ## TEN MORE NFL QUESTIONS, WRITTEN AND NOT APPLIED (2026-09-04)
 
