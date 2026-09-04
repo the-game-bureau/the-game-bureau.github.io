@@ -32,19 +32,25 @@ const BASE = { tags: [], ladder_key: null, choices: null,
                created_at: '2026-08-01T00:00:00Z' };
 
 const ROWS = [
-  Object.assign({}, BASE, { id: 1, type: 'type_answer', name: 'Whose house is this',
+  Object.assign({}, BASE, { id: 1, type: 'question', name: 'Whose house is this',
     prompt: 'Whose house is this?', answer: 'Davis',
     }),
-  Object.assign({}, BASE, { id: 2, type: 'multiple_choice', name: 'The green river',
+  Object.assign({}, BASE, { id: 2, type: 'question', name: 'The green river',
     prompt: 'Which river is dyed bright green downtown every St Patrick Day?',
     answer: 'Chicago', ladder_key: 'chicago-il',
     choices: ['Chicago', 'Calumet', 'Des Plaines', 'Fox'] }),
-  Object.assign({}, BASE, { id: 3, type: 'multiple_choice', name: 'Sweetness',
+  /* THE OPTIONS BOX MUST STAY OFF A ROW THAT IS NOT A QUESTION, and after
+     2026090319 that means a photo: the box is offered on EVERY question, so no
+     question-shaped row can prove it any more. */
+  Object.assign({}, BASE, { id: 9, type: 'photo', name: 'Snap the gate',
+    prompt: 'Photograph the ugliest thing you can see from here.',
+    answer: null }),
+  Object.assign({}, BASE, { id: 3, type: 'question', name: 'Sweetness',
     prompt: 'The last name of the running back they called Sweetness?',
     answer: 'Payton', ladder_key: 'chicago-il-nfl-bears' }),
   /* THE ORPHAN. A key that resolves to nothing is refused by no constraint,
      reads perfectly, and means the question is asked of nobody. */
-  Object.assign({}, BASE, { id: 4, type: 'multiple_choice', name: 'Keyed to nowhere',
+  Object.assign({}, BASE, { id: 4, type: 'question', name: 'Keyed to nowhere',
     prompt: 'Which bridge carries the interstate over the river?', answer: 'Huey',
     ladder_key: 'nowhere-zz-nfl-nobody' }),
   Object.assign({}, BASE, { id: 5, type: 'operations', name: 'The waiver (DRAFT)',
@@ -114,7 +120,8 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     /* ---- THE ROOM LISTS EVERY KIND ------------------------------------ */
     const listed = await p.evaluate(() =>
       [...document.querySelectorAll('#list .ch-name')].map((n) => n.textContent.trim()));
-    t('every challenge is listed, trivia included', listed.length === 5, listed.length);
+    t('every challenge is listed, trivia included',
+      listed.length === ROWS.length, { listed: listed.length, fixture: ROWS.length });
     t('and the trivia rows are among them',
       listed.indexOf('The green river') !== -1 && listed.indexOf('Sweetness') !== -1,
       listed.join(' | '));
@@ -130,12 +137,12 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     /* ---- THE PICKER HOLDS EVERY KIND THE CHECK ALLOWS ------------------ */
     const kinds = await p.evaluate(() =>
       [...document.querySelectorAll('#fKind option')].map((o) => o.value));
-    t('the type picker offers all six types', kinds.length === 6, kinds.join(','));
+    t('the type picker offers all five types', kinds.length === 5, kinds.join(','));
     /* WITHOUT `consent` AND `trivia` HERE, OPENING ONE OF THOSE ROWS SHOWS
        `question` SELECTED and saving silently rewrites what kind of thing it
        is -- which is why listing them and completing this list are one change. */
-    t('including operations and trivia, which the room now draws',
-      kinds.indexOf('operations') !== -1 && kinds.indexOf('multiple_choice') !== -1, kinds.join(','));
+    t('including operations and question, which the room now draws',
+      kinds.indexOf('operations') !== -1 && kinds.indexOf('question') !== -1, kinds.join(','));
 
     /* ---- THE ROW SAYS WHERE A QUESTION IS ASKED ------------------------ */
     const chips = await p.evaluate(() => {
@@ -192,7 +199,7 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
       };
       const t1 = open('Sweetness');
       document.getElementById('closeBtn').click();
-      const c1 = open('Whose house is this');
+      const c1 = open('Snap the gate');
       document.getElementById('closeBtn').click();
       const g = open('The green river');
       return { trivia: t1, challenge: c1, green: g };
@@ -201,10 +208,10 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     t('the options come back one per line, not comma joined',
       shape.green.choicesValue.split(String.fromCharCode(10)).length === 4,
       JSON.stringify(shape.green.choicesValue));
-    /* THE OPTIONS BOX IS TRIVIA'S AND NOBODY ELSE'S. It was on screen for every
-       kind until `.field[hidden]` was declared -- a photo, a minigame and the
-       waiver all offered a list of multiple-choice options. */
-    t('and a stop challenge opens without it', !shape.challenge.choices);
+    /* THE OPTIONS BOX IS A QUESTION'S AND NOBODY ELSE'S. It was on screen for
+       every kind until `.field[hidden]` was declared -- a photo, a minigame and
+       the waiver all offered a list of multiple-choice options. */
+    t('and a photo opens without it', !shape.challenge.choices);
     t('and the waiver keeps its own kind rather than falling back to question',
       await p.evaluate(() => {
         const rows = [...document.querySelectorAll('#list > .ch')];
@@ -222,7 +229,7 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
       const rows = [...document.querySelectorAll('#list > .ch')];
       rows.find((x) => x.querySelector('.ch-name').textContent.trim() === 'Whose house is this').click();
       const k = document.getElementById('fKind');
-      k.value = 'multiple_choice';
+      k.value = 'question';
       k.dispatchEvent(new Event('change'));
       const f = document.getElementById('choicesField');
       const out = { choices: !!(f && f.offsetParent !== null) };

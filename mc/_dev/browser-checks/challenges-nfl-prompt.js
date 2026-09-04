@@ -96,7 +96,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       const all = state.nflTeams.map((d) => d.id);
       const done = {};
       state.rows.forEach((c) => {
-        if (String(c.type) === 'multiple_choice' && c.ladder_key) done[String(c.ladder_key)] = 1;
+        if (String(c.type) === 'question' && c.ladder_key) done[String(c.ladder_key)] = 1;
       });
       const need = all.filter((id) => !done[id]);
       const have = all.filter((id) => done[id]);
@@ -169,7 +169,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       if (before.length) {
         // A CLUB WITH NO QUESTION GAINS ONE, and has to drop off the list.
         victim = before[0];
-        state.rows.push({ id: -1, type: 'multiple_choice', ladder_key: victim,
+        state.rows.push({ id: -1, type: 'question', ladder_key: victim,
                           name: 'probe', prompt: 'p', answer: 'a', tags: [] });
         undo = () => { state.rows.pop(); };
       } else {
@@ -241,7 +241,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
     /* THE SQL SHAPE HAS TO BE THE CURRENT ONE. `kind` and `trivia` both moved
        today, and a prompt naming either hands back SQL the database refuses. */
     t('the SQL block names the type column and the current value',
-      /insert into public\.challenges \(type,/.test(txt) && /'multiple_choice'/.test(txt));
+      /insert into public\.challenges \(type,/.test(txt) && /'question'/.test(txt));
     t('and names neither of the values that moved today',
       txt.indexOf("'trivia'") === -1 && !/\(kind,/.test(txt));
     t('and tells the AI not to send the generated id', /DO NOT SEND/.test(txt));

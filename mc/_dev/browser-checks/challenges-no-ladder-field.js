@@ -64,12 +64,13 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
     t('and its datalist with it',!dom.ladderList);
     t('the preview is gone',!dom.preview);
     t('and its CSS went too',!dom.previewCss);
-    t('the prompt label reads Question',dom.labels.indexOf('Question')>=0,dom.labels);
-    t('and no label still says Prompt',!dom.labels.some(x=>/^Prompt/.test(x)),dom.labels);
+    t('the prompt label reads Prompt',dom.labels.indexOf('Prompt')>=0,dom.labels);
+    t('and no label says Question, which is now a TYPE',
+      !dom.labels.some(x=>/^Question/.test(x)),dom.labels);
 
     // EDIT A TRIVIA ROW: its stored key must survive untouched.
     const edit=await p.evaluate(async()=>{
-      const row=state.rows.filter(r=>r.type==='multiple_choice'&&r.ladder_key&&r.ladder_key!=='*')[0];
+      const row=state.rows.filter(r=>r.type==='question'&&r.ladder_key&&r.ladder_key!=='*')[0];
       openEditor(row);
       document.getElementById('fName').value=row.name+'';
       await saveEditing();
@@ -84,7 +85,7 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
     await p.evaluate(async()=>{
       openEditor(null);
       document.getElementById('fName').value='PROBE new trivia';
-      document.getElementById('fKind').value='multiple_choice';
+      document.getElementById('fKind').value='question';
       document.getElementById('fKind').dispatchEvent(new Event('change',{bubbles:true}));
       document.getElementById('fPrompt').value='Probe?';
       document.getElementById('fAnswer').value='yes';
@@ -96,18 +97,21 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
       writes.length>before&&w2.body&&w2.body.ladder_key==='*',w2&&w2.body&&w2.body.ladder_key);
     t('and it is a POST, not a patch',w2&&w2.m==='POST',w2&&w2.m);
 
-    // A NON-TRIVIA ROW STILL NULLS IT.
+    /* A ROW THAT IS NOT A QUESTION STILL NULLS IT, and after the merge that
+       means a photo -- `challenges_ladder_key_belongs_to_a_question` refuses a
+       key anywhere else. The probe used to say `type_answer` here, which is now
+       `question` and correctly KEEPS a key. */
     await p.evaluate(async()=>{
       openEditor(null);
-      document.getElementById('fName').value='PROBE question';
-      document.getElementById('fKind').value='type_answer';
+      document.getElementById('fName').value='PROBE photo';
+      document.getElementById('fKind').value='photo';
       document.getElementById('fKind').dispatchEvent(new Event('change',{bubbles:true}));
       document.getElementById('fPrompt').value='Probe?';
       document.getElementById('fAnswer').value='yes';
       await saveEditing();
     });
     const w3=writes[writes.length-1];
-    t('a non-trivia row still nulls the key',w3&&w3.body&&w3.body.ladder_key===null,w3&&w3.body&&w3.body.ladder_key);
+    t('a row that is not a question still nulls the key',w3&&w3.body&&w3.body.ladder_key===null,w3&&w3.body&&w3.body.ladder_key);
 
     /* THE OPTIONS BOX IS TRIVIA'S AND NOBODY ELSE'S, and `hidden` alone did
        not do it: `.field { display: flex }` is an AUTHOR rule and `[hidden]` is
@@ -116,7 +120,7 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
        `hidden` PROPERTY**: the property was true the whole time. */
     const kinds = await p.evaluate(() => {
       const out = {};
-      ['type_answer', 'multiple_choice', 'minigame', 'photo', 'operations', 'waypoint_reveal'].forEach((k) => {
+      ['question', 'minigame', 'photo', 'operations', 'waypoint_reveal'].forEach((k) => {
         const row = state.rows.filter((r) => r.type === k)[0];
         if (!row) { out[k] = null; return; }
         openEditor(row);
@@ -125,13 +129,14 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
       });
       return out;
     });
-    t('the options box is hidden on type answer',
-      kinds.type_answer === false, kinds);
-    t('and on every other type that is not multiple choice',
+    /* THE BOX IS OFFERED ON EVERY QUESTION AND NOWHERE ELSE. It used to be
+       gated on the tapped type, which is the duplication 2026090319 removed:
+       **filling the box IS what makes a question tapped.** */
+    t('the options box is shown on a question, whose it is',
+      kinds.question === true, kinds);
+    t('and hidden on every type that is not one',
       kinds.minigame === false && kinds.photo === false
       && kinds.operations === false && kinds.waypoint_reveal !== true, kinds);
-    t('and shown on multiple choice, which is whose it is',
-      kinds.multiple_choice === true, kinds);
 
     /* THE ROOM'S FALLBACK IS A SECOND COPY OF THE COLUMN'S DEFAULT, which is
        the shape `KIND_VALUES` rotted into: 2026090313 renamed `freeform` and
@@ -139,7 +144,7 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
        an `any_answer` row opened reading `question`, one save from silently
        rewriting what kind of thing it is.
          **THE FALLBACK CAN ROT THE SAME WAY.** `readForm` writes
-       `|| 'type_answer'` and `openEditor` shows the same, so a rename that
+       `|| 'question'` and `openEditor` shows the same, so a rename that
        moves the value and not those two puts a refused value in front of
        somebody on every untyped row. This asks the one question that catches
        it: whatever the fallback is, the picker has to offer it. */
@@ -181,26 +186,40 @@ const t=(m,c,g)=>c?(ok++,console.log('  ok   '+m)):(bad++,console.log('  FAIL '+
        page whether it agrees with itself. **Change it in the same commit as
        that constraint**, or it describes a rule the database no longer keeps. */
     t('and the picker offers no type the table has retired',
-      typesCovered.opts.every((o) => ['type_answer', 'minigame', 'photo',
-        'operations', 'multiple_choice', 'waypoint_reveal'].indexOf(o) !== -1),
+      typesCovered.opts.every((o) => ['question', 'minigame', 'photo',
+        'operations', 'waypoint_reveal'].indexOf(o) !== -1),
       typesCovered.opts);
 
-    /* THE BADGE READS THE UNDERSCORE AS A SPACE, so a stored `multiple_choice`
-       draws MULTIPLE CHOICE. The value keeps the underscore because it is used
-       as a CSS class. */
+    /* THE BADGE READS THE UNDERSCORE AS A SPACE, so a stored `waypoint_reveal`
+       draws WAYPOINT REVEAL. The value keeps the underscore because it is used
+       as a CSS class, and a space in a class name is two selectors.
+         THE SUBJECT MOVED WITH THE MERGE: it was `multiple_choice`, and
+       `question` has no underscore to read. **waypoint_reveal is the only
+       value left that carries one**, so it is the only one that can prove it. */
+    /* DRIVEN, BECAUSE THE LIVE TABLE HOLDS NO `waypoint_reveal` ROW -- 91
+       question, 28 photo, 6 minigame, 1 operations and none of it underscored
+       any more. A check that waited for one to be written would be a check that
+       never ran, so the row is made up and taken away again. */
     t('the badge draws an underscore as a space',
       await p.evaluate(() => {
+        const keep = state.rows.slice();
+        state.rows = [{ id: -4242, name: 'PROBE reveal', type: 'waypoint_reveal',
+                        prompt: 'The next stop is behind you.', tags: [] }];
+        render();
         const b = [...document.querySelectorAll('.ch-kind')]
-          .filter((x) => x.className.indexOf('is-multiple_choice') !== -1)[0];
-        return !!b && b.textContent.indexOf('_') === -1
-            && b.textContent.toLowerCase().indexOf('multiple choice') !== -1;
+          .filter((x) => x.className.indexOf('is-waypoint_reveal') !== -1)[0];
+        const txt = b ? b.textContent : '';
+        state.rows = keep;
+        render();
+        return !!b && txt.indexOf('_') === -1
+            && txt.toLowerCase().indexOf('waypoint reveal') !== -1;
       }));
 
     /* A TAG CARRIES NO SPACES. Typed with one, it is filed hyphenated -- so
        the check reads what actually LEAVES the page rather than what the box
        holds, which is the only thing that says the rule reached the payload. */
     const tagged = await p.evaluate(async () => {
-      const row = state.rows.filter((r) => r.type === 'type_answer')[0];
+      const row = state.rows.filter((r) => r.type === 'question')[0];
       openEditor(row);
       document.getElementById('fTags').value =
         'sports bar,  double  space , plain, sports-bar';

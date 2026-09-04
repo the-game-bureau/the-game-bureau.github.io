@@ -72,9 +72,9 @@ const KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
     await p.waitForFunction(() => typeof state !== 'undefined' && state.rows && state.rows.length > 0,
                             { timeout: 40000 });
 
-    const wired = await p.evaluate(() => typeof buildDupeMap === 'function');
+    const wired = await p.evaluate(() => typeof refreshDupes === 'function');
     if (!wired) {
-      t('the room has a duplicate check at all', false, 'no buildDupeMap in the page');
+      t('the room has a duplicate check at all', false, 'no refreshDupes in the page');
       console.log(String.fromCharCode(10) + ok + ' ok, ' + bad + ' FAIL');
       await br.close(); srv.close();
       process.exit(1);
@@ -84,19 +84,19 @@ const KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
     const driven = await p.evaluate(() => {
       const keep = state.rows.slice();
       state.rows = [
-        { id: 10, name: 'Alpha',  prompt: 'Who threw it?',   type: 'type_answer', tags: [] },
-        { id: 11, name: 'Beta',   prompt: 'who threw  it!!', type: 'type_answer', tags: [] },
-        { id: 12, name: 'Alpha',  prompt: 'Something else.', type: 'type_answer', tags: [] },
-        { id: 13, name: 'Gamma',  prompt: 'A third thing.',  type: 'type_answer', tags: [] },
-        { id: 14, name: '',       prompt: '',                type: 'type_answer', tags: [] },
-        { id: 15, name: '',       prompt: '',                type: 'type_answer', tags: [] }
+        { id: 10, name: 'Alpha',  prompt: 'Who threw it?',   type: 'question', tags: [] },
+        { id: 11, name: 'Beta',   prompt: 'who threw  it!!', type: 'question', tags: [] },
+        { id: 12, name: 'Alpha',  prompt: 'Something else.', type: 'question', tags: [] },
+        { id: 13, name: 'Gamma',  prompt: 'A third thing.',  type: 'question', tags: [] },
+        { id: 14, name: '',       prompt: '',                type: 'question', tags: [] },
+        { id: 15, name: '',       prompt: '',                type: 'question', tags: [] }
       ];
-      dupeMap = buildDupeMap();
+      refreshDupes();
       const say = {};
       state.rows.forEach((c) => { say[c.id] = reviewReasons(c); });
       const flagged = state.rows.filter((c) => isInReview(c)).map((c) => c.id);
       state.rows = keep;
-      dupeMap = buildDupeMap();
+      refreshDupes();
       return { say: say, flagged: flagged };
     });
 
@@ -133,18 +133,18 @@ const KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
     const stable = await p.evaluate(() => {
       const keep = state.rows.slice();
       state.rows = [
-        { id: 21, name: 'B', prompt: 'Same question.', type: 'type_answer', tags: [] },
-        { id: 20, name: 'A', prompt: 'Same question.', type: 'type_answer', tags: [] }
+        { id: 21, name: 'B', prompt: 'Same question.', type: 'question', tags: [] },
+        { id: 20, name: 'A', prompt: 'Same question.', type: 'question', tags: [] }
       ];
-      dupeMap = buildDupeMap();
+      refreshDupes();
       const first = reviewReasons(state.rows[1]).length === 0
                     && reviewReasons(state.rows[0]).length > 0;
       state.rows.reverse();
-      dupeMap = buildDupeMap();
+      refreshDupes();
       const second = reviewReasons(state.rows.filter((c) => c.id === 20)[0]).length === 0
                      && reviewReasons(state.rows.filter((c) => c.id === 21)[0]).length > 0;
       state.rows = keep;
-      dupeMap = buildDupeMap();
+      refreshDupes();
       return { first: first, second: second };
     });
     t('the lower id is the original whichever order the rows arrive in',

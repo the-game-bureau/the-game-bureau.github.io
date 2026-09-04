@@ -16,8 +16,8 @@ const CH = [];
    single cell with itself -- passing on a page whose type column is ragged.
    MULTIPLE CHOICE is the widest value and has to be among them. Row 0 keeps
    `type_answer`, which the badge-class assertion reads by position. */
-const FIX_TYPES = ['type_answer', 'multiple_choice', 'minigame', 'photo',
-                   'operations', 'waypoint_reveal', 'multiple_choice'];
+const FIX_TYPES = ['question', 'question', 'minigame', 'photo',
+                   'operations', 'waypoint_reveal', 'question'];
 for (let i = 1; i <= 7; i++) {
   CH.push({ id: i, name: 'Challenge ' + i, type: FIX_TYPES[i - 1], scope: 'portable',
             /* A LONG PROMPT, BECAUSE THE REAL ONES ARE. A short one makes
@@ -272,18 +272,18 @@ const t = (what, pass, got) => {
        keeps the quiet fallback rather than losing its badge. */
     t('the type badge carries its own type as a class',
       out.row && out.row.kindClass.split(' ').indexOf('is-known') !== -1
-      && out.row.kindClass.split(' ').indexOf('is-type_answer') !== -1,
+      && out.row.kindClass.split(' ').indexOf('is-question') !== -1,
       out.row && out.row.kindClass);
     t('and is drawn in its own hue, not the muted fallback',
       out.row && out.row.kindInk !== out.row.fallbackInk
       && out.row.kindBg !== 'rgba(0, 0, 0, 0)',
       out.row && { ink: out.row.kindInk, fallback: out.row.fallbackInk, bg: out.row.kindBg });
-    /* ALL SIX ARE DISTINCT. A palette where two types share a colour is a
+    /* ALL FIVE ARE DISTINCT. A palette where two types share a colour is a
        legend to learn rather than a column to scan. */
-    t('all six types have a colour and no two share one',
+    t('all five types have a colour and no two share one',
       out.row && (function () {
         const v = Object.values(out.row.palette);
-        return v.length === 6 && v.every(Boolean) && new Set(v).size === 6;
+        return v.length === 5 && v.every(Boolean) && new Set(v).size === 5;
       })(), out.row && out.row.palette);
 
     /* THE LIST PANEL HAS NO HEAD (2026-09-03). Asserted because the removal

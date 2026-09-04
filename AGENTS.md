@@ -64,7 +64,7 @@ The Supabase `games` record carries an `engine` column (string, nullable; values
 
 Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [mc/game/run/config/](mc/game/run/config/).
 
-Standalone mini-games live at the root-level [mc/minigames/](mc/minigames/) folder and are listed in [mc/minigames/manifest.json](mc/minigames/manifest.json). Engines launch them from `/minigames/...`; Mission Control reads the manifest from that root-level folder.
+Standalone mini-games live at the root-level [minigames/](minigames/) folder and are listed in [minigames/manifest.json](minigames/manifest.json). Engines launch them from `/minigames/...`; Mission Control reads the manifest from that root-level folder.
 
 **Adding an engine:** drop a new folder under `/mc/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [mc/game/run/index.html](mc/game/run/index.html).
 

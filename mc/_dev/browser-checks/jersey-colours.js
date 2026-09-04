@@ -26,7 +26,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   /* THE PUZZLE FILE IS CHECKED FIRST, BEFORE THE BROWSER. A key that resolves to
      no club is a jersey with no colours, and there is no point measuring pixels
      if the data cannot answer. */
-  const j = JSON.parse(fs.readFileSync('mc/minigames/jersey/jerseys.json', 'utf8'));
+  const j = JSON.parse(fs.readFileSync('minigames/jersey/jerseys.json', 'utf8'));
   const teams = JSON.parse(TEAMS);
   const keys = new Set(teams.map((r) => r.team_key));
   let used = new Set(), unresolved = new Set();
@@ -63,7 +63,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
     req.continue();
   });
 
-  await page.goto('http://127.0.0.1:' + PORT + '/mc/minigames/jersey/', { waitUntil: 'networkidle0' });
+  await page.goto('http://127.0.0.1:' + PORT + '/minigames/jersey/', { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 900));
 
   const m = await page.evaluate(() => {

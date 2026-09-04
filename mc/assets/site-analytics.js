@@ -63,6 +63,16 @@
   if (!PUBLIC_MC.test(path) && !PUBLIC_MC_PAGES.test(path)) {
     if (/^\/(mc|account)\//.test(path)) return;
   }
+  // THE MINIGAMES LEFT /mc/ ON 2026-09-04 and had to be named here, because
+  // the rule above is an allowlist UNDER /mc/ and everything else there was
+  // refused by default. They are part of the PAID RUNTIME -- both engines load
+  // them mid-game -- so a play is already recorded in `game_instances` at far
+  // better fidelity than a page view, and counting them would inflate visitor
+  // numbers with people who have already bought.
+  //   NOTHING CHANGES TODAY: no minigame carries the beacon. This is the
+  // decision surviving the move rather than a fix.
+  if (/^\/minigames(\/|$)/.test(path)) return;
+
   // Admin lives under an /admin/ segment wherever it sits. The gift shop's
   // admin, its Operations page and its access-code page carry no such segment;
   // all three now sit under /mc/ and are caught by the rule above.

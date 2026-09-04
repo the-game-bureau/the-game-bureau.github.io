@@ -83,7 +83,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       const madeUp = (fields) => {
         fake -= 1;
         state.challenges.push(Object.assign(
-          { id: fake, name: 'Probe ' + (-fake), type: 'type_answer',
+          { id: fake, name: 'Probe ' + (-fake), type: 'question',
             prompt: 'A probe question.', answer: null, choices: null, tags: [] },
           fields));
         return { stop_id: fake, waypoint_id: wpid, challenge_id: fake,
@@ -91,7 +91,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       };
       return {
         choices: has((c) => Array.isArray(c.choices) && c.choices.length > 1)
-          || madeUp({ type: 'multiple_choice', ladder_key: 'x', answer: 'Right',
+          || madeUp({ type: 'question', ladder_key: 'x', answer: 'Right',
                       choices: ['Right', 'Wrong', 'Also wrong', 'Wrong too'] }),
         typed: has((c) => (!c.choices || !c.choices.length) && String(c.answer || '').trim())
           || madeUp({ answer: 'Chicago' }),
@@ -196,7 +196,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       const w = state.waypoints.filter((x) => x.wpid === row.waypoint_id)[0];
       /* A prompt with one variable the STOP knows, one the worked example
          knows, and one that exists nowhere. */
-      state.challenges.push({ id: -1, name: 'Probe', type: 'type_answer', scope: 'portable',
+      state.challenges.push({ id: -1, name: 'Probe', type: 'question', scope: 'portable',
         prompt: 'Stand outside {{waypoint}} in {{venue_city}} and shout for the {{nope}}.',
         answer: '', choices: null });
       openStop({ waypoint_id: row.waypoint_id, challenge_id: -1, stop_id: -1 });

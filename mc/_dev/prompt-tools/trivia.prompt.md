@@ -52,7 +52,7 @@ it belongs to; how a game reaches it at that stop is not built.
 
 ```sql
 select t.ladder_key from public.challenges t
- where t.type = 'multiple_choice'
+ where t.type = 'question'
    and not exists (select 1 from public.destinations d
                     where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 -- must return no rows
@@ -189,14 +189,14 @@ One `insert` statement, in a fenced sql block, and nothing else around it.
 --   ladder_key  the rung. This was `trivia.id`, which was a bad name for it.
 --   prompt      the question. This was `trivia.question`.
 insert into public.challenges (type, name, ladder_key, prompt, answer, choices) values
-  ('multiple_choice',
+  ('question',
    'How many Super Bowl titles have the Steelers won?',
    'pittsburgh-pa-nfl-steelers',
    'How many Super Bowl titles have the Steelers won?',
    '6',
    array['4','5','6','7']),
 
-  ('multiple_choice',
+  ('question',
    'Which river joins the Allegheny at the Point to form the Ohio?',
    'pittsburgh-pa',
    'Which river joins the Allegheny at the Point to form the Ohio?',
@@ -219,7 +219,7 @@ Read the numbers rather than the absence of an error.
 ```sql
 -- every ladder key resolves as a team or as a city
 select t.ladder_key from public.challenges t
- where t.type = 'multiple_choice'
+ where t.type = 'question'
    and not exists (select 1 from public.destinations d
                     where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 
@@ -231,31 +231,42 @@ select t.id, t.ladder_key,
               then 'city'
        end as shape
   from public.challenges t
- where t.type = 'multiple_choice'
+ where t.type = 'question'
  order by t.id desc limit 20;
 
-select count(*) from public.challenges where type = 'multiple_choice';
+select count(*) from public.challenges where type = 'question';
 ```
 
-**If a row was refused, the constraint names itself.** They were renamed when
-trivia moved into `public.challenges` on 2026-08-31, and again on 2026-09-03
-when the column became `type` and the value became `multiple_choice`. All but
-two are scoped to that type, because a challenge legitimately breaks them: a
-photo challenge has no answer at all, and a two word answer is fine on one.
+**If a row was refused, the constraint names itself.** They have been renamed
+three times: when trivia moved into `public.challenges` on 2026-08-31, when the
+column became `type` and the value became `multiple_choice` on 2026-09-03, and
+when **`multiple_choice` and `type_answer` merged into `question`** on
+2026-09-04. Some are scoped to that type and some to the `choices` column,
+because a challenge legitimately breaks them: a photo challenge has no answer
+at all, and a two word answer is fine on a typed question.
 
 | constraint | what it means |
 |---|---|
 | `challenges_answer_is_a_choice` | the answer is not among its own options |
 | `challenges_choices_enough` | fewer than two options |
-| `challenges_mc_free_answer_is_one_word` | a multi word answer with no choices |
-| `challenges_mc_answer_not_in_prompt` | the question contains its own answer |
-| `challenges_mc_no_one_word_prefix` | the question opens with "One word" |
-| `challenges_mc_has_a_prompt` / `_has_an_answer` | one of them is blank |
-| `challenges_ladder_key_belongs_to_type` | the key is uppercase, or missing, or sitting on a row whose `type` is not `multiple_choice` |
+| `challenges_options_name_their_answer` | there are options and no answer |
+| `challenges_keyed_free_answer_is_one_word` | a KEYED question, typed, with a multi word answer |
+| `challenges_question_answer_not_in_prompt` | the question contains its own answer |
+| `challenges_question_no_one_word_prefix` | the question opens with "One word" |
+| `challenges_question_has_a_prompt` | the prompt is blank |
+| `challenges_ladder_key_belongs_to_a_question` | the key is uppercase, blank, or sitting on a row whose `type` is not `question` |
 
-**`challenges_mc_answer_not_in_prompt` IS `NOT VALID`, WHICH EXEMPTS EXISTING
-ROWS AND NOT NEW ONES.** One row on file names its own answer in its question
-and is spared; anything written from now on is checked.
+**THE ONE WORD RULE APPLIES TO A KEYED QUESTION AND NOT TO EVERY TYPED ONE.**
+A question keyed to a fandom or a place is trivia, typed by a team standing in
+the street, and wants one word. A question read off a plaque may honestly be two
+-- `Lake Michigan`, `Jefferson Davis` -- and six rows on file are exactly that.
+
+**AND A QUESTION MAY HAVE NO ANSWER AT ALL**, in which case the team judges it.
+Only a question carrying OPTIONS must say which one is right.
+
+**`challenges_question_answer_not_in_prompt` IS `NOT VALID`, WHICH EXEMPTS
+EXISTING ROWS AND NOT NEW ONES.** One row on file names its own answer in its
+question and is spared; anything written from now on is checked.
 
 Fix the row; do not remove the constraint.
 

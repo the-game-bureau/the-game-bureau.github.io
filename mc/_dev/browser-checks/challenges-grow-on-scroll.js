@@ -56,7 +56,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
     for (let i = 1; i <= 250; i++) {
       BIG.push({ id: 10000 + i,
                  name: 'Row ' + String(i).padStart(4, '0'),
-                 type: 'type_answer', prompt: 'A prompt.', answer: 'An answer.',
+                 type: 'question', prompt: 'A prompt.', answer: 'An answer.',
                  choices: null, ladder_key: null, tags: ['sports'],
                  created_at: '2026-01-01' });
     }

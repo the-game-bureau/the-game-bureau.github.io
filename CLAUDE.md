@@ -1142,6 +1142,122 @@ line and the reason the library exists.
   the shared nav grows, and needs no count. Measured: the last control now ends
   24px from the edge, which is exactly the nav's own padding.
 
+## ONE CHALLENGE PER MINIGAME, AND THE URL SENDS AN AUDIENCE (2026-09-04)
+
+[minigame-challenges.sql](mc/supabase/seeds/minigame-challenges.sql), applied. Five rows, tagged `minigame`, `app` and the
+manifest id.
+
+- **BUILT FROM `minigames/manifest.json`, NOT FROM THE FOLDER LISTING, and the
+  two disagree.** The ask said *each child folder is a minigame*; the folder
+  holds **four child folders and two loose html files**, and **`teams/` is empty
+  with no playable page at all**. The manifest is what BOTH ENGINES and BOTH
+  BUILDERS read, so a challenge naming anything else could never be launched.
+- **THE URL LIVES IN THE PROMPT BECAUSE THERE IS NOWHERE ELSE.**
+  `public.challenges` is ten columns and none is a url -- id, name, prompt,
+  answer, type, created_at, updated_at, tags, choices, ladder_key. The prompt is
+  the only text a team is shown; **the manifest id goes in the tags**, so the row
+  is queryable by which game it launches.
+- **`{{audience}}` IS A VARIABLE, because the id is per GAME and a challenge row
+  is not.** It was added to the Challenge Bank's `VARIABLES` and to the Stop
+  Builder's worked example **in the same commit** -- a variable declared in one
+  and not the other is either an `unknown-variable` finding on a perfectly good
+  row or a rehearsal that leaves it in its braces.
+- **AND IT IS THE FIRST VARIABLE THAT IS NOT A COLUMN ON `public.events`**,
+  which that list's own comment promised. It comes from the GAME -- and
+  **`public.games` no longer stores an audience id**: `games.target` holds prose
+  (`Chicago Bears fans`) since 2026090203. **All 367 resolve back to an audience
+  on `full_name || ' fans'`**, measured rather than assumed, so the id is
+  derivable at play time.
+- **`type = 'minigame'` ALREADY MEANT TWO THINGS AND THESE ROWS MAKE IT PLAIN.**
+  The six on file are PHYSICAL -- twenty paces, one quiet minute, rock paper
+  scissors -- with no app anywhere. **The `app` tag is what tells them apart,
+  because the type cannot.**
+- **THE SEED IS RE-RUNNABLE**, matching on the manifest id in `tags`: there is
+  no unique key on this table to conflict against, so it updates what is there
+  and files what is not. Proved by running it twice -- still five.
+
+### WHAT IT DOES NOT DO, SAID RATHER THAN LEFT TO BE FOUND
+
+- **NOTHING READS `?audience=` YET.** Of the five, only `jersey` reads a
+  parameter that identifies anybody (`key`, a team key -- `tgbid` until
+  2026083025) and `video` reads `clip` and `id`. The URL states the contract;
+  teaching each game to honour it is separate work.
+- **AND THE ENGINES DO NOT SEND ONE EITHER.** `buildMinigameUrl` in both
+  `/mc/game/run/text/` and `/mc/game/run/map/` appends `riddle`, `question`,
+  `answer`, `embedded`, `return` and four palette colours, and no audience.
+  **That is the paid product and was not changed here** -- and it is where every
+  minigame launch actually happens today, since **a minigame is launched from a
+  FLOW NODE rather than from a challenge.** Nothing plays a challenge yet.
+
+### AND `public.games` HAS LOST `away_team_key`, WHICH `team-palette.js` READS
+
+Found while looking for something to put in the URL, reported rather than
+touched. `public.games` is 32 columns and holds **neither `away_team_key` nor
+`home_team_key`** -- and `team-palette.js`, which **both engines** resolve a club
+through, scores an exact audience id first and a TEAM KEY second.
+
+- **BOTH TIERS NOW MISS**: the id tier because `games.target` holds prose, and
+  the key tier because the column is gone. A fandom game falls through to the
+  generic palette -- **and the game's own colour columns are gone too.**
+- **NOT VERIFIED AGAINST A RUNNING ENGINE**, which is why this is a note and not
+  a fix: what the engines actually read at play time was not exercised here.
+  **Worth checking before the next game goes live.**
+
+**14 assertions, and the manifest is READ FROM DISK rather than written into the
+check** -- so a challenge naming a file the manifest does not, and a minigame
+with no challenge, are both caught, and neither direction can drift. The
+rehearsal assertion goes through the room's own `promptNode`, which marks an
+unfilled variable `is-unknown`, so it reads what somebody would SEE rather than
+matching a string.
+
+
+## THE MINIGAMES COME BACK OUT OF `mc/` (2026-09-04)
+
+`mc/minigames/` is `minigames/` again, reversing the 2026-08-06 consolidation
+for this one folder. **Seven files, every one identical by content**, checked
+with a hash per file rather than a count.
+
+- **THE STANDING RULE SAYS `mc/` IS FOR WHAT A VISITOR IS NOT SERVED, and a
+  minigame is served to one** -- both engines load it MID-GAME, in the browser
+  of somebody who has bought a walk. It is as public as the runtime that opens
+  it; what it is not is a page anybody navigates to.
+- **TWO DOCS ALREADY DESCRIBED THE ROOT PATH AND HAD BEEN WRONG SINCE AUGUST.**
+  `AGENTS.md` said *"Engines launch them from `/minigames/...`"* while pointing
+  at `mc/minigames/` in the same sentence, and `jerseys.json`'s own AI prompt
+  names `minigames/jersey/index.html`. **The move makes both true again**, which
+  is the tell that the August consolidation swept a folder its own
+  documentation never followed.
+- **A HARD BREAK, as every move here is.** `/mc/minigames/...` 404s and GitHub
+  Pages serves no 301. **Nothing outside this repo holds one**, though: a
+  minigame is reached from inside a running game rather than by a stored link.
+- **FIVE REFERENCES REPOINTED IN THE SAME COMMIT** -- the manifest URL in the
+  Game Builder and the Flow Builder, the launch URL in BOTH ENGINES, and two
+  paths in `jersey-colours.js`. **Both engines are the paid product**, so a
+  missed one is a minigame that fails to open mid-play.
+- **AND THE ANALYTICS DECISION HAD TO BE CARRIED ACROSS BY HAND.**
+  `site-analytics.js` refuses everything under `/mc/` that is not in
+  `PUBLIC_MC`, so the minigames were excluded **by living there** -- and the
+  root is counted by default. The intent is recorded in this file: the paid
+  runtime is deliberately uncounted, because a play is already in
+  `game_instances` at far better fidelity and folding it into visitor numbers
+  would inflate traffic with people who have already bought.
+  - **NOTHING CHANGES TODAY, checked rather than assumed: no minigame carries
+    the beacon.** The guard is the decision surviving the move rather than a
+    fix, and without it the first minigame to gain the tag would have been
+    counted silently.
+- **`git mv` WAS REFUSED WITH `Permission denied`** and so was a plain `mv` --
+  the folder was open in the editor. Copied, removed, and then **proved by
+  comparing an md5 of every tracked file against `git show HEAD:`** rather than
+  trusting the copy. `minigames/teams/` is an empty directory git never tracked
+  and it came across empty.
+- **PROVED BY SERVING IT**: the manifest answers 200 at `/minigames/`, the old
+  path 404s, all five files it names resolve, and the jersey game **loads and
+  paints real club colours** at its new address. 8 assertions.
+  - **THAT CHECK NEEDS A SERVER IT DOES NOT START** -- `python -m http.server
+    8994` in the repo root -- and dies with `ERR_CONNECTION_REFUSED` without
+    one, which reads as the page being broken. Pre-existing.
+
+
 ## EVERY ROOM IS A FOLDER, AND `mc/index.html` IS THE ONLY PAGE LOOSE (2026-08-30)
 
 Fourteen moves in one commit. **`mc/` now holds exactly one html file** and every
@@ -17921,6 +18037,242 @@ tint against its own failed on a page that is perfectly correct.
 - **AND THE ASSERTION PICKS A ROW THAT IS NOT ALREADY IN REVIEW**, which is the
   more robust half: adding `.is-review` to a row that has it changes nothing,
   and the check would then be comparing the red pen with itself.
+
+##### DUPLICATES ARE DRAWN TOGETHER, AND THE TWIN IS PULLED IN (2026-09-03)
+
+Under the issues filter a pair sits together. **The grouping is worth nothing
+without the pull, and one measurement settles that**: the finding goes on every
+row of a cluster BUT THE FIRST, so on the live table **all 12 rows in review
+were duplicate SECONDS and not one of their 12 twins carried a fault of its
+own.** The row you are told to compare against was never on screen. Grouping 12
+unrelated findings says nothing; grouping a PAIR is the ask, and the pair only
+exists if the twin is admitted.
+
+- **THE TWIN IS MARKED, IN THE MUTED PEN, AND NEVER TAKES `.is-review`.** A
+  clean row appearing under a filter called "has issues" is the room
+  contradicting itself, so it says *"Nothing wrong with this one. It is here
+  because challenge 140 says the same thing."* **Sharing the red would say the
+  original is broken, when what is broken is that somebody filed it twice.**
+- **A STABLE PASS OVER THE SORTED LIST, never a second comparator.** Each
+  cluster is emitted whole at the position its FIRST member reached, so the
+  chosen sort still decides where a pair sits and only the members are pulled up
+  to it -- and the sort decides the order WITHIN a pair as well.
+- **UNDER THE ISSUES FILTER ONLY.** Elsewhere the order somebody chose is
+  untouched; grouping is for the job of working through the duplicates, and
+  outside that filter it would be a sort nobody asked for reordering the room.
+- **THE CHECK LINE COUNTS WHAT IS ON SCREEN.** It read *"showing the 12 of
+  113"* over a list of 24, which is the room disagreeing with its own rows, and
+  the count is the one thing on that line anybody checks.
+- **NOTHING ASSUMES A PAIR.** Every cluster on file is two rows and a third copy
+  is one more run of the same prompt away.
+
+##### AND A DELETE ON THE ROW, UNDER THAT FILTER ONLY
+
+- **THE FINDINGS SAY "Delete one", and every other route to that was opening the
+  row and finding the button in the editor.** The button is the errand the
+  filter exists for.
+- **ON BOTH ROWS OF A PAIR.** Which of the two to keep is the editorial call the
+  room cannot make, so **offering it on one would be making it.**
+- **THE QUESTION NAMES THE SURVIVOR** -- *"Challenge 112 says the same thing and
+  stays"* -- because that is the consequence being decided, and it is the whole
+  reason both rows are on screen.
+- **IT STOPS ITS OWN CLICK**, or deleting a row would open the editor over the
+  row it had just deleted.
+- **ONE DELETE, TWO CALLERS.** `removeChallenge` THROWS rather than reporting,
+  because the editor reports to its own line and the row to the room's scribble.
+  Two copies of a destructive write is how they drift, and only one of them
+  would then be reading the row back -- **PostgREST answers 200 with an empty
+  array when RLS refuses**, so without that a refused delete reports success and
+  the row vanishes until a reload.
+- **IT WEARS `.btn warn` AND ADDS ONLY THE TRIM.** `.btn`'s own 36px would grow
+  a row whose padding is 7px, and the list is a hundred of them.
+
+##### `buildDupeMap` RETURNING TWO HALVES LET A CALLER TAKE ONE
+
+It returned a plain map and now returns `{found, partners}`. The older suite
+assigned that straight onto `dupeMap`, so **an object sat where a map should be
+and every finding silently disappeared** -- 7 assertions red on a page that was
+correct.
+
+- **`refreshDupes()` IS THE ONLY CALLER NOW**, and it sets the id index beside
+  the two maps: one function makes the whole duplicate state current, and
+  nothing can unpack half of it.
+- **THE FAULT WAS THE SHAPE, NOT THE SUITE.** A function whose return value must
+  be destructured by every caller is one caller away from this.
+
+##### AND THE USER WORKED THROUGH THE DUPLICATES WHILE THIS WAS BEING WRITTEN
+
+The 12 seconds were deleted with the new button and 25 challenges added: **113
+rows became 126 with 0 duplicate clusters**, mid-sweep. Two of my live
+assertions went red on a page that was perfectly correct.
+
+- **THEY WERE DEMANDING PRODUCTION STAY IN ONE SHAPE**, which is the rot this
+  project has now recorded five times -- and this one broke on somebody DOING
+  THE JOB THE FEATURE IS FOR, which is the sharpest version of it. Both branches
+  assert what is true of them, and the clean branch also asserts the room does
+  not narrow to nothing.
+- **THE RULES ARE DRIVEN ON ROWS MADE UP IN THE CHECK** for exactly this reason,
+  and the fixture is built so the name sort would SEPARATE the pair -- Alpha and
+  Zulu with Gamma between them. **A fixture whose pair is already adjacent
+  proves nothing.**
+
+##### THREE MORE ASSERTIONS THAT COULD NOT FAIL, ALL MINE
+
+- **`!document.getElementById('dlg').hidden` IS ALWAYS TRUE.** The editor is
+  shown by `.is-open`, never by `hidden`, so *"the press never opens the
+  editor"* reported it open on every run. It reads the class AND `state.editing`
+  now -- two signals, neither tied to how the dialog is drawn.
+- **THE CHECK-LINE COUNTS ARE BOTH 12 ON THE LIVE TABLE**, so an assertion that
+  the message quotes the faults AND the twins was satisfied by a single 12 --
+  **and it passed against the OLD wording.** It is driven where the two differ,
+  2 and 1.
+- **A MISSING DELETE BUTTON CRASHED THE RUN** rather than failing by name, which
+  reads as the harness rather than the page. It is a named gate now, proved by
+  removing the button.
+
+##### AND A SCREENSHOT CAUGHT THE CHECK LINE QUOTING TWO STATES
+
+It read **"1 of 5 with something wrong, with 2 twinned rows"** over a list of
+five with three findings in it. `issueCount` reads `dupeMap`, which only
+`refreshDupes` fills -- and the handler counted the faults BEFORE `repaint()`
+and the twins AFTER, so **one sentence quoted two numbers from two different
+states.**
+
+- **IT IS MASKED BY EVERY RENDER, which is why no assertion had it.** A render
+  makes the map current, so the fault only appears when the rows change and
+  Check is pressed with nothing in between -- and every probe rendered first.
+  The assertion that catches it swaps the rows and presses the button directly.
+- **IN THE ROOM IT WAS LATENT: `state.rows` only changes on a load, which
+  renders.** So this was fragile rather than broken, and the fix is ordering
+  rather than repair -- `refreshDupes()` runs first and both counts are read
+  after it.
+- **AND `1 twinned rows` WAS IN THE SAME LINE.** A joined count and a fixed noun
+  is what a hand-written plural gives you, and one twin is the common case here.
+  **This room has no `plural` helper**; the Events room's is the one to lift if a
+  third of these appears.
+
+**30 assertions, and each half was proved against its own bug** rather than only
+against the page before the change: with `groupTwins` made a no-op the pair
+comes back `[10,12,11]`, split by Gamma; with the button removed the gate fails
+naming it; with the count moved back before the repaint it reads `1 of 4` while
+two rows carry findings.
+
+
+#### `multiple_choice` AND `type_answer` MERGE INTO `question` (2026-09-04)
+
+[2026090319](mc/supabase/migrations/2026090319_two_answer_types_become_question.sql), **applied**. 76 + 15 = **91 rows**, and the prompt box is
+labelled **Prompt** again.
+
+- **THEY WERE NEVER TWO KINDS OF CHALLENGE.** They are one kind with two
+  INPUTS, and **`choices` already says which** -- present draws buttons, null
+  draws a text box, which the room has done since it was built. The type column
+  was a second copy of that.
+- **AND IT DISAGREED WITH ITS COPY ON SIX ROWS.** `6 of the 76 multiple_choice
+  rows carry no choices at all`, so they were typed questions filed under the
+  tapped type. Measured before the file was written.
+- **THE BOX IS OFFERED ON EVERY QUESTION NOW**, which is the same point from the
+  other end: **filling it IS what makes a question tapped.**
+- **`question` RATHER THAN `quiz`**, because *"how many lions are on the gate"*
+  is a question and not a quiz -- and the whole house rule is to prefer a
+  challenge answered by LOOKING over one answered by KNOWING, so naming the type
+  after knowledge would misname the best kind of stop there is.
+- **SO THE PROMPT BOX IS `Prompt`, WHICH IS ALSO ITS COLUMN.** It was labelled
+  Question for a day; with the type called `question` that put a field called
+  Question on every row whatever its type, and on a photo or a minigame the box
+  is an instruction rather than a question.
+
+##### TWO CONSTRAINTS HAD TO BE RE-DECIDED, NOT RENAMED
+
+That is the whole reason this is a migration rather than a sweep.
+
+- **`challenges_mc_has_an_answer` IS NOW ABOUT `choices`, NOT ABOUT A TYPE.**
+  *A row with OPTIONS has to say which one is right* -- which is what was
+  actually being protected, scoped to the column that identifies those rows
+  rather than to a type that only mostly did. **WHAT IT GIVES UP: a typed
+  question may have no answer and be judged by the team.** True of 6 rows
+  already; true of 21 now.
+- **THE ONE WORD RULE COULD NOT SIMPLY WIDEN, AND THE DATA IS THE ARGUMENT.**
+  **6 of the 15 typed rows break it and every one is a good challenge** --
+  `Lake Michigan`, `Jefferson Davis`, `Hale Boggs`, `The Bean`, `Her face`, and
+  one answer carrying its own variants. **A rule that 29% of correct rows break
+  is a rule that is wrong, not a table that is wrong**, which is the argument
+  that deleted the `no-answer` finding a day earlier.
+  - **SO IT KEEPS EXACTLY THE SET IT HAD**, expressed through the column that
+    now carries what the old type meant: **a KEYED question is one asked of a
+    fandom or a place**, which is trivia, and trivia typed in the street wants
+    one word. A question read off a plaque may be two. 0 violations either way.
+- **AND THE LADDER KEY STOPPED BELONGING TO A TYPE.** It read *"a
+  multiple_choice row HAS a key and nothing else may"*. A key says a question is
+  asked of a fandom, a city or a waypoint; it has nothing to do with whether the
+  answer is tapped or typed. **It is optional on a question and forbidden
+  everywhere else.**
+  - **WHAT IT GIVES UP, PLAINLY: nothing now forces a question onto the
+    ladder**, where every multiple choice row used to be guaranteed reachable by
+    `tgb_content_keys`. 15 typed rows were already unreachable and the room has
+    no field for a key, so **a guarantee went and no capability did.**
+  - **THE ROOM CARRIES A STORED KEY THROUGH AND LEAVES AN ABSENCE ALONE.**
+    `questionLadderKey` returns `*` only for a row that is not on file yet --
+    without that second half, editing one of the 15 typed questions would put it
+    on the portable rung and into `tgb_content_keys`, **silently**.
+
+##### THE ORDER, AND WHY LEAVING A CONSTRAINT UP WOULD HAVE GONE BOTH WAYS
+
+**Widen, drop the six, move, move the default, recreate, narrow** -- one
+transaction.
+
+- **`challenges_ladder_key_belongs_to_type` WOULD HAVE REFUSED THE UPDATE**, not
+  gone vacuous: a keyed row LEAVING `multiple_choice` fails its second branch.
+  **The other five would have gone silently vacuous**, so every question would
+  have stopped being checked for a prompt, an answer, a one-word answer and the
+  "One word" prefix with nothing saying so. **The 2026090315 lesson met from
+  both sides in one file.**
+- **THE COLUMN DEFAULT MOVED IN THE SAME TRANSACTION**, and **the room's
+  fallback with it** -- `readForm` and `openEditor` both read `|| 'type_answer'`,
+  which the narrowed CHECK now refuses, so an untyped row would have opened
+  showing something unsavable. That is exactly what `freeform` did.
+- **`tgb_trivia_for` NAMES THE VALUE AND A FUNCTION FOLLOWS NOTHING**, so it is
+  patched from the LIVE definition inside the same transaction, one expression,
+  with the match count asserted.
+- **PROVED BY NINE WRITES THAT MADE IT REFUSE**, rolled back: options with no
+  answer, a key on a photo, a keyed two-word typed answer, the old value, a
+  "One word" prefix, an answer named in its own question and a question with no
+  prompt are all **refused 23514**; a two-word typed answer with no key is
+  **accepted**; and an insert omitting `type` comes back **question**.
+
+##### AND I READ A TRUNCATED SURVEY AS COMPLETE
+
+I listed the CHECKs with `| tail -40` and concluded that
+`challenges_answer_is_a_choice` and `challenges_choices_enough` were missing --
+wrote a migration to restore them, and **the database answered `42710 already
+exists`.** They had been there the whole time, above the cut.
+
+- **IT COST NOTHING ONLY BY LUCK**: those two name no type, so they were exactly
+  the two that needed no change and correctly survived. Had a type-scoped
+  constraint been hiding above the fold, 2026090319 would have left it naming a
+  value no row holds.
+- **THE MIGRATION APPLIED NOTHING AND WAS DELETED.** A file whose premise is
+  false is worse than no file.
+- **COUNT THE ROWS BEFORE TRUSTING THE LIST.** `order by` plus a full read, or
+  `-o table`, not a tail.
+
+##### AND THE CHECKS, WHERE FIVE ASSERTIONS HAD LOST THEIR SUBJECT
+
+- **`the options box is hidden on type answer` AND `shown on multiple choice`
+  became the same key.** They are *shown on a question, hidden on every type
+  that is not one* -- and **the trivia suite's row that proved it had become a
+  question**, so a photo was added to the fixture: with the box offered on every
+  question, **no question-shaped row can prove it any more.**
+- **THE UNDERSCORE ASSERTION LOST ITS ONLY SUBJECT.** `multiple_choice` was what
+  proved the badge draws `_` as a space, and `question` has none. **The live
+  table holds no `waypoint_reveal` row either** -- 91/28/6/1 and nothing
+  underscored -- so the row is driven and taken away again. A check waiting for
+  one to be written is a check that never runs.
+- **A HARDCODED FIXTURE COUNT BROKE ON ADDING A ROW** and read as the room
+  dropping one. It is `ROWS.length` now.
+- **`a non-trivia row still nulls the key` WAS ASSERTING THE WRONG THING** once
+  its `type_answer` became `question`: a question KEEPS a key. It uses a photo.
+
+**349 assertions across 14 suites, all green.**
 
 
 #### A SIXTH TYPE: `waypoint_reveal` (2026-09-03)
