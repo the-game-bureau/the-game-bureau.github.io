@@ -36,7 +36,7 @@ walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
-| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | [mc/socializer/index.html](../../socializer/index.html), PROMPT dialog | `tgb_pull_socials_candidates` |
+| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | **none since 2026-09-04.** The Socializer's PROMPT dialog was deleted and its unique rules folded into the routine's own prompt, staged at [socializer-bot.prompt.md](socializer-bot.prompt.md) | `tgb_pull_socials_candidates` |
 | **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | **none, by hand** | **[mc/soundtracks/soundtracks.md](../../soundtracks/soundtracks.md) IS the prompt.** The stored trigger only points at it, and the Tape Room's PROMPT dialog was deleted on 2026-08-25. There is no pair to keep in step. | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB ANCHOR EVENTS** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |

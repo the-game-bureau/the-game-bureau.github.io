@@ -52,7 +52,7 @@
     // Both are true today and neither is the point of the room: it is where a
     // person decides, and the Gift Shop's findings belong here too.
     'issues': "We all have issues! This is where you'll find things that need correcting, from soundtracks to the Gift Shop. This is where you add the human element to what we do.",
-    'socializer': 'Social media posts are added here manually or through ai. Edit then skip or post each one.'
+    'socializer': 'Social media posts are added here manually or by TGB SOCIALIZER BOT. Edit then skip or post each one.'
   };
 
   // textContent, not innerHTML: these are sentences, and one of them carries

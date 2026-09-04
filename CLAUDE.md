@@ -6975,6 +6975,110 @@ repo to need that repoint**, after `games-in-a-real-browser.js`,
 **silently absent from every sweep**, which is the worse half: a suite that
 crashes on require reports nothing and is easy to read as one that was not run.
 
+## THE SOCIALIZER HAS TWO WAYS IN, AND A DATE IS SAID MONTH FIRST (2026-09-04)
+
+**MANUAL and TGB SOCIALIZER BOT.** The PROMPT button, its dialog and the whole
+page prompt are deleted from [mc/socializer/index.html](mc/socializer/index.html), and what was unique
+in that prompt now lives in the routine's own. **There is one socializer
+prompt**, staged at [socializer-bot.prompt.md](mc/_dev/prompt-tools/socializer-bot.prompt.md), and the live trigger
+holds a byte-identical copy.
+
+### THE DATE RULE, WHICH IS WHAT WAS ASKED FOR FIRST
+
+`September 19th`, never `19 September`, `19 Sep`, `Sept 19` or `9/19`, with the
+year only when the story turns on it. It holds in a caption, a why, the closing
+summary, and every date in the step-8 email, the source line and the Not filed
+list included.
+
+- **IT SITS BESIDE THE EM-DASH RULE AND IS ARGUED THE SAME WAY**: a day-first
+  date is the second clearest tell after the em dash that nobody American wrote
+  the line, and these go out under our name to an American audience.
+- **THE EMAIL TEMPLATE'S OWN EXAMPLES WERE REWRITTEN TO MATCH** (`August 15th,
+  2026, 3:14 PM`, `Colossal &middot; August 4th`, `(SFist, July 14th)`), because
+  a template that shows the day-first shape teaches the day-first shape however
+  clearly the rule above it says otherwise.
+
+### WHAT MOVED INTO THE BOT, AND WHAT DELIBERATELY DID NOT
+
+Measured by paragraph diff rather than by reading, since the two prompts had
+been near-copies for a month and had drifted in both directions.
+
+| folded in | why it was only on the page |
+|---|---|
+| the `days=365` reasoning | the page's duplicate check had no time limit either |
+| the three-rung image ladder | Grok's tool strips the head; the routine fetches real HTML and had never needed it, and it costs nothing |
+| the two fixed reasons for a missing image | "no og:image on the page" against "could not read the page metadata" are different fixes |
+| "if the prefix would be so vague that it feels silly, pick a different story" | |
+| three worked captions and one `Check this out` counter-example | |
+
+- **THE SQL WRITE PATH DID NOT MOVE, AND THAT IS THE WHOLE REASON THE TWO
+  PROMPTS WERE EVER DIFFERENT.** The page prompt returned an `insert into
+  public.socials` for a human to paste; the routine writes through
+  `tgb_pull_socials_candidates` unattended. The `origin` and `status` literals,
+  the SQL-editor link and the paste instructions all went with the page.
+- **SO THE "EDIT ONE, OPEN THE OTHER" RULE IS RETIRED.** Every section of this
+  file that says the editorial rules are kept in step across two prompts by
+  hand is describing the day it was written. There is nothing left to keep in
+  step; the [PROMPTS.md](mc/_dev/prompt-tools/PROMPTS.md) row says so.
+- **WHAT IS LOST, PLAINLY: nothing on the page hands a human a paste-ready
+  prompt for another AI.** The per-platform toggles, the local-storage edit and
+  the fingerprint that discarded a stale edit all went with the dialog. If a
+  chat-AI route is wanted back, it is a new thing built on the staged file, not
+  this one revived.
+
+### THE ROUTINE WAS UPDATED FROM THIS SESSION, AND THAT REVERSES A NOTE ABOVE
+
+The section headed "WHY THE ROUTINE'S PROMPT IS PASTED BY A PERSON" reasoned
+that a `RemoteTrigger` `job_config` update replaces the whole config, so a
+prompt edit meant retyping 49,871 characters through an escaping layer. **The
+`update_trigger` tool takes a `prompt` field on its own and merges it.**
+
+- **PROBED BEFORE IT WAS TRUSTED.** A name-only update was sent first and left
+  the old prompt intact, which is the harmless call that proves the door is
+  open on this trigger. TGB PATH BOT refuses the same call as created via
+  `http_api`; this one does not.
+- **THE REPLY WAS READ BACK, NOT THE 200.** Model pin `claude-opus-5`, the git
+  source, all 20 `allowed_tools`, the cron, `enabled` and the email flag all
+  survived, and `derived_state.prompt` is **52,554 characters, md5
+  `b73a484b96ef3e4a63c5c69c6b839386`**, identical to the staged file. A second
+  `list_triggers` read afterwards agreed.
+- **THE SHAPE THIS API RETURNS IS NOT THE ONE WRITTEN DOWN ABOVE.** The prompt
+  is at `session_request.events[0]` and, read-only, at `derived_state.prompt`;
+  the model and sources are under `session_request.config`. There is no
+  `job_config.ccr` in this reply. **Parse `{"trigger": {...}}` off the saved
+  result**, which is too large for the tool output and lands in a file.
+- **THE OLD PROMPT IS KEPT** in the session scratchpad as `live-prompt.txt`
+  for the life of this container only; the staged file is the durable record
+  of the new one.
+
+### THE PAGE, AND THE TWO SUITES THAT COULD NOT RUN
+
+- **THE DIALOG WAS 47,409 CHARACTERS OF MARKUP** plus eight script variables,
+  the editable-prompt block, `platformBoxes` through `resetCopyStatus`,
+  `openPrompt`, `copyPromptText` and three listener groups, and 26 CSS rules.
+  **`.copy-status` and the dialog lockup classes stay**, because the queue's
+  status line and the MANUAL dialog still wear them, checked by class-wearer
+  grep rather than by name.
+- **THE FIRST CSS REMOVAL REFUSED AND WROTE NOTHING**, because `    .prompt {`
+  matched twice: the media-query copy contains the base rule's line as a
+  substring. Cut the media-query lines first, then the base rules. **A slice
+  guard that refuses on two matches is the guard working**, and this project
+  has now recorded that eight times.
+- **THE SCROLL-LOCK TEST LOST ITS THIRD MEMBER.** `closeTool` asks whether any
+  dialog is still open before restoring `body.overflow`, and the prompt card
+  was one of the three it asked about. Left in, a null `promptCard` would have
+  thrown on the first Escape and locked the page's scroll for good.
+- **THE FOUR STANDING CHECKS PASS**: every inline script parses (skipping the
+  `tgb-agent-context` block by `type`), every wired id exists, the style braces
+  balance, and the byte scan finds no control character. `pageIcon` is missing
+  from the markup and four functions are unreferenced, **both on HEAD before
+  this change** and reported rather than fixed.
+- **[socializer-boring-stuff.js](mc/_dev/browser-checks/socializer-boring-stuff.js) AND [post-and-skip.js](mc/_dev/browser-checks/post-and-skip.js) DID NOT RUN HERE.**
+  Both require `C:/tmp/node_modules/jsdom`, which this environment does not
+  have, so the page is verified by the four checks and by reading, not by
+  driving it. **Run both on a machine that has that module before trusting the
+  dialog removal against the queue.**
+
 ## THE SOCIALIZER — the social post admin page
 
 > **"SOCIALIZER" means [mc/socializer/index.html](mc/socializer/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the SOCIALIZER"*, *"the SOCIALIZER is showing the wrong order"* — is an instruction about that one file, with no other page to check first.

@@ -29,6 +29,19 @@ one rule and its four dependent mentions: **every caption starts with a
 rule that split the city and the state across the two sentences. The page's
 PROMPT dialog already carries the new rule.
 
+**THIS IS THE ONLY SOCIALIZER PROMPT AS OF 2026-09-04.** The page's PROMPT
+dialog was deleted that day and the rules only it carried were folded in here:
+the image-capture ladder with its two named reasons, three more caption
+examples, "pick a different story if the prefix feels silly", and why the
+filed-urls reader asks for 365 days. The SQL write path did not come across,
+because this routine files through the RPC. The "EDIT ONE, OPEN THE OTHER" rule
+is retired with the pair.
+
+**DATES ARE SAID MONTH FIRST WITH AN ORDINAL AS OF 2026-09-04**: "September
+19th", never "19 September". One rule in step 4, and the three example dates in
+the step 8 email were rewritten to match, since an example teaches the shape it
+shows.
+
 **IT MOVED HERE ON 2026-08-30 from `.pp.txt` at the repo root**, where it was
 tracked by git, referenced by nothing, and served on the public web: the root is
 what GitHub Pages publishes, so `https://thegamebureau.com/.pp.txt` answered it.
@@ -121,9 +134,14 @@ you commit to the candidate. Checking costs a second; a duplicate costs a pick
 and the time to replace it.
 
 It returns url and the date it was filed, newest first, nothing else,
-deliberately. Read it FIRST, before you start searching, and hold the list in
-mind while you work: it is both a do-not-repeat list and a map of where you have
-already been looking. If it is thick with one beat, go somewhere else today. If
+deliberately. `days=365` rather than the default 90, because the check that
+actually refuses a duplicate at step 7 has no time limit at all: without it a
+story filed four months ago passes your check, gets researched and written, and
+is refused at the very end.
+
+Read it FIRST, before you start searching, and hold the list in mind while you
+work: it is both a do-not-repeat list and a map of where you have already been
+looking. If it is thick with one beat, go somewhere else today. If
 a source appears three times, try a different one.
 
 GIFTS ALREADY FILED. Same idea, opposite rule: a gift MAY repeat. See 2b for
@@ -219,7 +237,7 @@ FILL THE ROW LIKE THIS:
   IF YOU GENUINELY CANNOT PLACE IT AT ALL, not even to a state, PICK A DIFFERENT
   GIFT. There are hundreds with a place, and a placeless one is the weakest post
   in the run anyway.
-- why: one line in the FIRST PERSON, as you talking to us (see step 4), and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out. "I picked this for the gift slot; it last went out on 12 August."
+- why: one line in the FIRST PERSON, as you talking to us (see step 4), and say it is the gift slot so the human reading the queue knows why it is there. If you are re-posting an item, say when it last went out. "I picked this for the gift slot; it last went out on August 12th."
 - topics: the tags that fit the object, from the same list. A city guide is travel; a team scarf is sports; a cookbook is food.
 - image: image_url exactly as stored. It is already absolute. If it is empty, omit image, but prefer a gift that has one, since a shop post with no picture is a weak post and cannot reach Instagram at all.
 - platforms: judge it like any other candidate, and remember this DECIDES where it goes (step 6). A gift with a real product photograph is the strongest Instagram case in the run.
@@ -338,6 +356,23 @@ tag in the page head. Record its absolute URL as `image`. Rules:
 - If there is no usable image, leave `image` out entirely. It is optional and
   the card renders fine without it. Do not hold up a good story over it.
 
+IF YOUR BROWSING TOOL WILL NOT SHOW YOU THE MARKUP, SAY SO; DO NOT JUST SKIP IT.
+This is the step that fails most often, and it fails differently depending on
+what the tool hands back. Raw HTML has `og:image` sitting in the head and this
+is a ten second job. A cleaned, summarised version of the article has the
+metadata stripped out, and then there is no head to read at all. If that is
+what you are looking at, work down this list before giving up:
+
+  1. Ask the tool for the page SOURCE rather than the page, in as many words.
+     Some will do it when asked directly and not otherwise.
+  2. Look at what the article actually renders. The lead photograph at the top
+     of the story is almost always the same file as the og:image. Take its full
+     address, resolved against the article's own origin.
+  3. Only then leave `image` out.
+
+Still never invent one: an address you guessed is worse than an absence, because
+an absence is visible and a wrong address is not.
+
 THE PLACE: the city and the state, or outside the US the city and the country,
 that the story actually happens in. Step 4 puts both at the FRONT of the
 caption, so read them off the article now rather than reconstructing them later
@@ -353,9 +388,11 @@ to get around this; an absent image is honest and the others still work. But
 when a usable og:image exists, capturing it is the difference between a post
 Instagram will take by itself and one a human has to illustrate by hand.
 
-Name in the summary any candidate you file WITHOUT an image, and say whether the
-page genuinely has none or you could not read its metadata. A human can fill it
-in afterwards from the Socializer, which reads the page server-side, but only if
+Name in the summary any candidate you file WITHOUT an image, in these words:
+"no og:image on the page" if the page genuinely has none, or "could not read the
+page metadata" if your tool would not show you. Those are different problems
+with different fixes and only you can tell them apart. A human can fill it in
+afterwards from the Socializer, which reads the page server-side, but only if
 they know which rows to look at.
 
 DO NOT SEND `media`. That field was photo / gallery / video / text and it was
@@ -418,7 +455,8 @@ is a postcard.
   IF THE STORY GENUINELY HAS NO CITY, and a few will not, use the largest honest
   place instead -- a state, a country -- and NEVER invent one. A fabricated
   location is a lie about a real thing, which is the failure this whole prompt
-  exists to prevent.
+  exists to prevent. If the prefix would be so vague that it feels silly, pick a
+  different story.
 
 THE CAPTION IS THE ONLY THING YOU WRITE THAT IS PUBLISHED. The headline is the
 outlet's own line and the platform renders the destination's own title anyway;
@@ -446,7 +484,14 @@ invitation.
   yes  Entries close on Friday. That is just enough time to build a boat out of
        cardboard and regret it.
   yes  Go and stand under it before the scaffolding goes back up in October.
+  yes  Cincinnati, Ohio: There is a staircase downtown that goes nowhere at all.
+       Go stand under it and see if the argument improves.
+  yes  Minnesota: Every roadside giant has been photographed and mapped. This is
+       what a state does when it has a full tank of gas.
+  yes  Tulsa, Oklahoma: The street grid wraps around an 11 ounce mug. Walk the
+       blocks first, then drink out of them.
   no   Interesting piece about a walkable route in Rotterdam.
+  no   Cincinnati, Ohio: Check this out.
   no   Check this out.
 
 IT IS "WHERE THE STORY SUPPORTS ONE", NOT ON EVERY POST. A story about something
@@ -463,6 +508,20 @@ grid, then drink out of it" is an invitation, "get yours today" is an advert.
 The queue labels this line "TGB SAYS:", because it is the one sentence on the
 card that goes out under our name. The note below it is labelled "BOT SAYS:"
 and is yours. Keep the two in their own voices.
+
+SAY A DATE THE WAY A PERSON SAYS IT: the month first, then the day with its
+ordinal, so "September 19th", never "19 September", "19 Sep", "Sept 19" or
+"9/19". Add the year only when the story turns on it. This holds everywhere you
+write one: a caption, a why, the closing summary, and every date in the HTML
+email in step 8, the source line and the Not filed list included. A day-first
+date is the second clearest tell after the em dash that nobody American wrote
+the line, and these go out under our name to an American audience.
+
+  yes  Entries close September 19th, which is just enough time to regret the
+       cardboard.
+  yes  Go and stand under it before the scaffolding goes back up on October 3rd.
+  no   Entries close 19 September.
+  no   Entries close on 9/19.
 
 NO EM DASHES ANYWHERE IN WHAT YOU HAND BACK. Not in a caption, not in a
 headline, not in a why, not in the closing summary, not in the HTML email in
@@ -751,7 +810,7 @@ repeated once per candidate:
 
   <div style="padding:0 0 18px;border-bottom:2px solid #2d4880">
     <div style="font-size:20px;font-weight:700;letter-spacing:.02em">SOCIALIZER BOT</div>
-    <div style="color:#6b7280;font-size:14px;margin-top:2px">5 filed, 0 skipped, 1 video &middot; 15 Aug 2026, 3:14 PM</div>
+    <div style="color:#6b7280;font-size:14px;margin-top:2px">5 filed, 0 skipped, 1 video &middot; August 15th, 2026, 3:14 PM</div>
   </div>
 
   <div style="padding:18px 0 6px">
@@ -767,7 +826,7 @@ repeated once per candidate:
           <div style="display:inline-block;min-width:34px;padding:3px 8px;background:#276740;color:#ffffff;border-radius:4px;font-size:13px;font-weight:700;text-align:center">88</div>
         </td>
         <td style="vertical-align:top">
-          <div style="color:#6b7280;font-size:12px;letter-spacing:.06em;text-transform:uppercase">Colossal &middot; 4 Aug &middot; games, travel</div>
+          <div style="color:#6b7280;font-size:12px;letter-spacing:.06em;text-transform:uppercase">Colossal &middot; August 4th &middot; games, travel</div>
           <div style="margin-top:3px;font-size:16px;font-weight:600;line-height:1.35">
             <a href="THE_STORY_URL" style="color:#1b2438;text-decoration:none">The real headline, linked to the story</a>
           </div>
@@ -793,7 +852,7 @@ repeated once per candidate:
 
   <div style="padding:22px 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;font-weight:700">Not filed</div>
   <ul style="margin:0;padding-left:20px;color:#6b7280;font-size:14px">
-    <li>Pursuit SF scavenger hunt (SFist, 14 Jul): already in the table.</li>
+    <li>Pursuit SF scavenger hunt (SFist, July 14th): already in the table.</li>
   </ul>
 
   <div style="padding:22px 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;font-weight:700">Notes</div>
