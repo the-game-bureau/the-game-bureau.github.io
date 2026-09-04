@@ -18327,7 +18327,123 @@ layer out. It reads the page's own `KIND_VALUES` now and cannot miss a type the
 room offers.
 
 
-#### THE ADD BAR HANDS OVER AN NFL TRIVIA PROMPT (2026-09-03)
+## THE PROMPT WRITES CHALLENGES ON A TOPIC, NOT NFL TRIVIA (2026-09-04)
+
+The Add bar's second button is **Prompt**. The dialog asks what the challenges
+should be about, which kinds to write and how many, and hands over one `insert`
+block for a person to run.
+
+- **IT WROTE ONE MULTIPLE CHOICE QUESTION PER NFL CLUB AND NOTHING ELSE**, and
+  four of the five types on this table were unreachable from it -- the room's
+  own bulk route could only produce trivia.
+- **WHAT IT LOST IS THE LIST BEING BUILT FROM THE ROWS, and that is the real
+  cost.** The old prompt named the NFL clubs with no question yet, so it could
+  not ask about a club twice and could not miss one. **A TOPIC IS NOT A SET
+  ANYTHING CAN ENUMERATE**, so the count is asked for instead -- and the
+  DUPLICATE CHECK built in this room the day before is what now catches a second
+  run repeating itself. That check is what makes this affordable.
+- **THE IDENTIFIERS MOVED WITH IT, which departs from the standing bargain.**
+  That rule renames visible copy and leaves the name -- the Tape Room did it five
+  times without `archived` following -- and it protects an EXISTING identifier
+  from churn. Here the whole feature changed and `nfl` would name a league this
+  prompt no longer assumes, beside ten new sibling controls.
+- **IT WRITES NOTHING**, asserted. A static page cannot call an AI, so the
+  deliverable is SQL, which is the split every prompt in this project makes.
+
+### `ladder_key` IS THE ONE THING NOTHING DOWNSTREAM CHECKS
+
+It is not a foreign key. **A key the catalogue does not hold resolves to
+nothing, the row reads perfectly in the Bank, and the question is never asked of
+anybody.** So the prompt prints the exact key and the check asserts it against
+the LIVE `destinations` catalogue rather than against a string of its own.
+
+- **AND THE FIRST CUT PRINTED THE WRONG ONE.** `aiClub` took the first nickname
+  match across 638 clubs, so with **Chicago in the city box** and `Bears` in the
+  team box it printed **`baltimore-md-ncaaf-bears`** -- a real key, for a college
+  side nobody asked about, beside a city box saying Chicago. **12 clubs are
+  called the Bears, 12 the Tigers, 11 the Eagles.**
+- **SO IT RETURNS THE WHOLE MATCHING SET AND THE CALLER DECIDES.** An id or a
+  whole `city nickname` names one outright; the CITY narrows a nickname, and only
+  when it leaves exactly one.
+- **AMBIGUOUS IS ITS OWN ANSWER.** With no city, `Bears` prints **no key at
+  all**, says it names 12 clubs, lists them, and tells the model to leave
+  `ladder_key` out. **Picking one would be a wrong key that looks exactly like a
+  right one**, which is the failure this whole section is about.
+- **PROVED ON ALL FOUR PATHS** -- city-narrowed, ambiguous, whole name, and a
+  club the catalogue does not hold -- and the resolved key is fetched back from
+  `destinations` to confirm it is a row.
+
+### AND IT CLAIMED A REFUSAL THE DATABASE DOES NOT MAKE
+
+The prompt listed *"a tag with a space or a capital in it"* among what would be
+refused. **`pg_constraint` says there is NO constraint on `tags` at all**: the
+room's own `hyphenate` on the way in is the only thing enforcing it, and
+**pasted SQL never goes through this room.**
+
+- **SO IT SAYS THE TRUE THING INSTEAD**, which is the sharper warning: nothing
+  checks it, the spelling handed back is the spelling stored, and `New Orleans`
+  and `new-orleans` become two tags with no screen saying so. Same shape as the
+  Events room's own city rule.
+- **AND IT GAINED A REFUSAL IT HAD MISSED.** `challenges_keyed_free_answer_is_one_word`
+  refuses a typed answer of more than one word on a question carrying a key --
+  which bites exactly when a club is chosen, so it is printed only then.
+- **THE LIST WAS READ OFF `pg_constraint`, NOT REMEMBERED.** Six of the ten
+  constraints on this table are scoped `type <> 'question' OR ...`; two are not,
+  and the prompt names those without qualification because they apply to every
+  row.
+
+### THE PROMPT PRINTS TAGS, SO IT LOWERCASES THEM
+
+`hyphenate` deliberately does not: it is applied to what a PERSON typed, and
+silently recasing somebody's own words is what the audiences room had to stop
+doing. **Here the value is AUTHORED**, so `tagOf` lowercases -- otherwise the
+block printed `NFL` and `New-Orleans` four lines above the rule telling the model
+to write lowercase tags.
+
+### A REFUSED DOOR MUST NOT STILL OPEN
+
+Each door copies and then opens a chat window, and the guard stopped the COPY
+only. **So with no kind ticked you still arrived at ChatGPT, holding whatever
+was on the clipboard before** -- worse than the useless sentence the guard exists
+to avoid, because nothing on screen says so.
+
+- **`preventDefault` IS SAFE ON THE REFUSAL PATH AND ONLY THERE.** It is
+  synchronous, so it is still inside the click's own gesture. **The happy path
+  must never prevent or await**, or the open is pushed into a later task, which
+  is exactly what a popup blocker refuses. Both halves are asserted.
+- **AND THE DOORS REALLY NAVIGATE, WHICH HUNG THE FIRST RUN.** Pressing one
+  under Puppeteer loaded chatgpt.com for real and the browser was still busy on
+  the next click -- **32 assertions in and then a `ProtocolError`, which reads
+  as the harness rather than as a failure.** The suite closes any popup and
+  refuses cross-origin navigation now.
+
+### WHAT THE DIALOG ASKS, AND THE ONE KIND IT WILL NOT WRITE
+
+**Topics, City, Team, How many**, then a row of ticked kinds. Every knob is
+above the sheet, in the order they are answered; **the prompt is what they
+produce**, so a knob rebuilds it and an edit is lost -- which is why Reset
+exists and why the code says so out loud.
+
+- **`operations` IS DELIBERATELY ABSENT and the check asserts it.** The only row
+  of that kind is the waiver, whose words are a contract recorded verbatim in
+  `game_responses`, and asking an AI to write more of those is not something
+  this button should be able to do.
+- **BOTH PICKERS ARE BUILT FROM THE CATALOGUE** -- 638 clubs, 441 cities -- so
+  neither can suggest something nothing holds. **Both stay free text**: a topic
+  prompt is not limited to places we have already filed.
+- **NONE TICKED IS NOT A RUN.** The sheet is replaced by the one sentence that
+  helps, rather than carefully instructing an AI to write nothing.
+- **THE KIND LINES WRAP LIKE EVERY OTHER LINE.** They arrived as 130-character
+  runs in a sheet hard-broken near 72, which reads as a paste rather than as
+  part of the prompt.
+
+**[challenges-ai-prompt.js](mc/_dev/browser-checks/challenges-ai-prompt.js), 42 assertions in real Chrome**, live reads with every
+write intercepted. **Run with both bugs restored it fails six ways**, naming
+`{"id":"baltimore-md-ncaaf-bears",...}` and `["https://chatgpt.com/"]`.
+`challenges-nfl-prompt.js` is deleted with its subject.
+
+
+#### THE ADD BAR HANDS OVER AN NFL TRIVIA PROMPT (2026-09-03, superseded)
 
 `ADD` is **Challenge | NFL trivia**. The second opens a dialog holding one
 prompt: one multiple choice question per NFL club, for an AI to answer with a

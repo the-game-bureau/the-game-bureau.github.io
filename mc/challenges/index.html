@@ -568,7 +568,7 @@
 
   <!-- THE EDITOR. One challenge at a time, in a dialog holding a working copy:
        Save writes it, Close discards it. -->
-  <!-- THE NFL TRIVIA PROMPT. It writes nothing: it hands over text and a
+  <!-- THE AI PROMPT. It writes nothing: it hands over text and a
        person runs the SQL, which is the same split every other prompt in this
        project makes. A page cannot call an AI, and the SQL is the deliverable. -->
   <div class="dlg" id="aiDlg" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
@@ -1725,6 +1725,25 @@
            + 'row of this kind on file yet, so you are setting the shape.' }
     ];
 
+    /* THE PROMPT PRINTS TAGS, SO IT LOWERCASES THEM. `hyphenate` is the write
+       path's own helper and deliberately does not: it is applied to what a
+       person typed, and silently recasing somebody's own words is what the
+       audiences room had to stop doing. Here we are AUTHORING the value, so the
+       league is `nfl` rather than `NFL` -- and printing a capital would
+       contradict the rule four lines below it. */
+    function tagOf(v) { return hyphenate(v).toLowerCase(); }
+
+    function wrapAt(text, width) {
+      const out = [];
+      let line = '';
+      clean(text).split(' ').filter(Boolean).forEach((w) => {
+        if (line && (line.length + 1 + w.length) > width) { out.push(line); line = ''; }
+        line = line ? line + ' ' + w : w;
+      });
+      if (line) out.push(line);
+      return out;
+    }
+
     function aiPickedTypes() {
       return AI_TYPES.filter((t) => {
         const box = el('aiType_' + t.key);
@@ -1735,22 +1754,44 @@
     /* THE TEAM BOX IS RESOLVED BACK TO A REAL CLUB, so the prompt can print
        that club's exact `ladder_key`. A key that is not one the catalogue holds
        resolves to nothing, the row reads perfectly, and the question is never
-       asked of anybody. */
-    function aiClub() {
+       asked of anybody.
+         **A NICKNAME NAMES SEVERAL CLUBS AND THE FIRST CUT TOOK THE FIRST ONE.**
+       With Chicago in the city box and `Bears` in the team box it printed
+       `baltimore-md-ncaaf-bears` -- a real key for a college side nobody asked
+       about, beside a city box saying Chicago, and **a wrong key looks exactly
+       like a right one.** 638 clubs hold 12 Bears, 12 Tigers, 11 Eagles.
+         SO IT RETURNS THE WHOLE MATCHING SET and the caller decides. The CITY
+       narrows it, an exact `city nickname` or an id names one outright, and
+       what is left ambiguous is SAID rather than guessed at. */
+    function aiClubs() {
       const v = clean(el('aiTeam').value).toLowerCase();
-      if (!v) return null;
+      if (!v) return [];
       const clubs = state.clubs || [];
-      return clubs.filter((d) => clean(d.nickname).toLowerCase() === v)[0]
-          || clubs.filter((d) => (clean(d.city) + ' ' + clean(d.nickname)).toLowerCase() === v)[0]
-          || clubs.filter((d) => clean(d.id).toLowerCase() === v)[0]
-          || null;
+      const exact = clubs.filter((d) => clean(d.id).toLowerCase() === v)
+        .concat(clubs.filter((d) =>
+          (clean(d.city) + ' ' + clean(d.nickname)).toLowerCase() === v));
+      if (exact.length) return exact.slice(0, 1);
+      const named = clubs.filter((d) => clean(d.nickname).toLowerCase() === v);
+      const city = clean(el('aiCity').value).toLowerCase();
+      /* THE CITY IS THE TIE BREAK, and only when it leaves exactly one: two
+         clubs of one nickname in one city is not something a box can settle. */
+      if (city) {
+        const here = named.filter((d) => clean(d.city).toLowerCase() === city);
+        if (here.length === 1) return here;
+      }
+      return named;
+    }
+    function aiClub() {
+      const found = aiClubs();
+      return found.length === 1 ? found[0] : null;
     }
 
     function buildAiPrompt() {
       const types = aiPickedTypes();
       const topics = clean(el('aiTopics').value);
       const city = clean(el('aiCity').value);
-      const club = aiClub();
+      const clubs = aiClubs();
+      const club = clubs.length === 1 ? clubs[0] : null;
       const typedTeam = clean(el('aiTeam').value);
       let count = parseInt(el('aiCount').value, 10);
       if (!isFinite(count) || count < 1) count = 10;
@@ -1801,6 +1842,18 @@
         L.push('  question, and a key it does not recognise resolves to nothing: the');
         L.push('  row reads perfectly and the question is never asked of anybody.');
         L.push('');
+      } else if (clubs.length > 1) {
+        /* AMBIGUOUS IS ITS OWN ANSWER. Picking one would print a key for a club
+           nobody asked about, and that is a row that reads perfectly and is
+           never asked of anybody. */
+        L.push('THE CLUB: ' + typedTeam + ' names ' + clubs.length + ' clubs, so no key is');
+        L.push('printed and none may be invented. Leave `ladder_key` out of every row.');
+        L.push('Narrow it in the room with the city box, or type the whole name:');
+        L.push('');
+        clubs.slice(0, 8).forEach((d) =>
+          L.push('  ' + d.city + ' ' + d.nickname + '  (' + d.league + ')'));
+        if (clubs.length > 8) L.push('  and ' + (clubs.length - 8) + ' more');
+        L.push('');
       } else if (typedTeam) {
         L.push('THE CLUB: ' + typedTeam + '. It is not in our catalogue, so leave');
         L.push('`ladder_key` out of every row: an invented key resolves to nothing.');
@@ -1812,7 +1865,10 @@
       L.push('');
       types.forEach((t) => {
         L.push('  ' + t.key);
-        L.push('      ' + t.how);
+        /* WRAPPED LIKE THE REST OF THE SHEET. Every other line here is hard
+           broken near 72; a 130 character run in the middle of them reads as a
+           paste rather than as part of the prompt. */
+        wrapAt(t.how, 66).forEach((line) => L.push('      ' + line));
       });
       L.push('');
 
@@ -1878,13 +1934,13 @@
       L.push('a row may carry several. Give every row every tag that applies to it:');
       L.push('');
       if (city) {
-        L.push('  THE CITY     ' + hyphenate(city) + '   on every row');
+        L.push('  THE CITY     ' + tagOf(city) + '   on every row');
       } else {
         L.push('  THE CITY     the city, hyphenated: chicago, new-orleans');
       }
       if (club) {
-        L.push('  THE LEAGUE   ' + hyphenate(club.league) + '   on every row about the club');
-        L.push('  THE CLUB     ' + hyphenate(club.nickname) + '   on every row about the club');
+        L.push('  THE LEAGUE   ' + tagOf(club.league) + '   on every row about the club');
+        L.push('  THE CLUB     ' + tagOf(club.nickname) + '   on every row about the club');
       } else {
         L.push('  THE LEAGUE   nfl, nba, mlb, nhl, where a club is involved');
         L.push('  THE CLUB     the club word on its own: bears, saints');
@@ -1910,7 +1966,8 @@
         L.push('');
       }
 
-      L.push('WHAT THE DATABASE WILL REFUSE, so you do not lose the batch:');
+      L.push('WHAT THE DATABASE WILL REFUSE, so you do not lose the batch. One bad');
+      L.push('row refuses the whole insert:');
       L.push('');
       L.push('  A question with no prompt.');
       L.push('  A question whose prompt CONTAINS ITS OWN ANSWER as a word. This is the');
@@ -1919,9 +1976,20 @@
       L.push('  Options that do not include the answer, spelled identically.');
       L.push('  Fewer than two options.');
       L.push('  A `ladder_key` on anything that is not a question, or in capitals.');
-      L.push('  A tag with a space or a capital in it.');
+      if (club) {
+        L.push('  A TYPED ANSWER OF MORE THAN ONE WORD on a question carrying the key.');
+        L.push('    If the only good answer is two words, give four options instead.');
+      }
       L.push('');
       L.push('  DO NOT SEND `id`. It is generated.');
+      L.push('');
+      /* AND WHAT IT WILL NOT REFUSE, WHICH IS THE HALF THAT COSTS SOMETHING.
+         There is no constraint on `tags` -- `hyphenate` in this room is the only
+         thing enforcing the shape, and pasted SQL never goes through this room.
+         So the spelling handed back is the spelling stored, silently. */
+      L.push('NOTHING CHECKS THE TAGS. The spelling you write is the spelling stored,');
+      L.push('so `New Orleans` and `new-orleans` become two different tags and no');
+      L.push('screen will tell anybody. Lowercase, hyphenated, every time.');
       L.push('');
 
       L.push('HAND BACK ONE SQL BLOCK AND NOTHING ELSE AROUND IT, in this shape.');
@@ -2042,17 +2110,28 @@
       el('aiReset').hidden = el('aiPrompt').value === state.aiBase;
     }
 
-    function copyAiPrompt() {
+    function copyAiPrompt(ev) {
       const text = el('aiPrompt').value;
       /* THE DOORS REFUSE WITH NO KIND TICKED, and the guard is here rather than
          only in CSS: each door copies and then opens a chat window, so without
-         it you would arrive somewhere with one useless sentence on the
-         clipboard and no idea why. */
+         it you would arrive somewhere with nothing useful on the clipboard and
+         no idea why.
+           **A REFUSAL PREVENTS THE NAVIGATION TOO, and the first cut did not.**
+         It stopped the copy and the anchor opened regardless, so you landed at
+         ChatGPT holding whatever was on the clipboard BEFORE -- which is worse
+         than the useless sentence this exists to avoid, because nothing on
+         screen says so.
+           `preventDefault` IS SAFE ON THIS PATH AND ONLY ON THIS PATH: the
+         refusal is synchronous, so it is still inside the click's own gesture.
+         **The happy path must never prevent or await**, or the open is pushed
+         into a later task, which is exactly what a popup blocker refuses. */
       if (!aiPickedTypes().length) {
+        if (ev) ev.preventDefault();
         el('aiCopyStatus').textContent = 'Tick at least one kind of challenge first.';
         return;
       }
       if (!clean(text)) {
+        if (ev) ev.preventDefault();
         el('aiCopyStatus').textContent = 'Nothing to copy.';
         return;
       }
@@ -2377,31 +2456,39 @@
 
     el('addBtn').addEventListener('click', () => openEditor(null));
 
-    /* ---- the NFL trivia prompt ---- */
-    el('nflBtn').addEventListener('click', openNflDialog);
-    el('nflClose').addEventListener('click', closeNflDialog);
-    el('nflPrompt').addEventListener('input', paintNflReset);
-    el('nflReset').addEventListener('click', () => {
-      el('nflPrompt').value = state.nflBase;
-      paintNflReset();
-      el('nflCopyStatus').textContent = '';
+    /* ---- the AI prompt ---- */
+    el('aiBtn').addEventListener('click', openAiDialog);
+    el('aiClose').addEventListener('click', closeAiDialog);
+    el('aiPrompt').addEventListener('input', paintAiReset);
+    el('aiReset').addEventListener('click', () => {
+      el('aiPrompt').value = state.aiBase;
+      paintAiReset();
+      el('aiCopyStatus').textContent = '';
     });
+    /* EVERY KNOB REBUILDS THE SHEET, and the two text boxes do it on `input`
+       rather than `change`: the prompt is what the boxes PRODUCE, so a sheet
+       describing a topic that has been typed over is a sheet somebody copies.
+       An edit made in the sheet is lost when a knob moves, which is why Reset
+       exists and why the comment on `rebuildAiPrompt` says so out loud. */
+    ['aiTopics', 'aiCity', 'aiTeam'].forEach((id) =>
+      el(id).addEventListener('input', rebuildAiPrompt));
+    el('aiCount').addEventListener('input', rebuildAiPrompt);
     /* EACH DOOR COPIES AND THEN OPENS. There is no `preventDefault` and nothing
        is awaited: the new tab has to come from the browser's own handling of a
        click on a link, and awaiting the clipboard pushes the open into a later
        task, which is exactly what a popup blocker refuses. */
-    NFL_DOORS.forEach((id) => el(id).addEventListener('click', copyNflPrompt));
+    AI_DOORS.forEach((id) => el(id).addEventListener('click', copyAiPrompt));
     /* THE SAME BACKDROP GESTURE GUARD AS THE EDITOR. A `click` fires on the
        NEAREST COMMON ANCESTOR of the press and the release, so selecting text
        in the sheet and letting go past the panel edge targets the backdrop --
        and the dialog would shut, taking the edit with it. */
-    let pressedNfl = false;
-    el('nflDlg').addEventListener('pointerdown', (e) => {
-      pressedNfl = e.target === el('nflDlg');
+    let pressedAi = false;
+    el('aiDlg').addEventListener('pointerdown', (e) => {
+      pressedAi = e.target === el('aiDlg');
     });
-    el('nflDlg').addEventListener('click', (e) => {
-      if (e.target === el('nflDlg') && pressedNfl) closeNflDialog();
-      pressedNfl = false;
+    el('aiDlg').addEventListener('click', (e) => {
+      if (e.target === el('aiDlg') && pressedAi) closeAiDialog();
+      pressedAi = false;
     });
     el('closeBtn').addEventListener('click', closeEditor);
     el('saveBtn').addEventListener('click', saveEditing);
@@ -2431,7 +2518,7 @@
       /* THE ONE ON TOP FIRST. The two are never open together today, and
          leaving the order to chance is how Escape dismisses the wrong thing
          later. */
-      if (el('nflDlg').classList.contains('is-open')) { closeNflDialog(); return; }
+      if (el('aiDlg').classList.contains('is-open')) { closeAiDialog(); return; }
       if (el('dlg').classList.contains('is-open')) closeEditor();
     });
 
