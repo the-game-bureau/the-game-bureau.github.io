@@ -514,24 +514,26 @@
   // The Games page has its own animated ticker for game and gift counts.
   if (document.body && document.body.dataset.adminPage === 'mission-control') return;
 
-  function isArchived(value) {
-    if (value == null) return false;
-    var s = String(value).trim().toLowerCase();
-    return s === 'yes' || s === 'true' || s === '1';
+  // A GAME IS LIVE WHEN ITS STATUS SAYS SO. This asked for `archived` AND
+  // `erased` -- two text flags carrying 'YES', and the note here used to explain
+  // that counting only the first made the badge say 33 over a page listing 31.
+  // **BOTH COLUMNS ARE GONE**, replaced by `games.status`, and PostgREST 400s
+  // the whole request on one unknown column -- so this badge was reading an
+  // empty array on EVERY PUBLIC PAGE and quietly showing nothing.
+  //   Only `live` reaches a buyer; `building` and `archived` do not. A row with
+  // no status is not counted, which is the same call the gift shop's own
+  // `isLive` makes: the safe answer when we cannot tell is to leave it out.
+  function isLiveGame(game) {
+    return String((game && game.status) || '').trim().toLowerCase() === 'live';
   }
 
-  fetch(SB_URL + '/rest/v1/games?select=city,archived,erased&apikey=' + SB_KEY, {
+  fetch(SB_URL + '/rest/v1/games?select=city,status&apikey=' + SB_KEY, {
     headers: sbHeaders,
     cache: 'no-store'
   })
     .then(function (r) { return r.ok ? r.json() : []; })
     .then(function (rows) {
-      // ERASED IS A SECOND FLAG AND IT IS NOT ARCHIVED. Counting only the
-      // first made this badge say 33 over a page listing 31, which reads as
-      // the nav being broken rather than as two different questions.
-      var live = (Array.isArray(rows) ? rows : []).filter(function (game) {
-        return !isArchived(game && game.archived) && !isArchived(game && game.erased);
-      });
+      var live = (Array.isArray(rows) ? rows : []).filter(isLiveGame);
       var cities = new Set();
       live.forEach(function (game) {
         var city = game && game.city ? String(game.city).trim() : '';

@@ -274,29 +274,14 @@
     }
     .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
 
-    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
-       rather than words in a sentence. Scope carries the outline because it is
-       the one that decides whether a challenge can be reused; kind does not. */
+    /* THE KIND IS A CHIP rather than a word in a sentence, because it is what
+       you scan a list for. */
     .ch-kind {
       font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
       text-transform: uppercase; color: var(--muted);
       border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
       white-space: nowrap;
     }
-    .ch-scope {
-      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
-      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
-      border: 1px solid transparent; white-space: nowrap;
-    }
-    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
-       will be used again. The three narrow scopes are quieter and told apart by
-       the word rather than by hue: a colour each would make a list of chips
-       read as a legend to learn. A scope naming nothing takes the red pen. */
-    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
-    .ch-scope.is-team,
-    .ch-scope.is-city,
-    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
-    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
 
     /* ---- the editor ------------------------------------------------------ */
     .preview {
@@ -548,10 +533,10 @@
         // challenge is answered by LOOKING, which is the whole product,
         // and trivia is the away fandom being tested on the city they are
         // visiting. They also address themselves differently -- a trivia
-        // row carries a ladder key and no scope, so all 38 would arrive
+        // row carries a ladder key rather than a place, so all 38 would arrive
         // `portable` and be offered at EVERY stop, swamping a picker that
         // offers 17 of 24 today.
-        pageAll('challenges', { select: '*', kind: 'neq.trivia', order: 'name.asc' })
+        pageAll('challenges', { select: '*', type: 'neq.multiple_choice', order: 'name.asc' })
       ]);
       state.routes = routes;
       state.stops = stops;
@@ -570,32 +555,16 @@
     }
 
     /* ---- WHICH CHALLENGES MAY SIT AT THIS STOP ----------------------------
-       The whole reason scope carries a key. Without this the picker offers
-       every challenge in the library at every stop, and the four scopes are
-       decoration.                                                            */
-    function challengesFor(stop) {
-      const route = openRoute();
-      const city = clean(route && route.city).toLowerCase();
-      return state.challenges.filter((c) => {
-        const sc = clean(c.scope) || 'portable';
-        if (sc === 'portable') return true;
-        if (sc === 'city') return clean(c.scope_city).toLowerCase() === city;
-        if (sc === 'place') return String(c.scope_wpid) === String(stop.wpid);
-        // A TEAM-BOUND CHALLENGE IS OFFERED AND SAYS WHAT IT COSTS. A route is
-        // reusable across matchups, which is the whole "thirty two tours
-        // scrambled" idea; attaching one pins this route to one club. That is
-        // an editorial decision, so it is shown rather than quietly refused.
-        if (sc === 'team') return true;
-        return false;
-      });
-    }
-    function scopeNote(c) {
-      const sc = clean(c.scope) || 'portable';
-      if (sc === 'team') return '  [pins this route to one club]';
-      if (sc === 'place') return '  [belongs here]';
-      if (sc === 'city') return '  [this city]';
-      return '';
-    }
+       EVERY ONE OF THEM, since 2026090311 dropped scope. This filter used to be
+       the whole reason scope carried a key: it offered a stop only what its
+       scope allowed -- 17 of 24 on a real Atlanta route -- and it named the cost
+       on a team-bound option, because attaching one pins a reusable route to a
+       single club.
+         **NONE OF THAT IS ENFORCED ANY MORE.** A place-bound challenge is no
+       longer bound, so "whose house is this?" can be attached at any stop, and
+       nothing but a reader will notice. What replaces it is tags, applied by
+       hand -- and if this picker is ever narrowed again, this is where a tag
+       filter goes.                                                           */
 
     /* ---- checks ----------------------------------------------------------- */
     const CHECK_RULES = [
@@ -820,22 +789,23 @@
       const none = document.createElement('option');
       none.value = ''; none.textContent = 'not chosen yet';
       sel.appendChild(none);
-      const offered = challengesFor(stop);
+      const offered = state.challenges;
       offered.forEach((c) => {
         const o = document.createElement('option');
         o.value = String(c.id);
-        o.textContent = clean(c.name) + '  (' + clean(c.kind) + ')' + scopeNote(c);
+        o.textContent = clean(c.name) + '  (' + clean(c.type) + ')';
         sel.appendChild(o);
       });
-      // A CHALLENGE ALREADY ATTACHED THAT THE SCOPE NO LONGER OFFERS IS STILL
-      // SHOWN, or changing a challenge's scope would silently blank the stops
-      // using it and nothing would say so.
+      /* A CHALLENGE THE LIST DOES NOT HOLD IS STILL SHOWN, or a challenge
+         deleted out from under a stop would silently blank the picker and
+         nothing would say so. It used to catch a scope that no longer fitted;
+         with the filter gone the only way in is a row that has been removed. */
       if (stop.challenge_id && !offered.some((c) => String(c.id) === String(stop.challenge_id))) {
         const c = chById(stop.challenge_id);
         const o = document.createElement('option');
         o.value = String(stop.challenge_id);
         o.textContent = (c ? clean(c.name) : 'challenge ' + stop.challenge_id)
-                      + '  [no longer fits this stop]';
+                      + '  [not in the library any more]';
         sel.appendChild(o);
       }
       sel.value = stop.challenge_id ? String(stop.challenge_id) : '';

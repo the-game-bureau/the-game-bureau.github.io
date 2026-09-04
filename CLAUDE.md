@@ -10006,6 +10006,94 @@ Every AI prompt here is either a **page prompt** (in this repo, copied into a ch
 
 ---
 
+## THE GIFT SHOP WAS READING A TABLE THAT HAD LOST FORTY COLUMNS (2026-09-03)
+
+Reported as "fix the gift shop", with the guess that it was about cities.
+**It was not about cities.** `public.games` has been cut from about 70 columns
+to 32 -- `archived`, `erased`, both club cities and mascots, both team keys,
+`fandom_game`, all three colours and `logo_url` are all gone, `status` replaced
+the two flags, and **`games_with_teams` no longer exists at all.** Three
+surfaces were still asking for them.
+
+| where | read | what it cost |
+|---|---|---|
+| **the room** | `games?select=...,away_team_city,...` | **400**, so the room drew **7 nodes instead of 597** and printed `column games.away_team_city does not exist` in its own error channel |
+| the public shop | `games_with_teams` | **404** on every visit, caught and silent |
+| **the nav, every public page** | `games?select=city,archived,erased` | **400**, so the games badge read an empty array |
+
+- **ONE UNKNOWN COLUMN 400s THE WHOLE REQUEST**, which is why a select that has
+  drifted takes a page down rather than losing a field. This file records that
+  for the Game Builder, TGB Atlas, the Route Builder and the builders' team
+  lists; this is the fifth and sixth instance in two days.
+- **CITIES WERE ALREADY RIGHT, AND THAT WAS MEASURED RATHER THAN ASSUMED.**
+  `gift_shop_listings.city` is filled on **969 of 969 rows**, 154 distinct, in
+  the canonical `City, FullStateName` form -- and both pages have read it since
+  2026-08-31. **`gameCity` had no callers at all.**
+- **AND THE GAMES LINK IS DEAD DATA: `game_id` is null on all 892 items and all
+  969 listings.** Nothing in the shop is tied to a game any more.
+
+### WHAT EACH REPAIR TRADES
+
+- **THE ROOM'S GAMES READ IS FOUR COLUMNS** -- `id,name,city,status`. The list
+  is the **game picker** and nothing else now, so `gameMatchupText` says WHERE a
+  game is rather than who is playing: both mascots were columns and are gone.
+- **`isLive` READS `status`**, in the room, the shop and the footer. A row with
+  no status is read as NOT live: the shop offers things for sale, so the safe
+  answer when we cannot tell is to leave it off the shelf.
+- **THE SHOP DOES NOT FETCH GAMES AT ALL WHILE `SHOW_TGB_GAMES_IN_SHOP` IS
+  FALSE**, which it is. The select is repaired anyway so flipping the flag reads
+  a table that exists. **What flipping it would now give is a card with no image
+  and no club colour** -- `logo_url` and the palette keys are gone and no page
+  can invent them.
+- **THE PROMPT'S TEAM LIST COMES FROM `public.teams`, NOT FROM THE GAMES.** It
+  walked live games for their club fields, and `addTeam` then looked each one up
+  in `teamsByKey` and preferred the canonical row for every field -- so the game
+  was only ever choosing WHICH teams. The set widens from the clubs in live
+  games to every pro club, which `addTeam` already filters. **A superset, and
+  the alternative was no teams at all.**
+- **`gameCity`, `isFandom` AND `isArchived` ARE GONE**, and `isFandomGame` and
+  `gameShopImageUrl` are kept returning nothing, with a comment saying why:
+  their callers read as real decisions, and deleting them would hide that a
+  distinction was LOST rather than dropped.
+
+### THE BOT WAS NEVER BROKEN, AND IS DELIBERATELY LEFT ALONE
+
+`public.cities` is intact -- 1,468 rows, 611 US, 535 shoppable -- **and all 154
+shop cities are in it**, checked rather than assumed. TGB GIFT SHOP BOT ran
+successfully at 20:02 today.
+
+- **THE ASK WAS CONDITIONAL** -- *if* the problem is about cities -- and it was
+  not, so the condition does not fire.
+- **POINTING IT AT `gift_shop_listings` WOULD REMOVE A CAPABILITY.** Only **154
+  of the 535** shoppable US cities carry a listing, so a bot reading the shop's
+  own cities could only ever top up cities that already have gifts and **could
+  never stock a new one.** Its whole job is to fill thin cities first.
+- **AND ITS `hide_from_gift_shop` FILTER IS STILL DOING WORK.** The pages
+  stopped reading that flag on 2026-08-31; the bot still does, which is what
+  keeps it from stocking Foxborough.
+
+### THE CHECK, AND ONE ASSERTION THAT CANNOT FAIL TODAY
+
+[gift-shop-reads.js](mc/_dev/browser-checks/gift-shop-reads.js), 13 assertions against the LIVE database. **The claim is
+one a source grep cannot make**: every read these pages actually SEND comes back
+OK. A select naming a dropped column is invisible until it is sent, which is
+exactly how this survived. **Run against the previous pages it fails seven
+ways**, including `and draws its items got: 7`.
+
+- **`archived` IS BANNED ONLY ON A `games` READ**, never blanket: it is still a
+  real column of both gift tables, and a flat ban would be wrong.
+- **THE BADGE ASSERTION IS VACUOUS TODAY AND IS SAID SO RATHER THAN TRUSTED.**
+  It compares the nav's games count against the live count, and **every one of
+  the 394 games is `archived`, so both the broken and the fixed footer answer
+  0.** It will catch a wrong badge the moment a game goes live; today it cannot
+  tell the two apart.
+- **AND ONE THING IS UNEXPLAINED.** The first diagnostic read `GAMES 371` out of
+  the nav while that fetch was 400ing. Instrumenting `setStats` shows it is
+  never called with anything but `0` on either the broken or the fixed footer,
+  there is no cache and no hardcoded default, and the badge measures 0 both
+  ways. **Recorded rather than given a cause I could not find.**
+
+
 ## THE GIFT SHOP (the room) — the gift shop admin page
 
 **RENAMED FROM STOCK ROOM ON 2026-08-20, AND THE NAME NOW COLLIDES THREE WAYS.**
@@ -17459,6 +17547,1112 @@ the first inside a file whose whole subject is checks that cannot fail.**
   through the Write tool, or with `chr(92)`; never a regex with backslashes
   through a heredoc into Python into a file.
 
+## A STOP FILTERS CHALLENGES BY TAG (2026-09-03)
+
+[2026090309](mc/supabase/migrations/2026090309_a_stop_filters_challenges_by_tag.sql), [2026090310](mc/supabase/migrations/2026090310_tags_match_all_or_any.sql) and [2026090311](mc/supabase/migrations/2026090311_challenges_lose_scope.sql), **all applied**.
+`stops.challenge_tags` plus `challenge_tags_match`, and `challenges` loses
+`scope` entirely.
+
+- **A TEAM, A CITY AND A TYPE ARE ALL JUST TAGS**, which is the simplification.
+  `challenges.tags` has held exactly that since 2026082902 -- `sports 9`,
+  `chicago 5`, `trivia 4`, `photo 3`, `JFK 1` -- so one filter says all three.
+- **ZERO, ONE OR MORE, WITH AND / OR.** `all` is contains-all and `any` is
+  overlap, which are the names the two array operators already have; **the room
+  says AND and OR**, which is what a person building a stop is thinking. The
+  toggle is drawn only at two tags or more, because at one they pick the same
+  set.
+- **MATCHED CASE-INSENSITIVELY RATHER THAN NORMALISING ANYBODY'S DATA.** Two
+  tags on file are capitalised; lowercasing on write silently rewrites what
+  somebody typed, which is what 2026090124 took out of the audiences room.
+- **THE PICK IS DEFINED ONCE**, in `tgb_pick_challenge(stop_id, used[])`, and
+  the room's Draw button calls it rather than reimplementing it -- a client-side
+  pick would be a second copy free to disagree with what play time does.
+- **NO REPEATS IS THE CALLER'S ARRAY.** A game is one instance of one team
+  playing, so only that instance knows what it has met; the function takes
+  `p_used` and excludes it. **Nothing calls it yet** -- neither engine runs a
+  generated stop.
+- **A NAMED CHALLENGE IS RETURNED EVEN IF USED.** The no-repeat rule is about
+  the random pick; refusing a named one leaves the stop with nothing.
+- **39 OF THE 63 CHALLENGES CARRY NO TAGS**, so a filter reaches the other 24.
+  Tagging the rest is editorial work in the Challenge Bank.
+
+### THE TAGS ARE A POPUP, SO THE BAR IS TWO FIELDS (2026-09-03)
+
+They were a third field in the Add bar for an afternoon. Choosing **RANDOM** in
+the challenge box opens a dialog instead, and the answer goes back into that
+same box as prose: `RANDOM`, or `RANDOM tagged sports and chicago`.
+
+- **A STOP IS TWO DECISIONS AND THE BAR SAID THREE.** The tag filter applies to
+  ONE OF THE TWO answers and only when that answer is RANDOM -- which is a
+  minority of stops -- so a field permanently beside both of them was a control
+  most of the time hidden and always taking a third of the row.
+- **THE POPUP IS ASKED AT THE MOMENT THE CHOICE IS MADE**, which is the shape
+  that makes it a refinement of the challenge rather than a fourth thing.
+- **THE BOX SHOWS THE FILTER AND `state.pendingTags` IS WHAT IS READ.** The
+  tags are **never parsed back out of that prose** -- `randomLabel()` is the one
+  composer, and a reader would be a second implementation free to disagree with
+  it. Reopening starts from what was last settled rather than from nothing.
+- **`change`, NOT `input`, TO OPEN IT.** A datalist pick fires both, and typing
+  R-A-N-D-O-M fires `input` on the last keystroke of a word somebody may still
+  be writing -- the dialog would open under them mid-word.
+- **PRESSING THE BOX WHILE IT HOLDS ONE REOPENS IT**, with `preventDefault`,
+  because the box shows prose and nothing else edits it: that is the only way
+  back to a filter already chosen.
+- **NAMING A CHALLENGE DROPS THE FILTER.** A filter that no longer applies must
+  not be filed, and `stops_fixed_or_filtered` would refuse the pair anyway.
+- **THE COUNT IS ON THE DIALOG'S OWN HEAD**, and it is the whole reason the
+  dialog says anything: a filter reaching nothing is a team standing in the
+  street with no challenge. Drawn in the red pen at zero rather than refused --
+  the bank grows, so a filter matching nothing today may match tomorrow; what
+  must not happen is filing one without seeing it.
+- **ESCAPE CLOSES THE ONE ON TOP.** The two are never open together today, and
+  leaving the order to chance is how Escape dismisses the wrong thing later.
+- **BOTH BOXES SAY WHAT TO DO**: `Choose a Waypoint` and `Choose a Challenge`.
+  - **THE CHALLENGE ONE READ `RANDOM`, WHICH IS A REAL ACCEPTED VALUE** and the
+    first option in its own datalist -- so an empty box looked like a filled
+    one. **Same fault the waypoint field had** when its placeholder was a real
+    row's address, met from the other direction: there the hint could be
+    mistaken for data, here it could be mistaken for a choice already made.
+  - **IT WAS ALSO NAMING THE DEFAULT, and that fact is live**: `chalFromLabel('')`
+    returns random, so an empty box really is RANDOM. **Moving the placeholder
+    without moving that would make a rule invisible**, so the tooltip carries it
+    -- and a check asserts the tooltip still says so rather than only asserting
+    the new words.
+
+#### YOU COULD NOT CHOOSE TWO TAGS, AND THE CONTROL WAS THE REASON
+
+It was one text box bound to a datalist. **A DATALIST PICK REPLACES THE WHOLE
+VALUE**, so choosing a second tag wiped the first and the only route to more
+than one was typing the comma yourself -- which the tooltip told you, and which
+is not choosing. **The box is 24 chips now, one per tag in use, each a toggle.**
+
+- **BUILT FROM THE ROWS**, so it cannot offer a tag no challenge carries, and
+  **each chip says how many are behind it** -- the same reason every other
+  picker in this project carries a count.
+- **TWO SPELLINGS OF ONE TAG ARE ONE CHIP**, because the resolver folds case:
+  `history` and `History` must not be separately addable. **Which spelling is
+  SHOWN is the most-used one, ties to lowercase** -- taking whichever challenge
+  was read first made the chip depend on iteration order. **The real fix is the
+  data**, in the Challenge Bank; this only stops the display wobbling.
+- **THE CHIPS ARE BUILT ONCE PER OPEN AND A PRESS NEVER REBUILDS THEM.** The
+  first cut repainted the list on every toggle, which **destroys the button that
+  was just pressed** -- focus goes to the body, so a keyboard user cannot reach
+  a second tag, and any handle taken before the press is left holding a detached
+  node. `buildTagChips` runs on open; `paintTagDialog` writes `aria-pressed`
+  onto the buttons that are there.
+  - **THAT IS ALSO HOW THE CHECK FOUND IT.** Its captured array went stale after
+    the first click and it reported `chicago` as unfindable on a page that
+    plainly offered it -- **which reads as a page fault and was the page's**,
+    one layer down.
+- **THE CHOSEN TAGS ARE SORTED, so the order they were pressed in carries
+  nothing.** `all` is contains-all and `any` is overlap, both order-independent,
+  so one filter chosen two ways must read and store one way or two identical
+  stops look different on the list.
+- **THE DIALOG HAS ITS OWN DRAFT, COPIED NOT SHARED.** `state.tagDraft` is what
+  the chips edit and `useTagDialog` commits it -- with the chips writing
+  straight to `pendingTags` there would be nothing for Cancel to go back to.
+- **`parseTags` WENT WITH THE BOX**, having no caller left: it turned a comma
+  string into tags and there is no comma string. `randomSpec` reads the row's
+  own array. A note sits where it was, so nobody rebuilds it for a control that
+  is gone.
+- **THE CHIPS SCROLL AT 220px RATHER THAN GROWING THE PANEL.** 24 tags fit in
+  145px today and the bank grows; a dialog that gets taller with the catalogue
+  is one that eventually will not fit.
+- **PROVED BY PUTTING THE REBUILD BACK**, where five assertions fail together --
+  `["sports"]` after choosing two, the chips gone from under the press, and the
+  focus lost.
+
+#### TWO LAYOUT FAULTS THE 49 ASSERTIONS PASSED STRAIGHT OVER
+
+Both were visible in a screenshot and invisible to every assertion, which is the
+fifth time this project has recorded that shape.
+
+- **`.stop-field` IS `flex: 1 1 240px`, A WIDTH FLOOR FOR THE ADD BAR.** The
+  dialog body is a **COLUMN**, so the basis became a HEIGHT: a 34px input sat in
+  a 240px box and the panel opened **411px tall for three controls**, most of it
+  a hole. `.tag-body .stop-field { flex: 0 0 auto }` -- 411px to 219px, which is
+  exactly its content. **Third instance of a flex shorthand carried into a
+  container of the other direction**, after the Game Builder's `flex: 0 1 44rem`
+  setting a tagline 704px tall.
+- **AND / OR WAS TWO WORDS RATHER THAN A CONTROL.** It wore the label's own type
+  because it used to be tacked onto a field label -- correct there, and
+  unreadable alone on a row with nothing to read as part of. **Its comment was
+  still describing that deleted context**, which is the page lying about itself.
+  Both options are outlined now and the chosen one filled, touching, with only
+  the outer corners rounded.
+- **PROVED BY PUTTING BOTH BACK**, where the three new assertions fail naming
+  the real values: `{"field":240,"input":34}`, `411`, and both backgrounds
+  `rgba(0, 0, 0, 0)`. An assertion that has never failed on the bug it is for is
+  an assertion nobody should trust.
+
+**AND MY OWN SCREENSHOT HARNESS COULD NOT LOAD THE ROOM.** It stubbed
+`init: (cb) => ...`, and the callback is an **OPTION** -- `create(o)` takes
+`o.onAuthorized`. The room sat empty with no error, no failed request and no
+console line, which reads as a page that will not load. **The suite's own stub
+is the copy to take**; this file already records two other faults in that same
+stub.
+
+### WHERE IT IS ASKED IS GONE, AND THE PREVIEW WITH IT (2026-09-03)
+
+Three things off the Challenge Bank: the `ladder_key` field, the "How it reads
+in a real game" preview, and the word `Prompt` on the question box.
+
+- **WHERE A CHALLENGE APPLIES IS A TAG NOW**, which is the whole argument: a
+  second mechanism saying the same thing is one that can disagree with it.
+  A city-specific question carries a city tag.
+- **THE COLUMN STAYS AND IS WRITTEN BLIND.** `challenges_ladder_key_belongs_to_trivia`
+  **refuses a trivia row WITHOUT a key** and a key on every other kind, in the
+  same breath -- so the column cannot simply stop being written: **nulling it
+  would refuse every trivia save.** `triviaLadderKey` is the one writer:
+  **the stored key is carried through untouched** (all 38 keep theirs) and **a
+  NEW trivia row gets `*`, the portable rung**, asked of anybody, which is what
+  "not city specific" means.
+- **SO CHANGING AN EXISTING KEY IS SQL**, and 24 distinct keys are now editable
+  from no screen. Same trade the away/home team pickers and the three date
+  fields already made in the Game Builder.
+- **`tgb_trivia_for` IS THE ONE READER AND NOTHING CALLS IT**, checked rather
+  than assumed -- so nothing is broken today; what is lost is that a question
+  written from now on cannot be keyed to a fandom, and that function is what
+  decides whether a question is about YOUR team or THE ENEMY. **A tag cannot
+  reproduce that**: the side is computed at play time from the rung against the
+  game's own two audiences. If keyed trivia is wanted again it needs a field
+  back, not a tag.
+- **THE ORPHAN FINDING WENT WITH THE FIELD.** It reported a rung resolving to
+  nothing -- the one thing about trivia no other screen can see -- and its call
+  to action was *"pick a rung from the list"*. **There is no list and no box**,
+  so it became a fault nobody in this room could act on, which is the one shape
+  of finding this project removes. **The CHIP stays**, so a row still says what
+  its stored key resolves to.
+
+#### `kind` IS `type`, `freeform` IS `any_answer` (2026-09-03)
+
+[2026090313](mc/supabase/migrations/2026090313_kind_becomes_type_and_freeform_becomes_any_answer.sql), **applied**. Two changes on one table in one transaction,
+because the second is a value of the first.
+
+- **`audiences.type` ALREADY MEANT THIS**, so two tables were saying one idea
+  two ways -- a difference a reader has to learn for nothing.
+- **`events.kind` IS DELIBERATELY NOT TOUCHED.** Free text, no CHECK, 21 values
+  that are mostly SeatGeek's own taxonomy slugs, read by the room, both pull
+  RPCs and the importer. Its own day's work.
+- **SEVEN CHECK CONSTRAINTS NAME THE COLUMN AND ALL SEVEN FOLLOWED THEMSELVES**
+  -- a constraint holds a node tree, so its DEFINITION updates on a column
+  rename. **Its NAME does not**, and `challenges_kind_check` was renamed with
+  it: a table whose column is `type` and whose check says `kind` half-remembers
+  what it was called, which is the fault `routes` had keeping `paths_pkey`.
+- **`tgb_pick_challenge` FOLLOWS NOTHING** and was patched in the same
+  transaction. **Its body is TEXT resolved at RUNTIME**, so a stale `c.kind`
+  raises nothing at deploy and waits for a caller -- and the caller's symptom
+  would be a stop failing to draw a random challenge, unattended.
+- **PROVED BY A REAL CALL, not by the absence of an error**:
+  `tgb_pick_challenge(<a real stop>)` returns 89. A `create or replace` that
+  returns cleanly says nothing about whether the function runs.
+- **AND THE ROUTE BUILDER FILTERED ON IT.**
+  `pageAll('challenges', { kind: 'neq.trivia' })` -- **a filter on a column that
+  is gone 400s the WHOLE request**, so the picker would have come back empty
+  with nothing saying why. Same break `city.asc` caused in TGB Atlas hours
+  earlier. **Grep the ROOMS for a renamed column, not only the database.**
+
+**IDENTIFIERS DID NOT MOVE**, per the bargain the Tape Room made through five
+renames of its verbs: `state.kind`, `fKind`, `batchKind`, `kindFilter`,
+`KIND_VALUES`, `.ch-kind`, `.sv-kind`. **The DATA and the VISIBLE COPY moved.**
+
+#### A QUESTION IS NAMED BY ITS ANSWER (2026-09-03)
+
+[2026090314](mc/supabase/migrations/2026090314_a_question_is_named_by_its_answer.sql), **applied**. Nine rows of type `question`.
+
+- **THE NINE OLD NAMES ARE IN THE MIGRATION'S HEADER, with the UPDATE that puts
+  them back.** This table has NO BACKUP anywhere and a row vanished from it
+  earlier the same day with no identifiable cause. **Anything that overwrites
+  authored text writes the old value down first.**
+- **THREE OF THE NINE PRODUCE A NAME NOBODY WOULD WRITE, and they were named
+  before the statement ran rather than after**: `{{away_team_geo}}` and
+  `{{league}}` are raw variable tokens -- **the NAME is drawn as plain text, only
+  the PROMPT resolves variables** -- and `1825, 18 25, eighteen twenty-five` is
+  an answer carrying its accepted VARIANTS, which is a matcher rather than a
+  name. **All nine were done as asked**; scaling the ask down is not mine to do.
+- **TRIVIA IS EXCLUDED AND THAT IS A READING.** 37 rows also have answers and
+  are also questions in the ordinary sense; the ask said "questions" the day
+  `kind` became `type`, so it is read as the TYPE. **Including them is one word
+  and should be deliberate**: trivia answers are routinely one word, so 37 rows
+  would become a list that cannot be told apart.
+
+#### `trivia` IS `multiple_choice` (2026-09-03)
+
+[2026090315](mc/supabase/migrations/2026090315_trivia_becomes_multiple_choice.sql), **applied**. 38 rows, the largest type in the table.
+
+- **THE UNDERSCORE IS NOT A LIBERTY.** The value is used as a CSS class to
+  colour the badge (`is-` + type), and a space in a class name is two selectors
+  rather than one; `any_answer` took one an hour earlier for the same reason.
+  **THE ROOM DRAWS UNDERSCORES AS SPACES**, so the badge reads MULTIPLE CHOICE
+  and ANY ANSWER, which is what was asked for.
+- **`trivia` IS ALSO A TAG ON FOUR ROWS AND WAS NOT TOUCHED.** A tag and a type
+  are different columns; a sweep counting the word would have rewritten them.
+- **SIX CONSTRAINTS TEST THE VALUE, and that is the half that would have been
+  silent.** Five read `type <> 'trivia' OR <rule>`, so **moving the rows without
+  them leaves all five passing vacuously** -- every multiple-choice row would
+  stop being checked for a prompt, an answer, a one-word free answer, an answer
+  hidden in its own question, and the `One word` prefix, and nothing would say
+  so. Recreated against the new value, which validates them against the moved
+  rows on the way in. **The `not valid` one keeps its `not valid`**: one row on
+  file names its own answer in its question, and recreating it validated would
+  refuse the whole migration for the row it was written to spare.
+- **THE LADDER RULE HAD TO COME OFF FIRST, AND THE FIRST RUN PROVED IT.** It is
+  an exclusive OR rather than an implication, so a row LEAVING `trivia` while it
+  still carries a key fails the other branch -- `23514` on the update, whole
+  transaction rolled back, nothing changed. **That is the argument for one
+  transaction**, and it is a shape to expect whenever a value moves.
+
+**AND IT SURFACED A FUNCTION I BROKE THIS MORNING.** `tgb_trivia_for` reads
+`t.kind`, and 2026090313 renamed that column -- **my sweep matched `c.kind` and
+this function's alias is `t`**, so it was missed. A call answered `42703 column
+t.kind does not exist`. Nothing calls it, so nothing failed. **A column name is
+a word, not a substring, and the sweep should have been `\mkind\M` over the
+whole definition** -- which is the rule this file already states, applied to the
+constraint check in that same migration and not to the function check. Repaired
+here, and **proved by a call rather than by a clean `create or replace`.**
+
+**AND `KIND_VALUES` STILL SAID `freeform`, WHICH WAS LIVE AND SILENT.** 2026090313
+renamed that value and I did not move the list, so the picker offered a value the
+CHECK refuses **and an `any_answer` row opened showing `question`** -- one save
+from silently rewriting what kind of thing it is, which is the exact fault that
+list's own comment warns about.
+
+- **NOTHING WAS CHECKING FOR IT**, and the assertion that would have is now
+  there in both directions: **every type on file is offered by the picker**, and
+  the picker offers nothing the table has retired. **Read from the live rows**,
+  never from a second copy of the six in the check -- that copy would go stale
+  the same way.
+- **RUN AGAINST THE STALE LIST IT FAILS SIX WAYS**, naming them:
+  `missing: ["multiple_choice","any_answer"]`.
+- **AND THE ROUTE BUILDER'S FILTER IS THE QUIETER HALF OF THE SAME CLASS.**
+  `type: 'neq.trivia'` on a value that no longer exists **does not 400 -- it
+  matches every row**, so that picker would have started offering the 38
+  multiple-choice questions it exists to exclude. A renamed COLUMN is loud; a
+  renamed VALUE is not.
+
+#### THREE SORTS, AND A DUPLICATE CHECK (2026-09-03)
+
+##### THE LIST SORTS BY NAME, NEWEST OR TYPE
+
+A fourth fieldset, **Sort**, between Find and Issues. Each order is a different
+question: which challenge is this, what just landed, and what kind are these.
+
+- **THIS REVERSES TWO REMOVALS, AND SAYING SO IS THE POINT.** The Tape Room
+  deleted its three sort buttons and the Audiences room deleted its five on
+  2026-09-01 -- *"the list is one order: name, A to Z"* -- and what that cost
+  was written down at the time: nothing could be read in any other order. Asked
+  for here, and built to the rules that version established rather than from
+  scratch.
+- **A RADIO GROUP, NOT THREE BUTTONS.** One order at a time is what a radio
+  group MEANS and the browser keeps the rule; three buttons need a hand-rolled
+  `aria-pressed` set kept in step with the paint, which is a control painted in
+  one place and read in another. The arrow keys and one accessible name come
+  free.
+- **THE INPUT IS HIDDEN AND STILL IN THE DOM.** `display: none` would take it
+  out of the tab order and out of the radiogroup a screen reader sees, so it is
+  laid over its own label at zero opacity and the SPAN is painted. **The focus
+  ring goes on the span**, or a keyboard gets no answer at all.
+- **BUILT FROM `SORTS`**, so a fourth order is one entry in that object. The
+  `checked` attribute is written at build time rather than painted afterwards,
+  so the control and `state.sort` agree before anything else runs.
+
+**FOUR RULES, EVERY ONE PAID FOR BY A ROOM THAT GOT IT WRONG:**
+
+- **SORT ON WHAT THE CELL SHOWS.** The badge draws `multiple_choice` as MULTIPLE
+  CHOICE, so the type order reads the drawn label -- ordering a list by
+  something no reader can see looks exactly like a broken control. `typeLabel`
+  is the one place a type becomes words, so the badge and the order cannot
+  disagree about where a row belongs.
+- **A BLANK SINKS, IN EVERY ORDER**, and is tested BEFORE the direction is
+  applied rather than being flipped with it. A row with no type has no position
+  among types.
+- **TIES BREAK ON THE ID.** `type` has six values across 104 rows, so a tie is
+  the common case there, and without a second key a row moves under you as you
+  type in the search box.
+- **A SORT HIDES NOTHING.** It does not light Clear, and **Clear does not reset
+  it**: Clear's job is to WIDEN the list, and throwing away the order somebody
+  chose because they could not find a row would be a second, unrelated act.
+- **AND IT GOES BACK TO THE TOP.** The list grows as you reach its foot, so
+  re-ordering from halfway down would leave the foot instantly in view and the
+  observer would fill the list back out to reach you. `repaint()`, the same path
+  every filter takes.
+- **MEASURED AT SIX WIDTHS**: one bar row to 1200px, two at 1000 and 860, four
+  at 700 and 390, and **no sideways scroll at any of them.**
+
+##### THE ISSUES CHECK FINDS DUPLICATES
+
+**13 pairs were on file within an hour of the NFL prompt shipping** -- 26 of 104
+rows. The prompt was run twice, and its already-covered list is built when the
+prompt is BUILT, so a second run from the same page cannot know what the first
+one filed.
+
+- **IT CANNOT BE A `CHECK_RULES` ENTRY.** Every rule there tests ONE row, and
+  being a duplicate is a fact about a PAIR. The Events room hit exactly this and
+  solved it the same way: a map computed over the whole table before the sweep.
+- **KEYED ON THE QUESTION, AND SEPARATELY ON THE NAME**, because they are two
+  different mistakes -- the same question twice is a real duplicate, the same
+  NAME on two different questions is a list you cannot read -- and the messages
+  differ: **delete one** against **rename one**. A row can carry both.
+- **COMPARED ON WORDS, NOT ON THE STRING.** Punctuation, case and spacing are
+  forgiven, which is what two AI runs of one prompt actually differ by.
+- **ONLY THE SECOND ROW CARRIES THE FINDING, AND IT NAMES THE FIRST.** Flagging
+  both would put one fact in the room twice, and the pair is reachable from
+  either end because the message carries the other id.
+- **THE ORDER IS THE ID, NEVER THE LIST'S CURRENT SORT.** Which row is "first"
+  has to be a fact about the rows rather than about the order you happen to be
+  looking at them in -- otherwise changing the sort would move the finding from
+  one row of a pair to the other. Asserted both ways round.
+- **TWO BLANKS ARE NOT DUPLICATES.** Two unwritten rows are two rows to write,
+  and `no-prompt` already reports each of them.
+- **REBUILT ON EVERY RENDER**, before `updateTitle` counts the issues and before
+  `visible()` filters on them. A stored map would go stale the moment somebody
+  edited a question.
+
+##### AND THE FIXTURE WAS MODELLING SOMETHING THE TABLE CANNOT HOLD
+
+`challenge-bank.js` seeded seven rows sharing one prompt -- **which the new rule
+correctly reports as six duplicates**, so an assertion comparing a review row's
+tint against its own failed on a page that is perfectly correct.
+
+- **THE PROMPTS ARE DISTINCT NOW, and still long**: long because the real ones
+  are and a short one hides the wrap bug, distinct because seven identical
+  questions is not a state the room can be in. **Fifth "the fixture was too
+  tidy" in three days.**
+- **AND THE ASSERTION PICKS A ROW THAT IS NOT ALREADY IN REVIEW**, which is the
+  more robust half: adding `.is-review` to a row that has it changes nothing,
+  and the check would then be comparing the red pen with itself.
+
+
+#### A SIXTH TYPE: `waypoint_reveal` (2026-09-03)
+
+[2026090318](mc/supabase/migrations/2026090318_a_sixth_type_waypoint_reveal.sql), **applied**. Drawn **WAYPOINT REVEAL**; the underscore is the
+CSS-class convention `type_answer` and `multiple_choice` already carry.
+
+- **IT NEEDED A MIGRATION, unlike `events.kind`**, and that was checked rather
+  than assumed: `challenges.type` carries a CHECK, so a new value is refused
+  until the array names it. `events.kind` is free text and a new kind there is
+  one constant.
+- **NOTHING ELSE HAD TO CHANGE, and why is what makes a sixth type cheap.** The
+  five `challenges_mc_*` rules are written `type <> 'multiple_choice' OR
+  <rule>`, so a new type passes them vacuously -- correct, since requiring a
+  reveal to carry an answer or four options would be inventing a rule nobody
+  asked for. `challenges_ladder_key_belongs_to_type` requires `ladder_key IS
+  NULL` on everything else, which is also right: a ladder key ties a question to
+  a club or a city, and a reveal is tied to the stop it sits at.
+- **THE ONE THING THAT HAD TO MOVE WITH IT IS `KIND_VALUES`.** A value the CHECK
+  accepts and the picker does not offer is unreachable; one the picker offers
+  and the CHECK refuses is a save that fails with a constraint name. **`freeform`
+  was the second of those for a few hours this morning**, which is why the check
+  asserts both directions.
+- **PROVED BY MAKING THE CHECK ACCEPT AND REFUSE**, in one rolled-back
+  transaction: `waypoint_reveal` accepted, `not_a_type` refused, 0 leftovers.
+  **A `create` that returns without error says nothing about either.**
+
+##### THE HUE WAS MEASURED, AND THREE CANDIDATES WERE REFUSED
+
+Olive `86, 96, 28`. Eight were scored against two bars -- 4.5:1 as its own text
+on its own 0.10 wash, and enough Lab deltaE from the five already here **and
+from the red pen**.
+
+- **RUST 12.5, BRICK 14.2 AND AMBER 29.1 FROM THE RED PEN**, so all three were
+  refused: a badge that reads as a row in review is the fault this palette's own
+  comment exists to prevent. **Plum was refused for sitting 12.8 from the violet
+  already here.**
+- **OLIVE MEASURES 5.89 CONTRAST, 31.7 FROM ITS NEAREST NEIGHBOUR AND 53.5 FROM
+  THE PEN** -- the widest separation on both counts of the five that passed.
+- **HUE ALONE WOULD HAVE PICKED WRONG.** Amber is only 30 degrees off the pen
+  and reads nothing like it, which is why the bar is deltaE.
+- **THE COLUMN STILL HOLDS.** `WAYPOINT REVEAL` is fifteen characters, the same
+  as `MULTIPLE CHOICE` at 109px, so the 112px cell is unchanged and every badge
+  still shares one x.
+
+##### AND THE PALETTE CHECK HAD ITS OWN COPY OF THE TYPE LIST
+
+It scored five hardcoded names, so **it could not see a sixth type at all** --
+it would have gone on passing while the new badge drew in the muted fallback.
+That is the same shape as `KIND_VALUES` rotting when `freeform` moved, one
+layer out. It reads the page's own `KIND_VALUES` now and cannot miss a type the
+room offers.
+
+
+#### THE ADD BAR HANDS OVER AN NFL TRIVIA PROMPT (2026-09-03)
+
+`ADD` is **Challenge | NFL trivia**. The second opens a dialog holding one
+prompt: one multiple choice question per NFL club, for an AI to answer with a
+single `insert` block a person runs.
+
+- **IT WRITES NOTHING, and the check asserts that.** A static page cannot call
+  an AI, so the deliverable is SQL -- the same split the Waypoint Library's own
+  prompt, the Events room's and the Socializer's all make.
+- **IT IS BUILT FROM THE ROWS, which is the whole design.** It lists the NFL
+  destinations that have **no `multiple_choice` question yet** -- 28 of 32
+  today, since 4 already have one -- so it cannot ask about a club that is done
+  and cannot miss one. **A list written into the page would be stale the first
+  time somebody wrote a question by hand.** The check proves it REACTS: give a
+  club an answer in memory, reopen, and it drops out with the count following.
+- **THE KEY IS THE POINT OF THE LIST.** Each club is printed with its exact
+  `destinations.id` -- `chicago-il-nfl-bears` -- which is what `ladder_key`
+  must carry. **A key that is not one of those resolves to nothing, the row
+  reads perfectly, and the question is never asked of anybody**, so the prompt
+  says copy it exactly and the check asserts every printed key resolves.
+- **THE READ HAD TO WIDEN.** `loadLadderCatalogue` selected `id` alone; it
+  carries `city, state, nickname, league` now, so the prompt names the clubs
+  from the catalogue rather than from a second list of its own.
+- **THE WORKED EXAMPLE QUOTES A REAL KEY AND SAYS IT IS AN EXAMPLE.** An
+  invented one would contradict the copy-it-exactly rule two paragraphs above;
+  a real one unlabelled is a row a model may simply file. **The first version
+  had it unlabelled and the check caught it** -- `wronglyNamed:
+  ["chicago-il-nfl-bears"]` -- which is the assertion being right about the
+  prompt rather than about the club list.
+- **THE PROMPT CARRIES THE RULES THE DATABASE ACTUALLY ENFORCES**, in its own
+  words: no answer inside its own question (`challenges_mc_answer_not_in_prompt`,
+  which is `NOT VALID` and so exempts existing rows and **not new ones**), never
+  open with "One word", four options with the answer among them, tags lowercase
+  with no spaces. Plus the editorial ones this project has already paid for:
+  verify or omit, prefer a fact that does not move, combative never cruel, and
+  no em dash.
+- **IT ASKS FOR A SHORT NAME, NOT THE QUESTION AGAIN.** The room lists rows by
+  name and draws the prompt underneath, so a name that repeats it makes every
+  row say the same thing twice. `Bears: Sweetness`.
+- **THE SHEET IS EDITABLE AND THE DOORS COPY THE BOX**, not the generated text
+  -- a run is often wanted against part of the job, and copying what was built
+  would throw an edit away in silence. Reset appears only once the two differ.
+- **THE COPY IS NOT AWAITED AND THERE IS NO `preventDefault`.** The new tab has
+  to come from the browser's own handling of a click on a link; awaiting the
+  clipboard pushes the open into a later task, which is exactly what a popup
+  blocker refuses.
+- **THE BACKDROP GESTURE GUARD IS COPIED FROM THE EDITOR.** A `click` fires on
+  the nearest common ancestor of the press and the release, so selecting text in
+  the sheet and letting go past the panel edge would otherwise shut the dialog
+  and take the edit with it. **Escape closes the one on top**, stated rather than
+  left to chance.
+
+##### THE PROMPT NAMES THE TAG VOCABULARY, AND POSITIVE IS THE HALF NOBODY GUESSES
+
+The NFL prompt asked for `nfl` and the club word. It now asks for four tags on
+every question: **the league, the city, the club, and positive or negative.**
+
+- **POSITIVE AND NEGATIVE SAY WHICH SIDE A QUESTION IS WRITTEN FOR, not whether
+  the fact is a happy one**, and the prompt says so in those words because the
+  other reading is the obvious one. **Every club is two audiences at once**: a
+  game is pitched at a travelling fandom, so the club they follow is the TARGET
+  and the club they are visiting is the RIVAL, and the same club is one or the
+  other depending on whose game it is. That is the Know Your Enemy / Super Fan
+  Check pair this file already records as one fact seen from two sides -- and
+  the tag is what lets a question say which use it is for.
+- **ONE OF THE TWO, NEVER BOTH.** A question tagged neither cannot be aimed at
+  all; one tagged both says nothing.
+- **THE STANDING RULE SURVIVES ON THE NEGATIVE SIDE and is restated there**:
+  combative, never cruel, the joke on the club rather than a person or a town,
+  and no tragedy as a punchline. Without it, "negative" reads as a licence.
+- **THE WORKED EXAMPLE CARRIES ALL FOUR**, `array['nfl', 'chicago', 'bears',
+  'positive']`, because an example that shows the shorter shape teaches the
+  shorter shape.
+- **THE CITY IS HYPHENATED IN THE EXAMPLE THE PROMPT GIVES** -- `new-orleans`,
+  never `new orleans` -- which is the tag rule the room now enforces on the way
+  in anyway. The prompt saying it too means the SQL arrives correct rather than
+  being corrected.
+
+
+##### AND THE CANONICAL BRIEF WAS STALE FROM THIS MORNING
+
+[trivia.prompt.md](mc/_dev/prompt-tools/trivia.prompt.md) is the file a human writing trivia by hand reads, and its
+whole point is that **a writer who trips a constraint reads a sentence rather
+than a `23514`**. 2026090313 and 2026090315 renamed the column and the value, so
+**five of its six constraint names, three of its SQL snippets and its worked
+`insert` all named things that no longer exist** -- it would have produced SQL
+the database refuses.
+
+- **THE FILE'S OWN RULE SAYS TO CHANGE IT IN THE SAME COMMIT AS A CONSTRAINT**,
+  and neither migration did. Swept here: `kind` to `type`, `'trivia'` to
+  `'multiple_choice'`, and the table repointed at the `challenges_mc_*` names.
+- **IT NOW SAYS `challenges_mc_answer_not_in_prompt` IS `NOT VALID`**, which is
+  the half a writer needs: one row on file names its own answer and is spared,
+  and everything written from now on is checked.
+
+##### AND THE HARNESS WAS THE BROKEN HALF ONCE MORE
+
+`navigator.clipboard` is a **read-only getter on the prototype**, so the stub's
+plain assignment was silently ignored and recorded nothing -- **reading as the
+door failing to copy rather than as the harness failing to listen.**
+`Object.defineProperty` is what takes. Fifth time this session.
+
+
+#### `any_answer` AND `type_the_answer` MERGE INTO `type_answer` (2026-09-03)
+
+[2026090317](mc/supabase/migrations/2026090317_two_typed_types_become_type_answer.sql), **applied**. 6 + 9 = 15 rows, the largest type after
+`multiple_choice`. **This supersedes the rename in the note below, which
+happened an hour earlier.**
+
+- **WHAT THE TWO MEANT, measured before the file was written**: all 9
+  `type_the_answer` rows carried an answer to check against and all 6
+  `any_answer` rows carried none. Both were typed; **what told them apart was
+  whether the reply could be MARKED.**
+- **THAT DISTINCTION IS DISCARDED AND IS NOT RECOVERABLE FROM THE TYPE.** A
+  typed challenge with no stored answer is now an ordinary row -- 6 of the 15 --
+  so nothing can tell one meant to be judged by the team from one that lost its
+  answer. `answer` is the only thing left saying which, and it says the same for
+  both.
+- **SO THE `no-answer` FINDING IS RETIRED IN THE SAME COMMIT**, and that is the
+  cost stated rather than discovered. Kept, it would redden **6 of 63 rows** for
+  a state that was correct five minutes earlier, **and its own call to action --
+  "or change the type" -- names a type that no longer exists.** That is the
+  shape of finding this project removes; the orphan ladder-key finding went for
+  the same reason on the same day. **WHAT IS LOST: nothing reports a marked
+  challenge whose answer was deleted.**
+- **BOTH OLD VALUES LEAVE THE CHECK ARRAY.** This is a merge rather than a
+  rename, so neither may be written again -- otherwise the two start diverging
+  back apart in silence.
+- **THE COLUMN DEFAULT MOVED WITH THEM**, inside the same transaction. Left
+  behind, **every insert that omits `type` arrives as a value the narrowed CHECK
+  refuses**, so the room's own add path starts failing on a column nobody
+  touched.
+- **AND THE ONE APPARENT DEPENDENCY WAS READ RATHER THAN COUNTED.**
+  `replace_game_graph` matched -- on **`accepts_any_answer`**, a column of
+  `game_nodes` with nothing to do with `challenges.type`. **Fifth time in two
+  days** that reading the line has saved a rewrite.
+- **PROVED BY EXERCISING THE DEFAULT AND BOTH REFUSALS**, never by reading the
+  catalogue: an insert omitting `type` returns `type_answer`, and `any_answer`
+  and `type_the_answer` are each refused `23514`. Probes rolled back, 0
+  leftovers. 15 rows, 9 marked and 6 not.
+
+##### AND THE TYPE COLUMN HAD NOT BEEN A COLUMN SINCE THIS MORNING
+
+Found by measuring the badges while re-checking the palette, not by looking.
+
+- **`flex: 0 0 92px` IS A BASIS, NOT A CAP.** A flex item's automatic minimum
+  size is its CONTENT, and the badge is `nowrap` and cannot shrink -- so
+  **MULTIPLE CHOICE grew its own cell to 109px and pushed the name 17px right on
+  38 of 63 rows.** The cell exists precisely so the badges end at one x.
+- **THE RULE READ AS CORRECT THE WHOLE TIME**, which is why nothing caught it:
+  `0 0 92px` looks like a fixed width. `min-width: 0` is what makes the basis
+  bind, and the number is raised to **112px**, which holds the longest value.
+- **THE ASSERTION IS THAT ALL THE CELLS SHARE ONE WIDTH**, measured -- not that
+  the rule is present, which a source check would have said was fine. Run
+  against the old width it fails naming the real numbers: `cell 109` against
+  `92`, `nameX 140` against `124`.
+- **AND THE FIXTURE COULD NOT HAVE EXERCISED IT.** Its seven rows were all one
+  type, so one badge width, so the check was comparing a single cell with
+  itself. **A fixture of one type cannot say anything about a column.** It
+  carries five types now, MULTIPLE CHOICE among them. **Fourth "the fixture was
+  too tidy" in two days.**
+- **THE PALETTE WAS RE-MEASURED because the amber left with `any_answer`**:
+  worst contrast **5.56** (minigame), closest pair **20.1**
+  (photo/operations), nearest the red pen **55.3** (operations). Three comments
+  stating the old figures, the old width and a `six values` count were corrected
+  in the same pass -- **a comment describing what is no longer true is worse
+  than none.**
+
+
+#### `question` IS `type_the_answer` (2026-09-03)
+
+[2026090316](mc/supabase/migrations/2026090316_question_becomes_type_the_answer.sql), **applied**. 9 rows, drawn **TYPE THE ANSWER**.
+
+- **THE UNDERSCORES ARE THE CONVENTION SET TWICE TODAY.** The value is a CSS
+  class (`is-` + type) and a space in a class name is two selectors, so
+  `any_answer` and `multiple_choice` both took one; the badge draws underscores
+  as spaces.
+- **IT NAMES THE RIGHT HALF, and the two typed types are worth telling apart
+  because they now read close together.** Measured before the file was written:
+  **all 9 `question` rows carry an answer to check against, and all 6
+  `any_answer` rows carry none** -- the second is judged by the team, as a photo
+  and a minigame are. Both are typed; only one can be marked.
+- **THE COLUMN DEFAULT WAS `'question'` AND MOVED WITH THE VALUE.** That is the
+  half that would have been silent: left behind, **every insert that omits
+  `type` arrives as a value the narrowed CHECK refuses**, so the room's own add
+  path starts failing on a column nobody touched. Both changed inside one
+  transaction, so no window exists where the default and the check disagree.
+- **NO CONSTRAINT IS WRITTEN `type <> 'question' OR ...`**, unlike
+  `multiple_choice`, so nothing could quietly stop enforcing -- and **no
+  function names it.** Checked rather than assumed.
+- **`question` IS ALSO A QUERY-STRING KEY IN BOTH ENGINES AND THE LOCKER
+  MINIGAME** (`url.searchParams.set('question', ...)`), which has nothing to do
+  with this column. A sweep counting the word rather than reading the line would
+  have rewritten all three. **Fourth time in two days.**
+- **PROVED BY EXERCISING THE DEFAULT, not by reading it**: an insert omitting
+  `type` returns `type_the_answer`, an update to `question` is refused
+  `23514 challenges_type_check`, and the probe rolled back with 0 leftovers.
+  **A `column_default` read back from the catalogue says what is declared, not
+  what an insert does.**
+
+##### THE ROOM'S FALLBACK IS A SECOND COPY OF THAT DEFAULT
+
+`readForm` writes `|| 'type_the_answer'` and `openEditor` shows the same, so a
+rename that moves the value and not those two **puts a refused value in front of
+somebody on every untyped row** -- which is exactly what `KIND_VALUES` did when
+`freeform` moved and the list stayed behind.
+
+- **THE ASSERTION ASKS THE ONE QUESTION THAT CATCHES IT**: whatever the fallback
+  is, the picker has to offer it. It needs no list of its own and cannot rot.
+  **Run against a stale fallback it fails with `{"shown":"","offered":false}`.**
+- **AND THE PICKER'S OWN VALID-SET LIST IS A HAND-KEPT COPY OF
+  `challenges_type_check`, DELIBERATELY.** Only the database knows what it will
+  accept, so a check that derived that list from the page would be asking the
+  page whether it agrees with itself. **Change it in the same commit as the
+  constraint.**
+
+##### AND TWO ASSERTIONS WERE CORRECTLY BROKEN
+
+`is-question` as a badge class, and *"the options box is hidden on a question"*
+reading `kinds.question`. **Both printed the RIGHT value in `got`** -- the page
+was correct and the assertions were describing the arrangement they were written
+for.
+
+
+#### A TAG CARRIES NO SPACES (2026-09-03)
+
+Typing `sports bar` files **`sports-bar`**. Runs collapse, so `sports   bar` is
+not `sports---bar`, and `clean` has already trimmed the ends so neither can be
+a stray hyphen.
+
+- **A TAG IS A WORD YOU MATCH ON**, and both rooms that read these treat them as
+  such -- the Stop Builder's filter joins them into prose (`tagged sports and
+  chicago`), so **the space would be the only thing telling one tag from two.**
+- **IT IS A RULE FOR WHAT IS TYPED NEXT RATHER THAN A BACKFILL, measured before
+  it was written: 0 of 106 uses carry a space** across 44 distinct tags. So
+  there is no migration and nothing on file moves.
+- **DEDUPED AFTER THE HYPHENS, NEVER BEFORE.** `sports bar, sports-bar` is one
+  tag typed two ways, and deduping first would file both.
+- **SPLIT AND JOIN RATHER THAN A REGEX.** A whitespace class is the obvious way
+  and is one heredoc away from arriving as a literal control character -- this
+  repo has lost twenty things to that, one of them a whole file. There is
+  nothing here a regex does better.
+- **PROVED ON WHAT LEAVES THE PAGE, not on what the box holds**, which is the
+  only thing that says the rule reached the payload: a tag typed with a space,
+  a run of spaces, one with none, and the same tag typed both ways all read off
+  the PATCH body. Five assertions in [challenges-no-ladder-field.js](mc/_dev/browser-checks/challenges-no-ladder-field.js), 27 ok.
+- **AND THREE OF THE FIVE PASSED ON THE BROKEN CODE at first**, which is the
+  half worth recording. `sports-bar` was typed literally alongside `sports bar`,
+  so asserting it is PRESENT is true either way, and there is exactly one of it
+  either way -- **both assertions were about the right thing and could not fail
+  on it.** They now require the un-hyphenated form to be ABSENT and the whole
+  list to be three long, and fail four ways against the previous behaviour.
+  **An assertion that has never failed on the bug it is for is one nobody
+  should trust**, and a probe that types both spellings is exactly how one ends
+  up passing on both.
+
+
+#### BATCH EDIT IS GONE (2026-09-03)
+
+The select-all row and the per-row tick, with everything that fed them: the
+`picked` set, `visibleIds`, `prunePicked`, `pickedIds`, `paintBatch`,
+`batchApply`, `batchDelete`, the tick's cell, three listeners, ten CSS rules and
+the row-click guard that kept a tick from opening the editor. **The row is
+[type][line] now.**
+
+- **WHAT IS LOST, PLAINLY: setting a type across several rows, and deleting
+  several at once.** **A single delete survives in the editor** and is the only
+  one; several is SQL. Same trade the Waypoints room made when its batch bar
+  went to Select all / count / Delete, one step further.
+- **THE TWO WRITE PATHS ARE DESCRIBED WHERE THEY WERE**, because the part worth
+  keeping is not the code: each was ONE request with `id=in.(...)` and **each
+  named its shortfall rather than rounding it up** -- PostgREST answers 200 with
+  a SHORT array when RLS refuses only some, and saying "12 updated" about 9 is
+  the quiet sort of lie this project has been caught by. **If a batch write
+  comes back, that is the part to bring with it.**
+- **`buildKindSelects` FILLED TWO SELECTS AND NOW FILLS ONE.** Its `i === 1`
+  branch existed entirely for the bar's `Set type`.
+- **A SLICE GUARD REFUSED ONCE AND THE FILE WAS NOT WRITTEN.** The tick's slice
+  ran to the type cell, and `.ch-line` is created between them -- so it would
+  have taken the name with it. **Fifth slice in this repo to reach a
+  neighbour**, and the first this session caught by a must-NOT-contain
+  assertion rather than by a length ceiling. **A ceiling is not a boundary.**
+- **`.batch-all input, .ch-pick` WAS A GROUP AND BOTH MEMBERS DIED**, so the
+  whole rule went. Removing a selector that shares a rule with a live one is how
+  this project once lost a stylesheet.
+- **SWEPT BY ASKING THE MARKUP, THE SCRIPT AND THE CSS SEPARATELY**, with
+  comments stripped -- a raw search matches the comment explaining the removal,
+  which this project has been caught by four times. All eight names come back
+  `gone / gone / gone`.
+
+#### THE LIST PANEL HAS NO HEAD (2026-09-03)
+
+`CHALLENGE LIBRARY  62 challenges` is gone, with `.panel-head`, `.panel-title`,
+`.panel-count` and `.panel-head .spacer` -- each a sole selector, so removing
+the rule takes nothing live with it. **`.panel-head .spacer` was already dead**:
+the only `.spacer` in this room is in the dialog foot, which has its own rule.
+
+- **THE WRITER WENT IN THE SAME PASS, and that is the half that would have
+  blanked the room.** `el('listCount').textContent` on a deleted id throws, and
+  **the throw takes the rest of `render` with it including the auth callback**,
+  which `admin-shell.css` is waiting on to reveal anything at all. That is the
+  failure this file opens with, and this session met it twice already.
+- **WHAT IS LOST, AND IT IS REAL: nothing says how much a filter has left.**
+  `#listCount` read `3 of 62 challenges`, and it was the only thing that did --
+  **the blurb carries the total and deliberately does not move with a filter**,
+  and the list foot only appears while there is more to draw. A narrowed list
+  now says nothing about how narrow it is, except when it matches nothing at
+  all. That is the Waypoint Library's own rule (*the panel says only what the
+  blurb cannot*) given up here.
+
+**THE REMOVAL IS ASSERTED**, and it fails with the head put back -- because the
+thing worth catching is not that the words are gone but that nothing is still
+writing into them.
+
+#### EVERY OTHER ROW IS SHADED (2026-09-03)
+
+`.ch:nth-child(even)` at **0.026** of the house blue.
+
+- **THE NUMBER THAT MATTERS IS NOT HOW VISIBLE THE STRIPE IS.** Three rules
+  already paint this row -- nothing, `:hover` at 0.065, and `.is-review` in the
+  red pen -- so the stripe is measured against THEM: **1.83 deltaE off white**,
+  just past where a flat tint becomes noticeable, with **the hover 2.76 further
+  on**, so hovering a shaded row is still unmistakably the bigger move.
+- **IT IS DECLARED BEFORE BOTH, AND THAT IS THE WHOLE MECHANISM.** All three
+  selectors are **(0,2,0)**, so source order is the only thing deciding them:
+  `:hover` and `.is-review` come later and both win, and a row in review stays
+  red whether it is odd or even.
+- **`.ch-more` IS NOT A `.ch`**, so the foot is never striped and never counted
+  as a row -- which is what keeps `nth-child` counting rows.
+- **BOTH HALVES ARE ASSERTED**, because a rule that painted EVERY row would pass
+  either alone: the even row is tinted AND the odd one is `rgba(0, 0, 0, 0)`.
+- **THE REVIEW PRECEDENCE IS TESTED DIRECTLY** -- `.is-review` is a class, so
+  the check adds it and reads what actually wins. **Hover cannot be forced from
+  script**, so its precedence is asserted where it is really decided: the source
+  order of the three rules.
+- **PROVED BOTH WAYS.** With no stripe, two assertions fail; with the stripe
+  declared LAST it beats the red pen and three fail, including
+  `tinted: rgba(45, 72, 128, 0.027)` on a row that should be red.
+
+**AND THE CSSOM NORMALISES `even` TO `2n`**, so a check searching the
+stylesheet for what was typed found nothing and reported `stripe: -1` -- which
+reads as the rule being absent rather than as the search being wrong. Fourth
+time this session a probe has accused a page that was correct.
+
+#### THE LIST IS ON THE PAGE AND GROWS AS YOU REACH IT (2026-09-03)
+
+A hundred rows; the next hundred are drawn when the foot comes into view. The
+inner scroller is gone. **Copied from the Audiences room's own shape rather than
+invented a second time**, so when either changes both should.
+
+- **IT WAS A SCROLLBAR INSIDE A SCROLLBAR.** `max-height: 70vh; overflow-y:
+  auto` meant the wheel did two different things an inch apart and a row could
+  never be read against the room's own head.
+- **THE HUNDRED IS WHAT MADE REMOVING IT AFFORDABLE**, and **IT IS NOT A SILENT
+  CAP**: the foot says how many of how many are drawn, and it is REMOVED once
+  everything is rather than reading `62 of 62`, a line that can never change
+  again. A top-N that quietly stopped is what this project has deleted before.
+- **GROW BY APPENDING, NEVER BY REPAINTING.** `render` rebuilds the list
+  wholesale -- the expensive thing this room does -- and would throw away every
+  row on screen and the ticks with them.
+- **AN OBSERVER, NOT A SCROLL LISTENER**, disconnected before re-observing or a
+  repaint leaves the old one on a detached node and one scroll grows the list
+  twice. `rootMargin: 600px` starts the next hundred before you reach the end.
+- **A FILTER RESETS THE LIST AND THE PAGE, and the second half is not
+  optional.** Filtered from 6,000px down you are still 6,000px down, the foot is
+  instantly in view, and the observer fills the list straight back out to reach
+  you. `repaint()` is the filter path and `render()` everything else, so a save
+  or a tick does not move the page.
+
+**THE LIVE TABLE IS 62 ROWS, UNDER THE CHUNK, so against production the list
+never grows and every assertion about growing would pass without exercising a
+line of it.** The check drives a **250-row** read for the mechanism and the real
+room for the panel and the CSS. **Same fault as a fixture whose prompts are one
+short sentence, in the live-data direction** -- and this one would have gone
+unnoticed until the bank passed a hundred.
+
+**[challenges-grow-on-scroll.js](mc/_dev/browser-checks/challenges-grow-on-scroll.js), 16 assertions, and 4 fail on the previous
+arrangement**: `{"overflowY":"auto","maxHeight":"630px","scrolls":true}` and
+`250 rows draw a hundred   got: 250`.
+
+- **THE WALK SETTLES RATHER THAN COUNTING SCROLLS.** The observer fires on its
+  own schedule, so a fixed number of passes is a clock -- which this project has
+  been caught by. Three quiet reads in a row, then the whole list is compared:
+  every row, none twice, still in order across the seam.
+
+**AND THE HEREDOC COULD NOT WRITE THAT FILE AT ALL** -- `unexpected EOF while
+looking for matching quote` -- so it went through the Write tool. **That is the
+documented exception**, and it is the same class as the escaping scar: a file
+with regexes and quotes in it does not belong in a shell heredoc.
+
+#### THE ROW IS THREE CELLS AND THREE LINES (2026-09-03)
+
+    [tick] [type]  name
+                   prompt
+                   tags
+
+- **THE TICK IS CENTRED IN A CELL OF ITS OWN, BOTH WAYS.** `align-self: stretch`
+  beats the row's `align-items: flex-start`, which is what gives the cell the
+  row's height to centre in -- **without it "vertically centred" means centred
+  in a 15px box, which is no statement at all.** Both offsets are measured,
+  because two declarations are needed and one alone still looks deliberate.
+- **THE TYPE IS A CELL, NOT A CHIP IN THE SENTENCE.** Inside the line it sat
+  after the name and moved with it, so no two badges shared an x -- **a column
+  you cannot scan is a column doing nothing.** 92px holds the longest value.
+- **THE TAGS ARE A THIRD LINE.** They sat on the title's line with
+  `margin-left: auto` and pushed the name about as a row gained or lost one.
+  `.ch-tags` had been **declared and worn by nothing** all along; it is the row
+  now.
+- **THE BADGES ARE COLOUR CODED, MEASURED TWICE.** Worst contrast **5.16** on
+  its own wash, closest pair **20.1 deltaE**, nearest to the red pen **42.9** so
+  no badge reads as a row in review. **Hue alone is the wrong metric** -- the
+  Events room found amber sitting 30 degrees off the red pen and reading nothing
+  like it.
+  - **ONE TRIPLE PER TYPE**, so a hue cannot drift between the ink, the border
+    and the wash.
+  - **THE CLASS IS THE VALUE and an unnamed type keeps the quiet fallback**
+    rather than losing its badge -- the CHECK is one migration from a seventh.
+
+**AND TWO FIXTURES WERE TOO TIDY AGAIN.** The prompts were one short sentence
+and the rows carried no tags, so **the wrap assertion and the third-line
+assertion both had nothing to measure.** A fixture is an argument about what the
+real rows look like.
+
+**AND THE ESCAPING SCAR, TWENTIETH INSTANCE, IN THE OPPOSITE DIRECTION.** ``
+written into a check through a heredoc reached the file as a literal
+**BACKSPACE**, so `/‹BS›is-known‹BS›/` **failed on a page that was correct** --
+where this fault normally makes an assertion pass vacuously. Replaced with
+`className.split(' ').indexOf(...)`: a class list is a list of words, there is
+nothing a regex does better, and there is nothing for a layer of quoting to eat.
+
+#### `consent` IS `operations`, AND THE OPTIONS BOX WAS ON EVERY KIND
+
+[2026090312](mc/supabase/migrations/2026090312_consent_becomes_operations.sql), **applied**. The kind value only; **one row has it** -- the waiver.
+
+- **WHAT CARRIES THE MEANING IS UNCHANGED**, and that is the whole reason this
+  is safe: the words are in `challenges.prompt`, `game_responses` still records
+  the FULL PROMPT as the reply so a past signature cannot be rewritten by
+  editing the row, and the engine still has to gate the route on it. **This is
+  the label on the kind, not the contract.**
+- **WIDEN, MOVE, NARROW**, the order 2026090122 already used for `fandom` ->
+  `sports`: the CHECK has to admit both words before the row passes through it
+  and only the new one after.
+- **`tgb_pick_challenge` NAMES IT AND WAS PATCHED IN THE SAME BREATH**, from its
+  live definition with the match count asserted. **A sql body is stored as TEXT
+  and resolved at RUNTIME**, so a stale literal raises nothing at deploy and
+  waits for a caller -- and the caller's symptom would be **the waiver turning
+  up as a random challenge.**
+- **PROVED BY MAKING THE CHECK REFUSE**, in a rolled-back transaction that
+  reports which branch it took: a `do` block whose success path inserts
+  `ACCEPTED` and whose handler inserts the refusal. **A statement that returns
+  without error says nothing about a CHECK**, and "no error" was the first
+  answer I got -- true, and an inference rather than a measurement.
+- **THE MIGRATION FILES STILL SAY `consent` AND ARE LEFT ALONE.** They are
+  records of what was run on the day, which this project never sweeps.
+- **MY FIRST SWEEP MISSED TWO LIVE READERS**, and the reason is worth keeping:
+  `grep -rn consent mc/` drowned in **`mc/scripts/_cache/`**, the Amazon scrape
+  cache, and I read the top of the output. The Stop Builder's client-side mirror
+  of the picker rule and its `Type AGREE` placeholder were both below the fold.
+  **Exclude `scripts/_cache` and `_dev/archive` from any repo-wide grep**, or
+  the signal is not there to read.
+
+**AND THE OPTIONS BOX WAS ON SCREEN FOR EVERY KIND.** Reported as *"on kind =
+question don't show Options, one per line"* -- and it was showing on a photo, a
+minigame and the waiver too. `paintTriviaFields` sets `hidden` correctly; **the
+property was true the whole time.**
+
+- **`.field { display: flex }` IS AN AUTHOR RULE AND `[hidden]` IS ONLY THE UA
+  SHEET'S `display: none`**, so the author rule wins. **The page has carried
+  `.btn[hidden]` since it was written, with a comment explaining exactly this**,
+  and nobody applied it to `.field`. **TWELFTH INSTANCE IN THIS PROJECT.**
+- **AND THE LADDER FIELD HAD THE SAME FAULT**, which is very likely why *"where
+  it is asked"* was noticed at all: it was `.field field--wide` with `hidden`,
+  so it was on screen for every kind as well.
+- **A CHECK MUST READ `offsetParent`, NEVER THE `hidden` PROPERTY.** Reading the
+  property is reading what the page INTENDED; only layout says what a viewer
+  sees. `trivia-in-the-bank.js` had a `vis()` helper doing exactly that and
+  therefore passed over this for as long as it existed.
+
+**`trivia-in-the-bank.js` WAS BROKEN BY MY OWN REMOVALS AND IS REPAIRED RATHER
+THAN REPORTED.** It crashed on the deleted ladder field, and 17 of its 32
+assertions had lost their subject -- the four scope columns, the rung box, the
+rung datalist and the orphan finding. It is 22 assertions about what is left,
+**and the fixture row keyed to nothing now earns its place**: with the finding
+gone, the CHIP is the only thing in the system that says a rung resolves to
+nothing, so that is asserted.
+
+#### THE TICK SAT ABOVE THE TITLE, AND IT IS A FLEX BASIS AGAIN (2026-09-03)
+
+Every row drew its checkbox on a line of its own with the title beneath it.
+**`.ch-line` carried `flex: 1 1 auto`.**
+
+- **AN `auto` BASIS IS THE ITEM'S OWN MAX-CONTENT**, and `.ch-prompt` inside
+  that line asks for `flex: 1 0 100%`, so the line's hypothetical width was
+  enormous. **A WRAPPING flex container places items by that width BEFORE it
+  shrinks anything**, so the line was put on a row of its own and the tick was
+  left alone above it -- then the line flexed down to the full width, which is
+  why it looked deliberate.
+- **`flex: 1 1 0` IS THE WHOLE FIX.** A zero basis always fits beside the tick
+  and then grows into what is left. **The row went 93px to 68px**, so it is a
+  line saved on every one of them.
+- **FOURTH INSTANCE OF THIS EXACT PROPERTY**, and they look nothing alike from
+  outside: `/games/` got a **43,376px map** from `flex: 1 1 auto`; the Game
+  Builder set a tagline **704px tall** with `flex: 0 1 44rem` in a column; the
+  Stop Builder's tag dialog opened **411px** because a 240px WIDTH floor became
+  a HEIGHT. **A flex shorthand is about the main axis of the container it is
+  in**, and `auto` means "as big as my content wants".
+
+**AND THE FIXTURE WAS TOO TIDY TO REPRODUCE IT, which made three assertions
+vacuous.** `challenge-bank.js` seeded every challenge with `What is the thing?`
+-- short enough that `.ch-line`'s max-content fits beside the tick even on the
+broken CSS -- so the geometry assertions **passed on the very bug they are
+for**, and only the computed `flex-basis` failed. The fixture carries a real
+sentence now, and the failure names the screenshot: `{"pick":442,"name":467}`
+25px apart at the same x.
+
+- **A FIXTURE IS AN ARGUMENT ABOUT WHAT THE REAL ROWS LOOK LIKE.** Seven rows
+  of `What is the thing?` is not what this table holds, and a check driven by
+  one is a check about a page nobody has.
+- **AND THE HELPER PRINTED `[object Object]`**, which tells nobody anything when
+  the whole failure is a pair of numbers. It stringifies now.
+
+#### THE EDITOR CLOSED WHILE YOU WERE EDITING, AND IT IS A GESTURE
+
+Reported as *"when editing a challenge in popup, it keeps closing"*. Not a
+state and not a render -- **a `click` fires on the NEAREST COMMON ANCESTOR of
+the press and the release**, so selecting text in a field and letting go past
+the panel edge targets the backdrop, and the backdrop handler shut the dialog
+**taking everything typed with it**.
+
+- **REPRODUCED BEFORE IT WAS FIXED**, which is what named the gesture: typing is
+  fine, a selection INSIDE a box is fine, and **a drag from the prompt to below
+  the panel closed it every time.**
+- **THE PRESS IS REMEMBERED, NOT THE RELEASE ALONE.** That is the only thing
+  that tells a real backdrop click from the tail of a drag, and **both halves
+  are asserted** -- a dialog that simply ignored the backdrop would pass every
+  no-close assertion and is not the change that was asked for.
+- **A DISPATCHED EVENT CANNOT REPRODUCE IT.** `page.click` and a synthetic
+  `MouseEvent` both land squarely on one element; only real movement -- press in
+  one place, release in another -- produces the ancestor target. **So the check
+  drives the mouse**, and fails on the previous file with that one assertion.
+
+**THE SAME PATTERN IS IN TEN OTHER PLACES AND IS LEFT ALONE**, reported rather
+than swept: `mc/waypoints/` has three (`dlg`, `aiDlg`, `fixDlg` -- the waypoint
+editor and two editable prompt sheets), `mc/audiences/` one, `mc/stop-builder/`
+two, and **both game engines two each**. The admin ones lose typed work exactly
+as this did; **the engines are the paid product and were not asked about.** The
+fix is the same six lines wherever it is wanted.
+
+#### AND IT MADE EVERY SAVE THROW, WHICH ONLY DRIVING THE FORM COULD FIND
+
+`readForm` has no `row` in scope -- the open row is `state.editing`, a copy
+taken by `openEditor` -- so `triviaLadderKey(row)` was a **ReferenceError on
+every save of every kind**.
+
+- **THE PAGE PARSED, THE IDS RESOLVED AND THE ROOM RENDERED.** Nothing static
+  can see it: the standing parse check only parses, and the fault is one
+  identifier deep inside a function nothing calls until somebody presses Save.
+- **THE CHECK FOUND IT ON ITS FIRST RUN**, naming the page's own line. **A
+  write path is only proved by a write**, which is the same rule this file keeps
+  for an RPC and for a trigger.
+
+#### THE PREVIEW, AND WHAT LOSING IT COSTS
+
+It read the question back with its variables filled from a worked example, and
+drew an **unknown variable unfilled and red** -- exactly what play time does.
+
+- **THAT WAS THE ONE THING IT COULD SAY THAT NOTHING ELSE DOES.** A mistyped
+  `{{away_team}}` is refused by nothing and prints as literal braces in front of
+  a team standing in the street. **The `unknown-variable` CHECK still reports it
+  on the row**, so the fault is still caught; what is gone is seeing the
+  sentence a team will hear.
+- **THE STOP BUILDER'S REHEARSAL IS THE BETTER HALF OF THIS ANYWAY**: it plays
+  the challenge at a REAL waypoint with that stop's own city, rather than
+  against Bears at Broncos.
+- **`SAMPLE`, `fillVars` and `paintPreview` went, with four CSS rules and the
+  dead `cls === 'preview'` branch in `promptNode`** -- that builder made a
+  `<div>` for the preview and a `<p>` for everything else, and only the `<p>`
+  has a caller now.
+- **THE VARIABLE BUTTON'S TOOLTIP SAID `in the preview`** and says `at play
+  time`. **A tooltip naming a panel that is gone is the page lying about
+  itself.**
+
+#### AND THE ROOM'S OWN SENTENCE PROMISED THE FIELD
+
+The blurb read *"Trivia lives here too, keyed to a fandom or a city"* -- a
+capability the room no longer has. It says **"Tag a challenge to say where it
+belongs"**, and **the nav card was changed in the same pass**, per the standing
+rule that a door describing a room in the room's own words drifts the moment
+either is edited. `challenge-bank.js` asserts the pair.
+
+**THE QUESTION BOX IS LABELLED `Question`**, not `Prompt, read by the team at
+the stop`. **Worth knowing: it is the prompt for EVERY kind**, so on a photo or
+a minigame row it is an instruction rather than a question. The column is still
+`prompt`; visible copy only.
+
+**[challenges-no-ladder-field.js](mc/_dev/browser-checks/challenges-no-ladder-field.js), 13 assertions in real Chrome**, reads live and
+every write intercepted. **Two fail on a nulling save** -- `{"sent":null,"had":"boston-ma"}`
+-- which is the constraint refusal this design exists to avoid.
+
+### SCOPE IS GONE, AND WHAT THAT COSTS
+
+- **THE ROUTE BUILDER'S PICKER IS NO LONGER SCOPE-FILTERED** -- it offered 17 of
+  24 on a real Atlanta route and offers everything now.
+- **A PLACE-BOUND CHALLENGE IS NO LONGER BOUND.** `scope_wpid` was a real
+  foreign key, so "whose house is this?" could only be offered at its own
+  waypoint. `tgb_pick_challenge` lost that clause with it.
+- **THE `unbound-scope` AND `place-bound-variable` FINDINGS ARE GONE** from the
+  Challenge Bank. The first reported a narrow scope naming nothing -- a fault no
+  other screen could ever see -- and the second a contradiction between a place
+  binding and a `{{away_team}}` variable. Neither has anything left to test.
+- **AND THE BATCH BAR SETS A KIND AND NOTHING ELSE.** `Set scope` went with the
+  column. **Tags are deliberately NOT offered in its place**: a batch that
+  replaced them would wipe whatever each row already carried, and one that
+  appended would need a second control saying which -- a per-row decision, which
+  is the same call that bar already made about a team or a city.
+- **THE VALUES ARE KEPT** in `challenges_scope_retired`, 7 rows.
+- **`challenges_ladder_key_belongs_to_trivia` MIXED SCOPE WITH A LIVE RULE**, so
+  it was REWRITTEN rather than dropped -- dropping it would have taken the
+  ladder-key rule that keys every trivia question to a destination. Proved by
+  making it refuse both ways.
+- **`issues.scope` IS A DIFFERENT COLUMN and was not touched.** Six functions
+  and a view name it; a sweep counting the word rather than reading the line
+  would have rewritten all six.
+
+### THE TWO ROOMS THAT CARRIED THE SCOPE UI
+
+- **NEITHER 400'd, which is why this was not urgent.** Both read `select: '*'`,
+  so they loaded and simply drew nothing where a scope used to be. **The Stop
+  Builder was the one that broke**, because it named the column, and that was
+  repaired within the minute.
+- **`.ch-scope` IS THE TRIVIA CHIP'S IN THE CHALLENGE BANK AND DEAD IN THE ROUTE
+  BUILDER**, checked rather than swept: the trivia ladder key wears it there and
+  asks only for `is-portable`, `is-team` and `is-loose`, so `is-city` and
+  `is-place` went with the branch. In the Route Builder nothing wore it at all
+  and the whole block went.
+- **THE `teams` READ HAD BEEN ANSWERING 400 SINCE 2026-08-30.** The Challenge
+  Bank's club picker selected `city_name`, dropped from the `teams` view that
+  day, so it had been silently empty for four days. It went with scope.
+- **THE WAYPOINTS READ STAYED, AND THAT IS THE ONE THING NOT TO SWEEP.**
+  `ladderShape` resolves a `wp-<id>` TRIVIA rung against it, so removing it with
+  the bind pickers would have made every such key read as an orphan and reddened
+  those rows. `loadBindCatalogues` is `loadWaypoints` and is no longer gated on
+  a scope probe.
+- **THE LADDER MESSAGE STOPPED BEING TRUE and was corrected.** It said a trivia
+  question "must be portable"; 2026090311 rewrote that constraint without its
+  scope clauses, so there is no such requirement -- a message describing a rule
+  the database no longer keeps is the fault this file already records for a
+  finding naming a renamed trigger.
+- **PROVED BY LOADING BOTH ROOMS**, [rooms-after-scope.js](mc/_dev/browser-checks/rooms-after-scope.js): 9 assertions
+  against the live database -- 126 rows in the Bank, 10 stops on a real route,
+  the picker offering all 25 non-trivia challenges, no failed read and no scope
+  control anywhere.
+
+### AND A CHALLENGE WENT MISSING. I CANNOT SAY WHICH STATEMENT TOOK IT.
+
+**`challenges.id = 1`, "Jefferson Davis' House", is gone**, and stop 1 lost its
+challenge to the `ON DELETE SET NULL` that followed. `challenges` went 63 to 62.
+
+- **IT CERTAINLY EXISTED THIS MORNING.** `stops_challenge_id_fkey` is
+  **validated**, and the first query of the session read stop 1 pointing at
+  challenge 1 -- so the row was there. A screenshot taken mid-session shows it
+  on the Hamilton's Law Office stop.
+- **NOTHING IN THE FOUR MIGRATIONS DELETES A CHALLENGE**, checked by grepping
+  every writing statement in each: they insert and delete a probe STOP and
+  nothing else. No foreign key into `challenges` cascades -- all three are SET
+  NULL. **I could not identify the mechanism**, and it is recorded rather than
+  glossed.
+- **IT WAS GONE BEFORE 2026090311 RAN**, because that file snapshots every
+  scoped challenge into `challenges_scope_retired` and id 1 -- which was `place`
+  scoped -- is not in it.
+- **RESTORED, AND THE CONTENT IS RECONSTRUCTED RATHER THAN RECOVERED.** There is
+  no backup of this table; the backups are from 2026-08-05 and do not include
+  it. The name and kind come from the screenshot, the prompt and answer from
+  this file's own record of it. **It has a new id (89) and should be checked.**
+- **THE LESSON IS THE BACKUP, NOT THE MIGRATION.** `challenges` is 63 rows of
+  authored work with no dump anywhere. Anything editorial that is not backed up
+  is one unexplained delete from being gone.
+
 ## A STOP IS A WAYPOINT AND A CHALLENGE. THE CITY GOES. (2026-09-03)
 
 [2026090302](mc/supabase/migrations/2026090302_a_stop_is_a_waypoint_and_a_challenge.sql), **applied**. `public.stops` is **three ids** -- `id`,
@@ -17719,6 +18913,49 @@ belongs -- a page that loads, renders and shows the wrong thing.
   waypoint_id,ord,end&game_id=eq.den2026jax&order=ord.asc` answers **200** with
   real ordered stops.
 
+### THE FIELD LABEL IS THE DOOR (2026-09-03)
+
+**WAYPOINT** opens the Waypoint Library and **CHALLENGE** opens the Challenge
+Bank. The small `new` that sat beside each is deleted, with `.stop-new`.
+
+- **IT WAS TWO THINGS WHERE ONE WILL DO.** The label already names the room, so
+  a second word on the line said nothing the first did not -- and it was the
+  only lowercase thing on a row of uppercase labels, which is what it needed to
+  be to avoid reading as part of the label.
+- **AN ANCHOR CANNOT ALSO BE A `<label for>`.** A label's click focuses its
+  input and a link's navigates, so one element doing both is a control that does
+  two things at once. **The input carries `aria-label` instead, or it has no
+  accessible name at all** -- the same trade the Game Builder's three legend
+  doors already make, and the reason `<label for>` had to go rather than being
+  wrapped.
+- **NOT NESTED IN A LABEL EITHER**, which is the nesting browsers disagree
+  about; the span is a plain span.
+- **A NEW TAB.** The room is a GLANCE and a half-filled form must not be lost to
+  one -- which is what the `new` links did, and the reason survives them.
+- **IT READS AS A LABEL AT REST.** It inherits the span's own size, weight,
+  letter-spacing, case AND colour, so the only thing marking it is a dotted
+  underline. **The hue arrives on hover only**, and it is the half's own -- green
+  for a waypoint, violet for a challenge -- the same hue the row's kicker and the
+  popup's side already carry, so the door says which side it opens without being
+  read.
+- **`.stop-field > span`'s FLEX ROW WENT WITH THEM**, per the standing rule that
+  a control and its stylesheet go in one pass: that rule existed only because
+  the span carried a door BESIDE the word, and its own comment said so. **The
+  comment was also stale** -- it described a City field deleted earlier the same
+  day.
+
+**TEN ASSERTIONS, AND SIX FAIL ON THE ARRANGEMENT THEY REPLACED.** They cover
+the href, the new tab and `noopener`, the absence of both `new` links, that no
+`<label>` is left to fight the link, that each input has its own accessible
+name, that the door's computed type and colour match its span, and that it is
+not browser-underlined.
+
+- **AND THE FIRST ONE WAS TOO WEAK, which the reversal caught.** *"both field
+  labels are links"* asked only that an anchor sat in the span -- **true of the
+  old arrangement too**, where the anchor was the `new` link pointing at the
+  same room, so it passed on the very thing it was written to reject. It names
+  the word now, and fails with `"new -> /mc/waypoints/"`.
+
 ### THE SEARCH READS EVERY FIELD, DERIVED RATHER THAN LISTED
 
 The box is **SEARCH** (it was Find) and takes *"Any word on the waypoint or the
@@ -17815,6 +19052,204 @@ suites rewritten around each state. **None of it was the problem.**
   that had not been earned. The one honest probe -- real page, real database,
   write intercepted -- took ten minutes and answered it immediately. **Write
   that probe first.**
+
+## A STOP IS EDITED FROM ITS OWN POPUP, AND DELETE MOVED THERE (2026-09-03)
+
+The popup showed a stop and could not change it. **A stop is a waypoint and a
+challenge, and until now the only way to change either was to delete the row and
+add it back** -- which threw away the row and, once a stop carries a tag filter,
+the filter with it.
+
+- **BOTH HALVES ARE EDITABLE, THROUGH THE ADD BAR'S OWN RESOLVERS.**
+  `wpFromLabel` and `chalFromLabel` are the only idea of what a valid waypoint
+  and challenge are, so the popup cannot accept something the bar would refuse,
+  and `wpLabel` / `chalLabel` fill the boxes -- a second labeller would drift the
+  first time either changed.
+- **A TYPO IS REFUSED, NEVER STORED AS RANDOM.** Silently turning a mistyped
+  challenge into "pick one at play time" is the one outcome nobody could see
+  afterwards, which is why the bar refuses it too.
+- **THE PATCH NULLS THE OTHER HALF RATHER THAN LEAVING IT OFF.** A named
+  challenge and a tag filter are exclusive and `stops_fixed_or_filtered`
+  enforces it -- **and a PATCH that omits a key leaves the old value**, so moving
+  from a filter to a named challenge would otherwise leave a row saying both and
+  be refused.
+- **KEYED ON `stop_id`, never on the waypoint.** `waypoint_id` is the unique and
+  it is NULLABLE, so a stripped stop is `waypoint_id=eq.null` -- a filter that
+  matches nothing and reports as the database refusing the write. **The row you
+  most want to fix would be the one you could not save.** Same reasoning the
+  delete already carried.
+- **`return=representation` ON BOTH**, since PostgREST answers 200 with an empty
+  array when RLS refuses, and the popup is **reopened on what came back** rather
+  than on what was sent -- so the street view, the address and the rehearsal all
+  follow the waypoint that actually landed.
+- **THE LABELS ARE PLAIN, where the ADD bar's are doors into the two rooms.**
+  This is a modal, and a door out of it is a way to lose what you have typed.
+
+##### THE PREVIEW FOLLOWS THE BOXES (2026-09-03)
+
+Changing the waypoint left the street view, the address and the rehearsal
+describing **the place you had just moved away from**, until you pressed Save.
+
+- **`paintPreview` IS LIFTED OUT OF `openStop`, AND IT TAKES A ROW.** What it
+  draws while you are editing is the PENDING stop -- what the boxes say -- which
+  is a different thing from what is filed. Reading `state.open` would have made
+  that impossible to express.
+- **NOTHING IS SAVED BY LOOKING**, which is what makes it a preview: the stored
+  row is untouched until Save, and closing without it still writes nothing.
+  Asserted, along with `state.open` still holding the original waypoint after
+  the preview has redrawn on another.
+- **THE REHEARSAL STARTS AGAIN.** It models one play of one stop, so a different
+  challenge is a different rehearsal and the drawn list goes with it. A
+  different WAYPOINT restarts it too, since the rehearsal fills `{{waypoint}}`
+  and `{{venue_city}}` from the stop.
+- **`change`, NOT `input`.** A datalist fires it on a pick and on leaving the
+  box; `input` fires on every keystroke and would thrash the street view through
+  every half-typed name.
+- **AN UNRESOLVABLE VALUE LEAVES THE PREVIEW STANDING** rather than blanking it.
+  Mid-edit is not a state worth drawing, and Save is what refuses a typo.
+- **AND THE TAG DIALOG REFRESHES IT EXPLICITLY.** `useTagDialog` writes the box
+  directly, which fires no `change`, so without that call the RANDOM panel would
+  go on describing the filter from before the dialog -- **and the filter is
+  exactly what that panel shows.** Only for the popup; the ADD bar has no
+  preview.
+
+###### AND THE PANEL WAS SPELLING A TYPE TWO WAYS
+
+It drew the raw column, so it read `type_answer` where the Challenge Bank's
+badge reads TYPE ANSWER: **one column spelled two ways in two rooms**, and
+visible in the failure output of the check above. Three surfaces here now share
+a `typeLabel`.
+
+- **THE STORED VALUE KEEPS THE UNDERSCORE AND HAS TO.** It is a CSS class in the
+  Bank, and a space in a class name is two selectors.
+- **THE ROUND TRIP HOLDS because `chalFromLabel` matches against `chalLabel`
+  itself.** One composer, so changing how a label reads cannot stop a value
+  resolving -- which is the property that made this safe to change at all, and
+  it is asserted rather than assumed.
+
+
+##### THE DOWN ARROW OFFERS THE WHOLE LIST (2026-09-03)
+
+Reported as: clicking the arrow should show all waypoints, or all challenges,
+depending on the box. It showed **one**.
+
+- **A DATALIST FILTERS ITS OPTIONS BY WHAT IS IN THE BOX**, so a field already
+  holding a full label offers exactly one entry: itself. **The whole list is
+  there and hidden behind an exact match** -- and the popup's boxes are filled
+  from the row on every open, so this was true every time.
+- **SO THE BOX EMPTIES ON FOCUS**, which is the fix the Game Builder's game
+  picker has carried since 2026-09-01 for the same reason, in the same words.
+  **AND THE VALUE COMES BACK ON BLUR** if nothing was chosen: an empty box is
+  not an instruction, it is what you get from clicking in and away again, and in
+  the popup an emptied waypoint would be refused by Save for a value nobody
+  deleted.
+- **ONE HELPER FOR ALL FOUR BOXES**, so the ADD bar and the popup cannot drift
+  into behaving differently. The bar's boxes have the same fault the moment
+  anything is picked in them.
+
+**AND A BARE `RANDOM` WAS SWALLOWING THE CLICK.** The challenge box intercepts
+mousedown to reopen a settled tag filter -- *the box shows prose and nothing else
+edits it* -- and the test was `chalFromLabel(...) === 'random' && the box is not
+empty`, **which is true of a bare `RANDOM` with no filter at all.** So on such a
+stop the challenge list could not be reached by pointer.
+
+- **IT ASKS THE SETTLED SLOT NOW, never the box's prose.** `randomLabel` is the
+  one composer and the tags are deliberately not parsed back out of what it
+  wrote, so `state.editTags.tags.length` is the honest question.
+- **CHOOSING RANDOM STILL OPENS THE DIALOG**, through `change`, so nothing is
+  lost: what changed is that a box with no filter to edit no longer eats the
+  click.
+- **WHAT REMAINS, said rather than discovered:** a box that DOES hold a filter
+  still opens the dialog on click, so the challenge list is reached there by
+  typing rather than by the arrow. That is the filter staying reachable, which
+  is what the intercept is for.
+
+###### AND I BROKE IT TWICE ON THE WAY
+
+- **THE TAG DIALOG FILLED THE BOX AND THEN FOCUSED IT**, and the new focus
+  handler emptied what had just been written -- **the box came back blank**, and
+  two suites caught it. A programmatic focus is not somebody asking for the
+  list: `keepNext` is set at that one call site and spent on the next focus.
+- **`setBoxValue` EXISTS BECAUSE THE HELD VALUE HAS TO MOVE WITH THE BOX.**
+  Anything writing one of these fields directly would be restored, on the next
+  blur, to the value from before it wrote.
+
+###### AND A SUITE HAD SILENTLY LOST TWO ASSERTIONS
+
+`stop-builder-simulates` reported **19 ok, 0 FAIL** where it had been 21. Not a
+failure, and not my arrow change -- proved by running the previous file, which
+also gives 19. **The catalogue changed under it**: its `judged` branch needs a
+stop pointing at a challenge with no stored answer, and none is on file today.
+
+- **A BRANCH GUARDED ON PRODUCTION BEING IN ONE SHAPE IS COVERAGE THAT ROTS**,
+  and it rots into a run that reads as clean. All three answer shapes are now
+  made up when the table does not carry one, which is the treatment the RANDOM
+  and `{{waypoint}}` branches in that same file already had.
+- **AND THE FIRST CUT COLLIDED WITH THE PROBE BELOW IT.** Both pushed a
+  synthetic challenge as `-1`, so `chalById(-1)` found mine and three
+  assertions about variable filling failed on a page that was correct. **Two
+  probes in one suite sharing an id.** Mine start at -9000.
+
+###### AND `git stash` IS THE WRONG TOOL HERE
+
+Chasing the 19, I stashed the working file to compare -- and the command timed
+out at two minutes **with the stash still applied**, leaving the file at HEAD,
+before a day of work. It popped cleanly. **`cp` to a scratch file is what every
+other comparison in this session used**, it cannot be left half-applied by a
+timeout, and it is what to use.
+
+
+##### THE TAG DIALOG NOW SERVES TWO BOXES
+
+- **TWO SETTLED SLOTS, NOT ONE.** `pendingTags` for the bar and `editTags` for
+  the popup. One shared slot would carry a filter set in the popup, and
+  cancelled, into the next thing added from the bar.
+- **`state.tagHost` SAYS WHICH BOX ASKED**, and `TAG_HOSTS` maps it to an input
+  and a slot, so a third host is one entry. The dialog is modal so only one can
+  be open; what needed splitting is where the SETTLED value goes back to.
+- **ASSERTED IN BOTH DIRECTIONS**: the popup's dialog writes the popup's box,
+  and the bar keeps its own filter untouched.
+
+##### DELETE MOVED OFF THE ROW
+
+- **IT SITS BESIDE THE TWO THINGS IT DESTROYS**, and in a place you have
+  necessarily looked at the stop to reach. On the row it was one click from a
+  list, and it needed `stopPropagation` so removing a stop did not open the
+  popup over the row it had just removed.
+- **DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT**, the arrangement the waypoint
+  editor's foot already keeps.
+- **`.stop-del` WENT WITH IT**, both rules, each a SOLE selector -- removing one
+  that shares a declaration block is how this project once lost a stylesheet.
+- **AND NO SUITE COVERED IT.** Both stop-builder suites passed unchanged after
+  the row lost its Delete, which is how a control ends up with no coverage: the
+  new check presses it and asserts the DELETE, its `Prefer`, the row leaving the
+  list and the popup closing.
+
+##### THE REFUSAL HAD TO LEARN WHICH ACT IT WAS REPORTING
+
+`stops_one_per_waypoint` read *"edit the one that is there rather than adding a
+second"*, which is right for the ADD bar and **wrong on an edit, where nothing is
+being added**. `readError` takes a verb; the move says *"Another stop is already
+at that waypoint."* A finding that does not fit what you just did is the fault
+this room already removed once.
+
+##### AND TWO OF MY OWN ASSERTIONS WERE WEAKER THAN THEY READ
+
+- **`and asks for the row back` CHECKED THE URL, NOT THE HEADER** -- it asserted
+  `stop_id` was in the url, which the assertion above it already said. It reads
+  the real `Prefer` now, which is the thing that makes a refused save visible.
+- **NOTHING PRESSED DELETE.** Asserting the button exists says nothing about
+  what it does, and it is the one irreversible control in the room.
+
+##### AND THE HARNESS DELETED TWO ROWS, WHICH LOOKED LIKE THE PAGE
+
+`before: 6, after: 4` on one delete. **The stub stamped `stop_id: 1` on every
+PATCH reply**, and `rowKey` IS that id -- so two saved rows collided and one
+delete removed both. It echoes the id out of the url filter now, which is what a
+real server answers with. **Seventh harness fault this session**, and the same
+shape as the rest: a stub that does not model the server reports a page fault
+that is its own.
+
 
 ## THE STOP POPUP PLAYS THE CHALLENGE (2026-09-03)
 

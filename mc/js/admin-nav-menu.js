@@ -165,7 +165,7 @@
           // pair as an equation. The equation is the half that places a
           // challenge in the product, and it is the same line the Waypoint
           // Library and the Stop Builder carry.
-          description: 'A Challenge is what a team does when they get there, and Waypoint + Challenge = Game Stop. Trivia lives here too, keyed to a fandom or a city rather than to a scope.'
+          description: 'A Challenge is what a team does when they get to a Waypoint.'
         }
       ]
     },

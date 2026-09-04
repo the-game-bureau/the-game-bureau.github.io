@@ -61,6 +61,40 @@
        space splits between them and neither end stays pinned. */
     .command-bar--find { flex: 1 1 auto; min-width: 0; }
     .command-bar--check { flex: 0 0 auto; }
+    /* ONLY FIND MAY GROW. Two flexible bars split the free space between them
+       and neither end of the row stays pinned. */
+    .command-bar--sort { flex: 0 0 auto; }
+    .sort-group { gap: 0; }
+    /* THE THREE TOUCH, with only the outer corners rounded, so they read as one
+       control with three positions rather than three buttons that happen to sit
+       together. */
+    .sort-opt { position: relative; display: inline-flex; }
+    .sort-opt + .sort-opt { margin-left: -1px; }
+    /* THE INPUT IS HIDDEN AND STILL IN THE DOM. `display: none` would take it
+       out of the tab order and out of the radiogroup a screen reader sees, so
+       it is laid over its own label at zero opacity and the SPAN is what is
+       painted. */
+    .sort-opt input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; opacity: 0; cursor: pointer;
+    }
+    .sort-opt span {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 36px; padding: 0 12px;
+      font: 600 0.68rem/1 'IBM Plex Mono', monospace;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--control-line); background: #fff; color: var(--ink);
+    }
+    .sort-opt:first-child span { border-radius: 7px 0 0 7px; }
+    .sort-opt:last-child span { border-radius: 0 7px 7px 0; }
+    .sort-opt input:checked + span {
+      background: var(--ink); border-color: var(--ink); color: #fff;
+    }
+    /* THE RING GOES ON THE SPAN, or a keyboard gets no answer at all: the input
+       it would otherwise land on is invisible. */
+    .sort-opt input:focus-visible + span {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
     /* A WIDTH FLOOR, so the face does not change the bar's shape as it swings
        between `Check`, `Check (137)` and `Show all`. Declared AFTER
        `.command-bar .btn`, which sets `min-width: 0` at the same weight and
@@ -99,21 +133,37 @@
       border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
       box-shadow: 0 1px 4px var(--paper-shadow); margin: 0 0 14px; overflow: hidden;
     }
-    .panel-head {
-      display: flex; align-items: center; gap: 10px;
-      padding: 7px 12px; background: var(--cut-panel-bg);
-      border-bottom: 1px solid var(--line);
-    }
-    .panel-title {
-      font: 600 0.74rem/1 'IBM Plex Mono', monospace;
-      letter-spacing: 0.1em; text-transform: uppercase;
-    }
-    .panel-count { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
-    .panel-head .spacer { margin-left: auto; }
+    /* THE LIST PANEL HAS NO HEAD. `.panel-head`, `.panel-title`, `.panel-count`
+       and `.panel-head .spacer` all went with it -- each was a sole selector, so
+       removing the rule takes nothing live with it. **`.panel-head .spacer` was
+       already dead**: the only `.spacer` in this room is in the dialog foot,
+       which has its own rule.
+         WHAT IS LOST, AND IT IS REAL: `#listCount` read `3 of 62 challenges`,
+       and it was **the only thing saying how much a filter had left**. The
+       blurb carries the total and deliberately does not move with a filter; the
+       list foot only appears while there is more to draw. So a narrowed list
+       now says nothing about how narrow it is, except when it matches nothing
+       at all. */
 
     /* THE LIST SCROLLS INSIDE ITS OWN PANEL rather than growing the document,
        so the head stays on screen over 500-odd rows. */
-    .panel-body { max-height: 70vh; overflow-y: auto; }
+    /* THE ROWS ARE ON THE PAGE, NOT IN A WINDOW ON IT. This was
+       `max-height: 70vh; overflow-y: auto` -- a scrollbar inside a scrollbar,
+       so the wheel meant two different things an inch apart and a row could
+       never be read against the room's own head.
+         THE HUNDRED IS WHAT MAKES IT AFFORDABLE. 62 rows is a long page and the
+       bank grows; capping the page is the reason the inner scroller could go,
+       and the foot says how many of how many are drawn so this is not a silent
+       cap. Same shape the Audiences room settled on 2026-09-01. */
+    .panel-body { }
+    /* THE FOOT IS THE THING THE OBSERVER WATCHES, and it says where you are.
+       Removed outright once everything is drawn rather than reading
+       `62 of 62`, which is a line that can never change again. */
+    .ch-more {
+      padding: 10px 12px; text-align: center;
+      font: 500 0.74rem/1 'IBM Plex Mono', monospace; color: var(--muted);
+      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.09);
+    }
 
     /* ---- a waypoint row -------------------------------------------------- */
     .ch {
@@ -122,6 +172,22 @@
       cursor: pointer;
     }
     .ch:last-child { border-bottom: 0; }
+    /* EVERY OTHER ROW IS SHADED, so the eye can follow one across a wide row --
+       a title on the left and a tag line under it, with a hundred of them down
+       the page.
+         MEASURED, NOT PICKED, and the number that matters is not how visible
+       the stripe is but how it sits against the two states already painting
+       this row. **0.026 of the house blue is 1.83 deltaE off white** -- just
+       past the point a flat tint is noticeable, which is what "slightly" asks
+       for -- **and the hover is 2.76 further on**, so hovering a shaded row is
+       still unmistakably a bigger move than the shading itself.
+         IT IS DECLARED BEFORE BOTH, and that is the whole reason it sits here.
+       All three selectors are (0,2,0), so SOURCE ORDER is the only thing
+       deciding them: `:hover` and `.is-review` both come later and both win.
+       A row in review stays red-tinted whether it is odd or even.
+         `.ch-more` IS NOT A `.ch`, so the foot at the end of the list is never
+       striped and never counted as a row. */
+    .ch:nth-child(even) { background: rgba(var(--bic-blue-rgb), 0.026); }
     .ch:hover { background: var(--panel-soft); }
     .dlg-panel--wide { width: min(920px, 100%); }
     .ai-howto { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.45; color: var(--muted); }
@@ -148,38 +214,36 @@
       font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; line-height: 22px;
       white-space: pre; overflow: auto;
     }
-    .batch-row {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding: 6px 12px; border-bottom: 1px solid var(--line);
+    /* `.ch-pickcell` LIVED HERE, with the tick it held (2026-09-03). */
+    /* THE SAME CELL, ONE COLUMN OVER. Fixed width so every badge starts and
+       ends at one x whatever the word is -- which is the whole reason it left
+       the sentence -- and `align-self: stretch` so it centres against the row
+       rather than against the first line of it.
+         112px HOLDS THE LONGEST VALUE, and 92px DID NOT -- which is worth
+       knowing because the rule read as correct. **A flex item's automatic
+       minimum size is its content**, so `flex: 0 0 92px` is a basis and not a
+       cap: the badge is `nowrap` and cannot shrink, so MULTIPLE CHOICE grew its
+       own cell to **109px** and shoved the name 17px right on 38 of 63 rows --
+       the column not being a column, which is the whole reason this cell
+       exists. Measured in a browser rather than reasoned about; `min-width: 0`
+       is what makes the basis bind, and the number holds the longest value
+       either way. A longer type wants it raised, not the chip shrunk. */
+    .ch-kindcell {
+      flex: 0 0 112px; min-width: 0; align-self: stretch;
+      display: flex; align-items: center; justify-content: center;
     }
-    .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
-    .batch-all, .batch-count {
-      font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
-      letter-spacing: 0.06em; text-transform: uppercase;
-    }
-    /* SELECT ALL AND THE COUNT ARE TOLD APART BY INK AND A HAIRLINE. Side by
-       side in one weight they read as one phrase: "SELECT ALL NONE SELECTED". */
-    .batch-all { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
-    .batch-count { color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
-    .batch-all input, .ch-pick {
-      width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer;
-    }
-    .batch-row input[type="text"] {
-      width: 13ch; min-height: 30px; padding: 3px 7px;
-      border: 1px solid var(--line); border-radius: 6px;
-      background: #fff; color: var(--ink); font-size: 0.78rem;
-    }
-    /* `aria-disabled`, NEVER `disabled`: a disabled button dispatches no click
-       at all, so on a touch screen the reason it is off is unreachable. */
-    .batch-row .btn[aria-disabled="true"] { opacity: 0.45; cursor: help; }
-    .batch-row .bar-sep { width: 1px; align-self: stretch; background: var(--line); }
-    .btn.warn { color: var(--bic-red); border-color: rgba(194, 55, 55, 0.45); }
-
     .ch-name { font-weight: 700; font-size: 0.95rem; }
     .ch-name a { color: inherit; text-decoration: none; }
     .ch-name a:hover { text-decoration: underline dotted; }
     .ch-where { color: var(--muted); font-size: 0.82rem; }
-    .ch-tags { margin-left: auto; display: flex; gap: 5px; flex: 0 0 auto; }
+    /* `.ch-tags` WAS DECLARED AND WORN BY NOTHING until the tags became a row
+       of their own: the chips were appended straight onto `.ch-line`. It was
+       `margin-left: auto`, which is what pushed them to the far right of the
+       title's line -- the arrangement this replaces. */
+    .ch-tags {
+      flex: 1 0 100%; margin: 4px 0 0;
+      display: flex; gap: 5px; flex-wrap: wrap;
+    }
     .ch-tag {
       font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.06em;
       text-transform: uppercase; padding: 3px 6px; border-radius: 999px;
@@ -239,7 +303,45 @@
        the point: Delete is the only irreversible control on this form. */
     .dlg-foot .spacer { margin-left: auto; }
 
+    /* ---- the prompt sheet ------------------------------------------------
+       THE PROMPT IS EDITABLE, because a run is often wanted against part of the
+       job, and the doors copy WHAT IS IN THE BOX rather than what was built --
+       copying the generated text would throw an edit away in silence. */
+    .prompt-howto {
+      margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--muted);
+    }
+    .prompt-sheet {
+      width: 100%; min-height: 340px; resize: vertical;
+      font: 500 0.72rem/1.45 'IBM Plex Mono', monospace;
+      color: var(--ink); background: #fff;
+      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    }
+    /* A FENCED GROUP, so the three doors read as three ways to do one thing
+       rather than as three unrelated buttons beside Insert results. */
+    .prompt-doors {
+      display: flex; gap: 6px; align-items: center;
+      border: 1px solid var(--cut-panel-line); border-radius: 8px;
+      padding: 6px 8px; margin: 0;
+    }
+    .prompt-doors > legend {
+      font: 600 0.56rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); padding: 0 4px;
+    }
+    /* [hidden] AGAIN, on the Reset button: `.btn` carries an author
+       `display: inline-flex`, which beats the UA sheet's `display: none`. */
+    #nflReset[hidden] { display: none; }
+
     .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    /* [hidden] HAS TO BE RE-ASSERTED HERE TOO. `display: flex` above is an
+       AUTHOR rule and `[hidden]` is only the UA sheet's `display: none`, so the
+       author rule wins and setting `.hidden` did nothing at all -- **the
+       options box was on screen for every kind**, including a photo and the
+       waiver, and so was the ladder field before it was removed.
+         The page has carried this rule for `.btn` since it was written, with a
+       comment saying why; nobody applied it to `.field`. **Twelfth time this
+       project has been bitten by it.** No `!important` needed: `.field[hidden]`
+       is (0,2,0) and beats `.field` outright. */
+    .field[hidden] { display: none; }
     .field--wide { grid-column: 1 / -1; }
     .field > span {
       font: 600 0.64rem/1 'IBM Plex Mono', monospace;
@@ -260,12 +362,21 @@
 
     /* ---- what a challenge row shows -------------------------------------- */
     .ch { align-items: flex-start; }
-    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+    /* `flex: 1 1 0`, NEVER `auto`. **AN `auto` BASIS IS THE ITEM'S OWN
+       MAX-CONTENT**, and `.ch-prompt` inside this line asks for 100%, so the
+       line's hypothetical width was enormous -- and a WRAPPING flex container
+       places items by that width BEFORE it shrinks anything, so the tick was
+       pushed onto a line of its own above the title. A basis of 0 always fits
+       beside the tick and then grows into what is left.
+         Same fault `/games/` had when a 43,376px map came out of `flex: 1 1
+       auto`, and the Stop Builder's tag dialog when a 240px width floor became
+       a height. */
+    .ch-line { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; flex: 1 1 0; min-width: 0; }
     .ch-prompt {
       flex: 1 0 100%; margin: 3px 0 0; color: var(--muted);
       font-size: 0.86rem; line-height: 1.45;
     }
-    /* A VARIABLE IS DRAWN AS A VARIABLE, in the prompt and in the preview, so a
+    /* A VARIABLE IS DRAWN AS A VARIABLE on the row, so a
        writer can see at a glance which words the game fills in. */
     .var {
       font-family: 'IBM Plex Mono', monospace; font-size: 0.86em;
@@ -274,45 +385,66 @@
     }
     .var.is-bad { background: rgba(190, 55, 55, 0.12); color: var(--bic-red); }
 
-    /* THE KIND AND THE SCOPE ARE THE TWO FACTS YOU SCAN FOR, so they are chips
-       rather than words in a sentence. Scope carries the outline because it is
-       the one that decides whether a challenge can be reused; kind does not. */
+    /* THE KIND IS A CHIP RATHER THAN A WORD IN A SENTENCE, because it is what
+       you scan a list for. The outlined chip beside it belongs to TRIVIA and
+       carries its ladder key; it was the scope chip's until 2026090311. */
+    /* THE TYPE IS COLOUR CODED, one hue each, so a column of badges is
+       scannable without reading a word of it.
+         MEASURED, NOT PICKED. Each is checked two ways, the same way the Events
+       room's five bands were: the badge sets its text in its own hue on a wash
+       of that hue, which must clear 4.5:1 at this size; and the six must be
+       separated in **Lab deltaE**, not hue -- **hue alone is the wrong metric**,
+       which the Events room found when amber measured 30 degrees off the red pen
+       and read nothing like it.
+         RE-MEASURED WHENEVER THE SET CHANGES, which it did twice today: the
+       amber left with `any_answer`, and the olive arrived with
+       `waypoint_reveal`. **WORST CONTRAST 5.56** (minigame). **CLOSEST PAIR
+       20.1** (photo/operations), against the 18.6 that blue and violet have
+       always sat at here. **NEAREST TO THE RED PEN 53.5** (waypoint_reveal), so
+       no badge can be mistaken for a row in review.
+         THE OLIVE WAS PICKED BY MEASUREMENT, not by eye: eight candidates were
+       scored and three were refused outright for sitting too close to the red
+       pen -- rust at 12.5, brick at 14.2 and amber at 29.1 -- and plum for
+       sitting 12.8 from the violet already here. */
     .ch-kind {
       font: 600 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--muted);
-      border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
-      white-space: nowrap;
+      text-transform: uppercase; white-space: nowrap;
+      border-radius: 3px; padding: 3px 6px;
+      /* THE FALLBACK IS THE OLD LOOK, and it is doing real work: `type` takes
+         only six values today and the CHECK is one migration from a seventh.
+         An unnamed type draws quiet rather than invisible. */
+      color: var(--muted);
+      border: 1px solid var(--line);
+      background: transparent;
     }
+    /* ONE TRIPLE PER TYPE and everything else derived from it, so a hue cannot
+       drift between the ink, the border and the wash. */
+    .ch-kind.is-known {
+      color: rgb(var(--kind-rgb));
+      border-color: rgba(var(--kind-rgb), 0.45);
+      background: rgba(var(--kind-rgb), 0.10);
+    }
+    .ch-kind.is-type_answer { --kind-rgb:  45,  72, 128; }
+    .ch-kind.is-multiple_choice { --kind-rgb: 122,  47, 134; }
+    .ch-kind.is-minigame   { --kind-rgb:  29, 107,  79; }
+    .ch-kind.is-photo      { --kind-rgb:  15,  98, 114; }
+    .ch-kind.is-operations { --kind-rgb:  74,  79,  92; }
+    .ch-kind.is-waypoint_reveal { --kind-rgb:  86,  96,  28; }
     .ch-scope {
       font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
       text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
       border: 1px solid transparent; white-space: nowrap;
     }
-    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
-       will be used again. The three narrow scopes are quieter and told apart by
-       the word rather than by hue: a colour each would make a list of chips
-       read as a legend to learn. A scope naming nothing takes the red pen. */
+    /* THIS CHIP IS THE TRIVIA LADDER KEY'S NOW. It was the scope chip's too
+       until 2026090311 dropped scope, and `is-city` and `is-place` went with
+       that branch -- the trivia one only ever asks for portable, team or loose.
+       PORTABLE IS THE ONE IN INK, because it is the one that says this row will
+       be used anywhere. A key that resolves to nothing takes the red pen. */
     .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
-    .ch-scope.is-team,
-    .ch-scope.is-city,
-    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
+    .ch-scope.is-team     { color: var(--muted); border-color: var(--line); }
     .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
 
     /* ---- the editor ------------------------------------------------------ */
-    .preview {
-      border: 1px solid var(--line); border-radius: 7px;
-      background: var(--panel-soft); padding: 10px 12px;
-      font-size: 0.9rem; line-height: 1.5; min-height: 3.2em;
-    }
-    .preview-empty { color: var(--muted); font-style: italic; }
-    .preview-answer {
-      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line);
-      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-    }
-    .preview-answer-label {
-      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.09em;
-      text-transform: uppercase; color: var(--muted);
-    }
     .varbar { display: flex; flex-wrap: wrap; gap: 5px; }
     .varbar button {
       font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem;
@@ -335,7 +467,7 @@
              on the way would be WRONG rather than not yet known. The markup
              ships the `?` too, or the wrong answer is on screen for the first
              second whatever the painter does afterwards. -->
-        <p class="room-blurb"><span id="blurbCount">?</span> Challenges. A Challenge is what a team does when they get there, and Waypoint + Challenge = Game Stop. Trivia lives here too, keyed to a fandom or a city rather than to a scope.</p>
+        <p class="room-blurb"><span id="blurbCount">?</span> Challenges. A Challenge is what a team does when they get to a Waypoint.</p>
         <span class="status room-scribble" id="pageStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
@@ -345,6 +477,8 @@
         <legend>Add</legend>
         <div class="command-bar-inner">
           <button class="btn primary" id="addBtn" type="button" title="Write one yourself">Challenge</button>
+          <button class="btn" id="nflBtn" type="button"
+                  title="Hand an AI a prompt for one multiple choice question per NFL club">NFL trivia</button>
         </div>
       </fieldset>
 
@@ -352,16 +486,19 @@
         <legend>Find</legend>
         <div class="command-bar-inner">
           <input type="search" id="q" placeholder="Search name, prompt, answer, tag..." autocomplete="off">
-          <select id="kindFilter" title="Narrow to one kind"></select>
-          <select id="scopeFilter" title="How far a challenge travels: any city, one club, one city, or one waypoint">
-            <option value="any">any scope</option>
-            <option value="portable">portable</option>
-            <option value="team">team bound</option>
-            <option value="city">city bound</option>
-            <option value="place">place bound</option>
-          </select>
+          <select id="kindFilter" title="Narrow to one type"></select>
           <button class="btn" id="clearBtn" type="button" aria-disabled="true">Clear</button>
         </div>
+      </fieldset>
+
+      <!-- A RADIO GROUP, NOT THREE BUTTONS. One order at a time is what a
+           radio group MEANS, and the browser keeps the rule: three buttons
+           would need a hand-rolled `aria-pressed` set kept in step with the
+           paint, which is a control painted in one place and read in another.
+           The arrow keys and one accessible name come free. -->
+      <fieldset class="command-bar command-bar--sort">
+        <legend>Sort</legend>
+        <div class="command-bar-inner sort-group" id="sortGroup"></div>
       </fieldset>
 
       <fieldset class="command-bar command-bar--check">
@@ -373,32 +510,49 @@
     </div>
 
     <section class="panel">
-      <div class="panel-head">
-        <span class="panel-title">Challenge Library</span>
-        <span class="panel-count" id="listCount"></span>
-      </div>
-      <div class="batch-row" id="batchBar">
-        <label class="batch-all"><input type="checkbox" id="batchAllBox"><span>Select all</span></label>
-        <span class="batch-count" id="batchCount">none selected</span>
-        <span class="batch-actions">
-          <select id="batchKind" aria-label="Set kind"><option value="">Set kind</option></select>
-          <select id="batchScope" aria-label="Set scope"
-                  title="Only the two scopes that need no key. Team and city name a club or a city, which is a per-row decision.">
-            <option value="">Set scope</option>
-            <option value="portable">portable</option>
-            <option value="place">place bound</option>
-          </select>
-          <button class="btn" id="batchApplyBtn" type="button" aria-disabled="true">Apply</button>
-          <span class="bar-sep" aria-hidden="true"></span>
-          <button class="btn warn" id="batchDeleteBtn" type="button" aria-disabled="true">Delete</button>
-        </span>
-      </div>
       <div class="panel-body" id="list"></div>
     </section>
   </main>
 
   <!-- THE EDITOR. One challenge at a time, in a dialog holding a working copy:
        Save writes it, Close discards it. -->
+  <!-- THE NFL TRIVIA PROMPT. It writes nothing: it hands over text and a
+       person runs the SQL, which is the same split every other prompt in this
+       project makes. A page cannot call an AI, and the SQL is the deliverable. -->
+  <div class="dlg" id="nflDlg" role="dialog" aria-modal="true" aria-labelledby="nflTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <span class="dlg-title" id="nflTitle">NFL trivia</span>
+        <span class="dlg-sub" id="nflSub"></span>
+      </div>
+      <div class="dlg-body">
+        <p class="prompt-howto">
+          Edit the prompt if you want to. Copy it into your AI, then paste the SQL
+          it hands back into the website database (Supabase). Two things go wrong
+          after you leave this page: a question that contains its own answer is
+          refused, and so is a key that is not one of the ones listed. Ask
+          <a href="mailto:adminhelp@thegamebureau.com">adminhelp@thegamebureau.com</a>.
+        </p>
+        <textarea class="prompt-sheet" id="nflPrompt" spellcheck="false"></textarea>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn" id="nflReset" type="button" hidden>Reset prompt</button>
+        <span class="dlg-sub" id="nflCopyStatus"></span>
+        <span class="spacer"></span>
+        <fieldset class="prompt-doors">
+          <legend>Copy prompt to clipboard &amp; open</legend>
+          <a class="btn" id="nflChatgpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+          <a class="btn" id="nflGrok" href="https://grok.com/" target="_blank" rel="noopener noreferrer">Grok</a>
+          <a class="btn" id="nflClaude" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
+        </fieldset>
+        <a class="btn primary" id="nflInsert"
+           href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true"
+           target="_blank" rel="noopener noreferrer">Insert results</a>
+        <button class="btn" id="nflClose" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
     <div class="dlg-panel dlg-panel--wide">
       <div class="dlg-head">
@@ -410,42 +564,17 @@
           <input type="text" id="fName" placeholder="Sing for the away side" autocomplete="off">
         </label>
 
-        <label class="field"><span>Kind</span>
+        <label class="field"><span>Type</span>
           <select id="fKind"></select>
         </label>
 
-        <label class="field"><span>Scope</span>
-          <select id="fScope">
-            <option value="portable">portable, any city and any fandom</option>
-            <option value="team">team bound, one club only</option>
-            <option value="city">city bound, one city only</option>
-            <option value="place">place bound, one waypoint only</option>
-          </select>
-        </label>
+        <!-- WHERE IT IS ASKED IS GONE. It was `ladder_key`, a key-ladder rung
+             naming a destination, a city-and-state prefix, a league or a
+             waypoint -- and WHERE A CHALLENGE APPLIES IS A TAG NOW, so a
+             second mechanism saying the same thing is one that can disagree
+             with it. See the note above `triviaLadderKey`. -->
 
-        <label class="field" id="bindTeamField" hidden><span>Which club</span>
-          <select id="fScopeTeam"></select>
-        </label>
-
-        <label class="field" id="bindCityField" hidden><span>Which city</span>
-          <input type="text" id="fScopeCity" list="chCityList" placeholder="Chicago" autocomplete="off">
-          <datalist id="chCityList"></datalist>
-        </label>
-
-        <label class="field" id="bindPlaceField" hidden><span>Which waypoint</span>
-          <select id="fScopeWpid"></select>
-        </label>
-
-        <!-- THE TWO FIELDS THAT ARE TRIVIA'S OWN. Hidden on every other kind,
-             because a ladder key on a stop challenge is refused outright by
-             challenges_ladder_key_belongs_to_trivia -- so a box that could only
-             ever produce a refusal is worse than no box. -->
-        <label class="field field--wide" id="ladderField" hidden><span>Where it is asked, a key ladder rung</span>
-          <input type="text" id="fLadder" list="ladderList" placeholder="new-orleans-la-nfl-saints" autocomplete="off">
-          <datalist id="ladderList"></datalist>
-        </label>
-
-        <label class="field field--wide"><span>Prompt, read by the team at the stop</span>
+        <label class="field field--wide"><span>Question</span>
           <textarea id="fPrompt" rows="3" placeholder="Stand on the steps and sing the {{away_team_nickname}} fight song, loudly enough that a stranger looks."></textarea>
         </label>
 
@@ -453,9 +582,6 @@
           <div class="varbar" id="varBar"></div>
         </div>
 
-        <div class="field field--wide"><span>How it reads in a real game</span>
-          <div class="preview" id="preview"></div>
-        </div>
 
         <label class="field field--wide"><span>Answer, blank when nothing is marked. Variables work here too</span>
           <input type="text" id="fAnswer" placeholder="Jefferson Davis" autocomplete="off">
@@ -506,17 +632,26 @@
     // Adding one here needs a migration, so the list is not merely a UI choice.
     //
     // ALL SIX, AND THE LIST HAD TO BE COMPLETE BEFORE THE ROOM COULD LIST
-    // EVERY ROW. It held four while trivia and consent were filtered out; the
-    // moment they are drawn, a picker missing their kind is worse than a
+    // EVERY ROW. It held four while trivia and the waiver were filtered out;
+    // the moment they are drawn, a picker missing their kind is worse than a
     // missing option -- opening the waiver would show `question` selected and
     // saving would silently rewrite what kind of thing it is.
-    const KIND_VALUES = ['question', 'minigame', 'photo', 'freeform', 'consent', 'trivia'];
+    //
+    // `operations` WAS `consent` UNTIL 2026090312. The value is the label on
+    // the kind and nothing about the waiver moved with it: the words are still
+    // in `challenges.prompt`, `game_responses` still records the whole prompt
+    // as the reply, and `tgb_pick_challenge` still keeps it out of a random
+    // draw -- by the new name, which that migration patched in the same breath.
+    const KIND_VALUES = ['type_answer', 'minigame', 'photo',
+                         'operations', 'multiple_choice', 'waypoint_reveal'];
 
     // TRIVIA IS THE ONE KIND WITH A SHAPE OF ITS OWN. It carries a key-ladder
-    // rung instead of a scope and may carry multiple choice options, and nine
+    // rung and may carry multiple choice options, and nine
     // CHECK constraints hold that shape. `isTrivia` is asked in one place so
     // the form, the payload and the row cannot disagree about it.
-    function isTrivia(row) { return clean(row && row.kind) === 'trivia'; }
+    /* THE NAME STAYS `isTrivia`, per the bargain the Tape Room made through
+       five renames of its verbs: identifiers do not move with visible copy. */
+    function isTrivia(row) { return clean(row && row.type) === 'multiple_choice'; }
 
     // THE RUNGS OF THE KEY LADDER, in the order tgb_content_keys emits them.
     // A rung is a destination id, its city-and-state prefix, a league family,
@@ -557,15 +692,41 @@
     function unknownVarsIn(text) { return varsIn(text).filter((k) => VAR_KEYS.indexOf(k) === -1); }
 
     const state = { teams: [], waypoints: [], destinations: [], families: [],
-                    authed: false, rows: [], q: '', kind: 'any', scope: 'any',
+                    authed: false, rows: [], q: '', kind: 'any',
+                    /* HOW MANY ROWS ARE DRAWN. The list grows as you reach the
+                       foot of it; `render` draws the first chunk and `growList`
+                       every chunk after. */
+                    shown: 100,
+                    /* WHICH ORDER THE LIST IS IN. `name` is what this room
+                       has opened on since it was built, and what the read asks
+                       PostgREST for, so the first paint and the default agree
+                       without the page sorting anything. */
+                    sort: 'name',
                     editing: null, reviewOnly: false, loaded: false };
-    const cols = { scope: false, tags: false, bind: false };
-    const picked = new Set();
+    const cols = { tags: false };
 
     /* ---- plumbing -------------------------------------------------------- */
 
     function el(id) { return document.getElementById(id); }
     function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    /* A TAG CARRIES NO SPACES. Typing `sports bar` files `sports-bar`.
+         WHY AT ALL: a tag is a WORD you match on, and the two rooms that read
+       these treat them as such -- the Stop Builder's filter joins them into
+       prose (`tagged sports and chicago`), and the space would be the only
+       thing telling one tag from two. It is also the shape the 44 on file
+       already keep, checked rather than assumed: **0 of 106 uses carry a
+       space**, so this is a rule for what is typed next rather than a backfill.
+         RUNS COLLAPSE, so `sports   bar` is `sports-bar` and not `sports---bar`,
+       and `clean` has already trimmed the ends so neither can be a stray
+       hyphen.
+         SPLIT AND JOIN RATHER THAN A REGEX. `/\s+/g` is the obvious way and it
+       is one heredoc away from arriving as a literal control character -- this
+       repo has lost twenty things to that, one of them a whole file. There is
+       nothing here a regex does better. */
+    function hyphenate(v) {
+      return clean(v).split(' ').filter(Boolean).join('-');
+    }
 
     function restUrl(table, params) {
       const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
@@ -584,18 +745,11 @@
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
       // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23514 is a
       // statement about our schema and tells nobody what to do about it.
-      if (/challenges_scope_key_check/.test(text)) {
-        return 'That scope and that binding disagree. A portable challenge names '
-             + 'nothing, a team challenge names a club, a city challenge names a '
-             + 'city, and a place challenge names a waypoint.';
-      }
-      if (/challenges_scope_check/.test(text)) return 'Scope must be portable, team, city or place.';
-
       // ---- the nine that came with the trivia rows -----------------------
-      if (/challenges_ladder_key_belongs_to_trivia/.test(text)) {
+      if (/challenges_ladder_key_belongs_to_type/.test(text)) {
         return 'A key ladder rung belongs to a trivia question and to nothing '
-             + 'else, and a trivia question must have one and must be portable. '
-             + 'Change the kind, or fill the rung in.';
+             + 'else, and a trivia question must have one. Change the type, or '
+             + 'fill the rung in.';
       }
       if (/challenges_answer_is_a_choice/.test(text)) {
         return 'The answer has to be one of the options, spelled the same way. '
@@ -604,38 +758,33 @@
       if (/challenges_choices_enough/.test(text)) {
         return 'Two options at least, or none at all. One option is not a choice.';
       }
-      if (/challenges_trivia_free_answer_is_one_word/.test(text)) {
+      if (/challenges_mc_free_answer_is_one_word/.test(text)) {
         return 'A typed trivia answer has to be ONE word, because a team is '
              + 'typing it outdoors on a phone. If the only good answer is two '
              + 'words, give the question options instead.';
       }
-      if (/challenges_trivia_answer_not_in_prompt/.test(text)) {
+      if (/challenges_mc_answer_not_in_prompt/.test(text)) {
         return 'The question contains its own answer, so it tests nothing. '
              + 'Reword it so the answer is not one of its words.';
       }
-      if (/challenges_trivia_no_one_word_prefix/.test(text)) {
+      if (/challenges_mc_no_one_word_prefix/.test(text)) {
         return 'A question may not open with "One word". Name something that IS '
              + 'one word instead; the box already says what it takes.';
       }
-      if (/challenges_trivia_has_a_prompt/.test(text)) {
+      if (/challenges_mc_has_a_prompt/.test(text)) {
         return 'A trivia question needs its question written out.';
       }
-      if (/challenges_trivia_has_an_answer/.test(text)) {
+      if (/challenges_mc_has_an_answer/.test(text)) {
         return 'A trivia question needs an answer. Unlike a photo, it is marked against one.';
       }
       if (/PGRST204.*ladder_key|column .*ladder_key|column .*choices/.test(text)) {
         return 'The database has no ladder_key or choices column yet. Run '
              + 'mc/supabase/migrations/2026083107_trivia_becomes_a_challenge.sql.';
       }
-      if (/challenges_kind_check/.test(text)) return 'That is not a kind this table allows.';
-      if (/PGRST204|column .*scope|column .*tags/.test(text)) {
-        return 'The database has no scope or tags column yet. Run '
+      if (/challenges_type_check/.test(text)) return 'That is not a type this table allows.';
+      if (/PGRST204|column .*tags/.test(text)) {
+        return 'The database has no tags column yet. Run '
              + 'mc/supabase/migrations/2026082902_challenges_scope_and_tags.sql.';
-      }
-      if (/PGRST204|column .*scope_team|column .*scope_city|column .*scope_wpid/.test(text)) {
-        return 'The database has no scope_team, scope_city or scope_wpid column '
-             + 'yet. Run mc/supabase/migrations/'
-             + '2026083002_challenge_scope_gains_city_and_team.sql.';
       }
       if (res.status === 401 || res.status === 403 || /42501/.test(text)) {
         return 'The database refused that. Check you are signed in as an admin.';
@@ -673,10 +822,10 @@
       state.rows = out;
       state.loaded = true;
       probeColumns(out[0]);
-      // BOTH CATALOGUES FAIL SOFT. A picker that cannot be built is a scope
+      // IT FAILS SOFT. A catalogue that cannot be read is a trivia
       // that cannot be set, which is worth saying; it is not worth taking the
       // room down for, since every other kind of editing still works.
-      if (cols.bind) { await loadBindCatalogues(); }
+      await loadWaypoints();
       await loadLadderCatalogue();
     }
 
@@ -691,42 +840,44 @@
        that will not answer costs the orphan finding and nothing else. */
     async function loadLadderCatalogue() {
       try {
-        const res = await fetch(restUrl('destinations', { select: 'id', order: 'id.asc' }),
+        /* THE SELECT CARRIES THE CLUB, not just the key, because the NFL
+           prompt has to NAME each team and hand back its exact `ladder_key`.
+           A prompt that named the clubs from a list of its own would be a
+           second copy of the catalogue, wrong the first time one moved. */
+        const res = await fetch(restUrl('destinations',
+            { select: 'id,city,state,nickname,league', order: 'id.asc' }),
           { headers: authHeaders() });
         if (res.ok) {
-          state.destinations = (await res.json()).map((d) => clean(d.id)).filter(Boolean);
+          const rows = await res.json();
+          state.destinations = rows.map((d) => clean(d.id)).filter(Boolean);
+          state.nflTeams = rows.filter((d) => clean(d.league) === 'NFL')
+            .map((d) => ({ id: clean(d.id), city: clean(d.city),
+                           state: clean(d.state), nickname: clean(d.nickname) }))
+            .filter((d) => d.id && d.nickname);
           // A FAMILY IS READ OFF THE KEYS THEMSELVES rather than from a list
           // this page would have to keep in step with the database.
           state.families = [...new Set(state.destinations
             .map((id) => (id.split('-')[2] || ''))
             .filter(Boolean))];
         }
-      } catch (err) { state.destinations = []; state.families = []; }
-      buildLadderList();
+      } catch (err) { state.destinations = []; state.families = []; state.nflTeams = []; }
     }
 
-    /* BUILT FROM THE ROWS THAT EXIST, so the list can only offer a rung that
-       resolves -- which is the whole fault the orphan check exists to report,
-       answered at the point somebody types rather than after they have saved.
-       A key already in use leads, because most questions join a set. */
-    function buildLadderList() {
-      const list = el('ladderList');
-      if (!list) return;
-      const used = [...new Set(state.rows.map((r) => clean(r.ladder_key)).filter(Boolean))].sort();
-      const cities = [...new Set(state.destinations
-        .map((d) => d.split('-').slice(0, 2).join('-'))
-        .filter((c) => c.indexOf('-') > 0))].sort();
-      const all = used
-        .concat([PORTABLE_KEY])
-        .concat(state.families.slice().sort())
-        .concat(cities)
-        .concat(state.destinations.slice().sort());
-      list.textContent = '';
-      all.filter((k, at, l) => l.indexOf(k) === at).forEach((k) => {
-        const o = document.createElement('option');
-        o.value = k;
-        list.appendChild(o);
-      });
+    /* `buildLadderList` LIVED HERE and went with the field it filled -- it
+       offered every rung that resolves, which is a list nothing can now type
+       into. The destinations read above stays, because the CHIP on each trivia
+       row still says what its stored key resolves to. */
+
+    /* THE KEY A TRIVIA ROW IS SAVED WITH, now that no field asks for one.
+       KEPT IF IT HAS ONE, `*` IF IT DOES NOT -- and `*` is the portable rung,
+       asked of anybody, which is what "not city specific" means. WHERE a
+       challenge applies is a tag now, and two mechanisms for one idea is how
+       they end up disagreeing.
+         **THIS IS THE ONLY THING THAT WRITES `ladder_key`.** Changing an
+       existing key is SQL. */
+    function triviaLadderKey(row) {
+      const had = clean(row && row.ladder_key).toLowerCase();
+      return had || PORTABLE_KEY;
     }
 
     /* THE FOUR SHAPES A RUNG MAY TAKE, or '' when it names nothing. Returning
@@ -750,17 +901,10 @@
       return '';
     }
 
-    async function loadBindCatalogues() {
+    async function loadWaypoints() {
       try {
-        const res = await fetch(restUrl('teams', {
-          select: 'team_key,city_name,mascot,league', order: 'league.asc,city_name.asc'
-        }), { headers: authHeaders() });
-        if (res.ok) state.teams = await res.json();
-      } catch (err) { state.teams = []; }
-      try {
-        // The waypoint picker points a place-bound challenge at ONE row, so it
-        // wants the whole library. It pages past the silent 1000-row cap for
-        // the same reason the Waypoints room does.
+        // IT PAGES, past the silent 1000-row cap, for the same reason the
+        // Waypoints room does.
         const out = [];
         for (let from = 0; ; from += 1000) {
           const res = await fetch(restUrl('waypoints', {
@@ -773,72 +917,6 @@
         }
         state.waypoints = out;
       } catch (err) { state.waypoints = []; }
-      buildBindPickers();
-    }
-
-    function teamName(key) {
-      if (!key) return '';
-      const t = (state.teams || []).find((x) => clean(x.team_key) === key);
-      // A key with no row still reads as itself rather than vanishing: a club
-      // we have stopped carrying is not a reason to hide what a challenge says.
-      return t ? (clean(t.city_name) + ' ' + clean(t.mascot)).trim() : key;
-    }
-    function wpName(wpid) {
-      if (!wpid) return '';
-      const w = (state.waypoints || []).find((x) => String(x.wpid) === String(wpid));
-      return w ? clean(w.name) : ('waypoint ' + wpid);
-    }
-
-    function buildBindPickers() {
-      const team = el('fScopeTeam');
-      team.textContent = '';
-      const none = document.createElement('option');
-      none.value = ''; none.textContent = 'not chosen yet';
-      team.appendChild(none);
-      (state.teams || []).forEach((t) => {
-        const o = document.createElement('option');
-        o.value = clean(t.team_key);
-        o.textContent = (clean(t.city_name) + ' ' + clean(t.mascot)).trim()
-                      + '  (' + clean(t.league) + ')';
-        team.appendChild(o);
-      });
-
-      const wp = el('fScopeWpid');
-      wp.textContent = '';
-      const none2 = document.createElement('option');
-      none2.value = ''; none2.textContent = 'not chosen yet';
-      wp.appendChild(none2);
-      (state.waypoints || []).forEach((w) => {
-        const o = document.createElement('option');
-        o.value = String(w.wpid);
-        const where = [clean(w.city), clean(w.state)].filter(Boolean).join(', ');
-        o.textContent = clean(w.name) + (where ? '  (' + where + ')' : '');
-        wp.appendChild(o);
-      });
-
-      // THE CITY LIST IS BUILT FROM THE WAYPOINTS, never typed from memory, so
-      // it can only suggest a city some waypoint actually claims. The box stays
-      // free text: a city with no waypoint yet is a real thing to write.
-      const seen = new Map();
-      (state.waypoints || []).forEach((w) => {
-        const c = clean(w.city);
-        if (c) seen.set(c.toLowerCase(), c);
-      });
-      const list = el('chCityList');
-      list.textContent = '';
-      [...seen.values()].sort((a, b) => a.localeCompare(b)).forEach((c) => {
-        const o = document.createElement('option');
-        o.value = c;
-        list.appendChild(o);
-      });
-    }
-
-    // ONE PAINTER, so the field on screen and the scope cannot disagree.
-    function paintBindFields() {
-      const sc = clean(el('fScope').value) || 'portable';
-      el('bindTeamField').hidden  = !cols.bind || sc !== 'team';
-      el('bindCityField').hidden  = !cols.bind || sc !== 'city';
-      el('bindPlaceField').hidden = !cols.bind || sc !== 'place';
     }
 
     // THE PAGE SHIPS BEFORE THE MIGRATION AND DEGRADES, the same guard the
@@ -846,45 +924,10 @@
     // PostgREST does not have 400s the whole load.
     function probeColumns(row) {
       if (!row) return;
-      cols.scope = Object.prototype.hasOwnProperty.call(row, 'scope');
-      // The three key columns arrive together in one migration, so one probe
-      // covers them. Naming a column PostgREST does not have 400s the whole
-      // page load, which is why every one of these is probed and not assumed.
-      cols.bind = Object.prototype.hasOwnProperty.call(row, 'scope_team');
       cols.tags = Object.prototype.hasOwnProperty.call(row, 'tags');
-      el('fScope').closest('.field').hidden = !cols.scope;
       el('fTags').closest('.field').hidden = !cols.tags;
-      el('scopeFilter').hidden = !cols.scope;
-      el('batchScope').hidden = !cols.scope;
-      paintBindFields();
     }
 
-    function scopeOf(row) { return cols.scope ? (clean(row.scope) || 'portable') : 'portable'; }
-
-    // ONE READER FOR "what is this bound to", so the chip, the check and the
-    // Route Builder cannot disagree about whether a row names its subject.
-    // Returns the key, or '' when the scope needs one and has none.
-    function bindOf(row) {
-      const sc = scopeOf(row);
-      if (sc === 'team')  return clean(row.scope_team);
-      if (sc === 'city')  return clean(row.scope_city);
-      if (sc === 'place') return row.scope_wpid ? String(row.scope_wpid) : '';
-      return '';
-    }
-    function needsBind(row) { return scopeOf(row) !== 'portable'; }
-    function bindLabel(row) {
-      const sc = scopeOf(row);
-      if (sc === 'team')  return teamName(clean(row.scope_team));
-      if (sc === 'city')  return clean(row.scope_city);
-      if (sc === 'place') return wpName(row.scope_wpid);
-      return '';
-    }
-    const SCOPE_SAYS = {
-      portable: 'Works in any city, in any fandom game.',
-      team:     'One club only, wherever they play.',
-      city:     'One city only, whoever is visiting.',
-      place:    'One waypoint only, so it travels nowhere.'
-    };
     function tagsOf(row) { return Array.isArray(row.tags) ? row.tags.filter(Boolean) : []; }
 
     /* ---- what counts as an issue ----------------------------------------- */
@@ -900,22 +943,15 @@
         test: (c) => !clean(c.prompt),
         say: 'Write the prompt. It is what the team reads when they arrive.'
       },
-      {
-        key: 'unbound-scope',
-        // A NARROW SCOPE THAT NAMES NOTHING IS UNUSABLE AND LOOKS FINE.
-        // Nothing can offer it at the right stop, and no screen but this one
-        // would ever say so, because the row reads perfectly well.
-        test: (c) => cols.bind && needsBind(c) && !bindOf(c),
-        say: 'Say which one. A team, city or place challenge that names nothing '
-           + 'can never be offered automatically.'
-      },
-      {
-        key: 'no-answer',
-        // Only a question is marked against an answer. A photo or a freeform
-        // is judged by the team, so a blank there is correct.
-        test: (c) => clean(c.kind) === 'question' && !clean(c.answer),
-        say: 'Add an answer, or change the kind. A question is marked against one.'
-      },
+      /* THERE IS NO `no-answer` RULE, and its absence is deliberate. It fired
+         on a typed challenge with a blank answer, which was a fault while
+         `type_the_answer` and `any_answer` were two types: one was marked
+         against an answer and one was judged by the team. **2026090317 merged
+         them**, so a typed challenge with no answer is now an ordinary row --
+         6 of the 15 -- and the rule would redden every one of them for a state
+         that is correct. Its call to action named the other type, which is
+         gone. WHAT IS LOST: nothing reports a marked challenge whose answer was
+         deleted, and the type can no longer say which was meant. */
       {
         key: 'unknown-variable',
         // THE HIGH VALUE RULE. A mistyped variable is not an error anywhere:
@@ -929,35 +965,85 @@
                       .map((k) => '{{' + k + '}}').join(', ')
                   + '. That is not a variable, so it prints as it is written.'
       },
-      {
-        key: 'orphan-ladder-key',
-        // THE ONE FINDING NO OTHER SCREEN CAN EVER REPORT. `ladder_key` is not
-        // a foreign key and cannot be one, so a mistyped rung is refused by
-        // nothing: the row reads perfectly and the question is simply never
-        // asked of anybody. It came here with the trivia rows from the room
-        // that used to hold it.
-        //   `unknown` IS NOT AN ORPHAN. It is what ladderShape answers while
-        // the destinations read is still in flight, and treating it as a fault
-        // would redden all 38 rows for a second on every load.
-        test: (c) => isTrivia(c) && ladderShape(c.ladder_key) === '',
-        say: (c) => 'Nothing is keyed to ' + (clean(c.ladder_key) || 'that key')
-                  + '. Pick a rung from the list, or this question is asked of nobody.'
-      },
-      {
-        key: 'place-bound-variable',
-        // A contradiction rather than a typo: it says it travels nowhere and
-        // then asks for the away club, which only a travelling game has.
-        test: (c) => scopeOf(c) === 'place'
-                  && varsIn(c.prompt).concat(varsIn(c.answer)).length > 0,
-        say: 'This is place bound but names a team. Make it portable, or take the variable out.'
-      }
+      /* `orphan-ladder-key` LIVED HERE and went with the field. It reported a
+         rung resolving to nothing -- the one thing about trivia no other screen
+         can see -- and its call to action was "pick a rung from the list".
+         THERE IS NO LIST AND NO BOX, so the finding became a fault nobody in
+         this room could act on, which is the one shape of finding this project
+         removes. The CHIP still says `keyed to nothing` on such a row. */
     ];
+
+    /* ---- THE DUPLICATE CHECK -----------------------------------------------
+       TWO CHALLENGES THAT ASK THE SAME QUESTION ARE ONE CHALLENGE, and this
+       room had no way to say so. **13 pairs were on file within an hour of the
+       NFL prompt shipping** -- 26 of 104 rows -- because the prompt was run
+       twice and its "already covered" list is built when the prompt is BUILT,
+       so a second run from the same page cannot know what the first one filed.
+
+       IT CANNOT BE A `CHECK_RULES` ENTRY, and that is not a detail: every rule
+       there is a test on ONE row, and being a duplicate is a fact about a PAIR.
+       The Events room hit exactly this and solved it the same way, with a map
+       computed over the whole table before the sweep.
+
+       KEYED ON THE QUESTION, AND SEPARATELY ON THE NAME, because they are two
+       different mistakes: the same question typed twice is a real duplicate,
+       and the same NAME on two different questions is a list you cannot read.
+       A row can carry both.
+
+       COMPARED ON WORDS, NOT ON THE STRING. Punctuation, case and spacing are
+       all forgiven, so `Who threw it?` and `who threw it` are one question --
+       which is what two AI runs of one prompt actually produce.
+
+       ONLY THE SECOND ROW CARRIES THE FINDING, and it names the first. Flagging
+       both would put one fact in the room twice, and the pair is reachable from
+       either end because the message carries the other id. */
+    function dupeKey(v) {
+      return clean(v).toLowerCase().split('').map((ch) => {
+        const c = ch.charCodeAt(0);
+        const alnum = (c > 47 && c < 58) || (c > 96 && c < 123);
+        return alnum ? ch : ' ';
+      }).join('').split(' ').filter(Boolean).join(' ');
+    }
+
+    /* REBUILT ON EVERY RENDER, from `state.rows`. A stored map would go stale
+       the moment somebody edited a question, and this room recomputes its
+       findings on every render for exactly that reason. */
+    function buildDupeMap() {
+      const firstBy = { prompt: {}, name: {} };
+      const out = {};
+      /* THE ORDER IS THE ID, NEVER THE LIST'S CURRENT SORT. Whichever row is
+         "first" has to be a fact about the rows rather than about the order you
+         happen to be looking at them in -- otherwise changing the sort would
+         move the finding from one row of a pair to the other. */
+      state.rows.slice()
+        .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+        .forEach((c) => {
+          ['prompt', 'name'].forEach((field) => {
+            const k = dupeKey(c[field]);
+            if (!k) return;
+            const seen = firstBy[field][k];
+            if (seen === undefined) { firstBy[field][k] = c.id; return; }
+            if (!out[c.id]) out[c.id] = [];
+            out[c.id].push({ field: field, twin: seen });
+          });
+        });
+      return out;
+    }
+    let dupeMap = {};
 
     function reviewReasons(c) {
       const out = [];
       CHECK_RULES.forEach((rule) => {
         try { if (rule.test(c)) out.push(typeof rule.say === 'function' ? rule.say(c) : rule.say); }
         catch (err) { console.error('check rule ' + rule.key + ' threw', err); }
+      });
+      /* THE MESSAGE NAMES THE TWIN AND WHAT MATCHED, because "duplicate" on its
+         own leaves you hunting the pair, and which of the two to keep is an
+         editorial call this room cannot make. */
+      (dupeMap[c.id] || []).forEach((d) => {
+        out.push(d.field === 'prompt'
+          ? 'Asks the same question as challenge ' + d.twin + '. Delete one.'
+          : 'Has the same name as challenge ' + d.twin + '. Rename one.');
       });
       return out;
     }
@@ -968,43 +1054,76 @@
 
     function matches(c) {
       if (state.reviewOnly && !isInReview(c)) return false;
-      if (state.kind !== 'any' && clean(c.kind) !== state.kind) return false;
-      if (state.scope !== 'any' && scopeOf(c) !== state.scope) return false;
+      if (state.kind !== 'any' && clean(c.type) !== state.kind) return false;
       if (!state.q) return true;
-      const hay = [c.name, c.prompt, c.answer, c.kind, tagsOf(c).join(' '),
+      const hay = [c.name, c.prompt, c.answer, c.type, tagsOf(c).join(' '),
                    cols.bind ? bindLabel(c) : '']
         .map((v) => clean(v).toLowerCase()).join(' ');
       return hay.includes(state.q);
     }
-    function visible() { return state.rows.filter(matches); }
-    function anyFilterOn() {
-      return !!(state.q || state.kind !== 'any' || state.scope !== 'any' || state.reviewOnly);
-    }
+    /* THE ONE PLACE A TYPE IS TURNED INTO WORDS, because the badge draws it
+       and the type order sorts on it. Two copies would let the column and the
+       order disagree about where a row belongs. */
+    function typeLabel(v) { return clean(v).split('_').join(' '); }
 
-    /* ---- batch ----------------------------------------------------------- */
+    /* ---- THE ORDER ---------------------------------------------------------
+       THREE ORDERS, and each is a different question: which challenge is this
+       (name), what just landed (newest), and what kind are these (type).
 
-    function visibleIds() { return visible().map((c) => String(c.id)); }
-    function prunePicked() {
-      const on = new Set(visibleIds());
-      Array.from(picked).forEach((id) => { if (!on.has(id)) picked.delete(id); });
-    }
-    function pickedIds() { return visibleIds().filter((id) => picked.has(id)); }
+       FOUR RULES, every one of them paid for by a room that got it wrong:
+         SORT ON WHAT THE CELL SHOWS, never on what the column stores. The type
+       badge draws `multiple_choice` as MULTIPLE CHOICE, so the type order reads
+       the drawn label -- ordering a list by something no reader can see looks
+       exactly like a broken control.
+         A BLANK SINKS, in every order. A row with no type has no position among
+       types, so putting it first would be the list asserting something it does
+       not know.
+         TIES BREAK ON THE ID, which is what makes the order STABLE. `type` has
+       six values across 63 rows, so a tie is the common case there rather than
+       the exception, and without a second key a row can move under you as you
+       type in the search box.
+         AND A SORT HIDES NOTHING. It must not light Clear, and Clear must not
+       reset it: Clear's job is to WIDEN the list, and throwing away the order
+       somebody chose because they could not find a row would be the button
+       doing a second, unrelated thing. */
+    const SORTS = {
+      name: { label: 'Name', title: 'A to Z by name',
+              key: (c) => clean(c.name) },
+      newest: { label: 'Newest', title: 'Most recently added first', desc: true,
+                key: (c) => clean(c.created_at) },
+      type: { label: 'Type', title: 'Grouped by type, as the badge spells it',
+              key: (c) => typeLabel(c.type) }
+    };
+    const SORT_KEYS = Object.keys(SORTS);
 
-    function paintBatch() {
-      const n = pickedIds().length;
-      const total = visibleIds().length;
-      el('batchCount').textContent = n ? n + ' selected' : 'none selected';
-      const all = el('batchAllBox');
-      all.checked = total > 0 && n === total;
-      all.indeterminate = n > 0 && n < total;
-      [['batchApplyBtn', 'Apply'], ['batchDeleteBtn', 'Delete']].forEach(([id, word]) => {
-        const btn = el(id);
-        const off = n === 0;
-        btn.setAttribute('aria-disabled', off ? 'true' : 'false');
-        btn.textContent = off ? word : word + ' ' + n;
-        btn.title = off ? 'Tick some challenges first.' : word + ' the ' + n + ' ticked.';
+    function sortRows(rows) {
+      const spec = SORTS[state.sort] || SORTS.name;
+      const dir = spec.desc ? -1 : 1;
+      return rows.slice().sort((a, b) => {
+        const ka = spec.key(a), kb = spec.key(b);
+        // A BLANK SINKS WHICHEVER WAY THE ORDER RUNS, so it is tested before
+        // the direction is applied rather than being flipped with it.
+        if (!ka && kb) return 1;
+        if (ka && !kb) return -1;
+        if (ka !== kb) {
+          return dir * String(ka).localeCompare(String(kb), undefined,
+            { sensitivity: 'base', numeric: true });
+        }
+        // THE ID IS THE STABLE KEY. Numeric, so 9 sorts before 10.
+        return (Number(a.id) || 0) - (Number(b.id) || 0);
       });
     }
+
+    function visible() { return sortRows(state.rows.filter(matches)); }
+    function anyFilterOn() {
+      return !!(state.q || state.kind !== 'any' || state.reviewOnly);
+    }
+
+    /* BATCH EDIT LIVED HERE -- `visibleIds`, `prunePicked`, `pickedIds` and
+       `paintBatch`. It went with the bar and the per-row tick (2026-09-03).
+         WHAT IS LOST: setting a type across several rows, and deleting several
+       at once. **A single delete survives in the editor** and is now the only
+       one; several is SQL. */
 
     /* ---- rendering ------------------------------------------------------- */
 
@@ -1036,7 +1155,7 @@
       const sel = el('kindFilter');
       const counts = new Map();
       state.rows.forEach((c) => {
-        const k = clean(c.kind) || '(none)';
+        const k = clean(c.type) || '(none)';
         counts.set(k, (counts.get(k) || 0) + 1);
       });
       const kinds = [...counts.keys()].sort();
@@ -1047,7 +1166,7 @@
       sel.textContent = '';
       const any = document.createElement('option');
       any.value = 'any';
-      any.textContent = 'any kind (' + state.rows.length + ')';
+      any.textContent = 'any type (' + state.rows.length + ')';
       sel.appendChild(any);
       kinds.forEach((k) => {
         const o = document.createElement('option');
@@ -1062,7 +1181,7 @@
     // words the game fills in and which are literal. An unknown one is drawn
     // red in the same pass, which is the fastest way to spot a typo.
     function promptNode(text, cls) {
-      const wrap = document.createElement(cls === 'preview' ? 'div' : 'p');
+      const wrap = document.createElement('p');
       if (cls) wrap.className = cls;
       const src = String(text || '');
       let at = 0, m;
@@ -1087,21 +1206,12 @@
       row.dataset.id = String(c.id);
       row.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
-        if (e.target.closest('.ch-pick')) return;
         openEditor(c);
       });
 
-      const pick = document.createElement('input');
-      pick.type = 'checkbox';
-      pick.className = 'ch-pick';
-      pick.checked = picked.has(String(c.id));
-      pick.setAttribute('aria-label', 'Select ' + (clean(c.name) || 'this challenge'));
-      pick.addEventListener('change', () => {
-        if (pick.checked) picked.add(String(c.id)); else picked.delete(String(c.id));
-        paintBatch();
-      });
-      row.appendChild(pick);
-
+      /* THE TICK AND ITS CELL LIVED HERE, with the batch bar they fed
+         (2026-09-03). A row is opened by clicking it; there is nothing to
+         select, so the row is [type][line]. */
       const line = document.createElement('span');
       line.className = 'ch-line';
 
@@ -1110,10 +1220,28 @@
       name.textContent = clean(c.name) || '(unnamed)';
       line.appendChild(name);
 
+      /* THE TYPE IS A CELL, NOT A CHIP IN THE SENTENCE. Inside `.ch-line` it
+         sat after the name and moved with it, so the badges never lined up down
+         the page -- a column you cannot scan is a column doing nothing. Its own
+         cell gives it one x for every row. It sat next to a TICK CELL until the
+       batch bar went; the row is [type][line] now.
+           IT IS BUILT HERE and appended after the line is, because the row is
+         [tick][type][line] and `line` does not exist yet at this point. */
+      const kindCell = document.createElement('span');
+      kindCell.className = 'ch-kindcell';
       const kind = document.createElement('span');
-      kind.className = 'ch-kind';
-      kind.textContent = clean(c.kind) || 'no kind';
-      line.appendChild(kind);
+      /* THE CLASS IS THE VALUE, so a type the stylesheet does not name simply
+         does not get `is-known` and keeps the quiet fallback -- rather than the
+         row silently losing its badge. */
+      const kt = clean(c.type);
+      kind.className = 'ch-kind'
+        + (KIND_VALUES.indexOf(kt) !== -1 ? ' is-known is-' + kt : '');
+      /* UNDERSCORES READ AS SPACES, so `multiple_choice` draws MULTIPLE CHOICE
+         and `type_answer` draws TYPE ANSWER. **The stored value keeps the
+         underscore and has to**: it is used as a CSS class to colour this
+         badge, and a space in a class name is two selectors rather than one. */
+      kind.textContent = typeLabel(kt) || 'no type';
+      kindCell.appendChild(kind);
 
       // A TRIVIA ROW WEARS ITS RUNG WHERE A CHALLENGE WEARS ITS SCOPE. Both
       // answer the same question -- where does this get used -- so they take the
@@ -1139,28 +1267,30 @@
           n.textContent = c.choices.length + ' options';
           line.appendChild(n);
         }
-      } else if (cols.scope) {
-        const sc = scopeOf(c);
-        const bound = cols.bind ? bindLabel(c) : '';
-        const loose = cols.bind && needsBind(c) && !bindOf(c);
-        const chip = document.createElement('span');
-        chip.className = 'ch-scope is-' + sc + (loose ? ' is-loose' : '');
-        // THE CHIP NAMES WHAT IT IS BOUND TO, not just how far it travels.
-        // "team bound" on twenty rows says nothing; "Falcons" is the fact.
-        chip.textContent = sc === 'portable' ? 'portable'
-          : (bound ? bound : sc + ' bound, unset');
-        chip.title = SCOPE_SAYS[sc] + (loose ? ' This one names nothing yet.' : '');
-        line.appendChild(chip);
       }
 
-      tagsOf(c).forEach((t) => {
-        const chip = document.createElement('span');
-        chip.className = 'ch-tag';
-        chip.textContent = t;
-        line.appendChild(chip);
-      });
-
       if (clean(c.prompt)) line.appendChild(promptNode(c.prompt, 'ch-prompt'));
+
+      /* THE TAGS ARE A THIRD ROW, UNDER THE PROMPT. They sat on the title's
+         line and pushed the name about as a row gained or lost one, so no two
+         rows agreed on where the title ended. On their own line the name is
+         the only thing on line one and the tags are the only thing on line
+         three.
+           APPENDED AFTER THE PROMPT, because both take `flex: 1 0 100%` and a
+         wrapping flex line puts them in source order. */
+      const tags = tagsOf(c);
+      if (tags.length) {
+        const tagRow = document.createElement('span');
+        tagRow.className = 'ch-tags';
+        tags.forEach((t) => {
+          const chip = document.createElement('span');
+          chip.className = 'ch-tag';
+          chip.textContent = t;
+          tagRow.appendChild(chip);
+        });
+        line.appendChild(tagRow);
+      }
+      row.appendChild(kindCell);
       row.appendChild(line);
 
       const why = reviewReasons(c);
@@ -1184,15 +1314,15 @@
     }
 
     function render() {
+      buildSortGroup();
+      // BEFORE `updateTitle`, which counts the issues, and before `visible()`,
+      // which filters on them.
+      dupeMap = buildDupeMap();
       updateTitle();
-      prunePicked();
       paintKindFilter();
       paintCheckBtn();
 
       const rows = visible();
-      el('listCount').textContent = rows.length === state.rows.length
-        ? state.rows.length + ' challenges'
-        : rows.length + ' of ' + state.rows.length + ' challenges';
 
       const clearBtn = el('clearBtn');
       clearBtn.setAttribute('aria-disabled', anyFilterOn() ? 'false' : 'true');
@@ -1202,59 +1332,339 @@
       list.textContent = '';
       if (!state.authed) {
         list.appendChild(emptyNode('Sign in with an admin account to load challenges.'));
-        paintBatch();
         return;
       }
       if (!rows.length) {
         list.appendChild(emptyNode(state.rows.length
           ? 'Nothing matches. Press Clear to see all ' + state.rows.length + '.'
           : 'No challenges yet. Press Challenge to write one.'));
-        paintBatch();
         return;
       }
-      rows.forEach((c) => list.appendChild(rowNode(c)));
-      paintBatch();
+      /* THE FIRST HUNDRED. A filter can leave `shown` past the end of a
+         shorter list, which is harmless for a slice, and it must never leave it
+         BELOW a chunk or the room would open on however few the last filter
+         happened to end on. */
+      if (state.shown < CHUNK) state.shown = CHUNK;
+      rows.slice(0, state.shown).forEach((c) => list.appendChild(rowNode(c)));
+      paintFoot(rows.length);
+    }
+
+    /* ---- the list grows as you reach the foot of it -----------------------
+       IT IS NOT A SILENT CAP, which is the rule this has to satisfy: nothing is
+       truncated, the foot says how many of how many are drawn, and scrolling
+       draws the rest. A top-N that quietly stopped is what this project has
+       deleted before. */
+    const CHUNK = 100;
+
+    function paintFoot(total) {
+      const list = el('list');
+      const old = list.querySelector('.ch-more');
+      if (old) old.remove();
+      if (state.shown >= total) { watchFoot(); return; }
+      const foot = document.createElement('div');
+      foot.className = 'ch-more';
+      foot.setAttribute('data-more', '');
+      foot.textContent = state.shown + ' of ' + total + '. Scroll for more.';
+      list.appendChild(foot);
+      watchFoot();
+    }
+
+    /* GROW BY APPENDING, NEVER BY REPAINTING. `render` rebuilds the list
+       wholesale, which is the expensive thing this room does and would throw
+       away every row already on screen -- and the tick boxes with them.
+       Appending touches nothing that is already there. */
+    function growList() {
+      const rows = visible();
+      if (state.shown >= rows.length) return;
+      const from = state.shown;
+      state.shown = Math.min(rows.length, state.shown + CHUNK);
+      const list = el('list');
+      const foot = list.querySelector('.ch-more');
+      rows.slice(from, state.shown).forEach((c) => {
+        list.insertBefore(rowNode(c), foot);
+      });
+      paintFoot(rows.length);
+    }
+
+    /* AN OBSERVER, NOT A SCROLL LISTENER. A scroll handler runs on every frame
+       and then has to measure; this fires once, when the foot comes into view.
+         DISCONNECTED BEFORE RE-OBSERVING, or a repaint leaves the old observer
+       on a detached node and a second on the new one, so one scroll grows the
+       list twice.
+         `rootMargin` STARTS THE NEXT HUNDRED BEFORE THE FOOT IS ON SCREEN. */
+    let footWatch = null;
+    function watchFoot() {
+      if (footWatch) { footWatch.disconnect(); footWatch = null; }
+      if (typeof IntersectionObserver !== 'function') return;
+      const foot = el('list').querySelector('[data-more]');
+      if (!foot) return;
+      footWatch = new IntersectionObserver((es) => {
+        if (es.some((e) => e.isIntersecting)) growList();
+      }, { rootMargin: '600px 0px' });
+      footWatch.observe(foot);
+    }
+
+    /* A FILTER RESETS THE LIST AND THE PAGE, and the second half is not
+       optional on a list that grows by scrolling: filtered from 6,000px down
+       you are still 6,000px down, the foot is instantly in view, and the
+       observer fills the list back out to reach you.
+         GUARDED, so it is a no-op at rest -- which is nearly always, since the
+       search box and the pickers are at the top and you have to be up there to
+       reach them. */
+    /* BUILT ONCE, FROM `SORTS`, so a fourth order is one entry in that object
+       and nothing else. The `checked` attribute is written here rather than
+       painted later, so the control and `state.sort` agree before a line of
+       anything else runs. */
+    function buildSortGroup() {
+      const host = el('sortGroup');
+      if (!host || host.childElementCount) return;
+      host.setAttribute('role', 'radiogroup');
+      host.setAttribute('aria-label', 'Sort challenges');
+      SORT_KEYS.forEach((k) => {
+        const label = document.createElement('label');
+        label.className = 'sort-opt';
+        label.title = SORTS[k].title;
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'sortBy';
+        input.value = k;
+        input.checked = k === state.sort;
+        const span = document.createElement('span');
+        span.textContent = SORTS[k].label;
+        label.appendChild(input);
+        label.appendChild(span);
+        host.appendChild(label);
+      });
+      host.addEventListener('change', (e) => {
+        const v = e.target && e.target.value;
+        if (!v || !SORTS[v] || v === state.sort) return;
+        state.sort = v;
+        /* A SORT GOES BACK TO THE TOP OF THE LIST AND THE TOP OF THE PAGE. The
+           list grows as you reach its foot, so re-ordering from halfway down
+           would leave the foot instantly in view and the observer would fill
+           the list straight back out to reach you. */
+        repaint();
+      });
+    }
+
+    function repaint() {
+      state.shown = CHUNK;
+      render();
+      if (window.scrollY > 0) window.scrollTo(0, 0);
+    }
+
+
+    /* ---- THE NFL TRIVIA PROMPT -------------------------------------------
+       ONE MULTIPLE CHOICE QUESTION PER NFL CLUB, handed to an AI as text.
+         IT IS BUILT FROM THE ROWS, which is the rule every other prompt in this
+       project keeps: it lists the clubs that do NOT yet have one, so it cannot
+       ask about a club that is already done and cannot miss one. A list written
+       into this page would be stale the first time somebody wrote a question by
+       hand.
+         IT WRITES NOTHING. A static page cannot call an AI, so the deliverable
+       is one `insert` block a person runs in the SQL editor -- the same split
+       the Waypoint Library and the Events room already make. */
+    const NFL_DOORS = ['nflChatgpt', 'nflGrok', 'nflClaude'];
+
+    function nflTeamsNeedingTrivia() {
+      const done = {};
+      state.rows.forEach(function (c) {
+        if (clean(c.type) === 'multiple_choice' && clean(c.ladder_key)) {
+          done[clean(c.ladder_key)] = true;
+        }
+      });
+      return (state.nflTeams || []).filter(function (d) { return !done[d.id]; });
+    }
+
+    function buildNflPrompt() {
+      const teams = nflTeamsNeedingTrivia();
+      const L = [];
+      L.push('You are writing trivia for The Game Bureau.');
+      L.push('');
+      L.push('We build live action, real world games. A team walks a city and stops');
+      L.push('in front of real things. Between stops they are asked trivia about the');
+      L.push('fandom they follow and the one they are visiting, so these questions are');
+      L.push('read aloud in the street by people who are enjoying themselves.');
+      L.push('');
+      L.push('THE JOB: write EXACTLY ONE multiple choice question for each NFL club');
+      L.push('listed below. ' + teams.length + ' club' + (teams.length === 1 ? '' : 's')
+        + ', so ' + teams.length + ' question' + (teams.length === 1 ? '' : 's') + '.');
+      L.push('');
+      L.push('THE CLUBS, WITH THE KEY EACH QUESTION MUST CARRY. The key on the left is');
+      L.push('the value for `ladder_key` and it is what ties the question to the club.');
+      L.push('COPY IT EXACTLY. Do not invent one, do not tidy it, and do not write a');
+      L.push('question for a club that is not on this list: a key that is not one of');
+      L.push('these resolves to nothing, the row reads perfectly, and the question is');
+      L.push('never asked of anybody.');
+      L.push('');
+      teams.forEach(function (d) {
+        L.push('  ' + d.id + '   ' + d.city + ', ' + d.state + ' ' + d.nickname);
+      });
+      L.push('');
+      L.push('HOW TO WRITE ONE');
+      L.push('');
+      L.push('  FOUR OPTIONS, and the answer is one of them, spelled identically. The');
+      L.push('  three wrong ones have to be plausible to somebody who follows the club:');
+      L.push('  another player from the same era, another year in the same decade. An');
+      L.push('  obviously silly option is a question with three options.');
+      L.push('');
+      L.push('  DO NOT PUT THE ANSWER IN THE QUESTION. This one is enforced: the');
+      L.push('  database refuses a row whose question contains its own answer as a');
+      L.push('  word. It is also the commonest way to write a question that tests');
+      L.push('  nothing.');
+      L.push('');
+      L.push('  DO NOT OPEN WITH "One word". Also enforced. The question should make');
+      L.push('  clear what kind of thing is wanted by naming it.');
+      L.push('');
+      L.push('  VERIFY OR OMIT. If you are not certain of a fact, write a different');
+      L.push('  question about that club rather than guessing. A wrong answer looks');
+      L.push('  exactly like a right one and nobody downstream will catch it.');
+      L.push('');
+      L.push('  PREFER A FACT THAT DOES NOT MOVE. A retired number, a championship, a');
+      L.push('  stadium, a nickname. Not a current roster or a league leader.');
+      L.push('');
+      L.push('  COMBATIVE, NEVER CRUEL. The joke is on the club, never on a person and');
+      L.push('  never on a town. No tragedy as a punchline: no deaths, no injuries, no');
+      L.push('  disasters.');
+      L.push('');
+      L.push('  DO NOT WORRY ABOUT WHERE THE RIGHT ANSWER SITS in the list. The page');
+      L.push('  shuffles the options every time a question is opened.');
+      L.push('');
+      L.push('  NO EM DASH, anywhere, in any field. Use a comma, a colon or a full');
+      L.push('  stop. This prompt does not use one either.');
+      L.push('');
+      L.push('THE FIELDS');
+      L.push('');
+      L.push('  type        always the literal multiple_choice');
+      L.push('  ladder_key  the key from the list above, copied exactly');
+      L.push('  name        SHORT, and not the question again. Club plus subject, like');
+      L.push('              Bears: Sweetness. The room lists rows by name, and a name');
+      L.push('              that repeats the question makes every row say it twice.');
+      L.push('  prompt      the question, read aloud at the stop');
+      L.push('  answer      the right option, spelled exactly as it appears in choices');
+      L.push('  choices     four options as a Postgres text array');
+      L.push('  tags        lowercase, NO SPACES. Use a hyphen instead, so a two word');
+      L.push('              city is new-orleans and never new orleans.');
+      L.push('');
+      L.push('THE TAG VOCABULARY. A tag is how a challenge says where it belongs, and');
+      L.push('a row may carry several. Give every question you write all four:');
+      L.push('');
+      L.push('  THE LEAGUE   nfl');
+      L.push('  THE CITY     the club home city, hyphenated: chicago, new-orleans');
+      L.push('  THE CLUB     the club word on its own: bears, saints');
+      L.push('  POSITIVE or NEGATIVE, which is the one that is not obvious.');
+      L.push('');
+      L.push('POSITIVE AND NEGATIVE SAY WHICH SIDE THE QUESTION IS WRITTEN FOR, not');
+      L.push('whether the fact is a happy one. Every club is two audiences at once: a');
+      L.push('game is pitched at a travelling fandom, so the club they follow is the');
+      L.push('TARGET and the club they are visiting is the RIVAL, and the same club is');
+      L.push('one or the other depending on whose game it is.');
+      L.push('');
+      L.push('  POSITIVE is a question a fan of that club is glad to be asked. It');
+      L.push('  rewards knowing your own side: the retired number, the championship,');
+      L.push('  the player everyone still talks about.');
+      L.push('');
+      L.push('  NEGATIVE is a question asked ABOUT that club, of somebody who does not');
+      L.push('  follow them. The collapse, the trade, the drought. It is a taunt, and');
+      L.push('  the standing rule holds: combative, never cruel. The joke is on the');
+      L.push('  club, never on a person and never on a town, and nothing that turns a');
+      L.push('  death, an injury or a disaster into a punchline.');
+      L.push('');
+      L.push('  WRITE ONE OF THE TWO, NOT BOTH, and tag it. A question tagged neither');
+      L.push('  cannot be aimed at all, and a question tagged both says nothing. Aim');
+      L.push('  for a mix across the clubs rather than all of one kind.');
+      L.push('');
+      L.push('  DO NOT SEND `id`. It is generated.');
+      L.push('');
+      L.push('HAND BACK ONE SQL BLOCK AND NOTHING ELSE AROUND IT, in this shape:');
+      L.push('');
+      L.push('THE ROW BELOW IS an EXAMPLE OF THE SHAPE and not a row to file. The');
+      L.push('Bears are not on your list above, and that question already exists.');
+      L.push('It quotes a real key on purpose, because an invented one would');
+      L.push('contradict the rule two paragraphs up.');
+      L.push('');
+      L.push('```sql');
+      L.push('insert into public.challenges (type, ladder_key, name, prompt, answer, choices, tags) values');
+      L.push("  ('multiple_choice',");
+      L.push("   'chicago-il-nfl-bears',");
+      L.push("   'Bears: Sweetness',");
+      L.push("   'The Bears running back they called Sweetness went to which college?',");
+      L.push("   'Jackson State',");
+      L.push("   array['Jackson State', 'Grambling State', 'Tennessee State', 'Alcorn State'],");
+      L.push("   array['nfl', 'chicago', 'bears', 'positive']),");
+      L.push('  (...);');
+      L.push('```');
+      L.push('');
+      L.push('Then print this link on its own line underneath, exactly as written:');
+      L.push('https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new?skip=true');
+      L.push('');
+      L.push('Finally, say which clubs you left out and why. That list is the useful');
+      L.push('half for the next person.');
+      return L.join(String.fromCharCode(10));
+    }
+
+    function openNflDialog() {
+      const teams = nflTeamsNeedingTrivia();
+      state.nflBase = buildNflPrompt();
+      el('nflPrompt').value = state.nflBase;
+      /* THE COUNT IS ON THE HEAD, and it is the one thing worth reading before
+         pressing a door: a prompt for nought clubs is a prompt somebody would
+         paste anyway. */
+      el('nflSub').textContent = teams.length
+        ? teams.length + ' club' + (teams.length === 1 ? '' : 's') + ' with no question yet'
+        : 'every NFL club already has one';
+      paintNflReset();
+      el('nflDlg').classList.add('is-open');
+      el('nflPrompt').focus();
+    }
+
+    function closeNflDialog() {
+      el('nflDlg').classList.remove('is-open');
+      el('nflCopyStatus').textContent = '';
+    }
+
+    /* RESET APPEARS ONLY ONCE THE TEXT DIFFERS. On an untouched prompt there is
+       nothing to restore, and a permanent Reset invites a press that does
+       nothing. */
+    function paintNflReset() {
+      el('nflReset').hidden = el('nflPrompt').value === state.nflBase;
+    }
+
+    /* THE DOORS COPY WHAT IS IN THE BOX, NOT WHAT WAS BUILT, and the copy is
+       NOT AWAITED: the new tab has to come from the browser handling a click on
+       a link, so awaiting would push the open into a later task, which is
+       exactly what a popup blocker refuses. */
+    function copyNflPrompt() {
+      const text = el('nflPrompt').value;
+      if (!clean(text)) {
+        el('nflCopyStatus').textContent = 'Nothing to copy.';
+        return;
+      }
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          el('nflCopyStatus').textContent = 'Copied.';
+        }, function () {
+          el('nflCopyStatus').textContent = 'Could not copy. Select the prompt and copy it by hand.';
+        });
+      } catch (err) {
+        el('nflCopyStatus').textContent = 'Could not copy. Select the prompt and copy it by hand.';
+      }
     }
 
     /* ---- the editor ------------------------------------------------------ */
 
-    // A WORKED EXAMPLE, so the preview is a real sentence rather than a row of
-    // placeholders. Bears at Broncos because it is the fixture the whole
-    // vocabulary is written around.
-    const SAMPLE = {};
-    VARIABLES.forEach((v) => { SAMPLE[v.key] = v.eg; });
-
-    function fillVars(text) {
-      return String(text || '').replace(VAR_RE, (m, k) =>
-        (Object.prototype.hasOwnProperty.call(SAMPLE, k) ? SAMPLE[k] : m));
-    }
-
-    function paintPreview() {
-      const box = el('preview');
-      box.textContent = '';
-      const src = clean(el('fPrompt').value);
-      if (!src) {
-        const p = document.createElement('span');
-        p.className = 'preview-empty';
-        p.textContent = 'Write a prompt and it will read back here as a team would hear it.';
-        box.appendChild(p);
-        return;
-      }
-      // UNKNOWN VARIABLES ARE LEFT UNFILLED AND MARKED, which is exactly what
-      // would happen at play time. Showing them resolved would hide the fault.
-      box.appendChild(promptNode(fillVars(src)));
-
-      const ans = clean(el('fAnswer').value);
-      if (ans) {
-        const line = promptNode(fillVars(ans));
-        line.className = 'preview-answer';
-        const label = document.createElement('span');
-        label.className = 'preview-answer-label';
-        label.textContent = 'Answer';
-        line.insertBefore(label, line.firstChild);
-        box.appendChild(line);
-      }
-    }
+    /* THE PREVIEW LIVED HERE -- `SAMPLE`, `fillVars` and `paintPreview`. It
+       read the question back with its variables filled from a worked example
+       (Bears at Broncos), and it drew an UNKNOWN variable unfilled and red,
+       which is exactly what play time does.
+         **THAT WAS THE ONE THING IT COULD SAY THAT NOTHING ELSE DOES**: a
+       mistyped `{{away_team}}` is refused by nothing and simply prints as
+       literal braces in front of a team standing in the street. The
+       `unknown-variable` CHECK still reports it on the row, so the fault is
+       still caught -- what is gone is seeing the sentence a team will hear.
+         The rehearsal in the Stop Builder is the other half of this, and it is
+       better: it plays the challenge at a REAL waypoint with that stop's own
+       city rather than against a worked example. */
 
     function buildVarBar() {
       const bar = el('varBar');
@@ -1263,7 +1673,7 @@
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = v.key;
-        b.title = v.what + '. Reads as "' + v.eg + '" in the preview.';
+        b.title = v.what + '. Reads as "' + v.eg + '" at play time.';
         b.addEventListener('click', () => {
           const box = el('fPrompt');
           const at = box.selectionStart == null ? box.value.length : box.selectionStart;
@@ -1272,26 +1682,20 @@
           box.value = box.value.slice(0, at) + token + box.value.slice(end);
           box.focus();
           box.selectionStart = box.selectionEnd = at + token.length;
-          paintPreview();
         });
         bar.appendChild(b);
       });
     }
 
+    /* ONE SELECT NOW. It filled the editor's picker AND the batch bar's
+       `Set type`, which went with the bar. */
     function buildKindSelects() {
-      [el('fKind'), el('batchKind')].forEach((sel, i) => {
-        if (i === 1) sel.textContent = '';
-        else sel.textContent = '';
-        if (i === 1) {
-          const first = document.createElement('option');
-          first.value = ''; first.textContent = 'Set kind';
-          sel.appendChild(first);
-        }
-        KIND_VALUES.forEach((k) => {
-          const o = document.createElement('option');
-          o.value = k; o.textContent = k;
-          sel.appendChild(o);
-        });
+      const sel = el('fKind');
+      sel.textContent = '';
+      KIND_VALUES.forEach((k) => {
+        const o = document.createElement('option');
+        o.value = k; o.textContent = k;
+        sel.appendChild(o);
       });
     }
 
@@ -1302,16 +1706,10 @@
       el('dlgSub').textContent = isNew ? '' : 'ID ' + row.id;
       el('dlgMsg').textContent = '';
       el('fName').value = row ? clean(row.name) : '';
-      el('fKind').value = row ? (clean(row.kind) || 'question') : 'question';
-      el('fLadder').value = row ? clean(row.ladder_key) : '';
+      el('fKind').value = row ? (clean(row.type) || 'type_answer') : 'type_answer';
       // AN ARRAY, NOT A STRING. `choices` is text[], so a null is a typed
       // answer and an array is the options in the order they were written.
       el('fChoices').value = row && Array.isArray(row.choices) ? row.choices.join(NEWLINE) : '';
-      el('fScope').value = row ? scopeOf(row) : 'portable';
-      el('fScopeTeam').value = row && row.scope_team ? clean(row.scope_team) : '';
-      el('fScopeCity').value = row && row.scope_city ? clean(row.scope_city) : '';
-      el('fScopeWpid').value = row && row.scope_wpid ? String(row.scope_wpid) : '';
-      paintBindFields();
       paintTriviaFields();
       el('fPrompt').value = row ? clean(row.prompt) : '';
       el('fAnswer').value = row ? clean(row.answer) : '';
@@ -1320,27 +1718,17 @@
       // DELETE IS OFFERED ONLY ON A ROW THAT EXISTS. On a new one it would be
       // a control that can do nothing, which reads as broken.
       el('deleteBtn').hidden = isNew;
-      paintPreview();
       el('dlg').classList.add('is-open');
       el('fName').focus();
     }
 
     /* THE SHAPE FOLLOWS THE KIND, IN ONE PLACE, so the boxes on screen and the
        payload cannot disagree about what a trivia row is. Trivia is portable by
-       construction -- the CHECK says so -- so its scope picker is put out of the
-       way rather than left offering three settings the database will refuse. */
+       construction, so with scope gone only its own two fields appear and
+       disappear. */
     function paintTriviaFields() {
-      const t = clean(el('fKind').value) === 'trivia';
-      el('ladderField').hidden = !t;
+      const t = clean(el('fKind').value) === 'multiple_choice';
       el('choicesField').hidden = !t;
-      if (cols.scope) {
-        el('fScope').closest('.field').hidden = t;
-        if (t) el('fScope').value = 'portable';
-      }
-      if (t) { el('bindTeamField').hidden = true;
-               el('bindCityField').hidden = true;
-               el('bindPlaceField').hidden = true; }
-      else paintBindFields();
     }
 
     function closeEditor() {
@@ -1351,26 +1739,22 @@
     function readForm() {
       const body = {
         name: clean(el('fName').value),
-        kind: clean(el('fKind').value) || 'question',
+        type: clean(el('fKind').value) || 'type_answer',
         prompt: clean(el('fPrompt').value) || null,
         answer: clean(el('fAnswer').value) || null
       };
-      // TRIVIA IS PORTABLE AND CARRIES NO SCOPE KEY, which is not a preference
-      // here: challenges_ladder_key_belongs_to_trivia refuses anything else, and
-      // it refuses a ladder key on every other kind in the same breath. The two
-      // halves are written together or the write is refused for a state nobody
-      // meant -- the same either/or the Trivia room learned about an answer and
-      // its choices.
-      const trivia = body.kind === 'trivia';
-      if (cols.scope) body.scope = trivia ? 'portable' : (clean(el('fScope').value) || 'portable');
-      if (cols.bind) {
-        const sc = body.scope;
-        body.scope_team = !trivia && sc === 'team'  ? (clean(el('fScopeTeam').value) || null) : null;
-        body.scope_city = !trivia && sc === 'city'  ? (clean(el('fScopeCity').value) || null) : null;
-        body.scope_wpid = !trivia && sc === 'place' && clean(el('fScopeWpid').value)
-          ? Number(el('fScopeWpid').value) : null;
-      }
-      body.ladder_key = trivia ? (clean(el('fLadder').value).toLowerCase() || null) : null;
+      // A LADDER KEY BELONGS TO TRIVIA AND TO NOTHING ELSE, and that is not a
+      // preference: `challenges_ladder_key_belongs_to_trivia` refuses a trivia
+      // row WITHOUT one and a key on every other kind, in the same breath. So
+      // the column cannot simply stop being written -- nulling it would refuse
+      // every trivia save.
+      //   THE STORED KEY IS CARRIED THROUGH UNTOUCHED. Nothing in this room
+      // edits it any more, so the 38 rows that have one keep it.
+      //   A NEW TRIVIA ROW IS PORTABLE, which is the honest default now that
+      // WHERE a challenge applies is a tag: `*` is asked of anybody, and a tag
+      // is what narrows it. It is never a guess at a city.
+      const trivia = body.type === 'multiple_choice';
+      body.ladder_key = trivia ? triviaLadderKey(state.editing) : null;
       // AN EMPTY LIST IS NULL, NOT []. A null means the answer is typed; an
       // empty array would trip challenges_choices_enough with a message about
       // cardinality, which says nothing to whoever cleared the box.
@@ -1380,7 +1764,9 @@
       body.choices = opts.length ? opts : null;
       if (cols.tags) {
         body.tags = clean(el('fTags').value).split(',')
-          .map((t) => clean(t)).filter(Boolean)
+          .map((t) => hyphenate(t)).filter(Boolean)
+          /* DEDUPED AFTER THE HYPHENS, NOT BEFORE. `sports bar, sports-bar` is
+             one tag typed two ways, and deduping first would file both. */
           .filter((t, at, list) => list.indexOf(t) === at);
       }
       return body;
@@ -1458,85 +1844,12 @@
       }
     }
 
-    /* ---- batch writes ---------------------------------------------------- */
-
-    function inFilter(ids) { return 'in.(' + ids.join(',') + ')'; }
-
-    async function batchApply() {
-      const ids = pickedIds();
-      if (!ids.length) { setStatus('Tick some challenges first.', 'error'); return; }
-      const body = {};
-      const kind = clean(el('batchKind').value);
-      const scope = clean(el('batchScope').value);
-      if (kind) body.kind = kind;
-      if (scope && cols.scope) {
-        body.scope = scope;
-        // Same reasoning as the editor. Only the two key-free scopes are
-        // offered in batch, so this can always be satisfied.
-        if (cols.bind) {
-          body.scope_team = null;
-          body.scope_city = null;
-          if (scope !== 'place') body.scope_wpid = null;
-        }
-      }
-      if (!Object.keys(body).length) {
-        setStatus('Choose a kind or a scope to set, then press Apply.', 'error');
-        return;
-      }
-      el('batchApplyBtn').setAttribute('aria-disabled', 'true');
-      try {
-        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) throw new Error('Nothing was saved: ' + await readError(res));
-        const saved = await res.json();
-        if (!saved.length) throw new Error('The database refused that change. Check you are signed in as an admin.');
-        saved.forEach((row) => {
-          const at = state.rows.findIndex((r) => String(r.id) === String(row.id));
-          if (at !== -1) state.rows[at] = row;
-        });
-        el('batchKind').value = '';
-        el('batchScope').value = '';
-        render();
-        const missed = ids.length - saved.length;
-        setStatus('Updated ' + saved.length + ' of ' + ids.length + '.'
-          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
-          missed ? 'error' : 'success');
-      } catch (err) {
-        console.error(err);
-        setStatus(err.message, 'error');
-      } finally { paintBatch(); }
-    }
-
-    async function batchDelete() {
-      const ids = pickedIds();
-      if (!ids.length) { setStatus('Tick some challenges first.', 'error'); return; }
-      if (!window.confirm('Delete ' + ids.length + ' challenges for good? This cannot be undone.')) return;
-      el('batchDeleteBtn').setAttribute('aria-disabled', 'true');
-      try {
-        const res = await fetch(restUrl(TABLE, { id: inFilter(ids) }), {
-          method: 'DELETE',
-          headers: authHeaders({ Prefer: 'return=representation' })
-        });
-        if (!res.ok) throw new Error('Nothing was deleted: ' + await readError(res));
-        const gone = await res.json();
-        if (!gone.length) throw new Error('The database refused that delete. Check you are signed in as an admin.');
-        // BUILT FROM THE ROWS RETURNED, never the ids asked for.
-        const goneIds = new Set(gone.map((r) => String(r.id)));
-        state.rows = state.rows.filter((r) => !goneIds.has(String(r.id)));
-        goneIds.forEach((id) => picked.delete(id));
-        render();
-        const missed = ids.length - gone.length;
-        setStatus('Deleted ' + gone.length + ' of ' + ids.length + '.'
-          + (missed ? ' ' + missed + (missed === 1 ? ' was' : ' were') + ' refused.' : ''),
-          missed ? 'error' : 'success');
-      } catch (err) {
-        console.error(err);
-        setStatus(err.message, 'error');
-      } finally { paintBatch(); }
-    }
+    /* `batchApply` AND `batchDelete` LIVED HERE, and went with the bar.
+       They set a type across the ticked rows and deleted them, in ONE request
+       each with `id=in.(...)` -- and both named the shortfall rather than
+       rounding it up, because PostgREST answers 200 with a SHORT array when
+       RLS refuses only some. **If a batch write ever comes back, that is the
+       part to bring with it.** */
 
     /* ---- wiring ---------------------------------------------------------- */
 
@@ -1545,19 +1858,19 @@
 
     el('q').addEventListener('input', () => {
       state.q = clean(el('q').value).toLowerCase();
-      render();
+      repaint();
     });
-    [['kindFilter', 'kind'], ['scopeFilter', 'scope']].forEach(([id, key]) => {
+    [['kindFilter', 'kind']].forEach(([id, key]) => {
       el(id).addEventListener('change', () => {
         state[key] = clean(el(id).value) || 'any';
-        render();
+        repaint();
       });
     });
     el('clearBtn').addEventListener('click', () => {
       if (!anyFilterOn()) { setStatus('Nothing is filtered.', 'error'); return; }
-      state.q = ''; state.kind = 'any'; state.scope = 'any'; state.reviewOnly = false;
-      el('q').value = ''; el('kindFilter').value = 'any'; el('scopeFilter').value = 'any';
-      render();
+      state.q = ''; state.kind = 'any'; state.reviewOnly = false;
+      el('q').value = ''; el('kindFilter').value = 'any';
+      repaint();
       setStatus('Filters cleared.', 'success');
     });
 
@@ -1565,18 +1878,18 @@
       if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
       if (state.reviewOnly) {
         state.reviewOnly = false;
-        render();
+        repaint();
         setStatus('Showing every challenge again.', 'success');
         return;
       }
       // EVERY FILTER COMES OFF FIRST. The check reads state.rows and so is
       // never narrowed, but its ANSWER would be: a search left in the box
       // would hide faulty rows from the very list the count promises.
-      state.q = ''; state.kind = 'any'; state.scope = 'any';
-      el('q').value = ''; el('kindFilter').value = 'any'; el('scopeFilter').value = 'any';
+      state.q = ''; state.kind = 'any';
+      el('q').value = ''; el('kindFilter').value = 'any';
       const n = issueCount();
       state.reviewOnly = n > 0;
-      render();
+      repaint();
       setStatus(n
         ? 'Filters cleared, and showing the ' + n + ' of ' + state.rows.length
           + ' with something wrong. Press Show all for the rest.'
@@ -1584,32 +1897,64 @@
         'success');
     });
 
-    el('batchAllBox').addEventListener('change', (e) => {
-      const ids = visibleIds();
-      if (e.target.checked) ids.forEach((id) => picked.add(id));
-      else ids.forEach((id) => picked.delete(id));
-      render();
-    });
-    el('batchApplyBtn').addEventListener('click', batchApply);
-    el('batchDeleteBtn').addEventListener('click', batchDelete);
-
     el('addBtn').addEventListener('click', () => openEditor(null));
+
+    /* ---- the NFL trivia prompt ---- */
+    el('nflBtn').addEventListener('click', openNflDialog);
+    el('nflClose').addEventListener('click', closeNflDialog);
+    el('nflPrompt').addEventListener('input', paintNflReset);
+    el('nflReset').addEventListener('click', () => {
+      el('nflPrompt').value = state.nflBase;
+      paintNflReset();
+      el('nflCopyStatus').textContent = '';
+    });
+    /* EACH DOOR COPIES AND THEN OPENS. There is no `preventDefault` and nothing
+       is awaited: the new tab has to come from the browser's own handling of a
+       click on a link, and awaiting the clipboard pushes the open into a later
+       task, which is exactly what a popup blocker refuses. */
+    NFL_DOORS.forEach((id) => el(id).addEventListener('click', copyNflPrompt));
+    /* THE SAME BACKDROP GESTURE GUARD AS THE EDITOR. A `click` fires on the
+       NEAREST COMMON ANCESTOR of the press and the release, so selecting text
+       in the sheet and letting go past the panel edge targets the backdrop --
+       and the dialog would shut, taking the edit with it. */
+    let pressedNfl = false;
+    el('nflDlg').addEventListener('pointerdown', (e) => {
+      pressedNfl = e.target === el('nflDlg');
+    });
+    el('nflDlg').addEventListener('click', (e) => {
+      if (e.target === el('nflDlg') && pressedNfl) closeNflDialog();
+      pressedNfl = false;
+    });
     el('closeBtn').addEventListener('click', closeEditor);
     el('saveBtn').addEventListener('click', saveEditing);
     el('deleteBtn').addEventListener('click', deleteEditing);
-    // THE SCOPE AND ITS KEY ARE ONE DECISION, so changing the scope shows the
-    // box that names what it binds to. Without this the field would only ever
-    // appear when the editor was opened on a row that already had one.
-    el('fScope').addEventListener('change', paintBindFields);
     // WITHOUT THIS THE FORM LIES ABOUT WHAT IT WILL SAVE: choosing trivia would
-    // leave the scope picker on screen and the two trivia boxes hidden, while
-    // the payload silently forced portable and sent no key.
+    // leave its two boxes hidden while the payload sent a ladder key, or the
+    // reverse -- and the constraint refuses both.
     el('fKind').addEventListener('change', paintTriviaFields);
-    el('fPrompt').addEventListener('input', paintPreview);
-    el('fAnswer').addEventListener('input', paintPreview);
-    el('dlg').addEventListener('click', (e) => { if (e.target === el('dlg')) closeEditor(); });
+    /* THE BACKDROP CLOSES IT, AND ONLY WHEN THE PRESS STARTED THERE TOO.
+       **A CLICK FIRES ON THE NEAREST COMMON ANCESTOR OF THE PRESS AND THE
+       RELEASE**, so selecting text in a field and letting go past the panel
+       edge targets the backdrop -- and the dialog shut, taking everything that
+       had been typed with it. Reported as "it keeps closing", and reproduced:
+       a drag from inside the prompt to below the panel closed it every time.
+         The press is remembered rather than the release alone, which is the
+       only thing that tells a real backdrop click from the tail of a drag. */
+    let pressedBackdrop = false;
+    el('dlg').addEventListener('pointerdown', (e) => {
+      pressedBackdrop = e.target === el('dlg');
+    });
+    el('dlg').addEventListener('click', (e) => {
+      if (e.target === el('dlg') && pressedBackdrop) closeEditor();
+      pressedBackdrop = false;
+    });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && el('dlg').classList.contains('is-open')) closeEditor();
+      if (e.key !== 'Escape') return;
+      /* THE ONE ON TOP FIRST. The two are never open together today, and
+         leaving the order to chance is how Escape dismisses the wrong thing
+         later. */
+      if (el('nflDlg').classList.contains('is-open')) { closeNflDialog(); return; }
+      if (el('dlg').classList.contains('is-open')) closeEditor();
     });
 
     const adminAuth = window.TgbMcAdminAuth.create({

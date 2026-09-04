@@ -1471,11 +1471,15 @@
       else img.addEventListener('load', applyAutoContain, { once: true });
     }
 
+    /* `fandom_game` IS NO LONGER A COLUMN of `public.games`, so this can only
+       answer false. It is kept rather than deleted because its caller reads as
+       a real decision -- a fandom gift belongs to the VISITING fanbase's city
+       and every other gift to the game's own -- and deleting it would hide that
+       the distinction has been lost rather than dropped. **A gift's city does
+       not come from a game at all now**: it is `gift_shop_listings.city`,
+       filled on all 969 rows. */
     function isFandomGame(game) {
-      const value = game && game.fandom_game;
-      if (value === true) return true;
-      const normalized = String(value == null ? '' : value).trim().toLowerCase();
-      return normalized === 'yes' || normalized === 'true' || normalized === '1';
+      return false;
     }
 
     // Match Mission Control's city derivation: fandom gifts belong to the
@@ -1846,9 +1850,23 @@
     // gs-create-checkout looks up the price authoritatively from
     // games.price — the only thing the client passes is game_id, so
     // there's no tampering surface.
+    /* `games_with_teams` IS GONE, AND SO ARE ELEVEN OF THE COLUMNS IT ASKED
+       FOR. That view no longer exists (`PGRST205`), and `public.games` has
+       since lost `archived`, all three colours, both club cities and mascots,
+       both team keys, `fandom_game` and `logo_url`. So this read was answering
+       404 on EVERY LOAD of the public shop.
+         IT COST NOTHING VISIBLE, which is why it went unnoticed: the caller
+       catches, and `SHOW_TGB_GAMES_IN_SHOP` is false, so no game is drawn
+       either way. What it did do is fire a failing request at every visitor.
+         SO IT IS NOT MADE AT ALL WHILE THE FLAG IS OFF, and the select is
+       repaired so that flipping the flag reads a table that exists rather than
+       a view that does not. **What flipping it would now give is a card with no
+       image and no club colour**: `logo_url` and the palette keys are gone from
+       `public.games`, and no page can invent them. */
     async function fetchAllGames() {
-      return fetchAllRows(buildSupabaseUrl('games_with_teams', {
-        select: 'id,name,tagline,price,engine,archived,primary_color,secondary_color,tertiary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon,logo_url,away_team_key,home_team_key,away_team,home_team'
+      if (!SHOW_TGB_GAMES_IN_SHOP) return [];
+      return fetchAllRows(buildSupabaseUrl('games', {
+        select: 'id,name,tagline,price,engine,status,city,tags,category_icon'
       }));
     }
 
@@ -1863,8 +1881,10 @@
       if (!game) return false;
       const price = String(game.price == null ? '' : game.price).trim();
       if (!price || price.toUpperCase() === 'FREE') return false;
-      const archived = String(game.archived == null ? '' : game.archived).trim().toUpperCase();
-      if (archived === 'YES') return false;
+      // A GAME IS ON SALE WHEN ITS STATUS SAYS `live`. This read `archived`,
+      // a text flag carrying 'YES' that is no longer a column; `games.status`
+      // replaced it and `building` and `archived` both mean not for sale.
+      if (String(game.status || '').trim().toLowerCase() !== 'live') return false;
       // Sanity-check that price parses to something positive — guards
       // against rows like "TBA" or "$" that would fail at checkout.
       const numeric = price.replace(/[^0-9.]/g, '');
@@ -1885,9 +1905,13 @@
 
     function gameShopImageUrl(game) {
       // Strict separation: the shop card is the GAME's image, so it uses the
-      // game logo ONLY — never the guide portrait. A game with no logo shows no
+      // game logo ONLY, never the guide portrait. A game with no logo shows no
       // card image rather than borrowing the guide image.
-      return String(game && game.logo_url || '').trim();
+      //   `logo_url` IS NO LONGER A COLUMN. A game points at `logo_id` into
+      // `public.logos`, which holds the image itself, and nothing here reads
+      // that yet. So this returns nothing and a game card would draw no image.
+      // Unreachable today: `SHOW_TGB_GAMES_IN_SHOP` is false.
+      return '';
     }
 
     function gameToGiftCardItem(game) {

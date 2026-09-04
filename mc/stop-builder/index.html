@@ -306,20 +306,6 @@
       border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
       white-space: nowrap;
     }
-    .ch-scope {
-      font: 700 0.58rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.08em;
-      text-transform: uppercase; border-radius: 3px; padding: 3px 6px;
-      border: 1px solid transparent; white-space: nowrap;
-    }
-    /* PORTABLE IS THE ONE IN INK, because it is the one that says this row
-       will be used again. The three narrow scopes are quieter and told apart by
-       the word rather than by hue: a colour each would make a list of chips
-       read as a legend to learn. A scope naming nothing takes the red pen. */
-    .ch-scope.is-portable { color: var(--bic-blue); border-color: rgba(var(--bic-blue-rgb), 0.45); }
-    .ch-scope.is-team,
-    .ch-scope.is-city,
-    .ch-scope.is-place    { color: var(--muted); border-color: var(--line); }
-    .ch-scope.is-loose    { color: var(--bic-red); border-color: rgba(190, 55, 55, 0.45); }
 
     /* ---- the editor ------------------------------------------------------ */
     .preview {
@@ -363,26 +349,65 @@
       background: #fff; color: var(--ink); font: inherit; font-size: 0.86rem;
     }
     .stop-field input[data-invalid="true"] { border-color: var(--bic-red); }
-    /* THE FIELD LABEL IS A ROW NOW, because it carries a door beside the word.
-       The two `stop-field`s that have one are a div wrapping an explicit
-       `<label for>`; the City field keeps its wrapping <label>, which is right
-       for a field with nothing beside it. An <a> inside a <label> is legal and
-       is the kind of nesting browsers disagree about -- the same class of
-       problem as the hub's button-inside-an-anchor. */
-    .stop-field > span { display: flex; align-items: baseline; gap: 6px; }
-    /* SMALL, AND IN ITS OWN HALF'S HUE, so the door says which side it opens
-       without being read. It is the only lowercase thing on a row of uppercase
-       labels, which is what stops it reading as part of the label. */
-    .stop-new {
-      font: 700 0.58rem/1 'IBM Plex Mono', monospace;
-      letter-spacing: 0.04em; text-transform: none;
-      color: var(--half-ink, var(--bic-blue));
+    /* ---- THE LABEL IS THE DOOR --------------------------------------------
+       The word WAYPOINT opens the Waypoint Library and CHALLENGE opens the
+       Challenge Bank. It was a `<label for>` with a small `new` beside it, which
+       is two things where one will do: the label already names the room, and a
+       second word on the line was the only lowercase thing on a row of
+       uppercase labels.
+         AN ANCHOR, NOT A `<label for>`, AND IT CANNOT BE BOTH. A label's click
+       focuses its input and a link's navigates, so one element doing both is a
+       control that does two things at once. **The input carries `aria-label`
+       instead, or it has no accessible name at all** -- the same trade the Game
+       Builder's three legend doors already make.
+         NOT NESTED IN A LABEL EITHER, which is the nesting browsers disagree
+       about; the span is a plain span.
+         A NEW TAB, because the room is a glance and a half-filled form must not
+       be lost to one. That is what the `new` links did and the reason survives
+       them.
+         IT READS AS A LABEL FIRST: it inherits the span's own size, weight,
+       letter-spacing and case, so at rest it looks exactly like the label it
+       replaced. **The hue arrives on hover only**, and it is the half's own --
+       green for a waypoint, violet for a challenge -- which is the same hue the
+       kicker on a row and the popup's side already carry, so the door says
+       which side it opens without being read. */
+    .stop-door {
+      color: inherit;
       text-decoration: none;
       border-bottom: 1px dotted currentColor;
     }
-    .stop-new:hover, .stop-new:focus-visible { border-bottom-style: solid; }
+    .stop-door:hover, .stop-door:focus-visible {
+      color: var(--half-ink, var(--bic-blue));
+      border-bottom-style: solid;
+    }
     /* The two fields take the hue of the half they open, so the door, the
        kicker on a row and the popup's side all agree. */
+    /* AND / OR IS THE ONE CHOICE ON THE DIALOG BESIDES THE TAGS, so it reads as
+       a control rather than as two words: both options outlined, the chosen one
+       filled. It wore the label's own type when it was tacked onto a field label
+       in the Add bar -- correct there, and unreadable here, where it sits alone
+       on a row with nothing around it to read as part of. */
+    .tag-mode { display: inline-flex; gap: 0; }
+    .tag-mode label { position: relative; cursor: pointer; }
+    .tag-mode input {
+      position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer;
+    }
+    /* THEY TOUCH, with only the outer corners rounded, so the two read as one
+       control with two positions rather than as two loose chips. */
+    .tag-mode span {
+      display: block; padding: 3px 10px;
+      font: 600 0.72rem/1.4 'IBM Plex Mono', monospace; letter-spacing: 0.04em;
+      border: 1px solid var(--control-line); color: var(--muted);
+      background: #fff;
+    }
+    .tag-mode label:first-child span { border-radius: 5px 0 0 5px; }
+    .tag-mode label:last-child span { border-radius: 0 5px 5px 0; margin-left: -1px; }
+    .tag-mode input:checked + span {
+      background: var(--ink); border-color: var(--ink); color: #fff;
+    }
+    /* THE RING GOES ON THE SPAN, or the control is unusable by keyboard: the
+       input it belongs to is invisible. */
+    .tag-mode input:focus-visible + span { outline: 2px solid var(--bic-blue); outline-offset: 1px; }
     .stop-field--wp { --half-ink: var(--wp-ink); }
     .stop-field--ch { --half-ink: var(--ch-ink); }
 
@@ -409,7 +434,6 @@
     .stop:focus-visible { outline: 2px solid var(--bic-blue); outline-offset: -2px; }
     /* THE DELETE IS THE LAST COLUMN, so neither half carries a control the
        other does not. */
-    .stop-del { align-self: start; }
 
     /* THE KICKER CARRIES THE COLOUR AND THE EDGE CONFIRMS IT, which is the
        lesson the Events room's bands recorded: at the alpha a row can carry,
@@ -456,7 +480,6 @@
 
     @media (max-width: 860px) {
       .stop { grid-template-columns: 1fr; }
-      .stop-del { justify-self: start; }
     }
 
     /* ---- the popup --------------------------------------------------------
@@ -479,6 +502,55 @@
       padding: 10px 14px; background: var(--cut-panel-bg);
       border-bottom: 1px solid var(--cut-panel-line);
     }
+    .sv-panel--tags { width: min(560px, 100%); }
+    /* THE TWO COMBOS SHARE A LINE and wrap together on a phone, which is the
+       same arrangement the ADD bar keeps. `min-width: 0` on each, or a long
+       waypoint label refuses to shrink and pushes the row past the panel. */
+    .sv-edit {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    .sv-edit .stop-field { flex: 1 1 240px; min-width: 0; }
+    .sv-foot {
+      display: flex; gap: 8px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--line);
+    }
+    .sv-spacer { margin-left: auto; }
+    .sv-saved { font: 500 0.7rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
+    /* THE FIELD MAY NOT KEEP THE ADD BAR'S FLEX BASIS. `.stop-field` is
+       `flex: 1 1 240px`, written for a ROW where 240px is a width floor; this
+       body is a COLUMN, so the basis is a HEIGHT and a 34px input opened a
+       240px box -- 410px of panel for three controls, most of it a hole.
+       Same fault the Game Builder hit when `flex: 0 1 44rem` in a column set
+       its tagline 704px tall. */
+    .tag-body .stop-field { flex: 0 0 auto; }
+    .tag-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    /* SCROLLS RATHER THAN GROWING THE PANEL. 25 tags today and the bank grows;
+       a dialog that gets taller with the catalogue is one that eventually will
+       not fit. */
+    .tag-picks {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      max-height: 220px; overflow-y: auto;
+    }
+    .tag-pick {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      padding: 4px 9px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--control-line); background: #fff;
+      font: 600 0.74rem/1.2 'IBM Plex Mono', monospace; color: var(--ink);
+    }
+    .tag-pick .n { font-weight: 500; font-size: 0.66rem; color: var(--muted); }
+    .tag-pick:hover { border-color: var(--ink); }
+    /* CHOSEN IS FILLED, the same statement the AND / OR pair makes, so the two
+       controls on this dialog say `on` the same way. */
+    .tag-pick[aria-pressed="true"] {
+      background: var(--ink); border-color: var(--ink); color: #fff;
+    }
+    .tag-pick[aria-pressed="true"] .n { color: rgba(255, 255, 255, 0.72); }
+    .tag-pick:focus-visible { outline: 2px solid var(--bic-blue); outline-offset: 1px; }
+    .tag-none { margin: 0; font-size: 0.78rem; color: var(--muted); }
+    .tag-mode-row { display: flex; align-items: center; gap: 10px; }
+    .tag-mode-say { font-size: 0.78rem; color: var(--muted); }
+    .tag-foot { display: flex; justify-content: flex-end; }
     .sv-title { font-weight: 700; }
     .sv-city { font: 500 0.72rem/1 'IBM Plex Mono', monospace; color: var(--muted); }
     .sv-close { margin-left: auto; }
@@ -601,22 +673,20 @@
         <legend>Add a stop</legend>
         <div class="command-bar-inner stop-form">
           <div class="stop-field stop-field--wp">
-            <span><label for="wpInput">Waypoint</label>
-              <a class="stop-new" href="/mc/waypoints/" target="_blank" rel="noopener noreferrer"
-                 title="Open the Waypoints room in a new tab to add a waypoint. This form keeps what you have typed.">new</a>
-            </span>
+            <span><a class="stop-door" href="/mc/waypoints/" target="_blank" rel="noopener noreferrer"
+                     title="Open the Waypoint Library in a new tab. This form keeps what you have typed.">Waypoint</a></span>
             <input id="wpInput" list="wpList" autocomplete="off"
-                   placeholder="Type a place"
+                   aria-label="Waypoint"
+                   placeholder="Choose a Waypoint"
                    title="Every waypoint we hold. Each one carries its own city.">
           </div>
           <div class="stop-field stop-field--ch">
-            <span><label for="chalInput">Challenge</label>
-              <a class="stop-new" href="/mc/challenges/" target="_blank" rel="noopener noreferrer"
-                 title="Open the Challenge Bank in a new tab to write one. This form keeps what you have typed.">new</a>
-            </span>
+            <span><a class="stop-door" href="/mc/challenges/" target="_blank" rel="noopener noreferrer"
+                     title="Open the Challenge Bank in a new tab. This form keeps what you have typed.">Challenge</a></span>
             <input id="chalInput" list="chalList" autocomplete="off"
-                   placeholder="RANDOM"
-                   title="RANDOM is the first option and the default: the stop takes whatever fits at play time.">
+                   aria-label="Challenge"
+                   placeholder="Choose a Challenge"
+                   title="Pick one, or RANDOM to draw at play time. Leaving it empty is RANDOM.">
           </div>
           <button class="btn primary" id="addBtn" type="button">Add stop</button>
         </div>
@@ -643,6 +713,52 @@
     </section>
   </main>
 
+  <!-- THE TAG FILTER, ASKED WHEN A RANDOM CHALLENGE IS CHOSEN.
+       It was a third field in the Add bar, which put a control that applies to
+       one of two answers permanently beside both of them: the bar read as three
+       decisions when a stop is two. Asked for as a popup, and that is the right
+       shape -- the tags are a refinement OF the challenge choice, so they are
+       asked at the moment that choice is made and the answer goes back into the
+       challenge box itself.
+         SO THE BAR IS TWO FIELDS AGAIN and the box says what it holds:
+       `RANDOM`, or `RANDOM tagged sports and chicago`. -->
+  <div class="sv-backdrop" id="tagBackdrop" hidden>
+    <section class="sv-panel sv-panel--tags" role="dialog" aria-modal="true" aria-labelledby="tagTitle">
+      <div class="sv-head">
+        <span class="sv-title" id="tagTitle">Which challenges may this stop pick from?</span>
+        <span class="sv-city" id="tagCount"></span>
+        <button class="btn small sv-close" id="tagCancel" type="button">Cancel</button>
+      </div>
+      <div class="tag-body">
+        <!-- EVERY TAG IN USE, EACH A TOGGLE. It was one text box bound to a
+             datalist, and **A DATALIST PICK REPLACES THE WHOLE VALUE** -- so
+             choosing a second tag wiped the first and the only way to more than
+             one was typing the comma yourself. Choosing is the gesture the
+             control is for, so choosing is what it does.
+               BUILT FROM THE ROWS, so it cannot offer a tag no challenge
+             carries, and each says how many are behind it. -->
+        <div class="tag-picks" id="tagPicks"></div>
+        <p class="tag-none" id="tagNone" hidden>No challenge carries a tag yet.</p>
+        <!-- AND / OR IS A RADIO GROUP. Two buttons with `aria-pressed` would
+             need a hand-rolled exclusion set kept in step with the paint -- a
+             control painted in one place and read in another, which this
+             project has been caught by. Here the browser keeps the rule.
+               DRAWN ONLY AT TWO TAGS OR MORE: with one tag AND and OR pick the
+             same set, so the choice would be noise. -->
+        <div class="tag-mode-row" id="tagMode" hidden>
+          <span class="tag-mode">
+            <label><input type="radio" name="tagsMatch" value="all" checked><span>AND</span></label>
+            <label><input type="radio" name="tagsMatch" value="any"><span>OR</span></label>
+          </span>
+          <span class="tag-mode-say" id="tagModeSay"></span>
+        </div>
+        <div class="tag-foot">
+          <button class="btn primary" id="tagUse" type="button">Use these</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <!-- THE STOP, OPENED. Waypoint left, challenge right, equal halves. -->
   <div class="sv-backdrop" id="svBackdrop" hidden>
     <section class="sv-panel" role="dialog" aria-modal="true" aria-labelledby="svTitle">
@@ -654,6 +770,34 @@
       <div class="sv-body">
         <div class="sv-side" id="svWaypoint"></div>
         <div class="sv-side" id="svChallenge"></div>
+      </div>
+      <!-- BOTH HALVES ARE EDITABLE HERE. A stop is a waypoint and a challenge,
+           and until now the only way to change either was to delete the stop
+           and add it again, which threw away the row.
+             THE LABELS ARE PLAIN, deliberately, where the ADD bar's are doors
+           into the two rooms: this is a modal, and a door out of it is a way to
+           lose what you have typed. The bar is two steps away. -->
+      <div class="sv-edit">
+        <div class="stop-field">
+          <span>Waypoint</span>
+          <input id="svWpInput" list="wpList" autocomplete="off" aria-label="Waypoint"
+                 placeholder="Choose a Waypoint"
+                 title="Every waypoint we hold. Each one carries its own city.">
+        </div>
+        <div class="stop-field">
+          <span>Challenge</span>
+          <input id="svChalInput" list="chalList" autocomplete="off" aria-label="Challenge"
+                 placeholder="Choose a Challenge"
+                 title="Every challenge we hold. Leaving it on RANDOM stores no challenge and picks one at play time.">
+        </div>
+      </div>
+      <!-- DESTRUCTIVE HARD LEFT, PRIMARY HARD RIGHT, and the gap between them
+           is the point: Delete is the only irreversible control in here. -->
+      <div class="sv-foot">
+        <button class="btn small warn" id="svDelete" type="button">Delete</button>
+        <span class="sv-spacer"></span>
+        <span class="sv-saved" id="svSaved"></span>
+        <button class="btn small primary" id="svSave" type="button">Save</button>
       </div>
     </section>
   </div>
@@ -675,10 +819,35 @@
     const RANDOM_LABEL = 'RANDOM';
 
     const state = { rows: [], waypoints: [], challenges: [],
-                    q: '', authed: false, loaded: false, open: null, play: null };
+                    q: '', authed: false, loaded: false, open: null, play: null,
+                    /* WHAT THE TAG DIALOG LAST SETTLED ON. The challenge box
+                       DISPLAYS it and this is what is READ -- parsing the box's
+                       prose back into tags would be a second implementation of
+                       the composer, free to disagree with it. */
+                    pendingTags: { tags: [], mode: 'all' },
+                    /* THE POPUP'S OWN SETTLED FILTER, kept apart from the bar's.
+                       One shared slot would carry a filter set in the popup, and
+                       cancelled, into the next thing added from the bar. */
+                    editTags: { tags: [], mode: 'all' },
+                    /* WHICH BOX THE TAG DIALOG IS SERVING, `add` or `edit`. The
+                       dialog is modal so only one can be open, but the SETTLED
+                       value has to go back where it came from. */
+                    tagHost: 'add',
+                    /* WHAT THE OPEN DIALOG IS HOLDING. Separate from
+                       `pendingTags` so Cancel really cancels: with the chips
+                       writing straight to the settled value there would be
+                       nothing to go back to. */
+                    tagDraft: { tags: [], mode: 'all' },
+                    /* WHAT THIS REHEARSAL HAS ALREADY DRAWN. Reset on every
+                       open, because it models one play of one stop. */
+                    picked: [] };
 
     function el(id) { return document.getElementById(id); }
     function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function rpcUrl(fn) {
+      return SUPABASE_CONFIG.url + '/rest/v1/rpc/' + encodeURIComponent(fn);
+    }
 
     function restUrl(table, params) {
       const u = new URL(SUPABASE_CONFIG.url + '/rest/v1/' + encodeURIComponent(table));
@@ -695,16 +864,27 @@
 
     // TRANSLATE THE CODES THIS TABLE CAN ACTUALLY PRODUCE. A raw 23505 is a
     // statement about our schema and tells nobody what to do about it.
-    async function readError(res) {
+    async function readError(res, verb) {
       let text = '';
       try { text = await res.text(); } catch (e) { /* body already consumed */ }
       /* ONE WAYPOINT IS ONE STOP. `stops_one_per_waypoint` replaced
          `(city, waypoint_id)` on 2026090302 -- the same rule with the redundant
          half removed, since a waypoint is in exactly one place. */
+      /* THE MESSAGE FITS THE ACT. It said "rather than adding a second", which
+         is right for the ADD bar and wrong on an edit, where nothing is being
+         added -- and a finding that does not fit what you just did is the fault
+         this project keeps removing. */
       if (/stops_one_per_waypoint|stops_pkey|duplicate key/.test(text)) {
-        return 'That waypoint is already a stop. One waypoint is one stop, so edit '
-             + 'the one that is there rather than adding a second.';
+        return verb === 'move'
+          ? 'Another stop is already at that waypoint. One waypoint is one stop, '
+            + 'so edit that one instead.'
+          : 'That waypoint is already a stop. One waypoint is one stop, so edit '
+            + 'the one that is there rather than adding a second.';
       }
+      if (/stops_fixed_or_filtered/.test(text)) {
+        return 'A stop either names a challenge or filters by tag, never both.';
+      }
+      if (/stops_challenge_tags_not_blank/.test(text)) return 'One of those tags is empty.';
       if (/stops_waypoint_id_fkey/.test(text)) return 'That waypoint is not on file any more. Reload and pick again.';
       if (/PGRST205|does not exist/.test(text)) {
         return 'public.stops is not there. Run mc/supabase/migrations/2026083103_stops_rebuilt.sql.';
@@ -768,7 +948,7 @@
            work without it: present it draws buttons, absent it draws a box. A
            column the page does not ask for comes back undefined and every
            multiple choice would silently become a text box. */
-        readAll('challenges', { select: 'id,name,prompt,answer,kind,scope,choices', order: 'name.asc' })
+        readAll('challenges', { select: 'id,name,prompt,answer,type,choices,tags', order: 'name.asc' })
       ]);
       state.rows = parts[0];
       state.waypoints = parts[1];
@@ -784,7 +964,8 @@
       const where = wpWhere(w);
       return where ? w.name + ' - ' + where : String(w.name || '');
     }
-    function chalLabel(c) { return c.name + (c.kind ? ' (' + c.kind + ')' : ''); }
+    function typeLabel(v) { return clean(v).split('_').join(' '); }
+    function chalLabel(c) { return c.name + (c.type ? ' (' + typeLabel(c.type) + ')' : ''); }
 
     function wpById(id) {
       return state.waypoints.filter(function (w) { return String(w.wpid) === String(id); })[0] || null;
@@ -802,9 +983,91 @@
     }
     // 'random' is a real answer here and null means "no such challenge", so the
     // caller can tell a deliberate RANDOM from a typo.
+    /* ---- TAGS: ONE FILTER FOR A TEAM, A CITY OR A TYPE ------------------
+       `challenges.tags` has held these since 2026082902 and already mixes all
+       three -- sports, chicago, trivia, photo, JFK -- which is why a stop needs
+       no separate idea of kind.
+
+       BUILT FROM THE ROWS, so the picker can only offer a tag with challenges
+       behind it: an empty result is not a state this control can produce.
+       GROUPED CASE-INSENSITIVELY, because two of the tags on file are
+       capitalised (`History`, `JFK`) and `history` and `History` are one tag. */
+    function tagsInUse() {
+      const by = {};
+      state.challenges.forEach(function (c) {
+        (Array.isArray(c.tags) ? c.tags : []).forEach(function (t) {
+          const raw = clean(t);
+          if (!raw) return;
+          const key = raw.toLowerCase();
+          if (!by[key]) by[key] = { tag: raw, count: 0, spell: {} };
+          by[key].count += 1;
+          by[key].spell[raw] = (by[key].spell[raw] || 0) + 1;
+        });
+      });
+      /* WHICH SPELLING TO SHOW WHEN A TAG HAS TWO. `history` and `History` are
+         one tag to the resolver, so they are one chip -- and taking whichever
+         challenge happened to be read first makes the chip depend on iteration
+         order. The most-used spelling wins, and a tie goes to the lowercase
+         one, which is the convention 23 of the 25 tags on file already keep.
+           THE REAL FIX IS THE DATA, in the Challenge Bank. This only stops the
+         display wobbling while both spellings are on file. */
+      return Object.keys(by).sort().map(function (k) {
+        const e = by[k];
+        e.tag = Object.keys(e.spell).sort(function (a, b) {
+          if (e.spell[b] !== e.spell[a]) return e.spell[b] - e.spell[a];
+          const la = a === a.toLowerCase(), lb = b === b.toLowerCase();
+          if (la !== lb) return la ? -1 : 1;
+          return a.localeCompare(b);
+        })[0];
+        return e;
+      });
+    }
+
+    /* COMMA SEPARATED, TRIMMED, BLANKS DROPPED AND DEDUPED CASE-INSENSITIVELY.
+       A trailing comma costs nothing and a tag typed twice is asked for once.
+       A BLANK MEMBER IS REFUSED BY `stops_challenge_tags_not_blank`, so
+       dropping it here is what stops the database having to. */
+    /* `parseTags` LIVED HERE and went with the text box. It turned a comma
+       string into tags; there is no comma string any more, and the row's own
+       `challenge_tags` is already an array. Do not rebuild it for a control
+       that no longer exists. */
+
+    /* EVERY TAG, NOT ANY: more tags is NARROWER, which is what "filter" means
+       and what the database's contains-all does. Matched case-insensitively on
+       both sides, so neither row is rewritten to make a comparison work. */
+    function challengeHasTags(c, tags, mode) {
+      if (!tags.length) return true;
+      const has = (Array.isArray(c.tags) ? c.tags : []).map(function (t) {
+        return clean(t).toLowerCase();
+      });
+      const test = function (t) { return has.indexOf(t.toLowerCase()) !== -1; };
+      return mode === 'any' ? tags.some(test) : tags.every(test);
+    }
+
+    /* HOW MANY THE FILTER WOULD ACTUALLY REACH. A count of 0 is a real state --
+       most tags are carried by a handful of rows and 39 of the 63 challenges
+       carry none at all -- and it leaves a team with no challenge at play time,
+       so the room counts rather than waiting for somebody to find out. */
+    function tagsMatchMode() {
+      const on = document.querySelector('input[name="tagsMatch"]:checked');
+      return on && on.value === 'any' ? 'any' : 'all';
+    }
+
+    function tagMatchCount(tags, mode) {
+      return state.challenges.filter(function (c) {
+        if (!tags.length && c.type === 'operations') return false;
+        return challengeHasTags(c, tags, mode);
+      }).length;
+    }
+
+    /* ANY LABEL OPENING WITH `RANDOM` IS RANDOM, because the box now displays
+       the filter in words -- `RANDOM tagged sports and chicago`. THE TAGS ARE
+       NOT PARSED BACK OUT OF IT: `state.pendingTags` is what is read, so there
+       is one composer and no second implementation to disagree with it. */
     function chalFromLabel(text) {
       const v = clean(text).toLowerCase();
       if (!v || v === RANDOM_LABEL.toLowerCase()) return 'random';
+      if (v.indexOf(RANDOM_LABEL.toLowerCase() + ' ') === 0) return 'random';
       return state.challenges.filter(function (c) { return chalLabel(c).toLowerCase() === v; })[0] || null;
     }
 
@@ -814,11 +1077,175 @@
        shorter list, and what pays for it is `wpLabel`, which carries the town
        in the option itself: typing a city still reaches its waypoints, because
        a datalist matches on the whole option value rather than on a prefix. */
+    /* ---- THE TAG DIALOG ---------------------------------------------------
+       ASKED WHEN A RANDOM CHALLENGE IS CHOSEN, and never otherwise. It was a
+       third field in the Add bar, permanently beside two others, which made a
+       stop read as three decisions when it is two. */
+    /* THE CHIPS ARE BUILT ONCE PER OPEN AND NEVER REBUILT BY A PRESS.
+       Rebuilding on every toggle DESTROYS THE BUTTON THAT WAS JUST PRESSED --
+       focus goes to the body, so a keyboard user cannot choose a second tag,
+       and any handle taken before the press is left holding a detached node. */
+    function buildTagChips() {
+      const host = el('tagPicks');
+      if (!host) return;
+      const inUse = tagsInUse();
+      const none = el('tagNone');
+      if (none) none.hidden = inUse.length > 0;
+      host.innerHTML = '';
+      inUse.forEach(function (t) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tag-pick';
+        b.setAttribute('aria-pressed', 'false');
+        b.dataset.tag = t.tag;
+        const w = document.createElement('span');
+        w.textContent = t.tag;
+        const c = document.createElement('span');
+        c.className = 'n';
+        c.textContent = t.count;
+        b.appendChild(w);
+        b.appendChild(c);
+        host.appendChild(b);
+      });
+    }
+
+    function paintTagDialog() {
+      const host = el('tagPicks');
+      if (!host) return;
+      const tags = state.tagDraft.tags;
+      const mode = tagsMatchMode();
+      // THE PRESSED STATE IS WRITTEN ONTO THE BUTTONS THAT ARE THERE.
+      host.querySelectorAll('.tag-pick').forEach(function (b) {
+        const on = tags.some(function (x) {
+          return x.toLowerCase() === String(b.dataset.tag).toLowerCase();
+        });
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const row = el('tagMode');
+      if (row) row.hidden = tags.length < 2;
+      const say = el('tagModeSay');
+      if (say) {
+        say.textContent = mode === 'any'
+          ? 'at least one of them' : 'every one of them';
+      }
+      const n = tagMatchCount(tags, mode);
+      const count = el('tagCount');
+      if (count) {
+        count.textContent = n + (n === 1 ? ' challenge' : ' challenges')
+          + (tags.length ? '' : ' -- everything');
+      }
+      /* THE RED PEN RATHER THAN A REFUSAL. The bank grows, so a filter matching
+         nothing today may match tomorrow; what must not happen is filing one
+         without seeing it. */
+      if (count) {
+        if (tags.length && n === 0) count.setAttribute('data-invalid', 'true');
+        else count.removeAttribute('data-invalid');
+      }
+    }
+
+    /* ONE CHIP IS ONE TAG, ADDED OR TAKEN AWAY. Matched case-insensitively,
+       because the resolver is: `history` and `History` are one tag, so picking
+       one must not leave the other addable. */
+    function toggleTag(tag) {
+      const key = clean(tag).toLowerCase();
+      if (!key) return;
+      const kept = state.tagDraft.tags.filter(function (t) {
+        return t.toLowerCase() !== key;
+      });
+      const next = kept.length === state.tagDraft.tags.length
+        ? state.tagDraft.tags.concat([clean(tag)])
+        : kept;
+      /* SORTED, SO THE ORDER THEY WERE PRESSED IN CARRIES NOTHING. The resolver
+         does not care -- `all` is contains-all and `any` is overlap, both
+         order-independent -- so one filter chosen two ways must read and store
+         one way, or two identical stops look different on the list. */
+      next.sort(function (a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
+      state.tagDraft.tags = next;
+      paintTagDialog();
+    }
+
+    /* THE TWO HOSTS, so the dialog reads and writes the right slot and the
+       right box. Adding a third is one entry. */
+    const TAG_HOSTS = {
+      add: { input: 'chalInput', slot: 'pendingTags' },
+      edit: { input: 'svChalInput', slot: 'editTags' }
+    };
+    function tagHost() { return TAG_HOSTS[state.tagHost] || TAG_HOSTS.add; }
+    function settledTags() { return state[tagHost().slot]; }
+
+    function openTagDialog(which) {
+      const host = el('tagPicks');
+      if (!host) return;
+      state.tagHost = TAG_HOSTS[which] ? which : 'add';
+      // OPENED ON WHAT WAS LAST SETTLED, so reopening to change one tag does not
+      // start from nothing. COPIED, never the same array -- editing the settled
+      // one would make Cancel a lie.
+      state.tagDraft = {
+        tags: settledTags().tags.slice(),
+        mode: settledTags().mode === 'any' ? 'any' : 'all'
+      };
+      document.querySelectorAll('input[name="tagsMatch"]').forEach(function (r) {
+        r.checked = r.value === state.tagDraft.mode;
+      });
+      buildTagChips();
+      paintTagDialog();
+      el('tagBackdrop').hidden = false;
+      const first = host.querySelector('.tag-pick');
+      if (first) first.focus();
+    }
+
+    function closeTagDialog() {
+      const back = el('tagBackdrop');
+      if (back) back.hidden = true;
+    }
+
+    /* THE ANSWER GOES BACK INTO THE CHALLENGE BOX, which is what keeps the bar
+       two fields and makes the choice visible without a second control. */
+    function useTagDialog() {
+      const tags = state.tagDraft.tags.slice();
+      const h = tagHost();
+      state[h.slot] = { tags: tags, mode: tagsMatchMode() };
+      setBoxValue(h.input, randomLabel(tags, state[h.slot].mode));
+      closeTagDialog();
+      keepNext[h.input] = true;
+      el(h.input).focus();
+      /* THE PREVIEW FOLLOWS THE FILTER TOO. Writing the box does not fire
+         `change`, so without this the right side would go on describing the
+         filter from before the dialog -- and the filter is exactly what a
+         RANDOM stop's panel is showing. The ADD bar has no preview. */
+      if (state.tagHost === 'edit') previewFromBoxes();
+    }
+
     function paintPickers() {
+      /* THE WAYPOINTS ARE OFFERED BY CITY, then by name within it. A stop is
+         built for a walk in one town, so the useful grouping is the town rather
+         than the alphabet across 575 places in 72 of them.
+           ONE DATALIST FEEDS BOTH BOXES -- the ADD bar's and the popup's -- so
+         this sorts both, and they cannot drift into two orders.
+           SORTED ON WHAT THE OPTION SHOWS, through `wpWhere`, which is the same
+         `City, ST` the label carries. Ordering a list by something no reader can
+         see looks exactly like a broken control.
+           A COPY, NEVER `state.waypoints` ITSELF. That array is read by the
+         resolver and by the preview, and re-ordering it under them would be a
+         side effect of drawing a dropdown.
+           A WAYPOINT WITH NO CITY SINKS, in a list grouped by city it has no
+         place in, and ties break on the id so the order is stable. */
       const wpBox = el('wpList');
       if (wpBox) {
         wpBox.innerHTML = '';
-        state.waypoints.forEach(function (w) {
+        state.waypoints.slice().sort(function (a, b) {
+          const ca = wpWhere(a), cb = wpWhere(b);
+          if (!ca && cb) return 1;
+          if (ca && !cb) return -1;
+          if (ca !== cb) {
+            return ca.localeCompare(cb, undefined, { sensitivity: 'base', numeric: true });
+          }
+          const na = clean(a.name), nb = clean(b.name);
+          if (na !== nb) {
+            return na.localeCompare(nb, undefined, { sensitivity: 'base', numeric: true });
+          }
+          return (Number(a.wpid) || 0) - (Number(b.wpid) || 0);
+        }).forEach(function (w) {
           const o = document.createElement('option');
           o.value = wpLabel(w);
           wpBox.appendChild(o);
@@ -847,7 +1274,7 @@
        searchable without anybody remembering to add it here. It was four terms
        by hand -- the city, the name, the address and the challenge's name --
        so a description, a zip, a source, a prompt, an answer, a kind and a
-       scope were all on screen and none of them was findable.
+       kind were all on screen and none of them was findable.
          AN ARRAY IS FLATTENED, so `choices` is searched option by option; a
        number is read as its own text, which is what makes a wpid or a zip work.
          `wpWhere` AND `RANDOM_LABEL` ARE APPENDED because neither is a column:
@@ -890,6 +1317,30 @@
 
     /* `where` IS THE FOURTH LINE AND ONLY THE WAYPOINT GETS ONE. A challenge is
        not anywhere, so passing it one would be inventing a fact. */
+    /* WHAT A STOP WITH NO NAMED CHALLENGE ASKS FOR, in one place, because the
+       row and the popup have to say the same thing. */
+    /* THE ONE PLACE A FILTER IS TURNED INTO WORDS, because the challenge box,
+       the row and the popup all have to say it the same way. */
+    function randomLabel(tags, mode) {
+      if (!tags.length) return RANDOM_LABEL;
+      return RANDOM_LABEL + ' tagged ' + tags.join(mode === 'any' ? ' or ' : ' and ');
+    }
+
+    function randomSpec(row) {
+      const tags = Array.isArray(row.challenge_tags) ? row.challenge_tags.filter(clean) : [];
+      if (!tags.length) {
+        return { name: RANDOM_LABEL, sub: 'whatever fits at play time', tags: [], count: 0 };
+      }
+      const mode = clean(row.challenge_tags_match) === 'any' ? 'any' : 'all';
+      const n = tagMatchCount(tags, mode);
+      return {
+        name: randomLabel(tags, mode),
+        sub: n + (n === 1 ? ' challenge to pick from' : ' challenges to pick from'),
+        tags: tags,
+        count: n
+      };
+    }
+
     function half(kicker, name, sub, isRandom, which, where) {
       const box = document.createElement('div');
       box.className = 'stop-half stop-half--' + which;
@@ -972,19 +1423,20 @@
           w ? clean(w.address) : 'not on file any more', false, 'wp',
           w ? wpWhere(w) : ''));
 
+        /* A FILTERED STOP SAYS WHAT IT ASKS FOR. Drawn as a bare RANDOM, a
+           stop narrowed to sports-in-chicago would be indistinguishable from
+           one that takes anything. */
+        const spec = c ? null : randomSpec(row);
         line.appendChild(half('Challenge',
-          c ? c.name : RANDOM_LABEL,
-          c ? (c.kind || '') : 'whatever fits at play time',
+          c ? c.name : spec.name,
+          c ? typeLabel(c.type) : spec.sub,
           !c, 'ch'));
 
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'btn small stop-del';
-        del.textContent = 'Delete';
-        // THE DELETE STOPS ITS OWN CLICK, or removing a stop would open the
-        // popup over the row it had just removed.
-        del.addEventListener('click', function (e) { e.stopPropagation(); removeStop(row); });
-        line.appendChild(del);
+        /* THE ROW HAS NO DELETE. It moved into the popup (2026-09-03), where it
+           sits beside the waypoint and the challenge it destroys -- and where
+           you have necessarily looked at the stop first. On the row it was one
+           click from a list, and it needed `stopPropagation` so removing a stop
+           did not open the popup over the row it had just removed. */
 
         line.addEventListener('click', function () { openStop(row); });
         line.addEventListener('keydown', function (e) {
@@ -1123,7 +1575,7 @@
       name.textContent = c.name;
       const kind = document.createElement('span');
       kind.className = 'sv-kind';
-      kind.textContent = clean(c.kind);
+      kind.textContent = typeLabel(c.type);
       head.appendChild(name); head.appendChild(kind);
       right.appendChild(head);
 
@@ -1163,7 +1615,7 @@
         const box = document.createElement('input');
         box.type = 'text';
         box.className = 'sv-answerbox';
-        box.placeholder = clean(c.kind) === 'consent' ? 'Type AGREE' : 'Type the answer';
+        box.placeholder = clean(c.type) === 'operations' ? 'Type AGREE' : 'Type the answer';
         box.value = play.given;
         box.disabled = answered;
         const go = document.createElement('button');
@@ -1213,8 +1665,14 @@
         const again = document.createElement('button');
         again.type = 'button';
         again.className = 'btn small';
-        again.textContent = 'Play again';
-        again.addEventListener('click', () => { startPlay(state.open); });
+        /* A FILTERED STOP DRAWS A DIFFERENT ONE; a fixed stop replays its own.
+           Two verbs, because they are two different acts. */
+        const filtered = state.open && state.open.challenge_id == null;
+        again.textContent = filtered ? 'Draw another' : 'Play again';
+        again.addEventListener('click', () => {
+          if (filtered) drawChallenge(state.open);
+          else startPlay(state.open);
+        });
         right.appendChild(again);
       }
 
@@ -1227,18 +1685,98 @@
       right.appendChild(foot);
     }
 
+    /* THE DRAW GOES THROUGH `tgb_pick_challenge`, NEVER A COPY OF ITS RULES.
+       That function is what play time will call, so a client-side pick here
+       would be a second implementation free to disagree with it -- which is the
+       fault this project keeps removing. The cost is a round trip per draw,
+       which is nothing for a rehearsal.
+         AND IT PASSES WHAT IT HAS ALREADY DRAWN, which is how the no-repeat
+       rule is demonstrated rather than described: press again and the set walks
+       down until it runs out. */
+    async function drawChallenge(row) {
+      const right = el('svChallenge');
+      try {
+        const res = await fetch(rpcUrl('tgb_pick_challenge'), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ p_stop_id: row.stop_id, p_used: state.picked })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const id = await res.json();
+        if (id === null || id === undefined) {
+          const spec = randomSpec(row);
+          const note = document.createElement('div');
+          note.className = 'sv-value is-empty';
+          note.textContent = state.picked.length
+            ? 'That is all of them: ' + state.picked.length
+              + (state.picked.length === 1 ? ' challenge' : ' challenges')
+              + ' drawn and none repeated. A game would have run out here.'
+            : 'Nothing carries ' + (spec.tags.length ? spec.tags.join(' and ') : 'that filter')
+              + ', so this stop would reach a team with no challenge.';
+          right.innerHTML = '';
+          right.appendChild(specHead(row));
+          right.appendChild(note);
+          return;
+        }
+        state.picked.push(id);
+        const c = chalById(id);
+        if (!c) { say('Picked challenge ' + id + ', which is not in the list. Reload.', 'error'); return; }
+        playChallenge(row, c);
+      } catch (err) {
+        say(err.message, 'error');
+      }
+    }
+
+    /* WHAT THE STOP ASKS FOR, ON TOP OF THE REHEARSAL, so a drawn challenge is
+       plainly one OF something rather than the stop's own. */
+    function specHead(row) {
+      const spec = randomSpec(row);
+      const box = document.createElement('div');
+      box.className = 'sv-playhead';
+      const name = document.createElement('span');
+      name.className = 'sv-playname';
+      name.textContent = spec.name;
+      const kind = document.createElement('span');
+      kind.className = 'sv-kind';
+      kind.textContent = spec.sub;
+      box.appendChild(name); box.appendChild(kind);
+      return box;
+    }
+
+    function playChallenge(row, c) {
+      const opts = Array.isArray(c.choices) ? c.choices.filter((x) => clean(x)) : [];
+      state.play = {
+        challenge: c,
+        vars: varsFor(row, wpById(row.waypoint_id)),
+        shown: opts.length ? shuffled(opts) : null,
+        given: '',
+        verdict: ''
+      };
+      paintPlay();
+    }
+
     function startPlay(row) {
       const c = row && row.challenge_id != null ? chalById(row.challenge_id) : null;
       const right = el('svChallenge');
       right.innerHTML = '';
       if (!c) {
         state.play = null;
-        field(right, 'Challenge', RANDOM_LABEL);
+        right.appendChild(specHead(row));
         const note = document.createElement('div');
         note.className = 'sv-value is-empty';
-        note.textContent = 'No challenge is fixed on this stop, so there is nothing to '
-          + 'play: it takes whatever fits at play time, and nothing picks one yet.';
+        note.textContent = 'This stop picks one at play time. Draw one to meet what a '
+          + 'team would; a draw never repeats one already taken.';
         right.appendChild(note);
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'btn small';
+        go.textContent = 'Draw one';
+        go.addEventListener('click', function () { drawChallenge(row); });
+        right.appendChild(go);
+        const foot = document.createElement('div');
+        foot.className = 'sv-playfoot';
+        foot.textContent = 'A rehearsal. Nothing is recorded.';
+        right.appendChild(foot);
         return;
       }
       const opts = Array.isArray(c.choices) ? c.choices.filter((x) => clean(x)) : [];
@@ -1252,10 +1790,20 @@
       paintPlay();
     }
 
-    function openStop(row) {
+    /* ---- THE PREVIEW, DRAWN FROM A ROW ------------------------------------
+       LIFTED OUT OF `openStop` so the EDIT BOXES can redraw it. It used to
+       follow the stored row and nothing else, so changing the waypoint left the
+       street view, the address and the rehearsal describing the place you had
+       just moved away from until you saved.
+         IT TAKES A ROW RATHER THAN READING `state.open`, because what it draws
+       while you are editing is the PENDING stop -- what the boxes say -- and
+       that is a different thing from what is filed. Nothing here writes. */
+    function paintPreview(row) {
       const w = wpById(row.waypoint_id);
-      const c = row.challenge_id == null ? null : chalById(row.challenge_id);
-      state.open = row;
+      /* THE REHEARSAL STARTS AGAIN. It models one play of one stop, so a
+         different challenge is a different rehearsal and the drawn list has to
+         go with it. */
+      state.picked = [];
 
       /* A STOP WHOSE WAYPOINT WAS DELETED KEEPS ITS CHALLENGE and needs a new
          waypoint: 2026083117 strips the waypoint rather than removing the
@@ -1308,6 +1856,30 @@
 
       // ---- right: play the challenge ----
       startPlay(row);
+    }
+
+    function openStop(row) {
+      const w = wpById(row.waypoint_id);
+      const c = row.challenge_id == null ? null : chalById(row.challenge_id);
+      state.open = row;
+
+      /* THE EDIT BOXES OPEN ON WHAT THE ROW HOLDS, through the SAME labellers
+         the ADD bar uses -- `wpLabel` and `chalLabel` -- so a value picked here
+         and one picked there resolve identically. A second labeller would drift
+         the first time either changed. */
+      setBoxValue('svWpInput', w ? wpLabel(w) : '');
+      el('svWpInput').removeAttribute('data-invalid');
+      state.editTags = {
+        tags: Array.isArray(row.challenge_tags) ? row.challenge_tags.slice() : [],
+        mode: clean(row.challenge_tags_match) === 'any' ? 'any' : 'all'
+      };
+      setBoxValue('svChalInput', c
+        ? chalLabel(c)
+        : randomLabel(state.editTags.tags, state.editTags.mode));
+      el('svChalInput').removeAttribute('data-invalid');
+      el('svSaved').textContent = '';
+
+      paintPreview(row);
 
       el('svBackdrop').hidden = false;
       el('svClose').focus();
@@ -1323,6 +1895,7 @@
       el('svWaypoint').innerHTML = '';
       el('svChallenge').innerHTML = '';
       state.play = null;
+      state.picked = [];
       state.open = null;
     }
 
@@ -1348,6 +1921,7 @@
       // A TYPED CHALLENGE THE LIST DOES NOT HOLD IS REFUSED RATHER THAN STORED
       // AS RANDOM. Silently turning a typo into a real choice is the one
       // outcome nobody could see afterwards.
+      const tags = state.pendingTags.tags;
       const chal = chalFromLabel(chalText);
       if (chal === null) {
         chalField.setAttribute('data-invalid', 'true');
@@ -1363,9 +1937,18 @@
           /* THREE IDS, AND THE ROW'S OWN IS THE DATABASE'S TO ASSIGN. `city`
              went on 2026090302: sending it now would be refused as an unknown
              column and the whole insert would fail. */
+          /* A FIXED CHALLENGE AND A FILTER ARE EXCLUSIVE, which
+             `stops_fixed_or_filtered` enforces: whichever this is, the other
+             goes as null rather than being left off, or a later edit would
+             leave a row saying both. */
           body: JSON.stringify({
             waypoint_id: wp.wpid,
-            challenge_id: chal === 'random' ? null : chal.id
+            challenge_id: chal === 'random' ? null : chal.id,
+            challenge_tags: chal === 'random' && tags.length ? tags : null,
+            /* SENT ALWAYS, because the column is NOT NULL: leaving it off would
+               take the default, which is right for `all` and silently wrong for
+               `any`. */
+            challenge_tags_match: state.pendingTags.mode
           })
         });
         if (!res.ok) throw new Error(await readError(res));
@@ -1386,10 +1969,89 @@
         });
         wpField.value = '';
         chalField.value = '';
+        state.pendingTags = { tags: [], mode: 'all' };
         render();
         say('Added ' + wp.name + (wpWhere(wp) ? ' in ' + wpWhere(wp) : '') + '.', 'success');
       } catch (err) {
         say(err.message, 'error');
+      }
+    }
+
+    /* SAVING A STOP IS THE SAME TWO DECISIONS AS ADDING ONE, resolved through
+       the same functions: `wpFromLabel` and `chalFromLabel` are the only idea of
+       what a valid waypoint and challenge are, so the popup cannot accept
+       something the bar would refuse.
+         A TYPO IS REFUSED, NEVER STORED AS RANDOM. Silently turning a mistyped
+       challenge into "pick one at play time" is the one outcome nobody could see
+       afterwards, which is why the ADD bar refuses it too. */
+    async function saveStop() {
+      const row = state.open;
+      if (!row) return;
+      const wpField = el('svWpInput');
+      const chalField = el('svChalInput');
+      [wpField, chalField].forEach(function (f) { f.removeAttribute('data-invalid'); });
+
+      const wp = wpFromLabel(clean(wpField.value));
+      if (!wp) {
+        wpField.setAttribute('data-invalid', 'true');
+        say(clean(wpField.value)
+          ? 'No waypoint called "' + clean(wpField.value) + '". Pick one from the list.'
+          : 'A stop needs a waypoint.', 'error');
+        return;
+      }
+      const chal = chalFromLabel(clean(chalField.value));
+      if (chal === null) {
+        chalField.setAttribute('data-invalid', 'true');
+        say('No challenge called "' + clean(chalField.value) + '". Pick one, or leave it on '
+            + RANDOM_LABEL + '.', 'error');
+        return;
+      }
+
+      const tags = state.editTags.tags;
+      const body = {
+        waypoint_id: wp.wpid,
+        /* A FIXED CHALLENGE AND A FILTER ARE EXCLUSIVE, which
+           `stops_fixed_or_filtered` enforces. Whichever this is, the other goes
+           as NULL rather than being left off: a PATCH that omits a key leaves
+           the old value, so moving from a filter to a named challenge would
+           otherwise leave a row saying both and be refused. */
+        challenge_id: chal === 'random' ? null : chal.id,
+        challenge_tags: chal === 'random' && tags.length ? tags : null,
+        challenge_tags_match: state.editTags.mode
+      };
+
+      try {
+        /* FILTERED ON `stop_id`, the row's own key. `waypoint_id` is the unique
+           and it is NULLABLE, so a stripped stop is `waypoint_id=eq.null` --
+           a filter that matches nothing and reports as a refusal. */
+        const res = await fetch(restUrl(TABLE, { stop_id: 'eq.' + row.stop_id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json',
+                                 Prefer: 'return=representation' }),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'move'));
+        const rows = await res.json();
+        /* POSTGREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so a
+           refused save would otherwise report success and the popup would show
+           a value the table never took. */
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error('The database refused the change and said nothing. Check you are signed in.');
+        }
+        const saved = rows[0];
+        state.rows = state.rows.map(function (r) {
+          return rowKey(r) === rowKey(row) ? saved : r;
+        });
+        state.open = saved;
+        render();
+        /* REOPENED ON WHAT CAME BACK, not on what was sent: the row is redrawn
+           from the stored values, so the street view, the address and the
+           rehearsal all follow the waypoint that actually landed. */
+        openStop(saved);
+        el('svSaved').textContent = 'Saved.';
+        say('Saved the stop at ' + wp.name + '.', 'success');
+      } catch (err) {
+        say(err.message || 'Could not save the stop.', 'error');
       }
     }
 
@@ -1435,6 +2097,157 @@
     }
 
     on('addBtn', 'click', addStop);
+    /* CHOOSING A RANDOM CHALLENGE ASKS WHICH ONES. On `change` rather than
+       `input`: a datalist pick fires both, and typing R-A-N-D-O-M would open
+       the dialog on the last keystroke of a word somebody was still writing. */
+    /* ---- THE DOWN ARROW OFFERS THE WHOLE LIST -----------------------------
+       A DATALIST FILTERS ITS OPTIONS BY WHAT IS IN THE BOX, so a field already
+       holding a full label offers exactly one entry: itself. **The whole list
+       is there and hidden behind an exact match**, which is what the popup's
+       boxes do on every open, since they are filled from the row.
+         SO THE BOX EMPTIES ON FOCUS. Same fix the Game Builder's game picker
+       already carries, and the same reason.
+         AND THE VALUE COMES BACK ON BLUR IF NOTHING WAS CHOSEN. **An empty box
+       is not an instruction** -- it is what you get from clicking in and
+       clicking away again -- and in the popup an emptied waypoint would be
+       refused by Save for a value nobody deleted.
+         ONE HELPER FOR ALL FOUR BOXES, so the bar and the popup cannot drift
+       into behaving differently. */
+    const heldValue = {};
+    const keepNext = {};
+    function offerWholeList(id) {
+      const box = el(id);
+      if (!box) return;
+      box.addEventListener('focus', function () {
+        /* A PROGRAMMATIC FOCUS IS NOT SOMEBODY ASKING FOR THE LIST. The tag
+           dialog fills this box and then focuses it so keyboard focus does not
+           die with the modal -- and emptying there shows a blank box a moment
+           after it was filled, which two suites caught. `keepNext` is set at
+           that one call site and spent on the next focus. */
+        if (keepNext[id]) { keepNext[id] = false; return; }
+        heldValue[id] = box.value;
+        box.value = '';
+      });
+      box.addEventListener('blur', function () {
+        if (!clean(box.value) && heldValue[id]) box.value = heldValue[id];
+      });
+    }
+    ['wpInput', 'chalInput', 'svWpInput', 'svChalInput'].forEach(offerWholeList);
+
+    /* ANYTHING THAT WRITES ONE OF THESE BOXES USES THIS, or the value is lost
+       the moment the box is focused. **The tag dialog wrote the label and then
+       called `.focus()`, and the focus handler emptied it** -- the box came back
+       blank, which is a fault I introduced and two suites caught. Setting the
+       held value alongside means a focus empties it and a blur puts THIS value
+       back rather than the one from before the dialog. */
+    function setBoxValue(id, v) {
+      const box = el(id);
+      if (!box) return;
+      box.value = v;
+      heldValue[id] = v;
+    }
+
+    /* ---- the popup's own edit ---- */
+    /* THE PREVIEW FOLLOWS THE BOXES, NOT THE STORED ROW. Picking a different
+       waypoint redraws the street view, the address and the rehearsal; picking
+       a different challenge restarts the rehearsal on it. **Nothing is saved by
+       looking**, which is what makes it a preview -- closing without Save still
+       writes nothing.
+         `change`, NOT `input`. A datalist fires it on a pick and on leaving the
+       box, where `input` fires on every keystroke and would thrash the street
+       view through every half-typed name.
+         AN UNRESOLVABLE VALUE LEAVES THE PREVIEW ALONE rather than blanking it:
+       mid-edit is not a state worth drawing, and Save is what refuses a typo. */
+    function previewFromBoxes() {
+      if (!state.open) return;
+      const wp = wpFromLabel(clean(el('svWpInput').value));
+      const chal = chalFromLabel(clean(el('svChalInput').value));
+      if (!wp || chal === null) return;
+      paintPreview({
+        stop_id: state.open.stop_id,
+        waypoint_id: wp.wpid,
+        challenge_id: chal === 'random' ? null : chal.id,
+        challenge_tags: chal === 'random' && state.editTags.tags.length
+          ? state.editTags.tags : null,
+        challenge_tags_match: state.editTags.mode
+      });
+    }
+    on('svWpInput', 'change', previewFromBoxes);
+    on('svChalInput', 'change', previewFromBoxes);
+
+    on('svSave', 'click', saveStop);
+    on('svDelete', 'click', function () { if (state.open) removeStop(state.open); });
+    /* THE SAME TWO GESTURES THE ADD BAR KEEPS: choosing RANDOM asks which
+       challenges, and pressing a box that already holds a filter reopens it --
+       the box shows prose and nothing else edits it. `change` rather than
+       `input`, or the dialog opens on the last keystroke of a word somebody is
+       still typing. */
+    on('svChalInput', 'change', function () {
+      if (chalFromLabel(el('svChalInput').value) === 'random') openTagDialog('edit');
+    });
+    /* ONLY WHEN THERE IS A FILTER TO EDIT. This fired on a BARE `RANDOM` too,
+       so clicking the box -- the arrow included -- opened the tag dialog and the
+       challenge list could not be reached by pointer at all. A bare RANDOM has
+       no filter to reopen, and choosing RANDOM already opens the dialog through
+       `change`.
+         IT ASKS THE SETTLED SLOT, NEVER THE BOX'S PROSE. `randomLabel` is the
+       one composer and the tags are deliberately not parsed back out of what it
+       wrote. */
+    on('svChalInput', 'mousedown', function (e) {
+      if (state.editTags.tags.length
+          && chalFromLabel(el('svChalInput').value) === 'random') {
+        e.preventDefault();
+        openTagDialog('edit');
+      }
+    });
+    /* NAMING A CHALLENGE DROPS THE FILTER, or the row would carry both and
+       `stops_fixed_or_filtered` would refuse it. */
+    on('svChalInput', 'input', function () {
+      if (chalFromLabel(el('svChalInput').value) !== 'random') {
+        state.editTags = { tags: [], mode: 'all' };
+      }
+      el('svSaved').textContent = '';
+    });
+    on('svWpInput', 'input', function () { el('svSaved').textContent = ''; });
+
+    on('chalInput', 'change', function () {
+      if (chalFromLabel(el('chalInput').value) === 'random') openTagDialog('add');
+    });
+    /* AND PRESSING THE BOX WHILE IT HOLDS ONE REOPENS IT, which is the only way
+       back to a filter already chosen: the box shows prose and nothing else
+       edits it. */
+    on('chalInput', 'mousedown', function (e) {
+      if (state.pendingTags.tags.length
+          && chalFromLabel(el('chalInput').value) === 'random') {
+        e.preventDefault();
+        openTagDialog('add');
+      }
+    });
+    /* NAMING A CHALLENGE DROPS THE FILTER. A filter that no longer applies must
+       not be filed, and `stops_fixed_or_filtered` would refuse the pair anyway. */
+    on('chalInput', 'input', function () {
+      if (chalFromLabel(el('chalInput').value) !== 'random') {
+        state.pendingTags = { tags: [], mode: 'all' };
+      }
+    });
+    /* BOUND ONCE ON THE HOST, never per chip: `paintTagDialog` rebuilds them on
+       every press, so binding inside it would stack a listener per repaint and
+       the count would grow all session. */
+    on('tagPicks', 'click', function (e) {
+      const b = e.target.closest ? e.target.closest('.tag-pick') : null;
+      if (b) toggleTag(b.dataset.tag);
+    });
+    on('tagUse', 'click', useTagDialog);
+    on('tagCancel', 'click', closeTagDialog);
+    on('tagBackdrop', 'click', function (e) {
+      if (e.target === el('tagBackdrop')) closeTagDialog();
+    });
+    document.querySelectorAll('input[name="tagsMatch"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        state.tagDraft.mode = tagsMatchMode();
+        paintTagDialog();
+      });
+    });
     on('q', 'input', function () { state.q = clean(el('q').value); render(); });
     on('clearBtn', 'click', function () { el('q').value = ''; state.q = ''; render(); });
     on('svClose', 'click', closeStop);
@@ -1443,7 +2256,12 @@
       if (e.target === el('svBackdrop')) closeStop();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeStop();
+      if (e.key !== 'Escape') return;
+      // THE ONE ON TOP FIRST. Both are never open together today, and leaving
+      // the order to chance is how Escape dismisses the wrong thing later.
+      const tags = el('tagBackdrop');
+      if (tags && !tags.hidden) { closeTagDialog(); return; }
+      closeStop();
     });
 
     const adminAuth = TgbMcAdminAuth.create({

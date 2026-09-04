@@ -4449,7 +4449,16 @@
 
     // ── Games ────────────────────────────────────────────────────────
     async function fetchGames() {
-      const response = await fetch(restUrl('games', { select: 'id,name,city,away_team_city,away_team_mascot,home_team_city,home_team_mascot,away_team_key,home_team_key,fandom_game,archived', order: 'name.asc' }), {
+      /* FOUR COLUMNS, BECAUSE THAT IS WHAT `public.games` STILL HAS.
+         It carried the two clubs split into city and mascot, both team keys,
+         `fandom_game` and `archived`; **every one of those is gone**, and
+         PostgREST 400s the WHOLE request on one unknown column, so this read
+         was failing entirely and spilling `column games.away_team_city does not
+         exist` into the room's own error channel.
+           THE GAMES LIST IS THE GAME PICKER AND NOTHING ELSE NOW. A gift's city
+         does not come from here and has not for some time -- it is
+         `gift_shop_listings.city`, filled on all 969 rows. */
+      const response = await fetch(restUrl('games', { select: 'id,name,city,status', order: 'name.asc' }), {
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
       });
@@ -4507,9 +4516,13 @@
     }
 
 
+    /* A GAME IS LIVE WHEN ITS STATUS SAYS SO. `archived` and `erased` were two
+       text flags carrying `YES`, and both are gone: `games.status` replaced
+       them, and only `live` reaches a buyer. A row with no status at all is
+       read as NOT live -- the shop offers things for sale, so the safe answer
+       when we cannot tell is to leave it out rather than put it on the shelf. */
     function isLive(game) {
-      const dead = (v) => typeof v === 'boolean' ? v : (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'false' && v.trim() !== '0');
-      return !dead(game.archived);
+      return String((game && game.status) || '').trim().toLowerCase() === 'live';
     }
 
     function isHiddenGiftItem(item) {
@@ -4538,10 +4551,13 @@
     }
 
     // "away @ home" mascot matchup, e.g. " (Bengals @ Commanders)" (display only).
+    /* THE PICKER SAYS WHERE A GAME IS, because it can no longer say who is
+       playing: both mascots were columns on `public.games` and are gone. The
+       city is the one thing left that tells two games of the same name apart,
+       and it is what somebody stocking a shelf is thinking about anyway. */
     function gameMatchupText(g) {
-      const away = String(g && g.away_team_mascot || '').trim();
-      const home = String(g && g.home_team_mascot || '').trim();
-      return (away || home) ? ' (' + away + ' @ ' + home + ')' : '';
+      const city = String((g && g.city) || '').trim();
+      return city ? ' (' + city + ')' : '';
     }
 
     function escapeHtml(value) {
@@ -4579,18 +4595,14 @@
       updateViewGiftShopLink();
     }
 
-    function isFandom(g) {
-      const v = g && g.fandom_game;
-      if (v === true) return true;
-      const s = String(v == null ? '' : v).trim().toLowerCase();
-      return s === 'yes' || s === 'true' || s === '1';
-    }
-
-    // A game's city: the away team's city for fandom games, else the start city.
-    function gameCity(g) {
-      if (!g) return '';
-      return String((isFandom(g) ? g.away_team_city : g.city) || '').trim();
-    }
+    /* `gameCity` AND `isFandom` LIVED HERE and are gone with the columns they
+       read. `gameCity` returned the AWAY club's city for a fandom game and the
+       start city otherwise, which was how a gift used to be shelved -- and it
+       had already lost every caller: **this room reads
+       `gift_shop_listings.city` everywhere**, which is filled on all 969 rows
+       and is the canonical `City, FullStateName` string. `fandom_game`,
+       `away_team_city` and the rest are no longer columns of `public.games`, so
+       neither function could have answered anyway. */
 
     const US_STATE_NAMES_BY_CODE = {
       AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -7400,20 +7412,19 @@
           shop_cities: promptTeamShopCities(canonical || {}, raw.city || city)
         });
       };
-      Array.from(gamesById.values())
-        .filter(isLive)
-        .forEach((game) => {
-          addTeam({
-            city: game.away_team_city,
-            mascot: game.away_team_mascot,
-            key: game.away_team_key
-          });
-          addTeam({
-            city: game.home_team_city,
-            mascot: game.home_team_mascot,
-            key: game.home_team_key
-          });
-        });
+      /* THE TEAMS COME FROM `public.teams`, NOT FROM THE GAMES. This walked
+         every live game and read the two clubs off it -- `away_team_key`,
+         `away_team_city`, `away_team_mascot` and their home twins -- and **all
+         six are gone from `public.games`**, so it was contributing nothing.
+           `addTeam` already looked each one up in `teamsByKey` and preferred
+         the canonical row for every field, so the game was only ever choosing
+         WHICH teams to include.
+           WHAT CHANGES, said rather than discovered: the set widens from the
+         clubs in live games to every club in a pro league, which `addTeam`
+         already filters to through `PROMPT_PRO_LEAGUES`. That is a superset,
+         and the alternative is no teams at all. */
+      Array.from(teamsByKey.values())
+        .forEach((team) => { addTeam({ key: team.team_key }); });
       return Array.from(teams.values())
         .filter((team) => team.team_name || team.mascot)
         .sort((a, b) => String(a.team_name || '').localeCompare(String(b.team_name || ''), undefined, { sensitivity: 'base', numeric: true }));

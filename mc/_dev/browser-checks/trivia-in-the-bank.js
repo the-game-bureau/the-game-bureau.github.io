@@ -23,28 +23,31 @@ const t = (what, pass, got) => {
 };
 
 /* SHAPED LIKE THE REAL ROWS, INCLUDING THE COLUMNS THE ROOM PROBES FOR.
-   `probeColumns` reads the FIRST row, so a fixture missing `scope_team` would
-   hide the whole binding half of the editor and the run would pass over it. */
-const BASE = { scope: 'portable', scope_team: null, scope_city: null, scope_wpid: null,
-               tags: [], ladder_key: null, choices: null, created_at: '2026-08-01T00:00:00Z' };
+   `probeColumns` reads the FIRST row, so a column missing from the fixture
+   hides whatever the room gates on it and the run passes over that half.
+     THE FOUR `scope*` COLUMNS WENT WITH 2026090311 and `ladder_key` is no
+   longer editable (2026-09-03), so what is left to check about a trivia row is
+   its OPTIONS and its chip. */
+const BASE = { tags: [], ladder_key: null, choices: null,
+               created_at: '2026-08-01T00:00:00Z' };
 
 const ROWS = [
-  Object.assign({}, BASE, { id: 1, kind: 'question', name: 'Whose house is this',
+  Object.assign({}, BASE, { id: 1, type: 'type_answer', name: 'Whose house is this',
     prompt: 'Whose house is this?', answer: 'Davis',
-    scope: 'place', scope_wpid: 7 }),
-  Object.assign({}, BASE, { id: 2, kind: 'trivia', name: 'The green river',
+    }),
+  Object.assign({}, BASE, { id: 2, type: 'multiple_choice', name: 'The green river',
     prompt: 'Which river is dyed bright green downtown every St Patrick Day?',
     answer: 'Chicago', ladder_key: 'chicago-il',
     choices: ['Chicago', 'Calumet', 'Des Plaines', 'Fox'] }),
-  Object.assign({}, BASE, { id: 3, kind: 'trivia', name: 'Sweetness',
+  Object.assign({}, BASE, { id: 3, type: 'multiple_choice', name: 'Sweetness',
     prompt: 'The last name of the running back they called Sweetness?',
     answer: 'Payton', ladder_key: 'chicago-il-nfl-bears' }),
   /* THE ORPHAN. A key that resolves to nothing is refused by no constraint,
      reads perfectly, and means the question is asked of nobody. */
-  Object.assign({}, BASE, { id: 4, kind: 'trivia', name: 'Keyed to nowhere',
+  Object.assign({}, BASE, { id: 4, type: 'multiple_choice', name: 'Keyed to nowhere',
     prompt: 'Which bridge carries the interstate over the river?', answer: 'Huey',
     ladder_key: 'nowhere-zz-nfl-nobody' }),
-  Object.assign({}, BASE, { id: 5, kind: 'consent', name: 'The waiver (DRAFT)',
+  Object.assign({}, BASE, { id: 5, type: 'operations', name: 'The waiver (DRAFT)',
     prompt: 'Reply AGREE to continue.', answer: 'agree' })
 ];
 const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints' }];
@@ -127,12 +130,12 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     /* ---- THE PICKER HOLDS EVERY KIND THE CHECK ALLOWS ------------------ */
     const kinds = await p.evaluate(() =>
       [...document.querySelectorAll('#fKind option')].map((o) => o.value));
-    t('the kind picker offers all six kinds', kinds.length === 6, kinds.join(','));
+    t('the type picker offers all six types', kinds.length === 6, kinds.join(','));
     /* WITHOUT `consent` AND `trivia` HERE, OPENING ONE OF THOSE ROWS SHOWS
        `question` SELECTED and saving silently rewrites what kind of thing it
        is -- which is why listing them and completing this list are one change. */
-    t('including consent and trivia, which the room now draws',
-      kinds.indexOf('consent') !== -1 && kinds.indexOf('trivia') !== -1, kinds.join(','));
+    t('including operations and trivia, which the room now draws',
+      kinds.indexOf('operations') !== -1 && kinds.indexOf('multiple_choice') !== -1, kinds.join(','));
 
     /* ---- THE ROW SAYS WHERE A QUESTION IS ASKED ------------------------ */
     const chips = await p.evaluate(() => {
@@ -154,22 +157,19 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     t('and a multiple choice row says how many options',
       chips['The green river'].tags.indexOf('4 options') !== -1,
       chips['The green river'].tags.join(','));
-    t('a stop challenge still wears its own binding',
-      chips['Whose house is this'].scope.indexOf('Cloud Gate') !== -1,
-      chips['Whose house is this'].scope);
+    /* WITH THE ORPHAN FINDING GONE, THE CHIP IS THE ONLY THING THAT SAYS A KEY
+       RESOLVES TO NOTHING -- so it is asserted here rather than left to the
+       fixture row merely existing. `ladder_key` is not a foreign key and cannot
+       be one, so nothing else in the system will ever report it. */
+    t('a key that resolves to nothing is still marked on the row',
+      chips['Keyed to nowhere'].loose, chips['Keyed to nowhere'].scope);
+    t('and a key that resolves is not', !chips['Sweetness'].loose);
 
-    /* ---- THE ORPHAN CHECK CAME WITH THE ROWS --------------------------- */
-    t('a key that resolves to nothing is reported',
-      chips['Keyed to nowhere'].notes.some((n) => n.indexOf('Nothing is keyed to') === 0),
-      chips['Keyed to nowhere'].notes.join(' | '));
-    t('and names the key, so it can be found',
-      chips['Keyed to nowhere'].notes.join(' ').indexOf('nowhere-zz-nfl-nobody') !== -1);
-    t('and it is drawn in the red pen', chips['Keyed to nowhere'].loose);
-    /* THE FINDING MUST NOT FIRE ON A KEY THAT IS FINE, or 38 rows redden and
-       the check is one nobody reads. */
-    t('a key that resolves is not reported',
-      chips['Sweetness'].notes.length === 0 && chips['The green river'].notes.length === 0,
-      chips['Sweetness'].notes.concat(chips['The green river'].notes).join(' | '));
+    /* A STOP CHALLENGE WORE ITS OWN SCOPE CHIP until 2026090311 dropped the
+       column, and `orphan-ladder-key` reported a rung resolving to nothing
+       until the field it told you to fix went (2026-09-03). Both are gone; the
+       CHIP is still asserted above, since a trivia row still shows what its
+       stored key resolves to. */
 
     /* ---- THE FORM FOLLOWS THE KIND ------------------------------------- */
     const shape = await p.evaluate(() => {
@@ -178,11 +178,14 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
         const r = rows.find((x) => x.querySelector('.ch-name')
           && x.querySelector('.ch-name').textContent.trim() === name);
         r.click();
-        const vis = (id) => { const f = document.getElementById(id); return f && !f.hidden; };
+          /* `offsetParent`, NEVER THE `hidden` PROPERTY. `.field` is
+           `display: flex`, an AUTHOR rule that beat the UA sheet's `[hidden]`
+           until 2026-09-03 -- so the property was true while the box was on
+           screen, and a check reading it passed over the bug. */
+        const vis2 = (id) => { const f = document.getElementById(id);
+          return !!(f && f.offsetParent !== null); };
         return {
-          ladder: vis('ladderField'), choices: vis('choicesField'),
-          scope: !document.getElementById('fScope').closest('.field').hidden,
-          ladderValue: document.getElementById('fLadder').value,
+          choices: vis2('choicesField'),
           choicesValue: document.getElementById('fChoices').value,
           kind: document.getElementById('fKind').value
         };
@@ -194,16 +197,14 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
       const g = open('The green river');
       return { trivia: t1, challenge: c1, green: g };
     });
-    t('a trivia row opens with its rung and its options', shape.trivia.ladder && shape.trivia.choices);
-    t('and without the scope picker, which its CHECK forbids anything but portable',
-      !shape.trivia.scope);
-    t('and the rung is filled in', shape.trivia.ladderValue === 'chicago-il-nfl-bears',
-      shape.trivia.ladderValue);
+    t('a trivia row opens with its options', shape.trivia.choices);
     t('the options come back one per line, not comma joined',
       shape.green.choicesValue.split(String.fromCharCode(10)).length === 4,
       JSON.stringify(shape.green.choicesValue));
-    t('a stop challenge opens with the scope picker and neither trivia field',
-      shape.challenge.scope && !shape.challenge.ladder && !shape.challenge.choices);
+    /* THE OPTIONS BOX IS TRIVIA'S AND NOBODY ELSE'S. It was on screen for every
+       kind until `.field[hidden]` was declared -- a photo, a minigame and the
+       waiver all offered a list of multiple-choice options. */
+    t('and a stop challenge opens without it', !shape.challenge.choices);
     t('and the waiver keeps its own kind rather than falling back to question',
       await p.evaluate(() => {
         const rows = [...document.querySelectorAll('#list > .ch')];
@@ -213,7 +214,7 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
         const k = document.getElementById('fKind').value;
         document.getElementById('closeBtn').click();
         return k;
-      }) === 'consent');
+      }) === 'operations');
 
     /* CHANGING THE KIND REPAINTS THE FORM. Without it the boxes on screen and
        the payload disagree in silence. */
@@ -221,35 +222,30 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
       const rows = [...document.querySelectorAll('#list > .ch')];
       rows.find((x) => x.querySelector('.ch-name').textContent.trim() === 'Whose house is this').click();
       const k = document.getElementById('fKind');
-      k.value = 'trivia';
+      k.value = 'multiple_choice';
       k.dispatchEvent(new Event('change'));
-      const out = { ladder: !document.getElementById('ladderField').hidden,
-                    scope: !document.getElementById('fScope').closest('.field').hidden };
+      const f = document.getElementById('choicesField');
+      const out = { choices: !!(f && f.offsetParent !== null) };
       document.getElementById('closeBtn').click();
       return out;
     });
-    t('choosing trivia reveals the rung and puts the scope picker away',
-      swap.ladder && !swap.scope, JSON.stringify(swap));
+    t('choosing trivia reveals the options box', swap.choices, JSON.stringify(swap));
 
     /* ---- THE PAYLOAD OBEYS THE EXCLUSIVITY CHECK ----------------------- */
     sent.length = 0;
     await p.evaluate(async () => {
       const rows = [...document.querySelectorAll('#list > .ch')];
       rows.find((x) => x.querySelector('.ch-name').textContent.trim() === 'The green river').click();
-      document.getElementById('fLadder').value = 'NEW-ORLEANS-LA';
       document.getElementById('fChoices').value = ['Alpha', 'Beta', ''].join(String.fromCharCode(10));
       document.getElementById('saveBtn').click();
     });
     await new Promise((r) => setTimeout(r, 400));
     const body = sent.length ? JSON.parse(sent[sent.length - 1].body) : {};
-    t('a trivia save sends the rung', body.ladder_key === 'new-orleans-la', body.ladder_key);
-    /* LOWERCASED ON THE WAY IN rather than refused by the CHECK for a capital,
-       since a rung is matched and never printed. */
-    t('lowercased, because the CHECK requires it and a capital is not a mistake worth refusing',
-      body.ladder_key === (body.ladder_key || '').toLowerCase());
-    t('and portable, with no scope key', body.scope === 'portable'
-      && body.scope_team === null && body.scope_city === null && body.scope_wpid === null,
-      JSON.stringify([body.scope, body.scope_team, body.scope_city, body.scope_wpid]));
+    /* THE STORED RUNG IS CARRIED THROUGH UNTOUCHED. No field asks for one any
+       more, and `challenges_ladder_key_belongs_to_trivia` refuses a trivia row
+       WITHOUT one -- so nulling it would refuse every trivia save. */
+    t('a trivia save carries the stored rung untouched',
+      body.ladder_key === 'chicago-il', body.ladder_key);
     t('the options go as an array, blank lines dropped',
       Array.isArray(body.choices) && body.choices.length === 2
       && body.choices[0] === 'Alpha', JSON.stringify(body.choices));
@@ -267,8 +263,9 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     t('a stop challenge sends no rung and no options',
       b2.ladder_key === null && b2.choices === null,
       JSON.stringify([b2.ladder_key, b2.choices]));
-    t('and keeps its own binding', b2.scope === 'place' && b2.scope_wpid === 7,
-      JSON.stringify([b2.scope, b2.scope_wpid]));
+    /* AND SENDS NO SCOPE, the four columns having gone with 2026090311. */
+    t('and no scope columns at all',
+      !('scope' in b2) && !('scope_wpid' in b2), JSON.stringify(Object.keys(b2)));
 
     /* AN EMPTY LIST IS NULL, NOT [], or challenges_choices_enough answers with
        a message about cardinality that says nothing to whoever cleared the box. */
@@ -284,20 +281,21 @@ const DESTS = [{ id: 'chicago-il-nfl-bears' }, { id: 'new-orleans-la-nfl-saints'
     t('clearing the options sends null, never an empty array', b3.choices === null,
       JSON.stringify(b3.choices));
 
-    /* ---- THE RUNGS ARE OFFERED RATHER THAN TYPED FROM MEMORY ----------- */
-    const opts = await p.evaluate(() =>
-      [...document.querySelectorAll('#ladderList option')].map((o) => o.value));
-    t('the rung list is built from the keys that exist', opts.length > 0, opts.length);
-    t('and offers the portable star and a real destination',
-      opts.indexOf('*') !== -1 && opts.indexOf('chicago-il-nfl-bears') !== -1,
-      opts.join(','));
-    t('and a city prefix, which is a rung and is not a destination id',
-      opts.indexOf('chicago-il') !== -1, opts.join(','));
+    /* THE RUNG LIST WENT WITH THE FIELD IT FILLED (2026-09-03). It offered
+       every rung that resolves -- the portable star, a family, a city prefix
+       and a destination id -- and there is nothing to type into now. */
 
-    /* ---- AND THE ROOM SAYS IT HOLDS THEM ------------------------------- */
+    /* ---- AND THE COUNT IS OF EVERYTHING ------------------------------- */
+    /* THE BLURB NAMED TRIVIA UNTIL 2026-09-03. Losing that has a cost worth
+       knowing -- the count jumps from 25 to 62 with nothing on screen saying
+       what the other 37 rows are -- but it is a deliberate copy change, and a
+       check demanding a sentence somebody removed on purpose fails on them
+       doing their job. **What still matters is that the count is of EVERY row**,
+       trivia included: that is the number the room is judged by, and it is what
+       broke when this read carried `kind=neq.trivia`. */
     const blurb = await p.evaluate(() => document.querySelector('.room-blurb').textContent.trim());
-    t('the blurb says trivia lives here', blurb.toLowerCase().indexOf('trivia') !== -1, blurb);
-    t('and leads with the count of everything', blurb.indexOf('5 Challenges') === 0, blurb.slice(0, 30));
+    t('the count leads the blurb and counts everything, trivia included',
+      blurb.indexOf(ROWS.length + ' Challenges') === 0, blurb.slice(0, 30));
 
     t('and no console errors', errs.length === 0, errs.join(' | '));
   } finally {

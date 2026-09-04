@@ -52,7 +52,7 @@ it belongs to; how a game reaches it at that stop is not built.
 
 ```sql
 select t.ladder_key from public.challenges t
- where t.kind = 'trivia'
+ where t.type = 'multiple_choice'
    and not exists (select 1 from public.destinations d
                     where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 -- must return no rows
@@ -181,22 +181,22 @@ The distractors are most of the work and are where a lazy question shows.
 One `insert` statement, in a fenced sql block, and nothing else around it.
 
 ```sql
--- FIVE COLUMNS, AND `kind` IS NOT OPTIONAL. Trivia was merged into
+-- FIVE COLUMNS, AND `type` IS NOT OPTIONAL. Trivia was merged into
 -- public.challenges on 2026-08-31; the column defaults to 'question', and a row
 -- written without it is refused outright, because a ladder key may only sit on
 -- a trivia row.
 --   name        what the room lists it by. The question, or a short form of it.
 --   ladder_key  the rung. This was `trivia.id`, which was a bad name for it.
 --   prompt      the question. This was `trivia.question`.
-insert into public.challenges (kind, name, ladder_key, prompt, answer, choices) values
-  ('trivia',
+insert into public.challenges (type, name, ladder_key, prompt, answer, choices) values
+  ('multiple_choice',
    'How many Super Bowl titles have the Steelers won?',
    'pittsburgh-pa-nfl-steelers',
    'How many Super Bowl titles have the Steelers won?',
    '6',
    array['4','5','6','7']),
 
-  ('trivia',
+  ('multiple_choice',
    'Which river joins the Allegheny at the Point to form the Ohio?',
    'pittsburgh-pa',
    'Which river joins the Allegheny at the Point to form the Ohio?',
@@ -219,7 +219,7 @@ Read the numbers rather than the absence of an error.
 ```sql
 -- every ladder key resolves as a team or as a city
 select t.ladder_key from public.challenges t
- where t.kind = 'trivia'
+ where t.type = 'multiple_choice'
    and not exists (select 1 from public.destinations d
                     where d.id = t.ladder_key or d.id like t.ladder_key || '-%');
 
@@ -231,26 +231,31 @@ select t.id, t.ladder_key,
               then 'city'
        end as shape
   from public.challenges t
- where t.kind = 'trivia'
+ where t.type = 'multiple_choice'
  order by t.id desc limit 20;
 
-select count(*) from public.challenges where kind = 'trivia';
+select count(*) from public.challenges where type = 'multiple_choice';
 ```
 
 **If a row was refused, the constraint names itself.** They were renamed when
-trivia moved into `public.challenges` on 2026-08-31, and all but two are now
-scoped to `kind = 'trivia'`, because a challenge legitimately breaks them: a
+trivia moved into `public.challenges` on 2026-08-31, and again on 2026-09-03
+when the column became `type` and the value became `multiple_choice`. All but
+two are scoped to that type, because a challenge legitimately breaks them: a
 photo challenge has no answer at all, and a two word answer is fine on one.
 
 | constraint | what it means |
 |---|---|
 | `challenges_answer_is_a_choice` | the answer is not among its own options |
 | `challenges_choices_enough` | fewer than two options |
-| `challenges_trivia_free_answer_is_one_word` | a multi word answer with no choices |
-| `challenges_trivia_answer_not_in_prompt` | the question contains its own answer |
-| `challenges_trivia_no_one_word_prefix` | the question opens with "One word" |
-| `challenges_trivia_has_a_prompt` / `_has_an_answer` | one of them is blank |
-| `challenges_ladder_key_belongs_to_trivia` | the key is uppercase, or missing, or sitting on a row whose `kind` is not `trivia` |
+| `challenges_mc_free_answer_is_one_word` | a multi word answer with no choices |
+| `challenges_mc_answer_not_in_prompt` | the question contains its own answer |
+| `challenges_mc_no_one_word_prefix` | the question opens with "One word" |
+| `challenges_mc_has_a_prompt` / `_has_an_answer` | one of them is blank |
+| `challenges_ladder_key_belongs_to_type` | the key is uppercase, or missing, or sitting on a row whose `type` is not `multiple_choice` |
+
+**`challenges_mc_answer_not_in_prompt` IS `NOT VALID`, WHICH EXEMPTS EXISTING
+ROWS AND NOT NEW ONES.** One row on file names its own answer in its question
+and is spared; anything written from now on is checked.
 
 Fix the row; do not remove the constraint.
 

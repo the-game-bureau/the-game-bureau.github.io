@@ -66,10 +66,40 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
         const c = state.challenges.filter((x) => x.id === r.challenge_id)[0];
         return c && pred(c);
       })[0] || null);
+      /* A SHAPE PRODUCTION HAS STOPPED CARRYING IS MADE UP RATHER THAN SKIPPED.
+         **The `judged` branch silently stopped running when the catalogue
+         changed** -- the suite reported `19 ok, 0 FAIL` where it had been 21,
+         which reads as a clean run and is two assertions that are no longer
+         testing anything. A branch guarded on the table being in one shape is
+         coverage that rots the day somebody edits a row.
+           The same treatment the RANDOM and {{waypoint}} branches below already
+         had; this only extends it to the three answer shapes. */
+      /* WELL CLEAR OF THE PROBE BELOW, which pushes its own challenge as `-1`.
+         Starting at -1 here made `chalById(-1)` find MINE instead, and three
+         assertions about variable filling failed on a page that is correct --
+         **two probes in one suite colliding on an id**. */
+      let fake = -9000;
+      const wpid = (state.rows.filter((r) => r.waypoint_id != null)[0] || {}).waypoint_id;
+      const madeUp = (fields) => {
+        fake -= 1;
+        state.challenges.push(Object.assign(
+          { id: fake, name: 'Probe ' + (-fake), type: 'type_answer',
+            prompt: 'A probe question.', answer: null, choices: null, tags: [] },
+          fields));
+        return { stop_id: fake, waypoint_id: wpid, challenge_id: fake,
+                 challenge_tags: null, challenge_tags_match: 'all' };
+      };
       return {
-        choices: has((c) => Array.isArray(c.choices) && c.choices.length > 1),
-        typed:   has((c) => (!c.choices || !c.choices.length) && String(c.answer || '').trim()),
-        judged:  has((c) => (!c.choices || !c.choices.length) && !String(c.answer || '').trim()),
+        choices: has((c) => Array.isArray(c.choices) && c.choices.length > 1)
+          || madeUp({ type: 'multiple_choice', ladder_key: 'x', answer: 'Right',
+                      choices: ['Right', 'Wrong', 'Also wrong', 'Wrong too'] }),
+        typed: has((c) => (!c.choices || !c.choices.length) && String(c.answer || '').trim())
+          || madeUp({ answer: 'Chicago' }),
+        /* NO ANSWER AT ALL: judged by the team, which is what a photo and a
+           minigame are, and what a typed challenge may now be since
+           `any_answer` merged into `type_answer` on 2026090317. */
+        judged: has((c) => (!c.choices || !c.choices.length) && !String(c.answer || '').trim())
+          || madeUp({ type: 'photo', answer: null }),
         random:  (state.rows.filter((r) => r.challenge_id == null)[0] || null),
         stops: state.rows.length, challenges: state.challenges.length
       };
@@ -166,7 +196,7 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       const w = state.waypoints.filter((x) => x.wpid === row.waypoint_id)[0];
       /* A prompt with one variable the STOP knows, one the worked example
          knows, and one that exists nowhere. */
-      state.challenges.push({ id: -1, name: 'Probe', kind: 'question', scope: 'portable',
+      state.challenges.push({ id: -1, name: 'Probe', type: 'type_answer', scope: 'portable',
         prompt: 'Stand outside {{waypoint}} in {{venue_city}} and shout for the {{nope}}.',
         answer: '', choices: null });
       openStop({ waypoint_id: row.waypoint_id, challenge_id: -1, stop_id: -1 });
@@ -182,6 +212,8 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
       openStop({ waypoint_id: row.waypoint_id, challenge_id: null, stop_id: -2 });
       out.randomText = (document.getElementById('svChallenge').innerText || '').trim();
       out.randomControls = document.querySelectorAll('#svChallenge .sv-choice, #svChallenge .sv-answerbox').length;
+      out.randomDraw = [...document.querySelectorAll('#svChallenge button')]
+        .filter((b) => /draw/i.test(b.textContent)).length;
       state.challenges = state.challenges.filter((c) => c.id !== -1);
       return out;
     });
@@ -193,9 +225,16 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok   ' + m))
        team would see. Showing it resolved would hide the fault. */
     t('a variable that exists nowhere is left in its braces and marked',
       made.unknown.length === 1 && made.unknown[0].indexOf('nope') !== -1, made.unknown);
-    t('a RANDOM stop has nothing to play and says so',
-      /nothing to play/i.test(made.randomText) && made.randomControls === 0,
-      made.randomText.slice(0, 90));
+    /* A RANDOM STOP IS REHEARSABLE NOW, which reverses what this asserted.
+       Until 2026090309 it could only say there was nothing to play; it offers a
+       Draw that goes through `tgb_pick_challenge` -- the same function play time
+       will call -- so the rehearsal cannot drift from the real rule. It still
+       draws no answer control until something has been drawn. */
+    t('a RANDOM stop offers a draw rather than an answer control',
+      made.randomDraw === 1 && made.randomControls === 0,
+      { draw: made.randomDraw, controls: made.randomControls });
+    t('and says the draw never repeats one already taken',
+      /never repeats|no repeat/i.test(made.randomText), made.randomText.slice(0, 120));
 
     /* READ ON AN ACTUAL REHEARSAL. A RANDOM stop has nothing to rehearse and
        so has no footer, which is right -- an earlier draft read it after the
