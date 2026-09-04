@@ -386,6 +386,79 @@ const KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
     t('and the challenge box every challenge, plus RANDOM',
       arrow.chList === 'chalList' && arrow.chOptions === arrow.challenges + 1, arrow);
 
+    /* ---- THE WAYPOINTS ARE OFFERED BY CITY --------------------------------
+       ONE DATALIST FEEDS BOTH BOXES, so this is one order and both are asserted
+       to point at it -- a check that read only the popup's would pass on a page
+       where the bar had drifted to a second list.
+         THE EXPECTED ORDER IS COMPUTED HERE, from the same rule and separate
+       code. Asking the page whether its own list agrees with its own sort proves
+       nothing; two implementations of one rule having to agree is the claim. */
+    const sorted = await p.evaluate(() => ({
+      wpList: document.getElementById('wpInput').getAttribute('list'),
+      svList: document.getElementById('svWpInput').getAttribute('list'),
+      shown: Array.from(document.querySelectorAll('#wpList option')).map((o) => o.value),
+      raw: state.waypoints.map((w) => ({
+        wpid: w.wpid, name: w.name, city: w.city, state: w.state
+      }))
+    }));
+
+    const where = (w) => [w.city, w.state].filter(Boolean).join(', ');
+    const label = (w) => (where(w) ? w.name + ' - ' + where(w) : String(w.name || ''));
+    const expect = sorted.raw.slice().sort((a, b) => {
+      const ca = where(a), cb = where(b);
+      if (!ca !== !cb) return ca ? -1 : 1;
+      if (ca !== cb) return ca.localeCompare(cb, undefined, { sensitivity: 'base', numeric: true });
+      const na = String(a.name || '').trim(), nb = String(b.name || '').trim();
+      if (na !== nb) return na.localeCompare(nb, undefined, { sensitivity: 'base', numeric: true });
+      return (Number(a.wpid) || 0) - (Number(b.wpid) || 0);
+    }).map(label);
+
+    t('both waypoint boxes point at the one list, so one order serves both',
+      sorted.wpList === 'wpList' && sorted.svList === 'wpList', sorted);
+
+    /* THE CITIES RUN IN ORDER, which is the whole ask. Read off what is SHOWN
+       rather than off the rows, because an order the reader cannot see is what
+       a broken sort looks like. */
+    /* THE CITY COMES OFF THE ROW, NEVER PARSED BACK OUT OF THE LABEL. Two
+       waypoints on file carry " - " in their own NAME -- `Top of the World -
+       Baltimore Inner Harbor` -- so splitting on the first separator reads half
+       a name as a city, and on the last one it invents a city for a row that has
+       none. The first cut of this check did the first and reported a sort fault
+       that was its own. (`wpFromLabel` is unaffected: it compares the WHOLE
+       label, so an ambiguous separator costs it nothing.) */
+    const byLabel = {};
+    sorted.raw.forEach((w) => { byLabel[label(w)] = where(w); });
+    const cities = sorted.shown.map((v) => byLabel[v] || '');
+    const named = cities.filter(Boolean);
+    let climbs = true, firstDrop = null;
+    for (let i = 1; i < named.length; i += 1) {
+      if (named[i].localeCompare(named[i - 1], undefined, { sensitivity: 'base', numeric: true }) < 0) {
+        climbs = false; firstDrop = named[i - 1] + ' then ' + named[i]; break;
+      }
+    }
+    t('the waypoints are offered by city, A to Z', climbs, firstDrop);
+
+    /* THE WHOLE ORDER, not only that the cities climb: within a city the names
+       have to run in order too, or a town with forty places is a scramble. */
+    const same = sorted.shown.length === expect.length
+      && sorted.shown.every((v, i) => v === expect[i]);
+    t('and by name within each city, all the way down', same,
+      same ? sorted.shown.length + ' options'
+           : sorted.shown.slice(0, 3).join(' | ') + '  vs  ' + expect.slice(0, 3).join(' | '));
+
+    /* A WAYPOINT WITH NO CITY HAS NO PLACE IN A LIST GROUPED BY ONE, so it
+       sinks rather than leading the alphabet. Asserted only where the catalogue
+       actually holds one -- a check that demands production carry a shape is a
+       check that rots. */
+    const blanks = cities.filter((c) => !c).length;
+    if (blanks) {
+      const lastNamed = cities.lastIndexOf(named[named.length - 1]);
+      t('a waypoint with no city sinks to the end',
+        cities.slice(lastNamed + 1).every((c) => !c), { blanks: blanks, at: lastNamed });
+    } else {
+      t('no waypoint on file is missing a city, so nothing to sink', true, blanks);
+    }
+
     /* A BARE `RANDOM` MUST NOT SWALLOW THE CLICK. The mousedown intercept
        exists to reopen a FILTER, and it fired on a bare RANDOM too -- so the
        challenge list could not be reached by pointer at all on such a stop. */

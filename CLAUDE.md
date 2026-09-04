@@ -19250,6 +19250,56 @@ real server answers with. **Seventh harness fault this session**, and the same
 shape as the rest: a stub that does not model the server reports a page fault
 that is its own.
 
+### THE WAYPOINTS ARE OFFERED BY CITY (2026-09-03)
+
+**One datalist feeds both boxes** -- the ADD bar's and the popup's -- so this is
+one order and the two cannot drift into two.
+
+- **A STOP IS BUILT FOR A WALK IN ONE TOWN**, so the useful grouping is the town
+  rather than the alphabet across **575 places in 72 cities**. Within a city the
+  names still run in order, or a town with forty places is a scramble.
+- **SORTED ON WHAT THE OPTION SHOWS**, through `wpWhere` -- the same `City, ST`
+  the label carries. **Ordering a list by something no reader can see looks
+  exactly like a broken control**, which is the rule the Audiences room settled
+  when its sort toggles landed.
+- **A COPY, NEVER `state.waypoints` ITSELF.** That array is read by the resolver
+  and by the preview; re-ordering it under them would be a side effect of drawing
+  a dropdown.
+- **TIES BREAK ON `wpid`**, so the order is stable and a row cannot move under
+  you, and **a waypoint with no city sinks** -- it has no place in a list grouped
+  by one. **0 of 575 carry no city today**, so that branch is a guard rather than
+  an observation, and the check says which of the two it is asserting.
+- **WHAT IT COSTS, AND IT IS WORTH KNOWING: the label still leads with the
+  NAME.** `Carhenge - Alliance, NE` then `Cadillac Ranch - Amarillo, TX`, so
+  scanning the list you read the names first and the order looks arbitrary until
+  you reach the end of each line. **Leading with the city would fix that and
+  changes what a FIELD VALUE looks like** in both boxes, which is a bigger
+  decision than a dropdown's order.
+
+#### A WAYPOINT NAME MAY CONTAIN THE SEPARATOR, AND MY CHECK SPLIT ON IT
+
+The first cut read the city back out of the option by `indexOf(' - ')` and
+**reported a sort fault that was its own**: `"Baltimore, MD then Baltimore Inner
+Harbor - Baltimore, MD"`.
+
+- **TWO WAYPOINTS ON FILE CARRY `" - "` IN THEIR OWN NAME** -- `Top of the World
+  - Baltimore Inner Harbor` and `Blues on Whyte - Hotel and Tavern` -- so the
+  first separator is inside the name. **`lastIndexOf` is not the fix either**: on
+  a row with no city it would read half the name as one.
+- **THE CITY COMES OFF THE ROW NOW**, through a label-to-city map, so nothing is
+  parsed back out of a string that was composed.
+- **`wpFromLabel` IS UNAFFECTED, checked rather than assumed.** It compares the
+  WHOLE label and falls back to the id, so an ambiguous separator costs it
+  nothing -- the ambiguity is only a problem for something trying to take the
+  label apart again, which is what my check was doing and the page is not.
+- **THE WHOLE-ORDER ASSERTION PASSED THROUGHOUT**, which is what said the page
+  was right: it compares every option against an order **computed independently
+  in Node from the same rule**. Asking the page whether its own list agrees with
+  its own sort proves nothing; two implementations having to agree is the claim.
+
+**PROVED AGAINST THE PREVIOUS PAGE, where both fail naming the real values**:
+`"San Francisco, CA then Houston, TX"`. 44 assertions.
+
 
 ## THE STOP POPUP PLAYS THE CHALLENGE (2026-09-03)
 
