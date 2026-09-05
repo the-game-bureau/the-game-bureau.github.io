@@ -1640,6 +1640,26 @@ button is deleted.
   what says it is the harness and not this change. Check it in a browser with a
   bad token.
 
+## BORING STUFF SAYS LESS THAN IT DID (2026-09-04)
+
+Its sentence was *"What each credential actually points at, checked live against
+each platform. Nothing is posted."* It reads **"Here's some behind the scenes
+background about how this page works."**
+
+- **THE PANEL IS UNCHANGED and still does exactly what the old line described**:
+  it asks the Edge Function what each credential resolves to and draws the
+  answer, silently unless something needs attention.
+- **WHAT IS GIVEN UP, so nobody restores it by accident: the sentence no longer
+  says what the panel shows, and *Nothing is posted* is gone.** That clause was
+  the one reassurance on a page whose every other control publishes something --
+  it said out loud that this section reads and never sends. **The heading above
+  it still says Accounts**, which is what anchors the new line to a credential
+  check rather than to the page at large.
+- **NOTHING PINNED THE OLD WORDS**, checked rather than assumed: no assertion in
+  either suite read them, and `CLAUDE.md`'s one match is about the tooltip of a
+  `Socializer admin` button deleted on 2026-08-30, which is a different control.
+
+
 ## THE ADMIN GATE TAKES `supabaseConfig`, AND THE WRONG SHAPE IS SILENT (2026-08-30)
 
 Reported as *"Admin auth is unavailable because Supabase is not configured"* on
@@ -7007,6 +7027,72 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
 
+## THE SOCIALIZER'S MARKDOWN IS ONE FILE (2026-09-04)
+
+[mc/socializer/socializer.md](mc/socializer/socializer.md), 103KB. The room, the
+routine, what it writes, what a human does with it, **and both prompts in full**.
+`socializer-bot.prompt.md` and `socializer-page.prompt.md` are deleted.
+
+- **THEY WERE 91KB OF SOCIALIZER-ONLY MARKDOWN IN A FOLDER OF GENERAL PROMPT
+  TOOLS**, and a third fragment sat in `PROMPTS.md`. Nothing was wrong with any
+  of them; what was wrong is that answering *what does this routine do* meant
+  reading three files and this one.
+- **BOTH PROMPTS CAME ACROSS BYTE FOR BYTE, ASSERTED RATHER THAN EYEBALLED**:
+  49,871 and 38,145 characters, compared against the originals after the write.
+  **The text is the product** -- every clause in either was paid for by a bad
+  run -- so a consolidation that quietly reflowed one would be the worst possible
+  outcome of tidying.
+- **EACH SITS BEHIND AN EXPLICIT `BEGIN` / `END` MARKER, and that is not
+  decoration.** The staged file used to say *select from the line after the rule
+  to the end*, which **stops being true the moment a second prompt follows it in
+  the same file** -- so the paste instruction names the markers instead.
+- **`PROMPTS.md` KEEPS ITS ROUTINE TABLE and points here.** That file is the map
+  of all five routines to their triggers, so the row belongs there; what moved is
+  the paragraph that was only about this one.
+- **THE DATED RECORD BELOW IS NOT MOVED, AND THAT IS THE ONE REAL DECISION.**
+  About 800 lines of this file, from here to *THE WIKIPEDIA SWEEP*, stay put:
+  **`CLAUDE.md` is loaded into context at the start of every session and
+  `socializer.md` is not**, so moving the rules out would take them out of reach
+  by default. It is the split the Tape Room already keeps --
+  [soundtracks.md](mc/soundtracks/soundtracks.md) is the BRIEF, this file is the
+  record of what was decided and what it cost.
+- **AND THE CHECK'S PRESERVATION ASSERTION FOLLOWED THE TEXT.**
+  `socializer-bookmarklet.js` asserts the deleted dialog's words are still kept
+  somewhere; pointed at a file that had moved it would have gone on passing
+  against nothing. **It reads BOTH prompts now**, since the routine's copy sits
+  in there beside the retired one and losing either would be silent.
+
+### AND THE EM-DASH SCANNER HAD BEEN COVERING FOUR FILES OF TEN
+
+Found while checking that the new file's 88KB of prompt text is still in scope.
+It was not, and nor was any other markdown prompt in the repo.
+
+- **SIX OF THE TEN PATHS IN `FILES` WERE DEAD** -- `mc/soundtracks/admin/`,
+  `mc/greenroom.html`, `mc/data/events.html`, `mc/data/teams.html`,
+  `mc/routes.html` and `mc/data/cities.html`, every one a room that had moved or
+  been deleted -- **and a missing file was `continue`d in silence**, so the run
+  printed `CLEAN` about four files while claiming to cover ten.
+- **AND `TOTAL n` EXITED 0.** It reported and never failed, so anything running
+  it in a sweep read a hit as green.
+- **A `WHOLE` LIST WAS ADDED for the markdown that IS a prompt**, where there is
+  no region to find and every line is in scope: `socializer.md`,
+  `soundtracks.md`, `path-bot.prompt.md`, `trivia.prompt.md`. **None of them had
+  ever been scanned.**
+- **PROVED BY MAKING IT FAIL BOTH WAYS**, against the real files rather than in
+  principle: an em dash planted in `soundtracks.md` prints the file and exits 1,
+  and one bad path prints `MISSING:` and exits 1. **An assertion that has never
+  failed on the bug it is for is one nobody should trust.**
+
+**WHAT IS NOT DONE, said rather than left to be found.** The trigger still holds
+its own 52KB copy, so this file is a drafting surface and **editing it does not
+change the next run.** [soundtracks.md](mc/soundtracks/soundtracks.md) shows the
+better shape: that trigger holds a short pointer saying to open the file and
+follow it, so there is no by-hand paste and no drift -- **and re-pointing this
+one would be a SMALL `job_config` update rather than the 52KB one this file
+warns about.** Not done, because re-pointing a live unattended routine is a
+decision rather than a tidy-up.
+
+
 ## THE BOOKMARKLET REPLACES THE PROMPT BUTTON (2026-09-04)
 
 The Socializer's ADD bar is **MANUAL | BOOKMARKLET | TGB SOCIALIZER BOT**. The
@@ -7322,7 +7408,8 @@ the localStorage store and its fingerprint, the three AI doors, and about 700
 lines of markup with 2,900 characters of CSS.
 
 - **THE PAGE VARIANT OF THE PROMPT IS KEPT** at
-  [socializer-page.prompt.md](mc/_dev/prompt-tools/socializer-page.prompt.md) -- 38,145 characters.
+  [socializer.md](mc/socializer/socializer.md), Appendix B -- 38,145 characters.
+  It was `mc/_dev/prompt-tools/socializer-page.prompt.md` until 2026-09-04.
   **The text is the product**: every clause in it was paid for by a bad run, and
   deleting the dialog would otherwise have been the only copy of that variant
   gone. Nothing reads it; it is a record.
@@ -7418,7 +7505,7 @@ Measured rather than assumed, which is the only reason the fix was scoped right:
 |---|---|
 | the PROMPT dialog in [mc/socializer/index.html](mc/socializer/index.html) | the new prefix rule, **uncommitted** |
 | the stored prompt on `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | the old split rule |
-| [socializer-bot.prompt.md](mc/_dev/prompt-tools/socializer-bot.prompt.md) | an older draft with **neither** |
+| `socializer-bot.prompt.md` (folded into [socializer.md](mc/socializer/socializer.md) on 2026-09-04) | an older draft with **neither** |
 
 **THE STAGED FILE WAS THE WORST OF THE THREE and its own header said so** --
 *"THIS IS NOT THE SOURCE OF TRUTH... edit it only as a drafting surface"*. It

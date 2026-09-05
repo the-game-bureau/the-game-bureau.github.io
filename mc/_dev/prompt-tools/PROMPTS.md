@@ -36,7 +36,7 @@ walking tours, so there is no pair to keep in step.
 
 | Routine (claude.ai) | Trigger | Cron (UTC) | Its page prompt in this repo | Writes |
 |---|---|---|---|---|
-| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | **None as of 2026-09-04.** The Socializer's PROMPT dialog was replaced by the BOOKMARKLET button, so nothing on a page pastes this brief into a chat AI any more. The text as it stood is kept at [socializer-page.prompt.md](socializer-page.prompt.md) as a record; **the routine's own copy is on the trigger and is unaffected**, so there is no pair left to keep in step. | `tgb_pull_socials_candidates` |
+| **TGB SOCIALIZER BOT** | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `14 8,20` | **None as of 2026-09-04.** The Socializer's PROMPT dialog was replaced by the BOOKMARKLET button, so nothing on a page pastes this brief into a chat AI any more. **[mc/socializer/socializer.md](../../socializer/socializer.md) IS THE ONE SPOT** for this routine: what it does, what it writes, and BOTH prompts in full -- Appendix A is the routine's own, paste ready, Appendix B the retired page one. **The trigger holds its own copy and is unaffected**, so there is no pair left to keep in step. | `tgb_pull_socials_candidates` |
 | **TGB SOUNDTRACK BOT** | `trig_014sqaUyU7557svq9mGA1E4a` | **none, by hand** | **[mc/soundtracks/soundtracks.md](../../soundtracks/soundtracks.md) IS the prompt.** The stored trigger only points at it, and the Tape Room's PROMPT dialog was deleted on 2026-08-25. There is no pair to keep in step. | `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` |
 | **TGB GIFT SHOP BOT** | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `2 8,20` | [mc/gifts/index.html](../../gifts/index.html), PROMPT dialog | `tgb_pull_book_candidates` |
 | **TGB ANCHOR EVENTS** | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `11 8,20` | [mc/assets/waypoint-prompts.js](../../assets/waypoint-prompts.js) `buildTourPlacesWaypointPrompt` | commits `mc/supabase/tours/*.sql` |
@@ -175,8 +175,21 @@ instruction. Only prompt *text* is in scope, which is why a blanket `grep` is
 the wrong tool and [`scan.mjs`](scan.mjs) exists:
 
 ```bash
-node mc/_dev/prompt-tools/scan.mjs     # prompt text only; prints CLEAN or a count
+node mc/_dev/prompt-tools/scan.mjs     # prompt text only; exits 1 on a hit
 ```
+
+**IT COVERS TWO KINDS OF FILE.** `FILES` are PAGES, where only prompt regions
+count -- a textarea, a `build*Prompt` builder, the `tgb-agent-context` block --
+and `WHOLE` are the markdown files that ARE prompts start to finish, where every
+line is in scope: [socializer.md](../../socializer/socializer.md),
+[soundtracks.md](../../soundtracks/soundtracks.md), and the two staged briefs
+here.
+
+**A MISSING ENTRY IS A FAILURE, NOT A SKIP** (2026-09-04). Six of the ten paths
+in `FILES` were dead -- rooms that had moved or been deleted -- and a missing
+file was silently passed over, so the run printed **CLEAN while covering four of
+them**. It names what it could not read and exits 1. The `WHOLE` list was added
+the same day, so **no markdown prompt in this repo had ever been scanned**.
 
 The waypoint prompts share the rule as `NO_EM_DASH_RULE`, spread into all five
 builders beside `AI_MODEL_RULE` and `WALK_ORDER_RULE` for the same reason those

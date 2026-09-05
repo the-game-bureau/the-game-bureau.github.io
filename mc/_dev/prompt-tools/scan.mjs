@@ -5,10 +5,25 @@
 import fs from 'node:fs';
 
 const EM = '\u2014';
+// PAGES that carry prompt text, and the .md files that ARE prompts. Six of the
+// ten entries here were dead paths on 2026-09-04 -- rooms that had moved or been
+// deleted -- and a missing file was SILENTLY SKIPPED, so this reported CLEAN
+// while covering four of them. It names a missing entry now: a check that cannot
+// see its subject is worse than none.
 const FILES = [
-  'mc/socializer/index.html', 'mc/soundtracks/admin/index.html', 'mc/gifts/index.html',
-  'mc/assets/waypoint-prompts.js', 'mc/picmaker/prompts.js', 'mc/greenroom.html',
-  'mc/data/events.html', 'mc/data/teams.html', 'mc/routes.html', 'mc/data/cities.html'
+  'mc/socializer/index.html', 'mc/soundtracks/index.html', 'mc/gifts/index.html',
+  'mc/assets/waypoint-prompts.js', 'mc/picmaker/prompts.js',
+  'mc/greenroom/index.html', 'mc/audiences/index.html', 'mc/challenges/index.html',
+  'mc/waypoints/index.html'
+];
+// WHOLE-FILE PROMPTS. These are markdown a routine or a person follows start to
+// finish, so there is no region to find: every line is prompt text. They were
+// covered by NOTHING until 2026-09-04, which mattered most for socializer.md,
+// since it holds both Socializer prompts in full.
+const WHOLE = [
+  'mc/socializer/socializer.md', 'mc/soundtracks/soundtracks.md',
+  'mc/_dev/prompt-tools/path-bot.prompt.md',
+  'mc/_dev/prompt-tools/trivia.prompt.md'
 ];
 
 function regions(src) {
@@ -23,9 +38,14 @@ function regions(src) {
   return out;
 }
 
-let total = 0;
+let total = 0, missing = 0;
+for (const f of WHOLE) {
+  if (!fs.existsSync(f)) { missing++; console.log('MISSING: ' + f); continue; }
+  const n = (fs.readFileSync(f, 'utf8').match(/—/g) || []).length;
+  if (n) { total += n; console.log(f + ': ' + n + ' em dash' + (n > 1 ? 'es' : '')); }
+}
 for (const f of FILES) {
-  if (!fs.existsSync(f)) continue;
+  if (!fs.existsSync(f)) { missing++; console.log('MISSING: ' + f); continue; }
   const src = fs.readFileSync(f, 'utf8');
   let n = 0;
   for (const r of regions(src)) {
@@ -44,3 +64,8 @@ for (const f of FILES) {
   total += n;
 }
 console.log(total === 0 ? 'CLEAN: no em dashes in prompt text' : `TOTAL ${total}`);
+if (total) process.exitCode = 1;
+if (missing) {
+  console.log(`${missing} file${missing > 1 ? 's' : ''} in the list could not be read, so this run covered less than it says.`);
+  process.exitCode = 1;
+}

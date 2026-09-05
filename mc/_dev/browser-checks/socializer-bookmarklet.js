@@ -7,7 +7,7 @@
 
    IT REPLACED THE `PROMPT` BUTTON, which handed you the page's own copy of the
    socials brief to paste into a chat AI. That text is kept at
-   mc/_dev/prompt-tools/socializer-page.prompt.md and the ROUTINE is untouched.
+   mc/socializer/socializer.md, Appendix B, and the ROUTINE is untouched.
 
    THE CLAIM IS AN END TO END ONE and it is checked that way: the bookmarklet is
    RUN, for real, against a fixture page with a relative `og:image`, and what it
@@ -164,10 +164,16 @@ const FIXTURE = [
     t('nothing in the room still names the prompt dialog',
       !/promptCard|promptBtn|promptEl|copyPromptText|platformBoxes/.test(src),
       (src.match(/promptCard|promptBtn|promptEl|copyPromptText|platformBoxes/g) || []).slice(0, 6));
+    /* THE ONE SPOT. Both prompts moved into mc/socializer/socializer.md on
+       2026-09-04, so this reads the file that is actually kept -- and it asserts
+       BOTH, because the routine's copy sits in there beside the retired one and
+       losing either would be silent. */
+    const oneSpot = fs.existsSync(ROOT + '/mc/socializer/socializer.md')
+      ? fs.readFileSync(ROOT + '/mc/socializer/socializer.md', 'utf8') : '';
     t('and the authored prompt text is kept rather than lost',
-      fs.existsSync(ROOT + '/mc/_dev/prompt-tools/socializer-page.prompt.md')
-        && fs.readFileSync(ROOT + '/mc/_dev/prompt-tools/socializer-page.prompt.md', 'utf8')
-             .indexOf('You are the socials scout') !== -1);
+      oneSpot.indexOf('You are the socials scout for The Game Bureau') !== -1
+        && oneSpot.indexOf('You are SOCIALIZER BOT, the socials scout') !== -1,
+      oneSpot.length);
 
     const btn = await p.evaluate(() => {
       const b = document.getElementById('bookmarkletBtn');
