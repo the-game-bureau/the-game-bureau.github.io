@@ -6,9 +6,44 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ## READ THIS FIRST
 
-Four short sections, all of them things that have already cost a day. Then a
-place for the big picture, then the room-by-room detail that makes up the rest of
-this file.
+Five short sections, all of them things that have already cost a day, or would.
+Then a place for the big picture, then the room-by-room detail that makes up the
+rest of this file.
+
+---
+
+## 0. THERE IS A BACKUP OF `public.games`, AND IT IS NOT IN GIT (2026-09-05)
+
+**`mc/backups/` HOLDS EVERY GAME AS IT STOOD ON 2026-09-05**, taken because the
+table was about to be cleared out and started over.
+
+| file | |
+|---|---|
+| `tgb-games-keepers.pdf` | 204 pages, the **28 games carrying writing somebody did by hand** |
+| `tgb-games-book.pdf` | 1,224 pages, **all 394**, plus parts 1-3 for sending |
+| `games.csv`, `game_nodes.csv`, `game_node_links.csv`, `photo_submissions.csv` | every column of every row |
+| `tgb-games-backup.xlsx` | the same, with a WHAT TO KEEP sheet sorted by how much writing each game carries |
+
+- **THE FOLDER IS GITIGNORED AND EXCLUDED FROM THE DEPLOY**, which is why this
+  paragraph exists: **nothing in the repo points at those files and a fresh
+  clone does not have them.** A backup nobody can find is not one.
+- **AND IT IS ON THE SAME MACHINE AS THE THING IT PROTECTS.** If the disk goes,
+  both go. **The copies sent into the chat on 2026-09-05 are the only off-site
+  ones**; put a copy somewhere else before trusting this.
+- **DELETING A GAME CASCADES FURTHER THAN IT LOOKS.** `game_nodes`,
+  `game_node_links`, `anytime_replies`, `gift_shop_items`, `gift_shop_listings`
+  and **`photo_submissions` -- all 17 rows of the Winner's Wall are linked to a
+  game.** Gifts are safe today (`game_id` is null on all 907 items and 984
+  listings), which is luck rather than design. All of it is in the CSVs.
+- **ONE THING IN THE BOOK IS NOT TO BE TRUSTED AND IT SAYS SO ON EVERY SHEET.**
+  The tour stops come from `public.stops_old` through the `game_stops` view,
+  which matches a game to stops BY CITY NAME: **482 of the 490 rows name a
+  waypoint in a different city from the game**, and none of the 41 underlying
+  stops carries a challenge. Printed because a backup does not leave data out.
+- **THE BUILDERS ARE `C:/tmp/probe/export/`** -- `build.py` for the CSVs and the
+  workbook, `book.py` for the HTML (`KEEP_ONLY=1` for the short book),
+  `topdf.js` and `split.js` for the printing. **Scratch, so they will not
+  survive**; the outputs are what matter.
 
 ---
 
@@ -3187,6 +3222,304 @@ and when that server was not running they reported nothing and were counted as
 passing. **Zero assertions is not success**, and a summary line that only counts
 failures cannot tell the two apart. Anything that reports on these suites must
 assert a MINIMUM COUNT, not just the absence of failures.
+
+## 166 SPOTIFY IDS WERE FOUND AND WRITTEN, WITH NO API AT ALL (2026-09-04)
+
+**185 tracks with no `spotify_id` became 19**, and all 19 are genuine
+not-founds. The 185 open `spotify` findings went with them: **185 and 185, in
+step, before and after.**
+
+- **THE METHOD IS THE BOT'S OWN AND NEEDS NO CREDENTIAL.** A general web search
+  finds a candidate; `open.spotify.com/embed/track/<id>` verifies it, its
+  `__NEXT_DATA__` carrying the real `name`, `artists`, `isExplicit`,
+  `releaseDate.isoString` and **`isPlayable`** -- which is the one that catches
+  a greyed-out track, the failure that looks exactly like success.
+- **SEVEN WORKERS OVER SEVEN BATCHES**, each told the same rules: accept only on
+  name AND artist, prefer the earliest release date, skip anything unplayable,
+  and **do not guess** -- a fabricated 22 character id passes every check we
+  have and then silently plays the wrong thing, so **not-found is a correct
+  answer.** It was given 19 times.
+- **EVERY FILE WAS RE-CHECKED BEFORE IT WAS TRUSTED**, not pasted: 22 characters
+  of `[A-Za-z0-9]`, no two batches disagreeing about a row, and NOTFOUND
+  distinguished from malformed. 0 malformed, 0 disagreements across 185 rows.
+- **THE WRITE ONLY EVER FILLS A BLANK** (`where spotify_id is null`), so it was
+  safe to run seven times as the batches landed, and an id somebody had already
+  put in by hand could not be overwritten.
+
+### THE "EARLIEST RELEASE DATE" RULE PICKS CLEAN EDITS, AND I NEARLY ACTED ON IT
+
+**SPOTIFY DATES A CLEAN EDITION ONE DAY BEFORE ITS EXPLICIT ORIGINAL**, so
+strict earliest takes the CENSORED cut every time. Two rows were flagged for it
+and I wrote an override swapping in the explicit masters, on the reasoning that
+our own `explicit` column would otherwise disagree with the recording it points
+at.
+
+**IT DOES NOT DISAGREE. BOTH ROWS SAY `explicit = false`**, checked rather than
+assumed, so the clean cut is the one that matches the row we hold. The override
+was correcting the data to fit an argument, and it was dropped. **166 of 1,565
+rows carry `explicit = true`**, so that column is a real judgement somebody made
+rather than an unset default, which is what makes reading it worth anything.
+
+### WHAT THE NOT-FOUNDS ACTUALLY ARE, BECAUSE MOST ARE NOT SPOTIFY'S FAULT
+
+- **SEVEN ARE ONE DEAD ALBUM.** *Black & Blue: Official Music of the Carolina
+  Panthers* is on Spotify twice, 2010 and 2011, and **all 14 tracks report
+  `isPlayable: false` with no preview.** Filing one would be filing an id that
+  draws a greyed row.
+- **FOUR ARE WRONG IN OUR OWN DATA**, which is the useful half: *Fed Up* is not
+  by 5th Ward Weebie on Spotify at all; *Where They At* is DJ Jimi's, not DJ
+  Jubilee's; *A-Town Down* is Young Jeezy's *Peace Up (A-Town Down)*; and
+  *Naked Ambition* / The Dexateens is almost certainly *Naked Ground*. **Those
+  are content fixes in the Tape Room, not lookups.**
+- **ONE IS COUNTRY-RESTRICTED FROM A US IP** and one is a Milhaud suite whose
+  every Spotify entry is a single movement -- picking one would be guessing
+  which was meant.
+
+### AND THE SWEEP CLEARS WHAT IT FILED, WHICH IS THE DURABLE HALF
+
+[2026090401](mc/supabase/migrations/2026090401_the_sweep_clears_what_it_filed.sql), **applied**. `tgb_sweep_missing_spotify_ids` FILED AND HAD NEVER
+CLEARED, so **a track that gained an id afterwards kept a finding saying it had
+none, for ever** -- which is how six findings outlived their gaps earlier the
+same day and why 185 and 185 only agreed after being reconciled by hand.
+
+- **CLEAR FIRST, THEN FILE**, and `cleared` is returned beside `filed`. A
+  figure that only ever grows reads as a queue nobody is emptying; `cleared` is
+  the only sign anybody is.
+- **DELETING IS STILL SAFE FOR THE REASON IT ALWAYS WAS**: the sweep refuses a
+  track that has an id, so a cleared finding comes back if and only if the id
+  goes away again -- **the recurrence check that makes clearing safe still
+  holds.**
+- **IT MATCHES ON `subject_id`, NEVER ON THE FINGERPRINT.** The fingerprint
+  carries `city_slug`, and a track can be MOVED to another city, so a
+  fingerprint match would silently miss exactly the rows that had been tidied.
+  **And both sides are compared as TEXT**: `issues.subject_id` is generic, so
+  casting it to bigint would raise `22P02` on the first row of another area
+  that is not a number.
+- **PROVED BY MAKING IT DO ITS JOB, rolled back**: three tracks given ids, the
+  sweep run, findings 185 to 182, then rolled back to 185 / 185. **An empty
+  reply proves nothing**, which this project has been caught by twice.
+- **AND THE FIRST PROBE TESTED THE WRONG THING.** It gave three tracks the SAME
+  id and was refused by `soundtrack_tape_spotify_key` -- the partial unique
+  index doing its job, on one tape. Three different ids.
+
+**[soundtracks.md](mc/soundtracks/soundtracks.md) STEP 9b ASKS THE BOT FOR BOTH NUMBERS**, or the run reports
+half of what the sweep did.
+
+## FIND HAS NEVER WORKED, AND IT IS NOW ON BOTH ROOMS (2026-09-04)
+
+Reported as Find being broken and having worked before. **It has never run
+once**, and the git history is unambiguous: `spotify-lookup` has **exactly one
+commit ever** (`a5a41d48`), and the function answered **404 from the day it was
+written until it was deployed on 2026-09-04.** There is no version of it that
+could have run. What almost certainly worked, and still does, is the BOT, which
+gathers ids on every run.
+
+### THREE CREDENTIAL-FREE ROUTES WERE TESTED AND ALL THREE ARE CLOSED
+
+Worth writing down so nobody spends the afternoon I nearly did. **The bot needs
+no Spotify app**, which makes it look as though the button should not either:
+
+| route | answer |
+|---|---|
+| `open.spotify.com/get_access_token` | **403** |
+| `open.spotify.com/api/token` | **400**, *"Usage of this endpoint is not permitted under the Spotify Developer Terms and Developer Policy"* |
+| `open.spotify.com/search/...` | 200 and **JS-rendered**, so it carries no ids |
+| MusicBrainz recordings, `inc=url-rels` | **0 Spotify urls** on the ones we hold |
+
+**THE SECOND IS A POLICY ANSWER RATHER THAN A TECHNICAL ONE, which settles it:
+do not build on that endpoint even if it starts answering.**
+
+**WHAT THE BOT ACTUALLY DOES, and why it is not a counter-example**: it finds a
+candidate with a general WEB SEARCH and then VERIFIES it against
+`open.spotify.com/embed/track/<id>`, a public page whose `__NEXT_DATA__` carries
+the real name, artists, `isExplicit`, `releaseDate` and `isPlayable`. **An Edge
+Function has no web search.** So verification is free and SEARCH is what needs
+the app.
+
+**SO THE FIX IS TWO SECRETS AND IT IS FREE**, and nothing else will do it:
+
+    # a free app at developer.spotify.com, then
+    cd mc && supabase secrets set SPOTIFY_CLIENT_ID=... SPOTIFY_CLIENT_SECRET=...
+             supabase functions deploy spotify-lookup
+
+### `Find id` ON THE ISSUE CARD
+
+The row now reads **Go to | Find id | Search Spotify | Delete track | Clear
+issue** -- the way there, the one that can finish the job in a press, the
+fallback that needs no app, then the two that destroy something.
+
+- **IT EXISTS BECAUSE THE ALTERNATIVE WAS ABSURD**: read the finding, press
+  `Go to`, find that row again in a list of 1,565, and press Find there.
+- **THE MATCHES ARE SHOWN, NEVER TAKEN AUTOMATICALLY, EVEN WHEN THERE IS ONE**,
+  and that is the difference from the Tape Room. There the button FILLS a box
+  and a human commits it with a second deliberate press; here there is no box,
+  so **the press on a match IS that second look.**
+- **THE ALBUM AND YEAR ARE DRAWN, AND THEY ARE THE WHOLE POINT.** A 22 character
+  id cannot be checked by reading it, and **six real tracks looked up today
+  turned up three, four and three valid duplicates each -- every one matching on
+  title and artist alone.** The year is what tells the original from the
+  remaster.
+- **TAKING ONE ALSO CLEARS THE FINDING**, through the room's own `clearFinding`
+  rather than a second delete, because the finding then says something untrue.
+  **That is the general fix to the stale-finding gap**, at least on this path.
+- **IT GOES THROUGH `writeTrack`**, the room's existing write, which already
+  asks for the row back -- PostgREST answers 200 with an empty array when RLS
+  refuses.
+- **PROVED IN BOTH STATES**: unconfigured, the press names both missing secrets
+  and writes nothing; configured, both matches draw with their years, and taking
+  one PATCHes that id onto the right row and deletes the finding. **32
+  assertions, and 12 fail on the room before it.**
+
+### AND TWO OF MY OWN CHECKS HID THEIR NEIGHBOURS
+
+Both are the same lesson one layer apart, and the first pass reported **4
+failures where there were 12.**
+
+- **`b.click()` ON A BUTTON THAT IS NOT THERE THROWS INSIDE `evaluate`** and
+  stops the run. It is a named gate now: *there is a Find id button to press*.
+- **AND SO DOES `waitForFunction` TIMING OUT.** `settle()` reports a named
+  failure and lets the rest run.
+- **THE STUB ALSO CAUGHT A PATCH IT WAS NOT MEANT TO.** The `/soundtrack?/`
+  branch modelled the batched READ and was not scoped to GET, so the write came
+  back `[]` -- which the room correctly read as RLS refusing. **A stub that does
+  not model the method reports a page fault that is its own**, for the fourth
+  time in two days.
+
+
+## A SEARCH BUTTON ON EVERY FINDING ABOUT A MISSING ID (2026-09-04)
+
+The Issues room offered `Go to`, which opens the Tape Room on a track whose own
+`Find` button calls an Edge Function that needs an API app nobody has set up.
+**Search Spotify** sits beside it now, and **it needs no credentials at all**:
+it is Spotify's own search page with the title and artist in it, which is the
+same fallback the public page already makes for a track with no id.
+
+- **THE ARTIST IS NOT ON THE FINDING**, which decided how this is built.
+  `subject_label` is the TITLE, and the artist appears only inside the detail
+  sentence -- *"X by Y has no Spotify id"* -- so a query built from the finding
+  alone would either search a title on its own or **parse our own prose**, which
+  is the fault this project has been caught by four times. It reads the TRACK
+  ROW instead, **batched into one request for the whole queue** rather than one
+  per card.
+- **A FIELDED QUERY**, `track:"..." artist:"..."`, so Spotify matches the two
+  separately. A bag of words returns forty covers, which is why the Tape Room's
+  own lookup already builds it this way.
+- **A STALE FINDING GETS NO BUTTON, and that case is real rather than
+  hypothetical.** A track can gain an id after the sweep filed its finding, and
+  **the row is the only thing that knows** -- so the read doubles as the check.
+  Absent rather than greyed, the rule Delete beside it already keeps.
+- **PROVED BY THE PREVIOUS ROOM**, where 13 of the 18 assertions fail naming the
+  real button row, `["Go to","Delete track","Clear issue"]`.
+
+### AND SIX IDS WERE FOUND AND WRITTEN, WITH NO API AT ALL
+
+**185 tracks now, down from 191.** The method is the bot's own, and it is worth
+writing down because it settles whether the Spotify app is needed for this job
+at all:
+
+    open.spotify.com/embed/track/<id>   __NEXT_DATA__ carries the real name,
+                                        artist list, isExplicit, releaseDate
+                                        and isPlayable. NO CREDENTIALS.
+    open.spotify.com/artist/<id>        the HTML carries spotify:track:<id>
+    open.spotify.com/search/...         JS-rendered, carries nothing
+
+- **NAME AND ARTIST MATCHING PICKS *A* CORRECT ID, NOT *THE* ONE YOU WANT**, and
+  this is the finding to keep. Every one of those six songs is on Spotify
+  several times over -- three "Promised Land"s, four "See You Later,
+  Alligator"s -- and **every duplicate passes a name and artist check.**
+  `releaseDate.isoString` is what takes the 1973 original over the remaster, and
+  `isPlayable` catches a greyed-out track, **which is the failure that looks
+  exactly like success.**
+- **MEASURED COST FOR THE REMAINING 185: roughly 230 to 250 tool calls**,
+  dominated by one search per track. The verification is nearly free, 20 or more
+  ids to a call.
+- **EXPECT GENUINE NOT-FOUNDS and do not close the gap by guessing.** Obscure
+  regional material is exactly what is not on Spotify, and **a fabricated 22
+  character id passes every check we have and then silently plays the wrong
+  thing.** Leaving it blank is the correct answer.
+
+### A FINDING OUTLIVES THE GAP IT REPORTED, AND NOTHING CLEARS IT
+
+Writing the six ids left **six findings saying those tracks had none.** The
+sweep FILES and is idempotent; it has never removed one, so **any track fixed by
+hand in the Tape Room has been leaving a lie on that queue.** The six were
+deleted, which is what clearing means in this room -- and it is safe precisely
+because the sweep will not re-file a track that now has an id, so **the
+recurrence check that makes deleting safe still holds.**
+
+**THE GENERAL FIX IS NOT DONE and is named rather than left to be found:**
+`tgb_sweep_missing_spotify_ids` should delete an open `spotify` finding whose
+track has since gained an id, in the same pass it files new ones. That is a
+`create or replace` on a live function, so it wants doing **from the LIVE
+definition rather than re-typed** -- this project has silently lost a column to
+a function rewritten from memory.
+
+
+## NOTHING COULD FIND A SPOTIFY ID FOR A TRACK THAT HAD NONE (2026-09-04)
+
+Reported as TGB SOUNDTRACK BOT having stopped gathering Spotify ids. **The bot
+is not the fault and its last run proves it**: 15 tracks filed on 2026-08-27,
+every id verified against a real `open.spotify.com` page, and the RPC answered
+`{"added": 15, "skipped": 0, "no_spotify_id": 0}`. **The bot has no cron and is
+run by hand, so it has simply not run since.**
+
+**WHAT IS ACTUALLY BROKEN IS EVERYTHING THAT DEALS WITH A TRACK THAT ARRIVES
+WITHOUT ONE**, and it is two faults that add up to one symptom. Measured:
+
+    191 tracks carry no spotify_id      of those, 0 are live
+    191 open `spotify` findings         one per track, so the reporting works
+    newest track 2026-08-27             newest finding 2026-08-28
+
+### 1. `spotify-lookup` WAS NEVER DEPLOYED. IT ANSWERED 404.
+
+The **Find** button beside the Spotify box on every track badge is the ONE tool
+for filling in a missing id, and it has been calling a function that is not
+there since it was written on 2026-08-27. **Deployed now, and proved by a call
+rather than by the deploy reporting success**: it answers **403 `not
+authorized`** to an anon caller, which is the admin gate running, where before
+it answered 404. That curl is the whole diagnostic, and this CLI has no
+`functions logs`.
+
+- **`SPOTIFY_CLIENT_ID` AND `SPOTIFY_CLIENT_SECRET` ARE STILL NOT SET**, checked
+  against `supabase secrets list` rather than assumed, so **the button still
+  cannot look anything up.** What changed is the failure: the function's own
+  code puts the auth gate BEFORE the missing-secret check, so an admin now gets
+  the sentence naming both secrets and telling them to make a free app at
+  developer.spotify.com. **A named missing credential is something somebody can
+  act on; a 404 reads as a broken button.**
+- **IT IS CLIENT CREDENTIALS, so there is no consent flow and nothing that
+  expires.** This project already carries one expiring credential in Threads and
+  deliberately does not want a second.
+- **THE BUTTON FILLS AND DOES NOT SAVE, and that stays true.** The oldest rule
+  on this table is verify-or-omit, because **a wrong 22 character id passes
+  every check we have and then silently plays the wrong thing.**
+
+### 2. THE SWEEP WAS NEVER IN THE BRIEF
+
+`tgb_sweep_missing_spotify_ids` exists, works, and **[soundtracks.md](mc/soundtracks/soundtracks.md)
+had never mentioned it once** -- 0 occurrences. This file has said since
+2026-08-27 that it **SHOULD RUN EVERY BOT RUN**, and that sentence lived only
+here, so the only tracks it has ever covered are the ones somebody ran it over
+by hand.
+
+- **IT IS A JOB OF ITS OWN AND THE BRIEF NOW SAYS WHY.** The pull RPC refuses a
+  track sent with no id, so the bot's OWN tracks always have one; this is about
+  everybody else's. **A row added by hand in the Tape Room can be saved without
+  one**, and the step 8 audit only ever reaches the five tapes it looked at, so
+  without the sweep such a track is invisible until somebody opens its tape.
+- **STEP 9b, after the checks and before the summary**, capped at 40 new
+  findings a call, **and it reports the number** -- a figure that climbs run
+  after run means the queue is growing faster than anybody is clearing it.
+- **AND IT SAYS NOT TO FILL THE IDS IN ITSELF.** Filing the finding IS the job.
+
+### AND `scrape-og-image` IS 404 TOO, REPORTED RATHER THAN TOUCHED
+
+The Socializer's **Fetch from page** button, written 2026-08-19, never deployed.
+**It needs no secrets at all** -- it reads `og:image` out of a page -- so
+`cd mc && supabase functions deploy scrape-og-image` is the whole fix. Not done,
+because it is a different room and was not what was asked about. **`socials-post`,
+`scrape-amazon` and `gs-send-code` all answer, so those three are fine.**
+
 
 ## FIND: THE SPOTIFY ID IS LOOKED UP FROM THE ROW (2026-08-27)
 
@@ -7472,6 +7805,66 @@ Asserting the source string would prove nothing about whether it works.
 - **AND A `goto` THAT DIFFERS ONLY IN THE HASH DOES NOT RELOAD.** The duplicate
   probe's stubbed rows were never fetched, so the room filed -- correctly, on a
   page that had never seen them. `about:blank` first.
+
+
+## THE CALL TO ACTION IS THE EXCEPTION, NOT THE ENDING (2026-09-04)
+
+Reported as the captions reading unnatural, with the call to action singled out.
+**Judged against what the account has actually published rather than against the
+rules**, through `tgb_public_socials_feed`, which is anon-readable and returns
+posted rows only.
+
+**THE FEED SETTLES IT IN ONE READING. The first sentence is good in every bad
+caption; the tell is always the second half**, and always the same three
+constructions:
+
+    ...floats up until the whole state is a map below him.
+      READ IT TO A SMALL TRAVELER BEFORE THEIR FIRST LONG DRIVE...      177 ch
+    ...photographed like portraits, one city square at a time.
+      FRANCE IS FULL OF THEM, SO STAND UNDER THE NEXT ONE YOU PASS
+      INSTEAD OF WALKING BY.                                            175 ch
+    ...has been closed for two years and just reopened.
+      ...AND WILL LET YOU WALK RIGHT IN.                                179 ch
+
+**AND THE TWO SHORTEST ARE THE TWO BEST.** *This book explains who every Toronto
+street is actually named after* is **68 characters, one sentence, no call to
+action and no place prefix** -- it breaks three rules and is the most natural
+line on the account. *Find it.* is a two word action that earns its place.
+
+- **THE 120 TO 160 AIM WAS DOING THE DAMAGE.** Measured across the eight posted
+  captions the lengths run 68, 83, 107, 132, 164, 175, 177, 179: **the three at
+  the top are the three with a bolted ending**, and each was padded up to reach
+  the range. It is stated as a range that is never a target now, and **one
+  sentence is stated as a whole caption.**
+- **THE GOVERNING RULE IS READ IT ALOUD, and it outranks the rest by
+  construction.** The prompt now separates DEFAULTS worth breaking for the sake
+  of a spoken line -- the sentence count, the length, the call to action -- from
+  **CONTRACTS that do not bend**: the place prefix, the 200 cap, no em dash, no
+  invented fact, nothing at anybody's expense. **Without that split, telling a
+  model to break rules for naturalness gets you an invented city.**
+- **THE FOUR BANNED CONSTRUCTIONS ARE NAMED**, because a rule against
+  manufactured endings is abstract and *so [do X] instead of [Y]* is not.
+- **THE PLACE PREFIX IS KEPT AND WAS NOT LOOSENED**, as asked. Worth knowing
+  that **only 2 of the 8 posted captions carry it**, so it is already ignored
+  more than it is followed; that is a separate problem from this one.
+
+### AND THE PAGE PROMPT HAD ALREADY BEEN SOFTENED. THE ROUTINE HAD NOT.
+
+The retired page prompt says **MAKE THE CALL TO ACTION OCCASIONAL** and *many
+good captions should simply end on the interesting thing*. The routine's copy
+still said **END ON SOMETHING TO DO**.
+
+**SO THE COPY THAT ACTUALLY RUNS WAS THE STRICT ONE**, which is why every
+published caption has the fault, and it is the three-copies drift this file has
+already recorded once, seen from the other end: **that time the staged file was
+the stale one, and this time it was the trigger.** The page variant is now a
+record and cannot drift again; there are two copies, not three.
+
+**THE EDIT IS IN [socializer.md](mc/socializer/socializer.md) APPENDIX A AND IS
+NOT LIVE.** The trigger holds its own 52KB and **the paste is a person's** --
+see the section above for why. Appendix B was deliberately not swept: it is a
+record of what the page prompt said on the day it was pulled, and a check
+asserts it is byte-identical after the edit.
 
 
 ## A CAPTION OPENS WITH THE PLACE AND SAYS IT ONCE (2026-09-03)
@@ -11765,6 +12158,1045 @@ the half it reached.**
   and 820px. 16 assertions.
 - **THE DEAD-CSS CHECK MATCHED THE COMMENT EXPLAINING THE REMOVAL**, which is
   the trap this file has recorded four times. It strips comments now.
+
+## START IS ONE FIELD, AND DELETE DELETES (2026-09-05)
+
+Six asks in one sitting, and two of them were faults rather than features.
+
+### DELETE PATCHED A COLUMN THAT WAS DROPPED
+
+Reported with the alert in it: `PGRST204 Could not find the 'erased' column of
+'games'`, and `delete should really delete`.
+
+- **IT SET A FLAG AND THE FLAG IS GONE.** `applyCurrentGameDisposition` saved
+  the game and then PATCHed `games.erased`, so **every press failed and nothing
+  happened** -- and the confirmation was promising *the row is kept so it can be
+  undone in the database*, describing a mechanism that no longer existed.
+- **IT IS A `DELETE` NOW, and `return=representation` is not decoration.**
+  PostgREST answers 200 with `[]` when RLS refuses a delete, so without reading
+  the row back a refused delete reports success and the game vanishes from the
+  page until a reload brings it straight back.
+- **AND IT DOES NOT SAVE FIRST.** Writing every field of a game and then
+  removing the row is work thrown away -- and on a game that would not save it
+  turned a delete into a refusal about something else entirely.
+- **THE PAGE LETS GO OF THE ROW RATHER THAN PUTTING IT BACK.**
+  `upsertStoredGame` is the wrong shape when there is no row; `deleteCurrentGame`
+  drops it from the store, the header list and the tag counts.
+
+#### THE CONFIRMATION IS THREE SENTENCES, AND IT COUNTED FOR AN HOUR
+
+> Delete Arizona Fans Takeover Kansas City for good? This cannot be undone.
+> Skip instead to hide it.
+
+- **IT COUNTED WHAT A DELETE TAKES WITH IT AND NAMED THE FLOW**, and the clause
+  that was reported is the one that went: *"It also deletes its whole
+  conversation flow."* **That sentence was true and it was arbitrary** -- a
+  delete reaches SIX tables, and naming one of them and none of the other five
+  reads as a complete list when it is not. So the sentence was cut rather than
+  extended: **a confirmation is read in the moment it is shown**, and every
+  clause past the third is one somebody scrolls rather than reads.
+- **`countGameCascade` AND `listWords` WENT WITH IT**, per the standing rule
+  that a control and its code go in one pass -- and the message is written in
+  one go again rather than after a round trip.
+- **WHAT THE QUESTION NO LONGER SAYS, written down here rather than lost.**
+  **All six foreign keys into `games.id` are ON DELETE CASCADE**, read off
+  `pg_constraint`: `game_nodes`, `game_node_links`, `anytime_replies`,
+  `gift_shop_items`, `gift_shop_listings` and **`photo_submissions`, which is
+  the Winner's Wall and whose 17 rows are ALL game-linked.** A delete reaches
+  every one of them and nothing on screen says so.
+- **AND THE ONE MEASUREMENT WORTH KEEPING IF A COUNT EVER COMES BACK.**
+  `public.game_nodes` has **RLS ON AND NO POLICIES AT ALL**, so a browser read
+  of it comes back empty whoever is asking -- **and a refused read and an empty
+  table are the same answer through PostgREST.** This room never loads the graph
+  either: it is the identity editor, it has no canvas, and `state.doc.nodes` is
+  EMPTY on a game the database holds thirteen nodes for. **So the flow could be
+  NAMED and never counted; a zero would have been the reassuring lie**, which is
+  the hub's own `countOf` lesson.
+- **AND MY FIRST CUT AT THE COUNTER COUNTED NOTHING AT ALL**, which is the
+  lesson that outlives it: it hand-rolled a url off a `SUPABASE_URL` that does
+  not exist on this page, every table threw, every throw was caught per table,
+  and the function answered `[]` -- **an empty list and a list of failures look
+  identical.** `buildSupabaseUrl` is the one url builder and it takes a table
+  name.
+- **BOTH ASSERTIONS WERE PROVED AGAINST THE OLD QUESTION**, by putting it back
+  and running: *offers Skip as the way to keep it* and *it is three sentences*
+  both fail on it. An assertion that has never failed on the bug it is for is
+  one nobody should trust.
+- **AND MY SENTENCE COUNTER COUNTED THE WRONG CHARACTER.** It split on the full
+  stop, and **the first sentence is a QUESTION and ends in a question mark** --
+  so it answered two about a three-sentence line and **failed on a page that was
+  exactly right.** It splits on every sentence ender now. A measurement of the
+  wrong thing is not a finding.
+
+## START IS THE ANCHOR EVENT, A DAY EARLIER (2026-09-06)
+
+Choosing an event now fills the date, the clock and the zone as well as the two
+audiences.
+
+    2027-01-04  19:15  America/Chicago   Houston Texans at Green Bay Packers
+      ->  01/03/2027   7 PM : 15   America/Chicago
+
+- **IT IS THE PRODUCT RULE, NOT AN ARBITRARY OFFSET.** A TGB game is played the
+  day BEFORE its anchor -- visitors are already in town with an afternoon free
+  -- so the event's own kickoff a day earlier is the best guess there is.
+- **THE DATE ARITHMETIC IS UTC AND HAS TO BE.** `start_date` is a CALENDAR date,
+  and a local `Date` crossing a DST boundary lands on 23 or 25 hours, so the day
+  drifts by one. **This project has recorded that twice**, in the events room's
+  week headings and in its split arithmetic.
+- **SO IT IS 24 HOURS EXCEPT ACROSS A CLOCK CHANGE, where it is the same CLOCK
+  rather than the same elapsed time** -- and that is the right reading for a
+  start time. A poster says `1pm Saturday`; nobody wants 12pm because the clocks
+  went back overnight. **Real rather than hypothetical**: US DST ends
+  2026-11-01, so every event that day takes its guess from 2026-10-31.
+- **THE ZONE COMES ACROSS TOO, and it is what makes the clock mean anything.**
+  `events.start_time` is the clock OUTSIDE THE VENUE and `events.timezone` is
+  the IANA name beside it -- **all 272 events carry both**, measured. Copying
+  the time and not the zone would put a number in a box with nothing to say
+  which clock it is on.
+- **IT OVERWRITES, ON A CHANGE OF EVENT ONLY**, for the reason the audience
+  refill does: filling a blank would do nothing on a game that already has a
+  start, which is **351 of the 393**. Nothing is saved by choosing an event, so
+  the way back is closing the game without saving.
+- **AN ABSENT TIME OR ZONE IS WRITTEN AS EMPTY RATHER THAN SKIPPED**, because
+  the three are one stored value: leaving yesterday's clock beside the new
+  event's date is a start time nobody chose. **A missing DATE changes nothing at
+  all** -- that is the one part which cannot be guessed around.
+
+### IT CARRIES THE MINUTE EXACTLY AND DOES NOT ROUND
+
+The Time picker offers **00, 15 and 30**, and a kickoff is routinely on another
+minute -- `13:05`, `13:25`, `16:25`, `17:20`. So this **regularly produces a
+minute the list does not hold**, which `applyStartControls` draws as
+`20  (not offered)`.
+
+- **THAT MECHANISM WAS WRITTEN FOR EXACTLY THIS**, and the marked option is the
+  page saying the value did not come from the list rather than silently
+  rounding somebody's start time to `13:00`.
+- **ROUNDING IS ONE LINE IF IT IS EVER WANTED**, and it would change the answer
+  that was asked for. `quarterHour` already exists and rounds DOWN.
+- **`start_time` ARRIVES WITH SECONDS.** PostgREST hands a `time` column back as
+  `17:20:00` and `games.start.time` holds `HH:MM`, so it is sliced -- the same
+  slice `initGameMeta` already makes coming the other way.
+
+### AND 24 EVENTS CARRY A KICKOFF OF 03:30, WHICH IS WRONG
+
+Found while checking what the fill would produce. **Reported rather than
+touched**: it is data in `public.events` and it was not what was asked about.
+
+    03:30  24        <- every one an ordinary Sunday fixture
+    10:35   1
+    12:00  33
+    13:00  92
+    ...
+    20:20   8
+
+- **NOTHING ELSE IS BELOW 10:35**, and the 24 are ordinary NFL fixtures --
+  *Buccaneers at Falcons* in Atlanta at half past three in the morning. The
+  distribution either side of them is the real slot pattern.
+- **IT LOOKS LIKE A DROPPED MERIDIEM**: `3:30` parsed as `03:30` rather than
+  `15:30`, which is a real late-afternoon slot. **Not proved**, which is why
+  this is a note and not a migration.
+- **THE FILL CARRIES IT FAITHFULLY**, so a game anchored to one of those 24 gets
+  a 3:30am start until the event is corrected. **The room is not the place to
+  fix it**: a guess that silently disagreed with the event it is derived from
+  would be worse than one that is visibly odd.
+
+### THE CHECK COMPUTES THE ANSWER TWICE
+
+[game-builder-anchor-refills-audiences.js](mc/_dev/browser-checks/game-builder-anchor-refills-audiences.js) is 22 assertions now, and **7 of
+them fail without the fill**, naming the real values.
+
+- **THE DAY BEFORE IS WORKED OUT INDEPENDENTLY, IN THE CHECK.** Asking the room
+  whether it agrees with its own helper proves nothing; two implementations
+  having to agree is the claim. It also asserts the gap is **exactly
+  86,400,000ms of calendar date**, so a timezone slip would show as a day rather
+  than pass as one.
+- **AND THE OFF-LIST MINUTE IS ASSERTED**, because it is the common case here
+  rather than an edge: either the minute is one of the three, or the picker is
+  showing it marked.
+- **THE CLUBLESS EVENT PROVES THE TWO FILLS ARE INDEPENDENT.** It carries a date
+  and no clubs, so START follows it while the audiences are left alone.
+
+#### AND THE ESCAPING SCAR, TWENTY-FIFTH AND TWENTY-SIXTH INSTANCES
+
+Both in the same edit, both through a heredoc into Python: an escaped
+apostrophe inside a single-quoted JS string arrived bare and **broke the parse**,
+and a `(` in a regex arrived unescaped and turned a literal into a capture
+group.
+
+**The remedy is this file's own and I did not follow it**: a double-quoted
+string needs no escape for an apostrophe, and `indexOf` on a plain substring
+cannot be eaten by any layer. Both are written that way now.
+
+## THE ANCHOR EVENT LEADS THE ROOM (2026-09-05)
+
+    ANCHOR EVENT
+    GAME  |  START
+    AUDIENCES
+    GAME CITY
+    MAP ...
+
+- **IT REVERSES `THE NAME LEADS` (2026-09-02)**, which moved the name up from
+  fifth on the argument that the first four things you answered were all about a
+  game you had not named yet. **That is true and it is outranked by what the
+  anchor now DOES**: choosing one REFILLS both audiences, so it has to be
+  answered before them or the guess arrives after somebody has typed over it.
+- **AND THE 2026-09-02 MOVE IS STILL FIXED.** The name is SECOND rather than
+  fifth, so a name buried under four other questions -- which is what that move
+  was really about -- has not come back.
+- **IT RESTORES THE OLDER ARGUMENT**, which the anchor bar's own comment has
+  carried since 2026-08-31: what brought people to the city, then who the game
+  is for, then where they walk.
+- **MOVED, NEVER COPIED.** The block came across whole, so every id and every
+  listener still resolves and no wiring changed -- and the tag count, the
+  fieldset balance and the parse were all checked rather than assumed.
+
+### AND ONE ASSERTION WAS PINNED TO A NUMBER RATHER THAN A RELATIONSHIP
+
+`START is a bar of the page now` read `bars.indexOf(startBar) === 1`, and START
+went from first to second the moment the anchor took the lead. **It asks for the
+position AFTER the name now**, which is the thing that is actually true of it --
+a hard index would have to be edited again on the next reorder, and an
+assertion that has to be edited on every reorder is one somebody eventually
+relaxes rather than repoints.
+
+## CHOOSING AN ANCHOR EVENT REFILLS BOTH AUDIENCES (2026-09-05)
+
+Asked as: *when a new anchor event is chosen, repopulate audiences with best
+guess.* **The away club is the target and the home club is the rival** -- the
+standing rule rather than a new one: a game is pitched at the travelling fandom,
+and the club they are surrounded by is who they are up against.
+
+- **IT COMPOSES FROM THE EVENT AND READS NOTHING.** `games.target` and
+  `games.rival` have held PROSE since [2026090203](mc/supabase/migrations/2026090203_game_audiences_become_words.sql) -- 366 rows, every one of
+  them `full_name || ' fans'` -- so there is no key to resolve and nothing to
+  look up. The guess is `away_team_geo` + `away_team_nickname` + ` fans`.
+- **AND THAT IS EXACT, MEASURED RATHER THAN ARGUED.** Across every fixture on
+  file the composed string equals the matching audience's own name:
+
+      fixtures with clubs                       272
+      both sides resolve to an audience         272
+      composed string differs from full_name      0
+
+  **So it needs no second read**, which is the reason to compose rather than
+  join `public.audiences`: a lookup would cost 640 rows and could answer
+  NOTHING for a club that table does not carry, which is worse than a plausible
+  sentence.
+
+### IT OVERWRITES, WHICH REVERSES THE FILL-A-BLANK RULE
+
+The prefill deleted on 2026-09-02 filled a blank and never overwrote.
+**`repopulate` is the ask, and filling only blanks would do NOTHING on a game
+that already has audiences** -- which is every game that has ever been anchored,
+so it would read as broken.
+
+- **WHAT IT COSTS, said rather than discovered: a hand-typed audience is
+  replaced by changing the event.** The way back is that **nothing is saved by
+  choosing one** -- the change arms Save like any other edit -- so closing the
+  game without saving leaves the row alone. That is asserted, because it is the
+  only thing making an unwanted overwrite recoverable.
+- **AN EVENT THAT NAMES NO CLUBS CHANGES NOTHING.** Clearing both because
+  somebody anchored a game to a concert would be destructive rather than a
+  guess, and a side named alone fills that side only.
+- **AND ONLY ON A CHANGE OF EVENT.** `resolveTypedEvent` runs on change **and on
+  blur**, so it re-resolves the same id whenever the box is left -- without the
+  changed-id guard, **tabbing past the anchor would rewrite both audiences every
+  time**, undoing an edit somebody had just made by hand.
+- **AN UNNAMED SIDE ANSWERS EMPTY, never a half-built string.** `Chicago  fans`
+  is not a guess.
+
+### THE FIXTURES ARE REAL AND THE CONCERT IS MADE UP
+
+[game-builder-anchor-refills-audiences.js](mc/_dev/browser-checks/game-builder-anchor-refills-audiences.js), **15 assertions against the live
+events with the writes intercepted, and 5 fail without the refill** -- naming
+the real values: `{"got":"Zed typed target","want":"Miami Dolphins fans"}`.
+
+- **`public.events` IS 272 ROWS AND EVERY ONE IS `sports-nfl` WITH BOTH CLUBS
+  NAMED**, measured rather than assumed -- **a note in this file said 3,051 and
+  that number is stale.** So a concert is a shape the table does not currently
+  hold, and **a check that waits for production to grow the right row is a check
+  that rots**: the clubless case is driven with a row pushed into the loaded
+  catalogue and the two fixtures come from the table.
+  - **THE PUSHED ROW GOES INTO BOTH THE ARRAY AND THE ID MAP.**
+    `resolveTypedEvent` walks the array to match a label and
+    `applyAnchorEventSelection` reads the map to find the row, so one without
+    the other resolves to an id whose event cannot be found.
+- **AND IT ASSERTS THE WORDING, not only that something changed.** All 366
+  filled rows end in ` fans`, so a guess in any other shape would be the one row
+  in the table spelt differently.
+
+#### AND THE PROBE READ AN IDENTIFIER OFF `window` THAT IS NOT THERE
+
+`builderAnchorEvents` is a top-level `let` in a classic script, which **creates
+no window property** -- so `window.builderAnchorEvents` answered an empty list
+and the check **reported a catalogue of 272 events as 0**. `page.evaluate` runs
+in the same realm, so the bare name resolves.
+
+**This file already records that for `builderTeamsList`**, and it is the second
+time a probe here has been written the wrong way round. A function declaration
+DOES create the property, which is why `anchorEventLabel` worked and the array
+beside it did not -- so the two look interchangeable and are not.
+
+## EVERY FIELD IN THE GAME BUILDER SAVES, AND THE GUIDE WAS ONE OF SIX
+(2026-09-05)
+
+Asked as: pull guides from the guide table and save guide id to games, and all
+fields on the game builder save an id or a raw value to the games table. **Six
+fields were writing nothing at all, in three different ways.**
+
+### SIX CONTROLS WERE DEAD, AND ENABLING THEM WOULD HAVE BEEN WORSE THAN THAT
+
+| control | column |
+|---|---|
+| `nodeGuideSelect` | `guide_id` |
+| `nodeBodyInput` | `body` |
+| `nodePriceInput` | `price` |
+| `nodeEngineInput` | `engine` |
+| `nodeDefaultEmojiInput` | `default_emoji` |
+| `nodeCategoryIconInput` | `category_icon` |
+
+- **ALL SIX WERE GATED ON `isGameNode`, WHICH IS FALSE ON EVERY GAME HERE.**
+  That test asks about the flow DOCUMENT and this room has no canvas, so the
+  boxes were disabled on all 393. **This is the ninth field in this room to need
+  that correction**, after the anchor event, the city, the two audiences, the
+  name, the tagline, the tag chips and the tag count.
+- **AND THE HANDLERS RETURNED ON THE SAME TEST ONE LAYER DOWN.** So moving the
+  gate alone would have produced **a field that accepts typing and stores none
+  of it, which is worse than a disabled one** -- the two had to move together,
+  and the check asserts both halves because either alone passes on that
+  arrangement.
+- **`category_icon` IS THE ONE THAT DID DAMAGE RATHER THAN NOTHING.** The save
+  carried `category_icon: null` while `football` sat in the picker, so it did
+  not merely fail to save: **it wrote the absence over whatever the row held.**
+
+### THE MAP BAR HAD NO COLUMN, AND THE COLUMN WAS THERE UNDER ANOTHER NAME
+
+[2026090503](mc/supabase/migrations/2026090503_the_map_column_is_map_id.sql), **applied**. `games.map` is `games.map_id`.
+
+- **THE ROOM HAS ALWAYS WRITTEN `map_id`.** `commitMapField` resolves the typed
+  label against `public.atlas` -- which is keyed by `(map_id, stop_order)` --
+  and `GAME_COLUMN_TO_NODE_FIELD` maps it. **`public.games` had `map`, text.**
+- **SO THE SCHEMA MAP HAD IT SWITCHED OFF**, which takes a column out of every
+  select AND out of every PATCH at once -- so the box accepted a map, the note
+  said which, and the value went nowhere. **That flag is the stopgap for a
+  database that is BEHIND; here the database was not behind, it was named
+  differently.**
+- **A RENAME RATHER THAN A NEW COLUMN, AND IT COST NOTHING, MEASURED FIRST**:
+  **0 of 393 rows carried a `map`**, and **nothing anywhere reads it** -- the
+  four files matching `'map'` all mean the ENGINE value or a DOM id. `map` also
+  said nothing about what it held; `map_id` says it is a row in `public.atlas`.
+- **NOT A FOREIGN KEY AND IT CANNOT BE ONE**, since `atlas` is keyed by the pair
+  so the id alone is not unique -- the same trade `stops.city` already makes.
+- **AND `game-builder-map.js` HAD PREDICTED IT**: *"the map bar reads and cannot
+  save. It is the one bar in that state, and it is the next thing to settle."*
+  Its assertion is reversed rather than relaxed -- **a live column set to false
+  is the fault now, where a dropped one set to false was the fix.**
+
+### `markDirty` DOES NOT EXIST, AND IT THREW ON EVERY MAP COMMITTED
+
+`commitMapField` and `commitLogoField` both called it.
+
+- **THE MAP STILL SAVED, WHICH IS WHY IT WENT UNNOTICED.** The assignment to
+  `meta.mapId` is the line BEFORE the call, so what died is everything after it
+  -- including `paintMapField()`, so the note and the field went on describing
+  the map you had just moved away from. **A throw one line past a write is the
+  quietest way to half-apply a change.**
+- **THE LOGO'S COPY IS ON THE NO-SUPABASE PATH**, so it had been latent.
+- **`scheduleUpdateActionUi()` IS THE REAL NAME**, and it is what every other
+  commit on this page calls.
+
+### `ensureCurrentGameGuideId` IS DELETED, AND IT HAD NEVER RUN
+
+It fetched `guide_id` one row and one column at a time from the base table,
+because the room used to read `games_with_graph_and_teams` -- a view built on
+`select game.*`, expanded and FROZEN in June 2026, so a column added to the
+table on 2026-08-09 could never appear in it.
+
+- **BOTH HALVES OF THAT ARE GONE.** `games_with_graph_and_teams` and
+  `games_with_teams` were dropped -- **checked against the live database rather
+  than assumed: `public` holds eight views and neither is among them** -- and
+  `SUPABASE_GAMES_GRAPH_VIEW` is the string `'games'`, so the read is against
+  the table and `guide_id` is in its select list and in `initGameMeta`.
+- **AND ITS ONE CALLER WAS `if (isGameNode) ensureCurrentGameGuideId();`** -- so
+  the guard meant to make it cheap made it unreachable, and it has never fired
+  in this room. **Which is also why removing it is safe: the guide has been
+  arriving with the row all along.**
+- **THE COMMENTS THAT DESCRIBED THE VIEW WENT WITH IT.** One warned that *the
+  read is against the VIEW and the write is against the TABLE*; that asymmetry
+  died with the views. **What is left is the NAME** -- a column the room writes
+  under one name and the table carries under another is switched off by the
+  guard and never saves, which is exactly what `map_id` did.
+
+### WHAT THE ROOM WRITES NOW, MEASURED RATHER THAN READ OFF THE SOURCE
+
+Eighteen controls, and every one reaches `public.games`:
+
+    name  tagline  city  body  price  engine  default_emoji  category_icon
+    guide_id  logo_id  map_id  anchor_event_id  target  rival  start
+
+- **FOUR OF THEM ARE IDS**: `guide_id` into `public.guides`, `logo_id` into
+  `public.logos`, `map_id` into `public.atlas`, `anchor_event_id` into
+  `public.events`. The box shows a label and the column takes the key -- the
+  map's box reads `Murder Map  ·  new-orleans-murder-map  ·  2 stops` and the
+  column takes the middle of it.
+- **THE CITY IS COMPOSED ON THE WAY OUT.** `Chicago, IL` is stored as the
+  canonical `Chicago, Illinois`.
+- **`guide_id` AND `logo_id` SAVE THEMSELVES, in their own PATCH**, and go up
+  with the full save as well. A pointer with nothing else to decide does not
+  need a second press.
+- **AND `tgb_date` IS STILL WRITTEN AND NO LONGER EDITED.** 2026090502 copied
+  it into `start` and the START box edits only `start`, so the two diverge from
+  the first edit -- the save carries the value it loaded, which is a no-op
+  rather than a corruption. **Anything reading a game's date should read
+  `start`.**
+
+#### THE CHECK IS DRIVEN AGAINST THE LIVE DATABASE, WRITES INTERCEPTED
+
+[game-builder-every-field-saves.js](mc/_dev/browser-checks/game-builder-every-field-saves.js), **25 assertions, and 12 fail on the room
+before it** -- naming every one of the faults, including
+`category_icon: {"got":null}` and `markDirty is not defined`.
+
+- **A SOURCE READ CANNOT MAKE THIS CLAIM.** A value that reaches the box and not
+  the payload looks identical in the file, which is what six of these fields
+  were doing. **The one honest probe -- real page, real database, write caught
+  -- answered it in one run**, and that is the lesson this file already recorded
+  the day an afternoon went into the wiring of two boxes that were fine.
+- **IT ASSERTS THE VALUE, NOT ONLY THE KEY.** `category_icon` was PRESENT in the
+  payload and null; a presence check would have passed on it.
+- **AND THE ROUND TRIP, which is the other half of the ask**: `alno` carries
+  guide 12 in the live table and has to open showing Hank Houndstooth. With
+  `ensureCurrentGameGuideId` gone that assertion is **the only thing saying the
+  guide arrives at all.**
+
+##### AND THREE OF MY OWN MEASUREMENTS WERE OF THE WRONG THING
+
+- **READING `el.value` AFTER FIRING `change` REPORTS THE REPAINT, NOT THE
+  CHOICE.** A change repaints the bar and rewrites the control from the meta, so
+  the engine and the logo both read back `""` while the payload carried both --
+  **two failures on a page that was correct.** The chosen value is read BEFORE
+  the events now. **Third measurement of the wrong moment in two days**, after
+  the sentence counter and the bold width.
+- **TWO SANITY ASSERTIONS MATCHED THEIR OWN COMMENTS.** One checked the file for
+  `markDirty()` against the IN-MEMORY string rather than what was written; the
+  other searched for `ensureCurrentGameGuideId` and found the note explaining
+  its removal. **Fifth and sixth instance of the comment trap in this repo, both
+  in checks written by the person who wrote the warning.** Check the file, and
+  strip comments first.
+- **AND THE HEREDOC WOULD NOT WRITE THE CHECK AT ALL** -- `unexpected EOF while
+  looking for matching quote` -- so it went through the Write tool. **That is
+  the documented exception**: a file full of regexes and quotes does not belong
+  in a shell heredoc.
+
+### THE GAME'S NAME IS BOLD IN THE QUESTION
+
+`Delete **Arizona Fans Takeover Kansas City** for good?`
+
+- **THE NAME IS A NODE, NOT A STRING IN SOME MARKUP.** It is a row value going
+  into a dialog, so it is built as a `<strong>` carrying `textContent` -- which
+  needs no escaping and cannot be got wrong. **An innerHTML build fails the
+  check outright**: given a game named `Zed <b>bold</b> Game` it renders the tag,
+  and the probe reads back `{"text":"Zed bold Game","inside":1,"elements":2}`.
+- **THE PROBE REACHES THE ROW, NOT THE NAME BOX, and the first cut got that
+  wrong.** Typing into `nodeTitleInput` writes the META and arms Save, while the
+  confirmation reads the STORE entry -- so the question went on naming the saved
+  name and **the check reported a page fault that was its own.**
+  `getCurrentGameArchiveEntry` is reachable because it is a top-level FUNCTION
+  DECLARATION, which does create a window property; `state` is a top-level
+  `const` and does not, which is why nothing reaches for it.
+- **700, NOT LEFT TO `<strong>`.** The UA sheet's own rule is
+  `font-weight: bolder`, which is RELATIVE to whatever the paragraph happens to
+  be -- so the name would quietly become 900 the day the message itself gained a
+  weight. An absolute value cannot drift with its parent.
+- **ONE RULE, NOT TWO.** `.erase-note-message` is written twice in this file,
+  once bare and once under `body.builder-page--editor`; this needs no editor
+  copy, because **a declaration on the CHILD beats an inherited value from
+  either of them whatever their specificity.**
+- **AND `WIDER` WAS A GUESS ABOUT A FONT RATHER THAN A MEASUREMENT.** The
+  message is set in a handwriting face and **its bold is NARROWER -- 438 against
+  454** -- so the first assertion failed on a page that is correct. What a
+  headless width can honestly say is that **the weight changes the drawing**;
+  whether it looks heavier is a screenshot's question.
+
+### START IS ITS OWN BOX, BESIDE THE NAME
+
+It was a fieldset NESTED inside the name's box for a day. **A box drawn inside
+another box reads as one question, and these are two.**
+
+- **THE PAIR IS ONE ROW AND THE BOXES ARE SIBLINGS.** `.gid-pair` is the flex
+  row and **it carries the page's own measure** -- `width: 100%`, the
+  `min(1180px, 100vw - 32px)` cap and the auto margins -- so the two together
+  line up with every bar below them. **The boxes inside it give those three
+  declarations up**, or each would ask for the full column.
+- **THE NAME TAKES THE SLACK AND START TAKES ITS CONTENT.** A date, a clock and
+  a zone are all fixed-width controls; a name is a sentence and there is never
+  enough. Measured at 1600px: **name 552 + gap 12 + START 616 = 1180 exactly**,
+  both at the same top edge, and the pair spanning the anchor bar's column
+  to the pixel.
+- **THE SHARES ARE SET BY CLASS, NEVER BY ID**, which is the one lesson the
+  deleted `.gid-row` left behind: it named its boxes by id, so **its own wrap
+  query written as `> .game-id-bar` lost the tie and the row never wrapped.** An
+  id beats a class whatever the media query.
+- **IT WRAPS AT 1000px**, where the name is at its floor and START's four
+  controls are already at their own width, so the next thing to give is the row.
+  Below it each takes the full row. **No sideways scroll at 1600, 1200, 1000,
+  900 or 760.**
+- **MOVED, NEVER COPIED.** Every id came across whole, so the writer, the reader
+  and all the wiring needed no edit. **What DID have to move is the hiding**:
+  START rode on `gameNameBar`'s own `hidden` while it was inside it, and **a
+  sibling is on screen with no game open until something says otherwise.**
+- **AND THE SLICE LEFT THE NAME BOX'S CLOSING TAGS BEHIND.** Lifting START out
+  took its markup and not the `</div></fieldset>` that had followed it, so the
+  page carried an orphaned pair. **Counting the open and close tags is what
+  caught it** -- and the div count was already uneven by two before the change,
+  so the comparison had to be against the file as it was rather than against
+  zero.
+
+#### AND `the name is the wider of the two` WAS NOT THE CLAIM
+
+The first assertion here compared the two widths and **failed on a correct
+page**: START holds four controls and comes out 616 against the name's 552, and
+being the wider of the two is exactly what *takes its content* produces.
+
+- **THE CLAIM IS ABOUT TWO VIEWPORTS, NOT ONE.** START is the same width at 1600
+  and at 1200 while the name shrinks with the window -- which is measured in
+  `game-builder-widths`, the suite that changes the window, and which a single
+  measurement cannot tell apart from a coincidence.
+- **AND THE ROW ASSERTION READ THE NAME INPUT RATHER THAN THE NAME BAR.** The
+  input sits inside the bar's padding, so comparing its left edge with the row's
+  answered false on a page that lines up exactly. **Third measurement of the
+  wrong thing in one sitting**, after the sentence counter and the width.
+
+### THE CITY BOX WAS DISABLED ON EVERY GAME
+
+Reported as `turn on the city field`. `nodeCityInput.disabled = !isGameNode`,
+and **this page has no canvas, so `isGameNode` is false on all 394 of them.**
+**THE EIGHTH FIELD IN THIS ROOM TO NEED THAT CORRECTION**, after the anchor
+event, the two audiences, the name, the tagline, the tag chips and the tag
+count.
+
+- **AND IT IS PULLED FROM NOWHERE, as asked.** Choosing an anchor event used to
+  fill a blank city from `events.venue_city`, which is the canonical `City, ST`
+  string this box wants -- **so a fixture-anchored game got its city for free and
+  correctly, and that is what is given up.** What it buys is that one box has
+  ONE writer.
+- **THE `ex.: New Orleans, LA` HINT IS GONE**, and its CSS with it. **What that
+  costs: the placeholder disappears the moment anybody types**, which is exactly
+  when the shape still matters -- the box holds the WHOLE place and `parseGeo`
+  reads the state half back out of it, so a bare city loses the state silently.
+
+### START: A DATE, A TIME AND A ZONE, IN ONE COLUMN
+
+`games.start`, jsonb -- `{"date","time","timezone"}` --
+[2026090502](mc/supabase/migrations/2026090502_start_is_one_field.sql), applied.
+
+- **IT SUPERSEDES [2026090501](mc/supabase/migrations/2026090501_a_game_starts_at_a_time_in_a_zone.sql), WHICH WAS AN HOUR OLD.** That file added
+  `start_time` and `timezone` beside `tgb_date`; the ask was then **one field
+  called START**, so both were dropped rather than left. **Both were empty (0 of
+  394), measured before the drop.**
+- **WHY jsonb.** `timestamptz` stores an INSTANT and normalises to UTC, so **the
+  zone NAME does not survive** -- and the whole point of a zone is that
+  `start_time` is the clock outside the venue. `text` would mean parsing our own
+  prose back out of it, which this project has been caught by four times. jsonb
+  keeps the three parts distinct and needs no parser, which is what `games.tags`
+  already is.
+- **A CHECK ENFORCES THE SHAPE**: those three keys, no others, each a string or
+  absent. Without it the column is a place to put anything and the next reader
+  has to guess what they are holding. **Proved by writes that made it refuse** --
+  a stray key and a number where a string belongs -- rolled back.
+- **`start` IS AN UNRESERVED KEYWORD**, checked with `pg_get_keywords()` rather
+  than assumed (catcode `U`). **That is NOT true of `primary` two columns
+  along**, which is reserved and must be quoted; do not read one as licence for
+  the other.
+- **THE 352 EXISTING DATES WERE COPIED IN, NOT MOVED.** `tgb_date` is kept and
+  stops being maintained: dropping a filled column in the same file that
+  introduces its replacement is how a bad afternoon starts.
+- **AN EMPTY PART IS OMITTED, NEVER STORED AS `''`**, and all three blank means
+  the column is NULL rather than `{}` -- so `start is null` means what it says.
+- **THE MINUTE IS A DROPDOWN OF THREE: 00, 15 AND 30.** `step="900"` on a
+  `time` input was the first answer and it is not one -- it makes an off-quarter
+  minute FAIL VALIDATION and nudges the spinner, and the browser still draws its
+  own control. **The only way to SHOW exactly three minutes is to be the
+  dropdown**, so the clock is two selects under one label and the pair composes
+  `HH:MM` where the date and the zone are already composed.
+  - **WHAT IT COSTS: the native time picker**, and with it the phone's own time
+    wheel and typing `130p`. That is the price of a list that can only offer
+    what it offers.
+  - **NOT 45.** Asked for twice, the second time narrower than the first; it is
+    one line if it comes back.
+  - **A STORED OFF-LIST MINUTE IS NOT THROWN AWAY.** A select with no matching
+    option shows its FIRST one, so painting a stored `13:45` would silently
+    change it to `13:00` on the next save. It is given an option of its own,
+    marked `(not offered)` -- the rule the Route Builder already keeps for a
+    challenge whose scope no longer offers it.
+  - **THE 24 HOURS ARE BUILT, NOT WRITTEN OUT.** 24 hand-typed options is 24
+    chances to mistype one, and the label is a pure function of the value: the
+    VALUE is 24-hour because `games.start.time` stores `13:30`, and the LABEL is
+    12-hour because nobody says thirteen.
+- **THE ZONE SHOWS WHAT IT IS CALLED.** The datalist `value` is the IANA name
+  and the LABEL is the spoken one, so the list reads `America/Chicago  Central`
+  while what is stored is still the only form that survives a clock change.
+  **`CST` means two different things depending on the hemisphere.**
+- **ELEVEN WIRING POINTS, and the eleventh was found by the round trip.**
+  `stageCurrentGameIntoStore` turns the meta into the row `serializeGameRow`
+  patches, and a column missing there **reaches the meta, shows in the box, arms
+  Save, and goes to the database as null.** The check caught it with
+  `{"timezone":null}` beside a date that had landed.
+- **AND THE SLOT MAP COULD NOT CARRY IT.** `GAME_ROW_TEXTBOXES` is one box over
+  one column; START is three boxes over one, so it takes `applyGeoControls`'s
+  shape instead -- the page's own answer to several controls composing one value.
+
+### A `*/` INSIDE A BLOCK COMMENT CLOSES IT
+
+Quoting a `content-range` header verbatim in a comment **ended the comment three
+lines early and left the rest as code**: `PARSE FAIL Unexpected identifier
+'oswald'`. **Quote a value containing a slash-star or a star-slash by NAMING the
+character, never by pasting it.** The standing parse check caught it, which is
+what it is for.
+
+### AND SIX SUITES WERE CORRECTLY BROKEN
+
+Every one was describing the arrangement it was written for, and each was
+repointed rather than relaxed:
+
+| suite | what moved under it |
+|---|---|
+| `game-builder-boxes` | fifteen bars to fourteen and back; `Default Emoji`/`Category Icon` renamed |
+| `game-builder-widths` | `tgbDateBar` is gone, then START stopped being nested |
+| `game-builder-delete` | the question counted before it asked, then stopped |
+| `game-builder-start` | three columns became one |
+| `game-builder-columns` | the committed snapshot gained `start` |
+| `game-builder-tags` | the pin, the rule and the note |
+
+- **A NESTED BAR BROKE TWO OF THEM THE SAME WAY.** `[...querySelectorAll('.game-id-bar')]`
+  picks up START, which is deliberately **not** the width of the page, so both
+  suites reported a correct row as broken. **A bar is one whose nearest bar
+  ancestor is itself.** **THE FILTER STAYS even though nothing is nested since
+  START became a sibling**: the next box to hold a box would be counted as a
+  question the room does not ask.
+- **`UK` IS TWO CHARACTERS AND IS A PERFECTLY GOOD NAME.** My zone assertion put
+  a floor of three on the label and failed on a page that is right -- **an
+  assertion about a label's LENGTH is a guess about the words.**
+- **AND THE DELETE PROBE READ THE MESSAGE IN THE SAME STATEMENT AS THE CLICK**,
+  catching `Counting what goes with it...`. **Wait on the condition, never on a
+  clock** -- the fourth time this session. **The wait is KEPT now that the
+  message is written in one go again**: a check that waits on a condition
+  already true costs nothing, and it would have to be written a third time the
+  next time the question grows a lookup.
+- **THE ESCAPING SCAR, TWENTY-FOURTH INSTANCE.** A `\b` written through a
+  heredoc into Python arrived as a literal BACKSPACE, so the pattern matched
+  nothing and the edit refused. **Written with `chr(92)` and the Write tool
+  after that**, which is the standing remedy this file has recorded a dozen
+  times.
+
+## THE NOTE WAS REWRITTEN, AND IT SAYS TWO FEWER THINGS (2026-09-05)
+
+It reads **"The dot on a chosen tag picks the primary tag, the one a game card
+shows. One per game. * Games with the featured tag appear at the top of some
+pages."**
+
+- **WHAT IT GAINED is the half the position and the green could not say on
+  their own.** The chip leads the box and is a different colour, and neither of
+  those tells anybody WHY -- that a featured game is lifted to the top of some
+  pages is the fact behind both.
+- **AND TWO SENTENCES WENT, both of them things nobody can guess, so they are
+  written down here rather than lost:**
+  1. **This bar writes `public.games` as you press it**, where every other
+     field on the page waits for Save. It is the only exception on the page
+     apart from the guide, and nothing on screen says so any more.
+  2. **`Featured` never gets a primary dot.** `isPrimary` refuses a protected
+     tag outright, so somebody hunting for a dot on that chip is looking for a
+     control deliberately not there. **The behaviour is unchanged and still
+     asserted**; only the words explaining it are gone. What stands in their
+     place is `One per game` plus the chip being a different colour, which says
+     the tag is not one of the ninety subjects without saying what it cannot
+     do.
+- **A HAIRLINE FOLLOWS `Featured`**, so the pin reads as a pin rather than as a
+  word that happens to sort first.
+  - **AN ELEMENT IN THE FLOW, NEVER A BORDER ON THE CHIP.** The box WRAPS, so a
+    border would land mid-row wherever the line happened to break; a rule
+    between the two chips stays beside the chip it divides.
+  - **A HAIRLINE RATHER THAN A TYPED `|`.** Every bar in this project already
+    separates its halves that way, and a pipe would inherit the chip's type and
+    sit a pixel off the row it divides.
+  - **DRAWN ONLY WHEN `Featured` LEADS.** Typing narrows it away like any other
+    chip, and a divider with nothing before it divides nothing. Measured as a
+    box with a real width between the two chips, never as a declaration --
+    **run with the rule removed it fails with `{"there":false,"kids":12}`.**
+    **68 assertions.**
+
+## FEATURED LEADS THE BOX, IN GREEN (2026-09-05)
+
+It sorted into the F row like any other word and drew in the house blue like
+any other chip.
+
+- **IT IS THE ONE TAG THE PAGE ITSELF READS.** `Featured` decides whether a
+  game is featured, and it is the one chip that can never be deleted and never
+  carries a primary dot. **It is a switch among ninety subjects**, so hunting
+  for it alphabetically is hunting for a control rather than for a word.
+- **PINNED AFTER THE FILTER, NEVER BEFORE.** Typing narrows it away like any
+  other chip rather than sticking to the front of a list it does not match.
+- **THE GREEN IS `--bic-green: #146b3a`, PICKED BY MEASUREMENT** rather than by
+  eye: **6.57:1** as white on it (a chosen chip), **5.53:1** as ink on the
+  bar's own pale blue ground (an unchosen one), and **72 deltaE from
+  `--bic-blue`**, so the two read as different colours rather than as two
+  blues. Nine candidates were scored; three cleared white-on but sat under 4.5
+  against the bar.
+- **DECLARED ONCE, AT THE ROOT.** This file redeclares `--bic-blue` in **four**
+  blocks -- two `:root` and one per body class -- and nothing redeclares the
+  green, so it is inherited whichever of them wins. **A second copy of a colour
+  is the drift this repo keeps removing.**
+- **EVERY GREEN DECLARATION IS PAIRED WITH A BLUE ONE**, so what changes is the
+  hue and nothing else: restyling the chip restyles this.
+- **AND THE LIME LEFTOVER WENT WITH IT.** `.is-protected .tag-pill` carried
+  `rgba(119,255,165,.22)` -- the green-on-black canvas theme this page has not
+  worn for months, the same leftover the primary dot carried.
+- **THE COLOUR IS ASSERTED AS A HUE, never against the string `#146b3a`**,
+  which is a value somebody may change: composited over the bar's own ground it
+  has to be **more green than red or blue** and clear **4.5:1**. The colour is
+  read from the RENDERED chip, since a declaration that is present and beaten
+  reads correct in the file.
+- **AND THE FIXTURE HAD `Featured` FIRST ALREADY**, so an assertion that it
+  leads would have passed **without the pin ever running** -- the fixture
+  agreeing with the answer rather than testing it. It sits in the middle now.
+- **ONE OLD ASSERTION WAS CORRECTLY BROKEN.** *"sorted into the list rather
+  than left at the end"* compared the whole rendered order against a sorted
+  copy; with the pin, the new tag is second among the REST. It asks that
+  everything after the pin is in order, which stays true whatever else gets
+  pinned later.
+
+## THE COUNT ON A CHIP NEVER MOVED (2026-09-05)
+
+Reported as *"shouldn't the count on a tag increase by one when chosen?"* --
+and it was true of **every** game. **Measured before anything was changed:
+choosing left `2` at `2`, with the chip correctly filled beside it.**
+
+- **TWO FAULTS THAT CANCELLED, which is why it read as one number simply not
+  updating.** `countGamesWithTag` skipped the open game's stored row and then
+  added one back from `getGameNode()` -- and **this page has no canvas, so that
+  answers null on EVERY game** rather than only on the fourteen with no
+  document. Meanwhile `tagUseRows` follows the write, so the open game IS in
+  the map by the time the count is asked. **Minus one, plus nothing.**
+- **`tagTarget()` IS THE ONE ANSWER TO WHERE A GAME'S TAGS LIVE**, and it is
+  what the picker itself reads -- so the count and the chips can no longer
+  disagree about what the game carries. **The SEVENTH thing in this room to
+  need that correction**, after the anchor event, the city, the two audiences,
+  the name, the tagline and the chips themselves.
+- **THE `type === 'game'` TEST CAME OFF WITH IT.** It was right for a flow node
+  and is wrong for a meta, which carries no type at all -- left in, it would
+  have put the fault straight back on the fourteen nodeless games.
+- **AND THE ARITHMETIC ASSERTION PASSES ON THE BUG, which is said rather than
+  left to be found.** In the harness `getGameNode()` ANSWERS -- the fixture's
+  document carries a game node -- so the broken version's live half still ran
+  and only the NODELESS half reproduced the report. **So the rule is asserted
+  STRUCTURALLY as well**: this function reads `tagTarget()` and never
+  `getGameNode`. That is what generalises, and it is what fails on the restored
+  fault where the numbers do not.
+- **BOTH DIRECTIONS.** Unchoosing takes it off again: a count that only ever
+  grows has stopped describing the catalogue and started describing how many
+  times you pressed the chip. **67 assertions.**
+
+## THE DOT SAYS WHAT IT DOES (2026-09-05)
+
+A footnote under the chips: **the dot picks the primary tag, the one a game card
+shows; `Featured` never gets one; and everything on the bar writes
+`public.games` as you press it.**
+
+- **THE DOT IS A REAL RADIO AND READS AS ONE**, so it invites a press that means
+  something -- and what it means was only ever on a `title`. **A hover is
+  unreachable on a touch screen**, which is the argument that took the Status
+  bubble off this same page an hour after it was written. It is the one thing
+  about this bar nobody can work out by looking.
+- **IT NAMES THE EXCEPTION, which is the half a reader would otherwise hunt
+  for.** `Featured` carries no dot, because the whole page reads that tag to
+  decide whether a game is featured -- it is a switch rather than a subject. A
+  note that explained the dot and not its absence would send somebody looking
+  for a control deliberately not there.
+- **AND THE THIRD SENTENCE IS THE OTHER UNGUESSABLE ONE.** Every other field on
+  this page waits for Save and this bar does not.
+- **UNDER THE CHIPS, NEVER ABOVE**, or it is read before there is anything to
+  read it about. Asserted as geometry.
+
+### QUIET IS COLOUR, AND MY FIRST ASSERTION HAD IT BACKWARDS
+
+It required the note to be **smaller than a chip** and failed with
+`{"note":11.52,"chip":9.92}` -- **on a page that is right.**
+
+- **A CHIP IS A LABEL YOU SCAN AND THE NOTE IS PROSE YOU READ ONCE.** This
+  file's own rule, written for the Tape Room: *a label being quiet is a matter
+  of weight, colour and letter-spacing... it was never a reason to set it too
+  small to read.* The assertion measures **luminance against the bar's own
+  ground** now, with a 10px floor.
+- **AND IT COULD NOT DECLARE ITS OWN `lum`.** The file already has one forty
+  lines down, beside the fill check; a second under that name is a syntax error
+  and a second under another name is two ideas of how bright a colour is. The
+  measurement is taken where the helpers already are.
+- **PROVED BY REMOVING THE NOTE**, where all six fail: `{"there":false}`.
+  **59 assertions.**
+
+## THE CHIPS ARE IN A BOX, AND THE BOX DOES NOT SCROLL (2026-09-05)
+
+`#nodeTagPicker` was `max-height: 184px; overflow-y: auto`, on a comment saying
+**"91 tags is about six rows"**. **Measured it is 28**, so two thirds of the
+pool sat behind a scrollbar -- inside a page that already scrolls, which is the
+wheel meaning two different things an inch apart, and the scroller was the one
+you could not see the edges of.
+
+- **THE FIELD IS UNCAPPED, AND THAT IS HALF THE FIX RATHER THAN A SECOND
+  CHANGE.** `#tagsBar .field` took `--gid-w-line`, the sentence width every
+  other bar caps its value to -- **a box of ninety-one chips is not a
+  sentence**, and at 736px it wrapped to 28 rows where the bar's own 1,154 gives
+  **18**. So the cap was buying nothing and costing ten rows of height.
+- **WHAT IT COSTS, said rather than discovered: the bar is now as tall as the
+  catalogue** (373px), and it grows every time a tag is added. That is the
+  trade the old cap was avoiding, and it is the right one: **a control that
+  hides two thirds of what it offers is worse than a tall one.** If it ever
+  bites, the answer is fewer tags rather than the scrollbar coming back.
+- **IT IS DRAWN AS A BOX** -- a hairline, a 10px radius, 8px of padding and a
+  white ground -- because with the scroll gone nothing said where the chips
+  stopped and the bar began.
+- **BOTH NEW ASSERTIONS ARE MEASURED, NEVER READ OFF THE RULE.** A `border` that
+  is present and beaten reads as correct in the file and wrong on screen. And
+  the box is required to be **as tall as its own rows**, or `overflow: visible`
+  on a box still capped in height would let the chips spill out, pass the
+  no-scroll assertion, and look broken.
+- **RUN AGAINST THE PREVIOUS CSS BOTH FAIL**, naming the real values:
+  `{"scrolls":true,"maxH":"184px"}` and `{"border":0,"radius":0,"pad":2,
+  "bg":"rgba(0, 0, 0, 0)"}`. **53 assertions.**
+
+## A TAG BELONGS TO THE ROW, AND CHOOSING ONE WRITES IT (2026-09-05)
+
+Reported as *"make tags selectable, when selected write to games table"*, which
+is two things. **The first half was a bug.**
+
+### THE BAR WAS DEAD ON 14 OF THE 394 GAMES
+
+`renderTagPicker` took a game NODE and disabled every chip without one --
+**and 14 of the 394 games carry no game node at all**, measured rather than
+assumed. On those the bar was not merely read-only, it was WRONG: `paris2026`
+holds `[Sports, Baseball]` with `Sports` as its primary and the bar drew
+**`0 chosen` with all six chips greyed**, the box and Manage pool dead with
+them.
+
+- **`isGameNode` ASKS ABOUT THE FLOW DOCUMENT; `games.tags` AND
+  `games.primary_tag` ARE COLUMNS ON THE ROW.** This is the SIXTH field in this
+  room to need that correction, after the anchor event, the city, the two
+  audiences, the name and the tagline. **Anything here still gated on
+  `isGameNode` is a candidate for the same fault.**
+- **`tagTarget()` IS THE GAME NODE WHERE THERE IS ONE, THE ROW'S META WHERE
+  THERE IS NOT.** Both are plain objects carrying `tags` and `primaryTag`, so
+  nothing downstream has to know which it got -- and a game WITH a document
+  behaves exactly as it did.
+- **`renderTagPicker` TAKES NO ARGUMENT NOW.** It reads `tagTarget()` itself, so
+  **none of the eleven call sites can pass the wrong object** -- which is what
+  they were doing.
+- **THE TAGS WERE LOST IN `normalizeSavedGame`, and that is the root of it.**
+  That function carries every other flat column and carried neither of these
+  two: `overlayColumnsOntoGameNode` puts columns onto the GAME NODE and
+  **returns the document untouched when there is not one**, so on a nodeless
+  game `tags` fell off the row before `initGameMeta` ever saw it. Both are
+  carried now, and `initGameMeta` reads them `snake ?? camel ?? node`.
+  - **`tags` DEFAULTS TO AN ARRAY, NEVER NULL.** `renderTagPicker` calls `.map`
+    on it, so a null would throw on exactly the games this exists to serve.
+
+### AND CHOOSING WRITES `public.games` STRAIGHT AWAY
+
+**Asked for outright, and it is a real departure**: every other field on these
+bars waits for Save. **The GUIDE bar is the one existing exception and is the
+precedent.**
+
+- **WHAT IT BUYS**: a tag is a fact about the row rather than about the flow
+  document, so there is nothing to keep in step until a Save that may not come.
+  **WHAT IT COSTS: there is no undo.** Unchoosing is the undo, and it is one
+  press.
+- **BOTH COLUMNS TOGETHER, ALWAYS.** `primary_tag` follows the list -- taking
+  off the primary picks a fallback, adding the first tag makes it the primary --
+  so sending one without the other leaves the row naming a primary its own
+  `tags` no longer carries, which is a state no reader can interpret. That is
+  the rule `deleteTagFromPool` already keeps.
+- **LATEST WINS.** A run of quick presses is the ordinary way this is used, and
+  without a token an early reply landing late would repaint the line with a
+  count already out of date.
+- **A GAME NOT YET IN THE DATABASE HAS NO ROW TO PATCH**, so it falls back to
+  what every other field does -- held in memory, written by Save -- rather than
+  reporting a failure for a state that is perfectly ordinary.
+- **`return=representation`, AND AN EMPTY ARRAY IS A REFUSAL.** The chip already
+  shows the new state, so a refused write reported as a success would leave the
+  page and the row disagreeing with nothing to say which is right.
+- **THE RECOVERY DRAFT IS SYNCED WHETHER OR NOT THE WRITE LANDED, and the
+  FAILURE path is the one that needs it.** The message says to press Save, so
+  the change has to survive until somebody does; returning early there would
+  **tell somebody to save something the page had already thrown away.** It is
+  also what marks the document unsaved, which is what lights Save at all.
+- **THE COUNT MAP FOLLOWS THE WRITE**, or the chips would go on quoting the
+  figure the catalogue had when the page loaded.
+
+### AND THE FAILURE MESSAGE WAS WIPED BY THE NEXT REPAINT
+
+Found because the check passed four runs in six. **That is a real bug rather
+than a flaky assertion**: `paintTagTools` writes the count into the same line on
+every render, so a refused write was reported and then erased -- sometimes
+before anybody could read it. **A write that fails without saying so is the
+fault this room already forbids, arriving by a different road: the message was
+written and did not survive.**
+
+- **AN ERROR HOLDS THE LINE UNTIL THE NEXT SUCCESSFUL WRITE**, which is the rule
+  the Tape Room's red pen already keeps: a success clears itself, an error stays
+  until the next action. The count is not news; the message says what to do.
+- **THE PROBE WAITS ON THE CONDITION, NEVER ON A CLOCK.** It slept 500ms and
+  read; it waits for the message now, and for it to clear. **A check that passes
+  only sometimes is worth nothing** -- the next person re-runs it, sees green and
+  deletes the report.
+- **PROVED BY TAKING THE GUARD BACK OUT**, where it fails with `got: "4 chosen"`
+  -- the count having overwritten the message.
+
+**[game-builder-tags.js](mc/_dev/browser-checks/game-builder-tags.js) IS 51 ASSERTIONS AND DRIVES BOTH SHAPES OF GAME.**
+The nodeless one needs its own page load -- the room refuses to reopen the game
+it already has open -- and its fixture is a REAL shape rather than an invented
+one, because a fixture with no stored tags could not have shown the fault.
+
+- **RUN AGAINST THE PREVIOUS BAR IT FAILS ELEVEN WAYS**, naming the report
+  itself: `{"chips":12,"dead":12}` and `and the tags the row carries show as
+  chosen   got: []`.
+- **ONE OLD ASSERTION WAS CORRECTLY REVERSED.** *"and neither writes anything on
+  its own"* was right until the behaviour was asked to change; what it protected
+  survives as the assertion on WHAT is sent.
+
+## THE TAGS BAR IS CHIPS, AND THE POOL IS EDITABLE (2026-09-04)
+
+The chips are the Stop Builder's own, adapted; the box finds a tag or makes
+one; and **Manage pool** brings back deleting a tag, which went on 2026-08-31.
+
+### THE OLD BAR COULD NOT SAY WHICH TAGS WERE ON
+
+**CHOSEN WAS AN 8% TINT OF THE HOUSE BLUE**, so three chosen among 91 were
+indistinguishable from the other 88 at a glance. **Chosen is FILLED now**, which
+is the Stop Builder's own statement and the reason its chips are the pattern to
+copy. **When either room's chips change, change both.**
+
+- **MEASURED, NOT EYEBALLED, AND THE FIRST MEASUREMENT WAS VACUOUS.** The check
+  read `getComputedStyle().backgroundColor` and took the first three numbers --
+  and `rgba(45, 72, 128, 0.08)` and `rgb(45, 72, 128)` carry the SAME three, so
+  **it passed against the very tint it exists to reject.** Composited over the
+  bar's own ground they are **222 and 72**: the old chosen chip sat **33** from
+  an unchosen one and this sits **183**. The assertion requires 90 and fails on
+  the tint naming both numbers.
+- **THE STATE IS `aria-pressed` AS WELL AS A CLASS**, both written from one
+  `isSelected`, so what a screen reader is told cannot drift from the fill.
+- **EVERY CHIP CARRIES ITS USE COUNT.** That is what makes deleting safe to
+  reason about: you can see a tag is on 274 games before you press anything.
+
+### THE PRIMARY DOT WAS A LIME BLOB WELDED TO A SQUARE EDGE
+
+`#94f8ad` on a chip, left over from the green-on-black canvas theme this page
+has not worn for months -- and the pill was `border-radius: 14px 0 0 14px` so
+the dot and the word read as two boxes rather than one chip.
+
+- **THE WRAP IS THE CHIP NOW.** It carries the fill, so the dot, the word, the
+  count and the x all sit inside one rounded object.
+- **IT IS STILL A REAL RADIO.** The browser keeps one-at-a-time and the keyboard
+  reaches it, where a class-only dot would need a hand-rolled exclusion set kept
+  in step with the paint -- a control painted in one place and read in another.
+  It takes the chip's own ink, so there is no second colour to keep in step.
+
+### ONE BOX FINDS A TAG AND MAKES ONE
+
+**91 tags is eighteen rows** -- *"six"* was a guess written here and it was
+wrong by three -- which is past what anybody scans. Typing narrows the chips; a
+word that matches nothing lights **Add** instead.
+
+- **TWO BOXES WOULD BE TWO CONTROLS ANSWERING ONE QUESTION**, and you cannot
+  know which you wanted until you have typed the word.
+- **THE `+` WAS `display:none` IN THIS THEME**, so adding was Enter-only in a
+  box that never said so. It is a worded button, **disabled until the typed word
+  is genuinely new** -- pressing it on an existing tag would look like it had
+  done something and could only ever have chosen it, which is what the chip
+  does.
+  - **THE HIDE RULE BEAT MINE ON SOURCE ORDER, NOT SPECIFICITY.** Both are
+    (0,2,0) and the later one wins; mine sat four thousand lines earlier.
+    **Adding weight to win a tie is how a stylesheet ends up with two rules
+    arguing** -- the wrong rule went instead. It was a sole selector, checked.
+- **A NEW TAG SORTS IN AND IS SCROLLED TO.** Appended, the one list on the page
+  was alphabetical except its last entry; sorted in among 91 it is invisible.
+  **Both halves are needed.**
+
+### MANAGE POOL IS A MODE, AND DELETING IS GLOBAL
+
+Deleting a tag takes it off every game that carries it. It was removed on
+2026-08-31 for being **the widest-reaching control on the page drawn as the
+smallest** -- an x on a pill inside ONE game's editor -- and that reasoning is
+why it is back behind a state change rather than back on the chips.
+
+- **A CLICK CAN NEVER MEAN BOTH `choose this` AND `destroy this everywhere`.**
+  In manage mode the chips stop toggling and grow an x; `Featured` never gets
+  one, because the whole page reads that tag to decide whether a game is
+  featured -- deleting it is breaking a mechanism rather than an editorial call.
+- **THE SAME ACT THE TAGS ROOM DOES, and the two have to keep agreeing**: the
+  word off each game, `primary_tag` cleared where it named the deleted tag, then
+  the catalogue row. A game whose primary is a word nothing else carries is a
+  row no reader can interpret.
+- **THE x WAS 1.73:1 ON A CHOSEN CHIP.** The red pen on the filled blue --
+  measured, against 5.15:1 on a white one -- so **the one place a deletion is
+  most consequential was the one place its control could not be seen.** It is a
+  light salmon at 6.11:1 there, and the assertion fails on the pen with both
+  numbers.
+
+### TWO RESURRECTION PATHS, WHICH ARE WHY THE OLD DELETE WAS REMOVED
+
+A deleted tag came straight back, twice over, with nothing on screen saying so:
+
+- **`ALL_TAGS` HARDCODES 21 OF THE 91 ROWS** and was merged into the pool on
+  every load. **All 21 are in `public.tags` today**, checked rather than assumed,
+  so nothing is lost by reading the table alone -- the constant stands in only
+  when the catalogue cannot be read at all, which is the honest use for it: an
+  empty picker reads as a page that failed rather than as a pool with nothing in
+  it. `tagPoolLoaded` is what tells those two cases apart.
+- **`syncAllTagsFromStore` RE-FILES ANY TAG IT FINDS ON A GAME** straight back
+  into `public.tags`. So the delete strips the word from every in-memory
+  document first; without that the deletion undoes itself on the next sync.
+- **BOTH ARE ASSERTED**, and the store-sync one is driven rather than argued:
+  the check calls `syncAllTagsFromStore()` after the delete and requires the tag
+  to still be gone.
+
+### AND THE COUNT COULD ONLY EVER ANSWER 0 OR 2
+
+`countGamesWithTag` walked `[...state.store.games, state.doc]` -- and
+`state.store` is built as `buildStoreFromGames([targetGame])`, **one game**. So
+it was the open game TWICE: a tag on it read 2, a tag on any other game read 0,
+and no other number was reachable.
+
+- **IT WAS HARMLESS WHILE NOTHING DREW IT.** Now the chip shows it and the
+  delete confirmation is built from it, so it is the number somebody decides an
+  irreversible act with -- and understating it is the worst direction to be
+  wrong in.
+- **`state.headerGames` CANNOT ANSWER EITHER**, which is why this is a read of
+  its own: that list carries every game and its select has no `tags`, and
+  `overlayColumnsOntoGameNode` returns the document untouched when there is no
+  game node -- which header rows, fetched without `nodes`, never have.
+- **ONE ROW PER GAME, `id` AND `tags`.** The stored copy of the open game is
+  skipped and the LIVE one counted, so the number moves as you choose and
+  unchoose rather than describing what was last saved.
+- **A CHIP DRAWS NO NUMBER IT CANNOT STAND BEHIND.** Until the read answers
+  there is no figure, because a `0` on every chip is WRONG rather than not yet
+  known -- and the delete confirmation says the cost could not be read rather
+  than claiming nothing uses it.
+
+**[game-builder-tags.js](mc/_dev/browser-checks/game-builder-tags.js), 37 assertions in real Chrome**, reads stubbed and every
+write caught. **The fixture's second game carries the deleted tag as its
+PRIMARY**, which is the case that needs the extra patch; a fixture where nothing
+uses the tag proves only the easy half.
+
+- **jsdom COULD SEE NONE OF THIS.** `aria-pressed` and the class were both
+  correct on the old bar -- the fault was that nothing on screen distinguished
+  them, and only a computed background can say so.
+- **THE GATE IS WHY IT FAILS BY NAME.** Run against the previous bar it crashed
+  inside `evaluate` on a control that is not there, which names no assertion and
+  stops everything after it -- **the third time this session a harness fault has
+  read as a page fault.** It now reports `{"add":true,"manage":false,...}` and
+  stops deliberately.
+- **AND THE TWENTY-THIRD INSTANCE OF THE ESCAPING SCAR LANDED IN IT.** A
+  backslash-n written through a heredoc into Python arrived as a REAL newline
+  inside a string literal, so the check would not parse -- in a file whose whole
+  job is to fail loudly. `String.fromCharCode(10)`, and a byte scan afterwards.
 
 ## THE GAME BUILDER IS SIX BOXES, AND THE INSPECTOR IS SETTINGS (2026-08-31)
 

@@ -35,10 +35,20 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
      select string_agg(column_name, ',' order by column_name)
        from information_schema.columns
       where table_schema='public' and table_name='games'; */
+/* REFRESHED 2026-09-05: `start` joined the table, and `start_time` and
+   `timezone` came and went the same day -- 2026090501 added them beside the
+   date and 2026090502 collapsed all three into the one jsonb column that was
+   asked for. Both were empty when they were dropped, measured first.
+   AND AGAIN 2026-09-05: `map` is `map_id`. The room has always WRITTEN `map_id`
+   -- `commitMapField` resolves against `public.atlas`, which is keyed by
+   (map_id, stop_order) -- while the table carried a text column called `map`,
+   empty on all 393 rows and read by nothing. So `SUPABASE_GAMES_SCHEMA` had
+   `map_id: false` and the MAP bar saved nothing at all. 2026090503 renamed the
+   column rather than adding one. */
 const REAL = new Set(('accept_any,anchor_event_id,anytime,body,button_url,category_icon,'
   + 'checkout_url,city,created_at,currency,default_emoji,engine,'
-  + 'featured,guide_id,home_team_tgbid,id,link_url,logo_id,map,name,'
-  + 'price,price_cents,primary_tag,rival,state_name,status,tagline,'
+  + 'featured,guide_id,home_team_tgbid,id,link_url,logo_id,map_id,name,'
+  + 'price,price_cents,primary_tag,rival,start,state_name,status,tagline,'
   + 'tags,target,tgb_date,updated_at,var_name'
   ).split(','));
 

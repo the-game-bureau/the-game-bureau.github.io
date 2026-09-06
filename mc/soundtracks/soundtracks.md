@@ -469,6 +469,41 @@ If a check fails, fix it with another call and re-verify.
 
 ---
 
+## 9b. Sweep the catalogue for tracks with no Spotify id
+
+RUN THIS EVERY RUN, after your own checks and before the summary:
+
+    curl -sS -X POST "$B/rpc/tgb_sweep_missing_spotify_ids" \
+      -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"p_limit": 40}'
+
+WHY IT IS A JOB OF ITS OWN. `tgb_pull_soundtrack_songs` refuses a track you
+send with no id, so YOUR tracks always have one. This is about everybody
+else's: a row added by hand in the Tape Room can be saved without one, and the
+audit in step 8 only ever reaches the five tapes you looked at. Without this,
+a track with no id is invisible to everybody until somebody happens to open its
+tape.
+
+WHAT IT DOES, IN TWO PASSES. It CLEARS first: any open `spotify` finding whose
+track has since gained an id is deleted, because that finding now says
+something untrue. Then it FILES: it walks the catalogue oldest-audited first
+and files a `spotify` finding at `warn` for each track that still has none. It
+is idempotent against the audit's own fingerprint, so it never files a second
+copy of something already open, and the limit counts NEW findings rather than
+being spent re-checking.
+
+REPORT BOTH NUMBERS IT ANSWERS WITH -- `filed` AND `cleared` -- in your summary,
+next to the finding count from step 8. `filed` climbing run after run means the
+queue is growing faster than anybody is emptying it; `cleared` is the only sign
+anybody is emptying it at all. One number without the other says half of it.
+
+DO NOT TRY TO FILL THE IDS IN YOURSELF. Verify-or-omit is the oldest rule on
+this table: a fabricated 22 character id passes every check we have and then
+silently plays the wrong thing, or nothing. Filing the finding IS the job here.
+
+---
+
 ## 10. Finish
 
 **Commit nothing.** There is no file to write; Supabase is the only source.

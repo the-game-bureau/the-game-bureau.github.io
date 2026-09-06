@@ -34,7 +34,11 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
 /* SEVEN. The AUDIENCES bar came back on 2026-09-02, and the NAME moved to the
    front of the page the same day -- it sat fifth, so the first four things you
    answered were about a game you had not named yet. */
-const ORDER = ['gameNameBar', 'anchorBar', 'tgbDateBar', 'audienceBar', 'cityBar', 'mapBar',
+/* `tgbDateBar` IS GONE (2026-09-05). The date stopped being a bar of its own
+   and became START -- a date, a time and a timezone -- NESTED inside GAME, so
+   there is no top-level bar to measure and the one that replaced it is measured
+   with its parent. */
+const ORDER = ['gameNameBar', 'anchorBar', 'audienceBar', 'cityBar', 'mapBar',
                'gameIdentityBar', 'guideBar', 'tagsBar'];
 const bars = ORDER.map((id) => doc.getElementById(id)).filter(Boolean);
 if (bars.length !== ORDER.length) {
@@ -64,7 +68,13 @@ const read = (p) => p.evaluate(() => {
   const h = (sel) => { const n = document.querySelector(sel);
     return n ? px(n.getBoundingClientRect().height) : 0; };
   return {
-    bars: [...document.querySelectorAll('.game-id-bar')].map((b) => {
+    /* A BAR IS ONE WHOSE NEAREST BAR ANCESTOR IS ITSELF. Nothing is nested
+       today -- START was a fieldset inside GAME for a day and is a sibling of
+       it since 2026-09-05 -- but the next box to hold a box would be measured
+       as a bar and report the row as broken. */
+    bars: [...document.querySelectorAll('.game-id-bar')]
+      .filter((b) => !b.parentElement || !b.parentElement.closest('.game-id-bar'))
+      .map((b) => {
       const r = b.getBoundingClientRect();
       return { id: b.id, x: px(r.x), w: px(r.width), y: px(r.y), h: px(r.height) };
     }),
@@ -263,6 +273,57 @@ async function realPage(browser) {
          already capped, so a max-width there is a no-op and proves nothing. */
       t('the real page is in canvas mode, where the cap came off', !col.headerOnly,
         col.headerOnly);
+
+      /* ---- THE NAME AND START SHARE A ROW (2026-09-05) ------------------
+         START takes its CONTENT and the name takes what is LEFT, which is a
+         claim about two viewports rather than one: START is the same width at
+         1600 and at 1200 while the name shrinks with the window. A single
+         measurement cannot tell those apart, and `the name is the wider of the
+         two` -- the first assertion written here -- is not the claim at all:
+         START holds four controls and comes out 616 against the name's 552. */
+      const pairAt = async (w) => {
+        await real.setViewport({ width: w, height: 900 });
+        await new Promise((r) => setTimeout(r, 300));
+        return real.evaluate(() => {
+          const box = (sel) => { const el = document.querySelector(sel);
+            if (!el) return null; const r = el.getBoundingClientRect();
+            return { x: Math.round(r.x), w: Math.round(r.width),
+                     y: Math.round(r.y), right: Math.round(r.right) }; };
+          return { pair: box('.gid-pair'), name: box('#gameNameBar'),
+                   start: box('#startBar'), anchor: box('#anchorBar'),
+                   sideways: document.documentElement.scrollWidth
+                     > document.documentElement.clientWidth };
+        });
+      };
+      const wide = await pairAt(1600);
+      const mid = await pairAt(1200);
+      const narrow = await pairAt(900);
+      t('the pair is the same column as the bars below it',
+        wide.pair && wide.anchor && wide.pair.x === wide.anchor.x
+        && wide.pair.w === wide.anchor.w,
+        [wide.pair, wide.anchor]);
+      t('and the two boxes share a top edge',
+        wide.name.y === wide.start.y, [wide.name.y, wide.start.y]);
+      t('and they fill the row between them',
+        wide.name.x === wide.pair.x && wide.start.right === wide.pair.right,
+        wide);
+      /* THE CLAIM ITSELF: START does not move with the window and the name
+         does. */
+      t('START takes its content at both widths',
+        wide.start.w === mid.start.w, [wide.start.w, mid.start.w]);
+      t('and the name takes what is left',
+        mid.name.w < wide.name.w, [wide.name.w, mid.name.w]);
+      /* AND IT WRAPS RATHER THAN SQUEEZING. Under 1000px the name is down to
+         its own floor and START's three controls are already at their own
+         width, so the next thing to give is the row. */
+      t('and under 1000px they stack, each the full row',
+        narrow.name.y < narrow.start.y && narrow.name.w === narrow.pair.w
+        && narrow.start.w === narrow.pair.w, narrow);
+      t('and the page never scrolls sideways at any of the three',
+        !wide.sideways && !mid.sideways && !narrow.sideways,
+        [wide.sideways, mid.sideways, narrow.sideways]);
+      await real.setViewport({ width: 1600, height: 900 });
+      await new Promise((r) => setTimeout(r, 300));
       t('the room head, the nav row and the bars are one column',
         col.head && col.nav && col.bar && col.last
         && col.head.x === col.nav.x && col.nav.x === col.bar.x && col.bar.x === col.last.x

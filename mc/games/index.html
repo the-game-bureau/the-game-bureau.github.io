@@ -396,6 +396,15 @@
   --ink-soft:var(--bic-blue);
   --bic-blue-soft:rgba(var(--bic-blue-rgb), .14);
   --bic-red:#c23737;
+  /* A THIRD PEN, PICKED BY MEASUREMENT rather than by eye: 6.57:1 as white on
+     it (the filled chip), 5.53:1 as ink on the bar's own pale blue ground (an
+     unchosen one), and 72 deltaE from `--bic-blue`, so the two read as
+     different colours rather than as two blues.
+     DECLARED ONCE, AT THE ROOT. This file redeclares `--bic-blue` in four
+     blocks; nothing redeclares this, so it is inherited whichever of them
+     wins. */
+  --bic-green:#146b3a;
+  --bic-green-rgb:20, 107, 58;
   --action-btn-height:80px;
   --eraser-btn-height:68px;
   --eraser-btn-width-factor:1.42;
@@ -1017,6 +1026,20 @@ body.erase-note-open{
   line-height:1.04;
   text-wrap:balance;
   overflow-wrap:anywhere;
+}
+
+/* THE GAME'S NAME IS THE BOLD HALF OF THE QUESTION, so the one thing that
+   differs between two of these dialogs is the thing you read first.
+     700 RATHER THAN LEAVING IT TO `<strong>`. The UA sheet's own rule is
+   `font-weight: bolder`, which is RELATIVE to whatever the paragraph happens to
+   be -- so the name would quietly become 900 the day the message itself gained
+   a weight. An absolute value cannot drift with its parent.
+     ONE RULE, NOT TWO. `.erase-note-message` is written twice in this file, once
+   bare and once under `body.builder-page--editor`; this needs no editor copy,
+   because a declaration on the CHILD beats an inherited value from either of
+   them whatever their specificity. */
+.erase-note-name{
+  font-weight:700;
 }
 
 .erase-note-game{
@@ -3095,8 +3118,12 @@ code{font-family:"IBM Plex Mono",monospace;}
 
 .tag-pill-wrap{display:inline-flex;align-items:stretch;}
 
+/* THE LIME WAS A LEFTOVER from the green-on-black canvas theme this page has
+   not worn for months -- the same leftover the primary dot carried. The
+   protected chip takes the house green now, declared with the other chip rules
+   further down. */
 .tag-pill-wrap.is-protected .tag-pill{
-  border-right:1px solid rgba(119,255,165,.22);
+  border-right:1px solid rgba(var(--bic-green-rgb), .22);
   border-radius:999px;
 }
 
@@ -3160,6 +3187,197 @@ code{font-family:"IBM Plex Mono",monospace;}
    losing side settles a specificity fight. */
 /* OUT OF THE LAYOUT, NOT OUT OF THE DOM. The label draws the dot; this is what
    `:checked`, the keyboard and the change handler still act on. */
+/* THE DOT TAKES THE CHIP'S INK. Drawn on the label rather than the input,
+   which is the fix this file already records: the input carries `appearance:
+   none` and a stronger rule elsewhere sets its height, so nothing it declares
+   about a dot survives. */
+#nodeTagPicker .tag-primary-radio{
+  border:none;background:transparent;padding:0 0 0 9px;
+}
+#nodeTagPicker .tag-primary-radio::before{
+  border-color:rgba(var(--bic-blue-rgb), .45);
+}
+#nodeTagPicker .tag-pill-wrap.is-on .tag-primary-radio::before{
+  border-color:rgba(255,255,255,.6);
+}
+#nodeTagPicker .tag-primary-radio.is-primary::before{
+  background:#fff;border-color:#fff;
+  box-shadow:inset 0 0 0 2px var(--bic-blue);
+}
+#nodeTagPicker .tag-primary-radio:focus-within::before{
+  outline:2px solid #fff;outline-offset:2px;
+}
+
+/* ── THE CHIPS (2026-09-04) ───────────────────────────────────────────────
+   THE STOP BUILDER'S OWN CHIP, adapted. Chosen is FILLED, which is the one
+   thing the old 8% tint could not say: three chosen tags among 91 were
+   indistinguishable from the other 88 at a glance, and the screenshot is the
+   evidence. When either room's chips change, change both.
+
+   THE WRAP IS THE CHIP. It holds the primary dot, the word, the count and (in
+   manage mode) the x, so the rounded object is one thing rather than two boxes
+   welded at a square edge -- which is what the old `border-radius:14px 0 0 14px`
+   was drawing. */
+#nodeTagPicker{
+  display:flex;flex-wrap:wrap;gap:6px;
+  /* IT IS A BOX AND IT DOES NOT SCROLL. It was capped at 184px with
+     `overflow-y:auto`, on a comment that guessed 91 tags at about six rows --
+     MEASURED IT IS 28, so two thirds of the pool were behind a scrollbar
+     inside a page that already scrolls, which is the wheel meaning two things
+     an inch apart. The box grows to hold every chip instead.
+     WHAT THAT COSTS is said rather than discovered: the bar is as tall as the
+     catalogue, so it grows every time a tag is added. That is the trade, and
+     the field being FULL WIDTH is what keeps it affordable -- see the rule
+     that uncaps it. */
+  overflow:visible;
+  border:1px solid rgba(var(--bic-blue-rgb), .18);
+  border-radius:10px;
+  background:rgba(255,255,255,.72);
+  padding:8px;
+}
+/* A FOOTNOTE, drawn in the muted pen at the room's own small size: it is read
+   once and then scanned past, so at the field's own weight it would compete
+   with the chips it is explaining. */
+.tag-note{
+  margin:6px 2px 0;
+  font-size:.72rem;line-height:1.5;
+  color:rgba(var(--bic-blue-rgb), .68);
+  max-width:none;
+}
+.tag-note strong{color:var(--bic-blue);font-weight:700;}
+.tag-note .tag-note-featured{color:var(--bic-green);}
+.tag-note code{font-size:.94em;}
+.tag-note-sep{opacity:.45;padding:0 3px;}
+#nodeTagPicker .tag-pill-wrap{
+  display:inline-flex;align-items:center;
+  border:1px solid rgba(var(--bic-blue-rgb), .22);
+  border-radius:999px;background:#fff;
+  box-shadow:0 8px 18px rgba(var(--bic-blue-rgb), .06);
+  overflow:hidden;
+}
+#nodeTagPicker .tag-pill-wrap.is-on{
+  background:var(--bic-blue);border-color:var(--bic-blue);
+  box-shadow:0 8px 18px rgba(var(--bic-blue-rgb), .18);
+}
+
+/* FEATURED IS THE GREEN PEN, and the colour does the same job as the position:
+   it is the one tag the page itself reads, so it is not one of the ninety
+   subjects beside it. It also carries no primary dot -- a chip missing a
+   control its neighbours have wants to look deliberate rather than broken.
+   EVERY DECLARATION IS PAIRED WITH A BLUE ONE ABOVE, so what changes is the
+   hue and nothing else. */
+/* THE RULE ITSELF. A hairline rather than a typed `|`: this file's own bars
+   already separate their halves that way, and a pipe would inherit the chip's
+   type and sit a pixel off the row it divides.
+   IT IS THE HOUSE BLUE, NOT THE GREEN (2026-09-05). The green is the chip's
+   own colour and belongs to `Featured`; the rule is not part of that chip, it
+   is the box saying where the pin stops -- so it takes the pen every other
+   divider in this project takes. Drawn a shade stronger than the chip borders
+   beside it (.34 against .22), or a line between two outlined objects reads as
+   one of their edges. */
+#nodeTagPicker .tag-sep{
+  align-self:stretch;
+  width:1px;margin:2px 4px;
+  background:rgba(var(--bic-blue-rgb), .34);
+}
+
+#nodeTagPicker .tag-pill-wrap.is-protected{
+  border-color:rgba(var(--bic-green-rgb), .34);
+  box-shadow:0 8px 18px rgba(var(--bic-green-rgb), .08);
+}
+#nodeTagPicker .tag-pill-wrap.is-protected .tag-pill{color:var(--bic-green);}
+#nodeTagPicker .tag-pill-wrap.is-protected .tag-n{
+  color:rgba(var(--bic-green-rgb), .62);
+}
+#nodeTagPicker .tag-pill-wrap.is-protected .tag-pill:hover{
+  background:rgba(var(--bic-green-rgb), .09);color:var(--bic-green);
+}
+#nodeTagPicker .tag-pill-wrap.is-protected .tag-pill:focus-visible{
+  outline-color:var(--bic-green);
+}
+#nodeTagPicker .tag-pill-wrap.is-protected.is-on{
+  background:var(--bic-green);border-color:var(--bic-green);
+  box-shadow:0 8px 18px rgba(var(--bic-green-rgb), .22);
+}
+#nodeTagPicker .tag-pill-wrap.is-protected.is-on .tag-pill{color:#fff;}
+#nodeTagPicker .tag-pill-wrap.is-protected.is-on .tag-pill:hover{
+  background:rgba(255,255,255,.14);color:#fff;
+}
+#nodeTagPicker .tag-pill-wrap.is-protected.is-on .tag-n{color:rgba(255,255,255,.74);}
+#nodeTagPicker .tag-pill{
+  border:none;border-radius:0;background:transparent;box-shadow:none;
+  padding:5px 10px;color:var(--bic-blue);
+  display:inline-flex;align-items:baseline;gap:6px;
+}
+#nodeTagPicker .tag-pill-wrap.is-on .tag-pill{color:#fff;}
+#nodeTagPicker .tag-pill:hover{background:rgba(var(--bic-blue-rgb), .08);color:var(--bic-blue);}
+#nodeTagPicker .tag-pill-wrap.is-on .tag-pill:hover{background:rgba(255,255,255,.14);color:#fff;}
+#nodeTagPicker .tag-pill:focus-visible{outline:2px solid var(--bic-blue);outline-offset:-2px;}
+/* THE COUNT IS WHAT MAKES DELETING SAFE TO REASON ABOUT. `Sports 382` says
+   what a deletion would cost before anybody presses anything, and it is the
+   only thing on the chip that is a fact about the CATALOGUE rather than about
+   this game. */
+#nodeTagPicker .tag-n{
+  font-weight:500;font-size:.58rem;letter-spacing:.02em;
+  color:rgba(var(--bic-blue-rgb), .55);
+}
+#nodeTagPicker .tag-pill-wrap.is-on .tag-n{color:rgba(255,255,255,.72);}
+
+/* THE x, ONLY IN MANAGE MODE. It is a sibling of the chip's button rather than
+   inside it: a button inside a button is invalid HTML that browsers disagree
+   about, which is the same reason the Stop Builder's field doors sit outside
+   their labels. */
+#nodeTagPicker .tag-kill{
+  border:none;background:transparent;cursor:pointer;
+  padding:5px 9px 5px 3px;line-height:1;
+  font:700 .72rem/1 "IBM Plex Mono",monospace;
+  color:#b44d3f;
+}
+#nodeTagPicker .tag-kill:hover{background:rgba(180,77,63,.12);}
+/* THE x ON A CHOSEN CHIP IS A LIGHT SALMON, NOT THE RED PEN. Measured: the pen
+   is 1.73:1 on the filled chip and 5.15:1 on a white one -- so the one place a
+   deletion is most consequential was the one place its control could not be
+   seen. This is 6.11:1, and it is still unmistakably the warm destructive
+   colour rather than the chip's own ink. */
+#nodeTagPicker .tag-pill-wrap.is-on .tag-kill{color:rgb(255,201,190);}
+#nodeTagPicker .tag-pill-wrap.is-on .tag-kill:hover{background:rgba(255,255,255,.16);}
+#nodeTagPicker .tag-kill:focus-visible{outline:2px solid #b44d3f;outline-offset:-2px;}
+
+/* MANAGE MODE SAYS SO ON THE PICKER ITSELF. A mode you cannot see is a mode
+   somebody presses out of. */
+#nodeTagPicker.is-managing{
+  border:1px dashed rgba(180,77,63,.45);border-radius:12px;
+  background:rgba(180,77,63,.04);
+}
+
+.tag-tools{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin-bottom:8px;
+}
+.tag-tools #nodeTagNewInput{flex:0 1 260px;min-width:140px;width:auto;}
+.tag-count{
+  font:600 .62rem/1.2 "IBM Plex Mono",monospace;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);
+}
+.tag-manage-btn{
+  min-height:32px;padding:0 12px;
+  border:1px solid rgba(180,77,63,.28);border-radius:14px;
+  background:rgba(255,255,255,.9);color:#b44d3f;
+  font:700 .62rem/1 "IBM Plex Mono",monospace;
+  letter-spacing:.05em;text-transform:uppercase;cursor:pointer;
+}
+.tag-manage-btn:hover{background:rgba(255,240,236,.96);border-color:rgba(180,77,63,.42);}
+.tag-manage-btn[aria-pressed="true"]{background:#b44d3f;border-color:#b44d3f;color:#fff;}
+.tag-manage-btn:disabled{opacity:.42;cursor:not-allowed;}
+/* AND THE `+` IS A WORDED BUTTON AGAIN. This theme hid it outright, so the one
+   way to add a tag was pressing Enter in a box that never said so. */
+body.builder-page--editor .tag-add-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:32px;padding:0 12px;
+  font:700 .62rem/1 "IBM Plex Mono",monospace;
+  letter-spacing:.05em;text-transform:uppercase;
+}
+
 #nodeTagPicker .tag-primary-radio input{
   position:absolute !important;
   inset:0 !important;
@@ -7330,8 +7548,13 @@ body.builder-page--editor #nodeTagNewInput{
   font-size:.6rem;
 }
 
-body.builder-page--editor .tag-add-btn{
-  display:none;
+/* THE BOX HOLDS A TAG, SO IT IS THE WIDTH OF A TAG. Left to grow it took the
+   whole row, which reads as an input that has lost its neighbours -- the same
+   fault the bars above this one were measured for. */
+body.builder-page--editor .tag-tools #nodeTagNewInput{
+  flex:0 1 280px;
+  min-height:32px;
+  font-size:.62rem;
 }
 
 body.builder-page--editor .details-section{
@@ -7597,6 +7820,71 @@ body.builder-page--editor .gid-field--anchor{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor #mapBar .gid-field--map{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--name{ flex:0 1 var(--gid-w-line); }
 body.builder-page--editor .gid-field--city{ flex:0 1 var(--gid-w-name); }
+/* THE DATE IS AS WIDE AS A DATE. `date` inputs draw mm/dd/yyyy and a spinner,
+   which is about 150px -- so it takes its own width and never the slack, or a
+   ten-character value would stretch across the rest of the row. */
+/* THE NAME AND START ARE TWO BOXES ON ONE ROW.
+     THE ROW CARRIES THE MEASURE, not the boxes. `.game-id-bar` is `width:100%`
+   with `max-width` and auto margins -- the centred-column recipe -- which is
+   right for a bar that owns its line and wrong for one sharing a row: both
+   would ask for the full column. So the row takes those three declarations and
+   the boxes inside it give them up.
+     THE SHARES ARE CLASSES. `.gid-pair-grow` takes the slack and
+   `.gid-pair-fit` takes its content -- and neither is an id, which is the whole
+   lesson the deleted `.gid-row` left behind: it set its shares by id, so its
+   own wrap query lost the tie and the row never wrapped.
+     `min-width: 0` ON BOTH, or a long value inside a flex item refuses to
+   shrink and pushes the row wider than the page.
+     IT WRAPS UNDER 1000px, where the name is down to about 24rem and the three
+   START controls are already at their own width -- so the next thing to give
+   is the row. */
+body.builder-page--editor .gid-pair{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  gap:0 12px;
+  width:100%;
+  max-width:min(var(--mc-shell-width, 1180px), calc(100vw - 32px));
+  margin-left:auto;
+  margin-right:auto;
+}
+body.builder-page--editor .gid-pair > .game-id-bar{
+  width:auto;
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+}
+body.builder-page--editor .gid-pair > .gid-pair-grow{ flex:1 1 24rem; min-width:0; }
+body.builder-page--editor .gid-pair > .gid-pair-fit{ flex:0 1 auto; min-width:0; }
+@media (max-width: 1000px){
+  body.builder-page--editor .gid-pair > .game-id-bar{ flex:1 1 100%; }
+}
+body.builder-page--editor .start-row{ gap:8px; align-items:flex-end; }
+body.builder-page--editor .start-row .gid-field{ flex:0 0 auto; gap:3px; }
+/* THE LABELS ARE THE ROOM'S OWN FIELD LABEL, quiet and above the control.
+   Three unlabelled boxes in a row is three boxes you have to click to tell
+   apart -- and only the date and the time draw their own format. */
+body.builder-page--editor .start-label{
+  font:600 .58rem/1.2 'IBM Plex Mono', monospace;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(var(--bic-blue-rgb), .62);
+}
+/* EACH AS WIDE AS WHAT IT HOLDS. A `date` draws mm/dd/yyyy and a spinner, a
+   `time` draws hh:mm plus AM/PM, and a zone is a name like
+   `America/Los_Angeles` -- so none of them is sized by the row. */
+body.builder-page--editor #tgbDateField input{ width:auto; min-width:150px; }
+/* THE TWO SELECTS READ AS ONE CLOCK. A colon between them and no gap, so the
+   pair is `1 PM : 30` rather than two unrelated dropdowns that happen to sit
+   together. */
+body.builder-page--editor .start-clock{
+  display:inline-flex;align-items:center;gap:2px;
+}
+body.builder-page--editor .start-colon{
+  color:rgba(var(--bic-blue-rgb), .5);font-weight:700;padding:0 1px;
+}
+body.builder-page--editor #startHour{ min-width:86px; }
+body.builder-page--editor #startMinute{ min-width:74px; }
+body.builder-page--editor #startZoneField input{ width:auto; min-width:172px; }
 /* THE NAME KEEPS ITS CAP. It took the slack for the hour the ID shared this
    row; with the ID up on the legend the box holds one field again, and a lone
    control the width of the room reads as an input that has lost its neighbour
@@ -7619,15 +7907,6 @@ body.builder-page--editor .gid-field--audience{ flex:1 1 0; min-width:0; }
 body.builder-page--editor .gid-city-row{
   display:flex; align-items:center; gap:10px; min-width:0; flex-wrap:wrap;
   flex:1 1 100%;
-}
-/* QUIET, AND IT NEVER SHRINKS THE FIELD. `flex:0 0 auto` so the example keeps
-   its own width and the box beside it keeps its cap; `nowrap` because a
-   two-word example broken across lines reads as a value rather than a hint. */
-body.builder-page--editor .gid-example{
-  flex:0 0 auto;
-  white-space:nowrap;
-  font:500 0.68rem/1.35 'IBM Plex Mono', monospace;
-  color:var(--muted, rgba(255,255,255,.62));
 }
 /* AND THE TWO FIELDS IN THE GAME BOX THAT WERE FULL WIDTH. `.field--wide` is
    the class the tagline and the intro carry, and it meant `1 / -1` -- the whole
@@ -7753,7 +8032,11 @@ body.builder-page--editor .gid-field--icon{ flex:0 1 var(--gid-w-name); }
 body.builder-page--editor .gid-field--icon{ flex-direction:row; align-items:center; gap:8px; }
 body.builder-page--editor .gid-field--icon select{ flex:1 1 auto; min-width:0; }
 body.builder-page--editor #descriptionField{ max-width:var(--gid-w-read); }
-body.builder-page--editor #tagsBar .field{ max-width:var(--gid-w-line); }
+/* EVERY OTHER BAR CAPS ITS FIELD TO THE SHAPE OF ITS VALUE -- a sentence, a
+   short phrase, a key. A BOX OF NINETY-ONE CHIPS IS NONE OF THOSE: capped at
+   `--gid-w-line` it wrapped to 28 rows where the bar's own width gives about
+   18, so the cap was buying nothing and costing ten rows of height. */
+body.builder-page--editor #tagsBar .field{ max-width:none; }
 /* `min-width: 0`, or a long value inside a flex item refuses to shrink and
    pushes the row wider than the bar. */
 /* AND THE PAIR STACKS ON A NARROW WINDOW, because two fields side by side is
@@ -10590,7 +10873,50 @@ html.admin-embedded .builder-section-head{
            Fans Takeover Phoenix" -- and went with the markup; no id, no
            handler, nothing left to resolve. So the name is typed or it is
            nothing, and nothing saves as "Untitled Game". -->
-      <fieldset class="game-id-bar" id="gameNameBar">
+      <!-- THE ANCHOR EVENT LEADS THE ROOM (2026-09-05), asked for outright.
+           IT REVERSES `THE NAME LEADS` (2026-09-02), which moved the name up
+           from fifth on the argument that the first four things you answered
+           were all about a game you had not named yet. That is true and it is
+           outranked by what the anchor now DOES: choosing one REFILLS both
+           audiences, so it has to be answered before them or the guess arrives
+           after somebody has typed over it.
+             AND IT RESTORES THE OLDER ORDER, which read: what brought people to
+           the city, then who the game is for, then where they walk. The name is
+           second now rather than fifth, so what the 2026-09-02 move was really
+           fixing -- a name buried under four other questions -- is still fixed.
+             IT IS ON ITS OWN LINE AND EARNS THE WIDTH: an event label is a
+           whole sentence (a date, a kind, and two clubs or a title). -->
+      <fieldset class="game-id-bar" id="anchorBar">
+        <!-- THE LEGEND IS THE DOOR (2026-08-31). It is the one label on this
+             page worth following: an anchor event is filed in another room, so
+             you meet this field, find the event you want is not on the list,
+             and the way to make it is the word you are already looking at.
+
+             SAME TAB, which is what the button it replaces did: filing an
+             event is leaving rather than glancing, and a same-tab navigation
+             fires `beforeunload` -- so this gets the page's existing
+             unsaved-work warning with no new code. -->
+        <legend><a class="gid-label-link" id="anchorEventRoomLink" href="/mc/events/">Anchor Event</a></legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--anchor" id="anchorEventField">
+            <!-- NO LABEL ABOVE THE BOX. The legend already says ANCHOR EVENT
+                 and this is the only field under it, so a label reading `Event`
+                 was the box named twice a few pixels apart. The input keeps an
+                 `aria-label`, or it would be a control with no name at all for
+                 a screen reader -- a legend names the GROUP, not the field. -->
+            <div class="gid-anchor-row">
+              <input id="anchorEventInput" type="text" list="anchorEventList"
+                     autocomplete="off" spellcheck="false" disabled
+                     aria-label="Anchor event"
+                     placeholder="Type or tap here to choose an existing Anchor Event.">
+        </div>
+      </fieldset>
+
+      <!-- THE NAME AND START SHARE A ROW. `.gid-pair` carries the measure
+           the bars below it carry individually, so the two boxes together
+           start and end where every other bar does. -->
+      <div class="gid-pair">
+      <fieldset class="game-id-bar gid-pair-grow" id="gameNameBar">
         <!-- THE ID SITS ON THE LEGEND LINE (2026-09-02), immediately right of
              the word GAME. It is the row's permanent key rather than a field
              you fill in, so it reads as part of the box's own title -- and the
@@ -10630,67 +10956,116 @@ html.admin-embedded .builder-section-head{
         </div>
       </fieldset>
 
-      <!-- THE ANCHOR EVENT IS ON ITS OWN LINE AND IT COMES FIRST (2026-08-31).
-           It shared a row with the audience and the map for a day, on the
-           argument that the three answer one question in three parts. They do,
-           and the anchor is still the FIRST of them -- what brought people to
-           the city, before who the game is for and which walk they take -- so
-           giving it the full width says it is answered first rather than
-           alongside.
-           IT ALSO EARNS THE WIDTH ON ITS OWN: an event label is a whole
-           sentence (a date, a kind, and two clubs or a title), and it now
-           carries a NEW button beside it. -->
-      <fieldset class="game-id-bar" id="anchorBar">
-        <!-- THE LEGEND IS THE DOOR (2026-08-31). It is the one label on this
-             page worth following: an anchor event is filed in another room, so
-             you meet this field, find the event you want is not on the list,
-             and the way to make it is the word you are already looking at.
-
-             SAME TAB, which is what the button it replaces did: filing an
-             event is leaving rather than glancing, and a same-tab navigation
-             fires `beforeunload` -- so this gets the page's existing
-             unsaved-work warning with no new code. -->
-        <legend><a class="gid-label-link" id="anchorEventRoomLink" href="/mc/events/">Anchor Event</a></legend>
-        <div class="game-id-bar-inner">
-          <div class="gid-field gid-field--anchor" id="anchorEventField">
-            <!-- NO LABEL ABOVE THE BOX. The legend already says ANCHOR EVENT
-                 and this is the only field under it, so a label reading `Event`
-                 was the box named twice a few pixels apart. The input keeps an
-                 `aria-label`, or it would be a control with no name at all for
-                 a screen reader -- a legend names the GROUP, not the field. -->
-            <div class="gid-anchor-row">
-              <input id="anchorEventInput" type="text" list="anchorEventList"
-                     autocomplete="off" spellcheck="false" disabled
-                     aria-label="Anchor event"
-                     placeholder="Type or tap here to choose an existing Anchor Event.">
-        </div>
-      </fieldset>
-
-      <!-- THE DATE THE GAME IS PLAYED (2026-09-02), directly under the name
-           because the two together are what identify a game. 394 games carry
-           only 325 distinct names -- a baseball series is one game per day for
-           three days, twice a season -- so the name alone names no game and the
-           DATE is what tells them apart. The picker's label says both.
-
-           TYPED BY HAND. Nothing derives it and no trigger maintains it.
-           NEXT: suggest the anchor event's own start date MINUS ONE, since our
-           game is played the day before the thing that brought people to town.
-           A suggestion, never a write -- and it needs anchor events attached
-           first, which 0 of the 97 same-named games have today.
-
-           A `date` INPUT, so the browser draws its own picker and its value is
-           already the yyyy-mm-dd the column stores. NO LABEL: the legend names
-           the one field under it, and the aria-label is what keeps it named for
-           a screen reader, since a legend is not an accessible name. -->
-      <fieldset class="game-id-bar" id="tgbDateBar">
-        <legend>Game Date</legend>
-        <div class="game-id-bar-inner">
-          <div class="gid-field gid-field--date" id="tgbDateField">
+      <!-- START IS ITS OWN BOX, BESIDE THE NAME (2026-09-05). It was NESTED
+           inside the name's box for a day -- a fieldset in a fieldset, which is
+           legal and read as a box drawn inside another box rather than as two
+           boxes answering two questions.
+             THE PAIR IS ONE ROW AND THE BOXES ARE SIBLINGS. `.gid-pair` is the
+           flex row and it carries the page's own measure, so the two together
+           line up with every bar below them.
+             THE NAME TAKES THE SLACK AND START TAKES ITS CONTENT. A date, a
+           clock and a zone are all fixed-width controls, so there is no slack
+           for START to want; a name is a sentence and there is never enough.
+             THE SHARES ARE SET BY CLASS, NEVER BY ID, and that is the one
+           lesson the deleted `.gid-row` left behind: it named its boxes by id,
+           so its own wrap query written as `> .game-id-bar` lost the tie and
+           the row never wrapped. An id beats a class whatever the media query.
+             MOVED, NEVER COPIED. Every id came across whole -- `tgbDate`,
+           `startHour`, `startMinute`, `startZone` and the datalist -- so the
+           writer, the reader and all the wiring needed no edit. What DID have
+           to move is the hiding: START rode on `gameNameBar`'s own `hidden`
+           while it was inside it, and a sibling is on screen with no game open
+           until something says otherwise. -->
+      <fieldset class="game-id-bar gid-pair-fit" id="startBar">
+        <legend>Start</legend>
+        <div class="game-id-bar-inner start-row">
+          <!-- EACH FIELD IS LABELLED, unlike the name beside it. That box
+               holds ONE field under a legend reading Game, where a label
+               would be the box named twice; this one holds THREE and one
+               legend cannot name any of them. Same call the AUDIENCES box
+               makes. -->
+          <label class="gid-field gid-field--date" id="tgbDateField">
+            <span class="start-label">Date</span>
             <input id="tgbDate" type="date" autocomplete="off"
                    aria-label="Game date" disabled>
-          </div>
+          </label>
+          <!-- A MINUTE DROPDOWN, WHICH A `time` INPUT CANNOT GIVE.
+               `step="900"` was the previous answer and it is not one: it
+               makes an off-quarter minute FAIL VALIDATION and nudges the
+               spinner, but the browser still draws its own control and
+               Chrome still lets a minute be typed or scrolled. **The only
+               way to show exactly three minutes is to be the dropdown.**
+                 TWO SELECTS UNDER ONE LABEL, so the pair still reads as one
+               field. The stored value is unchanged -- `HH:MM` inside
+               `games.start` -- and the composing happens in
+               `syncStartControlsToMeta`, which is where the date and the
+               zone are already composed.
+                 WHAT IT COSTS, said rather than discovered: the native time
+               picker goes, and with it the phone's own time wheel and
+               typing `130p`. That is the price of a list that can only
+               offer what it offers.
+                 00, 15 AND 30 -- NOT 45. Asked for twice, the second time
+               narrower than the first; the option is one line if it comes
+               back. A stored 45 is NOT thrown away: see `applyStartControls`,
+               which puts an off-list minute back as an option of its own
+               rather than silently rounding somebody's start time. -->
+          <label class="gid-field gid-field--time" id="startTimeField">
+            <span class="start-label">Time</span>
+            <span class="start-clock">
+              <select id="startHour" aria-label="Start hour" disabled></select>
+              <span class="start-colon" aria-hidden="true">:</span>
+              <select id="startMinute" aria-label="Start minute" disabled>
+                <option value="">--</option>
+                <option value="00">00</option>
+                <option value="15">15</option>
+                <option value="30">30</option>
+              </select>
+            </span>
+          </label>
+          <!-- A LIST, NOT A FREE BOX, and not a CHECK on the column either.
+               An IANA name is the one thing here nobody types correctly
+               from memory, and a zone the server does not hold is a value
+               that renders as nothing. The list is the zones this catalogue
+               plausibly needs; anything else is still typeable, because a
+               game played somewhere new must not be refused by a dropdown
+               written today. -->
+          <label class="gid-field gid-field--zone" id="startZoneField">
+            <span class="start-label">Timezone</span>
+            <input id="startZone" type="text" autocomplete="off" list="startZoneList"
+                   aria-label="Timezone" placeholder="America/Chicago" disabled>
+          </label>
+          <!-- THE VALUE IS THE IANA NAME AND THE LABEL IS WHAT PEOPLE
+               CALL IT. A datalist option shows both, so the list reads
+               `America/Chicago  Central` while what is STORED is still
+               the only form that survives a clock change -- an offset or
+               `CST` would not, and `CST` means two different things
+               depending on the hemisphere. -->
+          <datalist id="startZoneList">
+            <option value="America/New_York">Eastern</option>
+            <option value="America/Chicago">Central</option>
+            <option value="America/Denver">Mountain</option>
+            <option value="America/Phoenix">Mountain, no DST</option>
+            <option value="America/Los_Angeles">Pacific</option>
+            <option value="America/Anchorage">Alaska</option>
+            <option value="Pacific/Honolulu">Hawaii</option>
+            <option value="America/Toronto">Eastern, Canada</option>
+            <option value="America/Vancouver">Pacific, Canada</option>
+            <option value="America/Mexico_City">Central, Mexico</option>
+            <option value="America/Sao_Paulo">Brasilia</option>
+            <option value="Europe/London">UK</option>
+            <option value="Europe/Dublin">Ireland</option>
+            <option value="Europe/Paris">Central European</option>
+            <option value="Europe/Madrid">Central European</option>
+            <option value="Europe/Berlin">Central European</option>
+            <option value="Australia/Melbourne">Australian Eastern</option>
+            <option value="Australia/Sydney">Australian Eastern</option>
+          </datalist>
         </div>
       </fieldset>
+      </div>
+
+
+      
 
       <!-- AUDIENCES: WHO THE GAME IS FOR, AND WHO THEY ARE UP AGAINST.
            Two plain text boxes over two plain text columns -- `games.target`
@@ -10756,8 +11131,6 @@ html.admin-embedded .builder-section-head{
       <fieldset class="game-id-bar" id="cityBar">
         <legend>Game City</legend>
         <div class="game-id-bar-inner">
-          <!-- THE FIELD AND ITS EXAMPLE SHARE A LINE, so the row is the thing
-               that wraps rather than the field growing a second line. -->
           <div class="gid-city-row">
           <div class="gid-field gid-field--city" id="cityField">
             <!-- NO LABEL ABOVE THE BOX: the legend says CITY and this is the
@@ -10768,9 +11141,15 @@ html.admin-embedded .builder-section-head{
             <input id="nodeCityInput" type="text" autocomplete="off"
                    aria-label="City" placeholder="Chicago, IL" disabled>
           </div>
-          <!-- `aria-hidden`: it is an EXAMPLE, not a second name for the
-               control. Read aloud after the field own label it would be one. -->
-          <span class="gid-example" id="cityExample" aria-hidden="true">ex.: New Orleans, LA</span>
+          <!-- NO `ex.: New Orleans, LA` (2026-09-05). The PLACEHOLDER already
+               teaches the shape -- `Chicago, IL` -- and it is inside the box
+               where the shape matters, so the example beside it was the same
+               lesson twice a few pixels apart.
+                 WHAT IT COSTS: the placeholder disappears the moment anybody
+               types, which is exactly when the shape still matters, and that
+               was the argument for having both. The box holds the WHOLE place
+               and `parseGeo` reads the state half back out of it, so a bare
+               city loses the state silently. -->
           </div>
         </div>
       </fieldset>
@@ -10974,7 +11353,7 @@ html.admin-embedded .builder-section-head{
            to. `/games/` reads `default_emoji` first and `category_icon` second,
            so a row can carry either, both or neither. -->
       <fieldset class="game-id-bar" id="emojiBar">
-        <legend>Default Emoji</legend>
+        <legend>Emoji</legend>
         <div class="game-id-bar-inner">
           <div class="gid-field gid-field--emoji" id="defaultEmojiField">
             <input id="nodeDefaultEmojiInput" type="text" autocomplete="off" aria-label="Default emoji" disabled>
@@ -10985,7 +11364,7 @@ html.admin-embedded .builder-section-head{
       <!-- THE INFO BUBBLE STAYS: it says which icon the PUBLIC card takes,
            which the legend does not. -->
       <fieldset class="game-id-bar" id="categoryIconBar">
-        <legend>Category Icon</legend>
+        <legend>Icon</legend>
         <div class="game-id-bar-inner">
           <div class="gid-field gid-field--icon" id="categoryIconField">
             <select id="nodeCategoryIconInput" autocomplete="off" aria-label="Category icon" disabled>
@@ -11170,14 +11549,48 @@ html.admin-embedded .builder-section-head{
         <legend>Tags</legend>
         <div class="game-id-bar-inner">
           <!-- NO LABEL AND NO BUBBLE. The legend says TAGS and this is the only
-               field under it. The bubble described the radio dot and the delete
-               button: the button is gone, and a dot you cannot see without
-               hovering is a dot that needs drawing rather than explaining. -->
+               field under it.
+
+               ONE BOX DOES THE FINDING AND THE ADDING (2026-09-04). The pool is
+               91 tags, which is past what anybody scans, so the box NARROWS the
+               chips as you type -- and a word that matches nothing lights Add
+               instead. Two boxes for "find one" and "make one" would be two
+               controls answering one question, and you cannot know which you
+               wanted until you have typed the word.
+
+               THE `+` WAS `display:none` IN THIS THEME, so adding was
+               Enter-only and undiscoverable. It is a worded button now, and it
+               is disabled until the typed word is genuinely new -- a button
+               that silently does nothing is worse than one that is off.
+
+               MANAGE POOL IS A MODE, DELIBERATELY. Deleting a tag takes it off
+               every game that carries it, which is the widest-reaching act on
+               this page; it was removed on 2026-08-31 for being drawn as an x
+               on a pill inside ONE game's editor. It is back because it was
+               asked for, and it is behind a state change so a click can never
+               mean both `choose this` and `destroy this everywhere`. -->
           <div class="field" id="tagsField">
-            <div class="tag-picker" id="nodeTagPicker">
-              <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" aria-label="New tag" disabled>
-              <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
+            <div class="tag-tools">
+              <input id="nodeTagNewInput" type="text" placeholder="Find a tag, or type a new one" autocomplete="off" aria-label="Find a tag, or type a new one" disabled>
+              <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>Add</button>
+              <button type="button" class="tag-manage-btn" id="nodeTagManageBtn" aria-pressed="false" disabled>Manage pool</button>
+              <span class="tag-count" id="nodeTagCount" aria-live="polite"></span>
             </div>
+            <div class="tag-picker" id="nodeTagPicker"></div>
+            <!-- THE DOT NEEDED SAYING OUT LOUD. It is a real radio and it read
+                 as one, so it invites a press that means something -- and what
+                 it means was only ever on a `title`, which is unreachable on a
+                 touch screen and easy to miss on any screen. This is the one
+                 thing about the bar nobody can work out by looking.
+                 IT ALSO NAMES THE EXCEPTION. `Featured` carries no dot, because
+                 the whole page reads that tag to decide whether a game is
+                 featured -- so somebody hunting for one on it would otherwise
+                 be looking for a control that is deliberately not there. -->
+            <p class="tag-note" id="nodeTagNote">The dot on a chosen tag picks
+              the <strong>primary tag</strong>, the one a game card shows. One
+              per game. <span class="tag-note-sep">&middot;</span> Games with
+              the <strong class="tag-note-featured">featured</strong> tag appear
+              at the top of some pages.</p>
           </div>
         </div>
       </fieldset>
@@ -11648,7 +12061,15 @@ const SUPABASE_GAMES_SCHEMA = {
   home_team_key: false,
   venue_name: false,
   venue_city: false,
-  map_id: false,
+  /* `map_id` WAS OFF BECAUSE THE COLUMN WAS CALLED SOMETHING ELSE. The room
+     has always written `map_id` -- `commitMapField` resolves the typed label
+     against `public.atlas`, which is keyed by (map_id, stop_order) -- and
+     `public.games` carried a text column called `map`, empty on all 393 rows
+     and read by nothing. So the flag took the map out of every select AND out
+     of every PATCH, and the box accepted a map that went nowhere.
+       2026090503 RENAMED THE COLUMN rather than adding one: nothing to migrate,
+     no reader anywhere, and `map` said nothing about what it held. */
+  map_id: true,
   tagline: true,
   featured: true,
   city: true,
@@ -11670,17 +12091,22 @@ const SUPABASE_GAMES_SCHEMA = {
 
      AND A COLUMN IS TURNED OFF AT RUNTIME, BY `markMissingGamesColumn()`. A
      400 naming a column is parsed by `getMissingGamesColumnName` and the name
-     is set `false` HERE -- which is a sensible guard against a database that is
-     behind the code, and has exactly one nasty property:
+     is set `false` HERE -- a sensible guard against a database that is behind
+     the code, with one nasty property: **it is set by a failed READ and it also
+     silences the WRITE**, so a column the read cannot see is then omitted from
+     every save for the rest of the session, in silence.
 
-       THE READ IS AGAINST THE VIEW AND THE WRITE IS AGAINST THE TABLE.
+     THE READ AND THE WRITE ARE BOTH AGAINST `public.games` NOW.
+     `games_with_graph_and_teams` and `games_with_teams` were dropped, and
+     `SUPABASE_GAMES_GRAPH_VIEW` is the string `'games'` -- so the read/write
+     asymmetry this comment used to warn about is gone with them. **What is left
+     is the name**: a column the room writes under one name and the table
+     carries under another is switched off by the guard and never saves, which
+     is exactly what `map_id` did until 2026090503 renamed `games.map`.
 
-     So a column present on `games` and missing from `games_with_graph_and_teams`
-     is switched off by a failed READ and then silently OMITTED FROM EVERY SAVE
-     for the rest of the session.
-
-     SO WHEN A COLUMN WILL NOT SAVE, CHECK THE VIEW BEFORE THE WRITE PATH.
-     2026083124 and 2026083125 put every column the room writes onto the view.
+     SO WHEN A COLUMN WILL NOT SAVE, CHECK THE TABLE'S OWN COLUMN LIST FIRST.
+     `game-builder-columns.js` compares this map against a committed snapshot of
+     it for that reason.
 
      (An earlier version of this comment said no such function existed. It does;
      I had grepped for the wrong name.) */
@@ -11688,6 +12114,7 @@ const SUPABASE_GAMES_SCHEMA = {
   anchor_event_id: true,
   target: true,
   tgb_date: true,
+  start: true,
   rival: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
@@ -11701,6 +12128,11 @@ let builderAdminAuth = null;
 // Load tags from Supabase on startup
 let allTags = [...ALL_TAGS];
 let supabaseTags = [];
+/* FALSE UNTIL `public.tags` HAS ANSWERED. Until then `ALL_TAGS` is what the
+   picker draws, so the room is usable against a database it cannot reach --
+   and the moment the real pool lands it replaces the constant outright rather
+   than being merged with it. */
+let tagPoolLoaded = false;
 
 async function loadTagsFromSupabase() {
   try {
@@ -11723,16 +12155,21 @@ async function loadTagsFromSupabase() {
 
     const data = await response.json();
     if (Array.isArray(data) && data.length > 0) {
-      const seenLower = new Set(ALL_TAGS.map(t => t.toLowerCase()));
-      const merged = [...ALL_TAGS];
+      /* THE TABLE IS THE POOL. Nothing is merged in from the constant, which
+         is what lets a deleted tag stay deleted. */
+      const seenLower = new Set();
+      const names = [];
       data.forEach(row => {
-        if (row.name && !seenLower.has(row.name.toLowerCase())) {
-          seenLower.add(row.name.toLowerCase());
-          merged.push(row.name);
+        const name = row && row.name;
+        if (name && !seenLower.has(name.toLowerCase())) {
+          seenLower.add(name.toLowerCase());
+          names.push(name);
         }
       });
-      supabaseTags = merged.slice(ALL_TAGS.length);
-      allTags = merged.sort((a, b) => a.localeCompare(b));
+      supabaseTags = names;
+      allTags = [...names].sort((a, b) => a.localeCompare(b));
+      tagPoolLoaded = true;
+      renderTagPicker();
     }
   } catch (err) {
     console.warn('Error loading tags from Supabase:', err);
@@ -12209,6 +12646,12 @@ function serializeGameRow(game, index = 0) {
   if (SUPABASE_GAMES_SCHEMA.tgb_date !== false) {
     payload.tgb_date = rowColumnValue(normalizedGame.tgbDate);
   }
+  /* THE OBJECT, OR NULL -- never `{}`. `rowColumnValue` is for strings and
+     would turn an object into one; a jsonb column takes the object as it is,
+     and an all-blank START is an absence rather than an empty shape. */
+  if (SUPABASE_GAMES_SCHEMA.start !== false) {
+    payload.start = normalizedGame.start || null;
+  }
   if (SUPABASE_GAMES_SCHEMA.anchor_event_id !== false) {
     payload.anchor_event_id = (gameNode.anchorEventId || normalizedGame.anchor_event_id) || null;
   }
@@ -12245,6 +12688,7 @@ function normalizeGameRow(row, index = 0) {
     anchor_event_id:       row && row.anchor_event_id,
     target:                row && row.target,
     tgbDate:               row && row.tgb_date,
+    start:                 row && row.start,
     rival:                 row && row.rival,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
@@ -12323,6 +12767,7 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
        boxes. Both were in no select list at all until this was found. */
     'target',
     'tgb_date',
+    'start',
     'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
@@ -12421,6 +12866,7 @@ async function loadHeaderGameStoreFromSupabase() {
       'archived',
       'status',
       'tgb_date',
+      'start',
       'created_at',
       'updated_at'
     ]));
@@ -12469,6 +12915,7 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
        boxes. Both were in no select list at all until this was found. */
     'target',
     'tgb_date',
+    'start',
     'rival',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
@@ -12819,9 +13266,63 @@ async function unarchiveGameInSupabase(gameId) {
   return setGameArchivedStateInSupabase(gameId, null);
 }
 
+/* DELETE MEANS DELETE (2026-09-05). It PATCHed `games.erased`, and that column
+   was dropped -- so every press answered
+   `PGRST204 Could not find the 'erased' column of 'games'` and nothing
+   happened. Reported as exactly that, with `delete should really delete`.
+
+   SO THE ROW GOES, AND SO DOES EVERYTHING KEYED TO IT. All six foreign keys
+   into `games.id` are ON DELETE CASCADE, read off `pg_constraint` rather than
+   assumed: `game_nodes`, `game_node_links`, `anytime_replies`,
+   `gift_shop_items`, `gift_shop_listings` and `photo_submissions` -- and that
+   last one is the Winner's Wall. THE CONFIRMATION COUNTS THEM BEFORE IT ASKS,
+   because that is the half nobody can see from the button.
+
+   `return=representation`, AND AN EMPTY ARRAY IS A REFUSAL. PostgREST answers
+   200 with `[]` when RLS refuses a delete, so without reading the row back a
+   refused delete reports success and the game vanishes from the page until a
+   reload brings it straight back. */
 async function eraseGameInSupabase(gameId) {
-  return setGameErasedStateInSupabase(gameId, ERASED_GAME_VALUE);
+  const targetId = String(gameId || '').trim();
+  if (!targetId || !hasSupabaseStore()) {
+    return { serverSaved: false, savedGame: null,
+             error: new Error('Supabase is not configured.') };
+  }
+  try {
+    const response = await fetch(buildSupabaseUrl({ id: 'eq.' + targetId }), {
+      method: 'DELETE',
+      headers: getSupabaseHeaders({ Prefer: 'return=representation' })
+    });
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase delete failed.');
+    }
+    const rows = await response.json();
+    if (!Array.isArray(rows) || !rows.length) {
+      throw new Error('The database refused the delete, so nothing was removed.');
+    }
+    return { serverSaved: true, error: null, savedGame: null, deleted: true };
+  } catch (error) {
+    return { serverSaved: false, savedGame: null, error };
+  }
 }
+
+/* NO `countGameCascade` (2026-09-05). It counted what a delete takes with it
+   and named the four tables it could read, and the confirmation was shortened
+   the same day -- so the counter went with the sentence, per the standing rule
+   that a control and its code go in one pass.
+
+   WHAT THE QUESTION NO LONGER SAYS, written down here rather than lost: all six
+   foreign keys into `games.id` are ON DELETE CASCADE -- `game_nodes`,
+   `game_node_links`, `anytime_replies`, `gift_shop_items`,
+   `gift_shop_listings` and **`photo_submissions`, which is the Winner's Wall
+   and whose 17 rows are ALL game-linked.** A delete reaches every one of them
+   and nothing on screen says so.
+
+   AND THE ONE THING WORTH KEEPING IF IT COMES BACK: `public.game_nodes` has RLS
+   ON AND NO POLICIES AT ALL, so a browser read comes back empty whoever is
+   asking -- and a refused read and an empty table are the same answer through
+   PostgREST. This room never loads the graph either. So the flow could be NAMED
+   and never counted; a zero would have been the reassuring lie. */
 
 async function createGameInSupabase(game) {
   if (!hasSupabaseStore()) {
@@ -13327,8 +13828,133 @@ const GAME_ROW_TEXTBOXES = [
        A `date` INPUT NEEDS NO SPECIAL HANDLING: the browser's value is
      yyyy-mm-dd and PostgREST hands a `date` column back in the same form, so
      paint and sync are the same two lines as the other two. */
-  { field: 'tgbDate', input: 'tgbDate', column: 'tgb_date' }
+  /* THE DATE LEFT THIS LIST ON 2026-09-05. It is one third of `games.start`
+     now, and this mechanism is one box over one column -- see
+     `applyStartControls` and `syncStartControlsToMeta`, which are the shape
+     this page already uses for the city. */
 ];
+
+/* THREE CONTROLS, ONE STORED VALUE (2026-09-05). `games.start` is a jsonb
+   object -- {"date","time","timezone"} -- so the boxes compose it on the way in
+   and are painted from it on the way out. That is `applyGeoControls`'s own
+   shape, and for the same reason: several controls making one column.
+     A `date` INPUT AND A `time` INPUT BOTH SPEAK THE STORED FORM -- yyyy-mm-dd
+   and hh:mm -- so neither needs converting, which is most of why the object
+   holds strings rather than a timestamp.
+     AN EMPTY PART IS OMITTED, NEVER STORED AS ''. A blank time and no time are
+   the same fact and only one of them is a value; and with all three blank the
+   column is NULL rather than an empty object, so `start is null` means what it
+   says. */
+/* 13:07 BECOMES 13:00. `step="900"` makes an off-quarter time invalid and
+   the browser refuses it in the picker, but a value can still be typed or
+   pasted -- and an invalid field reads as empty to `.value`, which would lose
+   what somebody meant rather than correcting it. Rounded DOWN, never to the
+   nearest: a start time is a promise, and moving one forward is the direction
+   that makes somebody late. */
+/* THE HOURS ARE BUILT RATHER THAN WRITTEN OUT. 24 hand-typed options is 24
+   chances to mistype one, and the label is a pure function of the value.
+   THE VALUE IS 24-HOUR AND THE LABEL IS 12-HOUR, because `games.start.time`
+   stores `13:30` and nobody says thirteen. */
+function buildStartHours() {
+  const sel = document.getElementById('startHour');
+  if (!sel || sel.options.length) return;
+  sel.appendChild(new Option('--', ''));
+  for (let h = 0; h < 24; h += 1) {
+    const hh = String(h).padStart(2, '0');
+    const twelve = (h % 12) || 12;
+    sel.appendChild(new Option(twelve + (h < 12 ? ' AM' : ' PM'), hh));
+  }
+}
+buildStartHours();
+
+function quarterHour(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const parts = raw.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return '';
+  const mm = Math.floor(Math.min(59, Math.max(0, m)) / 15) * 15;
+  const hh = Math.min(23, Math.max(0, h));
+  return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+
+function startObjectFrom(meta) {
+  const out = {};
+  const date = String((meta && meta.startDate) || '').trim();
+  const time = String((meta && meta.startTime) || '').trim();
+  const zone = String((meta && meta.startZone) || '').trim();
+  if (date) out.date = date;
+  if (time) out.time = quarterHour(time);
+  if (zone) out.timezone = zone;
+  return Object.keys(out).length ? out : null;
+}
+
+function applyStartControls(meta) {
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    /* NEVER WRITTEN WHILE IT HAS FOCUS, or a repaint mid-edit yanks the value
+       out from under the cursor -- the guard the Game ID box has carried since
+       2026-08-10 and the name box needed after it. */
+    if (!el || document.activeElement === el) return;
+    el.value = value || '';
+  };
+  set('tgbDate', meta ? meta.startDate : '');
+  set('startZone', meta ? meta.startZone : '');
+
+  /* THE CLOCK IS SPLIT ACROSS TWO SELECTS. A stored `13:45` has no option in a
+     list of 00, 15 and 30 -- and a select with no matching option shows its
+     FIRST one, so painting it would silently change somebody's start time to
+     `13:00` on the next save. IT IS GIVEN AN OPTION OF ITS OWN INSTEAD, marked,
+     which is the rule the Route Builder already keeps for a challenge whose
+     scope no longer offers it. */
+  const hourSel = document.getElementById('startHour');
+  const minSel = document.getElementById('startMinute');
+  const stored = String((meta && meta.startTime) || '').trim();
+  const hh = stored.slice(0, 2);
+  const mm = stored.slice(3, 5);
+  if (hourSel && document.activeElement !== hourSel) hourSel.value = hh || '';
+  if (minSel && document.activeElement !== minSel) {
+    [...minSel.querySelectorAll('option[data-odd]')].forEach((o) => o.remove());
+    if (mm && ![...minSel.options].some((o) => o.value === mm)) {
+      const odd = new Option(mm + '  (not offered)', mm);
+      odd.dataset.odd = '1';
+      minSel.appendChild(odd);
+    }
+    minSel.value = mm || '';
+  }
+}
+
+function syncStartControlsToMeta() {
+  /* THE META, NOT THE NODE. `games.start` is a column on the ROW, and
+     `isGameNode` is false on every game in this room. */
+  if (!state.currentGameMeta) return;
+  const read = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+  const m = state.currentGameMeta;
+  m.startDate = read('tgbDate');
+  /* AN HOUR WITH NO MINUTE IS NOT A TIME, and neither is a minute with no
+     hour -- so the pair composes a value or nothing. `quarterHour` still runs
+     over it, which is belt for the one case the selects cannot produce: a
+     stored off-list minute the reader chose to keep. */
+  const hourNow = read('startHour');
+  const minNow = read('startMinute');
+  m.startTime = (hourNow && minNow) ? (hourNow + ':' + minNow) : '';
+  m.startZone = read('startZone');
+}
+
+['tgbDate', 'startHour', 'startMinute', 'startZone'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  /* `input` AND `change`. A `date` and a `time` fire `change` when the browser
+     picker is used and `input` when they are typed into, and neither alone
+     catches both. */
+  const touched = () => { syncStartControlsToMeta(); scheduleUpdateActionUi(); };
+  el.addEventListener('input', touched);
+  el.addEventListener('change', touched);
+});
 
 /* PAINT FROM THE META, AND IT TAKES ONE RATHER THAN READING `state` -- that is
    `applyGeoControls`'s own shape, and for the same reason: the caller knows
@@ -13582,7 +14208,10 @@ async function commitLogoField() {
   if (next === String(state.currentGameMeta.logoId || '').trim()) return;
   state.currentGameMeta.logoId = next;
   paintLogoField();
-  if (!hasSupabaseStore()) { markDirty(); return; }
+  /* `scheduleUpdateActionUi`, NEVER `markDirty` -- there is no such function on
+     this page, and calling it THREW. Here it is the no-Supabase path, so it had
+     been latent; in `commitMapField` below it is the ordinary one. */
+  if (!hasSupabaseStore()) { scheduleUpdateActionUi(); return; }
   try {
     setLogoPickStatus('Saving...');
     const url = buildSupabaseUrl({ id: 'eq.' + state.currentGameId }, 'games');
@@ -13615,7 +14244,12 @@ function commitMapField() {
   }
   input.removeAttribute('data-invalid');
   state.currentGameMeta.mapId = resolved;
-  markDirty();
+  /* `markDirty` DOES NOT EXIST, and this threw on every map committed. The
+     assignment above had already landed, so the map still SAVED -- what died
+     is everything after it, including the repaint, so the note and the field
+     went on describing the map you had just moved away from. **A throw one
+     line past the write is the quietest way to half-apply a change.** */
+  scheduleUpdateActionUi();
   paintMapField();
 }
 
@@ -13854,48 +14488,22 @@ function populateGuideSelect() {
   nodeGuideSelect.value = cur;
 }
 
-/* GUIDE_ID IS READ FROM public.games, NOT FROM THE VIEW THIS PAGE LOADS.
-   Games arrive through games_with_graph_and_teams, which is built on
-   games_with_graph — and that one is `select game.*`, expanded and FROZEN when
-   the view was created in June 2026. guide_id was added to the table on
-   2026-08-09, so the view has never carried it and never will until it is
-   dropped and recreated (create-or-replace cannot insert a column ahead of
-   `nodes` and `links`, so it fails rather than updating).
+/* NO `ensureCurrentGameGuideId` (2026-09-05). It fetched `guide_id` one row and
+   one column at a time from the base table, because the room used to read
+   `games_with_graph_and_teams` -- a view built on `select game.*`, expanded and
+   FROZEN when it was created in June 2026, so a column added to the table on
+   2026-08-09 could never appear in it.
 
-   Selecting it from the view therefore 400s the entire games fetch, and the
-   page's missing-column recovery does not catch it: that regex looks for
-   PostgREST's "could not find the X column" wording, while a view raises
-   42703 "column ... does not exist". One dead column would have taken the
-   whole editor down.
+   BOTH HALVES OF THAT ARE GONE. The views were dropped: `SUPABASE_GAMES_GRAPH_VIEW`
+   is the string 'games', so the read is against the table and `guide_id` is in
+   its select list and in `initGameMeta`. The row carries the value.
 
-   So it is fetched per game, one row and one column, from the base table.
-   Cached per id: this runs from the inspector's paint path, which fires far
-   more often than a game is opened. If the views are ever rebuilt with
-   guide_id in them, this becomes a no-op rather than a bug - the row already
-   carries the value and the fetch never fires. */
-const resolvedGuideIdGames = new Set();
+   AND IT HAD NEVER RUN IN THIS ROOM ANYWAY. Its one caller was
+   `if (isGameNode) ensureCurrentGameGuideId();` -- the flow DOCUMENT, which
+   this room never loads -- so the guard that was meant to make it cheap made it
+   unreachable. Which is also the reason removing it is safe: the guide has been
+   arriving with the row all along. */
 
-async function ensureCurrentGameGuideId() {
-  const gameId = state && state.currentGameId;
-  if (!gameId || !state.currentGameMeta || !hasSupabaseStore()) return;
-  if (String(state.currentGameMeta.guideId || '')) return;
-  if (resolvedGuideIdGames.has(gameId)) return;
-  resolvedGuideIdGames.add(gameId);
-  try {
-    const url = buildSupabaseUrl({ select: 'guide_id', id: 'eq.' + gameId }, 'games');
-    const res = await fetch(url, { headers: getSupabaseHeaders() });
-    if (!res.ok) return;
-    const rows = await res.json();
-    const value = Array.isArray(rows) && rows[0] && rows[0].guide_id != null ? String(rows[0].guide_id) : '';
-    if (!value) return;
-    // The editor may have moved to another game while this was in flight.
-    if (state.currentGameId !== gameId || !state.currentGameMeta) return;
-    state.currentGameMeta.guideId = value;
-    populateGuideSelect();
-    showGuidePortrait(value);
-    syncGuideGreenroomLink();
-  } catch (e) { /* the picker simply stays on "no guide" */ }
-}
 
 function setGuidePickStatus(message, state_ = '') {
   if (!guidePickStatus) return;
@@ -13964,7 +14572,12 @@ async function showGuidePortrait(guideId) {
 }
 
 async function applyGuideSelection() {
-  if (!nodeGuideSelect || !getGameNode() || !state.currentGameMeta) return;
+  /* THE ROW'S META, NEVER THE FLOW NODE. `guide_id` is a column on
+     `public.games` and this room never loads the graph, so `getGameNode()` is
+     null on every game -- the picker filled from `public.guides`, the change
+     fired, and this returned before writing anything. That is what
+     `pull guides from the guide table and save guide id` was reporting. */
+  if (!nodeGuideSelect || !state.currentGameMeta) return;
   const raw = String(nodeGuideSelect.value || '').trim();
   const nextId = raw ? Number(raw) : null;
   const prevId = state.currentGameMeta.guideId;
@@ -14151,13 +14764,152 @@ function shortPlace(canonical) {
   return code ? (name + ', ' + code) : whole;
 }
 
+/* WHO A SIDE OF A FIXTURE IS, IN THE WORDS THE COLUMN ALREADY HOLDS.
+   `games.target` and `games.rival` are PROSE since 2026090203 -- 366 rows, all
+   of them `full_name || ' fans'` -- so there is nothing to resolve against and
+   nothing to look up: the guess is composed from the event's own two halves.
+
+   AND THAT IS EXACT, MEASURED RATHER THAN ASSUMED. Across every fixture on
+   file, `away_team_geo || ' ' || away_team_nickname` equals the matching
+   `audiences.full_name`:
+
+       fixtures with clubs                       272
+       both sides resolve to an audience         272
+       composed string differs from full_name      0
+
+   SO IT NEEDS NO SECOND READ, and that is the reason to compose rather than to
+   join `public.audiences`: a lookup would cost 640 rows and could answer
+   NOTHING for a club the table does not carry, which is worse than a plausible
+   sentence. The column holds prose; a key would be a different design.
+
+   AN UNNAMED SIDE ANSWERS EMPTY, never a half-built string. A concert and a
+   convention name no clubs at all, and `Chicago  fans` is not a guess. */
+function audienceFromEventSide(ev, side) {
+  if (!ev) return '';
+  const geo = String(ev[side + '_team_geo'] || '').trim();
+  const nick = String(ev[side + '_team_nickname'] || '').trim();
+  if (!nick) return '';
+  return (geo ? geo + ' ' + nick : nick) + ' fans';
+}
+
+/* CHOOSING AN EVENT REFILLS BOTH AUDIENCES (2026-09-05), asked for as
+   `when a new anchor event is chosen, repopulate audiences with best guess`.
+
+   THE AWAY CLUB IS THE TARGET AND THE HOME CLUB IS THE RIVAL. That is the
+   standing rule rather than a new one: a game is pitched at the travelling
+   fandom, and the club they are surrounded by is who they are up against.
+
+   IT OVERWRITES, WHICH REVERSES THE FILL-A-BLANK RULE THE OLD PREFILL KEPT.
+   `repopulate` is the ask and it is what makes the control useful -- filling
+   only blanks would do NOTHING on a game that already has audiences, which is
+   every game that has ever been anchored, and would read as broken.
+     WHAT THAT COSTS, said rather than discovered: a hand-typed audience is
+   replaced by changing the event. **Nothing is saved by choosing one** -- the
+   change arms Save like any other edit -- so the way back is to close the game
+   without saving.
+
+   AN EVENT THAT NAMES NO CLUBS CHANGES NOTHING. Clearing both because somebody
+   anchored a game to a concert would be destructive rather than a guess, and a
+   side named alone fills that side only.
+
+   AND ONLY ON A CHANGE OF EVENT. `resolveTypedEvent` runs on change AND on
+   blur, so it re-resolves the SAME id whenever the box is left -- without this
+   guard, tabbing past the anchor would quietly rewrite both audiences from the
+   event every time. */
+function refillAudiencesFromEvent(ev) {
+  if (!ev || !state.currentGameMeta) return;
+  const target = audienceFromEventSide(ev, 'away');
+  const rival = audienceFromEventSide(ev, 'home');
+  if (!target && !rival) return;
+  if (target) state.currentGameMeta.target = target;
+  if (rival) state.currentGameMeta.rival = rival;
+  paintRowTextboxes(state.currentGameMeta);
+}
+
+/* THE DAY BEFORE, AT THE SAME CLOCK, IN THE VENUE'S OWN ZONE.
+   ==========================================================================
+   ASKED FOR AS: auto populate start with anchor event start minus 24 hours.
+   **THAT IS THE PRODUCT RULE, NOT AN ARBITRARY OFFSET.** A TGB game is played
+   the day BEFORE its anchor -- visitors are already in town with an afternoon
+   free -- so the event's own kickoff, a day earlier, is the best guess there is.
+
+   THE DATE ARITHMETIC IS UTC AND HAS TO BE. `start_date` is a CALENDAR date,
+   and a local `Date` crossing a DST boundary lands on 23 or 25 hours -- so the
+   day would drift by one. **This project has recorded that twice**, in the
+   events room's week headings and in its split arithmetic.
+
+   SO IT IS 24 HOURS EXCEPT ACROSS A CLOCK CHANGE, WHERE IT IS THE SAME CLOCK
+   RATHER THAN THE SAME ELAPSED TIME -- and that is the right reading for a
+   start time. A poster says `1pm Saturday`; nobody wants 12pm because the
+   clocks went back overnight. It is real rather than hypothetical: US DST ends
+   2026-11-01, so every event on that date takes its guess from 2026-10-31.
+
+   THE ZONE COMES ACROSS TOO, and it is what makes the clock mean anything.
+   `events.start_time` is the clock OUTSIDE THE VENUE and `events.timezone` is
+   the IANA name beside it (2026090301) -- all 272 events carry both. Copying
+   the time and not the zone would put a number in a box with nothing to say
+   which clock it is on.
+
+   IT CARRIES THE MINUTE EXACTLY AND DOES NOT ROUND. A kickoff is `17:20:00`
+   and the Time picker offers 00, 15 and 30 -- so this REGULARLY produces a
+   minute the list does not hold, which `applyStartControls` draws as
+   `20  (not offered)`. That mechanism was written for exactly this, and the
+   marked option is the page saying the value did not come from the list.
+   **Rounding is one line if it is ever wanted**, and it would change the answer
+   from the one that was asked for.
+
+   `start_time` ARRIVES WITH SECONDS. PostgREST hands a `time` column back as
+   `17:20:00` and `games.start.time` holds `HH:MM`, so it is sliced -- the same
+   slice `initGameMeta` already makes on the way in from the row. */
+function startFromEventStart(ev) {
+  if (!ev) return null;
+  const date = String(ev.start_date || '').trim().slice(0, 10);
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) return null;
+  const parts = date.split('-').map(Number);
+  const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  d.setUTCDate(d.getUTCDate() - 1);
+  const before = d.toISOString().slice(0, 10);
+  return {
+    date: before,
+    time: String(ev.start_time || '').trim().slice(0, 5),
+    timezone: String(ev.timezone || '').trim()
+  };
+}
+
+/* AND IT FILLS THE THREE BOXES THE SAME WAY THE AUDIENCES ARE FILLED.
+   IT OVERWRITES, on a change of event only, for the reason the audience refill
+   does: filling a blank would do nothing on a game that already has a start,
+   which is 351 of the 393. **Nothing is saved by choosing an event**, so the
+   way back is closing the game without saving.
+     AN EVENT WITH NO USABLE DATE CHANGES NOTHING. There is none on file today
+   -- all 272 carry all three -- but a date is the one part that cannot be
+   guessed around, and clearing a start because an event lacks one would be
+   destructive rather than a guess.
+     AN ABSENT TIME OR ZONE IS WRITTEN AS EMPTY RATHER THAN SKIPPED, because
+   the three are one stored value: leaving yesterday's clock beside the new
+   event's date is a start time nobody chose. */
+function refillStartFromEvent(ev) {
+  if (!ev || !state.currentGameMeta) return;
+  const start = startFromEventStart(ev);
+  if (!start) return;
+  state.currentGameMeta.startDate = start.date;
+  state.currentGameMeta.startTime = start.time;
+  state.currentGameMeta.startZone = start.timezone;
+  applyStartControls(state.currentGameMeta);
+}
+
 function applyAnchorEventSelection(nextId) {
   /* THE META, NOT THE NODE. A game opened from the picker always has meta; it
      does not always have a game node, and the link is a column on the row. */
   if (!state.currentGameMeta) return;
   const id = String(nextId || '');
+  const changed = id !== String(state.currentGameMeta.anchorEventId || '');
   state.currentGameMeta.anchorEventId = id;
   const ev = id ? builderAnchorEventsById.get(id) : null;
+  if (changed) {
+    refillAudiencesFromEvent(ev);
+    refillStartFromEvent(ev);
+  }
   /* IT RECORDS THE LINK AND FILLS THE CITY. IT NO LONGER COPIES THE CLUBS
      (2026-09-02), and that is the shape rather than a casualty: a game holds
      the anchor event's ID and the clubs are read THROUGH it, instead of being
@@ -14169,7 +14921,16 @@ function applyAnchorEventSelection(nextId) {
      session, gone on the next load, which is worse than never setting them.
        THE CITY IS DIFFERENT AND IS STILL COPIED. games.city exists, it is what
      a game is sold as being IN, and a person edits it afterwards. */
-  fillCityFromEvent(ev);
+  /* THE CITY IS NOT PULLED FROM THE ANCHOR EVENT (2026-09-05). Asked for
+     outright: `it is an empty text box, pulled from nowhere`.
+     WHAT THAT GIVES UP, said rather than discovered: choosing an event used to
+     fill a blank city from `events.venue_city`, which is the canonical
+     `City, ST` string this box wants -- so a fixture-anchored game got its
+     city for free and correctly. It is typed now.
+     WHAT IT BUYS is that one box has ONE writer. The fill only ever touched a
+     blank, but it meant a field somebody was about to type in could change
+     under them from a control three boxes up. */
+  // fillCityFromEvent(ev);   // deliberately not called; see above.
   scheduleRecoverySync();
   scheduleUpdateActionUi();
 }
@@ -14285,6 +15046,13 @@ const coordinatesGenerateBtn = document.getElementById('coordinatesGenerateBtn')
 const nodeTagPicker = document.getElementById('nodeTagPicker');
 const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
+const nodeTagManageBtn = document.getElementById('nodeTagManageBtn');
+const nodeTagCount = document.getElementById('nodeTagCount');
+/* MANAGE MODE IS PAGE STATE, NOT PER GAME. It is about the POOL, which every
+   game shares, so remembering it against a game would make it mean something
+   it does not. It is deliberately not persisted either: a destructive mode
+   that survives a reload is one somebody comes back into without knowing. */
+let tagPoolManaging = false;
 const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInfo = document.getElementById('nodeBodyInfo');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
@@ -14327,7 +15095,16 @@ const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('va
 const selectionIdInput = document.getElementById('selectionIdInput');
 const gameIdentityBar = document.getElementById('gameIdentityBar');
 const gameNameBar = document.getElementById('gameNameBar');
-const tgbDateBar = document.getElementById('tgbDateBar');
+/* START IS A SIBLING OF THE NAME NOW, so it needs its own `hidden`. It rode on
+   `gameNameBar` while it was nested inside it; out here that gate reaches
+   nothing, and the box would sit on screen with no game open. */
+const startBar = document.getElementById('startBar');
+/* NO `tgbDateBar` ANY MORE. The date moved onto the name's row on 2026-09-05,
+   so the bar it had is gone -- and `getElementById` on a deleted id answers
+   null, which `refreshSelectionUi` would then assign `.hidden` to. That throws,
+   takes the rest of the render with it INCLUDING the auth call, and
+   `admin-shell.css` hides every child of `body.mc-auth-protected` until that
+   runs: a completely blank page. The field is hidden with the name's bar now. */
 const taglineBar = document.getElementById('taglineBar');
 const emojiBar = document.getElementById('emojiBar');
 const categoryIconBar = document.getElementById('categoryIconBar');
@@ -14397,6 +15174,7 @@ const nodeEls = new Map();
 
 // Load tags from Supabase asynchronously
 loadTagsFromSupabase().catch(err => console.warn('Failed to initialize tags:', err));
+loadTagCountsFromSupabase().catch(err => console.warn('Failed to count tag use:', err));
 loadMinigameManifest().catch(err => console.warn('Failed to initialize minigames:', err));
 
 let phoneClockTimer = null;
@@ -18000,6 +18778,12 @@ function getDocSnapshot(doc = state.doc) {
          the meta takes the box, and the button never lights. */
       target: meta.target || '',
       tgbDate: meta.tgbDate || '',
+      /* THE THREE PARTS, NOT THE COMPOSED OBJECT. `hasUnsavedChanges` compares
+         this snapshot as JSON, and an object would compare by identity rather
+         than by value -- so a changed time would not light Save. */
+      startDate: meta.startDate || '',
+      startTime: meta.startTime || '',
+      startZone: meta.startZone || '',
       rival: meta.rival || '',
       /* WITHOUT THESE TWO, TYPING AN AUDIENCE LEAVES SAVE DEAD. `hasUnsavedChanges`
          compares this snapshot, so a field the snapshot does not read is a field
@@ -18392,9 +19176,18 @@ function getCurrentGameColors() {
 
 function initGameMeta(game) {
   const g = game && typeof game === 'object' ? game : {};
+  /* TAGS ARE READ HERE SO A GAME WITH NO FLOW NODE HAS SOMEWHERE TO KEEP THEM.
+     14 of the 394 games are that shape, and before this the picker had nothing
+     to read on them: `paris2026` carries two tags and the bar said none. */
   // Fall back to the game node in nodes[] for localStorage/legacy data that predates flat columns
   const nodes = Array.isArray(g.nodes) ? g.nodes : [];
   const gn = nodes.find(n => n && n.type === 'game') || {};
+  const metaTags = Array.isArray(g.tags) ? g.tags
+    : (Array.isArray(g.gameTags) ? g.gameTags
+      : (Array.isArray(gn.tags) ? gn.tags : []));
+  const metaPrimaryTag = typeof g.primary_tag === 'string' ? g.primary_tag
+    : (typeof g.primaryTag === 'string' ? g.primaryTag
+      : (typeof gn.primaryTag === 'string' ? gn.primaryTag : ''));
   const startingLocationPlusCode = normalizeLongPlusCode(
     g.starting_location_plus_code ?? g.startingLocationPlusCode ?? gn.startingLocationPlusCode ?? gn.starting_location_plus_code ?? ''
   );
@@ -18406,6 +19199,12 @@ function initGameMeta(game) {
     ? Number(g.starting_location_lon)
     : (typeof g.startingLocationLon === 'number' ? g.startingLocationLon : (gn.startingLocationLon ?? null));
   return {
+    /* THE PICKER READS AND WRITES THESE TWO on a game with no flow node, which
+       is 14 of the 394. `tags` is deliberately an ARRAY rather than a string:
+       `renderTagPicker` calls `.map` on it, so a null here would throw on
+       exactly the games this exists to serve. */
+    tags:                 metaTags,
+    primaryTag:           metaPrimaryTag,
     body:                 g.body            ?? gn.body            ?? '',
     tagline:              g.tagline         ?? gn.tagline         ?? '',
     defaultEmoji:         g.default_emoji   ?? g.defaultEmoji     ?? gn.defaultEmoji    ?? '',
@@ -18422,6 +19221,11 @@ function initGameMeta(game) {
        games carry an empty flow document. */
     target:               g.target ?? '',
     tgbDate:              g.tgb_date ?? g.tgbDate ?? '',
+    /* THE OBJECT IS SPLIT INTO THREE HERE, in the one place a row becomes a
+       meta, so nothing downstream has to know the column is jsonb. */
+    startDate:            String((g.start && g.start.date) ?? g.startDate ?? ''),
+    startTime:            String((g.start && g.start.time) ?? g.startTime ?? '').slice(0, 5),
+    startZone:            String((g.start && g.start.timezone) ?? g.startZone ?? ''),
     /* THE ROW'S OWN NAME, SEEDED HERE, IS WHAT STOPS A SAVE RENAMING A GAME
        (2026-09-02). `getDocName()` reads the game NODE's title and falls back to
        `meta.title` -- and this function never set it, so on a game whose flow
@@ -18833,7 +19637,7 @@ async function toggleCurrentGameFeaturedState() {
     const nextTags = Array.isArray(gameNode.tags) ? [...gameNode.tags] : [];
     const filteredTags = nextTags.filter((tag) => String(tag || '').trim().toLowerCase() !== FEATURED_TAG.toLowerCase());
     gameNode.tags = wasFeatured ? filteredTags : [...filteredTags, FEATURED_TAG];
-    renderTagPicker(gameNode);
+    renderTagPicker();
     const saveResult = await saveDoc({ silent: true });
     if (!saveResult || saveResult.localOnly) {
       showFeatureGameError(
@@ -19014,6 +19818,11 @@ async function applyCurrentGameDisposition(action) {
   updateSelectionUi();
 
   try {
+    /* A DELETE DOES NOT SAVE FIRST. Writing every field of a game and then
+       removing the row is work thrown away -- and on a game that will not save
+       it turned a delete into a refusal about something else entirely. Archive
+       still saves, because it leaves the row behind for somebody to read. */
+    if (nextAction === 'erase') return await deleteCurrentGame();
     const saveResult = await saveDoc({ silent: true });
     if (!saveResult || saveResult.localOnly) {
       showGameEraseActionError(
@@ -19071,24 +19880,67 @@ async function applyCurrentGameDisposition(action) {
   }
 }
 
+/* THE ROW GOES, SO THE PAGE LETS GO OF IT TOO. `upsertStoredGame` is the wrong
+   shape here: it exists to put a row back, and there is no row. */
+async function deleteCurrentGame() {
+  const targetId = String(state.currentGameId || '').trim();
+  if (!targetId) {
+    showGameEraseActionError('Could not delete this game.',
+      new Error('No saved game is open.'));
+    return false;
+  }
+  const result = await eraseGameInSupabase(targetId);
+  if (!result.serverSaved) {
+    showGameEraseActionError('Could not delete this game in the database.',
+      result.error);
+    return false;
+  }
+  state.store.games = state.store.games.filter((g) => !g || g.id !== targetId);
+  state.headerGames = (state.headerGames || []).filter((g) => !g || g.id !== targetId);
+  state.store.updatedAt = new Date().toISOString();
+  syncAllTagsFromStore();
+  persistStoreLocally();
+  /* THE COUNTS ON THE CHIPS FOLLOW, or every tag the deleted game carried goes
+     on quoting a figure that still includes it. */
+  loadTagCountsFromSupabase();
+  state.localOnlyChanges = false;
+  startNewPhone();
+  return true;
+}
+
 async function openGameEraseFlow() {
   if (state.gameEraseActionBusy || !getCurrentGameArchiveEntry()) return false;
   /* THE QUESTION NAMES THE GAME AND WHAT ACTUALLY HAPPENS. It read "Erase?",
      which names neither -- and the message element was never written to, so
      every game asked the same three words.
 
-     AND IT SAYS WHAT ERASE IS, because the honest answer is not what the word
-     suggests: `applyCurrentGameDisposition` saves the game and then sets
-     `games.erased`, so the ROW REMAINS and this is a flag rather than a
-     removal. `erased` is a SECOND flag and is not `archived`, which is why
-     "Skip instead" is a real alternative on this dialog and not a softer
-     wording of the same act. */
+     IT SAID THE ROW WAS KEPT AND IT IS NOT, as of 2026-09-05. Delete deletes,
+     so the sentence promising it could be undone in the database went with the
+     flag it described: a confirmation that understates what a button does is
+     worse than no confirmation.
+     AND IT COUNTS THE CASCADE FIRST. Six tables key to `games.id` and every one
+     is ON DELETE CASCADE, so a delete reaches the flow, the anytime replies,
+     the gift rows and the WINNER'S WALL PHOTOS. That is the half nobody can see
+     from the button, and it is why `Skip instead` is still on this dialog: it
+     takes a game off sale and touches none of it. */
   const entry = getCurrentGameArchiveEntry();
   const named = String((entry && (entry.name || entry.id)) || 'this game').trim();
   if (gameEraseMessage) {
-    gameEraseMessage.textContent = 'Delete ' + named + '? It comes off every list, '
-      + 'and the row is kept so it can be undone in the database. Skip takes it '
-      + 'off sale without deleting it.';
+    /* THE NAME IS A NODE, NOT A STRING IN SOME MARKUP. It is a row value going
+       into a dialog, so it is built as a `<strong>` carrying `textContent` --
+       which needs no escaping and cannot be got wrong. An innerHTML string
+       would be one forgotten escape from a game named with a tag reaching the
+       DOM as markup, which is the trap `/games/` records for its own pins.
+       `textContent` still reads the whole sentence back, so every check that
+       reads this message is unaffected. */
+    const nameEl = document.createElement('strong');
+    nameEl.className = 'erase-note-name';
+    nameEl.textContent = named;
+    gameEraseMessage.replaceChildren(
+      document.createTextNode('Delete '),
+      nameEl,
+      document.createTextNode(' for good? This cannot be undone.'
+        + ' Skip instead to hide it.'));
   }
   const action = await openGameEraseDialog();
   if (!action) return false;
@@ -19214,6 +20066,13 @@ function normalizeSavedGame(raw, index) {
     erased:                '',
     nodes:                 doc.nodes,
     links:                 doc.links,
+    /* THE FLAT TAG COLUMNS ARE CARRIED, and this is where they were lost.
+       `overlayColumnsOntoGameNode` puts every column onto the GAME NODE and
+       returns the document untouched when there is not one -- so on the 14 of
+       394 games with no game node, `tags` and `primary_tag` fell off the row
+       here and `initGameMeta` had nothing to read. */
+    tags:                  Array.isArray(raw && raw.tags) ? raw.tags : undefined,
+    primary_tag:           raw && (raw.primary_tag ?? raw.primaryTag),
     body:                  raw && raw.body,
     price:                 raw && raw.price,
     default_emoji:         raw && raw.default_emoji,
@@ -19227,6 +20086,7 @@ function normalizeSavedGame(raw, index) {
     anchor_event_id:       raw && raw.anchor_event_id,
     target:                raw && raw.target,
     tgbDate:               raw && (raw.tgb_date ?? raw.tgbDate),
+    start:                 raw && raw.start,
     rival:                 raw && raw.rival,
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
@@ -19329,7 +20189,10 @@ function createNode(type, x, y) {
 }
 
 function syncAllTagsFromStore() {
-  const base = [...ALL_TAGS, ...supabaseTags];
+  /* ONCE THE POOL HAS LOADED, THE POOL IS THE BASE. Keeping `ALL_TAGS` in here
+     would put a deleted one of those 21 back on the next store sync, which is
+     the same resurrection the loader above closes, one door along. */
+  const base = tagPoolLoaded ? [...supabaseTags] : [...ALL_TAGS, ...supabaseTags];
   allTags = base;
   const lowerSet = new Set(allTags.map(t => t.toLowerCase()));
   const newTags = [];
@@ -20322,47 +21185,151 @@ function clearEditorLaunchIntent() {
   }
 }
 
-function countGamesWithTag(tagLower) {
-  const allDocs = [...(state.store.games || []), state.doc];
-  return allDocs.filter((doc) => {
-    const gameNode = doc && doc.nodes && doc.nodes.find((n) => n.type === 'game');
-    return gameNode && Array.isArray(gameNode.tags) && gameNode.tags.some((t) => t.toLowerCase() === tagLower);
-  }).length;
+/* ONE ROW PER GAME, `id` AND `tags`, READ ONCE. Small: two columns over the
+   same 394 rows the picker already reads. */
+let tagUseRows = [];
+let tagUseLoaded = false;
+
+async function loadTagCountsFromSupabase() {
+  if (!hasSupabaseStore()) return;
+  try {
+    const rows = await fetchGameRowsFromSupabase(buildGamesSelectColumns(['id', 'tags']));
+    tagUseRows = rows.map((row) => ({
+      id: String((row && row.id) || ''),
+      tags: Array.isArray(row && row.tags) ? row.tags : []
+    }));
+    tagUseLoaded = true;
+    renderTagPicker();
+  } catch (error) {
+    /* A COUNT THAT WILL NOT LOAD COSTS THE NUMBER AND NOTHING ELSE. The chips
+       still choose and unchoose; what changes is that the delete refuses to
+       claim a cost it cannot work out. */
+    console.warn('could not read how many games use each tag', error);
+  }
 }
 
-function renderTagPicker(node) {
-  const existingWraps = [...nodeTagPicker.querySelectorAll('.tag-pill-wrap')];
-  existingWraps.forEach((wrap) => wrap.remove());
+/* THE STORED COPY OF THE OPEN GAME IS SKIPPED AND THE LIVE ONE COUNTED, so the
+   number moves as you choose and unchoose rather than describing what was last
+   saved. That is also what stops the open game being counted twice.
 
-  const isGameNode = !!node && node.type === 'game';
+   IT READ `getGameNode()` AND THE COUNT NEVER MOVED (2026-09-05). Reported as
+   exactly that, and MEASURED: choosing a tag left `2` at `2` on every game,
+   with the chip correctly filled beside it.
+   TWO FAULTS THAT CANCELLED. This page has no canvas, so `getGameNode()`
+   answers null on EVERY game rather than only on the fourteen with no
+   document -- so the live half never ran at all. And `tagUseRows` follows the
+   write, so the open game IS in the map by the time this is asked; skipping it
+   then took back the one the map had just gained. Minus one, plus nothing.
+   `tagTarget()` IS THE ONE ANSWER TO `where do this game's tags live` -- the
+   node where there is one, the row's meta otherwise -- and it is what the
+   picker itself reads, so the count and the chips cannot disagree about what
+   the game carries. This is the SEVENTH thing in this room to need that
+   correction. */
+function countGamesWithTag(tagLower) {
+  const openId = String(state.currentGameId || '');
+  let total = 0;
+  tagUseRows.forEach((row) => {
+    if (openId && row.id === openId) return;
+    if (row.tags.some((t) => String(t).toLowerCase() === tagLower)) total += 1;
+  });
+  /* NO `type === 'game'` TEST. It was there when this read a flow node and it
+     is wrong for a meta, which carries no type at all -- so it would put the
+     bug straight back on the fourteen nodeless games. */
+  const holder = tagTarget();
+  if (holder && (holder.tags || []).some((t) => String(t).toLowerCase() === tagLower)) {
+    total += 1;
+  }
+  return total;
+}
+
+/* WHERE A GAME'S TAGS LIVE. The flow node when there is one, so a game with a
+   document keeps behaving exactly as it did; otherwise the row's own meta,
+   which every open game has. Both are plain objects carrying `tags` and
+   `primaryTag`, so nothing downstream has to know which it got. */
+function tagTarget() {
+  return getGameNode() || state.currentGameMeta || null;
+}
+
+function renderTagPicker() {
+  const node = tagTarget();
+  const isGameNode = !!node;
   const selectedLower = new Set(isGameNode ? (node.tags || []).map(t => t.toLowerCase()) : []);
   const primaryLower = isGameNode ? String(node.primaryTag || '').toLowerCase() : '';
+  const managing = isGameNode && tagPoolManaging;
 
-  allTags.forEach((tag) => {
+  /* THE BOX NARROWS THE CHIPS AS YOU TYPE. 91 tags is six rows of them, which
+     is past what anybody scans -- and the same box is where a NEW tag is
+     typed, so one control answers `which of these` and `there is no such tag`
+     without asking which you meant first. */
+  const filter = (nodeTagNewInput.value || '').trim().toLowerCase();
+  const shown = filter
+    ? allTags.filter((t) => t.toLowerCase().indexOf(filter) !== -1)
+    : allTags.slice();
+  /* FEATURED LEADS, WHATEVER THE ALPHABET SAYS. It is the one tag the PAGE
+     itself reads -- it decides whether a game is featured -- so it is a switch
+     among ninety subjects, and hunting for it in the F row is hunting for a
+     control rather than for a word. It is pinned AFTER the filter, so typing
+     narrows it away like any other chip rather than sticking to the front of a
+     list it does not match. */
+  const pinned = FEATURED_TAG.toLowerCase();
+  if (shown.some((t) => t.toLowerCase() === pinned)) {
+    const rest = shown.filter((t) => t.toLowerCase() !== pinned);
+    const lead = shown.filter((t) => t.toLowerCase() === pinned);
+    shown.length = 0;
+    shown.push.apply(shown, lead.concat(rest));
+  }
+
+  nodeTagPicker.classList.toggle('is-managing', managing);
+  nodeTagPicker.innerHTML = '';
+
+  shown.forEach((tag, i) => {
     const tagLower = tag.toLowerCase();
     const isProtectedTag = tagLower === FEATURED_TAG.toLowerCase();
+
+    /* A RULE AFTER `Featured`, so the pin reads as a pin rather than as a word
+       that happens to sort first. It is a real element in the flow rather than
+       a border on the chip: the box WRAPS, so a border would end up mid-row
+       wherever the line happened to break, and this stays beside the chip it
+       divides.
+       DRAWN ONLY WHEN `Featured` LEADS -- typing narrows it away like any other
+       chip, and a divider with nothing before it divides nothing. */
+    if (i === 1 && shown.length > 1
+        && String(shown[0]).toLowerCase() === FEATURED_TAG.toLowerCase()) {
+      const sep = document.createElement('span');
+      sep.className = 'tag-sep';
+      sep.setAttribute('aria-hidden', 'true');
+      nodeTagPicker.appendChild(sep);
+    }
     const isSelected = selectedLower.has(tagLower);
     const isPrimary = isSelected && !isProtectedTag && tagLower === primaryLower;
-    const wrap = document.createElement('span');
-    wrap.className = 'tag-pill-wrap' + (isProtectedTag ? ' is-protected' : '');
 
-    // Radio dot — only on tags this game has selected (non-protected). The
-    // checked one is the game's primary tag, shown on the game card header
-    // (where TITLE DEED used to sit).
+    /* THE WRAP IS THE CHIP. It is what carries the fill, so the dot, the word,
+       the count and the x all sit inside ONE rounded object rather than beside
+       it -- which is what the old square-left, round-right pill was drawing. */
+    const wrap = document.createElement('span');
+    wrap.className = 'tag-pill-wrap'
+      + (isProtectedTag ? ' is-protected' : '')
+      + (isSelected ? ' is-on' : '');
+
+    /* THE PRIMARY DOT, ON CHOSEN TAGS ONLY. It is a real radio: the browser
+       keeps one-at-a-time and the keyboard reaches it, where a class-only dot
+       would need a hand-rolled exclusion set kept in step with the paint --
+       a control painted in one place and read in another. */
     if (isSelected && !isProtectedTag) {
       const radioLabel = document.createElement('label');
       radioLabel.className = 'tag-primary-radio' + (isPrimary ? ' is-primary' : '');
-      radioLabel.title = 'Use as primary tag (shown on the game card)';
+      radioLabel.title = 'Use ' + tag + ' as the primary tag, which is the one'
+        + ' the game card shows.';
       const radioInput = document.createElement('input');
       radioInput.type = 'radio';
       radioInput.name = 'tag-primary-radio';
       radioInput.checked = isPrimary;
-      radioInput.disabled = !isGameNode;
+      radioInput.disabled = !isGameNode || managing;
       radioInput.addEventListener('change', () => {
-        if (!isGameNode || !radioInput.checked) return;
+        if (!isGameNode || managing || !radioInput.checked) return;
         node.primaryTag = tag;
-        renderTagPicker(node);
-        scheduleRecoverySync();
+        renderTagPicker();
+        writeTagsNow();
       });
       radioLabel.appendChild(radioInput);
       wrap.appendChild(radioLabel);
@@ -20371,39 +21338,295 @@ function renderTagPicker(node) {
     const count = countGamesWithTag(tagLower);
     const pill = document.createElement('button');
     pill.type = 'button';
+    /* THE STATE IS AN ATTRIBUTE, NOT ONLY A CLASS. `aria-pressed` is what a
+       screen reader is told and what a check can read, and it cannot drift
+       from the fill because both are written here from one `isSelected`. */
     pill.className = 'tag-pill' + (isSelected ? ' on' : '') + (isPrimary ? ' is-primary' : '');
-    pill.textContent = tag;
-    pill.title = `Tag used in ${count} ${count === 1 ? 'game' : 'games'}`;
-    pill.disabled = !isGameNode;
+    pill.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    pill.dataset.tag = tag;
+    const word = document.createElement('span');
+    word.className = 'tag-w';
+    word.textContent = tag;
+    const num = document.createElement('span');
+    num.className = 'tag-n';
+    /* NO NUMBER UNTIL THE CATALOGUE HAS ANSWERED. A `0` on every chip is a
+       figure that is WRONG rather than one that is not known yet, which is the
+       same call the Events room's own title makes with its `?`. */
+    num.textContent = tagUseLoaded ? count : '';
+    pill.append(word, num);
+    pill.title = managing
+      ? tag + ' is on ' + count + (count === 1 ? ' game' : ' games')
+        + '. Press the x to delete it from the pool.'
+      : (isSelected ? 'Take ' + tag + ' off this game' : 'Put ' + tag + ' on this game')
+        + '. It is on ' + count + (count === 1 ? ' game' : ' games') + '.';
+    pill.disabled = !isGameNode || managing;
     pill.addEventListener('click', () => {
-      if (!isGameNode) return;
+      if (!isGameNode || managing) return;
       const nextLower = new Set((node.tags || []).map(t => t.toLowerCase()));
       if (nextLower.has(tagLower)) {
         node.tags = (node.tags || []).filter(t => t.toLowerCase() !== tagLower);
-        // Removing the current primary → fall back to the first remaining
-        // non-protected tag so the card always has a label when any tag is set.
+        /* THE PRIMARY FALLS BACK RATHER THAN GOING BLANK. A game with tags and
+           no primary shows an empty header on its own card. */
         if (String(node.primaryTag || '').toLowerCase() === tagLower) {
           const fallback = (node.tags || []).find((t) => t.toLowerCase() !== FEATURED_TAG.toLowerCase());
           node.primaryTag = fallback || '';
         }
       } else {
         node.tags = [...(node.tags || []), tag];
-        // First selectable tag added → auto-assign as primary so the card
-        // never shows an empty header silently.
         if (!isProtectedTag && !node.primaryTag) {
           node.primaryTag = tag;
         }
       }
-      renderTagPicker(node);
-      scheduleRecoverySync();
+      renderTagPicker();
+      syncPhoneStartButton();
+      writeTagsNow();
     });
-
-    /* NO DELETE (2026-08-31). It removed the tag from EVERY game, from a small
-       x on a pill inside one game's editor -- the widest-reaching control on
-       the page drawn as the smallest. Tags are managed in their own room. */
     wrap.appendChild(pill);
-    nodeTagPicker.insertBefore(wrap, nodeTagNewInput);
+
+    /* THE x EXISTS ONLY IN MANAGE MODE, and `Featured` never gets one: the
+       whole page reads that tag to decide whether a game is featured, so
+       deleting it is not an editorial call, it is breaking a mechanism. */
+    if (managing && !isProtectedTag) {
+      const kill = document.createElement('button');
+      kill.type = 'button';
+      kill.className = 'tag-kill';
+      kill.textContent = 'x';
+      kill.setAttribute('aria-label', 'Delete ' + tag + ' from the pool');
+      kill.title = 'Delete ' + tag + ' from the pool. It comes off '
+        + count + (count === 1 ? ' game' : ' games') + ' as well.';
+      kill.addEventListener('click', () => { deleteTagFromPool(tag); });
+      wrap.appendChild(kill);
+    }
+
+    nodeTagPicker.appendChild(wrap);
   });
+
+  paintTagTools(node, shown.length);
+}
+
+/* CHOOSING A TAG WRITES `public.games` STRAIGHT AWAY (2026-09-05).
+   ASKED FOR OUTRIGHT, and it is a real departure worth stating: every other
+   field on these bars waits for Save. The GUIDE bar is the one existing
+   exception, and it is the precedent -- see its own note.
+
+   WHAT THAT BUYS: a tag is a fact about the row rather than about the flow
+   document, so there is nothing to keep in step until a Save that may not come.
+   WHAT IT COSTS: there is no undo. Unchoosing is the undo, and it is one press.
+
+   IT WRITES BOTH COLUMNS TOGETHER, ALWAYS. `primary_tag` follows the tag list
+   -- taking off the primary picks a fallback, adding the first tag makes it the
+   primary -- so sending one without the other would leave the row naming a
+   primary its own `tags` no longer carries, which is a state no reader can
+   interpret. That is the rule `deleteTagFromPool` already keeps. */
+let tagWriteToken = 0;
+
+async function writeTagsNow() {
+  const node = tagTarget();
+  if (!node) return;
+  const gameId = String(state.currentGameId || '');
+  /* A GAME THAT IS NOT IN THE DATABASE YET HAS NO ROW TO PATCH. It falls back
+     to what every other field does -- held in memory, written by Save -- rather
+     than reporting a failure for a state that is perfectly ordinary. */
+  if (!gameId || !hasSupabaseStore()) {
+    scheduleRecoverySync();
+    return;
+  }
+
+  const tags = (node.tags || []).filter(Boolean);
+  const primary = String(node.primaryTag || '');
+  /* LATEST WINS. A run of quick presses is the ordinary way this is used, and
+     without a token an early reply landing late would repaint the line with a
+     count that is already out of date. */
+  const token = ++tagWriteToken;
+  setTagPoolStatus('saving...');
+  try {
+    const res = await fetch(buildSupabaseUrl({ id: 'eq.' + gameId }, 'games'), {
+      method: 'PATCH',
+      headers: getSupabaseHeaders({ 'Content-Type': 'application/json',
+        Prefer: 'return=representation' }),
+      body: JSON.stringify({ tags: tags, primary_tag: primary || null })
+    });
+    if (!res.ok) throw new Error('games PATCH ' + res.status);
+    const back = await res.json();
+    /* PostgREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so without
+       reading the row back a refused write reports success and the chips show
+       a state the table never took. */
+    if (!Array.isArray(back) || !back.length) {
+      throw new Error('the database refused the write');
+    }
+    if (token !== tagWriteToken) return;
+    tagStatusError = false;
+    /* THE COUNT MAP FOLLOWS THE WRITE, or the chips would go on quoting the
+       figure the catalogue had when the page loaded. */
+    const row = tagUseRows.find((r) => r.id === gameId);
+    if (row) row.tags = tags.slice();
+    else tagUseRows.push({ id: gameId, tags: tags.slice() });
+    renderTagPicker();
+  } catch (error) {
+    console.error(error);
+    if (token !== tagWriteToken) return;
+    /* A WRITE THAT FAILS WITHOUT SAYING SO IS A BUG IN ITSELF, and here it is
+       worse than usual: the chip already shows the new state, so silence would
+       leave the page and the row disagreeing with nothing to say which is
+       right. Save is named because it is the way to land it. */
+    setTagPoolStatus('could not save that tag: '
+      + ((error && error.message) || 'write failed') + ' -- press Save', true);
+  }
+  /* THE RECOVERY DRAFT IS SYNCED WHETHER OR NOT THE WRITE LANDED, and the
+     failure path is the one that needs it: the message says to press Save, so
+     the change has to survive until somebody does. Returning early here would
+     lose it on the next reload -- telling somebody to save something the page
+     had already thrown away. It is also what marks the document unsaved, which
+     is what lights Save at all. */
+  scheduleRecoverySync();
+}
+
+/* WHAT THE BOX WILL DO IF YOU PRESS ADD, and how much of the pool you are
+   looking at. Both are read off the same filter the chips were built from, so
+   the line cannot disagree with what is on screen. */
+function paintTagTools(node, shownCount) {
+  const isGameNode = !!node;
+  const typed = (nodeTagNewInput.value || '').trim();
+  const typedLower = typed.toLowerCase();
+  const exists = !!allTags.find((t) => t.toLowerCase() === typedLower);
+
+  /* ADD IS OFF UNLESS THE WORD IS GENUINELY NEW. Pressing it on a tag that
+     already exists would look like it had done something and would only ever
+     have chosen it, which is what clicking the chip does. */
+  nodeTagAddBtn.disabled = !isGameNode || !typed || exists;
+  nodeTagAddBtn.title = !typed
+    ? 'Type a tag first.'
+    : exists ? typed + ' is already in the pool -- press its chip to use it.'
+             : 'Add ' + typed + ' to the pool and put it on this game.';
+
+  nodeTagManageBtn.disabled = !isGameNode;
+  nodeTagManageBtn.setAttribute('aria-pressed', tagPoolManaging ? 'true' : 'false');
+  nodeTagManageBtn.textContent = tagPoolManaging ? 'Done' : 'Manage pool';
+  nodeTagManageBtn.title = tagPoolManaging
+    ? 'Stop editing the pool and go back to choosing tags.'
+    : 'Delete tags from the pool. A deletion takes the tag off every game that'
+      + ' carries it, so it is behind this button rather than on every chip.';
+
+  if (!nodeTagCount) return;
+  /* AN ERROR HOLDS THE LINE. It says what to do -- press Save -- and the count
+     is not news, so a repaint must not take the message away before it has been
+     read. Cleared by the next successful write. */
+  if (tagStatusError) return;
+  const chosen = isGameNode ? (node.tags || []).length : 0;
+  const total = allTags.length;
+  nodeTagCount.removeAttribute('data-invalid');
+  nodeTagCount.textContent = tagPoolManaging
+    ? 'editing the pool -- ' + total + (total === 1 ? ' tag' : ' tags')
+    : chosen + ' chosen'
+      + (shownCount === total ? '' : ', ' + shownCount + ' of ' + total + ' shown');
+}
+
+/* DELETING TAKES THE TAG OFF EVERY GAME THAT CARRIES IT, which is the whole
+   reason it is a mode rather than an x on every chip.
+   THE SAME ACT THE TAGS ROOM DOES, and the two have to keep agreeing: the word
+   off each game, `primary_tag` cleared where it named the deleted tag, then the
+   catalogue row. A game whose primary is a word nothing else carries is a row
+   no reader can interpret. */
+async function deleteTagFromPool(tag) {
+  const tagLower = tag.toLowerCase();
+  const count = countGamesWithTag(tagLower);
+  /* THE COST IS THE ONLY THING ANYBODY CAN DECIDE THIS WITH, so where it is
+     not known the question says that instead of claiming nothing uses it. */
+  const question = !tagUseLoaded
+    ? 'Delete ' + tag + ' from the pool? How many games carry it could not be'
+      + ' read, so this may take it off several. It cannot be undone.'
+    : count
+      ? 'Delete ' + tag + ' from the pool? It comes off ' + count
+        + (count === 1 ? ' game' : ' games') + ' as well, and that cannot be undone.'
+      : 'Delete ' + tag + ' from the pool? Nothing uses it.';
+  if (!window.confirm(question)) return;
+
+  /* THE WORD HAS TO LEAVE THE DOCUMENTS OR THE DELETION UNDOES ITSELF.
+     `syncAllTagsFromStore` re-files any tag it finds on a game straight back
+     into `public.tags`, so a tag deleted while a game still carries it comes
+     back on the next sync with nothing on screen saying so. That is the
+     resurrection path the old global delete existed to close. */
+  const strip = (doc) => {
+    if (!doc || !Array.isArray(doc.nodes)) return;
+    doc.nodes.forEach((n2) => {
+      if (Array.isArray(n2.tags) && n2.tags.some((t) => String(t).toLowerCase() === tagLower)) {
+        n2.tags = n2.tags.filter((t) => String(t).toLowerCase() !== tagLower);
+      }
+      if (String(n2.primaryTag || '').toLowerCase() === tagLower) {
+        const fallback = (n2.tags || []).find((t) => String(t).toLowerCase() !== FEATURED_TAG.toLowerCase());
+        n2.primaryTag = fallback || '';
+      }
+    });
+  };
+  strip(state.doc);
+  (state.store.games || []).forEach(strip);
+
+  /* AND OUT OF THE POOL IN MEMORY. `ALL_TAGS` is a hardcoded copy of 21 of the
+     91 rows, so a tag named there is put back by the next load whatever the
+     database says -- the second resurrection path, and the reason the constant
+     is now a FALLBACK for an unreachable catalogue rather than a source. */
+  allTags = allTags.filter((t) => t.toLowerCase() !== tagLower);
+  supabaseTags = supabaseTags.filter((t) => t.toLowerCase() !== tagLower);
+
+  renderTagPicker();
+  syncPhoneStartButton();
+  scheduleRecoverySync();
+
+  try {
+    await removeTagFromEveryGame(tag);
+    await deleteTagFromSupabase(tag);
+    setTagPoolStatus('Deleted ' + tag + (count ? ', and took it off ' + count
+      + (count === 1 ? ' game' : ' games') + '.' : '.'));
+  } catch (error) {
+    console.error(error);
+    /* A HALF-DONE DELETE IS SAID OUT LOUD. The chips already show it gone, so
+       silence here would leave the page and the database disagreeing with
+       nothing on screen to say which is right. */
+    setTagPoolStatus('Could not finish deleting ' + tag
+      + '. Reload before trusting the list.', true);
+  }
+}
+
+/* THE WORD OFF EVERY STORED GAME. Read, patch only the rows that carry it, and
+   ask for the row back -- PostgREST answers 200 with an empty array when RLS
+   refuses, so a refused patch would otherwise look exactly like a success. */
+async function removeTagFromEveryGame(tag) {
+  if (!hasSupabaseStore()) return;
+  const tagLower = tag.toLowerCase();
+  const rows = await fetchGameRowsFromSupabase(buildGamesSelectColumns(['id', 'tags', 'primary_tag']));
+  for (const row of rows) {
+    const list = Array.isArray(row.tags) ? row.tags : [];
+    const hasTag = list.some((t) => String(t).toLowerCase() === tagLower);
+    const isPrimary = String(row.primary_tag || '').toLowerCase() === tagLower;
+    if (!hasTag && !isPrimary) continue;
+    const patch = { tags: list.filter((t) => String(t).toLowerCase() !== tagLower) };
+    if (isPrimary) {
+      const fallback = patch.tags.find((t) => String(t).toLowerCase() !== FEATURED_TAG.toLowerCase());
+      patch.primary_tag = fallback || null;
+    }
+    const res = await fetch(buildSupabaseUrl({ id: 'eq.' + row.id }, 'games'), {
+      method: 'PATCH',
+      headers: getSupabaseHeaders({ 'Content-Type': 'application/json',
+        Prefer: 'return=representation' }),
+      body: JSON.stringify(patch)
+    });
+    if (!res.ok) throw new Error('games PATCH ' + res.status);
+    const back = await res.json();
+    if (!Array.isArray(back) || !back.length) {
+      throw new Error('the database refused the write on ' + row.id);
+    }
+  }
+}
+
+/* TRUE WHILE A FAILURE IS ON SCREEN, so `paintTagTools` leaves it alone. */
+let tagStatusError = false;
+
+function setTagPoolStatus(message, isError) {
+  tagStatusError = !!isError;
+  if (!nodeTagCount) return;
+  nodeTagCount.textContent = message;
+  if (isError) nodeTagCount.setAttribute('data-invalid', 'true');
+  else nodeTagCount.removeAttribute('data-invalid');
 }
 
 function buildNodeBodyMarkup(node) {
@@ -21759,9 +22982,14 @@ function updateSelectionUi(options = {}) {
   if (inspectorContent) inspectorContent.classList.add('is-game-details');
 
   if (gameNameBar) gameNameBar.hidden = !showGameDetails;
-  if (tgbDateBar) tgbDateBar.hidden = !showGameDetails;
-  const tgbDateInput = document.getElementById('tgbDate');
-  if (tgbDateInput) tgbDateInput.disabled = !showGameDetails;
+  if (startBar) startBar.hidden = !showGameDetails;
+  /* ALL THREE START FIELDS ARE GATED ON AN OPEN GAME, never on a flow node:
+     they are columns on the row, and `isGameNode` is false on every game here.
+     Named by id because they were built after the const block above. */
+  ['tgbDate', 'startHour', 'startMinute', 'startZone'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !showGameDetails;
+  });
   stopNameField.hidden = true;
   varNameField.hidden = true;
   varValuesField.hidden = true;
@@ -21816,31 +23044,63 @@ function updateSelectionUi(options = {}) {
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.disabled = !isGameNode;
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.disabled = !isGameNode;
-  nodeDefaultEmojiInput.disabled = !isGameNode;
-  if (nodeCategoryIconInput) nodeCategoryIconInput.disabled = !isGameNode;
+  /* THE EMOJI AND THE ICON ARE COLUMNS ON THE ROW. `default_emoji` and
+     `category_icon` are fields of `public.games`, so they follow whether a GAME
+     is open -- and `isGameNode` asks about the flow DOCUMENT, which this room
+     never loads, so both were dead on all 394 games. */
+  nodeDefaultEmojiInput.disabled = !showGameDetails;
+  if (nodeCategoryIconInput) nodeCategoryIconInput.disabled = !showGameDetails;
 
-  if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
+  /* THE CITY IS A COLUMN ON THE ROW, NOT A FIELD OF THE FLOW NODE, so it is
+     gated on whether a GAME is open rather than on whether the document has a
+     game node. This page has no canvas, so `isGameNode` is FALSE ON EVERY
+     GAME -- the box was disabled on all 394 of them, which is what
+     `turn on the city field` was reporting.
+     THE EIGHTH FIELD IN THIS ROOM TO NEED THIS, after the anchor event, the
+     two audiences, the name, the tagline, the tag chips and the tag COUNT. */
+  if (nodeCityInput) nodeCityInput.disabled = !showGameDetails;
 
   if (nodeVenueNameInput) nodeVenueNameInput.disabled = !isGameNode;
   if (nodeVenueCityInput) nodeVenueCityInput.disabled = !isGameNode;
   if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
   if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
-  if (nodeGuideSelect) nodeGuideSelect.disabled = !isGameNode;
+  /* THE GUIDE PICKER IS THE ROW'S OWN. It is filled from `public.guides` and
+     it writes `games.guide_id`, so it follows an open GAME -- gated on the flow
+     node it was dead on every game in this room, which is what `pull guides
+     from the guide table and save guide id` was reporting: the list was there
+     and the control could not be reached.
+       THE FOUR HIDDEN GUIDE FIELDS BELOW ARE LEFT ALONE. They carry
+     `guide_name`, `guide_bio`, `guide_background` and `guide_image_url`, which
+     are not columns of `public.games` any more -- the save path skips them
+     through `SUPABASE_GAMES_SCHEMA` -- so enabling them would turn on four
+     boxes that can write nothing. */
+  if (nodeGuideSelect) nodeGuideSelect.disabled = !showGameDetails;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
   if (guideImageUploadBtn) guideImageUploadBtn.disabled = !isGameNode;
   if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
-  nodePriceInput.disabled = !isGameNode;
-  if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
+  /* THE PRICE AND THE ENGINE ARE COLUMNS ON THE ROW, for the same reason as
+     the emoji above and the city a few lines up. */
+  nodePriceInput.disabled = !showGameDetails;
+  if (nodeEngineInput) nodeEngineInput.disabled = !showGameDetails;
   const _guidePromptBtn = document.getElementById('guidePromptBtn');
   if (_guidePromptBtn) _guidePromptBtn.disabled = !isGameNode;
   const _guideImagePromptBtn = document.getElementById('guideImagePromptBtn');
   if (_guideImagePromptBtn) _guideImagePromptBtn.disabled = !isGameNode;
-  nodeTagNewInput.disabled = !isGameNode;
-  nodeTagAddBtn.disabled = !isGameNode;
-  nodeBodyInput.disabled = !isGameNode;
+  /* TAGS FOLLOW THE ROW. `isGameNode` is about the flow document and these
+     three edit `games.tags` -- 14 of the 394 games have no game node, and on
+     those all three were dead. */
+  const tagsEditable = !!tagTarget();
+  nodeTagNewInput.disabled = !tagsEditable;
+  nodeTagAddBtn.disabled = !tagsEditable;
+  if (nodeTagManageBtn) nodeTagManageBtn.disabled = !tagsEditable;
+  /* LEAVING THE MODE ON WITH NO GAME OPEN WOULD LEAVE A DESTRUCTIVE STATE
+     armed across a game change, so it is dropped with the game. */
+  if (!tagsEditable && tagPoolManaging) tagPoolManaging = false;
+  /* THE INTRO IS `games.body`, a column on the row. */
+  nodeBodyInput.disabled = !showGameDetails;
 
   const currentGameArchived = isCurrentGameArchived();
   const currentGameFeatured = isCurrentGameFeatured();
@@ -21976,6 +23236,9 @@ function updateSelectionUi(options = {}) {
      is a column on `public.games`, and a game opened from the picker may
      carry no game node at all. */
   paintRowTextboxes(showGameDetails ? meta : null);
+  /* THE SAME GATE, for the same reason: `games.start` is a column on the row
+     and `isGameNode` is false on every game in this room. */
+  applyStartControls(showGameDetails ? meta : null);
 
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
   if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
@@ -22009,7 +23272,6 @@ function updateSelectionUi(options = {}) {
     showGuidePortrait(isGameNode ? String(meta.guideId || '') : '');
     syncGuideGreenroomLink();
     setGuidePickStatus('');
-    if (isGameNode) ensureCurrentGameGuideId();
   }
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
@@ -22031,7 +23293,7 @@ function updateSelectionUi(options = {}) {
   updateGuideImageNote(isGameNode);
   updateGuideImageStatus(isGameNode);
   nodeTagNewInput.value = '';
-  renderTagPicker(gameNode);
+  renderTagPicker();
   if (document.activeElement !== nodeBodyInput) {
     nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
   }
@@ -23609,6 +24871,12 @@ function stageCurrentGameIntoStore() {
     anchor_event_id:       _meta.anchorEventId || null,
     target:                rowColumnValue(_meta.target),
     tgbDate:               rowColumnValue(_meta.tgbDate),
+    /* THE ELEVENTH WIRING POINT. `stageCurrentGameIntoStore` turns the open
+       game's META into the row `serializeGameRow` patches, and a column missing
+       here reaches the meta, shows in the box, arms Save -- and goes to the
+       database as null. The check caught exactly that with `{"timezone":null}`
+       beside a date that had landed. */
+    start:                 startObjectFrom(_meta),
     rival:                 rowColumnValue(_meta.rival),
     /* BLANK IS NULL, THROUGH THE ONE HELPER, so the staged row and the PATCH
        agree about what an empty box means. */
@@ -24229,13 +25497,23 @@ if (nodeAwayTeamCityInput) {
 }
 
 nodeDefaultEmojiInput.addEventListener('input', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* THE ROW'S META, NEVER THE FLOW NODE. This is a column on `public.games`
+     and `getGameNode()` asks about the flow DOCUMENT, which this room never
+     loads -- so the handler returned on every game and the value reached the
+     box and nothing else. **A field that accepts typing and stores none of it
+     is worse than a disabled one**, which is why the gate above and the guard
+     here had to move together. */
+  if (!state.currentGameMeta) return;
   state.currentGameMeta.defaultEmoji = nodeDefaultEmojiInput.value;
 });
 
 if (nodeCategoryIconInput) {
   nodeCategoryIconInput.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
+    /* THE ROW'S META, NEVER THE FLOW NODE -- see the emoji above. This one was
+       the loudest of the six: the save carried `category_icon: null` while
+       `football` sat in the picker, so it did not merely fail to save, it wrote
+       the absence over whatever the row held. */
+    if (!state.currentGameMeta) return;
     state.currentGameMeta.categoryIcon = normalizeCategoryIconValue(nodeCategoryIconInput.value);
     scheduleRecoverySync();
     updateActionUi();
@@ -25236,13 +26514,20 @@ if (guideImageLightboxCloseBtn) {
 }
 
 nodePriceInput.addEventListener('input', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* THE ROW'S META, NEVER THE FLOW NODE. This is a column on `public.games`
+     and `getGameNode()` asks about the flow DOCUMENT, which this room never
+     loads -- so the handler returned on every game and the value reached the
+     box and nothing else. **A field that accepts typing and stores none of it
+     is worse than a disabled one**, which is why the gate above and the guard
+     here had to move together. */
+  if (!state.currentGameMeta) return;
   state.currentGameMeta.price = nodePriceInput.value;
 });
 
 if (nodeEngineInput) {
   nodeEngineInput.addEventListener('change', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
+    /* THE ROW'S META, NEVER THE FLOW NODE -- see the price above. */
+    if (!state.currentGameMeta) return;
     state.currentGameMeta.engine = nodeEngineInput.value || '';
     updateSelectionUi();
     scheduleRecoverySync();
@@ -25479,8 +26764,8 @@ function colorsMatch(a, b) {
 
 
 function addNewTag() {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
+  const node = tagTarget();
+  if (!node) return;
   const value = nodeTagNewInput.value.trim();
   if (!value) return;
   const valueLower = value.toLowerCase();
@@ -25495,10 +26780,26 @@ function addNewTag() {
   if (!(node.tags || []).some(t => t.toLowerCase() === valueLower)) {
     node.tags = [...(node.tags || []), canonical];
   }
+  if (!existing) allTags.sort((a, b) => a.localeCompare(b));
   nodeTagNewInput.value = '';
-  renderTagPicker(node);
+  renderTagPicker();
+  /* THE NEW CHIP IS BROUGHT ON SCREEN. The picker scrolls at six rows, so a
+     tag sorted into the middle of 91 lands where nobody can see it -- and
+     "did that work" is the one question adding a tag raises. */
+  const fresh = nodeTagPicker.querySelector('[data-tag="' + cssEscape(canonical) + '"]');
+  if (fresh && fresh.scrollIntoView) fresh.scrollIntoView({ block: 'nearest' });
   syncPhoneStartButton();
-  scheduleRecoverySync();
+  writeTagsNow();
+}
+
+/* A TAG IS A WORD SOMEBODY TYPED, so it can carry a quote or a bracket and the
+   selector has to survive it. `CSS.escape` where the browser has it, and a
+   conservative fallback that refuses anything it cannot express rather than
+   building a selector that throws. */
+function cssEscape(value) {
+  const text = String(value);
+  if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(text);
+  return /^[\w -]+$/.test(text) ? text : '';
 }
 
 nodeTagAddBtn.addEventListener('click', addNewTag);
@@ -25507,6 +26808,19 @@ nodeTagNewInput.addEventListener('keydown', (event) => {
   event.preventDefault();
   addNewTag();
 });
+/* THE BOX NARROWS THE CHIPS ON EVERY KEYSTROKE, which is the whole reason it
+   is one box: you type to find a tag, and if nothing matches the word you
+   typed is the new one. */
+nodeTagNewInput.addEventListener('input', () => {
+  renderTagPicker();
+});
+if (nodeTagManageBtn) {
+  nodeTagManageBtn.addEventListener('click', () => {
+    if (!tagTarget()) return;
+    tagPoolManaging = !tagPoolManaging;
+    renderTagPicker();
+  });
+}
 
 let introRecoverySaveTimer = 0;
 
@@ -25522,14 +26836,23 @@ function scheduleIntroRecoverySync() {
 }
 
 nodeBodyInput.addEventListener('input', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* THE ROW'S META, NEVER THE FLOW NODE. This is a column on `public.games`
+     and `getGameNode()` asks about the flow DOCUMENT, which this room never
+     loads -- so the handler returned on every game and the value reached the
+     box and nothing else. **A field that accepts typing and stores none of it
+     is worse than a disabled one**, which is why the gate above and the guard
+     here had to move together. */
+  if (!state.currentGameMeta) return;
   state.currentGameMeta.body = nodeBodyInput.value;
   scheduleUpdateActionUi();
   scheduleIntroRecoverySync();
 });
 
 nodeBodyInput.addEventListener('blur', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
+  /* BOTH HALVES OF THE INTRO MOVED. The blur flushes the recovery draft, so
+     leaving it on the node would keep what was typed out of the draft while the
+     input handler had already put it in the meta. */
+  if (!state.currentGameMeta) return;
   if (introRecoverySaveTimer) {
     window.clearTimeout(introRecoverySaveTimer);
     introRecoverySaveTimer = 0;

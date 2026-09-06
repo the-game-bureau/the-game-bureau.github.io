@@ -53,7 +53,16 @@ const open=await p.evaluate(()=>{const b=document.getElementById('gameEraseBtn')
  return{aria:b.getAttribute('aria-disabled'),title:b.title,cur:state.currentGameId};});
 t('with a game open it turns on',open.aria==='false'&&/delete this game/i.test(open.title),open);
 
-const dlg=await p.evaluate(()=>{document.getElementById('gameEraseBtn').click();
+/* IT WAS ASYNCHRONOUS FOR AN HOUR, while it counted what a delete takes with
+   it before asking. The cascade sentence was cut the same day and the counter
+   with it, so the message is written in one go again -- and the wait is KEPT,
+   because a check that waits on a condition already true costs nothing and
+   would have to be rewritten the next time the question grows a lookup. */
+await p.evaluate(()=>{document.getElementById('gameEraseBtn').click();});
+await p.waitForFunction(
+  ()=>/for good/i.test(document.getElementById('gameEraseMessage').textContent||''),
+  {timeout:20000});
+const dlg=await p.evaluate(()=>{
  const back=document.getElementById('gameEraseBackdrop');
  return{open:!back.hidden,msg:(document.getElementById('gameEraseMessage').textContent||'').trim(),
   buttons:[...back.querySelectorAll('button')].map(b=>b.textContent.trim())};});

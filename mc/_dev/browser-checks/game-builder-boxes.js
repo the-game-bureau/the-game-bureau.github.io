@@ -21,15 +21,32 @@ const css = [...s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1])
   .replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 /* ---- the seven boxes, in the order the work runs in ---------------------- */
-const bars = [...d.querySelectorAll('fieldset.game-id-bar')];
+/* A BAR IS ONE WHOSE NEAREST BAR ANCESTOR IS ITSELF, and the filter stays even
+   though nothing is nested today. START was a fieldset INSIDE GAME for a day
+   and is a sibling of it since 2026-09-05, so the flat query is right again --
+   but the next box to hold a box would be counted as a question the room does
+   not ask, which is what this filter is for. */
+const bars = [...d.querySelectorAll('fieldset.game-id-bar')]
+  .filter((b) => !b.parentElement
+    || !b.parentElement.closest('fieldset.game-id-bar'));
 /* SEVEN SINCE 2026-08-31: Guide came out of the inspector drawer. */
 /* FIFTEEN. One thing per box is the shape this room converged on across
    2026-08-31: the name, the tagline, the game id, the emoji, the category icon,
    the logo, and last the price and the engine. */
 /* FIFTEEN. The AUDIENCES bar came back on 2026-09-02, second, over
    `games.target` and `games.rival`. */
-const LEGEND_ORDER = ('Game | Anchor Event | Game Date | Audiences | Game City | Map | '
-  + 'Tagline | Game | Price | Engine | Default Emoji | Category Icon | '
+/* FIFTEEN AGAIN SINCE 2026-09-05, and the number went 15 to 14 to 15 in one
+   day. GAME DATE stopped being a bar of its own and became START -- a date, a
+   time and a timezone, one answer to one question -- first NESTED inside GAME,
+   then a SIBLING of it sharing a row. Nested it was not a question of its own;
+   beside the name it is.
+   AND TWO LEGENDS WERE RENAMED the same day: `Default Emoji` is `Emoji` and
+   `Category Icon` is `Icon`. VISIBLE COPY ONLY -- `default_emoji` and
+   `category_icon` are still the columns and `emojiBar` / `categoryIconBar`
+   are still the ids, the bargain the Tape Room made through five renames of
+   its own verbs. */
+const LEGEND_ORDER = ('Anchor Event | Game | Start | Audiences | Game City | Map | '
+  + 'Tagline | Game | Price | Engine | Emoji | Icon | '
   + 'Guide | Logo | Tags').split(' | ');
 
 /* THE COUNT IS THE ORDER LIST'S, NOT A LITERAL. It was a hard number written
@@ -38,14 +55,68 @@ const LEGEND_ORDER = ('Game | Anchor Event | Game Date | Audiences | Game City |
    is the same list the order assertion below reads. */
 t('one bar per field, and no more', bars.length === LEGEND_ORDER.length,
   bars.length + ' vs ' + LEGEND_ORDER.length);
-/* THE ORDER IS THE ARGUMENT: why they are in town, who the game is for, where
-   they walk, which walk, then what the game IS, how it is tagged, and whether
-   it is on sale. */
+/* THE ORDER IS THE ARGUMENT: why they are in town, what the game is called and
+   when it starts, who it is for, where they walk, which walk, then what the
+   game IS and how it is tagged.
+     THE ANCHOR LEADS AGAIN SINCE 2026-09-05, reversing `the name leads` of
+   2026-09-02. What outranks that argument is what the anchor now DOES: choosing
+   one REFILLS both audiences, so it has to be answered before them or the guess
+   arrives after somebody has typed over it. The name is second rather than
+   fifth, so what that move was really fixing is still fixed. */
 
 t('the legends read in the order the work runs',
   bars.map((b) => b.querySelector('legend').textContent).join(' | ')
     === LEGEND_ORDER.join(' | '),
   bars.map((b) => b.querySelector('legend').textContent).join(' | '));
+
+/* ---- AND START IS BESIDE GAME (2026-09-05) ------------------------------- */
+/* IT WAS NESTED INSIDE THE NAME'S BOX FOR A DAY, which is legal and read as a
+   box drawn inside another box. It is a SIBLING now: two boxes answering two
+   questions, sharing one row. */
+const startBar = d.getElementById('startBar');
+const nameBar = d.getElementById('gameNameBar');
+t('START is a box of its own, beside GAME',
+  !!startBar && startBar.tagName === 'FIELDSET'
+  && !nameBar.contains(startBar) && !startBar.contains(nameBar),
+  startBar && startBar.tagName);
+/* THE PAIR IS THE ROW. Both are direct children of it, in reading order, and
+   the row is what carries the page's measure -- see game-builder-widths for
+   the geometry, which jsdom cannot see. */
+const pair = d.querySelector('.gid-pair');
+t('and the two share one row wrapper, name first',
+  !!pair && nameBar.parentElement === pair && startBar.parentElement === pair
+  && [...pair.children].map((c) => c.id).join(',') === 'gameNameBar,startBar',
+  pair && [...pair.children].map((c) => c.id || c.tagName).join(','));
+/* START FOLLOWS THE NAME WHEREVER THE NAME GOES, so this asks for the position
+   AFTER it rather than a number -- the pair moved from first to second the day
+   the anchor took the lead, and a hard index would have to be edited again on
+   the next reorder. */
+t('and START is the bar straight after the name',
+  bars.indexOf(startBar) === bars.indexOf(nameBar) + 1,
+  [bars.indexOf(nameBar), bars.indexOf(startBar)]);
+/* THREE FIELDS, ONE COLUMN. `games.start` is a jsonb object, so the date, the
+   time and the zone are parts of one stored value rather than three columns --
+   which is what `2026090502` collapsed after `2026090501` added two beside the
+   date an hour earlier. */
+t('and it holds a date, a time and a timezone',
+  !!d.getElementById('tgbDate') && !!d.getElementById('startHour')
+  && !!d.getElementById('startMinute') && !!d.getElementById('startZone'));
+/* THE MINUTE IS A DROPDOWN OF THREE (2026-09-05), which is the only way to SHOW
+   exactly three: `step="900"` on a `time` input makes an off-quarter minute
+   fail validation and leaves the browser drawing its own control. */
+t('and the minute offers 00, 15 and 30 and nothing else',
+  [...d.querySelectorAll('#startMinute option')].map((o) => o.value).join(',')
+    === ',00,15,30',
+  [...d.querySelectorAll('#startMinute option')].map((o) => o.value).join(','));
+/* THE ZONE SAYS WHAT IT IS CALLED. The VALUE is the IANA name, which is the
+   only form that survives a clock change; the LABEL is the name people say, so
+   the list reads `America/Chicago  Central` rather than a path nobody speaks. */
+const zoneOptions = [...d.querySelectorAll('#startZoneList option')];
+t('and every zone offers an IANA value with a spoken name beside it',
+  zoneOptions.length >= 10
+  && zoneOptions.every((o) => o.value.indexOf('/') !== -1
+    && (o.textContent || '').trim().length > 1),
+  zoneOptions.slice(0, 3).map((o) => o.value + ' -> ' + o.textContent.trim()));
 
 /* ---- EACH ON ITS OWN LINE ------------------------------------------------
    The three shared a flex row for a day. What it cost is that the box holding
@@ -56,9 +127,13 @@ t('the row wrapper is gone', d.querySelectorAll('.gid-row').length === 0,
 /* AND ITS CSS WENT WITH IT, which is the other half of deleting a control:
    a dead selector is how a room ends up with a rule nobody can explain. */
 t('and so did its CSS', css.indexOf('.gid-row') === -1);
-t('every bar is a direct child of the page, in order',
+/* EVERY BAR IS TOP LEVEL, IN ORDER. The first two are children of `.gid-pair`
+   rather than of the page itself, which is the one thing the row costs -- so
+   this reads the bars in document order rather than asking who their parent
+   is. */
+t('every bar is top level, in order',
   bars.map((b) => b.id).join(',')
-    === 'gameNameBar,anchorBar,tgbDateBar,audienceBar,cityBar,mapBar,taglineBar,gameIdentityBar,priceBar,engineBar,emojiBar,categoryIconBar,guideBar,logoBar,tagsBar',
+    === 'anchorBar,gameNameBar,startBar,audienceBar,cityBar,mapBar,taglineBar,gameIdentityBar,priceBar,engineBar,emojiBar,categoryIconBar,guideBar,logoBar,tagsBar',
   bars.map((b) => b.id).join(','));
 
 /* ---- the anchor is the event, and there is no audience bar --------------- */

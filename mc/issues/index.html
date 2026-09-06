@@ -396,6 +396,34 @@
 
     .issue-contact a { color: var(--bic-blue); }
 
+      /* THE MATCH LIST. Inside the card rather than in a dialog: the card is
+       already the context, and this room's shape is one item and its
+       decision. */
+    .issue-matches {
+      margin: 10px 0 0; padding: 10px;
+      border: 1px solid var(--control-line, rgba(45, 72, 128, 0.3));
+      border-radius: 8px; background: rgba(45, 72, 128, 0.04);
+      display: flex; flex-direction: column; gap: 6px;
+      }
+    .issue-matches-lede {
+      margin: 0 0 2px; font: 600 0.68rem/1.4 'IBM Plex Mono', monospace;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted, #6b7280);
+      }
+    .issue-match {
+      display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+      text-align: left; padding: 7px 9px; cursor: pointer;
+      border: 1px solid var(--control-line, rgba(45, 72, 128, 0.3));
+      border-radius: 6px; background: #fff; font: inherit; color: inherit;
+      }
+    .issue-match:hover, .issue-match:focus-visible {
+      border-color: var(--ink, #2d4880); background: rgba(45, 72, 128, 0.06);
+      }
+    .issue-match-name { font-weight: 700; }
+    .issue-match-meta {
+      font: 500 0.72rem/1.3 'IBM Plex Mono', monospace; color: var(--muted, #6b7280);
+      }
+    .issue-match-none { align-self: flex-start; }
+
     .issue-acts { display: flex; gap: 8px; }
 
     /* THE ONE IRREVERSIBLE BUTTON ON THE CARD, and it wears the red pen so it
@@ -813,6 +841,51 @@
           : 'Open the Tape Room on this track, and ring it.';
         acts.appendChild(go);
 
+        // FIND THE ID, ON THE ONE FINDING THAT IS ABOUT A MISSING ONE.
+        //
+        // A `spotify` finding says a track cannot be previewed and falls back
+        // to a search, and until now the only thing it offered was `Go to`,
+        // which opens the Tape Room on a row whose own Find button needs an API
+        // app nobody has set up. This is the search itself, one press, from the
+        // card that is telling you about it.
+        //
+        // DRAWN ONLY WHERE THERE IS STILL A GAP: not on another kind of
+        // finding, not when the track has since gained an id, and not when the
+        // row could not be read. Absent rather than greyed, which is the rule
+        // the Delete button beside it already keeps.
+        var gap = text(f.area) === 'soundtrack' && text(f.kind) === 'spotify'
+          ? trackById[String(f.subject_id)] : null;
+        if (gap && !text(gap.spotify_id)) {
+          var href = spotifySearchHref(gap);
+          // FIND FIRST, THEN SEARCH. Find is the one that can finish the job
+          // in a press; the search is the fallback for when it cannot, and it
+          // is the only one of the two that works with no Spotify app.
+          var look = document.createElement('button');
+          look.type = 'button';
+          look.className = 'btn small';
+          look.textContent = 'Find id';
+          look.title = 'Ask Spotify for the id of "' + text(gap.title) + '" by '
+            + (text(gap.artist) || 'this artist') + ', then write it onto the '
+            + 'track. Needs the Spotify app credentials; it says so if they are '
+            + 'not set.';
+          look.addEventListener('click', function () { findSpotifyId(f, look); });
+          acts.appendChild(look);
+
+          if (href) {
+            var find = document.createElement('a');
+            find.className = 'btn small';
+            find.textContent = 'Search Spotify';
+            find.href = href;
+            find.target = '_blank';
+            find.rel = 'noopener noreferrer';
+            find.title = 'Search Spotify for "' + text(gap.title) + '" by '
+              + (text(gap.artist) || 'this artist')
+              + '. Copy the share link, then paste it into the Spotify box on '
+              + 'the track in the Tape Room.';
+            acts.appendChild(find);
+          }
+        }
+
         // ONLY WHERE THERE IS SOMETHING THIS PAGE CAN DELETE. A finding about
         // the list names nothing, and a Gift Shop finding names something this
         // room has no write path to. Absent rather than greyed: a greyed button
@@ -872,6 +945,159 @@
         return s.split('-').map(function (part) {
           return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
         }).join(' ');
+      }
+
+      // ── FIND THE ID FROM THE ROW ────────────────────────────────────────
+      //
+      // The Tape Room's `Find` button, on the card that is telling you the id
+      // is missing. Same Edge Function, same rules, and it exists here because
+      // the alternative was: read the finding, press `Go to`, find the row
+      // again in a list of 1,565, and press Find there.
+      //
+      // IT NEEDS THE SPOTIFY APP AND SAYS SO WHEN IT IS NOT THERE. Three
+      // credential-free routes were tested on 2026-09-04 and all three are
+      // closed: the web player's anonymous token answers `Usage of this
+      // endpoint is not permitted under the Spotify Developer Terms`, the
+      // search page is JavaScript-rendered and carries nothing, and MusicBrainz
+      // holds no Spotify link for these recordings. `open.spotify.com/embed/`
+      // VERIFIES an id you already have and cannot find one.
+      function fnUrl(name) {
+        return SUPABASE_CONFIG.url + '/functions/v1/' + name;
+      }
+
+      async function findSpotifyId(f, btn) {
+        var track = trackById[String(f.subject_id)];
+        if (!track) {
+          setNotice('could not read that track, so there is nothing to look up', 'error');
+          return;
+        }
+        var was = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Looking';
+        var data;
+        try {
+          var res = await fetch(fnUrl('spotify-lookup'), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ title: text(track.title), artist: text(track.artist) })
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          data = await res.json();
+        } catch (error) {
+          console.error(error);
+          // A FUNCTION THAT IS NOT DEPLOYED IS THE LIKELIEST CAUSE, and it is
+          // the one thing a raw status code will not tell you. It was 404 from
+          // the day it was written until 2026-09-04.
+          setNotice('the Spotify lookup did not answer. It may not be deployed: '
+            + 'cd mc && supabase functions deploy spotify-lookup', 'error');
+          btn.disabled = false;
+          btn.textContent = was;
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = was;
+
+        var matches = (data && Array.isArray(data.matches)) ? data.matches : [];
+        if (!matches.length) {
+          // THE FUNCTION'S OWN SENTENCE. It names the missing secret, or says
+          // Spotify has nothing for that title and artist. Both are things
+          // somebody can act on; "lookup failed" is not.
+          setNotice((data && data.reason) || 'Spotify found nothing for that track', 'error');
+          return;
+        }
+        openMatches(f, track, matches, btn);
+      }
+
+      // THE MATCHES ARE SHOWN, NEVER TAKEN AUTOMATICALLY, EVEN WHEN THERE IS
+      // ONE. This is the difference between here and the Tape Room: there the
+      // button FILLS a box and a human saves it with a second deliberate press,
+      // and here there is no box, so the press on a match IS that second look.
+      //
+      // AND THE ALBUM AND YEAR ARE WHY IT IS A LIST RATHER THAN A NUMBER. A
+      // 22 character id cannot be checked by reading it, and every popular song
+      // is on Spotify several times over: on 2026-09-04 six real tracks turned
+      // up three, four and three valid duplicates each, and every one of them
+      // matched on title and artist alone. The year is what tells the original
+      // from the remaster.
+      function openMatches(f, track, matches, btn) {
+        var host = btn.closest('.issue-item');
+        if (!host) return;
+        var old = host.querySelector('.issue-matches');
+        if (old) old.remove();
+
+        var box = document.createElement('div');
+        box.className = 'issue-matches';
+
+        var lede = document.createElement('p');
+        lede.className = 'issue-matches-lede';
+        lede.textContent = matches.length === 1
+          ? 'One match. Check it is the right recording before you take it.'
+          : matches.length + ' matches. The year is usually what tells them apart.';
+        box.appendChild(lede);
+
+        matches.forEach(function (m) {
+          var row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'issue-match';
+          var name = document.createElement('span');
+          name.className = 'issue-match-name';
+          name.textContent = text(m.title) + ' -- ' + text(m.artist);
+          var meta = document.createElement('span');
+          meta.className = 'issue-match-meta';
+          meta.textContent = [text(m.album), text(m.year),
+            m.explicit ? 'explicit' : ''].filter(Boolean).join('  |  ');
+          row.append(name, meta);
+          row.title = 'Write ' + text(m.id) + ' onto this track and clear the finding.';
+          row.addEventListener('click', function () { takeMatch(f, m, box); });
+          box.appendChild(row);
+        });
+
+        var no = document.createElement('button');
+        no.type = 'button';
+        no.className = 'btn small issue-match-none';
+        no.textContent = 'None of these';
+        no.title = 'Close the list and leave the track alone.';
+        no.addEventListener('click', function () { box.remove(); });
+        box.appendChild(no);
+
+        host.appendChild(box);
+      }
+
+      async function takeMatch(f, m, box) {
+        var rows;
+        try {
+          // THROUGH THE ROOM'S OWN `writeTrack`, which already asks for the row
+          // back. Two write paths to one table is how they drift.
+          rows = await writeTrack(f, 'PATCH', { spotify_id: text(m.id) });
+        } catch (error) {
+          console.error(error);
+          setNotice('could not write that id: ' + ((error && error.message) || 'write failed'), 'error');
+          return;
+        }
+        // PostgREST ANSWERS 200 WITH AN EMPTY ARRAY WHEN RLS REFUSES, so a
+        // refused write would otherwise report success and the card would go
+        // quiet about something that never happened.
+        if (!rows.length) {
+          setNotice('nothing was written. The database refused it -- sign in again '
+            + 'and retry.', 'error');
+          return;
+        }
+        var t = trackById[String(f.subject_id)];
+        if (t) t.spotify_id = text(m.id);
+        if (box) box.remove();
+
+        // AND THE FINDING GOES, BECAUSE IT IS NOW A LIE. It says the track has
+        // no id and the track has one. This is the same act `Clear issue` does
+        // and it goes through the same function, so there is one delete rather
+        // than two that can disagree -- and it is safe for the same reason:
+        // the sweep will not re-file a track that has an id, so the recurrence
+        // check that makes clearing safe still holds.
+        var clearBtn = document.createElement('button');
+        clearBtn.textContent = 'Clear issue';
+        await clearFinding(f, clearBtn);
+        setNotice('wrote ' + text(m.title) + ' by ' + text(m.artist)
+          + (text(m.year) ? ' (' + text(m.year) + ')' : '')
+          + ' and cleared the finding', 'success');
       }
 
       // CLEARING WRITES `fixed`, NEVER `dismissed`. `dismissed` is a permanent
@@ -1686,6 +1912,7 @@
           // quiet, so three decisions in a row do not shuffle the list under
           // the pointer.
           findings.forEach(function (f) { f.status = 'open'; });
+          await loadSpotifyGaps();
           render();
           setNotice('');
         } catch (error) {
@@ -1694,6 +1921,53 @@
           render();
           setNotice((error && error.message) || 'could not read the findings', 'error');
         }
+      }
+
+      // THE TRACKS BEHIND THE `spotify` FINDINGS, read once rather than per card.
+      //
+      // IT ALSO SETTLES A FINDING THAT HAS GONE STALE. A track can gain an id
+      // after the sweep filed its finding -- from the Tape Room, or from a
+      // human pasting a share link -- and the row is the only thing that knows.
+      // A card whose track now HAS an id gets no search button, because there
+      // is nothing left to look up.
+      var trackById = {};
+      async function loadSpotifyGaps() {
+        var ids = findings.filter(function (f) {
+          return text(f.area) === 'soundtrack' && text(f.kind) === 'spotify'
+            && f.subject_id != null;
+        }).map(function (f) { return String(f.subject_id); });
+        ids = Object.keys(ids.reduce(function (a, k) { a[k] = 1; return a; }, {}));
+        trackById = {};
+        if (!ids.length) return;
+        try {
+          // A FAILED READ COSTS THE BUTTON AND NOTHING ELSE. The findings are
+          // already on screen and are the point of the room, so this is caught
+          // and dropped rather than taking the queue down with it.
+          var rows = await fetchAllRows('soundtrack?select=id,title,artist,spotify_id&id=in.('
+            + ids.join(',') + ')');
+          rows.forEach(function (r) { trackById[String(r.id)] = r; });
+        } catch (error) {
+          console.warn('could not read the tracks behind the Spotify findings', error);
+        }
+      }
+
+      // SEARCH SPOTIFY FOR THE TRACK THIS FINDING IS ABOUT.
+      //
+      // NO CREDENTIALS AND NO EDGE FUNCTION. This is Spotify's own search page
+      // with the title and artist in it, which is the same fallback the public
+      // page already makes for a track with no id. The `Find` button in the
+      // Tape Room is the other half and needs an API app; this one needs
+      // nothing and works today.
+      //
+      // A FIELDED QUERY, so Spotify matches the two separately. A bag of words
+      // returns forty covers, which is the whole reason the Tape Room's own
+      // lookup builds it this way.
+      function spotifySearchHref(track) {
+        var q = [];
+        if (text(track.title)) q.push('track:"' + text(track.title) + '"');
+        if (text(track.artist)) q.push('artist:"' + text(track.artist) + '"');
+        if (!q.length) return '';
+        return 'https://open.spotify.com/search/' + encodeURIComponent(q.join(' ')) + '/tracks';
       }
 
       var issueBatchBtnEl = document.getElementById('issueBatchBtn');

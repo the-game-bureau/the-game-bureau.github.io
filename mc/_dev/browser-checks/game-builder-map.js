@@ -9,15 +9,18 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* `games.map_id` WAS DROPPED (2026-09-02), so the schema map now has it FALSE
-   -- which is what keeps a column the table lacks out of the select and out of
-   the PATCH. The other five wiring points are left asserted deliberately: they
-   are what a restored column would come back through, and losing them would
-   turn a one-line migration into a re-wiring job.
-     SO THE MAP BAR READS AND CANNOT SAVE. It is the one bar in that state, and
-   it is the next thing to settle: the direction is that games holds IDs and
-   pulls from other tables, which is precisely what map_id was. */
-[['the schema map gates the dropped column off', 'map_id: false,'],
+/* `games.map_id` EXISTS AGAIN (2026-09-05), AND IT WAS NEVER DROPPED -- it was
+   NAMED DIFFERENTLY. The room has always written `map_id`; the table carried a
+   text column called `map`, empty on all 393 rows and read by nothing, so the
+   schema map had `map_id: false` and the MAP bar read and could not save. That
+   was the state this file called `the next thing to settle`.
+     2026090503 RENAMED THE COLUMN rather than adding one: nothing to migrate,
+   no reader anywhere, and `map` said nothing about what it held.
+     SO THE FLAG IS THE ASSERTION NOW, THE OTHER WAY ROUND. A dropped column set
+   to false is the fix; a LIVE column set to false is a bar that quietly saves
+   nothing -- which is the fault, and it went unnoticed because the box, the
+   note and the resolver all worked. */
+[['the schema map has the column ON', 'map_id: true,'],
  ['normalizeGameRow', 'map_id:              row && row.map_id'],
  ['initGameMeta, snake ?? camel ?? node', 'mapId:              g.map_id ?? g.mapId ?? gn.mapId'],
  ['the column-to-node map', "map_id: 'mapId'"],
