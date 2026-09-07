@@ -10693,14 +10693,15 @@ html.admin-embedded .builder-section-head{
       </fieldset>
 
       <!-- AUDIENCES: WHO THE GAME IS FOR, AND WHO THEY ARE UP AGAINST.
-           Two plain text boxes over two plain text columns -- `games.target`
-           and `games.rival`. No picker, no catalogue, no key: what is typed is
-           what is stored, and 2026090204 renamed the columns to say so.
-             THE BOX AND ITS COLUMN SHARE A NAME, deliberately. The pair spent a
-           day as a box called `target` over a column called `target_audience_id`,
-           and the mapping in GAME_ROW_TEXTBOXES was then the only thing tying
-           them together -- which made it the only place the connection could
-           break. Now the id, the meta field and the column are all one word.
+           Two pickers over `public.audiences` (2026-09-06). A pick records the
+           audience's ID in `games.target_id` / `games.rival_id` -- real foreign
+           keys, cascade on rename, null on delete -- and derives the prose the
+           copy prints into `games.target` / `games.rival` ("Chicago Bears fans")
+           in the same act, so the two cannot disagree.
+             THE BOXES KEEP THEIR IDS (`target`, `rival`), the bargain every
+           rename here has made: identifiers stay, copy and columns move. A
+           row filed before the id columns existed shows its prose and a note
+           saying it is not linked yet; picking is what links it.
              IT SITS SECOND because it is the second question: the anchor says
            why anybody is in town, this says who the game is pitched at, and the
            city says where they walk. -->
@@ -10722,16 +10723,21 @@ html.admin-embedded .builder-section-head{
                legend cannot name either of them. -->
           <div class="gid-field gid-field--audience" id="targetField">
             <label class="gid-label" for="target">Target</label>
-            <input id="target" type="text"
-                   autocomplete="off" spellcheck="false"
-                   placeholder="Who the game is pitched at.">
+            <input id="target" type="text" list="audienceList"
+                   autocomplete="off" spellcheck="false" disabled
+                   placeholder="Choose the fandom the game is pitched at.">
+            <div class="map-note" id="targetNote"></div>
           </div>
           <div class="gid-field gid-field--audience" id="rivalField">
             <label class="gid-label" for="rival">Rival</label>
-            <input id="rival" type="text"
-                   autocomplete="off" spellcheck="false"
-                   placeholder="Who they are up against.">
+            <input id="rival" type="text" list="audienceList"
+                   autocomplete="off" spellcheck="false" disabled
+                   placeholder="Choose the fandom they are up against.">
+            <div class="map-note" id="rivalNote"></div>
           </div>
+          <!-- ONE DATALIST FEEDS BOTH BOXES. 641 audiences; a second copy is 641
+               option nodes that could go stale independently. -->
+          <datalist id="audienceList"></datalist>
         </div>
       </fieldset>
 
@@ -11648,7 +11654,11 @@ const SUPABASE_GAMES_SCHEMA = {
   home_team_key: false,
   venue_name: false,
   venue_city: false,
-  map_id: false,
+  /* `map_id` IS A LIVE COLUMN AND WAS FLAGGED OFF (2026-09-06). The flag was
+     the only write path's gate, so picking a map wrote the meta, repainted the
+     note, reported Saved, and never reached the PATCH. 0 of 393 games carried
+     a real map and 20 carried '' from an older version that did write it. */
+  map_id: true,
   tagline: true,
   featured: true,
   city: true,
@@ -11688,6 +11698,10 @@ const SUPABASE_GAMES_SCHEMA = {
   anchor_event_id: true,
   target: true,
   tgb_date: true,
+  /* THE AUDIENCE IDS (2026090601). A game names its target and its rival by
+     `audiences.id`; the prose beside them is derived from the pick. */
+  target_id: true,
+  rival_id: true,
   rival: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
@@ -12096,8 +12110,20 @@ function isMissingNormalizedGameGraphError(errorMessage = '') {
     && /(does not exist|could not find|schema cache|PGRST202|PGRST205)/i.test(message);
 }
 
+/* A PAGE THAT NEEDS A MIGRATION MUST NAME IT. The self-heal below switches a
+   column off for the session and carries on, which is right for a column that
+   was DROPPED and wrong for one that has not been ADDED yet: the pickers would
+   quietly stop saving with nothing on screen saying which file to run. The
+   console line is here; the sentence on the box is painted by
+   `paintAudienceFields`, which reads the same flag on every frame. */
+const MIGRATION_FOR_COLUMN = {
+  target_id: '2026090601_a_game_names_its_audiences_by_id.sql',
+  rival_id: '2026090601_a_game_names_its_audiences_by_id.sql'
+};
 function markMissingGamesColumn(columnName = '') {
   if (columnName) SUPABASE_GAMES_SCHEMA[columnName] = false;
+  const file = MIGRATION_FOR_COLUMN[columnName];
+  if (file) console.warn('public.games has no ' + columnName + ' yet. Run mc/supabase/migrations/' + file);
 }
 
 function buildGamesSelectColumns(columns = []) {
@@ -12202,6 +12228,14 @@ function serializeGameRow(game, index = 0) {
   if (SUPABASE_GAMES_SCHEMA.rival !== false) {
     payload.rival = rowColumnValue(normalizedGame.rival);
   }
+  /* THE IDS GO THE SAME WAY: blank must reach a foreign key as NULL, and
+     `emitColumn` skips a blank, so a cleared pick could never be saved. */
+  if (SUPABASE_GAMES_SCHEMA.target_id !== false) {
+    payload.target_id = rowColumnValue(normalizedGame.targetId ?? normalizedGame.target_id);
+  }
+  if (SUPABASE_GAMES_SCHEMA.rival_id !== false) {
+    payload.rival_id = rowColumnValue(normalizedGame.rivalId ?? normalizedGame.rival_id);
+  }
   /* THE DATE IS WRITTEN THE SAME WAY AND MUST BE. `emitColumn` skips an empty
      value, so a date routed through it could never be CLEARED -- and blank has
      to reach the column as NULL rather than '', which a date column refuses
@@ -12246,6 +12280,8 @@ function normalizeGameRow(row, index = 0) {
     target:                row && row.target,
     tgbDate:               row && row.tgb_date,
     rival:                 row && row.rival,
+    target_id:             row && row.target_id,
+    rival_id:              row && row.rival_id,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
     tertiary_color:        row && row.tertiary_color,
@@ -12324,6 +12360,12 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'target',
     'tgb_date',
     'rival',
+    'target_id',
+    'rival_id',
+    /* AND `map_id` (2026-09-06), which was in NEITHER list: the map picker
+       wrote it and nothing read it back, so a saved map opened as an empty
+       box on the next load. Found by the probe reading the select. */
+    'map_id',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
        geo columns are filled by a trigger from `city`. Written and unread is
@@ -12470,6 +12512,12 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'target',
     'tgb_date',
     'rival',
+    'target_id',
+    'rival_id',
+    /* AND `map_id` (2026-09-06), which was in NEITHER list: the map picker
+       wrote it and nothing read it back, so a saved map opened as an empty
+       box on the next load. Found by the probe reading the select. */
+    'map_id',
     /* THE SAME SHAPE, quieter because the room can recompute them: `guide_id`
        identifies the character the three guide_* fields describe, and the three
        geo columns are filled by a trigger from `city`. Written and unread is
@@ -13318,8 +13366,11 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
    the only thing saying they belonged together -- the only place the connection
    could break. 2026090204 renamed the columns; there is nothing left to map. */
 const GAME_ROW_TEXTBOXES = [
-  { field: 'target', input: 'target', column: 'target' },
-  { field: 'rival', input: 'rival', column: 'rival' },
+  /* `target` AND `rival` LEFT THIS LIST ON 2026-09-06: they are pickers over
+     `public.audiences` now (see AUDIENCE_SLOTS below the map), writing an id and
+     deriving the prose. A plain textbox over the prose column would let the
+     words and the id disagree, which is the one thing the pickers exist to
+     prevent. */
   /* THE DATE IS THE THIRD, AND IT IS WHY THIS LIST STOPPED BEING CALLED
      GAME_ROW_TEXTBOXES (2026-09-02). The mechanism was never about audiences --
      it is a plain box over a plain game-row column -- and a date sitting in a
@@ -13459,6 +13510,170 @@ function paintMapField() {
   }
 }
 
+/* ---- THE AUDIENCE PICKERS (2026-09-06) ---------------------------------
+   A game names its TARGET (the visiting fandom, whose colours it wears) and
+   its RIVAL (the home club) BY ID: `games.target_id` / `games.rival_id`, both
+   foreign keys into `public.audiences` (2026090601), on update cascade so a
+   re-slugged key follows, on delete set null so a game outlives a fandom.
+     THE PROSE STAYS BESIDE THE ID. `games.target` / `games.rival` still hold
+   "Chicago Bears fans": that is what the copy prints and what 366 games carry.
+   It is DERIVED from the pick -- full_name + " fans" -- so the two cannot
+   disagree, and a row filed before the id columns existed keeps its prose
+   until somebody picks, with a note saying it is not linked yet.
+     THE PALETTE READS THE ID. `team-palette.js` scores an exact audience id
+   at 30000, above the team key; with `away_team_key` gone from public.games
+   this id is the ONLY thing left that ties a game to a club at play time.
+     BUILT FROM THE ROWS AND PAGED. 641 audiences today; the table went from
+   111 to 640 in a day, and PostgREST truncates at 1,000 in silence. */
+let builderAudienceList = [];
+const AUDIENCE_SLOTS = [
+  { input: 'target', note: 'targetNote', idField: 'targetId', proseField: 'target',
+    column: 'target_id', empty: 'Choose the fandom the game is pitched at.' },
+  { input: 'rival',  note: 'rivalNote',  idField: 'rivalId',  proseField: 'rival',
+    column: 'rival_id', empty: 'Choose the fandom they are up against.' }
+];
+
+async function loadBuilderAudiences() {
+  if (!hasSupabaseStore()) return;
+  const url = buildSupabaseUrl(
+    { select: 'id,full_name,type,league,city', order: 'full_name.asc,id.asc' }, 'audiences');
+  if (!url) return;
+  const PAGE = 1000;
+  try {
+    const out = [];
+    const seen = new Set();
+    for (let from = 0; ; from += PAGE) {
+      const headers = Object.assign({}, getSupabaseHeaders(),
+        { Range: from + '-' + (from + PAGE - 1) });
+      const res = await fetch(url, { headers: headers, cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const page = await res.json();
+      if (!Array.isArray(page) || !page.length) break;
+      /* DEDUPED ON THE ID, which is the loop guard: a server that ignored the
+         Range header would hand back the same page for ever. */
+      let added = 0;
+      page.forEach((r) => {
+        if (!r || !r.id || seen.has(r.id)) return;
+        seen.add(r.id); out.push(r); added++;
+      });
+      if (added === 0 || page.length < PAGE) break;
+    }
+    builderAudienceList = out;
+  } catch (err) {
+    console.warn('audiences fetch failed for the Game Builder:', err);
+    builderAudienceList = [];
+  }
+  paintAudienceFields();
+}
+
+/* THE LABEL CARRIES EVERY WORD SOMEBODY MIGHT TYPE, because a datalist matches
+   on the option's value and nothing else: the name, the league, the town and
+   the key. `Chicago Bears  ·  NFL  ·  Chicago, IL  ·  chicago-bears`. */
+function audienceLabel(a) {
+  const bits = [a.full_name || a.id];
+  if (a.league) bits.push(String(a.league).toUpperCase());
+  else if (a.type) bits.push(String(a.type));
+  if (a.city) bits.push(a.city);
+  bits.push(a.id);
+  return bits.join('  ·  ');
+}
+/* WHAT THE COPY PRINTS. One composer, so the prose on the row and the label in
+   the box cannot drift. */
+function audienceProse(a) { return a ? (a.full_name || a.id) + ' fans' : ''; }
+function audienceById(id) {
+  const k = String(id == null ? '' : id).trim();
+  return k ? (builderAudienceList.find((a) => a.id === k) || null) : null;
+}
+/* '' FOR A CLEARED BOX, AN ID FOR A RESOLVED ONE, NULL FOR A TYPO. A bare id
+   pasted out of the database resolves, and so does the prose a legacy row
+   carries ("Chicago Bears fans") -- which is what lets an old row be linked by
+   pressing Enter on what is already in the box. */
+function audienceFromTyped(text) {
+  const v = String(text == null ? '' : text).trim().toLowerCase();
+  if (!v) return '';
+  const hit = builderAudienceList.find((a) =>
+    audienceLabel(a).toLowerCase() === v
+    || a.id.toLowerCase() === v
+    || String(a.full_name || '').toLowerCase() === v
+    || audienceProse(a).toLowerCase() === v);
+  return hit ? hit.id : null;
+}
+
+function paintAudienceFields() {
+  const list = document.getElementById('audienceList');
+  /* REBUILT ONLY WHEN THE SET CHANGES. This page repaints on a rAF loop, and
+     rebuilding a datalist under the pointer shuts it while somebody is reading. */
+  const sig = builderAudienceList.length + ':' + (builderAudienceList[0] ? builderAudienceList[0].id : '');
+  if (list && list.dataset.sig !== sig) {
+    list.innerHTML = '';
+    builderAudienceList.forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = audienceLabel(a);
+      list.appendChild(opt);
+    });
+    list.dataset.sig = sig;
+  }
+  const meta = state.currentGameMeta;
+  AUDIENCE_SLOTS.forEach((slot) => {
+    const input = document.getElementById(slot.input);
+    const note = document.getElementById(slot.note);
+    if (!input) return;
+    const storedId = String((meta && meta[slot.idField]) || '').trim();
+    const prose = String((meta && meta[slot.proseField]) || '').trim();
+    const known = audienceById(storedId);
+    if (document.activeElement !== input) {
+      input.value = known ? audienceLabel(known) : (storedId || prose);
+    }
+    /* A DATABASE THAT HAS NOT RUN THE MIGRATION IS TOLD WHICH FILE, ON THE BOX.
+       The 400 switches the column off for the session, and a picker whose id
+       can never be saved is greyed rather than left looking live. Read off the
+       schema flag here rather than written once from the 400 handler, because
+       this repaint runs on every frame and would wipe a sentence written there. */
+    const migration = SUPABASE_GAMES_SCHEMA[slot.column] === false ? MIGRATION_FOR_COLUMN[slot.column] : '';
+    if (migration) {
+      input.disabled = true;
+      input.placeholder = 'Needs a migration';
+      if (note) note.textContent = 'public.games has no ' + slot.column + ' yet. Run mc/supabase/migrations/' + migration;
+      return;
+    }
+    input.removeAttribute('data-invalid');
+    input.placeholder = !builderAudienceList.length
+      ? 'Audiences did not load.'
+      : (input.disabled ? 'Open a game first' : slot.empty);
+    if (note) {
+      /* A STORED ID THAT IS NOT ON FILE IS NAMED, and a row carrying prose with
+         no id says it is not linked yet. Both are states nothing else reports. */
+      note.textContent = storedId && !known
+        ? 'No audience called ' + storedId + '. Pick one from the list.'
+        : (!storedId && prose && builderAudienceList.length
+            ? 'Not linked to an audience yet. Pick one to record its id.'
+            : '');
+    }
+  });
+}
+
+function commitAudienceField(slot) {
+  const input = document.getElementById(slot.input);
+  const note = document.getElementById(slot.note);
+  if (!input || input.disabled || !state.currentGameMeta) return;
+  const resolved = audienceFromTyped(input.value);
+  if (resolved === null) {
+    /* A TYPO IS REFUSED, NEVER STORED. The column is a foreign key, so the
+       database would otherwise answer with a constraint name nobody can act on. */
+    input.setAttribute('data-invalid', 'true');
+    if (note) note.textContent = 'No audience called that. Pick one from the list, or clear the box.';
+    return;
+  }
+  input.removeAttribute('data-invalid');
+  const a = audienceById(resolved);
+  state.currentGameMeta[slot.idField] = resolved;
+  /* THE PROSE FOLLOWS THE PICK, AND A CLEARED BOX CLEARS BOTH. */
+  state.currentGameMeta[slot.proseField] = a ? audienceProse(a) : '';
+  scheduleRecoverySync();
+  scheduleUpdateActionUi();
+  paintAudienceFields();
+}
+
 /* ---- THE LOGO PICKER (2026-08-31) --------------------------------------
    `public.logos` is a catalogue of marks a game can wear, with the image IN
    the row -- the shape `guides` already uses, and for the same reason: a url
@@ -13582,7 +13797,7 @@ async function commitLogoField() {
   if (next === String(state.currentGameMeta.logoId || '').trim()) return;
   state.currentGameMeta.logoId = next;
   paintLogoField();
-  if (!hasSupabaseStore()) { markDirty(); return; }
+  if (!hasSupabaseStore()) { scheduleRecoverySync(); scheduleUpdateActionUi(); return; }
   try {
     setLogoPickStatus('Saving...');
     const url = buildSupabaseUrl({ id: 'eq.' + state.currentGameId }, 'games');
@@ -13615,7 +13830,11 @@ function commitMapField() {
   }
   input.removeAttribute('data-invalid');
   state.currentGameMeta.mapId = resolved;
-  markDirty();
+  /* `markDirty()` WAS CALLED HERE AND DEFINED NOWHERE (found 2026-09-06), so
+     every map pick threw before the repaint. This pair is what the anchor
+     selection uses: the recovery draft, then the Save button. */
+  scheduleRecoverySync();
+  scheduleUpdateActionUi();
   paintMapField();
 }
 
@@ -14151,6 +14370,30 @@ function shortPlace(canonical) {
   return code ? (name + ', ' + code) : whole;
 }
 
+
+/* THE GAME DATE IS SUGGESTED FROM THE ANCHOR (2026-09-06): the day BEFORE the
+   event, because our game is played while visiting fans are already in town
+   with an afternoon free. A BLANK ONLY -- a date somebody typed is theirs, and
+   changing the anchor must not silently move a game that is already dated.
+     UTC ARITHMETIC. These are calendar dates, not moments: a local Date
+   crossing a DST boundary lands on 23 or 25 hours and the day drifts by one,
+   which on a date column is a wrong answer rather than a rounding error. */
+function dayBefore(iso) {
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(iso == null ? '' : iso).trim());
+  if (!m) return '';
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - 86400000);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+function fillDateFromEvent(ev) {
+  if (!ev || !state.currentGameMeta) return;
+  if (String(state.currentGameMeta.tgbDate || '').trim()) return;
+  const suggested = dayBefore(ev.start_date);
+  if (!suggested) return;
+  state.currentGameMeta.tgbDate = suggested;
+  const box = document.getElementById('tgbDate');
+  if (box && document.activeElement !== box) box.value = suggested;
+}
+
 function applyAnchorEventSelection(nextId) {
   /* THE META, NOT THE NODE. A game opened from the picker always has meta; it
      does not always have a game node, and the link is a column on the row. */
@@ -14170,6 +14413,7 @@ function applyAnchorEventSelection(nextId) {
        THE CITY IS DIFFERENT AND IS STILL COPIED. games.city exists, it is what
      a game is sold as being IN, and a person edits it afterwards. */
   fillCityFromEvent(ev);
+  fillDateFromEvent(ev);
   scheduleRecoverySync();
   scheduleUpdateActionUi();
 }
@@ -17999,8 +18243,10 @@ function getDocSnapshot(doc = state.doc) {
          read is a field nothing notices you changed: the box takes the text,
          the meta takes the box, and the button never lights. */
       target: meta.target || '',
+      targetId: meta.targetId || '',
       tgbDate: meta.tgbDate || '',
       rival: meta.rival || '',
+      rivalId: meta.rivalId || '',
       /* WITHOUT THESE TWO, TYPING AN AUDIENCE LEAVES SAVE DEAD. `hasUnsavedChanges`
          compares this snapshot, so a field the snapshot does not read is a field
          nothing notices you changed -- the box takes the text, the meta takes
@@ -18421,6 +18667,7 @@ function initGameMeta(game) {
        either, because an audience is a property of the ROW and 28 of the 395
        games carry an empty flow document. */
     target:               g.target ?? '',
+    targetId:             g.target_id ?? g.targetId ?? '',
     tgbDate:              g.tgb_date ?? g.tgbDate ?? '',
     /* THE ROW'S OWN NAME, SEEDED HERE, IS WHAT STOPS A SAVE RENAMING A GAME
        (2026-09-02). `getDocName()` reads the game NODE's title and falls back to
@@ -18435,6 +18682,7 @@ function initGameMeta(game) {
        can only ever be a no-op or a correction. */
     title:                g.name ?? gn.title ?? '',
     rival:                g.rival  ?? '',
+    rivalId:              g.rival_id ?? g.rivalId ?? '',
     city:                 g.city            ?? gn.city            ?? '',
     cityName:             g.city_name       ?? g.cityName         ?? gn.cityName        ?? '',
     stateCode:            g.state_code      ?? g.stateCode        ?? gn.stateCode       ?? '',
@@ -19228,6 +19476,8 @@ function normalizeSavedGame(raw, index) {
     target:                raw && raw.target,
     tgbDate:               raw && (raw.tgb_date ?? raw.tgbDate),
     rival:                 raw && raw.rival,
+    targetId:              raw && (raw.target_id ?? raw.targetId),
+    rivalId:               raw && (raw.rival_id ?? raw.rivalId),
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
     tertiary_color:        raw && raw.tertiary_color,
@@ -19695,6 +19945,14 @@ function buildHeaderGameList(games = []) {
                  && String(previous.tgbDate || '').trim()) {
       normalizedGame.tgbDate = previous.tgbDate;
     }
+    /* AND THE MAP AND THE TWO AUDIENCE IDS (2026-09-06), all three added after
+       every local snapshot on file was written. */
+    ['mapId', 'targetId', 'rivalId'].forEach((key) => {
+      if (previous && !String(normalizedGame[key] || '').trim()
+                   && String(previous[key] || '').trim()) {
+        normalizedGame[key] = previous[key];
+      }
+    });
     gameMap.set(gameId, normalizedGame);
   });
 
@@ -21804,14 +22062,14 @@ function updateSelectionUi(options = {}) {
      and 28 of the 395 rows have an empty flow document. */
   const mapBox = document.getElementById('gameMapInput');
   if (mapBox) mapBox.disabled = !showGameDetails;
-  /* THE TWO AUDIENCE BOXES ARE DELIBERATELY NOT GATED. Every other field on
-     this bar is disabled until a game is open; these are scratch boxes while
-     the audience model is parked, and `game-builder-target-audience.js` asserts
-     they carry no `disabled` in the markup. **Typing into them with no game
-     open writes nothing** -- the listener and the sync both return early on a
-     null meta -- so what an ungated box costs is a keystroke that goes nowhere
-     rather than a value that goes somewhere wrong. */
+  /* THE AUDIENCE PICKERS ARE GATED LIKE THE MAP (2026-09-06). They write a
+     foreign key on the ROW, so they are enabled exactly when a row is open. */
+  AUDIENCE_SLOTS.forEach((slot) => {
+    const box = document.getElementById(slot.input);
+    if (box) box.disabled = !showGameDetails;
+  });
   paintMapField();
+  paintAudienceFields();
   paintLogoField();
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
   if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.disabled = !isGameNode;
@@ -23610,6 +23868,8 @@ function stageCurrentGameIntoStore() {
     target:                rowColumnValue(_meta.target),
     tgbDate:               rowColumnValue(_meta.tgbDate),
     rival:                 rowColumnValue(_meta.rival),
+    target_id:             rowColumnValue(_meta.targetId),
+    rival_id:              rowColumnValue(_meta.rivalId),
     /* BLANK IS NULL, THROUGH THE ONE HELPER, so the staged row and the PATCH
        agree about what an empty box means. */
     link_url:              _gn.linkUrl || null,
@@ -26612,6 +26872,7 @@ async function initializeBuilder() {
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
   loadBuilderMaps().catch((err) => console.warn('loadBuilderMaps failed:', err));
+  loadBuilderAudiences().catch((err) => console.warn('loadBuilderAudiences failed:', err));
   loadBuilderLogos().catch((err) => console.warn('loadBuilderLogos failed:', err));
   /* COMMIT ON CHANGE, NOT ON EVERY KEYSTROKE. A datalist fires `change` when
      an option is picked and when the box is left, which is exactly the two
@@ -26620,6 +26881,12 @@ async function initializeBuilder() {
   const mapBox = document.getElementById('gameMapInput');
   if (mapBox) mapBox.addEventListener('change', commitMapField);
   else console.warn('game builder: no #gameMapInput');
+  /* THE AUDIENCE PICKERS COMMIT ON `change`, for the map's own reason. */
+  AUDIENCE_SLOTS.forEach((slot) => {
+    const box = document.getElementById(slot.input);
+    if (box) box.addEventListener('change', () => commitAudienceField(slot));
+    else console.warn('game builder: no #' + slot.input);
+  });
   /* THE LOGO IS A SELECT, so `change` is a pick rather than a keystroke and
      there is nothing to resolve: the value IS the id. */
   const logoBox = document.getElementById('nodeLogoSelect');

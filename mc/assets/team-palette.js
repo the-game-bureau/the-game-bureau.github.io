@@ -154,16 +154,16 @@
        `target_audience_id` / `rival_audience_id`, and the camelCase twins went
        with the rename: the column and the field are one word now, so there is
        no casing left to fall back through.
-         THIS TIER NO LONGER MATCHES ANYTHING, and that is not a regression to
-       fix. 2026090203 turned both columns into PROSE -- `Chicago Cubs fans` --
-       so `audienceId(team) === requestedAudience` can never be true, and every
-       game falls through to the team key below. It was measured before that
-       conversion: all 367 games with a target carry an `away_team_key` that
-       resolves in `public.teams` AND names the same club, 0 disagreeing. The
-       read is kept because the column may hold a key again one day and this is
-       where that would be honoured. */
+         THE ID IS BACK, BESIDE THE PROSE (2026090601). `target_id` / `rival_id`
+       are foreign keys into `public.audiences`, so this tier matches again;
+       `target` / `rival` still hold the prose -- `Chicago Cubs fans` -- which
+       the copy prints and which can never equal an audience id, so reading it
+       last costs nothing and keeps a row filed before the id columns existed
+       falling through to the team key below exactly as it did. */
     return {
-      audience: game && (prefix === 'away' ? game.target : game.rival),
+      audience: game && (prefix === 'away'
+        ? (game.target_id || game.targetId || game.target)
+        : (game.rival_id || game.rivalId || game.rival)),
       key: game && (game[`${prefix}_team_key`] || game[`${prefix}TeamKey`]),
       league: inferLeague(game),
       code: matchupCodes[prefix],

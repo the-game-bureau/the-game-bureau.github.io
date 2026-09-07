@@ -26,8 +26,9 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* Read from public.games on 2026-09-02, AFTER THE TABLE WAS CUT FROM 71
-   COLUMNS TO 31. That is why this list is worth refreshing rather than
+/* REFRESHED 2026-09-06: `map` was a typo for `map_id` (the live column), and
+   `target_id` / `rival_id` arrive with 2026090601. Read from public.games on
+   2026-09-02, AFTER THE TABLE WAS CUT FROM 71 COLUMNS TO 31. That is why this list is worth refreshing rather than
    trusting: 35 of the 62 names the page was asking for stopped existing, and
    PostgREST refuses the WHOLE request on one unknown column, so a single stale
    name took every read down and no game could be opened at all.
@@ -37,9 +38,9 @@ const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
       where table_schema='public' and table_name='games'; */
 const REAL = new Set(('accept_any,anchor_event_id,anytime,body,button_url,category_icon,'
   + 'checkout_url,city,created_at,currency,default_emoji,engine,'
-  + 'featured,guide_id,home_team_tgbid,id,link_url,logo_id,map,name,'
-  + 'price,price_cents,primary_tag,rival,state_name,status,tagline,'
-  + 'tags,target,tgb_date,updated_at,var_name'
+  + 'featured,guide_id,home_team_tgbid,id,link_url,logo_id,map_id,name,'
+  + 'price,price_cents,primary_tag,rival,rival_id,state_name,status,tagline,'
+  + 'tags,target,target_id,tgb_date,updated_at,var_name'
   ).split(','));
 
 /* THE THREE PLACES A COLUMN NAME APPEARS ON THE WRITE PATH. */

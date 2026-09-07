@@ -9,15 +9,14 @@ let ok = 0, bad = 0;
 const t = (m, c, g) => c ? (ok++, console.log('  ok  ' + m))
   : (bad++, console.log('  FAIL ' + m + (g !== undefined ? '   got: ' + g : '')));
 
-/* `games.map_id` WAS DROPPED (2026-09-02), so the schema map now has it FALSE
-   -- which is what keeps a column the table lacks out of the select and out of
-   the PATCH. The other five wiring points are left asserted deliberately: they
-   are what a restored column would come back through, and losing them would
-   turn a one-line migration into a re-wiring job.
-     SO THE MAP BAR READS AND CANNOT SAVE. It is the one bar in that state, and
-   it is the next thing to settle: the direction is that games holds IDs and
-   pulls from other tables, which is precisely what map_id was. */
-[['the schema map gates the dropped column off', 'map_id: false,'],
+/* `games.map_id` IS A LIVE COLUMN AND THE FLAG IS ON (2026-09-06). This check
+   used to assert `map_id: false` on the premise that the column had been
+   dropped on 2026-09-02; it had not -- a PATCH of it lands and a select of it
+   answers 200 -- and that flag was the ONLY gate on the write path, so the map
+   bar read and could not save while the assertion passed. The flag being TRUE
+   is what makes a pick reach the PATCH; the other five wiring points are the
+   rest of the path. */
+[['the schema map has the column ON', 'map_id: true,'],
  ['normalizeGameRow', 'map_id:              row && row.map_id'],
  ['initGameMeta, snake ?? camel ?? node', 'mapId:              g.map_id ?? g.mapId ?? gn.mapId'],
  ['the column-to-node map', "map_id: 'mapId'"],

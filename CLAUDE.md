@@ -61,7 +61,7 @@ person runs something twice or hunts a bug that was fixed hours ago.
 
 | migration | what breaks until it is applied |
 |---|---|
-| *(none)* | **Cleared 2026-08-31, and PROVED rather than assumed** -- see below. |
+| [2026090601_a_game_names_its_audiences_by_id.sql](mc/supabase/migrations/2026090601_a_game_names_its_audiences_by_id.sql) | the Game Builder's audience pickers are greyed and name this file; `games.target_id` / `rival_id` do not exist, so a pick cannot be saved and `team-palette.js` cannot match an audience exactly. The prose columns still work. |
 
 **BOTH ENTRIES WERE APPLIED AND VERIFIED BY CALLS THAT MADE THE FUNCTIONS DO
 THEIR JOB.** `tgb_pull_walking_tours` files a real four-stop Green Bay walk
@@ -156,6 +156,89 @@ nothing they can act on. Catch it and say which file to run. The Waypoints room 
 the waypoint editor both do this; copy that pattern.
 
 ---
+
+## THE GAME BUILDER RECORDS IDS: MAP, TWO AUDIENCES, AND A DATE (2026-09-06)
+
+Asked as an assessment of *"pulling in data by selecting and recording ids for
+later use in creating a web game"*, then built. **The map bar could not save,
+both audience boxes stored prose, and the tgb_date box had to be typed.**
+
+### THE MAP BAR READ AND COULD NOT WRITE, THREE WAYS AT ONCE
+
+- **`map_id: false` IN `SUPABASE_GAMES_SCHEMA` WAS THE ONLY GATE ON THE WRITE
+  PATH**, and it was the wrong answer: the live column answers **200** on a
+  select and takes a PATCH. The flag was set on the premise that the column had
+  been dropped on 2026-09-02; **it had not**, and [game-builder-map.js](mc/_dev/browser-checks/game-builder-map.js) had
+  been asserting the false premise as green. It asserts `map_id: true,` now.
+- **`markDirty()` WAS CALLED AT TWO SITES AND DEFINED NOWHERE**, so every map
+  pick and every logo pick threw a ReferenceError after writing the meta. The
+  page's own dirty-marking pair is `scheduleRecoverySync();
+  scheduleUpdateActionUi();`, which is what both sites call now.
+- **`map_id` WAS IN NEITHER SELECT LIST**, so a saved map came home blank on
+  the next open -- the written-blind fault this file records for the
+  audiences on 2026-08-31, on a third column. Both lists carry it.
+
+### THE AUDIENCE BOXES ARE PICKERS OVER `public.audiences`, AND THE PROSE IS DERIVED
+
+[2026090601](mc/supabase/migrations/2026090601_a_game_names_its_audiences_by_id.sql), **written and NOT applied**. `games.target_id` and `games.rival_id`,
+both `references public.audiences (id) on update cascade on delete set null`,
+with a backfill that resolves the existing prose on `full_name || ' fans'`.
+
+- **THIS ADDS BESIDE `games.target` AND `games.rival`, NEVER INSTEAD.** The
+  prose columns are what 2026090203 chose and what the engines' palette falls
+  back through; they stay and are still written -- **as `full_name + ' fans'`,
+  DERIVED from the pick**, so the two cannot disagree. Clearing the picker
+  clears both.
+- **A TYPO IS REFUSED, NEVER STORED.** The column is a foreign key, so a label
+  the list does not hold would come back as a constraint name; the box wears
+  `data-invalid` and says so. **A bare id, the full name, the label and the
+  prose form all resolve**, so a value pasted from the database is accepted.
+- **BOTH BOXES SHARE ONE `audienceList` DATALIST**, the same shape the map bar
+  and the Game Builder's own 2026-08-30 pickers used: one resolver, one label
+  builder, driven by an `AUDIENCE_SLOTS` entry per side.
+- **ELEVEN WIRING POINTS**, all asserted by the probe: schema flags, both
+  select lists, `normalizeGameRow`, `normalizeSavedGame`, `initGameMeta`,
+  `getDocSnapshot`, `stageCurrentGameIntoStore`, `serializeGameRow` (explicit
+  and gated, so a blank goes as NULL rather than being dropped), and the
+  local-snapshot carry-over.
+- **UNTIL THE MIGRATION RUNS, THE PICKERS ARE GREYED AND NAME THE FILE.** The
+  first read answers 400 (42703) on `target_id`, `markMissingGamesColumn`
+  switches the column off for the session and the read refetches without it
+  -- that is the standing self-heal -- and `paintAudienceFields` reads the
+  same flag and writes *"public.games has no target_id yet. Run
+  mc/supabase/migrations/2026090601..."* on the box. **The note is derived from
+  the flag on every frame, deliberately**: a sentence written once from the
+  400 handler was wiped by the next repaint.
+- **`team-palette.js` READS THE ID FIRST**, then the prose, so the exact
+  audience tier lights up again the moment the column carries a key.
+
+### THE EVENT SUGGESTS THE DATE
+
+`fillDateFromEvent` writes `start_date` minus one day into a BLANK `tgb_date`
+when an anchor event is chosen, and never over a typed one. **UTC arithmetic**,
+per this file's standing DST note, and `[0-9]` classes rather than escapes.
+Bulk-attaching anchors to the 393 existing games was deliberately not done --
+games are about to be built, and a second map was deferred for the same reason.
+
+### PROVED BY A PROBE THAT FAILS ON HEAD
+
+[game-builder-map-audience-save.js](mc/_dev/browser-checks/game-builder-map-audience-save.js), 27 assertions in real Chrome with the writes
+intercepted: the row read asks for all three ids, the rival paints its label
+and the target paints its prose with a *not linked* note, event A fills the
+date and a typed date survives event B, a typo is refused, a clear is accepted,
+and the PATCH carries `map_id`, `target_id`, the derived `target`, a NULL
+`rival_id` and the date. **On HEAD it fails 16 of 27**, the first being
+`markDirty is not defined`.
+
+- **THE CHECKS RUN ON LINUX THROUGH A SHIM.** Every browser check hardcodes
+  `C:/tmp/node_modules`, `C:/Code/the-game-bureau` and a Windows Chrome path;
+  a `--require` shim repoints all three plus `C:/tmp/*.html` scratch files.
+  Nothing in the checks was edited for it.
+- **THREE LIVE-READ SUITES FAIL IDENTICALLY ON HEAD** -- `anchor-saves`
+  (5 FAIL, *a sports anchor event is on offer got: null*), `delete` and `step`
+  (60s timeouts waiting on the game picker) -- proved by swapping HEAD's page
+  in with `cp` and md5-checking the restore. Pre-existing and untriaged;
+  `logo-bar` still needs its two seed rows.
 
 ## 2. HOW AN ADMIN PAGE DIES, AND THE TWO CHECKS THAT CATCH IT
 

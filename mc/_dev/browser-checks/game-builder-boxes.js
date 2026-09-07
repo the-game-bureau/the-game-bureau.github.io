@@ -82,11 +82,15 @@ t('the audience box holds both boxes, target first',
   [...audienceBox.querySelectorAll('.gid-field')].map((f) => f.id).join(',')
     === 'targetField,rivalField',
   [...audienceBox.querySelectorAll('.gid-field')].map((f) => f.id).join(','));
-t('as plain text boxes, not pickers',
+/* PICKERS OVER public.audiences AS OF 2026-09-06, both bound to ONE datalist:
+   a pick records `target_id` / `rival_id` and derives the prose beside it. */
+t('as pickers sharing one audience datalist',
   !!d.getElementById('target') && !!d.getElementById('rival')
-  && !d.getElementById('target').hasAttribute('list')
-  && !d.getElementById('rival').hasAttribute('list')
-  && d.querySelectorAll('#audienceList').length === 0);
+  && d.getElementById('target').getAttribute('list') === 'audienceList'
+  && d.getElementById('rival').getAttribute('list') === 'audienceList'
+  && d.querySelectorAll('#audienceList').length === 1);
+t('and each carries a note for a stored id the list does not hold',
+  !!d.getElementById('targetNote') && !!d.getElementById('rivalNote'));
 /* EACH KEEPS ITS OWN LABEL, unlike the anchor and the map: those are one field
    under a legend, so a label there would be the box named twice; this box holds
    TWO fields and one legend cannot name either. */
