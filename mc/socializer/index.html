@@ -1092,30 +1092,33 @@
     }
 
     /* A post is in the air — see setPostingLock. The buttons are genuinely
-       disabled in JS; this is only so the page LOOKS held rather than dead,
-       and so the one card mid-post (which keeps its "Posting..." label) reads
-       as the reason for it.
+       disabled in JS; this is only so the page LOOKS held rather than dead.
 
-       THE DIMMING IS ON THE ACTION ROW'S CHILDREN, NOT ON THE ROW. It was on
-       the row until Skip stopped being locked, and it had to move: opacity
-       makes a stacking group, so a child of an element at 0.5 cannot be
-       brought back to full contrast by any rule of its own. A live Skip inside
-       a dimmed row would have read as dead, which is the one thing this whole
-       change exists to avoid. */
-    body.is-posting .post-actions > *:not([data-lock-exempt]),
+       ONLY THE CARD BEING POSTED IS DIMMED (2026-09-09), which INVERTS what
+       this rule did until then: the whole page used to go grey except that
+       one row, and now that one row is the only thing that does. Every other
+       candidate stays at full contrast because every button on it is
+       genuinely still live -- it queues rather than writes. See
+       setPostingLock and deferredActions.
+
+       THE DIMMING IS ON THE ACTION ROW'S CHILDREN, NOT ON THE ROW, and it has
+       to stay there: opacity makes a stacking group, so a child of an element
+       at 0.5 cannot be brought back to full contrast by any rule of its own.
+       Anything ever exempted from the lock inside that row would read as
+       dead, which is the one thing this whole shape exists to avoid. */
+    body.is-posting .post-actions.is-posting-row > *,
     body.is-posting .queue-bar,
     body.is-posting .command-bar-inner {
       opacity: 0.5;
     }
-    /* …except the row actually doing it, which keeps full contrast because its
-       "Posting..." button is the explanation for everything else being off. */
-    body.is-posting .post-actions.is-posting-row > * { opacity: 1; }
-    body.is-posting { cursor: progress; }
-    /* The page's cursor says "wait"; a control that is genuinely still live
-       must not. The :not() matters because the posting card's own Skip IS
-       locked, and a dead button offering a pointer is the same lie the
-       dimming rule above exists to prevent. */
-    body.is-posting [data-lock-exempt]:not(:disabled) { cursor: pointer; }
+    /* THE WAIT CURSOR GOES WHERE THE WAITING IS, and nowhere else. It was on
+       `body` while the whole page was held; on a page where only one card is
+       held it would say wait over a queue you can work down, which is the
+       same lie the dimming rule above exists to prevent. */
+    body.is-posting .post-actions.is-posting-row,
+    body.is-posting .post-actions.is-posting-row > *,
+    body.is-posting .queue-bar,
+    body.is-posting .command-bar-inner { cursor: progress; }
 
     /* A SKIP TAKEN WHILE A POST IS IN THE AIR, not yet written. The dashes say
        intended-but-not-done, which is exactly what it is: the row still holds
@@ -1127,6 +1130,44 @@
       border-color: rgba(194, 55, 55, 0.62);
       background: rgba(194, 55, 55, 0.06);
       color: var(--bic-red);
+    }
+
+    /* THE SAME, FOR A FILING TAKEN WHILE A POST IS IN THE AIR. Dashes for the
+       same reason: intended, not yet written. It is BLUE rather than the red
+       of the Skip beside it, because it is that button's own decision
+       deferred and not a different one.
+         AND IT MUST NOT STAY THE FILLED PRIMARY, or a filing that is merely
+       queued would look exactly like one that has landed. Two classes beats
+       `.btn.primary` (0,2,0) outright, and the :hover arm is there because
+       `.btn.primary:hover` is (0,3,0) and would otherwise tie and win on
+       source order -- a tie this file has already been caught by three times. */
+    .btn.primary.is-done-queued,
+    .btn.primary.is-done-queued:hover {
+      border-style: dashed;
+      border-color: rgba(var(--bic-blue-rgb), 0.62);
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      color: var(--bic-blue);
+    }
+
+    /* AND THE SAME, FOR AN ACCOUNT PRESS TAKEN WHILE ANOTHER POST IS IN THE
+       AIR (2026-09-09). An account button on a card that is not the one
+       posting no longer goes dead: it queues, and the queue goes out in press
+       order when the one in the air answers.
+         DASHES FOR THE REASON THE TWO ABOVE WEAR THEM -- intended, not yet
+       done -- and the same blue as the queued filing rather than a third
+       colour, because both are the blue half of the row deferred and not a
+       different kind of thing. Only Skip is red, because only Skip is the
+       other answer.
+         IT HAS TO OUT-SPECIFY `.post-platform.is-ready` and its :hover, which
+       is why .btn is in the selector and why both arms are written: a queued
+       Facebook still wearing the ready fill would look exactly like one that
+       had already gone out. */
+    .btn.post-platform.is-post-queued,
+    .btn.post-platform.is-post-queued:hover {
+      border-style: dashed;
+      border-color: rgba(var(--bic-blue-rgb), 0.62);
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      color: var(--bic-blue);
     }
 
     /* Honour a reduced-motion preference across every transition added here. */
@@ -4135,55 +4176,98 @@
       var postingLock = false;
       var pendingRender = false;
 
-      // Buttons AND the sort select. A select is not a button but it is just as
-      // much a way to make the list move under a post in flight, and it takes
-      // `disabled` the same way.
-      function lockableControls() {
+      // THE PAGE'S OWN CONTROLS, which stay locked while a post is in the air.
+      // They are not a candidate's buttons: a tab, the sort and the command bar
+      // all move the LIST, and a list that reorders under a post in flight
+      // takes the card being posted with it. renderQueue is held for the same
+      // reason. A select is not a button and takes `disabled` the same way.
+      function pageLockableControls() {
         return document.querySelectorAll(
-          '.post-actions button, .queue-tabs button, .command-bar button, select.queue-sort');
+          '.queue-tabs button, .command-bar button, select.queue-sort');
       }
 
+      // Every candidate's action row, so the lock can tell the one being posted
+      // from all the others.
+      function actionRows() { return document.querySelectorAll('.post-actions'); }
+
       // The action row of the card being posted, held for as long as the lock
-      // is. See the exemption test below: it is the one row where Skip is NOT
-      // exempt.
+      // is. It is the ONE row that goes dead.
       var postingRow = null;
 
+      /** ONLY WHAT THE LOCK TURNED OFF IS TURNED BACK ON.
+       *
+       *  A control already off for its own reason -- a card with no targets,
+       *  a row mid-save, an `All` button with nothing to batch -- is left
+       *  exactly as it is and is NOT stamped, so the unlock cannot reach in and
+       *  switch it on. The stamp is the whole job: it replaced a `lockWasOff`
+       *  flag that had to be read in three branches to say the same thing. */
+      function applyLock(nodes, on) {
+        Array.prototype.forEach.call(nodes, function (btn) {
+          if (on) {
+            if (btn.disabled) return;
+            btn.dataset.lockedByPost = '1';
+            btn.disabled = true;
+          } else if (btn.dataset.lockedByPost) {
+            delete btn.dataset.lockedByPost;
+            btn.disabled = false;
+          }
+        });
+      }
+
+      /** THE LOCK IS ONE CARD WIDE (2026-09-09).
+       *
+       *  IT USED TO BE THE WHOLE PAGE. Everything went dead while a post was in
+       *  the air except Skip and FILE AS POSTED, which queued -- and those were
+       *  the wrong two to keep. A post takes long enough that the natural thing
+       *  to do is work down the rest of the queue, and the thing you most want
+       *  to do to the next candidate is POST it. Half the queue's own work was
+       *  dead time.
+       *
+       *  SO: the card being posted goes dead, every other card stays live, and
+       *  what its buttons DO changes rather than whether they can be pressed.
+       *  An account press queues, a Skip queues, a filing queues, and when the
+       *  post in the air answers the queue goes out in press order -- down the
+       *  line, posting or skipping. See deferredActions.
+       *
+       *  WHY THE POSTING CARD IS STILL DEAD, and it is the whole reason the
+       *  lock exists at all: a second press on a candidate already in flight
+       *  sends the story twice and Facebook accepts it without complaint. And
+       *  the account currently going out is about to change what THAT card's
+       *  receipt should say, so filing or skipping it now records something
+       *  already out of date. Queueing a press there would be offering a
+       *  decision the flush could only refuse, which is worse than not
+       *  offering it.
+       *
+       *  THE ROW IS MARKED, not only remembered, because the dimming is a CSS
+       *  rule about that one row and a stylesheet cannot read a variable. */
       function setPostingLock(on, message, actingRow) {
         // Releasing an already-released lock would run the restore loop against
-        // dataset flags it has cleared, switching on buttons that are off for
-        // their own reasons. It happens for real: the watchdog below releases,
+        // stamps it has cleared. It happens for real: the watchdog releases,
         // then the late reply releases again.
         if (!on && !postingLock) return;
         postingLock = !!on;
         if (postingLock) postingRow = actingRow || null;
         document.body.classList.toggle('is-posting', postingLock);
-        Array.prototype.forEach.call(lockableControls(), function (btn) {
-          // SKIP IS EXEMPT IN BOTH DIRECTIONS, EXCEPT ON THE CARD BEING POSTED.
-          // Everywhere else it is left out of the lock and out of the restore
-          // too, so the unlock cannot reach in and switch on a Skip sitting
-          // disabled mid-save for a reason of its own.
-          //
-          // ON THE POSTING CARD IT IS LOCKED LIKE ANY OTHER BUTTON. Deferring
-          // that particular press is answering a question the flush can only
-          // refuse: the story is going out on that card right now, so passing
-          // on it is not a decision anyone can still take. Offering the press
-          // and then declining it afterwards is worse than not offering it, and
-          // being inside the lock means the restore loop puts it back for free
-          // if the post fails and the card stays.
-          if (btn.dataset.lockExempt && !(postingRow && postingRow.contains(btn))) return;
-          if (postingLock) {
-            // Buttons already off for their own reasons — a candidate with no
-            // targets, a row mid-save — are remembered, so unlocking restores
-            // the page rather than switching them all on.
-            if (btn.disabled) btn.dataset.lockWasOff = '1';
-            btn.disabled = true;
-          } else if (btn.dataset.lockWasOff) {
-            delete btn.dataset.lockWasOff;
-          } else {
-            btn.disabled = false;
-          }
+
+        Array.prototype.forEach.call(actionRows(), function (row) {
+          var mine = postingLock && postingRow === row;
+          row.classList.toggle('is-posting-row', mine);
+          // A row that is not the one posting is not touched at all while the
+          // lock is on: it stays exactly as live as it was, and its buttons
+          // queue. On the way out every row is walked, because only the stamp
+          // says which buttons this lock turned off.
+          if (postingLock && !mine) return;
+          applyLock(row.querySelectorAll('button'), mine);
         });
-        setPageStatus(postingLock ? (message || 'Posting…') : '');
+
+        // THE PAGE'S CONTROLS ARE HELD FOR THE WHOLE FLUSH, not only while a
+        // post is in the air. The queue runs BETWEEN locks -- a skip and a
+        // filing hold none at all -- and a list that reordered in one of those
+        // gaps would move the card the next item is about to post out from
+        // under it. flushDeferred releases them when it is finished.
+        applyLock(pageLockableControls(), postingLock || flushing);
+
+        setPageStatus(postingLock ? (message || 'Posting\u2026') : '');
         if (!postingLock && pendingRender) {
           pendingRender = false;
           renderQueue();
@@ -4191,25 +4275,58 @@
         // Cleared only after the loop, so the release pass tests the same row
         // the lock pass did and restores exactly what it took.
         if (!postingLock) postingRow = null;
-        if (!postingLock) flushDeferredSkips();
+        if (!postingLock) flushDeferred();
       }
 
-      // SKIP STAYS PRESSABLE WHILE A POST IS IN THE AIR.
+      // ── THE QUEUE ─────────────────────────────────────────────────────────
       //
-      // Everything else on the page goes dead under the lock, and for Post
-      // itself that is the whole point: the reason the lock exists is that a
-      // second Post on a candidate already in flight sends the story twice and
-      // Facebook accepts it without complaint. Skip carries no such risk. It is
-      // also the button you most want during the wait, because a post takes
-      // long enough that the natural thing to do is work down the rest of the
-      // queue, and a locked Skip made that wait dead time.
+      // ONE ORDERED LIST, AND THE ORDER IS THE ORDER YOU PRESSED (2026-09-09).
       //
-      // WHAT IT MUST NOT DO IS WRITE while a post is still in the air. A Skip
-      // sent before the account API answers can hide a candidate whose outcome
-      // still needs reading. So the press is RECORDED and applied when the lock
-      // lifts: the button says so, and nothing about the stored row moves until
-      // then. The press is real; only the write waits.
-      var deferredSkips = [];
+      // It was two lists -- deferredSkips and deferredDones -- run one after the
+      // other on the rule that POSTED beats SKIPPED. That rule still holds and
+      // it was never what kept them apart: the guards below are what enforce it,
+      // and press order enforces it too, in both directions. What broke the
+      // two-list shape is that ACCOUNT PRESSES queue now as well, and three
+      // lists cannot express "then it just goes down the line".
+      //
+      //   { kind: 'post', id, keys, label }   an account, or a batch of them
+      //   { kind: 'file', id, labels, ids }   FILE AS POSTED
+      //   { kind: 'skip', id }                Skip
+      //
+      // AN ITEM IS DATA, NEVER A CLOSURE, and that is the one thing here that is
+      // not obvious. setPostingLock(false) calls renderQueue BEFORE it calls the
+      // flush, so every card on screen at press time is a DETACHED NODE by the
+      // time the queue runs: a stored handler would post through a button that
+      // is no longer in the document and read a row that is no longer the saved
+      // one. So an item carries an id and enough to act on it, and the flush
+      // looks everything up fresh.
+      //
+      // THE PRESS IS REAL; ONLY THE WRITE WAITS. Every button says so in a word,
+      // and pressing a queued one takes it back.
+      var deferredActions = [];
+
+      // A CARD'S QUEUE-SENSITIVE BUTTONS, so a press on one can repaint the
+      // others. Skip and the account row are built by different functions and
+      // neither can reach the other, and queueing an account press CANCELS a
+      // queued Skip on the same card -- they are opposite answers. Without one
+      // handle per card, both would sit on screen claiming to be queued and
+      // only one would happen.
+      //
+      // Reset by renderQueue, so it can never hold a detached card.
+      var cardPainters = Object.create(null);
+
+      function repaintCard(id) {
+        var paint = cardPainters[String(id)];
+        if (typeof paint === 'function') paint();
+      }
+
+      // Set while the queue is working through itself; see flushDeferred.
+      var flushing = false;
+
+      /** IS ANYTHING IN THE AIR, which is not the same question as "is the lock
+       *  on". Between two queued items the lock is briefly off, and a press in
+       *  that gap has to join the line rather than jump it. */
+      function queueIsRunning() { return postingLock || flushing; }
 
       function postById(id) {
         for (var i = 0; i < posts.length; i++) {
@@ -4218,71 +4335,458 @@
         return null;
       }
 
-      function isSkipQueued(id) {
-        return deferredSkips.indexOf(String(id)) !== -1;
+      /** Where an intention sits in the queue, or -1. `keys` is only passed for
+       *  a post: one card can carry a queued Facebook and a queued Both at
+       *  once, and they are told apart by exactly which accounts they name. */
+      function queuedAt(kind, id, keys) {
+        var want = keys ? keys.join(',') : '';
+        for (var i = 0; i < deferredActions.length; i += 1) {
+          var a = deferredActions[i];
+          if (a.kind !== kind || a.id !== String(id)) continue;
+          if (!keys) return i;
+          if (a.keys.join(',') === want) return i;
+        }
+        return -1;
       }
 
-      // Pressing a queued Skip takes it back. Without this the only way out of
-      // a misclick would be to wait for the post, watch the skip land, and then
-      // Move to Review from the Skipped tab.
+      function isSkipQueued(id) { return queuedAt('skip', id) !== -1; }
+      function isDoneQueued(id) { return queuedAt('file', id) !== -1; }
+      function isPostQueued(id, keys) { return queuedAt('post', id, keys) !== -1; }
+
+      /** Every account queued on one card, flattened. Read by Skip, which is
+       *  the opposite answer and cannot stand beside one. */
+      function queuedPostKeys(id) {
+        var out = [];
+        deferredActions.forEach(function (a) {
+          if (a.kind !== 'post' || a.id !== String(id)) return;
+          a.keys.forEach(function (k) { if (out.indexOf(k) === -1) out.push(k); });
+        });
+        return out;
+      }
+
+      function dropQueued(kind, id) {
+        for (var i = deferredActions.length - 1; i >= 0; i -= 1) {
+          if (deferredActions[i].kind === kind
+            && deferredActions[i].id === String(id)) deferredActions.splice(i, 1);
+        }
+      }
+
+      /** WHAT HAS ACTUALLY GONE OUT FOR A CANDIDATE. At module level because the
+       *  flush has to ask it and has no card to ask: postSessionReceipts is
+       *  where a press in this sitting is recorded, posted_platforms is where a
+       *  machine send was saved. */
+      function wentOutLabels(id) {
+        var row = postById(id);
+        var out = [];
+        function add(label) {
+          label = cleanText(label);
+          if (label && out.indexOf(label) === -1) out.push(label);
+        }
+        if (row && Array.isArray(row.posted_platforms)) row.posted_platforms.forEach(add);
+        var sess = postSessionReceipts[String(id)];
+        if (sess && Array.isArray(sess.labels)) sess.labels.forEach(add);
+        return out;
+      }
+
+      function wentOutIds(id) {
+        var row = postById(id);
+        var out = {};
+        if (row && row.posted_ids && typeof row.posted_ids === 'object'
+          && !Array.isArray(row.posted_ids)) out = Object.assign(out, row.posted_ids);
+        var sess = postSessionReceipts[String(id)];
+        if (sess && sess.ids) out = Object.assign(out, sess.ids);
+        return out;
+      }
+
+      // ── the three toggles ─────────────────────────────────────────────────
+      //
+      // Pressing a queued anything takes it back. Without that the only way out
+      // of a misclick would be to wait for the queue, watch it land, and undo it
+      // from the tab it moved to.
+
+      /** SKIP AND A QUEUED ACCOUNT PRESS ARE OPPOSITE ANSWERS TO ONE CARD, so
+       *  the later press wins and the other is dropped. Leaving both would put
+       *  two contradictory intentions on screen and then send the story to
+       *  Facebook AND file the row as passed over -- the disagreement between
+       *  this queue and the Page that the flush refuses everywhere else. */
       function toggleDeferredSkip(id, btn) {
-        var key = String(id);
-        var at = deferredSkips.indexOf(key);
-        if (at === -1) deferredSkips.push(key);
-        else deferredSkips.splice(at, 1);
+        var at = queuedAt('skip', id);
+        var cancelled = 0;
+        if (at === -1) {
+          cancelled = queuedPostKeys(id).length;
+          dropQueued('post', id);
+          deferredActions.push({ kind: 'skip', id: String(id) });
+        } else {
+          deferredActions.splice(at, 1);
+        }
+        repaintCard(id);
         paintSkipButton(btn, id);
-        flash(queueStatus, at === -1
-          ? 'Skip queued — it saves when the post answers'
-          : 'Skip cancelled');
+        flash(queueStatus, at !== -1 ? 'Skip cancelled'
+          : cancelled ? 'Skip queued, and the account press queued on this card is cancelled'
+                      : 'Skip queued - it saves when the post in the air answers');
       }
 
+      function toggleDeferredPost(id, keys, label) {
+        var at = queuedAt('post', id, keys);
+        var cancelledSkip = false;
+        if (at === -1) {
+          cancelledSkip = isSkipQueued(id);
+          dropQueued('skip', id);
+          deferredActions.push({
+            kind: 'post', id: String(id), keys: keys.slice(), label: label
+          });
+        } else {
+          deferredActions.splice(at, 1);
+        }
+        repaintCard(id);
+        flash(queueStatus, at !== -1
+          ? 'Queued post to ' + label + ' cancelled'
+          : cancelledSkip
+            ? label + ' queued, and the Skip queued on this card is cancelled'
+            : label + ' queued - it goes out when the post in the air answers');
+      }
+
+      function toggleDeferredDone(id, btn, labels, ids) {
+        var at = queuedAt('file', id);
+        if (at === -1) {
+          deferredActions.push({
+            kind: 'file',
+            id: String(id),
+            labels: (labels || []).slice(),
+            ids: Object.assign({}, ids || {})
+          });
+        } else {
+          deferredActions.splice(at, 1);
+        }
+        repaintCard(id);
+        paintDoneButton(btn, id);
+        flash(queueStatus, at === -1
+          ? 'Filing queued - it saves when the post answers'
+          : 'Filing cancelled');
+      }
+
+      // ── the painters ──────────────────────────────────────────────────────
+
+      // SKIP IS NOT OFFERED ONCE THE STORY HAS GONE OUT (2026-09-09).
+      //
+      // Skipping means passed over, and a candidate that has reached even one
+      // account has not been passed over -- it is live on that account and
+      // `posted_platforms` is the only record of where. Writing 'skipped' over
+      // it would leave this queue disagreeing with the Page about something
+      // nobody can check from here, which is exactly what the flush refuses to
+      // do. FILE AS POSTED is the honest answer, and it sits directly to the
+      // left.
+      //
+      // WHAT HAS GONE OUT IS WRITTEN ONTO THE BUTTON by the account row's own
+      // sync(), rather than passed in: this runs from the queue on a cancel and
+      // the queue knows nothing about the accounts, so a parameter would be
+      // dropped on every cancel. One painter, one source.
+      //
+      // `aria-disabled`, NEVER `disabled`, which is this row's standing rule:
+      // a disabled button dispatches no click at all, so on a touch screen --
+      // no hover, therefore no tooltip -- the reason it went grey would be
+      // unreachable. The handler turns a press into the sentence instead.
       function paintSkipButton(btn, id) {
         if (!btn) return;
         var queued = isSkipQueued(id);
+        var went = String(btn.dataset.wentOutTo || '');
+        var alsoQueued = queuedPostKeys(id).length;
         btn.classList.toggle('is-skip-queued', queued);
         btn.textContent = queued ? 'Skip queued' : 'Skip';
-        btn.title = queued
-          ? 'Queued while the post is in the air. It saves as soon as that answers. Press again to cancel.'
-          : 'Pass on this one — it will not come back on reload';
+        if (went) btn.setAttribute('aria-disabled', 'true');
+        else btn.removeAttribute('aria-disabled');
+        btn.title = went
+          ? 'Already went out to ' + went + '. A story that is live on an '
+            + 'account cannot be passed over -- file it as posted instead.'
+          : queued
+            ? 'Queued while the post is in the air. It saves as soon as that answers. Press again to cancel.'
+            : alsoQueued
+              // SAID BEFORE IT HAPPENS, because the two cancel each other and a
+              // press that quietly withdraws a decision you took a moment ago
+              // is the one thing you cannot see afterwards.
+              ? 'Pass on this one. It also cancels the account press queued on '
+                + 'this card -- they are opposite answers.'
+              : 'Pass on this one - it will not come back on reload';
       }
 
-      // Runs on unlock. Sequential rather than parallel: there are at most a
-      // handful, they are PATCHes to one table, and one at a time keeps the
-      // report in the order they were pressed.
-      function flushDeferredSkips() {
-        if (!deferredSkips.length) return;
-        var ids = deferredSkips.slice();
-        deferredSkips.length = 0;
-        var saved = 0;
-        var receipts = [];
+      // ONE PAINTER, READING FROM THE BUTTON, exactly as paintSkipButton does
+      // and for the same reason: this runs from the queue on a cancel, and the
+      // queue knows nothing about which accounts a card has used. The account
+      // row writes that onto the element in its own paintDone().
+      function paintDoneButton(btn, id) {
+        if (!btn) return;
+        var queued = isDoneQueued(id);
+        var went = String(btn.dataset.wentOutTo || '');
+        btn.classList.toggle('is-done-queued', queued);
+        btn.textContent = queued ? 'FILING QUEUED' : 'FILE AS POSTED';
+        // THE TOOLTIP OPENS ON THE VERB THE BUTTON DOES NOT WEAR: FILE, not
+        // post. An account button is what posts; this one writes down that it
+        // happened, and that distinction is the one risk in the name.
+        btn.title = queued
+          ? 'Queued while a post is in the air. It files as soon as that '
+            + 'answers. Press again to cancel.'
+          : went
+            ? 'File this as posted to ' + went + '. It does not post anything '
+              + 'itself; the account buttons already did that.'
+            : 'File this as posted without recording an account, for something '
+              + 'you posted elsewhere. It sends nothing.';
+      }
+
+      // ── the writes ────────────────────────────────────────────────────────
+
+      /** ONE WRITER FOR THE RECEIPT, so a filing pressed now and one pressed
+       *  under the lock and flushed afterwards cannot disagree about what a
+       *  receipt looks like. Two copies of this patch would drift the first
+       *  time either was edited, which is the fault this page keeps removing. */
+      function filePosted(id, labels, ids) {
+        var patch = {
+          status: 'posted',
+          posted_at: new Date().toISOString(),
+          posted_platforms: labels
+        };
+        // Only when there is something to record. A sitting that reached X and
+        // YouTube alone has no ids at all, and writing {} would claim we had
+        // looked and found none rather than that none exist.
+        for (var k in ids) { patch.posted_ids = ids; break; }
+        return savePost(id, patch).then(function () {
+          delete postSessionReceipts[String(id)];
+          return null;
+        });
+      }
+
+      /** WHICH ACCOUNTS THE REPLY SAYS TOOK IT, and their own post ids.
+       *
+       *  A PARTIAL ANSWER IS THE NORMAL CASE: if Instagram refuses and Facebook
+       *  takes it, only Facebook is ticked and only Facebook reaches the
+       *  receipt. Matched by position and then by name, because a reply that
+       *  reorders or drops an entry must not tick the wrong account.
+       *
+       *  SHARED BY THE BUTTON AND BY THE QUEUE, so a post pressed now and one
+       *  flushed a minute later cannot read one answer two different ways. */
+      function readPostResults(keys, reply) {
+        var results = (reply && reply.results) || [];
+        var won = [];
+        var ids = {};
+        keys.forEach(function (k, i) {
+          var r = results[i];
+          if (!r || r.platform) {
+            r = results.filter(function (x) {
+              return x && String(x.platform || '').toLowerCase() === k;
+            })[0] || results[i];
+          }
+          if (r && r.ok) {
+            won.push(k);
+            if (r.id) ids[k] = String(r.id);
+          }
+        });
+        return { won: won, ids: ids };
+      }
+
+      /** Record what a flushed post reached, in the one place a rebuilt card
+       *  reads its ticks back from. The card that queued it is not on screen to
+       *  be told: renderQueue replaced it while the previous post was in the
+       *  air. */
+      function noteQueuedReceipt(id, won, ids) {
+        var key = String(id);
+        var prev = postSessionReceipts[key] || { labels: [], ids: {} };
+        var labels = (prev.labels || []).slice();
+        won.forEach(function (k) {
+          var name = PLATFORM_NAME[k];
+          if (name && labels.indexOf(name) === -1) labels.push(name);
+        });
+        postSessionReceipts[key] = {
+          labels: labels,
+          ids: Object.assign({}, prev.ids || {}, ids || {})
+        };
+      }
+
+      /** A card's action row, found fresh by its own id.
+       *
+       *  WALKED RATHER THAN MATCHED WITH A SELECTOR. An id is a row value, and
+       *  an attribute selector built from one needs escaping this repo has been
+       *  bitten by more than once. There is nothing a selector does better here.
+       *
+       *  NEVER HELD FROM PRESS TIME: renderQueue rebuilds every card, so an
+       *  element remembered when the button was pressed is detached by the time
+       *  the queue reaches it. */
+      function actionRowFor(id) {
+        var rows = document.querySelectorAll('.post-actions');
+        for (var i = 0; i < rows.length; i += 1) {
+          if (String(rows[i].dataset.postId) === String(id)) return rows[i];
+        }
+        return null;
+      }
+
+      /** ONE QUEUED ACCOUNT PRESS, POSTED FOR REAL.
+       *
+       *  IT RE-LOCKS. A flushed post is as much in the air as a pressed one and
+       *  carries the same double-post risk, so the card it is going out on goes
+       *  dead exactly as it would have done had you pressed it yourself -- and
+       *  the notice names it, so the page says which card is busy rather than
+       *  going quiet for a minute.
+       *
+       *  THE NESTED UNLOCK CANNOT START A SECOND FLUSH: flushDeferred refuses
+       *  while one is running, and the loop below carries on to the next item
+       *  itself.
+       *
+       *  AND IT HAS ITS OWN WATCHDOG. The lock must never outlive a request
+       *  that vanished, or the page is dead until it is reloaded -- and a
+       *  queued post is the one nobody is watching. */
+      function runQueuedPost(item) {
+        var row = postById(item.id);
+        if (!row) return Promise.resolve({ gone: true });
+        setPostingLock(true, 'Posting to ' + item.label
+          + ' - queued while the last one was in the air.',
+          actionRowFor(item.id));
+        var settled = false;
+        return new Promise(function (resolve) {
+          var watchdog = window.setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            setPostingLock(false);
+            resolve({ failed: 'no answer from ' + item.label + ' after 90 seconds' });
+          }, 90000);
+          postViaApi(row, item.keys).then(function (reply) {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(watchdog);
+            var got = readPostResults(item.keys, reply);
+            noteQueuedReceipt(item.id, got.won, got.ids);
+            setPostingLock(false);
+            resolve({
+              won: got.won.map(function (k) { return PLATFORM_NAME[k]; }),
+              refused: item.keys.length - got.won.length,
+              label: item.label
+            });
+          }).catch(function (err) {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(watchdog);
+            setPostingLock(false);
+            resolve({ failed: item.label + ': ' + err.message });
+          });
+        });
+      }
+
+      /** THE QUEUE, IN PRESS ORDER.
+       *
+       *  SHIFTED ONE AT A TIME RATHER THAN SNAPSHOTTED, so anything pressed
+       *  while the queue is running joins the end of it. That is the whole shape
+       *  of the thing: you work down the list while it works down the list
+       *  behind you.
+       *
+       *  SEQUENTIAL. A post has to hold the lock while it is in the air, and the
+       *  rest are PATCHes to one table -- run together they would race and the
+       *  last writer would win by accident.
+       *
+       *  ONE FLUSH AT A TIME. Every queued post releases the lock when it
+       *  answers, and releasing the lock is what starts a flush; without the
+       *  guard the queue would re-enter itself once per item. */
+      function flushDeferred() {
+        if (flushing) return Promise.resolve();
+        if (!deferredActions.length) return Promise.resolve();
+        flushing = true;
+        // The tabs, the sort and the command bar go off for the whole run, not
+        // only while a post is in the air: a skip and a filing hold no lock at
+        // all, and a list reordered in one of those gaps would move the card
+        // the next item is about to post out from under it.
+        applyLock(pageLockableControls(), true);
+        var posted = [];
+        var filed = 0;
+        var skipped = 0;
+        var receipts = 0;
+        var live = [];
         var failed = [];
 
-        ids.reduce(function (chain, id) {
-          return chain.then(function () {
-            // A POSTED ROW IS A RECEIPT AND THE SKIP DOES NOT LAND ON IT.
-            // Locking the posting card's own Skip should make this unreachable,
-            // and it is kept anyway: a queue of intentions applied later must
-            // check the row it is about to overwrite, because the whole point
-            // of deferring is that the world moved in between. The post is the
-            // one that already happened -- the story is on the accounts and
-            // `posted_platforms` is the only record of where -- so writing
-            // 'skipped' over it would leave the queue disagreeing with the Page
-            // about something that cannot be checked from here. Reported rather
-            // than done silently; Move/Copy to Review is the way back.
-            if (statusOf(postById(id)) === 'posted') { receipts.push(id); return; }
-            return savePost(id, { status: 'skipped' })
-              .then(function () { saved += 1; })
+        function handle(item) {
+          if (item.kind === 'post') {
+            return runQueuedPost(item).then(function (r) {
+              if (r.gone) {
+                failed.push(item.label + ': that candidate is no longer here');
+                return;
+              }
+              if (r.failed) { failed.push(r.failed); return; }
+              if (r.won.length) posted.push(r.won.join(' + '));
+              if (r.refused) failed.push(item.label + ' refused it');
+            });
+          }
+
+          // A ROW THAT IS ALREADY POSTED KEEPS THE RECEIPT IT HAS. A queue of
+          // intentions applied later has to check the row it is about to
+          // overwrite, because the whole point of deferring is that the world
+          // moved in between -- and posted_at and posted_platforms are the only
+          // record of where a story actually went.
+          if (statusOf(postById(item.id)) === 'posted') {
+            receipts += 1;
+            return Promise.resolve();
+          }
+
+          if (item.kind === 'file') {
+            // THE LABELS ARE THE PRESS-TIME ONES PLUS WHATEVER HAS GONE OUT
+            // SINCE, and this is the one place the press-time rule bends and has
+            // to. Queue Facebook and then FILE AS POSTED on the same card and
+            // the filing was pressed BEFORE Facebook went out: recorded as
+            // pressed, the receipt would say no account reached it while the
+            // story was live on the Page.
+            var labels = item.labels.slice();
+            wentOutLabels(item.id).forEach(function (l) {
+              if (labels.indexOf(l) === -1) labels.push(l);
+            });
+            return filePosted(item.id, labels,
+                              Object.assign({}, item.ids, wentOutIds(item.id)))
+              .then(function () { filed += 1; })
               .catch(function (err) { failed.push(err.message); });
-          });
-        }, Promise.resolve()).then(function () {
+          }
+
+          // A STORY THAT HAS REACHED AN ACCOUNT HAS NOT BEEN PASSED OVER, and
+          // the queue is where that could now happen without anybody seeing it:
+          // an account press and a Skip queued on one card, the account going
+          // out first. Skip is not OFFERED beside a queued post -- the two
+          // cancel each other -- and this is the backstop for a card that
+          // reached an account some other way.
+          var went = wentOutLabels(item.id);
+          if (went.length) { live.push(went.join(', ')); return Promise.resolve(); }
+          return savePost(item.id, { status: 'skipped' })
+            .then(function () { skipped += 1; })
+            .catch(function (err) { failed.push(err.message); });
+        }
+
+        function step() {
+          if (!deferredActions.length) return Promise.resolve();
+          var item = deferredActions.shift();
+          // Repainted BEFORE it is acted on, so the button stops claiming to be
+          // queued the moment the queue reaches it rather than when it lands.
+          repaintCard(item.id);
+          return handle(item).then(step);
+        }
+
+        function done() {
+          flushing = false;
+          // The only place they come back on. setPostingLock reads
+          // `postingLock || flushing`, and both are false by the time the last
+          // queued post released -- so without this the page would stay held
+          // after the queue had emptied.
+          applyLock(pageLockableControls(), false);
           renderQueue();
           var parts = [];
-          if (saved) parts.push('Skipped ' + saved);
-          if (receipts.length) {
-            parts.push(receipts.length + ' already posted, left as posted');
+          if (posted.length) parts.push('Posted to ' + posted.join(', '));
+          if (filed) parts.push('Filed ' + filed + ' as posted');
+          if (skipped) parts.push('Skipped ' + skipped);
+          if (receipts) parts.push(receipts + ' already posted, left as posted');
+          if (live.length) {
+            parts.push(live.length + ' left in the queue: already live on '
+              + live.join('; '));
           }
-          if (failed.length) parts.push('could not save: ' + failed.join('; '));
-          if (parts.length) flash(queueStatus, parts.join(' · '));
+          // THE SHORTFALL IS NAMED, NEVER ROUNDED UP. A queue that reports a
+          // count and swallows what it could not do is the quiet sort of lie
+          // this room has been caught by before.
+          if (failed.length) parts.push('could not finish: ' + failed.join('; '));
+          if (parts.length) flash(queueStatus, parts.join(' - '));
+        }
+
+        return step().then(done, function (err) {
+          done();
+          flash(queueStatus, 'The queue stopped: ' + err.message);
         });
       }
 
@@ -4292,6 +4796,11 @@
         // posting. setPostingLock runs it when the reply lands.
         if (postingLock) { pendingRender = true; return; }
         queueList.textContent = '';
+        // Every card is about to be rebuilt, so every painter registered
+        // against the old ones is holding a detached node. Cleared here rather
+        // than per card, because a card that has left the list entirely would
+        // otherwise never take its entry with it.
+        cardPainters = Object.create(null);
 
         // One array, split three ways by the two decision lists. POSTED beats
         // SKIPPED if a candidate somehow carries both marks: what you did with
@@ -5197,6 +5706,10 @@
 
         var actions = document.createElement('div');
         actions.className = 'post-actions';
+        // HOW THE QUEUE FINDS THIS ROW AGAIN. A queued post has to grey the
+        // card it is going out on, and by then every element held from press
+        // time is detached -- renderQueue rebuilt the list. See actionRowFor.
+        actions.dataset.postId = String(id);
 
         var feedback = document.createElement('span');
         feedback.className = 'post-feedback';
@@ -5385,28 +5898,37 @@
           return article;
         }
 
-        // The accounts, and the two buttons that act on them, built together so
-        // they share one piece of state. Pills go above the action row; the
-        // buttons go in it.
-        var controls = buildPostControls(post, feedback, function () {
-          renderQueue();
-          flash(queueStatus, 'Posted');
-        }, id);
-
         // Visible verb is SKIP; the storage key and helpers keep the older
         // `trash` names so an existing dismissal list is not orphaned.
+        //
+        // BUILT BEFORE THE ACCOUNT ROW, so that row can hand it what has
+        // already gone out -- a story on an account cannot be passed over, so
+        // Skip is not offered once one has taken it. It is still APPENDED
+        // after the others; only its construction moved.
         var trashBtn = document.createElement('button');
         trashBtn.className = 'btn danger';
         trashBtn.type = 'button';
-        // Left out of the posting lock; see deferredSkips for why this one
-        // button is safe to leave live and why it defers rather than writes.
-        trashBtn.dataset.lockExempt = '1';
+        // NO LOCK EXEMPTION SINCE 2026-09-09, and it needs none. The lock is
+        // one card wide now, so every button on every other card is live and
+        // Skip has stopped being the exception it was; on the card being posted
+        // it is dead like the rest of that row. See setPostingLock.
         // Painted from the queue rather than set here, so a card rebuilt while
         // a skip is still pending comes back wearing it. The intention lives in
-        // deferredSkips, keyed by id; the button is only how it is shown.
+        // deferredActions, keyed by id; the button is only how it is shown.
         paintSkipButton(trashBtn, id);
         trashBtn.addEventListener('click', function () {
-          if (postingLock) { toggleDeferredSkip(id, trashBtn); return; }
+          // A GREYED SKIP ANSWERS RATHER THAN DOING NOTHING, the rule every
+          // other off control in this row already keeps: on a touch screen
+          // there is no hover and so no tooltip, and a button that ignores a
+          // press is indistinguishable from one that is broken.
+          if (trashBtn.getAttribute('aria-disabled') === 'true') {
+            stick(feedback, 'This already went out to '
+              + String(trashBtn.dataset.wentOutTo || 'an account')
+              + '. Skipping it would file it as passed over while it is live '
+              + 'there, so FILE AS POSTED is the only honest answer.');
+            return;
+          }
+          if (queueIsRunning()) { toggleDeferredSkip(id, trashBtn); return; }
           trashBtn.disabled = true;
           savePost(id, { status: 'skipped' })
             .then(function () { renderQueue(); flash(queueStatus, 'Skipped'); })
@@ -5415,6 +5937,32 @@
               flash(queueStatus, 'Could not save: ' + err.message);
             });
         });
+
+        // The accounts, and the two buttons that act on them, built together so
+        // they share one piece of state. Pills go above the action row; the
+        // buttons go in it.
+        //
+        // THE FIFTH ARGUMENT IS HOW SKIP LEARNS WHAT HAS GONE OUT. sync() runs
+        // on build and after every post, so the button follows the accounts
+        // without a second idea of what `used` holds living out here.
+        var controls = buildPostControls(post, feedback, function () {
+          renderQueue();
+          flash(queueStatus, 'Posted');
+        }, id, function (labels) {
+          trashBtn.dataset.wentOutTo = labels.join(', ');
+          paintSkipButton(trashBtn, id);
+        });
+
+        // WHAT A PRESS ON ONE BUTTON REPAINTS ON THE OTHERS. Skip is built out
+        // here and the account row inside buildPostControls, and neither can
+        // reach the other -- but queueing an account press CANCELS a queued
+        // Skip on the same card and vice versa, so the queue needs one handle
+        // that repaints both. Registered against the id, cleared by
+        // renderQueue, so it can never be left holding a detached card.
+        cardPainters[String(id)] = function () {
+          paintSkipButton(trashBtn, id);
+          if (typeof controls.sync === 'function') controls.sync();
+        };
 
         // NO EDIT BUTTON since 2026-08-19. Every field it could reach is now
         // either editable on the card itself or deliberately read-only, so the
@@ -6741,7 +7289,7 @@
         });
       }
 
-      function buildPostControls(post, feedbackEl, onDone, stableId) {
+      function buildPostControls(post, feedbackEl, onDone, stableId, onUsedChange) {
         var stateKey = stableId || postId(post);
 
         var group = document.createElement('div');
@@ -6821,18 +7369,11 @@
           paintDone();
         }
 
+        // THE PATCH ITSELF LIVES IN `filePosted`, one writer shared with the
+        // deferred queue, so a filing pressed now and one flushed after a post
+        // answers cannot disagree about what a receipt looks like.
         function markPosted(labels, keepOpen) {
-          var patch = {
-            status: 'posted',
-            posted_at: new Date().toISOString(),
-            posted_platforms: labels
-          };
-          // Only when there is something to record. A sitting that reached X and
-          // YouTube alone has no ids at all, and writing {} would claim we had
-          // looked and found none rather than that none exist.
-          for (var k in usedIds) { patch.posted_ids = usedIds; break; }
-          return savePost(stateKey, patch).then(function () {
-            delete postSessionReceipts[String(stateKey)];
+          return filePosted(stateKey, labels, usedIds).then(function () {
             if (!keepOpen && typeof onDone === 'function') onDone();
             return null;
           }).catch(function (err) { return err; });
@@ -6854,11 +7395,22 @@
         allBtn.type = 'button';
         allBtn.className = 'btn small post-platform post-platform--all';
 
+        function batchLabel(keys) {
+          return keys.map(function (k) { return PLATFORM_NAME[k]; }).join(' + ');
+        }
+
         allBtn.addEventListener('click', function () {
-          if (allBtn.disabled || postingLock) return;
+          if (allBtn.disabled) return;
           clearNotice(feedbackEl);
           var keys = batchTargets(currentRow(stateKey, post));
           if (!keys.length) return;
+          // QUEUED WHILE ANOTHER POST IS IN THE AIR, and pressing it again
+          // takes it back. The keys are the ones this card could reach at PRESS
+          // time, which is what was decided; the flush does not re-derive them.
+          if (isPostQueued(stateKey, keys) || queueIsRunning()) {
+            toggleDeferredPost(stateKey, keys, batchLabel(keys));
+            return;
+          }
           flushOpenEdit().then(function () { postKeys(keys, allBtn); });
         });
         group.appendChild(allBtn);
@@ -6884,9 +7436,21 @@
           buttons[key] = btn;
 
           btn.addEventListener('click', function () {
-            if (btn.disabled || postingLock) return;
+            // `disabled` is the posting lock, and on the card being posted it
+            // is the one that applies -- that whole row is dead and its own
+            // "Posting..." label is the explanation. Everywhere else the lock
+            // leaves this button alone and the press is queued below.
+            if (btn.disabled) return;
             clearNotice(feedbackEl);
             var live = currentRow(stateKey, post);
+
+            // A QUEUED PRESS IS TAKEN BACK BY PRESSING IT AGAIN, and that is
+            // asked before anything else: cancelling is not a decision about
+            // the account, it is withdrawing one.
+            if (isPostQueued(stateKey, [key])) {
+              toggleDeferredPost(stateKey, [key], PLATFORM_NAME[key]);
+              return;
+            }
 
             // A GREYED BUTTON ANSWERS RATHER THAN DOING NOTHING. On a phone the
             // tooltip does not exist, and a control that ignores a press is
@@ -6902,6 +7466,14 @@
               return;
             }
 
+            // BY HAND RUNS NOW, EVEN WHILE A POST IS IN THE AIR, AND IT
+            // CANNOT QUEUE. The clipboard write and the composer window both
+            // need the user activation THIS click carries; a press replayed
+            // from the queue a minute later has neither, so the copy would be
+            // refused and the tab blocked -- a queued press that looks like it
+            // worked and did not. There is also nothing to defer: it writes no
+            // row and reaches no account through us, it hands you a caption,
+            // and the one thing it records is in memory.
             if (platformMode(live, key) === 'hand') {
               // BY HAND: copy, and open the place it is going. Both inside the
               // gesture, because the clipboard write needs user activation and
@@ -6939,6 +7511,14 @@
               }
               copied.then(function (ok) {
                 noteUsed(key);
+                // AND THE REST OF THE ROW IS TOLD. noteUsed repaints FILE AS
+                // POSTED and nothing else, so a by-hand press recorded the
+                // account and left Skip still offering to file the story as
+                // passed over -- while the room had already decided it had gone
+                // out to X. The machine path has always called sync() straight
+                // after noteUsed for exactly this; the by-hand one never did.
+                // sync() is what hands Skip what has gone out.
+                sync();
                 // Say what actually happened. window.open returns null when the
                 // browser refuses, and claiming a tab that is not there sends
                 // somebody hunting for it.
@@ -6968,9 +7548,14 @@
               return;
             }
 
-            // BY MACHINE: this account only. The lock is the same one the old
-            // single button used, so nothing else on the page can be pressed
-            // while a post is in the air and a second press cannot double-post.
+            // BY MACHINE: this account only. While another post is in the air
+            // the press is QUEUED rather than refused -- it goes out in press
+            // order when that one answers. The card actually posting is dead,
+            // so this can never be a second press on a candidate in flight.
+            if (queueIsRunning()) {
+              toggleDeferredPost(stateKey, [key], PLATFORM_NAME[key]);
+              return;
+            }
             flushOpenEdit().then(function () { postKeys([key], btn); });
           });
 
@@ -6993,13 +7578,23 @@
           var label = labels.join(' + ');
           var restoreText = btn.textContent;
           var actionRow = group.parentNode;
+          // STALE REPLIES MUST NOT TOUCH A LOCK THAT HAS MOVED ON. This is the
+          // uncontested first press, not a queued one, but it can still outlive
+          // its own watchdog -- and by the time a very late reply lands, the
+          // queue this card's own release triggers may already be holding a
+          // DIFFERENT card. Without this guard that late reply's
+          // setPostingLock(false) would release the wrong row. runQueuedPost
+          // carries the same guard for the same reason.
+          var settled = false;
           setPostingLock(true, 'Posting to ' + label +
-            '… nothing else can be pressed until it answers.', actionRow);
+            '… this card is held; the rest of the queue is live.', actionRow);
           btn.textContent = 'Posting…';
 
           // The lock must never outlive a request that vanished, or the page is
           // dead until it is reloaded.
           var watchdog = window.setTimeout(function () {
+            if (settled) return;
+            settled = true;
             setPostingLock(false);
             sync();
             stick(feedbackEl, 'No answer from ' + label + ' after 90 seconds. ' +
@@ -7007,25 +7602,21 @@
           }, 90000);
 
           postViaApi(post, keys).then(function (reply) {
+            if (settled) return;
+            settled = true;
             window.clearTimeout(watchdog);
             btn.textContent = restoreText;
             setPostingLock(false);
 
+            // ONE READER FOR THE REPLY, shared with the queue, so a post
+            // pressed now and one flushed later cannot read the same answer
+            // two different ways.
             var results = reply.results || [];
+            var got = readPostResults(keys, reply);
             var won = [];
-            keys.forEach(function (k, i) {
-              var r = results[i];
-              // Match by position, then by name, because a reply that reorders
-              // or drops an entry must not tick the wrong account.
-              if (!r || r.platform) {
-                r = results.filter(function (x) {
-                  return x && String(x.platform || '').toLowerCase() === k;
-                })[0] || results[i];
-              }
-              if (r && r.ok) {
-                noteUsed(k, r.id);
-                won.push(PLATFORM_NAME[k]);
-              }
+            got.won.forEach(function (k) {
+              noteUsed(k, got.ids[k]);
+              won.push(PLATFORM_NAME[k]);
             });
             sync();
 
@@ -7041,6 +7632,8 @@
               stick(feedbackEl, label + ' refused it: ' + describeFailures(results));
             }
           }).catch(function (err) {
+            if (settled) return;
+            settled = true;
             window.clearTimeout(watchdog);
             btn.textContent = restoreText;
             setPostingLock(false);
@@ -7069,6 +7662,11 @@
         doneBtn.type = 'button';
         doneBtn.className = 'btn primary post-done';
         doneBtn.textContent = 'FILE AS POSTED';
+        // NO LOCK EXEMPTION SINCE 2026-09-09, and it needs none: every button
+        // on every card but the one being posted is live now. On that one card
+        // it is dead with the rest of the row, which is where it belongs -- the
+        // account currently in the air is about to change what the receipt
+        // should say. See setPostingLock and deferredActions.
 
         // DONE IS ALWAYS AVAILABLE, AND IT WAS `disabled` UNTIL 2026-08-28.
         //
@@ -7087,17 +7685,29 @@
         // THE TOOLTIP CARRIES THE WHOLE DISTINCTION, so it opens on the verb
         // the button does not wear: FILE, not post. An account button is what
         // posts; this one writes down that it happened.
+        // THE WORDS AND THE QUEUED STATE LIVE IN paintDoneButton, module level,
+        // because a cancel is repainted from the queue and has no closure to
+        // read `used` out of. All this does is hand it what has gone out.
         function paintDone() {
-          doneBtn.title = used.length
-            ? 'File this as posted to ' + used.join(', ') + '. It does not post '
-              + 'anything itself; the account buttons already did that.'
-            : 'File this as posted without recording an account, for something '
-              + 'you posted elsewhere. It sends nothing.';
+          doneBtn.dataset.wentOutTo = used.join(', ');
+          paintDoneButton(doneBtn, stateKey);
         }
 
         doneBtn.addEventListener('click', function () {
-          if (doneBtn.disabled || postingLock) return;
+          // `disabled` is the posting lock, and on the card being posted it is
+          // the one that applies -- that row keeps its own "Posting..." label,
+          // which is the explanation for it. Everywhere else the lock leaves
+          // this button alone and the press is queued below.
+          if (doneBtn.disabled) return;
           clearNotice(feedbackEl);
+
+          // A QUEUED FILING IS TAKEN BACK BY PRESSING IT AGAIN, and cancelling
+          // asks nothing: the question below is about making a claim, not
+          // about withdrawing one.
+          if (isDoneQueued(stateKey)) {
+            toggleDeferredDone(stateKey, doneBtn, used, usedIds);
+            return;
+          }
 
           // THE EMPTY CASE ASKS, AND THE FULL CASE DOES NOT. With accounts
           // pressed, DONE is writing down what the room just watched happen --
@@ -7118,6 +7728,14 @@
 
           go.then(function (ok) {
             if (ok !== true) return;
+            // THE LOCK IS READ AFTER THE QUESTION, not before it. A confirm is
+            // answered by a person, and the post it is waiting on can perfectly
+            // well land in between -- in which case this files immediately
+            // rather than queueing something with nothing left to wait for.
+            if (queueIsRunning()) {
+              toggleDeferredDone(stateKey, doneBtn, used, usedIds);
+              return;
+            }
             doneBtn.disabled = true;
             // posted_platforms IS A RECEIPT AND STAYS ONE. An empty list is
             // the honest record of a sitting that reached no account FROM
@@ -7140,11 +7758,35 @@
         /** Repaint availability. Called on build and after every post, because
          *  a save can change what is possible: adding an image brings Instagram
          *  back, and a broken one takes it away. */
+        /** THE QUEUED LOOK, PAINTED FROM THE QUEUE RATHER THAN SET ON THE
+         *  PRESS, exactly as Skip and FILE AS POSTED are and for the same
+         *  reason: a card rebuilt while a press is still pending has to come
+         *  back wearing it, and the press has no closure left to repaint from.
+         *
+         *  IT SAYS SO IN A WORD. A dashed border alone is not something anyone
+         *  reads, and this row already answers a queued Skip with `Skip queued`
+         *  and a queued filing with `FILING QUEUED`. */
+        function paintQueuedPost(btn, keys, base, name) {
+          var queued = isPostQueued(stateKey, keys);
+          btn.classList.toggle('is-post-queued', queued);
+          if (!queued) return;
+          btn.textContent = base + ' queued';
+          btn.title = 'Queued while a post is in the air. It goes out to ' + name
+            + ' as soon as the queue reaches it. Press again to cancel.';
+          // A QUEUED PRESS IS PRESSABLE, because pressing it is how it is taken
+          // back. sync() may have just marked this account unavailable for its
+          // own reasons; those reasons are read again the moment it is cancelled.
+          btn.removeAttribute('aria-disabled');
+        }
+
         function sync() {
           var live = currentRow(stateKey, post);
           PLATFORM_ROW.forEach(function (key) {
             var btn = buttons[key];
             if (!btn) return;
+            // Restored on every pass, or a cancelled queue would leave the
+            // button reading `Facebook queued` for the life of the card.
+            btn.textContent = PLATFORM_NAME[key];
             var mode = platformMode(live, key);
             var spent = usedAlready(key);
             // BLUE MEANS THIS ACCOUNT IS IN THE STATE IT IS MEANT TO BE IN.
@@ -7196,6 +7838,7 @@
             } else {
               btn.title = 'Open ' + PLATFORM_NAME[key] + ' with the caption on your clipboard.';
             }
+            paintQueuedPost(btn, [key], PLATFORM_NAME[key], PLATFORM_NAME[key]);
           });
 
           var batch = batchTargets(live);
@@ -7213,13 +7856,20 @@
             allBtn.title = 'Post this to ' + batch.map(function (k) {
               return PLATFORM_NAME[k];
             }).join(' + ') + ' in one go.';
+            paintQueuedPost(allBtn, batch, allBtn.textContent, batchLabel(batch));
           }
 
           paintDone();
+          // WHAT HAS GONE OUT, HANDED BACK TO THE CARD. Skip reads it to decide
+          // whether it may be offered at all; see paintSkipButton.
+          if (typeof onUsedChange === 'function') onUsedChange(used.slice());
         }
 
         sync();
-        return { group: group, doneBtn: doneBtn };
+        // `sync` goes back with the buttons so the card's painter can repaint
+        // the whole account row when a press elsewhere on the card changes what
+        // is queued. See cardPainters.
+        return { group: group, doneBtn: doneBtn, sync: sync };
       }
 
 

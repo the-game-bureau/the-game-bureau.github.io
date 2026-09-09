@@ -7360,6 +7360,257 @@ Until now the only way onto the list was a row typed into `admin_users` in the S
 - **Deny does not delete the account.** The person keeps the Supabase user they made; they simply never reach Mission Control with it. The button's tooltip says so, because the obvious reading is the wrong one.
 - **REVOKING an admin is deliberately not in the UI.** It stays a `delete from public.admin_users` in the SQL editor. An Approve button that can also revoke is one misclick from locking the last admin out of Mission Control.
 
+## THE POSTING LOCK IS ONE CARD WIDE, AND THE REST QUEUES (2026-09-09)
+
+Asked as: *while posting, gray out all buttons for THAT candidate only. Do not
+gray out any other buttons for any other candidates. Instead make all buttons on
+all other candidates into queue buttons that queue up their action and take place
+in order after the candidate posts, then it just goes down the line posting or
+skipping.*
+
+**IT INVERTS WHAT THE LOCK DID AN HOUR EARLIER.** The whole page went dead while
+a post was in the air except Skip and FILE AS POSTED, which queued -- **and those
+were the wrong two to keep.** A post takes long enough that the natural thing to
+do is work down the rest of the queue, and **the thing you most want to do to the
+next candidate is POST it**; the two live buttons were the two that pass on it.
+
+- **THE POSTING CARD IS STILL DEAD, and that is the whole reason the lock
+  exists**: a second press on a candidate already in flight sends the story twice
+  and **Facebook accepts it without complaint**. And the account currently going
+  out is about to change what THAT card's receipt should say, so filing or
+  skipping it now records something already out of date -- **queueing a press
+  there would be offering a decision the flush could only refuse.**
+- **`data-lock-exempt` IS DELETED, along with `lockWasOff`.** Nothing needs
+  exempting from a lock one card wide, and **a dead hook is what makes somebody
+  re-point at the wrong thing.** `applyLock` stamps only what it turned off, so
+  the unlock can never switch on a button that is off for its own reason -- an
+  `All` with nothing to batch, a row mid-save -- which the three-branch flag it
+  replaced could.
+- **THE DIMMING AND THE WAIT CURSOR INVERTED WITH IT.** `body { cursor: progress }`
+  was honest over a page that was entirely held and is a lie over a queue you can
+  work down; both now land on the posting row and the page-level bars only.
+
+### ONE ORDERED LIST, AND THE ORDER IS THE ORDER YOU PRESSED
+
+`deferredActions`, replacing `deferredSkips` and `deferredDones`.
+
+    { kind: 'post', id, keys, label }   an account, or a batch of them
+    { kind: 'file', id, labels, ids }   FILE AS POSTED
+    { kind: 'skip', id }                Skip
+
+- **THE TWO LISTS RAN FILINGS THEN SKIPS ON THE RULE THAT POSTED BEATS SKIPPED,
+  and that was never what kept them apart.** The guards enforce it, and **press
+  order enforces it too, in both directions**: filing then skip leaves the skip
+  finding the row posted and refusing; skip then filing overwrites to posted,
+  which is the same answer. What broke the shape is that **account presses queue
+  now**, and three lists cannot express *down the line*.
+- **AN ITEM IS DATA, NEVER A CLOSURE, and that is the one thing here that is not
+  obvious.** `setPostingLock(false)` calls `renderQueue` **BEFORE** it calls the
+  flush, so **every card on screen at press time is a detached node by the time
+  the queue runs.** A stored handler would post through a button that is no
+  longer in the document. So an item carries an id, and the flush looks
+  everything up fresh -- including the action row, **walked rather than matched
+  with a selector**, since an id is a row value and an attribute selector built
+  from one needs escaping this repo has been bitten by.
+- **SHIFTED ONE AT A TIME RATHER THAN SNAPSHOTTED**, so anything pressed while
+  the queue is running joins the end of it. That is the shape of the thing: you
+  work down the list while it works down the list behind you.
+- **A QUEUED POST RE-LOCKS, ONE CARD WIDE, AND HAS ITS OWN WATCHDOG.** It is as
+  much in the air as a pressed one and carries the same double-post risk -- and
+  **it is the post nobody is watching**, so a request that vanished would
+  otherwise leave the page dead until it was reloaded.
+- **ONE FLUSH AT A TIME.** Every queued post releases the lock when it answers,
+  and **releasing the lock is what starts a flush**; without the guard the queue
+  would re-enter itself once per item.
+- **THE PAGE'S OWN CONTROLS ARE HELD FOR THE WHOLE RUN, not only while a post is
+  in the air.** The tabs, the sort and the command bar are not a candidate's
+  buttons -- they move the LIST -- and **the queue runs between locks**: a skip
+  and a filing hold none at all, so a list reordered in one of those gaps would
+  move the card the next item is about to post out from under it.
+
+### A BY-HAND ACCOUNT RUNS NOW AND CANNOT QUEUE
+
+The one thing in the ask that could not be built, said plainly rather than left
+to be found. **X, YouTube, Notes and Instagram-as-a-fallback copy a caption and
+open a composer, and both need the user activation of the click that asked for
+them.** A press replayed from the queue a minute later has neither: the copy is
+refused and the tab is blocked -- **a queued press that looks like it worked and
+did not.**
+
+- **SO IT RUNS IMMEDIATELY, EVEN UNDER THE LOCK, which is strictly better than
+  the grey button it replaces.** There is nothing to defer: it writes no row and
+  reaches no account through us, and the one thing it records is in memory.
+
+**AND IT SURFACED A HOLE THAT WAS ALREADY THERE.** `noteUsed` repaints FILE AS
+POSTED and nothing else, so **a by-hand press recorded the account and left Skip
+still offering to file the story as passed over** -- while the room had already
+decided it had gone out to X. The machine path has always called `sync()` straight
+after `noteUsed`; the by-hand path never did. One line, and it closes the same
+disagreement the Skip rule was written for.
+
+### SKIP AND AN ACCOUNT PRESS CANCEL EACH OTHER
+
+They are opposite answers to one card, so **the later press wins and the other is
+dropped**. Leaving both would put two contradictory intentions on screen and then
+send the story to Facebook **and** file the row as passed over.
+
+- **`cardPainters` IS WHAT MAKES THAT VISIBLE.** Skip is built in `buildPost` and
+  the account row in `buildPostControls`, and **neither can reach the other**, so
+  the queue holds one repaint handle per card. Cleared by `renderQueue`, so it can
+  never be left holding a detached card.
+- **THE BACKSTOP IS STILL IN THE FLUSH**: a skip refuses on a card that has
+  reached an account, `wentOutLabels` being the module-level answer to *what has
+  actually gone out* -- the session receipt plus `posted_platforms`.
+- **AND A QUEUED FILING TAKES THE PRESS-TIME LABELS PLUS WHATEVER HAS GONE OUT
+  SINCE**, which is the one place the press-time rule bends and has to. Queue
+  Facebook, then FILE AS POSTED on the same card: the filing was pressed BEFORE
+  Facebook went out, so recorded as pressed **the receipt would say no account
+  reached it while the story was live on the Page.**
+
+### THE CHECK
+
+**[socializer-queue-goes-down-the-line.js](mc/_dev/browser-checks/socializer-queue-goes-down-the-line.js), 29 assertions in real Chrome**, with
+**every** post held open rather than answered as it arrives -- answering them
+would make the flush a blur, and held, each one is a moment the page can be
+measured in. Five cards: A posts and is held, B queues an account, C queues
+Facebook then Skip, D queues Skip then Facebook, E presses X.
+
+**SO THE EXPECTED ORDER IS `POST zed-b`, `PATCH skipped zed-c`, `POST zed-d`** --
+down the line, posting or skipping, in the order the buttons were pressed, with
+both directions of the mutual exclusion proved on the way.
+
+- **RUN AGAINST THE PREVIOUS PAGE IT FAILS FOURTEEN WAYS**, naming the report
+  itself: every account button on every other card `off: true`, the by-hand press
+  doing nothing (`opened: []`), and the queue posting nothing at all.
+- **AND THREE OF ITS OWN ASSERTIONS PASSED ON THAT PAGE FOR THE WRONG REASON.**
+  *A queued press is cancelled by pressing it again* read only the AFTER state,
+  which is `Facebook` and unmarked on a page where nothing could ever be queued;
+  the same for the Skip exclusion, and for *a by-hand account is not queued*,
+  which is true of a dead button. **All three read both sides in one probe now**,
+  so `was` is what makes them assertions about cancelling rather than about
+  nothing having happened. That is the `|| true` shape this file keeps warning
+  about, reached by a third road.
+- **AND ONE MEASURED A GRANDCHILD.** *The posting row is dimmed* read the opacity
+  of an account BUTTON and got `0.42` -- that button's own `aria-disabled` rule.
+  **The dimming is on the action row's direct children**, because opacity makes a
+  stacking group, so a button's computed opacity says nothing about whether the
+  row it sits in is dimmed. It measures `.post-platforms` and `.post-done`.
+
+**AND TWO OF MY OWN GUARDS IN THE EDIT SCRIPT FIRED ON THEIR OWN COMMENTS.** The
+script refuses to write if the result still carries `deferredSkips` or
+`lockWasOff` -- and **the new comment says what it replaced, by name.** Narrowed
+to USES (`deferredSkips.`, `dataset.lockWasOff`) rather than mentions, which is
+the same false positive this file already records for `like '%home_city%'` and
+for four checks that matched the comment explaining a removal.
+
+**THE FILING CHECK'S FIRST TWO ASSERTIONS WERE CORRECTLY BROKEN** and were
+repointed rather than deleted: they read *FILE AS POSTED carries the lock
+exemption Skip has*, which is now false by design, and they assert its **absence**
+instead. 130 assertions across the room's four checks, all green.
+
+## FILE AS POSTED QUEUES, AND SKIP GOES OFF ONCE A STORY IS OUT (2026-09-09)
+
+Two changes to one action row, and they are the same argument seen from both
+ends: **what a candidate has already done decides which of the two answers it
+may still be given.**
+
+### THE FILING BUTTON STAYS LIVE UNDER THE POSTING LOCK
+
+Asked as: *keep the file as posted button live always and have it queue if
+posting is happening, see skip button functionality.* So it is **Skip's own
+mechanism, applied to the button beside it** rather than a second one invented
+for it.
+
+- **IT WON THE ARGUMENT SKIP WON IN AUGUST.** Everything on the page goes dead
+  under the lock, and for the account buttons that is the whole point: a second
+  press on a candidate already in flight sends the story twice and Facebook
+  accepts it without complaint. **Filing carries no such risk** -- it writes one
+  row and reaches no account.
+- **AND IT IS HALF OF WHAT YOU DO DURING THE WAIT.** A post takes long enough
+  that the natural thing is to work down the rest of the queue, and the two
+  things you do to a card there are pass on it and file it. **Skip was live and
+  FILE AS POSTED was not, which made half of that dead time.**
+- **THE PRESS IS RECORDED AND THE WRITE WAITS**, for Skip's own reason: a
+  receipt filed before the account API answers settles a row whose outcome
+  still needs reading. The button says `FILING QUEUED` in dashed blue, pressing
+  it again takes it back, and **nothing about the stored row moves until the
+  lock lifts.**
+- **THE LABELS ARE TAKEN AT PRESS TIME, not read back at flush time.** What is
+  filed is what had gone out at the moment somebody decided -- and on a card
+  that is not the one posting, its own accounts are locked, so the two cannot
+  differ anyway.
+- **THE CARD BEING POSTED IS THE EXCEPTION, and it needed no new code**: the
+  exemption test `setPostingLock` already carries for Skip locks any exempt
+  control that sits inside the posting row. **The account in the air is about
+  to change what the receipt should say**, so filing it now would record one
+  missing the very post that is going out.
+- **`markPosted` AND THE FLUSH SHARE ONE WRITER.** `filePosted(id, labels, ids)`
+  builds the patch, so a filing pressed now and one flushed afterwards cannot
+  disagree about what a receipt looks like -- and the `posted_ids` rule (omit
+  the key entirely rather than write `{}`) is stated once.
+
+#### FILINGS FLUSH BEFORE SKIPS, AND ONLY A CHECK SAID SO
+
+Both queues can hold the same card. `flushDeferred()` runs the filings first
+**because POSTED beats SKIPPED**: `savePost` writes the row back into `posts`,
+so the skip flush then finds it posted and leaves the receipt alone, reporting
+rather than overwriting. **Run together they race and the last writer wins by
+accident** -- proved by reversing the two lines, where the skip lands on top and
+four assertions fail naming `{"status":"skipped"}` on a row just filed.
+
+### SKIP IS NOT OFFERED ONCE AN ACCOUNT HAS TAKEN THE STORY
+
+Asked as: *make skip button not available if any posts have been done.*
+
+- **SKIPPING MEANS PASSED OVER, AND A STORY ON AN ACCOUNT HAS NOT BEEN PASSED
+  OVER.** It is live there and `posted_platforms` is the only record of where,
+  so writing `skipped` over it leaves this queue disagreeing with the Page
+  about something nobody can check from here. **That is already what the
+  deferred-skip flush refuses to do**; this stops the press reaching it.
+- **`aria-disabled`, NEVER `disabled`**, which is this row's standing rule: a
+  disabled button dispatches no click at all, so on a touch screen -- no hover,
+  therefore no tooltip -- the reason it went grey is unreachable. **The press
+  answers instead**, naming the account and pointing at FILE AS POSTED, which
+  sits directly to its left.
+- **WHAT HAS GONE OUT IS WRITTEN ONTO THE BUTTON**, by the account row's own
+  `sync()`, rather than passed in. `toggleDeferredSkip` repaints from the queue
+  and knows nothing about the accounts, so a parameter would be dropped on
+  every cancel. **One painter, one source** -- the same reason `paintDoneButton`
+  reads the element rather than a closure.
+- **SO THE CARD BUILDS SKIP BEFORE THE ACCOUNT ROW** and hands it in as a fifth
+  argument to `buildPostControls`. It is still APPENDED after the others; only
+  its construction moved.
+
+**[socializer-file-as-posted-queues.js](mc/_dev/browser-checks/socializer-file-as-posted-queues.js), 35 assertions in real Chrome.** The
+claim is about a MOMENT, so it is driven at that moment: an account button is
+really pressed and **the Edge Function's reply is HELD OPEN** while the other
+card is worked. Reading the source would say the handler branches; only holding
+the request says the branch is reached.
+
+- **RUN AGAINST THE PREVIOUS PAGE IT FAILS FIVE WAYS AND STOPS BY NAME** --
+  `opacity 0.5`, `cursor default`, and *the confirm never opened, so the press
+  did nothing*. **A gate rather than a raw timeout**, because a `waitForFunction`
+  that never settles kills the run with a stack, which names no assertion and
+  reads as the harness rather than the page.
+- **AND THE SKIP HALF IS PROVED SEPARATELY**, by removing that one rule: the
+  run then writes `PATCH socials?id=eq.zed-a {"status":"skipped"}` over a story
+  live on Facebook, which is the fault in one line.
+- **ONE ASSERTION WAS VACUOUS AND WAS MOVED RATHER THAN KEPT.** *A candidate
+  that has gone nowhere can still be skipped* was checked at the END of the
+  run, where the only card left has posted -- so it passed through an
+  `|| total === 1` escape on the fixed page and on the broken one alike. It is
+  asserted at the start, where a card in that state actually exists.
+
+#### AND THE STUB ANSWERED WITH THE WRONG ROW, WHICH READ AS A PAGE FAULT
+
+The write stub echoed `ROWS[0]` whatever was patched. `savePost` writes the
+reply into `posts`, so the array ended up holding **two rows under one id**, the
+flush's `statusOf(postById(id))` guard missed, and the skip wrote over a receipt
+that had just been filed. **The page was right and the harness was not** -- and
+it cost a failure on the first run of the very assertion that catches this. The
+stub answers with the row named in the filter now, merged with the patch, which
+is what PostgREST does under `return=representation`.
+
 ## THE SOCIALIZER'S MARKDOWN IS ONE FILE (2026-09-04)
 
 [mc/socializer/socializer.md](mc/socializer/socializer.md), 103KB. The room, the
