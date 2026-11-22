@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PARLAY SQUARES · Game Notebook</title>
 <link rel="icon" href="./favicon.ico" type="image/x-icon" sizes="16x16 24x24 32x32 48x48 64x64">
 <link rel="stylesheet" href="./style.css"></head><body>
-<nav class="bottom-nav" aria-label="Booklet navigation"><button id="go-cover" class="book-jump" type="button">COVER</button><button id="go-rules" class="book-jump" type="button">RULES</button><button id="go-progs" class="book-jump" type="button">PROGS</button><button id="first-drive" class="book-first book-jump" type="button">DRIVE SHEETS</button><button id="prev" class="book-prev" type="button">← PREVIOUS</button><button id="next" class="book-next" type="button">NEXT →</button><div class="book-position"><strong id="page-name">Cover</strong><span id="page-count">PAGE 1 OF 53</span></div><button id="print" class="book-print" type="button">Print booklet (29 pages)</button></nav>
+<nav class="bottom-nav" aria-label="Booklet navigation"><button id="go-cover" class="book-jump" type="button">COVER</button><button id="go-rules" class="book-jump" type="button">RULES</button><button id="go-progs" class="book-jump" type="button">PROGS</button><button id="first-drive" class="book-first book-jump" type="button">DRIVE SHEETS</button><button id="prev" class="book-prev" type="button">← PREVIOUS</button><button id="next" class="book-next" type="button">NEXT →</button><div class="book-position"><strong id="page-name">Cover</strong><span id="page-count">PAGE 1</span></div><button id="print" class="book-print" type="button">Print booklet</button></nav>
 <div class="outer">
 <section class="section active" id="cover"><div class="page ds-page ds-cover">
 <div class="ds-label ds-over">THEGAMEBUREAU.COM PRESENTS</div>
@@ -50,6 +50,16 @@
 <div id="print-book" class="print-book" aria-hidden="true"></div>
 <script>
 (()=>{'use strict';
+const NUMBERED_DRIVES = 48;
+const BLANK_DRIVES = 3;
+const FRONT_PAGES = [
+  ['cover', 'Cover'],
+  ['rules', 'Rules'],
+  ['sample', 'Sample drive'],
+  ['callers', 'Prognosticators'],
+];
+const PAGE_COUNT = FRONT_PAGES.length + NUMBERED_DRIVES + BLANK_DRIVES;
+const PRINT_DRIVE_PAGE_COUNT = Math.ceil((NUMBERED_DRIVES + BLANK_DRIVES) / 2);
 const STORE='drive-parlay-html-v1';let state;try{state=JSON.parse(localStorage.getItem(STORE))||{}}catch{state={}}state.callers=state.callers||{};
 const outcomes=[['td','TD RUN','by ODD JERSEY NUMBER'],['td','TD RUN','by EVEN JERSEY NUMBER'],['td','TD PASS','by ODD JERSEY NUMBER'],['td','TD PASS','by EVEN JERSEY NUMBER'],['fg','FG GOOD','for ODD KICK YARDS'],['fg','FG GOOD','for EVEN KICK YARDS'],['fg','FG MISS','for ODD KICK YARDS'],['fg','FG MISS','for EVEN KICK YARDS'],['ns','PUNT','on ODD GAME CLOCK'],['ns','PUNT','on EVEN GAME CLOCK'],['ns','OTHER','on ODD GAME CLOCK'],['ns','OTHER','on EVEN GAME CLOCK']];
 const $=s=>document.querySelector(s);let pageNumber=1;
@@ -57,10 +67,54 @@ function save(){try{localStorage.setItem(STORE,JSON.stringify(state))}catch{}}
 function drawOrderInto(el,drive){el.replaceChildren();const start=Math.floor((drive-1)/2)%12;const picks=Array.from({length:12},(_,i)=>((start+i)%12)+1);if(drive%2===0)picks.reverse();picks.forEach((n,i)=>{const num=document.createElement('span');num.className='ds-pk'+(!i?' first':'');num.textContent=n;el.append(num)})}
 function drawSquaresInto(root){const meta={td:{rows:['RUN','PASS'],cap:'JERSEY NUMBER'},fg:{rows:['GOOD','MISS'],cap:'KICK YARDS'},ns:{rows:['PUNT','OTHER'],cap:'GAME CLOCK'}};['td','fg','ns'].forEach(k=>{const g=root.querySelector('#'+k),m=meta[k],list=outcomes.filter(o=>o[0]===k);let h='<div class="ds-corner"></div><div class="ds-colh">'+m.rows[0]+'</div><div class="ds-colh">'+m.rows[1]+'</div>';['ODD','EVEN'].forEach((par,pi)=>{h+='<div class="ds-rowh">'+par+'<small>'+m.cap+'</small></div>';[0,1].forEach(hi=>{const o=list[hi*2+pi];h+='<div class="ds-cell" aria-label="'+o[1]+' '+o[2]+'"><div class="ds-ring"><span>PROG</span></div><div class="ds-tab"><b>'+m.cap.replace(' ','<br>')+'</b></div></div>'})});g.innerHTML=h})}
 function blankDrive(root){root.querySelector('#drive-label').textContent='';root.querySelectorAll('#order .ds-pk').forEach(el=>el.textContent='')}function buildSample(){const sec=$('#sample');const page=document.querySelector('.outer > #sheet > .page').cloneNode(true);page.classList.add('ds-sample');sec.replaceChildren(page);const D=7;page.querySelector('#drive-label').textContent=String(D).padStart(2,'0');drawOrderInto(page.querySelector('#order'),D);drawSquaresInto(page);const wob=k=>((k*37)%9-4);const tick='<svg class="ink-tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c2 1.6 3.6 3.4 5 5.4C11.7 13 15.6 7.6 20.5 3.8"/></svg>';page.querySelectorAll('#order .ds-pk').forEach((el,k)=>{el.insertAdjacentHTML('beforeend',tick);el.lastChild.style.transform='rotate('+wob(k+2)+'deg)'});const progs=[4,9,11,2,6,12,1,7,3,10,5,8];page.querySelectorAll('.ds-cell').forEach((c,k)=>{const ring=c.querySelector('.ds-ring');ring.insertAdjacentHTML('beforeend','<i class="ink ink-prog" style="transform:translate(-50%,-50%) rotate('+wob(k)+'deg)">'+progs[k]+'</i>')});const win=page.querySelectorAll('.ds-cell')[1];win.querySelector('.ds-tab').insertAdjacentHTML('beforeend','<i class="ink ink-tab">13</i>');const foot=page.querySelector('.page-foot');foot.insertAdjacentHTML('beforebegin','<div class="sample-note"><b>SAMPLE DRIVE</b><span>Each Prognosticator wrote their PROG # in one square, in pick order, and checked off their pick. The drive ended with a touchdown pass caught by #13, an odd jersey number, so 13 goes in the tab of the TD, PASS, ODD square. PROG 9 owns that square and wins the drive.</span></div>');page.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'))}
-function renderDrive(drive){const sh=$('#sheet');sh.querySelector('#drive-label').textContent=String(drive).padStart(2,'0');drawOrderInto(sh.querySelector('#order'),drive);drawSquaresInto(sh);if(drive>48)blankDrive(sh)}
-function showPage(n){pageNumber=Math.min(53,Math.max(1,n));const id=pageNumber===1?'cover':pageNumber===2?'rules':pageNumber===3?'sample':pageNumber===4?'callers':'sheet';document.querySelectorAll('.outer > .section').forEach(el=>el.classList.toggle('active',el.id===id));if(pageNumber>=5)renderDrive(pageNumber-4);$('#page-name').textContent=pageNumber===1?'Cover':pageNumber===2?'Rules':pageNumber===3?'Sample drive':pageNumber===4?'Prognosticators':(pageNumber===53?'Blank drive':'Drive '+String(pageNumber-4).padStart(2,'0'));$('#page-count').textContent='PAGE '+pageNumber+' OF 53';$('#prev').disabled=pageNumber===1;$('#next').disabled=pageNumber===53;$('#first-drive').disabled=pageNumber===5;window.scrollTo(0,0);[['#go-cover',1],['#go-rules',2],['#go-progs',4]].forEach(([b,n])=>{const el=$(b);if(el)el.disabled=pageNumber===n})}
+function renderDrive(sheet, drive) {
+  sheet.querySelector('#drive-label').textContent = String(drive).padStart(2, '0');
+  drawOrderInto(sheet.querySelector('#order'), drive);
+  drawSquaresInto(sheet);
+  if (drive > NUMBERED_DRIVES) blankDrive(sheet);
+}
+function showPage(n) {
+  pageNumber = Math.min(PAGE_COUNT, Math.max(1, n));
+  const drive = pageNumber - FRONT_PAGES.length;
+  const [id, title] = FRONT_PAGES[pageNumber - 1] ?? [
+    'sheet',
+    drive > NUMBERED_DRIVES ? 'Blank drive ' + (drive - NUMBERED_DRIVES) : 'Drive ' + String(drive).padStart(2, '0'),
+  ];
+  document.querySelectorAll('.outer > .section').forEach(el => el.classList.toggle('active', el.id === id));
+  if (drive > 0) renderDrive($('#sheet'), drive);
+  $('#page-name').textContent = title;
+  $('#page-count').textContent = 'PAGE ' + pageNumber + ' OF ' + PAGE_COUNT;
+  $('#prev').disabled = pageNumber === 1;
+  $('#next').disabled = pageNumber === PAGE_COUNT;
+  $('#first-drive').disabled = drive === 1;
+  $('#go-cover').disabled = id === 'cover';
+  $('#go-rules').disabled = id === 'rules';
+  $('#go-progs').disabled = id === 'callers';
+  window.scrollTo(0, 0);
+}
 function drawPrognosticators(){for(let n=1;n<=12;n++){const el=document.createElement('div');el.className='pg-row';el.innerHTML='<b title="PROG # '+n+'">'+n+'</b><input class="pg-name" aria-label="Name for PROG # '+n+'" autocomplete="off"><span class="pg-amt" aria-label="Amount won by PROG # '+n+'"><em>$</em></span>';const input=el.querySelector('input');input.value=state.callers[n]||'';input.addEventListener('input',()=>{state.callers[n]=input.value;save()});$('#register').append(el)}}
-function buildPrintBook(){const book=$('#print-book');book.replaceChildren();const add=(id,n)=>{const source=document.querySelector('.outer > #'+id+' > .page');const clone=source.cloneNode(true);clone.classList.add('print-page');clone.removeAttribute('id');clone.setAttribute('data-print-page',n);book.append(clone);return clone};add('cover',1);add('rules',2);add('sample',3);const roster=add('callers',4);roster.querySelectorAll('.ds-reg input').forEach((inp,i)=>{inp.setAttribute('value',state.callers[i+1]||'')});for(let d=1;d<=50;d++){const sheet=add('sheet',d+4);sheet.classList.add(d%2?'drive-a':'drive-b');sheet.querySelector('#drive-label').textContent=String(d).padStart(2,'0');drawOrderInto(sheet.querySelector('#order'),d);drawSquaresInto(sheet);if(d>48)blankDrive(sheet)}}
+function buildPrintBook() {
+  const book = $('#print-book');
+  book.replaceChildren();
+  const add = (id, pageNumber) => {
+    const source = document.querySelector('.outer > #' + id + ' > .page');
+    const clone = source.cloneNode(true);
+    clone.classList.add('print-page');
+    clone.removeAttribute('id');
+    clone.setAttribute('data-print-page', pageNumber);
+    book.append(clone);
+    return clone;
+  };
+  FRONT_PAGES.forEach(([id], index) => add(id, index + 1));
+  book.querySelectorAll('.ds-roster .ds-reg input').forEach((input, index) => {
+    input.setAttribute('value', state.callers[index + 1] || '');
+  });
+  for (let drive = 1; drive <= PRINT_DRIVE_PAGE_COUNT * 2; drive++) {
+    const sheet = add('sheet', drive + FRONT_PAGES.length);
+    sheet.classList.add(drive % 2 ? 'drive-a' : 'drive-b');
+    renderDrive(sheet, drive);
+  }
+}
 async function printBooklet() {
   const button = $('#print');
   button.disabled = true;
@@ -77,6 +131,7 @@ async function printBooklet() {
     button.disabled = false;
   }
 }
-$('#go-cover').onclick=()=>showPage(1);$('#go-rules').onclick=()=>showPage(2);$('#go-progs').onclick=()=>showPage(4);$('#first-drive').onclick=()=>showPage(5);$('#prev').onclick=()=>showPage(pageNumber-1);$('#next').onclick=()=>showPage(pageNumber+1);$('#print').onclick=printBooklet;window.addEventListener('afterprint',()=>{$('#print-book').replaceChildren()});document.querySelectorAll('#cover .ds-med img').forEach((im,i)=>{im.src=document.querySelectorAll('#sheet .ds-med img')[i].src});drawPrognosticators();buildSample();showPage(1);
+$('#print').textContent = 'Print booklet (' + (FRONT_PAGES.length + PRINT_DRIVE_PAGE_COUNT) + ' pages)';
+$('#go-cover').onclick=()=>showPage(1);$('#go-rules').onclick=()=>showPage(2);$('#go-progs').onclick=()=>showPage(4);$('#first-drive').onclick=()=>showPage(FRONT_PAGES.length+1);$('#prev').onclick=()=>showPage(pageNumber-1);$('#next').onclick=()=>showPage(pageNumber+1);$('#print').onclick=printBooklet;window.addEventListener('afterprint',()=>{$('#print-book').replaceChildren()});document.querySelectorAll('#cover .ds-med img').forEach((im,i)=>{im.src=document.querySelectorAll('#sheet .ds-med img')[i].src});drawPrognosticators();buildSample();showPage(1);
 })();
 </script></body></html>
