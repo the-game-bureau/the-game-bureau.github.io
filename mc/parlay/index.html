@@ -60,6 +60,22 @@ function renderDrive(drive){const sh=$('#sheet');sh.querySelector('#drive-label'
 function showPage(n){pageNumber=Math.min(53,Math.max(1,n));const id=pageNumber===1?'cover':pageNumber===2?'rules':pageNumber===3?'sample':pageNumber===4?'callers':'sheet';document.querySelectorAll('.outer > .section').forEach(el=>el.classList.toggle('active',el.id===id));if(pageNumber>=5)renderDrive(pageNumber-4);$('#page-name').textContent=pageNumber===1?'Cover':pageNumber===2?'Rules':pageNumber===3?'Sample drive':pageNumber===4?'Prognosticators':(pageNumber===53?'Blank drive':'Drive '+String(pageNumber-4).padStart(2,'0'));$('#page-count').textContent='PAGE '+pageNumber+' OF 53';$('#prev').disabled=pageNumber===1;$('#next').disabled=pageNumber===53;$('#first-drive').disabled=pageNumber===5;window.scrollTo(0,0);[['#go-cover',1],['#go-rules',2],['#go-progs',4]].forEach(([b,n])=>{const el=$(b);if(el)el.disabled=pageNumber===n})}
 function drawPrognosticators(){for(let n=1;n<=12;n++){const el=document.createElement('div');el.className='pg-row';el.innerHTML='<b title="PROG # '+n+'">'+n+'</b><input class="pg-name" aria-label="Name for PROG # '+n+'" autocomplete="off"><span class="pg-amt" aria-label="Amount won by PROG # '+n+'"><em>$</em></span>';const input=el.querySelector('input');input.value=state.callers[n]||'';input.addEventListener('input',()=>{state.callers[n]=input.value;save()});$('#register').append(el)}}
 function buildPrintBook(){const book=$('#print-book');book.replaceChildren();const add=(id,n)=>{const source=document.querySelector('.outer > #'+id+' > .page');const clone=source.cloneNode(true);clone.classList.add('print-page');clone.removeAttribute('id');clone.setAttribute('data-print-page',n);book.append(clone);return clone};add('cover',1);add('rules',2);add('sample',3);const roster=add('callers',4);roster.querySelectorAll('.ds-reg input').forEach((inp,i)=>{inp.setAttribute('value',state.callers[i+1]||'')});for(let d=1;d<=50;d++){const sheet=add('sheet',d+4);sheet.classList.add(d%2?'drive-a':'drive-b');sheet.querySelector('#drive-label').textContent=String(d).padStart(2,'0');drawOrderInto(sheet.querySelector('#order'),d);drawSquaresInto(sheet);if(d>48)blankDrive(sheet)}}
-$('#go-cover').onclick=()=>showPage(1);$('#go-rules').onclick=()=>showPage(2);$('#go-progs').onclick=()=>showPage(4);$('#first-drive').onclick=()=>showPage(5);$('#prev').onclick=()=>showPage(pageNumber-1);$('#next').onclick=()=>showPage(pageNumber+1);$('#print').onclick=()=>{buildPrintBook();window.print()};window.addEventListener('afterprint',()=>{$('#print-book').replaceChildren()});document.querySelectorAll('#cover .ds-med img').forEach((im,i)=>{im.src=document.querySelectorAll('#sheet .ds-med img')[i].src});drawPrognosticators();buildSample();showPage(1);
+async function printBooklet() {
+  const button = $('#print');
+  button.disabled = true;
+  try {
+    // The hidden drive sheets can use fonts the cover has not requested yet.
+    await Promise.allSettled([
+      document.fonts.load('16px "Bic"'),
+      document.fonts.load('italic 700 16px Inter'),
+      document.fonts.ready,
+    ]);
+    buildPrintBook();
+    window.print();
+  } finally {
+    button.disabled = false;
+  }
+}
+$('#go-cover').onclick=()=>showPage(1);$('#go-rules').onclick=()=>showPage(2);$('#go-progs').onclick=()=>showPage(4);$('#first-drive').onclick=()=>showPage(5);$('#prev').onclick=()=>showPage(pageNumber-1);$('#next').onclick=()=>showPage(pageNumber+1);$('#print').onclick=printBooklet;window.addEventListener('afterprint',()=>{$('#print-book').replaceChildren()});document.querySelectorAll('#cover .ds-med img').forEach((im,i)=>{im.src=document.querySelectorAll('#sheet .ds-med img')[i].src});drawPrognosticators();buildSample();showPage(1);
 })();
 </script></body></html>
