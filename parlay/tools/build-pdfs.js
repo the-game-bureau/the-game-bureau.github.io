@@ -51,11 +51,11 @@ const buildBook = () => new Promise(res => {
 
   // Everything renders into a temp folder first; pdf/ is only replaced if all checks pass.
   const cover = await render(browser, 'cover.html', path.join(tmp, 'lulu-cover.pdf'));
-  const interior = await render(browser, 'index.html', path.join(tmp, 'lulu-interior.pdf'), { prep: buildBook });
+  const interior = await render(browser, 'workbook.html', path.join(tmp, 'lulu-interior.pdf'), { prep: buildBook });
 
   const front = await render(browser, 'cover.html', path.join(tmp, 'front.pdf'), { css: panelCss('front') });
   const back = await render(browser, 'cover.html', path.join(tmp, 'back.pdf'), { css: panelCss('back') });
-  const inner = await render(browser, 'index.html', path.join(tmp, 'inner.pdf'), {
+  const inner = await render(browser, 'workbook.html', path.join(tmp, 'inner.pdf'), {
     prep: buildBook, css: '@page{size:8.5in 11in;margin:0.6in}',
   });
   await browser.close();
