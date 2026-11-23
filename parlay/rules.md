@@ -4,9 +4,9 @@
 
 ## Before kickoff
 
-1. **Plan the game.** Play with 2 to 12 people. Choose to fund 12, 24, 36, or 48 drives.
+1. **Plan the game.** Play with 2 to 12 prognosticators. Choose to fund 12, 24, 36, or 48 drives.
 2. **Assign all 12 PROG #s.** Each number costs the same. A person can own more than one.
-3. **Pay up front.** Pay for your numbers once to fill the pot. Write each owner's name on the notebook's Prognosticators page. Keep those numbers all game.
+3. **Ante up.** Ante once for your numbers to fill the pot. Write each owner's name on the notebook's Prognosticators page. Keep those numbers all game.
 
 ## Each drive
 
