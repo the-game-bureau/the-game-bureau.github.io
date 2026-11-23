@@ -1,14 +1,16 @@
 # Parlay Squares rules
 
+**The workbook.** You play on paper with the Parlay Squares workbook. Print it free or order a printed copy at thegamebureau.com/parlay. It has a Prognosticators page for names, ante, and winnings, and a drive sheet for every drive, two to a page.
+
 ## Before kickoff
 
 1. **Plan the game.** Play with 2 to 12 people. Choose to fund 12, 24, 36, or 48 drives.
 2. **Assign all 12 PROG #s.** Each number costs the same. A person can own more than one.
-3. **Pay up front.** Pay for your numbers once to fill the pot. Write each owner's name on the Prognosticators page. Keep those numbers all game.
+3. **Pay up front.** Pay for your numbers once to fill the pot. Write each owner's name on the workbook's Prognosticators page. Keep those numbers all game.
 
 ## Each drive
 
-1. **Claim a square.** Follow the printed pick order. Each PROG # gets one pick. Write that number in an open square.
+1. **Claim a square.** Follow the printed pick order. Each PROG # gets one pick. Write that number in an open square on the drive's sheet.
 2. **Close picks.** Finish before the kickoff or snap that starts the drive.
 3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins that drive's payout.
 4. **End the game.** Play until the pot runs out or the football game ends. Split any leftover money evenly.
