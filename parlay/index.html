@@ -236,7 +236,7 @@ footer a{text-decoration:none}
 
 <section class="block" id="demo"><div class="wrap"><div class="card">
   <div class="sec-head demo-head"><h2>Parlay Squares Demo</h2><div class="sims"><span class="pays">PAYS PER DRIVE: <b>$12</b></span><button class="sim" type="button" data-sim="picks">SIMULATE PICKS</button><button class="sim" type="button" data-sim="drive">SIMULATE DRIVE</button></div></div>
-  <iframe id="demo-frame" src="./demo.html?v=3" title="Parlay Squares demo" loading="lazy"></iframe>
+  <iframe id="demo-frame" src="./demo.html?v=3" title="Parlay Squares demo"></iframe>
 </div></div></section>
 
 
@@ -245,8 +245,11 @@ footer a{text-decoration:none}
 <footer><a href="https://thegamebureau.com">THEGAMEBUREAU.COM</a></footer>
 
 <script>
-document.querySelectorAll('[data-sim]').forEach(b=>b.onclick=()=>document.getElementById('demo-frame').contentWindow.postMessage({parlayDemo:b.dataset.sim},'*'));
-addEventListener('message',e=>{const h=e.data&&e.data.parlayDemoHeight;if(h)document.getElementById('demo-frame').style.height=h+'px'});
+// The demo frame reports its height once its script is running; button presses made before that wait for it.
+let demoReady=false,demoQueue=[];
+const sendDemo=c=>{if(demoReady)document.getElementById('demo-frame').contentWindow.postMessage({parlayDemo:c},'*');else demoQueue.push(c)};
+document.querySelectorAll('[data-sim]').forEach(b=>b.onclick=()=>sendDemo(b.dataset.sim));
+addEventListener('message',e=>{const h=e.data&&e.data.parlayDemoHeight;if(!h)return;document.getElementById('demo-frame').style.height=h+'px';if(!demoReady){demoReady=true;demoQueue.splice(0).forEach(sendDemo)}});
 </script>
 </body>
 </html>
