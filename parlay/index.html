@@ -198,6 +198,7 @@ footer a{text-decoration:none}
 .sims{display:flex;gap:8px;flex-wrap:wrap}
 .sim{font-family:"Head",Impact,sans-serif;font-size:18px;letter-spacing:.06em;border:2px solid var(--brand);background:var(--brand);color:#fff;border-radius:8px;padding:7px 16px}
 .sim{cursor:pointer}.sim:hover{filter:brightness(1.1)}
+.sim:disabled{background:#c9ccc9;border-color:#c9ccc9;color:#fff;cursor:not-allowed;filter:none}
 .sims{align-items:center}
 #demo-frame{display:block;width:100%;height:460px;border:0}
 </style>
@@ -232,8 +233,8 @@ footer a{text-decoration:none}
 
 
 <section class="block" id="demo"><div class="wrap"><div class="card">
-  <div class="sec-head demo-head"><h2>Parlay Squares Demo</h2><div class="sims"><button class="sim" type="button" data-sim="picks">SIMULATE PICKS</button><button class="sim" type="button" data-sim="drive">SIMULATE DRIVE</button></div></div>
-  <iframe id="demo-frame" src="./demo.html?v=7" title="Parlay Squares demo"></iframe>
+  <div class="sec-head demo-head"><h2>Parlay Squares Demo</h2><div class="sims"><button class="sim" type="button" data-sim="picks">SIMULATE PICKS</button><button class="sim" type="button" data-sim="drive" disabled>SIMULATE DRIVE</button></div></div>
+  <iframe id="demo-frame" src="./demo.html?v=8" title="Parlay Squares demo"></iframe>
 </div></div></section>
 
 
@@ -246,6 +247,7 @@ footer a{text-decoration:none}
 let demoReady=false,demoQueue=[];
 const sendDemo=c=>{if(demoReady)document.getElementById('demo-frame').contentWindow.postMessage({parlayDemo:c},'*');else demoQueue.push(c)};
 document.querySelectorAll('[data-sim]').forEach(b=>b.onclick=()=>sendDemo(b.dataset.sim));
+addEventListener('message',e=>{if(e.data&&'parlayDemoCanDrive' in e.data)document.querySelector('[data-sim=drive]').disabled=!e.data.parlayDemoCanDrive});
 addEventListener('message',e=>{const h=e.data&&e.data.parlayDemoHeight;if(!h)return;document.getElementById('demo-frame').style.height=h+'px';if(!demoReady){demoReady=true;demoQueue.splice(0).forEach(sendDemo)}});
 </script>
 </body>
