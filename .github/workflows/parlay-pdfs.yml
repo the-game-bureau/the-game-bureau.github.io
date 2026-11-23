@@ -1,0 +1,57 @@
+name: Build Parlay PDFs
+
+# Rebuilds the three Parlay Squares PDFs from parlay/*.html and commits them to parlay/pdf/.
+# Run it from the admin page (Generate) or the Actions tab; it also runs when the booklet changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'parlay/index.html'
+      - 'parlay/cover.html'
+      - 'parlay/style.css'
+      - 'parlay/fonts/**'
+      - 'parlay/images/**'
+      - 'parlay/tools/**'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: parlay-pdfs
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright and pdf-lib
+        run: |
+          mkdir -p "$RUNNER_TEMP/pdfdeps" && cd "$RUNNER_TEMP/pdfdeps"
+          npm init -y >/dev/null
+          npm i playwright@1.49.1 pdf-lib@1.17.1
+          npx playwright install --with-deps chromium
+      - name: Render PDFs
+        run: NODE_PATH="$RUNNER_TEMP/pdfdeps/node_modules" node parlay/tools/build-pdfs.js
+      - name: Zip the Lulu files
+        run: |
+          cd parlay/pdf
+          rm -f parlay-squares-lulu.zip
+          zip -j parlay-squares-lulu.zip parlay-squares-lulu-cover.pdf parlay-squares-lulu-interior.pdf
+      - name: Commit PDFs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add parlay/pdf
+          git commit -m "Rebuild Parlay PDFs" || { echo "No changes"; exit 0; }
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # Pushes made with GITHUB_TOKEN don't start other workflows, so start the Pages deploy here.
+          gh workflow run deploy.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
