@@ -21,7 +21,7 @@
 
 ### Touchdown
 
-**Run or pass.** Use the scorer's jersey number to decide odd or even.
+**Run or pass.** Use the jersey number of the player who scores: the runner on a run, the receiver who caught it on a pass (not the passer). That number decides odd or even.
 
 ### Field goal
 
