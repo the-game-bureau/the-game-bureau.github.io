@@ -76,8 +76,10 @@ const rot=()=>Math.round(Math.random()*8-4);
 const order=d=>{const p=Math.floor((d-1)/2);const f=[...Array(12)].map((_,i)=>(p+i)%12+1);return d%2?f:f.reverse()};
 let after=null,drive=1,picks={},turn=0,end={},YOU=null,timer=null;
 const prompt=()=>resize();
+function sendState(){parent!==window&&parent.postMessage({parlayDemoCanDrive:turn>=12&&!timer&&!sheet.classList.contains('decided')},'*')}
 function renderOrder(){
   $('#dn').textContent=String(drive).padStart(2,'0');
+  sendState();
   $('#picks').innerHTML=order(drive).map((n,i)=>`<span class="ds-pk${i===0?' first':''}">${n}${i<turn?TICK.replace('<svg ',`<svg style="transform:rotate(${rot()}deg)" `):''}</span>`).join('');
 }
 function reset(){
@@ -110,7 +112,7 @@ sheet.addEventListener('click',e=>{
   if(m&&!timer&&turn<12&&!sheet.classList.contains('decided')&&!picks[m.dataset.id]){place(order(drive)[turn],m);if(turn>=12)done();return}
 const c=e.target.closest('.ds-cell.ready');if(!c)return;cells.forEach(x=>x.classList.remove('ready'));place(YOU,c);run()});
 function done(){
-  prompt(`<b class="big">PICKS ARE CLOSED.</b><span>Every square has an owner. Pick how the drive ended, or use SIMULATE DRIVE.</span>`);
+  prompt(`<b class="big">PICKS ARE CLOSED.</b><span>Every square has an owner. Press SIMULATE DRIVE.</span>`);sendState();
   $('#ending').classList.add('show');
   $('#g').innerHTML=G.map(g=>`<button type="button" class="ctl ghost ${g.k}" data-g="${g.k}">${g.name}</button> `).join('');
   $('#how-row').hidden=$('#num-row').hidden=true;resize();
@@ -146,7 +148,7 @@ function settle(n){
   const what={td:`${end.w==='RUN'?'A touchdown run':'A touchdown pass'} by #${n}`,fg:`A ${n}-yard field goal ${end.w==='GOOD'?'is good':'misses'}`,ns:`${end.w==='PUNT'?'A punt':'A turn over'} with :${shown} on the clock`}[g.k];
   const r=$('#result');r.className='result show ds-'+g.k;
   r.innerHTML=`<h3>PROG #${prog} WINS DRIVE ${drive}${prog===YOU?" (THAT'S YOU!)":''}</h3><p>${what}. ${shown} is ${p.toLowerCase()}, so ${shown} goes in the tab of the ${g.name}, ${end.w}, ${p} square. PROG #${prog} owns it and wins ${PAY}.</p>`;
-  prompt(`<b class="big">DRIVE ${drive} IS OVER.</b><span>Next drive, the pick order changes.</span>`);
+  prompt(`<b class="big">DRIVE ${drive} IS OVER.</b><span>Press SIMULATE PICKS for the next drive. The pick order changes.</span>`);sendState();
 }
 const SAMPLE={'td-RUN-ODD':4,'td-PASS-ODD':9,'td-RUN-EVEN':11,'td-PASS-EVEN':2,'fg-GOOD-ODD':6,'fg-MISS-ODD':12,'fg-GOOD-EVEN':1,'fg-MISS-EVEN':7,'ns-PUNT-ODD':3,'ns-OTHER-ODD':10,'ns-PUNT-EVEN':5,'ns-OTHER-EVEN':8};
 // SIMULATE PICKS / SIMULATE DRIVE buttons live on the parent page
@@ -154,10 +156,7 @@ addEventListener('message',e=>{
   const c=e.data&&e.data.parlayDemo;if(!c)return;
   const busy=turn>0&&turn<12;
   if(c==='picks'){if(sheet.classList.contains('decided')||turn>=12){if(sheet.classList.contains('decided'))drive=drive%48+1;reset()}YOU=null;if(!timer)run()}
-  if(c==='drive'){
-    if(sheet.classList.contains('decided')){drive=drive%48+1;reset()}
-    if(turn>=12)randomEnd();else{YOU=null;cells.forEach(x=>x.classList.remove('ready'));after=randomEnd;run()}
-  }
+  if(c==='drive'&&turn>=12&&!timer&&!sheet.classList.contains('decided'))randomEnd();
 });
 // tell the parent page how tall this is
 function resize(){requestAnimationFrame(()=>parent!==window&&parent.postMessage({parlayDemoHeight:Math.ceil(document.querySelector('.wrap').getBoundingClientRect().bottom+scrollY+parseFloat(getComputedStyle(document.body).marginBottom||0))},'*'))}
