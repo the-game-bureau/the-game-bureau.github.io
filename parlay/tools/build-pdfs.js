@@ -1,8 +1,9 @@
-// Builds the three Parlay Squares PDFs from the HTML in parlay/.
+// Builds the Parlay Squares PDFs (PDF only, no zip or images) from the HTML in parlay/.
 //   pdf/parlay-squares.pdf              visitor copy: 8.5 x 11, front cover, notebook, back cover
 //   pdf/parlay-squares-notebook-cover.pdf   Print wraparound cover, 17.25 x 11.25 (0.125 in bleed)
 //   pdf/parlay-squares-notebook-cover-kdp.pdf Amazon KDP wraparound cover: back + spine + front, 0.125 in bleed
 //   pdf/parlay-squares-notebook-interior.pdf Print interior, 8.75 x 11.25 (0.125 in bleed)
+//   pdf/parlay-squares-notebook-front-8.5x11.pdf Front cover alone, 8.5 x 11
 // Run: node parlay/tools/build-pdfs.js   (needs playwright + pdf-lib)
 const path = require('path');
 const fs = require('fs');
@@ -79,16 +80,6 @@ const buildBook = () => new Promise(res => {
   const inner = await render(browser, 'notebook.html', path.join(tmp, 'inner.pdf'), {
     prep: buildBook, css: '@page{size:8.5in 11in;margin:0.6in}',
   });
-  // Front cover alone as a 300 dpi PNG (2550 x 3300 px), for listings and previews.
-  const shot = await browser.newPage({ viewport: { width: 816, height: 1056 }, deviceScaleFactor: 3.125 });
-  await shot.emulateMedia({ media: 'print' });
-  await shot.goto(url('cover.html'), { waitUntil: 'load' });
-  await shot.evaluate(() => document.fonts.ready);
-  await shot.addStyleTag({ content: panelCss('front') + 'html,body{margin:0!important;padding:0!important}' });
-  await shot.evaluate(() => document.fonts.ready);
-  await shot.waitForTimeout(400);
-  await shot.screenshot({ path: path.join(tmp, 'front.png'), clip: { x: 0, y: 0, width: 816, height: 1056 } });
-  await shot.close();
   await browser.close();
 
   const doc = await PDFDocument.create();
@@ -124,7 +115,6 @@ const buildBook = () => new Promise(res => {
   fs.copyFileSync(path.join(tmp, 'print-interior.pdf'), path.join(OUT, 'parlay-squares-notebook-interior.pdf'));
   fs.writeFileSync(path.join(OUT, 'parlay-squares.pdf'), visitor);
   fs.copyFileSync(path.join(tmp, 'front.pdf'), path.join(OUT, 'parlay-squares-notebook-front-8.5x11.pdf'));
-  fs.copyFileSync(path.join(tmp, 'front.png'), path.join(OUT, 'parlay-squares-notebook-front-8.5x11.png'));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('Checks passed: cover 1 page, KDP cover ' + (17.25 + spine).toFixed(3) + ' x 11.25 in, interior ' + i.length + ' pages, visitor ' + v.length + ' pages');
   console.log('PDFs written to', OUT);
