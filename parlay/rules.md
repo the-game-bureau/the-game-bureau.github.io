@@ -4,7 +4,7 @@
 
 ## Before kickoff
 
-1. **Plan the game.** Play with 2 to 12 prognosticators. Choose to play any multiple of 12 drives (12, 24, 36 and so on), up to 132.
+1. **Plan the game.** Play with 2 to 12 prognosticators. Choose to play any multiple of 12 drives (12, 24, 36 and so on), up to 144.
 2. **Assign all 12 PROG #s.** Every number starts with the same points. A person can own more than one.
 3. **Set the points.** Agree on the points each PROG # puts in to build the points pool. Write each owner's name on the notebook's Prognosticators page. Keep those numbers all game.
 
