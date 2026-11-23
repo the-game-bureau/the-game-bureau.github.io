@@ -1,5 +1,5 @@
 // Builds the three Parlay Squares PDFs from the HTML in parlay/.
-//   pdf/parlay-squares.pdf              visitor copy: 8.5 x 11, front cover, workbook, back cover
+//   pdf/parlay-squares.pdf              visitor copy: 8.5 x 11, front cover, notebook, back cover
 //   pdf/parlay-squares-lulu-cover.pdf   Lulu wraparound cover, 17.25 x 11.25 (0.125 in bleed)
 //   pdf/parlay-squares-lulu-interior.pdf Lulu interior, 8.75 x 11.25 (0.125 in bleed)
 // Run: node parlay/tools/build-pdfs.js   (needs playwright + pdf-lib)
@@ -37,7 +37,7 @@ async function render(browser, file, out, { css, prep } = {}) {
   return buf;
 }
 
-// Builds the workbook's print pages (same as its Print button) without opening a dialog.
+// Builds the notebook's print pages (same as its Print button) without opening a dialog.
 const buildBook = () => new Promise(res => {
   window.print = () => res();
   const b = document.getElementById('print');
@@ -51,11 +51,11 @@ const buildBook = () => new Promise(res => {
 
   // Everything renders into a temp folder first; pdf/ is only replaced if all checks pass.
   const cover = await render(browser, 'cover.html', path.join(tmp, 'lulu-cover.pdf'));
-  const interior = await render(browser, 'workbook.html', path.join(tmp, 'lulu-interior.pdf'), { prep: buildBook });
+  const interior = await render(browser, 'notebook.html', path.join(tmp, 'lulu-interior.pdf'), { prep: buildBook });
 
   const front = await render(browser, 'cover.html', path.join(tmp, 'front.pdf'), { css: panelCss('front') });
   const back = await render(browser, 'cover.html', path.join(tmp, 'back.pdf'), { css: panelCss('back') });
-  const inner = await render(browser, 'workbook.html', path.join(tmp, 'inner.pdf'), {
+  const inner = await render(browser, 'notebook.html', path.join(tmp, 'inner.pdf'), {
     prep: buildBook, css: '@page{size:8.5in 11in;margin:0.6in}',
   });
   await browser.close();
