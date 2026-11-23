@@ -15,7 +15,7 @@
 3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins that drive's payout: the pot divided by the number of drives funded.
 4. **End the game.** Play until the pot runs out or the football game ends. Split any leftover money evenly.
 
-**Pick order.** Start with #1 through #12, then reverse on the next drive. Start each new pair one number higher and wrap after #12.
+**Pick order.** Drive 1 picks #1 through #12. Each new drive starts one number higher and wraps after #12, so drive 2 goes #2 through #12, then #1. Every 12 drives, each PROG # picks once in every slot.
 
 ## Find the matching square
 
