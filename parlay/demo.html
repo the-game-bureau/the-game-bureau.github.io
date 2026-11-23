@@ -18,6 +18,7 @@ body{font-family:Inter,system-ui,sans-serif;color:#16181A}
 .ctl.ghost{background:#fff;color:#16181A}
 .ds-td{--gc:#2BB24C}.ds-fg{--gc:#E6B800}.ds-ns{--gc:#FF6B1A}
 .ds-cell{transition:opacity .25s,transform .25s,box-shadow .25s}
+.manual .ds-cell:not(.win){cursor:pointer}
 .ds-cell.ready{cursor:pointer;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 4px rgba(46,107,58,.45)}}
 #sheet.decided .ds-cell{opacity:.25}
@@ -40,7 +41,6 @@ body{font-family:Inter,system-ui,sans-serif;color:#16181A}
 @media(max-width:600px){.row .q{min-width:100%}.pays{flex-direction:row;gap:10px;width:100%}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body><div class="wrap">
-<div class="bar"><div class="prompt" id="prompt"></div><div class="pays"><small>PAYS PER DRIVE</small><b>$12</b></div></div>
 <div class="page ds-page ds-sample" id="sheet">
 <header class="dh"><div class="dh-t"><div class="dh-title">PARLAY SQUARES</div><div class="dh-q">How will this drive end?</div></div><div class="dh-box"><span class="dh-h">DRIVE</span><span class="dh-h dh-h2">PROGNOSTICATOR PICK ORDER</span><b class="dh-dn" id="dn">01</b><div class="dh-picks" id="picks"></div></div></header>
 <div class="ds-groups">
@@ -75,20 +75,18 @@ const TICK='<svg class="ink-tick" viewBox="0 0 24 24" aria-hidden="true"><path d
 const rot=()=>Math.round(Math.random()*8-4);
 const order=d=>{const p=Math.floor((d-1)/2);const f=[...Array(12)].map((_,i)=>(p+i)%12+1);return d%2?f:f.reverse()};
 let after=null,drive=1,picks={},turn=0,end={},YOU=null,timer=null;
-const prompt=h=>{$('#prompt').innerHTML=h;resize()};
+const prompt=()=>resize();
 function renderOrder(){
   $('#dn').textContent=String(drive).padStart(2,'0');
   $('#picks').innerHTML=order(drive).map((n,i)=>`<span class="ds-pk${i===0?' first':''}">${n}${i<turn?TICK.replace('<svg ',`<svg style="transform:rotate(${rot()}deg)" `):''}</span>`).join('');
 }
 function reset(){
-  clearInterval(timer);picks={};turn=0;end={};YOU=null;
+  clearInterval(timer);timer=null;picks={};turn=0;end={};YOU=null;
   sheet.classList.remove('decided');
   cells.forEach(c=>{c.classList.remove('win','ready');c.querySelectorAll('.ink').forEach(x=>x.remove())});
   $('#ending').classList.remove('show');$('#result').classList.remove('show');
   renderOrder();
-  const me=order(drive)[5];
-  prompt(`<span>Every PROG # claims one square. Make a pick yourself, or use SIMULATE PICKS.</span><button class="ctl go" id="me" type="button">I'll be PROG #${me}</button>`);
-  $('#me').onclick=()=>{YOU=me;run()};
+  prompt();
 }
 function place(prog,c){
   picks[c.dataset.id]=prog;
@@ -99,7 +97,7 @@ const open=()=>cells.filter(c=>!picks[c.dataset.id]);
 function run(){
   clearInterval(timer);const o=order(drive);
   const step=()=>{
-    if(turn>=12){clearInterval(timer);done();if(after){const f=after;after=null;f()}return}
+    if(turn>=12){clearInterval(timer);timer=null;done();if(after){const f=after;after=null;f()}return}
     const prog=o[turn];
     if(prog===YOU){clearInterval(timer);prompt(`<b class="big">YOUR PICK, PROG #${YOU}.</b><span>Tap any open square.</span>`);open().forEach(c=>c.classList.add('ready'));return}
     prompt(`<span>PROG #${prog} is picking…</span>`);
@@ -107,7 +105,10 @@ function run(){
   };
   step();timer=setInterval(step,350);
 }
-sheet.addEventListener('click',e=>{const c=e.target.closest('.ds-cell.ready');if(!c)return;cells.forEach(x=>x.classList.remove('ready'));place(YOU,c);run()});
+sheet.addEventListener('click',e=>{
+  const m=e.target.closest('.ds-cell');
+  if(m&&!timer&&turn<12&&!sheet.classList.contains('decided')&&!picks[m.dataset.id]){place(order(drive)[turn],m);if(turn>=12)done();return}
+const c=e.target.closest('.ds-cell.ready');if(!c)return;cells.forEach(x=>x.classList.remove('ready'));place(YOU,c);run()});
 function done(){
   prompt(`<b class="big">PICKS ARE CLOSED.</b><span>Every square has an owner. Pick how the drive ended, or use SIMULATE DRIVE.</span>`);
   $('#ending').classList.add('show');
@@ -154,7 +155,7 @@ $('#show-sample').onclick=()=>{drive=7;reset();cells.forEach(c=>place(SAMPLE[c.d
 addEventListener('message',e=>{
   const c=e.data&&e.data.parlayDemo;if(!c)return;
   const busy=turn>0&&turn<12;
-  if(c==='picks'){if(sheet.classList.contains('decided')||turn>0){if(sheet.classList.contains('decided'))drive=drive%48+1;reset()}YOU=null;run()}
+  if(c==='picks'){if(sheet.classList.contains('decided')||turn>=12){if(sheet.classList.contains('decided'))drive=drive%48+1;reset()}YOU=null;if(!timer)run()}
   if(c==='drive'){
     if(sheet.classList.contains('decided')){drive=drive%48+1;reset()}
     if(turn>=12)randomEnd();else{YOU=null;cells.forEach(x=>x.classList.remove('ready'));after=randomEnd;run()}
