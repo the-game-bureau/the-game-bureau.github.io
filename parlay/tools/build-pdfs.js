@@ -1,7 +1,7 @@
 // Builds the three Parlay Squares PDFs from the HTML in parlay/.
 //   pdf/parlay-squares.pdf              visitor copy: 8.5 x 11, front cover, notebook, back cover
-//   pdf/parlay-squares-lulu-cover.pdf   Lulu wraparound cover, 17.25 x 11.25 (0.125 in bleed)
-//   pdf/parlay-squares-lulu-interior.pdf Lulu interior, 8.75 x 11.25 (0.125 in bleed)
+//   pdf/parlay-squares-notebook-cover.pdf   Print wraparound cover, 17.25 x 11.25 (0.125 in bleed)
+//   pdf/parlay-squares-notebook-interior.pdf Print interior, 8.75 x 11.25 (0.125 in bleed)
 // Run: node parlay/tools/build-pdfs.js   (needs playwright + pdf-lib)
 const path = require('path');
 const fs = require('fs');
@@ -50,8 +50,8 @@ const buildBook = () => new Promise(res => {
   const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'parlay-'));
 
   // Everything renders into a temp folder first; pdf/ is only replaced if all checks pass.
-  const cover = await render(browser, 'cover.html', path.join(tmp, 'lulu-cover.pdf'));
-  const interior = await render(browser, 'notebook.html', path.join(tmp, 'lulu-interior.pdf'), { prep: buildBook });
+  const cover = await render(browser, 'cover.html', path.join(tmp, 'print-cover.pdf'));
+  const interior = await render(browser, 'notebook.html', path.join(tmp, 'print-interior.pdf'), { prep: buildBook });
 
   const front = await render(browser, 'cover.html', path.join(tmp, 'front.pdf'), { css: panelCss('front') });
   const back = await render(browser, 'cover.html', path.join(tmp, 'back.pdf'), { css: panelCss('back') });
@@ -61,7 +61,7 @@ const buildBook = () => new Promise(res => {
   await browser.close();
 
   const doc = await PDFDocument.create();
-  doc.setTitle('Parlay Squares');
+  doc.setTitle('The Parlay Squares Notebook');
   doc.setAuthor('The Game Bureau');
   for (const buf of [front, inner, back]) {
     const src = await PDFDocument.load(buf);
@@ -76,15 +76,15 @@ const buildBook = () => new Promise(res => {
     if (bad.length) throw new Error(label + ': ' + bad.length + ' page(s) not ' + w + ' x ' + h + ' in');
   };
   const [c, i, v] = [await size(cover), await size(interior), await size(visitor)];
-  expect('Lulu cover', c, 17.25, 11.25);
-  expect('Lulu interior', i, 8.75, 11.25);
+  expect('Print cover', c, 17.25, 11.25);
+  expect('Print interior', i, 8.75, 11.25);
   expect('Visitor PDF', v, 8.5, 11);
-  if (c.length !== 1) throw new Error('Lulu cover should be 1 page, got ' + c.length);
+  if (c.length !== 1) throw new Error('Print cover should be 1 page, got ' + c.length);
   if (v.length !== i.length + 2) throw new Error('Visitor PDF should be interior + 2 cover pages');
-  if (i.length < 4) throw new Error('Lulu interior has only ' + i.length + ' pages');
+  if (i.length < 4) throw new Error('Print interior has only ' + i.length + ' pages');
 
-  fs.copyFileSync(path.join(tmp, 'lulu-cover.pdf'), path.join(OUT, 'parlay-squares-lulu-cover.pdf'));
-  fs.copyFileSync(path.join(tmp, 'lulu-interior.pdf'), path.join(OUT, 'parlay-squares-lulu-interior.pdf'));
+  fs.copyFileSync(path.join(tmp, 'print-cover.pdf'), path.join(OUT, 'parlay-squares-notebook-cover.pdf'));
+  fs.copyFileSync(path.join(tmp, 'print-interior.pdf'), path.join(OUT, 'parlay-squares-notebook-interior.pdf'));
   fs.writeFileSync(path.join(OUT, 'parlay-squares.pdf'), visitor);
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('Checks passed: cover 1 page, interior ' + i.length + ' pages, visitor ' + v.length + ' pages');
