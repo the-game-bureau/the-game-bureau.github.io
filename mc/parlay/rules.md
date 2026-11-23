@@ -2,15 +2,16 @@
 
 ## Before kickoff
 
-1. **Choose the length.** Play 12, 24, 36, or 48 drives with 2 to 12 people.
+1. **Plan the game.** Play with 2 to 12 people. Choose to fund 12, 24, 36, or 48 drives.
 2. **Assign all 12 PROG #s.** Each number costs the same. A person can own more than one.
-3. **Pay up front.** Pay for your numbers once to fund every drive's pot. Write each owner's name on the Prognosticators page. Keep those numbers all game.
+3. **Pay up front.** Pay for your numbers once to fill the pot. Write each owner's name on the Prognosticators page. Keep those numbers all game.
 
 ## Each drive
 
 1. **Claim a square.** Follow the printed pick order. Each PROG # gets one pick. Write that number in an open square.
 2. **Close picks.** Finish before the kickoff or snap that starts the drive.
-3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins the pot.
+3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins that drive's payout.
+4. **Stop playing.** Parlay Squares ends when the pot runs out or the football game ends, whichever comes first.
 
 **Pick order.** Start with #1 through #12, then reverse on the next drive. Start each new pair one number higher and wrap after #12.
 
