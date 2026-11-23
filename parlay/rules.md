@@ -1,19 +1,19 @@
 # Parlay Squares rules
 
-**The notebook.** You play on paper with the Parlay Squares notebook. Print it free or order a printed copy at thegamebureau.com/parlay. It has a Prognosticators page for names, ante, and winnings, and a drive sheet for every drive, two to a page.
+**The notebook.** You play on paper with the Parlay Squares notebook. Print it free or order a printed copy at thegamebureau.com/parlay. It has a Prognosticators page for names, starting points, and points won, and a drive sheet for every drive, two to a page.
 
 ## Before kickoff
 
-1. **Plan the game.** Play with 2 to 12 prognosticators. Choose to fund 12, 24, 36, or 48 drives.
-2. **Assign all 12 PROG #s.** Each number costs the same. A person can own more than one.
-3. **Ante up.** Ante once for your numbers to fill the pot. Write each owner's name on the notebook's Prognosticators page. Keep those numbers all game.
+1. **Plan the game.** Play with 2 to 12 prognosticators. Choose to play 12, 24, 36, or 48 drives.
+2. **Assign all 12 PROG #s.** Every number starts with the same points. A person can own more than one.
+3. **Set the points.** Agree on the points each PROG # puts in to build the points pool. Write each owner's name on the notebook's Prognosticators page. Keep those numbers all game.
 
 ## Each drive
 
 1. **Claim a square.** Follow the printed pick order. Each PROG # gets one pick. Write that number in an open square on the drive's sheet.
 2. **Close picks.** Finish before the kickoff or snap that starts the drive.
-3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins that drive's payout: the pot divided by the number of drives funded.
-4. **End the game.** Play until the pot runs out or the football game ends. Split any leftover money evenly.
+3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner scores that drive's points: the points pool divided by the number of drives.
+4. **End the game.** Play until every drive's points are scored or the football game ends. Split any leftover points evenly. The most points wins.
 
 **Pick order.** Drive 1 picks #1 through #12. Each new drive starts one number higher and wraps after #12, so drive 2 goes #2 through #12, then #1. Every 12 drives, each PROG # picks once in every slot.
 
