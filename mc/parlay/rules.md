@@ -11,7 +11,7 @@
 1. **Claim a square.** Follow the printed pick order. Each PROG # gets one pick. Write that number in an open square.
 2. **Close picks.** Finish before the kickoff or snap that starts the drive.
 3. **Find the winner.** When the drive ends, write the result number in the matching square's tab. Its owner wins that drive's payout.
-4. **Stop playing.** Parlay Squares ends when the pot runs out or the football game ends, whichever comes first.
+4. **End the game.** Play until the pot runs out or the football game ends. Split any leftover money evenly.
 
 **Pick order.** Start with #1 through #12, then reverse on the next drive. Start each new pair one number higher and wrap after #12.
 
