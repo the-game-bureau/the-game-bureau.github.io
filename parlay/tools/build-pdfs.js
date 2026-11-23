@@ -1,6 +1,7 @@
 // Builds the three Parlay Squares PDFs from the HTML in parlay/.
 //   pdf/parlay-squares.pdf              visitor copy: 8.5 x 11, front cover, notebook, back cover
 //   pdf/parlay-squares-notebook-cover.pdf   Print wraparound cover, 17.25 x 11.25 (0.125 in bleed)
+//   pdf/parlay-squares-notebook-cover-kdp.pdf Amazon KDP wraparound cover: back + spine + front, 0.125 in bleed
 //   pdf/parlay-squares-notebook-interior.pdf Print interior, 8.75 x 11.25 (0.125 in bleed)
 // Run: node parlay/tools/build-pdfs.js   (needs playwright + pdf-lib)
 const path = require('path');
@@ -12,6 +13,19 @@ const { PDFDocument } = require('pdf-lib');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'pdf');
 const url = f => pathToFileURL(path.join(ROOT, f)).href;
+
+// Amazon KDP asked for a 17.426 x 11.25 in cover for the 76-page interior, so its spine is 0.176 in.
+// The spine scales with the interior page count. No spine text (KDP needs 79+ pages for that).
+const KDP_SPINE_PER_PAGE = 0.176 / 76;
+const kdpCss = spine => `
+  @page{size:${(17.25 + spine).toFixed(3)}in 11.25in;margin:0}
+  .spread{width:${(17.25 + spine).toFixed(3)}in!important}
+  .kdp-spine{width:${spine.toFixed(3)}in;height:11.25in;flex:none;background:#E6F0E8}`;
+const addSpine = () => {
+  const s = document.createElement('div');
+  s.className = 'kdp-spine';
+  document.querySelector('.cv-panel.back').after(s);
+};
 
 // One cover panel on a plain 8.5 x 11 page for the visitor PDF.
 const panelCss = side => `
@@ -53,6 +67,13 @@ const buildBook = () => new Promise(res => {
   const cover = await render(browser, 'cover.html', path.join(tmp, 'print-cover.pdf'));
   const interior = await render(browser, 'notebook.html', path.join(tmp, 'print-interior.pdf'), { prep: buildBook });
 
+  const spine = +(((await PDFDocument.load(interior)).getPageCount()) * KDP_SPINE_PER_PAGE).toFixed(3);
+  // Chrome rounds page sizes to whole pixels, so trim the media box to KDP's exact size (cuts < 0.01 in of front bleed).
+  const kdpDoc = await PDFDocument.load(await render(browser, 'cover.html', path.join(tmp, 'kdp-raw.pdf'), { css: kdpCss(spine), prep: addSpine }));
+  kdpDoc.getPages().forEach(pg => { const h = pg.getHeight(); pg.setMediaBox(0, h - 810, (17.25 + spine) * 72, 810); pg.setCropBox(0, h - 810, (17.25 + spine) * 72, 810); });
+  const kdp = await kdpDoc.save();
+  fs.writeFileSync(path.join(tmp, 'kdp-cover.pdf'), kdp);
+
   const front = await render(browser, 'cover.html', path.join(tmp, 'front.pdf'), { css: panelCss('front') });
   const back = await render(browser, 'cover.html', path.join(tmp, 'back.pdf'), { css: panelCss('back') });
   const inner = await render(browser, 'notebook.html', path.join(tmp, 'inner.pdf'), {
@@ -81,8 +102,8 @@ const buildBook = () => new Promise(res => {
 
   // Print-form checks: page sizes in inches and page counts. A failure stops the build and keeps the old PDFs.
   const size = async buf => (await PDFDocument.load(buf)).getPages().map(p => p.getSize()).map(({ width, height }) => [width / 72, height / 72]);
-  const expect = (label, pages, w, h) => {
-    const bad = pages.filter(([pw, ph]) => Math.abs(pw - w) > 0.01 || Math.abs(ph - h) > 0.01);
+  const expect = (label, pages, w, h, tol = 0.01) => {
+    const bad = pages.filter(([pw, ph]) => Math.abs(pw - w) > tol || Math.abs(ph - h) > tol);
     if (bad.length) throw new Error(label + ': ' + bad.length + ' page(s) not ' + w + ' x ' + h + ' in');
   };
   const [c, i, v, f] = [await size(cover), await size(interior), await size(visitor), await size(front)];
@@ -91,16 +112,20 @@ const buildBook = () => new Promise(res => {
   expect('Print cover', c, 17.25, 11.25);
   expect('Print interior', i, 8.75, 11.25);
   expect('Visitor PDF', v, 8.5, 11);
+  const k = await size(kdp);
+  expect('KDP cover', k, 17.25 + spine, 11.25, 0.001);
+  if (k.length !== 1) throw new Error('KDP cover should be 1 page, got ' + k.length);
   if (c.length !== 1) throw new Error('Print cover should be 1 page, got ' + c.length);
   if (v.length !== i.length + 2) throw new Error('Visitor PDF should be interior + 2 cover pages');
   if (i.length < 72 || i.length % 2) throw new Error('Print interior should be an even count of at least 72 pages, got ' + i.length);
 
   fs.copyFileSync(path.join(tmp, 'print-cover.pdf'), path.join(OUT, 'parlay-squares-notebook-cover.pdf'));
+  fs.copyFileSync(path.join(tmp, 'kdp-cover.pdf'), path.join(OUT, 'parlay-squares-notebook-cover-kdp.pdf'));
   fs.copyFileSync(path.join(tmp, 'print-interior.pdf'), path.join(OUT, 'parlay-squares-notebook-interior.pdf'));
   fs.writeFileSync(path.join(OUT, 'parlay-squares.pdf'), visitor);
   fs.copyFileSync(path.join(tmp, 'front.pdf'), path.join(OUT, 'parlay-squares-notebook-front-8.5x11.pdf'));
   fs.copyFileSync(path.join(tmp, 'front.png'), path.join(OUT, 'parlay-squares-notebook-front-8.5x11.png'));
   fs.rmSync(tmp, { recursive: true, force: true });
-  console.log('Checks passed: cover 1 page, interior ' + i.length + ' pages, visitor ' + v.length + ' pages');
+  console.log('Checks passed: cover 1 page, KDP cover ' + (17.25 + spine).toFixed(3) + ' x 11.25 in, interior ' + i.length + ' pages, visitor ' + v.length + ' pages');
   console.log('PDFs written to', OUT);
 })().catch(e => { console.error(e); process.exit(1); });
