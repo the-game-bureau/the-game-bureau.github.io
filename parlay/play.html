@@ -1,8 +1,10 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PARLAY SQUARES · Play</title>
 <link rel="icon" href="./favicon.ico" type="image/x-icon" sizes="16x16 24x24 32x32 48x48 64x64">
-<link rel="stylesheet" href="./style.css?v=12"></head><body>
+<link rel="stylesheet" href="./style.css?v=13"></head><body>
 <nav class="bottom-nav" aria-label="Booklet navigation"><button id="go-home" class="book-jump play-only" type="button">HOME</button><button id="go-play" class="book-jump play-only" type="button">PLAY</button><button id="go-cover" class="book-jump book-only" type="button">COVER</button><button id="go-rules" class="book-jump" type="button">RULES</button><button id="go-sample" class="book-jump" type="button">SAMPLE</button><button id="go-progs" class="book-jump" type="button">PROGS</button><button id="first-drive" class="book-first book-jump book-only" type="button">DRIVE SHEETS</button><button id="prev" class="book-prev book-only" type="button">← PREVIOUS</button><button id="next" class="book-next book-only" type="button">NEXT →</button><div class="book-position"><strong id="page-name">Cover</strong><span id="page-count">PAGE 1</span></div><button id="print" class="book-print" type="button" hidden>Print booklet</button></nav>
+<!-- ORDER: replace href="#" with the Lulu store link -->
+<div class="play-bar play-only"><a class="play-btn" href="./pdf/parlay-squares.pdf" target="_blank" rel="noopener">PRINT</a><a class="play-btn" id="order-link" href="#">ORDER</a></div>
 <div class="outer">
 <section class="section active" id="rules">
   <div class="page ds-page ds-rules">
@@ -165,9 +167,15 @@ const BLANK_PAGE=FRONT_PAGES.length+NUMBERED_DRIVES+1;
 $('#go-home').onclick=()=>{location.href='./'};
 $('#go-play').onclick=()=>showPage(BLANK_PAGE);
 const HASH_PAGES={rules:1,sample:2,progs:3,play:BLANK_PAGE};
-const startPage=HASH_PAGES[location.hash.slice(1)]||(PLAY_MODE?BLANK_PAGE:1);
+if(PLAY_MODE){
+  const outer=$('.outer');outer.appendChild($('#sheet'));
+  renderDrive($('#sheet'),NUMBERED_DRIVES+1);
+  const t=$(location.hash||'#none');if(t)setTimeout(()=>t.scrollIntoView(),0);
+}else{
+const startPage=HASH_PAGES[location.hash.slice(1)]||1;
 showPage(startPage);
-addEventListener('hashchange',()=>{const n=HASH_PAGES[location.hash.slice(1)];if(n)showPage(n)});
+}
+addEventListener('hashchange',()=>{const n=HASH_PAGES[location.hash.slice(1)];if(n&&!PLAY_MODE)showPage(n)});
 // Printing is started from admin.html, which opens this page with ?print
 if(new URLSearchParams(location.search).has('print'))window.addEventListener('load',()=>setTimeout(printBooklet,300));
 })();
