@@ -74,7 +74,7 @@ cells.forEach((c,i)=>{const g=G[Math.floor(i/4)],j=i%4;c.dataset.id=`${g.k}-${g.
 const TICK='<svg class="ink-tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c2 1.6 3.6 3.4 5 5.4C11.7 13 15.6 7.6 20.5 3.8"></path></svg>';
 const rot=()=>Math.round(Math.random()*8-4);
 const order=d=>{const p=Math.floor((d-1)/2);const f=[...Array(12)].map((_,i)=>(p+i)%12+1);return d%2?f:f.reverse()};
-let drive=1,picks={},turn=0,end={},YOU=null,timer=null;
+let after=null,drive=1,picks={},turn=0,end={},YOU=null,timer=null;
 const prompt=h=>{$('#prompt').innerHTML=h;resize()};
 function renderOrder(){
   $('#dn').textContent=String(drive).padStart(2,'0');
@@ -87,8 +87,8 @@ function reset(){
   $('#ending').classList.remove('show');$('#result').classList.remove('show');
   renderOrder();
   const me=order(drive)[5];
-  prompt(`<span>Every PROG # claims one square. Want to make a pick?</span><button class="ctl go" id="me" type="button">I'll be PROG #${me}</button><button class="ctl" id="auto" type="button">SIMULATE</button>`);
-  $('#me').onclick=()=>{YOU=me;run()};$('#auto').onclick=()=>run();
+  prompt(`<span>Every PROG # claims one square. Make a pick yourself, or use SIMULATE PICKS.</span><button class="ctl go" id="me" type="button">I'll be PROG #${me}</button>`);
+  $('#me').onclick=()=>{YOU=me;run()};
 }
 function place(prog,c){
   picks[c.dataset.id]=prog;
@@ -99,7 +99,7 @@ const open=()=>cells.filter(c=>!picks[c.dataset.id]);
 function run(){
   clearInterval(timer);const o=order(drive);
   const step=()=>{
-    if(turn>=12){clearInterval(timer);done();return}
+    if(turn>=12){clearInterval(timer);done();if(after){const f=after;after=null;f()}return}
     const prog=o[turn];
     if(prog===YOU){clearInterval(timer);prompt(`<b class="big">YOUR PICK, PROG #${YOU}.</b><span>Tap any open square.</span>`);open().forEach(c=>c.classList.add('ready'));return}
     prompt(`<span>PROG #${prog} is picking…</span>`);
@@ -109,8 +109,7 @@ function run(){
 }
 sheet.addEventListener('click',e=>{const c=e.target.closest('.ds-cell.ready');if(!c)return;cells.forEach(x=>x.classList.remove('ready'));place(YOU,c);run()});
 function done(){
-  prompt(`<b class="big">PICKS ARE CLOSED.</b><span>Every square has an owner. How did the drive end?</span><button class="ctl go" id="rand" type="button">Random ending</button>`);
-  $('#rand').onclick=randomEnd;
+  prompt(`<b class="big">PICKS ARE CLOSED.</b><span>Every square has an owner. Pick how the drive ended, or use SIMULATE DRIVE.</span>`);
   $('#ending').classList.add('show');
   $('#g').innerHTML=G.map(g=>`<button type="button" class="ctl ghost ${g.k}" data-g="${g.k}">${g.name}</button> `).join('');
   $('#how-row').hidden=$('#num-row').hidden=true;resize();
@@ -151,6 +150,16 @@ function settle(n){
 }
 const SAMPLE={'td-RUN-ODD':4,'td-PASS-ODD':9,'td-RUN-EVEN':11,'td-PASS-EVEN':2,'fg-GOOD-ODD':6,'fg-MISS-ODD':12,'fg-GOOD-EVEN':1,'fg-MISS-EVEN':7,'ns-PUNT-ODD':3,'ns-OTHER-ODD':10,'ns-PUNT-EVEN':5,'ns-OTHER-EVEN':8};
 $('#show-sample').onclick=()=>{drive=7;reset();cells.forEach(c=>place(SAMPLE[c.dataset.id],c));done();group('td');way('PASS');$('#n').value=13;settle(13)};
+// SIMULATE PICKS / SIMULATE DRIVE buttons live on the parent page
+addEventListener('message',e=>{
+  const c=e.data&&e.data.parlayDemo;if(!c)return;
+  const busy=turn>0&&turn<12;
+  if(c==='picks'){if(sheet.classList.contains('decided')||turn>0){if(sheet.classList.contains('decided'))drive=drive%48+1;reset()}YOU=null;run()}
+  if(c==='drive'){
+    if(sheet.classList.contains('decided')){drive=drive%48+1;reset()}
+    if(turn>=12)randomEnd();else{YOU=null;cells.forEach(x=>x.classList.remove('ready'));after=randomEnd;run()}
+  }
+});
 // tell the parent page how tall this is
 function resize(){requestAnimationFrame(()=>parent!==window&&parent.postMessage({parlayDemoHeight:document.documentElement.scrollHeight},'*'))}
 addEventListener('resize',resize);addEventListener('load',resize);new ResizeObserver(resize).observe(document.body);
