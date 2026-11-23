@@ -93,7 +93,7 @@ const buildBook = () => new Promise(res => {
   expect('Visitor PDF', v, 8.5, 11);
   if (c.length !== 1) throw new Error('Print cover should be 1 page, got ' + c.length);
   if (v.length !== i.length + 2) throw new Error('Visitor PDF should be interior + 2 cover pages');
-  if (i.length < 4) throw new Error('Print interior has only ' + i.length + ' pages');
+  if (i.length !== 72) throw new Error('Print interior should be 72 pages, got ' + i.length);
 
   fs.copyFileSync(path.join(tmp, 'print-cover.pdf'), path.join(OUT, 'parlay-squares-notebook-cover.pdf'));
   fs.copyFileSync(path.join(tmp, 'print-interior.pdf'), path.join(OUT, 'parlay-squares-notebook-interior.pdf'));
