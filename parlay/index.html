@@ -193,6 +193,7 @@ footer a{text-decoration:none}
   .grid{grid-template-columns:38px 1fr 1fr}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+#demo-frame{display:block;width:100%;height:900px;border:0}
 </style>
 </head>
 <body>
@@ -226,27 +227,7 @@ footer a{text-decoration:none}
 
 <section class="block" id="demo"><div class="wrap"><div class="card">
   <div class="sec-head"><h2>Parlay Squares Demo</h2></div>
-  <div class="demo-top">
-    <div class="order" aria-label="Pick order">
-      <div class="dn"><small>DRIVE</small><b id="d-num">01</b></div>
-      <div class="po"><small>PICK ORDER</small><ol id="d-order"></ol></div>
-    </div>
-    <div class="pot">
-      <label>PRICE PER PROG #<select id="d-price"><option>5</option><option selected>10</option><option>20</option><option>50</option></select></label>
-      <label>DRIVES FUNDED<select id="d-drives"><option>12</option><option selected>24</option><option>36</option><option>48</option></select></label>
-      <label>PAYS PER DRIVE<output id="d-pay">$5</output></label>
-    </div>
-  </div>
-  <div class="sample"><b class="head">SAMPLE DRIVE</b><p>Each Prognosticator writes their PROG # in one square, in pick order, and checks off that they're picked. This drive ended with a touchdown pass caught by #13, an odd jersey number, so 13 goes in the tab of the TD, PASS, ODD square. PROG 9 owns that square and wins the drive.</p><button class="ctl" id="d-sample" type="button">Show this drive</button></div>
-  <div class="prompt" id="d-prompt"></div>
-  <div class="board" id="board-demo"></div>
-  <div class="ending" id="d-ending">
-    <h3>How did the drive end?</h3>
-    <div class="row"><span class="q">GROUP</span><span id="d-g"></span></div>
-    <div class="row" id="d-how-row" hidden><span class="q" id="d-how-q">HOW</span><span id="d-how"></span></div>
-    <div class="row" id="d-num-row" hidden><span class="q" id="d-num-q">NUMBER</span><input type="number" id="d-n" min="0" max="99" inputmode="numeric"><button class="ctl go" id="d-settle" type="button">Find the winner</button></div>
-  </div>
-  <div class="result" id="d-result"></div>
+  <iframe id="demo-frame" src="./demo.html" title="Parlay Squares demo" loading="lazy"></iframe>
 </div></div></section>
 
 
@@ -255,128 +236,7 @@ footer a{text-decoration:none}
 <footer><a href="https://thegamebureau.com">THEGAMEBUREAU.COM</a></footer>
 
 <script>
-(()=>{
-const $=s=>document.querySelector(s);
-const GROUPS=[
-  {k:'td',name:'TOUCHDOWN',img:'group-td',ways:['RUN','PASS'],how:'Run or pass?',numQ:"SCORER'S JERSEY #",numHint:'jersey number',range:[0,99]},
-  {k:'fg',name:'FIELD GOAL',img:'group-fg',ways:['GOOD','MISS'],how:'Good or miss?',numQ:'KICK DISTANCE (YARDS)',numHint:'kick distance',range:[18,66]},
-  {k:'to',name:'TURN OVER',img:'group-to',ways:['PUNT','OTHER'],how:'Punt or other?',numQ:'GAME CLOCK, LAST 2 DIGITS',numHint:'game clock',range:[0,59]},
-];
-const SUB={td:'JERSEY #',fg:'KICK YARDS',to:'GAME CLOCK'};
-function board(el,id){
-  el.innerHTML=GROUPS.map(g=>`<div class="grp ${g.k}" data-g="${g.k}"><div class="grp-h"><img src="./images/${g.img}.png" alt=""><h3>${g.name}</h3><small>ODD / EVEN<br>${SUB[g.k]}</small></div>
-  <div class="grid"><div class="lab corner"></div>${g.ways.map(w=>`<div class="lab col">${w}</div>`).join('')}
-  ${['ODD','EVEN'].map(p=>`<div class="lab row">${p}</div>${g.ways.map(w=>`<button type="button" class="sq" data-id="${g.k}-${w}-${p}" aria-label="${g.name} ${w} ${p}"><span class="tag">${w} · ${p}</span><span class="who"></span><span class="res"></span></button>`).join('')}`).join('')}</div></div>`).join('');
-  if(id==='key')el.querySelectorAll('.sq').forEach(s=>{s.tabIndex=-1;s.style.cursor='default'});
-}
-const B=$('#board-demo');board(B,'demo');
-const sqs=[...B.querySelectorAll('.sq')];
-
-// pick order: drives come in pairs; pair p starts at PROG p, the second drive of a pair runs in reverse
-function order(d){const p=Math.floor((d-1)/2);const f=[...Array(12)].map((_,i)=>(p+i)%12+1);return d%2?f:f.reverse()}
-
-let drive=1,picks={},turn=0,ending={},YOU=null,timer=null;
-const money=()=>{const pot=+$('#d-price').value*12;return Math.floor(pot/+$('#d-drives').value*100)/100};
-const fmt=n=>'$'+(Number.isInteger(n)?n:n.toFixed(2));
-function payUpdate(){$('#d-pay').textContent=fmt(money())}
-$('#d-price').onchange=$('#d-drives').onchange=payUpdate;payUpdate();
-
-function renderOrder(){
-  const o=order(drive);$('#d-num').textContent=String(drive).padStart(2,'0');
-  $('#d-order').innerHTML=o.map((n,i)=>`<li class="${i<turn?'done':i===turn&&turn<12?'now':''}">${n}</li>`).join('');
-}
-function prompt(html){$('#d-prompt').innerHTML=html}
-
-function reset(){
-  clearInterval(timer);picks={};turn=0;ending={};
-  B.classList.remove('decided');B.querySelectorAll('.grp').forEach(g=>g.classList.remove('won'));
-  sqs.forEach(s=>{s.classList.remove('win','ready');s.querySelector('.who').textContent='';s.querySelector('.who').classList.remove('on');s.querySelector('.res').textContent=''});
-  $('#d-ending').classList.remove('show');$('#d-result').classList.remove('show');
-  renderOrder();
-  prompt(`<span>Every PROG # gets one square. Want to make a pick yourself?</span>
-    <button class="ctl go" id="d-me" type="button">I'll be PROG #${order(drive)[5]}</button>
-    <button class="ctl" id="d-auto" type="button">Auto-pick all 12</button>`);
-  YOU=null;
-  $('#d-me').onclick=()=>{YOU=order(drive)[5];run()};
-  $('#d-auto').onclick=()=>{YOU=null;run()};
-}
-function place(prog,s){picks[s.dataset.id]=prog;const w=s.querySelector('.who');w.textContent=prog;requestAnimationFrame(()=>w.classList.add('on'));turn++;renderOrder()}
-function open(){return sqs.filter(s=>!picks[s.dataset.id])}
-function run(){
-  clearInterval(timer);
-  const o=order(drive);
-  const step=()=>{
-    if(turn>=12){clearInterval(timer);picksDone();return}
-    const prog=o[turn];
-    if(prog===YOU){
-      clearInterval(timer);
-      prompt(`<b class="big">YOUR PICK, PROG #${YOU}.</b><span>Tap any open square to write your number in it.</span>`);
-      open().forEach(s=>s.classList.add('ready'));
-      return;
-    }
-    prompt(`<span>PROG #${prog} is picking…</span>`);
-    const op=open();place(prog,op[Math.floor(Math.random()*op.length)]);
-  };
-  step();timer=setInterval(step,380);
-}
-B.addEventListener('click',e=>{
-  const s=e.target.closest('.sq.ready');if(!s)return;
-  sqs.forEach(x=>x.classList.remove('ready'));place(YOU,s);run();
-});
-function picksDone(){
-  setTimeout(()=>$('#d-ending').scrollIntoView({behavior:'smooth',block:'nearest'}),50);
-  prompt(`<b class="big">PICKS ARE CLOSED.</b><span>All 12 squares have an owner. Kick it off and see how the drive ends.</span><button class="ctl go" id="d-rand" type="button">Random ending</button>`);
-  $('#d-rand').onclick=randomEnd;
-  $('#d-ending').classList.add('show');
-  $('#d-g').innerHTML=GROUPS.map(g=>`<button type="button" class="ctl ghost ${g.k}" data-g="${g.k}">${g.name}</button> `).join('');
-  $('#d-how-row').hidden=$('#d-num-row').hidden=true;
-}
-$('#d-g').onclick=e=>{const b=e.target.closest('[data-g]');if(!b)return;chooseGroup(b.dataset.g)};
-function chooseGroup(k){
-  ending={g:k};const g=GROUPS.find(x=>x.k===k);
-  $('#d-g').querySelectorAll('button').forEach(b=>b.classList.toggle('ghost',b.dataset.g!==k));
-  $('#d-how-q').textContent=g.how.toUpperCase();
-  $('#d-how').innerHTML=g.ways.map(w=>`<button type="button" class="ctl ghost ${k}" data-w="${w}">${w}</button> `).join('');
-  $('#d-how-row').hidden=false;$('#d-num-row').hidden=true;
-}
-$('#d-how').onclick=e=>{const b=e.target.closest('[data-w]');if(!b)return;chooseWay(b.dataset.w)};
-function chooseWay(w){
-  ending.w=w;const g=GROUPS.find(x=>x.k===ending.g);
-  $('#d-how').querySelectorAll('button').forEach(b=>b.classList.toggle('ghost',b.dataset.w!==w));
-  $('#d-num-q').textContent=g.numQ;const n=$('#d-n');n.min=g.range[0];n.max=g.range[1];
-  n.value='';n.placeholder=g.range[0]+'–'+g.range[1];$('#d-num-row').hidden=false;n.focus({preventScroll:true});
-}
-$('#d-settle').onclick=()=>{const v=$('#d-n').value;if(v===''||isNaN(+v)){$('#d-n').focus();return}settle(Math.abs(Math.round(+v))%100)};
-$('#d-n').onkeydown=e=>{if(e.key==='Enter')$('#d-settle').click()};
-function randomEnd(){
-  const r=Math.random(),k=r<.3?'td':r<.5?'fg':'to';const g=GROUPS.find(x=>x.k===k);
-  chooseGroup(k);chooseWay(g.ways[Math.random()<(k==='fg'?.15:k==='to'?.55:.5)?1:0]);
-  const n=g.range[0]+Math.floor(Math.random()*(g.range[1]-g.range[0]+1));$('#d-n').value=n;settle(n);
-}
-function settle(n){
-  const g=GROUPS.find(x=>x.k===ending.g),p=n%2?'ODD':'EVEN',id=`${g.k}-${ending.w}-${p}`;
-  const s=sqs.find(x=>x.dataset.id===id),prog=picks[id];
-  const shown=g.k==='to'?String(n).padStart(2,'0'):String(n);
-  B.classList.add('decided');s.classList.add('win');s.querySelector('.res').textContent=shown;
-  B.querySelector(`.grp[data-g="${g.k}"]`).classList.add('won');
-  const what={td:`${ending.w==='RUN'?'A touchdown run':'A touchdown pass'} by #${n}`,fg:`A ${n}-yard field goal ${ending.w==='GOOD'?'is good':'misses'}`,to:`${ending.w==='PUNT'?'A punt':'A turn over'} with :${shown} on the clock`}[g.k];
-  const r=$('#d-result');r.className='result show '+g.k;
-  r.innerHTML=`<h3>PROG #${prog} WINS DRIVE ${drive}${prog===YOU?' (THAT\'S YOU!)':''}</h3>
-    <p>${what}. ${shown} is ${p.toLowerCase()}, so the winning square is <b>${g.name} · ${ending.w} · ${p}</b>. Write ${shown} in that square's tab. PROG #${prog} owns it and collects <b>${fmt(money())}</b>.</p>
-    <div class="acts"><button class="ctl go" id="d-next" type="button">Next drive</button><button class="ctl" id="d-again" type="button">Replay drive ${drive}</button></div>`;
-  $('#d-next').onclick=()=>{drive=drive%48+1;reset()};
-  $('#d-again').onclick=reset;
-  prompt(`<b class="big">DRIVE ${drive} IS OVER.</b><span>One square matched. Next drive, the pick order changes.</span>`);
-  r.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-const SAMPLE={'td-RUN-ODD':4,'td-PASS-ODD':9,'td-RUN-EVEN':11,'td-PASS-EVEN':2,'fg-GOOD-ODD':6,'fg-MISS-ODD':12,'fg-GOOD-EVEN':1,'fg-MISS-EVEN':7,'to-PUNT-ODD':3,'to-OTHER-ODD':10,'to-PUNT-EVEN':5,'to-OTHER-EVEN':8};
-$('#d-sample').onclick=()=>{
-  drive=7;reset();YOU=null;
-  sqs.forEach(s=>place(SAMPLE[s.dataset.id],s));
-  picksDone();chooseGroup('td');chooseWay('PASS');$('#d-n').value=13;settle(13);
-};
-reset();
-})();
+addEventListener('message',e=>{const h=e.data&&e.data.parlayDemoHeight;if(h)document.getElementById('demo-frame').style.height=h+'px'});
 </script>
 </body>
 </html>
