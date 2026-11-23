@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PARLAY SQUARES · Game Notebook</title>
 <link rel="icon" href="./favicon.ico" type="image/x-icon" sizes="16x16 24x24 32x32 48x48 64x64">
-<link rel="stylesheet" href="./style.css?v=5"></head><body>
+<link rel="stylesheet" href="./style.css?v=6"></head><body>
 <nav class="bottom-nav" aria-label="Booklet navigation"><button id="go-cover" class="book-jump" type="button">COVER</button><button id="go-rules" class="book-jump" type="button">RULES</button><button id="go-sample" class="book-jump" type="button">SAMPLE</button><button id="go-progs" class="book-jump" type="button">PROGS</button><button id="first-drive" class="book-first book-jump" type="button">DRIVE SHEETS</button><button id="prev" class="book-prev" type="button">← PREVIOUS</button><button id="next" class="book-next" type="button">NEXT →</button><div class="book-position"><strong id="page-name">Cover</strong><span id="page-count">PAGE 1</span></div><button id="print" class="book-print" type="button">Print booklet</button></nav>
 <div class="outer">
 <section class="section active" id="cover"><div class="page ds-page ds-cover">
@@ -137,7 +137,8 @@ function buildPrintBook() {
     book.append(clone);
     return clone;
   };
-  FRONT_PAGES.forEach(([id], index) => add(id, index + 1));
+  // The cover prints from cover.html (separate Lulu cover file), so the interior starts at Rules.
+  FRONT_PAGES.filter(([id]) => id !== 'cover').forEach(([id], index) => add(id, index + 1));
   book.querySelectorAll('.ds-roster .ds-reg input').forEach((input, index) => {
     input.setAttribute('value', state.callers[index + 1] || '');
   });
@@ -163,7 +164,7 @@ async function printBooklet() {
     button.disabled = false;
   }
 }
-$('#print').textContent = 'Print booklet (' + (FRONT_PAGES.length + PRINT_DRIVE_PAGE_COUNT) + ' pages)';
+$('#print').textContent = 'Print booklet (' + (FRONT_PAGES.length - 1 + PRINT_DRIVE_PAGE_COUNT) + ' pages)';
 $('#go-cover').onclick=()=>showPage(1);$('#go-rules').onclick=()=>showPage(2);$('#go-sample').onclick=()=>showPage(3);$('#go-progs').onclick=()=>showPage(4);$('#first-drive').onclick=()=>showPage(FRONT_PAGES.length+1);$('#prev').onclick=()=>showPage(pageNumber-1);$('#next').onclick=()=>showPage(pageNumber+1);$('#print').onclick=printBooklet;window.addEventListener('afterprint',()=>{$('#print-book').replaceChildren()});drawPrognosticators();buildSample();showPage(1);
 })();
 </script></body></html>
