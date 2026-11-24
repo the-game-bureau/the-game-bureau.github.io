@@ -136,7 +136,7 @@
 
   // ---------- share ----------
   NB.share = async function (g, btn) {
-    const url = location.href.split('#')[0].replace(/index\.html$/, '');
+    const url = location.href.split('#')[0].split('?')[0].replace(/(index|rules)\.html$/, '');
     const data = { title: g.title, text: g.shareText || g.tagline || g.title, url };
     if (navigator.share) {
       try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -171,7 +171,12 @@
     '<nav>' +
     (here !== 'rules' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
+    '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
+    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>' +
+    '<span>SHARE</span></button>' +
     '</nav></div></header>';
+  // The Share button in the top bar shares the game page, from any page.
+  const bindShare = g => { const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget); };
   const footer = g =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
     '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a><a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a><a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
@@ -206,7 +211,6 @@
       '</div>' +
       '<p class="nb-note" id="nb-order-note" role="status" hidden>' + esc(order.comingSoon || 'Printed copies are coming soon. In the meantime, try the free sampler.') + '</p>' +
       '<div class="nb-row">' +
-      '<button class="nb-btn" type="button" id="nb-share">SHARE</button>' +
       '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
       '</div>' +
@@ -279,7 +283,7 @@
       if (u) { location.href = u; return; }
       document.getElementById('nb-order-note').hidden = false;
     };
-    document.getElementById('nb-share').onclick = e => NB.share(g, e.currentTarget);
+    bindShare(g);
   };
 
   // ---------- rules page ----------
@@ -291,6 +295,7 @@
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
       '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a></div></div>' +
       '</main>' + footer(g));
+    bindShare(g);
     document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';
     const el = document.getElementById('nb-rules');
     try { el.innerHTML = await NB.loadRules(g); } catch (e) { el.innerHTML = '<p>' + esc(e.message) + '</p>'; }
