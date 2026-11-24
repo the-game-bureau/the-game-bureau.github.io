@@ -143,6 +143,7 @@
   // admin page write them from game.json so they never drift.
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   GH.shells = function (folder, g) {
+    const rnFull = ((g.rulesName || '').trim() || 'Rules'), rn = rnFull === 'Rules' ? 'rules' : rnFull;
     const url = 'https://' + GH.SITE + '/' + folder + '/';
     const img = g.shareImage ? url + g.shareImage : (g.media || []).find(m => m && m.type === 'image' && m.src) ? url + g.media.find(m => m && m.type === 'image' && m.src).src : url + 'pdf/preview-1.jpg';
     const desc = g.tagline || g.title;
@@ -155,8 +156,8 @@
       '<meta property="og:type" content="product">\n<meta property="og:title" content="' + esc(title) + '">\n<meta property="og:description" content="' + esc(desc) + '">\n' +
       '<meta property="og:url" content="' + esc(u) + '">\n<meta property="og:image" content="' + esc(img) + '">\n<meta name="twitter:card" content="summary_large_image">\n';
     return {
-      'index.html': head(g.title + ' | The Game Bureau', og(full, url)) + '</head>\n<body data-page="public">\n<noscript><p style="padding:24px">' + esc(full) + '. <a href="./rules.html">Read the rules</a>.</p></noscript>\n</body>\n</html>\n',
-      'rules.html': head(g.title + ' rules | The Game Bureau', og(g.title + ' rules', url + 'rules.html')) + '</head>\n<body data-page="rules"></body>\n</html>\n',
+      'index.html': head(g.title + ' | The Game Bureau', og(full, url)) + '</head>\n<body data-page="public">\n<noscript><p style="padding:24px">' + esc(full) + '. <a href="./rules.html">' + esc(rnFull === 'Rules' ? 'Read the rules' : rnFull) + '</a>.</p></noscript>\n</body>\n</html>\n',
+      'rules.html': head(g.title + ' ' + rn + ' | The Game Bureau', og(g.title + ' ' + rn, url + 'rules.html')) + '</head>\n<body data-page="rules"></body>\n</html>\n',
       'admin.html': head(g.title + ' · Notebook admin', '<meta name="robots" content="noindex,nofollow">\n').replace('<script src="/studio/kit/kit.js" defer></script>\n',
         '<link rel="stylesheet" href="/studio/kit/admin.css">\n<script src="/studio/kit/kit.js" defer></script>\n<script src="/studio/kit/gh.js" defer></script>\n<script src="/studio/kit/admin.js" defer></script>\n') +
         '</head>\n<body data-page="admin"></body>\n</html>\n',
