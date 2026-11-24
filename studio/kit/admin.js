@@ -107,7 +107,7 @@
     document.body.classList.add('ad-app');
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title"></h1><span class="ad-folder" id="ad-folder"></span></div>' +
+      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
       '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
       '<button class="nb-btn" id="ad-discard" type="button">' + (IS_NEW ? 'START OVER' : 'DISCARD CHANGES') + '</button>' +
       '<button class="nb-btn solid" id="ad-save" type="button">' + (IS_NEW ? 'CREATE NOTEBOOK' : 'SAVE AND PUBLISH') + '</button></div></div>' +
@@ -132,9 +132,9 @@
   }
 
   function updateBar(msg, kind) {
-    if (!CHOSEN) { $('#ad-title').textContent = 'Choose a notebook'; $('#ad-folder').textContent = ''; document.title = 'Notebook Studio'; if (!msg) { $('#ad-bar').className = 'ad-bar'; $('#ad-bar').textContent = ''; } else { $('#ad-bar').className = 'ad-bar show ' + (kind || ''); $('#ad-bar').innerHTML = msg; } return; }
-    $('#ad-title').textContent = draft.game.title || (IS_NEW ? 'New notebook' : 'Untitled');
-    $('#ad-folder').textContent = IS_NEW ? (draft.game.slug ? '/' + draft.game.slug + '/ (not created yet)' : 'not created yet') : '/' + FOLDER + '/';
+    if (!CHOSEN) { document.title = 'Notebook Studio'; if (!msg) { $('#ad-bar').className = 'ad-bar'; $('#ad-bar').textContent = ''; } else { $('#ad-bar').className = 'ad-bar show ' + (kind || ''); $('#ad-bar').innerHTML = msg; } return; }
+    // Header: the studio name, then "New" for a new notebook or the saved title (it changes on save).
+    const t = $('#ad-title'); t.textContent = IS_NEW ? 'New' : (saved.game.title || FOLDER); t.hidden = false;
     document.title = (draft.game.title || (IS_NEW ? 'New notebook' : 'Notebook')) + ' · Notebook Studio';
     const bar = $('#ad-bar');
     if (msg) { bar.className = 'ad-bar show ' + (kind || ''); bar.innerHTML = msg; return; }
