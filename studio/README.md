@@ -1,8 +1,7 @@
 # Notebook Studio and notebook game template
 
 Everything needed to put a paper notebook game on thegamebureau.com: a public page, a rules
-page, and an editor in the studio that builds the printable PDFs. Live sample:
-[thegamebureau.com/studio/dice-derby/](https://thegamebureau.com/studio/dice-derby/).
+page, and an editor in the studio that builds the printable PDFs.
 
 ```
 studio/
@@ -12,13 +11,12 @@ studio/
     kit.js kit.css       public page + rules page, built from game.json
     print.js print.css   lays out cover.html and contents.html for print
     admin.js admin.css   the editor: setup steps, editors with live preview, save, PDFs
-    studio.js            the studio's Connect and Notebooks tabs, and the template list
-    gh.js                GitHub calls from the browser (commit files, start builds)
+    studio.js            the studio's Connect and Notebooks tabs, and the start-from list
+    gh.js                GitHub calls from the browser (commit files, saved drafts, start builds)
     build-pdfs.js        renders the PDFs in Chrome (run by the GitHub workflow)
-    new-game.js          copies the sample into a new game folder
+    new-game.js          copies the blank starter into a new game folder
     fonts/               Anton + Inter (OFL), so PDFs look the same everywhere
-  starter/        the blank starter the studio copies by default
-  dice-derby/     a finished sample game
+  starter/        the blank starter a new notebook can start from (hidden from Notebooks)
 ```
 
 ## Each game folder
@@ -48,43 +46,46 @@ only, Actions: Read and write) under "GitHub access" in the editor. Without one,
 opens the workflow on GitHub. The PDFs also rebuild on their own when a game's `game.json`,
 `rules.md`, `cover.html` or `contents.html` changes on `main`.
 
-Build locally: `node studio/kit/build-pdfs.js studio/dice-derby` (needs `playwright` and `pdf-lib`).
+Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pdf-lib`).
 
 ## Start a new game: the Notebook Studio
 
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Connect, Notebooks, How it works, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs.
+Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, Publish.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
 1. **Connect** (once per browser): a fine-grained token for this repository only, with
-   Contents and Actions set to Read and write. Saving from the studio is a commit to `main`,
-   which republishes the site.
-2. **A new notebook**: NEW NOTEBOOK under Notebooks (`/studio/?new`) opens the editor on a new, unsaved notebook started from the
-   blank starter (or the Dice Derby sample; pick in Content). Give it a title and web address in
-   Content, shape anything else with the live preview, and click **Create notebook**. That copies
-   the template into `/<address>/` with your edits and opens it. Until then the draft is kept in
-   the browser. The template folders are only read.
+   Contents and Actions set to Read and write.
+2. **A new notebook**: NEW NOTEBOOK under Notebooks (`/studio/?new`) opens the editor on a new
+   notebook. In Content, start from the blank starter or a copy of any notebook on the site, and
+   give it a title and web address. Shape anything else with the live preview.
 3. **An existing notebook**: EDIT under Notebooks, or `/studio/?game=<address>`. Work down the
-   Checklist. Edits are kept as a draft in the browser until **Save and publish**.
-4. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
+   Checklist.
+4. **Publish tab.** Edits are kept in the browser as you go. **SAVE** stores the whole notebook
+   (photos included) as one file on the `studio-drafts` branch, which is never deployed, so it
+   is not on the site but any browser connected to GitHub can open it from Notebooks (marked
+   SAVED, NOT PUBLISHED). **PUBLISH** commits to `main`, which republishes the site; for a new
+   notebook it copies the starting folder into `/<address>/` with your edits. Publishing removes
+   the saved draft.
+5. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
    Cloudflare settings, filled in for that game, to make `https://<address>.thegamebureau.com`
    redirect to `https://thegamebureau.com/<address>/`: a proxied `AAAA` record to `100::` named
    `<address>`, plus a Redirect Rule (Hostname equals `<address>.thegamebureau.com`, Dynamic,
    `concat("https://thegamebureau.com/<address>", http.request.uri.path)`, 301, keep query string).
-5. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
+6. The PDFs rebuild on their own about 3 minutes after each publish. Until real photos are added,
    the game page shows pictures of the cover and pages from the build.
 
 **Editing pages with an AI.** The Cover and Inside pages tabs have an "Edit this page with an AI"
 box. COPY FOR AI copies the page size, the layout rules and the whole file for a chat AI, and
-PASTE AI ANSWER puts its reply back in the editor (nothing is saved until Save and publish).
+PASTE AI ANSWER puts its reply back in the editor (nothing is saved until SAVE or PUBLISH).
 For an AI that can use GitHub, it shows the repository, the file path and what to tell it.
 
 **Deleting a notebook.** Under Notebooks, DELETE asks you to type the folder name, then removes
-the whole folder in one commit (it can be brought back from the git history). The template
-folders under `studio/` have no DELETE button.
+the whole folder in one commit (it can be brought back from the git history). The blank starter
+under `studio/` is not listed.
 
 Old `/template/` links redirect to `/studio/`.
 
@@ -94,10 +95,10 @@ Cloudflare Access (free plan) in front of it. Steps: in Cloudflare Zero Trust, o
 Self-hosted application for `thegamebureau.com/studio` (Allow, your email, One-time PIN), and a second one for `thegamebureau.com/studio/kit` with a
 Bypass policy for Everyone, because every public game page loads the kit. The studio and editor
 are also marked `noindex`. Games no longer have their own `admin.html`; an old one is removed
-the next time that game is saved.
+the next time that game is published.
 
-Folders under `studio/` open read-only in the editor (a checkbox there allows editing the
-template on purpose).
+`/studio/?game=studio/starter` opens the blank starter read-only (a checkbox there allows
+editing it on purpose).
 
-Without the studio: `node studio/kit/new-game.js my-game "My Game"` copies the Dice Derby
-sample, or copy a folder by hand and change `slug` in `game.json` to the folder name.
+Without the studio: `node studio/kit/new-game.js my-game "My Game"` copies the blank
+starter, or copy a folder by hand and change `slug` in `game.json` to the folder name.

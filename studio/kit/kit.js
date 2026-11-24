@@ -1,6 +1,6 @@
 /* Notebook kit: shared code for every notebook game on thegamebureau.com.
  *
- * Each game folder (e.g. /dice-derby/) holds a game.json with its words, prices,
+ * Each game folder (e.g. /chess/) holds a game.json with its words, prices,
  * photos and print settings. The game's pages are thin shells that load this file
  * and say which page they are with <body data-page="...">:
  *   public   index.html     photos and videos, explanation, order, share, rules link

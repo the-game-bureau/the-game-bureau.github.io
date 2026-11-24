@@ -1,11 +1,11 @@
-// Starts a new notebook game by copying the sample game.
+// Starts a new notebook game by copying the blank starter (studio/starter).
 //   node studio/kit/new-game.js <folder> "<Title>"
 // e.g. node studio/kit/new-game.js pitch-count "Pitch Count"  ->  /pitch-count/ on the site
 // Then edit <folder>/game.json, rules.md, cover.html and contents.html, and replace images/.
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
-const SAMPLE = path.join(ROOT, 'studio', 'dice-derby');
+const SAMPLE = path.join(ROOT, 'studio', 'starter');
 const [folder, title] = process.argv.slice(2);
 if (!folder || !title || !/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(folder)) {
   console.error('Usage: node studio/kit/new-game.js <folder> "<Title>"   (folder: lowercase letters, digits and dashes)');
@@ -22,7 +22,7 @@ fs.writeFileSync(path.join(dest, 'game.json'), JSON.stringify(g, null, 2) + '\n'
 for (const f of ['index.html', 'rules.html', 'cover.html', 'contents.html', 'rules.md']) {
   const p = path.join(dest, f);
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8')
-    .replace(/studio\/dice-derby/g, folder).replace(/dice-derby/g, slug)
-    .replace(/Dice Derby/g, title).replace(/DICE DERBY/g, title.toUpperCase()));
+    .replace(/studio\/starter/g, folder)
+    .replace(/Starter Notebook/g, title).replace(/STARTER NOTEBOOK/g, title.toUpperCase()));
 }
-console.log('Created ' + folder + '/ from the Dice Derby sample. Next: edit game.json, rules.md, cover.html, contents.html and images/.');
+console.log('Created ' + folder + '/ from the blank starter. Next: edit game.json, rules.md, cover.html, contents.html and images/.');
