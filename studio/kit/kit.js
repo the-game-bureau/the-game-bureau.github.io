@@ -5,7 +5,7 @@
  * and say which page they are with <body data-page="...">:
  *   public   index.html     photos and videos, explanation, order, share, rules link
  *   rules    rules.html     the full rules, rendered from rules.md
- *   editor   /studio/edit.html?game=<folder> edits the game and builds its PDFs (see admin.js)
+ *   editor   /studio/?game=<folder> edits the game and builds its PDFs (see admin.js)
  * The printable pages (cover.html, contents.html) use print.js instead.
  */
 (function () {
@@ -35,15 +35,15 @@
     ['Slate', '#3D4F5C', '#7FD1AE', '#F7F9F9', '#151C21'],
     ['Grape', '#3F1D5A', '#FF9F1C', '#FCF8FF', '#170D21'],
     ['Olive', '#4B5320', '#E76F51', '#FBFAF2', '#191B0C'],
-    // Inspired by hockey sweater colours, under plain names.
-    ['Black and gold', '#111111', '#FFB81C', '#FFFBF0', '#111111'],
-    ['Red, white and blue', '#192168', '#E03A3E', '#FFFFFF', '#10142E'],
-    ['Navy and orange', '#041E42', '#FF4C00', '#FAF8F5', '#041E42'],
-    ['Deep sea', '#001628', '#99D9D9', '#F5FBFB', '#001628'],
-    ['Orange and black', '#1A1A1A', '#F74902', '#FFFAF5', '#111111'],
-    ['Burgundy and blue', '#6F263D', '#6CACE4', '#FBF8F9', '#22101A'],
-    ['North woods', '#154734', '#A6192E', '#F8F3E6', '#0E2219'],
-    ['Steel and gold', '#333F48', '#B4975A', '#FAF8F3', '#151A1E'],
+    // NHL team colours.
+    ['Bruins', '#111111', '#FFB81C', '#FFFBF0', '#111111'],
+    ['Canadiens', '#192168', '#E03A3E', '#FFFFFF', '#10142E'],
+    ['Oilers', '#041E42', '#FF4C00', '#FAF8F5', '#041E42'],
+    ['Kraken', '#001628', '#99D9D9', '#F5FBFB', '#001628'],
+    ['Flyers', '#1A1A1A', '#F74902', '#FFFAF5', '#111111'],
+    ['Avalanche', '#6F263D', '#6CACE4', '#FBF8F9', '#22101A'],
+    ['Wild', '#154734', '#A6192E', '#F8F3E6', '#0E2219'],
+    ['Golden Knights', '#333F48', '#B4975A', '#FAF8F3', '#151A1E'],
   ];
 
   // ---------- drafts (live preview from the admin page) ----------
