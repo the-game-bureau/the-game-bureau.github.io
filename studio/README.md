@@ -53,7 +53,7 @@ Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pd
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, Publish.
+Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs. SAVE and PUBLISH are in the title bar.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
@@ -64,7 +64,7 @@ until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing on
    give it a title and web address. Shape anything else with the live preview.
 3. **An existing notebook**: EDIT under Notebooks, or `/studio/?game=<address>`. Work down the
    Checklist.
-4. **Publish tab.** Edits are kept in the browser as you go. **SAVE** stores the whole notebook
+4. **SAVE and PUBLISH (title bar).** Edits are kept in the browser as you go. **SAVE** stores the whole notebook
    (photos included) as one file on the `studio-drafts` branch, which is never deployed, so it
    is not on the site but any browser connected to GitHub can open it from Notebooks (marked
    SAVED, NOT PUBLISHED). **PUBLISH** commits to `main`, which republishes the site; for a new
