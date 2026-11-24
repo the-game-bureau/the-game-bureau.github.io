@@ -169,8 +169,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, pdfs: null,
-      content: [['page', 'Game page'], ['rules', 'Rules page'], ['front', 'Front cover'], ['back', 'Back cover']],
+      connect: null, checklist: null, games: null, pdfs: null, content: null,
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
@@ -182,11 +181,15 @@
     const cur = opts.some(o => o[0] === pvMode[t]) ? pvMode[t] : opts[0][0];
     pvMode[t] = cur;
     pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b>' + opts.map(([k, l]) => '<button type="button" data-pv="' + k + '" aria-current="' + (k === cur) + '">' + l + '</button>').join('') +
-      '<span class="ad-pv-note">Unsaved changes show here.</span></div><div class="ad-pv-box"><iframe id="ad-pv" title="Preview"></iframe></div>';
+      (MANUAL_PV.includes(t) ? '<button type="button" class="nb-btn ad-pv-regen" id="ad-pv-regen">REGENERATE</button><span class="ad-pv-note">Shows your latest edits when you click REGENERATE.</span>'
+        : '<span class="ad-pv-note">Unsaved changes show here.</span>') + '</div><div class="ad-pv-box"><iframe id="ad-pv" title="Preview"></iframe></div>';
     pv.querySelectorAll('[data-pv]').forEach(b => { b.onclick = () => { pvMode[t] = b.dataset.pv; previewFor(t); }; });
+    if ($('#ad-pv-regen')) $('#ad-pv-regen').onclick = renderPreview;
     renderPreview();
   }
-  function schedulePreview() { clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
+  // Rules, Cover and Inside pages redraw only when you click REGENERATE; the others follow every edit.
+  const MANUAL_PV = ['rules', 'cover', 'contents'];
+  function schedulePreview() { if (MANUAL_PV.includes(tab)) return; clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
   function renderPreview() {
     const f = $('#ad-pv');
     if (!f) return;
