@@ -20,21 +20,16 @@
   S.connect = function (el, onChange) {
     const $ = s => el.querySelector(s);
     const ok = !!GH.token();
-    el.innerHTML = '<h2>Connect</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
-      '<h3>Connect GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
+    el.innerHTML = '<h2>Connect</h2><p class="ad-lede">The studio saves notebooks to the website through GitHub. Connect it once in each browser you use.</p>' +
+      '<h3>GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
       (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p>'
-        : '<p class="ad-help">One-time setup, about 2 minutes. The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can save. You only do this once on each computer or browser.</p>' +
+        : '<p class="ad-help">One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</p>' +
           '<ol class="st-howto">' +
           '<li><b>Open GitHub\'s token page.</b> <a class="nb-btn" href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">OPEN GITHUB ↗</a><small>Sign in as someone who can change the website.</small></li>' +
           '<li><b>Fill in the form.</b><small>Token name: <code>Notebook Studio</code>. Expiration: up to you (a year is fine). Resource owner: <code>the-game-bureau</code>. Repository access: <b>Only select repositories</b>, then pick <code>' + esc(GH.REPO) + '</code>.</small></li>' +
           '<li><b>Give it two permissions.</b><small>Under Repository permissions, set <b>Contents</b> to Read and write and <b>Actions</b> to Read and write. Leave everything else alone.</small></li>' +
           '<li><b>Generate the token and paste it here.</b><small>It starts with <code>github_pat_</code>. It stays in this browser and is only ever sent to GitHub.</small>' +
-          '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>') +
-      '<h3>How it works</h3><ol class="st-flow">' +
-      '<li><b>Make a notebook</b>Open the studio, fill in Content (name and web address), shape the rest, and click Create notebook.</li>' +
-      '<li><b>Shape it</b>Colors, rules, cover, inside pages and photos, with a live preview. The Checklist walks you through it.</li>' +
-      '<li><b>Save and publish</b>One button. The site republishes in about a minute, and the PDFs build about 3 minutes later.</li>' +
-      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li></ol>';
+          '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>');
     if (ok) {
       GH.check().then(w => { $('.st-who').textContent = 'Signed in to GitHub as ' + w + '.'; }).catch(e => { $('.st-who').textContent = e.message; });
       $('.st-forget').onclick = () => { GH.setToken(''); S.connect(el, onChange); if (onChange) onChange(false); };
@@ -48,10 +43,31 @@
     };
   };
 
+  // ---------- How it works tab ----------
+  S.how = function (el) {
+    el.innerHTML = '<h2>How it works</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
+      '<ol class="st-flow">' +
+      '<li><b>Connect</b>Once per browser, connect the studio to GitHub so it can save. See the Connect tab.</li>' +
+      '<li><b>Make a notebook</b>In Notebooks, click New notebook, give it a title and web address in Content, shape the rest, and click Create notebook.</li>' +
+      '<li><b>Shape it</b>Colors, rules, cover, inside pages and photos, each with a live preview. The Checklist walks you through it.</li>' +
+      '<li><b>Save and publish</b>One button. The site republishes in about a minute, and the PDFs build about 3 minutes later.</li>' +
+      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, and share the page.</li></ol>' +
+      '<h3>The tabs</h3><ul class="st-tabs-help">' +
+      '<li><b>Notebooks</b>: choose what to work on. Start a new notebook, or open, view or delete one on the site. The other tabs open once you choose.</li>' +
+      '<li><b>Checklist</b>: every step from idea to live notebook, ticked off as you go.</li>' +
+      '<li><b>Content</b>: the words on the game page: title, tagline, description, specs, how it works, price and ordering, print size.</li>' +
+      '<li><b>Colors</b>: the four colours, with 24 ready-made schemes.</li>' +
+      '<li><b>Rules</b>, <b>Cover</b>, <b>Inside pages</b>: the files that make the notebook, each with an "Edit this page with an AI" box.</li>' +
+      '<li><b>Photos &amp; video</b>: the gallery on the game page, and the browser-tab icon.</li>' +
+      '<li><b>PDFs</b>: the cover, contents, print-at-home and free sampler PDFs.</li>' +
+      '</ul>' +
+      '<p class="ad-help">Edits are kept in this browser until you save, and the preview always shows them.</p>';
+  };
+
   // ---------- Notebooks tab ----------
   S.games = async function (el, current) {
-    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Every notebook game on the site. EDIT opens it here in the studio.</p>' +
-      '<div class="nb-row"><a class="nb-btn solid" href="/studio/">+ NEW NOTEBOOK</a></div><div class="st-games-box"><p class="ad-help">Loading…</p></div>';
+    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Choose a notebook to work on: start a new one, or EDIT one already on the site. The other tabs open once you choose.</p>' +
+      '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new#content">+ NEW NOTEBOOK</a></div><div class="st-games-box"><p class="ad-help">Loading…</p></div>';
     const box = el.querySelector('.st-games-box');
     try {
       const r = await GH.listGames();

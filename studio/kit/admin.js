@@ -25,6 +25,11 @@
   const GAME = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
     : STUDIO_PATH ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
   const IS_NEW = !GAME && STUDIO_PATH;
+  // Plain /studio/ starts with only Connect and Notebooks open; the other tabs wait until a
+  // notebook is chosen there (an existing one, or New notebook, which opens /studio/?new).
+  const CHOSEN = !IS_NEW || new URLSearchParams(location.search).has('new');
+  const OPEN_TABS = ['connect', 'games'];
+  const locked = t => !CHOSEN && !OPEN_TABS.includes(t);
   const NEWKEY = 'nb-draft:/studio/new/';
   const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && ST.STARTS.some(x => x[0] === d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTS[0][0]; };
   const FOLDER = IS_NEW ? newStart() : GAME; // for a new notebook: the template it previews in
@@ -34,7 +39,7 @@
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['connect', 'Connect'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['games', 'Notebooks']];
+  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['how', 'How it works'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -102,13 +107,13 @@
     document.body.classList.add('ad-app');
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title"></h1><span class="ad-folder" id="ad-folder"></span></div>' +
-      '<div class="ad-actions">' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
+      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
+      '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
       '<button class="nb-btn" id="ad-discard" type="button">' + (IS_NEW ? 'START OVER' : 'DISCARD CHANGES') + '</button>' +
       '<button class="nb-btn solid" id="ad-save" type="button">' + (IS_NEW ? 'CREATE NOTEBOOK' : 'SAVE AND PUBLISH') + '</button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
-      '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
-      '<div class="ad-gh" id="ad-gh"></div></nav>' +
+      '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>').join('') +
+      '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
@@ -124,19 +129,18 @@
       clearDraft(); Object.keys(pending).forEach(k => { delete pending[k]; delete pendingB64[k]; });
       draft = clone(saved); show(tab); updateBar();
     };
-    ghBox();
   }
 
   function updateBar(msg, kind) {
-    $('#ad-title').textContent = draft.game.title || (IS_NEW ? 'New notebook' : 'Untitled');
-    $('#ad-folder').textContent = IS_NEW ? (draft.game.slug ? '/' + draft.game.slug + '/ (not created yet)' : 'not created yet') : '/' + FOLDER + '/';
+    if (!CHOSEN) { document.title = 'Notebook Studio'; if (!msg) { $('#ad-bar').className = 'ad-bar'; $('#ad-bar').textContent = ''; } else { $('#ad-bar').className = 'ad-bar show ' + (kind || ''); $('#ad-bar').innerHTML = msg; } return; }
+    // Header: the studio name, then "New" for a new notebook or the saved title (it changes on save).
+    const t = $('#ad-title'); t.textContent = IS_NEW ? 'New' : (saved.game.title || FOLDER); t.hidden = false;
     document.title = (draft.game.title || (IS_NEW ? 'New notebook' : 'Notebook')) + ' · Notebook Studio';
     const bar = $('#ad-bar');
     if (msg) { bar.className = 'ad-bar show ' + (kind || ''); bar.innerHTML = msg; return; }
     if (IS_NEW) {
       $('#ad-save').disabled = false; $('#ad-discard').disabled = false;
-      bar.className = 'ad-bar show dirty';
-      bar.innerHTML = 'A new notebook, started from the ' + esc((ST.STARTS.find(x => x[0] === FOLDER) || ST.STARTS[0])[1].toLowerCase()) + '. Give it a name and web address in <a href="#content">Content</a>, shape it in any tab, then click <b>Create notebook</b>. It is kept in this browser until then.';
+      bar.className = 'ad-bar'; bar.textContent = '';
       return;
     }
     const dirty = changed();
@@ -144,7 +148,7 @@
     $('#ad-discard').disabled = !dirty;
     if (isTemplate && !allowTemplate) {
       bar.className = 'ad-bar show warn';
-      bar.innerHTML = 'This is a template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/">Start a new notebook</a> instead.';
+      bar.innerHTML = 'This is a template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/?new#content">Start a new notebook</a> instead.';
       $('#ad-save').disabled = true;
       return;
     }
@@ -152,23 +156,14 @@
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
-  // The small GitHub status under the tabs. Setting up happens on the Connect tab.
-  function ghBox() {
-    const el = $('#ad-gh');
-    el.innerHTML = GH.token()
-      ? '<p>GitHub connected.</p><button type="button" class="ad-link" id="ad-gh-forget">Disconnect</button>'
-      : '<p><b>Not connected to GitHub.</b> ' + (IS_NEW ? 'Creating' : 'Saving') + ' needs the one-time setup.</p><button type="button" class="nb-btn" id="ad-gh-go">CONNECT</button>';
-    if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); if (tab === 'connect') show('connect'); };
-    else $('#ad-gh-go').onclick = () => show('connect');
-  }
-
   function show(t) {
+    if (locked(t)) t = 'games';
     tab = t;
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === t));
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => { ghBox(); updateBar(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
+    ({ how: ST.how, connect: p => ST.connect(p, () => updateBar()), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
     previewFor(t);
     updateBar();
   }
@@ -179,7 +174,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, pdfs: null,
+      how: null, connect: null, checklist: null, games: null, pdfs: null,
       content: [['page', 'Game page'], ['rules', 'Rules page'], ['front', 'Front cover'], ['back', 'Back cover']],
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
@@ -276,7 +271,7 @@
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
         '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
-      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you create it.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">new notebook</a>.</p>');
+      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you create it.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('checklist'); }; });
@@ -716,15 +711,15 @@
       await loadSaved();
       loadDraft();
       const g = saved.game;
-      document.title = (IS_NEW ? 'New notebook' : g.title) + ' · Notebook Studio';
+      document.title = !CHOSEN ? 'Notebook Studio' : (IS_NEW ? 'New notebook' : g.title) + ' · Notebook Studio';
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
-      show(tabFromHash() || (!GH.token() ? 'connect' : IS_NEW ? 'content' : 'checklist'));
+      show(tabFromHash() || (!GH.token() ? 'connect' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       if (isTemplate) {
         const box = document.createElement('label'); box.className = 'ad-help ad-tpl';
         box.innerHTML = '<input type="checkbox" id="ad-tpl"> Let me save changes to the template itself';
-        $('#ad-gh').after(box);
+        $('#ad-tabs').append(box);
         $('#ad-tpl').onchange = e => { allowTemplate = e.target.checked; updateBar(); };
       }
     } catch (e) {

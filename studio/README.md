@@ -55,12 +55,14 @@ Build locally: `node studio/kit/build-pdfs.js studio/dice-derby` (needs `playwri
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Connect, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, Notebooks.
+Connect, Notebooks, How it works, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs.
+Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
+until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
 1. **Connect** (once per browser): a fine-grained token for this repository only, with
    Contents and Actions set to Read and write. Saving from the studio is a commit to `main`,
    which republishes the site.
-2. **A new notebook**: `/studio/` opens the editor on a new, unsaved notebook started from the
+2. **A new notebook**: NEW NOTEBOOK under Notebooks (`/studio/?new`) opens the editor on a new, unsaved notebook started from the
    blank starter (or the Dice Derby sample; pick in Content). Give it a title and web address in
    Content, shape anything else with the live preview, and click **Create notebook**. That copies
    the template into `/<address>/` with your edits and opens it. Until then the draft is kept in
