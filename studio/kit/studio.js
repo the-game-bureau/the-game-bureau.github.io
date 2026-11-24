@@ -18,48 +18,59 @@
 
   const slugify = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
+  // The studio uses the same frame as the game editor: a top bar, sections on the left, one panel.
+  const TABS = [['setup', 'Setup'], ['content', 'Content'], ['colors', 'Colors'], ['template', 'Template'], ['create', 'Create'], ['games', 'Notebooks']];
+  const HASH = { connect: 'setup', new: 'content' }; // older links into the one-page studio
+  const NEXT = { setup: 'content', content: 'colors', colors: 'template', template: 'create' };
+  let tab = 'setup';
   function page() {
     NB.applyBrand({ brand: { color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' } });
+    document.body.classList.add('ad-app');
+    const next = k => NEXT[k] ? '<div class="nb-row st-next"><button type="button" class="nb-btn" data-go="' + NEXT[k] + '">NEXT: ' + TABS.find(t => t[0] === NEXT[k])[1].toUpperCase() + ' →</button></div>' : '';
+    const panel = (k, html) => '<section class="st-tab" data-panel="' + k + '" hidden>' + html + next(k) + '</section>';
     document.body.innerHTML =
-      '<header class="nb-bar"><div class="nb-wrap"><a class="nb-home" href="/">THE GAME BUREAU</a></div></header>' +
-      '<main class="st-main">' +
-      '<h1>Notebook Studio</h1><p class="lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
+      '<header class="ad-top"><div class="ad-top-in">' +
+      '<div class="ad-id"><a class="ad-studio" href="/">The Game Bureau</a><h1>Notebook Studio</h1><span class="ad-folder">new notebook</span></div>' +
+      '<div class="ad-actions"><button class="nb-btn" type="button" data-go="games">MY NOTEBOOKS</button><button class="nb-btn solid" id="n-go-top" type="button">CREATE THE NOTEBOOK</button></div></div>' +
+      '<div class="ad-bar" id="st-bar" role="status"></div></header>' +
+      '<div class="ad-shell no-preview"><nav class="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
+      '<div class="ad-gh" id="st-side"></div></nav>' +
+      '<main class="ad-panel st-panel" id="st-panel">' +
 
-      '<section class="st-card st-setup" id="connect"><div class="st-step-head"><span class="st-num">1</span><div><div class="st-kick">ONE-TIME SETUP · ABOUT 2 MINUTES</div><h2>Set up the studio</h2></div><span class="st-badge" id="st-badge"></span></div>' +
-      '<p class="ad-lede" id="st-setup-lede">The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
-      '<div id="st-gh"></div></section>' +
+      panel('setup', '<h2>Setup</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
+        '<h3>Connect GitHub <span class="st-badge" id="st-badge"></span></h3>' +
+        '<p class="ad-help" id="st-setup-lede">One-time setup, about 2 minutes. The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
+        '<div id="st-gh"></div>' +
+        '<h3>How it works</h3><ol class="st-flow">' +
+        '<li><b>Make a notebook</b>Fill in Content, Colors and Template here, then Create. It takes about a minute.</li>' +
+        '<li><b>Shape it in the editor</b>Words, colours, rules, cover, inside pages, photos, with a live preview.</li>' +
+        '<li><b>Save and publish</b>One button. The site republishes in about a minute, and the PDFs build about 3 minutes later.</li>' +
+        '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li></ol>') +
 
-      '<section class="st-card" id="new"><div class="st-step-head"><span class="st-num">2</span><div><div class="st-kick">EVERY NEW GAME</div><h2>Make a notebook</h2></div></div>' +
-      '<p class="st-locked-msg" id="st-locked-msg">Finish step 1 first. This form unlocks once the studio is set up.</p>' +
-      '<div id="st-new-body">' +
-      '<p class="ad-lede">You can change all of this later in the editor.</p>' +
-      '<div class="st-form">' +
-      '<label class="ad-field"><span>Game name</span><input id="n-title" placeholder="e.g. Pitch Count" autocomplete="off"></label>' +
-      '<label class="ad-field"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="n-folder" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="n-folder-msg">Lowercase letters, numbers and dashes.</small></label>' +
-      '<label class="ad-field wide"><span>Tagline</span><input id="n-tagline" placeholder="One sentence: what it is and why it\'s fun."></label>' +
-      '<label class="ad-field wide"><span>The idea</span><textarea id="n-pitch" rows="4" placeholder="Who plays, what you do, what makes it fun. Leave a blank line between paragraphs."></textarea></label>' +
-      '<label class="ad-field"><span>Players</span><input id="n-players" value="2 to 6"></label>' +
-      '<label class="ad-field"><span>Time</span><input id="n-time" placeholder="About 30 minutes"></label>' +
-      '<label class="ad-field"><span>You need</span><input id="n-need" value="A pencil"></label>' +
-      '<label class="ad-field"><span>Price</span><input id="n-price" value="$9.99"></label>' +
-      '<label class="ad-field"><span>Game sheets in the notebook</span><input id="n-sheets" type="number" value="24" min="1" max="300"></label>' +
-      '<div class="ad-field"><span>Colours</span><div class="ad-presets" id="n-colors"></div></div>' +
-      '<div class="ad-field wide"><span>Start from</span><div class="st-starts">' + STARTS.map((s, i) => '<label><input type="radio" name="n-start" value="' + s[0] + '"' + (i ? '' : ' checked') + '><span><b>' + s[1] + '</b><small>' + s[2] + '</small></span></label>').join('') + '</div></div>' +
-      '</div>' +
-      '<div class="nb-row"><button class="nb-btn solid big" id="n-go" type="button">CREATE THE NOTEBOOK</button></div>' +
-      '<ul class="st-progress" id="n-progress" hidden></ul><div id="n-done"></div>' +
-      '</div></section>' +
+      panel('content', '<h2>Content</h2><p class="ad-lede">The basics of the new game. You can change all of this later in the editor.</p><div class="st-form st-lockable">' +
+        '<label class="ad-field"><span>Game name</span><input id="n-title" placeholder="e.g. Pitch Count" autocomplete="off"></label>' +
+        '<label class="ad-field"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="n-folder" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="n-folder-msg">Lowercase letters, numbers and dashes.</small></label>' +
+        '<label class="ad-field wide"><span>Tagline</span><input id="n-tagline" placeholder="One sentence: what it is and why it\'s fun."></label>' +
+        '<label class="ad-field wide"><span>The idea</span><textarea id="n-pitch" rows="4" placeholder="Who plays, what you do, what makes it fun. Leave a blank line between paragraphs."></textarea></label>' +
+        '<label class="ad-field"><span>Players</span><input id="n-players" value="2 to 6"></label>' +
+        '<label class="ad-field"><span>Time</span><input id="n-time" placeholder="About 30 minutes"></label>' +
+        '<label class="ad-field"><span>You need</span><input id="n-need" value="A pencil"></label>' +
+        '<label class="ad-field"><span>Price</span><input id="n-price" value="$9.99"></label></div>') +
 
-      '<section class="st-card"><div class="st-step-head"><span class="st-num">3</span><div><div class="st-kick">IN THE EDITOR</div><h2>Finish it and go live</h2></div></div>' +
-      '<p class="ad-lede">Creating a notebook opens it in the editor, which has a checklist for the rest. To come back to a notebook later, click EDIT on it under Notebooks below.</p><ol class="st-flow">' +
-      '<li><b>Shape it</b>Words, colours, rules, cover, inside pages, photos. A live preview shows each change.</li>' +
-      '<li><b>Save and publish</b>One button. The site republishes in about a minute.</li>' +
-      '<li><b>PDFs build</b>Cover, contents, print-at-home and free sampler, about 3 minutes after each save.</li>' +
-      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li>' +
-      '</ol></section>' +
+      panel('colors', '<h2>Colors</h2><p class="ad-lede">Pick a colour scheme for the game page, the cover and the inside pages. You can fine-tune each colour in the editor.</p>' +
+        '<div class="ad-presets st-lockable" id="n-colors"></div>') +
 
-      '<section class="st-card" id="games"><h2>Notebooks</h2><div id="st-games"><p class="ad-help">Loading…</p></div></section>' +
-      '</main>';
+      panel('template', '<h2>Template</h2><p class="ad-lede">What the new notebook starts from, and how many game sheets it holds.</p><div class="st-form st-lockable">' +
+        '<div class="ad-field wide"><span>Start from</span><div class="st-starts">' + STARTS.map((s, i) => '<label><input type="radio" name="n-start" value="' + s[0] + '"' + (i ? '' : ' checked') + '><span><b>' + s[1] + '</b><small>' + s[2] + '</small></span></label>').join('') + '</div></div>' +
+        '<label class="ad-field"><span>Game sheets in the notebook</span><input id="n-sheets" type="number" value="72" min="1" max="300"></label></div>') +
+
+      panel('create', '<h2>Create</h2><p class="ad-lede">Check the details, then create the notebook. It is copied from the template, saved to GitHub and published, and then opens in the editor.</p>' +
+        '<div id="n-summary"></div>' +
+        '<div class="nb-row st-lockable"><button class="nb-btn solid big" id="n-go" type="button">CREATE THE NOTEBOOK</button></div>' +
+        '<ul class="st-progress" id="n-progress" hidden></ul><div id="n-done"></div>') +
+
+      panel('games', '<h2>Notebooks</h2><p class="ad-lede">Every notebook game on the site. EDIT opens it in the editor.</p><div id="st-games"><p class="ad-help">Loading…</p></div>') +
+      '</main></div>';
 
     $('#n-colors').innerHTML = PRESETS.map((x, i) => '<button type="button" data-p="' + i + '"' + (i ? '' : ' aria-pressed="true"') + ' title="' + esc(x[0]) + '">' + x.slice(1).map(c => '<span style="background:' + c + '"></span>').join('') + '<b>' + esc(x[0]) + '</b></button>').join('');
     document.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { colors = PRESETS[+b.dataset.p].slice(1); document.querySelectorAll('[data-p]').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
@@ -67,19 +78,51 @@
     $('#n-title').oninput = () => { if (!folderTouched) { $('#n-folder').value = slugify($('#n-title').value); checkFolder(); } };
     $('#n-folder').oninput = () => { folderTouched = true; checkFolder(); };
     $('#n-go').onclick = create;
+    $('#n-go-top').onclick = () => { show('create'); create(); };
+    document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
+    document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
+    addEventListener('hashchange', () => { const h = location.hash.slice(1); const t = HASH[h] || h; if (t !== tab && TABS.some(x => x[0] === t)) show(t); });
     ghBox();
     loadGames();
+    const h = location.hash.slice(1), want = HASH[h] || h;
+    show(TABS.some(x => x[0] === want) ? want : GH.token() ? 'content' : 'setup');
   }
 
-  function setupState(ok, who) {
-    const card = $('#connect');
-    card.classList.toggle('done', ok);
+  function show(t) {
+    tab = t;
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === t));
+    document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== t; });
+    if (t === 'create') summary();
+    if (location.hash.slice(1) !== t) history.replaceState(null, '', '#' + t);
+    scrollTo(0, 0);
+  }
+
+  // What will be created, on the Create tab.
+  function summary() {
+    const v = id => ($(id).value || '').trim();
+    const pre = PRESETS.find(x => x.slice(1).join() === colors.join()) || ['Custom'].concat(colors);
+    const start = STARTS.find(s => s[0] === (document.querySelector('[name=n-start]:checked') || {}).value) || STARTS[0];
+    const row = (k, val, go) => '<tr><th>' + k + '</th><td>' + (val || '<i>not set</i>') + '</td><td><button type="button" class="ad-link" data-go="' + go + '">Change</button></td></tr>';
+    $('#n-summary').innerHTML = '<table class="st-sum">' +
+      row('Game name', esc(v('#n-title')), 'content') +
+      row('Web address', v('#n-folder') ? 'thegamebureau.com/' + esc(v('#n-folder')) + '/' : '', 'content') +
+      row('Tagline', esc(v('#n-tagline')), 'content') +
+      row('Colors', '<span class="st-sw">' + pre.slice(1).map(c => '<i style="background:' + c + '"></i>').join('') + '</span> ' + esc(pre[0]), 'colors') +
+      row('Template', esc(start[1]) + ', ' + esc(v('#n-sheets') || '72') + ' game sheets', 'template') + '</table>';
+    $('#n-summary').querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
+  }
+
+  function setupState(ok) {
     $('#st-badge').textContent = ok ? '✓ DONE' : 'NOT SET UP YET';
+    $('#st-badge').classList.toggle('done', ok);
     $('#st-setup-lede').hidden = ok;
-    const nw = $('#new');
-    nw.classList.toggle('st-locked', !ok);
-    $('#st-locked-msg').hidden = ok;
-    nw.querySelectorAll('#st-new-body input, #st-new-body textarea, #st-new-body button').forEach(el => { el.disabled = !ok; });
+    document.querySelectorAll('.st-lockable').forEach(box => { box.classList.toggle('st-locked', !ok); box.querySelectorAll('input, textarea, button').forEach(el => { el.disabled = !ok; }); });
+    $('#n-go-top').disabled = !ok;
+    const bar = $('#st-bar');
+    if (ok) { bar.className = 'ad-bar'; bar.textContent = ''; }
+    else { bar.className = 'ad-bar show warn'; bar.innerHTML = 'Finish the one-time setup first: <button type="button" class="ad-link" data-go="setup">Connect GitHub in Setup</button>. Making a notebook unlocks after that.'; bar.querySelector('[data-go]').onclick = () => show('setup'); }
+    $('#st-side').innerHTML = ok ? '<p>GitHub connected.</p>' : '<p><b>One-time setup needed.</b> See <button type="button" class="ad-link" id="st-side-go">Setup</button>.</p>';
+    if (!ok) $('#st-side-go').onclick = () => show('setup');
   }
 
   function ghBox() {
@@ -103,7 +146,7 @@
     $('#st-tok-save').onclick = async () => {
       $('#st-tok-msg').textContent = 'Checking…';
       GH.setToken($('#st-tok').value.trim());
-      try { await GH.check(); ghBox(); loadGames(); location.hash = 'new'; } catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
+      try { await GH.check(); ghBox(); loadGames(); show('content'); } catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
     };
   }
 
@@ -178,11 +221,11 @@
     const title = $('#n-title').value.trim();
     const folder = $('#n-folder').value.trim();
     const start = (document.querySelector('[name=n-start]:checked') || {}).value;
-    if (!GH.token()) { location.hash = 'connect'; $('#st-tok') && $('#st-tok').focus(); return; }
-    if (!title) { $('#n-title').focus(); return; }
+    if (!GH.token()) { show('setup'); $('#st-tok') && $('#st-tok').focus(); return; }
+    if (!title) { show('content'); $('#n-title').focus(); return; }
     if (!files) await loadGames();
-    if (!checkFolder()) { $('#n-folder').focus(); return; }
-    const go = $('#n-go'); go.disabled = true;
+    if (!checkFolder()) { show('content'); $('#n-folder').focus(); return; }
+    const go = $('#n-go'); go.disabled = true; $('#n-go-top').disabled = true;
     const steps = [['Copy the template', 'doing'], ['Fill in your details', ''], ['Save to GitHub', ''], ['Wait for the site to publish (about a minute)', '']];
     const mark = (i, s) => { steps[i][1] = s; progress(steps); };
     progress(steps);
@@ -206,7 +249,7 @@
       const specs = [['PLAYERS', $('#n-players').value.trim()], ['TIME', $('#n-time').value.trim()], ['YOU NEED', $('#n-need').value.trim()]].filter(s => s[1]);
       if (start === 'studio/starter' || specs.length) g.specs = specs;
       g.brand = { color: colors[0], accent: colors[1], paper: colors[2], ink: colors[3] };
-      g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 24) });
+      g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 72) });
       g.setup = { colors: true };
       g.order = Object.assign({}, g.order, { url: '' });
 
@@ -233,7 +276,7 @@
     } catch (e) {
       const i = steps.findIndex(s => s[1] === 'doing'); if (i >= 0) mark(i, 'fail');
       $('#n-done').innerHTML = '<div class="ad-status bad" style="margin-top:14px">' + esc(e.message) + '</div>';
-    } finally { go.disabled = false; }
+    } finally { go.disabled = false; $('#n-go-top').disabled = false; }
   }
 
   document.addEventListener('DOMContentLoaded', () => { if (document.body.dataset.page === 'studio') page(); });

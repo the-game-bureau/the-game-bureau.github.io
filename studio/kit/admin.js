@@ -111,7 +111,7 @@
     $('#ad-discard').disabled = !dirty;
     if (isTemplate && !allowTemplate) {
       bar.className = 'ad-bar show warn';
-      bar.innerHTML = 'This is the template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/#new">Start a new notebook from it</a> in the studio.';
+      bar.innerHTML = 'This is the template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/#content">Start a new notebook from it</a> in the studio.';
       $('#ad-save').disabled = true;
       return;
     }
@@ -123,7 +123,7 @@
     const el = $('#ad-gh');
     el.innerHTML = GH.token()
       ? '<p>GitHub connected.</p><button type="button" class="ad-link" id="ad-gh-forget">Disconnect</button>'
-      : '<p><b>One-time setup needed</b> before you can save and build. Follow step 1 in the <a href="/studio/#connect">Notebook Studio</a>, or paste the GitHub token here.</p><input id="ad-gh-in" type="password" placeholder="github_pat_..." autocomplete="off"><button type="button" class="nb-btn" id="ad-gh-save">CONNECT</button>' +
+      : '<p><b>One-time setup needed</b> before you can save and build. Follow Setup in the <a href="/studio/#setup">Notebook Studio</a>, or paste the GitHub token here.</p><input id="ad-gh-in" type="password" placeholder="github_pat_..." autocomplete="off"><button type="button" class="nb-btn" id="ad-gh-save">CONNECT</button>' +
         '<p class="ad-help">Make a <a href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">fine-grained token</a> for ' + esc(GH.REPO) + ' only, with Contents and Actions set to Read and write. It stays in this browser.</p>';
     if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); };
     else $('#ad-gh-save').onclick = async () => {
@@ -564,7 +564,7 @@
   async function save() {
     if (!changed()) return;
     if (isTemplate && !allowTemplate) return;
-    if (!GH.token()) { updateBar('Saving needs the one-time setup first: <a href="/studio/#connect">step 1 in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
+    if (!GH.token()) { updateBar('Saving needs the one-time setup first: <a href="/studio/#setup">Setup in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
     const g = draft.game;
     if (!g.title) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
     $('#ad-save').disabled = true;

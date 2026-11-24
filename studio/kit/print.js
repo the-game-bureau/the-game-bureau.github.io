@@ -143,7 +143,7 @@
         specs: '<div class="pk-specs">' + (g.specs || []).map(sp => '<div><b>' + NB.esc(sp[0]) + '</b>' + NB.esc(sp[1]) + '</div>').join('') + '</div>',
         description: (g.description || []).map(p => '<p>' + NB.esc(p) + '</p>').join(''),
       };
-      vars.sheets = String(g.print.sheets || 24);
+      vars.sheets = String(g.print.sheets || 72);
       vars.kicker = g.kicker || '';
       document.body.innerHTML = document.body.innerHTML
         .replace(/\{\{(steps|specs|description)\}\}/g, (x, k) => html[k])
