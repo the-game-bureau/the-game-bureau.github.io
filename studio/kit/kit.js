@@ -66,12 +66,20 @@
     s.setProperty('--ink', g.brand.ink);
   };
 
-  NB.loadRules = async function () {
+  // What the rules are called (game.json "rulesName", e.g. "How to Play"). Default "Rules".
+  NB.rulesName = g => ((g && g.rulesName) || '').trim() || 'Rules';
+  // With a custom name, the starter heading "# <Title> rules" becomes "# <Title>: <name>".
+  const nameRules = (text, g) => {
+    if (!g || NB.rulesName(g) === 'Rules') return text;
+    const h = '# ' + g.title + ' rules';
+    return text.replace(/^\s*# .*$/m, line => line.trim().toLowerCase() === h.toLowerCase() ? '# ' + g.title + ': ' + NB.rulesName(g) : line);
+  };
+  NB.loadRules = async function (g) {
     const d = NB.draft();
-    if (d && d.rules != null) return NB.md(d.rules);
+    if (d && d.rules != null) return NB.md(nameRules(d.rules, g));
     const r = await fetch('./rules.md', { cache: 'no-cache' });
     if (!r.ok) throw new Error('rules.md not found (' + r.status + ')');
-    return NB.md(await r.text());
+    return NB.md(nameRules(await r.text(), g));
   };
 
   // ---------- a small Markdown renderer for rules.md ----------
@@ -161,12 +169,12 @@
     '<header class="nb-bar"><div class="nb-wrap">' +
     '<a class="nb-home" href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a>' +
     '<nav>' +
-    (here !== 'rules' ? '<a href="./rules.html">RULES</a>' : '') +
+    (here !== 'rules' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     '</nav></div></header>';
   const footer = g =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
-    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a><a href="./rules.html">RULES</a><a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
+    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a><a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a><a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
     '<a href="/">THEGAMEBUREAU.COM</a></div></footer>';
 
   // ---------- public page ----------
@@ -199,7 +207,7 @@
       '<p class="nb-note" id="nb-order-note" role="status" hidden>' + esc(order.comingSoon || 'Printed copies are coming soon. In the meantime, try the free sampler.') + '</p>' +
       '<div class="nb-row">' +
       '<button class="nb-btn" type="button" id="nb-share">SHARE</button>' +
-      '<a class="nb-btn" href="./rules.html">FULL RULES</a>' +
+      '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
       '</div>' +
       (order.shippingNote ? '<p class="nb-fine">' + esc(order.shippingNote) + '</p>' : '') +
@@ -222,8 +230,8 @@
         '</div></section>' : '') +
 
       '<section class="nb-block"><div class="nb-wrap nb-card nb-rules-cta">' +
-      '<div><h2>The full rules</h2><p>' + esc(g.rulesBlurb || 'Everything you need to play, on one page. The same rules are printed inside the notebook.') + '</p></div>' +
-      '<a class="nb-btn solid big" href="./rules.html">READ THE RULES</a>' +
+      '<div><h2>' + (NB.rulesName(g) === 'Rules' ? 'The full rules' : esc(NB.rulesName(g))) + '</h2><p>' + esc(g.rulesBlurb || 'Everything you need to play, on one page. The same rules are printed inside the notebook.') + '</p></div>' +
+      '<a class="nb-btn solid big" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'READ THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '</div></section>' +
       '</main>' + footer(g);
 
@@ -279,13 +287,13 @@
     document.body.insertAdjacentHTML('afterbegin',
       header(g, 'rules') +
       '<main class="nb-wrap nb-rules-page">' +
-      '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a><button class="nb-btn" type="button" onclick="print()">PRINT THE RULES</button></div>' +
+      '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a><button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button></div>' +
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
       '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a></div></div>' +
       '</main>' + footer(g));
-    document.title = g.title + ' rules | The Game Bureau';
+    document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';
     const el = document.getElementById('nb-rules');
-    try { el.innerHTML = await NB.loadRules(); } catch (e) { el.innerHTML = '<p>' + esc(e.message) + '</p>'; }
+    try { el.innerHTML = await NB.loadRules(g); } catch (e) { el.innerHTML = '<p>' + esc(e.message) + '</p>'; }
   };
 
   // ---------- boot ----------
