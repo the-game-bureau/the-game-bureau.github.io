@@ -31,7 +31,7 @@
 
       '<section class="st-card st-setup" id="connect"><div class="st-step-head"><span class="st-num">1</span><div><div class="st-kick">ONE-TIME SETUP · ABOUT 2 MINUTES</div><h2>Set up the studio</h2></div><span class="st-badge" id="st-badge"></span></div>' +
       '<p class="ad-lede" id="st-setup-lede">The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
-      '<div id="st-gh"></div>' + lockHow() + '</section>' +
+      '<div id="st-gh"></div></section>' +
 
       '<section class="st-card" id="new"><div class="st-step-head"><span class="st-num">2</span><div><div class="st-kick">EVERY NEW GAME</div><h2>Make a notebook</h2></div></div>' +
       '<p class="st-locked-msg" id="st-locked-msg">Finish step 1 first. This form unlocks once the studio is set up.</p>' +
@@ -84,22 +84,6 @@
     nw.classList.toggle('st-locked', !ok);
     $('#st-locked-msg').hidden = ok;
     nw.querySelectorAll('#st-new-body input, #st-new-body textarea, #st-new-body button').forEach(el => { el.disabled = !ok; });
-  }
-
-  // Optional: put Cloudflare Access (free) in front of the studio, which holds the editor too.
-  function lockHow() {
-    const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
-    const site = GH.SITE;
-    return '<details class="ad-how st-lock"><summary>Optional: lock the studio so only you can open it (Cloudflare Access, about 10 minutes)</summary>' +
-      '<p>Without the GitHub key nobody can change anything, because the key lives only in your browser. Locking the pages also stops anyone from seeing them. ' +
-      'Cloudflare asks for your email and sends you a code. You stay signed in on that browser for a month.</p><ol>' +
-      '<li>In <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>, open ' + c(site) + ', then <b>DNS, Records</b>. The records for ' + c(site) + ' must show <b>Proxied</b> (orange cloud). Access only works on proxied addresses.</li>' +
-      '<li>Open <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Zero Trust</a>. The first time, pick a team name and the <b>Free</b> plan (up to 50 people). It may ask for a card even for the free plan.</li>' +
-      '<li><b>Access, Applications, Add an application, Self-hosted.</b> Name ' + c('Notebook Studio') + ', session duration ' + c('1 month') + '. Add a destination (public hostname): domain ' + c(site) + ' with path ' + c('studio') + '. That covers the editor too.</li>' +
-      '<li>Add a policy: name ' + c('Only me') + ', action <b>Allow</b>, Include <b>Emails</b> and type your email (add anyone else who should get in). Login method: <b>One-time PIN</b>. Save the application.</li>' +
-      '<li>Add one more <b>Self-hosted</b> application so game pages keep their look: name ' + c('Notebook kit (public)') + ', domain ' + c(site) + ', path ' + c('studio/kit') + '. Policy: name ' + c('Everyone') + ', action <b>Bypass</b>, Include <b>Everyone</b>. Save. The more exact path wins, so the kit stays open while the rest of /studio/ is locked.</li>' +
-      '<li>Check it in a private window: <a href="/studio/" target="_blank" rel="noopener">/studio/</a> and the editor should ask for your email. A game made here, at /your-game/, should open for everyone and look normal. The sample game sits inside /studio/, so it is private too.</li>' +
-      '</ol></details>';
   }
 
   function ghBox() {

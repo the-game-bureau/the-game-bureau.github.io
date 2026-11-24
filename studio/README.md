@@ -80,7 +80,7 @@ Old `/template/` links redirect to `/studio/`.
 
 **Keeping it private.** Nothing can be changed without the GitHub token, which is stored only in
 the browser that set up the studio. To also hide the studio (and its editor), put
-Cloudflare Access (free plan) in front of it. Step 1 in the studio has the full steps: one
+Cloudflare Access (free plan) in front of it. Steps: in Cloudflare Zero Trust, one
 Self-hosted application for `thegamebureau.com/studio` (Allow, your email, One-time PIN), and a second one for `thegamebureau.com/studio/kit` with a
 Bypass policy for Everyone, because every public game page loads the kit. The studio and editor
 are also marked `noindex`. Games no longer have their own `admin.html`; an old one is removed
