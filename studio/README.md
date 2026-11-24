@@ -71,6 +71,11 @@ Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Not
 5. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
    the game page shows pictures of the cover and pages from the build.
 
+**Editing pages with an AI.** The Cover and Inside pages tabs have an "Edit this page with an AI"
+box. COPY FOR AI copies the page size, the layout rules and the whole file for a chat AI, and
+PASTE AI ANSWER puts its reply back in the editor (nothing is saved until Save and publish).
+For an AI that can use GitHub, it shows the repository, the file path and what to tell it.
+
 Old `/template/` links redirect to `/studio/`.
 
 **Keeping it private.** Nothing can be changed without the GitHub token, which is stored only in

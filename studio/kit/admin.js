@@ -330,14 +330,80 @@
   }
 
   // ---------- tabs: rules, cover, contents (code editors) ----------
+  // ---------- editing a page with an AI ----------
+  // What an AI needs to know to edit cover.html or contents.html without breaking the print layout.
+  function aiBrief(key) {
+    const g = draft.game, P = Object.assign({ trim: [8.5, 11], bleed: 0.125, margin: 0.5 }, g.print || {});
+    const file = FOLDER + '/' + key + '.html';
+    const common = [
+      'This is ' + file + ' for "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
+      'It is printed as a book: trim ' + P.trim[0] + ' x ' + P.trim[1] + ' in, bleed ' + P.bleed + ' in on every outside edge, and a safe margin of ' + P.margin + ' in inside the trim for text.',
+      'The page loads /studio/kit/print.css and /studio/kit/print.js, which size and lay out the pages. Keep those tags and the <body> attributes as they are. Use inches or points, never px or vw.',
+      'Colours: var(--brand) var(--accent) var(--paper) var(--ink). Fonts: "NB Display" (headings) and "NB Text" (body). Keep it printable: no scripts, animations or web fonts from other sites.',
+    ];
+    const per = key === 'cover' ? [
+      'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is narrow (about ' + (P.spine || 0.03) + ' in for a thin book), so keep it to one short line or leave it empty.',
+      'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}}. Keep them as placeholders rather than typing the text in.',
+      'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file: <img src="images/name.jpg">.',
+    ] : [
+      'Keep <section data-rules></section>: the rules flow in there from rules.md.',
+      'Each <section class="page"> is exactly one page, already padded to the safe area. Anything that overflows is cut off, so design to fit one page.',
+      '<template data-repeat="{{sheets}}"> repeats the pages inside it ({{sheets}} = ' + ((g.print && g.print.sheets) || 'the number of game sheets') + '). Inside it, {{n}} is the copy number. With data-per="2", {{i}} and {{i+1}} number two items per page.',
+      'Pages marked data-sampler go in the free sampler. Put page-specific CSS in the <style> block in the <head>.',
+    ];
+    return common.concat(per);
+  }
+  let aiOpen = false; // keeps the AI box open after pasting re-draws the tab
+  function aiBox(key) {
+    const file = FOLDER + '/' + key + '.html';
+    const gh = 'https://github.com/' + GH.REPO + '/blob/' + GH.BRANCH + '/' + file;
+    const live = 'https://' + GH.SITE + '/' + file;
+    const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
+    return '<details class="ad-help-box ad-ai"' + (aiOpen ? ' open' : '') + '><summary>Edit this page with an AI</summary>' +
+      '<p><b>With a chat AI</b> (Claude, ChatGPT and so on):</p><ol>' +
+      '<li>Click <button type="button" class="nb-btn" id="ad-ai-copy">COPY FOR AI</button> and paste into the chat. It copies the page size, the layout rules and this whole file. Then say what you want, for example "add a page for tracking each player\'s best score".</li>' +
+      '<li>Copy the AI\'s whole answer and click <button type="button" class="nb-btn" id="ad-ai-paste">PASTE AI ANSWER</button>. The editor and preview update. Nothing is saved until you click Save and publish, and <i>Undo all changes to this file</i> puts it back.</li></ol>' +
+      '<p id="ad-ai-msg" class="ad-help"></p>' +
+      '<p><b>With an AI that can use GitHub</b> (such as Claude Code), point it at the file:</p><ul>' +
+      '<li>Repository ' + c(GH.REPO) + ', branch ' + c(GH.BRANCH) + ', file ' + c(file) + ' (<a href="' + gh + '" target="_blank" rel="noopener">open on GitHub</a>).</li>' +
+      '<li>Live page to look at: <a href="' + live + '" target="_blank" rel="noopener">' + esc(live) + '</a>.</li>' +
+      '<li>Tell it to read ' + c('studio/README.md') + ' and ' + c('studio/kit/print.css') + ' first, change only ' + c(file) + ', and commit to ' + c(GH.BRANCH) + '. The PDFs rebuild about 3 minutes after the commit.</li>' +
+      '<li>Then reload this page. If it says you have unsaved changes to this file, click <i>Undo all changes to this file</i> to see the AI\'s version.</li></ul></details>';
+  }
+  function bindAi(key) {
+    const ta = $('#ad-code'), msg = $('#ad-ai-msg');
+    $('#ad-ai-copy').onclick = () => {
+      const text = 'Please edit this page of my notebook game.\n\n' + aiBrief(key).map(x => '- ' + x).join('\n') +
+        '\n\nReply with the complete updated file in one ```html code block, with nothing left out.\n\nWhat I want: [describe your change here]\n\nThe current file:\n```html\n' + draft[key] + '\n```\n';
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+        () => { msg.textContent = 'Copied. Paste it into your AI chat and replace [describe your change here] with what you want.'; },
+        () => { msg.textContent = 'Your browser blocked copying. Select the editor text instead.'; });
+    };
+    const apply = raw => {
+      const m = raw.match(/```(?:html)?\s*\n([\s\S]*?)```/i);
+      const code = (m ? m[1] : raw).trim();
+      if (!/<html[\s>]|<!doctype/i.test(code)) { msg.textContent = 'That doesn\'t look like a whole HTML file. Ask the AI for the complete file in one code block.'; return; }
+      draft[key] = code + '\n'; persist(); aiOpen = true; show(tab); aiOpen = false;
+      const m2 = $('#ad-ai-msg'); if (m2) m2.textContent = 'Pasted. Check the preview, then Save and publish.';
+    };
+    $('#ad-ai-paste').onclick = async () => {
+      let raw = '';
+      try { raw = await navigator.clipboard.readText(); } catch (e) { raw = prompt('Paste the AI\'s answer here:') || ''; }
+      if (raw) apply(raw);
+    };
+  }
+
   function codeTab(p, key, title, lede, help) {
-    p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' +
+    const ai = key === 'cover' || key === 'contents';
+    p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
       '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
       '<div class="ad-code-foot"><button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
       '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>';
     const ta = $('#ad-code');
     ta.oninput = () => { draft[key] = ta.value; persist(); };
     ta.onkeydown = e => { if (e.key === 'Tab' && key !== 'rules') { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('  ', s, ta.selectionEnd, 'end'); ta.oninput(); } };
+    if (ai) bindAi(key);
+    p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).catch(() => {}); }; });
     $('#ad-revert').onclick = () => { if (confirm('Put this file back the way it was last saved?')) { draft[key] = saved[key]; persist(); show(tab); } };
   }
   const tabRules = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
