@@ -76,6 +76,10 @@ box. COPY FOR AI copies the page size, the layout rules and the whole file for a
 PASTE AI ANSWER puts its reply back in the editor (nothing is saved until Save and publish).
 For an AI that can use GitHub, it shows the repository, the file path and what to tell it.
 
+**Deleting a notebook.** Under Notebooks, DELETE asks you to type the folder name, then removes
+the whole folder in one commit (it can be brought back from the git history). The template
+folders under `studio/` have no DELETE button.
+
 Old `/template/` links redirect to `/studio/`.
 
 **Keeping it private.** Nothing can be changed without the GitHub token, which is stored only in

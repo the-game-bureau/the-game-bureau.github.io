@@ -120,11 +120,45 @@
         '<div class="st-game"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
         (folder.startsWith('studio/') ? '<span class="tag">TEMPLATE</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
-        '<div class="nb-row"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a></div></div></div>').join('') + '</div>';
+        '<div class="nb-row"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a>' +
+        (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
+        '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
+      box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn); });
       checkFolder();
     } catch (e) {
       box.innerHTML = '<p class="ad-help">Could not list notebooks: ' + esc(e.message) + '</p>';
     }
+  }
+
+  // ---------- deleting a notebook ----------
+  // The template folders (studio/...) can never be deleted from here.
+  const canDelete = folder => /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(folder) && !/^(studio|template)(\/|$)/.test(folder);
+  function askDelete(btn) {
+    const folder = btn.dataset.del, title = btn.dataset.title;
+    const box = btn.closest('.b').querySelector('.st-del-box');
+    if (!box.hidden) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = '<p><b>Are you sure?</b> This deletes the whole <code>/' + esc(folder) + '/</code> folder: the game page, rules, PDFs and photos. ' +
+      'Links to thegamebureau.com/' + esc(folder) + '/ will stop working.</p>' +
+      '<label class="ad-field"><span>Type <b>' + esc(folder) + '</b> to confirm</span><input class="st-del-in" autocomplete="off" spellcheck="false"></label>' +
+      '<div class="nb-row"><button type="button" class="nb-btn st-del-go" disabled>DELETE ' + esc(title.toUpperCase()) + '</button><button type="button" class="nb-btn st-del-no">CANCEL</button></div><p class="ad-help st-del-msg"></p>';
+    const input = box.querySelector('.st-del-in'), go = box.querySelector('.st-del-go'), msg = box.querySelector('.st-del-msg');
+    input.oninput = () => { go.disabled = input.value.trim() !== folder; };
+    box.querySelector('.st-del-no').onclick = () => { box.hidden = true; };
+    go.onclick = async () => {
+      if (input.value.trim() !== folder || !canDelete(folder)) return;
+      go.disabled = true; input.disabled = true; msg.textContent = 'Deleting…';
+      try {
+        const all = await GH.listFiles();
+        const doomed = all.filter(f => f.path.startsWith(folder + '/'));
+        if (!doomed.some(f => f.path === folder + '/game.json')) throw new Error('/' + folder + '/ is not a notebook folder, so it was left alone.');
+        await GH.commit(doomed.map(f => ({ path: f.path, delete: true })), 'Delete the ' + title + ' notebook (/' + folder + '/)', s => { msg.textContent = s; });
+        try { localStorage.removeItem(NB.draftKey('/' + folder + '/')); } catch (e) { /* blocked */ }
+        msg.textContent = 'Deleted. The page goes offline when the site republishes, in about a minute.';
+        loadGames();
+      } catch (e) { msg.textContent = 'Not deleted: ' + e.message; go.disabled = false; input.disabled = false; }
+    };
+    input.focus();
   }
 
   function checkFolder() {
