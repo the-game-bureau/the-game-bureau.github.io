@@ -1,0 +1,105 @@
+name: Build notebook PDFs
+run-name: Notebook PDFs · ${{ inputs.game || 'changed games' }}
+
+# Builds a notebook game's PDFs (cover, contents, print-at-home, free sampler) with
+# template/kit/build-pdfs.js and commits them to <game>/pdf/.
+# Started from a game's admin page (Build PDFs), from the Actions tab, or on its own
+# when a notebook game's pages or the kit change on main.
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: 'Game folder from the site root, e.g. template/dice-derby'
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '**/game.json'
+      - '**/rules.md'
+      - '**/cover.html'
+      - '**/contents.html'
+      - 'template/kit/**'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: notebook-pdfs
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Pick the games to build
+        id: games
+        env:
+          INPUT_GAME: ${{ inputs.game }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          is_game() { [ -f "$1/game.json" ] && grep -q '"kit": *"notebook"' "$1/game.json"; }
+          if [ -n "$INPUT_GAME" ]; then
+            game="${INPUT_GAME#/}"; game="${game%/}"
+            if ! printf '%s' "$game" | grep -Eq '^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$' || ! is_game "$game"; then
+              echo "::error::'$INPUT_GAME' is not a notebook game folder (needs game.json with \"kit\": \"notebook\")"; exit 1
+            fi
+            games="$game"
+          else
+            changed=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+            if echo "$changed" | grep -q '^template/kit/'; then
+              games=$(find . -maxdepth 4 -name game.json -not -path './.git/*' -exec dirname {} \; | sed 's#^\./##' | while read -r d; do is_game "$d" && echo "$d"; done)
+            else
+              # For each changed file, walk up to the nearest folder that is a notebook game.
+              games=$(echo "$changed" | while read -r f; do
+                d=$(dirname "$f")
+                while [ "$d" != "." ] && [ -n "$d" ]; do
+                  if is_game "$d"; then echo "$d"; break; fi
+                  d=$(dirname "$d")
+                done
+              done | sort -u)
+            fi
+          fi
+          games=$(echo $games)
+          echo "Games: ${games:-none}"
+          echo "list=$games" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.games.outputs.list != ''
+        with:
+          node-version: 20
+
+      - name: Install Playwright and pdf-lib
+        if: steps.games.outputs.list != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/pdfdeps" && cd "$RUNNER_TEMP/pdfdeps"
+          npm init -y >/dev/null
+          npm i playwright@1.49.1 pdf-lib@1.17.1
+          npx playwright install --with-deps chromium
+
+      - name: Render PDFs
+        if: steps.games.outputs.list != ''
+        env:
+          GAMES: ${{ steps.games.outputs.list }}
+        run: NODE_PATH="$RUNNER_TEMP/pdfdeps/node_modules" node template/kit/build-pdfs.js $GAMES
+
+      - name: Commit PDFs
+        if: steps.games.outputs.list != ''
+        env:
+          GAMES: ${{ steps.games.outputs.list }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for g in $GAMES; do git add "$g/pdf"; done
+          git commit -m "Rebuild notebook PDFs: $GAMES" || { echo "No changes"; exit 0; }
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # Pushes made with GITHUB_TOKEN don't start other workflows, so start the Pages deploy here.
+          gh workflow run deploy.yml --ref main
