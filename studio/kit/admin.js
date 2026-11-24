@@ -50,6 +50,11 @@
   let build = null;   // pdf/build.json
   let tab = 'checklist';
   const pending = (window.NB_PENDING = {}); // images/x.jpg -> data URL, picked but not saved
+  // Previews read the editor's current state straight from here (kit.js NB.draft), not from storage.
+  window.NB_LIVE_KEY = DKEY;
+  window.NB_LIVE = () => draft && { game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents };
+  // The kit version this page loaded, so previews never run an older cached kit.
+  const KITV = ((document.currentScript && document.currentScript.src.match(/[?&]v=([\w.-]+)/)) || [])[1] || String(Date.now());
   const pendingB64 = {};
   const isTemplate = !IS_NEW && /^studio\//.test(FOLDER);
   let allowTemplate = false;
@@ -194,12 +199,14 @@
     const f = $('#ad-pv');
     if (!f) return;
     const mode = pvMode[tab];
-    const doc = (html, query) => html.replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">');
-    const dq = '&draft=' + encodeURIComponent(DKEY);
+    const doc = (html, query) => html
+      .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
+      .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
     const box = f.parentElement;
     box.className = 'ad-pv-box ' + (['page', 'rules'].includes(mode) ? 'web' : 'print');
-    if (mode === 'page') { f.removeAttribute('srcdoc'); f.src = BASE + '?preview=1' + dq + '&t=' + Date.now(); }
-    else if (mode === 'rules') { f.removeAttribute('srcdoc'); f.src = BASE + 'rules.html?preview=1' + dq + '&t=' + Date.now(); }
+    const shells = GH.shells(FOLDER, draft.game);
+    if (mode === 'page') f.srcdoc = doc(shells['index.html'], '');
+    else if (mode === 'rules') f.srcdoc = doc(shells['rules.html'], '');
     else if (['spread', 'front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
@@ -456,7 +463,7 @@
       'This is ' + file + ', the rules of "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
       'The same text is the rules page on the website (' + GH.SITE + '/' + target() + '/rules.html) and the first printed pages of the notebook, so write it for someone holding the book and a pencil.',
       'It is Markdown: # for the one title at the top, ## for sections, ### for sub-sections, 1. for numbered steps, - for bullet points, **bold**, *italic*, > for a highlighted tip box, and --- for a line. No HTML, tables or images.',
-      'Keep the "# ' + (g.title || 'Title') + ' rules" heading first: the website swaps it for the game\'s rules name. Keep steps short and clear, in the order players do them.',
+      'Keep the "# {{title}} rules" heading first, written exactly like that: {{title}} becomes the game\'s name, and the website swaps "rules" for the game\'s rules name. Keep steps short and clear, in the order players do them.',
     ];
     const common = [
       'This is ' + file + ' for "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
