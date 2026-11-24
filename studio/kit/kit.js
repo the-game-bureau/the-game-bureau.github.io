@@ -5,7 +5,7 @@
  * and say which page they are with <body data-page="...">:
  *   public   index.html     photos and videos, explanation, order, share, rules link
  *   rules    rules.html     the full rules, rendered from rules.md
- *   editor   /studio/edit.html?game=<folder> edits the game and builds its PDFs (see admin.js)
+ *   editor   /studio/?game=<folder> edits the game and builds its PDFs (see admin.js)
  * The printable pages (cover.html, contents.html) use print.js instead.
  */
 (function () {
@@ -16,6 +16,35 @@
   // ---------- helpers ----------
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   NB.esc = esc;
+  // Colour schemes offered in the studio and the editor: name, brand, accent, paper, ink.
+  // Brand and ink are dark enough for white or paper text; accent is the bright highlight.
+  NB.PRESETS = [
+    ['Navy and gold', '#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'],
+    ['Field green', '#2D5016', '#FFD400', '#FFFDF5', '#101510'],
+    ['Brick', '#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
+    ['Teal', '#0F5C63', '#F28C38', '#F7FBFA', '#10201F'],
+    ['Plum', '#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'],
+    ['Charcoal', '#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
+    ['Royal', '#283593', '#00BFA6', '#F8F9FF', '#14162B'],
+    ['Pink', '#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
+    ['Midnight', '#14213D', '#FCA311', '#FAF7F0', '#0E1424'],
+    ['Forest', '#1E4D3A', '#E9C46A', '#F9F7EE', '#0F1F18'],
+    ['Crimson', '#9B111E', '#F4D35E', '#FFF9F0', '#1F0E10'],
+    ['Ocean', '#035E7B', '#FF6B6B', '#F4FAFB', '#0B1E26'],
+    ['Espresso', '#4A2C1D', '#D9A441', '#FBF6EE', '#1B120D'],
+    ['Slate', '#3D4F5C', '#7FD1AE', '#F7F9F9', '#151C21'],
+    ['Grape', '#3F1D5A', '#FF9F1C', '#FCF8FF', '#170D21'],
+    ['Olive', '#4B5320', '#E76F51', '#FBFAF2', '#191B0C'],
+    // NHL team colours.
+    ['Bruins', '#111111', '#FFB81C', '#FFFBF0', '#111111'],
+    ['Canadiens', '#192168', '#E03A3E', '#FFFFFF', '#10142E'],
+    ['Oilers', '#041E42', '#FF4C00', '#FAF8F5', '#041E42'],
+    ['Kraken', '#001628', '#99D9D9', '#F5FBFB', '#001628'],
+    ['Flyers', '#1A1A1A', '#F74902', '#FFFAF5', '#111111'],
+    ['Avalanche', '#6F263D', '#6CACE4', '#FBF8F9', '#22101A'],
+    ['Wild', '#154734', '#A6192E', '#F8F3E6', '#0E2219'],
+    ['Golden Knights', '#333F48', '#B4975A', '#FAF8F3', '#151A1E'],
+  ];
 
   // ---------- drafts (live preview from the admin page) ----------
   // The admin page keeps unsaved edits in localStorage under this folder's key. A page opened

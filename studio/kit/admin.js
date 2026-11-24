@@ -1,4 +1,4 @@
-/* Notebook kit: the game editor in the studio (/studio/edit.html?game=<folder>). Needs kit.js and gh.js.
+/* Notebook kit: the game editor in the studio (/studio/?game=<folder>). Needs kit.js and gh.js.
  *
  * Everything about one notebook in one place:
  *   Setup        the steps from idea to a live notebook, ticked off as you go
@@ -16,23 +16,14 @@
 (function () {
   'use strict';
   const NB = window.NB, GH = window.GH, esc = NB.esc;
-  // The game being edited: /studio/edit.html?game=<folder> (or a legacy <folder>/admin.html).
+  // The game being edited: /studio/?game=<folder> (or a legacy <folder>/admin.html).
   const QS = new URLSearchParams(location.search).get('game') || '';
   const FOLDER = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
-    : /\/studio\/edit\.html$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+    : /^\/studio\/(index\.html|edit\.html)?$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
   const BASE = '/' + FOLDER + '/'; // the game's folder on the site
   const DKEY = NB.draftKey('/' + FOLDER + '/');
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
-  const PRESETS = [
-    ['Navy and gold', '#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'],
-    ['Field green', '#2D5016', '#FFD400', '#FFFDF5', '#101510'],
-    ['Brick', '#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
-    ['Teal', '#0F5C63', '#F28C38', '#F7FBFA', '#10201F'],
-    ['Plum', '#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'],
-    ['Charcoal', '#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
-    ['Royal', '#283593', '#00BFA6', '#F8F9FF', '#14162B'],
-    ['Pink', '#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
-  ];
+  const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   const TABS = [['setup', 'Setup'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs']];
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
@@ -339,10 +330,17 @@
 
   // ---------- tabs: rules, cover, contents (code editors) ----------
   // ---------- editing a page with an AI ----------
-  // What an AI needs to know to edit cover.html or contents.html without breaking the print layout.
+  // What an AI needs to know to edit rules.md, cover.html or contents.html without breaking the print layout.
+  const aiFile = key => key === 'rules' ? 'rules.md' : key + '.html';
   function aiBrief(key) {
     const g = draft.game, P = Object.assign({ trim: [8.5, 11], bleed: 0.125, margin: 0.5 }, g.print || {});
-    const file = FOLDER + '/' + key + '.html';
+    const file = FOLDER + '/' + aiFile(key);
+    if (key === 'rules') return [
+      'This is ' + file + ', the rules of "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
+      'The same text is the rules page on the website (' + GH.SITE + '/' + FOLDER + '/rules.html) and the first printed pages of the notebook, so write it for someone holding the book and a pencil.',
+      'It is Markdown: # for the one title at the top, ## for sections, ### for sub-sections, 1. for numbered steps, - for bullet points, **bold**, *italic*, > for a highlighted tip box, and --- for a line. No HTML, tables or images.',
+      'Keep the "# ' + (g.title || 'Title') + ' rules" heading first: the website swaps it for the game\'s rules name. Keep steps short and clear, in the order players do them.',
+    ];
     const common = [
       'This is ' + file + ' for "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
       'It is printed as a book: trim ' + P.trim[0] + ' x ' + P.trim[1] + ' in, bleed ' + P.bleed + ' in on every outside edge, and a safe margin of ' + P.margin + ' in inside the trim for text.',
@@ -363,34 +361,36 @@
   }
   let aiOpen = false; // keeps the AI box open after pasting re-draws the tab
   function aiBox(key) {
-    const file = FOLDER + '/' + key + '.html';
+    const file = FOLDER + '/' + aiFile(key);
     const gh = 'https://github.com/' + GH.REPO + '/blob/' + GH.BRANCH + '/' + file;
-    const live = 'https://' + GH.SITE + '/' + file;
+    const live = 'https://' + GH.SITE + '/' + (key === 'rules' ? FOLDER + '/rules.html' : file);
     const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
     return '<details class="ad-help-box ad-ai"' + (aiOpen ? ' open' : '') + '><summary>Edit this page with an AI</summary>' +
       '<p><b>With a chat AI</b> (Claude, ChatGPT and so on):</p><ol>' +
-      '<li>Click <button type="button" class="nb-btn" id="ad-ai-copy">COPY FOR AI</button> and paste into the chat. It copies the page size, the layout rules and this whole file. Then say what you want, for example "add a page for tracking each player\'s best score".</li>' +
+      '<li>Click <button type="button" class="nb-btn" id="ad-ai-copy">COPY FOR AI</button> and paste into the chat. It copies ' + (key === 'rules' ? 'how the rules are written and used' : 'the page size, the layout rules') + ' and this whole file. Then say what you want, for example ' + (key === 'rules' ? '"make the scoring section easier to follow"' : '"add a page for tracking each player\'s best score"') + '.</li>' +
       '<li>Copy the AI\'s whole answer and click <button type="button" class="nb-btn" id="ad-ai-paste">PASTE AI ANSWER</button>. The editor and preview update. Nothing is saved until you click Save and publish, and <i>Undo all changes to this file</i> puts it back.</li></ol>' +
       '<p id="ad-ai-msg" class="ad-help"></p>' +
       '<p><b>With an AI that can use GitHub</b> (such as Claude Code), point it at the file:</p><ul>' +
       '<li>Repository ' + c(GH.REPO) + ', branch ' + c(GH.BRANCH) + ', file ' + c(file) + ' (<a href="' + gh + '" target="_blank" rel="noopener">open on GitHub</a>).</li>' +
       '<li>Live page to look at: <a href="' + live + '" target="_blank" rel="noopener">' + esc(live) + '</a>.</li>' +
-      '<li>Tell it to read ' + c('studio/README.md') + ' and ' + c('studio/kit/print.css') + ' first, change only ' + c(file) + ', and commit to ' + c(GH.BRANCH) + '. The PDFs rebuild about 3 minutes after the commit.</li>' +
+      '<li>Tell it to read ' + c('studio/README.md') + (key === 'rules' ? '' : ' and ' + c('studio/kit/print.css')) + ' first, change only ' + c(file) + ', and commit to ' + c(GH.BRANCH) + '. The PDFs rebuild about 3 minutes after the commit.</li>' +
       '<li>Then reload this page. If it says you have unsaved changes to this file, click <i>Undo all changes to this file</i> to see the AI\'s version.</li></ul></details>';
   }
   function bindAi(key) {
     const ta = $('#ad-code'), msg = $('#ad-ai-msg');
     $('#ad-ai-copy').onclick = () => {
-      const text = 'Please edit this page of my notebook game.\n\n' + aiBrief(key).map(x => '- ' + x).join('\n') +
-        '\n\nReply with the complete updated file in one ```html code block, with nothing left out.\n\nWhat I want: [describe your change here]\n\nThe current file:\n```html\n' + draft[key] + '\n```\n';
+      const lang = key === 'rules' ? 'markdown' : 'html';
+      const text = 'Please edit ' + (key === 'rules' ? 'the rules' : 'this page') + ' of my notebook game.\n\n' + aiBrief(key).map(x => '- ' + x).join('\n') +
+        '\n\nReply with the complete updated file in one ```' + lang + ' code block, with nothing left out.\n\nWhat I want: [describe your change here]\n\nThe current file:\n```' + lang + '\n' + draft[key] + '\n```\n';
       (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
         () => { msg.textContent = 'Copied. Paste it into your AI chat and replace [describe your change here] with what you want.'; },
         () => { msg.textContent = 'Your browser blocked copying. Select the editor text instead.'; });
     };
     const apply = raw => {
-      const m = raw.match(/```(?:html)?\s*\n([\s\S]*?)```/i);
+      const m = raw.match(/```(?:html|markdown|md)?[ \t]*\n([\s\S]*?)```/i);
       const code = (m ? m[1] : raw).trim();
-      if (!/<html[\s>]|<!doctype/i.test(code)) { msg.textContent = 'That doesn\'t look like a whole HTML file. Ask the AI for the complete file in one code block.'; return; }
+      if (key === 'rules' && !/^#\s/m.test(code)) { msg.textContent = 'That doesn\'t look like the whole rules file. Ask the AI for the complete file in one code block.'; return; }
+      if (key !== 'rules' && !/<html[\s>]|<!doctype/i.test(code)) { msg.textContent = 'That doesn\'t look like a whole HTML file. Ask the AI for the complete file in one code block.'; return; }
       draft[key] = code + '\n'; persist(); aiOpen = true; show(tab); aiOpen = false;
       const m2 = $('#ad-ai-msg'); if (m2) m2.textContent = 'Pasted. Check the preview, then Save and publish.';
     };
@@ -402,7 +402,7 @@
   }
 
   function codeTab(p, key, title, lede, help) {
-    const ai = key === 'cover' || key === 'contents';
+    const ai = true; // every code tab has the "Edit this page with an AI" box
     p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
       '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
       '<div class="ad-code-foot"><button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
@@ -432,9 +432,19 @@
       '<div class="ad-auto-row">' + prev.map(src => '<img src="' + esc(BASE + src) + '" alt="">').join('') + '</div>' +
       '<button type="button" class="nb-btn" id="ad-auto">' + (off ? 'SHOW THEM AGAIN' : 'REMOVE THESE FROM THE PAGE') + '</button></div>';
   }
+  // The browser-tab icon for the game and rules pages: a .ico file saved as favicon.ico in the game folder.
+  function iconBox() {
+    const f = draft.game.favicon, file = f ? f.split('?')[0] : '';
+    return '<h3 class="ad-icon-h">Browser tab icon</h3><div class="ad-icon">' +
+      (f ? '<img src="' + esc(pending[file] || BASE + f) + '" alt="" width="32" height="32"><span><code>' + esc(file) + '</code>' + (pending[file] ? ' (not saved yet)' : '') + '</span>'
+         : '<img src="/favicon.ico" alt="" width="32" height="32"><span>Using The Game Bureau icon.</span>') + '</div>' +
+      '<div class="nb-row"><label class="nb-btn' + (f ? '' : ' solid') + ' ad-file-in">' + (f ? 'REPLACE .ICO FILE' : 'UPLOAD .ICO FILE') + '<input type="file" id="ad-ico" accept=".ico,image/x-icon,image/vnd.microsoft.icon" hidden></label>' +
+      (f ? '<button type="button" class="ad-rm" id="ad-ico-rm">REMOVE</button>' : '') + '</div>' +
+      '<p class="ad-help">The little picture in the browser tab for the game and rules pages. Upload a <code>.ico</code> file (up to 200 KB). It is saved as <code>favicon.ico</code> in the game folder when you save.</p>';
+  }
   function tabMedia(p) {
     const m = draft.game.media;
-    const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || x.src) + '" alt="">' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
+    const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt="">' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
     p.innerHTML = '<h2>Photos &amp; video</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
       (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem">' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
@@ -445,7 +455,7 @@
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
       '<button type="button" class="nb-btn" id="ad-soon">ADD "VIDEO COMING SOON"</button></div>' +
-      '<p class="ad-help">Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. The first photo is also the picture in link previews.</p>';
+      '<p class="ad-help">Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. The first photo is also the picture in link previews.</p>' + iconBox();
     const parseVid = (type, v) => { v = v.trim(); const yt = v.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{6,})/); const vm = v.match(/vimeo\.com\/(?:video\/)?(\d+)/); return type === 'youtube' ? (yt ? yt[1] : v) : (vm ? vm[1] : v); };
     p.querySelectorAll('[data-alt]').forEach(el => { el.oninput = () => { m[+el.dataset.alt].alt = el.value; persist(); }; });
     p.querySelectorAll('[data-vid]').forEach(el => { el.onchange = () => { const x = m[+el.dataset.vid]; x.id = parseVid(x.type, el.value); el.value = x.id; persist(); show('media'); }; });
@@ -457,6 +467,21 @@
     $('#ad-yt').onclick = () => { m.push({ type: 'youtube', id: '', alt: 'Video' }); persist(); show('media'); };
     $('#ad-vm').onclick = () => { m.push({ type: 'vimeo', id: '', alt: 'Video' }); persist(); show('media'); };
     $('#ad-soon').onclick = () => { m.push({ type: 'youtube', id: '', alt: 'Video coming soon' }); persist(); show('media'); };
+    $('#ad-ico').onchange = e => {
+      const file = e.target.files[0]; if (!file) return;
+      if (!/\.ico$/i.test(file.name)) { updateBar(esc(file.name) + ' is not a .ico file.', 'bad'); return; }
+      if (file.size > 200 * 1024) { updateBar(esc(file.name) + ' is over 200 KB. Browser tab icons are usually under 50 KB.', 'bad'); return; }
+      const r = new FileReader();
+      r.onload = () => {
+        const dataURL = 'data:image/x-icon;base64,' + String(r.result).split(',')[1];
+        pending['favicon.ico'] = dataURL; pendingB64['favicon.ico'] = dataURL.split(',')[1];
+        draft.game.favicon = 'favicon.ico?v=' + Date.now().toString(36); // the version makes browsers fetch a replaced icon
+        persist(); show('media');
+      };
+      r.onerror = () => updateBar('Could not read ' + esc(file.name) + '.', 'bad');
+      r.readAsDataURL(file);
+    };
+    if ($('#ad-ico-rm')) $('#ad-ico-rm').onclick = () => { delete draft.game.favicon; delete pending['favicon.ico']; delete pendingB64['favicon.ico']; persist(); show('media'); };
     $('#ad-up').onchange = async e => {
       for (const file of e.target.files) {
         try {
@@ -543,6 +568,7 @@
     const g = draft.game;
     if (!g.title) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
     $('#ad-save').disabled = true;
+    if (g.favicon && !pendingB64['favicon.ico'] && !saved.game.favicon) delete g.favicon; // picked before a reload, so the file is gone
     const files = [];
     const add = (f, text) => files.push({ path: FOLDER + '/' + f, text });
     add('game.json', gameText(g));
@@ -556,6 +582,7 @@
     const used = JSON.stringify(g) + draft.cover + draft.contents;
     (saved.game.media || []).filter(x => x && x.type === 'image' && /^images\/[\w.-]+$/.test(x.src || '') && !used.includes(x.src))
       .forEach(x => files.push({ path: FOLDER + '/' + x.src, delete: true }));
+    if (saved.game.favicon && !g.favicon) files.push({ path: FOLDER + '/favicon.ico', delete: true });
     try {
       const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the studio', s => updateBar(esc(s)));
       legacyAdmin = false;
@@ -581,7 +608,7 @@
     if (!FOLDER) { location.replace('/studio/#games'); return; }
     if (!GH) { document.body.innerHTML = '<p style="padding:24px">The editor needs /studio/kit/gh.js.</p>'; return; }
     // Old <game>/admin.html links move to the studio.
-    if (!/\/studio\/edit\.html$/.test(location.pathname)) { location.replace('/studio/edit.html?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
+    if (!/^\/studio\/(index\.html)?$/.test(location.pathname)) { location.replace('/studio/?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();
