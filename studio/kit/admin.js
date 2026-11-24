@@ -379,7 +379,7 @@
         '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>' +
         '<div class="ad-field"><span>Start from</span><div class="st-starts"><label><input type="radio" name="f-start" value="' + esc(FOLDER) + '" checked><span><b>' + esc(FOLDER === ST.STARTER ? 'Blank starter' : 'Copy of ' + (saved.game.title || FOLDER)) + '</b><small>Loading the other choices…</small></span></label></div>' +
         '<small>The blank starter, or a copy of a notebook already on the site. Switching keeps what you have typed here and takes the rest (colours, rules, cover and inside pages) from your choice.</small></div></fieldset>' : '') +
-      '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) + field('subtitle', 'Subtitle', { ph: 'The Notebook' }) +
+      '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) + field('subtitle', 'Subtitle', { ph: 'Optional' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +

@@ -236,7 +236,7 @@
       (media.length > 1 ? '<div class="nb-thumbs" id="nb-thumbs"></div>' : '') +
       '</div>' +
       '<div class="nb-info">' +
-      '<div class="nb-kick">' + esc(g.kicker || 'A NOTEBOOK GAME FROM THE GAME BUREAU') + '</div>' +
+      '<div class="nb-kick">' + esc(g.kicker || 'The Game Bureau presents') + '</div>' +
       '<h1>' + esc(g.title) + (g.subtitle ? '<span>' + esc(g.subtitle) + '</span>' : '') + '</h1>' +
       (g.tagline ? '<p class="nb-tag">' + esc(g.tagline) + '</p>' : '') +
       (g.price ? '<div class="nb-price"><b>' + esc(g.price) + '</b><span>' + esc(g.currency || 'USD') + '</span></div>' : '') +
