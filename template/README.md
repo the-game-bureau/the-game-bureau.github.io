@@ -63,7 +63,12 @@ Open **[thegamebureau.com/template/](https://thegamebureau.com/template/)** (the
 3. **Open its admin page** (`/<address>/admin.html`) and work down the Setup checklist:
    Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, each with a live preview.
    Edits are kept as a draft in the browser until **Save and publish**.
-4. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
+4. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
+   Cloudflare settings, filled in for that game, to make `https://<address>.thegamebureau.com`
+   redirect to `https://thegamebureau.com/<address>/`: a proxied `AAAA` record to `100::` named
+   `<address>`, plus a Redirect Rule (Hostname equals `<address>.thegamebureau.com`, Dynamic,
+   `concat("https://thegamebureau.com/<address>", http.request.uri.path)`, 301, keep query string).
+5. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
    the game page shows pictures of the cover and pages from the build.
 
 Folders under `template/` open read-only in the admin page (a checkbox there allows editing the
