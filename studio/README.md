@@ -1,13 +1,13 @@
-# Notebook game template
+# Notebook Studio and notebook game template
 
 Everything needed to put a paper notebook game on thegamebureau.com: a public page, a rules
 page, and an admin page that builds the printable PDFs. Live sample:
-[thegamebureau.com/template/dice-derby/](https://thegamebureau.com/template/dice-derby/).
+[thegamebureau.com/studio/dice-derby/](https://thegamebureau.com/studio/dice-derby/).
 
 ```
-template/
+studio/
   index.html      the Notebook Studio: start new notebooks, find every admin page
-  kit/            shared code every game uses (don't copy it; games link to /template/kit/)
+  kit/            shared code every game uses (don't copy it; games link to /studio/kit/)
     kit.js kit.css       public page + rules page, built from game.json
     print.js print.css   lays out cover.html and contents.html for print
     admin.js admin.css   admin page: setup steps, editors with live preview, save, PDFs
@@ -48,11 +48,11 @@ only, Actions: Read and write) under "GitHub access" on the admin page. Without 
 opens the workflow on GitHub. The PDFs also rebuild on their own when a game's `game.json`,
 `rules.md`, `cover.html` or `contents.html` changes on `main`.
 
-Build locally: `node template/kit/build-pdfs.js template/dice-derby` (needs `playwright` and `pdf-lib`).
+Build locally: `node studio/kit/build-pdfs.js studio/dice-derby` (needs `playwright` and `pdf-lib`).
 
 ## Start a new game: the Notebook Studio
 
-Open **[thegamebureau.com/template/](https://thegamebureau.com/template/)** (the Notebook Studio):
+Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 1. **Connect GitHub** once per browser: a fine-grained token for this repository only, with
    Contents and Actions set to Read and write. Saving from the studio or an admin page is a
@@ -63,11 +63,26 @@ Open **[thegamebureau.com/template/](https://thegamebureau.com/template/)** (the
 3. **Open its admin page** (`/<address>/admin.html`) and work down the Setup checklist:
    Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, each with a live preview.
    Edits are kept as a draft in the browser until **Save and publish**.
-4. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
+4. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
+   Cloudflare settings, filled in for that game, to make `https://<address>.thegamebureau.com`
+   redirect to `https://thegamebureau.com/<address>/`: a proxied `AAAA` record to `100::` named
+   `<address>`, plus a Redirect Rule (Hostname equals `<address>.thegamebureau.com`, Dynamic,
+   `concat("https://thegamebureau.com/<address>", http.request.uri.path)`, 301, keep query string).
+5. The PDFs rebuild on their own about 3 minutes after each save. Until real photos are added,
    the game page shows pictures of the cover and pages from the build.
 
-Folders under `template/` open read-only in the admin page (a checkbox there allows editing the
+Old `/template/` links redirect to `/studio/`.
+
+**Keeping it private.** Nothing can be changed without the GitHub token, which is stored only in
+the browser that set up the studio. To also hide the studio and every `admin.html` page, put
+Cloudflare Access (free plan) in front of them. Step 1 in the studio has the full steps: one
+Self-hosted application for `thegamebureau.com/studio` and `thegamebureau.com/*/admin.html`
+(Allow, your email, One-time PIN), and a second one for `thegamebureau.com/studio/kit` with a
+Bypass policy for Everyone, because every public game page loads the kit. The studio and admin
+pages are also marked `noindex`.
+
+Folders under `studio/` open read-only in the admin page (a checkbox there allows editing the
 template on purpose).
 
-Without the studio: `node template/kit/new-game.js my-game "My Game"` copies the Dice Derby
+Without the studio: `node studio/kit/new-game.js my-game "My Game"` copies the Dice Derby
 sample, or copy a folder by hand and change `slug` in `game.json` to the folder name.

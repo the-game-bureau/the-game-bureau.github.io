@@ -11,7 +11,7 @@
  *   PDFs         build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. "Save and publish"
  * commits them to GitHub in one go; the site republishes and the PDFs rebuild on their own.
- * Folders under template/ are the template itself and are read-only here.
+ * Folders under studio/ are the template itself and are read-only here.
  */
 (function () {
   'use strict';
@@ -37,7 +37,7 @@
   let tab = 'setup';
   const pending = (window.NB_PENDING = {}); // images/x.jpg -> data URL, picked but not saved
   const pendingB64 = {};
-  const isTemplate = /^template\//.test(FOLDER);
+  const isTemplate = /^studio\//.test(FOLDER);
   let allowTemplate = false;
 
   // ---------- small helpers ----------
@@ -84,7 +84,7 @@
     document.body.classList.add('ad-app');
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><a class="ad-studio" href="/template/">Notebook Studio</a><h1 id="ad-title"></h1><span class="ad-folder">/' + esc(FOLDER) + '/</span></div>' +
+      '<div class="ad-id"><a class="ad-studio" href="/studio/">Notebook Studio</a><h1 id="ad-title"></h1><span class="ad-folder">/' + esc(FOLDER) + '/</span></div>' +
       '<div class="ad-actions"><a class="nb-btn" href="./" target="_blank" rel="noopener">VIEW PAGE</a>' +
       '<button class="nb-btn" id="ad-discard" type="button">DISCARD CHANGES</button>' +
       '<button class="nb-btn solid" id="ad-save" type="button">SAVE AND PUBLISH</button></div></div>' +
@@ -114,7 +114,7 @@
     $('#ad-discard').disabled = !dirty;
     if (isTemplate && !allowTemplate) {
       bar.className = 'ad-bar show warn';
-      bar.innerHTML = 'This is the template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/template/#new">Start a new notebook from it</a> in the studio.';
+      bar.innerHTML = 'This is the template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/#new">Start a new notebook from it</a> in the studio.';
       $('#ad-save').disabled = true;
       return;
     }
@@ -126,7 +126,7 @@
     const el = $('#ad-gh');
     el.innerHTML = GH.token()
       ? '<p>GitHub connected.</p><button type="button" class="ad-link" id="ad-gh-forget">Disconnect</button>'
-      : '<p><b>Connect GitHub</b> to save and build.</p><input id="ad-gh-in" type="password" placeholder="github_pat_..." autocomplete="off"><button type="button" class="nb-btn" id="ad-gh-save">CONNECT</button>' +
+      : '<p><b>One-time setup needed</b> before you can save and build. Follow step 1 in the <a href="/studio/#connect">Notebook Studio</a>, or paste the GitHub token here.</p><input id="ad-gh-in" type="password" placeholder="github_pat_..." autocomplete="off"><button type="button" class="nb-btn" id="ad-gh-save">CONNECT</button>' +
         '<p class="ad-help">Make a <a href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">fine-grained token</a> for ' + esc(GH.REPO) + ' only, with Contents and Actions set to Read and write. It stays in this browser.</p>';
     if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); };
     else $('#ad-gh-save').onclick = async () => {
@@ -217,8 +217,27 @@
       { k: 'media', t: 'Add photos and a video', d: 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
+      { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + SUB + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
       { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + FOLDER + '/', manual: true },
     ].map(x => Object.assign(x, { done: x.manual ? !!s[x.k] || !!x.done : !!x.done }));
+  }
+  // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
+  const SLUG = FOLDER.split('/').pop();
+  const SUB = SLUG + '.' + GH.SITE;
+  function subdomainHow() {
+    const target = 'https://' + GH.SITE + '/' + FOLDER;
+    const expr = 'concat("' + target + '", http.request.uri.path)';
+    const code = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
+    return '<details class="ad-how"><summary>Show me how</summary><ol>' +
+      '<li>Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a> and pick ' + code(GH.SITE) + '.</li>' +
+      '<li><b>DNS, Records, Add record.</b> Type ' + code('AAAA') + ', Name ' + code(SLUG) + ', IPv6 address ' + code('100::') +
+        ', Proxy status <b>Proxied</b> (orange cloud). Save. This address only exists so Cloudflare can catch visits and send them on.</li>' +
+      '<li><b>Rules, Create rule, Redirect Rule.</b> Rule name ' + code(SLUG + ' short address') + '.</li>' +
+      '<li>Under <b>If incoming requests match</b>, choose <b>Custom filter expression</b>: Field ' + code('Hostname') + ', Operator ' + code('equals') + ', Value ' + code(SUB) + '.</li>' +
+      '<li>Under <b>Then</b>: Type <b>Dynamic</b>, Expression ' + code(expr) + ', Status code ' + code('301') + ', tick <b>Preserve query string</b>. Deploy.</li>' +
+      '<li>Wait a minute, then open <a href="https://' + SUB + '" target="_blank" rel="noopener">https://' + esc(SUB) + '</a>. It should land on ' + esc(target) + '/. ' +
+        'Pages carry on working too: https://' + esc(SUB) + '/rules.html opens the rules.</li>' +
+      '</ol><p>Why a redirect: GitHub Pages serves the whole site on one address, so Cloudflare forwards the short one to this game\'s folder.</p></details>';
   }
   function tabSetup(p) {
     const list = steps();
@@ -226,10 +245,11 @@
     p.innerHTML = '<h2>From idea to live notebook</h2><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
       '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
-        '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p></div>' +
+        '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
-      '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="./" target="_blank" rel="noopener">game page</a> · <a href="./rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/template/">Notebook Studio</a> (make another notebook).</p>';
+      '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="./" target="_blank" rel="noopener">game page</a> · <a href="./rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">Notebook Studio</a> (make another notebook).</p>';
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
+    p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('setup'); }; });
   }
 
@@ -434,7 +454,7 @@
   async function save() {
     if (!changed()) return;
     if (isTemplate && !allowTemplate) return;
-    if (!GH.token()) { updateBar('Connect GitHub (left side) to save.', 'bad'); return; }
+    if (!GH.token()) { updateBar('Saving needs the one-time setup first: <a href="/studio/#connect">step 1 in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
     const g = draft.game;
     if (!g.title) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
     $('#ad-save').disabled = true;
@@ -467,7 +487,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (document.body.dataset.page !== 'admin') return;
-    if (!GH) { document.body.innerHTML = '<p style="padding:24px">This admin page needs /template/kit/gh.js. Add it to admin.html.</p>'; return; }
+    if (!GH) { document.body.innerHTML = '<p style="padding:24px">This admin page needs /studio/kit/gh.js. Add it to admin.html.</p>'; return; }
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();

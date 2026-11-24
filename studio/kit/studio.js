@@ -1,4 +1,4 @@
-/* Notebook kit: the Notebook Studio (/template/). Needs kit.js and gh.js.
+/* Notebook kit: the Notebook Studio (/studio/). Needs kit.js and gh.js.
  * Lists every notebook game, and turns an idea into a new notebook: it copies the starter
  * template (or the Dice Derby sample) into a new folder on GitHub with your name, pitch and
  * colours filled in, publishes it, and sends you to its admin page for the rest.
@@ -9,8 +9,8 @@
   const NB = window.NB, GH = window.GH, esc = NB.esc;
   const $ = s => document.querySelector(s);
   const STARTS = [
-    ['template/starter', 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets. Best for a new idea.'],
-    ['template/dice-derby', 'Dice Derby sample', 'A finished example game with custom race cards. Start here to adapt its layouts.'],
+    ['studio/starter', 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets. Best for a new idea.'],
+    ['studio/dice-derby', 'Dice Derby sample', 'A finished example game with custom race cards. Start here to adapt its layouts.'],
   ];
   const PRESETS = [
     ['#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'], ['#2D5016', '#FFD400', '#FFFDF5', '#101510'], ['#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
@@ -25,22 +25,17 @@
   function page() {
     NB.applyBrand({ brand: { color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' } });
     document.body.innerHTML =
-      '<header class="nb-bar"><div class="nb-wrap"><a class="nb-home" href="/">THE GAME BUREAU</a><nav><a href="#new">NEW NOTEBOOK</a><a href="#games">NOTEBOOKS</a></nav></div></header>' +
+      '<header class="nb-bar"><div class="nb-wrap"><a class="nb-home" href="/">THE GAME BUREAU</a></div></header>' +
       '<main class="st-main">' +
-      '<h1>Notebook Studio</h1><p class="lede">Go from an idea to a live notebook game on thegamebureau.com: a game page, a rules page, and print-ready PDFs. The template stays untouched, so you can start from it again any time.</p>' +
+      '<h1>Notebook Studio</h1><p class="lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
 
-      '<section class="st-card"><h2>How it works</h2><ol class="st-flow">' +
-      '<li><b>Connect GitHub</b>Once per browser. Saving to the site is a commit to the repository.</li>' +
-      '<li><b>Start a notebook</b>Name it and pitch it below. The studio copies the template into a new folder.</li>' +
-      '<li><b>Shape it</b>On its admin page: words, colours, rules, cover, inside pages, photos. Live preview as you type.</li>' +
-      '<li><b>Save and publish</b>One button. The site republishes in about a minute.</li>' +
-      '<li><b>PDFs build</b>Cover, contents, print-at-home and free sampler, about 3 minutes after each save.</li>' +
-      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li>' +
-      '</ol></section>' +
+      '<section class="st-card st-setup" id="connect"><div class="st-step-head"><span class="st-num">1</span><div><div class="st-kick">ONE-TIME SETUP · ABOUT 2 MINUTES</div><h2>Set up the studio</h2></div><span class="st-badge" id="st-badge"></span></div>' +
+      '<p class="ad-lede" id="st-setup-lede">The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
+      '<div id="st-gh"></div>' + lockHow() + '</section>' +
 
-      '<section class="st-card" id="connect"><h2>1. Connect GitHub</h2><div id="st-gh"></div></section>' +
-
-      '<section class="st-card" id="new"><h2>2. Start a new notebook</h2>' +
+      '<section class="st-card" id="new"><div class="st-step-head"><span class="st-num">2</span><div><div class="st-kick">EVERY NEW GAME</div><h2>Make a notebook</h2></div></div>' +
+      '<p class="st-locked-msg" id="st-locked-msg">Finish step 1 first. This form unlocks once the studio is set up.</p>' +
+      '<div id="st-new-body">' +
       '<p class="ad-lede">You can change all of this later on the notebook\'s admin page.</p>' +
       '<div class="st-form">' +
       '<label class="ad-field"><span>Game name</span><input id="n-title" placeholder="e.g. Pitch Count" autocomplete="off"></label>' +
@@ -57,7 +52,15 @@
       '</div>' +
       '<div class="nb-row"><button class="nb-btn solid big" id="n-go" type="button">CREATE THE NOTEBOOK</button></div>' +
       '<ul class="st-progress" id="n-progress" hidden></ul><div id="n-done"></div>' +
-      '</section>' +
+      '</div></section>' +
+
+      '<section class="st-card"><div class="st-step-head"><span class="st-num">3</span><div><div class="st-kick">ON THE NOTEBOOK\'S ADMIN PAGE</div><h2>Finish it and go live</h2></div></div>' +
+      '<p class="ad-lede">Creating a notebook takes you to its admin page, which has a checklist for the rest:</p><ol class="st-flow">' +
+      '<li><b>Shape it</b>Words, colours, rules, cover, inside pages, photos. A live preview shows each change.</li>' +
+      '<li><b>Save and publish</b>One button. The site republishes in about a minute.</li>' +
+      '<li><b>PDFs build</b>Cover, contents, print-at-home and free sampler, about 3 minutes after each save.</li>' +
+      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li>' +
+      '</ol></section>' +
 
       '<section class="st-card" id="games"><h2>Notebooks</h2><div id="st-games"><p class="ad-help">Loading…</p></div></section>' +
       '</main>';
@@ -72,23 +75,55 @@
     loadGames();
   }
 
+  function setupState(ok, who) {
+    const card = $('#connect');
+    card.classList.toggle('done', ok);
+    $('#st-badge').textContent = ok ? '✓ DONE' : 'NOT SET UP YET';
+    $('#st-setup-lede').hidden = ok;
+    const nw = $('#new');
+    nw.classList.toggle('st-locked', !ok);
+    $('#st-locked-msg').hidden = ok;
+    nw.querySelectorAll('#st-new-body input, #st-new-body textarea, #st-new-body button').forEach(el => { el.disabled = !ok; });
+  }
+
+  // Optional: put Cloudflare Access (free) in front of the studio and every admin page.
+  function lockHow() {
+    const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
+    const site = GH.SITE;
+    return '<details class="ad-how st-lock"><summary>Optional: lock the studio and admin pages so only you can open them (Cloudflare Access, about 10 minutes)</summary>' +
+      '<p>Without the GitHub key nobody can change anything, because the key lives only in your browser. Locking the pages also stops anyone from seeing them. ' +
+      'Cloudflare asks for your email and sends you a code. You stay signed in on that browser for a month.</p><ol>' +
+      '<li>In <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>, open ' + c(site) + ', then <b>DNS, Records</b>. The records for ' + c(site) + ' must show <b>Proxied</b> (orange cloud). Access only works on proxied addresses.</li>' +
+      '<li>Open <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Zero Trust</a>. The first time, pick a team name and the <b>Free</b> plan (up to 50 people). It may ask for a card even for the free plan.</li>' +
+      '<li><b>Access, Applications, Add an application, Self-hosted.</b> Name ' + c('Notebook Studio') + ', session duration ' + c('1 month') + '. Add two destinations (public hostnames): domain ' + c(site) + ' with path ' + c('studio') + ', and domain ' + c(site) + ' with path ' + c('*/admin.html') + '.</li>' +
+      '<li>Add a policy: name ' + c('Only me') + ', action <b>Allow</b>, Include <b>Emails</b> and type your email (add anyone else who should get in). Login method: <b>One-time PIN</b>. Save the application.</li>' +
+      '<li>Add one more <b>Self-hosted</b> application so game pages keep their look: name ' + c('Notebook kit (public)') + ', domain ' + c(site) + ', path ' + c('studio/kit') + '. Policy: name ' + c('Everyone') + ', action <b>Bypass</b>, Include <b>Everyone</b>. Save. The more exact path wins, so the kit stays open while the rest of /studio/ is locked.</li>' +
+      '<li>Check it in a private window: <a href="/studio/" target="_blank" rel="noopener">/studio/</a> and any admin.html should ask for your email. A game made here, at /your-game/, should open for everyone and look normal. The sample game sits inside /studio/, so it is private too.</li>' +
+      '</ol></details>';
+  }
+
   function ghBox() {
     const el = $('#st-gh');
     if (GH.token()) {
-      el.innerHTML = '<p>Connected. <span id="st-who"></span> <button type="button" class="ad-link" id="st-forget">Disconnect</button></p>';
-      GH.check().then(w => { $('#st-who').textContent = 'Signed in as ' + w + '.'; }).catch(e => { $('#st-who').textContent = e.message; });
+      el.innerHTML = '<p>The studio is set up in this browser. <span id="st-who"></span> <button type="button" class="ad-link" id="st-forget">Disconnect</button></p>';
+      setupState(true);
+      GH.check().then(w => { $('#st-who').textContent = 'Signed in to GitHub as ' + w + '.'; })
+        .catch(e => { $('#st-who').textContent = e.message; setupState(false); });
       $('#st-forget').onclick = () => { GH.setToken(''); ghBox(); };
       return;
     }
-    el.innerHTML = '<ol class="ad-help" style="font-size:15px;color:var(--ink)">' +
-      '<li>Open <a href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">New fine-grained token</a> on GitHub (signed in as someone who can push to the site).</li>' +
-      '<li>Name it "Notebook Studio". Resource owner: <b>the-game-bureau</b>. Repository access: <b>Only select repositories</b>, then <b>' + esc(GH.REPO) + '</b>.</li>' +
-      '<li>Permissions, Repository: <b>Contents</b> Read and write, <b>Actions</b> Read and write.</li>' +
-      '<li>Generate it, copy it, and paste it here. It is kept in this browser only and sent only to GitHub.</li></ol>' +
-      '<div class="nb-row"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">CONNECT</button></div><p class="ad-help" id="st-tok-msg"></p>';
+    setupState(false);
+    el.innerHTML = '<ol class="st-howto">' +
+      '<li><b>Open GitHub\'s token page.</b> <a class="nb-btn" href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">OPEN GITHUB ↗</a><small>Sign in as someone who can change the website.</small></li>' +
+      '<li><b>Fill in the form.</b><small>Token name: <code>Notebook Studio</code>. Expiration: up to you (a year is fine). Resource owner: <code>the-game-bureau</code>. Repository access: <b>Only select repositories</b>, then pick <code>' + esc(GH.REPO) + '</code>.</small></li>' +
+      '<li><b>Give it two permissions.</b><small>Under Repository permissions, set <b>Contents</b> to Read and write and <b>Actions</b> to Read and write. Leave everything else alone.</small></li>' +
+      '<li><b>Generate the token and paste it here.</b><small>It starts with <code>github_pat_</code>. It stays in this browser and is only ever sent to GitHub.</small>' +
+      '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li>' +
+      '</ol>';
     $('#st-tok-save').onclick = async () => {
+      $('#st-tok-msg').textContent = 'Checking…';
       GH.setToken($('#st-tok').value.trim());
-      try { await GH.check(); ghBox(); loadGames(); } catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
+      try { await GH.check(); ghBox(); loadGames(); location.hash = 'new'; } catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
     };
   }
 
@@ -97,9 +132,9 @@
     try {
       const r = await GH.listGames();
       files = r.files;
-      box.innerHTML = '<div class="st-games">' + r.games.sort((a, b) => a.folder.startsWith('template/') - b.folder.startsWith('template/') || a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
+      box.innerHTML = '<div class="st-games">' + r.games.sort((a, b) => a.folder.startsWith('studio/') - b.folder.startsWith('studio/') || a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
         '<div class="st-game"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
-        (folder.startsWith('template/') ? '<span class="tag">TEMPLATE</span>' : '') +
+        (folder.startsWith('studio/') ? '<span class="tag">TEMPLATE</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/' + esc(folder) + '/admin.html">ADMIN</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a></div></div></div>').join('') + '</div>';
       checkFolder();
@@ -152,7 +187,7 @@
       g.shareText = tagline ? title + ': ' + tagline : '';
       g.price = $('#n-price').value.trim();
       const specs = [['PLAYERS', $('#n-players').value.trim()], ['TIME', $('#n-time').value.trim()], ['YOU NEED', $('#n-need').value.trim()]].filter(s => s[1]);
-      if (start === 'template/starter' || specs.length) g.specs = specs;
+      if (start === 'studio/starter' || specs.length) g.specs = specs;
       g.brand = { color: colors[0], accent: colors[1], paper: colors[2], ink: colors[3] };
       g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 24) });
       g.setup = { colors: true };
@@ -185,4 +220,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => { if (document.body.dataset.page === 'studio') page(); });
+  document.addEventListener('click', e => {
+    const c = e.target.closest && e.target.closest('.ad-copy');
+    if (c && navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {});
+  });
 })();
