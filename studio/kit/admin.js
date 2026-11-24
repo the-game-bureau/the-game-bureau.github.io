@@ -34,7 +34,7 @@
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['connect', 'Connect'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['games', 'Notebooks']];
+  const TABS = [['connect', 'Connect'], ['how', 'How it works'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['games', 'Notebooks']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -108,7 +108,7 @@
       '<button class="nb-btn solid" id="ad-save" type="button">' + (IS_NEW ? 'CREATE NOTEBOOK' : 'SAVE AND PUBLISH') + '</button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
       '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
-      '<div class="ad-gh" id="ad-gh"></div></nav>' +
+      '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
@@ -124,7 +124,6 @@
       clearDraft(); Object.keys(pending).forEach(k => { delete pending[k]; delete pendingB64[k]; });
       draft = clone(saved); show(tab); updateBar();
     };
-    ghBox();
   }
 
   function updateBar(msg, kind) {
@@ -152,23 +151,13 @@
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
-  // The small GitHub status under the tabs. Setting up happens on the Connect tab.
-  function ghBox() {
-    const el = $('#ad-gh');
-    el.innerHTML = GH.token()
-      ? '<p>GitHub connected.</p><button type="button" class="ad-link" id="ad-gh-forget">Disconnect</button>'
-      : '<p><b>Not connected to GitHub.</b> ' + (IS_NEW ? 'Creating' : 'Saving') + ' needs the one-time setup.</p><button type="button" class="nb-btn" id="ad-gh-go">CONNECT</button>';
-    if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); if (tab === 'connect') show('connect'); };
-    else $('#ad-gh-go').onclick = () => show('connect');
-  }
-
   function show(t) {
     tab = t;
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === t));
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => { ghBox(); updateBar(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
+    ({ how: ST.how, connect: p => ST.connect(p, () => updateBar()), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
     previewFor(t);
     updateBar();
   }
@@ -179,7 +168,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, pdfs: null,
+      how: null, connect: null, checklist: null, games: null, pdfs: null,
       content: [['page', 'Game page'], ['rules', 'Rules page'], ['front', 'Front cover'], ['back', 'Back cover']],
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
@@ -724,7 +713,7 @@
       if (isTemplate) {
         const box = document.createElement('label'); box.className = 'ad-help ad-tpl';
         box.innerHTML = '<input type="checkbox" id="ad-tpl"> Let me save changes to the template itself';
-        $('#ad-gh').after(box);
+        $('#ad-tabs').append(box);
         $('#ad-tpl').onchange = e => { allowTemplate = e.target.checked; updateBar(); };
       }
     } catch (e) {
