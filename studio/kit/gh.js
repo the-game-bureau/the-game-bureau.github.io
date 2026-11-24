@@ -91,12 +91,22 @@
   // ---------- writing ----------
   // Commits many files to main in one commit. files: [{path, text}] or [{path, base64}]
   // or [{path, sha}] (reuse an existing blob) or [{path, delete: true}].
-  GH.commit = async function (files, message, onStep, branch) {
+  // opts.newFolder: refuse (and write nothing) if that folder, or a file of that name, already
+  // exists at the moment of committing, so a new notebook can never overwrite anything.
+  GH.commit = async function (files, message, onStep, branch, opts) {
     const step = onStep || (() => {});
     branch = branch || GH.BRANCH;
+    opts = opts || {};
     for (let attempt = 0; attempt < 3; attempt++) {
       step('Preparing ' + files.length + ' file' + (files.length === 1 ? '' : 's') + '…');
       const head = await GH.headTree(branch);
+      if (opts.newFolder) {
+        const t = await GH.api('/git/trees/' + head.treeSha + '?recursive=1');
+        const nf = opts.newFolder.toLowerCase();
+        if (t.truncated || t.tree.some(x => { const p = x.path.toLowerCase(); return p === nf || p.startsWith(nf + '/'); })) {
+          const e = new Error('thegamebureau.com/' + opts.newFolder + '/ already exists, so nothing was written. Pick another address.'); e.status = 409; throw e;
+        }
+      }
       const tree = [];
       for (const f of files) {
         if (f.delete) { tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null }); continue; }
@@ -134,6 +144,10 @@
       const f = await GH.api('/contents/' + enc(draftPath(key)) + '?ref=' + GH.DRAFTS);
       return Object.assign(JSON.parse(await GH.readBlobText(f.sha)), { key });
     } catch (e) { if (e.status === 404) return null; throw e; }
+  };
+  GH.listDraftKeys = async function () {
+    try { return (await GH.api('/contents/drafts?ref=' + GH.DRAFTS)).filter(x => /\.json$/.test(x.name)).map(x => x.name.replace(/\.json$/, '').replace(/--/g, '/').toLowerCase()); }
+    catch (e) { if (e.status === 404) return []; throw e; }
   };
   GH.listDrafts = async function () {
     let list;

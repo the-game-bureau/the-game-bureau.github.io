@@ -306,12 +306,30 @@
     box.querySelector('[data-add]').onclick = () => { (draft.game[key] = draft.game[key] || []).push(blank()); persist(); show(tab); };
   }
   // ---------- a new notebook: its web address, template and creation ----------
-  let taken = null; // every path in the repo, to check the address is free
-  async function loadTaken() { if (taken || !GH.token()) return; try { taken = (await GH.listFiles()).map(f => f.path); } catch (e) { taken = null; } }
+  // A new notebook may never land on anything already in the repository: a game, any other
+  // folder or file of the site, or another notebook saved but not yet published.
+  let taken = null;       // every path in the repo (lowercased)
+  let takenDrafts = null; // addresses of saved, unpublished notebooks
+  async function loadTaken() {
+    if (taken || !GH.token()) return !!taken;
+    try {
+      const [files, drafts] = await Promise.all([GH.listFiles(), GH.listDraftKeys()]);
+      taken = files.map(f => f.path.toLowerCase()); takenDrafts = drafts;
+      return true;
+    } catch (e) { taken = null; takenDrafts = null; return false; }
+  }
+  // Re-reads the repository so the check is current, and fails closed if it can't.
+  async function freshSlugProblem(v) {
+    taken = null; takenDrafts = null;
+    if (!(await loadTaken())) return 'Could not check that thegamebureau.com/' + v + '/ is free, so nothing was written. Try again in a moment.';
+    return slugProblem(v);
+  }
   function slugProblem(v) {
     if (!v) return 'Pick a web address: lowercase letters, numbers and dashes.';
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(v)) return 'Use 2 to 40 lowercase letters, numbers and dashes.';
-    if (/^(studio|template|mc|game|parlay)$/.test(v) || (taken && taken.some(f => f === v || f.startsWith(v + '/')))) return 'thegamebureau.com/' + v + '/ is already taken.';
+    const lv = v.toLowerCase();
+    if (/^(studio|template|mc|game|parlay|drafts)$/.test(lv) || (taken && taken.some(f => f === lv || f.startsWith(lv + '/')))) return 'thegamebureau.com/' + v + '/ already exists on the site. Pick another address.';
+    if (takenDrafts && takenDrafts.includes(lv) && lv !== serverKey) return 'Another saved notebook already uses thegamebureau.com/' + v + '/. Pick another address.';
     return '';
   }
   function bindNew(p) {
@@ -337,11 +355,10 @@
   }
   async function createNew() {
     const g = draft.game, slug = (g.slug || '').trim();
-    if (!GH.token()) { updateBar('Publishing needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); show('connect'); return; }
-    if (!(g.title || '').trim()) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
-    taken = null; await loadTaken();
-    const bad = slugProblem(slug);
-    if (bad) { updateBar(esc(bad), 'bad'); show('content'); return; }
+    if (!GH.token()) { show('connect'); updateBar('Publishing needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
+    if (!(g.title || '').trim()) { show('content'); updateBar('Give the notebook a title first.', 'bad'); return; }
+    const bad = await freshSlugProblem(slug);
+    if (bad) { show('content'); updateBar(esc(bad), 'bad'); return; }
     busy(true);
     try {
       updateBar('Copying the template…');
@@ -363,7 +380,7 @@
       out.push({ path: slug + '/rules.md', text: draft.rules }, { path: slug + '/cover.html', text: draft.cover }, { path: slug + '/contents.html', text: draft.contents });
       Object.entries(GH.shells(slug, game)).forEach(([f, t]) => out.push({ path: slug + '/' + f, text: t }));
       Object.keys(pendingB64).forEach(p => out.push({ path: slug + '/' + p, base64: pendingB64[p] }));
-      await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)));
+      await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)), null, { newFolder: slug });
       Object.keys(pendingB64).forEach(p => { delete pendingB64[p]; });
       clearDraft();
       if (serverKey) await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + game.title + ', so drop its saved draft').catch(() => {});
@@ -672,7 +689,7 @@
   async function saveDraft() {
     const g = draft.game, key = IS_NEW ? (g.slug || '').trim() : FOLDER;
     if (!GH.token()) { updateBar('Saving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
-    if (IS_NEW) { taken = null; await loadTaken(); const bad = slugProblem(key); if (bad) { updateBar(esc(bad), 'bad'); show('content'); return; } }
+    if (IS_NEW) { const bad = await freshSlugProblem(key); if (bad) { show('content'); updateBar(esc(bad), 'bad'); return; } }
     busy(true);
     const at = Date.now();
     const data = { v: 1, isNew: IS_NEW, start: IS_NEW ? FOLDER : undefined, at, game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, files: Object.fromEntries(Object.keys(pendingB64).map(k => [k, pending[k]])) };
@@ -727,7 +744,7 @@
     if (isTemplate && !allowTemplate) return;
     if (!GH.token()) { updateBar('Publishing needs the one-time setup first: <a href="/studio/#connect">Connect in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
     const g = draft.game;
-    if (!g.title) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
+    if (!g.title) { show('content'); updateBar('Give the notebook a title first.', 'bad'); return; }
     busy(true);
     if (g.favicon && !pendingB64['favicon.ico'] && !saved.game.favicon) delete g.favicon; // picked before a reload, so the file is gone
     const files = [];
