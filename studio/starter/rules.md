@@ -1,4 +1,4 @@
-# Starter Notebook rules
+# {{title}} rules
 
 You need this notebook and a pencil. Play with 2 to 6 players.
 

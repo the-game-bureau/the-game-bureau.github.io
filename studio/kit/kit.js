@@ -60,6 +60,8 @@
   };
   NB.draft = function () {
     if (!NB.isPreview()) return null;
+    // Inside the studio's preview, read the editor's current state directly (always up to date).
+    try { const p = window.parent; if (p !== window && p.NB_LIVE && p.NB_LIVE_KEY === NB.previewKey()) { const d = p.NB_LIVE(); if (d) return JSON.parse(JSON.stringify(d)); } } catch (e) { /* other origin */ }
     try { return JSON.parse(localStorage.getItem(NB.previewKey()) || 'null'); } catch (e) { return null; }
   };
 
@@ -104,10 +106,14 @@
   // What the rules are called (game.json "rulesName", e.g. "How to Play"). Default "Rules".
   NB.rulesName = g => ((g && g.rulesName) || '').trim() || 'Rules';
   // With a custom name, the starter heading "# <Title> rules" becomes "# <Title>: <name>".
+  // {{title}} in rules.md is the game's title, so the heading follows the name.
   const nameRules = (text, g) => {
-    if (!g || NB.rulesName(g) === 'Rules') return text;
-    const h = '# ' + g.title + ' rules';
-    return text.replace(/^\s*# .*$/m, line => line.trim().toLowerCase() === h.toLowerCase() ? '# ' + g.title + ': ' + NB.rulesName(g) : line);
+    if (!g) return text;
+    if (NB.rulesName(g) !== 'Rules') {
+      const hs = ['# ' + g.title + ' rules', '# {{title}} rules'].map(h => h.toLowerCase());
+      text = text.replace(/^\s*# .*$/m, line => hs.includes(line.trim().toLowerCase()) ? '# ' + g.title + ': ' + NB.rulesName(g) : line);
+    }
+    return text.replace(/\{\{title\}\}/g, g.title || '');
   };
   NB.loadRules = async function (g) {
     const d = NB.draft();
