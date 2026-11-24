@@ -782,7 +782,34 @@
     }
   }
 
-  addEventListener('beforeunload', e => { if (Object.keys(pendingB64).length) { e.preventDefault(); e.returnValue = ''; } });
+  let leaving = false;
+  addEventListener('beforeunload', e => { if (!leaving && Object.keys(pendingB64).length && unsaved()) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---------- NEW NOTEBOOK ----------
+  // Always opens a fresh notebook from the blank starter, even from /studio/?new itself. Work in
+  // progress stays safe: an existing notebook's edits stay in this browser under its own name, and a
+  // new notebook with unsaved edits is saved to GitHub first (it then shows in Notebooks).
+  async function startNew() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); } catch (e) { /* none */ }
+    if (IS_NEW && (draft.game.title || '').trim() && unsaved()) {
+      const key = (draft.game.slug || '').trim();
+      const bad = GH.token() ? await freshSlugProblem(key) : 'not connected';
+      if (!bad) { await saveDraft(); if (unsaved()) return; }
+      else if (!confirm('Start a new notebook? "' + draft.game.title + '" is not saved yet' + (GH.token() ? ' (it needs a free web address in Content first)' : '') + ', so it will be thrown away.')) return;
+    } else if (!IS_NEW && d && d.game && (d.game.title || '').trim() && !d.savedKey) {
+      if (!confirm('Start a new notebook? The unsaved new notebook "' + d.game.title + '" in this browser will be thrown away.')) return;
+    }
+    try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ }
+    leaving = true;
+    history.replaceState(null, '', '/studio/?new#content');
+    location.reload();
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a[href="/studio/?new#content"]');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    e.preventDefault(); startNew();
+  });
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (document.body.dataset.page !== 'admin') return;
