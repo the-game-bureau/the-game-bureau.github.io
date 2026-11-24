@@ -30,7 +30,7 @@
     const panel = (k, html) => '<section class="st-tab" data-panel="' + k + '" hidden>' + html + next(k) + '</section>';
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><a class="ad-studio" href="/">The Game Bureau</a><h1>Notebook Studio</h1><span class="ad-folder">new notebook</span></div>' +
+      '<div class="ad-id"><h1>THE GAME BUREAU - Game Notebook Studio</h1></div>' +
       '<div class="ad-actions"><button class="nb-btn" type="button" data-go="games">MY NOTEBOOKS</button><button class="nb-btn solid" id="n-go-top" type="button">CREATE THE NOTEBOOK</button></div></div>' +
       '<div class="ad-bar" id="st-bar" role="status"></div></header>' +
       '<div class="ad-shell no-preview"><nav class="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
