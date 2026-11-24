@@ -42,7 +42,7 @@
       '<label class="ad-field"><span>Time</span><input id="n-time" placeholder="About 30 minutes"></label>' +
       '<label class="ad-field"><span>You need</span><input id="n-need" value="A pencil"></label>' +
       '<label class="ad-field"><span>Price</span><input id="n-price" value="$9.99"></label>' +
-      '<label class="ad-field"><span>Game sheets in the notebook</span><input id="n-sheets" type="number" value="24" min="1" max="300"></label>' +
+      '<label class="ad-field"><span>Game sheets in the notebook</span><input id="n-sheets" type="number" value="72" min="1" max="300"></label>' +
       '<div class="ad-field"><span>Colours</span><div class="ad-presets" id="n-colors"></div></div>' +
       '<div class="ad-field wide"><span>Start from</span><div class="st-starts">' + STARTS.map((s, i) => '<label><input type="radio" name="n-start" value="' + s[0] + '"' + (i ? '' : ' checked') + '><span><b>' + s[1] + '</b><small>' + s[2] + '</small></span></label>').join('') + '</div></div>' +
       '</div>' +
@@ -206,7 +206,7 @@
       const specs = [['PLAYERS', $('#n-players').value.trim()], ['TIME', $('#n-time').value.trim()], ['YOU NEED', $('#n-need').value.trim()]].filter(s => s[1]);
       if (start === 'studio/starter' || specs.length) g.specs = specs;
       g.brand = { color: colors[0], accent: colors[1], paper: colors[2], ink: colors[3] };
-      g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 24) });
+      g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 72) });
       g.setup = { colors: true };
       g.order = Object.assign({}, g.order, { url: '' });
 
