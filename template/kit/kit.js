@@ -17,10 +17,32 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   NB.esc = esc;
 
+  // ---------- drafts (live preview from the admin page) ----------
+  // The admin page keeps unsaved edits in localStorage under this folder's key. A page opened
+  // with ?preview (or written into a preview frame) shows the draft instead of the saved files.
+  NB.folder = () => new URL('./', document.baseURI).pathname;
+  NB.draftKey = folder => 'nb-draft:' + (folder || NB.folder());
+  NB.isPreview = () => location.protocol === 'about:' || new URLSearchParams(location.search).has('preview');
+  NB.draft = function () {
+    if (!NB.isPreview()) return null;
+    try { return JSON.parse(localStorage.getItem(NB.draftKey()) || 'null'); } catch (e) { return null; }
+  };
+
   NB.loadGame = async function () {
-    const r = await fetch('./game.json', { cache: 'no-cache' });
-    if (!r.ok) throw new Error('game.json not found (' + r.status + ')');
-    const g = await r.json();
+    const d = NB.draft();
+    let g;
+    if (d && d.game) {
+      g = JSON.parse(JSON.stringify(d.game));
+      // Photos picked on the admin page but not saved yet live in the admin window.
+      try { const pend = window.parent !== window && window.parent.NB_PENDING; if (pend) (g.media || []).forEach(m => { if (m && pend[m.src]) m.src = pend[m.src]; }); } catch (e) { /* other origin */ }
+    }
+    else {
+      const r = await fetch('./game.json', { cache: 'no-cache' });
+      if (!r.ok) throw new Error('game.json not found (' + r.status + ')');
+      g = await r.json();
+    }
+    // Pictures made by the PDF build (pdf/preview-*.jpg) stand in until real photos are added.
+    try { const b = await fetch('./pdf/build.json', { cache: 'no-cache' }); g.build = b.ok ? await b.json() : null; } catch (e) { g.build = null; }
     g.print = Object.assign({ trim: [8.5, 11], bleed: 0.125, spinePerPage: 0.002252, padTo: 2, author: 'The Game Bureau' }, g.print || {});
     g.brand = Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {});
     g.pdf = {
@@ -45,6 +67,8 @@
   };
 
   NB.loadRules = async function () {
+    const d = NB.draft();
+    if (d && d.rules != null) return NB.md(d.rules);
     const r = await fetch('./rules.md', { cache: 'no-cache' });
     if (!r.ok) throw new Error('rules.md not found (' + r.status + ')');
     return NB.md(await r.text());
@@ -97,9 +121,10 @@
     if (m.type === 'video' && m.src) return '<video src="' + esc(m.src) + '"' + (m.poster ? ' poster="' + esc(m.poster) + '"' : '') + ' controls playsinline preload="metadata"></video>';
     if (m.type === 'image' || (!m.type && m.src)) return '<img src="' + esc(m.src) + '" alt="' + esc(m.alt || '') + '"' + (opts.lazy ? ' loading="lazy"' : '') + '>';
     // A video entry with no source yet shows a placeholder.
+    if (m.type === 'soon') return '<div class="media-soon photo"><b>PHOTOS COMING SOON</b></div>';
     return '<div class="media-soon"><div class="play" aria-hidden="true"></div><b>VIDEO COMING SOON</b>' + (m.alt ? '<small>' + esc(m.alt) + '</small>' : '') + '</div>';
   };
-  const isVideo = m => m.type && m.type !== 'image';
+  const isVideo = m => m.type && m.type !== 'image' && m.type !== 'soon';
 
   // ---------- share ----------
   NB.share = async function (g, btn) {
@@ -147,7 +172,11 @@
 
   // ---------- public page ----------
   NB.renderPublic = function (g) {
-    const media = (g.media || []).filter(Boolean);
+    let media = (g.media || []).filter(m => m && (m.type !== 'image' || m.src));
+    if (!media.some(m => m.type === 'image' || (!m.type && m.src)) && g.build && g.build.previews) {
+      media = g.build.previews.map((src, i) => ({ type: 'image', src, alt: i ? 'A page from the notebook' : 'The front cover' })).concat(media);
+    }
+    if (!media.length) media = [{ type: 'soon', alt: 'Photos coming soon' }];
     const videos = media.filter(isVideo);
     const order = g.order || {};
     const html =

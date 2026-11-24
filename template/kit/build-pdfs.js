@@ -125,8 +125,29 @@ async function build(browser, base, folder) {
   const fullCount = (await load(full)).getPageCount(), samplerCount = (await load(sampler)).getPageCount();
   if (samplerCount >= fullCount) throw new Error('Sampler (' + samplerCount + ' pages) is not shorter than the full notebook (' + fullCount + ').');
 
+  // Product pictures for the public page, used until real photos are added:
+  // the front cover, then the first inside pages of the sampler.
+  const shots = [];
+  async function shoot(file, query, selector, count) {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1300 }, deviceScaleFactor: 1.4 });
+    await page.goto(base + '/' + folder + '/' + file + '?pdf=1&' + query, { waitUntil: 'load' });
+    await page.waitForFunction(() => document.body.dataset.ready, null, { timeout: 30000 });
+    for (const el of (await page.$$(selector)).slice(0, count)) {
+      const box = await el.boundingBox();
+      if (!box) continue;
+      const name = 'preview-' + (shots.length + 1) + '.jpg';
+      await page.screenshot({ path: path.join(tmp, name), type: 'jpeg', quality: 82, fullPage: true, clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, box.width * H / W) } });
+      shots.push(name);
+    }
+    await page.close();
+  }
+  await shoot('cover.html', 'layout=front', '.pk-cover', 1);
+  await shoot('contents.html', 'bleed=0&sampler=1', '.flow, .page', 3);
+
   const out = path.join(dir, 'pdf');
   fs.mkdirSync(out, { recursive: true });
+  for (const f of fs.readdirSync(out)) if (/^preview-\d+\.jpg$/.test(f)) fs.unlinkSync(path.join(out, f));
+  shots.forEach(f => fs.copyFileSync(path.join(tmp, f), path.join(out, f)));
   fs.writeFileSync(path.join(out, slug + '-cover.pdf'), cover);
   fs.writeFileSync(path.join(out, slug + '-contents.pdf'), contents);
   fs.writeFileSync(path.join(out, slug + '.pdf'), full);
@@ -135,6 +156,7 @@ async function build(browser, base, folder) {
   fs.writeFileSync(path.join(out, 'build.json'), JSON.stringify({
     built: new Date().toISOString(), trim: [W, H], bleed: P.bleed, spine,
     pages: { contents: pages, blanksAdded: blanks, printAtHome: fullCount, sampler: samplerCount },
+    previews: shots.map(f => 'pdf/' + f),
   }, null, 2) + '\n');
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('  contents ' + pages + ' pages (' + blanks + ' blank added), cover ' + (2 * W + spine + 2 * P.bleed).toFixed(3) + ' x ' + (H + 2 * P.bleed).toFixed(3) + ' in, spine ' + spine + ' in');

@@ -11,12 +11,18 @@
  *   contents.html?sampler=1                the free sampler's pages only
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
+ * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
+ * {{url}} {{price}} {{sheets}} (print.sheets), and as HTML {{steps}} {{specs}} {{description}}.
+ *
  * When everything is laid out the page sets <body data-ready="1">.
  */
 (function () {
   'use strict';
   const NB = window.NB;
-  const q = new URLSearchParams(location.search);
+  // Options come from the URL, or (in the admin page's live preview, which has no URL) from
+  // <meta name="nb-query" content="layout=front">.
+  const qm = document.querySelector('meta[name="nb-query"]');
+  const q = new URLSearchParams(location.search + (qm ? (location.search ? '&' : '') + qm.content : ''));
   const r3 = n => Math.round(n * 1000) / 1000;
   const inch = n => r3(n) + 'in';
 
@@ -131,8 +137,17 @@
       g.print.margin = g.print.margin == null ? 0.5 : g.print.margin;
       document.title = g.title + ' · ' + document.body.dataset.page;
       // Fill {{title}}, {{subtitle}}, {{tagline}}, {{url}} anywhere in the page text.
-      const vars = { title: g.title, subtitle: g.subtitle || '', tagline: g.tagline || '', url: g.url || 'thegamebureau.com' + location.pathname.replace(/\/[^/]*$/, '/'), price: g.price || '' };
-      document.body.innerHTML = document.body.innerHTML.replace(/\{\{(title|subtitle|tagline|url|price)\}\}/g, (x, k) => NB.esc(vars[k]));
+      const vars = { title: g.title, subtitle: g.subtitle || '', tagline: g.tagline || '', url: g.url || 'thegamebureau.com' + NB.folder(), price: g.price || '' };
+      const html = {
+        steps: '<ol class="pk-steps">' + (g.steps || []).map(st => '<li><b>' + NB.esc(st.title) + '</b>' + NB.esc(st.text) + '</li>').join('') + '</ol>',
+        specs: '<div class="pk-specs">' + (g.specs || []).map(sp => '<div><b>' + NB.esc(sp[0]) + '</b>' + NB.esc(sp[1]) + '</div>').join('') + '</div>',
+        description: (g.description || []).map(p => '<p>' + NB.esc(p) + '</p>').join(''),
+      };
+      vars.sheets = String(g.print.sheets || 24);
+      vars.kicker = g.kicker || '';
+      document.body.innerHTML = document.body.innerHTML
+        .replace(/\{\{(steps|specs|description)\}\}/g, (x, k) => html[k])
+        .replace(/\{\{(title|subtitle|tagline|url|price|sheets|kicker)\}\}/g, (x, k) => NB.esc(vars[k]));
       if (document.body.dataset.page === 'cover') await layoutCover(g);
       else await layoutContents(g);
       if (q.has('pdf')) document.body.classList.add('pk-pdf');
