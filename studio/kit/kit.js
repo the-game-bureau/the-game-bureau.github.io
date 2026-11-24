@@ -159,9 +159,8 @@
   // ---------- shared header and footer ----------
   const header = (g, here) =>
     '<header class="nb-bar"><div class="nb-wrap">' +
-    '<a class="nb-home" href="/">THE GAME BUREAU</a>' +
+    '<a class="nb-home" href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a>' +
     '<nav>' +
-    (here !== 'public' ? '<a href="./">' + esc(g.title.toUpperCase()) + '</a>' : '') +
     (here !== 'rules' ? '<a href="./rules.html">RULES</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     '</nav></div></header>';
