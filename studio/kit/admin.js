@@ -300,7 +300,8 @@
       '<fieldset><legend>The basics</legend>' + field('title', 'Title') + field('subtitle', 'Subtitle', { ph: 'The Notebook' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
-      field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) + '</fieldset>' +
+      field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
+      field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</fieldset>' +
       '<fieldset><legend>What it is</legend>' + field('aboutHeading', 'Heading') +
       '<label class="ad-field"><span>Description</span><textarea id="f-desc" rows="6">' + esc((g.description || []).join('\n\n')) + '</textarea><small>Leave a blank line between paragraphs.</small></label>' +
       '<div class="ad-field"><span>Specs</span>' + rows('specs', [0, 1], ['Label, e.g. PLAYERS', 'Value, e.g. 2 to 6']) + '</div></fieldset>' +

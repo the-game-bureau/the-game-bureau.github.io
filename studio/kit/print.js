@@ -75,7 +75,7 @@
     // 3. Put the rules (rules.md) wherever <section data-rules> sits.
     for (const el of document.querySelectorAll('[data-rules]')) {
       el.classList.add('flow', 'pk-rules');
-      el.innerHTML = await NB.loadRules();
+      el.innerHTML = await NB.loadRules(g);
     }
 
     if (q.get('sampler') === '1') document.querySelectorAll('[data-sampler-only]').forEach(el => el.hidden = false);
