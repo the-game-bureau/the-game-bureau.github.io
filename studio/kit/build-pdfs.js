@@ -1,6 +1,6 @@
 // Builds a notebook game's PDFs from its HTML. Usage, from the repo root:
-//   node template/kit/build-pdfs.js template/dice-derby   (one game: its folder from the repo root)
-//   node template/kit/build-pdfs.js --all                 (every folder with a notebook game.json)
+//   node studio/kit/build-pdfs.js studio/dice-derby   (one game: its folder from the repo root)
+//   node studio/kit/build-pdfs.js --all                 (every folder with a notebook game.json)
 // Needs playwright and pdf-lib (the GitHub workflow installs them).
 //
 // Writes into <game>/pdf/:
@@ -23,7 +23,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.gif': 'image/gif',
   '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.woff': 'font/woff', '.otf': 'font/otf', '.ico': 'image/x-icon' };
 
-// The pages use site-root paths (/template/kit/...), so serve the repo root over http.
+// The pages use site-root paths (/studio/kit/...), so serve the repo root over http.
 function serve() {
   const server = http.createServer((req, res) => {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -168,7 +168,7 @@ async function build(browser, base, folder) {
   let games = args.includes('--all')
     ? findGames()
     : args.filter(a => !a.startsWith('-')).map(a => a.replace(/^\.?\/+|\/+$/g, ''));
-  if (!games.length) { console.error('Usage: node template/kit/build-pdfs.js <game-folder> [...] | --all'); process.exit(2); }
+  if (!games.length) { console.error('Usage: node studio/kit/build-pdfs.js <game-folder> [...] | --all'); process.exit(2); }
   for (const s of games) {
     if (!/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(s) || !isNotebook(s)) { console.error('"' + s + '" is not a notebook game folder (needs game.json with "kit": "notebook")'); process.exit(2); }
   }

@@ -147,17 +147,17 @@
     const desc = g.tagline || g.title;
     const full = g.title + (g.subtitle ? ': ' + g.subtitle : '');
     const head = (title, extra) => '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
-      '<!-- Made with the notebook kit (/template/). This page is built from game.json; the tags below are written by the admin page when you save. -->\n' +
+      '<!-- Made with the notebook kit (/studio/). This page is built from game.json; the tags below are written by the admin page when you save. -->\n' +
       '<title>' + esc(title) + '</title>\n' + extra +
-      '<link rel="icon" href="/favicon.ico">\n<link rel="stylesheet" href="/template/kit/kit.css">\n<script src="/template/kit/kit.js" defer></script>\n';
+      '<link rel="icon" href="/favicon.ico">\n<link rel="stylesheet" href="/studio/kit/kit.css">\n<script src="/studio/kit/kit.js" defer></script>\n';
     const og = (title, u) => '<meta name="description" content="' + esc(desc) + '">\n<link rel="canonical" href="' + esc(u) + '">\n' +
       '<meta property="og:type" content="product">\n<meta property="og:title" content="' + esc(title) + '">\n<meta property="og:description" content="' + esc(desc) + '">\n' +
       '<meta property="og:url" content="' + esc(u) + '">\n<meta property="og:image" content="' + esc(img) + '">\n<meta name="twitter:card" content="summary_large_image">\n';
     return {
       'index.html': head(g.title + ' | The Game Bureau', og(full, url)) + '</head>\n<body data-page="public">\n<noscript><p style="padding:24px">' + esc(full) + '. <a href="./rules.html">Read the rules</a>.</p></noscript>\n</body>\n</html>\n',
       'rules.html': head(g.title + ' rules | The Game Bureau', og(g.title + ' rules', url + 'rules.html')) + '</head>\n<body data-page="rules"></body>\n</html>\n',
-      'admin.html': head(g.title + ' · Notebook admin', '<meta name="robots" content="noindex,nofollow">\n').replace('<script src="/template/kit/kit.js" defer></script>\n',
-        '<link rel="stylesheet" href="/template/kit/admin.css">\n<script src="/template/kit/kit.js" defer></script>\n<script src="/template/kit/gh.js" defer></script>\n<script src="/template/kit/admin.js" defer></script>\n') +
+      'admin.html': head(g.title + ' · Notebook admin', '<meta name="robots" content="noindex,nofollow">\n').replace('<script src="/studio/kit/kit.js" defer></script>\n',
+        '<link rel="stylesheet" href="/studio/kit/admin.css">\n<script src="/studio/kit/kit.js" defer></script>\n<script src="/studio/kit/gh.js" defer></script>\n<script src="/studio/kit/admin.js" defer></script>\n') +
         '</head>\n<body data-page="admin"></body>\n</html>\n',
     };
   };

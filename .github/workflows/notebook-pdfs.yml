@@ -2,14 +2,14 @@ name: Build notebook PDFs
 run-name: Notebook PDFs · ${{ inputs.game || 'changed games' }}
 
 # Builds a notebook game's PDFs (cover, contents, print-at-home, free sampler) with
-# template/kit/build-pdfs.js and commits them to <game>/pdf/.
+# studio/kit/build-pdfs.js and commits them to <game>/pdf/.
 # Started from a game's admin page (Build PDFs), from the Actions tab, or on its own
 # when a notebook game's pages or the kit change on main.
 on:
   workflow_dispatch:
     inputs:
       game:
-        description: 'Game folder from the site root, e.g. template/dice-derby'
+        description: 'Game folder from the site root, e.g. studio/dice-derby'
         required: true
         type: string
   push:
@@ -19,7 +19,7 @@ on:
       - '**/rules.md'
       - '**/cover.html'
       - '**/contents.html'
-      - 'template/kit/**'
+      - 'studio/kit/**'
 
 permissions:
   contents: write
@@ -53,7 +53,7 @@ jobs:
             games="$game"
           else
             changed=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
-            if echo "$changed" | grep -q '^template/kit/'; then
+            if echo "$changed" | grep -q '^studio/kit/'; then
               games=$(find . -maxdepth 4 -name game.json -not -path './.git/*' -exec dirname {} \; | sed 's#^\./##' | while read -r d; do is_game "$d" && echo "$d"; done)
             else
               # For each changed file, walk up to the nearest folder that is a notebook game.
@@ -87,7 +87,7 @@ jobs:
         if: steps.games.outputs.list != ''
         env:
           GAMES: ${{ steps.games.outputs.list }}
-        run: NODE_PATH="$RUNNER_TEMP/pdfdeps/node_modules" node template/kit/build-pdfs.js $GAMES
+        run: NODE_PATH="$RUNNER_TEMP/pdfdeps/node_modules" node studio/kit/build-pdfs.js $GAMES
 
       - name: Commit PDFs
         if: steps.games.outputs.list != ''
