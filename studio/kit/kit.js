@@ -52,9 +52,15 @@
   NB.folder = () => new URL('./', document.baseURI).pathname;
   NB.draftKey = folder => 'nb-draft:' + (folder || NB.folder());
   NB.isPreview = () => location.protocol === 'about:' || new URLSearchParams(location.search).has('preview');
+  // The editor can name the draft to show: ?draft=<key> on a page, or <meta name="nb-draft"> in a frame.
+  // (A new notebook's draft is kept under its own key while it previews in the template's folder.)
+  NB.previewKey = () => {
+    const q = new URLSearchParams(location.search).get('draft'), m = document.querySelector('meta[name="nb-draft"]');
+    return /^nb-draft:/.test(q || '') ? q : m && /^nb-draft:/.test(m.content) ? m.content : NB.draftKey();
+  };
   NB.draft = function () {
     if (!NB.isPreview()) return null;
-    try { return JSON.parse(localStorage.getItem(NB.draftKey()) || 'null'); } catch (e) { return null; }
+    try { return JSON.parse(localStorage.getItem(NB.previewKey()) || 'null'); } catch (e) { return null; }
   };
 
   NB.loadGame = async function () {
