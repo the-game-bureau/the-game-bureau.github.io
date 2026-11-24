@@ -134,8 +134,7 @@
     if (msg) { bar.className = 'ad-bar show ' + (kind || ''); bar.innerHTML = msg; return; }
     if (IS_NEW) {
       $('#ad-save').disabled = false; $('#ad-discard').disabled = false;
-      bar.className = 'ad-bar show dirty';
-      bar.innerHTML = 'A new notebook, started from the ' + esc((ST.STARTS.find(x => x[0] === FOLDER) || ST.STARTS[0])[1].toLowerCase()) + '. Give it a name and web address in <a href="#content">Content</a>, shape it in any tab, then click <b>Create notebook</b>. It is kept in this browser until then.';
+      bar.className = 'ad-bar'; bar.textContent = '';
       return;
     }
     const dirty = changed();
