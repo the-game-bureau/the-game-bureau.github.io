@@ -1,0 +1,188 @@
+/* Notebook kit: the Notebook Studio (/template/). Needs kit.js and gh.js.
+ * Lists every notebook game, and turns an idea into a new notebook: it copies the starter
+ * template (or the Dice Derby sample) into a new folder on GitHub with your name, pitch and
+ * colours filled in, publishes it, and sends you to its admin page for the rest.
+ * The template folders themselves are only read, never changed.
+ */
+(function () {
+  'use strict';
+  const NB = window.NB, GH = window.GH, esc = NB.esc;
+  const $ = s => document.querySelector(s);
+  const STARTS = [
+    ['template/starter', 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets. Best for a new idea.'],
+    ['template/dice-derby', 'Dice Derby sample', 'A finished example game with custom race cards. Start here to adapt its layouts.'],
+  ];
+  const PRESETS = [
+    ['#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'], ['#2D5016', '#FFD400', '#FFFDF5', '#101510'], ['#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
+    ['#0F5C63', '#F28C38', '#F7FBFA', '#10201F'], ['#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'], ['#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
+    ['#283593', '#00BFA6', '#F8F9FF', '#14162B'], ['#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
+  ];
+  let files = null;
+  let colors = PRESETS[0].slice();
+
+  const slugify = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+
+  function page() {
+    NB.applyBrand({ brand: { color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' } });
+    document.body.innerHTML =
+      '<header class="nb-bar"><div class="nb-wrap"><a class="nb-home" href="/">THE GAME BUREAU</a><nav><a href="#new">NEW NOTEBOOK</a><a href="#games">NOTEBOOKS</a></nav></div></header>' +
+      '<main class="st-main">' +
+      '<h1>Notebook Studio</h1><p class="lede">Go from an idea to a live notebook game on thegamebureau.com: a game page, a rules page, and print-ready PDFs. The template stays untouched, so you can start from it again any time.</p>' +
+
+      '<section class="st-card"><h2>How it works</h2><ol class="st-flow">' +
+      '<li><b>Connect GitHub</b>Once per browser. Saving to the site is a commit to the repository.</li>' +
+      '<li><b>Start a notebook</b>Name it and pitch it below. The studio copies the template into a new folder.</li>' +
+      '<li><b>Shape it</b>On its admin page: words, colours, rules, cover, inside pages, photos. Live preview as you type.</li>' +
+      '<li><b>Save and publish</b>One button. The site republishes in about a minute.</li>' +
+      '<li><b>PDFs build</b>Cover, contents, print-at-home and free sampler, about 3 minutes after each save.</li>' +
+      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, share the page.</li>' +
+      '</ol></section>' +
+
+      '<section class="st-card" id="connect"><h2>1. Connect GitHub</h2><div id="st-gh"></div></section>' +
+
+      '<section class="st-card" id="new"><h2>2. Start a new notebook</h2>' +
+      '<p class="ad-lede">You can change all of this later on the notebook\'s admin page.</p>' +
+      '<div class="st-form">' +
+      '<label class="ad-field"><span>Game name</span><input id="n-title" placeholder="e.g. Pitch Count" autocomplete="off"></label>' +
+      '<label class="ad-field"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="n-folder" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="n-folder-msg">Lowercase letters, numbers and dashes.</small></label>' +
+      '<label class="ad-field wide"><span>Tagline</span><input id="n-tagline" placeholder="One sentence: what it is and why it\'s fun."></label>' +
+      '<label class="ad-field wide"><span>The idea</span><textarea id="n-pitch" rows="4" placeholder="Who plays, what you do, what makes it fun. Leave a blank line between paragraphs."></textarea></label>' +
+      '<label class="ad-field"><span>Players</span><input id="n-players" value="2 to 6"></label>' +
+      '<label class="ad-field"><span>Time</span><input id="n-time" placeholder="About 30 minutes"></label>' +
+      '<label class="ad-field"><span>You need</span><input id="n-need" value="A pencil"></label>' +
+      '<label class="ad-field"><span>Price</span><input id="n-price" value="$9.99"></label>' +
+      '<label class="ad-field"><span>Game sheets in the notebook</span><input id="n-sheets" type="number" value="24" min="1" max="300"></label>' +
+      '<div class="ad-field"><span>Colours</span><div class="ad-presets" id="n-colors"></div></div>' +
+      '<div class="ad-field wide"><span>Start from</span><div class="st-starts">' + STARTS.map((s, i) => '<label><input type="radio" name="n-start" value="' + s[0] + '"' + (i ? '' : ' checked') + '><span><b>' + s[1] + '</b><small>' + s[2] + '</small></span></label>').join('') + '</div></div>' +
+      '</div>' +
+      '<div class="nb-row"><button class="nb-btn solid big" id="n-go" type="button">CREATE THE NOTEBOOK</button></div>' +
+      '<ul class="st-progress" id="n-progress" hidden></ul><div id="n-done"></div>' +
+      '</section>' +
+
+      '<section class="st-card" id="games"><h2>Notebooks</h2><div id="st-games"><p class="ad-help">Loading…</p></div></section>' +
+      '</main>';
+
+    $('#n-colors').innerHTML = PRESETS.map((x, i) => '<button type="button" data-p="' + i + '"' + (i ? '' : ' aria-pressed="true"') + '>' + x.map(c => '<span style="background:' + c + '"></span>').join('') + '</button>').join('');
+    document.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { colors = PRESETS[+b.dataset.p].slice(); document.querySelectorAll('[data-p]').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
+    let folderTouched = false;
+    $('#n-title').oninput = () => { if (!folderTouched) { $('#n-folder').value = slugify($('#n-title').value); checkFolder(); } };
+    $('#n-folder').oninput = () => { folderTouched = true; checkFolder(); };
+    $('#n-go').onclick = create;
+    ghBox();
+    loadGames();
+  }
+
+  function ghBox() {
+    const el = $('#st-gh');
+    if (GH.token()) {
+      el.innerHTML = '<p>Connected. <span id="st-who"></span> <button type="button" class="ad-link" id="st-forget">Disconnect</button></p>';
+      GH.check().then(w => { $('#st-who').textContent = 'Signed in as ' + w + '.'; }).catch(e => { $('#st-who').textContent = e.message; });
+      $('#st-forget').onclick = () => { GH.setToken(''); ghBox(); };
+      return;
+    }
+    el.innerHTML = '<ol class="ad-help" style="font-size:15px;color:var(--ink)">' +
+      '<li>Open <a href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">New fine-grained token</a> on GitHub (signed in as someone who can push to the site).</li>' +
+      '<li>Name it "Notebook Studio". Resource owner: <b>the-game-bureau</b>. Repository access: <b>Only select repositories</b>, then <b>' + esc(GH.REPO) + '</b>.</li>' +
+      '<li>Permissions, Repository: <b>Contents</b> Read and write, <b>Actions</b> Read and write.</li>' +
+      '<li>Generate it, copy it, and paste it here. It is kept in this browser only and sent only to GitHub.</li></ol>' +
+      '<div class="nb-row"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">CONNECT</button></div><p class="ad-help" id="st-tok-msg"></p>';
+    $('#st-tok-save').onclick = async () => {
+      GH.setToken($('#st-tok').value.trim());
+      try { await GH.check(); ghBox(); loadGames(); } catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
+    };
+  }
+
+  async function loadGames() {
+    const box = $('#st-games');
+    try {
+      const r = await GH.listGames();
+      files = r.files;
+      box.innerHTML = '<div class="st-games">' + r.games.sort((a, b) => a.folder.startsWith('template/') - b.folder.startsWith('template/') || a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
+        '<div class="st-game"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
+        (folder.startsWith('template/') ? '<span class="tag">TEMPLATE</span>' : '') +
+        '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
+        '<div class="nb-row"><a class="nb-btn solid" href="/' + esc(folder) + '/admin.html">ADMIN</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a></div></div></div>').join('') + '</div>';
+      checkFolder();
+    } catch (e) {
+      box.innerHTML = '<p class="ad-help">Could not list notebooks: ' + esc(e.message) + '</p>';
+    }
+  }
+
+  function checkFolder() {
+    const v = $('#n-folder').value.trim();
+    const msg = $('#n-folder-msg');
+    let bad = '';
+    if (!v) { msg.textContent = 'Lowercase letters, numbers and dashes.'; msg.style.color = ''; return false; }
+    else if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(v)) bad = 'Use 2 to 40 lowercase letters, numbers and dashes.';
+    else if (files && files.some(f => f.path === v || f.path.startsWith(v + '/'))) bad = 'thegamebureau.com/' + v + '/ is already taken.';
+    msg.textContent = bad || (v ? 'The game page will be thegamebureau.com/' + v + '/' : 'Lowercase letters, numbers and dashes.');
+    msg.style.color = bad ? '#B42318' : '';
+    return !bad;
+  }
+
+  function progress(items) {
+    const ul = $('#n-progress'); ul.hidden = false;
+    ul.innerHTML = items.map(([t, s]) => '<li class="' + (s || '') + '">' + t + '</li>').join('');
+  }
+
+  async function create() {
+    const title = $('#n-title').value.trim();
+    const folder = $('#n-folder').value.trim();
+    const start = (document.querySelector('[name=n-start]:checked') || {}).value;
+    if (!GH.token()) { location.hash = 'connect'; $('#st-tok') && $('#st-tok').focus(); return; }
+    if (!title) { $('#n-title').focus(); return; }
+    if (!files) await loadGames();
+    if (!checkFolder()) { $('#n-folder').focus(); return; }
+    const go = $('#n-go'); go.disabled = true;
+    const steps = [['Copy the template', 'doing'], ['Fill in your details', ''], ['Save to GitHub', ''], ['Wait for the site to publish (about a minute)', '']];
+    const mark = (i, s) => { steps[i][1] = s; progress(steps); };
+    progress(steps);
+    try {
+      files = (await GH.listFiles());
+      if (files.some(f => f.path.startsWith(folder + '/'))) throw new Error('thegamebureau.com/' + folder + '/ was just taken. Pick another address.');
+      const src = files.filter(f => f.path.startsWith(start + '/') && !f.path.startsWith(start + '/pdf/') && !/\/\.keep$/.test(f.path));
+      const srcGame = JSON.parse(await GH.readBlobText(src.find(f => f.path === start + '/game.json').sha));
+      const oldTitle = srcGame.title;
+      mark(0, 'done'); mark(1, 'doing');
+
+      const g = srcGame;
+      g.slug = folder; g.title = title;
+      const tagline = $('#n-tagline').value.trim(); if (tagline) g.tagline = tagline;
+      const pitch = $('#n-pitch').value.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean); if (pitch.length) g.description = pitch;
+      g.shareText = tagline ? title + ': ' + tagline : '';
+      g.price = $('#n-price').value.trim();
+      const specs = [['PLAYERS', $('#n-players').value.trim()], ['TIME', $('#n-time').value.trim()], ['YOU NEED', $('#n-need').value.trim()]].filter(s => s[1]);
+      if (start === 'template/starter' || specs.length) g.specs = specs;
+      g.brand = { color: colors[0], accent: colors[1], paper: colors[2], ink: colors[3] };
+      g.print = Object.assign({}, g.print, { sheets: Math.max(1, +$('#n-sheets').value || 24) });
+      g.setup = { colors: true };
+      g.order = Object.assign({}, g.order, { url: '' });
+
+      const swap = t => t.split(oldTitle).join(title).split(oldTitle.toUpperCase()).join(title.toUpperCase());
+      const out = [];
+      for (const f of src) {
+        const rel = f.path.slice(start.length + 1);
+        if (['game.json', 'index.html', 'rules.html', 'admin.html'].includes(rel)) continue;
+        if (/\.(md|html|css|js|json|txt|svg)$/.test(rel)) out.push({ path: folder + '/' + rel, text: swap(await GH.readBlobText(f.sha)) });
+        else out.push({ path: folder + '/' + rel, sha: f.sha }); // images: reuse the same file
+      }
+      out.push({ path: folder + '/game.json', text: JSON.stringify(g, null, 2) + '\n' });
+      Object.entries(GH.shells(folder, g)).forEach(([f, t]) => out.push({ path: folder + '/' + f, text: t }));
+      mark(1, 'done'); mark(2, 'doing');
+
+      await GH.commit(out, 'Start the ' + title + ' notebook (from ' + start + ')');
+      mark(2, 'done'); mark(3, 'doing');
+      const live = await GH.waitForSite('/' + folder + '/game.json', null, i => { steps[3][0] = 'Wait for the site to publish (' + (i + 1) * 8 + 's)'; progress(steps); }, 40);
+      mark(3, live ? 'done' : 'fail');
+      $('#n-done').innerHTML = '<div class="ad-status ok" style="margin-top:14px"><b>' + esc(title) + ' is started.</b> ' +
+        (live ? 'Its admin page walks you through the rest.' : 'The site is still publishing; the admin page will open in a minute or two.') +
+        ' The first PDFs build on their own in about 3 minutes.<div class="nb-row" style="margin-top:10px"><a class="nb-btn solid" href="/' + esc(folder) + '/admin.html">OPEN THE ADMIN PAGE</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">VIEW THE GAME PAGE</a></div></div>';
+      loadGames();
+    } catch (e) {
+      const i = steps.findIndex(s => s[1] === 'doing'); if (i >= 0) mark(i, 'fail');
+      $('#n-done').innerHTML = '<div class="ad-status bad" style="margin-top:14px">' + esc(e.message) + '</div>';
+    } finally { go.disabled = false; }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { if (document.body.dataset.page === 'studio') page(); });
+})();
