@@ -17,22 +17,34 @@
   'use strict';
   const NB = window.NB, GH = window.GH, esc = NB.esc;
   // The game being edited: /studio/?game=<folder> (or a legacy <folder>/admin.html).
+  // /studio/ on its own opens the same editor on a NEW notebook: a draft started from a template
+  // (studio/starter by default). Its first save creates the folder, then the editor switches to it.
+  const ST = window.NBStudio;
   const QS = new URLSearchParams(location.search).get('game') || '';
-  const FOLDER = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
-    : /^\/studio\/(index\.html|edit\.html)?$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+  const STUDIO_PATH = /^\/studio\/(index\.html|edit\.html)?$/.test(location.pathname);
+  const GAME = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
+    : STUDIO_PATH ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+  const IS_NEW = !GAME && STUDIO_PATH;
+  const NEWKEY = 'nb-draft:/studio/new/';
+  const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && ST.STARTS.some(x => x[0] === d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTS[0][0]; };
+  const FOLDER = IS_NEW ? newStart() : GAME; // for a new notebook: the template it previews in
   const BASE = '/' + FOLDER + '/'; // the game's folder on the site
-  const DKEY = NB.draftKey('/' + FOLDER + '/');
+  const DKEY = IS_NEW ? NEWKEY : NB.draftKey('/' + FOLDER + '/');
+  // Where the notebook lives (or will live, for a new one).
+  const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['setup', 'Setup'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs']];
+  const TABS = [['connect', 'Connect'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['games', 'Notebooks']];
+  const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
+  const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
   let draft = null;   // same shape, being edited
   let build = null;   // pdf/build.json
-  let tab = 'setup';
+  let tab = 'checklist';
   const pending = (window.NB_PENDING = {}); // images/x.jpg -> data URL, picked but not saved
   const pendingB64 = {};
-  const isTemplate = /^studio\//.test(FOLDER);
+  const isTemplate = !IS_NEW && /^studio\//.test(FOLDER);
   let allowTemplate = false;
   let legacyAdmin = false; // an old <game>/admin.html that the next save removes
 
@@ -47,7 +59,7 @@
   const changed = () => !!saved && (gameText(draft.game) !== gameText(saved.game) || ['rules', 'cover', 'contents'].some(k => draft[k] !== saved[k]) || Object.keys(pending).length > 0);
 
   function persist() {
-    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, at: Date.now() })); } catch (e) { /* quota or blocked */ }
+    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, at: Date.now(), start: IS_NEW ? FOLDER : undefined })); } catch (e) { /* quota or blocked */ }
     updateBar();
     schedulePreview();
   }
@@ -63,14 +75,23 @@
     };
     const [game, rules, cover, contents] = await Promise.all([read(FILES.game), read(FILES.rules), read(FILES.cover), read(FILES.contents)]);
     saved = { game: JSON.parse(game), rules, cover, contents };
+    if (IS_NEW) { build = null; return; }
     if (GH.token()) { try { await GH.api('/contents/' + FOLDER + '/admin.html?ref=' + GH.BRANCH); legacyAdmin = true; } catch (e) { legacyAdmin = false; } }
     try { const b = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = b.ok ? await b.json() : null; } catch (e) { build = null; }
   }
   function loadDraft() {
     draft = clone(saved);
+    if (IS_NEW) {
+      // A fresh notebook from the template: no name or address yet, and nothing ticked.
+      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, media: [] });
+      draft.game.order = Object.assign({}, draft.game.order, { url: '' });
+      draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
+      delete draft.game.favicon;
+    }
     try {
       const d = JSON.parse(localStorage.getItem(DKEY) || 'null');
-      if (d && d.game) { draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents }; draft.at = d.at; }
+      if (d && d.carry) { Object.assign(draft.game, d.carry); } // kept when switching templates
+      else if (d && d.game) { draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents }; draft.at = d.at; }
     } catch (e) { /* none */ }
     draft.game.setup = draft.game.setup || {};
     draft.game.media = draft.game.media || [];
@@ -81,10 +102,10 @@
     document.body.classList.add('ad-app');
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><a class="ad-studio" href="/studio/">Notebook Studio</a><h1 id="ad-title"></h1><span class="ad-folder">/' + esc(FOLDER) + '/</span></div>' +
-      '<div class="ad-actions"><a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>' +
-      '<button class="nb-btn" id="ad-discard" type="button">DISCARD CHANGES</button>' +
-      '<button class="nb-btn solid" id="ad-save" type="button">SAVE AND PUBLISH</button></div></div>' +
+      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title"></h1><span class="ad-folder" id="ad-folder"></span></div>' +
+      '<div class="ad-actions">' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
+      '<button class="nb-btn" id="ad-discard" type="button">' + (IS_NEW ? 'START OVER' : 'DISCARD CHANGES') + '</button>' +
+      '<button class="nb-btn solid" id="ad-save" type="button">' + (IS_NEW ? 'CREATE NOTEBOOK' : 'SAVE AND PUBLISH') + '</button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
       '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
       '<div class="ad-gh" id="ad-gh"></div></nav>' +
@@ -93,6 +114,11 @@
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
     $('#ad-save').onclick = save;
     $('#ad-discard').onclick = () => {
+      if (IS_NEW) {
+        if (!confirm('Throw away this new notebook and start again from the template?')) return;
+        clearDraft(); Object.keys(pending).forEach(k => { delete pending[k]; delete pendingB64[k]; });
+        location.reload(); return;
+      }
       if (!changed()) return;
       if (!confirm('Throw away the changes you have not saved?')) return;
       clearDraft(); Object.keys(pending).forEach(k => { delete pending[k]; delete pendingB64[k]; });
@@ -102,16 +128,23 @@
   }
 
   function updateBar(msg, kind) {
-    $('#ad-title').textContent = draft.game.title || 'Untitled';
-    document.title = (draft.game.title || 'Notebook') + ' · Notebook Studio';
+    $('#ad-title').textContent = draft.game.title || (IS_NEW ? 'New notebook' : 'Untitled');
+    $('#ad-folder').textContent = IS_NEW ? (draft.game.slug ? '/' + draft.game.slug + '/ (not created yet)' : 'not created yet') : '/' + FOLDER + '/';
+    document.title = (draft.game.title || (IS_NEW ? 'New notebook' : 'Notebook')) + ' · Notebook Studio';
     const bar = $('#ad-bar');
     if (msg) { bar.className = 'ad-bar show ' + (kind || ''); bar.innerHTML = msg; return; }
+    if (IS_NEW) {
+      $('#ad-save').disabled = false; $('#ad-discard').disabled = false;
+      bar.className = 'ad-bar show dirty';
+      bar.innerHTML = 'A new notebook, started from the ' + esc((ST.STARTS.find(x => x[0] === FOLDER) || ST.STARTS[0])[1].toLowerCase()) + '. Give it a name and web address in <a href="#content">Content</a>, shape it in any tab, then click <b>Create notebook</b>. It is kept in this browser until then.';
+      return;
+    }
     const dirty = changed();
     $('#ad-save').disabled = !dirty;
     $('#ad-discard').disabled = !dirty;
     if (isTemplate && !allowTemplate) {
       bar.className = 'ad-bar show warn';
-      bar.innerHTML = 'This is the template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/#content">Start a new notebook from it</a> in the studio.';
+      bar.innerHTML = 'This is a template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/">Start a new notebook</a> instead.';
       $('#ad-save').disabled = true;
       return;
     }
@@ -119,26 +152,23 @@
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
+  // The small GitHub status under the tabs. Setting up happens on the Connect tab.
   function ghBox() {
     const el = $('#ad-gh');
     el.innerHTML = GH.token()
       ? '<p>GitHub connected.</p><button type="button" class="ad-link" id="ad-gh-forget">Disconnect</button>'
-      : '<p><b>One-time setup needed</b> before you can save and build. Follow Connect in the <a href="/studio/#connect">Notebook Studio</a>, or paste the GitHub token here.</p><input id="ad-gh-in" type="password" placeholder="github_pat_..." autocomplete="off"><button type="button" class="nb-btn" id="ad-gh-save">CONNECT</button>' +
-        '<p class="ad-help">Make a <a href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">fine-grained token</a> for ' + esc(GH.REPO) + ' only, with Contents and Actions set to Read and write. It stays in this browser.</p>';
-    if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); };
-    else $('#ad-gh-save').onclick = async () => {
-      GH.setToken($('#ad-gh-in').value.trim());
-      try { const who = await GH.check(); ghBox(); updateBar('Connected to GitHub as ' + esc(who) + '.', 'ok'); setTimeout(() => updateBar(), 4000); }
-      catch (e) { GH.setToken(''); ghBox(); updateBar(esc(e.message), 'bad'); }
-    };
+      : '<p><b>Not connected to GitHub.</b> ' + (IS_NEW ? 'Creating' : 'Saving') + ' needs the one-time setup.</p><button type="button" class="nb-btn" id="ad-gh-go">CONNECT</button>';
+    if (GH.token()) $('#ad-gh-forget').onclick = () => { GH.setToken(''); ghBox(); if (tab === 'connect') show('connect'); };
+    else $('#ad-gh-go').onclick = () => show('connect');
   }
 
   function show(t) {
     tab = t;
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === t));
+    if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ setup: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
+    ({ connect: p => ST.connect(p, () => { ghBox(); updateBar(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
     previewFor(t);
     updateBar();
   }
@@ -149,7 +179,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      setup: null, pdfs: null,
+      connect: null, checklist: null, games: null, pdfs: null,
       content: [['page', 'Game page'], ['rules', 'Rules page'], ['front', 'Front cover'], ['back', 'Back cover']],
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
@@ -171,11 +201,12 @@
     const f = $('#ad-pv');
     if (!f) return;
     const mode = pvMode[tab];
-    const doc = (html, query) => html.replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '">');
+    const doc = (html, query) => html.replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">');
+    const dq = '&draft=' + encodeURIComponent(DKEY);
     const box = f.parentElement;
     box.className = 'ad-pv-box ' + (['page', 'rules'].includes(mode) ? 'web' : 'print');
-    if (mode === 'page') { f.removeAttribute('srcdoc'); f.src = BASE + '?preview=1&t=' + Date.now(); }
-    else if (mode === 'rules') { f.removeAttribute('srcdoc'); f.src = BASE + 'rules.html?preview=1&t=' + Date.now(); }
+    if (mode === 'page') { f.removeAttribute('srcdoc'); f.src = BASE + '?preview=1' + dq + '&t=' + Date.now(); }
+    else if (mode === 'rules') { f.removeAttribute('srcdoc'); f.src = BASE + 'rules.html?preview=1' + dq + '&t=' + Date.now(); }
     else if (['spread', 'front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
@@ -202,28 +233,28 @@
     const g = draft.game, s = g.setup || {};
     const starterTag = 'One sentence that says what the game is and why it\'s fun.';
     return [
-      { k: 'folder', t: 'Create the notebook\'s folder', d: 'Done in the Notebook Studio. The game page lives at /' + FOLDER + '/.', done: true },
+      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Content, then click Create notebook at the top. Until then it is kept in this browser.', tab: 'content', done: false }
+        : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true },
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
       { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true },
       { k: 'sampler', t: 'Choose the free sampler pages', d: 'The sampler is the cover, the rules and the first ' + ((g.print && g.print.samplerPages) || 2) + ' inside pages (set in Content, Print). Or mark pages with data-sampler.', tab: 'content', manual: true },
-      { k: 'save', t: 'Save and publish', d: 'Commits your changes. The site republishes in about a minute.', done: !changed() && !!saved },
+      { k: 'save', t: 'Save and publish', d: 'Commits your changes. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
       { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each save. Open each one and check it.', tab: 'pdfs', manual: true },
       { k: 'media', t: 'Add photos and a video', d: 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
-      { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + SUB + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
-      { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + FOLDER + '/', manual: true },
+      { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + target().split('/').pop() + '.' + GH.SITE + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
+      { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + target() + '/', manual: true },
     ].map(x => Object.assign(x, { done: x.manual ? !!s[x.k] || !!x.done : !!x.done }));
   }
   // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
-  const SLUG = FOLDER.split('/').pop();
-  const SUB = SLUG + '.' + GH.SITE;
   function subdomainHow() {
-    const target = 'https://' + GH.SITE + '/' + FOLDER;
-    const expr = 'concat("' + target + '", http.request.uri.path)';
+    const SLUG = target().split('/').pop(), SUB = SLUG + '.' + GH.SITE;
+    const tgt = 'https://' + GH.SITE + '/' + target();
+    const expr = 'concat("' + tgt + '", http.request.uri.path)';
     const code = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
     return '<details class="ad-how"><summary>Show me how</summary><ol>' +
       '<li>Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a> and pick ' + code(GH.SITE) + '.</li>' +
@@ -232,23 +263,23 @@
       '<li><b>Rules, Create rule, Redirect Rule.</b> Rule name ' + code(SLUG + ' short address') + '.</li>' +
       '<li>Under <b>If incoming requests match</b>, choose <b>Custom filter expression</b>: Field ' + code('Hostname') + ', Operator ' + code('equals') + ', Value ' + code(SUB) + '.</li>' +
       '<li>Under <b>Then</b>: Type <b>Dynamic</b>, Expression ' + code(expr) + ', Status code ' + code('301') + ', tick <b>Preserve query string</b>. Deploy.</li>' +
-      '<li>Wait a minute, then open <a href="https://' + SUB + '" target="_blank" rel="noopener">https://' + esc(SUB) + '</a>. It should land on ' + esc(target) + '/. ' +
+      '<li>Wait a minute, then open <a href="https://' + SUB + '" target="_blank" rel="noopener">https://' + esc(SUB) + '</a>. It should land on ' + esc(tgt) + '/. ' +
         'Pages carry on working too: https://' + esc(SUB) + '/rules.html opens the rules.</li>' +
       '</ol><p>Why a redirect: GitHub Pages serves the whole site on one address, so Cloudflare forwards the short one to this game\'s folder.</p></details>';
   }
   function tabSetup(p) {
     const list = steps();
     const n = list.filter(x => x.done).length;
-    p.innerHTML = '<h2>From idea to live notebook</h2><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
+    p.innerHTML = '<h2>Checklist</h2><h3 class="ad-sub">From idea to live notebook</h3><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
       '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it.</p>' +
       '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
         '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
-      '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">Notebook Studio</a> (make another notebook).</p>';
+      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you create it.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
-    p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('setup'); }; });
+    p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('checklist'); }; });
   }
 
   // ---------- tab: content ----------
@@ -284,11 +315,78 @@
     box.querySelectorAll('[data-del]').forEach(b => { b.onclick = () => { draft.game[key].splice(+b.dataset.del, 1); persist(); show(tab); }; });
     box.querySelector('[data-add]').onclick = () => { (draft.game[key] = draft.game[key] || []).push(blank()); persist(); show(tab); };
   }
+  // ---------- a new notebook: its web address, template and creation ----------
+  let taken = null; // every path in the repo, to check the address is free
+  async function loadTaken() { if (taken || !GH.token()) return; try { taken = (await GH.listFiles()).map(f => f.path); } catch (e) { taken = null; } }
+  function slugProblem(v) {
+    if (!v) return 'Pick a web address: lowercase letters, numbers and dashes.';
+    if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(v)) return 'Use 2 to 40 lowercase letters, numbers and dashes.';
+    if (/^(studio|template|mc|game|parlay)$/.test(v) || (taken && taken.some(f => f === v || f.startsWith(v + '/')))) return 'thegamebureau.com/' + v + '/ is already taken.';
+    return '';
+  }
+  function bindNew(p) {
+    const inp = p.querySelector('#f-slug'), msg = p.querySelector('#f-slug-msg');
+    const check = () => { const bad = slugProblem(inp.value.trim()); msg.textContent = bad || 'The game page will be thegamebureau.com/' + inp.value.trim() + '/'; msg.style.color = bad && inp.value ? '#B42318' : ''; };
+    inp.oninput = () => { draft.game.slug = inp.value.trim(); persist(); check(); };
+    const title = p.querySelector('[data-path="title"]');
+    title.addEventListener('input', () => { if (!draft.game.slugTouched) { draft.game.slug = ST.slugify(title.value); inp.value = draft.game.slug; persist(); check(); } });
+    inp.addEventListener('input', () => { draft.game.slugTouched = true; });
+    p.querySelectorAll('[name=f-start]').forEach(r => { r.onchange = () => {
+      const g = draft.game, keep = {};
+      ['title', 'subtitle', 'tagline', 'kicker', 'description', 'specs', 'steps', 'brand', 'price', 'slug', 'slugTouched', 'rulesName', 'setup'].forEach(k => { if (g[k] !== undefined) keep[k] = g[k]; });
+      try { localStorage.setItem(NEWKEY, JSON.stringify({ start: r.value, carry: keep })); } catch (e) { /* blocked */ }
+      location.reload();
+    }; });
+    check(); loadTaken().then(check);
+  }
+  async function createNew() {
+    const g = draft.game, slug = (g.slug || '').trim();
+    if (!GH.token()) { updateBar('Creating a notebook needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); show('connect'); return; }
+    if (!(g.title || '').trim()) { updateBar('Give the notebook a title first.', 'bad'); show('content'); return; }
+    taken = null; await loadTaken();
+    const bad = slugProblem(slug);
+    if (bad) { updateBar(esc(bad), 'bad'); show('content'); return; }
+    $('#ad-save').disabled = true;
+    try {
+      updateBar('Copying the template…');
+      const all = await GH.listFiles();
+      const src = all.filter(f => f.path.startsWith(FOLDER + '/') && !f.path.startsWith(FOLDER + '/pdf/') && !/\/\.keep$/.test(f.path));
+      const out = [];
+      const ours = ['game.json', 'index.html', 'rules.html', 'admin.html', 'rules.md', 'cover.html', 'contents.html'];
+      const used = JSON.stringify(g) + draft.cover + draft.contents;
+      for (const f of src) {
+        const rel = f.path.slice(FOLDER.length + 1);
+        if (ours.includes(rel)) continue;
+        if (/^images\//.test(rel) && !used.includes(rel)) continue; // photos removed in the editor
+        if (/\.(md|html|css|js|json|txt|svg)$/.test(rel)) out.push({ path: slug + '/' + rel, text: await GH.readBlobText(f.sha) });
+        else out.push({ path: slug + '/' + rel, sha: f.sha }); // images: reuse the same file
+      }
+      const game = clone(g); delete game.slugTouched; game.slug = slug;
+      if (!game.shareText && game.tagline) game.shareText = game.title + ': ' + game.tagline;
+      out.push({ path: slug + '/game.json', text: gameText(game) });
+      out.push({ path: slug + '/rules.md', text: draft.rules }, { path: slug + '/cover.html', text: draft.cover }, { path: slug + '/contents.html', text: draft.contents });
+      Object.entries(GH.shells(slug, game)).forEach(([f, t]) => out.push({ path: slug + '/' + f, text: t }));
+      Object.keys(pendingB64).forEach(p => out.push({ path: slug + '/' + p, base64: pendingB64[p] }));
+      await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)));
+      Object.keys(pendingB64).forEach(p => { delete pendingB64[p]; });
+      clearDraft();
+      updateBar('Created. Opening ' + esc(game.title) + '…', 'ok');
+      location.replace('/studio/?game=' + encodeURIComponent(slug) + '#checklist');
+    } catch (e) {
+      updateBar('Not created: ' + esc(e.message), 'bad');
+      $('#ad-save').disabled = false;
+    }
+  }
+
   function tabContent(p) {
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
     p.innerHTML = '<h2>Content</h2><p class="ad-lede">Everything on the game page comes from here. The starter cover uses it too.</p>' +
-      '<fieldset><legend>The basics</legend>' + field('title', 'Title') + field('subtitle', 'Subtitle', { ph: 'The Notebook' }) +
+      (IS_NEW ? '<fieldset class="ad-newnb"><legend>New notebook</legend>' +
+        '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>' +
+        '<div class="ad-field"><span>Start from</span><div class="st-starts">' + ST.STARTS.map(x => '<label><input type="radio" name="f-start" value="' + x[0] + '"' + (x[0] === FOLDER ? ' checked' : '') + '><span><b>' + x[1] + '</b><small>' + x[2] + '</small></span></label>').join('') + '</div>' +
+        '<small>Switching keeps your Content and colours, and swaps in that template\'s rules, cover and inside pages.</small></div></fieldset>' : '') +
+      '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) + field('subtitle', 'Subtitle', { ph: 'The Notebook' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
@@ -309,6 +407,8 @@
       field('print.padTo', 'Pad page count to a multiple of', { type: 'number' }) + field('print.spinePerPage', 'Spine per page (in)', { type: 'number', step: '0.000001', help: 'KDP white paper: 0.002252. Lulu: check its calculator.' }) +
       '</div></fieldset>';
     bindFields(p);
+    if (IS_NEW) bindNew(p);
+    
     $('#f-desc').oninput = e => { draft.game.description = e.target.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); persist(); };
     bindRows(p, 'specs', () => ['', '']);
     bindRows(p, 'steps', () => ({ title: '', text: '' }));
@@ -334,10 +434,10 @@
   const aiFile = key => key === 'rules' ? 'rules.md' : key + '.html';
   function aiBrief(key) {
     const g = draft.game, P = Object.assign({ trim: [8.5, 11], bleed: 0.125, margin: 0.5 }, g.print || {});
-    const file = FOLDER + '/' + aiFile(key);
+    const file = target() + '/' + aiFile(key);
     if (key === 'rules') return [
       'This is ' + file + ', the rules of "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
-      'The same text is the rules page on the website (' + GH.SITE + '/' + FOLDER + '/rules.html) and the first printed pages of the notebook, so write it for someone holding the book and a pencil.',
+      'The same text is the rules page on the website (' + GH.SITE + '/' + target() + '/rules.html) and the first printed pages of the notebook, so write it for someone holding the book and a pencil.',
       'It is Markdown: # for the one title at the top, ## for sections, ### for sub-sections, 1. for numbered steps, - for bullet points, **bold**, *italic*, > for a highlighted tip box, and --- for a line. No HTML, tables or images.',
       'Keep the "# ' + (g.title || 'Title') + ' rules" heading first: the website swaps it for the game\'s rules name. Keep steps short and clear, in the order players do them.',
     ];
@@ -361,9 +461,9 @@
   }
   let aiOpen = false; // keeps the AI box open after pasting re-draws the tab
   function aiBox(key) {
-    const file = FOLDER + '/' + aiFile(key);
+    const file = target() + '/' + aiFile(key);
     const gh = 'https://github.com/' + GH.REPO + '/blob/' + GH.BRANCH + '/' + file;
-    const live = 'https://' + GH.SITE + '/' + (key === 'rules' ? FOLDER + '/rules.html' : file);
+    const live = 'https://' + GH.SITE + '/' + (key === 'rules' ? target() + '/rules.html' : file);
     const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
     return '<details class="ad-help-box ad-ai"' + (aiOpen ? ' open' : '') + '><summary>Edit this page with an AI</summary>' +
       '<p><b>With a chat AI</b> (Claude, ChatGPT and so on):</p><ol>' +
@@ -512,6 +612,7 @@
 
   // ---------- tab: PDFs ----------
   function tabPdfs(p) {
+    if (IS_NEW) { p.innerHTML = '<h2>PDFs</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you create the notebook, and again after each save.</p><p class="ad-help">Until then, the Cover and Inside pages tabs preview exactly what will print.</p>'; return; }
     const g = draft.game, slug = g.slug;
     const pdf = n => 'pdf/' + slug + n + '.pdf';
     const files = [
@@ -562,6 +663,7 @@
 
   // ---------- save and publish ----------
   async function save() {
+    if (IS_NEW) return createNew();
     if (!changed()) return;
     if (isTemplate && !allowTemplate) return;
     if (!GH.token()) { updateBar('Saving needs the one-time setup first: <a href="/studio/#connect">Connect in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
@@ -593,7 +695,7 @@
       updateBar('Saved (<a href="https://github.com/' + GH.REPO + '/commit/' + commit.sha + '" target="_blank" rel="noopener">commit</a>). The site republishes in about a minute and the PDFs rebuild in about 3.', 'ok');
       // Keep showing just-uploaded photos until the site serves them.
       setTimeout(() => { Object.keys(pending).forEach(p => delete pending[p]); }, 180000);
-      if (tab === 'setup' || tab === 'pdfs') show(tab);
+      if (tab === 'checklist' || tab === 'pdfs') show(tab);
       setTimeout(() => updateBar(), 15000);
     } catch (e) {
       updateBar('Not saved: ' + esc(e.message), 'bad');
@@ -605,20 +707,20 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (document.body.dataset.page !== 'admin') return;
-    if (!FOLDER) { location.replace('/studio/#games'); return; }
+    if (!FOLDER) { location.replace('/studio/'); return; }
     if (!GH) { document.body.innerHTML = '<p style="padding:24px">The editor needs /studio/kit/gh.js.</p>'; return; }
     // Old <game>/admin.html links move to the studio.
-    if (!/^\/studio\/(index\.html)?$/.test(location.pathname)) { location.replace('/studio/?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
+    if (!IS_NEW && !/^\/studio\/(index\.html)?$/.test(location.pathname)) { location.replace('/studio/?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();
       loadDraft();
       const g = saved.game;
-      document.title = g.title + ' · Notebook Studio';
+      document.title = (IS_NEW ? 'New notebook' : g.title) + ' · Notebook Studio';
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
-      show(location.hash.slice(1) && TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'setup');
-      addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.some(t => t[0] === h)) show(h); });
+      show(tabFromHash() || (!GH.token() ? 'connect' : IS_NEW ? 'content' : 'checklist'));
+      addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       if (isTemplate) {
         const box = document.createElement('label'); box.className = 'ad-help ad-tpl';
         box.innerHTML = '<input type="checkbox" id="ad-tpl"> Let me save changes to the template itself';

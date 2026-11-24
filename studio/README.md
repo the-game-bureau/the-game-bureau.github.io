@@ -6,13 +6,13 @@ page, and an editor in the studio that builds the printable PDFs. Live sample:
 
 ```
 studio/
-  index.html      the Notebook Studio: start new notebooks, find and edit every notebook
+  index.html      the Notebook Studio: one editor for new and existing notebooks
   edit.html       old address of the editor; sends you to /studio/?game=<folder>
   kit/            shared code every game uses (don't copy it; games link to /studio/kit/)
     kit.js kit.css       public page + rules page, built from game.json
     print.js print.css   lays out cover.html and contents.html for print
     admin.js admin.css   the editor: setup steps, editors with live preview, save, PDFs
-    studio.js            the Notebook Studio
+    studio.js            the studio's Connect and Notebooks tabs, and the template list
     gh.js                GitHub calls from the browser (commit files, start builds)
     build-pdfs.js        renders the PDFs in Chrome (run by the GitHub workflow)
     new-game.js          copies the sample into a new game folder
@@ -54,15 +54,19 @@ Build locally: `node studio/kit/build-pdfs.js studio/dice-derby` (needs `playwri
 
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
-1. **Connect GitHub** once per browser: a fine-grained token for this repository only, with
-   Contents and Actions set to Read and write. Saving from the studio or its editor is a
-   commit to `main`, which republishes the site.
-2. **Start a new notebook**: name, web address, tagline, pitch, players, price, colours, and
-   whether to start from the blank starter or the Dice Derby sample. The studio copies the
-   template into `/<address>/` with those filled in. The template folders are only read.
-3. **Edit it in the studio** (EDIT under Notebooks, or `/studio/?game=<address>`) and work down the Setup checklist:
-   Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, each with a live preview.
-   Edits are kept as a draft in the browser until **Save and publish**.
+The studio is one editor for new and existing notebooks, with the same tabs for both:
+Connect, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, Notebooks.
+
+1. **Connect** (once per browser): a fine-grained token for this repository only, with
+   Contents and Actions set to Read and write. Saving from the studio is a commit to `main`,
+   which republishes the site.
+2. **A new notebook**: `/studio/` opens the editor on a new, unsaved notebook started from the
+   blank starter (or the Dice Derby sample; pick in Content). Give it a title and web address in
+   Content, shape anything else with the live preview, and click **Create notebook**. That copies
+   the template into `/<address>/` with your edits and opens it. Until then the draft is kept in
+   the browser. The template folders are only read.
+3. **An existing notebook**: EDIT under Notebooks, or `/studio/?game=<address>`. Work down the
+   Checklist. Edits are kept as a draft in the browser until **Save and publish**.
 4. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
    Cloudflare settings, filled in for that game, to make `https://<address>.thegamebureau.com`
    redirect to `https://thegamebureau.com/<address>/`: a proxied `AAAA` record to `100::` named
