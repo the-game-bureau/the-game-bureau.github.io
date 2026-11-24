@@ -1,4 +1,4 @@
-/* Notebook kit: the admin page (<game>/admin.html). Needs kit.js and gh.js.
+/* Notebook kit: the game editor in the studio (/studio/edit.html?game=<folder>). Needs kit.js and gh.js.
  *
  * Everything about one notebook in one place:
  *   Setup        the steps from idea to a live notebook, ticked off as you go
@@ -16,7 +16,11 @@
 (function () {
   'use strict';
   const NB = window.NB, GH = window.GH, esc = NB.esc;
-  const FOLDER = location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+  // The game being edited: /studio/edit.html?game=<folder> (or a legacy <folder>/admin.html).
+  const QS = new URLSearchParams(location.search).get('game') || '';
+  const FOLDER = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
+    : /\/studio\/edit\.html$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+  const BASE = '/' + FOLDER + '/'; // the game's folder on the site
   const DKEY = NB.draftKey('/' + FOLDER + '/');
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = [
@@ -39,6 +43,7 @@
   const pendingB64 = {};
   const isTemplate = /^studio\//.test(FOLDER);
   let allowTemplate = false;
+  let legacyAdmin = false; // an old <game>/admin.html that the next save removes
 
   // ---------- small helpers ----------
   const $ = s => document.querySelector(s);
@@ -61,13 +66,14 @@
   async function loadSaved() {
     const read = async f => {
       if (GH.token()) { try { return await GH.readText(FOLDER + '/' + f); } catch (e) { /* fall back to the site */ } }
-      const r = await fetch('./' + f + '?t=' + Date.now(), { cache: 'no-store' });
+      const r = await fetch(BASE + f + '?t=' + Date.now(), { cache: 'no-store' });
       if (!r.ok) throw new Error(f + ' not found (' + r.status + ')');
       return r.text();
     };
     const [game, rules, cover, contents] = await Promise.all([read(FILES.game), read(FILES.rules), read(FILES.cover), read(FILES.contents)]);
     saved = { game: JSON.parse(game), rules, cover, contents };
-    try { const b = await fetch('./pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = b.ok ? await b.json() : null; } catch (e) { build = null; }
+    if (GH.token()) { try { await GH.api('/contents/' + FOLDER + '/admin.html?ref=' + GH.BRANCH); legacyAdmin = true; } catch (e) { legacyAdmin = false; } }
+    try { const b = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = b.ok ? await b.json() : null; } catch (e) { build = null; }
   }
   function loadDraft() {
     draft = clone(saved);
@@ -85,7 +91,7 @@
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
       '<div class="ad-id"><a class="ad-studio" href="/studio/">Notebook Studio</a><h1 id="ad-title"></h1><span class="ad-folder">/' + esc(FOLDER) + '/</span></div>' +
-      '<div class="ad-actions"><a class="nb-btn" href="./" target="_blank" rel="noopener">VIEW PAGE</a>' +
+      '<div class="ad-actions"><a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>' +
       '<button class="nb-btn" id="ad-discard" type="button">DISCARD CHANGES</button>' +
       '<button class="nb-btn solid" id="ad-save" type="button">SAVE AND PUBLISH</button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
@@ -106,7 +112,7 @@
 
   function updateBar(msg, kind) {
     $('#ad-title').textContent = draft.game.title || 'Untitled';
-    document.title = (draft.game.title || 'Notebook') + ' · Notebook admin';
+    document.title = (draft.game.title || 'Notebook') + ' · Notebook Studio';
     const bar = $('#ad-bar');
     if (msg) { bar.className = 'ad-bar show ' + (kind || ''); bar.innerHTML = msg; return; }
     const dirty = changed();
@@ -177,8 +183,8 @@
     const doc = (html, query) => html.replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '">');
     const box = f.parentElement;
     box.className = 'ad-pv-box ' + (['page', 'rules'].includes(mode) ? 'web' : 'print');
-    if (mode === 'page') { f.removeAttribute('srcdoc'); f.src = './?preview=1&t=' + Date.now(); }
-    else if (mode === 'rules') { f.removeAttribute('srcdoc'); f.src = './rules.html?preview=1&t=' + Date.now(); }
+    if (mode === 'page') { f.removeAttribute('srcdoc'); f.src = BASE + '?preview=1&t=' + Date.now(); }
+    else if (mode === 'rules') { f.removeAttribute('srcdoc'); f.src = BASE + 'rules.html?preview=1&t=' + Date.now(); }
     else if (['spread', 'front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
@@ -205,7 +211,7 @@
     const g = draft.game, s = g.setup || {};
     const starterTag = 'One sentence that says what the game is and why it\'s fun.';
     return [
-      { k: 'folder', t: 'Create the notebook\'s folder', d: 'Done in the Notebook Studio. This page lives at /' + FOLDER + '/.', done: true },
+      { k: 'folder', t: 'Create the notebook\'s folder', d: 'Done in the Notebook Studio. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true },
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
@@ -243,11 +249,12 @@
     const list = steps();
     const n = list.filter(x => x.done).length;
     p.innerHTML = '<h2>From idea to live notebook</h2><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
+      '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it.</p>' +
       '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
         '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
-      '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="./" target="_blank" rel="noopener">game page</a> · <a href="./rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">Notebook Studio</a> (make another notebook).</p>';
+      '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/">Notebook Studio</a> (make another notebook).</p>';
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('setup'); }; });
@@ -415,6 +422,16 @@
     '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>The free sampler keeps the rules and the first pages (Content, Print, Sampler pages), or only pages marked <code>data-sampler</code>.</li><li>Colours and fonts as on the cover.</li></ul>');
 
   // ---------- tab: photos and video ----------
+  // Pictures of the cover and pages from the PDF build, shown while a game has no photos of its own.
+  function autoBox() {
+    const g = draft.game, prev = (build && build.previews) || [];
+    if (!prev.length || g.media.some(x => x.type === 'image' && x.src)) return '';
+    const off = g.autoPreviews === false;
+    return '<div class="ad-auto' + (off ? ' off' : '') + '"><p><b>' + (off ? 'Hidden: ' : 'Showing now: ') + 'automatic pictures from the PDF build.</b> ' +
+      (off ? 'The page shows "Photos coming soon" until you add photos.' : 'The game page shows these until you add photos of your own.') + '</p>' +
+      '<div class="ad-auto-row">' + prev.map(src => '<img src="' + esc(BASE + src) + '" alt="">').join('') + '</div>' +
+      '<button type="button" class="nb-btn" id="ad-auto">' + (off ? 'SHOW THEM AGAIN' : 'REMOVE THESE FROM THE PAGE') + '</button></div>';
+  }
   function tabMedia(p) {
     const m = draft.game.media;
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || x.src) + '" alt="">' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
@@ -423,8 +440,8 @@
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem">' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
         '<small>' + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
-        '<div class="ad-mbtns"><button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" data-rm="' + i + '" aria-label="Remove">&times;</button></div></div>').join('')
-        : '<p class="ad-empty">No photos or videos yet.</p>') + '</div>' +
+        '<div class="ad-mbtns"><button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
+        : '<p class="ad-empty">No photos or videos yet.</p>') + '</div>' + autoBox() +
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
       '<button type="button" class="nb-btn" id="ad-soon">ADD "VIDEO COMING SOON"</button></div>' +
@@ -436,6 +453,7 @@
     p.querySelectorAll('[data-up]').forEach(b => { b.onclick = () => move(+b.dataset.up, -1); });
     p.querySelectorAll('[data-down]').forEach(b => { b.onclick = () => move(+b.dataset.down, 1); });
     p.querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { const [x] = m.splice(+b.dataset.rm, 1); if (x && pending[x.src]) { delete pending[x.src]; delete pendingB64[x.src]; } persist(); show('media'); }; });
+    if ($('#ad-auto')) $('#ad-auto').onclick = () => { if (draft.game.autoPreviews === false) delete draft.game.autoPreviews; else draft.game.autoPreviews = false; persist(); show('media'); };
     $('#ad-yt').onclick = () => { m.push({ type: 'youtube', id: '', alt: 'Video' }); persist(); show('media'); };
     $('#ad-vm').onclick = () => { m.push({ type: 'vimeo', id: '', alt: 'Video' }); persist(); show('media'); };
     $('#ad-soon').onclick = () => { m.push({ type: 'youtube', id: '', alt: 'Video coming soon' }); persist(); show('media'); };
@@ -481,9 +499,9 @@
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +
       (changed() ? '<p class="ad-warn">You have unsaved changes. Builds use the saved version, so save first.</p>' : '') + '<div class="ad-status" id="ad-status" hidden></div></div>' +
       '<div class="ad-files">' + files.map(([n, a, f, info]) => '<div class="ad-file"><div><h3>' + n + '</h3><p>' + esc(a) + '</p>' + (build ? '<small>' + esc(info(build)) + '</small>' : '') + '</div>' +
-        '<div class="ad-file-btns"><a class="nb-btn solid" href="./' + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="./' + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
+        '<div class="ad-file-btns"><a class="nb-btn solid" href="' + BASE + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="' + BASE + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
       '<details class="ad-help-box"><summary>Save from this browser instead</summary><p>Chrome works best. In the print dialog choose Save as PDF, margins None, background graphics on. Page sizes are set for you; the spine width and the merged print-at-home and sampler files come only from the build.</p><p>' +
-      '<a href="./cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="./contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="./contents.html?bleed=0&sampler=1&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
+      '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'contents.html?bleed=0&sampler=1&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
     $('#ad-go').onclick = runBuild;
   }
   async function runBuild() {
@@ -509,7 +527,7 @@
       }
       if (run.conclusion !== 'success') throw new Error('The build ' + esc(run.conclusion) + '. The old PDFs are still in place. <a href="' + esc(run.html_url) + '" target="_blank" rel="noopener">See what went wrong</a>.');
       say('Built. Publishing to the site…');
-      const ok = await GH.waitForSite('./pdf/build.json', t => { try { return JSON.parse(t).built !== before; } catch (e) { return false; } }, null, 40);
+      const ok = await GH.waitForSite(BASE + 'pdf/build.json', t => { try { return JSON.parse(t).built !== before; } catch (e) { return false; } }, null, 40);
       await loadSaved().catch(() => {});
       if (tab === 'pdfs') show('pdfs');
       updateBar(ok ? 'New PDFs are live.' : 'Built. The site has not republished yet; reload in a minute.', 'ok');
@@ -532,9 +550,15 @@
     if (draft.cover !== saved.cover) add('cover.html', draft.cover);
     if (draft.contents !== saved.contents) add('contents.html', draft.contents);
     Object.entries(GH.shells(FOLDER, g)).forEach(([f, t]) => add(f, t));
+    if (legacyAdmin) files.push({ path: FOLDER + '/admin.html', delete: true }); // games are edited in the studio now
     Object.keys(pendingB64).forEach(p => files.push({ path: FOLDER + '/' + p, base64: pendingB64[p] }));
+    // Photos removed in the editor: delete their files too, unless something still uses them.
+    const used = JSON.stringify(g) + draft.cover + draft.contents;
+    (saved.game.media || []).filter(x => x && x.type === 'image' && /^images\/[\w.-]+$/.test(x.src || '') && !used.includes(x.src))
+      .forEach(x => files.push({ path: FOLDER + '/' + x.src, delete: true }));
     try {
-      const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the admin page', s => updateBar(esc(s)));
+      const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the studio', s => updateBar(esc(s)));
+      legacyAdmin = false;
       saved = clone({ game: g, rules: draft.rules, cover: draft.cover, contents: draft.contents });
       draft = clone(saved);
       Object.keys(pendingB64).forEach(p => { delete pendingB64[p]; });
@@ -554,12 +578,16 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (document.body.dataset.page !== 'admin') return;
-    if (!GH) { document.body.innerHTML = '<p style="padding:24px">This admin page needs /studio/kit/gh.js. Add it to admin.html.</p>'; return; }
+    if (!FOLDER) { location.replace('/studio/#games'); return; }
+    if (!GH) { document.body.innerHTML = '<p style="padding:24px">The editor needs /studio/kit/gh.js.</p>'; return; }
+    // Old <game>/admin.html links move to the studio.
+    if (!/\/studio\/edit\.html$/.test(location.pathname)) { location.replace('/studio/edit.html?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();
       loadDraft();
       const g = saved.game;
+      document.title = g.title + ' · Notebook Studio';
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
       show(location.hash.slice(1) && TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'setup');

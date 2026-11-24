@@ -1,7 +1,7 @@
 /* Notebook kit: the Notebook Studio (/studio/). Needs kit.js and gh.js.
  * Lists every notebook game, and turns an idea into a new notebook: it copies the starter
  * template (or the Dice Derby sample) into a new folder on GitHub with your name, pitch and
- * colours filled in, publishes it, and sends you to its admin page for the rest.
+ * colours filled in, publishes it, and opens it in the studio's editor for the rest.
  * The template folders themselves are only read, never changed.
  */
 (function () {
@@ -31,12 +31,12 @@
 
       '<section class="st-card st-setup" id="connect"><div class="st-step-head"><span class="st-num">1</span><div><div class="st-kick">ONE-TIME SETUP · ABOUT 2 MINUTES</div><h2>Set up the studio</h2></div><span class="st-badge" id="st-badge"></span></div>' +
       '<p class="ad-lede" id="st-setup-lede">The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
-      '<div id="st-gh"></div>' + lockHow() + '</section>' +
+      '<div id="st-gh"></div></section>' +
 
       '<section class="st-card" id="new"><div class="st-step-head"><span class="st-num">2</span><div><div class="st-kick">EVERY NEW GAME</div><h2>Make a notebook</h2></div></div>' +
       '<p class="st-locked-msg" id="st-locked-msg">Finish step 1 first. This form unlocks once the studio is set up.</p>' +
       '<div id="st-new-body">' +
-      '<p class="ad-lede">You can change all of this later on the notebook\'s admin page.</p>' +
+      '<p class="ad-lede">You can change all of this later in the editor.</p>' +
       '<div class="st-form">' +
       '<label class="ad-field"><span>Game name</span><input id="n-title" placeholder="e.g. Pitch Count" autocomplete="off"></label>' +
       '<label class="ad-field"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="n-folder" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="n-folder-msg">Lowercase letters, numbers and dashes.</small></label>' +
@@ -54,8 +54,8 @@
       '<ul class="st-progress" id="n-progress" hidden></ul><div id="n-done"></div>' +
       '</div></section>' +
 
-      '<section class="st-card"><div class="st-step-head"><span class="st-num">3</span><div><div class="st-kick">ON THE NOTEBOOK\'S ADMIN PAGE</div><h2>Finish it and go live</h2></div></div>' +
-      '<p class="ad-lede">Creating a notebook takes you to its admin page, which has a checklist for the rest:</p><ol class="st-flow">' +
+      '<section class="st-card"><div class="st-step-head"><span class="st-num">3</span><div><div class="st-kick">IN THE EDITOR</div><h2>Finish it and go live</h2></div></div>' +
+      '<p class="ad-lede">Creating a notebook opens it in the editor, which has a checklist for the rest. To come back to a notebook later, click EDIT on it under Notebooks below.</p><ol class="st-flow">' +
       '<li><b>Shape it</b>Words, colours, rules, cover, inside pages, photos. A live preview shows each change.</li>' +
       '<li><b>Save and publish</b>One button. The site republishes in about a minute.</li>' +
       '<li><b>PDFs build</b>Cover, contents, print-at-home and free sampler, about 3 minutes after each save.</li>' +
@@ -84,22 +84,6 @@
     nw.classList.toggle('st-locked', !ok);
     $('#st-locked-msg').hidden = ok;
     nw.querySelectorAll('#st-new-body input, #st-new-body textarea, #st-new-body button').forEach(el => { el.disabled = !ok; });
-  }
-
-  // Optional: put Cloudflare Access (free) in front of the studio and every admin page.
-  function lockHow() {
-    const c = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
-    const site = GH.SITE;
-    return '<details class="ad-how st-lock"><summary>Optional: lock the studio and admin pages so only you can open them (Cloudflare Access, about 10 minutes)</summary>' +
-      '<p>Without the GitHub key nobody can change anything, because the key lives only in your browser. Locking the pages also stops anyone from seeing them. ' +
-      'Cloudflare asks for your email and sends you a code. You stay signed in on that browser for a month.</p><ol>' +
-      '<li>In <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>, open ' + c(site) + ', then <b>DNS, Records</b>. The records for ' + c(site) + ' must show <b>Proxied</b> (orange cloud). Access only works on proxied addresses.</li>' +
-      '<li>Open <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Zero Trust</a>. The first time, pick a team name and the <b>Free</b> plan (up to 50 people). It may ask for a card even for the free plan.</li>' +
-      '<li><b>Access, Applications, Add an application, Self-hosted.</b> Name ' + c('Notebook Studio') + ', session duration ' + c('1 month') + '. Add two destinations (public hostnames): domain ' + c(site) + ' with path ' + c('studio') + ', and domain ' + c(site) + ' with path ' + c('*/admin.html') + '.</li>' +
-      '<li>Add a policy: name ' + c('Only me') + ', action <b>Allow</b>, Include <b>Emails</b> and type your email (add anyone else who should get in). Login method: <b>One-time PIN</b>. Save the application.</li>' +
-      '<li>Add one more <b>Self-hosted</b> application so game pages keep their look: name ' + c('Notebook kit (public)') + ', domain ' + c(site) + ', path ' + c('studio/kit') + '. Policy: name ' + c('Everyone') + ', action <b>Bypass</b>, Include <b>Everyone</b>. Save. The more exact path wins, so the kit stays open while the rest of /studio/ is locked.</li>' +
-      '<li>Check it in a private window: <a href="/studio/" target="_blank" rel="noopener">/studio/</a> and any admin.html should ask for your email. A game made here, at /your-game/, should open for everyone and look normal. The sample game sits inside /studio/, so it is private too.</li>' +
-      '</ol></details>';
   }
 
   function ghBox() {
@@ -136,11 +120,45 @@
         '<div class="st-game"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
         (folder.startsWith('studio/') ? '<span class="tag">TEMPLATE</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
-        '<div class="nb-row"><a class="nb-btn solid" href="/' + esc(folder) + '/admin.html">ADMIN</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a></div></div></div>').join('') + '</div>';
+        '<div class="nb-row"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a>' +
+        (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
+        '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
+      box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn); });
       checkFolder();
     } catch (e) {
       box.innerHTML = '<p class="ad-help">Could not list notebooks: ' + esc(e.message) + '</p>';
     }
+  }
+
+  // ---------- deleting a notebook ----------
+  // The template folders (studio/...) can never be deleted from here.
+  const canDelete = folder => /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(folder) && !/^(studio|template)(\/|$)/.test(folder);
+  function askDelete(btn) {
+    const folder = btn.dataset.del, title = btn.dataset.title;
+    const box = btn.closest('.b').querySelector('.st-del-box');
+    if (!box.hidden) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = '<p><b>Are you sure?</b> This deletes the whole <code>/' + esc(folder) + '/</code> folder: the game page, rules, PDFs and photos. ' +
+      'Links to thegamebureau.com/' + esc(folder) + '/ will stop working.</p>' +
+      '<label class="ad-field"><span>Type <b>' + esc(folder) + '</b> to confirm</span><input class="st-del-in" autocomplete="off" spellcheck="false"></label>' +
+      '<div class="nb-row"><button type="button" class="nb-btn st-del-go" disabled>DELETE ' + esc(title.toUpperCase()) + '</button><button type="button" class="nb-btn st-del-no">CANCEL</button></div><p class="ad-help st-del-msg"></p>';
+    const input = box.querySelector('.st-del-in'), go = box.querySelector('.st-del-go'), msg = box.querySelector('.st-del-msg');
+    input.oninput = () => { go.disabled = input.value.trim() !== folder; };
+    box.querySelector('.st-del-no').onclick = () => { box.hidden = true; };
+    go.onclick = async () => {
+      if (input.value.trim() !== folder || !canDelete(folder)) return;
+      go.disabled = true; input.disabled = true; msg.textContent = 'Deleting…';
+      try {
+        const all = await GH.listFiles();
+        const doomed = all.filter(f => f.path.startsWith(folder + '/'));
+        if (!doomed.some(f => f.path === folder + '/game.json')) throw new Error('/' + folder + '/ is not a notebook folder, so it was left alone.');
+        await GH.commit(doomed.map(f => ({ path: f.path, delete: true })), 'Delete the ' + title + ' notebook (/' + folder + '/)', s => { msg.textContent = s; });
+        try { localStorage.removeItem(NB.draftKey('/' + folder + '/')); } catch (e) { /* blocked */ }
+        msg.textContent = 'Deleted. The page goes offline when the site republishes, in about a minute.';
+        loadGames();
+      } catch (e) { msg.textContent = 'Not deleted: ' + e.message; go.disabled = false; input.disabled = false; }
+    };
+    input.focus();
   }
 
   function checkFolder() {
@@ -213,8 +231,8 @@
       const live = await GH.waitForSite('/' + folder + '/game.json', null, i => { steps[3][0] = 'Wait for the site to publish (' + (i + 1) * 8 + 's)'; progress(steps); }, 40);
       mark(3, live ? 'done' : 'fail');
       $('#n-done').innerHTML = '<div class="ad-status ok" style="margin-top:14px"><b>' + esc(title) + ' is started.</b> ' +
-        (live ? 'Its admin page walks you through the rest.' : 'The site is still publishing; the admin page will open in a minute or two.') +
-        ' The first PDFs build on their own in about 3 minutes.<div class="nb-row" style="margin-top:10px"><a class="nb-btn solid" href="/' + esc(folder) + '/admin.html">OPEN THE ADMIN PAGE</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">VIEW THE GAME PAGE</a></div></div>';
+        (live ? 'Its editor walks you through the rest.' : 'The site is still publishing, so the game page will show up in a minute or two. You can start editing now.') +
+        ' The first PDFs build on their own in about 3 minutes.<div class="nb-row" style="margin-top:10px"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT IT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">VIEW THE GAME PAGE</a></div></div>';
       loadGames();
     } catch (e) {
       const i = steps.findIndex(s => s[1] === 'doing'); if (i >= 0) mark(i, 'fail');

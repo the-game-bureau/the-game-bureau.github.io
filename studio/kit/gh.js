@@ -138,9 +138,9 @@
   };
 
   // ---------- page shells ----------
-  // index.html, rules.html and admin.html are short shells; their <head> carries the title and
-  // share-preview tags, which link previews read without running JavaScript. The studio and
-  // admin page write them from game.json so they never drift.
+  // index.html and rules.html are short shells; their <head> carries the title and share-preview
+  // tags, which link previews read without running JavaScript. The studio writes them from
+  // game.json so they never drift. (Games are edited at /studio/edit.html?game=<folder>.)
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   GH.shells = function (folder, g) {
     const rnFull = ((g.rulesName || '').trim() || 'Rules'), rn = rnFull === 'Rules' ? 'rules' : rnFull;
@@ -158,9 +158,6 @@
     return {
       'index.html': head(g.title + ' | The Game Bureau', og(full, url)) + '</head>\n<body data-page="public">\n<noscript><p style="padding:24px">' + esc(full) + '. <a href="./rules.html">' + esc(rnFull === 'Rules' ? 'Read the rules' : rnFull) + '</a>.</p></noscript>\n</body>\n</html>\n',
       'rules.html': head(g.title + ' ' + rn + ' | The Game Bureau', og(g.title + ' ' + rn, url + 'rules.html')) + '</head>\n<body data-page="rules"></body>\n</html>\n',
-      'admin.html': head(g.title + ' · Notebook admin', '<meta name="robots" content="noindex,nofollow">\n').replace('<script src="/studio/kit/kit.js" defer></script>\n',
-        '<link rel="stylesheet" href="/studio/kit/admin.css">\n<script src="/studio/kit/kit.js" defer></script>\n<script src="/studio/kit/gh.js" defer></script>\n<script src="/studio/kit/admin.js" defer></script>\n') +
-        '</head>\n<body data-page="admin"></body>\n</html>\n',
     };
   };
 })();

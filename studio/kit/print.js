@@ -33,7 +33,7 @@
     const bar = document.createElement('div');
     bar.className = 'pk-toolbar';
     bar.innerHTML = '<b>' + NB.esc(g.title) + '</b><span>' + NB.esc(label) + '</span>' + (extra || '') +
-      '<a href="./admin.html">Admin</a><button type="button" onclick="print()">Print / Save PDF</button>';
+      '<a href="/studio/edit.html?game=' + encodeURIComponent(NB.folder().replace(/^\/|\/$/g, '')) + '">Edit</a><button type="button" onclick="print()">Print / Save PDF</button>';
     document.body.prepend(bar);
   }
 
