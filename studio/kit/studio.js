@@ -19,10 +19,10 @@
   const slugify = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
   // The studio uses the same frame as the game editor: a top bar, sections on the left, one panel.
-  const TABS = [['setup', 'Setup'], ['content', 'Content'], ['colors', 'Colors'], ['template', 'Template'], ['create', 'Create'], ['games', 'Notebooks']];
-  const HASH = { connect: 'setup', new: 'content' }; // older links into the one-page studio
-  const NEXT = { setup: 'content', content: 'colors', colors: 'template', template: 'create' };
-  let tab = 'setup';
+  const TABS = [['connect', 'Connect'], ['content', 'Content'], ['colors', 'Colors'], ['template', 'Template'], ['create', 'Create'], ['games', 'Notebooks']];
+  const HASH = { setup: 'connect', new: 'content' }; // older links into the one-page studio
+  const NEXT = { connect: 'content', content: 'colors', colors: 'template', template: 'create' };
+  let tab = 'connect';
   function page() {
     NB.applyBrand({ brand: { color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' } });
     document.body.classList.add('ad-app');
@@ -37,7 +37,7 @@
       '<div class="ad-gh" id="st-side"></div></nav>' +
       '<main class="ad-panel st-panel" id="st-panel">' +
 
-      panel('setup', '<h2>Setup</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
+      panel('connect', '<h2>Connect</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
         '<h3>Connect GitHub <span class="st-badge" id="st-badge"></span></h3>' +
         '<p class="ad-help" id="st-setup-lede">One-time setup, about 2 minutes. The studio saves your notebooks to the website through GitHub, so it needs a key from GitHub before it can do anything. You only do this once on each computer or browser.</p>' +
         '<div id="st-gh"></div>' +
@@ -84,7 +84,7 @@
     ghBox();
     loadGames();
     const h = location.hash.slice(1), want = HASH[h] || h;
-    show(TABS.some(x => x[0] === want) ? want : GH.token() ? 'content' : 'setup');
+    show(TABS.some(x => x[0] === want) ? want : GH.token() ? 'content' : 'connect');
   }
 
   function show(t) {
@@ -118,9 +118,9 @@
     document.querySelectorAll('.st-lockable').forEach(box => { box.classList.toggle('st-locked', !ok); box.querySelectorAll('input, textarea, button').forEach(el => { el.disabled = !ok; }); });
     const bar = $('#st-bar');
     if (ok) { bar.className = 'ad-bar'; bar.textContent = ''; }
-    else { bar.className = 'ad-bar show warn'; bar.innerHTML = 'Finish the one-time setup first: <button type="button" class="ad-link" data-go="setup">Connect GitHub in Setup</button>. Making a notebook unlocks after that.'; bar.querySelector('[data-go]').onclick = () => show('setup'); }
-    $('#st-side').innerHTML = ok ? '<p>GitHub connected.</p>' : '<p><b>One-time setup needed.</b> See <button type="button" class="ad-link" id="st-side-go">Setup</button>.</p>';
-    if (!ok) $('#st-side-go').onclick = () => show('setup');
+    else { bar.className = 'ad-bar show warn'; bar.innerHTML = 'Finish the one-time setup first: <button type="button" class="ad-link" data-go="connect">Connect GitHub</button>. Making a notebook unlocks after that.'; bar.querySelector('[data-go]').onclick = () => show('connect'); }
+    $('#st-side').innerHTML = ok ? '<p>GitHub connected.</p>' : '<p><b>One-time setup needed.</b> See <button type="button" class="ad-link" id="st-side-go">Connect</button>.</p>';
+    if (!ok) $('#st-side-go').onclick = () => show('connect');
   }
 
   function ghBox() {
@@ -219,7 +219,7 @@
     const title = $('#n-title').value.trim();
     const folder = $('#n-folder').value.trim();
     const start = (document.querySelector('[name=n-start]:checked') || {}).value;
-    if (!GH.token()) { show('setup'); $('#st-tok') && $('#st-tok').focus(); return; }
+    if (!GH.token()) { show('connect'); $('#st-tok') && $('#st-tok').focus(); return; }
     if (!title) { show('content'); $('#n-title').focus(); return; }
     if (!files) await loadGames();
     if (!checkFolder()) { show('content'); $('#n-folder').focus(); return; }
