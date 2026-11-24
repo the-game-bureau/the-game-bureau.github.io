@@ -15,11 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
 
@@ -75,5 +72,25 @@ jobs:
         with:
           path: _site
 
+  # Deploying in its own job lets the uploaded artifact settle first. Deploying
+  # in the same job sometimes failed with 'No artifacts named "github-pages"
+  # were found', because the artifact was not listed yet. If it still is not
+  # found, wait and try once more.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.retry.outputs.page_url || steps.deployment.outputs.page_url }}
+    steps:
       - uses: actions/deploy-pages@v5
         id: deployment
+        continue-on-error: true
+
+      - name: Wait before retrying
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - uses: actions/deploy-pages@v5
+        id: retry
+        if: steps.deployment.outcome == 'failure'
