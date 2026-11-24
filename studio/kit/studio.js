@@ -31,7 +31,7 @@
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
       '<div class="ad-id"><h1>THE GAME BUREAU - Game Notebook Studio</h1></div>' +
-      '<div class="ad-actions"><button class="nb-btn" type="button" data-go="games">MY NOTEBOOKS</button><button class="nb-btn solid" id="n-go-top" type="button">CREATE THE NOTEBOOK</button></div></div>' +
+      '</div>' +
       '<div class="ad-bar" id="st-bar" role="status"></div></header>' +
       '<div class="ad-shell no-preview"><nav class="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '">' + l + '</button>').join('') +
       '<div class="ad-gh" id="st-side"></div></nav>' +
@@ -78,7 +78,6 @@
     $('#n-title').oninput = () => { if (!folderTouched) { $('#n-folder').value = slugify($('#n-title').value); checkFolder(); } };
     $('#n-folder').oninput = () => { folderTouched = true; checkFolder(); };
     $('#n-go').onclick = create;
-    $('#n-go-top').onclick = () => { show('create'); create(); };
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
     document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     addEventListener('hashchange', () => { const h = location.hash.slice(1); const t = HASH[h] || h; if (t !== tab && TABS.some(x => x[0] === t)) show(t); });
@@ -117,7 +116,6 @@
     $('#st-badge').classList.toggle('done', ok);
     $('#st-setup-lede').hidden = ok;
     document.querySelectorAll('.st-lockable').forEach(box => { box.classList.toggle('st-locked', !ok); box.querySelectorAll('input, textarea, button').forEach(el => { el.disabled = !ok; }); });
-    $('#n-go-top').disabled = !ok;
     const bar = $('#st-bar');
     if (ok) { bar.className = 'ad-bar'; bar.textContent = ''; }
     else { bar.className = 'ad-bar show warn'; bar.innerHTML = 'Finish the one-time setup first: <button type="button" class="ad-link" data-go="setup">Connect GitHub in Setup</button>. Making a notebook unlocks after that.'; bar.querySelector('[data-go]').onclick = () => show('setup'); }
@@ -225,7 +223,7 @@
     if (!title) { show('content'); $('#n-title').focus(); return; }
     if (!files) await loadGames();
     if (!checkFolder()) { show('content'); $('#n-folder').focus(); return; }
-    const go = $('#n-go'); go.disabled = true; $('#n-go-top').disabled = true;
+    const go = $('#n-go'); go.disabled = true;
     const steps = [['Copy the template', 'doing'], ['Fill in your details', ''], ['Save to GitHub', ''], ['Wait for the site to publish (about a minute)', '']];
     const mark = (i, s) => { steps[i][1] = s; progress(steps); };
     progress(steps);
@@ -276,7 +274,7 @@
     } catch (e) {
       const i = steps.findIndex(s => s[1] === 'doing'); if (i >= 0) mark(i, 'fail');
       $('#n-done').innerHTML = '<div class="ad-status bad" style="margin-top:14px">' + esc(e.message) + '</div>';
-    } finally { go.disabled = false; $('#n-go-top').disabled = false; }
+    } finally { go.disabled = false; }
   }
 
   document.addEventListener('DOMContentLoaded', () => { if (document.body.dataset.page === 'studio') page(); });
