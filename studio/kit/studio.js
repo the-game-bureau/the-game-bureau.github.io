@@ -116,7 +116,7 @@
         '<div class="st-game"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
         (folder.startsWith('studio/') ? '<span class="tag">TEMPLATE</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
-        '<div class="nb-row"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a>' +
+        '<div class="nb-row"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a>' +
         (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
         '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
       box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn); });
@@ -228,7 +228,7 @@
       mark(3, live ? 'done' : 'fail');
       $('#n-done').innerHTML = '<div class="ad-status ok" style="margin-top:14px"><b>' + esc(title) + ' is started.</b> ' +
         (live ? 'Its editor walks you through the rest.' : 'The site is still publishing, so the game page will show up in a minute or two. You can start editing now.') +
-        ' The first PDFs build on their own in about 3 minutes.<div class="nb-row" style="margin-top:10px"><a class="nb-btn solid" href="/studio/edit.html?game=' + encodeURIComponent(folder) + '">EDIT IT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">VIEW THE GAME PAGE</a></div></div>';
+        ' The first PDFs build on their own in about 3 minutes.<div class="nb-row" style="margin-top:10px"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT IT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">VIEW THE GAME PAGE</a></div></div>';
       loadGames();
     } catch (e) {
       const i = steps.findIndex(s => s[1] === 'doing'); if (i >= 0) mark(i, 'fail');

@@ -1,4 +1,4 @@
-/* Notebook kit: the game editor in the studio (/studio/edit.html?game=<folder>). Needs kit.js and gh.js.
+/* Notebook kit: the game editor in the studio (/studio/?game=<folder>). Needs kit.js and gh.js.
  *
  * Everything about one notebook in one place:
  *   Setup        the steps from idea to a live notebook, ticked off as you go
@@ -16,10 +16,10 @@
 (function () {
   'use strict';
   const NB = window.NB, GH = window.GH, esc = NB.esc;
-  // The game being edited: /studio/edit.html?game=<folder> (or a legacy <folder>/admin.html).
+  // The game being edited: /studio/?game=<folder> (or a legacy <folder>/admin.html).
   const QS = new URLSearchParams(location.search).get('game') || '';
   const FOLDER = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(QS) ? QS
-    : /\/studio\/edit\.html$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
+    : /^\/studio\/(index\.html|edit\.html)?$/.test(location.pathname) ? '' : location.pathname.replace(/\/[^/]*$/, '').replace(/^\/+/, '');
   const BASE = '/' + FOLDER + '/'; // the game's folder on the site
   const DKEY = NB.draftKey('/' + FOLDER + '/');
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
@@ -608,7 +608,7 @@
     if (!FOLDER) { location.replace('/studio/#games'); return; }
     if (!GH) { document.body.innerHTML = '<p style="padding:24px">The editor needs /studio/kit/gh.js.</p>'; return; }
     // Old <game>/admin.html links move to the studio.
-    if (!/\/studio\/edit\.html$/.test(location.pathname)) { location.replace('/studio/edit.html?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
+    if (!/^\/studio\/(index\.html)?$/.test(location.pathname)) { location.replace('/studio/?game=' + encodeURIComponent(FOLDER) + location.hash); return; }
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();

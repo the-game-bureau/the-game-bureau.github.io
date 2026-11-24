@@ -140,7 +140,7 @@
   // ---------- page shells ----------
   // index.html and rules.html are short shells; their <head> carries the title and share-preview
   // tags, which link previews read without running JavaScript. The studio writes them from
-  // game.json so they never drift. (Games are edited at /studio/edit.html?game=<folder>.)
+  // game.json so they never drift. (Games are edited at /studio/?game=<folder>.)
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   GH.shells = function (folder, g) {
     const rnFull = ((g.rulesName || '').trim() || 'Rules'), rn = rnFull === 'Rules' ? 'rules' : rnFull;
