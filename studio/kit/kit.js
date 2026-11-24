@@ -173,7 +173,7 @@
   // ---------- public page ----------
   NB.renderPublic = function (g) {
     let media = (g.media || []).filter(m => m && (m.type !== 'image' || m.src));
-    if (!media.some(m => m.type === 'image' || (!m.type && m.src)) && g.build && g.build.previews) {
+    if (g.autoPreviews !== false && !media.some(m => m.type === 'image' || (!m.type && m.src)) && g.build && g.build.previews) {
       media = g.build.previews.map((src, i) => ({ type: 'image', src, alt: i ? 'A page from the notebook' : 'The front cover' })).concat(media);
     }
     if (!media.length) media = [{ type: 'soon', alt: 'Photos coming soon' }];
