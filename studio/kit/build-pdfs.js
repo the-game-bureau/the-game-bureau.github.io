@@ -1,5 +1,5 @@
 // Builds a notebook game's PDFs from its HTML. Usage, from the repo root:
-//   node studio/kit/build-pdfs.js studio/dice-derby   (one game: its folder from the repo root)
+//   node studio/kit/build-pdfs.js studio/starter   (one game: its folder from the repo root)
 //   node studio/kit/build-pdfs.js --all                 (every folder with a notebook game.json)
 // Needs playwright and pdf-lib (the GitHub workflow installs them).
 //

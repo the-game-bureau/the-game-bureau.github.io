@@ -53,8 +53,8 @@
   const bytesToText = bytes => new TextDecoder().decode(bytes);
   GH.textToB64 = text => { const bytes = new TextEncoder().encode(text); let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
 
-  GH.headTree = async function () {
-    const ref = await GH.api('/git/ref/heads/' + GH.BRANCH);
+  GH.headTree = async function (branch) {
+    const ref = await GH.api('/git/ref/heads/' + (branch || GH.BRANCH));
     const commit = await GH.api('/git/commits/' + ref.object.sha);
     return { commitSha: ref.object.sha, treeSha: commit.tree.sha };
   };
@@ -91,11 +91,12 @@
   // ---------- writing ----------
   // Commits many files to main in one commit. files: [{path, text}] or [{path, base64}]
   // or [{path, sha}] (reuse an existing blob) or [{path, delete: true}].
-  GH.commit = async function (files, message, onStep) {
+  GH.commit = async function (files, message, onStep, branch) {
     const step = onStep || (() => {});
+    branch = branch || GH.BRANCH;
     for (let attempt = 0; attempt < 3; attempt++) {
       step('Preparing ' + files.length + ' file' + (files.length === 1 ? '' : 's') + '…');
-      const head = await GH.headTree();
+      const head = await GH.headTree(branch);
       const tree = [];
       for (const f of files) {
         if (f.delete) { tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null }); continue; }
@@ -110,7 +111,7 @@
       const newTree = await GH.api('/git/trees', { method: 'POST', body: { base_tree: head.treeSha, tree } });
       const commit = await GH.api('/git/commits', { method: 'POST', body: { message, tree: newTree.sha, parents: [head.commitSha] } });
       try {
-        await GH.api('/git/refs/heads/' + GH.BRANCH, { method: 'PATCH', body: { sha: commit.sha, force: false } });
+        await GH.api('/git/refs/heads/' + branch, { method: 'PATCH', body: { sha: commit.sha, force: false } });
         return commit;
       } catch (e) {
         // Someone (often the PDF bot) pushed in between: start again from the new head.
@@ -118,6 +119,45 @@
         step('The site changed while saving. Trying again…');
       }
     }
+  };
+
+  // ---------- saved drafts ----------
+  // SAVE in the studio stores the whole notebook (text, plus photos not yet published) as one
+  // JSON file on the studio-drafts branch. That branch is never deployed, so a saved draft is
+  // private to the studio, but any browser connected to GitHub can open it. PUBLISH writes to
+  // main (which goes live) and removes the draft.
+  GH.DRAFTS = 'studio-drafts';
+  const draftPath = key => 'drafts/' + key.replace(/\//g, '--') + '.json';
+  const enc = p => p.split('/').map(encodeURIComponent).join('/');
+  GH.readDraft = async function (key) {
+    try {
+      const f = await GH.api('/contents/' + enc(draftPath(key)) + '?ref=' + GH.DRAFTS);
+      return Object.assign(JSON.parse(await GH.readBlobText(f.sha)), { key });
+    } catch (e) { if (e.status === 404) return null; throw e; }
+  };
+  GH.listDrafts = async function () {
+    let list;
+    try { list = await GH.api('/contents/drafts?ref=' + GH.DRAFTS); } catch (e) { if (e.status === 404) return []; throw e; }
+    const out = [];
+    for (const f of list.filter(x => /\.json$/.test(x.name))) {
+      try { const d = JSON.parse(await GH.readBlobText(f.sha)); out.push({ key: f.name.replace(/\.json$/, '').replace(/--/g, '/'), isNew: !!d.isNew, title: (d.game && d.game.title) || '', at: d.at, brand: d.game && d.game.brand, tagline: (d.game && d.game.tagline) || '' }); } catch (e) { /* skip */ }
+    }
+    return out;
+  };
+  // files: [{key, data}] to write, [{key, delete: true}] to remove.
+  GH.writeDrafts = async function (files, message, onStep) {
+    const tree = files.map(f => f.delete ? { path: draftPath(f.key), delete: true } : { path: draftPath(f.key), text: JSON.stringify(f.data) });
+    try { await GH.api('/git/ref/heads/' + GH.DRAFTS); } catch (e) {
+      if (e.status !== 404) throw e;
+      const write = tree.filter(f => !f.delete);
+      if (!write.length) return null;
+      // First save ever: start the branch with just the drafts folder.
+      const t = await GH.api('/git/trees', { method: 'POST', body: { tree: write.map(f => ({ path: f.path, mode: '100644', type: 'blob', content: f.text })) } });
+      const c = await GH.api('/git/commits', { method: 'POST', body: { message, tree: t.sha, parents: [] } });
+      await GH.api('/git/refs', { method: 'POST', body: { ref: 'refs/heads/' + GH.DRAFTS, sha: c.sha } });
+      return c;
+    }
+    return GH.commit(tree, message, onStep, GH.DRAFTS);
   };
 
   // ---------- builds and publishing ----------

@@ -1,6 +1,7 @@
 /* Notebook kit: studio parts the editor uses (/studio/). Needs kit.js and gh.js.
- * The studio is one interface: the game editor (admin.js). /studio/ opens it on a new, unsaved
- * notebook started from a template, and /studio/?game=<folder> opens an existing one. This file
+ * The studio is one interface: the game editor (admin.js). /studio/?new opens it on a new
+ * notebook started from the blank starter or a copy of another notebook, and
+ * /studio/?game=<folder> opens an existing one. This file
  * holds the editor's Connect tab (the one-time GitHub setup) and Notebooks tab (every notebook,
  * with edit and delete). The template folders themselves are only read, never changed.
  */
@@ -9,11 +10,16 @@
   const NB = window.NB, GH = window.GH, esc = NB.esc;
   const S = (window.NBStudio = {});
 
-  // The templates a new notebook can start from.
-  S.STARTS = [
-    ['studio/starter', 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets. Best for a new idea.'],
-    ['studio/dice-derby', 'Dice Derby sample', 'A finished example game with custom race cards. Start here to adapt its layouts.'],
-  ];
+  // A new notebook starts from the blank starter (studio/starter, hidden from the Notebooks list)
+  // or from a copy of any notebook already on the site.
+  S.STARTER = 'studio/starter';
+  S.STARTS = [[S.STARTER, 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets.']];
+  const isGame = folder => !/^studio\//.test(folder);
+  S.startChoices = async function () {
+    const r = await GH.listGames();
+    return S.STARTS.concat(r.games.filter(x => isGame(x.folder)).sort((a, b) => a.folder.localeCompare(b.folder))
+      .map(x => [x.folder, 'Copy of ' + (x.game.title || x.folder), '/' + x.folder + '/: its colours, rules, cover and inside pages.']));
+  };
   S.slugify = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
   // ---------- Connect tab: the one-time GitHub setup ----------
@@ -43,37 +49,21 @@
     };
   };
 
-  // ---------- How it works tab ----------
-  S.how = function (el) {
-    el.innerHTML = '<h2>How it works</h2><p class="ad-lede">Use the studio to go from an idea to a live notebook game on thegamebureau.com.</p>' +
-      '<ol class="st-flow">' +
-      '<li><b>Connect</b>Once per browser, connect the studio to GitHub so it can save. See the Connect tab.</li>' +
-      '<li><b>Make a notebook</b>In Notebooks, click New notebook, give it a title and web address in Content, shape the rest, and click Create notebook.</li>' +
-      '<li><b>Shape it</b>Colors, rules, cover, inside pages and photos, each with a live preview. The Checklist walks you through it.</li>' +
-      '<li><b>Save and publish</b>One button. The site republishes in about a minute, and the PDFs build about 3 minutes later.</li>' +
-      '<li><b>Sell and share</b>Add a Stripe link, order a printed proof, and share the page.</li></ol>' +
-      '<h3>The tabs</h3><ul class="st-tabs-help">' +
-      '<li><b>Notebooks</b>: choose what to work on. Start a new notebook, or open, view or delete one on the site. The other tabs open once you choose.</li>' +
-      '<li><b>Checklist</b>: every step from idea to live notebook, ticked off as you go.</li>' +
-      '<li><b>Content</b>: the words on the game page: title, tagline, description, specs, how it works, price and ordering, print size.</li>' +
-      '<li><b>Colors</b>: the four colours, with 24 ready-made schemes.</li>' +
-      '<li><b>Rules</b>, <b>Cover</b>, <b>Inside pages</b>: the files that make the notebook, each with an "Edit this page with an AI" box.</li>' +
-      '<li><b>Photos &amp; video</b>: the gallery on the game page, and the browser-tab icon.</li>' +
-      '<li><b>PDFs</b>: the cover, contents, print-at-home and free sampler PDFs.</li>' +
-      '</ul>' +
-      '<p class="ad-help">Edits are kept in this browser until you save, and the preview always shows them.</p>';
-  };
-
   // ---------- Notebooks tab ----------
   S.games = async function (el, current) {
-    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Choose a notebook to work on: start a new one, or EDIT one already on the site. The other tabs open once you choose.</p>' +
+    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Choose a notebook to work on: start a new one, or EDIT one you have saved or published. The other tabs open once you choose.</p>' +
       '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new#content">+ NEW NOTEBOOK</a></div><div class="st-games-box"><p class="ad-help">Loading…</p></div>';
     const box = el.querySelector('.st-games-box');
     try {
-      const r = await GH.listGames();
-      box.innerHTML = '<div class="st-games">' + r.games.sort((a, b) => a.folder.startsWith('studio/') - b.folder.startsWith('studio/') || a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
+      const [r, drafts] = await Promise.all([GH.listGames(), GH.token() ? GH.listDrafts().catch(() => []) : []]);
+      const saved = {}; drafts.forEach(d => { saved[d.key] = d; });
+      const fresh = drafts.filter(d => d.isNew).sort((a, b) => b.at - a.at).map(d =>
+        '<div class="st-game"><div class="sw" style="background:' + esc((d.brand && d.brand.color) || '#1F3A5F') + '"></div><div class="b"><span class="tag">SAVED, NOT PUBLISHED</span>' +
+        '<h3>' + esc(d.title || d.key) + '</h3><small>/' + esc(d.key) + '/ · saved ' + esc(new Date(d.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + '</small><p class="ad-help">' + esc(d.tagline) + '</p>' +
+        '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new&open=' + encodeURIComponent(d.key) + '#content">EDIT</a></div></div></div>').join('');
+      box.innerHTML = '<div class="st-games">' + fresh + r.games.filter(x => isGame(x.folder)).sort((a, b) => a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
         '<div class="st-game' + (folder === current ? ' current' : '') + '"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
-        (folder.startsWith('studio/') ? '<span class="tag">TEMPLATE</span>' : '') + (folder === current ? '<span class="tag">OPEN NOW</span>' : '') +
+        (folder === current ? '<span class="tag">OPEN NOW</span>' : '') + (saved[folder] ? '<span class="tag">SAVED CHANGES, NOT PUBLISHED</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT</a><a class="nb-btn" href="/' + esc(folder) + '/" target="_blank" rel="noopener">PAGE</a>' +
         (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
