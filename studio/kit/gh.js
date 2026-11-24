@@ -151,7 +151,7 @@
     const head = (title, extra) => '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
       '<!-- Made with the notebook kit (/studio/). This page is built from game.json; the tags below are written by the admin page when you save. -->\n' +
       '<title>' + esc(title) + '</title>\n' + extra +
-      '<link rel="icon" href="/favicon.ico">\n<link rel="stylesheet" href="/studio/kit/kit.css">\n<script src="/studio/kit/kit.js" defer></script>\n';
+      '<link rel="icon" href="' + esc(g.favicon ? '/' + folder + '/' + g.favicon : '/favicon.ico') + '">\n<link rel="stylesheet" href="/studio/kit/kit.css">\n<script src="/studio/kit/kit.js" defer></script>\n';
     const og = (title, u) => '<meta name="description" content="' + esc(desc) + '">\n<link rel="canonical" href="' + esc(u) + '">\n' +
       '<meta property="og:type" content="product">\n<meta property="og:title" content="' + esc(title) + '">\n<meta property="og:description" content="' + esc(desc) + '">\n' +
       '<meta property="og:url" content="' + esc(u) + '">\n<meta property="og:image" content="' + esc(img) + '">\n<meta name="twitter:card" content="summary_large_image">\n';
