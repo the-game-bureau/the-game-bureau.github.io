@@ -467,7 +467,7 @@
     const per = key === 'cover' ? [
       'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is narrow (about ' + (P.spine || 0.03) + ' in for a thin book), so keep it to one short line or leave it empty.',
       'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}}. Keep them as placeholders rather than typing the text in.',
-      'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file: <img src="images/name.jpg">.',
+      'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file (they are uploaded in the studio\'s Photos & video tab): <img src="images/name.jpg">.',
     ] : [
       'Keep <section data-rules></section>: the rules flow in there from rules.md.',
       'Each <section class="page"> is exactly one page, already padded to the safe area. Anything that overflows is cut off, so design to fit one page.',
@@ -523,7 +523,7 @@
     p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
       '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
       '<div class="ad-code-foot"><button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
-      '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>';
+      (help ? '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>' : '');
     const ta = $('#ad-code');
     ta.oninput = () => { draft[key] = ta.value; persist(); };
     ta.onkeydown = e => { if (e.key === 'Tab' && key !== 'rules') { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('  ', s, ta.selectionEnd, 'end'); ta.oninput(); } };
@@ -533,8 +533,8 @@
   }
   const tabRules = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
     '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
-  const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone.',
-    '<ul><li>Design inside <code>.cover-front</code>, <code>.cover-back</code> and <code>.cover-spine</code>. Each fills its panel to the bleed edge, with padding set so content stays in the safe area.</li><li>Filled in from Content: <code>{{title}}</code> <code>{{subtitle}}</code> <code>{{tagline}}</code> <code>{{kicker}}</code> <code>{{url}}</code> <code>{{price}}</code>, and as blocks <code>{{steps}}</code> <code>{{specs}}</code> <code>{{description}}</code>.</li><li>Colours: <code>var(--brand)</code> <code>var(--accent)</code> <code>var(--paper)</code> <code>var(--ink)</code>. Fonts: <code>"NB Display"</code> and <code>"NB Text"</code>.</li><li>Leave about 2 x 1.2 in clear at the lower right of the back if your printer adds a barcode.</li><li>Images: upload them in Photos &amp; video, then use <code>&lt;img src="images/name.jpg"&gt;</code>.</li></ul>');
+  // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
+  const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone.', '');
   const tabContents = p => codeTab(p, 'contents', 'Inside pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
     '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>The free sampler keeps the rules and the first pages (Content, Print, Sampler pages), or only pages marked <code>data-sampler</code>.</li><li>Colours and fonts as on the cover.</li></ul>');
 
