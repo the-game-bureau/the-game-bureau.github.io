@@ -176,7 +176,10 @@
       files = (await GH.listFiles());
       if (files.some(f => f.path.startsWith(folder + '/'))) throw new Error('thegamebureau.com/' + folder + '/ was just taken. Pick another address.');
       const src = files.filter(f => f.path.startsWith(start + '/') && !f.path.startsWith(start + '/pdf/') && !/\/\.keep$/.test(f.path));
-      const srcGame = JSON.parse(await GH.readBlobText(src.find(f => f.path === start + '/game.json').sha));
+      const srcJson = src.find(f => f.path === start + '/game.json');
+      // An old copy of this page (open in a tab from before an update) can ask for a folder that has moved.
+      if (!srcJson) throw new Error('Could not find /' + start + '/ on GitHub. The studio has probably been updated since this page was opened. Reload the page and try again.');
+      const srcGame = JSON.parse(await GH.readBlobText(srcJson.sha));
       const oldTitle = srcGame.title;
       mark(0, 'done'); mark(1, 'doing');
 

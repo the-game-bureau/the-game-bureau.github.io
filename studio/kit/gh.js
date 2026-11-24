@@ -63,6 +63,7 @@
   GH.listFiles = async function () {
     const { treeSha } = await GH.headTree();
     const t = await GH.api('/git/trees/' + treeSha + '?recursive=1');
+    if (t.truncated) throw new Error('The repository is too big for GitHub to list in one go, so the studio cannot see every file. Ask for help moving large files out of it.');
     return t.tree.filter(x => x.type === 'blob');
   };
 
