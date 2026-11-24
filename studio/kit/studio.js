@@ -12,13 +12,9 @@
     ['studio/starter', 'Blank starter', 'A plain cover that fills itself in from your words, a score book and numbered game sheets. Best for a new idea.'],
     ['studio/dice-derby', 'Dice Derby sample', 'A finished example game with custom race cards. Start here to adapt its layouts.'],
   ];
-  const PRESETS = [
-    ['#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'], ['#2D5016', '#FFD400', '#FFFDF5', '#101510'], ['#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
-    ['#0F5C63', '#F28C38', '#F7FBFA', '#10201F'], ['#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'], ['#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
-    ['#283593', '#00BFA6', '#F8F9FF', '#14162B'], ['#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
-  ];
+  const PRESETS = NB.PRESETS; // [name, brand, accent, paper, ink], in kit.js, shared with the editor
   let files = null;
-  let colors = PRESETS[0].slice();
+  let colors = PRESETS[0].slice(1);
 
   const slugify = s => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
@@ -65,8 +61,8 @@
       '<section class="st-card" id="games"><h2>Notebooks</h2><div id="st-games"><p class="ad-help">Loading…</p></div></section>' +
       '</main>';
 
-    $('#n-colors').innerHTML = PRESETS.map((x, i) => '<button type="button" data-p="' + i + '"' + (i ? '' : ' aria-pressed="true"') + '>' + x.map(c => '<span style="background:' + c + '"></span>').join('') + '</button>').join('');
-    document.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { colors = PRESETS[+b.dataset.p].slice(); document.querySelectorAll('[data-p]').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
+    $('#n-colors').innerHTML = PRESETS.map((x, i) => '<button type="button" data-p="' + i + '"' + (i ? '' : ' aria-pressed="true"') + ' title="' + esc(x[0]) + '">' + x.slice(1).map(c => '<span style="background:' + c + '"></span>').join('') + '<b>' + esc(x[0]) + '</b></button>').join('');
+    document.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { colors = PRESETS[+b.dataset.p].slice(1); document.querySelectorAll('[data-p]').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
     let folderTouched = false;
     $('#n-title').oninput = () => { if (!folderTouched) { $('#n-folder').value = slugify($('#n-title').value); checkFolder(); } };
     $('#n-folder').oninput = () => { folderTouched = true; checkFolder(); };

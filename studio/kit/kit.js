@@ -16,6 +16,26 @@
   // ---------- helpers ----------
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   NB.esc = esc;
+  // Colour schemes offered in the studio and the editor: name, brand, accent, paper, ink.
+  // Brand and ink are dark enough for white or paper text; accent is the bright highlight.
+  NB.PRESETS = [
+    ['Navy and gold', '#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'],
+    ['Field green', '#2D5016', '#FFD400', '#FFFDF5', '#101510'],
+    ['Brick', '#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
+    ['Teal', '#0F5C63', '#F28C38', '#F7FBFA', '#10201F'],
+    ['Plum', '#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'],
+    ['Charcoal', '#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
+    ['Royal', '#283593', '#00BFA6', '#F8F9FF', '#14162B'],
+    ['Pink', '#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
+    ['Midnight', '#14213D', '#FCA311', '#FAF7F0', '#0E1424'],
+    ['Forest', '#1E4D3A', '#E9C46A', '#F9F7EE', '#0F1F18'],
+    ['Crimson', '#9B111E', '#F4D35E', '#FFF9F0', '#1F0E10'],
+    ['Ocean', '#035E7B', '#FF6B6B', '#F4FAFB', '#0B1E26'],
+    ['Espresso', '#4A2C1D', '#D9A441', '#FBF6EE', '#1B120D'],
+    ['Slate', '#3D4F5C', '#7FD1AE', '#F7F9F9', '#151C21'],
+    ['Grape', '#3F1D5A', '#FF9F1C', '#FCF8FF', '#170D21'],
+    ['Olive', '#4B5320', '#E76F51', '#FBFAF2', '#191B0C'],
+  ];
 
   // ---------- drafts (live preview from the admin page) ----------
   // The admin page keeps unsaved edits in localStorage under this folder's key. A page opened

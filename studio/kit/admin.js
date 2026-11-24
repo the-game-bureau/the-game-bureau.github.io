@@ -23,16 +23,7 @@
   const BASE = '/' + FOLDER + '/'; // the game's folder on the site
   const DKEY = NB.draftKey('/' + FOLDER + '/');
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
-  const PRESETS = [
-    ['Navy and gold', '#1F3A5F', '#E0A526', '#FFFBF2', '#16181A'],
-    ['Field green', '#2D5016', '#FFD400', '#FFFDF5', '#101510'],
-    ['Brick', '#8C2F1B', '#F2B134', '#FFF8EE', '#1C1412'],
-    ['Teal', '#0F5C63', '#F28C38', '#F7FBFA', '#10201F'],
-    ['Plum', '#5B2A6E', '#F5C542', '#FFFAF3', '#1D1420'],
-    ['Charcoal', '#2B2E33', '#E94F37', '#FAFAF7', '#121314'],
-    ['Royal', '#283593', '#00BFA6', '#F8F9FF', '#14162B'],
-    ['Pink', '#B0306A', '#FFD166', '#FFF8FA', '#21121A'],
-  ];
+  const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   const TABS = [['setup', 'Setup'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs']];
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
