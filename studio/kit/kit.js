@@ -5,7 +5,7 @@
  * and say which page they are with <body data-page="...">:
  *   public   index.html     photos and videos, explanation, order, share, rules link
  *   rules    rules.html     the full rules, rendered from rules.md
- *   admin    admin.html     builds the cover and contents PDFs (see admin.js)
+ *   editor   /studio/edit.html?game=<folder> edits the game and builds its PDFs (see admin.js)
  * The printable pages (cover.html, contents.html) use print.js instead.
  */
 (function () {

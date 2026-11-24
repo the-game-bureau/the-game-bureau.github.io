@@ -19,7 +19,7 @@ fs.mkdirSync(path.join(dest, 'pdf'));
 const g = JSON.parse(fs.readFileSync(path.join(dest, 'game.json'), 'utf8'));
 g.slug = slug; g.title = title;
 fs.writeFileSync(path.join(dest, 'game.json'), JSON.stringify(g, null, 2) + '\n');
-for (const f of ['index.html', 'rules.html', 'admin.html', 'cover.html', 'contents.html', 'rules.md']) {
+for (const f of ['index.html', 'rules.html', 'cover.html', 'contents.html', 'rules.md']) {
   const p = path.join(dest, f);
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8')
     .replace(/studio\/dice-derby/g, folder).replace(/dice-derby/g, slug)
