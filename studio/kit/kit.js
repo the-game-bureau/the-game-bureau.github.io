@@ -172,11 +172,13 @@
   };
 
   // ---------- media (photos, YouTube, Vimeo, video files) ----------
+  // A photo's focus spot ([x, y] in percent, set in the studio): where to keep it when it is cropped.
+  NB.focusStyle = m => m && Array.isArray(m.focus) && m.focus.length === 2 ? ' style="object-position:' + (+m.focus[0]) + '% ' + (+m.focus[1]) + '%"' : '';
   NB.mediaHTML = function (m, opts = {}) {
     if (m.type === 'youtube' && m.id) return '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(m.id) + '" title="' + esc(m.alt || 'Video') + '" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>';
     if (m.type === 'vimeo' && m.id) return '<iframe src="https://player.vimeo.com/video/' + encodeURIComponent(m.id) + '" title="' + esc(m.alt || 'Video') + '" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>';
     if (m.type === 'video' && m.src) return '<video src="' + esc(m.src) + '"' + (m.poster ? ' poster="' + esc(m.poster) + '"' : '') + ' controls playsinline preload="metadata"></video>';
-    if (m.type === 'image' || (!m.type && m.src)) return '<img src="' + esc(m.src) + '" alt="' + esc(m.alt || '') + '"' + (opts.lazy ? ' loading="lazy"' : '') + '>';
+    if (m.type === 'image' || (!m.type && m.src)) return '<img src="' + esc(m.src) + '" alt="' + esc(m.alt || '') + '"' + NB.focusStyle(m) + (opts.lazy ? ' loading="lazy"' : '') + '>';
     // A video entry with no source yet shows a placeholder.
     if (m.type === 'soon') return '<div class="media-soon photo"><b>PHOTOS COMING SOON</b></div>';
     return '<div class="media-soon"><div class="play" aria-hidden="true"></div><b>VIDEO COMING SOON</b>' + (m.alt ? '<small>' + esc(m.alt) + '</small>' : '') + '</div>';
@@ -310,7 +312,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', m.alt || (isVideo(m) ? 'Video' : 'Photo ' + (i + 1)));
-      b.innerHTML = m.type === 'image' || (!m.type && m.src) ? '<img src="' + esc(m.src) + '" alt="" loading="lazy">' : (m.poster ? '<img src="' + esc(m.poster) + '" alt="" loading="lazy">' : '') + '<span class="tplay" aria-hidden="true"></span>';
+      b.innerHTML = m.type === 'image' || (!m.type && m.src) ? '<img src="' + esc(m.src) + '" alt=""' + NB.focusStyle(m) + ' loading="lazy">' : (m.poster ? '<img src="' + esc(m.poster) + '" alt="" loading="lazy">' : '') + '<span class="tplay" aria-hidden="true"></span>';
       if (isVideo(m)) b.classList.add('tvid');
       b.onclick = () => show(i);
       thumbs.appendChild(b);

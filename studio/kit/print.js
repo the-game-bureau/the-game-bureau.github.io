@@ -149,7 +149,7 @@
         description: (g.description || []).map(p => '<p>' + NB.esc(p) + '</p>').join(''),
         // The game's main image: photo 1 in Photos & video, as it is when the page is generated.
         // With no photo yet, a pattern of squares stands in.
-        image: (() => { const m = (g.media || []).find(x => x && (x.type === 'image' || !x.type) && x.src); return m ? '<img class="pk-image" src="' + NB.esc(m.src) + '" alt="' + NB.esc(m.alt || g.title) + '">' : '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>'; })(),
+        image: (() => { const m = (g.media || []).find(x => x && (x.type === 'image' || !x.type) && x.src); return m ? '<img class="pk-image" src="' + NB.esc(m.src) + '" alt="' + NB.esc(m.alt || g.title) + '"' + NB.focusStyle(m) + '>' : '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>'; })(),
       };
       vars.sheets = String(g.print.sheets || 72);
       vars.kicker = g.kicker || '';
