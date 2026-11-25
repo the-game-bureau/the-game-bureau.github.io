@@ -113,6 +113,11 @@
     return !(g.announceFrom && day < g.announceFrom) && !(g.announceUntil && day > g.announceUntil);
   };
   NB.rulesName = g => ((g && g.rulesName) || '').trim() || 'Rules';
+  // The rules can live somewhere else instead (game.json "rulesLink", e.g. a Google Doc). Then every
+  // rules button opens that link in a new tab. The notebook still prints rules.md.
+  NB.rulesLink = g => { const u = String((g && g.rulesLink) || '').trim(); return /^https?:\/\/[^\s]+$/i.test(u) ? u : ''; };
+  // href (and target) for a rules link or button.
+  NB.rulesAttrs = g => NB.rulesLink(g) ? 'href="' + esc(NB.rulesLink(g)) + '" target="_blank" rel="noopener"' : 'href="./rules.html"';
   // The rules (rules.md) are HTML. Notebooks made before that wrote them in Markdown, which still
   // works: a file that doesn't start with a tag is read as Markdown.
   NB.isHTML = t => /^\s*</.test(String(t || ''));
@@ -253,7 +258,7 @@
     '<a class="nb-tgb" href="/">The Game Bureau</a>' +
     '<nav>' +
     // The rules button sits just left of ORDER, on every page but the rules page itself.
-    (here !== 'rules' ? '<a class="nb-rules-link" href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    (here !== 'rules' ? '<a class="nb-rules-link" ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     // The free download: the sampler.
     (g.pdf && g.pdf.free ? '<a class="nb-sampler-link" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'SAMPLER' + '</a>' : '') +
@@ -275,7 +280,7 @@
     '<footer class="nb-foot"><div class="nb-wrap">' +
     '<div class="nb-foot-id"><a href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a><a href="/">The Game Bureau</a></div>' +
     '<nav>' +
-    (here !== 'rules' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    (here !== 'rules' ? '<a ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a href="./#order">ORDER</a>' +
     (g.pdf && g.pdf.free ? '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">SAMPLER</a>' : '') +
     '<button type="button" class="nb-foot-share">SHARE</button>' +
@@ -379,7 +384,7 @@
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && g.description && g.description.length ? '<div class="nb-about">' + about() + '</div>' : '') +
       (prod ? '' : '<div class="nb-row">' +
-      '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
+      '<a class="nb-btn" ' + NB.rulesAttrs(g) + '>' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
       '</div>') +
       (order.shippingNote && !prod ? '<p class="nb-fine">' + esc(order.shippingNote) + '</p>' : '') +
@@ -402,7 +407,7 @@
       // The product page leaves the rules out: they are printed in the notebook.
       (prod ? '' : '<section class="nb-block"><div class="nb-wrap nb-card nb-rules-cta">' +
       '<div><h2>' + (NB.rulesName(g) === 'Rules' ? 'The full rules' : esc(NB.rulesName(g))) + '</h2><p>' + esc(g.rulesBlurb || 'Everything you need to play, on one page. The same rules are printed inside the notebook.') + '</p></div>' +
-      '<a class="nb-btn solid big" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'READ THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
+      '<a class="nb-btn solid big" ' + NB.rulesAttrs(g) + '>' + (NB.rulesName(g) === 'Rules' ? 'READ THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '</div></section>') +
       '</main>' + footer(g);
 
@@ -473,6 +478,10 @@
 
   // ---------- rules page ----------
   NB.renderRules = async function (g) {
+    // Rules kept elsewhere: the rules page sends visitors there (old links keep working).
+    // In the studio's preview it shows where the link goes instead.
+    const link = NB.rulesLink(g);
+    if (link && !window.frameElement) { location.replace(link); return; }
     document.body.insertAdjacentHTML('afterbegin',
       header(g, 'rules') +
       '<main class="nb-wrap nb-rules-page">' +
@@ -483,6 +492,7 @@
     bindShare(g);
     document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';
     const el = document.getElementById('nb-rules');
+    if (link) { el.innerHTML = '<h1>' + esc(g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g))) + '</h1><p>The rules are kept at a link. Every rules button on the site opens it in a new tab, and visitors to this page go straight there.</p><p><a class="nb-btn solid" ' + NB.rulesAttrs(g) + '>OPEN THE RULES</a></p><p class="nb-fine">' + esc(link) + '</p>'; return; }
     try { el.innerHTML = await NB.loadRules(g); } catch (e) { el.innerHTML = '<p>' + esc(e.message) + '</p>'; }
   };
 
