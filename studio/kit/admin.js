@@ -743,7 +743,10 @@
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
     p.innerHTML = '<h2>Elements</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
-      '<fieldset>' + field('kicker', 'Small line above the title') + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) +
+      '<fieldset>' + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
+      '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
+      '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
+      field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) +
       // The web address sits under the title: made from the title for a new notebook (editable), fixed once it exists.
       (IS_NEW ? '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>'
         : '<div class="ad-field"><span>Web address</span><span class="st-url is-fixed"><b>thegamebureau.com/</b><a href="' + esc(BASE) + '" target="_blank" rel="noopener">' + esc(FOLDER) + '/</a>' +
@@ -753,9 +756,7 @@
           '<small id="ad-mv-msg">' + ((g.formerAddresses || []).length ? 'Old address' + (g.formerAddresses.length > 1 ? 'es' : '') + ' ' + g.formerAddresses.map(x => 'thegamebureau.com/' + esc(x) + '/').join(', ') + ' forward here.' : 'The game page lives here.') + '</small></div>') +
       field('subtitle', 'Subtitle', { ph: 'Optional' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
-      field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
-      '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
-      '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
+      field('kicker', 'Small line above the title') +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Media, or the cover once the PDFs are built.</small></div>' +
       field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</fieldset>' +
