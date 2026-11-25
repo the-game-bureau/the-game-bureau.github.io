@@ -19,7 +19,14 @@
   GH.ACTIONS_URL = 'https://github.com/' + GH.REPO + '/actions/workflows/' + GH.WORKFLOW;
 
   GH.token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
-  GH.setToken = t => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) { /* storage blocked */ } };
+  GH.setToken = t => { try { t ? localStorage.setItem(TOKEN_KEY, t) : (localStorage.removeItem(TOKEN_KEY), localStorage.removeItem(EXP_KEY)); } catch (e) { /* storage blocked */ } };
+  // When the key expires (YYYY-MM-DD), as chosen on GitHub. GitHub doesn't let web pages read
+  // it, so Connect asks for it once; the studio warns 14 days ahead.
+  const EXP_KEY = 'nb-github-token-expires';
+  GH.expires = () => { try { const v = localStorage.getItem(EXP_KEY) || ''; return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; } catch (e) { return ''; } };
+  GH.setExpires = v => { try { /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? localStorage.setItem(EXP_KEY, v) : localStorage.removeItem(EXP_KEY); } catch (e) { /* storage blocked */ } };
+  GH.daysLeft = () => { const v = GH.expires(); if (!v) return null; const [y, m, d] = v.split('-').map(Number); return Math.ceil((new Date(y, m - 1, d) - new Date(new Date().toDateString())) / 86400000); };
+  GH.rejected = false; // GitHub turned the key down (expired or revoked)
 
   GH.api = async function (path, opts = {}) {
     const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
@@ -32,7 +39,7 @@
     if (!r.ok) {
       let msg = r.status + ' ' + r.statusText;
       try { const j = await r.json(); if (j.message) msg = j.message + ' (' + r.status + ')'; } catch (e) { /* not json */ }
-      if (r.status === 401) msg = 'GitHub did not accept the token. It may be expired or mistyped. (' + r.status + ')';
+      if (r.status === 401 && GH.token()) { msg = 'GitHub no longer accepts this browser\'s key. It has probably expired: open Connect, click Disconnect, and set up a new key.'; GH.rejected = true; document.dispatchEvent(new Event('nb-key-rejected')); }
       if (r.status === 403 || r.status === 404) msg += '. Check the token is for ' + GH.REPO + ' with Contents and Actions set to Read and write.';
       const e = new Error(msg); e.status = r.status; throw e;
     }

@@ -28,26 +28,42 @@
     const ok = !!GH.token();
     el.innerHTML = '<h2>Connect</h2><p class="ad-lede">The studio saves notebooks to the website through GitHub. Connect it once in each browser you use.</p>' +
       '<h3>GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
-      (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p>'
+      (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p>' + expiryBox()
         : '<p class="ad-help">One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</p>' +
           '<ol class="st-howto">' +
           '<li><b>Open GitHub\'s token page.</b> <a class="nb-btn" href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">OPEN GITHUB ↗</a><small>Sign in as someone who can change the website.</small></li>' +
-          '<li><b>Fill in the form.</b><small>Token name: <code>Notebook Studio</code>. Expiration: up to you (a year is fine). Resource owner: <code>the-game-bureau</code>. Repository access: <b>Only select repositories</b>, then pick <code>' + esc(GH.REPO) + '</code>.</small></li>' +
+          '<li><b>Fill in the form.</b><small>Token name: <code>Notebook Studio</code>. Expiration: up to you (a year is fine; note the date). Resource owner: <code>the-game-bureau</code>. Repository access: <b>Only select repositories</b>, then pick <code>' + esc(GH.REPO) + '</code>.</small></li>' +
           '<li><b>Give it two permissions.</b><small>Under Repository permissions, set <b>Contents</b> to Read and write and <b>Actions</b> to Read and write. Leave everything else alone.</small></li>' +
           '<li><b>Generate the token and paste it here.</b><small>It starts with <code>github_pat_</code>. It stays in this browser and is only ever sent to GitHub.</small>' +
-          '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>');
+          '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"></div>' +
+          '<label class="st-exp"><span>Expires on</span><input id="st-exp" type="date" value="' + inAYear() + '"><small>The expiration date you chose on GitHub (shown on the token page). The studio warns you 14 days before.</small></label>' +
+          '<div class="nb-row"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>');
     if (ok) {
       GH.check().then(w => { $('.st-who').textContent = 'Signed in to GitHub as ' + w + '.'; }).catch(e => { $('.st-who').textContent = e.message; });
       $('.st-forget').onclick = () => { GH.setToken(''); S.connect(el, onChange); if (onChange) onChange(false); };
+      $('#st-exp-save').onclick = () => { GH.setExpires($('#st-exp').value); S.connect(el, onChange); if (onChange) onChange(true); };
       return;
     }
     $('#st-tok-save').onclick = async () => {
       $('#st-tok-msg').textContent = 'Checking…';
       GH.setToken($('#st-tok').value.trim());
-      try { await GH.check(); S.connect(el, onChange); if (onChange) onChange(true); }
-      catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.message; }
+      try { await GH.check(); GH.setExpires($('#st-exp').value); GH.rejected = false; S.connect(el, onChange); if (onChange) onChange(true); }
+      catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.status === 401 ? 'GitHub did not accept that key. Check you copied all of it.' : e.message; }
     };
   };
+
+  // When the key expires: shown, and changeable, once connected.
+  function inAYear() { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); }
+  function expiryBox() {
+    const v = GH.expires(), n = GH.daysLeft();
+    const when = v ? new Date(v + 'T12:00').toLocaleDateString([], { dateStyle: 'long' }) : '';
+    const state = GH.rejected ? '<b class="st-exp-bad">GitHub no longer accepts this key.</b> It has probably expired. Click Disconnect above, then set up a new key.'
+      : !v ? 'When does the key expire? Add the date and the studio warns you 14 days before.'
+      : n < 0 ? '<b class="st-exp-bad">The key expired on ' + esc(when) + '.</b> Click Disconnect above, then set up a new key.'
+      : n <= 14 ? '<b class="st-exp-bad">The key expires on ' + esc(when) + ' (' + (n === 0 ? 'today' : 'in ' + n + ' day' + (n === 1 ? '' : 's')) + ').</b> Click Disconnect above, then set up a new key before then.'
+      : 'The key expires on ' + esc(when) + '. The studio warns you 14 days before.';
+    return '<div class="st-expbox"><p>' + state + '</p><div class="nb-row"><input id="st-exp" type="date" value="' + esc(v) + '" aria-label="Key expiry date"><button type="button" class="nb-btn" id="st-exp-save">' + (v ? 'CHANGE DATE' : 'SAVE DATE') + '</button></div></div>';
+  }
 
   // ---------- Notebooks tab ----------
   S.games = async function (el, current) {
