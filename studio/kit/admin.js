@@ -783,6 +783,8 @@
 
   // The game page itself, drawn from the draft in a frame, with its words editable in place.
   // Things the page doesn't show (web address, dates, order link, share message) sit below it.
+  // Kevin's Stripe dashboard, open on a new product. Only the studio shows it, never a game page.
+  const STRIPE_NEW_PRODUCT = 'https://dashboard.stripe.com/acct_1MF10bBFJf3v75By/products?status=active&amp;listId=active&amp;source=product_list&amp;create=product';
   const PH = { title: 'Title', subtitle: 'Subtitle', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the price (optional)' };
   let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
   // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
@@ -922,7 +924,8 @@
       '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
       '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       '</div><div class="ad-band">' +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link. The page above always shows the button so you can change its words.' }) +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link. The page above always shows the button so you can change its words.' +
+        ' <a href="' + STRIPE_NEW_PRODUCT + '" target="_blank" rel="noopener">Create a product in Stripe ↗</a>, then make a Payment Link for it and paste that link here.' }) +
       '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the SHARE PICTURE from Media, or the cover once the PDFs are built.</small></div>' +
