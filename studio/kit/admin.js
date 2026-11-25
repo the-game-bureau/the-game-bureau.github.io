@@ -312,7 +312,7 @@
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
     else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0');
-    else if (mode === 'samplerfront') f.srcdoc = doc(draft.cover, 'layout=front');
+    else if (mode === 'samplerfront') f.srcdoc = doc(draft.cover, 'layout=front&stamp=sampler');
     // Shrink print pages to fit the preview column.
     if (box.classList.contains('print')) f.onload = () => {
       try {
