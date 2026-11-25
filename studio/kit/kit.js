@@ -71,7 +71,7 @@
     if (d && d.game) {
       g = JSON.parse(JSON.stringify(d.game));
       // Photos picked on the admin page but not saved yet live in the admin window.
-      try { const pend = window.parent !== window && window.parent.NB_PENDING; if (pend) (g.media || []).forEach(m => { if (m && pend[m.src]) m.src = pend[m.src]; }); } catch (e) { /* other origin */ }
+      try { const pend = window.parent !== window && window.parent.NB_PENDING; if (pend) { (g.media || []).forEach(m => { if (m && pend[m.src]) m.src = pend[m.src]; }); if (pend[g.coverImage]) g.coverImage = pend[g.coverImage]; } } catch (e) { /* other origin */ }
     }
     else {
       const r = await fetch('./game.json', { cache: 'no-cache' });
@@ -186,12 +186,15 @@
   NB.WEB_ONLY = ['order', 'announce', 'announceFrom', 'announceUntil', 'shareText', 'layout', 'setup', 'autoPreviews', 'favicon', 'videoHeading', 'slugTouched'];
   NB.printKey = g => {
     const o = Object.assign({}, g); NB.WEB_ONLY.forEach(k => delete o[k]);
-    const m = (g.media || []).find(NB.realPhoto); o.media = m ? [m.src, m.focus || null] : null;
+    const m = NB.coverPhoto(g); o.media = m ? [m.src, m.focus || null] : null; delete o.coverImage;
     const st = v => Array.isArray(v) ? '[' + v.map(st).join(',') + ']' : v && typeof v === 'object' ? '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + st(v[k])).join(',') + '}' : JSON.stringify(v === undefined ? null : v);
     return st(o);
   };
   // A photo of the game itself (not a placeholder), for the cover picture and link previews.
   NB.realPhoto = m => !!(m && (m.type === 'image' || !m.type) && m.src && !m.placeholder);
+  // The photo on the notebook cover: game.json coverImage picks one ('' means none, so the squares
+  // show). Without coverImage, as before, the first photo.
+  NB.coverPhoto = g => { const ph = (g.media || []).filter(NB.realPhoto); return g.coverImage === undefined ? ph[0] || null : ph.find(x => x.src === g.coverImage) || null; };
   NB.focusStyle = m => m && Array.isArray(m.focus) && m.focus.length === 2 ? ' style="object-position:' + (+m.focus[0]) + '% ' + (+m.focus[1]) + '%"' : '';
   NB.mediaHTML = function (m, opts = {}) {
     if (m.type === 'youtube' && m.id) return '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(m.id) + '" title="' + esc(m.alt || 'Video') + '" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>';
