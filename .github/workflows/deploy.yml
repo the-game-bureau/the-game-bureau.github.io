@@ -68,6 +68,15 @@ jobs:
             --exclude='private/' \
             ./ _site/
 
+      # Game pages load the notebook kit (/studio/kit/*.js, *.css) without a version, so browsers
+      # could keep an old kit for a while after it changes. Stamp each plain kit link with a hash of
+      # the kit, so a new kit is picked up at once and an unchanged one stays cached.
+      - name: Version the notebook kit links
+        run: |
+          KV=$(find studio/kit -type f | sort | xargs cat | sha1sum | cut -c1-10)
+          find _site -name '*.html' -print0 | xargs -0 grep -lZ '/studio/kit/' | xargs -0 -r perl -pi -e 's#(["\x27])(/studio/kit/[\w.-]+\.(?:js|css))\1#$1$2?v='"$KV"'$1#g'
+          echo "Kit version $KV"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
