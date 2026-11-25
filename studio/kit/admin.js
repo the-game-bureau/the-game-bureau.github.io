@@ -741,7 +741,7 @@
 
   // The game page itself, drawn from the draft in a frame, with its words editable in place.
   // Things the page doesn't show (web address, dates, order link, share message) sit below it.
-  const PH = { title: 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
+  const PH = { title: IS_NEW ? 'Galaxy' : 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
   let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
   // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
   function siteCopy() {
