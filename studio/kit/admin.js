@@ -692,17 +692,26 @@
     const one = (k, l, h) => '<label class="ad-color"><input type="color" data-color="' + k + '" value="' + esc(b[k]) + '"><span><b>' + l + '</b><small>' + h + '</small><input type="text" data-hex="' + k + '" value="' + esc(b[k]) + '" maxlength="7" spellcheck="false"></span></label>';
     p.innerHTML = '<h2>Colors</h2><p class="ad-lede">The four colors used for the game notebook website and the game notebook itself.</p>' +
       '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Page background in the notebook') + one('ink', 'Ink', 'Text and lines') + '</div>' +
+      '<div class="nb-row ad-nevermind"><button type="button" class="nb-btn solid" id="ad-savecolors">SAVE COLORS</button><button type="button" class="nb-btn" id="ad-nevermind">NEVER MIND</button></div>' +
+      '<p class="ad-help ad-colors-note" id="ad-colors-note"></p>' +
       '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>' +
-      '<p class="ad-help">Check that text is easy to read: the Main colour sits behind white text, and Ink sits on Paper.</p>' +
-      '<div class="nb-row ad-nevermind"><button type="button" class="nb-btn" id="ad-nevermind">NEVER MIND</button><small class="ad-help">Puts back the colours this notebook had when you opened the Colors tab.</small></div>';
+      '<p class="ad-help">Check that text is easy to read: the Main colour sits behind white text, and Ink sits on Paper.</p>';
     const setColor = (k, v) => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; b[k] = v.toUpperCase(); p.querySelector('[data-color="' + k + '"]').value = v; p.querySelector('[data-hex="' + k + '"]').value = b[k]; persist(); };
     p.querySelectorAll('[data-color]').forEach(el => { el.oninput = () => setColor(el.dataset.color, el.value); });
     p.querySelectorAll('[data-hex]').forEach(el => { el.oninput = () => setColor(el.dataset.hex, el.value.trim()); });
     p.querySelectorAll('[data-preset]').forEach(el => { el.onclick = () => { const x = PRESETS[+el.dataset.preset]; ['color', 'accent', 'paper', 'ink'].forEach((k, i) => setColor(k, x[i + 1])); }; });
     const nm = $('#ad-nevermind');
     const same = () => ['color', 'accent', 'paper', 'ink'].every(k => (b[k] || '').toUpperCase() === (colorsAtStart[k] || '').toUpperCase());
-    const sync = () => { nm.disabled = same(); };
+    const sc = $('#ad-savecolors'), note = $('#ad-colors-note');
+    const sync = () => {
+      nm.disabled = same();
+      const kept = !unsaved();
+      sc.disabled = kept || working; sc.textContent = kept ? 'COLORS SAVED \u2713' : 'SAVE COLORS';
+      sc.classList.toggle('is-saved', kept);
+      note.textContent = kept ? 'These colours are saved. PUBLISH puts them on the live site.' : 'NEVER MIND puts back the colours from when you opened this tab.';
+    };
     p.addEventListener('input', sync); p.addEventListener('click', e => { if (e.target.closest('[data-preset]')) sync(); });
+    sc.onclick = async () => { sc.disabled = true; sc.textContent = 'SAVING…'; await saveDraft(); sync(); };
     nm.onclick = () => { ['color', 'accent', 'paper', 'ink'].forEach(k => setColor(k, colorsAtStart[k])); sync(); flash('Colours put back.', 'ok'); };
     sync();
   }
@@ -1236,6 +1245,7 @@
       persist();
       busy(false);
       flash('Saved to GitHub. Open it from Notebooks in any browser. It is not live until you publish.', 'ok', 8000);
+      if (tab === 'colors') show('colors');
     } catch (e) { busy(false); updateBar('Not saved: ' + esc(e.message), 'bad'); }
   }
   // Picks up the copy saved on GitHub. Called once on load.
