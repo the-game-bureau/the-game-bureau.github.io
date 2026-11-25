@@ -26,22 +26,26 @@
   S.connect = function (el, onChange) {
     const $ = s => el.querySelector(s);
     const ok = !!GH.token();
-    el.innerHTML = '<h2>Connect</h2><p class="ad-lede">In order to save and publish a notebook game, you must be connected to <a href="https://github.com/' + esc(GH.REPO) + '" target="_blank" rel="noopener">https://github.com/' + esc(GH.REPO) + '</a></p>' +
-      '<h3>GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
-      (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p><ul class="st-perms"><li class="wait">Checking what the key may do…</li></ul>' + expiryBox()
-        : '<p class="ad-help">One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</p>' +
+    const repo = '<a href="https://github.com/' + esc(GH.REPO) + '" target="_blank" rel="noopener">https://github.com/' + esc(GH.REPO) + '</a>';
+    el.innerHTML = '<h2>Connect</h2><p class="ad-lede st-conn-lede">In order to save and publish a notebook game, you must be connected to ' + repo + '</p>' +
+      (ok ? connected()
+        : '<div class="st-conn off"><div class="st-conn-head"><span class="st-conn-dot" aria-hidden="true">!</span><div><b>Not connected in this browser</b><small>One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</small></div></div>' +
           '<ol class="st-howto">' +
           '<li><b>Open GitHub\'s token page.</b> <a class="nb-btn" href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">OPEN GITHUB ↗</a><small>Sign in as someone who can change the website.</small></li>' +
           '<li><b>Fill in the form.</b><small>Token name: <code>Notebook Studio</code>. Expiration: up to you (a year is fine; note the date). Resource owner: <code>the-game-bureau</code>. Repository access: <b>Only select repositories</b>, then pick <code>' + esc(GH.REPO) + '</code>.</small></li>' +
           '<li><b>Give it two permissions.</b><small>Under Repository permissions, set <b>Contents</b> to Read and write and <b>Actions</b> to Read and write. Leave everything else alone.</small></li>' +
           '<li><b>Generate the token and paste it here.</b><small>It starts with <code>github_pat_</code>. It stays in this browser and is only ever sent to GitHub.</small>' +
-          '<div class="nb-row" style="margin-top:8px"><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off" style="flex:1 1 260px;min-height:44px;border:1px solid #C9CDD2;border-radius:5px;padding:0 10px;font:14px ui-monospace,monospace"></div>' +
-          '<label class="st-exp"><span>Expires on</span><input id="st-exp" type="date" value="' + inAYear() + '"><small>The expiration date you chose on GitHub (shown on the token page). The studio warns you 14 days before.</small></label>' +
-          '<div class="nb-row"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>');
+          '<div class="st-tok-row"><label class="st-exp st-grow"><span>Key</span><input id="st-tok" type="password" placeholder="github_pat_..." autocomplete="off"></label>' +
+          '<label class="st-exp"><span>Expires on</span><input id="st-exp" type="date" value="' + inAYear() + '"></label></div>' +
+          '<small>The expiry date is the one you chose on GitHub. The studio warns you 14 days before.</small>' +
+          '<div class="nb-row" style="margin-top:12px"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol></div>');
     if (ok) {
-      GH.check().then(w => { $('.st-who').textContent = 'Signed in to GitHub as ' + w + '.'; }).catch(e => { $('.st-who').textContent = e.message; });
-      GH.permissions().then(p => { const ul = $('.st-perms'); if (ul) ul.innerHTML = permRows(p); }).catch(() => { const ul = $('.st-perms'); if (ul) ul.innerHTML = '<li class="unsure">Could not check what the key may do.</li>'; });
+      GH.check().then(w => { $('.st-who').textContent = 'Signed in as ' + w + ', in this browser'; }).catch(e => { $('.st-who').textContent = e.message; });
+      GH.permissions().then(p => { perm($('[data-perm=contents]'), p.contents, 'Contents'); perm($('[data-perm=actions]'), p.actions, 'Actions'); })
+        .catch(() => { el.querySelectorAll('[data-perm]').forEach(d => { d.innerHTML = '<span class="st-q">Could not check</span>'; }); });
       $('.st-forget').onclick = () => { GH.setToken(''); S.connect(el, onChange); if (onChange) onChange(false); };
+      const edit = () => { $('#st-exp-view').hidden = true; $('#st-exp-form').hidden = false; $('#st-exp').focus(); };
+      if ($('#st-exp-edit')) $('#st-exp-edit').onclick = edit;
       $('#st-exp-save').onclick = () => { GH.setExpires($('#st-exp').value); S.connect(el, onChange); if (onChange) onChange(true); };
       return;
     }
@@ -57,27 +61,37 @@
     };
   };
 
-  // The two permissions the studio needs, each with a tick or what to fix.
-  function permRows(p) {
-    const fix = ' <a href="' + GH.LIST_TOKENS_URL + '" target="_blank" rel="noopener">Open your keys on GitHub ↗</a>, click this one, set it to Read and write and save. The same key keeps working, so nothing changes here.';
-    const row = (v, name, does, missing) => '<li class="' + (v ? 'ok' : v === false ? 'bad' : 'unsure') + '"><b>' + name + ': Read and write</b> ' +
-      (v ? does : v === false ? '<span>Missing. ' + missing + '</span>' + fix : 'Could not check.') + '</li>';
-    return row(p.contents, 'Contents', 'for SAVE and PUBLISH.', 'SAVE and PUBLISH won\'t work.') +
-      row(p.actions, 'Actions', 'for BUILD PDFS NOW and the PDF status after PUBLISH.', 'BUILD PDFS NOW and the PDF status after PUBLISH won\'t work. The PDFs still rebuild on their own after each publish.');
-  }
-
-  // When the key expires: shown, and changeable, once connected.
-  function inAYear() { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); }
-  function expiryBox() {
+  // Connected: one card with who is signed in, then a row each for the repository, the two
+  // permissions and when the key expires.
+  function connected() {
     const v = GH.expires(), n = GH.daysLeft();
     const when = v ? new Date(v + 'T12:00').toLocaleDateString([], { dateStyle: 'long' }) : '';
-    const state = GH.rejected ? '<b class="st-exp-bad">GitHub no longer accepts this key.</b> It has probably expired. Click Disconnect above, then set up a new key.'
-      : !v ? 'When does the key expire? Add the date and the studio warns you 14 days before.'
-      : n < 0 ? '<b class="st-exp-bad">The key expired on ' + esc(when) + '.</b> Click Disconnect above, then set up a new key.'
-      : n <= 14 ? '<b class="st-exp-bad">The key expires on ' + esc(when) + ' (' + (n === 0 ? 'today' : 'in ' + n + ' day' + (n === 1 ? '' : 's')) + ').</b> Click Disconnect above, then set up a new key before then.'
-      : 'The key expires on ' + esc(when) + '. The studio warns you 14 days before.';
-    return '<div class="st-expbox"><p>' + state + '</p><div class="nb-row"><input id="st-exp" type="date" value="' + esc(v) + '" aria-label="Key expiry date"><button type="button" class="nb-btn" id="st-exp-save">' + (v ? 'CHANGE DATE' : 'SAVE DATE') + '</button></div></div>';
+    const bad = GH.rejected || (v && n < 0);
+    const exp = GH.rejected ? '<span class="st-bad">GitHub no longer accepts this key</span><small>It has probably expired. DISCONNECT, then set up a new key.</small>'
+      : !v ? '<span class="st-q">Not set</span><small>Add the date and the studio warns you 14 days before.</small>'
+      : n < 0 ? '<span class="st-bad">Expired ' + esc(when) + '</span><small>DISCONNECT, then set up a new key.</small>'
+      : n <= 14 ? '<span class="st-warn">' + esc(when) + ', ' + (n === 0 ? 'today' : 'in ' + n + ' day' + (n === 1 ? '' : 's')) + '</span><small>DISCONNECT, then set up a new key before then.</small>'
+      : '<span>' + esc(when) + '</span><small>The studio warns you 14 days before.</small>';
+    return '<div class="st-conn' + (bad ? ' bad' : '') + '"><div class="st-conn-head"><span class="st-conn-dot" aria-hidden="true">' + (bad ? '!' : '✓') + '</span>' +
+      '<div><b>' + (bad ? 'Connected, but the key no longer works' : 'Connected to GitHub') + '</b><small class="st-who">Checking…</small></div>' +
+      '<button type="button" class="nb-btn st-forget">DISCONNECT</button></div>' +
+      '<dl class="st-conn-rows">' +
+      '<div><dt>Repository</dt><dd><a href="https://github.com/' + esc(GH.REPO) + '" target="_blank" rel="noopener">' + esc(GH.REPO) + ' ↗</a></dd></div>' +
+      '<div><dt>Save and publish</dt><dd data-perm="contents"><span class="st-q">Checking…</span></dd></div>' +
+      '<div><dt>PDF builds</dt><dd data-perm="actions"><span class="st-q">Checking…</span></dd></div>' +
+      '<div><dt>Key expires</dt><dd><div id="st-exp-view"' + (v ? '' : ' hidden') + '>' + exp + (v ? ' <button type="button" class="ad-link" id="st-exp-edit">Change date</button>' : '') + '</div>' +
+      '<div id="st-exp-form"' + (v ? ' hidden' : '') + '>' + (v ? '' : exp) + '<div class="st-exp-form"><input id="st-exp" type="date" value="' + esc(v) + '" aria-label="Key expiry date"><button type="button" class="nb-btn" id="st-exp-save">SAVE DATE</button></div></div></dd></div>' +
+      '</dl></div>';
   }
+  // One permission row: allowed, or what is missing and how to fix it on GitHub.
+  function perm(dd, v, name) {
+    if (!dd) return;
+    const uses = name === 'Contents' ? 'SAVE and PUBLISH won\'t work.' : 'BUILD PDFS NOW and the PDF status after PUBLISH won\'t work. The PDFs still rebuild on their own after each publish.';
+    dd.innerHTML = v ? '<span class="st-ok">✓ Allowed</span><small>' + name + ': Read and write</small>'
+      : v === false ? '<span class="st-bad">✕ Not allowed</span><small>' + uses + ' <a href="' + GH.LIST_TOKENS_URL + '" target="_blank" rel="noopener">Open your keys on GitHub ↗</a>, click this one and set ' + name + ' to Read and write. The same key keeps working.</small>'
+      : '<span class="st-q">Could not check</span>';
+  }
+  function inAYear() { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); }
 
   // ---------- Notebooks tab ----------
   S.games = async function (el, current) {
