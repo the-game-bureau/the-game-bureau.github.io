@@ -251,7 +251,7 @@
       const steps = (g.steps || []).filter(x => x && (x.title || x.text)).slice(0, 3);
       pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">This game\'s page in your colours.</span></div>' +
         '<div class="ad-mock" id="ad-mock">' +
-        '<div class="mk-bar"><b>' + e((g.title || 'Game').toUpperCase()) + '</b><span>' + e(NB.rulesName(g).toUpperCase()) + '</span><i>ORDER</i></div>' +
+        '<div class="mk-bar"><b>' + e((g.title || 'Game').toUpperCase()) + '</b><span>RULES</span><i>ORDER</i></div>' +
         '<div class="mk-hero">' + (src ? '<img class="mk-pic" src="' + e(src) + '" alt=""' + NB.focusStyle(ph) + '>' : '<svg class="mk-book" viewBox="0 0 120 150" aria-hidden="true">' +
           '<rect x="14" y="10" width="96" height="132" rx="6" fill="var(--mk-color)"/>' +
           '<rect x="30" y="52" width="64" height="30" rx="3" fill="var(--mk-paper)"/><rect x="38" y="62" width="48" height="4" fill="var(--mk-accent)"/><rect x="38" y="70" width="32" height="3" fill="var(--mk-ink)" opacity=".6"/>' +
@@ -843,8 +843,9 @@
     const q = s => d.querySelector(s), qa = s => [...d.querySelectorAll(s)];
     const ed = (el, path, multi) => { if (!el) return; el.dataset.ed = path; if (multi) el.dataset.multi = '1'; el.contentEditable = 'true'; el.spellcheck = true; if (sitePH.has(path)) el.classList.add('ed-ph'); };
     ed(q('.nb-announce'), 'announce');
-    // The rules button in the top bar: its words are the rules name (How to Play, Field Guide...). Empty means Rules.
-    const rl = q('.nb-bar .nb-rules-link');
+    // The rules button under the free sampler: its words are the rules name (How to Play, Field Guide...). Empty means Rules.
+    // The one in the top bar always says RULES.
+    const rl = q('.nb-free .nb-rules-btn');
     if (rl) { rl.textContent = String(draft.game.rulesName || '').trim() || 'Rules'; rl.style.textTransform = 'uppercase'; ed(rl, 'rulesName'); }
     ed(q('.nb-info .nb-kick'), 'kicker');
     const h1 = q('.nb-info h1');
