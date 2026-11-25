@@ -5,10 +5,10 @@
 <h2>Setup</h2>
 
 <ol>
-  <li><strong>Pilot I.D.</strong> Draw a profile of your character and choose a race. Members of your own race treat you slightly better when you meet them.<figure class="rule-pic small"><img src="rules/pilot-id.png" alt="A pilot profile drawing"></figure></li>
-  <li><strong>Find your start.</strong> A small arrow on the map points to your starting sector.<figure class="rule-pic"><img src="rules/galaxy-map.png" alt="The galaxy map: numbered sectors joined by lines, with warp drive pieces"></figure></li>
+  <li><strong>Pilot I.D.</strong> Draw a profile of your character and choose a race. Members of your own race treat you slightly better when you meet them.</li>
+  <li><strong>Find your start.</strong> A small arrow on the map points to your starting sector.</li>
   <li><strong>Cross it off.</strong> After you play a sector, win or lose, return to the map and cross that sector off.</li>
-  <li><strong>Travel on.</strong> You may enter any sector connected to a completed sector.</li>
+  <li><strong>Travel on.</strong> You may enter any sector connected to a completed sector.<figure class="rule-pic"><img src="rules/galaxy-map.png" alt="The galaxy map: numbered sectors joined by lines, with warp drive pieces"></figure></li>
   <li><strong>Collect a warp drive piece.</strong> Complete every sector connected to a warp drive piece to collect it. You will also need to clear the sectors that get you there.</li>
 </ol>
 
@@ -16,19 +16,21 @@
 
 <h2>Playing a sector</h2>
 
+<figure class="rule-pic"><img src="rules/sector-page.png" alt="A sector page: the map, the Flight Computer, the counters and the mission"></figure>
+
 <ol>
-  <li><strong>Read the page.</strong> The top is the sector map. Your ship <img class="rule-icon" src="rules/ship.png" alt=""> always starts on the bottom row. Below the map is the Flight Computer, your movement values for this sector. Bottom left: missile and shield counters. Bottom right: the mission, the reward, Win or Loss, and the sector number.<figure class="rule-pic"><img src="rules/sector-page.png" alt="A sector page: the map, the Flight Computer, the counters and the mission"></figure></li>
+  <li><strong>Read the page.</strong> The top is the sector map. Your ship <img class="rule-icon" src="rules/ship.png" alt=""> always starts on the bottom row. Below the map is the Flight Computer, your movement values for this sector. Bottom left: missile and shield counters. Bottom right: the mission, the reward, Win or Loss, and the sector number.</li>
   <li><img class="rule-icon" src="rules/asteroid.png" alt=""><strong>Asteroid.</strong> Shoot one to clear the space, or fly through it and lose a shield. Finish the full move even if you hit one.</li>
   <li><img class="rule-icon" src="rules/wormhole.png" alt=""><strong>Wormhole.</strong> Two ends. Enter one and jump to the other, then keep going the same direction for any spaces you have left. Wormholes can be used more than once.</li>
   <li><img class="rule-icon" src="rules/mine.png" alt=""><strong>Mine.</strong> Come within one space and it explodes, using one shield. You may also shoot it. Anything within one space of the blast — enemy, asteroid, or another mine — is destroyed. Finish your move even if you hit one.</li>
   <li><img class="rule-icon" src="rules/credit.png" alt=""><strong>Credit.</strong> Pass over a credit and note it. Spend it after the sector, win or lose.</li>
   <li><img class="rule-icon" src="rules/shield.png" alt=""><strong>Shield pickup.</strong> Outline a new circle in this sector’s shield counter.</li>
   <li><img class="rule-icon" src="rules/missile.png" alt=""><strong>Missile pickup.</strong> Outline a new circle in this sector’s missile counter.</li>
-  <li><strong>Move.</strong> Each Flight Computer value is how many spaces you travel. Pick one of the 6 directions, draw the line, and mark your new spot with a small circle. You cannot turn mid-move. Cross off each value as you use it. You may skip a number and still cross it off. You may not skip a ?. A ? means roll the d6 for the distance. You may cross your own path.<figure class="rule-pic small"><img src="rules/directions.png" alt="Your ship can move in 6 directions"></figure><figure class="rule-pic wide"><img src="rules/flight-computer.png" alt="Used Flight Computer values crossed off"></figure></li>
+  <li><strong>Move.</strong><figure class="rule-pic wide"><img src="rules/flight-computer.png" alt="Used Flight Computer values crossed off"></figure> Each Flight Computer value is how many spaces you travel.<figure class="rule-pic small"><img src="rules/directions.png" alt="Your ship can move in 6 directions"></figure> Pick one of the 6 directions, draw the line, and mark your new spot with a small circle. You cannot turn mid-move. Cross off each value as you use it. You may skip a number and still cross it off. You may not skip a ?. A ? means roll the d6 for the distance. You may cross your own path.</li>
   <li><strong>No legal move.</strong> If a value has no possible direction, skip to the next value. If you rolled and truly cannot move, cross out that roll and continue. If the only move is a bad one, you still take it.</li>
-  <li><strong>Fire.</strong> Between moves, not during one, you may fire as many missiles as you still have. Fire in the same 6 directions you move, so line up first. Cross out the missile before you roll. It is spent even on a miss.<figure class="rule-pic wide"><img src="rules/missile-counter.png" alt="The missile counter with missiles crossed out"></figure></li>
-  <li><strong>Roll to hit.</strong> Count the spaces between your ship and the enemy. Roll that number or higher on the d6. One space away is an automatic hit. Cross out a destroyed enemy. You may fly through that space, and it can no longer shoot you.<figure class="rule-pic small"><img src="rules/enemy-destroyed.png" alt="A destroyed enemy, crossed out"></figure></li>
-  <li><strong>Get shot.</strong> An enemy fires whenever your move crosses its range. Roll the d6 for the enemy. A roll equal to or higher than the distance is a hit. Cross out a shield. No shields left means you lose the sector. Enemies can see and shoot through asteroids.<figure class="rule-pic small"><img src="rules/enemy-fire.png" alt="An enemy firing as your path crosses its range"></figure><figure class="rule-pic wide"><img src="rules/shield-counter.png" alt="The shield counter with a shield crossed out"></figure></li>
+  <li><strong>Fire.</strong> Between moves, not during one, you may fire as many missiles as you still have. Fire in the same 6 directions you move, so line up first.<figure class="rule-pic wide"><img src="rules/missile-counter.png" alt="The missile counter with missiles crossed out"></figure> Cross out the missile before you roll. It is spent even on a miss.</li>
+  <li><strong>Roll to hit.</strong> Count the spaces between your ship and the enemy. Roll that number or higher on the d6.<figure class="rule-pic small"><img src="rules/enemy-destroyed.png" alt="Your ship 2 spaces from an enemy, which is crossed out once destroyed"></figure> One space away is an automatic hit. Cross out a destroyed enemy. You may fly through that space, and it can no longer shoot you.</li>
+  <li><strong>Get shot.</strong> An enemy fires whenever your move crosses its range.<figure class="rule-pic small"><img src="rules/enemy-fire.png" alt="Your path crossing an enemy’s range 3 spaces away"></figure> Roll the d6 for the enemy. A roll equal to or higher than the distance is a hit.<figure class="rule-pic wide"><img src="rules/shield-counter.png" alt="The shield counter with a shield crossed out"></figure> Cross out a shield. No shields left means you lose the sector. Enemies can see and shoot through asteroids.</li>
   <li><strong>Score it.</strong> Each sector asks you to destroy a set number of enemy ships or retrieve an item. Do that without losing all your shields or fuel, then mark W in the Win or Loss box and stop. Otherwise mark L. Running out of Flight Computer values before the objective means you are out of fuel and lose the sector, so skip numbers carefully.</li>
 </ol>
 
@@ -73,4 +75,5 @@
 <figure class="rule-pic"><img src="rules/encounters.png" alt="Three alien encounter pages"></figure>
 
 <p>Good luck, Pilot!</p>
+<figure class="rule-pic small"><img src="rules/pilot-id.png" alt="The game designer"></figure>
 <p>Tom Brinton, Game Designer. This rule guide was found at www.gladdendesign.com.</p>
