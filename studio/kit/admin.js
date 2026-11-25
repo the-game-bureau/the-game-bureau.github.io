@@ -659,8 +659,8 @@
       '<div class="ad-field"><span>Specs</span>' + rows('specs', [0, 1], ['Label, e.g. PLAYERS', 'Value, e.g. 2 to 6']) + '</div></fieldset>' +
       '<fieldset><legend>How it works</legend>' + field('stepsHeading', 'Heading') + '<div class="ad-field"><span>Steps</span>' + rows('steps', ['title', 'text'], ['Step title', 'What happens']) + '</div></fieldset>' +
       '<fieldset><legend>Price and ordering</legend>' + field('price', 'Price', { ph: '$9.99' }) + field('currency', 'Currency') +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to show "coming soon".' }) +
-      field('order.label', 'Order button text') + field('order.comingSoon', 'Coming-soon note') + field('order.shippingNote', 'Small print under the buttons') +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link.' }) +
+      field('order.label', 'Order button text') + field('order.shippingNote', 'Small print under the buttons') +
       field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) + '</fieldset>' +
       '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>' +
       '<fieldset><legend>Print</legend><div class="ad-grid">' +
