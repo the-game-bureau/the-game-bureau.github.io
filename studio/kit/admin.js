@@ -220,14 +220,16 @@
   }
   // Rules, Cover and Inside pages redraw only when you click REGENERATE; the others follow every edit.
   const MANUAL_PV = ['rules', 'cover', 'contents'];
+  // A print or web page from the draft, for a preview frame. Kit files load at this kit's version.
+  const pvDoc = (html, query) => html
+    .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
+    .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
   function schedulePreview() { if (MANUAL_PV.includes(tab)) return; clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
   function renderPreview() {
     const f = $('#ad-pv');
     if (!f) return;
     const mode = pvMode[tab];
-    const doc = (html, query) => html
-      .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
-      .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
+    const doc = pvDoc;
     const box = f.parentElement;
     box.className = 'ad-pv-box ' + (['page', 'rules'].includes(mode) ? 'web' : 'print');
     const shells = GH.shells(FOLDER, draft.game);
@@ -588,16 +590,59 @@
     const ai = true; // every code tab has the "Edit this page with an AI" box
     p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
       '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
-      '<div class="ad-code-foot"><button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
+      '<div class="ad-code-foot">' + (key === 'rules' ? '<span class="ad-rules-len" id="ad-rules-len"></span>' : '') + '<button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
       (help ? '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>' : '');
     const ta = $('#ad-code');
-    ta.oninput = () => { draft[key] = ta.value; persist(); };
+    ta.oninput = () => { draft[key] = ta.value; persist(); if (key === 'rules') rulesLength(); };
     ta.onkeydown = e => { if (e.key === 'Tab' && key !== 'rules') { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('  ', s, ta.selectionEnd, 'end'); ta.oninput(); } };
     if (ai) bindAi(key);
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).catch(() => {}); }; });
     $('#ad-revert').onclick = () => { if (confirm('Put this file back the way it was last saved?')) { draft[key] = saved[key]; persist(); show(tab); } };
   }
-  const tabRules = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
+  const tabRules = p => { rulesTab(p); rulesLength(); };
+  // Words, reading time and printed pages of the rules, under the editor.
+  let rulesTimer = null, rulesPages = null;
+  function rulesLength() {
+    if (!drawRulesLen()) return;
+    clearTimeout(rulesTimer);
+    rulesTimer = setTimeout(measureRules, 800);
+  }
+  function drawRulesLen() {
+    const el = $('#ad-rules-len'); if (!el) return false;
+    const words = (draft.rules.replace(/\{\{\w+\}\}/g, 'x').replace(/[#>*_`\[\]()-]+/g, ' ').match(/[A-Za-z0-9\u00C0-\uFFFF'’]+/g) || []).length;
+    const mins = Math.max(1, Math.round(words / 200));
+    el.innerHTML = '<b>' + words.toLocaleString() + ' words</b> · about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' to read · ' +
+      (rulesPages == null ? 'counting printed pages…' : '<b>' + rulesPages + ' printed page' + (rulesPages === 1 ? '' : 's') + '</b> in the notebook');
+    return true;
+  }
+  // Lays the notebook out in a hidden frame and measures how tall the rules run, in pages.
+  function measureRules() {
+    const old = $('#ad-rules-measure'); if (old) old.remove();
+    if (!$('#ad-rules-len')) return;
+    const f = document.createElement('iframe');
+    f.id = 'ad-rules-measure'; f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+    f.style.cssText = 'position:fixed;left:-12000px;top:0;width:1100px;height:900px;border:0;visibility:hidden';
+    f.onload = () => {
+      let tries = 0;
+      const look = () => {
+        if (!f.isConnected) return;
+        const d = f.contentDocument, r = d && d.querySelector('.pk-rules');
+        if ((!d || d.body.dataset.ready !== '1' || !r) && tries++ < 60) return setTimeout(look, 150);
+        if (r) {
+          const P = Object.assign({ trim: [8.5, 11], margin: 0.5 }, draft.game.print || {});
+          const cs = getComputedStyle(r), pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+          const per = (P.trim[1] - 2 * P.margin) * 96;
+          rulesPages = Math.max(1, Math.ceil((r.scrollHeight - pad - 2) / per));
+        }
+        f.remove();
+        drawRulesLen();
+      };
+      look();
+    };
+    document.body.appendChild(f);
+    f.srcdoc = pvDoc(draft.contents, 'bleed=0');
+  }
+  const rulesTab = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
     '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
   const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. ' + esc(spineNote()), '');
