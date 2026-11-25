@@ -860,7 +860,9 @@
     if (ps.length) { const w = d.createElement('div'); ps[0].before(w); ps.forEach(x => w.appendChild(x)); ed(w, 'description', true); if (sitePH.has('description')) w.classList.add('ed-ph'); }
     qa('.nb-specs li').forEach((li, i) => { ed(li.querySelector('b'), 'specs.' + i + '.0'); ed(li.querySelector('span'), 'specs.' + i + '.1'); li.insertAdjacentHTML('beforeend', '<button type="button" class="ed-x" data-x="specs" data-i="' + i + '" title="Remove">&times;</button>'); });
     const about = q('.nb-about'), specs = q('.nb-specs');
-    if (about) (specs || about.lastElementChild).insertAdjacentHTML('afterend', '<button type="button" class="ed-add" data-add="specs">+ Add a spec</button>');
+    // "+ Add a spec" goes after the specs; with none yet, where they would be (under the buttons on a product page).
+    const specAt = specs || q('.nb-hero.is-product .nb-free') || (about && about.lastElementChild);
+    if (specAt) specAt.insertAdjacentHTML('afterend', '<button type="button" class="ed-add" data-add="specs">+ Add a spec</button>');
     const steps = q('.nb-steps');
     if (steps) {
       ed(steps.closest('.nb-card').querySelector('h2'), 'stepsHeading');
