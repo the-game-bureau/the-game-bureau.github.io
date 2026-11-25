@@ -8,7 +8,7 @@
  *   cover.html?layout=spread&spine=0.18   wraparound: back, spine, front, with bleed
  *   cover.html?layout=front | layout=back  one panel at trim size, no bleed
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
- *   contents.html?sampler=1                the free sampler's pages only
+ *   contents.html?sampler=1                legacy: the first pages, for notebooks without sampler.html
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
  * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
@@ -63,7 +63,7 @@
       t.remove();
     });
 
-    // 2. Free sampler (?sampler=1): keep the rules plus the pages marked data-sampler,
+    // 2. Legacy free sampler (?sampler=1), for notebooks made before sampler.html: keep the rules plus the pages marked data-sampler,
     //    or, if none are marked, the first print.samplerPages pages (default 2).
     if (q.get('sampler') === '1') {
       const pages = [...document.querySelectorAll('.page')];

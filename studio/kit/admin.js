@@ -8,6 +8,7 @@
  *   Cover        cover.html: front, back and spine
  *   Inside pages contents.html: the pages after the rules
  *   Photos       gallery photos and videos
+ *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
  *   PDFs         build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. The title bar's
  * SAVE stores them on GitHub (the studio-drafts branch, not deployed) so any browser can carry on;
@@ -39,9 +40,16 @@
   const DKEY = IS_NEW ? NEWKEY : NB.draftKey('/' + FOLDER + '/');
   // Where the notebook lives (or will live, for a new one).
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
-  const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
+  const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html', sampler: 'sampler.html' };
+  // The free sampler is its own file. A notebook made before it existed gets one built from its
+  // inside pages: the same pages, with every repeated sheet shown once.
+  const samplerFrom = contents => {
+    const b = Math.max(0, contents.search(/<body[\s>]/i));
+    return (contents.slice(0, b).replace(/<title>[^<]*<\/title>/i, '<title>Sampler</title>') +
+      contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
+  };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['sampler', 'Sampler'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -52,7 +60,7 @@
   const pending = (window.NB_PENDING = {}); // images/x.jpg -> data URL, picked but not saved
   // Previews read the editor's current state straight from here (kit.js NB.draft), not from storage.
   window.NB_LIVE_KEY = DKEY;
-  window.NB_LIVE = () => draft && { game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents };
+  window.NB_LIVE = () => draft && { game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler };
   // The kit version this page loaded, so previews never run an older cached kit.
   const KITV = ((document.currentScript && document.currentScript.src.match(/[?&]v=([\w.-]+)/)) || [])[1] || String(Date.now());
   const pendingB64 = {};
@@ -75,16 +83,17 @@
   const gameText = g => JSON.stringify(g, null, 2) + '\n';
   const when = iso => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const sig = () => JSON.stringify([draft.game, draft.rules, draft.cover, draft.contents, Object.keys(pendingB64).sort()]);
+  const sig = () => JSON.stringify([draft.game, draft.rules, draft.cover, draft.contents, draft.sampler, Object.keys(pendingB64).sort()]);
   const unsaved = () => IS_NEW ? sig() !== serverSig : (serverSig ? sig() !== serverSig : changed());
-  const changed = () => !!saved && (gameText(draft.game) !== gameText(saved.game) || ['rules', 'cover', 'contents'].some(k => draft[k] !== saved[k]) || Object.keys(pendingB64).length > 0);
+  const changed = () => !!saved && (gameText(draft.game) !== gameText(saved.game) || ['rules', 'cover', 'contents', 'sampler'].some(k => draft[k] !== saved[k]) || Object.keys(pendingB64).length > 0);
 
   function persist() {
-    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, at: Date.now(), start: IS_NEW ? FOLDER : undefined, savedKey: serverKey || undefined, base: serverAt || undefined })); } catch (e) { /* quota or blocked */ }
+    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler, at: Date.now(), start: IS_NEW ? FOLDER : undefined, savedKey: serverKey || undefined, base: serverAt || undefined })); } catch (e) { /* quota or blocked */ }
     if (!$('#ad-bar')) return; // still loading
     updateBar();
     schedulePreview();
   }
+  let samplerMissing = false; // no sampler.html on the site yet: PUBLISH writes one
   function clearDraft() { try { localStorage.removeItem(DKEY); } catch (e) { /* blocked */ } }
 
   // ---------- loading ----------
@@ -95,8 +104,9 @@
       if (!r.ok) throw new Error(f + ' not found (' + r.status + ')');
       return r.text();
     };
-    const [game, rules, cover, contents] = await Promise.all([read(FILES.game), read(FILES.rules), read(FILES.cover), read(FILES.contents)]);
-    saved = { game: JSON.parse(game), rules, cover, contents };
+    const [game, rules, cover, contents, sampler] = await Promise.all([read(FILES.game), read(FILES.rules), read(FILES.cover), read(FILES.contents), read(FILES.sampler).catch(() => null)]);
+    samplerMissing = sampler == null;
+    saved = { game: JSON.parse(game), rules, cover, contents, sampler: sampler != null ? sampler : samplerFrom(contents) };
     if (IS_NEW) { build = null; return; }
     if (GH.token()) { try { await GH.api('/contents/' + FOLDER + '/admin.html?ref=' + GH.BRANCH); legacyAdmin = true; } catch (e) { legacyAdmin = false; } }
     try { const b = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = b.ok ? await b.json() : null; } catch (e) { build = null; }
@@ -114,7 +124,7 @@
     try {
       const d = JSON.parse(localStorage.getItem(DKEY) || 'null');
       if (d && d.carry) { Object.assign(draft.game, d.carry); } // kept when switching templates
-      else if (d && d.game) { draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents }; draft.at = d.at; }
+      else if (d && d.game) { draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler }; draft.at = d.at; }
     } catch (e) { /* none */ }
     draft.game.setup = draft.game.setup || {};
     draft.game.media = draft.game.media || [];
@@ -189,7 +199,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -205,7 +215,8 @@
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
       cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
-      contents: [['contents', 'With bleed'], ['nobleed', 'No bleed'], ['sampler', 'Sampler']],
+      contents: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
+      sampler: [['sampler', 'Sampler pages'], ['samplerfront', 'Front cover']],
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
     if (!opts) { pv.innerHTML = ''; return; }
@@ -219,7 +230,7 @@
     renderPreview();
   }
   // Rules, Cover and Inside pages redraw only when you click REGENERATE; the others follow every edit.
-  const MANUAL_PV = ['rules', 'cover', 'contents'];
+  const MANUAL_PV = ['rules', 'cover', 'contents', 'sampler'];
   // A print or web page from the draft, for a preview frame. Kit files load at this kit's version.
   const pvDoc = (html, query) => html
     .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
@@ -239,7 +250,8 @@
     else if (['front', 'back'].includes(mode)) f.srcdoc = doc(coverTagged(), 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
-    else if (mode === 'sampler') f.srcdoc = doc(draft.contents, 'bleed=0&sampler=1');
+    else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0');
+    else if (mode === 'samplerfront') f.srcdoc = doc(draft.cover, 'layout=front');
     // Shrink print pages to fit the preview column.
     if (box.classList.contains('print')) f.onload = () => {
       try {
@@ -252,10 +264,70 @@
           const w = Math.max(...[...d.querySelectorAll('.pk-cover, .page, .flow')].map(e => e.offsetWidth), 1) + 48;
           d.documentElement.style.zoom = Math.min(1, (box.clientWidth - 4) / w);
           if (tab === 'cover') bindCoverEdit(d);
+          if (tab === 'contents') pageMap(d, d.documentElement.style.zoom || 1);
         };
         fit();
       } catch (e) { /* not ready */ }
     };
+  }
+
+  // ---------- page map (Inside pages) ----------
+  // A strip at the top of the preview: a small picture of each kind of page, in order, with
+  // repeated pages shown once (x72), and the total. Click one to jump to it.
+  function pageMap(d, z) {
+    const els = [...d.querySelectorAll('.flow, .page')];
+    const page = d.querySelector('.page');
+    if (!els.length) return;
+    const P = Object.assign({ padTo: 2 }, draft.game.print || {});
+    const pw = (page || els[0]).offsetWidth, ph = page ? page.offsetHeight : els[0].offsetWidth * (P.trim ? P.trim[1] / P.trim[0] : 11 / 8.5);
+    const sig = el => el.className + '|' + el.innerHTML.replace(/\d+/g, '#').replace(/\s+/g, ' ');
+    const label = el => {
+      if (el.matches('.flow')) return 'Rules';
+      const h = el.querySelector('h1, h2, h3');
+      const t = h ? h.textContent.split(draft.game.title || '\u0000').join('').replace(/^[\s·:–-]+/, '').replace(/[·:#-]?\s*(game|sheet|page|no\.?)?\s*\d+\s*$/i, '').replace(/\s+/g, ' ').trim() : '';
+      return t ? (t.length > 28 ? t.slice(0, 27) + '…' : t) : el.closest('template') || /\d/.test(h ? h.textContent : '') ? 'Game sheet' : 'Page';
+    };
+    const groups = [];
+    let total = 0;
+    els.forEach(el => {
+      let n = 1;
+      if (el.matches('.flow')) {
+        const cs = d.defaultView.getComputedStyle(el), pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+        n = Math.max(1, Math.ceil((el.scrollHeight - pad - 2) / (ph - pad)));
+      }
+      total += n;
+      const k = sig(el), last = groups[groups.length - 1];
+      if (last && last.k === k) last.n += n; else groups.push({ k, el, n, label: label(el), from: total - n + 1 });
+    });
+    const pad = Math.max(1, P.padTo | 0), blanks = (pad - total % pad) % pad;
+    const px = v => (v / z) + 'px';
+    const T = 70; // thumbnail width on screen
+    const map = d.createElement('div');
+    map.className = 'pk-map';
+    map.style.cssText = 'margin:' + px(16) + ' auto 0;max-width:' + pw + 'px;background:#fff;border-radius:' + px(8) + ';padding:' + px(12) + ';font:600 ' + px(12) + '/1.3 system-ui,sans-serif;color:#16181a';
+    map.innerHTML = '<div style="margin-bottom:' + px(8) + '"><b>Page map</b> · ' + total + ' inside page' + (total === 1 ? '' : 's') + (blanks ? ', plus ' + blanks + ' blank to make ' + (total + blanks) : '') + '</div>';
+    const row = d.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:' + px(10);
+    groups.forEach(g => {
+      const item = d.createElement('button');
+      item.type = 'button';
+      item.title = 'Go to ' + g.label;
+      item.style.cssText = 'all:unset;cursor:pointer;display:grid;gap:' + px(4) + ';width:' + px(T) + ';text-align:center';
+      const pic = d.createElement('div');
+      pic.style.cssText = 'width:' + px(T) + ';height:' + px(T * ph / pw) + ';overflow:hidden;border:1px solid #c9cdd2;border-radius:' + px(3) + ';position:relative;background:var(--paper)';
+      const c = g.el.cloneNode(true);
+      c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
+      c.style.cssText = 'position:absolute;left:0;top:0;margin:0;box-shadow:none;width:' + pw + 'px;height:' + ph + 'px;overflow:hidden;transform-origin:0 0;transform:scale(' + (T / z / pw) + ');pointer-events:none';
+      pic.appendChild(c);
+      const cap = d.createElement('span');
+      cap.style.cssText = 'font-size:' + px(11) + ';line-height:1.25';
+      cap.innerHTML = '<span style="display:block">' + esc(g.label) + (g.n > 1 ? ' <b>×' + g.n + '</b>' : '') + '</span><span style="color:#666;font-weight:400">' + (g.n > 1 ? 'pages ' + g.from + '–' + (g.from + g.n - 1) : 'page ' + g.from) + '</span>';
+      item.append(pic, cap);
+      item.onclick = () => g.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      row.appendChild(item);
+    });
+    map.appendChild(row);
+    d.body.insertBefore(map, d.body.firstChild);
   }
 
   // ---------- editing cover words in the preview ----------
@@ -357,7 +429,7 @@
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
       { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
-      { k: 'sampler', t: 'Choose the free sampler pages', d: 'The sampler is the cover, the rules and the first ' + ((g.print && g.print.samplerPages) || 2) + ' inside pages (set in Content, Print). Or mark pages with data-sampler.', tab: 'content', manual: true },
+      { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
       { k: 'save', t: 'Publish', d: 'Click PUBLISH at the top. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
       { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each publish. Open each one and check it.', tab: 'pdfs', manual: true, auto: !IS_NEW && !!(build && build.built && lastPublish && new Date(build.built) >= new Date(lastPublish)) },
       { k: 'media', t: 'Add photos and a video', d: 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
@@ -511,8 +583,8 @@
       const all = await GH.listFiles();
       const src = all.filter(f => f.path.startsWith(FOLDER + '/') && !f.path.startsWith(FOLDER + '/pdf/') && !/\/\.keep$/.test(f.path));
       const out = [];
-      const ours = ['game.json', 'index.html', 'rules.html', 'admin.html', 'rules.md', 'cover.html', 'contents.html'];
-      const used = JSON.stringify(g) + draft.cover + draft.contents;
+      const ours = ['game.json', 'index.html', 'rules.html', 'admin.html', 'rules.md', 'cover.html', 'contents.html', 'sampler.html'];
+      const used = JSON.stringify(g) + draft.cover + draft.contents + draft.sampler;
       for (const f of src) {
         const rel = f.path.slice(FOLDER.length + 1);
         if (ours.includes(rel)) continue;
@@ -523,7 +595,7 @@
       const game = clone(g); delete game.slugTouched; game.slug = slug;
       if (!game.shareText && game.tagline) game.shareText = game.title + ': ' + game.tagline;
       out.push({ path: slug + '/game.json', text: gameText(game) });
-      out.push({ path: slug + '/rules.md', text: draft.rules }, { path: slug + '/cover.html', text: draft.cover }, { path: slug + '/contents.html', text: draft.contents });
+      out.push({ path: slug + '/rules.md', text: draft.rules }, { path: slug + '/cover.html', text: draft.cover }, { path: slug + '/contents.html', text: draft.contents }, { path: slug + '/sampler.html', text: draft.sampler });
       Object.entries(GH.shells(slug, game)).forEach(([f, t]) => out.push({ path: slug + '/' + f, text: t }));
       Object.keys(pendingB64).forEach(p => out.push({ path: slug + '/' + p, base64: pendingB64[p] }));
       const commit = await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)), null, { newFolder: slug });
@@ -593,7 +665,7 @@
       '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>' +
       '<fieldset><legend>Print</legend><div class="ad-grid">' +
       field('print.trim.0', 'Width (in)', { type: 'number', step: '0.01' }) + field('print.trim.1', 'Height (in)', { type: 'number', step: '0.01' }) +
-      field('print.sheets', 'Game sheets', { type: 'number', help: 'Fills {{sheets}} in the inside pages.' }) + field('print.samplerPages', 'Sampler pages', { type: 'number', help: 'Inside pages after the rules.' }) +
+      field('print.sheets', 'Game sheets', { type: 'number', help: 'Fills {{sheets}} in the inside pages.' }) +
       field('print.bleed', 'Bleed (in)', { type: 'number', step: '0.001' }) + field('print.margin', 'Safe margin (in)', { type: 'number', step: '0.01' }) +
       field('print.padTo', 'Pad page count to a multiple of', { type: 'number' }) + field('print.spinePerPage', 'Spine per page (in)', { type: 'number', step: '0.000001', help: 'KDP white paper: 0.002252. Lulu: check its calculator.' }) +
       '</div></fieldset>';
@@ -648,8 +720,8 @@
       'Keep <section data-rules></section>: the rules flow in there from rules.md.',
       'Each <section class="page"> is exactly one page, already padded to the safe area. Anything that overflows is cut off, so design to fit one page.',
       '<template data-repeat="{{sheets}}"> repeats the pages inside it ({{sheets}} = ' + ((g.print && g.print.sheets) || 'the number of game sheets') + '). Inside it, {{n}} is the copy number. With data-per="2", {{i}} and {{i+1}} number two items per page.',
-      'Pages marked data-sampler go in the free sampler. Put page-specific CSS in the <style> block in the <head>.',
-    ];
+      'Put page-specific CSS in the <style> block in the <head>.',
+    ].concat(key === 'sampler' ? ['This file is the free sampler only: its own PDF (front cover, these pages, back cover) and the free download on the game page. It is separate from contents.html, so a page changed here does not change the notebook.'] : []);
     return common.concat(per);
   }
   let aiOpen = false; // keeps the AI box open after pasting re-draws the tab
@@ -839,7 +911,10 @@
     if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
   }
   const tabContents = p => codeTab(p, 'contents', 'Inside pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
-    '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>The free sampler keeps the rules and the first pages (Content, Print, Sampler pages), or only pages marked <code>data-sampler</code>.</li><li>Colours and fonts as on the cover.</li></ul>');
+    '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>Colours and fonts as on the cover.</li></ul>');
+
+  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is its own PDF: the front cover, these pages and the back cover. It is the free download on the game page. These pages are separate from Inside pages, so changing one does not change the other.',
+    '<ul><li>Same layout as Inside pages: <code>&lt;section data-rules&gt;</code> brings in the rules, each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>Keep it short: a taste of the game, not the whole notebook.</li><li>Colours and fonts as on the cover.</li></ul>');
 
   // ---------- tab: photos and video ----------
   // Pictures of the cover and pages from the PDF build, shown while a game has no photos of its own.
@@ -939,7 +1014,7 @@
       ['Cover', 'Front and back cover for the printer: one wraparound spread (back, spine, front) with bleed. The spine width follows the page count.', pdf('-cover'), b => (2 * b.trim[0] + b.spine + 2 * b.bleed).toFixed(3) + ' x ' + (b.trim[1] + 2 * b.bleed).toFixed(3) + ' in, spine ' + b.spine + ' in'],
       ['Contents', 'Every inside page for the printer, rules first, with bleed.', pdf('-contents'), b => b.pages.contents + ' pages at ' + (b.trim[0] + 2 * b.bleed) + ' x ' + (b.trim[1] + 2 * b.bleed) + ' in' + (b.pages.blanksAdded ? ' (' + b.pages.blanksAdded + ' blank added)' : '')],
       ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.' + (g.freeFullPdf ? ' Offered free on the game page.' : ''), pdf(''), b => b.pages.printAtHome + ' pages'],
-      ['Free sampler', 'Front cover, rules, the sampler pages and back cover.' + (g.freeFullPdf ? '' : ' The free download on the game page.'), pdf('-sampler'), b => b.pages.sampler + ' pages'],
+      ['Free sampler', 'Front cover, the Sampler tab\'s pages and back cover.' + (g.freeFullPdf ? '' : ' The free download on the game page.'), pdf('-sampler'), b => b.pages.sampler + ' pages'],
     ];
     p.innerHTML = '<h2>PDFs</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +
@@ -947,7 +1022,7 @@
       '<div class="ad-files">' + files.map(([n, a, f, info]) => '<div class="ad-file"><div><h3>' + n + '</h3><p>' + esc(a) + '</p>' + (build ? '<small>' + esc(info(build)) + '</small>' : '') + '</div>' +
         '<div class="ad-file-btns"><a class="nb-btn solid" href="' + BASE + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="' + BASE + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
       '<details class="ad-help-box"><summary>Save from this browser instead</summary><p>Chrome works best. In the print dialog choose Save as PDF, margins None, background graphics on. Page sizes are set for you; the spine width and the merged print-at-home and sampler files come only from the build.</p><p>' +
-      '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'contents.html?bleed=0&sampler=1&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
+      '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'sampler.html?bleed=0&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
     $('#ad-go').onclick = runBuild;
   }
   async function runBuild() {
@@ -1005,7 +1080,7 @@
       if (warn) { busy(false); askBar(warn + ' Saving now replaces their version with yours.', [{ label: 'SAVE MINE ANYWAY', solid: true, fn: () => saveDraft(true) }, { label: 'OPEN THEIRS', fn: () => openTheirs(key) }]); return; }
     }
     const at = Date.now();
-    const data = { v: 1, by: await GH.login(), isNew: IS_NEW, start: IS_NEW ? FOLDER : undefined, at, game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, files: Object.fromEntries(Object.keys(pendingB64).map(k => [k, pending[k]])) };
+    const data = { v: 1, by: await GH.login(), isNew: IS_NEW, start: IS_NEW ? FOLDER : undefined, at, game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler, files: Object.fromEntries(Object.keys(pendingB64).map(k => [k, pending[k]])) };
     const files = [{ key, data }];
     if (serverKey && serverKey !== key) files.push({ key: serverKey, delete: true }); // the address changed
     try {
@@ -1037,14 +1112,14 @@
     const sameBase = local && local.base === d.at && local.game;
     if (OPEN || !sameBase) {
       // Nothing newer in this browser: open the saved copy.
-      draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents };
+      draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler };
       draft.game.setup = draft.game.setup || {}; draft.game.media = draft.game.media || [];
       takeFiles();
       serverSig = sig();
       persist();
     } else {
       // This browser has edits on top of the saved copy: keep them, with the saved photos.
-      const mine = draft; draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents };
+      const mine = draft; draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler };
       takeFiles(); serverSig = sig(); draft = mine;
     }
   }
@@ -1067,22 +1142,24 @@
     const files = [];
     const add = (f, text) => files.push({ path: FOLDER + '/' + f, text });
     delete g.slugTouched; // editor-only: whether the web address was typed by hand
+    if (g.print) delete g.print.samplerPages; // the sampler is its own file, sampler.html, now
     add('game.json', gameText(g));
     if (draft.rules !== saved.rules) add('rules.md', draft.rules);
     if (draft.cover !== saved.cover) add('cover.html', draft.cover);
     if (draft.contents !== saved.contents) add('contents.html', draft.contents);
+    if (draft.sampler !== saved.sampler || samplerMissing) add('sampler.html', draft.sampler);
     Object.entries(GH.shells(FOLDER, g)).forEach(([f, t]) => add(f, t));
     if (legacyAdmin) files.push({ path: FOLDER + '/admin.html', delete: true }); // games are edited in the studio now
     Object.keys(pendingB64).forEach(p => files.push({ path: FOLDER + '/' + p, base64: pendingB64[p] }));
     // Photos removed in the editor: delete their files too, unless something still uses them.
-    const used = JSON.stringify(g) + draft.cover + draft.contents;
+    const used = JSON.stringify(g) + draft.cover + draft.contents + draft.sampler;
     (saved.game.media || []).filter(x => x && x.type === 'image' && /^images\/[\w.-]+$/.test(x.src || '') && !used.includes(x.src))
       .forEach(x => files.push({ path: FOLDER + '/' + x.src, delete: true }));
     if (saved.game.favicon && !g.favicon) files.push({ path: FOLDER + '/favicon.ico', delete: true });
     try {
       const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the studio', s => updateBar(esc(s)));
       legacyAdmin = false;
-      saved = clone({ game: g, rules: draft.rules, cover: draft.cover, contents: draft.contents });
+      saved = clone({ game: g, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler }); samplerMissing = false;
       draft = clone(saved);
       Object.keys(pendingB64).forEach(p => { delete pendingB64[p]; });
       clearDraft();
@@ -1157,7 +1234,7 @@
   }
   async function otherPublish() {
     try {
-      const keys = ['game', 'rules', 'cover', 'contents'];
+      const keys = ['game', 'rules', 'cover', 'contents', 'sampler'];
       const now = await Promise.all(keys.map(k => GH.readTextAt(FOLDER + '/' + FILES[k], GH.BRANCH)));
       const same = (k, t) => { if (k !== 'game') return t === saved[k]; try { return JSON.stringify(JSON.parse(t)) === JSON.stringify(saved.game); } catch (e) { return false; } };
       if (keys.every((k, i) => now[i] == null || same(k, now[i]))) return '';
@@ -1298,13 +1375,13 @@
     busy(true); updateBar('Loading the version from ' + esc(label) + '…');
     try {
       const at = k => GH.readTextAt(FOLDER + '/' + FILES[k], sha);
-      const [game, rules, cover, contents] = await Promise.all([at('game'), at('rules'), at('cover'), at('contents')]);
+      const [game, rules, cover, contents, sampler] = await Promise.all([at('game'), at('rules'), at('cover'), at('contents'), at('sampler')]);
       if (!game) throw new Error('that version has no game.json');
       const g = JSON.parse(game);
       g.setup = g.setup || {}; g.media = g.media || [];
-      const next = { game: g, rules: rules != null ? rules : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents };
+      const next = { game: g, rules: rules != null ? rules : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents, sampler: sampler != null ? sampler : contents != null ? samplerFrom(contents) : saved.sampler };
       // Photos (and the tab icon) deleted since then come back from that version.
-      const used = JSON.stringify(g) + next.cover + next.contents;
+      const used = JSON.stringify(g) + next.cover + next.contents + next.sampler;
       const [nowFiles, thenFiles] = await Promise.all([GH.listFiles(), GH.filesAt(sha)]);
       const have = new Set(nowFiles.map(f => f.path));
       const type = f => /\.png$/i.test(f) ? 'image/png' : /\.ico$/i.test(f) ? 'image/x-icon' : /\.webp$/i.test(f) ? 'image/webp' : /\.gif$/i.test(f) ? 'image/gif' : /\.svg$/i.test(f) ? 'image/svg+xml' : 'image/jpeg';
