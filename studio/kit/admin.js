@@ -52,7 +52,7 @@
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
   const PAGES = ['rules', 'scoring', 'game'];
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['content', 'Website'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
   const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -230,10 +230,11 @@
       welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['duo', 'Web and notebook']],
-      rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
+      rules: [['rules', 'Rules page']],
       cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
-      scoring: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
-      game: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
+      // Each Pages tab previews only its own pages.
+      scoring: [['scoring', 'Scoring pages']],
+      game: [['game', 'Game sheets']],
       sampler: [['sampler', 'Sampler pages'], ['samplerfront', 'Front cover']],
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
@@ -259,19 +260,21 @@
     const cur = opts.some(o => o[0] === pvMode[t]) ? pvMode[t] : opts[0][0];
     pvMode[t] = cur;
     pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b>' + opts.map(([k, l]) => '<button type="button" data-pv="' + k + '" aria-current="' + (k === cur) + '">' + l + '</button>').join('') +
-      (MANUAL_PV.includes(t) ? '<button type="button" class="nb-btn ad-pv-regen" id="ad-pv-regen">REGENERATE</button><span class="ad-pv-note">Shows your latest edits when you click REGENERATE.</span>'
-        : '<span class="ad-pv-note">Unsaved changes show here.</span>') + '</div><div class="ad-pv-box"><iframe id="ad-pv" title="Preview"></iframe></div>';
+'<span class="ad-pv-note">' + (SLOW_PV.includes(t) ? 'Redraws when you pause typing or click away.' : 'Unsaved changes show here.') + '</span>' + '</div><div class="ad-pv-box"><iframe id="ad-pv" title="Preview"></iframe></div>';
     pv.querySelectorAll('[data-pv]').forEach(b => { b.onclick = () => { pvMode[t] = b.dataset.pv; previewFor(t); }; });
-    if ($('#ad-pv-regen')) $('#ad-pv-regen').onclick = renderPreview;
     renderPreview();
   }
-  // Rules, Cover and Inside pages redraw only when you click REGENERATE; the others follow every edit.
-  const MANUAL_PV = ['rules', 'cover', 'scoring', 'game', 'sampler'];
+  // The code tabs redraw their (heavier) print previews after a longer typing pause, or right away
+  // when you click out of the editor; the others follow every edit.
+  const SLOW_PV = ['rules', 'cover', 'scoring', 'game', 'sampler'];
+  let pvDrawn = '';
+  const pvSig = () => tab + '|' + draft.rules + draft.cover + draft.contents + draft.sampler + JSON.stringify(draft.game);
+  document.addEventListener('focusout', e => { if (e.target.matches && e.target.matches('#ad-code, #ad-css') && SLOW_PV.includes(tab) && pvSig() !== pvDrawn) { clearTimeout(pvTimer); renderPreview(); } });
   // A print or web page from the draft, for a preview frame. Kit files load at this kit's version.
   const pvDoc = (html, query) => html
     .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
     .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
-  function schedulePreview() { if (MANUAL_PV.includes(tab)) return; clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
+  function schedulePreview() { clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, SLOW_PV.includes(tab) ? 1500 : 450); }
   // Colors tab Notebook preview: front cover, every inside page in order, back cover, one at a time.
   let nbAt = 0, nbPages = [];
   // Waits for print.js in a frame, then calls done(document).
@@ -319,6 +322,7 @@
     if (tab === 'colors') return renderColorsPreview();
     const f = $('#ad-pv');
     if (!f) return;
+    pvDrawn = pvSig();
     const mode = pvMode[tab];
     const doc = pvDoc;
     const box = f.parentElement;
@@ -330,6 +334,7 @@
     else if (['front', 'back'].includes(mode)) f.srcdoc = doc(coverTagged(), 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
+    else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
     else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0');
     else if (mode === 'samplerfront') f.srcdoc = doc(draft.cover, 'layout=front&stamp=sampler');
     // Shrink print pages to fit the preview column.
@@ -486,7 +491,7 @@
       const v = ta.value.trim();
       if (field) draft.game[field] = v;
       else {
-        if (draft.cover !== coverSnap) { updateBar('The cover code changed since the preview was drawn. Click REGENERATE and try again.', 'bad'); return; }
+        if (draft.cover !== coverSnap) { updateBar('The cover code changed since the preview was drawn. Try again in a moment.', 'bad'); return; }
         const lead = spot.text.match(/^\s*/)[0], trail = spot.text.match(/\s*$/)[0];
         const enc = v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         draft.cover = draft.cover.slice(0, spot.from) + lead + enc + trail + draft.cover.slice(spot.to);

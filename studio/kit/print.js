@@ -9,6 +9,7 @@
  *   cover.html?layout=front | layout=back  one panel at trim size, no bleed
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
  *   cover.html?layout=front&stamp=sampler  the free sampler's own low-ink front cover, stamped SAMPLER
+ *   contents.html?only=scoring          just one part: rules, scoring (fixed pages) or game (the repeated sheet)
  *   contents.html?sampler=1                legacy: the first pages, for notebooks without sampler.html
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
@@ -49,6 +50,15 @@
     root.setProperty('--bleed', inch(b)); root.setProperty('--pad', inch(b + m));
     addStyle('@page{size:' + inch(PW) + ' ' + inch(PH) + ';margin:0}' +
       '@page flow{size:' + inch(PW) + ' ' + inch(PH) + ';margin:' + inch(b + m) + '}');
+
+    // 0. ?only=rules|scoring|game keeps just that part, for the studio's Rules, Scoring and Game previews.
+    //    rules is <section data-rules>, game is <template data-repeat>, scoring is everything else.
+    const only = q.get('only');
+    if (only) [...document.body.children].forEach(el => {
+      if (el.tagName === 'SCRIPT') return;
+      const part = el.matches('[data-rules]') ? 'rules' : el.matches('template[data-repeat]') ? 'game' : 'scoring';
+      if (part !== only) el.remove();
+    });
 
     // 1. Repeat any <template data-repeat="N">, filling {{n}} with 1..N.
     document.querySelectorAll('template[data-repeat]').forEach(t => {
