@@ -137,6 +137,15 @@
   // or [{path, sha}] (reuse an existing blob) or [{path, delete: true}].
   // opts.newFolder: refuse (and write nothing) if that folder, or a file of that name, already
   // exists at the moment of committing, so a new notebook can never overwrite anything.
+  // Git's own id for a file's content (sha1 of "blob <size>\0<bytes>"), to tell an unchanged file without uploading it.
+  GH.blobSha = async function (f) {
+    const body = f.base64 != null ? Uint8Array.from(atob(f.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(f.text);
+    const head = new TextEncoder().encode('blob ' + body.length + '\0');
+    const all = new Uint8Array(head.length + body.length); all.set(head); all.set(body, head.length);
+    return [...new Uint8Array(await crypto.subtle.digest('SHA-1', all))].map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+  // opts.skipSame: leave out files whose content is already on the branch, and deletes of files
+  // that are not there. Returns null (and commits nothing) when nothing is left to change.
   GH.commit = async function (files, message, onStep, branch, opts) {
     const step = onStep || (() => {});
     branch = branch || GH.BRANCH;
@@ -151,8 +160,22 @@
           const e = new Error('thegamebureau.com/' + opts.newFolder + '/ already exists, so nothing was written. Pick another address.'); e.status = 409; throw e;
         }
       }
+      let todo = files;
+      if (opts.skipSame) {
+        const t = await GH.api('/git/trees/' + head.treeSha + '?recursive=1');
+        if (!t.truncated) {
+          const have = new Map(t.tree.filter(x => x.type === 'blob').map(x => [x.path, x.sha]));
+          todo = [];
+          for (const f of files) {
+            if (f.delete ? !have.has(f.path) : have.get(f.path) === (f.sha || await GH.blobSha(f))) continue;
+            todo.push(f);
+          }
+          if (!todo.length) return null;
+          step('Sending ' + todo.length + ' changed file' + (todo.length === 1 ? '' : 's') + '…');
+        }
+      }
       const tree = [];
-      for (const f of files) {
+      for (const f of todo) {
         if (f.delete) { tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null }); continue; }
         let sha = f.sha;
         if (!sha) {

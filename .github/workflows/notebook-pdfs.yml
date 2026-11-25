@@ -65,6 +65,25 @@ jobs:
                   d=$(dirname "$d")
                 done
               done | sort -u)
+              # A game whose only change is to web-page-only fields of game.json (order link, announcement,
+              # photos other than the cover picture...) keeps its PDFs. Same list as NB.WEB_ONLY in kit.js.
+              keep=""
+              for g in $games; do
+                if echo "$changed" | grep "^$g/" | grep -vq "^$g/game.json$" || ! git cat-file -e "$BEFORE:$g/game.json" 2>/dev/null; then keep="$keep $g"; continue; fi
+                if git show "$BEFORE:$g/game.json" > "$RUNNER_TEMP/old.json" && python3 - "$RUNNER_TEMP/old.json" "$g/game.json" <<'PY'
+          import json, sys
+          WEB_ONLY = ['order', 'announce', 'announceFrom', 'announceUntil', 'shareText', 'layout', 'setup', 'autoPreviews', 'favicon', 'videoHeading', 'slugTouched']
+          def key(path):
+              g = json.load(open(path))
+              o = {k: v for k, v in g.items() if k not in WEB_ONLY}
+              m = next((m for m in g.get('media') or [] if m and m.get('type', 'image') == 'image' and m.get('src') and not m.get('placeholder')), None)
+              o['media'] = [m['src'], m.get('focus')] if m else None
+              return json.dumps(o, sort_keys=True)
+          sys.exit(0 if key(sys.argv[1]) == key(sys.argv[2]) else 1)
+          PY
+                then echo "$g: only web page fields changed, PDFs stay as they are"; else keep="$keep $g"; fi
+              done
+              games="$keep"
             fi
           fi
           games=$(echo $games)

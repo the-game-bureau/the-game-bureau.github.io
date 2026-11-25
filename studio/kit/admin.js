@@ -509,7 +509,7 @@
   async function loadChecklistFacts() {
     const get = f => fetch('/' + ST.STARTER + '/' + f + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error(f)));
     try { const [g, cover, contents] = await Promise.all([get('game.json'), get('cover.html'), get('contents.html')]); starter = { brand: JSON.parse(g).brand, cover, contents }; } catch (e) { starter = null; }
-    if (!IS_NEW) { try { const c = ((await GH.history(FOLDER)) || []).find(x => !/^Rebuild notebook PDFs/.test(x.commit.message)); lastPublish = c ? c.commit.author.date : ''; } catch (e) { lastPublish = ''; } }
+    if (!IS_NEW) { try { const c = ((await GH.history(FOLDER)) || []).find(x => !/^Rebuild notebook PDFs|\(web page only\)/.test(x.commit.message)); lastPublish = c ? c.commit.author.date : ''; } catch (e) { lastPublish = ''; } }
     if (tab === 'checklist') show('checklist', true);
   }
   // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
@@ -1372,7 +1372,10 @@
       .forEach(x => files.push({ path: FOLDER + '/' + x.src, delete: true }));
     if (saved.game.favicon && !g.favicon) files.push({ path: FOLDER + '/favicon.ico', delete: true });
     try {
-      const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the studio', s => updateBar(esc(s)));
+      // Only what changed is sent, in one commit. A change only the web page uses (price link,
+      // announcement, photos other than the cover picture...) says so, and the PDFs don't rebuild.
+      const printed = files.some(f => /\/(rules\.md|cover\.html|contents\.html|sampler\.html)$/.test(f.path)) || NB.printKey(g) !== NB.printKey(saved.game);
+      const commit = await GH.commit(files, 'Update ' + g.title + ' notebook from the studio' + (printed ? '' : ' (web page only)'), s => updateBar(esc(s)), null, { skipSame: true });
       legacyAdmin = false;
       saved = clone({ game: g, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler }); samplerMissing = false;
       draft = clone(saved);
@@ -1381,11 +1384,12 @@
       if (serverKey) { await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + g.title + ', so drop its saved draft').catch(() => {}); serverKey = ''; serverAt = 0; serverSig = ''; }
       serverTitle = '';
       busy(false);
-      flash('Saved and published (<a href="https://github.com/' + GH.REPO + '/commit/' + commit.sha + '" target="_blank" rel="noopener">commit</a>). The site republishes in about a minute; the PDF status shows at the top.', 'ok', 15000);
+      if (!commit) flash('Saved. Nothing had changed from the live version.', 'ok');
+      else flash('Saved and published (<a href="https://github.com/' + GH.REPO + '/commit/' + commit.sha + '" target="_blank" rel="noopener">commit</a>). The site republishes in about a minute' + (printed ? '; the PDF status shows at the top.' : '. Only the web page changed, so the PDFs stay as they are.'), 'ok', 15000);
       // Keep showing just-uploaded photos until the site serves them.
       setTimeout(() => { Object.keys(pending).forEach(p => delete pending[p]); }, 180000);
       if (tab === 'checklist' || tab === 'pdfs' || tab === 'history') show(tab, true);
-      watchPdfs(commit.sha);
+      if (commit && printed) watchPdfs(commit.sha);
     } catch (e) {
       updateBar('Not saved: ' + esc(e.message), 'bad');
       busy(false);
