@@ -87,19 +87,28 @@
     try {
       const [r, drafts] = await Promise.all([GH.listGames(), GH.token() ? GH.listDrafts().catch(() => []) : []]);
       const saved = {}; drafts.forEach(d => { saved[d.key] = d; });
+      // A picture of each cover, from its last PDF build.
+      const pics = new Set(r.files.filter(f => /\/pdf\/preview-1\.jpg$/.test(f.path)).map(f => f.path.replace(/\/pdf\/preview-1\.jpg$/, '')));
       const fresh = drafts.filter(d => d.isNew).sort((a, b) => b.at - a.at).map(d =>
         '<div class="st-game"><div class="sw" style="background:' + esc((d.brand && d.brand.color) || '#1F3A5F') + '"></div><div class="b"><span class="tag">SAVED, NOT PUBLISHED</span>' +
         '<h3>' + esc(d.title || d.key) + '</h3><small>/' + esc(d.key) + '/ · saved ' + esc(new Date(d.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + (d.by ? ' by ' + esc(d.by) : '') + '</small><p class="ad-help">' + esc(d.tagline) + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new&open=' + encodeURIComponent(d.key) + '#content">EDIT</a>' +
         '<button type="button" class="nb-btn st-del" data-deldraft="' + esc(d.key) + '" data-title="' + esc(d.title || d.key) + '">DELETE</button></div><div class="st-del-box" hidden></div></div></div>').join('');
       box.innerHTML = '<div class="st-games">' + fresh + r.games.filter(x => isGame(x.folder)).sort((a, b) => a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
-        '<div class="st-game' + (folder === current ? ' current' : '') + '"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
+        '<div class="st-game' + (folder === current ? ' current' : '') + '">' + (pics.has(folder) ? '<a class="st-cover" href="/studio/?game=' + encodeURIComponent(folder) + '" aria-label="Edit ' + esc(g.title) + '"><img src="/' + esc(folder) + '/pdf/preview-1.jpg" alt="" loading="lazy"></a>' : '<div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div>') + '<div class="b">' +
         (folder === current ? '<span class="tag">OPEN NOW</span>' : '') + (saved[folder] ? '<span class="tag">SAVED CHANGES, NOT PUBLISHED</span>' : '') +
-        '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/</small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
+        '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/<span class="st-pub" data-pub="' + esc(folder) + '"></span></small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT</a>' +
         (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
         '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
       box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn, () => S.games(el, current)); });
+      // When each was last published (the PDF bot's commits don't count).
+      box.querySelectorAll('[data-pub]').forEach(el => {
+        GH.history(el.dataset.pub).then(list => {
+          const c = (list || []).find(x => !/^Rebuild notebook PDFs/.test(x.commit.message));
+          if (c) el.textContent = ' · published ' + new Date(c.commit.author.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        }).catch(() => {});
+      });
       box.querySelectorAll('[data-deldraft]').forEach(btn => { btn.onclick = () => askDeleteDraft(btn, () => S.games(el, current)); });
     } catch (e) {
       box.innerHTML = '<p class="ad-help">Could not list notebooks: ' + esc(e.message) + '</p>';
