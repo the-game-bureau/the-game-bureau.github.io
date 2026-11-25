@@ -333,11 +333,12 @@
     if (!media.length) media = [{ type: 'soon', alt: 'Photos coming soon' }];
     const videos = media.filter(isVideo);
     const order = g.order || {};
-    // layout "product" (new notebooks): a shop-style page. The story and the specs sit beside the
-    // gallery, under the order button, and any photo or video opens full screen in a lightbox.
+    // layout "product" (new notebooks): a shop-style page. The specs sit right under the order and
+    // sampler buttons, the story below them, all beside the gallery, and any photo or video opens
+    // full screen in a lightbox.
     const prod = g.layout === 'product';
-    const about = () => (g.description || []).map(p => '<p>' + esc(p) + '</p>').join('') +
-      (g.specs && g.specs.length ? '<ul class="nb-specs">' + g.specs.map(s => '<li><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></li>').join('') + '</ul>' : '');
+    const specs = () => g.specs && g.specs.length ? '<ul class="nb-specs">' + g.specs.map(s => '<li><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></li>').join('') + '</ul>' : '';
+    const about = () => (g.description || []).map(p => '<p>' + esc(p) + '</p>').join('') + (prod ? '' : specs());
     const html =
       header(g, 'public') +
       (NB.announceOn(g) ? '<div class="nb-announce">' + esc(g.announce) + '</div>' : '') +
@@ -359,8 +360,9 @@
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
       '</div>' : '') +
       (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
+      (prod ? specs() : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
-      (prod && (g.description && g.description.length || g.specs && g.specs.length) ? '<div class="nb-about">' + about() + '</div>' : '') +
+      (prod && g.description && g.description.length ? '<div class="nb-about">' + about() + '</div>' : '') +
       (prod ? '' : '<div class="nb-row">' +
       '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
