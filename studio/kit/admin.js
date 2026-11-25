@@ -926,7 +926,7 @@
       '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
       '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       '</div><div class="ad-band">' +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave it empty until you have a link: the order buttons still show, and clicking them says printed copies are coming soon.' +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link opens checkout at the quantity the buyer picked, with the same price and shipping as the link. Any other link opens as is. Leave it empty until you have a link: the order buttons still show, and clicking them says printed copies are coming soon.' +
         ' <a href="' + STRIPE_NEW_PRODUCT + '" target="_blank" rel="noopener">Create a product in Stripe ↗</a>, then make a Payment Link for it and paste that link here.' }) +
       '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +

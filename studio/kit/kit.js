@@ -255,7 +255,7 @@
   // A Stripe Payment Link can't take a quantity in its address, so a Stripe link goes through the
   // checkout function (studio/checkout/index.ts), which opens Stripe checkout at the chosen quantity.
   // Without NB.CHECKOUT set, the link opens directly and the quantity rides along as client_reference_id.
-  NB.CHECKOUT = '';
+  NB.CHECKOUT = 'https://wzdgosgcxcjjxclgpjvl.supabase.co/functions/v1/checkout';
   NB.orderURL = function (g, qty) {
     const u = String((g.order && g.order.url) || '').trim();
     // Only a real web address counts. Anything else ("coming soon", a note) means no link yet.
