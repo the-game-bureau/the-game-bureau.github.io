@@ -54,7 +54,7 @@ Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pd
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Welcome, Connect, Notebooks, Elements, Colors, Media, Cover, Rules, Pages, Sampler, Bundle, Checklist, History, Ideas. DISCARD, SAVE and PUBLISH are in the title bar.
+Welcome, Connect, Notebooks, Website, Colors, Media, Cover, Rules, Pages, Sampler, Bundle, Checklist, History, Ideas. DISCARD, SAVE and PUBLISH are in the title bar.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 

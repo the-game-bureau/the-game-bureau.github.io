@@ -2,7 +2,7 @@
  *
  * Everything about one notebook in one place:
  *   Checklist    the steps from idea to a live notebook, ticked off as you go
- *   Elements     words on the public page, specs, how it works, price and order link
+ *   Website     words on the public page, specs, how it works, price and order link
  *   Colors       the colour scheme, with presets
  *   Rules        rules.md (shown on the rules page and printed in the notebook)
  *   Cover        cover.html: front, back and spine
@@ -50,8 +50,8 @@
       contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
   };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['content', 'Elements'], ['colors', 'Colors'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
-  const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['content', 'Website'], ['colors', 'Colors'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const ALIAS = { setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
@@ -218,6 +218,7 @@
       sampler: [['sampler', 'Sampler pages'], ['samplerfront', 'Front cover']],
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
+    document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
     if (!opts) { pv.innerHTML = ''; return; }
     if (t === 'colors') {
       // Two small previews at once: the game page, and the notebook (front cover over the first inside page).
@@ -440,7 +441,7 @@
     box.className = 'ad-cedit'; box.id = 'ad-cedit';
     const close = '<button type="button" class="ad-link" id="ad-cedit-x">Close</button>';
     if (block) {
-      const where = block === 'image' ? ['media', 'Media', 'This is the photo marked FOR NOTEBOOK COVER in Media.'] : ['content', 'Elements', block === 'steps' ? 'These are the "How it works" steps from Elements.' : 'These are the specs from Elements.'];
+      const where = block === 'image' ? ['media', 'Media', 'This is the photo marked FOR NOTEBOOK COVER in Media.'] : ['content', 'Website', block === 'steps' ? 'These are the "How it works" steps from the Website tab.' : 'These are the specs from the Website tab.'];
       box.innerHTML = '<p>' + where[2] + '</p><div class="ad-cedit-btns"><button type="button" class="nb-btn" id="ad-cedit-go">OPEN ' + esc(where[1].toUpperCase()) + '</button>' + close + '</div>';
       $('#ad-preview .ad-pv-head').after(box);
       $('#ad-cedit-go').onclick = () => show(where[0]);
@@ -456,7 +457,7 @@
       $('#ad-preview .ad-pv-head').after(box); $('#ad-cedit-x').onclick = () => box.remove(); return;
     }
     const value = field ? (draft.game[field] || '') : decode(spot.text.trim());
-    box.innerHTML = '<label><span>' + (field ? esc(FIELD_NAMES[field]) + ' <small>from Elements. Changing it here changes it on the game page too.</small>' : 'Cover text' + (/\{\{\w+\}\}/.test(value) ? ' <small>Words in {{double braces}} fill in from Elements.</small>' : '')) + '</span>' +
+    box.innerHTML = '<label><span>' + (field ? esc(FIELD_NAMES[field]) + ' <small>from the Website tab. Changing it here changes it on the game page too.</small>' : 'Cover text' + (/\{\{\w+\}\}/.test(value) ? ' <small>Words in {{double braces}} fill in from the Website tab.</small>' : '')) + '</span>' +
       '<textarea id="ad-cedit-t" rows="' + (value.length > 70 ? 3 : 1) + '">' + esc(value) + '</textarea></label>' +
       '<div class="ad-cedit-btns"><button type="button" class="nb-btn solid" id="ad-cedit-ok">CHANGE IT</button>' + close + '</div>';
     $('#ad-preview .ad-pv-head').after(box);
@@ -483,7 +484,7 @@
     const g = draft.game, s = g.setup || {};
     const starterTag = 'One sentence that says what the game is and why it\'s fun.';
     return [
-      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Elements, then click SAVE at the top, and SAVED. PUBLISH? to create it on the site.', tab: 'content', done: false }
+      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address on the Website tab, then click SAVE at the top, and SAVED. PUBLISH? to create it on the site.', tab: 'content', done: false }
         : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
@@ -551,7 +552,7 @@
     p.querySelectorAll('[data-step]').forEach(c => { c.onclick = () => { draft.game.setup[c.dataset.step] = c.getAttribute('aria-pressed') !== 'true'; persist(); show('checklist'); }; });
   }
 
-  // ---------- tab: content ----------
+  // ---------- tab: website (id 'content') ----------
   function field(path, label, opts = {}) {
     const v = get(draft.game, path);
     const id = 'f-' + path.replace(/\W/g, '-');
@@ -615,8 +616,8 @@
     const inp = p.querySelector('#f-slug'), msg = p.querySelector('#f-slug-msg');
     const check = () => { const bad = slugProblem(inp.value.trim()); msg.textContent = bad || 'The game page will be thegamebureau.com/' + inp.value.trim() + '/'; msg.style.color = bad && inp.value ? '#B42318' : ''; };
     inp.oninput = () => { draft.game.slug = inp.value.trim(); persist(); check(); };
-    const title = p.querySelector('[data-path="title"]');
-    title.addEventListener('input', () => { if (!draft.game.slugTouched) { draft.game.slug = ST.slugify(title.value); inp.value = draft.game.slug; persist(); check(); } });
+    // Typing the title on the page fills in the address until the address is typed by hand.
+    onTitleEdit = () => { if (!draft.game.slugTouched) { draft.game.slug = ST.slugify(draft.game.title || ''); inp.value = draft.game.slug; check(); } };
     inp.addEventListener('input', () => { draft.game.slugTouched = true; });
     check(); loadTaken().then(check);
   }
@@ -739,46 +740,145 @@
       '<div class="ad-share-txt"><small>' + esc(GH.SITE.toUpperCase()) + '</small><b>' + esc(title) + '</b><span>' + esc(g.tagline || g.title || '') + '</span></div></div>';
   }
 
+  // The game page itself, drawn from the draft in a frame, with its words editable in place.
+  // Things the page doesn't show (web address, dates, order link, share message) sit below it.
+  const PH = { title: 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
+  let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
+  // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
+  function siteCopy() {
+    const g = clone(draft.game); sitePH = new Set();
+    Object.entries(PH).forEach(([k, v]) => { if (!String(get(g, k) || '').trim()) { set(g, k, v); sitePH.add(k); } });
+    g.order = g.order || {}; if (!g.order.url) g.order.url = '#';
+    if (!(g.description || []).length) { g.description = ['Two or three short paragraphs about the game: who plays, what you do, and what makes it fun.']; sitePH.add('description'); }
+    if (!(g.steps || []).length) { g.steps = [{ title: 'Step title', text: 'What happens' }]; sitePH.add('steps.0.title'); sitePH.add('steps.0.text'); }
+    if (String(g.announce || '').trim()) { delete g.announceFrom; delete g.announceUntil; }
+    return g;
+  }
+  // Sets a value by path, making arrays for numeric keys (steps.0.title, specs.1.0).
+  function setPath(o, p, v) {
+    const ks = p.split('.'), last = ks.pop();
+    const t = ks.reduce((a, k, i) => (a[k] = a[k] || (/^\d+$/.test(ks[i + 1] || last) ? [] : {})), o);
+    t[last] = v;
+  }
+  function renderSite() {
+    const f = $('#ad-site'), box = $('#ad-site-box'); if (!f || !box) return;
+    const key = DKEY + '#site';
+    try { localStorage.setItem(key, JSON.stringify({ game: siteCopy(), rules: draft.rules, at: Date.now() })); } catch (e) { /* blocked */ }
+    const avail = box.clientWidth || 860, W = avail < 760 ? avail : 1100, s = Math.min(1, avail / W);
+    f.style.width = W + 'px'; f.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+    const y = window.scrollY;
+    f.onload = () => {
+      const d = f.contentDocument; let tries = 0;
+      const ready = () => {
+        if (!d.querySelector('.nb-info') && tries++ < 60) return setTimeout(ready, 100);
+        bindSite(d);
+        const fit = () => { const end = d.querySelector('.nb-foot'), h = Math.ceil(end ? end.getBoundingClientRect().bottom + d.defaultView.scrollY : d.body.scrollHeight); f.style.height = h + 'px'; box.style.height = Math.ceil(h * s) + 'px'; };
+        fit(); setTimeout(fit, 400); d.addEventListener('input', fit);
+        window.scrollTo(0, y);
+      };
+      ready();
+    };
+    f.srcdoc = pvDoc(GH.shells(FOLDER, draft.game)['index.html'], '').replace('content="' + esc(DKEY) + '"', 'content="' + esc(key) + '"');
+  }
+  function bindSite(d) {
+    const st = d.createElement('style');
+    st.textContent = '[data-ed]{cursor:text;outline:1px dashed transparent;outline-offset:3px;border-radius:2px}[data-ed]:hover{outline-color:#2A7DE1}[data-ed]:focus{outline:2px solid #2A7DE1}' +
+      '.ed-ph{opacity:.45}.ed-x,.ed-add{font:700 12px system-ui,sans-serif;border:1px solid #2A7DE1;color:#2A7DE1;background:#fff;border-radius:4px;cursor:pointer}' +
+      '.ed-x{position:absolute;top:2px;right:2px;width:22px;height:22px;padding:0;opacity:0}li:hover>.ed-x{opacity:1}.nb-specs li,.nb-steps li{position:relative}.ed-add{display:inline-block;margin:10px 0;padding:5px 10px}' +
+      '.nb-gallery{cursor:pointer}[data-ed]:empty{display:inline-block;min-width:3em;min-height:1em;background:rgba(42,125,225,.08)}';
+    d.head.appendChild(st);
+    const q = s => d.querySelector(s), qa = s => [...d.querySelectorAll(s)];
+    const ed = (el, path, multi) => { if (!el) return; el.dataset.ed = path; if (multi) el.dataset.multi = '1'; el.contentEditable = 'true'; el.spellcheck = true; if (sitePH.has(path)) el.classList.add('ed-ph'); };
+    ed(q('.nb-announce'), 'announce');
+    ed(q('.nb-info .nb-kick'), 'kicker');
+    const h1 = q('.nb-info h1');
+    if (h1) {
+      const sub = h1.querySelector('span');
+      h1.innerHTML = '<i style="font-style:normal">' + esc(draft.game.title || PH.title) + '</i>';
+      if (sub) h1.appendChild(sub);
+      ed(h1.querySelector('i'), 'title'); ed(sub, 'subtitle');
+    }
+    ed(q('.nb-price b'), 'price'); ed(q('.nb-price span'), 'currency');
+    ed(q('#nb-order'), 'order.label');
+    ed(q('.nb-ship') || q('.nb-info .nb-fine'), 'order.shippingNote');
+    ed(q('.nb-info .nb-tag b') || q('.nb-tag'), 'tagline');
+    const ps = qa('.nb-about > p');
+    if (ps.length) { const w = d.createElement('div'); ps[0].before(w); ps.forEach(x => w.appendChild(x)); ed(w, 'description', true); if (sitePH.has('description')) w.classList.add('ed-ph'); }
+    qa('.nb-specs li').forEach((li, i) => { ed(li.querySelector('b'), 'specs.' + i + '.0'); ed(li.querySelector('span'), 'specs.' + i + '.1'); li.insertAdjacentHTML('beforeend', '<button type="button" class="ed-x" data-x="specs" data-i="' + i + '" title="Remove">&times;</button>'); });
+    const about = q('.nb-about'), specs = q('.nb-specs');
+    if (about) (specs || about.lastElementChild).insertAdjacentHTML('afterend', '<button type="button" class="ed-add" data-add="specs">+ Add a spec</button>');
+    const steps = q('.nb-steps');
+    if (steps) {
+      ed(steps.closest('.nb-card').querySelector('h2'), 'stepsHeading');
+      qa('.nb-steps > li').forEach((li, i) => { ed(li.querySelector('h3'), 'steps.' + i + '.title'); ed(li.querySelector('p'), 'steps.' + i + '.text'); if (!sitePH.has('steps.0.title')) li.insertAdjacentHTML('beforeend', '<button type="button" class="ed-x" data-x="steps" data-i="' + i + '" title="Remove">&times;</button>'); });
+      steps.insertAdjacentHTML('afterend', '<button type="button" class="ed-add" data-add="steps">+ Add a step</button>');
+    }
+    // Links and buttons on the page don't go anywhere while editing.
+    d.addEventListener('click', e => {
+      const x = e.target.closest('.ed-x, .ed-add');
+      if (x) {
+        e.preventDefault(); const k = x.dataset.x || x.dataset.add, list = draft.game[k] = draft.game[k] || [];
+        if (x.dataset.x) list.splice(+x.dataset.i, 1); else list.push(k === 'specs' ? ['LABEL', 'Value'] : { title: 'Step title', text: 'What happens' });
+        persist(); renderSite(); return;
+      }
+      if (e.target.closest('.nb-gallery')) { e.preventDefault(); e.stopPropagation(); flash('Photos and videos are set in <a href="#media">Media</a>.'); return; }
+      if (e.target.closest('a, button:not(.nb-qty button)')) e.preventDefault();
+    }, true);
+    d.addEventListener('focusin', e => { const el = e.target.closest('[data-ed]'); if (!el) return; siteEditing = true; if (el.classList.contains('ed-ph')) { el.dataset.ph = el.innerHTML; el.innerHTML = ''; } });
+    // A placeholder clears when clicked, and comes back if nothing was typed.
+    d.addEventListener('focusout', e => { siteEditing = false; const el = e.target.closest && e.target.closest('[data-ed]'); if (el && el.dataset.ph != null && !el.textContent.trim()) { el.innerHTML = el.dataset.ph; el.classList.add('ed-ph'); } });
+    d.addEventListener('keydown', e => { const el = e.target.closest('[data-ed]'); if (el && e.key === 'Enter' && !el.dataset.multi) { e.preventDefault(); el.blur(); } });
+    d.addEventListener('paste', e => { if (!e.target.closest('[data-ed]')) return; e.preventDefault(); d.execCommand('insertText', false, e.clipboardData.getData('text/plain')); });
+    d.addEventListener('input', e => {
+      const el = e.target.closest('[data-ed]'); if (!el) return;
+      el.classList.remove('ed-ph'); sitePH.delete(el.dataset.ed);
+      const path = el.dataset.ed;
+      const v = el.dataset.multi ? el.innerText.split(/\n+/).map(x => x.trim()).filter(Boolean) : el.innerText.replace(/\s+/g, ' ').trim();
+      if (/^steps\.0\./.test(path) && sitePH.size && !(draft.game.steps || []).length) draft.game.steps = [{ title: '', text: '' }];
+      setPath(draft.game, path, v);
+      const inp = document.querySelector('#ad-panel [data-path="' + path + '"]'); if (inp) inp.value = v;
+      if (path === 'title' && onTitleEdit) onTitleEdit();
+      persist(); sharePreview(); annStatus();
+    });
+  }
+
   function tabContent(p) {
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
-    p.innerHTML = '<h2>Elements</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
-      // Bands of light grey and white group the fields.
-      '<div class="ad-bands"><div class="ad-band">' + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
-      '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
-      '<p class="ad-help ad-ann-status" id="ad-ann-status"></p></div><div class="ad-band">' +
-      field('kicker', 'Small line above the title') + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) +
-      // The web address sits under the title: made from the title for a new notebook (editable), fixed once it exists.
+    onTitleEdit = null;
+    p.innerHTML = '<h2>Website</h2><p class="ad-lede">This is the game\'s web page. Click any words on it to change them. Photos and videos are set in <a href="#media">Media</a>, colours in <a href="#colors">Colors</a>.</p>' +
+      '<div class="ad-site-box" id="ad-site-box"><iframe id="ad-site" title="Game page, editable"></iframe></div>' +
+      '<h3>Not shown on the page</h3>' +
+      '<div class="ad-bands"><div class="ad-band">' +
+      // The web address: made from the title for a new notebook (editable), fixed once it exists.
       (IS_NEW ? '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>'
         : '<div class="ad-field"><span>Web address</span><span class="st-url is-fixed"><b>thegamebureau.com/</b><a href="' + esc(BASE) + '" target="_blank" rel="noopener">' + esc(FOLDER) + '/</a>' +
           (isTemplate || FOLDER.includes('/') ? '' : '<button type="button" class="nb-btn ad-mv-open" id="ad-mv-open">CHANGE</button>') + '</span>' +
           '<div class="ad-mv" id="ad-mv" hidden><span class="st-url"><b>thegamebureau.com/</b><input id="f-newslug" value="' + esc(FOLDER) + '" autocomplete="off" spellcheck="false"></span>' +
           '<div class="nb-row"><button type="button" class="nb-btn solid" id="ad-mv-go">MOVE TO THIS ADDRESS</button><button type="button" class="nb-btn" id="ad-mv-x">CANCEL</button></div></div>' +
           '<small id="ad-mv-msg">' + ((g.formerAddresses || []).length ? 'Old address' + (g.formerAddresses.length > 1 ? 'es' : '') + ' ' + g.formerAddresses.map(x => 'thegamebureau.com/' + esc(x) + '/').join(', ') + ' forward here.' : 'The game page lives here.') + '</small></div>') +
-      field('subtitle', 'Subtitle', { ph: 'Optional' }) +
-      '</div><div class="ad-band">' + field('price', 'Price', { ph: '$9.99' }) + field('currency', 'Currency') +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link.' }) +
-      '</div><div class="ad-band">' + field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
+      '</div><div class="ad-band">' + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar. Once it has words you can also change them on the page.' }) +
+      '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
+      '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
+      '</div><div class="ad-band">' +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link. The page above always shows the button so you can change its words.' }) +
+      field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) +
+      '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
-      '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Media, or the cover once the PDFs are built.</small></div>' +
-      field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</div>' +
-      '<fieldset><legend>What it is</legend>' + field('aboutHeading', 'Heading') +
-      '<label class="ad-field"><span>Description</span><textarea id="f-desc" rows="6">' + esc((g.description || []).join('\n\n')) + '</textarea><small>Leave a blank line between paragraphs.</small></label>' +
-      '<div class="ad-field"><span>Specs</span>' + rows('specs', [0, 1], ['Label, e.g. PLAYERS', 'Value, e.g. 2 to 6']) + '</div></fieldset>' +
-      '<fieldset><legend>How it works</legend>' + field('stepsHeading', 'Heading') + '<div class="ad-field"><span>Steps</span>' + rows('steps', ['title', 'text'], ['Step title', 'What happens']) + '</div></fieldset>' +
-      '<fieldset><legend>Ordering</legend>' +
-      field('order.label', 'Order button text') + field('order.shippingNote', 'Small print under the buttons') +
-      field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) + '</fieldset>' +
-      '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset></div>';
+      '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the SHARE PICTURE from Media, or the cover once the PDFs are built.</small></div>' +
+      '</div><div class="ad-band">' +
+      field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Used on the rules page and its heading. Leave empty for Rules.' }) +
+      '</div></div>';
     bindFields(p);
     if (IS_NEW) bindNew(p); else bindMove(p);
     sharePreview(); p.addEventListener('input', sharePreview);
     annStatus(); p.addEventListener('input', annStatus); p.addEventListener('change', annStatus);
-    
-    $('#f-desc').oninput = e => { draft.game.description = e.target.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); persist(); };
-    bindRows(p, 'specs', () => ['', '']);
-    bindRows(p, 'steps', () => ({ title: '', text: '' }));
+    // Changes below redraw the page above.
+    const redraw = () => { clearTimeout(siteTimer); siteTimer = setTimeout(() => { if (!siteEditing) renderSite(); }, 500); };
+    p.querySelectorAll('[data-path]').forEach(el => el.addEventListener('input', redraw));
+    setTimeout(renderSite, 0); // after the panel takes its full width
   }
+  window.addEventListener('resize', () => { if (tab === 'content') { clearTimeout(siteTimer); siteTimer = setTimeout(renderSite, 300); } });
 
   // Print settings (game.json print.*): trim, sheets, bleed, margin, padding, spine. Shown on the Bundle tab.
   function printFields() {
@@ -925,7 +1025,7 @@
       if (prev != null && n !== prev + 1 && !(n === 1 && prev === 1)) out.push('Step ' + n + ' (line ' + (i + 1) + ') comes after step ' + prev + '.');
       prev = n;
     });
-    // Players, time and ages should agree with the Elements tab's specs.
+    // Players, time and ages should agree with the Website tab's specs.
     const nums = s => (String(s).match(/\d+/g) || []).map(Number);
     const spec = re => ((g.specs || []).find(r => re.test(r[0] || '')) || [])[1];
     const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -936,7 +1036,7 @@
     ];
     for (const [lab, re, name] of checks) {
       const want = spec(lab), m = text.match(re);
-      if (want && m && nums(want).length && !same(nums(m[1]), nums(want))) out.push(name + ': the rules say <b>' + esc(m[0]) + '</b> but the Elements tab says <b>' + esc(want) + '</b>.');
+      if (want && m && nums(want).length && !same(nums(m[1]), nums(want))) out.push(name + ': the rules say <b>' + esc(m[0]) + '</b> but the Website tab says <b>' + esc(want) + '</b>.');
     }
     return out;
   }
@@ -1719,7 +1819,7 @@
       const key = (draft.game.slug || '').trim();
       const bad = GH.token() ? await freshSlugProblem(key) : 'not connected';
       if (!bad) { await saveDraft(); if (unsaved()) return; }
-      else if (!confirm('Start a new notebook? "' + draft.game.title + '" is not saved yet' + (GH.token() ? ' (it needs a free web address in Elements first)' : '') + ', so it will be thrown away.')) return;
+      else if (!confirm('Start a new notebook? "' + draft.game.title + '" is not saved yet' + (GH.token() ? ' (it needs a free web address on the Website tab first)' : '') + ', so it will be thrown away.')) return;
     } else if (!IS_NEW && d && d.game && (d.game.title || '').trim() && !d.savedKey) {
       if (!confirm('Start a new notebook? The unsaved new notebook "' + d.game.title + '" in this browser will be thrown away.')) return;
     }
