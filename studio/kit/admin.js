@@ -444,6 +444,21 @@
     }
   }
 
+  // What a shared link shows: the Share button's message, then the card that link previews build
+  // from the page's tags (GH.shells): picture, title, tagline and the address.
+  function sharePreview() {
+    const box = $('#ad-share'); if (!box) return;
+    const g = draft.game, slug = IS_NEW ? (g.slug || 'your-game') : FOLDER;
+    const url = GH.SITE + '/' + slug + '/';
+    const photo = (g.media || []).find(m => m && m.type === 'image' && m.src);
+    const src = g.shareImage ? BASE + g.shareImage : photo ? (pending[photo.src] || (/^(https?:|\/|data:)/.test(photo.src) ? photo.src : BASE + photo.src)) : IS_NEW ? '' : BASE + 'pdf/preview-1.jpg';
+    const title = (g.title || 'Your game') + (g.subtitle ? ': ' + g.subtitle : '');
+    const msg = g.shareText || (g.title && g.tagline ? g.title + ': ' + g.tagline : '');
+    box.innerHTML = (msg ? '<p class="ad-share-msg">' + esc(msg) + ' <span>https://' + esc(url) + '</span></p>' : '') +
+      '<div class="ad-share-card"><div class="ad-share-img">' + (src ? '<img src="' + esc(src) + '" alt="" onerror="this.remove()">' : '') + '</div>' +
+      '<div class="ad-share-txt"><small>' + esc(GH.SITE.toUpperCase()) + '</small><b>' + esc(title) + '</b><span>' + esc(g.tagline || g.title || '') + '</span></div></div>';
+  }
+
   function tabContent(p) {
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
@@ -456,6 +471,7 @@
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
+      '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Photos &amp; video, or the cover once the PDFs are built.</small></div>' +
       field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</fieldset>' +
       '<fieldset><legend>What it is</legend>' + field('aboutHeading', 'Heading') +
       '<label class="ad-field"><span>Description</span><textarea id="f-desc" rows="6">' + esc((g.description || []).join('\n\n')) + '</textarea><small>Leave a blank line between paragraphs.</small></label>' +
@@ -474,6 +490,7 @@
       '</div></fieldset>';
     bindFields(p);
     if (IS_NEW) bindNew(p);
+    sharePreview(); p.addEventListener('input', sharePreview);
     
     $('#f-desc').oninput = e => { draft.game.description = e.target.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); persist(); };
     bindRows(p, 'specs', () => ['', '']);
