@@ -530,6 +530,7 @@
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
       { k: 'subdomain', t: 'Give it its own web address', d: 'Optional. Make ' + target().split('/').pop() + '.' + GH.SITE + ' forward to this game page with a redirect in Cloudflare. About 5 minutes.', manual: true, html: subdomainHow() },
+      { k: 'homepage', t: 'Add this game to the TGB homepage', d: 'Give it a card in the games list on the ' + GH.SITE + ' home page (index.html at the top of the site). This ticks itself once the home page links to /' + target() + '/.', manual: true, auto: !IS_NEW && onHome, html: '<p class="ad-help"><a href="/" target="_blank" rel="noopener">Open the home page</a></p>' },
       { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + target() + '/', manual: true },
     ].map(x => Object.assign(x, {
       // A step ticked or unticked by hand keeps that; otherwise it ticks itself when the editor sees it done.
@@ -539,12 +540,14 @@
   }
   // What a notebook looks like straight from the blank starter, and when it was last published,
   // so the checklist can tell what has been done.
-  let starter = null, lastPublish = '';
+  let starter = null, lastPublish = '', onHome = false;
   const squash = t => String(t || '').replace(/\s+/g, ' ').trim();
   async function loadChecklistFacts() {
     const get = f => fetch('/' + ST.STARTER + '/' + f + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error(f)));
     try { const [g, cover, contents] = await Promise.all([get('game.json'), get('cover.html'), get('contents.html')]); starter = { brand: JSON.parse(g).brand, cover, contents }; } catch (e) { starter = null; }
     if (!IS_NEW) { try { const c = ((await GH.history(FOLDER)) || []).find(x => !/^Rebuild notebook PDFs|\(web page only\)/.test(x.commit.message)); lastPublish = c ? c.commit.author.date : ''; } catch (e) { lastPublish = ''; } }
+    // Whether The Game Bureau home page links to this game yet.
+    if (!IS_NEW) { try { const home = await fetch('/?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : ''); onHome = new RegExp('href=["\'](https?://(www\\.)?' + GH.SITE.replace(/\./g, '\\.') + ')?/' + FOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/?["\'#?]').test(home); } catch (e) { onHome = false; } }
     if (tab === 'checklist') show('checklist', true);
   }
   // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
