@@ -27,7 +27,7 @@ studio/
 | `index.html` | The public page (`/<game>/`). Only the title and share-preview tags need editing. |
 | `rules.md` | The full rules. Shown on `rules.html` **and** printed at the front of the notebook. |
 | `rules.html` | The rules page. Nothing to edit but the title tags. |
-| `cover.html` | Front and back cover design (`.cover-front`, `.cover-back`, optional `.cover-spine`). |
+| `cover.html` | Front and back cover design (`.cover-front`, `.cover-back`, optional `.cover-spine`). `{{image}}` puts the game's main image there: photo 1 in Photos & video when the cover is generated, or a pattern of squares until there is a photo. |
 | `contents.html` | Every inside page after the rules. Use `<template data-repeat>` for repeated sheets. |
 | `images/` | Photos for the gallery. |
 | `pdf/` | Built PDFs. Don't edit; the build writes them. |
