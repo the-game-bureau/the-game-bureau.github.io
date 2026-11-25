@@ -2,14 +2,14 @@
  *
  * Everything about one notebook in one place:
  *   Checklist    the steps from idea to a live notebook, ticked off as you go
- *   Elements     words on the public page, specs, how it works, price and order link, print size
+ *   Elements     words on the public page, specs, how it works, price and order link
  *   Colors       the colour scheme, with presets
  *   Rules        rules.md (shown on the rules page and printed in the notebook)
  *   Cover        cover.html: front, back and spine
  *   Inside pages contents.html: the pages after the rules
  *   Media        gallery photos and videos
  *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
- *   PDFs         build the cover, contents, print-at-home and sampler PDFs
+ *   Bundle       print settings (trim, bleed, spine); build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. The title bar's
  * SAVE stores them on GitHub (the studio-drafts branch, not deployed) so any browser can carry on;
  * PUBLISH commits them to main in one go, and the site republishes and the PDFs rebuild.
@@ -662,13 +662,7 @@
       field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link.' }) +
       field('order.label', 'Order button text') + field('order.shippingNote', 'Small print under the buttons') +
       field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) + '</fieldset>' +
-      '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>' +
-      '<fieldset><legend>Print</legend><div class="ad-grid">' +
-      field('print.trim.0', 'Width (in)', { type: 'number', step: '0.01' }) + field('print.trim.1', 'Height (in)', { type: 'number', step: '0.01' }) +
-      field('print.sheets', 'Game sheets', { type: 'number', help: 'Fills {{sheets}} in the inside pages.' }) +
-      field('print.bleed', 'Bleed (in)', { type: 'number', step: '0.001' }) + field('print.margin', 'Safe margin (in)', { type: 'number', step: '0.01' }) +
-      field('print.padTo', 'Pad page count to a multiple of', { type: 'number' }) + field('print.spinePerPage', 'Spine per page (in)', { type: 'number', step: '0.000001', help: 'KDP white paper: 0.002252. Lulu: check its calculator.' }) +
-      '</div></fieldset>';
+      '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>';
     bindFields(p);
     if (IS_NEW) bindNew(p);
     sharePreview(); p.addEventListener('input', sharePreview);
@@ -677,6 +671,17 @@
     $('#f-desc').oninput = e => { draft.game.description = e.target.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); persist(); };
     bindRows(p, 'specs', () => ['', '']);
     bindRows(p, 'steps', () => ({ title: '', text: '' }));
+  }
+
+  // Print settings (game.json print.*): trim, sheets, bleed, margin, padding, spine. Shown on the Bundle tab.
+  function printFields() {
+    const g = draft.game; g.print = g.print || {};
+    return '<fieldset class="ad-print"><legend>Print</legend><div class="ad-grid">' +
+      field('print.trim.0', 'Width (in)', { type: 'number', step: '0.01' }) + field('print.trim.1', 'Height (in)', { type: 'number', step: '0.01' }) +
+      field('print.sheets', 'Game sheets', { type: 'number', help: 'Fills {{sheets}} in the inside pages.' }) +
+      field('print.bleed', 'Bleed (in)', { type: 'number', step: '0.001' }) + field('print.margin', 'Safe margin (in)', { type: 'number', step: '0.01' }) +
+      field('print.padTo', 'Pad page count to a multiple of', { type: 'number' }) + field('print.spinePerPage', 'Spine per page (in)', { type: 'number', step: '0.000001', help: 'KDP white paper: 0.002252. Lulu: check its calculator.' }) +
+      '</div></fieldset>';
   }
 
   // ---------- tab: colors ----------
@@ -1090,7 +1095,7 @@
     return '<a class="ad-pdf-thumbs" href="' + esc(href) + '" target="_blank" rel="noopener" title="Open the PDF">' + list.map(t => '<img src="' + esc(BASE + t) + '?b=' + v + '" alt="" loading="lazy">').join('') + '</a>';
   }
   function tabPdfs(p) {
-    if (IS_NEW) { p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you publish the notebook, and again after each save.</p><p class="ad-help">Until then, the Cover and Pages tabs preview exactly what will print.</p>'; return; }
+    if (IS_NEW) { p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you publish the notebook, and again after each save.</p><p class="ad-help">Until then, the Cover and Pages tabs preview exactly what will print.</p>' + printFields(); bindFields(p); return; }
     const g = draft.game, slug = g.slug;
     const pdf = n => 'pdf/' + slug + n + '.pdf';
     const files = [
@@ -1107,6 +1112,7 @@
         '<div class="ad-file-btns"><a class="nb-btn solid" href="' + BASE + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="' + BASE + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
       '<details class="ad-help-box"><summary>Save from this browser instead</summary><p>Chrome works best. In the print dialog choose Save as PDF, margins None, background graphics on. Page sizes are set for you; the spine width and the merged print-at-home and sampler files come only from the build.</p><p>' +
       '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'sampler.html?bleed=0&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
+    p.querySelector('.ad-files').insertAdjacentHTML('afterend', printFields()); bindFields(p);
     $('#ad-go').onclick = runBuild;
     const z = $('#ad-zip'); if (z) z.onclick = () => printerZip(z);
   }
@@ -1553,7 +1559,7 @@
     const s = spineInfo();
     const text = s.spine >= s.min ? 'Wide enough for the spine text.'
       : 'Spine text needs ' + s.min.toFixed(2) + ' in' + (s.per ? ' (about ' + Math.ceil(s.min / s.per) + ' inside pages on this paper)' : '') + ', so for now the spine prints as plain colour.';
-    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Elements, Print. ' + text;
+    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Bundle, Print. ' + text;
     return 'Spine: ' + s.spine + ' in for ' + (s.est ? 'about ' : '') + s.pages + ' inside pages' + (s.est ? '' : ' (last PDF build)') + '. ' + text;
   }
 
