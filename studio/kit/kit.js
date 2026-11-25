@@ -242,7 +242,7 @@
     '<header class="nb-bar"><div class="nb-wrap">' +
     '<a class="nb-home" href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a>' +
     '<nav>' +
-    (here !== 'rules' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    (here !== 'rules' && g.layout !== 'product' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
     '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>' +
@@ -252,7 +252,7 @@
   const bindShare = g => { const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget); };
   const footer = g =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
-    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a><a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a><a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
+    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a>' + (g.layout === 'product' ? '' : '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>') + '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
     '<a href="/">THEGAMEBUREAU.COM</a></div></footer>';
 
   // ---------- lightbox ----------
@@ -344,13 +344,14 @@
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
       '</div>' : '') +
+      (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
       (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && (g.description && g.description.length || g.specs && g.specs.length) ? '<div class="nb-about">' + about() + '</div>' : '') +
-      '<div class="nb-row">' +
+      (prod ? '' : '<div class="nb-row">' +
       '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
-      '</div>' +
+      '</div>') +
       (order.shippingNote && !prod ? '<p class="nb-fine">' + esc(order.shippingNote) + '</p>' : '') +
       '</div></div></section>' +
 
@@ -368,10 +369,11 @@
         '<div class="nb-videos">' + videos.map(v => '<div class="nb-video">' + NB.mediaHTML(v, { lazy: true }) + '</div>').join('') + '</div>' +
         '</div></section>' : '') +
 
-      '<section class="nb-block"><div class="nb-wrap nb-card nb-rules-cta">' +
+      // The product page leaves the rules out: they are printed in the notebook.
+      (prod ? '' : '<section class="nb-block"><div class="nb-wrap nb-card nb-rules-cta">' +
       '<div><h2>' + (NB.rulesName(g) === 'Rules' ? 'The full rules' : esc(NB.rulesName(g))) + '</h2><p>' + esc(g.rulesBlurb || 'Everything you need to play, on one page. The same rules are printed inside the notebook.') + '</p></div>' +
       '<a class="nb-btn solid big" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'READ THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
-      '</div></section>' +
+      '</div></section>') +
       '</main>' + footer(g);
 
     document.body.insertAdjacentHTML('afterbegin', html);
