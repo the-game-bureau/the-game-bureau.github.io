@@ -1075,13 +1075,18 @@
       '<button type="button" role="radio" data-src="link" aria-checked="' + isLink + '"><b>Link to them</b><small>A Google Doc or any web page, shown inside the rules page.</small></button></div>' +
       (isLink ? '<label class="ad-field" for="f-rules-link"><span>Rules link</span><input id="f-rules-link" type="url" value="' + esc(v) + '" placeholder="https://docs.google.com/document/d/..." autocomplete="off" spellcheck="false">' +
         '<small id="f-rules-link-msg"></small></label>' +
-        '<p class="ad-help">The notebook still prints the rules written below, so keep them in step with the link.</p>' : '');
+        '<p class="ad-help">The printed notebook keeps the rules last written under <i>Write them here</i>.</p>' : '');
     // No preview here: a button opens the rules page (or the link) in a new tab.
     const href = IS_NEW ? '' : BASE + 'rules.html';
     box.insertAdjacentHTML('beforeend', '<p class="ad-rules-view">' + (href
       ? '<a class="nb-btn" id="ad-rules-view" href="' + esc(href) + '" target="_blank" rel="noopener">VIEW THE RULES PAGE</a><small>Opens the published page. Changes show there after you publish.</small>'
       : '<small>The rules page goes live when you publish this notebook.</small>') + '</p>');
     p.querySelector('.ad-lede').after(box);
+    // With a link, the HTML editor and everything about it is hidden.
+    if (isLink) {
+      p.querySelector('.ad-lede').textContent = 'Where the rules come from. The rules page on the site shows them.';
+      p.querySelectorAll('.ad-ai, #ad-code, .ad-code-foot, #ad-rules-warn, .ad-help-box').forEach(el => el.remove());
+    }
     box.querySelectorAll('[data-src]').forEach(b => { b.onclick = () => {
       if (b.dataset.src === 'link') { if (!isLink) draft.game.rulesLink = ''; } else delete draft.game.rulesLink;
       persist(); show(tab);
