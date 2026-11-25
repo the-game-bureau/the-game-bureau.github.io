@@ -233,7 +233,7 @@
       welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['duo', 'Web and notebook']],
-      rules: [['rules', 'Rules page']],
+      rules: null, // the Rules tab has a button to the rules page instead of a preview
       cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
       // Each Pages tab previews only its own pages.
       scoring: [['scoring', 'Scoring pages']],
@@ -520,7 +520,7 @@
         : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
-      { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
+      { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !!NB.rulesLink(g) || !/First step\.|Say how the game ends/.test(draft.rules) },
       { k: 'contents', t: 'Design the inside pages', d: 'Scoring pages and the game sheet, in Pages. Set how many game sheets the notebook holds in Bundle.', tab: 'game', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
       { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
@@ -576,7 +576,7 @@
         '<div><b>' + esc(x.t) + '</b>' + (x.byEditor ? ' <small class="ad-autotick">ticked for you</small>' : '') + '<p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>';
       }).join('') + '</ol>' +
-      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
+      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + esc(NB.rulesLink(draft.game) || BASE + 'rules.html') + '" target="_blank" rel="noopener">rules' + (NB.rulesLink(draft.game) ? '' : ' page') + '</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onclick = () => { draft.game.setup[c.dataset.step] = c.getAttribute('aria-pressed') !== 'true'; persist(); show('checklist'); }; });
@@ -1063,7 +1063,48 @@
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).catch(() => {}); }; });
     $('#ad-revert').onclick = () => { if (confirm('Put this file back the way it was last saved?')) { draft[key] = saved[key]; persist(); show(tab); } };
   }
-  const tabRules = p => { rulesTab(p); rulesLength(); };
+  const tabRules = p => {
+    rulesTab(p);
+    // Where the site's rules buttons go: the rules written here, or a link (a Google Doc, say).
+    const g = draft.game, isLink = Object.prototype.hasOwnProperty.call(g, 'rulesLink');
+    const v = String(g.rulesLink || '').trim();
+    const box = document.createElement('div');
+    box.className = 'ad-rules-src';
+    box.innerHTML = '<div class="ad-rules-pick" role="radiogroup" aria-label="Where the rules live">' +
+      '<button type="button" role="radio" data-src="html" aria-checked="' + !isLink + '"><b>Write them here</b><small>HTML below. The site gets its own rules page.</small></button>' +
+      '<button type="button" role="radio" data-src="link" aria-checked="' + isLink + '"><b>Link to them</b><small>A Google Doc or any web page. Rules buttons open it.</small></button></div>' +
+      (isLink ? '<label class="ad-field" for="f-rules-link"><span>Rules link</span><input id="f-rules-link" type="url" value="' + esc(v) + '" placeholder="https://docs.google.com/document/d/..." autocomplete="off" spellcheck="false">' +
+        '<small id="f-rules-link-msg"></small></label>' +
+        '<p class="ad-help">The notebook still prints the rules written below, so keep them in step with the link.</p>' : '');
+    // No preview here: a button opens the rules page (or the link) in a new tab.
+    const href = NB.rulesLink(g) || (IS_NEW ? '' : BASE + 'rules.html');
+    box.insertAdjacentHTML('beforeend', '<p class="ad-rules-view">' + (href
+      ? '<a class="nb-btn" id="ad-rules-view" href="' + esc(href) + '" target="_blank" rel="noopener">VIEW THE RULES PAGE</a><small>' + (NB.rulesLink(g) ? 'Opens the link.' : 'Opens the published page. Changes show there after you publish.') + '</small>'
+      : '<small>The rules page goes live when you publish this notebook.</small>') + '</p>');
+    p.querySelector('.ad-lede').after(box);
+    box.querySelectorAll('[data-src]').forEach(b => { b.onclick = () => {
+      if (b.dataset.src === 'link') { if (!isLink) draft.game.rulesLink = ''; } else delete draft.game.rulesLink;
+      persist(); show(tab);
+      const f = $('#f-rules-link'); if (f && !f.value) f.focus();
+    }; });
+    const inp = $('#f-rules-link');
+    if (inp) {
+      const msg = () => {
+        const t = inp.value.trim(), m = $('#f-rules-link-msg');
+        m.innerHTML = !t ? 'Paste the link. Until then the rules buttons use the rules written below.'
+          : NB.rulesLink({ rulesLink: t }) ? 'Rules buttons open <a href="' + esc(t) + '" target="_blank" rel="noopener">this link</a> in a new tab. For a Google Doc, set sharing to <i>Anyone with the link</i>.'
+          : 'That isn\'t a web address. It should start with https://';
+      };
+      inp.oninput = () => {
+        draft.game.rulesLink = inp.value.trim(); persist(); msg();
+        const a = $('#ad-rules-view'), h = NB.rulesLink(draft.game) || (IS_NEW ? '' : BASE + 'rules.html');
+        if (a && h) a.href = h;
+        const n = $('#ad-rules-view-note'); if (n) n.textContent = NB.rulesLink(draft.game) ? 'Opens the link.' : 'Opens the published page. Changes show there after you publish.';
+      };
+      msg();
+    }
+    rulesLength();
+  };
   // Words, reading time and printed pages of the rules, under the editor.
   let rulesTimer = null, rulesPages = null;
   function rulesLength() {
