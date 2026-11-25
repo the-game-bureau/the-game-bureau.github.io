@@ -130,6 +130,15 @@
     }
     if (sc && !samplerCover) sc.remove();
 
+    // The game's web address goes on every front and back cover (notebook and sampler). A cover that
+    // already shows it (most backs do, with {{url}}) is left alone; otherwise a small line is added at the bottom.
+    const url = String(g.url || 'thegamebureau.com' + NB.folder()).replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const bare = t => t.toLowerCase().replace(/https?:\/\//g, '').replace(/\s+/g, '');
+    [front, back, sc].forEach(el => {
+      if (!el || bare(el.textContent).includes(bare(url))) return;
+      const u = document.createElement('div'); u.className = 'pk-url'; u.textContent = url; el.appendChild(u);
+    });
+
     let PW, PH, label;
     if (layout === 'front' || layout === 'back') {
       PW = W; PH = H;
