@@ -755,6 +755,8 @@
           '<div class="nb-row"><button type="button" class="nb-btn solid" id="ad-mv-go">MOVE TO THIS ADDRESS</button><button type="button" class="nb-btn" id="ad-mv-x">CANCEL</button></div></div>' +
           '<small id="ad-mv-msg">' + ((g.formerAddresses || []).length ? 'Old address' + (g.formerAddresses.length > 1 ? 'es' : '') + ' ' + g.formerAddresses.map(x => 'thegamebureau.com/' + esc(x) + '/').join(', ') + ' forward here.' : 'The game page lives here.') + '</small></div>') +
       field('subtitle', 'Subtitle', { ph: 'Optional' }) +
+      field('price', 'Price', { ph: '$9.99' }) + field('currency', 'Currency') +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link.' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Media, or the cover once the PDFs are built.</small></div>' +
@@ -763,8 +765,7 @@
       '<label class="ad-field"><span>Description</span><textarea id="f-desc" rows="6">' + esc((g.description || []).join('\n\n')) + '</textarea><small>Leave a blank line between paragraphs.</small></label>' +
       '<div class="ad-field"><span>Specs</span>' + rows('specs', [0, 1], ['Label, e.g. PLAYERS', 'Value, e.g. 2 to 6']) + '</div></fieldset>' +
       '<fieldset><legend>How it works</legend>' + field('stepsHeading', 'Heading') + '<div class="ad-field"><span>Steps</span>' + rows('steps', ['title', 'text'], ['Step title', 'What happens']) + '</div></fieldset>' +
-      '<fieldset><legend>Price and ordering</legend>' + field('price', 'Price', { ph: '$9.99' }) + field('currency', 'Currency') +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link.' }) +
+      '<fieldset><legend>Ordering</legend>' +
       field('order.label', 'Order button text') + field('order.shippingNote', 'Small print under the buttons') +
       field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) + '</fieldset>' +
       '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>';
