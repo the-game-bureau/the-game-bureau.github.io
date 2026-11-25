@@ -50,7 +50,7 @@
       contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
   };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['content', 'Website'], ['colors', 'Colors'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['content', 'Website'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -221,12 +221,19 @@
     document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
     if (!opts) { pv.innerHTML = ''; return; }
     if (t === 'colors') {
-      // Two small previews at once: the game page, and the notebook (front cover over the first inside page).
-      pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">Unsaved changes show here.</span></div>' +
-        '<div class="ad-pv-duo"><div><h4>Web</h4><div class="ad-pv-mini web"><iframe id="ad-pv-web" title="Web preview" tabindex="-1"></iframe></div></div>' +
-        '<div><h4>Notebook</h4><div class="ad-pv-mini print ad-nbpv"><iframe id="ad-pv-front" title="Front cover" tabindex="-1"></iframe><iframe id="ad-pv-inside" title="Notebook page" tabindex="-1" hidden></iframe><iframe id="ad-pv-back" title="Back cover" tabindex="-1" hidden></iframe></div>' +
-        '<div class="ad-nbpv-nav"><button type="button" class="nb-btn" id="ad-nb-prev" aria-label="Previous page">&#8249;</button><span id="ad-nb-at">Front cover</span><button type="button" class="nb-btn" id="ad-nb-next" aria-label="Next page">&#8250;</button></div></div></div>';
-      $('#ad-nb-prev').onclick = () => nbGo(nbAt - 1); $('#ad-nb-next').onclick = () => nbGo(nbAt + 1);
+      // A tiny made-up shop page selling a spiral notebook, drawn only to show the four colours at work.
+      pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">A sample page in your colours.</span></div>' +
+        '<div class="ad-mock" id="ad-mock">' +
+        '<div class="mk-bar"><b>NOTEBOOK CO.</b><span>SHOP</span><span>ABOUT</span><i>BUY</i></div>' +
+        '<div class="mk-hero"><svg class="mk-book" viewBox="0 0 120 150" aria-hidden="true">' +
+          '<rect x="14" y="10" width="96" height="132" rx="6" fill="var(--mk-color)"/>' +
+          '<rect x="30" y="52" width="64" height="30" rx="3" fill="var(--mk-paper)"/><rect x="38" y="62" width="48" height="4" fill="var(--mk-accent)"/><rect x="38" y="70" width="32" height="3" fill="var(--mk-ink)" opacity=".6"/>' +
+          Array.from({ length: 9 }, (_, i) => '<rect x="' + (22 + i * 10) + '" y="2" width="4" height="16" rx="2" fill="var(--mk-ink)"/>').join('') + '</svg>' +
+        '<div class="mk-txt"><small>NEW THIS SEASON</small><h3>The Spiral Notebook</h3><p>Eighty pages of good paper, a sturdy coil and a cover that takes a beating. Made for lists, sketches and score sheets.</p>' +
+          '<div class="mk-price">$9.99 <span>USD</span></div><div class="mk-btns"><span class="mk-buy">ORDER A COPY</span><span class="mk-more">FREE SAMPLE</span></div></div></div>' +
+        '<div class="mk-steps"><div><em>1</em><b>Open it</b><span>Flip to a clean page.</span></div><div><em>2</em><b>Write</b><span>Pencil or pen.</span></div><div><em>3</em><b>Keep it</b><span>Fits in a bag.</span></div></div>' +
+        '<div class="mk-foot">NOTEBOOK CO. &middot; THEGAMEBUREAU.COM</div></div>' +
+        '<p class="ad-help">Main: top bar, headings, cover. Accent: highlights and the order button. Paper: page background. Ink: text and lines.</p>';
       renderPreview();
       return;
     }
@@ -285,17 +292,9 @@
     $('#ad-nb-prev').disabled = nbAt === 0; $('#ad-nb-next').disabled = nbAt === last;
   }
   function renderColorsPreview() {
-    const web = $('#ad-pv-web'), fr = $('#ad-pv-front'), ins = $('#ad-pv-inside'), bk = $('#ad-pv-back');
-    if (!web) return;
-    const shells = GH.shells(FOLDER, draft.game);
-    // The game page at desktop width, shrunk to fit the column.
-    const box = web.parentElement, W = 1200, k = box.clientWidth / W;
-    web.style.width = W + 'px'; web.style.height = (box.clientHeight / k) + 'px'; web.style.transform = 'scale(' + k + ')';
-    web.srcdoc = pvDoc(shells['index.html'], '');
-    whenLaid(fr, () => nbGo(nbAt)); fr.srcdoc = pvDoc(draft.cover, 'layout=front');
-    whenLaid(bk, () => nbGo(nbAt)); bk.srcdoc = pvDoc(draft.cover, 'layout=back');
-    whenLaid(ins, d => { nbPages = [...d.querySelectorAll('.flow, .page')]; nbGo(nbAt); }); ins.srcdoc = pvDoc(draft.contents, 'bleed=0');
-    nbGo(nbAt);
+    const m = $('#ad-mock'); if (!m) return;
+    const b = Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, draft.game.brand || {});
+    ['color', 'accent', 'paper', 'ink'].forEach(k => m.style.setProperty('--mk-' + k, b[k]));
   }
   function renderPreview() {
     if (tab === 'colors') return renderColorsPreview();
@@ -898,7 +897,7 @@
     if (!colorsAtStart) colorsAtStart = Object.assign({}, b);
     const one = (k, l, h) => '<label class="ad-color"><input type="color" data-color="' + k + '" value="' + esc(b[k]) + '"><span><b>' + l + '</b><small>' + h + '</small><input type="text" data-hex="' + k + '" value="' + esc(b[k]) + '" maxlength="7" spellcheck="false"></span></label>';
     p.innerHTML = '<div class="ad-colors-head"><h2>Colors</h2><div class="nb-row ad-nevermind"><button type="button" class="nb-btn" id="ad-nevermind" title="Put back the colours from when you opened this tab" hidden>NEVER MIND</button></div></div><p class="ad-lede">The four colors used for the game notebook website and the game notebook itself.</p>' +
-      '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Web page background and the cover. Inside pages always print on white.') + one('ink', 'Ink', 'Text and lines') + '</div>' +
+      '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Web page background and the cover. Notebook pages always print on white regardless of this Paper color setting.') + one('ink', 'Ink', 'Text and lines') + '</div>' +
       '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>';
     const setColor = (k, v) => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; b[k] = v.toUpperCase(); p.querySelector('[data-color="' + k + '"]').value = v; p.querySelector('[data-hex="' + k + '"]').value = b[k]; persist(); };
     p.querySelectorAll('[data-color]').forEach(el => { el.oninput = () => setColor(el.dataset.color, el.value); });
