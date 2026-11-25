@@ -130,7 +130,7 @@
       '<button class="nb-btn ad-discard" id="ad-discard" type="button" title="Throw away changes" hidden>DISCARD</button>' +
       '<button class="nb-btn" id="ad-savedraft" type="button" title="Keep it on GitHub so any browser can open it. Not on the site yet.">SAVE</button>' +
       '<button class="nb-btn solid" id="ad-publish" type="button" title="Put it live on thegamebureau.com">PUBLISH</button></div></div>' +
-      '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
+      '<div class="ad-bar" id="ad-bar" role="status"></div><div class="ad-keywarn" id="ad-keywarn" hidden></div></header>' +
       '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>').join('') +
       '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
@@ -139,6 +139,8 @@
     $('#ad-savedraft').onclick = () => saveDraft();
     $('#ad-publish').onclick = () => save();
     $('#ad-discard').onclick = askDiscard;
+    keyWarn();
+    document.addEventListener('nb-key-rejected', () => setTimeout(keyWarn, 0));
   }
 
   function updateBar(msg, kind) {
@@ -160,6 +162,19 @@
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
+  // The GitHub key: a strip under the title bar when it has expired or expires within 14 days.
+  function keyWarn() {
+    const el = $('#ad-keywarn'); if (!el) return;
+    const n = GH.token() ? GH.daysLeft() : null;
+    const when = GH.expires() ? new Date(GH.expires() + 'T12:00').toLocaleDateString([], { dateStyle: 'long' }) : '';
+    let msg = '';
+    if (GH.token() && GH.rejected) msg = 'GitHub no longer accepts this browser\'s key, so SAVE and PUBLISH won\'t work. It has probably expired.';
+    else if (n != null && n < 0) msg = 'The GitHub key for this browser expired on ' + esc(when) + ', so SAVE and PUBLISH won\'t work.';
+    else if (n != null && n <= 14) msg = 'The GitHub key for this browser expires ' + (n === 0 ? 'today' : 'on ' + esc(when) + ', in ' + n + ' day' + (n === 1 ? '' : 's')) + '.';
+    el.hidden = !msg;
+    el.innerHTML = msg ? msg + ' <a href="#connect">Set up a new key in Connect</a>.' : '';
+  }
+
   // A message that clears itself after ms, unless another message has replaced it by then.
   function flash(msg, kind, ms) {
     updateBar(msg, kind);
@@ -174,7 +189,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => updateBar()), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
