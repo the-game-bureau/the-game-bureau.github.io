@@ -1517,7 +1517,7 @@
   let ideas = null, ideaEdit = null; // ideaEdit: id being edited, 'new' for a new idea
   async function fetchIdeas() { const l = await GH.readIdeas(); return l || IDEAS_SEED.slice(); }
   function tabIdeas(p) {
-    p.innerHTML = '<h2>Ideas</h2><p class="ad-lede">Ideas for future notebook games. They are kept on GitHub but never on the website, so any connected browser sees the same list.</p><div id="ad-ideas"><p class="ad-help">Loading…</p></div>';
+    p.innerHTML = '<h2>Ideas</h2><p class="ad-lede">Ideas for future notebook games. These ideas are for this game or any other aspect of the business.</p><div id="ad-ideas"><p class="ad-help">Loading…</p></div>';
     if (!GH.token()) { $('#ad-ideas').innerHTML = '<p class="ad-help">Connect to GitHub in the Connect tab to see and add ideas.</p>'; return; }
     if (ideas) { drawIdeas(); return; }
     fetchIdeas().then(l => { ideas = l; drawIdeas(); }).catch(e => { const b = $('#ad-ideas'); if (b) b.innerHTML = '<p class="ad-help">Could not read the ideas: ' + esc(e.message) + '</p>'; });
