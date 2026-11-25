@@ -120,7 +120,7 @@
       // A fresh notebook from the template: titled Galaxy and a random number (Kevin's default),
       // with the address to match, and nothing ticked. bindNew picks another number if it's taken.
       const n = galaxyNumber();
-      Object.assign(draft.game, { slug: 'galaxy-' + n, title: 'Galaxy ' + n, shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
+      Object.assign(draft.game, { slug: 'galaxy-' + n, title: 'Galaxy ' + n, subtitle: 'You are lost in space!', shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon; delete draft.game.slugTouched;
@@ -690,7 +690,7 @@
   async function createNew() {
     const g = draft.game, slug = (g.slug || '').trim();
     if (!GH.token()) { show('connect'); updateBar('Saving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
-    if (!(g.title || '').trim()) { show('content'); updateBar('Give the notebook a title first.', 'bad'); return; }
+    if (needs(g)) { show('content'); updateBar(needs(g), 'bad'); return; }
     const bad = await freshSlugProblem(slug);
     if (bad) { show('content'); updateBar(esc(bad), 'bad'); return; }
     busy(true);
@@ -756,7 +756,7 @@
 
   // The game page itself, drawn from the draft in a frame, with its words editable in place.
   // Things the page doesn't show (web address, dates, order link, share message) sit below it.
-  const PH = { title: 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
+  const PH = { title: 'Title', subtitle: 'Subtitle', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
   let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
   // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
   function siteCopy() {
@@ -1453,9 +1453,13 @@
     dc.disabled = working;
   }
   const busy = on => { working = on; refreshButtons(); };
+  // Title and subtitle are required (Kevin). Says what's missing, or '' when both are there.
+  const needs = g => !String(g.title || '').trim() ? 'Give the notebook a title first. Click the title on the Website tab.'
+    : !String(g.subtitle || '').trim() ? 'Give the notebook a subtitle first. Click under the title on the Website tab.' : '';
   async function saveDraft(force) {
     const g = draft.game, key = IS_NEW ? (g.slug || '').trim() : FOLDER;
     if (!GH.token()) { updateBar('Saving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
+    if (needs(g)) { show('content'); updateBar(needs(g), 'bad'); return; }
     if (IS_NEW) { const bad = await freshSlugProblem(key); if (bad) { show('content'); updateBar(esc(bad), 'bad'); return; } }
     busy(true);
     if (force !== true) {
@@ -1515,7 +1519,7 @@
     if (isTemplate && !allowTemplate) return;
     if (!GH.token()) { updateBar('Saving needs the one-time setup first: <a href="/studio/#connect">Connect in the Notebook Studio</a>.', 'bad'); return; }
     const g = draft.game;
-    if (!g.title) { show('content'); updateBar('Give the notebook a title first.', 'bad'); return; }
+    if (needs(g)) { show('content'); updateBar(needs(g), 'bad'); return; }
     busy(true);
     if (force !== true) {
       updateBar('Checking for newer versions…');
