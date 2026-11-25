@@ -8,7 +8,7 @@
  *   cover.html?layout=spread&spine=0.18   wraparound: back, spine, front, with bleed
  *   cover.html?layout=front | layout=back  one panel at trim size, no bleed
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
- *   cover.html?layout=front&stamp=sampler  front cover with a SAMPLER stamp (the free sampler)
+ *   cover.html?layout=front&stamp=sampler  the free sampler's own low-ink front cover, stamped SAMPLER
  *   contents.html?sampler=1                legacy: the first pages, for notebooks without sampler.html
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
@@ -103,10 +103,28 @@
       return p;
     };
 
+    // ?stamp=sampler: the free sampler gets its own front cover, light on ink because people print
+    // it at home: white paper with colour only in the lettering and a few accents. cover.html can
+    // design its own with a .cover-sampler element; otherwise this one is used.
+    const samplerCover = layout === 'front' && q.get('stamp') === 'sampler';
+    let sc = document.querySelector('.cover-sampler');
+    if (samplerCover && !sc) {
+      const e = NB.esc, url = g.url || 'thegamebureau.com' + NB.folder().replace(/\/$/, '');
+      sc = document.createElement('div');
+      sc.className = 'cover-sampler pk-lowink';
+      sc.innerHTML = '<div><div class="kick">' + e(g.kicker || 'The Game Bureau presents') + '</div><h1>' + e(g.title) + '</h1>' +
+        (g.subtitle ? '<div class="sub">' + e(g.subtitle) + '</div>' : '') + '</div>' +
+        '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>' +
+        '<div class="foot">' + (g.tagline ? '<p>' + e(g.tagline) + '</p>' : '') + '<b>Free sampler. The whole notebook is at ' + e(url) + '</b></div>';
+      document.body.appendChild(sc);
+    }
+    if (sc && !samplerCover) sc.remove();
+
     let PW, PH, label;
     if (layout === 'front' || layout === 'back') {
       PW = W; PH = H;
-      const el = layout === 'front' ? front : back;
+      const el = samplerCover ? sc : layout === 'front' ? front : back;
+      if (samplerCover && front) front.remove();
       const pn = panel(el, 'pk-' + layout, [m, m, m, m]);
       // ?stamp=sampler: the free sampler's front cover gets a rubber stamp across it.
       if (layout === 'front' && q.get('stamp') === 'sampler') pn.insertAdjacentHTML('beforeend', '<div class="pk-stamp" aria-hidden="true"><span>SAMPLER</span></div>');
