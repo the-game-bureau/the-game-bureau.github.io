@@ -314,15 +314,20 @@
     const list = steps();
     const n = list.filter(x => x.done).length;
     p.innerHTML = '<h2>Checklist</h2><p class="ad-lede">' + n + ' of ' + list.length + ' steps done.</p>' +
-      '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it; some tick themselves when the editor sees the work, and you can untick them.</p>' +
-      '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
-        (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
+      '<ol class="ad-steps">' + list.map(x => {
+        // Every step gets a circle. Hovering it says who ticks it: you, the editor, or both.
+        const kind = x.manual ? ('auto' in x ? 'Manual and automatic' : 'Manual') : 'Automatic';
+        const mark = x.done ? '&#10003;' : '';
+        return '<li class="' + (x.done ? 'done' : '') + '">' +
+        (x.manual ? '<button type="button" class="ad-tick manual" data-step="' + x.k + '" data-kind="' + kind + '" aria-pressed="' + x.done + '" aria-label="' + esc(x.t) + ': ' + kind.toLowerCase() + ', click to ' + (x.done ? 'untick' : 'tick') + '">' + mark + '</button>'
+          : '<span class="ad-tick" tabindex="0" data-kind="' + kind + '" role="img" aria-label="' + (x.done ? 'Done' : 'Not done') + ', automatic">' + mark + '</span>') +
         '<div><b>' + esc(x.t) + '</b>' + (x.byEditor ? ' <small class="ad-autotick">ticked for you</small>' : '') + '<p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
-        (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
+        (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>';
+      }).join('') + '</ol>' +
       (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you save or publish it.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
-    p.querySelectorAll('[data-step]').forEach(c => { c.onchange = () => { draft.game.setup[c.dataset.step] = c.checked; persist(); show('checklist'); }; });
+    p.querySelectorAll('[data-step]').forEach(c => { c.onclick = () => { draft.game.setup[c.dataset.step] = c.getAttribute('aria-pressed') !== 'true'; persist(); show('checklist'); }; });
   }
 
   // ---------- tab: content ----------
