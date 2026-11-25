@@ -618,6 +618,58 @@
     inp.addEventListener('input', () => { draft.game.slugTouched = true; });
     check(); loadTaken().then(check);
   }
+  // ---------- changing an existing notebook's web address ----------
+  // Moves every file of the game (pages, photos, PDFs) to the new folder in one commit. The old
+  // address keeps two small pages that forward to the new one, so shared links keep working, and
+  // game.json remembers it (formerAddresses) so History still shows the versions from before.
+  function bindMove(p) {
+    const open = p.querySelector('#ad-mv-open'); if (!open) return;
+    const box = p.querySelector('#ad-mv'), inp = p.querySelector('#f-newslug'), msg = p.querySelector('#ad-mv-msg'), go = p.querySelector('#ad-mv-go');
+    const keep = msg.innerHTML;
+    const check = () => {
+      const v = inp.value.trim(), bad = v === FOLDER ? 'Type the new address.' : slugProblem(v);
+      msg.textContent = bad || 'The game page will move to thegamebureau.com/' + v + '/'; msg.style.color = bad && v !== FOLDER ? '#B42318' : ''; go.disabled = !!bad || working;
+    };
+    open.onclick = () => { box.hidden = false; open.hidden = true; inp.focus(); inp.select(); check(); loadTaken().then(check); };
+    p.querySelector('#ad-mv-x').onclick = () => { box.hidden = true; open.hidden = false; msg.innerHTML = keep; msg.style.color = ''; };
+    inp.oninput = () => { inp.value = inp.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'); check(); };
+    go.onclick = () => {
+      const v = inp.value.trim();
+      if (changed() || serverKey) { updateBar('SAVE &amp; PUBLISH (or DISCARD) your changes first, then change the address.', 'bad'); return; }
+      askBar('Move ' + esc(saved.game.title || FOLDER) + ' from <b>thegamebureau.com/' + esc(FOLDER) + '/</b> to <b>thegamebureau.com/' + esc(v) + '/</b>? It goes live right away. Links to the old address forward to the new one, and the PDFs rebuild with the new address on them.',
+        [{ label: 'MOVE IT', solid: true, fn: () => moveTo(v) }]);
+    };
+  }
+  const forwardPage = (to, title) => '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>' + esc(title) + ' has moved</title>\n<meta name="robots" content="noindex">\n<link rel="canonical" href="' + esc(to) + '">\n' +
+    '<meta http-equiv="refresh" content="0;url=' + esc(to) + '">\n<script>location.replace(' + JSON.stringify(to) + ' + location.search + location.hash)</script>\n</head>\n<body><p>' + esc(title) + ' has moved to <a href="' + esc(to) + '">' + esc(to) + '</a>.</p></body>\n</html>\n';
+  async function moveTo(to) {
+    if (!GH.token()) { updateBar('Moving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
+    if (changed() || serverKey) { updateBar('SAVE &amp; PUBLISH (or DISCARD) your changes first, then change the address.', 'bad'); return; }
+    busy(true); updateBar('Checking thegamebureau.com/' + esc(to) + '/ is free…');
+    const bad = await freshSlugProblem(to);
+    if (bad) { busy(false); updateBar(esc(bad), 'bad'); return; }
+    try {
+      const all = await GH.listFiles(), from = FOLDER + '/';
+      const mine = all.filter(f => f.path.startsWith(from));
+      const g = clone(saved.game); delete g.slugTouched;
+      g.slug = to; g.formerAddresses = [FOLDER].concat(g.formerAddresses || []).filter((x, i, a) => x !== to && a.indexOf(x) === i);
+      const shells = GH.shells(to, g), out = [];
+      mine.forEach(f => {
+        const rel = f.path.slice(from.length);
+        if (rel !== 'game.json' && !shells[rel]) out.push({ path: to + '/' + rel, sha: f.sha });
+        if (rel !== 'index.html' && rel !== 'rules.html') out.push({ path: f.path, delete: true });
+      });
+      out.push({ path: to + '/game.json', text: gameText(g) });
+      Object.entries(shells).forEach(([f, t]) => out.push({ path: to + '/' + f, text: t }));
+      out.push({ path: from + 'index.html', text: forwardPage('/' + to + '/', g.title) }, { path: from + 'rules.html', text: forwardPage('/' + to + '/rules.html', g.title) });
+      const commit = await GH.commit(out, 'Move ' + g.title + ' from /' + FOLDER + '/ to /' + to + '/', m => updateBar(esc(m)), null, { newFolder: to });
+      clearDraft(); leaving = true;
+      try { sessionStorage.setItem(PDFWATCH, JSON.stringify({ sha: commit.sha, folder: to, t0: Date.now() })); } catch (e) { /* blocked */ }
+      updateBar('Moved. Opening it at its new address…', 'ok');
+      location.replace('/studio/?game=' + encodeURIComponent(to) + '#content');
+    } catch (e) { busy(false); updateBar('Not moved: ' + esc(e.message), 'bad'); }
+  }
+
   async function createNew() {
     const g = draft.game, slug = (g.slug || '').trim();
     if (!GH.token()) { show('connect'); updateBar('Saving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
@@ -692,7 +744,11 @@
       '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) +
       // The web address sits under the title: made from the title for a new notebook (editable), fixed once it exists.
       (IS_NEW ? '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>'
-        : '<div class="ad-field"><span>Web address</span><span class="st-url is-fixed"><b>thegamebureau.com/</b><a href="' + esc(BASE) + '" target="_blank" rel="noopener">' + esc(FOLDER) + '/</a></span><small>Set when the notebook was created.</small></div>') +
+        : '<div class="ad-field"><span>Web address</span><span class="st-url is-fixed"><b>thegamebureau.com/</b><a href="' + esc(BASE) + '" target="_blank" rel="noopener">' + esc(FOLDER) + '/</a>' +
+          (isTemplate || FOLDER.includes('/') ? '' : '<button type="button" class="nb-btn ad-mv-open" id="ad-mv-open">CHANGE</button>') + '</span>' +
+          '<div class="ad-mv" id="ad-mv" hidden><span class="st-url"><b>thegamebureau.com/</b><input id="f-newslug" value="' + esc(FOLDER) + '" autocomplete="off" spellcheck="false"></span>' +
+          '<div class="nb-row"><button type="button" class="nb-btn solid" id="ad-mv-go">MOVE TO THIS ADDRESS</button><button type="button" class="nb-btn" id="ad-mv-x">CANCEL</button></div></div>' +
+          '<small id="ad-mv-msg">' + ((g.formerAddresses || []).length ? 'Old address' + (g.formerAddresses.length > 1 ? 'es' : '') + ' ' + g.formerAddresses.map(x => 'thegamebureau.com/' + esc(x) + '/').join(', ') + ' forward here.' : 'The game page lives here.') + '</small></div>') +
       field('subtitle', 'Subtitle', { ph: 'Optional' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
@@ -711,7 +767,7 @@
       field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) + '</fieldset>' +
       '<fieldset><legend>Other headings</legend>' + field('videoHeading', 'Video section heading') + field('rulesBlurb', 'Rules box text', { area: true, rows: 2 }) + '</fieldset>';
     bindFields(p);
-    if (IS_NEW) bindNew(p);
+    if (IS_NEW) bindNew(p); else bindMove(p);
     sharePreview(); p.addEventListener('input', sharePreview);
     annStatus(); p.addEventListener('input', annStatus); p.addEventListener('change', annStatus);
     
@@ -1566,26 +1622,31 @@
   function tabHistory(p) {
     if (IS_NEW) { p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version of the notebook shows here once it is published.</p>'; return; }
     p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version, newest first. LOAD puts that version back in the editor: words, colours, rules, cover, inside pages and photos. The site does not change until you SAVE &amp; PUBLISH it.</p><div id="ad-hist"><p class="ad-help">Loading…</p></div>';
-    GH.history(FOLDER).then(list => {
+    // Versions from before a change of web address are found under the old folder.
+    const places = [FOLDER].concat(saved.game.formerAddresses || []);
+    Promise.all(places.map(f => GH.history(f).then(l => (l || []).map(c => Object.assign(c, { folder: f }))).catch(() => []))).then(lists => {
       const box = $('#ad-hist'); if (!box) return;
-      const rows = (list || []).filter(c => !/^Rebuild notebook PDFs/.test(c.commit.message));
+      const seen = new Set(), list = [].concat(...lists).filter(c => !seen.has(c.sha) && seen.add(c.sha)).sort((a, b) => new Date(b.commit.author.date) - new Date(a.commit.author.date));
+      const rows = list.filter(c => !/^Rebuild notebook PDFs/.test(c.commit.message) && !(c.folder !== FOLDER && /^Move .* to \//.test(c.commit.message)));
       if (!rows.length) { box.innerHTML = '<p class="ad-empty">No published versions found.</p>'; return; }
       box.innerHTML = '<ol class="ad-hist">' + rows.map((c, i) => {
         const at = when(c.commit.author.date), who = (c.author && c.author.login) || c.commit.author.name;
         return '<li><div><b>' + esc(c.commit.message.split('\n')[0]) + '</b><small>' + esc(at) + ' · ' + esc(who) + ' · <a href="' + esc(c.html_url) + '" target="_blank" rel="noopener">' + esc(c.sha.slice(0, 7)) + '</a></small></div>' +
-          (i === 0 ? '<span class="ad-hist-live">LIVE NOW</span>' : '<button type="button" class="nb-btn" data-load="' + esc(c.sha) + '" data-when="' + esc(at) + '">LOAD</button>') + '</li>';
+          (i === 0 ? '<span class="ad-hist-live">LIVE NOW</span>' : '<button type="button" class="nb-btn" data-load="' + esc(c.sha) + '" data-when="' + esc(at) + '" data-folder="' + esc(c.folder) + '">LOAD</button>') + '</li>';
       }).join('') + '</ol>';
-      box.querySelectorAll('[data-load]').forEach(b => { b.onclick = () => loadVersion(b.dataset.load, b.dataset.when); });
+      box.querySelectorAll('[data-load]').forEach(b => { b.onclick = () => loadVersion(b.dataset.load, b.dataset.when, b.dataset.folder); });
     }).catch(e => { const box = $('#ad-hist'); if (box) box.innerHTML = '<p class="ad-help">Could not read the history: ' + esc(e.message) + '</p>'; });
   }
-  async function loadVersion(sha, label) {
+  async function loadVersion(sha, label, from) {
+    from = from || FOLDER; // the folder the game lived in at that version
     if (unsaved() && !confirm('Load the version from ' + label + '? Changes you have not saved will be replaced.')) return;
     busy(true); updateBar('Loading the version from ' + esc(label) + '…');
     try {
-      const at = k => GH.readTextAt(FOLDER + '/' + FILES[k], sha);
+      const at = k => GH.readTextAt(from + '/' + FILES[k], sha);
       const [game, rules, cover, contents, sampler] = await Promise.all([at('game'), at('rules'), at('cover'), at('contents'), at('sampler')]);
       if (!game) throw new Error('that version has no game.json');
       const g = JSON.parse(game);
+      if (from !== FOLDER) { g.slug = saved.game.slug; g.formerAddresses = saved.game.formerAddresses; } // keep today's address
       g.setup = g.setup || {}; g.media = g.media || [];
       const next = { game: g, rules: rules != null ? rules : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents, sampler: sampler != null ? sampler : contents != null ? samplerFrom(contents) : saved.sampler };
       // Photos (and the tab icon) deleted since then come back from that version.
@@ -1594,8 +1655,9 @@
       const have = new Set(nowFiles.map(f => f.path));
       const type = f => /\.png$/i.test(f) ? 'image/png' : /\.ico$/i.test(f) ? 'image/x-icon' : /\.webp$/i.test(f) ? 'image/webp' : /\.gif$/i.test(f) ? 'image/gif' : /\.svg$/i.test(f) ? 'image/svg+xml' : 'image/jpeg';
       for (const f of thenFiles) {
-        if (!f.path.startsWith(FOLDER + '/') || have.has(f.path)) continue;
-        const rel = f.path.slice(FOLDER.length + 1);
+        if (!f.path.startsWith(from + '/')) continue;
+        const rel = f.path.slice(from.length + 1);
+        if (have.has(FOLDER + '/' + rel)) continue;
         if (!/^(images\/[^/]+|favicon\.ico)$/.test(rel) || !used.includes(rel)) continue;
         const b64 = await GH.readBlobB64(f.sha);
         pending[rel] = 'data:' + type(rel) + ';base64,' + b64; pendingB64[rel] = b64;
