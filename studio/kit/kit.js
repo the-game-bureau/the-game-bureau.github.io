@@ -256,11 +256,10 @@
       '<h1>' + esc(g.title) + (g.subtitle ? '<span>' + esc(g.subtitle) + '</span>' : '') + '</h1>' +
       (g.tagline ? '<p class="nb-tag">' + esc(g.tagline) + '</p>' : '') +
       (g.price ? '<div class="nb-price"><b>' + esc(g.price) + '</b><span>' + esc(g.currency || 'USD') + '</span></div>' : '') +
-      '<div class="nb-buy">' +
+      (NB.orderURL(g, 1) ? '<div class="nb-buy">' +
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
-      '</div>' +
-      '<p class="nb-note" id="nb-order-note" role="status" hidden>' + esc(order.comingSoon || 'Printed copies are coming soon. In the meantime, try the free sampler.') + '</p>' +
+      '</div>' : '') +
       '<div class="nb-row">' +
       '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
@@ -324,16 +323,17 @@
 
     // quantity, order, share
     const qty = document.getElementById('nb-qty');
-    const clamp = v => Math.min(50, Math.max(1, Math.round(+v) || 1));
-    document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); }; });
-    qty.onchange = () => { qty.value = clamp(qty.value); };
-    if (!/buy\.stripe\.com/.test(order.url || '') && order.url) document.querySelector('.nb-qty').hidden = true;
-    document.getElementById('nb-order').onclick = e => {
-      e.preventDefault();
-      const u = NB.orderURL(g, qty.value);
-      if (u) { location.href = u; return; }
-      document.getElementById('nb-order-note').hidden = false;
-    };
+    if (qty) {
+      const clamp = v => Math.min(50, Math.max(1, Math.round(+v) || 1));
+      document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); }; });
+      qty.onchange = () => { qty.value = clamp(qty.value); };
+      if (!/buy\.stripe\.com/.test(order.url || '') && order.url) document.querySelector('.nb-qty').hidden = true;
+      document.getElementById('nb-order').onclick = e => {
+        e.preventDefault();
+        const u = NB.orderURL(g, qty.value);
+        if (u) location.href = u;
+      };
+    }
     bindShare(g);
   };
 
