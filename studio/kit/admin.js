@@ -1256,8 +1256,7 @@
   function tabMedia(p) {
     const m = draft.game.media;
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt=""' + NB.focusStyle(x) + '>' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
-    p.innerHTML = '<h2>Media</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
-      (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
+    p.innerHTML = '<h2>Media</h2><p class="ad-lede">Photos and videos used on the website, and in the notebook.</p>' +
       (m.some(x => x && x.placeholder) ? '<div class="ad-warn ad-ph-warn"><p><b>These are placeholders.</b> The pictures marked PLACEHOLDER show another company\'s notebook, and the video is the studio\'s sample. Replace them with photos of this game before you publish. They are never used for the cover or link previews.</p><button type="button" class="nb-btn" id="ad-ph-rm">REMOVE PLACEHOLDERS</button></div>' : '') +
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
