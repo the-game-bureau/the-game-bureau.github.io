@@ -115,7 +115,7 @@
     draft = clone(saved);
     if (IS_NEW) {
       // A fresh notebook from the template: no name or address yet, and nothing ticked.
-      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, media: [] });
+      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, media: clone(NB.PLACEHOLDER_MEDIA) });
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon; delete draft.game.slugTouched;
@@ -494,7 +494,7 @@
       { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
       { k: 'save', t: 'Publish', d: 'Click PUBLISH at the top. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
       { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each publish. Open each one and check it.', tab: 'pdfs', manual: true, auto: !IS_NEW && !!(build && build.built && lastPublish && new Date(build.built) >= new Date(lastPublish)) },
-      { k: 'media', t: 'Add photos and a video', d: 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
+      { k: 'media', t: 'Add photos and a video', d: (g.media || []).some(m => m && m.placeholder) ? 'The game page still shows placeholder pictures (another company\'s notebook). Replace them in Media before you publish.' : 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: !(g.media || []).some(m => m && m.placeholder) && (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
       { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + target().split('/').pop() + '.' + GH.SITE + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
@@ -691,7 +691,7 @@
     const box = $('#ad-share'); if (!box) return;
     const g = draft.game, slug = IS_NEW ? (g.slug || 'your-game') : FOLDER;
     const url = GH.SITE + '/' + slug + '/';
-    const photo = (g.media || []).find(m => m && m.type === 'image' && m.src);
+    const photo = (g.media || []).find(NB.realPhoto);
     const src = g.shareImage ? (pending[g.shareImage] || BASE + g.shareImage) : photo ? (pending[photo.src] || (/^(https?:|\/|data:)/.test(photo.src) ? photo.src : BASE + photo.src)) : IS_NEW ? '' : BASE + 'pdf/preview-1.jpg';
     const title = (g.title || 'Your game') + (g.subtitle ? ': ' + g.subtitle : '');
     const msg = g.shareText || (g.title && g.tagline ? g.title + ': ' + g.tagline : '');
@@ -1020,17 +1020,18 @@
       '<p class="ad-help">The little picture in the browser tab for the game and rules pages. Upload a <code>.ico</code> file (up to 200 KB). It is saved as <code>favicon.ico</code> in the game folder when you save.</p>';
   }
   // The link-preview picture: game.json shareImage if set, otherwise the first photo.
-  const shareSrc = () => { const g = draft.game, first = (g.media || []).find(x => x && x.type === 'image' && x.src); return g.shareImage || (first ? first.src : ''); };
+  const shareSrc = () => { const g = draft.game, first = (g.media || []).find(NB.realPhoto); return g.shareImage || (first ? first.src : ''); };
   function tabMedia(p) {
     const m = draft.game.media;
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt=""' + NB.focusStyle(x) + '>' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
     p.innerHTML = '<h2>Media</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
       (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
+      (m.some(x => x && x.placeholder) ? '<div class="ad-warn ad-ph-warn"><p><b>These are placeholders.</b> The pictures marked PLACEHOLDER show another company\'s notebook, and the video is the studio\'s sample. Replace them with photos of this game before you publish. They are never used for the cover or link previews.</p><button type="button" class="nb-btn" id="ad-ph-rm">REMOVE PLACEHOLDERS</button></div>' : '') +
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
-        '<small>' + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
+        '<small>' + (x.placeholder ? '<b class="ad-ph-tag">PLACEHOLDER</b> ' : '') + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
         '<div class="ad-mbtns">' + (x.type === 'image' ? '<button type="button" class="ad-fbtn" data-focus="' + i + '" title="Choose the spot to keep when this photo is cropped">FOCUS</button>' +
-          '<button type="button" class="ad-fbtn ad-sbtn" data-share="' + i + '" aria-pressed="' + (shareSrc() === x.src) + '" title="' + (shareSrc() === x.src ? 'This photo shows when the link is shared' : 'Show this photo when the link is shared') + '">' + (shareSrc() === x.src ? '&#10003; SHARE PICTURE' : 'SHARE PICTURE') + '</button>' : '') + '<button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
+          (x.placeholder ? '' : '<button type="button" class="ad-fbtn ad-sbtn" data-share="' + i + '" aria-pressed="' + (shareSrc() === x.src) + '" title="' + (shareSrc() === x.src ? 'This photo shows when the link is shared' : 'Show this photo when the link is shared') + '">' + (shareSrc() === x.src ? '&#10003; SHARE PICTURE' : 'SHARE PICTURE') + '</button>') : '') + '<button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
         : '<p class="ad-empty">No photos or videos yet.</p>') + '</div>' + autoBox() +
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
@@ -1063,7 +1064,7 @@
     };
     if ($('#ad-ico-rm')) $('#ad-ico-rm').onclick = () => { delete draft.game.favicon; delete pending['favicon.ico']; delete pendingB64['favicon.ico']; persist(); show('media'); };
     p.querySelectorAll('[data-share]').forEach(b => { b.onclick = () => {
-      const x = m[+b.dataset.share], first = m.find(y => y && y.type === 'image' && y.src);
+      const x = m[+b.dataset.share], first = m.find(NB.realPhoto);
       if (draft.game.shareImage === x.src || (!draft.game.shareImage && first === x)) delete draft.game.shareImage; // back to the first photo
       else if (first === x) delete draft.game.shareImage;
       else draft.game.shareImage = x.src;
@@ -1134,6 +1135,7 @@
       addPhotos(files);
     };
     $('#ad-up').onchange = e => addPhotos([...e.target.files]);
+    if ($('#ad-ph-rm')) $('#ad-ph-rm').onclick = () => { draft.game.media = m.filter(x => !(x && x.placeholder)); persist(); show('media'); };
     async function addPhotos(list) {
       for (const file of list) {
         try {

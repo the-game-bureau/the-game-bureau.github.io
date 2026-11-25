@@ -173,6 +173,16 @@
 
   // ---------- media (photos, YouTube, Vimeo, video files) ----------
   // A photo's focus spot ([x, y] in percent, set in the studio): where to keep it when it is cropped.
+  // A new notebook starts with these stand-in photos and video (Kevin's). They are marked placeholder:true:
+  // never used for the cover picture or link previews, and the studio warns until they are replaced.
+  NB.PLACEHOLDER_MEDIA = [
+    { type: 'image', src: '/studio/assets/placeholder-game-notebook.webp', alt: 'Placeholder game notebook', placeholder: true },
+    { type: 'image', src: '/studio/assets/placeholder-open.webp', alt: 'Placeholder open', placeholder: true },
+    { type: 'image', src: '/studio/assets/placeholder-with-pencil.webp', alt: 'Placeholder with pencil', placeholder: true },
+    { type: 'video', src: '/studio/assets/notebook-open.mp4', alt: 'Placeholder video', placeholder: true }
+  ];
+  // A photo of the game itself (not a placeholder), for the cover picture and link previews.
+  NB.realPhoto = m => !!(m && (m.type === 'image' || !m.type) && m.src && !m.placeholder);
   NB.focusStyle = m => m && Array.isArray(m.focus) && m.focus.length === 2 ? ' style="object-position:' + (+m.focus[0]) + '% ' + (+m.focus[1]) + '%"' : '';
   NB.mediaHTML = function (m, opts = {}) {
     if (m.type === 'youtube' && m.id) return '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(m.id) + '" title="' + esc(m.alt || 'Video') + '" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>';
