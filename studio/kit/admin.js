@@ -29,7 +29,7 @@
   // Plain /studio/ starts with only Connect and Notebooks open; the other tabs wait until a
   // notebook is chosen there (an existing one, or New notebook, which opens /studio/?new).
   const CHOSEN = !IS_NEW || new URLSearchParams(location.search).has('new');
-  const OPEN_TABS = ['connect', 'games'];
+  const OPEN_TABS = ['connect', 'games', 'ideas'];
   const locked = t => !CHOSEN && !OPEN_TABS.includes(t);
   const NEWKEY = 'nb-draft:/studio/new/';
   const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && typeof d.start === 'string' && /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTER; };
@@ -41,7 +41,7 @@
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
+  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -189,7 +189,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -200,7 +200,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, pdfs: null, content: null, history: null,
+      connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
@@ -966,6 +966,71 @@
       }
       if (run) pdfChip(/queued|waiting|pending|requested/.test(run.status) ? 'PDFs waiting to build…' : 'PDFs building… about 3 min');
       await sleep(10000);
+    }
+  }
+
+  // ---------- tab: ideas ----------
+  // Ideas for future games, shared by every connected browser (ideas.json on studio-drafts).
+  // Each change re-reads the list first, so two browsers adding ideas don't lose each other's.
+  const IDEAS_SEED = [{ id: 'reveal-device', title: 'Reveal-one-at-a-time device', at: '2026-11-24T12:00:00Z', by: '',
+    notes: 'A printable device that shows only one item at a time.\n\n- **Dial version:** a paper sleeve with a window. Dial a letter and a number, and the window reveals what belongs at that coordinate.\n- **Punch version:** punch a hole at a coordinate on the top sheet, and the answer shows through from the paper underneath.' }];
+  let ideas = null, ideaEdit = null; // ideaEdit: id being edited, 'new' for a new idea
+  async function fetchIdeas() { const l = await GH.readIdeas(); return l || IDEAS_SEED.slice(); }
+  function tabIdeas(p) {
+    p.innerHTML = '<h2>Ideas</h2><p class="ad-lede">Ideas for future notebook games. They are kept on GitHub but never on the website, so any connected browser sees the same list.</p><div id="ad-ideas"><p class="ad-help">Loading…</p></div>';
+    if (!GH.token()) { $('#ad-ideas').innerHTML = '<p class="ad-help">Connect to GitHub in the Connect tab to see and add ideas.</p>'; return; }
+    if (ideas) { drawIdeas(); return; }
+    fetchIdeas().then(l => { ideas = l; drawIdeas(); }).catch(e => { const b = $('#ad-ideas'); if (b) b.innerHTML = '<p class="ad-help">Could not read the ideas: ' + esc(e.message) + '</p>'; });
+  }
+  function ideaForm(x) {
+    return '<form class="ad-idea-form" id="ad-idea-form"><label>Idea<input id="ad-idea-title" value="' + esc(x ? x.title : '') + '" placeholder="A short name for it" required></label>' +
+      '<label>Notes<textarea id="ad-idea-notes" rows="6" placeholder="How it plays, what makes it fun, what it needs. - for bullet points, **bold** for bold.">' + esc(x ? x.notes : '') + '</textarea></label>' +
+      '<div class="ad-idea-btns"><button class="nb-btn solid" type="submit">' + (x ? 'SAVE IDEA' : 'ADD IDEA') + '</button><button class="nb-btn" type="button" id="ad-idea-cancel">CANCEL</button></div><p class="ad-help" id="ad-idea-msg"></p></form>';
+  }
+  function drawIdeas() {
+    const box = $('#ad-ideas'); if (!box) return;
+    const day = iso => iso ? new Date(iso).toLocaleDateString([], { dateStyle: 'medium' }) : '';
+    box.innerHTML = (ideaEdit === 'new' ? ideaForm(null) : '<p><button class="nb-btn solid" type="button" id="ad-idea-add">ADD AN IDEA</button></p>') +
+      (ideas.length ? '<ol class="ad-ideas">' + ideas.map(x => ideaEdit === x.id ? '<li>' + ideaForm(x) + '</li>' :
+        '<li><div class="ad-idea-head"><h3>' + esc(x.title) + '</h3><span><button type="button" class="ad-link" data-idea-edit="' + esc(x.id) + '">Edit</button> <button type="button" class="ad-link" data-idea-del="' + esc(x.id) + '">Delete</button></span></div>' +
+        (x.notes ? '<div class="ad-idea-notes">' + NB.md(x.notes) + '</div>' : '') +
+        '<small>Added ' + esc(day(x.at)) + (x.by ? ' by ' + esc(x.by) : '') + (x.edited ? ' · edited ' + esc(day(x.edited)) : '') + '</small></li>').join('') + '</ol>'
+        : '<p class="ad-empty">No ideas yet.</p>');
+    const add = $('#ad-idea-add'); if (add) add.onclick = () => { ideaEdit = 'new'; drawIdeas(); $('#ad-idea-title').focus(); };
+    box.querySelectorAll('[data-idea-edit]').forEach(b => { b.onclick = () => { ideaEdit = b.dataset.ideaEdit; drawIdeas(); $('#ad-idea-title').focus(); }; });
+    box.querySelectorAll('[data-idea-del]').forEach(b => { b.onclick = () => {
+      const x = ideas.find(i => i.id === b.dataset.ideaDel);
+      if (x && confirm('Delete the idea "' + x.title + '"?')) changeIdeas(l => l.filter(i => i.id !== x.id), 'Delete idea: ' + x.title);
+    }; });
+    const f = $('#ad-idea-form'); if (!f) return;
+    $('#ad-idea-cancel').onclick = () => { ideaEdit = null; drawIdeas(); };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const title = $('#ad-idea-title').value.trim(), notes = $('#ad-idea-notes').value.trim();
+      if (!title) return;
+      const now = new Date().toISOString();
+      if (ideaEdit === 'new') {
+        const by = await GH.login();
+        const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Date.now().toString(36);
+        changeIdeas(l => [{ id, title, notes, at: now, by }].concat(l), 'Add idea: ' + title);
+      } else {
+        const id = ideaEdit;
+        changeIdeas(l => l.map(i => i.id === id ? Object.assign({}, i, { title, notes, edited: now }) : i), 'Edit idea: ' + title);
+      }
+    };
+  }
+  async function changeIdeas(fn, message) {
+    const msg = $('#ad-idea-msg');
+    document.querySelectorAll('#ad-ideas button').forEach(b => { b.disabled = true; });
+    if (msg) msg.textContent = 'Saving…';
+    try {
+      const next = fn(await fetchIdeas());
+      await GH.writeIdeas(next, message);
+      ideas = next; ideaEdit = null; drawIdeas();
+      flash('Saved the ideas.', 'ok');
+    } catch (e) {
+      drawIdeas();
+      updateBar('Could not save the ideas: ' + esc(e.message), 'bad');
     }
   }
 

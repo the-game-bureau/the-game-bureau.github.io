@@ -203,8 +203,18 @@
     return out;
   };
   // files: [{key, data}] to write, [{key, delete: true}] to remove.
-  GH.writeDrafts = async function (files, message, onStep) {
-    const tree = files.map(f => f.delete ? { path: draftPath(f.key), delete: true } : { path: draftPath(f.key), text: JSON.stringify(f.data) });
+  GH.writeDrafts = function (files, message, onStep) {
+    return toDrafts(files.map(f => f.delete ? { path: draftPath(f.key), delete: true } : { path: draftPath(f.key), text: JSON.stringify(f.data) }), message, onStep);
+  };
+  // Game ideas (the studio's Ideas tab) live in ideas.json on the same never-deployed branch.
+  // null when there is no list yet.
+  GH.readIdeas = async function () {
+    const t = await GH.readTextAt('ideas.json', GH.DRAFTS);
+    return t == null ? null : JSON.parse(t);
+  };
+  GH.writeIdeas = (list, message) => toDrafts([{ path: 'ideas.json', text: JSON.stringify(list, null, 2) + '\n' }], message);
+  // Commits [{path, text}] or [{path, delete: true}] to the studio-drafts branch, starting the branch if needed.
+  async function toDrafts(tree, message, onStep) {
     try { await GH.api('/git/ref/heads/' + GH.DRAFTS); } catch (e) {
       if (e.status !== 404) throw e;
       const write = tree.filter(f => !f.delete);
@@ -216,7 +226,7 @@
       return c;
     }
     return GH.commit(tree, message, onStep, GH.DRAFTS);
-  };
+  }
 
   // ---------- builds and publishing ----------
   GH.dispatchBuild = folder => GH.api('/actions/workflows/' + GH.WORKFLOW + '/dispatches', { method: 'POST', body: { ref: GH.BRANCH, inputs: { game: folder } } });
