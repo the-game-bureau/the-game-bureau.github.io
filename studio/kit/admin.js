@@ -244,18 +244,24 @@
     document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
     if (!opts) { pv.innerHTML = ''; return; }
     if (t === 'colors') {
-      // A tiny made-up shop page selling a spiral notebook, drawn only to show the four colours at work.
-      pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">A sample page in your colours.</span></div>' +
+      // A small sample of this game's own page (its name, photo, words and steps), drawn only to show
+      // the four colours at work. Without a photo, a notebook in the game's colours stands in.
+      const g = draft.game, e = esc, ph = NB.coverPhoto(g) || (g.media || []).find(m => (m.type === 'image' || !m.type) && m.src);
+      const src = ph && (pending[ph.src] || (/^(https?:|\/|data:)/.test(ph.src) ? ph.src : BASE + ph.src));
+      const steps = (g.steps || []).filter(x => x && (x.title || x.text)).slice(0, 3);
+      pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">This game\'s page in your colours.</span></div>' +
         '<div class="ad-mock" id="ad-mock">' +
-        '<div class="mk-bar"><b>NOTEBOOK CO.</b><span>SHOP</span><span>ABOUT</span><i>BUY</i></div>' +
-        '<div class="mk-hero"><svg class="mk-book" viewBox="0 0 120 150" aria-hidden="true">' +
+        '<div class="mk-bar"><b>' + e((g.title || 'Game').toUpperCase()) + '</b><span>' + e(NB.rulesName(g).toUpperCase()) + '</span><i>ORDER</i></div>' +
+        '<div class="mk-hero">' + (src ? '<img class="mk-pic" src="' + e(src) + '" alt=""' + NB.focusStyle(ph) + '>' : '<svg class="mk-book" viewBox="0 0 120 150" aria-hidden="true">' +
           '<rect x="14" y="10" width="96" height="132" rx="6" fill="var(--mk-color)"/>' +
           '<rect x="30" y="52" width="64" height="30" rx="3" fill="var(--mk-paper)"/><rect x="38" y="62" width="48" height="4" fill="var(--mk-accent)"/><rect x="38" y="70" width="32" height="3" fill="var(--mk-ink)" opacity=".6"/>' +
-          Array.from({ length: 9 }, (_, i) => '<rect x="' + (22 + i * 10) + '" y="2" width="4" height="16" rx="2" fill="var(--mk-ink)"/>').join('') + '</svg>' +
-        '<div class="mk-txt"><small>NEW THIS SEASON</small><h3>The Spiral Notebook</h3><p>Eighty pages of good paper, a sturdy coil and a cover that takes a beating. Made for lists, sketches and score sheets.</p>' +
-          '<div class="mk-price">$9.99 <span>USD</span></div><div class="mk-btns"><span class="mk-buy">ORDER A COPY</span><span class="mk-more">FREE SAMPLE</span></div></div></div>' +
-        '<div class="mk-steps"><div><em>1</em><b>Open it</b><span>Flip to a clean page.</span></div><div><em>2</em><b>Write</b><span>Pencil or pen.</span></div><div><em>3</em><b>Keep it</b><span>Fits in a bag.</span></div></div>' +
-        '<div class="mk-foot">NOTEBOOK CO. &middot; THEGAMEBUREAU.COM</div></div>' +
+          Array.from({ length: 9 }, (_, i) => '<rect x="' + (22 + i * 10) + '" y="2" width="4" height="16" rx="2" fill="var(--mk-ink)"/>').join('') + '</svg>') +
+        '<div class="mk-txt"><small>' + e((g.kicker || 'The Game Bureau presents').toUpperCase()) + '</small><h3>' + e(g.title || 'Game') + '</h3>' + (g.subtitle ? '<p class="mk-sub">' + e(g.subtitle) + '</p>' : '') +
+          (g.tagline ? '<p>' + e(g.tagline) + '</p>' : '') +
+          (g.price ? '<div class="mk-price">' + e(g.price) + ' <span>' + e(g.currency || 'USD') + '</span></div>' : '') +
+          '<div class="mk-btns"><span class="mk-buy">' + e(((g.order || {}).label || 'Order a printed copy').toUpperCase()) + '</span><span class="mk-more">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</span></div></div></div>' +
+        (steps.length ? '<div class="mk-steps">' + steps.map((x, k) => '<div><em>' + (k + 1) + '</em><b>' + e(x.title || '') + '</b><span>' + e(x.text || '') + '</span></div>').join('') + '</div>' : '') +
+        '<div class="mk-foot">' + e((g.title || 'Game').toUpperCase()) + ' &middot; THEGAMEBUREAU.COM</div></div>' +
         '<p class="ad-help">Main: top bar, headings, cover. Accent: highlights and the order button. Paper: page background. Ink: text and lines.</p>';
       renderPreview();
       return;
