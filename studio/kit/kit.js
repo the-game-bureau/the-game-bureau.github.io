@@ -243,6 +243,63 @@
     '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a><a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a><a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
     '<a href="/">THEGAMEBUREAU.COM</a></div></footer>';
 
+  // ---------- lightbox ----------
+  // Something that can open full screen: a photo, or a video with a source.
+  const lbOK = m => !!m && (((m.type === 'image' || !m.type) && m.src) || (m.type === 'video' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id));
+  // In the product gallery a video shows as a still with a play button, so a click opens it in the lightbox.
+  const cover = m => {
+    if (!isVideo(m) || !lbOK(m)) return NB.mediaHTML(m);
+    const still = m.poster ? '<img src="' + esc(m.poster) + '" alt="' + esc(m.alt || 'Video') + '">'
+      : m.type === 'youtube' ? '<img src="https://i.ytimg.com/vi/' + encodeURIComponent(m.id) + '/hqdefault.jpg" alt="' + esc(m.alt || 'Video') + '">'
+      : m.type === 'video' ? '<video src="' + esc(m.src) + '#t=0.1" muted playsinline preload="metadata" aria-label="' + esc(m.alt || 'Video') + '"></video>'
+      : '<div class="media-soon"></div>';
+    return '<div class="nb-vcover">' + still + '<span class="nb-bigplay" aria-hidden="true"><span class="tplay"></span></span></div>';
+  };
+  NB.lightbox = function (items, start) {
+    const list = items.filter(lbOK);
+    if (!list.length) return;
+    let i = Math.max(0, list.indexOf(items[start]));
+    const back = document.activeElement;
+    const lb = document.createElement('div');
+    lb.className = 'nb-lb'; lb.id = 'nb-lb';
+    lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-label', 'Photos and videos');
+    const many = list.length > 1;
+    lb.innerHTML = '<div class="nb-lb-media"></div>' +
+      '<button class="nb-lb-x" type="button" aria-label="Close">&times;</button>' +
+      (many ? '<button class="nb-lb-arrow prev" type="button" aria-label="Previous">&#8249;</button><button class="nb-lb-arrow next" type="button" aria-label="Next">&#8250;</button><div class="nb-lb-count"></div>' : '');
+    const box = lb.querySelector('.nb-lb-media');
+    const go = k => {
+      i = (k + list.length) % list.length;
+      const m = list[i];
+      box.innerHTML = NB.mediaHTML(m);
+      box.className = 'nb-lb-media' + (isVideo(m) ? ' is-video' : '');
+      const v = box.querySelector('video'); if (v) { v.autoplay = true; v.play().catch(() => {}); }
+      const f = box.querySelector('iframe'); if (f) f.src += (f.src.includes('?') ? '&' : '?') + 'autoplay=1';
+      if (many) lb.querySelector('.nb-lb-count').textContent = (i + 1) + ' / ' + list.length;
+    };
+    const close = () => { lb.remove(); document.removeEventListener('keydown', key); document.documentElement.classList.remove('nb-lb-open'); if (back && back.focus) back.focus(); };
+    const key = e => {
+      if (e.key === 'Escape') close();
+      else if (many && e.key === 'ArrowLeft') go(i - 1);
+      else if (many && e.key === 'ArrowRight') go(i + 1);
+      else if (e.key === 'Tab') { const b = [...lb.querySelectorAll('button')]; const at = b.indexOf(document.activeElement); e.preventDefault(); b[(at + (e.shiftKey ? -1 : 1) + b.length) % b.length].focus(); }
+    };
+    lb.addEventListener('click', e => {
+      if (e.target.closest('.nb-lb-x')) close();
+      else if (e.target.closest('.prev')) go(i - 1);
+      else if (e.target.closest('.next')) go(i + 1);
+      else if (e.target === lb || e.target === box) close(); // the dark area around the picture
+    });
+    let tx = null;
+    lb.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', e => { if (tx === null || !many) return; const d = e.changedTouches[0].clientX - tx; if (Math.abs(d) > 50) go(i + (d < 0 ? 1 : -1)); tx = null; });
+    document.addEventListener('keydown', key);
+    document.documentElement.classList.add('nb-lb-open');
+    document.body.appendChild(lb);
+    go(i);
+    lb.querySelector('.nb-lb-x').focus();
+  };
+
   // ---------- public page ----------
   NB.renderPublic = function (g) {
     let media = (g.media || []).filter(m => m && (m.type !== 'image' || m.src));
@@ -252,11 +309,16 @@
     if (!media.length) media = [{ type: 'soon', alt: 'Photos coming soon' }];
     const videos = media.filter(isVideo);
     const order = g.order || {};
+    // layout "product" (new notebooks): a shop-style page. The story and the specs sit beside the
+    // gallery, under the order button, and any photo or video opens full screen in a lightbox.
+    const prod = g.layout === 'product';
+    const about = () => (g.description || []).map(p => '<p>' + esc(p) + '</p>').join('') +
+      (g.specs && g.specs.length ? '<ul class="nb-specs">' + g.specs.map(s => '<li><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></li>').join('') + '</ul>' : '');
     const html =
       header(g, 'public') +
       (NB.announceOn(g) ? '<div class="nb-announce">' + esc(g.announce) + '</div>' : '') +
       '<main>' +
-      '<section class="nb-hero" id="order"><div class="nb-wrap">' +
+      '<section class="nb-hero' + (prod ? ' is-product' : '') + '" id="order"><div class="nb-wrap">' +
       '<div class="nb-gallery" aria-label="Photos and videos">' +
       '<div class="nb-stage" id="nb-stage"></div>' +
       (media.length > 1 ? '<div class="nb-thumbs" id="nb-thumbs"></div>' : '') +
@@ -264,23 +326,24 @@
       '<div class="nb-info">' +
       '<div class="nb-kick">' + esc(g.kicker || 'The Game Bureau presents') + '</div>' +
       '<h1>' + esc(g.title) + (g.subtitle ? '<span>' + esc(g.subtitle) + '</span>' : '') + '</h1>' +
-      (g.tagline ? '<p class="nb-tag">' + esc(g.tagline) + '</p>' : '') +
+      (g.tagline && !prod ? '<p class="nb-tag">' + esc(g.tagline) + '</p>' : '') +
       (g.price ? '<div class="nb-price"><b>' + esc(g.price) + '</b><span>' + esc(g.currency || 'USD') + '</span></div>' : '') +
       (NB.orderURL(g, 1) ? '<div class="nb-buy">' +
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
       '</div>' : '') +
+      (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') +
+      (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
+      (prod && (g.description && g.description.length || g.specs && g.specs.length) ? '<div class="nb-about">' + about() + '</div>' : '') +
       '<div class="nb-row">' +
       '<a class="nb-btn" href="./rules.html">' + (NB.rulesName(g) === 'Rules' ? 'FULL RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>' +
       '<a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
       '</div>' +
-      (order.shippingNote ? '<p class="nb-fine">' + esc(order.shippingNote) + '</p>' : '') +
+      (order.shippingNote && !prod ? '<p class="nb-fine">' + esc(order.shippingNote) + '</p>' : '') +
       '</div></div></section>' +
 
-      (g.description && g.description.length ? '<section class="nb-block"><div class="nb-wrap nb-card nb-about">' +
-        '<h2>' + esc(g.aboutHeading || 'What it is') + '</h2>' +
-        g.description.map(p => '<p>' + esc(p) + '</p>').join('') +
-        (g.specs && g.specs.length ? '<ul class="nb-specs">' + g.specs.map(s => '<li><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></li>').join('') + '</ul>' : '') +
+      (!prod && g.description && g.description.length ? '<section class="nb-block"><div class="nb-wrap nb-card nb-about">' +
+        '<h2>' + esc(g.aboutHeading || 'What it is') + '</h2>' + about() +
         '</div></section>' : '') +
 
       (g.steps && g.steps.length ? '<section class="nb-block"><div class="nb-wrap nb-card">' +
@@ -288,7 +351,7 @@
         '<ol class="nb-steps">' + g.steps.map(s => '<li><h3>' + esc(s.title) + '</h3><p>' + esc(s.text) + '</p></li>').join('') + '</ol>' +
         '</div></section>' : '') +
 
-      (videos.length ? '<section class="nb-block"><div class="nb-wrap nb-card">' +
+      (videos.length && !prod ? '<section class="nb-block"><div class="nb-wrap nb-card">' +
         '<h2>' + esc(g.videoHeading || 'See it played') + '</h2>' +
         '<div class="nb-videos">' + videos.map(v => '<div class="nb-video">' + NB.mediaHTML(v, { lazy: true }) + '</div>').join('') + '</div>' +
         '</div></section>' : '') +
@@ -309,9 +372,10 @@
     const show = i => {
       if (!media.length) return;
       gi = (i + media.length) % media.length;
-      stage.innerHTML = NB.mediaHTML(media[gi]) +
+      stage.innerHTML = (prod ? cover(media[gi]) : NB.mediaHTML(media[gi])) +
         (media.length > 1 ? '<button class="nb-arrow prev" type="button" aria-label="Previous">&#8249;</button><button class="nb-arrow next" type="button" aria-label="Next">&#8250;</button><div class="nb-count">' + (gi + 1) + ' / ' + media.length + '</div>' : '');
-      stage.classList.toggle('is-video', isVideo(media[gi]));
+      stage.classList.toggle('is-video', isVideo(media[gi]) && !prod);
+      stage.classList.toggle('can-zoom', prod && lbOK(media[gi]));
       const p = stage.querySelector('.prev'), n = stage.querySelector('.next');
       if (p) p.onclick = () => show(gi - 1);
       if (n) n.onclick = () => show(gi + 1);
@@ -326,6 +390,7 @@
       b.onclick = () => show(i);
       thumbs.appendChild(b);
     });
+    if (prod) stage.addEventListener('click', e => { if (!e.target.closest('.nb-arrow') && lbOK(media[gi])) NB.lightbox(media, gi); });
     let tx = null;
     stage.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
     stage.addEventListener('touchend', e => { if (tx === null) return; const d = e.changedTouches[0].clientX - tx; if (Math.abs(d) > 40) show(gi + (d < 0 ? 1 : -1)); tx = null; });
