@@ -86,7 +86,7 @@
   // One permission row: allowed, or what is missing and how to fix it on GitHub.
   function perm(dd, v, name) {
     if (!dd) return;
-    const uses = name === 'Contents' ? 'SAVE and PUBLISH won\'t work.' : 'BUILD PDFS NOW and the PDF status after PUBLISH won\'t work. The PDFs still rebuild on their own after each publish.';
+    const uses = name === 'Contents' ? 'SAVE & PUBLISH won\'t work.' : 'BUILD PDFS NOW and the PDF status after SAVE & PUBLISH won\'t work. The PDFs still rebuild on their own after each publish.';
     dd.innerHTML = v ? '<span class="st-ok">✓ Allowed</span><small>' + name + ': Read and write</small>'
       : v === false ? '<span class="st-bad">✕ Not allowed</span><small>' + uses + ' <a href="' + GH.LIST_TOKENS_URL + '" target="_blank" rel="noopener">Open your keys on GitHub ↗</a>, click this one and set ' + name + ' to Read and write. The same key keeps working.</small>'
       : '<span class="st-q">Could not check</span>';
