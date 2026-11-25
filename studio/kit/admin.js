@@ -235,8 +235,8 @@
     const shells = GH.shells(FOLDER, draft.game);
     if (mode === 'page') f.srcdoc = doc(shells['index.html'], '');
     else if (mode === 'rules') f.srcdoc = doc(shells['rules.html'], '');
-    else if (mode === 'spread') f.srcdoc = doc(draft.cover, 'layout=spread&spine=' + spineInfo().spine);
-    else if (['front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
+    else if (mode === 'spread') f.srcdoc = doc(coverTagged(), 'layout=spread&spine=' + spineInfo().spine);
+    else if (['front', 'back'].includes(mode)) f.srcdoc = doc(coverTagged(), 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
     else if (mode === 'sampler') f.srcdoc = doc(draft.contents, 'bleed=0&sampler=1');
@@ -251,9 +251,97 @@
           const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
           const w = Math.max(...[...d.querySelectorAll('.pk-cover, .page, .flow')].map(e => e.offsetWidth), 1) + 48;
           d.documentElement.style.zoom = Math.min(1, (box.clientWidth - 4) / w);
+          if (tab === 'cover') bindCoverEdit(d);
         };
         fit();
       } catch (e) { /* not ready */ }
+    };
+  }
+
+  // ---------- editing cover words in the preview ----------
+  // Each element in cover.html whose content is only text (no tags inside) gets data-cve="<n>"
+  // in the preview copy, n being where its text sits in cover.html. Clicking it in the preview
+  // opens a box to change that text, which is written back into cover.html at that spot.
+  let coverSnap = '', coverSpots = [];
+  const FIELD_NAMES = { title: 'Title', subtitle: 'Subtitle', tagline: 'Tagline', kicker: 'Small line above the title', price: 'Price' };
+  function coverTagged() {
+    const src = draft.cover, body = src.search(/<body[\s>]/i);
+    coverSnap = src; coverSpots = [];
+    if (body < 0) return src;
+    let out = src.slice(0, body), i = body;
+    const re = /<([a-zA-Z][\w-]*)(\s[^<>]*?)?(\/?)>/g;
+    re.lastIndex = body;
+    let m;
+    while ((m = re.exec(src))) {
+      const name = m[1].toLowerCase(), end = m.index + m[0].length;
+      if (name === 'body' || m[3] || ['script', 'style', 'template'].includes(name)) continue;
+      const close = '</' + name + '>';
+      const next = src.indexOf('<', end);
+      if (next < 0 || src.slice(next, next + close.length).toLowerCase() !== close) continue;
+      const text = src.slice(end, next);
+      if (!text.trim() || /\{\{(steps|specs|description|image)\}\}/.test(text)) continue;
+      const n = coverSpots.push({ from: end, to: next, text }) - 1;
+      out += src.slice(i, end - 1) + ' data-cve="' + n + '">';
+      i = end;
+    }
+    return out + src.slice(i);
+  }
+  function bindCoverEdit(d) {
+    if (d.body.dataset.cveBound) return;
+    d.body.dataset.cveBound = '1';
+    const st = d.createElement('style');
+    st.textContent = '[data-cve]{cursor:text}[data-cve]:hover{outline:2px dashed #2A7DE1;outline-offset:2px}.pk-steps:hover,.pk-specs:hover,.pk-image:hover,.pk-art:hover{outline:2px dashed #999;outline-offset:2px;cursor:pointer}';
+    d.head.appendChild(st);
+    d.addEventListener('click', e => {
+      const gen = e.target.closest('.pk-steps, .pk-specs, .pk-image, .pk-art');
+      const el = e.target.closest('[data-cve]');
+      if (!el && !gen) return;
+      e.preventDefault();
+      if (gen) return coverEditBox(null, gen.matches('.pk-steps') ? 'steps' : gen.matches('.pk-specs') ? 'specs' : 'image');
+      coverEditBox(+el.dataset.cve);
+    });
+  }
+  function coverEditBox(n, block) {
+    const old = $('#ad-cedit'); if (old) old.remove();
+    const box = document.createElement('div');
+    box.className = 'ad-cedit'; box.id = 'ad-cedit';
+    const close = '<button type="button" class="ad-link" id="ad-cedit-x">Close</button>';
+    if (block) {
+      const where = block === 'image' ? ['media', 'Photos & video', 'This is photo 1 from Photos & video.'] : ['content', 'Content', block === 'steps' ? 'These are the "How it works" steps from Content.' : 'These are the specs from Content.'];
+      box.innerHTML = '<p>' + where[2] + '</p><div class="ad-cedit-btns"><button type="button" class="nb-btn" id="ad-cedit-go">OPEN ' + esc(where[1].toUpperCase()) + '</button>' + close + '</div>';
+      $('#ad-preview .ad-pv-head').after(box);
+      $('#ad-cedit-go').onclick = () => show(where[0]);
+      $('#ad-cedit-x').onclick = () => box.remove();
+      return;
+    }
+    const spot = coverSpots[n]; if (!spot) return;
+    const decode = t => { const x = document.createElement('textarea'); x.innerHTML = t; return x.value; };
+    const only = spot.text.trim().match(/^\{\{(\w+)\}\}$/);
+    const field = only && FIELD_NAMES[only[1]] ? only[1] : null;
+    if (only && only[1] === 'url') {
+      box.innerHTML = '<p>This is the game\'s web address. It comes from the notebook\'s folder name.</p><div class="ad-cedit-btns">' + close + '</div>';
+      $('#ad-preview .ad-pv-head').after(box); $('#ad-cedit-x').onclick = () => box.remove(); return;
+    }
+    const value = field ? (draft.game[field] || '') : decode(spot.text.trim());
+    box.innerHTML = '<label><span>' + (field ? esc(FIELD_NAMES[field]) + ' <small>from Content. Changing it here changes it on the game page too.</small>' : 'Cover text' + (/\{\{\w+\}\}/.test(value) ? ' <small>Words in {{double braces}} fill in from Content.</small>' : '')) + '</span>' +
+      '<textarea id="ad-cedit-t" rows="' + (value.length > 70 ? 3 : 1) + '">' + esc(value) + '</textarea></label>' +
+      '<div class="ad-cedit-btns"><button type="button" class="nb-btn solid" id="ad-cedit-ok">CHANGE IT</button>' + close + '</div>';
+    $('#ad-preview .ad-pv-head').after(box);
+    const ta = $('#ad-cedit-t'); ta.focus(); ta.select();
+    $('#ad-cedit-x').onclick = () => box.remove();
+    ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#ad-cedit-ok').click(); } if (e.key === 'Escape') box.remove(); };
+    $('#ad-cedit-ok').onclick = () => {
+      const v = ta.value.trim();
+      if (field) draft.game[field] = v;
+      else {
+        if (draft.cover !== coverSnap) { updateBar('The cover code changed since the preview was drawn. Click REGENERATE and try again.', 'bad'); return; }
+        const lead = spot.text.match(/^\s*/)[0], trail = spot.text.match(/\s*$/)[0];
+        const enc = v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        draft.cover = draft.cover.slice(0, spot.from) + lead + enc + trail + draft.cover.slice(spot.to);
+        const code = $('#ad-code'); if (code) code.value = draft.cover;
+      }
+      persist(); box.remove(); renderPreview();
+      flash(field ? esc(FIELD_NAMES[field]) + ' changed.' : 'Cover text changed. SAVE or PUBLISH to keep it.', 'ok');
     };
   }
 
@@ -705,7 +793,7 @@
   const rulesTab = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
     '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
-  const tabCover = p => { codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. ' + esc(spineNote()), ''); coverStyles(p); };
+  const tabCover = p => { codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. Click any words in the preview to change them. ' + esc(spineNote()), ''); coverStyles(p); };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
   // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
   const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html']];
