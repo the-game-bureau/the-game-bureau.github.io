@@ -94,6 +94,19 @@
   function inAYear() { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); }
 
   // ---------- Notebooks tab ----------
+  // A notebook card's picture: the cover from its last PDF build, else its first photo. The build is
+  // listed on GitHub a minute or two before the website has it, so a picture that doesn't load yet
+  // falls back to the first photo, and then to a strip of the notebook's colour.
+  function cardPic(folder, g, built) {
+    const ph = (g.media || []).find(m => (m.type || 'image') === 'image' && m.src);
+    const photo = ph ? (/^(https?:)?\//.test(ph.src) ? ph.src : '/' + folder + '/' + ph.src.replace(/^\.\//, '')) : '';
+    const src = built ? '/' + folder + '/pdf/preview-1.jpg' : photo;
+    const sw = '<div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div>';
+    if (!src) return sw;
+    const next = built && photo ? photo : '';
+    return '<a class="st-cover" href="/studio/?game=' + encodeURIComponent(folder) + '" aria-label="Edit ' + esc(g.title) + '"><img src="' + esc(src) + '" alt="" loading="lazy"' +
+      ' data-next="' + esc(next) + '" data-sw="' + esc(sw) + '" onerror="if(this.dataset.next){this.src=this.dataset.next;this.dataset.next=\'\'}else{this.parentNode.outerHTML=this.dataset.sw}"></a>';
+  }
   S.games = async function (el, current) {
     el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Start a new notebook or edit an existing notebook to continue.</p>' +
       '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new#content">+ NEW NOTEBOOK</a></div><div class="st-games-box"><p class="ad-help">Loading…</p></div>';
@@ -109,7 +122,7 @@
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new&open=' + encodeURIComponent(d.key) + '#content">EDIT</a>' +
         '<button type="button" class="nb-btn st-del" data-deldraft="' + esc(d.key) + '" data-title="' + esc(d.title || d.key) + '">DELETE</button></div><div class="st-del-box" hidden></div></div></div>').join('');
       box.innerHTML = '<div class="st-games">' + fresh + r.games.filter(x => isGame(x.folder)).sort((a, b) => a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
-        '<div class="st-game' + (folder === current ? ' current' : '') + '">' + (pics.has(folder) ? '<a class="st-cover" href="/studio/?game=' + encodeURIComponent(folder) + '" aria-label="Edit ' + esc(g.title) + '"><img src="/' + esc(folder) + '/pdf/preview-1.jpg" alt="" loading="lazy"></a>' : '<div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div>') + '<div class="b">' +
+        '<div class="st-game' + (folder === current ? ' current' : '') + '">' + cardPic(folder, g, pics.has(folder)) + '<div class="b">' +
         (folder === current ? '<span class="tag">OPEN NOW</span>' : '') + (saved[folder] ? '<span class="tag">SAVED CHANGES, NOT PUBLISHED</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/<span class="st-pub" data-pub="' + esc(folder) + '"></span></small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT</a>' +
