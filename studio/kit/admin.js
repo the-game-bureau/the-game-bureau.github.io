@@ -41,7 +41,7 @@
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs']];
+  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -64,7 +64,8 @@
   let serverSig = '';  // what it held, to tell whether there is anything new to save
   let serverTitle = ''; // its title, shown in the header once saved
   const OPEN = new URLSearchParams(location.search).get('open') || ''; // /studio/?new&open=<slug>: a saved new notebook
-  let legacyAdmin = false; // an old <game>/admin.html that the next save removes
+  let legacyAdmin = false;
+  let freshSig = ''; // a new notebook straight from its template, before any edit // an old <game>/admin.html that the next save removes
 
   // ---------- small helpers ----------
   const $ = s => document.querySelector(s);
@@ -108,6 +109,7 @@
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon;
+      freshSig = sig();
     }
     try {
       const d = JSON.parse(localStorage.getItem(DKEY) || 'null');
@@ -124,7 +126,8 @@
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
       '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
-      '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
+      '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '><a class="ad-pdfst" id="ad-pdfst" href="#pdfs" hidden></a>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
+      '<button class="nb-btn ad-discard" id="ad-discard" type="button" title="Throw away changes" hidden>DISCARD</button>' +
       '<button class="nb-btn" id="ad-savedraft" type="button" title="Keep it on GitHub so any browser can open it. Not on the site yet.">SAVE</button>' +
       '<button class="nb-btn solid" id="ad-publish" type="button" title="Put it live on thegamebureau.com">PUBLISH</button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div></header>' +
@@ -133,8 +136,9 @@
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
-    $('#ad-savedraft').onclick = saveDraft;
-    $('#ad-publish').onclick = save;
+    $('#ad-savedraft').onclick = () => saveDraft();
+    $('#ad-publish').onclick = () => save();
+    $('#ad-discard').onclick = askDiscard;
   }
 
   function updateBar(msg, kind) {
@@ -156,6 +160,13 @@
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
+  // A message that clears itself after ms, unless another message has replaced it by then.
+  function flash(msg, kind, ms) {
+    updateBar(msg, kind);
+    const html = $('#ad-bar').innerHTML;
+    setTimeout(() => { if ($('#ad-bar').innerHTML === html) updateBar(); }, ms);
+  }
+
   function show(t, keepBar) {
     if (locked(t)) t = 'games';
     tab = t;
@@ -163,7 +174,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => updateBar()), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs })[t](panel);
+    ({ connect: p => ST.connect(p, () => updateBar()), games: p => ST.games(p, IS_NEW ? '' : FOLDER), checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -174,7 +185,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, pdfs: null, content: null,
+      connect: null, checklist: null, games: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
@@ -207,7 +218,8 @@
     const shells = GH.shells(FOLDER, draft.game);
     if (mode === 'page') f.srcdoc = doc(shells['index.html'], '');
     else if (mode === 'rules') f.srcdoc = doc(shells['rules.html'], '');
-    else if (['spread', 'front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
+    else if (mode === 'spread') f.srcdoc = doc(draft.cover, 'layout=spread&spine=' + spineInfo().spine);
+    else if (['front', 'back'].includes(mode)) f.srcdoc = doc(draft.cover, 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
     else if (mode === 'sampler') f.srcdoc = doc(draft.contents, 'bleed=0&sampler=1');
@@ -390,7 +402,8 @@
       out.push({ path: slug + '/rules.md', text: draft.rules }, { path: slug + '/cover.html', text: draft.cover }, { path: slug + '/contents.html', text: draft.contents });
       Object.entries(GH.shells(slug, game)).forEach(([f, t]) => out.push({ path: slug + '/' + f, text: t }));
       Object.keys(pendingB64).forEach(p => out.push({ path: slug + '/' + p, base64: pendingB64[p] }));
-      await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)), null, { newFolder: slug });
+      const commit = await GH.commit(out, 'Start the ' + game.title + ' notebook (from ' + FOLDER + ')', m => updateBar(esc(m)), null, { newFolder: slug });
+      try { sessionStorage.setItem(PDFWATCH, JSON.stringify({ sha: commit.sha, folder: slug, t0: Date.now() })); } catch (e) { /* blocked */ }
       Object.keys(pendingB64).forEach(p => { delete pendingB64[p]; });
       clearDraft();
       if (serverKey) await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + game.title + ', so drop its saved draft').catch(() => {});
@@ -472,7 +485,7 @@
       'Colours: var(--brand) var(--accent) var(--paper) var(--ink). Fonts: "NB Display" (headings) and "NB Text" (body). Keep it printable: no scripts, animations or web fonts from other sites.',
     ];
     const per = key === 'cover' ? [
-      'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is narrow (about ' + (P.spine || 0.03) + ' in for a thin book), so keep it to one short line or leave it empty.',
+      'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is ' + spineInfo().spine + ' in wide for this notebook (inside pages x paper thickness). Its text is sized to fit and only prints when the spine is at least ' + spineInfo().min.toFixed(2) + ' in, so keep it to one short line.',
       'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}}. Keep them as placeholders rather than typing the text in.',
       'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file (they are uploaded in the studio\'s Photos & video tab): <img src="images/name.jpg">.',
     ] : [
@@ -541,7 +554,7 @@
   const tabRules = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
     '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
-  const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone.', '');
+  const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. ' + esc(spineNote()), '');
   const tabContents = p => codeTab(p, 'contents', 'Inside pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
     '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>The free sampler keeps the rules and the first pages (Content, Print, Sampler pages), or only pages marked <code>data-sampler</code>.</li><li>Colours and fonts as on the cover.</li></ul>');
 
@@ -694,15 +707,22 @@
     const locked = isTemplate && !allowTemplate;
     sv.disabled = working || locked || !unsaved();
     pb.disabled = working || locked || (!IS_NEW && !changed());
+    const dc = $('#ad-discard');
+    dc.hidden = locked || !(IS_NEW ? serverKey || sig() !== freshSig : unsaved() || changed() || serverKey);
+    dc.disabled = working;
   }
   const busy = on => { working = on; refreshButtons(); };
-  async function saveDraft() {
+  async function saveDraft(force) {
     const g = draft.game, key = IS_NEW ? (g.slug || '').trim() : FOLDER;
     if (!GH.token()) { updateBar('Saving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
     if (IS_NEW) { const bad = await freshSlugProblem(key); if (bad) { show('content'); updateBar(esc(bad), 'bad'); return; } }
     busy(true);
+    if (force !== true) {
+      const warn = await otherSave(key);
+      if (warn) { busy(false); askBar(warn + ' Saving now replaces their version with yours.', [{ label: 'SAVE MINE ANYWAY', solid: true, fn: () => saveDraft(true) }, { label: 'OPEN THEIRS', fn: () => openTheirs(key) }]); return; }
+    }
     const at = Date.now();
-    const data = { v: 1, isNew: IS_NEW, start: IS_NEW ? FOLDER : undefined, at, game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, files: Object.fromEntries(Object.keys(pendingB64).map(k => [k, pending[k]])) };
+    const data = { v: 1, by: await GH.login(), isNew: IS_NEW, start: IS_NEW ? FOLDER : undefined, at, game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, files: Object.fromEntries(Object.keys(pendingB64).map(k => [k, pending[k]])) };
     const files = [{ key, data }];
     if (serverKey && serverKey !== key) files.push({ key: serverKey, delete: true }); // the address changed
     try {
@@ -710,8 +730,7 @@
       serverKey = key; serverAt = at; serverSig = sig(); serverTitle = g.title || key;
       persist();
       busy(false);
-      updateBar('Saved to GitHub. Open it from Notebooks in any browser. It is not live until you publish.', 'ok');
-      setTimeout(() => updateBar(), 8000);
+      flash('Saved to GitHub. Open it from Notebooks in any browser. It is not live until you publish.', 'ok', 8000);
     } catch (e) { busy(false); updateBar('Not saved: ' + esc(e.message), 'bad'); }
   }
   // Picks up the copy saved on GitHub. Called once on load.
@@ -748,14 +767,19 @@
   }
 
   // ---------- save and publish ----------
-  async function save() {
+  async function save(force) {
     if (IS_NEW) return createNew();
     if (!changed()) return;
     if (isTemplate && !allowTemplate) return;
-    if (!GH.token()) { updateBar('Publishing needs the one-time setup first: <a href="/studio/#connect">Connect in the Notebook Studio</a>, or paste the GitHub token on the left.', 'bad'); return; }
+    if (!GH.token()) { updateBar('Publishing needs the one-time setup first: <a href="/studio/#connect">Connect in the Notebook Studio</a>.', 'bad'); return; }
     const g = draft.game;
     if (!g.title) { show('content'); updateBar('Give the notebook a title first.', 'bad'); return; }
     busy(true);
+    if (force !== true) {
+      updateBar('Checking for newer versions…');
+      const warn = (await otherPublish()) || (await otherSave(FOLDER));
+      if (warn) { busy(false); askBar(warn + ' Publishing now puts your version live instead.', [{ label: 'PUBLISH MINE ANYWAY', solid: true, fn: () => save(true) }, { label: 'OPEN THEIRS', fn: () => openTheirs(FOLDER) }]); return; }
+    }
     if (g.favicon && !pendingB64['favicon.ico'] && !saved.game.favicon) delete g.favicon; // picked before a reload, so the file is gone
     const files = [];
     const add = (f, text) => files.push({ path: FOLDER + '/' + f, text });
@@ -781,11 +805,11 @@
       if (serverKey) { await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + g.title + ', so drop its saved draft').catch(() => {}); serverKey = ''; serverAt = 0; serverSig = ''; }
       serverTitle = '';
       busy(false);
-      updateBar('Published (<a href="https://github.com/' + GH.REPO + '/commit/' + commit.sha + '" target="_blank" rel="noopener">commit</a>). The site republishes in about a minute and the PDFs rebuild in about 3.', 'ok');
+      flash('Published (<a href="https://github.com/' + GH.REPO + '/commit/' + commit.sha + '" target="_blank" rel="noopener">commit</a>). The site republishes in about a minute; the PDF status shows at the top.', 'ok', 15000);
       // Keep showing just-uploaded photos until the site serves them.
       setTimeout(() => { Object.keys(pending).forEach(p => delete pending[p]); }, 180000);
-      if (tab === 'checklist' || tab === 'pdfs') show(tab, true);
-      setTimeout(() => updateBar(), 15000);
+      if (tab === 'checklist' || tab === 'pdfs' || tab === 'history') show(tab, true);
+      watchPdfs(commit.sha);
     } catch (e) {
       updateBar('Not published: ' + esc(e.message), 'bad');
       busy(false);
@@ -793,6 +817,181 @@
   }
 
   let leaving = false;
+  // ---------- questions in the title bar ----------
+  // A message with buttons in the bar under the title, for a choice that needs an answer now.
+  function askBar(msg, buttons, kind) {
+    const bar = $('#ad-bar');
+    bar.className = 'ad-bar show ask ' + (kind || 'warn');
+    bar.innerHTML = '<span>' + msg + '</span><span class="ad-bar-btns">' + buttons.map((b, i) => '<button type="button" class="nb-btn' + (b.solid ? ' solid' : '') + (b.danger ? ' ad-danger' : '') + '" data-ask="' + i + '">' + esc(b.label) + '</button>').join('') +
+      '<button type="button" class="nb-btn" data-ask="x">CANCEL</button></span>';
+    bar.querySelectorAll('[data-ask]').forEach(el => { el.onclick = () => { const b = buttons[+el.dataset.ask]; if (b) b.fn(); else updateBar(); }; });
+  }
+  const reloadTo = url => { leaving = true; if (url) location.href = url; else location.reload(); };
+
+  // ---------- DISCARD (title bar) ----------
+  // Throws changes away: back to the last SAVE, back to the live version, or (for a notebook
+  // never published) the whole notebook, including its copy saved on GitHub.
+  function askDiscard() {
+    const btns = [], since = serverAt ? ' (saved ' + esc(when(serverAt)) + ')' : '';
+    const toSave = serverKey && unsaved();
+    if (toSave) btns.push({ label: 'BACK TO LAST SAVE', fn: backToSave });
+    if (IS_NEW) btns.push({ label: 'THROW THIS NOTEBOOK AWAY', danger: true, fn: throwAway });
+    else btns.push({ label: 'BACK TO THE LIVE VERSION', danger: true, fn: backToLive });
+    askBar(IS_NEW
+      ? (serverKey ? 'Throw away changes? ' + (toSave ? '<b>Back to last save</b> drops what you changed since your last SAVE' + since + '. ' : '') + '<b>Throw this notebook away</b> deletes it, including the copy saved on GitHub. It was never published.'
+        : 'Throw this notebook away? It has not been saved or published.')
+      : 'Throw away changes? ' + (toSave ? '<b>Back to last save</b> drops what you changed since your last SAVE' + since + '. ' : '') + '<b>Back to the live version</b> drops every change that is not published' + (serverKey ? ', including the copy saved on GitHub' : '') + '.', btns);
+  }
+  function backToSave() {
+    if (IS_NEW) { try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ } reloadTo('/studio/?new&open=' + encodeURIComponent(serverKey) + '#' + tab); return; }
+    clearDraft(); reloadTo();
+  }
+  async function dropServerDraft(message) {
+    if (!serverKey) return true;
+    busy(true); updateBar('Removing the copy saved on GitHub…');
+    try { await GH.writeDrafts([{ key: serverKey, delete: true }], message); return true; }
+    catch (e) { busy(false); updateBar('Nothing was thrown away: ' + esc(e.message), 'bad'); return false; }
+  }
+  async function backToLive() {
+    if (!(await dropServerDraft('Discard unpublished changes to ' + (saved.game.title || FOLDER)))) return;
+    clearDraft(); reloadTo();
+  }
+  async function throwAway() {
+    if (!(await dropServerDraft('Delete the saved notebook ' + (draft.game.title || serverKey) + ' (never published)'))) return;
+    try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ }
+    reloadTo('/studio/#games');
+  }
+
+  // ---------- someone else got there first ----------
+  // Before SAVE or PUBLISH: has another browser saved or published this notebook since it was
+  // opened here? Returns the warning, or '' when it is safe to go ahead.
+  async function otherSave(key) {
+    let d = null;
+    try { d = await GH.readDraft(key); } catch (e) { return ''; }
+    if (!d || !d.at || d.at === serverAt) return '';
+    return (d.by ? esc(d.by) : 'Someone') + ' saved this notebook in another browser at ' + esc(when(d.at)) + ', after you opened it here.';
+  }
+  async function otherPublish() {
+    try {
+      const keys = ['game', 'rules', 'cover', 'contents'];
+      const now = await Promise.all(keys.map(k => GH.readTextAt(FOLDER + '/' + FILES[k], GH.BRANCH)));
+      const same = (k, t) => { if (k !== 'game') return t === saved[k]; try { return JSON.stringify(JSON.parse(t)) === JSON.stringify(saved.game); } catch (e) { return false; } };
+      if (keys.every((k, i) => now[i] == null || same(k, now[i]))) return '';
+      const c = ((await GH.history(FOLDER).catch(() => [])) || []).find(x => !/^Rebuild notebook PDFs/.test(x.commit.message));
+      return 'This notebook was published' + (c ? ' by ' + esc((c.author && c.author.login) || c.commit.author.name) + ' at ' + esc(when(c.commit.author.date)) : ' again') + ', after you opened it here.';
+    } catch (e) { return ''; }
+  }
+  function openTheirs(key) {
+    if (IS_NEW) { try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ } reloadTo('/studio/?new&open=' + encodeURIComponent(key) + '#' + tab); return; }
+    clearDraft(); reloadTo();
+  }
+
+  // ---------- PDF status after PUBLISH ----------
+  // The PDFs rebuild on GitHub after a publish; the title bar follows that build until it is done.
+  const PDFWATCH = 'nb-pdf-watch';
+  function pdfChip(html, kind, href) {
+    const c = $('#ad-pdfst'); if (!c) return;
+    c.hidden = !html; c.className = 'ad-pdfst ' + (kind || ''); c.innerHTML = html || '';
+    c.href = href || '#pdfs'; if (href) { c.target = '_blank'; c.rel = 'noopener'; } else c.removeAttribute('target');
+  }
+  let watching = '';
+  async function watchPdfs(sha, t0) {
+    if (!sha || !GH.token()) return;
+    watching = sha; t0 = t0 || Date.now();
+    try { sessionStorage.setItem(PDFWATCH, JSON.stringify({ sha, folder: FOLDER, t0 })); } catch (e) { /* blocked */ }
+    const done = () => { try { sessionStorage.removeItem(PDFWATCH); } catch (e) { /* blocked */ } };
+    const before = build && build.built;
+    pdfChip('PDFs: starting…');
+    while (watching === sha && Date.now() - t0 < 30 * 60000) {
+      let run = null;
+      try { run = ((await GH.runs(GH.WORKFLOW, '&event=push&head_sha=' + sha)).workflow_runs || [])[0] || null; } catch (e) { /* try again */ }
+      // No build after 3 minutes: nothing that goes in the PDFs changed (only photos, say).
+      if (!run && Date.now() - t0 > 3 * 60000) { pdfChip(''); done(); return; }
+      if (run && run.status === 'completed') {
+        done();
+        if (run.conclusion !== 'success') { pdfChip('PDF build failed. See why', 'bad', run.html_url); return; }
+        pdfChip('PDFs ready ✓', 'ok');
+        // The site serves them about a minute later; then the PDFs tab shows the new build.
+        GH.waitForSite(BASE + 'pdf/build.json', t => { try { return JSON.parse(t).built !== before; } catch (e) { return false; } }, null, 15)
+          .then(async ok => { if (!ok) return; try { const r = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = await r.json(); } catch (e) { /* keep the old one */ } if (tab === 'pdfs') show('pdfs', true); });
+        setTimeout(() => { if (watching === sha) pdfChip(''); }, 5 * 60000);
+        return;
+      }
+      if (run) pdfChip(/queued|waiting|pending|requested/.test(run.status) ? 'PDFs waiting to build…' : 'PDFs building… about 3 min');
+      await sleep(10000);
+    }
+  }
+
+  // ---------- tab: history ----------
+  function tabHistory(p) {
+    if (IS_NEW) { p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version of the notebook shows here once it is published.</p>'; return; }
+    p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version, newest first. LOAD puts that version back in the editor: words, colours, rules, cover, inside pages and photos. The site does not change until you PUBLISH it.</p><div id="ad-hist"><p class="ad-help">Loading…</p></div>';
+    GH.history(FOLDER).then(list => {
+      const box = $('#ad-hist'); if (!box) return;
+      const rows = (list || []).filter(c => !/^Rebuild notebook PDFs/.test(c.commit.message));
+      if (!rows.length) { box.innerHTML = '<p class="ad-empty">No published versions found.</p>'; return; }
+      box.innerHTML = '<ol class="ad-hist">' + rows.map((c, i) => {
+        const at = when(c.commit.author.date), who = (c.author && c.author.login) || c.commit.author.name;
+        return '<li><div><b>' + esc(c.commit.message.split('\n')[0]) + '</b><small>' + esc(at) + ' · ' + esc(who) + ' · <a href="' + esc(c.html_url) + '" target="_blank" rel="noopener">' + esc(c.sha.slice(0, 7)) + '</a></small></div>' +
+          (i === 0 ? '<span class="ad-hist-live">LIVE NOW</span>' : '<button type="button" class="nb-btn" data-load="' + esc(c.sha) + '" data-when="' + esc(at) + '">LOAD</button>') + '</li>';
+      }).join('') + '</ol>';
+      box.querySelectorAll('[data-load]').forEach(b => { b.onclick = () => loadVersion(b.dataset.load, b.dataset.when); });
+    }).catch(e => { const box = $('#ad-hist'); if (box) box.innerHTML = '<p class="ad-help">Could not read the history: ' + esc(e.message) + '</p>'; });
+  }
+  async function loadVersion(sha, label) {
+    if (unsaved() && !confirm('Load the version from ' + label + '? Changes you have not saved will be replaced.')) return;
+    busy(true); updateBar('Loading the version from ' + esc(label) + '…');
+    try {
+      const at = k => GH.readTextAt(FOLDER + '/' + FILES[k], sha);
+      const [game, rules, cover, contents] = await Promise.all([at('game'), at('rules'), at('cover'), at('contents')]);
+      if (!game) throw new Error('that version has no game.json');
+      const g = JSON.parse(game);
+      g.setup = g.setup || {}; g.media = g.media || [];
+      const next = { game: g, rules: rules != null ? rules : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents };
+      // Photos (and the tab icon) deleted since then come back from that version.
+      const used = JSON.stringify(g) + next.cover + next.contents;
+      const [nowFiles, thenFiles] = await Promise.all([GH.listFiles(), GH.filesAt(sha)]);
+      const have = new Set(nowFiles.map(f => f.path));
+      const type = f => /\.png$/i.test(f) ? 'image/png' : /\.ico$/i.test(f) ? 'image/x-icon' : /\.webp$/i.test(f) ? 'image/webp' : /\.gif$/i.test(f) ? 'image/gif' : /\.svg$/i.test(f) ? 'image/svg+xml' : 'image/jpeg';
+      for (const f of thenFiles) {
+        if (!f.path.startsWith(FOLDER + '/') || have.has(f.path)) continue;
+        const rel = f.path.slice(FOLDER.length + 1);
+        if (!/^(images\/[^/]+|favicon\.ico)$/.test(rel) || !used.includes(rel)) continue;
+        const b64 = await GH.readBlobB64(f.sha);
+        pending[rel] = 'data:' + type(rel) + ';base64,' + b64; pendingB64[rel] = b64;
+      }
+      draft = next; persist(); busy(false);
+      updateBar('Loaded the version from ' + esc(label) + '. Check it in the other tabs, then PUBLISH to make it live again, or DISCARD to go back.', 'ok');
+    } catch (e) { busy(false); updateBar('Could not load that version: ' + esc(e.message), 'bad'); }
+  }
+
+  // ---------- the spine ----------
+  // Spine width = inside pages x paper thickness (print.spinePerPage), as the PDF build works it
+  // out. The page count comes from the last build; with no build yet, or a new sheet count, it is
+  // estimated (one page per game sheet).
+  const SPINE_TEXT = 0.125 + 6 / 72; // print.js: 1/16 in clear each side, and at least 6 pt text
+  function spineInfo() {
+    const P = Object.assign({ spinePerPage: 0.002252, padTo: 2 }, draft.game.print || {});
+    const min = P.spineTextMin != null ? +P.spineTextMin : SPINE_TEXT;
+    if (P.spine != null && P.spine !== '') return { spine: +P.spine, fixed: true, min };
+    const bp = build && build.pages && build.pages.contents;
+    const sheets = +P.sheets || 0, was = +((saved.game.print || {}).sheets) || 0;
+    let pages = bp, est = false;
+    if (!bp || sheets !== was) {
+      est = true;
+      const pad = Math.max(1, P.padTo | 0);
+      pages = Math.ceil(Math.max(1, bp ? bp + sheets - was : sheets + 2) / pad) * pad;
+    }
+    return { spine: +(pages * (+P.spinePerPage || 0)).toFixed(3), pages, est, per: +P.spinePerPage || 0, min };
+  }
+  function spineNote() {
+    const s = spineInfo();
+    const text = s.spine >= s.min ? 'Wide enough for the spine text.'
+      : 'Spine text needs ' + s.min.toFixed(2) + ' in' + (s.per ? ' (about ' + Math.ceil(s.min / s.per) + ' inside pages on this paper)' : '') + ', so for now the spine prints as plain colour.';
+    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Content, Print. ' + text;
+    return 'Spine: ' + s.spine + ' in for ' + (s.est ? 'about ' : '') + s.pages + ' inside pages' + (s.est ? '' : ' (last PDF build)') + '. ' + text;
+  }
+
   addEventListener('beforeunload', e => { if (!leaving && Object.keys(pendingB64).length && unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- NEW NOTEBOOK ----------
@@ -838,6 +1037,7 @@
       frame();
       show(tabFromHash() || (!GH.token() ? 'connect' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
+      try { const w = JSON.parse(sessionStorage.getItem(PDFWATCH) || 'null'); if (w && !IS_NEW && w.folder === FOLDER && Date.now() - w.t0 < 30 * 60000) watchPdfs(w.sha, w.t0); } catch (e) { /* none */ }
       if (isTemplate) {
         const box = document.createElement('label'); box.className = 'ad-help ad-tpl';
         box.innerHTML = '<input type="checkbox" id="ad-tpl"> Let me save changes to the template itself';

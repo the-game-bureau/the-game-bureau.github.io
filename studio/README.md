@@ -34,7 +34,7 @@ studio/
 
 ## PDFs (built from the editor)
 
-- `<slug>-cover.pdf`: front/back cover for the printer, one wraparound spread (back, spine, front) with 0.125 in bleed. Spine width = pages x `print.spinePerPage`.
+- `<slug>-cover.pdf`: front/back cover for the printer, one wraparound spread (back, spine, front) with 0.125 in bleed. Spine width = pages x `print.spinePerPage`. The spine text (`.cover-spine`) is sized to fit with 1/16 in clear each side, and left off when the spine is under about 0.21 in (`print.spineTextMin` overrides that). The Cover tab shows the width and previews the spread at it.
 - `<slug>-contents.pdf`: the inside pages for the printer, rules first, with bleed, padded with blanks to a multiple of `print.padTo`.
 - `<slug>.pdf`: print-at-home notebook at trim size: front, rules, contents, back.
 - `<slug>-sampler.pdf`: free sampler: front, rules, the first `print.samplerPages` pages (or pages marked `data-sampler`), back. This is the free download on the public page (set `"freeFullPdf": true` to offer the whole notebook instead).
@@ -53,7 +53,7 @@ Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pd
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs. SAVE and PUBLISH are in the title bar.
+Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, History. DISCARD, SAVE and PUBLISH are in the title bar.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
@@ -70,6 +70,13 @@ until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing on
    SAVED, NOT PUBLISHED). **PUBLISH** commits to `main`, which republishes the site; for a new
    notebook it copies the starting folder into `/<address>/` with your edits. Publishing removes
    the saved draft.
+   - **DISCARD** throws changes away: back to the last SAVE, back to the live version, or (for a
+     notebook never published) the whole notebook. Notebooks also has DELETE on saved, unpublished notebooks.
+   - **Someone else got there first:** before SAVE or PUBLISH the studio checks whether another
+     browser saved or published the notebook since it was opened, and asks before replacing it.
+   - **PDF status:** after PUBLISH the title bar follows the PDF build on GitHub (building, then ready).
+   - **History** lists every published version; LOAD puts one back in the editor, photos included,
+     to PUBLISH again.
 5. **Short address (optional):** the checklist's "Give it its own web address" step has the exact
    Cloudflare settings, filled in for that game, to make `https://<address>.thegamebureau.com`
    redirect to `https://thegamebureau.com/<address>/`: a proxied `AAAA` record to `100::` named
