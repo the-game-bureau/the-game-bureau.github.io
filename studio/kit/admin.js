@@ -115,7 +115,7 @@
     draft = clone(saved);
     if (IS_NEW) {
       // A fresh notebook from the template: no name or address yet, and nothing ticked.
-      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, media: clone(NB.PLACEHOLDER_MEDIA) });
+      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon; delete draft.game.slugTouched;
