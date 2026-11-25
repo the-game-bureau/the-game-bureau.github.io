@@ -313,7 +313,7 @@
   function tabSetup(p) {
     const list = steps();
     const n = list.filter(x => x.done).length;
-    p.innerHTML = '<h2>Checklist</h2><h3 class="ad-sub">From idea to live notebook</h3><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
+    p.innerHTML = '<h2>Checklist</h2><p class="ad-lede">' + n + ' of ' + list.length + ' steps done.</p>' +
       '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it; some tick themselves when the editor sees the work, and you can untick them.</p>' +
       '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
