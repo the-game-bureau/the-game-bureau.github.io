@@ -729,7 +729,7 @@
     if (!colorsAtStart) colorsAtStart = Object.assign({}, b);
     const one = (k, l, h) => '<label class="ad-color"><input type="color" data-color="' + k + '" value="' + esc(b[k]) + '"><span><b>' + l + '</b><small>' + h + '</small><input type="text" data-hex="' + k + '" value="' + esc(b[k]) + '" maxlength="7" spellcheck="false"></span></label>';
     p.innerHTML = '<h2>Colors</h2><p class="ad-lede">The four colors used for the game notebook website and the game notebook itself.</p>' +
-      '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Page background in the notebook') + one('ink', 'Ink', 'Text and lines') + '</div>' +
+      '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Web page background and the cover. Inside pages always print on white.') + one('ink', 'Ink', 'Text and lines') + '</div>' +
       '<div class="nb-row ad-nevermind"><button type="button" class="nb-btn solid" id="ad-savecolors">SAVE COLORS</button><button type="button" class="nb-btn" id="ad-nevermind">NEVER MIND</button></div>' +
       '<p class="ad-help ad-colors-note" id="ad-colors-note"></p>' +
       '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>';
