@@ -99,6 +99,7 @@
         (folder === current ? '<span class="tag">OPEN NOW</span>' : '') + (saved[folder] ? '<span class="tag">SAVED CHANGES, NOT PUBLISHED</span>' : '') +
         '<h3>' + esc(g.title) + '</h3><small>/' + esc(folder) + '/<span class="st-pub" data-pub="' + esc(folder) + '"></span></small><p class="ad-help">' + esc(g.tagline || '') + '</p>' +
         '<div class="nb-row"><a class="nb-btn solid" href="/studio/?game=' + encodeURIComponent(folder) + '">EDIT</a>' +
+        '<a class="nb-btn" href="/studio/?new#content" data-copy="' + esc(folder) + '" title="Start a new notebook as a copy of this one">COPY</a>' +
         (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
         '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
       box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn, () => S.games(el, current)); });

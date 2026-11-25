@@ -108,7 +108,7 @@
       Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, media: [] });
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
-      delete draft.game.favicon;
+      delete draft.game.favicon; delete draft.game.slugTouched;
       freshSig = sig();
     }
     try {
@@ -798,6 +798,7 @@
     if (g.favicon && !pendingB64['favicon.ico'] && !saved.game.favicon) delete g.favicon; // picked before a reload, so the file is gone
     const files = [];
     const add = (f, text) => files.push({ path: FOLDER + '/' + f, text });
+    delete g.slugTouched; // editor-only: whether the web address was typed by hand
     add('game.json', gameText(g));
     if (draft.rules !== saved.rules) add('rules.md', draft.rules);
     if (draft.cover !== saved.cover) add('cover.html', draft.cover);
@@ -1010,10 +1011,11 @@
   addEventListener('beforeunload', e => { if (!leaving && Object.keys(pendingB64).length && unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- NEW NOTEBOOK ----------
-  // Always opens a fresh notebook from the blank starter, even from /studio/?new itself. Work in
+  // Always opens a fresh notebook from the blank starter (or a copy of a notebook, from COPY), even from /studio/?new itself. Work in
   // progress stays safe: an existing notebook's edits stay in this browser under its own name, and a
   // new notebook with unsaved edits is saved to GitHub first (it then shows in Notebooks).
-  async function startNew() {
+  // start: the notebook to copy (COPY on a Notebooks card); the blank starter when left out.
+  async function startNew(start) {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); } catch (e) { /* none */ }
     if (IS_NEW && (draft.game.title || '').trim() && unsaved()) {
@@ -1024,7 +1026,7 @@
     } else if (!IS_NEW && d && d.game && (d.game.title || '').trim() && !d.savedKey) {
       if (!confirm('Start a new notebook? The unsaved new notebook "' + d.game.title + '" in this browser will be thrown away.')) return;
     }
-    try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ }
+    try { localStorage.removeItem(NEWKEY); if (start) localStorage.setItem(NEWKEY, JSON.stringify({ start })); } catch (e) { /* blocked */ }
     leaving = true;
     history.replaceState(null, '', '/studio/?new#content');
     location.reload();
@@ -1032,7 +1034,7 @@
   document.addEventListener('click', e => {
     const a = e.target.closest && e.target.closest('a[href="/studio/?new#content"]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-    e.preventDefault(); startNew();
+    e.preventDefault(); startNew(/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(a.dataset.copy || '') ? a.dataset.copy : '');
   });
 
   document.addEventListener('DOMContentLoaded', async () => {
