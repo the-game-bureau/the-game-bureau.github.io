@@ -860,7 +860,7 @@
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
     onTitleEdit = null;
-    p.innerHTML = '<h2>Website</h2><p class="ad-lede">This is the game\'s web page. Click any words on it to change them. Photos and videos are set in <a href="#media">Media</a>, colours in <a href="#colors">Colors</a>.</p>' +
+    p.innerHTML = '<h2>Website</h2><p class="ad-lede">This is the game\'s web page. Click any words on it to change them.</p>' +
       '<div class="ad-site-box" id="ad-site-box"><iframe id="ad-site" title="Game page, editable"></iframe></div>' +
       '<h3>Not shown on the page</h3>' +
       '<div class="ad-bands"><div class="ad-band">' +
