@@ -1102,11 +1102,60 @@
     p.innerHTML = '<h2>PDFs</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +
       (changed() ? '<p class="ad-warn">You have unsaved changes. Builds use the saved version, so save first.</p>' : '') + '<div class="ad-status" id="ad-status" hidden></div></div>' +
+      (build ? '<div class="ad-card ad-printer"><div><h3>Printer files</h3><p>One zip with the cover PDF, the contents PDF and a sheet of the sizes (trim, bleed, page count, spine) to type into Lulu, KDP or your printer\'s order form.</p></div><button class="nb-btn" id="ad-zip" type="button">PRINTER FILES (.ZIP)</button></div>' : '') +
       '<div class="ad-files">' + files.map(([n, a, f, info], k) => '<div class="ad-file"><div><h3>' + n + '</h3><p>' + esc(a) + '</p>' + (build ? '<small>' + esc(info(build)) + '</small>' : '') + pdfThumbs(['cover', 'contents', 'print', 'sampler'][k], BASE + f) + '</div>' +
         '<div class="ad-file-btns"><a class="nb-btn solid" href="' + BASE + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="' + BASE + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
       '<details class="ad-help-box"><summary>Save from this browser instead</summary><p>Chrome works best. In the print dialog choose Save as PDF, margins None, background graphics on. Page sizes are set for you; the spine width and the merged print-at-home and sampler files come only from the build.</p><p>' +
       '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'sampler.html?bleed=0&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
     $('#ad-go').onclick = runBuild;
+    const z = $('#ad-zip'); if (z) z.onclick = () => printerZip(z);
+  }
+  // Everything a print shop asks for, in one download: cover + contents PDFs and a sizes sheet.
+  function printerSpecs(b) {
+    const g = draft.game, f = n => (+n).toFixed(3).replace(/\.?0+$/, '');
+    const w = 2 * b.trim[0] + b.spine + 2 * b.bleed, h = b.trim[1] + 2 * b.bleed;
+    return [
+      g.title + ' - printer specs',
+      'Built ' + when(b.built),
+      '',
+      'Trim size:        ' + f(b.trim[0]) + ' x ' + f(b.trim[1]) + ' in',
+      'Bleed:            ' + f(b.bleed) + ' in on each side',
+      'Interior pages:   ' + b.pages.contents + (b.pages.blanksAdded ? ' (includes ' + b.pages.blanksAdded + ' blank added to make an even count)' : ''),
+      'Interior file:    ' + g.slug + '-contents.pdf, ' + f(b.trim[0] + 2 * b.bleed) + ' x ' + f(h) + ' in per page (trim plus bleed)',
+      'Spine width:      ' + f(b.spine) + ' in',
+      'Cover file:       ' + g.slug + '-cover.pdf, one wraparound spread (back, spine, front)',
+      'Cover size:       ' + f(w) + ' x ' + f(h) + ' in (with bleed)',
+      'Binding:          perfect bound (paperback)',
+      ''
+    ].join('\r\n');
+  }
+  let zipLib = null;
+  function loadZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    return zipLib || (zipLib = new Promise((ok, no) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = () => window.JSZip ? ok(window.JSZip) : no(new Error('zip tool did not load'));
+      s.onerror = () => { zipLib = null; no(new Error('could not load the zip tool')); };
+      document.head.appendChild(s);
+    }));
+  }
+  async function printerZip(btn) {
+    const b = build, slug = draft.game.slug;
+    btn.disabled = true; const label = btn.textContent; btn.textContent = 'MAKING ZIP…';
+    try {
+      const get = async n => { const r = await fetch(BASE + 'pdf/' + slug + n + '.pdf?b=' + encodeURIComponent(b.built || ''), { cache: 'no-store' }); if (!r.ok) throw new Error(slug + n + '.pdf is missing (' + r.status + ')'); return r.arrayBuffer(); };
+      const [JSZip, cover, contents] = await Promise.all([loadZip(), get('-cover'), get('-contents')]);
+      const zip = new JSZip(), dir = zip.folder(slug + '-printer-files');
+      dir.file(slug + '-cover.pdf', cover);
+      dir.file(slug + '-contents.pdf', contents);
+      dir.file('printer-specs.txt', printerSpecs(b));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = slug + '-printer-files.zip';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      flash('Downloaded ' + slug + '-printer-files.zip', 'ok');
+    } catch (e) { flash('Could not make the zip: ' + e.message, 'bad'); }
+    btn.disabled = false; btn.textContent = label;
   }
   async function runBuild() {
     const st = $('#ad-status');
