@@ -4,7 +4,7 @@
  * photos and print settings. The game's pages are thin shells that load this file
  * and say which page they are with <body data-page="...">:
  *   public   index.html     photos and videos, explanation, order, share, rules link
- *   rules    rules.html     the full rules, rendered from rules.md
+ *   rules    rules.html     the full rules, from rules.md (HTML; older notebooks: Markdown)
  *   editor   /studio/?game=<folder> edits the game and builds its PDFs (see admin.js)
  * The printable pages (cover.html, contents.html) use print.js instead.
  */
@@ -113,22 +113,29 @@
     return !(g.announceFrom && day < g.announceFrom) && !(g.announceUntil && day > g.announceUntil);
   };
   NB.rulesName = g => ((g && g.rulesName) || '').trim() || 'Rules';
-  // With a custom name, the starter heading "# <Title> rules" becomes "# <Title>: <name>".
-  // {{title}} in rules.md is the game's title, so the heading follows the name.
+  // The rules (rules.md) are HTML. Notebooks made before that wrote them in Markdown, which still
+  // works: a file that doesn't start with a tag is read as Markdown.
+  NB.isHTML = t => /^\s*</.test(String(t || ''));
+  // Markdown rules as tidy HTML source, for the studio's editor and the one-time conversion.
+  NB.mdSource = t => NB.md(String(t || '')).replace(/<li>/g, '\n  <li>').replace(/<\/(ol|ul)>/g, '\n</$1>').replace(/\n(?=<(h\d|p|ol|ul|aside|hr))/g, '\n\n') + '\n';
+  // With a custom name, the starter heading "<Title> rules" becomes "<Title>: <name>".
+  // {{title}} in the rules is the game's title, so the heading follows the name.
   const nameRules = (text, g) => {
     if (!g) return text;
     if (NB.rulesName(g) !== 'Rules') {
-      const hs = ['# ' + g.title + ' rules', '# {{title}} rules'].map(h => h.toLowerCase());
-      text = text.replace(/^\s*# .*$/m, line => hs.includes(line.trim().toLowerCase()) ? '# ' + g.title + ': ' + NB.rulesName(g) : line);
+      const hs = [g.title + ' rules', '{{title}} rules'].map(h => h.toLowerCase());
+      if (NB.isHTML(text)) text = text.replace(/<h1>([^<]*)<\/h1>/i, (m, h) => hs.includes(h.trim().toLowerCase()) ? '<h1>' + esc(g.title) + ': ' + esc(NB.rulesName(g)) + '</h1>' : m);
+      else text = text.replace(/^\s*# .*$/m, line => hs.includes(line.trim().slice(2).trim().toLowerCase()) ? '# ' + g.title + ': ' + NB.rulesName(g) : line);
     }
-    return text.replace(/\{\{title\}\}/g, g.title || '');
+    return text.replace(/\{\{title\}\}/g, NB.isHTML(text) ? esc(g.title || '') : g.title || '');
   };
+  const rulesHTML = (text, g) => NB.isHTML(text) ? nameRules(text, g) : NB.md(nameRules(text, g));
   NB.loadRules = async function (g) {
     const d = NB.draft();
-    if (d && d.rules != null) return NB.md(nameRules(d.rules, g));
+    if (d && d.rules != null) return rulesHTML(d.rules, g);
     const r = await fetch('./rules.md', { cache: 'no-cache' });
     if (!r.ok) throw new Error('rules.md not found (' + r.status + ')');
-    return NB.md(nameRules(await r.text(), g));
+    return rulesHTML(await r.text(), g);
   };
 
   // ---------- a small Markdown renderer for rules.md ----------

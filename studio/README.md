@@ -25,7 +25,7 @@ studio/
 | --- | --- |
 | `game.json` | Title, tagline, price, order link, photos and videos, description, specs, how-it-works steps, colours, print size. **The public page is built from this.** |
 | `index.html` | The public page (`/<game>/`). Only the title and share-preview tags need editing. |
-| `rules.md` | The full rules. Shown on `rules.html` **and** printed at the front of the notebook. |
+| `rules.md` | The full rules, as HTML (`<h1>{{title}} rules</h1>`, `<h2>`, `<p>`, `<ol>`...). Shown on `rules.html` **and** printed at the front of the notebook. Older notebooks wrote it in Markdown, which still works; the studio turns it into HTML when opened. |
 | `rules.html` | The rules page. Nothing to edit but the title tags. |
 | `cover.html` | Front and back cover design (`.cover-front`, `.cover-back`, optional `.cover-spine`). `{{image}}` puts the game's main image there: photo 1 in Photos & video when the cover is generated, or a pattern of squares until there is a photo. |
 | `contents.html` | Every inside page after the rules. Use `<template data-repeat>` for repeated sheets. |

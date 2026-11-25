@@ -135,7 +135,10 @@
     } catch (e) { /* none */ }
     draft.game.setup = draft.game.setup || {};
     draft.game.media = draft.game.media || [];
+    // Rules are HTML now. Older notebooks wrote them in Markdown, which turns into HTML here.
+    htmlRules(saved); htmlRules(draft);
   }
+  function htmlRules(o) { if (o && o.rules != null && !NB.isHTML(o.rules)) o.rules = NB.mdSource(o.rules); return o; }
 
   // ---------- page frame ----------
   function frame() {
@@ -964,8 +967,8 @@
     if (key === 'rules') return [
       'This is ' + file + ', the rules of "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
       'The same text is the rules page on the website (' + GH.SITE + '/' + target() + '/rules.html) and the first printed pages of the notebook, so write it for someone holding the book and a pencil.',
-      'It is Markdown: # for the one title at the top, ## for sections, ### for sub-sections, 1. for numbered steps, - for bullet points, **bold**, *italic*, > for a highlighted tip box, and --- for a line. No HTML, tables or images.',
-      'Keep the "# {{title}} rules" heading first, written exactly like that: {{title}} becomes the game\'s name, and the website swaps "rules" for the game\'s rules name. Keep steps short and clear, in the order players do them.',
+      'It is a fragment of HTML (no <html>, <head> or <body>): <h1> for the one title at the top, <h2> for sections, <h3> for sub-sections, <p>, <ol>/<ul> with <li>, <strong>, <em>, <a href>, <hr>, and <aside class="callout"> for a highlighted tip box. No scripts or style attributes: the page\'s own styles do the look.',
+      'Keep <h1>{{title}} rules</h1> first, written exactly like that: {{title}} becomes the game\'s name, and the website swaps "rules" for the game\'s rules name. Keep steps short and clear, in the order players do them.',
     ];
     const common = [
       'This is ' + file + ' for "' + (g.title || 'a notebook game') + '", a paper notebook game sold on ' + GH.SITE + '.',
@@ -1005,7 +1008,7 @@
   function bindAi(key) {
     const ta = $('#ad-code'), msg = $('#ad-ai-msg');
     $('#ad-ai-copy').onclick = () => {
-      const lang = key === 'rules' ? 'markdown' : 'html';
+      const lang = 'html';
       const text = 'Please edit ' + (key === 'rules' ? 'the rules' : 'this page') + ' of my notebook game.\n\n' + aiBrief(key).map(x => '- ' + x).join('\n') +
         '\n\nReply with the complete updated file in one ```' + lang + ' code block, with nothing left out.\n\nWhat I want: [describe your change here]\n\nThe current file:\n```' + lang + '\n' + draft[key] + '\n```\n';
       (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
@@ -1015,7 +1018,7 @@
     const apply = raw => {
       const m = raw.match(/```(?:html|markdown|md)?[ \t]*\n([\s\S]*?)```/i);
       const code = (m ? m[1] : raw).trim();
-      if (key === 'rules' && !/^#\s/m.test(code)) { msg.textContent = 'That doesn\'t look like the whole rules file. Ask the AI for the complete file in one code block.'; return; }
+      if (key === 'rules' && !NB.isHTML(code)) { msg.textContent = 'That doesn\'t look like the whole rules file. Ask the AI for the complete file in one code block.'; return; }
       if (key !== 'rules' && !/<html[\s>]|<!doctype/i.test(code)) { msg.textContent = 'That doesn\'t look like a whole HTML file. Ask the AI for the complete file in one code block.'; return; }
       draft[key] = code + '\n'; persist(); aiOpen = true; show(tab); aiOpen = false;
       const m2 = $('#ad-ai-msg'); if (m2) m2.textContent = 'Pasted. Check the preview, then click SAVE.';
@@ -1030,7 +1033,7 @@
   function codeTab(p, key, title, lede, help) {
     const ai = true; // every code tab has the "Edit this page with an AI" box
     p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
-      '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
+      '<textarea class="ad-code" id="ad-code" spellcheck="false" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
       '<div class="ad-code-foot">' + (key === 'rules' ? '<span class="ad-rules-len" id="ad-rules-len"></span>' : '') + '<button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
       (key === 'rules' ? '<div class="ad-rules-warn" id="ad-rules-warn" role="status" hidden></div>' : '') +
       (help ? '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>' : '');
@@ -1051,21 +1054,18 @@
   }
   // Likely mistakes in the rules, shown under the editor.
   function rulesProblems() {
-    const g = draft.game, text = draft.rules, out = [];
-    const lines = text.split('\n');
-    const tops = lines.filter(l => /^#\s/.test(l));
-    const first = (lines.find(l => /^#{1,6}\s/.test(l)) || '').trim();
-    if (!/^#\s+\{\{title\}\}\s+rules$/i.test(first)) out.push('The first line should be <code># {{title}} rules</code>, so the game\'s name and its rules name (' + esc(NB.rulesName(g)) + ') fill in by themselves.');
-    if (tops.length > 1) out.push('There are ' + tops.length + ' main titles (lines starting with one #). Use ## for sections after the first.');
-    // Numbered steps that skip or repeat a number (1. 2. 4.). A list of all "1." is fine.
-    let prev = null;
-    lines.forEach((l, i) => {
-      const m = l.match(/^(\d+)\.\s/);
-      if (!m) { if (!/^\s+\S/.test(l)) prev = null; return; }
-      const n = +m[1];
-      if (prev != null && n !== prev + 1 && !(n === 1 && prev === 1)) out.push('Step ' + n + ' (line ' + (i + 1) + ') comes after step ' + prev + '.');
-      prev = n;
-    });
+    const g = draft.game, out = [];
+    const html = NB.isHTML(draft.rules) ? draft.rules : NB.mdSource(draft.rules);
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+    const h1s = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) || [];
+    const first = (html.match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i) || [])[0] || '';
+    if (!/^<h1>\s*\{\{title\}\}\s+rules\s*<\/h1>$/i.test(first.trim())) out.push('The first heading should be <code>&lt;h1&gt;{{title}} rules&lt;/h1&gt;</code>, so the game\'s name and its rules name (' + esc(NB.rulesName(g)) + ') fill in by themselves.');
+    if (h1s.length > 1) out.push('There are ' + h1s.length + ' main titles (&lt;h1&gt;). Use &lt;h2&gt; for sections after the first.');
+    // Tags opened and never closed (or the other way round) break the layout.
+    for (const t of ['p', 'ol', 'ul', 'li', 'h1', 'h2', 'h3', 'strong', 'em', 'aside', 'a']) {
+      const o = (html.match(new RegExp('<' + t + '\\b', 'gi')) || []).length, c = (html.match(new RegExp('</' + t + '>', 'gi')) || []).length;
+      if (o !== c && !(t === 'p' || t === 'li')) out.push('&lt;' + t + '&gt; is opened ' + o + ' time' + (o === 1 ? '' : 's') + ' but closed ' + c + '.');
+    }
     // Players, time and ages should agree with the Website tab's specs.
     const nums = s => (String(s).match(/\d+/g) || []).map(Number);
     const spec = re => ((g.specs || []).find(r => re.test(r[0] || '')) || [])[1];
@@ -1090,7 +1090,7 @@
   function drawRulesLen() {
     drawRulesWarn();
     const el = $('#ad-rules-len'); if (!el) return false;
-    const words = (draft.rules.replace(/\{\{\w+\}\}/g, 'x').replace(/[#>*_`\[\]()-]+/g, ' ').match(/[A-Za-z0-9\u00C0-\uFFFF'’]+/g) || []).length;
+    const words = (draft.rules.replace(/<[^>]+>/g, ' ').replace(/&\w+;/g, ' ').replace(/\{\{\w+\}\}/g, 'x').replace(/[#>*_`\[\]()-]+/g, ' ').match(/[A-Za-z0-9\u00C0-\uFFFF'’]+/g) || []).length;
     const mins = Math.max(1, Math.round(words / 200));
     el.innerHTML = '<b>' + words.toLocaleString() + ' words</b> · about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' to read · ' +
       (rulesPages == null ? 'counting printed pages…' : '<b>' + rulesPages + ' printed page' + (rulesPages === 1 ? '' : 's') + '</b> in the notebook');
@@ -1123,8 +1123,8 @@
     document.body.appendChild(f);
     f.srcdoc = pvDoc(draft.contents, 'bleed=0');
   }
-  const rulesTab = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
-    '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
+  const rulesTab = p => codeTab(p, 'rules', 'Rules', 'HTML for the rules. The same rules are the rules page and the first pages of the notebook.',
+    '<ul><li><code>&lt;h1&gt;{{title}} rules&lt;/h1&gt;</code> first, then <code>&lt;h2&gt;</code> for sections and <code>&lt;h3&gt;</code> for sub-sections</li><li><code>&lt;p&gt;</code> paragraphs, <code>&lt;ol&gt;</code> numbered steps and <code>&lt;ul&gt;</code> bullet points, each item in <code>&lt;li&gt;</code></li><li><code>&lt;strong&gt;</code> bold, <code>&lt;em&gt;</code> italic, <code>&lt;a href="https://..."&gt;</code> link</li><li><code>&lt;aside class="callout"&gt;</code> makes a highlighted box</li><li><code>&lt;hr&gt;</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
   const tabCover = p => { codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. Click any words in the preview to change them. ' + esc(spineNote()), ''); coverStyles(p); };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
@@ -1569,14 +1569,14 @@
     const sameBase = local && local.base === d.at && local.game;
     if (OPEN || !sameBase) {
       // Nothing newer in this browser: open the saved copy.
-      draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler };
+      draft = htmlRules({ game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler });
       draft.game.setup = draft.game.setup || {}; draft.game.media = draft.game.media || [];
       takeFiles();
       serverSig = sig();
       persist();
     } else {
       // This browser has edits on top of the saved copy: keep them, with the saved photos.
-      const mine = draft; draft = { game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler };
+      const mine = draft; draft = htmlRules({ game: d.game, rules: d.rules, cover: d.cover, contents: d.contents, sampler: d.sampler != null ? d.sampler : saved.sampler });
       takeFiles(); serverSig = sig(); draft = mine;
     }
   }
@@ -1846,7 +1846,7 @@
       const g = JSON.parse(game);
       if (from !== FOLDER) { g.slug = saved.game.slug; g.formerAddresses = saved.game.formerAddresses; } // keep today's address
       g.setup = g.setup || {}; g.media = g.media || [];
-      const next = { game: g, rules: rules != null ? rules : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents, sampler: sampler != null ? sampler : contents != null ? samplerFrom(contents) : saved.sampler };
+      const next = { game: g, rules: rules != null ? (NB.isHTML(rules) ? rules : NB.mdSource(rules)) : saved.rules, cover: cover != null ? cover : saved.cover, contents: contents != null ? contents : saved.contents, sampler: sampler != null ? sampler : contents != null ? samplerFrom(contents) : saved.sampler };
       // Photos (and the tab icon) deleted since then come back from that version.
       const used = JSON.stringify(g) + next.cover + next.contents + next.sampler;
       const [nowFiles, thenFiles] = await Promise.all([GH.listFiles(), GH.filesAt(sha)]);
