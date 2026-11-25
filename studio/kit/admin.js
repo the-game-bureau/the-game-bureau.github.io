@@ -224,7 +224,9 @@
       // Two small previews at once: the game page, and the notebook (front cover over the first inside page).
       pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">Unsaved changes show here.</span></div>' +
         '<div class="ad-pv-duo"><div><h4>Web</h4><div class="ad-pv-mini web"><iframe id="ad-pv-web" title="Web preview" tabindex="-1"></iframe></div></div>' +
-        '<div><h4>Notebook</h4><div class="ad-pv-mini print"><iframe id="ad-pv-cover" title="Notebook cover preview" tabindex="-1"></iframe></div><div class="ad-pv-mini print"><iframe id="ad-pv-inside" title="Notebook page preview" tabindex="-1"></iframe></div></div></div>';
+        '<div><h4>Notebook</h4><div class="ad-pv-mini print ad-nbpv"><iframe id="ad-pv-front" title="Front cover" tabindex="-1"></iframe><iframe id="ad-pv-inside" title="Notebook page" tabindex="-1" hidden></iframe><iframe id="ad-pv-back" title="Back cover" tabindex="-1" hidden></iframe></div>' +
+        '<div class="ad-nbpv-nav"><button type="button" class="nb-btn" id="ad-nb-prev" aria-label="Previous page">&#8249;</button><span id="ad-nb-at">Front cover</span><button type="button" class="nb-btn" id="ad-nb-next" aria-label="Next page">&#8250;</button></div></div></div>';
+      $('#ad-nb-prev').onclick = () => nbGo(nbAt - 1); $('#ad-nb-next').onclick = () => nbGo(nbAt + 1);
       renderPreview();
       return;
     }
@@ -244,34 +246,56 @@
     .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
     .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
   function schedulePreview() { if (MANUAL_PV.includes(tab)) return; clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
-  // Fits a print page frame: waits for print.js, then zooms the first sheet to the frame's width and height.
-  function fitMini(f) {
+  // Colors tab Notebook preview: front cover, every inside page in order, back cover, one at a time.
+  let nbAt = 0, nbPages = [];
+  // Waits for print.js in a frame, then calls done(document).
+  function whenLaid(f, done) {
     f.onload = () => {
-      try {
-        const d = f.contentDocument; let tries = 0;
-        const fit = () => {
-          if (d.body.dataset.ready !== '1' && tries++ < 40) return setTimeout(fit, 150);
-          const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
-          const el = d.querySelector('.pk-cover, .page.sheet') || d.querySelector('.page'); if (!el) return;
-          const z = Math.min(f.clientWidth / (el.offsetWidth + 16), f.clientHeight / (el.offsetHeight + 16));
-          d.documentElement.style.zoom = z;
-          const w = d.defaultView, r = el.getBoundingClientRect(); w.scrollTo(0, Math.max(0, r.top + w.scrollY - 8));
-          d.documentElement.style.overflow = 'hidden';
-        };
-        fit();
-      } catch (e) { /* not ready */ }
+      let tries = 0;
+      const go = () => {
+        let d; try { d = f.contentDocument; } catch (e) { return; }
+        if (!d || !d.body) return;
+        if (d.body.dataset.ready !== '1' && tries++ < 40) return setTimeout(go, 150);
+        const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
+        d.documentElement.style.overflow = 'hidden';
+        done(d);
+      };
+      go();
     };
   }
+  // Zooms a frame so el fits (by width only for a tall rules flow), and scrolls to it.
+  function fitTo(f, d, el) {
+    if (!el) return;
+    d.documentElement.style.zoom = 1;
+    const tall = el.offsetHeight > el.offsetWidth * 1.6;
+    const z = tall ? f.clientWidth / (el.offsetWidth + 16) : Math.min(f.clientWidth / (el.offsetWidth + 16), f.clientHeight / (el.offsetHeight + 16));
+    d.documentElement.style.zoom = z;
+    const w = d.defaultView, r = el.getBoundingClientRect(); w.scrollTo(0, Math.max(0, r.top + w.scrollY - 8));
+  }
+  function nbGo(i) {
+    const fr = $('#ad-pv-front'), ins = $('#ad-pv-inside'), bk = $('#ad-pv-back'); if (!fr) return;
+    const last = nbPages.length + 1;
+    nbAt = Math.max(0, Math.min(last, i));
+    fr.hidden = nbAt !== 0; bk.hidden = nbAt !== last; ins.hidden = nbAt === 0 || nbAt === last;
+    try {
+      if (!ins.hidden) { nbPages.forEach((el, k) => { el.style.display = k === nbAt - 1 ? '' : 'none'; }); fitTo(ins, ins.contentDocument, nbPages[nbAt - 1]); }
+      else { const f = fr.hidden ? bk : fr, d = f.contentDocument; if (d && d.body && d.body.dataset.ready === '1') fitTo(f, d, d.querySelector('.pk-cover')); }
+    } catch (e) { /* still loading */ }
+    $('#ad-nb-at').textContent = nbAt === 0 ? 'Front cover' : nbAt === last ? 'Back cover' : 'Page ' + nbAt + ' of ' + nbPages.length;
+    $('#ad-nb-prev').disabled = nbAt === 0; $('#ad-nb-next').disabled = nbAt === last;
+  }
   function renderColorsPreview() {
-    const web = $('#ad-pv-web'), cov = $('#ad-pv-cover'), ins = $('#ad-pv-inside');
+    const web = $('#ad-pv-web'), fr = $('#ad-pv-front'), ins = $('#ad-pv-inside'), bk = $('#ad-pv-back');
     if (!web) return;
     const shells = GH.shells(FOLDER, draft.game);
     // The game page at desktop width, shrunk to fit the column.
     const box = web.parentElement, W = 1200, k = box.clientWidth / W;
     web.style.width = W + 'px'; web.style.height = (box.clientHeight / k) + 'px'; web.style.transform = 'scale(' + k + ')';
     web.srcdoc = pvDoc(shells['index.html'], '');
-    fitMini(cov); cov.srcdoc = pvDoc(draft.cover, 'layout=front');
-    fitMini(ins); ins.srcdoc = pvDoc(draft.contents, 'bleed=0');
+    whenLaid(fr, () => nbGo(nbAt)); fr.srcdoc = pvDoc(draft.cover, 'layout=front');
+    whenLaid(bk, () => nbGo(nbAt)); bk.srcdoc = pvDoc(draft.cover, 'layout=back');
+    whenLaid(ins, d => { nbPages = [...d.querySelectorAll('.flow, .page')]; nbGo(nbAt); }); ins.srcdoc = pvDoc(draft.contents, 'bleed=0');
+    nbGo(nbAt);
   }
   function renderPreview() {
     if (tab === 'colors') return renderColorsPreview();
