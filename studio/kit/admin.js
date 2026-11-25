@@ -212,7 +212,7 @@
     const opts = {
       welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
-      colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
+      colors: [['duo', 'Web and notebook']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
       cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
       contents: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
@@ -220,6 +220,14 @@
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
     if (!opts) { pv.innerHTML = ''; return; }
+    if (t === 'colors') {
+      // Two small previews at once: the game page, and the notebook (front cover over the first inside page).
+      pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">Unsaved changes show here.</span></div>' +
+        '<div class="ad-pv-duo"><div><h4>Web</h4><div class="ad-pv-mini web"><iframe id="ad-pv-web" title="Web preview" tabindex="-1"></iframe></div></div>' +
+        '<div><h4>Notebook</h4><div class="ad-pv-mini print"><iframe id="ad-pv-cover" title="Notebook cover preview" tabindex="-1"></iframe></div><div class="ad-pv-mini print"><iframe id="ad-pv-inside" title="Notebook page preview" tabindex="-1"></iframe></div></div></div>';
+      renderPreview();
+      return;
+    }
     const cur = opts.some(o => o[0] === pvMode[t]) ? pvMode[t] : opts[0][0];
     pvMode[t] = cur;
     pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b>' + opts.map(([k, l]) => '<button type="button" data-pv="' + k + '" aria-current="' + (k === cur) + '">' + l + '</button>').join('') +
@@ -236,7 +244,37 @@
     .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
     .replace(/<head>/i, '<head><base href="/' + FOLDER + '/"><meta name="nb-query" content="' + query + '"><meta name="nb-draft" content="' + esc(DKEY) + '">') + '<!-- ' + Date.now() + ' -->'; // a new value each time, so the frame always reloads
   function schedulePreview() { if (MANUAL_PV.includes(tab)) return; clearTimeout(pvTimer); pvTimer = setTimeout(renderPreview, 450); }
+  // Fits a print page frame: waits for print.js, then zooms the first sheet to the frame's width and height.
+  function fitMini(f) {
+    f.onload = () => {
+      try {
+        const d = f.contentDocument; let tries = 0;
+        const fit = () => {
+          if (d.body.dataset.ready !== '1' && tries++ < 40) return setTimeout(fit, 150);
+          const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
+          const el = d.querySelector('.pk-cover, .page.sheet') || d.querySelector('.page'); if (!el) return;
+          const z = Math.min(f.clientWidth / (el.offsetWidth + 16), f.clientHeight / (el.offsetHeight + 16));
+          d.documentElement.style.zoom = z;
+          const w = d.defaultView, r = el.getBoundingClientRect(); w.scrollTo(0, Math.max(0, r.top + w.scrollY - 8));
+          d.documentElement.style.overflow = 'hidden';
+        };
+        fit();
+      } catch (e) { /* not ready */ }
+    };
+  }
+  function renderColorsPreview() {
+    const web = $('#ad-pv-web'), cov = $('#ad-pv-cover'), ins = $('#ad-pv-inside');
+    if (!web) return;
+    const shells = GH.shells(FOLDER, draft.game);
+    // The game page at desktop width, shrunk to fit the column.
+    const box = web.parentElement, W = 1200, k = box.clientWidth / W;
+    web.style.width = W + 'px'; web.style.height = (box.clientHeight / k) + 'px'; web.style.transform = 'scale(' + k + ')';
+    web.srcdoc = pvDoc(shells['index.html'], '');
+    fitMini(cov); cov.srcdoc = pvDoc(draft.cover, 'layout=front');
+    fitMini(ins); ins.srcdoc = pvDoc(draft.contents, 'bleed=0');
+  }
   function renderPreview() {
+    if (tab === 'colors') return renderColorsPreview();
     const f = $('#ad-pv');
     if (!f) return;
     const mode = pvMode[tab];
@@ -694,8 +732,7 @@
       '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Page background in the notebook') + one('ink', 'Ink', 'Text and lines') + '</div>' +
       '<div class="nb-row ad-nevermind"><button type="button" class="nb-btn solid" id="ad-savecolors">SAVE COLORS</button><button type="button" class="nb-btn" id="ad-nevermind">NEVER MIND</button></div>' +
       '<p class="ad-help ad-colors-note" id="ad-colors-note"></p>' +
-      '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>' +
-      '<p class="ad-help">Check that text is easy to read: the Main colour sits behind white text, and Ink sits on Paper.</p>';
+      '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>';
     const setColor = (k, v) => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; b[k] = v.toUpperCase(); p.querySelector('[data-color="' + k + '"]').value = v; p.querySelector('[data-hex="' + k + '"]').value = b[k]; persist(); };
     p.querySelectorAll('[data-color]').forEach(el => { el.oninput = () => setColor(el.dataset.color, el.value); });
     p.querySelectorAll('[data-hex]').forEach(el => { el.oninput = () => setColor(el.dataset.hex, el.value.trim()); });
