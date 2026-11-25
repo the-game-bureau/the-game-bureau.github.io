@@ -462,7 +462,7 @@
   function tabContent(p) {
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
-    p.innerHTML = '<h2>Content</h2><p class="ad-lede">Everything on the game page comes from here. The starter cover uses it too.</p>' +
+    p.innerHTML = '<h2>Content</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
       (IS_NEW ? '<fieldset class="ad-newnb"><legend>New notebook</legend>' +
         '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>' +
         '<div class="ad-field"><span>Start from</span><div class="st-starts"><label><input type="radio" name="f-start" value="' + esc(FOLDER) + '" checked><span><b>' + esc(FOLDER === ST.STARTER ? 'Blank starter' : 'Copy of ' + (saved.game.title || FOLDER)) + '</b><small>Loading the other choices…</small></span></label></div>' +
