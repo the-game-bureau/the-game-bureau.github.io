@@ -135,7 +135,7 @@
     document.body.classList.add('ad-app');
     document.body.innerHTML =
       '<header class="ad-top"><div class="ad-top-in">' +
-      '<div class="ad-id"><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
+      '<div class="ad-id"><svg class="ad-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7h4M3 12h4M3 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 9h6M10 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
       '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '><a class="ad-pdfst" id="ad-pdfst" href="#pdfs" hidden></a>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
       '<button class="nb-btn ad-discard" id="ad-discard" type="button" title="Throw away changes" hidden>DISCARD</button>' +
       '<button class="nb-btn solid" id="ad-publish" type="button" title="Save it and put it live on thegamebureau.com">SAVE &amp; PUBLISH</button></div></div>' +
@@ -1684,7 +1684,9 @@
       document.title = !CHOSEN ? 'Notebook Studio' : (IS_NEW ? 'New notebook' : g.title) + ' · Notebook Studio';
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
-      show(tabFromHash() || (!GH.token() ? 'welcome' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
+      // Plain /studio/ always opens on Welcome (Kevin); a link that names a tab opens that tab.
+      if (!CHOSEN && !tabFromHash()) history.replaceState(null, '', location.pathname + location.search + '#welcome');
+      show(tabFromHash() || (!GH.token() || !CHOSEN ? 'welcome' : IS_NEW ? 'content' : 'checklist'));
       loadChecklistFacts();
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       try { const w = JSON.parse(sessionStorage.getItem(PDFWATCH) || 'null'); if (w && !IS_NEW && w.folder === FOLDER && Date.now() - w.t0 < 30 * 60000) watchPdfs(w.sha, w.t0); } catch (e) { /* none */ }
