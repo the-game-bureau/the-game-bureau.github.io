@@ -132,26 +132,46 @@ async function build(browser, base, folder) {
   // Product pictures for the public page, used until real photos are added:
   // the front cover, then the first inside pages of the sampler.
   const shots = [];
-  async function shoot(file, query, selector, count) {
-    const page = await browser.newPage({ viewport: { width: 1000, height: 1300 }, deviceScaleFactor: 1.4 });
+  async function shoot(file, query, selector, count, opts = {}) {
+    const list = opts.list || shots, dir = opts.dir || tmp, prefix = opts.prefix || 'preview-';
+    const page = await browser.newPage({ viewport: { width: 2200, height: 1300 }, deviceScaleFactor: opts.scale || 1.4 });
     await page.goto(base + '/' + folder + '/' + file + '?pdf=1&' + query, { waitUntil: 'load' });
     await page.waitForFunction(() => document.body.dataset.ready, null, { timeout: 30000 });
     for (const el of (await page.$$(selector)).slice(0, count)) {
       const box = await el.boundingBox();
       if (!box) continue;
-      const name = 'preview-' + (shots.length + 1) + '.jpg';
-      await page.screenshot({ path: path.join(tmp, name), type: 'jpeg', quality: 82, fullPage: true, clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, box.width * H / W) } });
-      shots.push(name);
+      const name = prefix + (list.length + 1) + '.jpg';
+      const tall = opts.spread ? box.height : Math.min(box.height, box.width * H / W);
+      await page.screenshot({ path: path.join(dir, name), type: 'jpeg', quality: opts.quality || 82, fullPage: true, clip: { x: box.x, y: box.y, width: box.width, height: tall } });
+      list.push(name);
     }
     await page.close();
   }
   await shoot('cover.html', 'layout=front', '.pk-cover', 1);
   await shoot(samplerSrc[0], samplerSrc[1], '.flow, .page', 3);
 
+  // Small pictures of the first pages of each PDF, for the studio's PDFs tab.
+  const tdir = path.join(tmp, 'thumbs');
+  fs.mkdirSync(tdir);
+  const thumbs = {};
+  for (const [key, parts] of Object.entries({
+    cover: [['cover.html', 'layout=spread&spine=' + spine, '.pk-cover', 1, true]],
+    contents: [['contents.html', 'bleed=1', '.flow, .page', 3]],
+    print: [['cover.html', 'layout=front', '.pk-cover', 1], ['contents.html', 'bleed=0', '.flow, .page', 2]],
+    sampler: [['cover.html', 'layout=front', '.pk-cover', 1], [samplerSrc[0], samplerSrc[1], '.flow, .page', 2]],
+  })) {
+    const list = [];
+    for (const [file, query, sel, n, spread] of parts) await shoot(file, query, sel, n, { list, dir: tdir, prefix: key + '-', scale: 0.35, quality: 70, spread });
+    thumbs[key] = list.map(f => 'pdf/thumbs/' + f);
+  }
+
   const out = path.join(dir, 'pdf');
   fs.mkdirSync(out, { recursive: true });
   for (const f of fs.readdirSync(out)) if (/^preview-\d+\.jpg$/.test(f)) fs.unlinkSync(path.join(out, f));
   shots.forEach(f => fs.copyFileSync(path.join(tmp, f), path.join(out, f)));
+  fs.rmSync(path.join(out, 'thumbs'), { recursive: true, force: true });
+  fs.mkdirSync(path.join(out, 'thumbs'));
+  for (const f of fs.readdirSync(tdir)) fs.copyFileSync(path.join(tdir, f), path.join(out, 'thumbs', f));
   fs.writeFileSync(path.join(out, slug + '-cover.pdf'), cover);
   fs.writeFileSync(path.join(out, slug + '-contents.pdf'), contents);
   fs.writeFileSync(path.join(out, slug + '.pdf'), full);
@@ -161,6 +181,7 @@ async function build(browser, base, folder) {
     built: new Date().toISOString(), trim: [W, H], bleed: P.bleed, spine,
     pages: { contents: pages, blanksAdded: blanks, printAtHome: fullCount, sampler: samplerCount },
     previews: shots.map(f => 'pdf/' + f),
+    thumbs,
   }, null, 2) + '\n');
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('  contents ' + pages + ' pages (' + blanks + ' blank added), cover ' + (2 * W + spine + 2 * P.bleed).toFixed(3) + ' x ' + (H + 2 * P.bleed).toFixed(3) + ' in, spine ' + spine + ' in');
