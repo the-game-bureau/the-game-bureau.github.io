@@ -453,6 +453,18 @@
 
   // What a shared link shows: the Share button's message, then the card that link previews build
   // from the page's tags (GH.shells): picture, title, tagline and the address.
+  // Says whether the announcement strip is showing today, given its dates.
+  function annStatus() {
+    const el = $('#ad-ann-status'); if (!el) return;
+    const g = draft.game, day = NB.today();
+    const nice = d => new Date(d + 'T12:00').toLocaleDateString([], { dateStyle: 'medium' });
+    const from = g.announceFrom || '', until = g.announceUntil || '';
+    el.textContent = !String(g.announce || '').trim() ? 'No announcement.'
+      : from && until && from > until ? 'The end date is before the start date, so the strip never shows.'
+      : NB.announceOn(g, day) ? 'Showing now' + (until ? ', until the end of ' + nice(until) : ', with no end date') + '.'
+      : from && day < from ? 'Hidden now. It appears on ' + nice(from) + (until ? ' and goes away after ' + nice(until) : '') + '.'
+      : 'Hidden. It ended on ' + nice(until) + '.';
+  }
   function sharePreview() {
     const box = $('#ad-share'); if (!box) return;
     const g = draft.game, slug = IS_NEW ? (g.slug || 'your-game') : FOLDER;
@@ -477,6 +489,8 @@
       '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) + field('subtitle', 'Subtitle', { ph: 'Optional' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
+      '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
+      '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Photos &amp; video, or the cover once the PDFs are built.</small></div>' +
       field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</fieldset>' +
@@ -498,6 +512,7 @@
     bindFields(p);
     if (IS_NEW) bindNew(p);
     sharePreview(); p.addEventListener('input', sharePreview);
+    annStatus(); p.addEventListener('input', annStatus); p.addEventListener('change', annStatus);
     
     $('#f-desc').oninput = e => { draft.game.description = e.target.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); persist(); };
     bindRows(p, 'specs', () => ['', '']);

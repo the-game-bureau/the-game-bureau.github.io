@@ -104,6 +104,14 @@
   };
 
   // What the rules are called (game.json "rulesName", e.g. "How to Play"). Default "Rules".
+  // The announcement strip shows only between announceFrom and announceUntil (YYYY-MM-DD,
+  // both days included, in the visitor's own time zone). An empty date means no limit.
+  NB.today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  NB.announceOn = (g, day) => {
+    if (!g || !String(g.announce || '').trim()) return false;
+    day = day || NB.today();
+    return !(g.announceFrom && day < g.announceFrom) && !(g.announceUntil && day > g.announceUntil);
+  };
   NB.rulesName = g => ((g && g.rulesName) || '').trim() || 'Rules';
   // With a custom name, the starter heading "# <Title> rules" becomes "# <Title>: <name>".
   // {{title}} in rules.md is the game's title, so the heading follows the name.
@@ -234,7 +242,7 @@
     const order = g.order || {};
     const html =
       header(g, 'public') +
-      (g.announce ? '<div class="nb-announce">' + esc(g.announce) + '</div>' : '') +
+      (NB.announceOn(g) ? '<div class="nb-announce">' + esc(g.announce) + '</div>' : '') +
       '<main>' +
       '<section class="nb-hero" id="order"><div class="nb-wrap">' +
       '<div class="nb-gallery" aria-label="Photos and videos">' +
