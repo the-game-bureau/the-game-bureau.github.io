@@ -238,9 +238,10 @@
   // game.json "order": { "url": "https://buy.stripe.com/...", "label": "ORDER A COPY" }
   // A Stripe Payment Link gets the chosen quantity as client_reference_id.
   NB.orderURL = function (g, qty) {
-    const u = (g.order && g.order.url) || '';
-    if (!u) return '';
-    if (/buy\.stripe\.com/.test(u)) return u + (u.includes('?') ? '&' : '?') + 'client_reference_id=qty-' + qty;
+    const u = String((g.order && g.order.url) || '').trim();
+    // Only a real web address counts. Anything else ("coming soon", a note) means no link yet.
+    if (!/^https?:\/\/[^\s]+$/i.test(u) || /coming.?soon/i.test(u)) return '';
+    if (/buy\.stripe\.com/i.test(u)) return u + (u.includes('?') ? '&' : '?') + 'client_reference_id=qty-' + qty;
     return u;
   };
 
@@ -439,8 +440,6 @@
       const clamp = v => Math.min(50, Math.max(1, Math.round(+v) || 1));
       document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); }; });
       qty.onchange = () => { qty.value = clamp(qty.value); };
-      if (!/buy\.stripe\.com/.test(order.url || '') && order.url) document.querySelector('.nb-qty').hidden = true;
-      if (!order.url) document.querySelector('.nb-qty').hidden = true;
       document.getElementById('nb-order').onclick = e => {
         e.preventDefault();
         const u = NB.orderURL(g, qty.value);
