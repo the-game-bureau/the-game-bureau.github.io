@@ -119,9 +119,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for g in $GAMES; do git add "$g/pdf"; done
-          git commit -m "Rebuild notebook PDFs: $GAMES" || { echo "No changes"; exit 0; }
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # main may have moved on while the PDFs rendered (another publish, or an earlier run's PDFs).
+          # Rebasing binary PDFs conflicts, so put the new PDFs on top of the latest main instead,
+          # and try again if someone pushes in between. A later change to a game starts its own run.
+          out="$RUNNER_TEMP/out"
+          for g in $GAMES; do mkdir -p "$out/$g"; cp -a "$g/pdf/." "$out/$g/"; done
+          pushed=""
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            for g in $GAMES; do [ -d "$g" ] || continue; mkdir -p "$g/pdf"; cp -a "$out/$g/." "$g/pdf/"; git add -A "$g/pdf"; done
+            if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+            git commit -q -m "Rebuild notebook PDFs: $GAMES"
+            if git push origin HEAD:main; then pushed=1; break; fi
+            echo "main moved on, trying again ($i)"; sleep $((i * 5))
+          done
+          [ -n "$pushed" ] || { echo "::error::Could not push the PDFs after 5 tries"; exit 1; }
           # Pushes made with GITHUB_TOKEN don't start other workflows, so start the Pages deploy here.
           gh workflow run deploy.yml --ref main
