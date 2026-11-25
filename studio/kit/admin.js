@@ -882,6 +882,8 @@
       if (e.target.closest('.nb-gallery')) { e.preventDefault(); e.stopPropagation(); flash('Photos and videos are set in <a href="#media">Media</a>.'); return; }
       // Links and buttons are only for show: nothing opens, plays or goes anywhere. Words marked
       // data-ed (the Rules and order buttons) can still be clicked into and renamed.
+      // The QTY - and + work, so the price can be seen changing with the quantity.
+      if (e.target.closest('[data-q]')) return;
       if (e.target.closest('a, button, [role=button], summary, label')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
     ['auxclick', 'dblclick', 'submit'].forEach(t => d.addEventListener(t, e => { if (t === 'submit' || e.target.closest('a, button')) { e.preventDefault(); e.stopImmediatePropagation(); } }, true));
