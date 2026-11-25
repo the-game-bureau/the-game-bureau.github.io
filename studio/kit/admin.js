@@ -630,7 +630,7 @@
     const g = draft.game, slug = IS_NEW ? (g.slug || 'your-game') : FOLDER;
     const url = GH.SITE + '/' + slug + '/';
     const photo = (g.media || []).find(m => m && m.type === 'image' && m.src);
-    const src = g.shareImage ? BASE + g.shareImage : photo ? (pending[photo.src] || (/^(https?:|\/|data:)/.test(photo.src) ? photo.src : BASE + photo.src)) : IS_NEW ? '' : BASE + 'pdf/preview-1.jpg';
+    const src = g.shareImage ? (pending[g.shareImage] || BASE + g.shareImage) : photo ? (pending[photo.src] || (/^(https?:|\/|data:)/.test(photo.src) ? photo.src : BASE + photo.src)) : IS_NEW ? '' : BASE + 'pdf/preview-1.jpg';
     const title = (g.title || 'Your game') + (g.subtitle ? ': ' + g.subtitle : '');
     const msg = g.shareText || (g.title && g.tagline ? g.title + ': ' + g.tagline : '');
     box.innerHTML = (msg ? '<p class="ad-share-msg">' + esc(msg) + ' <span>https://' + esc(url) + '</span></p>' : '') +
@@ -937,6 +937,8 @@
       (f ? '<button type="button" class="ad-rm" id="ad-ico-rm">REMOVE</button>' : '') + '</div>' +
       '<p class="ad-help">The little picture in the browser tab for the game and rules pages. Upload a <code>.ico</code> file (up to 200 KB). It is saved as <code>favicon.ico</code> in the game folder when you save.</p>';
   }
+  // The link-preview picture: game.json shareImage if set, otherwise the first photo.
+  const shareSrc = () => { const g = draft.game, first = (g.media || []).find(x => x && x.type === 'image' && x.src); return g.shareImage || (first ? first.src : ''); };
   function tabMedia(p) {
     const m = draft.game.media;
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt=""' + NB.focusStyle(x) + '>' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
@@ -945,19 +947,20 @@
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
         '<small>' + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
-        '<div class="ad-mbtns">' + (x.type === 'image' ? '<button type="button" class="ad-fbtn" data-focus="' + i + '" title="Choose the spot to keep when this photo is cropped">FOCUS</button>' : '') + '<button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
+        '<div class="ad-mbtns">' + (x.type === 'image' ? '<button type="button" class="ad-fbtn" data-focus="' + i + '" title="Choose the spot to keep when this photo is cropped">FOCUS</button>' +
+          '<button type="button" class="ad-fbtn ad-sbtn" data-share="' + i + '" aria-pressed="' + (shareSrc() === x.src) + '" title="' + (shareSrc() === x.src ? 'This photo shows when the link is shared' : 'Show this photo when the link is shared') + '">' + (shareSrc() === x.src ? '&#10003; SHARE PICTURE' : 'SHARE PICTURE') + '</button>' : '') + '<button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
         : '<p class="ad-empty">No photos or videos yet.</p>') + '</div>' + autoBox() +
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
       '<button type="button" class="nb-btn" id="ad-soon">ADD "VIDEO COMING SOON"</button></div>' +
-      '<p class="ad-help">Drop photos anywhere here to add them, and drag a photo to move it. Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. The first photo is also the picture in link previews.</p>' + iconBox();
+      '<p class="ad-help">Drop photos anywhere here to add them, and drag a photo to move it. Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. SHARE PICTURE picks the photo that shows when the link is shared in texts and posts (the first photo unless you pick another).</p>' + iconBox();
     const parseVid = (type, v) => { v = v.trim(); const yt = v.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{6,})/); const vm = v.match(/vimeo\.com\/(?:video\/)?(\d+)/); return type === 'youtube' ? (yt ? yt[1] : v) : (vm ? vm[1] : v); };
     p.querySelectorAll('[data-alt]').forEach(el => { el.oninput = () => { m[+el.dataset.alt].alt = el.value; persist(); }; });
     p.querySelectorAll('[data-vid]').forEach(el => { el.onchange = () => { const x = m[+el.dataset.vid]; x.id = parseVid(x.type, el.value); el.value = x.id; persist(); show('media'); }; });
     const move = (i, d) => { const j = i + d; if (j < 0 || j >= m.length) return; [m[i], m[j]] = [m[j], m[i]]; persist(); show('media'); };
     p.querySelectorAll('[data-up]').forEach(b => { b.onclick = () => move(+b.dataset.up, -1); });
     p.querySelectorAll('[data-down]').forEach(b => { b.onclick = () => move(+b.dataset.down, 1); });
-    p.querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { const [x] = m.splice(+b.dataset.rm, 1); if (x && pending[x.src]) { delete pending[x.src]; delete pendingB64[x.src]; } persist(); show('media'); }; });
+    p.querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { const [x] = m.splice(+b.dataset.rm, 1); if (x && draft.game.shareImage === x.src) delete draft.game.shareImage; if (x && pending[x.src]) { delete pending[x.src]; delete pendingB64[x.src]; } persist(); show('media'); }; });
     if ($('#ad-auto')) $('#ad-auto').onclick = () => { if (draft.game.autoPreviews === false) delete draft.game.autoPreviews; else draft.game.autoPreviews = false; persist(); show('media'); };
     $('#ad-yt').onclick = () => { m.push({ type: 'youtube', id: '', alt: 'Video' }); persist(); show('media'); };
     $('#ad-vm').onclick = () => { m.push({ type: 'vimeo', id: '', alt: 'Video' }); persist(); show('media'); };
@@ -977,6 +980,13 @@
       r.readAsDataURL(file);
     };
     if ($('#ad-ico-rm')) $('#ad-ico-rm').onclick = () => { delete draft.game.favicon; delete pending['favicon.ico']; delete pendingB64['favicon.ico']; persist(); show('media'); };
+    p.querySelectorAll('[data-share]').forEach(b => { b.onclick = () => {
+      const x = m[+b.dataset.share], first = m.find(y => y && y.type === 'image' && y.src);
+      if (draft.game.shareImage === x.src || (!draft.game.shareImage && first === x)) delete draft.game.shareImage; // back to the first photo
+      else if (first === x) delete draft.game.shareImage;
+      else draft.game.shareImage = x.src;
+      persist(); show('media');
+    }; });
     // FOCUS: click the spot that matters; every crop of this photo (gallery thumbnails, covers,
     // link-preview card in the studio) keeps that spot in view.
     p.querySelectorAll('[data-focus]').forEach(b => { b.onclick = () => {
