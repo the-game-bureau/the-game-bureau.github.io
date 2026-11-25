@@ -261,7 +261,14 @@
     '<span>SHARE</span></button>' +
     '</nav></div></header>';
   // The Share button in the top bar shares the game page, from any page.
-  const bindShare = g => { const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget); };
+  const bindShare = g => {
+    const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget);
+    // With no order link yet, every ORDER button stays on the page and says it's coming soon.
+    if (!NB.orderURL(g, 1)) document.querySelectorAll('a[href="./#order"], a[href="#order"]').forEach(a => {
+      a.addEventListener('click', e => { e.preventDefault(); NB.toast(NB.SOON); });
+    });
+  };
+  NB.SOON = 'Coming soon. Printed copies aren\'t on sale yet.';
   const footer = g =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
     '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a>' + (g.layout === 'product' ? '' : '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>') + '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a><a href="./#order">ORDER</a></nav>' +
@@ -355,10 +362,11 @@
       (g.price ? '<div class="nb-price"><b>' + esc(g.price) + '</b><span>' + esc(g.currency || 'USD') + '</span></div>' : '') +
       // The shipping note sits right under the price.
       (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') +
-      (NB.orderURL(g, 1) ? '<div class="nb-buy">' +
+      // The order button always shows; without an order link it says coming soon (bindShare).
+      ('<div class="nb-buy">' +
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
-      '</div>' : '') +
+      '</div>') +
       (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
       (prod ? specs() : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
@@ -432,6 +440,7 @@
       document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); }; });
       qty.onchange = () => { qty.value = clamp(qty.value); };
       if (!/buy\.stripe\.com/.test(order.url || '') && order.url) document.querySelector('.nb-qty').hidden = true;
+      if (!order.url) document.querySelector('.nb-qty').hidden = true;
       document.getElementById('nb-order').onclick = e => {
         e.preventDefault();
         const u = NB.orderURL(g, qty.value);

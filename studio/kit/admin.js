@@ -791,7 +791,7 @@
   function siteCopy() {
     const g = clone(draft.game); sitePH = new Set();
     Object.entries(PH).forEach(([k, v]) => { if (!String(get(g, k) || '').trim()) { set(g, k, v); sitePH.add(k); } });
-    g.order = g.order || {}; if (!g.order.url) g.order.url = '#';
+    g.order = g.order || {};
     if (!(g.description || []).length) { g.description = ['Two or three short paragraphs about the game: who plays, what you do, and what makes it fun.']; sitePH.add('description'); }
     if (!(g.steps || []).length) { g.steps = [{ title: 'Step title', text: 'What happens' }]; sitePH.add('steps.0.title'); sitePH.add('steps.0.text'); }
     if (String(g.announce || '').trim()) { delete g.announceFrom; delete g.announceUntil; }
@@ -924,7 +924,7 @@
       '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
       '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       '</div><div class="ad-band">' +
-      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link. The page above always shows the button so you can change its words.' +
+      field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave it empty until you have a link: the order buttons still show, and clicking them says printed copies are coming soon.' +
         ' <a href="' + STRIPE_NEW_PRODUCT + '" target="_blank" rel="noopener">Create a product in Stripe ↗</a>, then make a Payment Link for it and paste that link here.' }) +
       '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
