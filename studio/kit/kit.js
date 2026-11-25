@@ -352,12 +352,12 @@
       '<h1>' + esc(g.title) + (g.subtitle ? '<span>' + esc(g.subtitle) + '</span>' : '') + '</h1>' +
       (g.tagline && !prod ? '<p class="nb-tag">' + esc(g.tagline) + '</p>' : '') +
       (g.price ? '<div class="nb-price"><b>' + esc(g.price) + '</b><span>' + esc(g.currency || 'USD') + '</span></div>' : '') +
+      // The shipping note sits right under the price.
+      (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') +
       (NB.orderURL(g, 1) ? '<div class="nb-buy">' +
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
-      '</div>' +
-      // The shipping note belongs to the order button: right under it, and only when it shows.
-      (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') : '') +
+      '</div>' : '') +
       (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && (g.description && g.description.length || g.specs && g.specs.length) ? '<div class="nb-about">' + about() + '</div>' : '') +
