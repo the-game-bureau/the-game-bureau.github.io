@@ -1,20 +1,24 @@
-# {{title}} rules
+<h1>{{title}} rules</h1>
 
-You need this notebook and a pencil. Play with 2 to 6 players.
+<p>You need this notebook and a pencil. Play with 2 to 6 players.</p>
 
-## Setup
+<h2>Setup</h2>
 
-1. **First step.** Say what players do before the first round.
-2. **Second step.** Keep each step short.
+<ol>
+  <li><strong>First step.</strong> Say what players do before the first round.</li>
+  <li><strong>Second step.</strong> Keep each step short.</li>
+</ol>
 
-## Playing a round
+<h2>Playing a round</h2>
 
-1. **Do this.** One idea per step.
-2. **Then this.** Bold the name of the step.
-3. **Score it.** Say where in the notebook the score is written.
+<ol>
+  <li><strong>Do this.</strong> One idea per step.</li>
+  <li><strong>Then this.</strong> Bold the name of the step.</li>
+  <li><strong>Score it.</strong> Say where in the notebook the score is written.</li>
+</ol>
 
-## Winning
+<h2>Winning</h2>
 
-Say how the game ends and who wins.
+<p>Say how the game ends and who wins.</p>
 
-> **Tip.** A box like this calls out an example or an exception.
+<aside class="callout"><p><strong>Tip.</strong> A box like this calls out an example or an exception.</p></aside>
