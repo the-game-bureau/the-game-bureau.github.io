@@ -88,9 +88,9 @@
       contents: 'pdf/' + g.slug + '-contents.pdf',
       sampler: 'pdf/' + g.slug + '-sampler.pdf',
     };
-    // The public page offers the free sampler; set "freeFullPdf": true to offer the whole notebook instead.
-    g.pdf.free = g.freeFullPdf ? g.pdf.print : g.pdf.sampler;
-    g.pdf.freeLabel = g.freeFullPdf ? 'PRINT FREE (PDF)' : 'FREE SAMPLER (PDF)';
+    // The public page offers the free sampler.
+    g.pdf.free = g.pdf.sampler;
+    g.pdf.freeLabel = 'FREE SAMPLER (PDF)';
     NB.applyBrand(g);
     return g;
   };
@@ -254,8 +254,8 @@
     // The rules button sits just left of ORDER, on every page but the rules page itself.
     (here !== 'rules' ? '<a class="nb-rules-link" href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
-    // The free download: the sampler, or the whole notebook when it is offered free.
-    (g.pdf && g.pdf.free ? '<a class="nb-sampler-link" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'SAMPLER') + '</a>' : '') +
+    // The free download: the sampler.
+    (g.pdf && g.pdf.free ? '<a class="nb-sampler-link" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'SAMPLER' + '</a>' : '') +
     '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
     '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>' +
     '<span>SHARE</span></button>' +
@@ -264,7 +264,7 @@
   const bindShare = g => { const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget); };
   const footer = g =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
-    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a>' + (g.layout === 'product' ? '' : '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>') + '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a><a href="./#order">ORDER</a></nav>' +
+    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a>' + (g.layout === 'product' ? '' : '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>') + '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a><a href="./#order">ORDER</a></nav>' +
     '<a href="/">THEGAMEBUREAU.COM</a></div></footer>';
 
   // ---------- lightbox ----------
@@ -355,9 +355,10 @@
       (NB.orderURL(g, 1) ? '<div class="nb-buy">' +
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
-      '</div>' : '') +
+      '</div>' +
+      // The shipping note belongs to the order button: right under it, and only when it shows.
+      (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') : '') +
       (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
-      (prod && order.shippingNote ? '<p class="nb-fine nb-ship">' + esc(order.shippingNote) + '</p>' : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && (g.description && g.description.length || g.specs && g.specs.length) ? '<div class="nb-about">' + about() + '</div>' : '') +
       (prod ? '' : '<div class="nb-row">' +
@@ -445,7 +446,7 @@
       '<main class="nb-wrap nb-rules-page">' +
       '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a><button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button></div>' +
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
-      '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</a></div></div>' +
+      '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a></div></div>' +
       '</main>' + footer(g));
     bindShare(g);
     document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';

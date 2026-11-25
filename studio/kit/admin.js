@@ -259,7 +259,7 @@
         '<div class="mk-txt"><small>' + e((g.kicker || 'The Game Bureau presents').toUpperCase()) + '</small><h3>' + e(g.title || 'Game') + '</h3>' + (g.subtitle ? '<p class="mk-sub">' + e(g.subtitle) + '</p>' : '') +
           (g.tagline ? '<p>' + e(g.tagline) + '</p>' : '') +
           (g.price ? '<div class="mk-price">' + e(g.price) + ' <span>' + e(g.currency || 'USD') + '</span></div>' : '') +
-          '<div class="mk-btns"><span class="mk-buy">' + e(((g.order || {}).label || 'Order a printed copy').toUpperCase()) + '</span><span class="mk-more">' + (g.freeFullPdf ? 'PRINT FREE' : 'FREE SAMPLER') + '</span></div></div></div>' +
+          '<div class="mk-btns"><span class="mk-buy">' + e(((g.order || {}).label || 'Order a printed copy').toUpperCase()) + '</span><span class="mk-more">' + 'FREE SAMPLER' + '</span></div></div></div>' +
         (steps.length ? '<div class="mk-steps">' + steps.map((x, k) => '<div><em>' + (k + 1) + '</em><b>' + e(x.title || '') + '</b><span>' + e(x.text || '') + '</span></div>').join('') + '</div>' : '') +
         '<div class="mk-foot">' + e((g.title || 'Game').toUpperCase()) + ' &middot; THEGAMEBUREAU.COM</div></div>' +
         '<p class="ad-help">Main: top bar, headings, cover. Accent: highlights and the order button. Paper: page background. Ink: text and lines.</p>';
@@ -780,7 +780,7 @@
 
   // The game page itself, drawn from the draft in a frame, with its words editable in place.
   // Things the page doesn't show (web address, dates, order link, share message) sit below it.
-  const PH = { title: 'Title', subtitle: 'Subtitle', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
+  const PH = { title: 'Title', subtitle: 'Subtitle', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the order button (optional)' };
   let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
   // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
   function siteCopy() {
@@ -918,7 +918,6 @@
       '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       '</div><div class="ad-band">' +
       field('order.url', 'Order link', { ph: 'https://buy.stripe.com/...', help: 'A Stripe Payment Link gets the quantity passed along (turn on "Let customers adjust quantity" in Stripe). Any other link opens as is. Leave empty to hide the order button until you have a link. The page above always shows the button so you can change its words.' }) +
-      field('freeFullPdf', 'Offer the whole notebook free instead of the sampler', { check: true }) +
       '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the SHARE PICTURE from Media, or the cover once the PDFs are built.</small></div>' +
@@ -1418,8 +1417,8 @@
     const files = [
       ['Cover', 'Front and back cover for the printer: one wraparound spread (back, spine, front) with bleed. The spine width follows the page count.', pdf('-cover'), b => (2 * b.trim[0] + b.spine + 2 * b.bleed).toFixed(3) + ' x ' + (b.trim[1] + 2 * b.bleed).toFixed(3) + ' in, spine ' + b.spine + ' in'],
       ['Contents', 'Every inside page for the printer, rules first, with bleed.', pdf('-contents'), b => b.pages.contents + ' pages at ' + (b.trim[0] + 2 * b.bleed) + ' x ' + (b.trim[1] + 2 * b.bleed) + ' in' + (b.pages.blanksAdded ? ' (' + b.pages.blanksAdded + ' blank added)' : '')],
-      ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.' + (g.freeFullPdf ? ' Offered free on the game page.' : ''), pdf(''), b => b.pages.printAtHome + ' pages'],
-      ['Free sampler', 'Front cover, the Sampler tab\'s pages and back cover.' + (g.freeFullPdf ? '' : ' The free download on the game page.'), pdf('-sampler'), b => b.pages.sampler + ' pages'],
+      ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.', pdf(''), b => b.pages.printAtHome + ' pages'],
+      ['Free sampler', 'Front cover, the Sampler tab\'s pages and back cover. The free download on the game page.', pdf('-sampler'), b => b.pages.sampler + ' pages'],
     ];
     p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +

@@ -38,7 +38,7 @@ studio/
 - `<slug>-cover.pdf`: front/back cover for the printer, one wraparound spread (back, spine, front) with 0.125 in bleed. Spine width = pages x `print.spinePerPage`. The spine text (`.cover-spine`) is sized to fit with 1/16 in clear each side, and left off when the spine is under about 0.21 in (`print.spineTextMin` overrides that). The Cover tab shows the width and previews the spread at it.
 - `<slug>-contents.pdf`: the inside pages for the printer, rules first, with bleed, padded with blanks to a multiple of `print.padTo`.
 - `<slug>.pdf`: print-at-home notebook at trim size: front, rules, contents, back.
-- `<slug>-sampler.pdf`: free sampler: front, the pages in `sampler.html` (the studio's Sampler tab), back. `sampler.html` is separate from `contents.html`. This is the free download on the public page (set `"freeFullPdf": true` to offer the whole notebook instead).
+- `<slug>-sampler.pdf`: free sampler: front, the pages in `sampler.html` (the studio's Sampler tab), back. `sampler.html` is separate from `contents.html`. This is the free download on the public page.
 
 **Build PDFs** in the editor runs `.github/workflows/notebook-pdfs.yml`, which renders the
 pages in Chrome, checks every page size, commits the PDFs to `pdf/` and republishes the site
