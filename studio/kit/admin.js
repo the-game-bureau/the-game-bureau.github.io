@@ -616,18 +616,6 @@
     const title = p.querySelector('[data-path="title"]');
     title.addEventListener('input', () => { if (!draft.game.slugTouched) { draft.game.slug = ST.slugify(title.value); inp.value = draft.game.slug; persist(); check(); } });
     inp.addEventListener('input', () => { draft.game.slugTouched = true; });
-    const starts = p.querySelector('.st-starts');
-    starts.addEventListener('change', e => {
-      const r = e.target; if (r.name !== 'f-start' || r.value === FOLDER) return;
-      // Keep only what was typed here; everything else comes from the notebook switched to.
-      const g = draft.game, keep = {};
-      ['title', 'subtitle', 'tagline', 'kicker', 'description', 'specs', 'steps', 'brand', 'price', 'slug', 'slugTouched', 'rulesName', 'setup'].forEach(k => { if (g[k] !== undefined && JSON.stringify(g[k]) !== JSON.stringify(saved.game[k])) keep[k] = g[k]; });
-      try { localStorage.setItem(NEWKEY, JSON.stringify({ start: r.value, carry: keep, savedKey: serverKey || undefined })); } catch (e2) { /* blocked */ }
-      location.reload();
-    });
-    ST.startChoices().then(list => {
-      starts.innerHTML = list.map(x => '<label><input type="radio" name="f-start" value="' + esc(x[0]) + '"' + (x[0] === FOLDER ? ' checked' : '') + '><span><b>' + esc(x[1]) + '</b><small>' + esc(x[2]) + '</small></span></label>').join('');
-    }).catch(() => {});
     check(); loadTaken().then(check);
   }
   async function createNew() {
@@ -701,11 +689,11 @@
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
     p.innerHTML = '<h2>Elements</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
-      (IS_NEW ? '<fieldset class="ad-newnb"><legend>New notebook</legend>' +
-        '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>' +
-        '<div class="ad-field"><span>Start from</span><div class="st-starts"><label><input type="radio" name="f-start" value="' + esc(FOLDER) + '" checked><span><b>' + esc(FOLDER === ST.STARTER ? 'Blank starter' : 'Copy of ' + (saved.game.title || FOLDER)) + '</b><small>Loading the other choices…</small></span></label></div>' +
-        '<small>The blank starter, or a copy of a notebook already on the site. Switching keeps what you have typed here and takes the rest (colours, rules, cover and inside pages) from your choice.</small></div></fieldset>' : '') +
-      '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) + field('subtitle', 'Subtitle', { ph: 'Optional' }) +
+      '<fieldset><legend>The basics</legend>' + field('title', 'Title', IS_NEW ? { ph: 'e.g. Pitch Count' } : {}) +
+      // The web address sits under the title: made from the title for a new notebook (editable), fixed once it exists.
+      (IS_NEW ? '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>'
+        : '<div class="ad-field"><span>Web address</span><span class="st-url is-fixed"><b>thegamebureau.com/</b><a href="' + esc(BASE) + '" target="_blank" rel="noopener">' + esc(FOLDER) + '/</a></span><small>Set when the notebook was created.</small></div>') +
+      field('subtitle', 'Subtitle', { ph: 'Optional' }) +
       field('tagline', 'Tagline', { area: true, rows: 2, help: 'One sentence. Shown under the title and in link previews.' }) +
       field('kicker', 'Small line above the title') + field('announce', 'Announcement strip', { help: 'Optional. A coloured strip under the top bar.' }) +
       '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
@@ -1647,11 +1635,10 @@
   addEventListener('beforeunload', e => { if (!leaving && Object.keys(pendingB64).length && unsaved()) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- NEW NOTEBOOK ----------
-  // Always opens a fresh notebook from the blank starter (or a copy of a notebook, from COPY), even from /studio/?new itself. Work in
+  // Always opens a fresh notebook from the blank starter, even from /studio/?new itself. Work in
   // progress stays safe: an existing notebook's edits stay in this browser under its own name, and a
   // new notebook with unsaved edits is saved to GitHub first (it then shows in Notebooks).
-  // start: the notebook to copy (COPY on a Notebooks card); the blank starter when left out.
-  async function startNew(start) {
+  async function startNew() {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); } catch (e) { /* none */ }
     if (IS_NEW && (draft.game.title || '').trim() && unsaved()) {
@@ -1662,7 +1649,7 @@
     } else if (!IS_NEW && d && d.game && (d.game.title || '').trim() && !d.savedKey) {
       if (!confirm('Start a new notebook? The unsaved new notebook "' + d.game.title + '" in this browser will be thrown away.')) return;
     }
-    try { localStorage.removeItem(NEWKEY); if (start) localStorage.setItem(NEWKEY, JSON.stringify({ start })); } catch (e) { /* blocked */ }
+    try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ }
     leaving = true;
     history.replaceState(null, '', '/studio/?new#content');
     location.reload();
@@ -1670,7 +1657,7 @@
   document.addEventListener('click', e => {
     const a = e.target.closest && e.target.closest('a[href="/studio/?new#content"]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-    e.preventDefault(); startNew(/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(a.dataset.copy || '') ? a.dataset.copy : '');
+    e.preventDefault(); startNew();
   });
 
   document.addEventListener('DOMContentLoaded', async () => {
