@@ -500,7 +500,7 @@
       { k: 'media', t: 'Add photos and a video', d: (g.media || []).some(m => m && m.placeholder) ? 'The game page still shows placeholder pictures (another company\'s notebook). Replace them in Media before you publish.' : 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: !(g.media || []).some(m => m && m.placeholder) && (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
-      { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + target().split('/').pop() + '.' + GH.SITE + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
+      { k: 'subdomain', t: 'Give it its own web address', d: 'Optional. Make ' + target().split('/').pop() + '.' + GH.SITE + ' forward to this game page with a redirect in Cloudflare. About 5 minutes.', manual: true, html: subdomainHow() },
       { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + target() + '/', manual: true },
     ].map(x => Object.assign(x, {
       // A step ticked or unticked by hand keeps that; otherwise it ticks itself when the editor sees it done.
@@ -521,19 +521,14 @@
   // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
   function subdomainHow() {
     const SLUG = target().split('/').pop(), SUB = SLUG + '.' + GH.SITE;
-    const tgt = 'https://' + GH.SITE + '/' + target();
-    const expr = 'concat("' + tgt + '", http.request.uri.path)';
+    const tgt = 'https://' + GH.SITE + '/' + target() + '/';
     const code = t => '<code class="ad-copy" title="Click to copy">' + esc(t) + '</code>';
+    // The easiest way: one DNS record and one static redirect in Cloudflare, where the domain lives.
     return '<details class="ad-how"><summary>Show me how</summary><ol>' +
-      '<li>Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a> and pick ' + code(GH.SITE) + '.</li>' +
-      '<li><b>DNS, Records, Add record.</b> Type ' + code('AAAA') + ', Name ' + code(SLUG) + ', IPv6 address ' + code('100::') +
-        ', Proxy status <b>Proxied</b> (orange cloud). Save. This address only exists so Cloudflare can catch visits and send them on.</li>' +
-      '<li><b>Rules, Create rule, Redirect Rule.</b> Rule name ' + code(SLUG + ' short address') + '.</li>' +
-      '<li>Under <b>If incoming requests match</b>, choose <b>Custom filter expression</b>: Field ' + code('Hostname') + ', Operator ' + code('equals') + ', Value ' + code(SUB) + '.</li>' +
-      '<li>Under <b>Then</b>: Type <b>Dynamic</b>, Expression ' + code(expr) + ', Status code ' + code('301') + ', tick <b>Preserve query string</b>. Deploy.</li>' +
-      '<li>Wait a minute, then open <a href="https://' + SUB + '" target="_blank" rel="noopener">https://' + esc(SUB) + '</a>. It should land on ' + esc(tgt) + '/. ' +
-        'Pages carry on working too: https://' + esc(SUB) + '/rules.html opens the rules.</li>' +
-      '</ol><p>Why a redirect: GitHub Pages serves the whole site on one address, so Cloudflare forwards the short one to this game\'s folder.</p></details>';
+      '<li>In <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>, open ' + code(GH.SITE) + ', then <b>DNS, Add record</b>: Type ' + code('AAAA') + ', Name ' + code(SLUG) + ', Address ' + code('100::') + ', <b>Proxied</b>. Save.</li>' +
+      '<li><b>Rules, Redirect Rules, Create rule</b>: when Hostname equals ' + code(SUB) + ', redirect (Static, 301) to ' + code(tgt) + '. Deploy.</li>' +
+      '<li>After a minute, open <a href="https://' + SUB + '" target="_blank" rel="noopener">' + esc(SUB) + '</a>. It should land on the game page.</li>' +
+      '</ol></details>';
   }
   function tabSetup(p) {
     const list = steps();
