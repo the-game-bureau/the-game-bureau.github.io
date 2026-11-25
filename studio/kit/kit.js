@@ -444,8 +444,24 @@
     const qty = document.getElementById('nb-qty');
     if (qty) {
       const clamp = v => Math.min(50, Math.max(1, Math.round(+v) || 1));
-      document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); }; });
-      qty.onchange = () => { qty.value = clamp(qty.value); };
+      // The price shows unit price x quantity. Back at 1 it shows the price as written.
+      const pb = document.querySelector('.nb-price b');
+      let unit = null;
+      const total = () => {
+        if (!pb) return;
+        const n = clamp(qty.value);
+        if (n === 1) { if (unit !== null) pb.textContent = unit; unit = null; return; }
+        if (unit === null) unit = pb.textContent;
+        const m = unit.match(/^([\s\S]*?)(\d[\d,]*(?:\.\d+)?)([\s\S]*)$/);
+        if (!m) return;
+        const dec = (m[2].split('.')[1] || '').length;
+        pb.textContent = m[1] + (parseFloat(m[2].replace(/,/g, '')) * n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      };
+      // Editing the price (in the studio) starts from the price as written.
+      if (pb) pb.addEventListener('focus', () => { if (pb.isContentEditable && qty.value != 1) { qty.value = 1; total(); } });
+      document.querySelectorAll('[data-q]').forEach(b => { b.onclick = () => { qty.value = clamp(+qty.value + +b.dataset.q); total(); }; });
+      qty.onchange = () => { qty.value = clamp(qty.value); total(); };
+      qty.oninput = () => { if (qty.value !== '') total(); };
       document.getElementById('nb-order').onclick = e => {
         e.preventDefault();
         const u = NB.orderURL(g, qty.value);
