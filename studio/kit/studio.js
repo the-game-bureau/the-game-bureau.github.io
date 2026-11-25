@@ -26,7 +26,7 @@
   S.connect = function (el, onChange) {
     const $ = s => el.querySelector(s);
     const ok = !!GH.token();
-    el.innerHTML = '<h2>Connect</h2><p class="ad-lede">The studio saves notebooks to the website through GitHub. Connect it once in each browser you use.</p>' +
+    el.innerHTML = '<h2>Connect</h2><p class="ad-lede">In order to save and publish a notebook game, you must be connected to <a href="https://github.com/' + esc(GH.REPO) + '" target="_blank" rel="noopener">https://github.com/' + esc(GH.REPO) + '</a></p>' +
       '<h3>GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
       (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p><ul class="st-perms"><li class="wait">Checking what the key may do…</li></ul>' + expiryBox()
         : '<p class="ad-help">One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</p>' +
