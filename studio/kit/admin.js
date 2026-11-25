@@ -263,19 +263,33 @@
       IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Content. SAVE at the top keeps it on GitHub for any browser; PUBLISH creates it on the site.', tab: 'content', done: false }
         : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
-      { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true },
+      { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
-      { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true },
-      { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true },
+      { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
+      { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
       { k: 'sampler', t: 'Choose the free sampler pages', d: 'The sampler is the cover, the rules and the first ' + ((g.print && g.print.samplerPages) || 2) + ' inside pages (set in Content, Print). Or mark pages with data-sampler.', tab: 'content', manual: true },
       { k: 'save', t: 'Publish', d: 'Click PUBLISH at the top. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
-      { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each save. Open each one and check it.', tab: 'pdfs', manual: true },
+      { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each publish. Open each one and check it.', tab: 'pdfs', manual: true, auto: !IS_NEW && !!(build && build.built && lastPublish && new Date(build.built) >= new Date(lastPublish)) },
       { k: 'media', t: 'Add photos and a video', d: 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
       { k: 'proof', t: 'Order a printed proof', d: 'Upload the cover and contents PDFs to your printer (Lulu, Amazon KDP) and order one copy to check.', manual: true },
       { k: 'subdomain', t: 'Give it its own web address', d: 'Make https://' + target().split('/').pop() + '.' + GH.SITE + ' open this game page, using Cloudflare. About 5 minutes, once per game.', manual: true, html: subdomainHow() },
       { k: 'share', t: 'Share it', d: 'Use the Share button on the game page, or copy https://' + GH.SITE + '/' + target() + '/', manual: true },
-    ].map(x => Object.assign(x, { done: x.manual ? !!s[x.k] || !!x.done : !!x.done }));
+    ].map(x => Object.assign(x, {
+      // A step ticked or unticked by hand keeps that; otherwise it ticks itself when the editor sees it done.
+      byEditor: x.manual && s[x.k] === undefined && !!x.auto,
+      done: x.manual ? (s[x.k] !== undefined ? !!s[x.k] : !!x.auto || !!x.done) : !!x.done,
+    }));
+  }
+  // What a notebook looks like straight from the blank starter, and when it was last published,
+  // so the checklist can tell what has been done.
+  let starter = null, lastPublish = '';
+  const squash = t => String(t || '').replace(/\s+/g, ' ').trim();
+  async function loadChecklistFacts() {
+    const get = f => fetch('/' + ST.STARTER + '/' + f + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error(f)));
+    try { const [g, cover, contents] = await Promise.all([get('game.json'), get('cover.html'), get('contents.html')]); starter = { brand: JSON.parse(g).brand, cover, contents }; } catch (e) { starter = null; }
+    if (!IS_NEW) { try { const c = ((await GH.history(FOLDER)) || []).find(x => !/^Rebuild notebook PDFs/.test(x.commit.message)); lastPublish = c ? c.commit.author.date : ''; } catch (e) { lastPublish = ''; } }
+    if (tab === 'checklist') show('checklist', true);
   }
   // The short address: <slug>.thegamebureau.com redirects to the game's folder on the main site.
   function subdomainHow() {
@@ -298,10 +312,10 @@
     const list = steps();
     const n = list.filter(x => x.done).length;
     p.innerHTML = '<h2>Checklist</h2><h3 class="ad-sub">From idea to live notebook</h3><p class="ad-lede">' + n + ' of ' + list.length + ' steps done. Work down the list; each step opens the tab where it happens.</p>' +
-      '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it.</p>' +
+      '<p class="ad-help ad-legend"><span class="ad-tick" aria-hidden="true"></span> ticks itself when the editor sees the step is done. <input type="checkbox" disabled aria-hidden="true"> is yours to tick when you are happy with it; some tick themselves when the editor sees the work, and you can untick them.</p>' +
       '<ol class="ad-steps">' + list.map(x => '<li class="' + (x.done ? 'done' : '') + '">' +
         (x.manual ? '<input type="checkbox" data-step="' + x.k + '"' + (x.done ? ' checked' : '') + ' aria-label="Mark done">' : '<span class="ad-tick" aria-hidden="true">' + (x.done ? '&#10003;' : '') + '</span>') +
-        '<div><b>' + esc(x.t) + '</b><p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
+        '<div><b>' + esc(x.t) + '</b>' + (x.byEditor ? ' <small class="ad-autotick">ticked for you</small>' : '') + '<p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>').join('') + '</ol>' +
       (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you save or publish it.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
@@ -1053,6 +1067,7 @@
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
       show(tabFromHash() || (!GH.token() ? 'connect' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
+      loadChecklistFacts();
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       try { const w = JSON.parse(sessionStorage.getItem(PDFWATCH) || 'null'); if (w && !IS_NEW && w.folder === FOLDER && Date.now() - w.t0 < 30 * 60000) watchPdfs(w.sha, w.t0); } catch (e) { /* none */ }
       if (isTemplate) {
