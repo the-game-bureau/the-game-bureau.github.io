@@ -112,11 +112,15 @@
     if (GH.token()) { try { await GH.api('/contents/' + FOLDER + '/admin.html?ref=' + GH.BRANCH); legacyAdmin = true; } catch (e) { legacyAdmin = false; } }
     try { const b = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = b.ok ? await b.json() : null; } catch (e) { build = null; }
   }
+  const galaxyNumber = () => 100 + Math.floor(Math.random() * 900);
+  const isDefaultTitle = g => /^Galaxy \d+$/.test(g.title || '') && !g.slugTouched && g.slug === 'galaxy-' + g.title.slice(7);
   function loadDraft() {
     draft = clone(saved);
     if (IS_NEW) {
-      // A fresh notebook from the template: no name or address yet, and nothing ticked.
-      Object.assign(draft.game, { slug: '', title: '', shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
+      // A fresh notebook from the template: titled Galaxy and a random number (Kevin's default),
+      // with the address to match, and nothing ticked. bindNew picks another number if it's taken.
+      const n = galaxyNumber();
+      Object.assign(draft.game, { slug: 'galaxy-' + n, title: 'Galaxy ' + n, shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
       draft.game.order = Object.assign({}, draft.game.order, { url: '' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon; delete draft.game.slugTouched;
@@ -618,7 +622,18 @@
     // Typing the title on the page fills in the address until the address is typed by hand.
     onTitleEdit = () => { if (!draft.game.slugTouched) { draft.game.slug = ST.slugify(draft.game.title || ''); inp.value = draft.game.slug; check(); } };
     inp.addEventListener('input', () => { draft.game.slugTouched = true; });
-    check(); loadTaken().then(check);
+    check();
+    loadTaken().then(() => {
+      // The default "Galaxy <number>" must not match a notebook or folder that already exists.
+      const g = draft.game;
+      if (isDefaultTitle(g) && slugProblem(g.slug)) {
+        const fresh = sig() === freshSig;
+        for (let i = 0; i < 200 && slugProblem(g.slug); i++) { const n = galaxyNumber(); g.title = 'Galaxy ' + n; g.slug = 'galaxy-' + n; }
+        inp.value = g.slug; if (fresh) freshSig = sig();
+        persist(); if (tab === 'content') renderSite();
+      }
+      check();
+    });
   }
   // ---------- changing an existing notebook's web address ----------
   // Moves every file of the game (pages, photos, PDFs) to the new folder in one commit. The old
@@ -741,7 +756,7 @@
 
   // The game page itself, drawn from the draft in a frame, with its words editable in place.
   // Things the page doesn't show (web address, dates, order link, share message) sit below it.
-  const PH = { title: IS_NEW ? 'Galaxy' : 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
+  const PH = { title: 'Title', subtitle: 'Subtitle (optional)', price: 'Price', tagline: 'One sentence that says what the game is and why it\'s fun.', 'order.shippingNote': 'Small print under the buttons (optional)' };
   let sitePH = new Set(), siteTimer = null, siteEditing = false, onTitleEdit = null;
   // A copy of the game for the editor: empty words get grey placeholders so there is something to click.
   function siteCopy() {
