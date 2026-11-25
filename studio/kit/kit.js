@@ -181,6 +181,15 @@
     { type: 'image', src: '/studio/assets/placeholder-with-pencil.webp', alt: 'Placeholder with pencil', placeholder: true },
     { type: 'video', src: '/studio/assets/notebook-open.mp4', alt: 'Placeholder video', placeholder: true }
   ];
+  // What in game.json can change the printed notebook. Fields only the web page uses are left out,
+  // and of the photos only the cover picture counts. The same list is in .github/workflows/notebook-pdfs.yml.
+  NB.WEB_ONLY = ['order', 'announce', 'announceFrom', 'announceUntil', 'shareText', 'layout', 'setup', 'autoPreviews', 'favicon', 'videoHeading', 'slugTouched'];
+  NB.printKey = g => {
+    const o = Object.assign({}, g); NB.WEB_ONLY.forEach(k => delete o[k]);
+    const m = (g.media || []).find(NB.realPhoto); o.media = m ? [m.src, m.focus || null] : null;
+    const st = v => Array.isArray(v) ? '[' + v.map(st).join(',') + ']' : v && typeof v === 'object' ? '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + st(v[k])).join(',') + '}' : JSON.stringify(v === undefined ? null : v);
+    return st(o);
+  };
   // A photo of the game itself (not a placeholder), for the cover picture and link previews.
   NB.realPhoto = m => !!(m && (m.type === 'image' || !m.type) && m.src && !m.placeholder);
   NB.focusStyle = m => m && Array.isArray(m.focus) && m.focus.length === 2 ? ' style="object-position:' + (+m.focus[0]) + '% ' + (+m.focus[1]) + '%"' : '';
