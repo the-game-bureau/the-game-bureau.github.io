@@ -690,7 +690,7 @@
     const b = draft.game.brand = Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, draft.game.brand || {});
     if (!colorsAtStart) colorsAtStart = Object.assign({}, b);
     const one = (k, l, h) => '<label class="ad-color"><input type="color" data-color="' + k + '" value="' + esc(b[k]) + '"><span><b>' + l + '</b><small>' + h + '</small><input type="text" data-hex="' + k + '" value="' + esc(b[k]) + '" maxlength="7" spellcheck="false"></span></label>';
-    p.innerHTML = '<h2>Colors</h2><p class="ad-lede">Four colours run through the game page, the cover and the inside pages.</p>' +
+    p.innerHTML = '<h2>Colors</h2><p class="ad-lede">The four colors used for the game notebook website and the game notebook itself.</p>' +
       '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Page background in the notebook') + one('ink', 'Ink', 'Text and lines') + '</div>' +
       '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>' +
       '<p class="ad-help">Check that text is easy to read: the Main colour sits behind white text, and Ink sits on Paper.</p>' +
