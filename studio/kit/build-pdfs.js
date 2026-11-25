@@ -99,6 +99,7 @@ async function build(browser, base, folder) {
   // Print-at-home and sampler copies: front + inside (no bleed) + back.
   const front = await render('cover.html', 'layout=front');
   const back = await render('cover.html', 'layout=back');
+  const samplerFront = await render('cover.html', 'layout=front&stamp=sampler');
   const inner = await render('contents.html', 'bleed=0');
   // The free sampler has its own pages in sampler.html. Older notebooks without one fall back to
   // the first inside pages (contents.html?sampler=1).
@@ -112,7 +113,7 @@ async function build(browser, base, folder) {
     return doc.save();
   }
   const full = await combine([front, inner, back], g.title + ' notebook');
-  const sampler = await combine([front, samplerInner, back], g.title + ' free sampler');
+  const sampler = await combine([samplerFront, samplerInner, back], g.title + ' free sampler');
 
   // Checks: page sizes in inches and page counts. A failure stops here and keeps the old PDFs.
   const sizes = async b => (await load(b)).getPages().map(p => [p.getWidth() / 72, p.getHeight() / 72]);
@@ -125,7 +126,7 @@ async function build(browser, base, folder) {
   await expect('Print-at-home', full, W, H);
   await expect('Sampler', sampler, W, H);
   if ((await load(cover)).getPageCount() !== 1) throw new Error('Cover should be 1 page. Check cover.html for content that spills over.');
-  if ((await load(front)).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
+  if ((await load(front)).getPageCount() !== 1 || (await load(samplerFront)).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
   const fullCount = (await load(full)).getPageCount(), samplerCount = (await load(sampler)).getPageCount();
   if (samplerCount >= fullCount) throw new Error('Sampler (' + samplerCount + ' pages) is not shorter than the full notebook (' + fullCount + ').');
 
@@ -158,7 +159,7 @@ async function build(browser, base, folder) {
     cover: [['cover.html', 'layout=spread&spine=' + spine, '.pk-cover', 1, true]],
     contents: [['contents.html', 'bleed=1', '.flow, .page', 3]],
     print: [['cover.html', 'layout=front', '.pk-cover', 1], ['contents.html', 'bleed=0', '.flow, .page', 2]],
-    sampler: [['cover.html', 'layout=front', '.pk-cover', 1], [samplerSrc[0], samplerSrc[1], '.flow, .page', 2]],
+    sampler: [['cover.html', 'layout=front&stamp=sampler', '.pk-cover', 1], [samplerSrc[0], samplerSrc[1], '.flow, .page', 2]],
   })) {
     const list = [];
     for (const [file, query, sel, n, spread] of parts) await shoot(file, query, sel, n, { list, dir: tdir, prefix: key + '-', scale: 0.35, quality: 70, spread });

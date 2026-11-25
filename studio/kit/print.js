@@ -8,6 +8,7 @@
  *   cover.html?layout=spread&spine=0.18   wraparound: back, spine, front, with bleed
  *   cover.html?layout=front | layout=back  one panel at trim size, no bleed
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
+ *   cover.html?layout=front&stamp=sampler  front cover with a SAMPLER stamp (the free sampler)
  *   contents.html?sampler=1                legacy: the first pages, for notebooks without sampler.html
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
@@ -106,7 +107,10 @@
     if (layout === 'front' || layout === 'back') {
       PW = W; PH = H;
       const el = layout === 'front' ? front : back;
-      wrap.appendChild(panel(el, 'pk-' + layout, [m, m, m, m]));
+      const pn = panel(el, 'pk-' + layout, [m, m, m, m]);
+      // ?stamp=sampler: the free sampler's front cover gets a rubber stamp across it.
+      if (layout === 'front' && q.get('stamp') === 'sampler') pn.insertAdjacentHTML('beforeend', '<div class="pk-stamp" aria-hidden="true"><span>SAMPLER</span></div>');
+      wrap.appendChild(pn);
       [front, back, spineEl].forEach(x => { if (x && x !== el) x.remove(); });
       label = (layout === 'front' ? 'Front' : 'Back') + ' cover, ' + W + ' x ' + H + ' in';
     } else {
