@@ -253,7 +253,7 @@
   GH.shells = function (folder, g) {
     const rnFull = ((g.rulesName || '').trim() || 'Rules'), rn = rnFull === 'Rules' ? 'rules' : rnFull;
     const url = 'https://' + GH.SITE + '/' + folder + '/';
-    const img = g.shareImage ? url + g.shareImage : (g.media || []).find(m => m && m.type === 'image' && m.src) ? url + g.media.find(m => m && m.type === 'image' && m.src).src : url + 'pdf/preview-1.jpg';
+    const img = g.shareImage ? url + g.shareImage : (g.media || []).find(NB.realPhoto) ? url + g.media.find(NB.realPhoto).src : url + 'pdf/preview-1.jpg';
     const desc = g.tagline || g.title;
     const full = g.title + (g.subtitle ? ': ' + g.subtitle : '');
     const head = (title, extra) => '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
