@@ -50,8 +50,10 @@
       contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
   };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['content', 'Website'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
-  const ALIAS = { setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
+  // The tabs under the Pages header in the nav.
+  const PAGES = ['rules', 'scoring', 'game'];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['content', 'Website'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
@@ -145,11 +147,16 @@
       '<button class="nb-btn ad-discard" id="ad-discard" type="button" title="Throw away changes" hidden>DISCARD</button>' +
       '<button class="nb-btn solid ad-pub" id="ad-publish" type="button"><span data-l="save">SAVE</span><span data-l="pub">SAVED. PUBLISH?</span><span data-l="busy">WORKING…</span></button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div><div class="ad-keywarn" id="ad-keywarn" hidden></div></header>' +
-      '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => (k === 'cover' ? '<div class="ad-tabgrp" role="group" aria-label="The notebook">' : '') + '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>' + (k === 'contents' ? '</div>' : '')).join('') +
+      '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => (k === 'cover' ? '<div class="ad-tabgrp" role="group" aria-label="The notebook">' : '') +
+        // Pages is a header that opens to Rules, Scoring and Game.
+        (k === PAGES[0] ? '<button type="button" class="ad-pgs" id="ad-pgs" aria-expanded="false" aria-controls="ad-pgs-sub"' + (locked(k) ? ' disabled' : '') + '>Pages</button><div class="ad-sub" id="ad-pgs-sub" role="group" aria-label="Pages" hidden>' : '') +
+        '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>' +
+        (k === PAGES[PAGES.length - 1] ? '</div></div>' : '')).join('') +
       '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
+    $('#ad-pgs').onclick = () => pagesOpen($('#ad-pgs').getAttribute('aria-expanded') !== 'true');
     $('#ad-publish').onclick = () => mode() === 'save' ? saveDraft() : save();
     $('#ad-discard').onclick = askDiscard;
     keyWarn();
@@ -195,14 +202,21 @@
     setTimeout(() => { if ($('#ad-bar').innerHTML === html) updateBar(); }, ms);
   }
 
+  // Opens or closes the Pages header's three tabs. It stays open while one of them is showing.
+  function pagesOpen(on) {
+    const b = $('#ad-pgs'), sub = $('#ad-pgs-sub'); if (!b || !sub) return;
+    if (!on && PAGES.includes(tab)) on = true;
+    b.setAttribute('aria-expanded', on); sub.hidden = !on;
+  }
   function show(t, keepBar) {
     if (locked(t)) t = 'games';
     tab = t;
+    if (PAGES.includes(t)) pagesOpen(true);
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-current', b.dataset.tab === t));
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, scoring: p => pagesTab(p, 'scoring'), game: p => pagesTab(p, 'game'), sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -218,7 +232,8 @@
       colors: [['duo', 'Web and notebook']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
       cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
-      contents: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
+      scoring: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
+      game: [['contents', 'With bleed'], ['nobleed', 'No bleed']],
       sampler: [['sampler', 'Sampler pages'], ['samplerfront', 'Front cover']],
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
@@ -251,7 +266,7 @@
     renderPreview();
   }
   // Rules, Cover and Inside pages redraw only when you click REGENERATE; the others follow every edit.
-  const MANUAL_PV = ['rules', 'cover', 'contents', 'sampler'];
+  const MANUAL_PV = ['rules', 'cover', 'scoring', 'game', 'sampler'];
   // A print or web page from the draft, for a preview frame. Kit files load at this kit's version.
   const pvDoc = (html, query) => html
     .replace(/(["'])(\/studio\/kit\/[\w.-]+\.(?:js|css))(\?[^"']*)?\1/g, (m, q, u) => q + u + '?v=' + KITV + q)
@@ -329,7 +344,7 @@
           const w = Math.max(...[...d.querySelectorAll('.pk-cover, .page, .flow')].map(e => e.offsetWidth), 1) + 48;
           d.documentElement.style.zoom = Math.min(1, (box.clientWidth - 4) / w);
           if (tab === 'cover') bindCoverEdit(d);
-          if (tab === 'contents') pageMap(d, d.documentElement.style.zoom || 1);
+          if (tab === 'scoring' || tab === 'game') pageMap(d, d.documentElement.style.zoom || 1);
         };
         fit();
       } catch (e) { /* not ready */ }
@@ -492,7 +507,7 @@
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !/First step\.|Say how the game ends/.test(draft.rules) },
-      { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
+      { k: 'contents', t: 'Design the inside pages', d: 'Scoring pages and the game sheet, in Pages. Set how many game sheets the notebook holds in Bundle.', tab: 'game', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
       { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
       { k: 'save', t: 'Save and publish', d: 'Click SAVE at the top, then SAVED. PUBLISH? to put it live. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
@@ -1151,8 +1166,50 @@
     const undo = box.querySelector('#ad-cstyle-undo');
     if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
   }
-  const tabContents = p => codeTab(p, 'contents', 'Pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
-    '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>Colours and fonts as on the cover.</li></ul>');
+  // ---------- tabs: Scoring and Game (Pages) ----------
+  // contents.html stays one file. Scoring edits its fixed pages: everything in <body> except the
+  // rules spot and the repeated sheet. Game edits the sheet inside <template data-repeat>, which
+  // prints print.sheets times. The <style> in its head is shared by both.
+  function splitContents(html) {
+    const b = html.match(/<body[^>]*>/i); if (!b) return null;
+    const from = b.index + b[0].length, e = html.search(/<\/body>/i), to = e < 0 ? html.length : e;
+    const body = html.slice(from, to);
+    const t = body.match(/<template\b[^>]*\bdata-repeat\b[^>]*>([\s\S]*?)<\/template>/i);
+    const rulesRe = /[ \t]*<section\b[^>]*\bdata-rules\b[^>]*>\s*<\/section>[ \t]*\n?/i;
+    let rest = t ? body.slice(0, t.index) + '\n' + body.slice(t.index + t[0].length) : body;
+    const rules = rulesRe.test(rest); rest = rest.replace(rulesRe, '');
+    const block = x => x.replace(/^\s*\n/, '').replace(/\s+$/, '');
+    return { head: html.slice(0, from), tail: html.slice(to), rules, open: t ? t[0].match(/^<template\b[^>]*>/i)[0] : '<template data-repeat="{{sheets}}">', game: block(t ? t[1] : ''), scoring: block(rest.replace(/\n{3,}/g, '\n\n')) };
+  }
+  function joinContents(x) {
+    return x.head + '\n\n' + (x.rules ? '<section data-rules></section>\n\n' : '') + (x.scoring ? x.scoring + '\n\n' : '') +
+      (x.game.trim() ? x.open + '\n' + x.game + '\n</template>\n\n' : '') + x.tail.replace(/^\s+/, '');
+  }
+  const cssOf = html => { const m = html.match(/<style>([\s\S]*?)<\/style>/i); return m ? m[1].replace(/^\n/, '').replace(/\s+$/, '') : null; };
+  function pagesTab(p, part) {
+    const x = splitContents(draft.contents);
+    const sheets = (draft.game.print && draft.game.print.sheets) || 'the set number of';
+    const T = part === 'scoring'
+      ? ['Scoring', 'HTML for the scoring pages, such as the score book. They print once, right after the rules.',
+        '<ul><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li>A <code>&lt;script&gt;</code> here can fill pages in, like the score book\'s numbered rows.</li><li>The rules always come first and the game sheets come after these pages.</li><li>Colours and fonts as on the cover.</li></ul>']
+      : ['Game', 'HTML for one game sheet. The notebook prints it ' + esc(String(sheets)) + ' times, after the scoring pages. Set how many in <a href="#pdfs">Bundle</a>.',
+        '<ul><li>Each <code>&lt;section class="page"&gt;</code> is one page of the sheet. Two sections make a two-page sheet.</li><li><code>{{n}}</code> is the sheet number (1, 2, 3...). <code>{{title}}</code> is the game\'s name.</li><li>Colours and fonts as on the cover.</li></ul>'];
+    if (!x) { p.innerHTML = '<h2>' + T[0] + '</h2><p class="ad-lede">contents.html has no &lt;body&gt;, so it can\'t be split into Scoring and Game. Fix it with the AI box on the Notebooks tab or on GitHub.</p>'; return; }
+    const css = cssOf(draft.contents);
+    p.innerHTML = '<h2>' + T[0] + '</h2><p class="ad-lede">' + T[1] + '</p>' + aiBox('contents') +
+      '<textarea class="ad-code" id="ad-code" spellcheck="false" wrap="off">' + esc(x[part]) + '</textarea>' +
+      '<div class="ad-code-foot"><button type="button" class="ad-link" id="ad-revert">Undo all changes to the inside pages</button></div>' +
+      (css != null ? '<details class="ad-help-box"><summary>Page styles (CSS, shared by Scoring and Game)</summary><textarea class="ad-code ad-css" id="ad-css" spellcheck="false" wrap="off">' + esc(css) + '</textarea></details>' : '') +
+      '<details class="ad-help-box"><summary>How this works</summary>' + T[2] + '</details>';
+    const ta = $('#ad-code'), cs = $('#ad-css');
+    const tabKey = el => e => { if (e.key === 'Tab') { e.preventDefault(); el.setRangeText('  ', el.selectionStart, el.selectionEnd, 'end'); el.oninput(); } };
+    ta.oninput = () => { const y = splitContents(draft.contents); if (!y) return; y[part] = ta.value.replace(/\s+$/, ''); draft.contents = joinContents(y); persist(); };
+    ta.onkeydown = tabKey(ta);
+    if (cs) { cs.oninput = () => { draft.contents = draft.contents.replace(/<style>[\s\S]*?<\/style>/i, () => '<style>\n' + cs.value.replace(/\s+$/, '') + '\n</style>'); persist(); }; cs.onkeydown = tabKey(cs); }
+    bindAi('contents');
+    p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).catch(() => {}); }; });
+    $('#ad-revert').onclick = () => { if (confirm('Put the scoring and game pages back the way they were last saved?')) { draft.contents = saved.contents; persist(); show(tab); } };
+  }
 
   const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is its own PDF: the front cover, these pages and the back cover. It is the free download on the game page. These pages are separate from Pages, so changing one does not change the other.',
     '<ul><li>Same layout as Pages: <code>&lt;section data-rules&gt;</code> brings in the rules, each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>Keep it short: a taste of the game, not the whole notebook.</li><li>Colours and fonts as on the cover.</li></ul>');
