@@ -11,7 +11,8 @@
  *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
  *   Bundle       print settings (trim, bleed, spine); build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. The title bar's
- * SAVE & PUBLISH commits them to main in one go, and the site republishes and the PDFs rebuild.
+ * SAVE keeps them on GitHub (studio-drafts branch, not live); then the same button reads SAVED. PUBLISH?
+ * and commits them to main in one go, and the site republishes and the PDFs rebuild.
  * (Copies kept on the studio-drafts branch, by older studios or when starting another new notebook, still open and can be thrown away.)
  * Folders under studio/ are the template itself and are read-only here.
  */
@@ -138,14 +139,14 @@
       '<div class="ad-id"><svg class="ad-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7h4M3 12h4M3 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 9h6M10 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span><h1 id="ad-title" hidden></h1></div>' +
       '<div class="ad-actions"' + (CHOSEN ? '' : ' hidden') + '><a class="ad-pdfst" id="ad-pdfst" href="#pdfs" hidden></a>' + (IS_NEW ? '' : '<a class="nb-btn" href="' + BASE + '" target="_blank" rel="noopener">VIEW PAGE</a>') +
       '<button class="nb-btn ad-discard" id="ad-discard" type="button" title="Throw away changes" hidden>DISCARD</button>' +
-      '<button class="nb-btn solid" id="ad-publish" type="button" title="Save it and put it live on thegamebureau.com">SAVE &amp; PUBLISH</button></div></div>' +
+      '<button class="nb-btn solid ad-pub" id="ad-publish" type="button"><span data-l="save">SAVE</span><span data-l="pub">SAVED. PUBLISH?</span><span data-l="busy">WORKING…</span></button></div></div>' +
       '<div class="ad-bar" id="ad-bar" role="status"></div><div class="ad-keywarn" id="ad-keywarn" hidden></div></header>' +
       '<div class="ad-shell"><nav class="ad-tabs" id="ad-tabs">' + TABS.map(([k, l]) => (k === 'cover' ? '<div class="ad-tabgrp" role="group" aria-label="The notebook">' : '') + '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>' + (k === 'contents' ? '</div>' : '')).join('') +
       '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
-    $('#ad-publish').onclick = () => save();
+    $('#ad-publish').onclick = () => mode() === 'save' ? saveDraft() : save();
     $('#ad-discard').onclick = askDiscard;
     keyWarn();
     document.addEventListener('nb-key-rejected', () => setTimeout(keyWarn, 0));
@@ -165,7 +166,8 @@
       bar.innerHTML = 'This is a template, so it is read-only here. Edits show in the preview but can\'t be saved. <a href="/studio/?new#content">Start a new notebook</a> instead.';
       return;
     }
-    if (changed()) { bar.className = 'ad-bar show dirty'; bar.innerHTML = 'Not live yet. Click SAVE &amp; PUBLISH at the top to keep these changes and put them on the site.'; }
+    if (mode() === 'save') { bar.className = 'ad-bar show dirty'; bar.innerHTML = 'Not saved yet. Click SAVE at the top.'; }
+    else if (mode() === 'pub') { bar.className = 'ad-bar show dirty'; bar.innerHTML = 'Saved, not live yet. Click SAVED. PUBLISH? at the top to put it on the site.'; }
     else { bar.className = 'ad-bar'; bar.textContent = ''; }
   }
 
@@ -175,8 +177,8 @@
     const n = GH.token() ? GH.daysLeft() : null;
     const when = GH.expires() ? new Date(GH.expires() + 'T12:00').toLocaleDateString([], { dateStyle: 'long' }) : '';
     let msg = '';
-    if (GH.token() && GH.rejected) msg = 'GitHub no longer accepts this browser\'s key, so SAVE &amp; PUBLISH won\'t work. It has probably expired.';
-    else if (n != null && n < 0) msg = 'The GitHub key for this browser expired on ' + esc(when) + ', so SAVE &amp; PUBLISH won\'t work.';
+    if (GH.token() && GH.rejected) msg = 'GitHub no longer accepts this browser\'s key, so SAVE and PUBLISH won\'t work. It has probably expired.';
+    else if (n != null && n < 0) msg = 'The GitHub key for this browser expired on ' + esc(when) + ', so SAVE and PUBLISH won\'t work.';
     else if (n != null && n <= 14) msg = 'The GitHub key for this browser expires ' + (n === 0 ? 'today' : 'on ' + esc(when) + ', in ' + n + ' day' + (n === 1 ? '' : 's')) + '.';
     el.hidden = !msg;
     el.innerHTML = msg ? msg + ' <a href="#connect">Set up a new key in Connect</a>.' : '';
@@ -472,7 +474,7 @@
         const code = $('#ad-code'); if (code) code.value = draft.cover;
       }
       persist(); box.remove(); renderPreview();
-      flash(field ? esc(FIELD_NAMES[field]) + ' changed.' : 'Cover text changed. SAVE &amp; PUBLISH to keep it.', 'ok');
+      flash(field ? esc(FIELD_NAMES[field]) + ' changed.' : 'Cover text changed. SAVE to keep it.', 'ok');
     };
   }
 
@@ -481,7 +483,7 @@
     const g = draft.game, s = g.setup || {};
     const starterTag = 'One sentence that says what the game is and why it\'s fun.';
     return [
-      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Elements, then click SAVE & PUBLISH at the top. That creates it on the site.', tab: 'content', done: false }
+      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Elements, then click SAVE at the top, and SAVED. PUBLISH? to create it on the site.', tab: 'content', done: false }
         : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
@@ -489,7 +491,7 @@
       { k: 'contents', t: 'Design the inside pages', d: 'Score sheets and game sheets. Set how many game sheets the notebook holds.', tab: 'contents', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
       { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
-      { k: 'save', t: 'Save & Publish', d: 'Click SAVE & PUBLISH at the top. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
+      { k: 'save', t: 'Save and publish', d: 'Click SAVE at the top, then SAVED. PUBLISH? to put it live. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
       { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each publish. Open each one and check it.', tab: 'pdfs', manual: true, auto: !IS_NEW && !!(build && build.built && lastPublish && new Date(build.built) >= new Date(lastPublish)) },
       { k: 'media', t: 'Add photos and a video', d: (g.media || []).some(m => m && m.placeholder) ? 'The game page still shows placeholder pictures (another company\'s notebook). Replace them in Media before you publish.' : 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: !(g.media || []).some(m => m && m.placeholder) && (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
       { k: 'order', t: 'Set up ordering', d: 'Paste a Stripe Payment Link (or any checkout link) and set the price.', tab: 'content', done: !!(g.order && g.order.url) },
@@ -543,7 +545,7 @@
         '<div><b>' + esc(x.t) + '</b>' + (x.byEditor ? ' <small class="ad-autotick">ticked for you</small>' : '') + '<p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>';
       }).join('') + '</ol>' +
-      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE &amp; PUBLISH.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
+      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onclick = () => { draft.game.setup[c.dataset.step] = c.getAttribute('aria-pressed') !== 'true'; persist(); show('checklist'); }; });
@@ -635,7 +637,7 @@
     inp.oninput = () => { inp.value = inp.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'); check(); };
     go.onclick = () => {
       const v = inp.value.trim();
-      if (changed() || serverKey) { updateBar('SAVE &amp; PUBLISH (or DISCARD) your changes first, then change the address.', 'bad'); return; }
+      if (changed() || serverKey) { updateBar('Publish (or DISCARD) your changes first, then change the address.', 'bad'); return; }
       askBar('Move ' + esc(saved.game.title || FOLDER) + ' from <b>thegamebureau.com/' + esc(FOLDER) + '/</b> to <b>thegamebureau.com/' + esc(v) + '/</b>? It goes live right away. Links to the old address forward to the new one, and the PDFs rebuild with the new address on them.',
         [{ label: 'MOVE IT', solid: true, fn: () => moveTo(v) }]);
     };
@@ -644,7 +646,7 @@
     '<meta http-equiv="refresh" content="0;url=' + esc(to) + '">\n<script>location.replace(' + JSON.stringify(to) + ' + location.search + location.hash)</script>\n</head>\n<body><p>' + esc(title) + ' has moved to <a href="' + esc(to) + '">' + esc(to) + '</a>.</p></body>\n</html>\n';
   async function moveTo(to) {
     if (!GH.token()) { updateBar('Moving needs the one-time setup first. Open <a href="#connect">Connect</a>.', 'bad'); return; }
-    if (changed() || serverKey) { updateBar('SAVE &amp; PUBLISH (or DISCARD) your changes first, then change the address.', 'bad'); return; }
+    if (changed() || serverKey) { updateBar('Publish (or DISCARD) your changes first, then change the address.', 'bad'); return; }
     busy(true); updateBar('Checking thegamebureau.com/' + esc(to) + '/ is free…');
     const bad = await freshSlugProblem(to);
     if (bad) { busy(false); updateBar(esc(bad), 'bad'); return; }
@@ -703,7 +705,7 @@
       clearDraft();
       if (serverKey) await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + game.title + ', so drop its saved draft').catch(() => {});
       updateBar('Published. Opening ' + esc(game.title) + '…', 'ok');
-      location.replace('/studio/?game=' + encodeURIComponent(slug) + '#checklist');
+      leaving = true; location.replace('/studio/?game=' + encodeURIComponent(slug) + '#checklist');
     } catch (e) {
       updateBar('Not saved: ' + esc(e.message), 'bad');
       busy(false);
@@ -805,13 +807,13 @@
     const sc = $('#ad-savecolors');
     const sync = () => {
       nm.hidden = same();
-      const kept = !IS_NEW && !changed();
+      const kept = !unsaved() || (IS_NEW && mode() === 'none');
       sc.disabled = kept || working; sc.textContent = kept ? 'COLORS SAVED \u2713' : 'SAVE COLORS';
       sc.classList.toggle('is-saved', kept);
-      sc.title = kept ? 'Saved and live on the site.' : 'Save and publish the whole notebook, colours included';
+      sc.title = kept ? 'Saved. SAVED. PUBLISH? at the top puts them live.' : 'Save to GitHub (not live until you publish)';
     };
     p.addEventListener('input', sync); p.addEventListener('click', e => { if (e.target.closest('[data-preset]')) sync(); });
-    sc.onclick = async () => { sc.disabled = true; sc.textContent = 'SAVING…'; await save(); sync(); };
+    sc.onclick = async () => { sc.disabled = true; sc.textContent = 'SAVING…'; await saveDraft(); sync(); };
     nm.onclick = () => { ['color', 'accent', 'paper', 'ink'].forEach(k => setColor(k, colorsAtStart[k])); sync(); flash('Colours put back.', 'ok'); };
     sync();
   }
@@ -856,7 +858,7 @@
     return '<details class="ad-help-box ad-ai"' + (aiOpen ? ' open' : '') + '><summary>Edit this page with an AI</summary>' +
       '<p><b>With a chat AI</b> (Claude, ChatGPT and so on):</p><ol>' +
       '<li>Click <button type="button" class="nb-btn" id="ad-ai-copy">COPY FOR AI</button> and paste into the chat. It copies ' + (key === 'rules' ? 'how the rules are written and used' : 'the page size, the layout rules') + ' and this whole file. Then say what you want, for example ' + (key === 'rules' ? '"make the scoring section easier to follow"' : '"add a page for tracking each player\'s best score"') + '.</li>' +
-      '<li>Copy the AI\'s whole answer and click <button type="button" class="nb-btn" id="ad-ai-paste">PASTE AI ANSWER</button>. The editor and preview update. Nothing is saved until you click SAVE &amp; PUBLISH at the top, and <i>Undo all changes to this file</i> puts it back.</li></ol>' +
+      '<li>Copy the AI\'s whole answer and click <button type="button" class="nb-btn" id="ad-ai-paste">PASTE AI ANSWER</button>. The editor and preview update. Nothing is saved until you click SAVE at the top, and <i>Undo all changes to this file</i> puts it back.</li></ol>' +
       '<p id="ad-ai-msg" class="ad-help"></p>' +
       '<p><b>With an AI that can use GitHub</b> (such as Claude Code), point it at the file:</p><ul>' +
       '<li>Repository ' + c(GH.REPO) + ', branch ' + c(GH.BRANCH) + ', file ' + c(file) + ' (<a href="' + gh + '" target="_blank" rel="noopener">open on GitHub</a>).</li>' +
@@ -880,7 +882,7 @@
       if (key === 'rules' && !/^#\s/m.test(code)) { msg.textContent = 'That doesn\'t look like the whole rules file. Ask the AI for the complete file in one code block.'; return; }
       if (key !== 'rules' && !/<html[\s>]|<!doctype/i.test(code)) { msg.textContent = 'That doesn\'t look like a whole HTML file. Ask the AI for the complete file in one code block.'; return; }
       draft[key] = code + '\n'; persist(); aiOpen = true; show(tab); aiOpen = false;
-      const m2 = $('#ad-ai-msg'); if (m2) m2.textContent = 'Pasted. Check the preview, then click SAVE & PUBLISH.';
+      const m2 = $('#ad-ai-msg'); if (m2) m2.textContent = 'Pasted. Check the preview, then click SAVE.';
     };
     $('#ad-ai-paste').onclick = async () => {
       let raw = '';
@@ -1027,7 +1029,7 @@
         const html = await getCover(st[2]);
         coverBefore = draft.cover;
         draft.cover = html; persist(); show('cover');
-        flash('Swapped in the ' + esc(st[1]) + ' cover. Check the preview, then SAVE &amp; PUBLISH. "Put my cover back" undoes it.', 'ok', 8000);
+        flash('Swapped in the ' + esc(st[1]) + ' cover. Check the preview, then SAVE. "Put my cover back" undoes it.', 'ok', 8000);
       } catch (e) { updateBar('Could not load that cover style: ' + esc(e.message), 'bad'); }
     }; });
     const undo = box.querySelector('#ad-cstyle-undo');
@@ -1215,7 +1217,7 @@
     return '<a class="ad-pdf-thumbs" href="' + esc(href) + '" target="_blank" rel="noopener" title="Open the PDF">' + list.map(t => '<img src="' + esc(BASE + t) + '?b=' + v + '" alt="" loading="lazy">').join('') + '</a>';
   }
   function tabPdfs(p) {
-    if (IS_NEW) { p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you SAVE &amp; PUBLISH the notebook, and again after each one.</p><p class="ad-help">Until then, the Cover and Pages tabs preview exactly what will print.</p>' + printFields(); bindFields(p); return; }
+    if (IS_NEW) { p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you publish the notebook, and again after each publish.</p><p class="ad-help">Until then, the Cover and Pages tabs preview exactly what will print.</p>' + printFields(); bindFields(p); return; }
     const g = draft.game, slug = g.slug;
     const pdf = n => 'pdf/' + slug + n + '.pdf';
     const files = [
@@ -1314,15 +1316,21 @@
     finally { if ($('#ad-go')) $('#ad-go').disabled = false; }
   }
 
-  // ---------- SAVE & PUBLISH (title bar) ----------
-  // One button: the notebook is saved and goes live. For a new notebook that creates its folder.
-  // saveDraft() (a copy on the studio-drafts branch, not live) is only used when starting another
-  // new notebook with this one unfinished, so it is not lost.
+  // ---------- SAVE, then SAVED. PUBLISH? (one title-bar button, Kevin) ----------
+  // 'save': changes not saved yet; SAVE keeps them on GitHub (studio-drafts branch, not live).
+  // 'pub': saved, not live; the button reads SAVED. PUBLISH? and puts it live (a new notebook gets its folder).
+  // 'none': nothing to do; a greyed-out SAVE.
+  function mode() {
+    if (IS_NEW) return sig() === freshSig && !serverKey ? 'none' : unsaved() ? (sig() === freshSig ? 'none' : 'save') : 'pub';
+    return unsaved() ? 'save' : changed() ? 'pub' : 'none';
+  }
   let working = false;
   function refreshButtons() {
     const pb = $('#ad-publish'); if (!pb) return;
-    const locked = isTemplate && !allowTemplate;
-    pb.disabled = working || locked || (!IS_NEW && !changed());
+    const locked = isTemplate && !allowTemplate, m = working ? 'busy' : mode();
+    pb.dataset.mode = m === 'none' ? 'save' : m;
+    pb.title = m === 'pub' ? 'Put it live on thegamebureau.com' : m === 'save' ? 'Keep these changes on GitHub. Not live yet.' : 'No changes to save';
+    pb.disabled = working || locked || m === 'none';
     const dc = $('#ad-discard');
     dc.hidden = locked || !(IS_NEW ? serverKey || sig() !== freshSig : changed() || serverKey);
     dc.disabled = working;
@@ -1346,7 +1354,7 @@
       serverKey = key; serverAt = at; serverSig = sig(); serverTitle = g.title || key;
       persist();
       busy(false);
-      flash('Kept on GitHub (not live yet). Open it from Notebooks to finish it and SAVE &amp; PUBLISH.', 'ok', 8000);
+      flash('Saved (not live yet). Click SAVED. PUBLISH? at the top to put it on the site.', 'ok', 8000);
       if (tab === 'colors') show('colors');
     } catch (e) { busy(false); updateBar('Not saved: ' + esc(e.message), 'bad'); }
   }
@@ -1395,7 +1403,7 @@
     if (force !== true) {
       updateBar('Checking for newer versions…');
       const warn = (await otherPublish()) || (await otherSave(FOLDER));
-      if (warn) { busy(false); askBar(warn + ' Saving now puts your version live instead.', [{ label: 'SAVE & PUBLISH MINE ANYWAY', solid: true, fn: () => save(true) }, { label: 'OPEN THEIRS', fn: () => openTheirs(FOLDER) }]); return; }
+      if (warn) { busy(false); askBar(warn + ' Publishing now puts your version live instead.', [{ label: 'PUBLISH MINE ANYWAY', solid: true, fn: () => save(true) }, { label: 'OPEN THEIRS', fn: () => openTheirs(FOLDER) }]); return; }
     }
     if (g.favicon && !pendingB64['favicon.ico'] && !saved.game.favicon) delete g.favicon; // picked before a reload, so the file is gone
     const files = [];
@@ -1464,7 +1472,7 @@
     askBar(IS_NEW
       ? (serverKey ? 'Throw away changes? ' + (toSave ? '<b>Back to the copy on GitHub</b> drops what you changed since it was kept' + since + '. ' : '') + '<b>Throw this notebook away</b> deletes it, including the copy on GitHub. It was never published.'
         : 'Throw this notebook away? It has not been published.')
-      : 'Throw away changes? ' + (toSave ? '<b>Back to the copy on GitHub</b> drops what you changed since it was kept' + since + '. ' : '') + '<b>Back to the live version</b> drops every change since the last SAVE &amp; PUBLISH' + (serverKey ? ', including the copy on GitHub' : '') + '.', btns);
+      : 'Throw away changes? ' + (toSave ? '<b>Back to the copy on GitHub</b> drops what you changed since it was kept' + since + '. ' : '') + '<b>Back to the live version</b> drops every change that is not published' + (serverKey ? ', including the copy on GitHub' : '') + '.', btns);
   }
   function backToSave() {
     if (IS_NEW) { try { localStorage.removeItem(NEWKEY); } catch (e) { /* blocked */ } reloadTo('/studio/?new&open=' + encodeURIComponent(serverKey) + '#' + tab); return; }
@@ -1487,7 +1495,7 @@
   }
 
   // ---------- someone else got there first ----------
-  // Before SAVE & PUBLISH: has another browser saved or published this notebook since it was
+  // Before SAVE or PUBLISH: has another browser saved or published this notebook since it was
   // opened here? Returns the warning, or '' when it is safe to go ahead.
   async function otherSave(key) {
     let d = null;
@@ -1621,7 +1629,7 @@
   // ---------- tab: history ----------
   function tabHistory(p) {
     if (IS_NEW) { p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version of the notebook shows here once it is published.</p>'; return; }
-    p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version, newest first. LOAD puts that version back in the editor: words, colours, rules, cover, inside pages and photos. The site does not change until you SAVE &amp; PUBLISH it.</p><div id="ad-hist"><p class="ad-help">Loading…</p></div>';
+    p.innerHTML = '<h2>History</h2><p class="ad-lede">Every published version, newest first. LOAD puts that version back in the editor: words, colours, rules, cover, inside pages and photos. The site does not change until you save and publish it.</p><div id="ad-hist"><p class="ad-help">Loading…</p></div>';
     // Versions from before a change of web address are found under the old folder.
     const places = [FOLDER].concat(saved.game.formerAddresses || []);
     Promise.all(places.map(f => GH.history(f).then(l => (l || []).map(c => Object.assign(c, { folder: f }))).catch(() => []))).then(lists => {
@@ -1663,7 +1671,7 @@
         pending[rel] = 'data:' + type(rel) + ';base64,' + b64; pendingB64[rel] = b64;
       }
       draft = next; persist(); busy(false);
-      updateBar('Loaded the version from ' + esc(label) + '. Check it in the other tabs, then SAVE &amp; PUBLISH to make it live again, or DISCARD to go back.', 'ok');
+      updateBar('Loaded the version from ' + esc(label) + '. Check it in the other tabs, then SAVE and PUBLISH to make it live again, or DISCARD to go back.', 'ok');
     } catch (e) { busy(false); updateBar('Could not load that version: ' + esc(e.message), 'bad'); }
   }
 
@@ -1694,7 +1702,8 @@
     return 'Spine: ' + s.spine + ' in for ' + (s.est ? 'about ' : '') + s.pages + ' inside pages' + (s.est ? '' : ' (last PDF build)') + '. ' + text;
   }
 
-  addEventListener('beforeunload', e => { if (!leaving && Object.keys(pendingB64).length && unsaved()) { e.preventDefault(); e.returnValue = ''; } });
+  // Unsaved changes: the browser asks before closing or leaving the page (they are also kept in this browser).
+  addEventListener('beforeunload', e => { if (!leaving && CHOSEN && saved && mode() === 'save') { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- NEW NOTEBOOK ----------
   // Always opens a fresh notebook from the blank starter, even from /studio/?new itself. Work in
