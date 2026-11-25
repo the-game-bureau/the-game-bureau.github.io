@@ -778,7 +778,8 @@
     const f = $('#ad-site'), box = $('#ad-site-box'); if (!f || !box) return;
     const key = DKEY + '#site';
     try { localStorage.setItem(key, JSON.stringify({ game: siteCopy(), rules: draft.rules, at: Date.now() })); } catch (e) { /* blocked */ }
-    const avail = box.clientWidth || 860, W = avail < 760 ? avail : 1100, s = Math.min(1, avail / W);
+    // The page fills the box; it is scaled down only between phone and desktop widths.
+    const avail = box.clientWidth || 860, W = avail < 760 || avail > 1100 ? avail : 1100, s = Math.min(1, avail / W);
     f.style.width = W + 'px'; f.style.transform = s < 1 ? 'scale(' + s + ')' : '';
     const y = window.scrollY;
     f.onload = () => {
@@ -786,7 +787,7 @@
       const ready = () => {
         if (!d.querySelector('.nb-info') && tries++ < 60) return setTimeout(ready, 100);
         bindSite(d);
-        const fit = () => { const end = d.querySelector('.nb-foot'), h = Math.ceil(end ? end.getBoundingClientRect().bottom + d.defaultView.scrollY : d.body.scrollHeight); f.style.height = h + 'px'; box.style.height = Math.ceil(h * s) + 'px'; };
+        const fit = () => { const end = d.querySelector('.nb-foot'), h = Math.ceil(end ? end.getBoundingClientRect().bottom + d.defaultView.scrollY : d.body.scrollHeight); f.style.height = h + 'px'; box.style.height = Math.ceil(h * s) + 2 + 'px'; };
         fit(); setTimeout(fit, 400); d.addEventListener('input', fit);
         window.scrollTo(0, y);
       };
