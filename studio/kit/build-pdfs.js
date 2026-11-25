@@ -150,7 +150,7 @@ async function build(browser, base, folder) {
   await shoot('cover.html', 'layout=front', '.pk-cover', 1);
   await shoot(samplerSrc[0], samplerSrc[1], '.flow, .page', 3);
 
-  // Small pictures of the first pages of each PDF, for the studio's PDFs tab.
+  // Small pictures of the first pages of each PDF, for the studio's Bundle tab.
   const tdir = path.join(tmp, 'thumbs');
   fs.mkdirSync(tdir);
   const thumbs = {};

@@ -54,7 +54,7 @@ Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pd
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Connect, Notebooks, Checklist, Content, Colors, Rules, Cover, Inside pages, Photos & video, PDFs, History. DISCARD, SAVE and PUBLISH are in the title bar.
+Welcome, Connect, Notebooks, Elements, Colors, Media, Cover, Rules, Pages, Sampler, Bundle, Checklist, History, Ideas. DISCARD, SAVE and PUBLISH are in the title bar.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
@@ -86,7 +86,7 @@ until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing on
 6. The PDFs rebuild on their own about 3 minutes after each publish. Until real photos are added,
    the game page shows pictures of the cover and pages from the build.
 
-**Editing pages with an AI.** The Cover and Inside pages tabs have an "Edit this page with an AI"
+**Editing pages with an AI.** The Cover and Pages tabs have an "Edit this page with an AI"
 box. COPY FOR AI copies the page size, the layout rules and the whole file for a chat AI, and
 PASTE AI ANSWER puts its reply back in the editor (nothing is saved until SAVE or PUBLISH).
 For an AI that can use GitHub, it shows the repository, the file path and what to tell it.

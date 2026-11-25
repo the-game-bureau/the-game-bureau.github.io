@@ -2,12 +2,12 @@
  *
  * Everything about one notebook in one place:
  *   Checklist    the steps from idea to a live notebook, ticked off as you go
- *   Content      words on the public page, specs, how it works, price and order link, print size
+ *   Elements     words on the public page, specs, how it works, price and order link, print size
  *   Colors       the colour scheme, with presets
  *   Rules        rules.md (shown on the rules page and printed in the notebook)
  *   Cover        cover.html: front, back and spine
  *   Inside pages contents.html: the pages after the rules
- *   Photos       gallery photos and videos
+ *   Media        gallery photos and videos
  *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
  *   PDFs         build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. The title bar's
@@ -49,7 +49,7 @@
       contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
   };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['sampler', 'Sampler'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['content', 'Elements'], ['colors', 'Colors'], ['media', 'Media'], ['cover', 'Cover'], ['rules', 'Rules'], ['contents', 'Pages'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -379,7 +379,7 @@
     box.className = 'ad-cedit'; box.id = 'ad-cedit';
     const close = '<button type="button" class="ad-link" id="ad-cedit-x">Close</button>';
     if (block) {
-      const where = block === 'image' ? ['media', 'Photos & video', 'This is photo 1 from Photos & video.'] : ['content', 'Content', block === 'steps' ? 'These are the "How it works" steps from Content.' : 'These are the specs from Content.'];
+      const where = block === 'image' ? ['media', 'Media', 'This is photo 1 from Media.'] : ['content', 'Elements', block === 'steps' ? 'These are the "How it works" steps from Elements.' : 'These are the specs from Elements.'];
       box.innerHTML = '<p>' + where[2] + '</p><div class="ad-cedit-btns"><button type="button" class="nb-btn" id="ad-cedit-go">OPEN ' + esc(where[1].toUpperCase()) + '</button>' + close + '</div>';
       $('#ad-preview .ad-pv-head').after(box);
       $('#ad-cedit-go').onclick = () => show(where[0]);
@@ -395,7 +395,7 @@
       $('#ad-preview .ad-pv-head').after(box); $('#ad-cedit-x').onclick = () => box.remove(); return;
     }
     const value = field ? (draft.game[field] || '') : decode(spot.text.trim());
-    box.innerHTML = '<label><span>' + (field ? esc(FIELD_NAMES[field]) + ' <small>from Content. Changing it here changes it on the game page too.</small>' : 'Cover text' + (/\{\{\w+\}\}/.test(value) ? ' <small>Words in {{double braces}} fill in from Content.</small>' : '')) + '</span>' +
+    box.innerHTML = '<label><span>' + (field ? esc(FIELD_NAMES[field]) + ' <small>from Elements. Changing it here changes it on the game page too.</small>' : 'Cover text' + (/\{\{\w+\}\}/.test(value) ? ' <small>Words in {{double braces}} fill in from Elements.</small>' : '')) + '</span>' +
       '<textarea id="ad-cedit-t" rows="' + (value.length > 70 ? 3 : 1) + '">' + esc(value) + '</textarea></label>' +
       '<div class="ad-cedit-btns"><button type="button" class="nb-btn solid" id="ad-cedit-ok">CHANGE IT</button>' + close + '</div>';
     $('#ad-preview .ad-pv-head').after(box);
@@ -422,7 +422,7 @@
     const g = draft.game, s = g.setup || {};
     const starterTag = 'One sentence that says what the game is and why it\'s fun.';
     return [
-      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Content. SAVE at the top keeps it on GitHub for any browser; PUBLISH creates it on the site.', tab: 'content', done: false }
+      IS_NEW ? { k: 'folder', t: 'Create the notebook', d: 'Give it a name and web address in Elements. SAVE at the top keeps it on GitHub for any browser; PUBLISH creates it on the site.', tab: 'content', done: false }
         : { k: 'folder', t: 'Create the notebook', d: 'Done. The game page lives at /' + FOLDER + '/.', done: true },
       { k: 'content', t: 'Name it and describe it', d: 'Title, tagline, what it is, specs and the three how-it-works steps.', tab: 'content', done: !!(g.title && g.tagline && g.tagline !== starterTag && g.title !== 'Starter Notebook') },
       { k: 'colors', t: 'Pick the colours', d: 'Four colours run through the page, the cover and the inside pages.', tab: 'colors', manual: true, auto: starter && JSON.stringify(g.brand || {}) !== JSON.stringify(starter.brand || {}) },
@@ -641,7 +641,7 @@
   function tabContent(p) {
     const g = draft.game;
     g.print = g.print || {}; g.order = g.order || {};
-    p.innerHTML = '<h2>Content</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
+    p.innerHTML = '<h2>Elements</h2><p class="ad-lede">Provide information about your notebook game. This will be used on the game\'s website and inside the game notebook.</p>' +
       (IS_NEW ? '<fieldset class="ad-newnb"><legend>New notebook</legend>' +
         '<label class="ad-field" for="f-slug"><span>Web address</span><span class="st-url"><b>thegamebureau.com/</b><input id="f-slug" value="' + esc(g.slug || '') + '" placeholder="pitch-count" autocomplete="off" spellcheck="false"></span><small id="f-slug-msg"></small></label>' +
         '<div class="ad-field"><span>Start from</span><div class="st-starts"><label><input type="radio" name="f-start" value="' + esc(FOLDER) + '" checked><span><b>' + esc(FOLDER === ST.STARTER ? 'Blank starter' : 'Copy of ' + (saved.game.title || FOLDER)) + '</b><small>Loading the other choices…</small></span></label></div>' +
@@ -652,7 +652,7 @@
       '<div class="ad-dates">' + field('announceFrom', 'Show the strip from', { type: 'date' }) + field('announceUntil', 'Until', { type: 'date' }) + '</div>' +
       '<p class="ad-help ad-ann-status" id="ad-ann-status"></p>' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
-      '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Photos &amp; video, or the cover once the PDFs are built.</small></div>' +
+      '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the first photo in Media, or the cover once the PDFs are built.</small></div>' +
       field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Shown on the rules buttons, the rules page and its heading. Leave empty for Rules.' }) + '</fieldset>' +
       '<fieldset><legend>What it is</legend>' + field('aboutHeading', 'Heading') +
       '<label class="ad-field"><span>Description</span><textarea id="f-desc" rows="6">' + esc((g.description || []).join('\n\n')) + '</textarea><small>Leave a blank line between paragraphs.</small></label>' +
@@ -714,8 +714,8 @@
     ];
     const per = key === 'cover' ? [
       'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is ' + spineInfo().spine + ' in wide for this notebook (inside pages x paper thickness). Its text is sized to fit and only prints when the spine is at least ' + spineInfo().min.toFixed(2) + ' in, so keep it to one short line.',
-      'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}} {{image}}. {{image}} is the game\'s main image: photo 1 in Photos & video at the time the cover is generated (a pattern of squares until there is a photo). Keep them as placeholders rather than typing the text in.',
-      'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file (they are uploaded in the studio\'s Photos & video tab): <img src="images/name.jpg">.',
+      'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}} {{image}}. {{image}} is the game\'s main image: photo 1 in Media at the time the cover is generated (a pattern of squares until there is a photo). Keep them as placeholders rather than typing the text in.',
+      'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file (they are uploaded in the studio\'s Media tab): <img src="images/name.jpg">.',
     ] : [
       'Keep <section data-rules></section>: the rules flow in there from rules.md.',
       'Each <section class="page"> is exactly one page, already padded to the safe area. Anything that overflows is cut off, so design to fit one page.',
@@ -805,7 +805,7 @@
       if (prev != null && n !== prev + 1 && !(n === 1 && prev === 1)) out.push('Step ' + n + ' (line ' + (i + 1) + ') comes after step ' + prev + '.');
       prev = n;
     });
-    // Players, time and ages should agree with the Content tab's specs.
+    // Players, time and ages should agree with the Elements tab's specs.
     const nums = s => (String(s).match(/\d+/g) || []).map(Number);
     const spec = re => ((g.specs || []).find(r => re.test(r[0] || '')) || [])[1];
     const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -816,7 +816,7 @@
     ];
     for (const [lab, re, name] of checks) {
       const want = spec(lab), m = text.match(re);
-      if (want && m && nums(want).length && !same(nums(m[1]), nums(want))) out.push(name + ': the rules say <b>' + esc(m[0]) + '</b> but the Content tab says <b>' + esc(want) + '</b>.');
+      if (want && m && nums(want).length && !same(nums(m[1]), nums(want))) out.push(name + ': the rules say <b>' + esc(m[0]) + '</b> but the Elements tab says <b>' + esc(want) + '</b>.');
     }
     return out;
   }
@@ -910,11 +910,11 @@
     const undo = box.querySelector('#ad-cstyle-undo');
     if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
   }
-  const tabContents = p => codeTab(p, 'contents', 'Inside pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
+  const tabContents = p => codeTab(p, 'contents', 'Pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
     '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>Colours and fonts as on the cover.</li></ul>');
 
-  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is its own PDF: the front cover, these pages and the back cover. It is the free download on the game page. These pages are separate from Inside pages, so changing one does not change the other.',
-    '<ul><li>Same layout as Inside pages: <code>&lt;section data-rules&gt;</code> brings in the rules, each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>Keep it short: a taste of the game, not the whole notebook.</li><li>Colours and fonts as on the cover.</li></ul>');
+  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is its own PDF: the front cover, these pages and the back cover. It is the free download on the game page. These pages are separate from Pages, so changing one does not change the other.',
+    '<ul><li>Same layout as Pages: <code>&lt;section data-rules&gt;</code> brings in the rules, each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>Keep it short: a taste of the game, not the whole notebook.</li><li>Colours and fonts as on the cover.</li></ul>');
 
   // ---------- tab: photos and video ----------
   // Pictures of the cover and pages from the PDF build, shown while a game has no photos of its own.
@@ -942,7 +942,7 @@
   function tabMedia(p) {
     const m = draft.game.media;
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt=""' + NB.focusStyle(x) + '>' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
-    p.innerHTML = '<h2>Photos &amp; video</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
+    p.innerHTML = '<h2>Media</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
       (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
@@ -1090,7 +1090,7 @@
     return '<a class="ad-pdf-thumbs" href="' + esc(href) + '" target="_blank" rel="noopener" title="Open the PDF">' + list.map(t => '<img src="' + esc(BASE + t) + '?b=' + v + '" alt="" loading="lazy">').join('') + '</a>';
   }
   function tabPdfs(p) {
-    if (IS_NEW) { p.innerHTML = '<h2>PDFs</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you publish the notebook, and again after each save.</p><p class="ad-help">Until then, the Cover and Inside pages tabs preview exactly what will print.</p>'; return; }
+    if (IS_NEW) { p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">The cover, contents, print-at-home and free sampler PDFs build on GitHub about 3 minutes after you publish the notebook, and again after each save.</p><p class="ad-help">Until then, the Cover and Pages tabs preview exactly what will print.</p>'; return; }
     const g = draft.game, slug = g.slug;
     const pdf = n => 'pdf/' + slug + n + '.pdf';
     const files = [
@@ -1099,7 +1099,7 @@
       ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.' + (g.freeFullPdf ? ' Offered free on the game page.' : ''), pdf(''), b => b.pages.printAtHome + ' pages'],
       ['Free sampler', 'Front cover, the Sampler tab\'s pages and back cover.' + (g.freeFullPdf ? '' : ' The free download on the game page.'), pdf('-sampler'), b => b.pages.sampler + ' pages'],
     ];
-    p.innerHTML = '<h2>PDFs</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
+    p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +
       (changed() ? '<p class="ad-warn">You have unsaved changes. Builds use the saved version, so save first.</p>' : '') + '<div class="ad-status" id="ad-status" hidden></div></div>' +
       (build ? '<div class="ad-card ad-printer"><div><h3>Printer files</h3><p>One zip with the cover PDF, the contents PDF and a sheet of the sizes (trim, bleed, page count, spine) to type into Lulu, KDP or your printer\'s order form.</p></div><button class="nb-btn" id="ad-zip" type="button">PRINTER FILES (.ZIP)</button></div>' : '') +
@@ -1404,7 +1404,7 @@
         done();
         if (run.conclusion !== 'success') { pdfChip('PDF build failed. See why', 'bad', run.html_url); return; }
         pdfChip('PDFs ready ✓', 'ok');
-        // The site serves them about a minute later; then the PDFs tab shows the new build.
+        // The site serves them about a minute later; then the Bundle tab shows the new build.
         GH.waitForSite(BASE + 'pdf/build.json', t => { try { return JSON.parse(t).built !== before; } catch (e) { return false; } }, null, 15)
           .then(async ok => { if (!ok) return; try { const r = await fetch(BASE + 'pdf/build.json?t=' + Date.now(), { cache: 'no-store' }); build = await r.json(); } catch (e) { /* keep the old one */ } if (tab === 'pdfs') show('pdfs', true); });
         setTimeout(() => { if (watching === sha) pdfChip(''); }, 5 * 60000);
@@ -1552,7 +1552,7 @@
     const s = spineInfo();
     const text = s.spine >= s.min ? 'Wide enough for the spine text.'
       : 'Spine text needs ' + s.min.toFixed(2) + ' in' + (s.per ? ' (about ' + Math.ceil(s.min / s.per) + ' inside pages on this paper)' : '') + ', so for now the spine prints as plain colour.';
-    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Content, Print. ' + text;
+    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Elements, Print. ' + text;
     return 'Spine: ' + s.spine + ' in for ' + (s.est ? 'about ' : '') + s.pages + ' inside pages' + (s.est ? '' : ' (last PDF build)') + '. ' + text;
   }
 
@@ -1570,7 +1570,7 @@
       const key = (draft.game.slug || '').trim();
       const bad = GH.token() ? await freshSlugProblem(key) : 'not connected';
       if (!bad) { await saveDraft(); if (unsaved()) return; }
-      else if (!confirm('Start a new notebook? "' + draft.game.title + '" is not saved yet' + (GH.token() ? ' (it needs a free web address in Content first)' : '') + ', so it will be thrown away.')) return;
+      else if (!confirm('Start a new notebook? "' + draft.game.title + '" is not saved yet' + (GH.token() ? ' (it needs a free web address in Elements first)' : '') + ', so it will be thrown away.')) return;
     } else if (!IS_NEW && d && d.game && (d.game.title || '').trim() && !d.savedKey) {
       if (!confirm('Start a new notebook? The unsaved new notebook "' + d.game.title + '" in this browser will be thrown away.')) return;
     }
