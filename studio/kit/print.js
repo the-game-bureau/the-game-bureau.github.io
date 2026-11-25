@@ -12,7 +12,8 @@
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
  * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
- * {{url}} {{price}} {{sheets}} (print.sheets), and as HTML {{steps}} {{specs}} {{description}}.
+ * {{url}} {{price}} {{sheets}} (print.sheets), and as HTML {{steps}} {{specs}} {{description}}
+ * {{image}} (photo 1 from Photos & video, or a pattern of squares until there is one).
  *
  * When everything is laid out the page sets <body data-ready="1">.
  */
@@ -146,11 +147,14 @@
         steps: '<ol class="pk-steps">' + (g.steps || []).map(st => '<li><b>' + NB.esc(st.title) + '</b>' + NB.esc(st.text) + '</li>').join('') + '</ol>',
         specs: '<div class="pk-specs">' + (g.specs || []).map(sp => '<div><b>' + NB.esc(sp[0]) + '</b>' + NB.esc(sp[1]) + '</div>').join('') + '</div>',
         description: (g.description || []).map(p => '<p>' + NB.esc(p) + '</p>').join(''),
+        // The game's main image: photo 1 in Photos & video, as it is when the page is generated.
+        // With no photo yet, a pattern of squares stands in.
+        image: (() => { const m = (g.media || []).find(x => x && (x.type === 'image' || !x.type) && x.src); return m ? '<img class="pk-image" src="' + NB.esc(m.src) + '" alt="' + NB.esc(m.alt || g.title) + '">' : '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>'; })(),
       };
       vars.sheets = String(g.print.sheets || 72);
       vars.kicker = g.kicker || '';
       document.body.innerHTML = document.body.innerHTML
-        .replace(/\{\{(steps|specs|description)\}\}/g, (x, k) => html[k])
+        .replace(/\{\{(steps|specs|description|image)\}\}/g, (x, k) => html[k])
         .replace(/\{\{(title|subtitle|tagline|url|price|sheets|kicker)\}\}/g, (x, k) => NB.esc(vars[k]));
       if (document.body.dataset.page === 'cover') await layoutCover(g);
       else await layoutContents(g);

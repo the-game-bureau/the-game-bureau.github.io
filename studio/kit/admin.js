@@ -486,7 +486,7 @@
     ];
     const per = key === 'cover' ? [
       'Design inside .cover-front, .cover-back and .cover-spine. print.js places each one on its panel with bleed and pads it to the safe area. The spine is ' + spineInfo().spine + ' in wide for this notebook (inside pages x paper thickness). Its text is sized to fit and only prints when the spine is at least ' + spineInfo().min.toFixed(2) + ' in, so keep it to one short line.',
-      'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}}. Keep them as placeholders rather than typing the text in.',
+      'These are filled in from the game\'s details: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}}, and as HTML blocks {{steps}} {{specs}} {{description}} {{image}}. {{image}} is the game\'s main image: photo 1 in Photos & video at the time the cover is generated (a pattern of squares until there is a photo). Keep them as placeholders rather than typing the text in.',
       'Leave about 2 x 1.2 in clear at the lower right of the back cover for a barcode. Images go in images/ next to the file (they are uploaded in the studio\'s Photos & video tab): <img src="images/name.jpg">.',
     ] : [
       'Keep <section data-rules></section>: the rules flow in there from rules.md.',
