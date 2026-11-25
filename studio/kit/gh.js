@@ -55,6 +55,22 @@
     return me.login;
   };
 
+  // What the key may do, tested without changing anything. Each probe asks for something GitHub
+  // turns down either for a reason it only checks once the permission is there (422: the object
+  // or branch doesn't exist), or for lack of the permission (403/404). true, false, or null if unsure.
+  GH.LIST_TOKENS_URL = 'https://github.com/settings/personal-access-tokens';
+  GH.permissions = async function () {
+    const probe = async (path, body) => {
+      try { await GH.api(path, { method: 'POST', body }); return true; }
+      catch (e) { return e.status === 422 ? true : (e.status === 403 || e.status === 404) ? false : null; }
+    };
+    const [contents, actions] = await Promise.all([
+      probe('/git/refs', { ref: 'refs/heads/studio-permission-check', sha: '0000000000000000000000000000000000000000' }),
+      probe('/actions/workflows/' + GH.WORKFLOW + '/dispatches', { ref: 'studio-permission-check-no-such-branch', inputs: { game: 'studio-permission-check' } }),
+    ]);
+    return { contents, actions };
+  };
+
   // ---------- reading ----------
   const b64ToBytes = b64 => Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0));
   const bytesToText = bytes => new TextDecoder().decode(bytes);

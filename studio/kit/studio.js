@@ -28,7 +28,7 @@
     const ok = !!GH.token();
     el.innerHTML = '<h2>Connect</h2><p class="ad-lede">The studio saves notebooks to the website through GitHub. Connect it once in each browser you use.</p>' +
       '<h3>GitHub <span class="st-badge' + (ok ? ' done' : '') + '">' + (ok ? '✓ DONE' : 'NOT SET UP YET') + '</span></h3>' +
-      (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p>' + expiryBox()
+      (ok ? '<p>The studio is set up in this browser. <span class="st-who"></span> <button type="button" class="ad-link st-forget">Disconnect</button></p><ul class="st-perms"><li class="wait">Checking what the key may do…</li></ul>' + expiryBox()
         : '<p class="ad-help">One-time setup, about 2 minutes. GitHub gives you a key, and the studio uses it to save.</p>' +
           '<ol class="st-howto">' +
           '<li><b>Open GitHub\'s token page.</b> <a class="nb-btn" href="' + GH.TOKEN_URL + '" target="_blank" rel="noopener">OPEN GITHUB ↗</a><small>Sign in as someone who can change the website.</small></li>' +
@@ -40,6 +40,7 @@
           '<div class="nb-row"><button class="nb-btn solid" id="st-tok-save" type="button">FINISH SETUP</button></div><p class="ad-help" id="st-tok-msg"></p></li></ol>');
     if (ok) {
       GH.check().then(w => { $('.st-who').textContent = 'Signed in to GitHub as ' + w + '.'; }).catch(e => { $('.st-who').textContent = e.message; });
+      GH.permissions().then(p => { const ul = $('.st-perms'); if (ul) ul.innerHTML = permRows(p); }).catch(() => { const ul = $('.st-perms'); if (ul) ul.innerHTML = '<li class="unsure">Could not check what the key may do.</li>'; });
       $('.st-forget').onclick = () => { GH.setToken(''); S.connect(el, onChange); if (onChange) onChange(false); };
       $('#st-exp-save').onclick = () => { GH.setExpires($('#st-exp').value); S.connect(el, onChange); if (onChange) onChange(true); };
       return;
@@ -47,10 +48,23 @@
     $('#st-tok-save').onclick = async () => {
       $('#st-tok-msg').textContent = 'Checking…';
       GH.setToken($('#st-tok').value.trim());
-      try { await GH.check(); GH.setExpires($('#st-exp').value); GH.rejected = false; S.connect(el, onChange); if (onChange) onChange(true); }
+      try {
+        await GH.check();
+        const p = await GH.permissions();
+        if (p.contents === false) throw new Error('The key can\'t write to ' + GH.REPO + '. On GitHub, set Contents to Read and write, then paste it again.');
+        GH.setExpires($('#st-exp').value); GH.rejected = false; S.connect(el, onChange); if (onChange) onChange(true); }
       catch (e) { GH.setToken(''); $('#st-tok-msg').textContent = e.status === 401 ? 'GitHub did not accept that key. Check you copied all of it.' : e.message; }
     };
   };
+
+  // The two permissions the studio needs, each with a tick or what to fix.
+  function permRows(p) {
+    const fix = ' <a href="' + GH.LIST_TOKENS_URL + '" target="_blank" rel="noopener">Open your keys on GitHub ↗</a>, click this one, set it to Read and write and save. The same key keeps working, so nothing changes here.';
+    const row = (v, name, does, missing) => '<li class="' + (v ? 'ok' : v === false ? 'bad' : 'unsure') + '"><b>' + name + ': Read and write</b> ' +
+      (v ? does : v === false ? '<span>Missing. ' + missing + '</span>' + fix : 'Could not check.') + '</li>';
+    return row(p.contents, 'Contents', 'for SAVE and PUBLISH.', 'SAVE and PUBLISH won\'t work.') +
+      row(p.actions, 'Actions', 'for BUILD PDFS NOW and the PDF status after PUBLISH.', 'BUILD PDFS NOW and the PDF status after PUBLISH won\'t work. The PDFs still rebuild on their own after each publish.');
+  }
 
   // When the key expires: shown, and changeable, once connected.
   function inAYear() { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); }
