@@ -1418,7 +1418,7 @@
   // ---------- tab: welcome ----------
   // Kevin's words: what a game notebook is.
   const tabWelcome = p => {
-    p.innerHTML = '<h2>Welcome</h2><p class="ad-lede">One of the types of games The Game Bureau creates is Game Notebooks. Think playing Tic-Tac-Toe with pen and paper, except the game board is already drawn for you on every page of a notebook. Hopefully our notebook games are a little nicer than that, but hopefully that gives you an idea. Each notebook game has a subdomain website, a pdf for sale and a sampler for download and print.</p>';
+    p.innerHTML = '<h2>Welcome</h2><p class="ad-lede">One of the types of games The Game Bureau creates is Game Notebooks. Think playing Tic-Tac-Toe with pen and paper, except the game board is already drawn for you on every page of a notebook. Hopefully our notebook games are a little more fun than that, but hopefully that gives you an idea. Each notebook game has a subdomain website, a pdf for sale and a sampler for download and print.</p>';
   };
 
   // ---------- tab: ideas ----------
