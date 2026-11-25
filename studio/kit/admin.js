@@ -832,6 +832,7 @@
     st.textContent = '[data-ed]{cursor:text;outline:1px dashed transparent;outline-offset:3px;border-radius:2px}[data-ed]:hover{outline-color:#2A7DE1}[data-ed]:focus{outline:2px solid #2A7DE1}' +
       '.ed-ph{opacity:.45}.ed-x,.ed-add{font:700 12px system-ui,sans-serif;border:1px solid #2A7DE1;color:#2A7DE1;background:#fff;border-radius:4px;cursor:pointer}' +
       '.ed-x{position:absolute;top:2px;right:2px;width:22px;height:22px;padding:0;opacity:0}li:hover>.ed-x{opacity:1}.nb-specs li,.nb-steps li{position:relative}.ed-add{display:inline-block;margin:10px 0;padding:5px 10px}' +
+      'a:not([data-ed]),button:not([data-ed]):not(.ed-x):not(.ed-add){cursor:default}a[data-ed],button[data-ed]{cursor:text}' +
       '.nb-gallery{cursor:pointer}[data-ed]:empty{display:inline-block;min-width:3em;min-height:1em;background:rgba(42,125,225,.08)}';
     d.head.appendChild(st);
     const q = s => d.querySelector(s), qa = s => [...d.querySelectorAll(s)];
@@ -872,8 +873,11 @@
         persist(); renderSite(); return;
       }
       if (e.target.closest('.nb-gallery')) { e.preventDefault(); e.stopPropagation(); flash('Photos and videos are set in <a href="#media">Media</a>.'); return; }
-      if (e.target.closest('a, button:not(.nb-qty button)')) e.preventDefault();
+      // Links and buttons are only for show: nothing opens, plays or goes anywhere. Words marked
+      // data-ed (the Rules and order buttons) can still be clicked into and renamed.
+      if (e.target.closest('a, button, [role=button], summary, label')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
+    ['auxclick', 'dblclick', 'submit'].forEach(t => d.addEventListener(t, e => { if (t === 'submit' || e.target.closest('a, button')) { e.preventDefault(); e.stopImmediatePropagation(); } }, true));
     d.addEventListener('focusin', e => { const el = e.target.closest('[data-ed]'); if (!el) return; siteEditing = true; if (el.classList.contains('ed-ph')) { el.dataset.ph = el.innerHTML; el.innerHTML = ''; } });
     // A placeholder clears when clicked, and comes back if nothing was typed.
     d.addEventListener('focusout', e => { siteEditing = false; const el = e.target.closest && e.target.closest('[data-ed]'); if (el && el.dataset.ph != null && !el.textContent.trim()) { el.innerHTML = el.dataset.ph; el.classList.add('ed-ph'); } });
