@@ -244,7 +244,8 @@
     // Every notebook page links back to The Game Bureau's home page, next to the game's name.
     '<a class="nb-tgb" href="/">The Game Bureau</a>' +
     '<nav>' +
-    (here !== 'rules' && g.layout !== 'product' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    // The rules button sits just left of ORDER, on every page but the rules page itself.
+    (here !== 'rules' ? '<a class="nb-rules-link" href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
     '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>' +

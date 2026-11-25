@@ -804,6 +804,9 @@
     const q = s => d.querySelector(s), qa = s => [...d.querySelectorAll(s)];
     const ed = (el, path, multi) => { if (!el) return; el.dataset.ed = path; if (multi) el.dataset.multi = '1'; el.contentEditable = 'true'; el.spellcheck = true; if (sitePH.has(path)) el.classList.add('ed-ph'); };
     ed(q('.nb-announce'), 'announce');
+    // The rules button in the top bar: its words are the rules name (How to Play, Field Guide...). Empty means Rules.
+    const rl = q('.nb-bar .nb-rules-link');
+    if (rl) { rl.textContent = String(draft.game.rulesName || '').trim() || 'Rules'; rl.style.textTransform = 'uppercase'; ed(rl, 'rulesName'); }
     ed(q('.nb-info .nb-kick'), 'kicker');
     const h1 = q('.nb-info h1');
     if (h1) {
@@ -847,7 +850,7 @@
       const el = e.target.closest('[data-ed]'); if (!el) return;
       el.classList.remove('ed-ph'); sitePH.delete(el.dataset.ed);
       const path = el.dataset.ed;
-      const v = el.dataset.multi ? el.innerText.split(/\n+/).map(x => x.trim()).filter(Boolean) : el.innerText.replace(/\s+/g, ' ').trim();
+      const v = el.dataset.multi ? el.innerText.split(/\n+/).map(x => x.trim()).filter(Boolean) : (path === 'rulesName' ? el.textContent : el.innerText).replace(/\s+/g, ' ').trim(); // innerText would bring back the button's capitals
       if (/^steps\.0\./.test(path) && sitePH.size && !(draft.game.steps || []).length) draft.game.steps = [{ title: '', text: '' }];
       setPath(draft.game, path, v);
       const inp = document.querySelector('#ad-panel [data-path="' + path + '"]'); if (inp) inp.value = v;
@@ -880,8 +883,6 @@
       '</div><div class="ad-band">' +
       field('shareText', 'Share message', { help: 'What the Share button sends with the link.' }) +
       '<div class="ad-field"><span>How a shared link looks</span><div id="ad-share" class="ad-share"></div><small>In texts and social posts. It updates as you type; the picture is the SHARE PICTURE from Media, or the cover once the PDFs are built.</small></div>' +
-      '</div><div class="ad-band">' +
-      field('rulesName', 'Name for the rules', { ph: 'Rules', help: 'For example How to Play or Field Guide. Used on the rules page and its heading. Leave empty for Rules.' }) +
       '</div></div>';
     bindFields(p);
     if (IS_NEW) bindNew(p); else bindMove(p);
