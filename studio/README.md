@@ -26,7 +26,7 @@ studio/
 | `game.json` | Title, tagline, price, order link, photos and videos, description, specs, how-it-works steps, colours, print size. **The public page is built from this.** |
 | `index.html` | The public page (`/<game>/`). Only the title and share-preview tags need editing. |
 | `rules.md` | The full rules, as HTML (`<h1>{{title}} rules</h1>`, `<h2>`, `<p>`, `<ol>`...). Shown on `rules.html` **and** printed at the front of the notebook. Older notebooks wrote it in Markdown, which still works; the studio turns it into HTML when opened. |
-| `rules.html` | The rules page. Nothing to edit but the title tags. With `"rulesLink": "https://..."` in game.json (Rules tab, *Link to them*), every rules button opens that link in a new tab and this page forwards there; the notebook still prints `rules.md`. |
+| `rules.html` | The rules page. Nothing to edit but the title tags. With `"rulesLink": "https://..."` in game.json (Rules tab, *Link to them*), this page shows the linked page in a frame (Google Docs, Sheets and Slides links are turned into their preview form), with a link to open it in a new tab; the notebook still prints `rules.md`. |
 | `cover.html` | Front and back cover design (`.cover-front`, `.cover-back`, optional `.cover-spine`). `{{image}}` puts the game's main image there: photo 1 in Photos & video when the cover is generated, or a pattern of squares until there is a photo. |
 | `contents.html` | Every inside page after the rules. Use `<template data-repeat>` for repeated sheets. |
 | `sampler.html` | The free sampler's own pages (same layout as `contents.html`). Its PDF is front, these pages, back. |

@@ -117,7 +117,18 @@
   // rules button opens that link in a new tab. The notebook still prints rules.md.
   NB.rulesLink = g => { const u = String((g && g.rulesLink) || '').trim(); return /^https?:\/\/[^\s]+$/i.test(u) ? u : ''; };
   // href (and target) for a rules link or button.
-  NB.rulesAttrs = g => NB.rulesLink(g) ? 'href="' + esc(NB.rulesLink(g)) + '" target="_blank" rel="noopener"' : 'href="./rules.html"';
+  // Rules buttons always go to the game's own rules page, which shows the linked page inside it.
+  NB.rulesAttrs = () => 'href="./rules.html"';
+  // The address to put in a frame. Google Docs, Sheets and Slides need their preview/embed form.
+  NB.rulesEmbed = u => {
+    if (!u) return '';
+    let m = u.match(/^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/(e\/)?([\w-]+)/);
+    if (m && m[2]) return /[?&]embedded=true/.test(u) ? u : u + (u.includes('?') ? '&' : '?') + 'embedded=true'; // published to the web (/d/e/.../pub)
+    if (m) return 'https://docs.google.com/' + m[1] + '/d/' + m[3] + (m[1] === 'presentation' ? '/embed' : '/preview');
+    m = u.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)/);
+    if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
+    return u;
+  };
   // The rules (rules.md) are HTML. Notebooks made before that wrote them in Markdown, which still
   // works: a file that doesn't start with a tag is read as Markdown.
   NB.isHTML = t => /^\s*</.test(String(t || ''));
@@ -481,18 +492,27 @@
     // Rules kept elsewhere: the rules page sends visitors there (old links keep working).
     // In the studio's preview it shows where the link goes instead.
     const link = NB.rulesLink(g);
-    if (link && !window.frameElement) { location.replace(link); return; }
     document.body.insertAdjacentHTML('afterbegin',
       header(g, 'rules') +
       '<main class="nb-wrap nb-rules-page">' +
-      '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a><button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button></div>' +
+      '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a>' + (link
+        // A linked page can't be printed from here; it opens in its own tab instead.
+        ? '<a class="nb-btn" href="' + esc(link) + '" target="_blank" rel="noopener">OPEN IN A NEW TAB</a>'
+        : '<button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button>') + '</div>' +
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
       '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a></div></div>' +
       '</main>' + footer(g, 'rules'));
     bindShare(g);
     document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';
     const el = document.getElementById('nb-rules');
-    if (link) { el.innerHTML = '<h1>' + esc(g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g))) + '</h1><p>The rules are kept at a link. Every rules button on the site opens it in a new tab, and visitors to this page go straight there.</p><p><a class="nb-btn solid" ' + NB.rulesAttrs(g) + '>OPEN THE RULES</a></p><p class="nb-fine">' + esc(link) + '</p>'; return; }
+    if (link) {
+      // The linked page (a Google Doc, say) sits inside this page. A site that refuses to be framed
+      // shows its own error there, so a plain link to it is always under the frame.
+      el.classList.add('nb-rules-embed');
+      el.innerHTML = '<iframe class="nb-rules-frame" src="' + esc(NB.rulesEmbed(link)) + '" title="' + esc(g.title + ' ' + NB.rulesName(g).toLowerCase()) + '" loading="lazy" allow="fullscreen"></iframe>' +
+        '<p class="nb-fine nb-rules-alt">Not showing? <a href="' + esc(link) + '" target="_blank" rel="noopener">Open the ' + esc(NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' in a new tab</a>.</p>';
+      return;
+    }
     try { el.innerHTML = await NB.loadRules(g); } catch (e) { el.innerHTML = '<p>' + esc(e.message) + '</p>'; }
   };
 

@@ -576,7 +576,7 @@
         '<div><b>' + esc(x.t) + '</b>' + (x.byEditor ? ' <small class="ad-autotick">ticked for you</small>' : '') + '<p>' + esc(x.d) + '</p>' + (x.html || '') + '</div>' +
         (x.tab ? '<button type="button" class="nb-btn" data-go="' + x.tab + '">OPEN</button>' : '') + '</li>';
       }).join('') + '</ol>' +
-      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + esc(NB.rulesLink(draft.game) || BASE + 'rules.html') + '" target="_blank" rel="noopener">rules' + (NB.rulesLink(draft.game) ? '' : ' page') + '</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
+      (IS_NEW ? '<p class="ad-help">Ticks are saved with the notebook when you click SAVE.</p>' : '<p class="ad-help">Ticks are saved with the notebook. Links: <a href="' + BASE + '" target="_blank" rel="noopener">game page</a> · <a href="' + BASE + 'rules.html" target="_blank" rel="noopener">rules page</a> · <a href="/studio/?new#content">new notebook</a>.</p>');
     p.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
     p.querySelectorAll('.ad-copy').forEach(c => { c.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(c.textContent).then(() => { c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1200); }, () => {}); }; });
     p.querySelectorAll('[data-step]').forEach(c => { c.onclick = () => { draft.game.setup[c.dataset.step] = c.getAttribute('aria-pressed') !== 'true'; persist(); show('checklist'); }; });
@@ -1072,16 +1072,21 @@
     box.className = 'ad-rules-src';
     box.innerHTML = '<div class="ad-rules-pick" role="radiogroup" aria-label="Where the rules live">' +
       '<button type="button" role="radio" data-src="html" aria-checked="' + !isLink + '"><b>Write them here</b><small>HTML below. The site gets its own rules page.</small></button>' +
-      '<button type="button" role="radio" data-src="link" aria-checked="' + isLink + '"><b>Link to them</b><small>A Google Doc or any web page. Rules buttons open it.</small></button></div>' +
+      '<button type="button" role="radio" data-src="link" aria-checked="' + isLink + '"><b>Link to them</b><small>A Google Doc or any web page, shown inside the rules page.</small></button></div>' +
       (isLink ? '<label class="ad-field" for="f-rules-link"><span>Rules link</span><input id="f-rules-link" type="url" value="' + esc(v) + '" placeholder="https://docs.google.com/document/d/..." autocomplete="off" spellcheck="false">' +
         '<small id="f-rules-link-msg"></small></label>' +
-        '<p class="ad-help">The notebook still prints the rules written below, so keep them in step with the link.</p>' : '');
+        '<p class="ad-help">The printed notebook keeps the rules last written under <i>Write them here</i>.</p>' : '');
     // No preview here: a button opens the rules page (or the link) in a new tab.
-    const href = NB.rulesLink(g) || (IS_NEW ? '' : BASE + 'rules.html');
+    const href = IS_NEW ? '' : BASE + 'rules.html';
     box.insertAdjacentHTML('beforeend', '<p class="ad-rules-view">' + (href
-      ? '<a class="nb-btn" id="ad-rules-view" href="' + esc(href) + '" target="_blank" rel="noopener">VIEW THE RULES PAGE</a><small>' + (NB.rulesLink(g) ? 'Opens the link.' : 'Opens the published page. Changes show there after you publish.') + '</small>'
+      ? '<a class="nb-btn" id="ad-rules-view" href="' + esc(href) + '" target="_blank" rel="noopener">VIEW THE RULES PAGE</a><small>Opens the published page. Changes show there after you publish.</small>'
       : '<small>The rules page goes live when you publish this notebook.</small>') + '</p>');
     p.querySelector('.ad-lede').after(box);
+    // With a link, the HTML editor and everything about it is hidden.
+    if (isLink) {
+      p.querySelector('.ad-lede').textContent = 'Where the rules come from. The rules page on the site shows them.';
+      p.querySelectorAll('.ad-ai, #ad-code, .ad-code-foot, #ad-rules-warn, .ad-help-box').forEach(el => el.remove());
+    }
     box.querySelectorAll('[data-src]').forEach(b => { b.onclick = () => {
       if (b.dataset.src === 'link') { if (!isLink) draft.game.rulesLink = ''; } else delete draft.game.rulesLink;
       persist(); show(tab);
@@ -1091,15 +1096,12 @@
     if (inp) {
       const msg = () => {
         const t = inp.value.trim(), m = $('#f-rules-link-msg');
-        m.innerHTML = !t ? 'Paste the link. Until then the rules buttons use the rules written below.'
-          : NB.rulesLink({ rulesLink: t }) ? 'Rules buttons open <a href="' + esc(t) + '" target="_blank" rel="noopener">this link</a> in a new tab. For a Google Doc, set sharing to <i>Anyone with the link</i>.'
+        m.innerHTML = !t ? 'Paste the link. Until then the rules page shows the rules written below.'
+          : NB.rulesLink({ rulesLink: t }) ? 'The rules page shows <a href="' + esc(t) + '" target="_blank" rel="noopener">this page</a> inside it, with a link to open it in a new tab. For a Google Doc, set sharing to <i>Anyone with the link</i>.'
           : 'That isn\'t a web address. It should start with https://';
       };
       inp.oninput = () => {
         draft.game.rulesLink = inp.value.trim(); persist(); msg();
-        const a = $('#ad-rules-view'), h = NB.rulesLink(draft.game) || (IS_NEW ? '' : BASE + 'rules.html');
-        if (a && h) a.href = h;
-        const n = $('#ad-rules-view-note'); if (n) n.textContent = NB.rulesLink(draft.game) ? 'Opens the link.' : 'Opens the published page. Changes show there after you publish.';
       };
       msg();
     }
