@@ -176,7 +176,7 @@
   }
 
   // A message that clears itself after ms, unless another message has replaced it by then.
-  function flash(msg, kind, ms) {
+  function flash(msg, kind, ms = 4000) {
     updateBar(msg, kind);
     const html = $('#ad-bar').innerHTML;
     setTimeout(() => { if ($('#ad-bar').innerHTML === html) updateBar(); }, ms);
@@ -705,7 +705,51 @@
   const rulesTab = p => codeTab(p, 'rules', 'Rules', 'Written in Markdown. The same text is the rules page and the first pages of the notebook.',
     '<ul><li><code># Title</code>, <code>## Section</code>, <code>### Sub-section</code></li><li><code>1.</code> numbered steps, <code>-</code> bullet points</li><li><code>**bold**</code>, <code>*italic*</code>, <code>[link](https://...)</code></li><li><code>&gt; Tip text</code> makes a highlighted box</li><li><code>---</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
-  const tabCover = p => codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. ' + esc(spineNote()), '');
+  const tabCover = p => { codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. ' + esc(spineNote()), ''); coverStyles(p); };
+  // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
+  // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
+  const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html']];
+  const coverSrc = {};
+  let coverBefore = null;
+  const getCover = u => coverSrc[u] || (coverSrc[u] = fetch(u + '?v=' + KITV, { cache: 'no-cache' }).then(r => r.ok ? r.text() : Promise.reject(new Error('could not load ' + u))));
+  function coverStyles(p) {
+    const box = document.createElement('div');
+    box.className = 'ad-cstyles';
+    box.innerHTML = '<p class="ad-cstyles-h"><b>Start from a cover style</b> Filled in with this game\'s details and colours. ' +
+      (coverBefore != null ? '<button type="button" class="ad-link" id="ad-cstyle-undo">Put my cover back</button>' : '') + '</p>' +
+      '<div class="ad-cstyle-row">' + COVER_STYLES.map(([k, l]) => '<figure class="ad-cstyle"><div class="ad-cstyle-pic"><iframe data-cstyle="' + k + '" title="' + esc(l) + ' cover" tabindex="-1" loading="lazy"></iframe></div>' +
+        '<figcaption>' + esc(l) + '<button type="button" class="nb-btn" data-use="' + k + '">USE THIS</button></figcaption></figure>').join('') + '</div>';
+    p.querySelector('.ad-lede').after(box);
+    COVER_STYLES.forEach(([k, , u]) => {
+      const f = box.querySelector('[data-cstyle="' + k + '"]');
+      getCover(u).then(html => {
+        f.onload = () => {
+          let tries = 0;
+          const fit = () => {
+            const d = f.contentDocument; if (!d) return;
+            if (d.body.dataset.ready !== '1' && tries++ < 40) return setTimeout(fit, 150);
+            const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
+            const c = d.querySelector('.pk-cover'); if (!c) return;
+            c.style.margin = '0'; c.style.boxShadow = 'none'; d.body.style.background = 'transparent'; d.body.style.padding = '0';
+            d.documentElement.style.zoom = f.clientWidth / c.offsetWidth;
+          };
+          fit();
+        };
+        f.srcdoc = pvDoc(html, 'layout=front');
+      }).catch(() => { f.replaceWith(Object.assign(document.createElement('p'), { className: 'ad-help', textContent: 'Could not load this style.' })); });
+    });
+    box.querySelectorAll('[data-use]').forEach(b => { b.onclick = async () => {
+      const st = COVER_STYLES.find(x => x[0] === b.dataset.use);
+      try {
+        const html = await getCover(st[2]);
+        coverBefore = draft.cover;
+        draft.cover = html; persist(); show('cover');
+        flash('Swapped in the ' + esc(st[1]) + ' cover. Check the preview, then SAVE or PUBLISH. "Put my cover back" undoes it.', 'ok', 8000);
+      } catch (e) { updateBar('Could not load that cover style: ' + esc(e.message), 'bad'); }
+    }; });
+    const undo = box.querySelector('#ad-cstyle-undo');
+    if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
+  }
   const tabContents = p => codeTab(p, 'contents', 'Inside pages', 'HTML and CSS for every page after the rules: score sheets, game sheets, anything you play on.',
     '<ul><li><code>&lt;section data-rules&gt;</code> is where the rules go. They flow onto as many pages as they need.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, padded to the safe area.</li><li><code>&lt;template data-repeat="{{sheets}}"&gt;</code> repeats the pages inside it. <code>{{n}}</code> numbers each copy. With <code>data-per="2"</code>, <code>{{i}}</code> and <code>{{i+1}}</code> number two items per page.</li><li>The free sampler keeps the rules and the first pages (Content, Print, Sampler pages), or only pages marked <code>data-sampler</code>.</li><li>Colours and fonts as on the cover.</li></ul>');
 
