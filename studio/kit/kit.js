@@ -275,7 +275,8 @@
     '<a class="nb-tgb" href="/">The Game Bureau</a>' +
     '<nav>' +
     // The rules button sits just left of ORDER, on every page but the rules page itself.
-    (here !== 'rules' ? '<a class="nb-rules-link" ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    // It always says RULES (Kevin); the renamable rules button is the one under the free sampler.
+    (here !== 'rules' ? '<a class="nb-rules-link" ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     // The free download: the sampler.
     (g.pdf && g.pdf.free ? '<a class="nb-sampler-link" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'SAMPLER' + '</a>' : '') +
@@ -297,7 +298,7 @@
     '<footer class="nb-foot"><div class="nb-wrap">' +
     '<div class="nb-foot-id"><a href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a><a href="/">The Game Bureau</a></div>' +
     '<nav>' +
-    (here !== 'rules' ? '<a ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    (here !== 'rules' ? '<a ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<a href="./#order">ORDER</a>' +
     (g.pdf && g.pdf.free ? '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">SAMPLER</a>' : '') +
     '<button type="button" class="nb-foot-share">SHARE</button>' +
@@ -396,7 +397,9 @@
       '<div class="nb-qty"><label for="nb-qty">QTY</label><button type="button" data-q="-1" aria-label="Fewer">&minus;</button><input id="nb-qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" data-q="1" aria-label="More">+</button></div>' +
       '<a class="nb-btn solid big" id="nb-order" href="#order" role="button">' + esc(order.label || 'ORDER A PRINTED COPY') + '</a>' +
       '</div>') +
-      (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' + '</div>' : '') +
+      // The free sampler, with the rules button under it. That button carries the rules name (game.json "rulesName").
+      (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
+        '<a class="nb-btn nb-rules-btn" ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a></div>' : '') +
       (prod ? specs() : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && g.description && g.description.length ? '<div class="nb-about">' + about() + '</div>' : '') +
