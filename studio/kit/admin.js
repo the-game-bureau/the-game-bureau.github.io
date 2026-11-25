@@ -779,15 +779,23 @@
     const key = DKEY + '#site';
     try { localStorage.setItem(key, JSON.stringify({ game: siteCopy(), rules: draft.rules, at: Date.now() })); } catch (e) { /* blocked */ }
     // The page fills the box; it is scaled down only between phone and desktop widths.
-    const avail = box.clientWidth || 860, W = avail < 760 || avail > 1100 ? avail : 1100, s = Math.min(1, avail / W);
-    f.style.width = W + 'px'; f.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+    // sizeSite runs again whenever the box changes width, so the page always fills it.
+    const sizeSite = () => {
+      const avail = box.clientWidth || 860, W = avail < 760 || avail > 1100 ? avail : 1100, s = Math.min(1, avail / W);
+      f.style.width = W + 'px'; f.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+      const d = f.contentDocument, end = d && d.querySelector('.nb-foot');
+      if (end) { const h = Math.ceil(end.getBoundingClientRect().bottom + d.defaultView.scrollY); f.style.height = h + 'px'; box.style.height = Math.ceil(h * s) + 2 + 'px'; }
+    };
+    sizeSite();
+    if (window.ResizeObserver && !box._ro) { let w = box.clientWidth; box._ro = new ResizeObserver(() => { if (box.clientWidth !== w) { w = box.clientWidth; box._size(); } }); box._ro.observe(box); }
+    box._size = sizeSite;
     const y = window.scrollY;
     f.onload = () => {
       const d = f.contentDocument; let tries = 0;
       const ready = () => {
         if (!d.querySelector('.nb-info') && tries++ < 60) return setTimeout(ready, 100);
         bindSite(d);
-        const fit = () => { const end = d.querySelector('.nb-foot'), h = Math.ceil(end ? end.getBoundingClientRect().bottom + d.defaultView.scrollY : d.body.scrollHeight); f.style.height = h + 'px'; box.style.height = Math.ceil(h * s) + 2 + 'px'; };
+        const fit = () => box._size && box._size();
         fit(); setTimeout(fit, 400); d.addEventListener('input', fit);
         window.scrollTo(0, y);
       };
