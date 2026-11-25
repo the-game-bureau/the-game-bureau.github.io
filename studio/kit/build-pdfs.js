@@ -9,7 +9,7 @@
 //   <slug>-contents.pdf  the inside pages for the printer, rules first, with bleed,
 //                        padded with blank pages to a multiple of print.padTo.
 //   <slug>.pdf           print-at-home copy at trim size: front, rules, contents, back.
-//   <slug>-sampler.pdf   free sampler at trim size: front, rules, sampler pages, back.
+//   <slug>-sampler.pdf   free sampler at trim size: front, sampler.html's pages, back.
 // Everything renders to a temp folder first; pdf/ is only touched when every check passes.
 const path = require('path');
 const fs = require('fs');
@@ -100,7 +100,11 @@ async function build(browser, base, folder) {
   const front = await render('cover.html', 'layout=front');
   const back = await render('cover.html', 'layout=back');
   const inner = await render('contents.html', 'bleed=0');
-  const samplerInner = await render('contents.html', 'bleed=0&sampler=1');
+  // The free sampler has its own pages in sampler.html. Older notebooks without one fall back to
+  // the first inside pages (contents.html?sampler=1).
+  const hasSampler = fs.existsSync(path.join(dir, 'sampler.html'));
+  const samplerSrc = hasSampler ? ['sampler.html', 'bleed=0'] : ['contents.html', 'bleed=0&sampler=1'];
+  const samplerInner = await render(samplerSrc[0], samplerSrc[1]);
   async function combine(parts, title) {
     const doc = await PDFDocument.create();
     doc.setTitle(title); doc.setAuthor(P.author || 'The Game Bureau');
@@ -142,7 +146,7 @@ async function build(browser, base, folder) {
     await page.close();
   }
   await shoot('cover.html', 'layout=front', '.pk-cover', 1);
-  await shoot('contents.html', 'bleed=0&sampler=1', '.flow, .page', 3);
+  await shoot(samplerSrc[0], samplerSrc[1], '.flow, .page', 3);
 
   const out = path.join(dir, 'pdf');
   fs.mkdirSync(out, { recursive: true });
