@@ -116,7 +116,11 @@
       wrap.appendChild(panel(back, 'pk-back', [b + m, m, b + m, b + m]));
       const s = document.createElement('div');
       s.className = 'pk-spine';
-      if (spineEl && spine >= (g.print.spineTextMin || 0.25)) s.appendChild(spineEl);
+      // Spine text keeps 1/16 in clear on each side (what Lulu and KDP ask for) and is sized to
+      // fit: 14 pt at most, and left off when the spine can't hold 6 pt (about 0.21 in).
+      const room = (spine - 0.125) * 72; // points across the spine for the text
+      const min = g.print.spineTextMin != null ? +g.print.spineTextMin : 0.125 + 6 / 72;
+      if (spineEl && spine >= min && room > 0) { root.setProperty('--spine-font', Math.min(14, room).toFixed(2) + 'pt'); s.appendChild(spineEl); }
       else if (spineEl) spineEl.remove();
       wrap.appendChild(s);
       wrap.appendChild(panel(front, 'pk-front', [b + m, b + m, b + m, m]));

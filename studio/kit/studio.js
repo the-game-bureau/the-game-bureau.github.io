@@ -59,8 +59,9 @@
       const saved = {}; drafts.forEach(d => { saved[d.key] = d; });
       const fresh = drafts.filter(d => d.isNew).sort((a, b) => b.at - a.at).map(d =>
         '<div class="st-game"><div class="sw" style="background:' + esc((d.brand && d.brand.color) || '#1F3A5F') + '"></div><div class="b"><span class="tag">SAVED, NOT PUBLISHED</span>' +
-        '<h3>' + esc(d.title || d.key) + '</h3><small>/' + esc(d.key) + '/ · saved ' + esc(new Date(d.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + '</small><p class="ad-help">' + esc(d.tagline) + '</p>' +
-        '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new&open=' + encodeURIComponent(d.key) + '#content">EDIT</a></div></div></div>').join('');
+        '<h3>' + esc(d.title || d.key) + '</h3><small>/' + esc(d.key) + '/ · saved ' + esc(new Date(d.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + (d.by ? ' by ' + esc(d.by) : '') + '</small><p class="ad-help">' + esc(d.tagline) + '</p>' +
+        '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new&open=' + encodeURIComponent(d.key) + '#content">EDIT</a>' +
+        '<button type="button" class="nb-btn st-del" data-deldraft="' + esc(d.key) + '" data-title="' + esc(d.title || d.key) + '">DELETE</button></div><div class="st-del-box" hidden></div></div></div>').join('');
       box.innerHTML = '<div class="st-games">' + fresh + r.games.filter(x => isGame(x.folder)).sort((a, b) => a.folder.localeCompare(b.folder)).map(({ folder, game: g }) =>
         '<div class="st-game' + (folder === current ? ' current' : '') + '"><div class="sw" style="background:' + esc((g.brand && g.brand.color) || '#1F3A5F') + '"></div><div class="b">' +
         (folder === current ? '<span class="tag">OPEN NOW</span>' : '') + (saved[folder] ? '<span class="tag">SAVED CHANGES, NOT PUBLISHED</span>' : '') +
@@ -69,6 +70,7 @@
         (canDelete(folder) ? '<button type="button" class="nb-btn st-del" data-del="' + esc(folder) + '" data-title="' + esc(g.title) + '">DELETE</button>' : '') +
         '</div><div class="st-del-box" hidden></div></div></div>').join('') + '</div>';
       box.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => askDelete(btn, () => S.games(el, current)); });
+      box.querySelectorAll('[data-deldraft]').forEach(btn => { btn.onclick = () => askDeleteDraft(btn, () => S.games(el, current)); });
     } catch (e) {
       box.innerHTML = '<p class="ad-help">Could not list notebooks: ' + esc(e.message) + '</p>';
     }
@@ -103,6 +105,28 @@
       } catch (e) { msg.textContent = 'Not deleted: ' + e.message; go.disabled = false; input.disabled = false; }
     };
     input.focus();
+  }
+
+  // A notebook saved but never published lives only on the studio-drafts branch, so deleting it
+  // touches nothing on the site.
+  function askDeleteDraft(btn, reload) {
+    const key = btn.dataset.deldraft, title = btn.dataset.title;
+    const box = btn.closest('.b').querySelector('.st-del-box');
+    if (!box.hidden) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = '<p><b>Delete ' + esc(title) + '?</b> It was saved but never published, so nothing on the site changes. The saved copy is gone for every browser.</p>' +
+      '<div class="nb-row"><button type="button" class="nb-btn st-del-go">DELETE ' + esc(title.toUpperCase()) + '</button><button type="button" class="nb-btn st-del-no">CANCEL</button></div><p class="ad-help st-del-msg"></p>';
+    const go = box.querySelector('.st-del-go'), msg = box.querySelector('.st-del-msg');
+    box.querySelector('.st-del-no').onclick = () => { box.hidden = true; };
+    go.onclick = async () => {
+      go.disabled = true; msg.textContent = 'Deleting…';
+      try {
+        await GH.writeDrafts([{ key, delete: true }], 'Delete the saved notebook ' + title + ' (never published)', s => { msg.textContent = s; });
+        // This browser forgets it too, if it was the new notebook open here.
+        try { const d = JSON.parse(localStorage.getItem('nb-draft:/studio/new/') || 'null'); if (d && d.savedKey === key) localStorage.removeItem('nb-draft:/studio/new/'); } catch (e) { /* blocked */ }
+        reload();
+      } catch (e) { msg.textContent = 'Not deleted: ' + e.message; go.disabled = false; }
+    };
   }
 
   document.addEventListener('click', e => {

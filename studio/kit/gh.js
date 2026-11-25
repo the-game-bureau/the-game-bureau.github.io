@@ -73,6 +73,27 @@
     return bytesToText(b64ToBytes(f.content));
   };
   GH.readBlobText = async sha => bytesToText(b64ToBytes((await GH.api('/git/blobs/' + sha)).content));
+  GH.readBlobB64 = async sha => (await GH.api('/git/blobs/' + sha)).content.replace(/\s/g, '');
+  // A text file as it was at a commit (or branch). null if it did not exist then.
+  GH.readTextAt = async function (path, ref) {
+    try { const f = await GH.api('/contents/' + path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(ref)); return bytesToText(b64ToBytes(f.content)); }
+    catch (e) { if (e.status === 404) return null; throw e; }
+  };
+  // Every file at a commit, with its blob sha.
+  GH.filesAt = async function (commitSha) {
+    const c = await GH.api('/git/commits/' + commitSha);
+    const t = await GH.api('/git/trees/' + c.tree.sha + '?recursive=1');
+    return t.tree.filter(x => x.type === 'blob');
+  };
+  // Commits on main that touched a folder, newest first.
+  GH.history = folder => GH.api('/commits?sha=' + GH.BRANCH + '&path=' + encodeURIComponent(folder) + '&per_page=50');
+  // The GitHub login of whoever owns the token (cached), to say who saved a draft.
+  let login = null;
+  GH.login = async function () {
+    if (login) return login;
+    try { login = (await GH.api('https://api.github.com/user')).login || ''; } catch (e) { login = ''; }
+    return login;
+  };
 
   // Folders that hold a notebook game (game.json with "kit": "notebook").
   GH.listGames = async function () {
@@ -154,7 +175,7 @@
     try { list = await GH.api('/contents/drafts?ref=' + GH.DRAFTS); } catch (e) { if (e.status === 404) return []; throw e; }
     const out = [];
     for (const f of list.filter(x => /\.json$/.test(x.name))) {
-      try { const d = JSON.parse(await GH.readBlobText(f.sha)); out.push({ key: f.name.replace(/\.json$/, '').replace(/--/g, '/'), isNew: !!d.isNew, title: (d.game && d.game.title) || '', at: d.at, brand: d.game && d.game.brand, tagline: (d.game && d.game.tagline) || '' }); } catch (e) { /* skip */ }
+      try { const d = JSON.parse(await GH.readBlobText(f.sha)); out.push({ key: f.name.replace(/\.json$/, '').replace(/--/g, '/'), isNew: !!d.isNew, title: (d.game && d.game.title) || '', at: d.at, by: d.by || '', brand: d.game && d.game.brand, tagline: (d.game && d.game.tagline) || '' }); } catch (e) { /* skip */ }
     }
     return out;
   };
