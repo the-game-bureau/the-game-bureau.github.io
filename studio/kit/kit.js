@@ -241,9 +241,9 @@
   const header = (g, here) =>
     '<header class="nb-bar"><div class="nb-wrap">' +
     '<a class="nb-home" href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a>' +
+    // Every notebook page links back to The Game Bureau's home page, next to the game's name.
+    '<a class="nb-tgb" href="/">The Game Bureau</a>' +
     '<nav>' +
-    // Every notebook page links back to The Game Bureau's home page.
-    '<a class="nb-tgb" href="/" aria-label="The Game Bureau home page"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/></svg><span>GAME BUREAU</span></a>' +
     (here !== 'rules' && g.layout !== 'product' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
