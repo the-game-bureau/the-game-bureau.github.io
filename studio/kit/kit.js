@@ -263,17 +263,23 @@
     '</nav></div></header>';
   // The Share button in the top bar shares the game page, from any page.
   const bindShare = g => {
-    const b = document.getElementById('nb-share'); if (b) b.onclick = e => NB.share(g, e.currentTarget);
+    document.querySelectorAll('#nb-share, .nb-foot-share').forEach(b => { b.onclick = e => NB.share(g, e.currentTarget); });
     // With no order link yet, every ORDER button stays on the page and says it's coming soon.
     if (!NB.orderURL(g, 1)) document.querySelectorAll('a[href="./#order"], a[href="#order"]').forEach(a => {
       a.addEventListener('click', e => { e.preventDefault(); NB.toast(NB.SOON); });
     });
   };
   NB.SOON = 'Coming soon. Printed copies aren\'t on sale yet.';
-  const footer = g =>
+  // The footer is a plain copy of the header: the same items in the same order, as word links.
+  const footer = (g, here) =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
-    '<nav><a href="./">' + esc(g.title.toUpperCase()) + '</a>' + (g.layout === 'product' ? '' : '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>') + '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a><a href="./#order">ORDER</a></nav>' +
-    '<a href="/">THEGAMEBUREAU.COM</a></div></footer>';
+    '<div class="nb-foot-id"><a href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a><a href="/">The Game Bureau</a></div>' +
+    '<nav>' +
+    (here !== 'rules' ? '<a href="./rules.html">' + esc(NB.rulesName(g).toUpperCase()) + '</a>' : '') +
+    '<a href="./#order">ORDER</a>' +
+    (g.pdf && g.pdf.free ? '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">SAMPLER</a>' : '') +
+    '<button type="button" class="nb-foot-share">SHARE</button>' +
+    '</nav></div></footer>';
 
   // ---------- lightbox ----------
   // Something that can open full screen: a photo, or a video with a source.
@@ -457,7 +463,7 @@
       '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a><button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button></div>' +
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
       '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a></div></div>' +
-      '</main>' + footer(g));
+      '</main>' + footer(g, 'rules'));
     bindShare(g);
     document.title = g.title + ' ' + (NB.rulesName(g) === 'Rules' ? 'rules' : NB.rulesName(g)) + ' | The Game Bureau';
     const el = document.getElementById('nb-rules');
