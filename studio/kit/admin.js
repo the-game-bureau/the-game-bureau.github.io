@@ -942,7 +942,7 @@
     const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt="">' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
     p.innerHTML = '<h2>Photos &amp; video</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
       (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
-      '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem">' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
+      '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
         '<small>' + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
         '<div class="ad-mbtns"><button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
@@ -950,7 +950,7 @@
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
       '<button type="button" class="nb-btn" id="ad-soon">ADD "VIDEO COMING SOON"</button></div>' +
-      '<p class="ad-help">Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. The first photo is also the picture in link previews.</p>' + iconBox();
+      '<p class="ad-help">Drop photos anywhere here to add them, and drag a photo to move it. Photos are resized to 1600 px and saved as JPEG in <code>images/</code> when you save. Until then they stay in this tab only, so save before leaving the page. The first photo is also the picture in link previews.</p>' + iconBox();
     const parseVid = (type, v) => { v = v.trim(); const yt = v.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{6,})/); const vm = v.match(/vimeo\.com\/(?:video\/)?(\d+)/); return type === 'youtube' ? (yt ? yt[1] : v) : (vm ? vm[1] : v); };
     p.querySelectorAll('[data-alt]').forEach(el => { el.oninput = () => { m[+el.dataset.alt].alt = el.value; persist(); }; });
     p.querySelectorAll('[data-vid]').forEach(el => { el.onchange = () => { const x = m[+el.dataset.vid]; x.id = parseVid(x.type, el.value); el.value = x.id; persist(); show('media'); }; });
@@ -977,8 +977,41 @@
       r.readAsDataURL(file);
     };
     if ($('#ad-ico-rm')) $('#ad-ico-rm').onclick = () => { delete draft.game.favicon; delete pending['favicon.ico']; delete pendingB64['favicon.ico']; persist(); show('media'); };
-    $('#ad-up').onchange = async e => {
-      for (const file of e.target.files) {
+    // Drop photos anywhere on the tab to add them; drag a photo to change the order.
+    let dragFrom = null;
+    const isFiles = e => [...(e.dataTransfer && e.dataTransfer.types || [])].includes('Files');
+    p.querySelectorAll('.ad-mitem').forEach(el => {
+      el.ondragstart = e => { if (/^(INPUT|BUTTON)$/.test(e.target.tagName)) return; dragFrom = +el.dataset.i; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragFrom)); };
+      el.ondragend = () => { dragFrom = null; el.classList.remove('dragging'); p.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after')); };
+      el.ondragover = e => {
+        if (dragFrom == null) return;
+        e.preventDefault();
+        const r = el.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+        p.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+        el.classList.add(after ? 'drop-after' : 'drop-before');
+      };
+      el.ondrop = e => {
+        if (dragFrom == null) return;
+        e.preventDefault(); e.stopPropagation();
+        const r = el.getBoundingClientRect();
+        let to = +el.dataset.i + (e.clientY > r.top + r.height / 2 ? 1 : 0);
+        const [x] = m.splice(dragFrom, 1);
+        if (to > dragFrom) to--;
+        m.splice(to, 0, x); dragFrom = null; persist(); show('media');
+      };
+    });
+    p.ondragover = e => { if (!isFiles(e)) return; e.preventDefault(); p.classList.add('ad-dropping'); };
+    p.ondragleave = e => { if (e.target === p || !p.contains(e.relatedTarget)) p.classList.remove('ad-dropping'); };
+    p.ondrop = e => {
+      if (!isFiles(e)) return;
+      e.preventDefault(); p.classList.remove('ad-dropping');
+      const files = [...e.dataTransfer.files].filter(f => /^image\//.test(f.type));
+      if (!files.length) { updateBar('Only photos can be dropped here.', 'bad'); return; }
+      addPhotos(files);
+    };
+    $('#ad-up').onchange = e => addPhotos([...e.target.files]);
+    async function addPhotos(list) {
+      for (const file of list) {
         try {
           const dataURL = await resize(file, 1600);
           let name = file.name.toLowerCase().replace(/\.[^.]+$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photo';
@@ -989,7 +1022,7 @@
         } catch (err) { updateBar('Could not read ' + esc(file.name) + ': ' + esc(err.message), 'bad'); }
       }
       persist(); show('media');
-    };
+    }
   }
   function resize(file, max) {
     return new Promise((res, rej) => {
