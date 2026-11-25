@@ -634,7 +634,7 @@
     const title = (g.title || 'Your game') + (g.subtitle ? ': ' + g.subtitle : '');
     const msg = g.shareText || (g.title && g.tagline ? g.title + ': ' + g.tagline : '');
     box.innerHTML = (msg ? '<p class="ad-share-msg">' + esc(msg) + ' <span>https://' + esc(url) + '</span></p>' : '') +
-      '<div class="ad-share-card"><div class="ad-share-img">' + (src ? '<img src="' + esc(src) + '" alt="" onerror="this.remove()">' : '') + '</div>' +
+      '<div class="ad-share-card"><div class="ad-share-img">' + (src ? '<img src="' + esc(src) + '" alt=""' + (g.shareImage ? '' : NB.focusStyle(photo)) + ' onerror="this.remove()">' : '') + '</div>' +
       '<div class="ad-share-txt"><small>' + esc(GH.SITE.toUpperCase()) + '</small><b>' + esc(title) + '</b><span>' + esc(g.tagline || g.title || '') + '</span></div></div>';
   }
 
@@ -939,13 +939,13 @@
   }
   function tabMedia(p) {
     const m = draft.game.media;
-    const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt="">' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
+    const thumb = x => x.type === 'image' ? '<img src="' + esc(pending[x.src] || (/^(https?:|\/)/.test(x.src || '') ? x.src : BASE + x.src)) + '" alt=""' + NB.focusStyle(x) + '>' : '<span class="ad-vid">' + (x.type === 'youtube' ? 'YouTube' : x.type === 'vimeo' ? 'Vimeo' : 'Video') + (x.id || x.src ? '' : '<br>coming soon') + '</span>';
     p.innerHTML = '<h2>Photos &amp; video</h2><p class="ad-lede">The gallery at the top of the game page, in this order. Videos also get their own section.' +
       (build && build.previews ? ' With no photos, the page shows pictures of the cover and pages from the last PDF build.' : '') + '</p>' +
       '<div class="ad-media">' + (m.length ? m.map((x, i) => '<div class="ad-mitem" draggable="true" data-i="' + i + '" title="Drag to reorder"><span class="ad-grip" aria-hidden="true">&#8942;&#8942;</span>' + thumb(x) + '<div><input data-alt="' + i + '" value="' + esc(x.alt || '') + '" placeholder="Describe it (for screen readers)">' +
         (x.type === 'youtube' || x.type === 'vimeo' ? '<input data-vid="' + i + '" value="' + esc(x.id || '') + '" placeholder="' + (x.type === 'youtube' ? 'YouTube' : 'Vimeo') + ' link or ID">' : '') +
         '<small>' + esc(x.src || '') + (pending[x.src] ? ' (not saved yet)' : '') + '</small></div>' +
-        '<div class="ad-mbtns"><button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
+        '<div class="ad-mbtns">' + (x.type === 'image' ? '<button type="button" class="ad-fbtn" data-focus="' + i + '" title="Choose the spot to keep when this photo is cropped">FOCUS</button>' : '') + '<button type="button" data-up="' + i + '" aria-label="Move up">&uarr;</button><button type="button" data-down="' + i + '" aria-label="Move down">&darr;</button><button type="button" class="ad-rm" data-rm="' + i + '" title="Remove from the page">REMOVE</button></div></div>').join('')
         : '<p class="ad-empty">No photos or videos yet.</p>') + '</div>' + autoBox() +
       '<div class="nb-row"><label class="nb-btn solid ad-file-in">ADD PHOTOS<input type="file" id="ad-up" accept="image/*" multiple hidden></label>' +
       '<button type="button" class="nb-btn" id="ad-yt">ADD YOUTUBE VIDEO</button><button type="button" class="nb-btn" id="ad-vm">ADD VIMEO VIDEO</button>' +
@@ -977,6 +977,38 @@
       r.readAsDataURL(file);
     };
     if ($('#ad-ico-rm')) $('#ad-ico-rm').onclick = () => { delete draft.game.favicon; delete pending['favicon.ico']; delete pendingB64['favicon.ico']; persist(); show('media'); };
+    // FOCUS: click the spot that matters; every crop of this photo (gallery thumbnails, covers,
+    // link-preview card in the studio) keeps that spot in view.
+    p.querySelectorAll('[data-focus]').forEach(b => { b.onclick = () => {
+      const i = +b.dataset.focus, x = m[i], row = b.closest('.ad-mitem');
+      const open = p.querySelector('.ad-focus'); if (open) { const was = +open.dataset.i; open.remove(); if (was === i) return; }
+      const src = pending[x.src] || (/^(https?:|\/|data:)/.test(x.src || '') ? x.src : BASE + x.src);
+      const box = document.createElement('div');
+      box.className = 'ad-focus'; box.dataset.i = i;
+      box.innerHTML = '<p><b>Click the spot to keep in view</b> when this photo is cropped: gallery thumbnails, the cover and so on.</p>' +
+        '<div class="ad-focus-row"><div class="ad-focus-pick"><img src="' + esc(src) + '" alt=""><span class="ad-focus-dot"></span></div>' +
+        '<div class="ad-focus-crops"><figure><div class="sq"><img src="' + esc(src) + '" alt=""></div><figcaption>Square</figcaption></figure>' +
+        '<figure><div class="tall"><img src="' + esc(src) + '" alt=""></div><figcaption>Cover</figcaption></figure>' +
+        '<figure><div class="wide"><img src="' + esc(src) + '" alt=""></div><figcaption>Wide</figcaption></figure></div></div>' +
+        '<div class="ad-focus-btns"><button type="button" class="nb-btn solid" data-fdone>DONE</button><button type="button" class="ad-link" data-freset>Back to the middle</button></div>';
+      row.after(box);
+      const draw = () => {
+        const f = Array.isArray(x.focus) ? x.focus : [50, 50];
+        const dot = box.querySelector('.ad-focus-dot'); dot.style.left = f[0] + '%'; dot.style.top = f[1] + '%';
+        box.querySelectorAll('.ad-focus-crops img').forEach(im => { im.style.objectPosition = f[0] + '% ' + f[1] + '%'; });
+      };
+      draw();
+      box.querySelector('.ad-focus-pick').onclick = e => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const pc = v => Math.max(0, Math.min(100, Math.round(v)));
+        x.focus = [pc((e.clientX - r.left) / r.width * 100), pc((e.clientY - r.top) / r.height * 100)];
+        persist(); draw();
+        const t = row.querySelector('img'); if (t) t.style.objectPosition = x.focus[0] + '% ' + x.focus[1] + '%';
+      };
+      box.querySelector('[data-freset]').onclick = () => { delete x.focus; persist(); draw(); };
+      box.querySelector('[data-fdone]').onclick = () => box.remove();
+    }; });
+
     // Drop photos anywhere on the tab to add them; drag a photo to change the order.
     let dragFrom = null;
     const isFiles = e => [...(e.dataTransfer && e.dataTransfer.types || [])].includes('Files');
