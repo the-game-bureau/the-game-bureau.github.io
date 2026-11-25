@@ -591,6 +591,7 @@
     p.innerHTML = '<h2>' + title + '</h2><p class="ad-lede">' + lede + '</p>' + (ai ? aiBox(key) : '') +
       '<textarea class="ad-code" id="ad-code" spellcheck="' + (key === 'rules') + '" wrap="' + (key === 'rules' ? 'soft' : 'off') + '">' + esc(draft[key]) + '</textarea>' +
       '<div class="ad-code-foot">' + (key === 'rules' ? '<span class="ad-rules-len" id="ad-rules-len"></span>' : '') + '<button type="button" class="ad-link" id="ad-revert">Undo all changes to this file</button></div>' +
+      (key === 'rules' ? '<div class="ad-rules-warn" id="ad-rules-warn" role="status" hidden></div>' : '') +
       (help ? '<details class="ad-help-box"><summary>How this file works</summary>' + help + '</details>' : '');
     const ta = $('#ad-code');
     ta.oninput = () => { draft[key] = ta.value; persist(); if (key === 'rules') rulesLength(); };
@@ -607,7 +608,46 @@
     clearTimeout(rulesTimer);
     rulesTimer = setTimeout(measureRules, 800);
   }
+  // Likely mistakes in the rules, shown under the editor.
+  function rulesProblems() {
+    const g = draft.game, text = draft.rules, out = [];
+    const lines = text.split('\n');
+    const tops = lines.filter(l => /^#\s/.test(l));
+    const first = (lines.find(l => /^#{1,6}\s/.test(l)) || '').trim();
+    if (!/^#\s+\{\{title\}\}\s+rules$/i.test(first)) out.push('The first line should be <code># {{title}} rules</code>, so the game\'s name and its rules name (' + esc(NB.rulesName(g)) + ') fill in by themselves.');
+    if (tops.length > 1) out.push('There are ' + tops.length + ' main titles (lines starting with one #). Use ## for sections after the first.');
+    // Numbered steps that skip or repeat a number (1. 2. 4.). A list of all "1." is fine.
+    let prev = null;
+    lines.forEach((l, i) => {
+      const m = l.match(/^(\d+)\.\s/);
+      if (!m) { if (!/^\s+\S/.test(l)) prev = null; return; }
+      const n = +m[1];
+      if (prev != null && n !== prev + 1 && !(n === 1 && prev === 1)) out.push('Step ' + n + ' (line ' + (i + 1) + ') comes after step ' + prev + '.');
+      prev = n;
+    });
+    // Players, time and ages should agree with the Content tab's specs.
+    const nums = s => (String(s).match(/\d+/g) || []).map(Number);
+    const spec = re => ((g.specs || []).find(r => re.test(r[0] || '')) || [])[1];
+    const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+    const checks = [
+      [/^(time|play ?time|length)$/i, /(\d+(?:\s*[–-]\s*\d+)?\+?)\s*(?:min|minutes)\b/i, 'Time'],
+      [/^(players?|people)$/i, /(\d+(?:\s*[–-]\s*\d+)?\+?)\s+(?:players?|people|captains?)\b/i, 'Players'],
+      [/^ages?$/i, /\bages?\s+(\d+(?:\s*[–-]\s*\d+)?\+?)/i, 'Ages'],
+    ];
+    for (const [lab, re, name] of checks) {
+      const want = spec(lab), m = text.match(re);
+      if (want && m && nums(want).length && !same(nums(m[1]), nums(want))) out.push(name + ': the rules say <b>' + esc(m[0]) + '</b> but the Content tab says <b>' + esc(want) + '</b>.');
+    }
+    return out;
+  }
+  function drawRulesWarn() {
+    const el = $('#ad-rules-warn'); if (!el) return;
+    const w = rulesProblems();
+    el.hidden = !w.length;
+    el.innerHTML = w.length ? '<b>Check before you publish</b><ul>' + w.map(x => '<li>' + x + '</li>').join('') + '</ul>' : '';
+  }
   function drawRulesLen() {
+    drawRulesWarn();
     const el = $('#ad-rules-len'); if (!el) return false;
     const words = (draft.rules.replace(/\{\{\w+\}\}/g, 'x').replace(/[#>*_`\[\]()-]+/g, ' ').match(/[A-Za-z0-9\u00C0-\uFFFF'’]+/g) || []).length;
     const mins = Math.max(1, Math.round(words / 200));
