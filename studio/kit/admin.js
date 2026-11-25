@@ -29,7 +29,7 @@
   // Plain /studio/ starts with only Connect and Notebooks open; the other tabs wait until a
   // notebook is chosen there (an existing one, or New notebook, which opens /studio/?new).
   const CHOSEN = !IS_NEW || new URLSearchParams(location.search).has('new');
-  const OPEN_TABS = ['connect', 'games', 'ideas'];
+  const OPEN_TABS = ['welcome', 'connect', 'games', 'ideas'];
   const locked = t => !CHOSEN && !OPEN_TABS.includes(t);
   const NEWKEY = 'nb-draft:/studio/new/';
   const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && typeof d.start === 'string' && /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTER; };
@@ -41,7 +41,7 @@
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html' };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
-  const TABS = [['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['ideas', 'Ideas'], ['checklist', 'Checklist'], ['content', 'Content'], ['colors', 'Colors'], ['rules', 'Rules'], ['cover', 'Cover'], ['contents', 'Inside pages'], ['media', 'Photos & video'], ['pdfs', 'PDFs'], ['history', 'History']];
   const ALIAS = { setup: 'checklist', new: 'content', games: 'games' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -189,7 +189,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, contents: tabContents, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -200,7 +200,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
+      welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['page', 'Game page'], ['front', 'Front cover'], ['contents', 'Inside pages']],
       rules: [['rules', 'Rules page'], ['contents', 'In the notebook']],
@@ -1118,6 +1118,12 @@
     }
   }
 
+  // ---------- tab: welcome ----------
+  // Kevin's words: what a game notebook is.
+  const tabWelcome = p => {
+    p.innerHTML = '<h2>Welcome</h2><p class="ad-lede">One of the types of games The Game Bureau creates is Game Notebooks. Think playing Tic-Tac-Toe with pen and paper, except the game board is already drawn for you on every page of a notebook. Hopefully our notebook games are a little nicer than that, but hopefully that gives you an idea. Each notebook game has a subdomain website, a pdf for sale and a sampler for download and print.</p>';
+  };
+
   // ---------- tab: ideas ----------
   // Ideas for future games, shared by every connected browser (ideas.json on studio-drafts).
   // Each change re-reads the list first, so two browsers adding ideas don't lose each other's.
@@ -1297,7 +1303,7 @@
       document.title = !CHOSEN ? 'Notebook Studio' : (IS_NEW ? 'New notebook' : g.title) + ' · Notebook Studio';
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
-      show(tabFromHash() || (!GH.token() ? 'connect' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
+      show(tabFromHash() || (!GH.token() ? 'welcome' : !CHOSEN ? 'games' : IS_NEW ? 'content' : 'checklist'));
       loadChecklistFacts();
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       try { const w = JSON.parse(sessionStorage.getItem(PDFWATCH) || 'null'); if (w && !IS_NEW && w.folder === FOLDER && Date.now() - w.t0 < 30 * 60000) watchPdfs(w.sha, w.t0); } catch (e) { /* none */ }
