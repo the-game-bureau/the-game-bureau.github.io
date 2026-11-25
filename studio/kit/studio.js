@@ -95,7 +95,7 @@
 
   // ---------- Notebooks tab ----------
   S.games = async function (el, current) {
-    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Choose a notebook to work on: start a new one, or EDIT one you have saved or published. The other tabs open once you choose.</p>' +
+    el.innerHTML = '<h2>Notebooks</h2><p class="ad-lede">Start a new notebook or edit or copy an existing notebook to continue.</p>' +
       '<div class="nb-row"><a class="nb-btn solid" href="/studio/?new#content">+ NEW NOTEBOOK</a></div><div class="st-games-box"><p class="ad-help">Loading…</p></div>';
     const box = el.querySelector('.st-games-box');
     try {
