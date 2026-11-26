@@ -1810,7 +1810,7 @@
         setTimeout(() => { if (watching === sha) pdfChip(''); }, 5 * 60000);
         return;
       }
-      if (run) pdfChip(/queued|waiting|pending|requested/.test(run.status) ? 'PDFs waiting to build…' : 'PDFs building… about 3 min');
+      if (run) pdfChip(/queued|waiting|pending|requested/.test(run.status) ? 'Publishing…' : 'PDFs building… about 3 min');
       await sleep(10000);
     }
   }
