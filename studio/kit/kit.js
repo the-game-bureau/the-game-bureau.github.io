@@ -496,7 +496,9 @@
       document.getElementById('nb-order').onclick = e => {
         e.preventDefault();
         const u = NB.orderURL(g, qty.value);
-        if (u) location.href = u;
+        if (!u) return;
+        // Stripe checkout won't open inside a frame (the studio's previews), so a framed page opens it in a new tab.
+        if (window.top !== window) window.open(u, '_blank', 'noopener'); else location.href = u;
       };
     }
     bindShare(g);
