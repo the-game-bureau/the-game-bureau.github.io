@@ -187,7 +187,7 @@
       const html = {
         steps: '<ol class="pk-steps">' + (g.steps || []).map(st => '<li><b>' + NB.esc(st.title) + '</b>' + NB.esc(st.text) + '</li>').join('') + '</ol>',
         specs: '<div class="pk-specs">' + (g.specs || []).map(sp => '<div><b>' + NB.esc(sp[0]) + '</b>' + NB.esc(sp[1]) + '</div>').join('') + '</div>',
-        description: (g.description || []).map(p => '<p>' + NB.esc(p) + '</p>').join(''),
+        description: NB.descHTML(g.description),
         // The photo picked FOR NOTEBOOK COVER in Media, as it is when the page is generated.
         // With none picked, a pattern of squares stands in.
         image: (() => { const m = NB.coverPhoto(g); return m ? '<img class="pk-image" src="' + NB.esc(m.src) + '" alt="' + NB.esc(m.alt || g.title) + '"' + NB.focusStyle(m) + '>' : '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>'; })(),
