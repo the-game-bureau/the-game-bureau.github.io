@@ -297,9 +297,10 @@
   // ---------- shared header and footer ----------
   const header = (g, here) =>
     '<header class="nb-bar"><div class="nb-wrap">' +
-    '<a class="nb-home" href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a>' +
-    // Every notebook page links back to The Game Bureau's home page, next to the game's name.
+    // The Game Bureau button sits at the far left and links to its home page (Kevin). The game's
+    // name next to it is plain text, not a link.
     '<a class="nb-tgb" href="/">The Game Bureau</a>' +
+    '<span class="nb-home">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</span>' +
     '<nav>' +
     // Order: ORDER, SAMPLER, RULES, SHARE (Kevin). RULES shows on every page but the rules page itself.
     // It always says RULES (Kevin); the renamable rules button is the one under the free sampler.
@@ -323,7 +324,7 @@
   // The footer is a plain copy of the header: the same items in the same order, as word links.
   const footer = (g, here) =>
     '<footer class="nb-foot"><div class="nb-wrap">' +
-    '<div class="nb-foot-id"><a href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a><a href="/">The Game Bureau</a></div>' +
+    '<div class="nb-foot-id"><a href="/">The Game Bureau</a><span class="nb-foot-name">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</span></div>' +
     '<nav>' +
     '<a href="./#order">ORDER</a>' +
     (g.pdf && g.pdf.free ? '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">SAMPLER</a>' : '') +
