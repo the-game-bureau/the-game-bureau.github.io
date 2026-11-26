@@ -259,7 +259,7 @@
         '<div class="mk-txt"><small>' + e((g.kicker || 'The Game Bureau presents').toUpperCase()) + '</small><h3>' + e(g.title || 'Game') + '</h3>' + (g.subtitle ? '<p class="mk-sub">' + e(g.subtitle) + '</p>' : '') +
           (g.tagline ? '<p>' + e(g.tagline) + '</p>' : '') +
           (g.price ? '<div class="mk-price">' + e(g.price) + ' <span>' + e(g.currency || 'USD') + '</span></div>' : '') +
-          '<div class="mk-btns"><span class="mk-buy">' + e(((g.order || {}).label || 'Order a printed copy').toUpperCase()) + '</span><span class="mk-more">' + 'FREE SAMPLER' + '</span></div></div></div>' +
+          '<div class="mk-btns"><span class="mk-buy">' + e(((g.order || {}).label || 'Order printed notebook').toUpperCase()) + '</span><span class="mk-more">' + 'FREE SAMPLER' + '</span></div></div></div>' +
         (steps.length ? '<div class="mk-steps">' + steps.map((x, k) => '<div><em>' + (k + 1) + '</em><b>' + e(x.title || '') + '</b><span>' + e(x.text || '') + '</span></div>').join('') + '</div>' : '') +
         '<div class="mk-foot">' + e((g.title || 'Game').toUpperCase()) + ' &middot; THEGAMEBUREAU.COM</div></div>' +
         '<p class="ad-help">Main: top bar, headings, cover. Accent: highlights and the order button. Paper: page background. Ink: text and lines.</p>';
