@@ -859,8 +859,15 @@
     ed(q('#nb-order'), 'order.label');
     ed(q('.nb-ship') || q('.nb-info .nb-fine'), 'order.shippingNote');
     ed(q('.nb-info .nb-tag b') || q('.nb-tag'), 'tagline');
-    const ps = qa('.nb-about > p');
-    if (ps.length) { const w = d.createElement('div'); ps[0].before(w); ps.forEach(x => w.appendChild(x)); ed(w, 'description', true); if (sitePH.has('description')) w.classList.add('ed-ph'); }
+    // The description: lists on the page; while you type, one line per entry with the "- " and "-- " bullet marks.
+    const ps = qa('.nb-about > p, .nb-about > ul, .nb-about > h3');
+    if (ps.length) {
+      const w = d.createElement('div'); ps[0].before(w); ps.forEach(x => w.appendChild(x)); ed(w, 'description', true); if (sitePH.has('description')) w.classList.add('ed-ph');
+      w.title = 'Start a line with "- " for a bullet, "-- " for a bullet inside it. A line ending ":" above bullets is their heading.';
+      const lines = () => (draft.game.description || []).map(x => '<p>' + esc(x) + '</p>').join('');
+      w.addEventListener('focus', () => { if (!sitePH.has('description')) w.innerHTML = lines(); });
+      w.addEventListener('blur', () => setTimeout(() => { const K = d.defaultView.NB; if (K && K.descHTML && !sitePH.has('description')) w.innerHTML = K.descHTML(draft.game.description); }, 0));
+    }
     qa('.nb-specs li').forEach((li, i) => { ed(li.querySelector('b'), 'specs.' + i + '.0'); ed(li.querySelector('span'), 'specs.' + i + '.1'); li.insertAdjacentHTML('beforeend', '<button type="button" class="ed-x" data-x="specs" data-i="' + i + '" title="Remove">&times;</button>'); });
     const about = q('.nb-about'), specs = q('.nb-specs');
     // "+ Add a spec" goes after the specs; with none yet, where they would be (under the buttons on a product page).

@@ -16,6 +16,27 @@
   // ---------- helpers ----------
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   NB.esc = esc;
+  // The description (game.json "description", one entry per line). A line starting "- " is a bullet,
+  // "-- " a bullet inside the one above it. A line ending ":" just before bullets is their heading.
+  // Bullets with no heading are features (check marks); bullets under a heading are a list.
+  NB.descHTML = lines => {
+    lines = (lines || []).map(x => String(x || '').trim()).filter(Boolean);
+    let out = '', list = null;
+    const close = () => { if (list) { out += '<ul class="' + list.cls + '">' + list.items.map(it => '<li>' + esc(it.t) + (it.sub.length ? '<ul>' + it.sub.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') + '</li>').join('') + '</ul>'; list = null; } };
+    lines.forEach((t, i) => {
+      const m = t.match(/^(-{1,2})\s*(.*)$/);
+      if (m && m[2]) {
+        if (!list) list = { cls: /:$/.test(lines[i - 1] || '') && !/^-/.test(lines[i - 1]) ? 'nb-tree' : 'nb-checks', items: [] };
+        if (m[1] === '--' && list.items.length) list.items[list.items.length - 1].sub.push(m[2]);
+        else list.items.push({ t: m[2], sub: [] });
+        return;
+      }
+      close();
+      out += /:$/.test(t) && /^-\s*\S/.test(lines[i + 1] || '') ? '<h3 class="nb-about-h">' + esc(t) + '</h3>' : '<p>' + esc(t) + '</p>';
+    });
+    close();
+    return out;
+  };
   // Colour schemes offered in the studio and the editor: name, brand, accent, paper, ink.
   // Brand and ink are dark enough for white or paper text; accent is the bright highlight.
   NB.PRESETS = [
@@ -381,7 +402,7 @@
     // full screen in a lightbox.
     const prod = g.layout === 'product';
     const specs = () => g.specs && g.specs.length ? '<ul class="nb-specs">' + g.specs.map(s => '<li><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></li>').join('') + '</ul>' : '';
-    const about = () => (g.description || []).map(p => '<p>' + esc(p) + '</p>').join('') + (prod ? '' : specs());
+    const about = () => NB.descHTML(g.description) + (prod ? '' : specs());
     const html =
       header(g, 'public') +
       (NB.announceOn(g) ? '<div class="nb-announce">' + esc(g.announce) + '</div>' : '') +
