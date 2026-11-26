@@ -1794,7 +1794,7 @@
     try { sessionStorage.setItem(PDFWATCH, JSON.stringify({ sha, folder: FOLDER, t0 })); } catch (e) { /* blocked */ }
     const done = () => { try { sessionStorage.removeItem(PDFWATCH); } catch (e) { /* blocked */ } };
     const before = build && build.built;
-    pdfChip('PDFs: starting…');
+    pdfChip('Publishing…');
     while (watching === sha && Date.now() - t0 < 30 * 60000) {
       let run = null;
       try { run = ((await GH.runs(GH.WORKFLOW, '&event=push&head_sha=' + sha)).workflow_runs || [])[0] || null; } catch (e) { /* try again */ }
@@ -1810,7 +1810,7 @@
         setTimeout(() => { if (watching === sha) pdfChip(''); }, 5 * 60000);
         return;
       }
-      if (run) pdfChip(/queued|waiting|pending|requested/.test(run.status) ? 'Publishing…' : 'PDFs building… about 3 min');
+      if (run) pdfChip('Publishing…');
       await sleep(10000);
     }
   }
