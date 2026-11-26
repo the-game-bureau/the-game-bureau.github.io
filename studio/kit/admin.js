@@ -123,7 +123,9 @@
       // with the address to match, and nothing ticked. bindNew picks another number if it's taken.
       const n = galaxyNumber();
       Object.assign(draft.game, { slug: 'galaxy-' + n, title: 'Galaxy ' + n, subtitle: 'You are lost in space!', shareText: '', setup: {}, layout: 'product', media: clone(NB.PLACEHOLDER_MEDIA) });
-      draft.game.order = Object.assign({}, draft.game.order, { url: '' });
+      // Every new notebook's order button starts as ORDER PRINTED NOTEBOOK (Kevin), even when copied from a game
+      // that renamed it. It can be renamed on the Website tab.
+      draft.game.order = Object.assign({}, draft.game.order, { url: '', label: 'ORDER PRINTED NOTEBOOK' });
       draft.game.print = Object.assign({}, draft.game.print, { sheets: 72 });
       delete draft.game.favicon; delete draft.game.slugTouched;
       freshSig = sig();
