@@ -13,12 +13,12 @@
   and .cover-spine on the printer's spread, with bleed, and pads them to the safe area.
   Leave the lower right of the back clear (about 2 x 1.2 in) for a barcode.
   Filled from game.json: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}},
-  and as HTML: {{steps}} {{specs}} {{description}} {{image}} (photo 1 from Photos & video).
+  and as HTML: {{steps}} {{specs}} {{description}} {{image}} {{qr}} {{stepsHeading}} (photo 1 from Photos & video).
   Colours: var(--brand) var(--accent) var(--paper) var(--ink).
 -->
 <style>
 /* Front: ruled notebook paper with a margin line and a label for the title. */
-.cover-front,.cover-back{background-color:var(--paper);color:var(--ink);
+.cover-front{background-color:var(--paper);color:var(--ink);
   background-image:linear-gradient(90deg,transparent 1.05in,color-mix(in srgb,var(--accent) 80%,#d33) 1.05in,color-mix(in srgb,var(--accent) 80%,#d33) calc(1.05in + 1.5pt),transparent calc(1.05in + 1.5pt)),
     repeating-linear-gradient(to bottom,transparent 0,transparent calc(.34in - 1pt),color-mix(in srgb,var(--brand) 35%,transparent) calc(.34in - 1pt),color-mix(in srgb,var(--brand) 35%,transparent) .34in);
   background-position:0 0,0 .9in}
@@ -34,14 +34,37 @@
 .cover-front .pk-art i{height:.45in;border-color:var(--brand)}
 .cover-front .tag{font:600 12pt/1.4 "NB Text",sans-serif;text-align:center;max-width:5.4in;margin:0}
 
-.cover-back{gap:16pt;padding-left:1.3in!important}
-.cover-back h2{font-size:38pt;color:var(--brand)}
-.cover-back .tag{font-size:13pt;margin:0;max-width:5.4in}
-.cover-back .pk-steps{max-width:5.4in}
-.cover-back .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end}
-.cover-back .brand{font:400 16pt "NB Display",Impact,sans-serif;letter-spacing:.08em;color:var(--brand)}
-.cover-back .url{font:700 11pt "NB Text",sans-serif}
-.barcode-space{width:2in;height:1.2in;background:#fff}
+/* BACK: "Poster". The main colour to the bleed, photo 1 echoed faintly up top so the wrap
+   reads as one piece, the hook in the accent colour, three steps as cards, the specs as
+   chips, and a white footer band with a QR code to the game page and room for a barcode. */
+.cover-back{background:var(--brand);color:#fff;overflow:hidden;gap:0}
+.cover-back .bk-echo{position:absolute;left:0;right:0;top:0;height:58%;overflow:hidden;z-index:0}
+.cover-back .bk-echo .pk-image{position:absolute;inset:0;width:100%;height:100%;max-height:none;margin:0;border-radius:0;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:luminosity;opacity:.28}
+.cover-back .bk-echo .pk-art{display:none}
+.cover-back .bk-echo::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,color-mix(in srgb,var(--brand) 25%,transparent),var(--brand) 96%)}
+.cover-back>*:not(.bk-echo){position:relative;z-index:1}
+.cover-back .bk-kick{font:800 9.5pt "NB Text",sans-serif;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,255,255,.8)}
+.cover-back h2{font-size:64pt;line-height:.9;text-transform:uppercase;color:var(--accent);margin-top:10pt;max-width:6.6in}
+.cover-back h2:empty::before{content:attr(data-title)}
+.cover-back h2{text-wrap:balance}
+.cover-back .bk-tag{font:500 15pt/1.4 "NB Text",sans-serif;margin:16pt 0 0;max-width:6in}
+.cover-back .bk-how{margin-top:auto;padding-top:.3in}
+.cover-back .bk-h{font:800 9.5pt "NB Text",sans-serif;letter-spacing:.32em;text-transform:uppercase;color:var(--accent);margin:0 0 10pt;display:flex;align-items:center;gap:10pt}
+.cover-back .bk-h::after{content:"";flex:1;border-top:1.5pt solid color-mix(in srgb,var(--accent) 60%,transparent)}
+.cover-back .pk-steps{grid-template-columns:repeat(3,1fr);gap:10pt}
+.cover-back .pk-steps li{padding:.62in 12pt 12pt;min-height:0;background:rgba(255,255,255,.08);border:1pt solid rgba(255,255,255,.18);border-radius:8pt;font-size:10pt;line-height:1.35;color:rgba(255,255,255,.88)}
+.cover-back .pk-steps li::before{left:12pt;top:12pt;width:.4in;height:.4in;line-height:.4in}
+.cover-back .pk-steps b{font-size:17pt;color:#fff;margin-bottom:3pt}
+.cover-back .pk-specs{margin-top:12pt;gap:8pt}
+.cover-back .pk-specs div{border:1.5pt solid var(--accent);border-radius:99pt;padding:5pt 12pt;font:600 10pt "NB Text",sans-serif}
+.cover-back .pk-specs b{display:inline;color:var(--accent);font-size:7.5pt;margin-right:6pt}
+.cover-back .bk-foot{margin:.3in calc(-1 * var(--pad)) calc(-1 * var(--pad));padding:.22in var(--pad) var(--pad);background:var(--paper);color:var(--ink);display:flex;align-items:flex-end;gap:14pt}
+.cover-back .pk-qr{width:1.05in;height:1.05in;color:var(--ink);flex:none}
+.cover-back .bk-scan{font:400 10pt/1.35 "NB Text",sans-serif;flex:1}
+.cover-back .bk-scan b{display:block;font:400 17pt/1 "NB Display",Impact,sans-serif;letter-spacing:.03em;color:var(--brand);margin-bottom:4pt;text-transform:uppercase}
+.cover-back .bk-url{font-weight:800;letter-spacing:.02em}
+.cover-back .bk-brand{font:800 8pt "NB Text",sans-serif;letter-spacing:.24em;text-transform:uppercase;color:var(--brand);margin-top:8pt;opacity:.8}
+.barcode-space{width:2in;height:1.2in;flex:none;background:#fff}
 </style>
 </head>
 <body data-page="cover">
@@ -60,12 +83,18 @@
 <div class="cover-spine">{{title}}</div>
 
 <div class="cover-back">
-  <h2>{{title}}</h2>
-  <p class="tag">{{tagline}}</p>
-  {{steps}}
-  {{specs}}
-  <div class="foot">
-    <div><div class="brand">{{kicker}}</div><div class="url">{{url}}</div></div>
+  <div class="bk-echo">{{image}}</div>
+  <div class="bk-kick">{{title}}</div>
+  <h2 data-title="{{title}}">{{subtitle}}</h2>
+  <p class="bk-tag">{{tagline}}</p>
+  <div class="bk-how">
+    <div class="bk-h">{{stepsHeading}}</div>
+    {{steps}}
+    {{specs}}
+  </div>
+  <div class="bk-foot">
+    {{qr}}
+    <div class="bk-scan"><b>Scan to play along</b>Rules, a how-to-play video and more at<br><span class="bk-url">{{url}}</span><div class="bk-brand">{{kicker}}</div></div>
     <div class="barcode-space"></div>
   </div>
 </div>
