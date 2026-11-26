@@ -129,6 +129,12 @@
     if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
     return u;
   };
+  // A printable copy of linked rules: Google Docs, Sheets and Slides export to PDF. Other links as they are.
+  NB.rulesPrint = u => {
+    const m = String(u || '').match(/^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+    if (m && m[2] !== 'e') return 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/export' + (m[1] === 'presentation' ? '/pdf' : '?format=pdf');
+    return u;
+  };
   // The rules (rules.md) are HTML. Notebooks made before that wrote them in Markdown, which still
   // works: a file that doesn't start with a tag is read as Markdown.
   NB.isHTML = t => /^\s*</.test(String(t || ''));
@@ -505,8 +511,9 @@
       header(g, 'rules') +
       '<main class="nb-wrap nb-rules-page">' +
       '<div class="nb-rules-top"><a href="./">&larr; ' + esc(g.title) + '</a>' + (link
-        // A linked page can't be printed from here; it opens in its own tab instead.
-        ? '<a class="nb-btn" href="' + esc(link) + '" target="_blank" rel="noopener">OPEN IN A NEW TAB</a>'
+        // A page inside a frame can't be printed from here. For a Google Doc, Sheet or Slides the
+        // print button opens it as a PDF, ready to print; any other link opens in its own tab.
+        ? '<a class="nb-btn" href="' + esc(NB.rulesPrint(link)) + '" target="_blank" rel="noopener">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</a>'
         : '<button class="nb-btn" type="button" onclick="print()">PRINT ' + (NB.rulesName(g) === 'Rules' ? 'THE RULES' : esc(NB.rulesName(g).toUpperCase())) + '</button>') + '</div>' +
       '<article class="nb-card nb-rules" id="nb-rules"><p>Loading the rules&hellip;</p></article>' +
       '<div class="nb-card nb-rules-cta"><div><h2>Play it on paper</h2><p>The rules are printed inside the notebook, with everything else you need.</p></div><div class="nb-row"><a class="nb-btn solid big" href="./#order">ORDER A COPY</a><a class="nb-btn big" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'FREE SAMPLER' + '</a></div></div>' +
