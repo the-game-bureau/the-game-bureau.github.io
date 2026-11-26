@@ -529,6 +529,8 @@
   document.addEventListener('DOMContentLoaded', async () => {
     const page = document.body.dataset.page;
     if (!page || !['public', 'rules'].includes(page)) return;
+    // Game pages use the Poster design (kit.css, .d-poster).
+    document.documentElement.classList.add('d-poster');
     try {
       const g = await NB.loadGame();
       if (page === 'public') NB.renderPublic(g);
