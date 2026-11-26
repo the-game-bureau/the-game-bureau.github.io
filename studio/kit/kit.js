@@ -90,7 +90,7 @@
     };
     // The public page offers the free sampler.
     g.pdf.free = g.pdf.sampler;
-    g.pdf.freeLabel = 'FREE SAMPLER (PDF)';
+    g.pdf.freeLabel = 'FREE SAMPLER';
     NB.applyBrand(g);
     return g;
   };
