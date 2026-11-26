@@ -253,7 +253,7 @@
       const steps = (g.steps || []).filter(x => x && (x.title || x.text)).slice(0, 3);
       pv.innerHTML = '<div class="ad-pv-head"><b>Preview</b><span class="ad-pv-note">This game\'s page in your colours.</span></div>' +
         '<div class="ad-mock" id="ad-mock">' +
-        '<div class="mk-bar"><b>' + e((g.title || 'Game').toUpperCase()) + '</b><i>ORDER</i><span>SAMPLER</span><span>RULES</span></div>' +
+        '<div class="mk-bar"><em>The Game Bureau</em><b>' + e((g.title || 'Game').toUpperCase()) + '</b><i>ORDER</i><span>SAMPLER</span><span>RULES</span></div>' +
         '<div class="mk-hero">' + (src ? '<img class="mk-pic" src="' + e(src) + '" alt=""' + NB.focusStyle(ph) + '>' : '<svg class="mk-book" viewBox="0 0 120 150" aria-hidden="true">' +
           '<rect x="14" y="10" width="96" height="132" rx="6" fill="var(--mk-color)"/>' +
           '<rect x="30" y="52" width="64" height="30" rx="3" fill="var(--mk-paper)"/><rect x="38" y="62" width="48" height="4" fill="var(--mk-accent)"/><rect x="38" y="70" width="32" height="3" fill="var(--mk-ink)" opacity=".6"/>' +
