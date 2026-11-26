@@ -280,12 +280,12 @@
     // Every notebook page links back to The Game Bureau's home page, next to the game's name.
     '<a class="nb-tgb" href="/">The Game Bureau</a>' +
     '<nav>' +
-    // The rules button sits just left of ORDER, on every page but the rules page itself.
+    // Order: ORDER, SAMPLER, RULES, SHARE (Kevin). RULES shows on every page but the rules page itself.
     // It always says RULES (Kevin); the renamable rules button is the one under the free sampler.
-    (here !== 'rules' ? '<a class="nb-rules-link" ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<a class="solid" href="./#order">ORDER</a>' +
     // The free download: the sampler.
     (g.pdf && g.pdf.free ? '<a class="nb-sampler-link" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + 'SAMPLER' + '</a>' : '') +
+    (here !== 'rules' ? '<a class="nb-rules-link" ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<button type="button" class="nb-share" id="nb-share" aria-label="Share">' +
     '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7c0 .3 0 .5.1.8L8.4 11.2a3 3 0 1 0 0 3.6l6.7 3.4A3 3 0 1 0 18 16z"/></svg>' +
     '<span>SHARE</span></button>' +
@@ -304,9 +304,9 @@
     '<footer class="nb-foot"><div class="nb-wrap">' +
     '<div class="nb-foot-id"><a href="./">' + esc((g.title || 'The Game Bureau').toUpperCase()) + '</a><a href="/">The Game Bureau</a></div>' +
     '<nav>' +
-    (here !== 'rules' ? '<a ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<a href="./#order">ORDER</a>' +
     (g.pdf && g.pdf.free ? '<a href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">SAMPLER</a>' : '') +
+    (here !== 'rules' ? '<a ' + NB.rulesAttrs(g) + '>RULES</a>' : '') +
     '<button type="button" class="nb-foot-share">SHARE</button>' +
     '</nav></div></footer>';
 
