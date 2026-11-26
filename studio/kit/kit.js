@@ -292,7 +292,7 @@
     '</nav></div></header>';
   // The Share button in the top bar shares the game page, from any page.
   const bindShare = g => {
-    document.querySelectorAll('#nb-share, .nb-foot-share').forEach(b => { b.onclick = e => NB.share(g, e.currentTarget); });
+    document.querySelectorAll('#nb-share, .nb-foot-share, .nb-page-share').forEach(b => { b.onclick = e => NB.share(g, e.currentTarget); });
     // With no order link yet, every ORDER button stays on the page and says it's coming soon.
     if (!NB.orderURL(g, 1)) document.querySelectorAll('a[href="./#order"], a[href="#order"]').forEach(a => {
       a.addEventListener('click', e => { e.preventDefault(); NB.toast(NB.SOON); });
@@ -405,7 +405,9 @@
       '</div>') +
       // The free sampler, with the rules button under it. That button carries the rules name (game.json "rulesName").
       (prod ? '<div class="nb-free"><a class="nb-btn" href="./' + esc(g.pdf.free) + '" target="_blank" rel="noopener">' + g.pdf.freeLabel + '</a>' +
-        '<a class="nb-btn nb-rules-btn" ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a></div>' : '') +
+        '<a class="nb-btn nb-rules-btn" ' + NB.rulesAttrs(g) + '>' + esc(NB.rulesName(g).toUpperCase()) + '</a>' +
+        // Share, after the rules button: the same as Share in the top bar.
+        '<button type="button" class="nb-btn nb-page-share">SHARE</button></div>' : '') +
       (prod ? specs() : '') +
       (prod && g.tagline ? '<p class="nb-tag"><b>' + esc(g.tagline) + '</b></p>' : '') +
       (prod && g.description && g.description.length ? '<div class="nb-about">' + about() + '</div>' : '') +
