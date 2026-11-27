@@ -1,0 +1,95 @@
+name: Build battle sheet PDFs
+run-name: Battle sheet PDFs · ${{ inputs.edition || 'saved editions' }}
+
+# When the battle sheet generator (studio/generators/wordfleet-battle-sheets/) saves an edition to
+# <notebook>/battle-sheets/<edition>.json, render <edition>.pdf beside it and commit it to main.
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: 'Edition file from the site root, e.g. wordfleet2/battle-sheets/20261127-1824.json (blank = every edition without a PDF)'
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '**/battle-sheets/*.json'
+      - 'studio/generators/wordfleet-battle-sheets/**'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: battle-sheet-pdfs
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Pick the editions to build
+        id: eds
+        env:
+          INPUT_EDITION: ${{ inputs.edition }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          all=$(git ls-files '*/battle-sheets/*.json')
+          if [ -n "$INPUT_EDITION" ]; then
+            eds="${INPUT_EDITION#/}"
+          else
+            changed=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+            if echo "$changed" | grep -q '^studio/generators/wordfleet-battle-sheets/'; then changed="$all"; fi
+            # Changed editions, plus any edition that has no PDF yet.
+            eds=$( { echo "$changed" | grep -E '/battle-sheets/[^/]+\.json$'; for f in $all; do [ -f "${f%.json}.pdf" ] || echo "$f"; done; } | while read -r f; do [ -f "$f" ] && echo "$f"; done | sort -u)
+          fi
+          eds=$(echo $eds)
+          echo "Editions: ${eds:-none}"
+          echo "list=$eds" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.eds.outputs.list != ''
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        if: steps.eds.outputs.list != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/pdfdeps" && cd "$RUNNER_TEMP/pdfdeps"
+          npm init -y >/dev/null
+          npm i playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Render PDFs
+        if: steps.eds.outputs.list != ''
+        env:
+          EDS: ${{ steps.eds.outputs.list }}
+        run: NODE_PATH="$RUNNER_TEMP/pdfdeps/node_modules" node studio/generators/wordfleet-battle-sheets/build-pdf.js $EDS
+
+      - name: Commit PDFs
+        if: steps.eds.outputs.list != ''
+        env:
+          EDS: ${{ steps.eds.outputs.list }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          out="$RUNNER_TEMP/out"
+          for f in $EDS; do p="${f%.json}.pdf"; mkdir -p "$out/$(dirname "$p")"; cp "$p" "$out/$p"; done
+          pushed=""
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            for f in $EDS; do p="${f%.json}.pdf"; [ -d "$(dirname "$p")" ] || continue; cp "$out/$p" "$p"; git add "$p"; done
+            if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+            git commit -q -m "Build battle sheet PDFs: $EDS"
+            if git push origin HEAD:main; then pushed=1; break; fi
+            echo "main moved on, trying again ($i)"; sleep $((i * 5))
+          done
+          [ -n "$pushed" ] || { echo "::error::Could not push the PDFs after 5 tries"; exit 1; }
+          # Pushes made with GITHUB_TOKEN don't start other workflows, so start the Pages deploy here.
+          gh workflow run deploy.yml --ref main
