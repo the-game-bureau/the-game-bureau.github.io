@@ -9,7 +9,8 @@
 //   <slug>-contents.pdf  the inside pages for the printer, rules first, with bleed,
 //                        padded with blank pages to a multiple of print.padTo.
 //   <slug>.pdf           print-at-home copy at trim size: front, rules, contents, back.
-//   <slug>-sampler.pdf   free sampler at trim size: front, sampler.html's pages, back.
+//   <slug>-sampler.pdf   free sampler at trim size, always exactly: the chosen front cover with the
+//                        SAMPLER stamp, the rules, the scoring pages, then sampler.html's pages. No back.
 // Everything renders to a temp folder first; pdf/ is only touched when every check passes.
 const path = require('path');
 const fs = require('fs');
@@ -96,16 +97,22 @@ async function build(browser, base, folder) {
   coverDoc.setTitle(g.title + ' notebook, cover'); coverDoc.setAuthor(P.author || 'The Game Bureau');
   const cover = await coverDoc.save();
 
-  // Print-at-home and sampler copies: front + inside (no bleed) + back.
+  // Print-at-home copy: front + inside (no bleed) + back.
   const front = await render('cover.html', 'layout=front');
   const back = await render('cover.html', 'layout=back');
-  const samplerFront = await render('cover.html', 'layout=front&stamp=sampler');
   const inner = await render('contents.html', 'bleed=0');
-  // The free sampler has its own pages in sampler.html. Older notebooks without one fall back to
-  // the first inside pages (contents.html?sampler=1).
-  const hasSampler = fs.existsSync(path.join(dir, 'sampler.html'));
-  const samplerSrc = hasSampler ? ['sampler.html', 'bleed=0'] : ['contents.html', 'bleed=0&sampler=1'];
-  const samplerInner = await render(samplerSrc[0], samplerSrc[1]);
+  // The free sampler is always these four parts, in this order, and nothing else (Kevin, 2026-11-27):
+  // 1. the chosen front cover with the SAMPLER stamp on top, 2. the rules, 3. the scoring pages,
+  // 4. sampler.html's own pages. Rules and scoring are the notebook's own, from contents.html.
+  const SAMPLER = [
+    ['cover.html', 'layout=front&stamp=sampler', '.pk-cover'],
+    ['contents.html', 'bleed=0&only=rules', '.flow'],
+    ['contents.html', 'bleed=0&only=scoring', '.page'],
+    ['sampler.html', 'bleed=0&part=sampler', '.flow, .page'],
+  ];
+  if (!fs.existsSync(path.join(dir, 'sampler.html'))) throw new Error(folder + ' has no sampler.html (the free sampler\'s own pages). Open it in the studio and publish to make one.');
+  const samplerParts = [];
+  for (const [file, query] of SAMPLER) samplerParts.push(await render(file, query));
   async function combine(parts, title) {
     const doc = await PDFDocument.create();
     doc.setTitle(title); doc.setAuthor(P.author || 'The Game Bureau');
@@ -113,7 +120,7 @@ async function build(browser, base, folder) {
     return doc.save();
   }
   const full = await combine([front, inner, back], g.title + ' notebook');
-  const sampler = await combine([samplerFront, samplerInner, back], g.title + ' free sampler');
+  const sampler = await combine(samplerParts, g.title + ' free sampler');
 
   // Checks: page sizes in inches and page counts. A failure stops here and keeps the old PDFs.
   const sizes = async b => (await load(b)).getPages().map(p => [p.getWidth() / 72, p.getHeight() / 72]);
@@ -126,12 +133,12 @@ async function build(browser, base, folder) {
   await expect('Print-at-home', full, W, H);
   await expect('Sampler', sampler, W, H);
   if ((await load(cover)).getPageCount() !== 1) throw new Error('Cover should be 1 page. Check cover.html for content that spills over.');
-  if ((await load(front)).getPageCount() !== 1 || (await load(samplerFront)).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
+  if ((await load(front)).getPageCount() !== 1 || (await load(samplerParts[0])).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
   const fullCount = (await load(full)).getPageCount(), samplerCount = (await load(sampler)).getPageCount();
   if (samplerCount >= fullCount) throw new Error('Sampler (' + samplerCount + ' pages) is not shorter than the full notebook (' + fullCount + ').');
 
   // Product pictures for the public page, used until real photos are added:
-  // the front cover, then the first inside pages of the sampler.
+  // the front cover, then the rules and scoring pages (the inside pages of the sampler).
   const shots = [];
   async function shoot(file, query, selector, count, opts = {}) {
     const list = opts.list || shots, dir = opts.dir || tmp, prefix = opts.prefix || 'preview-';
@@ -149,7 +156,8 @@ async function build(browser, base, folder) {
     await page.close();
   }
   await shoot('cover.html', 'layout=front', '.pk-cover', 1);
-  await shoot(samplerSrc[0], samplerSrc[1], '.flow, .page', 3);
+  await shoot('contents.html', 'bleed=0&only=rules', '.flow', 1);
+  await shoot('contents.html', 'bleed=0&only=scoring', '.page', 2);
 
   // Small pictures of the first pages of each PDF, for the studio's Bundle tab.
   const tdir = path.join(tmp, 'thumbs');
@@ -159,7 +167,7 @@ async function build(browser, base, folder) {
     cover: [['cover.html', 'layout=spread&spine=' + spine, '.pk-cover', 1, true]],
     contents: [['contents.html', 'bleed=1', '.flow, .page', 3]],
     print: [['cover.html', 'layout=front', '.pk-cover', 1], ['contents.html', 'bleed=0', '.flow, .page', 2]],
-    sampler: [['cover.html', 'layout=front&stamp=sampler', '.pk-cover', 1], [samplerSrc[0], samplerSrc[1], '.flow, .page', 2]],
+    sampler: SAMPLER.map(([file, query, sel]) => [file, query, sel, 1]),
   })) {
     const list = [];
     for (const [file, query, sel, n, spread] of parts) await shoot(file, query, sel, n, { list, dir: tdir, prefix: key + '-', scale: 0.35, quality: 70, spread });

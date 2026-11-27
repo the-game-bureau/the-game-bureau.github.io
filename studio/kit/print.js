@@ -8,9 +8,9 @@
  *   cover.html?layout=spread&spine=0.18   wraparound: back, spine, front, with bleed
  *   cover.html?layout=front | layout=back  one panel at trim size, no bleed
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
- *   cover.html?layout=front&stamp=sampler  the free sampler's own low-ink front cover, stamped SAMPLER
+ *   cover.html?layout=front&stamp=sampler  the free sampler's front cover: the chosen front cover, stamped SAMPLER
  *   contents.html?only=scoring          just one part: rules, scoring (fixed pages) or game (the repeated sheet)
- *   contents.html?sampler=1                legacy: the first pages, for notebooks without sampler.html
+ *   sampler.html?part=sampler              the sampler's own pages (any <section data-rules> in it is left out)
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
  * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
@@ -76,15 +76,11 @@
       t.remove();
     });
 
-    // 2. Legacy free sampler (?sampler=1), for notebooks made before sampler.html: keep the rules plus the pages marked data-sampler,
-    //    or, if none are marked, the first print.samplerPages pages (default 2).
-    if (q.get('sampler') === '1') {
-      const pages = [...document.querySelectorAll('.page')];
-      const marked = pages.filter(p => p.hasAttribute('data-sampler'));
-      const keep = new Set(marked.length ? marked : pages.slice(0, g.print.samplerPages == null ? 2 : g.print.samplerPages));
-      pages.forEach(p => { if (!keep.has(p)) p.remove(); });
-      document.querySelectorAll('[data-full-only]').forEach(el => el.remove());
-    }
+    // 2. The free sampler is always: the chosen front cover stamped SAMPLER, the rules, the scoring
+    //    pages, then sampler.html's own pages (Kevin, 2026-11-27). The rules and scoring come from
+    //    contents.html, so sampler.html (?part=sampler) never brings in rules of its own.
+    const isSampler = q.get('part') === 'sampler';
+    if (isSampler) document.querySelectorAll('[data-rules]').forEach(el => el.remove());
 
     // 3. Put the rules (rules.md) wherever <section data-rules> sits.
     for (const el of document.querySelectorAll('[data-rules]')) {
@@ -92,9 +88,7 @@
       el.innerHTML = await NB.loadRules(g);
     }
 
-    if (q.get('sampler') === '1') document.querySelectorAll('[data-sampler-only]').forEach(el => el.hidden = false);
-    else document.querySelectorAll('[data-sampler-only]').forEach(el => el.remove());
-    toolbar(g, (q.get('sampler') === '1' ? 'Free sampler: ' : '') + (b ? 'Contents with ' + b + ' in bleed, ' : 'Contents, ') + r3(PW) + ' x ' + r3(PH) + ' in', '<a href="?">Full, with bleed</a><a href="?bleed=0">Full, no bleed</a><a href="?bleed=0&sampler=1">Sampler</a>');
+    toolbar(g, (isSampler ? 'Free sampler pages, ' : b ? 'Contents with ' + b + ' in bleed, ' : 'Contents, ') + r3(PW) + ' x ' + r3(PH) + ' in', isSampler ? '' : '<a href="?">Full, with bleed</a><a href="?bleed=0">Full, no bleed</a>');
     if (b) document.body.classList.add('pk-has-bleed');
   }
 
@@ -124,28 +118,15 @@
       return p;
     };
 
-    // ?stamp=sampler: the free sampler gets its own front cover, light on ink because people print
-    // it at home: white paper with colour only in the lettering and a few accents. cover.html can
-    // design its own with a .cover-sampler element; otherwise this one is used.
-    const samplerCover = layout === 'front' && q.get('stamp') === 'sampler';
-    let sc = document.querySelector('.cover-sampler');
-    if (samplerCover && !sc) {
-      const e = NB.esc, url = g.url || 'thegamebureau.com' + NB.folder().replace(/\/$/, '');
-      sc = document.createElement('div');
-      sc.className = 'cover-sampler pk-lowink';
-      sc.innerHTML = '<div><div class="kick">' + e(g.kicker || 'The Game Bureau presents') + '</div><h1>' + e(g.title) + '</h1>' +
-        (g.subtitle ? '<div class="sub">' + e(g.subtitle) + '</div>' : '') + '</div>' +
-        '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>' +
-        '<div class="foot">' + (g.tagline ? '<p>' + e(g.tagline) + '</p>' : '') + '<b>Free sampler. The whole notebook is at ' + e(url) + '</b></div>';
-      document.body.appendChild(sc);
-    }
-    if (sc && !samplerCover) sc.remove();
+    // ?stamp=sampler: the free sampler's front cover is the notebook's own chosen front cover with
+    // the SAMPLER stamp on top. There is no separate sampler cover design.
+    document.querySelectorAll('.cover-sampler').forEach(el => el.remove());
 
     // The game's web address goes on every front and back cover (notebook and sampler). A cover that
     // already shows it (most backs do, with {{url}}) is left alone; otherwise a small line is added at the bottom.
     const url = String(g.url || 'thegamebureau.com' + NB.folder()).replace(/^https?:\/\//, '').replace(/\/$/, '');
     const bare = t => t.toLowerCase().replace(/https?:\/\//g, '').replace(/\s+/g, '');
-    [front, back, sc].forEach(el => {
+    [front, back].forEach(el => {
       if (!el || bare(el.textContent).includes(bare(url))) return;
       const u = document.createElement('div'); u.className = 'pk-url'; u.textContent = url; el.appendChild(u);
     });
@@ -153,8 +134,7 @@
     let PW, PH, label;
     if (layout === 'front' || layout === 'back') {
       PW = W; PH = H;
-      const el = samplerCover ? sc : layout === 'front' ? front : back;
-      if (samplerCover && front) front.remove();
+      const el = layout === 'front' ? front : back;
       const pn = panel(el, 'pk-' + layout, [m, m, m, m]);
       // ?stamp=sampler: the free sampler's front cover gets a rubber stamp across it.
       if (layout === 'front' && q.get('stamp') === 'sampler') pn.insertAdjacentHTML('beforeend', '<div class="pk-stamp" aria-hidden="true"><span>SAMPLER</span></div>');

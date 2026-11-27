@@ -29,7 +29,7 @@ studio/
 | `rules.html` | The rules page. Nothing to edit but the title tags. With `"rulesLink": "https://..."` in game.json (Rules tab, *Link to them*), this page shows the linked page in a frame (Google Docs, Sheets and Slides links are turned into their preview form), with a link to open it in a new tab; the notebook still prints `rules.md`. |
 | `cover.html` | Front and back cover design (`.cover-front`, `.cover-back`, optional `.cover-spine`). `{{image}}` puts the game's main image there: photo 1 in Photos & video when the cover is generated, or a pattern of squares until there is a photo. |
 | `contents.html` | Every inside page after the rules. Use `<template data-repeat>` for repeated sheets. |
-| `sampler.html` | The free sampler's own pages (same layout as `contents.html`). Its PDF is front, these pages, back. |
+| `sampler.html` | The free sampler's own pages only (same layout as `contents.html`). Any `<section data-rules>` in it is ignored. |
 | `images/` | Photos for the gallery. |
 | `pdf/` | Built PDFs. Don't edit; the build writes them. |
 
@@ -38,7 +38,7 @@ studio/
 - `<slug>-cover.pdf`: front/back cover for the printer, one wraparound spread (back, spine, front) with 0.125 in bleed. Spine width = pages x `print.spinePerPage`. The spine text (`.cover-spine`) is sized to fit with 1/16 in clear each side, and left off when the spine is under about 0.21 in (`print.spineTextMin` overrides that). The Cover tab shows the width and previews the spread at it.
 - `<slug>-contents.pdf`: the inside pages for the printer, rules first, with bleed, padded with blanks to a multiple of `print.padTo`.
 - `<slug>.pdf`: print-at-home notebook at trim size: front, rules, contents, back.
-- `<slug>-sampler.pdf`: free sampler: front, the pages in `sampler.html` (the studio's Sampler tab), back. `sampler.html` is separate from `contents.html`. This is the free download on the public page.
+- `<slug>-sampler.pdf`: free sampler. It is always exactly these four parts, in order, and nothing else: (1) the chosen front cover with the SAMPLER stamp on top, (2) the rules, (3) the scoring pages from `contents.html`, (4) the pages in `sampler.html` (the studio's Sampler tab). No back cover. This is the free download on the public page.
 
 **Build PDFs** in the editor runs `.github/workflows/notebook-pdfs.yml`, which renders the
 pages in Chrome, checks every page size, commits the PDFs to `pdf/` and republishes the site

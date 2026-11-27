@@ -42,12 +42,15 @@
   // Where the notebook lives (or will live, for a new one).
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html', sampler: 'sampler.html' };
-  // The free sampler is its own file. A notebook made before it existed gets one built from its
-  // inside pages: the same pages, with every repeated sheet shown once.
+  // The free sampler is always: the chosen front cover with the SAMPLER stamp, the rules, the
+  // scoring pages, then sampler.html's own pages. Nothing else (Kevin, 2026-11-27). The rules and
+  // scoring come from the notebook, so sampler.html holds only the sampler's own pages. A notebook
+  // without one gets one game sheet from its inside pages.
   const samplerFrom = contents => {
-    const b = Math.max(0, contents.search(/<body[\s>]/i));
-    return (contents.slice(0, b).replace(/<title>[^<]*<\/title>/i, '<title>Sampler</title>') +
-      contents.slice(b).replace(/(<template[^>]*\sdata-repeat=)("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1"1"'));
+    const x = splitContents(contents);
+    if (!x) return contents;
+    return x.head.replace(/<title>[^<]*<\/title>/i, '<title>Sampler</title>') + '\n\n' +
+      (x.game.trim() ? '<template data-repeat="1">\n' + x.game + '\n</template>\n\n' : '') + x.tail.replace(/^\s+/, '');
   };
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
@@ -268,7 +271,8 @@
       // Each Pages tab previews only its own pages.
       scoring: [['scoring', 'Scoring pages']],
       game: [['game', 'Game sheets']],
-      sampler: [['sampler', 'Sampler pages'], ['samplerfront', 'Front cover']],
+      // The free sampler's four parts, in the order they print.
+      sampler: [['samplerfront', '1. Cover'], ['samplerrules', '2. Rules'], ['samplerscoring', '3. Scoring'], ['sampler', '4. Sampler pages']],
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
     document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
@@ -374,8 +378,10 @@
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
     else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
-    else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0');
-    else if (mode === 'samplerfront') f.srcdoc = doc(draft.cover, 'layout=front&stamp=sampler');
+    else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
+    else if (mode === 'samplerfront') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
+    else if (mode === 'samplerrules') f.srcdoc = doc(draft.contents, 'bleed=0&only=rules');
+    else if (mode === 'samplerscoring') f.srcdoc = doc(draft.contents, 'bleed=0&only=scoring');
     // Shrink print pages to fit the preview column.
     if (box.classList.contains('print')) f.onload = () => {
       try {
@@ -1042,7 +1048,7 @@
       'Each <section class="page"> is exactly one page, already padded to the safe area. Anything that overflows is cut off, so design to fit one page.',
       '<template data-repeat="{{sheets}}"> repeats the pages inside it ({{sheets}} = ' + ((g.print && g.print.sheets) || 'the number of game sheets') + '). Inside it, {{n}} is the copy number. With data-per="2", {{i}} and {{i+1}} number two items per page.',
       'Put page-specific CSS in the <style> block in the <head>.',
-    ].concat(key === 'sampler' ? ['This file is the free sampler only: its own PDF (front cover, these pages, back cover) and the free download on the game page. It is separate from contents.html, so a page changed here does not change the notebook.'] : []);
+    ].concat(key === 'sampler' ? ['This file is the free sampler\'s own pages only. The sampler PDF is always, in order: the chosen front cover with a SAMPLER stamp, the rules, the scoring pages from contents.html, then these pages. Nothing else. So do not put the rules or the scoring pages here: <section data-rules> is ignored in this file. It is separate from contents.html, so a page changed here does not change the notebook.'] : []);
     return common.concat(per);
   }
   let aiOpen = false; // keeps the AI box open after pasting re-draws the tab
@@ -1316,8 +1322,8 @@
     $('#ad-revert').onclick = () => { if (confirm('Put the scoring and game pages back the way they were last saved?')) { draft.contents = saved.contents; persist(); show(tab); } };
   }
 
-  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is its own PDF: the front cover, these pages and the back cover. It is the free download on the game page. These pages are separate from Pages, so changing one does not change the other.',
-    '<ul><li>Same layout as Pages: <code>&lt;section data-rules&gt;</code> brings in the rules, each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>Keep it short: a taste of the game, not the whole notebook.</li><li>Colours and fonts as on the cover.</li></ul>');
+  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is always the same four parts, in this order: your chosen front cover with the SAMPLER stamp on top, the rules, the scoring pages, then the sampler pages below. That is all it ever is. It is the free download on the game page.',
+    '<ul><li>This HTML is only part 4, the sampler pages. The cover, rules and scoring come from the Cover and Pages tabs.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>These pages are separate from Pages, so changing one does not change the other.</li></ul>');
 
   // ---------- tab: photos and video ----------
   // Pictures of the cover and pages from the PDF build, shown while a game has no photos of its own.
@@ -1509,7 +1515,7 @@
       ['Cover', 'Front and back cover for the printer: one wraparound spread (back, spine, front) with bleed. The spine width follows the page count.', pdf('-cover'), b => (2 * b.trim[0] + b.spine + 2 * b.bleed).toFixed(3) + ' x ' + (b.trim[1] + 2 * b.bleed).toFixed(3) + ' in, spine ' + b.spine + ' in'],
       ['Contents', 'Every inside page for the printer, rules first, with bleed.', pdf('-contents'), b => b.pages.contents + ' pages at ' + (b.trim[0] + 2 * b.bleed) + ' x ' + (b.trim[1] + 2 * b.bleed) + ' in' + (b.pages.blanksAdded ? ' (' + b.pages.blanksAdded + ' blank added)' : '')],
       ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.', pdf(''), b => b.pages.printAtHome + ' pages'],
-      ['Free sampler', 'Front cover, the Sampler tab\'s pages and back cover. The free download on the game page.', pdf('-sampler'), b => b.pages.sampler + ' pages'],
+      ['Free sampler', 'Front cover with the SAMPLER stamp, rules, scoring pages and the Sampler tab\'s pages. The free download on the game page.', pdf('-sampler'), b => b.pages.sampler + ' pages'],
     ];
     p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +
@@ -1518,7 +1524,7 @@
       '<div class="ad-files">' + files.map(([n, a, f, info], k) => '<div class="ad-file"><div><h3>' + n + '</h3><p>' + esc(a) + '</p>' + (build ? '<small>' + esc(info(build)) + '</small>' : '') + pdfThumbs(['cover', 'contents', 'print', 'sampler'][k], BASE + f) + '</div>' +
         '<div class="ad-file-btns"><a class="nb-btn solid" href="' + BASE + f + '" target="_blank" rel="noopener">OPEN</a><a class="nb-btn" href="' + BASE + f + '" download>DOWNLOAD</a></div></div>').join('') + '</div>' +
       '<details class="ad-help-box"><summary>Save from this browser instead</summary><p>Chrome works best. In the print dialog choose Save as PDF, margins None, background graphics on. Page sizes are set for you; the spine width and the merged print-at-home and sampler files come only from the build.</p><p>' +
-      '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'sampler.html?bleed=0&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
+      '<a href="' + BASE + 'cover.html?layout=spread&autoprint" target="_blank" rel="noopener">Cover</a> · <a href="' + BASE + 'contents.html?autoprint" target="_blank" rel="noopener">Contents</a> · <a href="' + BASE + 'sampler.html?bleed=0&part=sampler&autoprint" target="_blank" rel="noopener">Sampler pages</a></p></details>';
     p.querySelector('.ad-files').insertAdjacentHTML('afterend', printFields()); bindFields(p);
     $('#ad-go').onclick = runBuild;
     const z = $('#ad-zip'); if (z) z.onclick = () => printerZip(z);
