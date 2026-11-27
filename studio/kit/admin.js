@@ -56,7 +56,7 @@
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
   const PAGES = ['rules', 'scoring', 'game'];
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Covers'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
   const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content', generators: 'game' }; // generators open from the Game tab now (Kevin, 2026-11-27)
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -1346,7 +1346,7 @@
   const rulesTab = p => codeTab(p, 'rules', 'Rules', 'HTML for the rules. The same rules are the rules page and the first pages of the notebook.',
     '<ul><li><code>&lt;h1&gt;{{title}} rules&lt;/h1&gt;</code> first, then <code>&lt;h2&gt;</code> for sections and <code>&lt;h3&gt;</code> for sub-sections</li><li><code>&lt;p&gt;</code> paragraphs, <code>&lt;ol&gt;</code> numbered steps and <code>&lt;ul&gt;</code> bullet points, each item in <code>&lt;li&gt;</code></li><li><code>&lt;strong&gt;</code> bold, <code>&lt;em&gt;</code> italic, <code>&lt;a href="https://..."&gt;</code> link</li><li><code>&lt;aside class="callout"&gt;</code> makes a highlighted box</li><li><code>&lt;hr&gt;</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
-  const tabCover = p => { codeTab(p, 'cover', 'Cover', 'HTML and CSS for the front, back and spine. The preview shows the printer\'s spread and each side alone. Click any words in the preview to change them. ' + esc(spineNote()), ''); coverStyles(p); };
+  const tabCover = p => { codeTab(p, 'cover', 'Covers', 'Choose the cover style from the choices below. Use the MEDIA tab to select the cover photo.', ''); coverStyles(p); };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
   // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
   const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html']];
@@ -2196,13 +2196,6 @@
       pages = Math.ceil(Math.max(1, bp ? bp + sheets - was : sheets + 2) / pad) * pad;
     }
     return { spine: +(pages * (+P.spinePerPage || 0)).toFixed(3), pages, est, per: +P.spinePerPage || 0, min };
-  }
-  function spineNote() {
-    const s = spineInfo();
-    const text = s.spine >= s.min ? 'Wide enough for the spine text.'
-      : 'Spine text needs ' + s.min.toFixed(2) + ' in' + (s.per ? ' (about ' + Math.ceil(s.min / s.per) + ' inside pages on this paper)' : '') + ', so for now the spine prints as plain colour.';
-    if (s.fixed) return 'Spine: ' + s.spine + ' in, set in Bundle, Print. ' + text;
-    return 'Spine: ' + s.spine + ' in for ' + (s.est ? 'about ' : '') + s.pages + ' inside pages' + (s.est ? '' : ' (last PDF build)') + '. ' + text;
   }
 
   // Unsaved changes: the browser asks before closing or leaving the page (they are also kept in this browser).
