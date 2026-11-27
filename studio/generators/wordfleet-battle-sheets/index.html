@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Word Fleet battle sheets - Game Notebook Studio</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/studio/kit/kit.css">
+<link rel="stylesheet" href="/studio/kit/admin.css">
+<!--
+  WORD FLEET BATTLE SHEET GENERATOR. Everything it needs is in this one file:
+  the word list, the sheet layout and styles, and the code that fills them in.
+  It came from the Node book tool in the the-game-bureau/wordfleet repo (publishing/), and
+  makes the same sheets in the browser:
+  - Five word-ships per sheet (5, 4, 3, 3 and 2 letters), drawn from the common and everyday
+    US English words in dictionaries/words.xml, minus the offensive and never-suggested lists
+    in dictionaries/en-US.json. That filtered list is WORDS below.
+  - Five three-digit launch codes per sheet. No two sheets share a fleet, and no launch code
+    is used twice in one edition, so an edition holds at most 200 sheets.
+  - SAVE EDITION downloads the sheets as JSON (the same format as publishing/editions/*.json),
+    and LOAD EDITION opens one again, so a printed batch can be reprinted exactly.
+-->
+<style>
+/* ---------- the page around the sheets ---------- */
+.gen-wrap{max-width:1100px;margin:0 auto;padding:16px}
+.gen-controls{margin-bottom:18px}
+.gen-back{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;text-decoration:none;margin-bottom:10px}
+.gen-controls h2{font-size:34px;color:var(--brand)}
+.gen-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.gen-row label{display:grid;gap:4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.gen-row input[type=number]{width:96px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font:600 16px "NB Text",system-ui,sans-serif}
+.gen-row .nb-btn{min-height:44px}
+.gen-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#gen-status{margin:14px 0 0}
+.gen-sheets{display:grid;justify-content:center;gap:20px}
+
+/* ---------- one battle sheet: a Letter page, 0.5 in margins ---------- */
+@page{size:letter;margin:.5in}
+.bs-page{box-sizing:border-box;width:8.5in;height:11in;padding:.5in;background:#fff;box-shadow:0 2px 9px rgba(25,47,39,.14)}
+.bs-page *,.bs-page *::before,.bs-page *::after{box-sizing:border-box}
+.bs-sheet{display:grid;grid-template-rows:5in auto auto;color:#181a18;font:11pt/1.15 Arial,sans-serif;letter-spacing:0}
+.bs-head,.bs-foot{display:flex;align-items:baseline;justify-content:space-between;gap:.15in}
+.bs-head{margin-bottom:.105in;padding-bottom:.075in;border-bottom:1pt solid;font-size:9pt;font-weight:700}
+.bs-head strong{font-size:16pt}
+.bs-name{display:flex;align-items:baseline;gap:.1in;margin-bottom:.12in;font-size:9pt;font-weight:700;text-transform:uppercase}
+.bs-name-line{width:4.1in;height:.13in;border-bottom:.65pt solid}
+.bs-board{display:grid;grid-template-columns:3.93in minmax(0,1fr);gap:.4in}
+.bs-defense{padding-top:.2in;border-top:.65pt dashed #8e968e}
+.bs-board h3{display:flex;align-items:center;gap:.09in;min-height:.24in;margin:0 0 .05in;font:700 12pt/1.15 Arial,sans-serif;letter-spacing:0;text-transform:uppercase;color:#181a18}
+.bs-lengths{display:inline-flex;gap:.055in}
+.bs-lengths span{display:grid;place-items:center;width:.185in;height:.185in;border:.7pt solid;border-radius:50%;font-size:8pt}
+.bs-words{margin-inline-start:auto;font:700 9pt/1.1 "Courier New",monospace;white-space:nowrap}
+.bs-grid{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9pt;text-align:center}
+.bs-grid col:first-child{width:.29in}
+.bs-grid thead{height:.19in}
+.bs-grid tbody tr{height:.354in}
+.bs-grid th{padding:0;vertical-align:middle}
+.bs-grid tbody td{padding:0;border:.55pt solid #757975}
+.bs-grid tbody tr:first-child td{border-top:.9pt solid #1e211e}
+.bs-grid tbody tr:last-child td{border-bottom:.9pt solid #1e211e}
+.bs-grid tbody td:first-of-type{border-left:.9pt solid #1e211e}
+.bs-grid tbody td:last-child{border-right:.9pt solid #1e211e}
+.bs-manifest{display:grid;gap:.043in;margin:.15in 0 .12in}
+.bs-mrow{display:flex;justify-content:center;gap:.046in}
+.bs-cell{position:relative;width:.35in;height:.337in;padding:.038in;border:.55pt solid #757975;font-size:8.5pt}
+.bs-cell.vowel{background:linear-gradient(135deg,#dedfde 49%,#9b9f9b 50%,#fff 52%)}
+.bs-count{position:absolute;right:.035in;bottom:.035in;font:700 8pt/1 "Courier New",monospace}
+.bs-codes{padding:.057in .1in;border:.8pt solid;font-size:8pt;text-transform:uppercase}
+.bs-codes div{margin-top:.045in;font:700 10pt/1 "Courier New",monospace;text-align:center;word-spacing:.12in}
+.bs-foot{margin-top:.11in;padding-top:.073in;border-top:.55pt solid #757975;color:#444;font-size:8pt}
+
+@media screen{.gen-sheets{zoom:var(--z,1)}}
+@media print{
+  body.ad-app{background:#fff}
+  .ad-top,.gen-controls{display:none}
+  .gen-wrap{max-width:none;margin:0;padding:0}
+  .gen-sheets{display:block}
+  .bs-page{width:auto;height:auto;padding:0;box-shadow:none;break-after:page;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bs-page:last-child{break-after:auto}
+}
+</style>
+</head>
+<body class="ad-app">
+<header class="ad-top"><div class="ad-top-in"><div class="ad-id"><svg class="ad-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7h4M3 12h4M3 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 9h6M10 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span></div></div></header>
+
+<div class="gen-wrap">
+  <section class="ad-panel gen-controls">
+    <a class="gen-back" href="/studio/#generators">&larr; GENERATORS</a>
+    <h2>Word Fleet battle sheets</h2>
+    <p class="ad-lede">Each sheet hides its own fleet of five words (5, 4, 3, 3 and 2 letters) and five launch codes. No two sheets share a fleet, and no launch code repeats. Print the sheets, or choose Save as PDF in the print window.</p>
+    <div class="gen-row">
+      <label>Sheets <input id="gen-count" type="number" min="1" max="200" value="50"></label>
+      <button class="nb-btn solid" id="gen-new" type="button">GENERATE NEW SHEETS</button>
+      <button class="nb-btn" id="gen-print" type="button">PRINT OR SAVE PDF</button>
+      <button class="nb-btn" id="gen-save" type="button">SAVE EDITION</button>
+      <button class="nb-btn" id="gen-load" type="button">LOAD EDITION</button>
+      <input class="gen-file" id="gen-file" type="file" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+    </div>
+    <p class="ad-status" id="gen-status" role="status"></p>
+  </section>
+  <div class="gen-sheets" id="gen-sheets"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  // Common and everyday US English words by length (filtered from the wordfleet repo's dictionaries).
+  var WORDS = {"2":["TO","GO","BE","OR","IN","ON","AT","UP","NO","SO","IF","MY","WE","OF","IS","IT","AS","BY","DO","HE","AM","AN","AX","EX","OX","US","ME","OH","UM","HI"],"3":["THE","AND","FOR","ARE","BUT","NOT","YOU","ALL","CAN","HER","WAS","ONE","OUR","OUT","DAY","GET","HAS","HIM","HIS","HOW","ITS","NEW","NOW","OLD","SEE","TWO","WAY","WHO","BOY","DID","CAT","DOG","EAT","FAR","FUN","GOT","HAD","HOT","LET","MAN","PUT","RUN","SAY","SHE","TOO","USE","WIN","YES","BAD","BAG","BAT","BED","BIG","BIT","BOX","BUG","BUY","CUP","CUT","FIX","FLY","FOX","GYM","HAT","HIT","ICE","JAM","JOB","JOY","KEY","KID","LAP","LAW","LAY","LOG","LOT","LOW","MAP","MIX","MUD","NET","NUT","OIL","OWE","OWL","OWN","PAY","PEN","PET","PIE","PIT","POT","RAG","RAT","RAW","RED","RIP","ROD","ROW","RUB","RUG","SIT","SKY","SUN","TAP","TAX","TEA","TIE","TIN","TIP","TOP","TOY","TRY","VAN","WAR","WET","ZOO"],"4":["THAT","WITH","HAVE","THIS","WILL","YOUR","FROM","THEY","KNOW","WANT","BEEN","GOOD","MUCH","SOME","TIME","VERY","WHEN","COME","HERE","JUST","LIKE","LONG","MAKE","MANY","OVER","SUCH","TAKE","THAN","THEM","WELL","WERE","SHIP","BOAT","NAVY","WAVE","SAIL","PORT","DECK","HELM","CREW","WORD","GAME","PLAY","TEAM","GOAL","MOVE","TURN","ROLL","DICE","CARD","ABLE","ACID","AGED","ALSO","AREA","ARMY","AWAY","BABY","BACK","BALL","BAND","BANK","BASE","BEAR","BEAT","BEER","BELL","BELT","BEST","BIKE","BILL","BIRD","BLOW","BLUE","BODY","BONE","BOOK","BORN","BOTH","BOWL","BOYS","BUSY","CALL","CAME","CARE","CARS","CASE","CASH","CATS","CELL","CITY","CLUB","COAL","COAT","CODE","COLD","COOL","COPY","CORE","COST","CUTE","DARK","DATA","DATE","DAYS","DEAD","DEAL","DEAR","DEBT","DEEP","DESK","DIES","DOGS","DONE","DOOR","DOWN","DRAW","DREW","DROP","DRUG","DUAL","DUCK","DUDE","DUMP","DUTY","EACH","EARL","EARN","EARS","EAST","EASY","EDGE","EDIT","EGGS","ELSE","ENDS","EVEN","EVER","EVIL","EXIT","EYES","FACE","FACT","FAIL","FAIR","FALL","FAME","FANS","FARM","FAST","FATE","FEAR","FEED","FEEL","FEET","FELL","FELT","FILE","FILL","FILM","FIND","FINE","FIRE","FIRM","FISH","FIST","FIVE","FLAG","FLAT","FLEW","FLOW","FOLK","FOOD","FOOT","FORD","FORK","FORM","FORT","FOUR","FREE","FULL","FUND","GAIN","GAVE","GEAR","GIFT","GIRL","GIVE","GLAD","GOES","GOLD","GOLF","GONE","GREW","GROW","GUYS","HAIR","HALF","HALL","HAND","HANG","HARD","HATE","HEAD","HEAR","HEAT","HELD","HELP","HIDE","HIGH","HILL","HIRE","HOLD","HOLE","HOME","HOOD","HOOK","HOPE","HOUR","HUGE","HUNT","HURT","IDEA","IRON","ITEM","JAZZ","JOBS","JOIN","JOKE","JUMP","JURY","KEEP","KEPT","KEYS","KICK","KIDS","KILL","KIND","KING","KNEE","KNEW","LACK","LADY","LAID","LAKE","LAMP","LAND","LANE","LAST","LATE","LEAD","LEFT","LEGS","LESS","LIES","LIFE","LIFT","LINE","LINK","LIST","LIVE","LOAN","LOCK","LOOK","LOOP","LORD","LOSE","LOSS","LOST","LOTS","LOUD","LOVE","LUCK","LUNG","MADE","MAIL","MAIN","MARK","MASS","MATH","MEAL","MEAN","MEAT","MEET","MENU","MESS","MICE","MILE","MILK","MIND","MINE","MISS","MODE","MOOD","MOON","MORE","MOST","MUST","NAME","NEAR","NECK","NEED","NEWS","NEXT","NICE","NINE","NODE","NONE","NOON","NOSE","NOTE","NUTS","OKAY","ONCE","ONLY","OPEN","ORAL","PACK","PAGE","PAID","PAIN","PAIR","PALE","PALM","PARK","PART","PASS","PAST","PATH","PEAK","PICK","PILE","PILL","PINE","PINK","PIPE","PLAN","PLOT","PLUG","PLUS","POEM","POET","POLL","POOL","POOR","POPE","POST","POUR","PRAY","PREP","PULL","PURE","PUSH","QUIT","RACE","RAIN","RANK","RARE","RATE","READ","REAL","REAR","RELY","RENT","REST","RICH","RIDE","RING","RISE","RISK","ROAD","ROCK","ROLE","ROOM","ROOT","ROPE","ROSE","RULE","RUNS","RUST","SAFE","SAID","SAKE","SALE","SALT","SAME","SAND","SAVE","SAYS","SEAL","SEAT","SEED","SEEM","SELL","SEND","SENT","SHED","SHOE","SHOP","SHOT","SHOW","SHUT","SICK","SIDE","SIGN","SING","SINK","SIZE","SKIN","SLIP","SLOW","SNAP","SNOW","SOAP","SOCK","SOFT","SOIL","SOLD","SOLE","SONG","SOON","SORT","SOUL","SOUP","SPOT","STAR","STAY","STEP","STIR","STOP","SUIT","SURE","SWIM","TAIL","TALK","TALL","TANK","TAPE","TASK","TAXI","TEAR","TELL","TENT","TERM","TEST","TEXT","THEN","THIN","THUS","TICK","TIED","TIES","TILL","TINY","TIPS","TIRE","TOLD","TOLL","TONE","TOOK","TOOL","TOPS","TORN","TOUR","TOWN","TOYS","TREE","TRIM","TRIP","TRUE","TUBE","TUNE","TYPE","UNIT","UPON","USED","USER","USES","VARY","VAST","VIEW","VINE","VOTE","WAGE","WAIT","WAKE","WALK","WALL","WARM","WARN","WARS","WASH","WAYS","WEAK","WEAR","WEEK","WEST","WHAT","WIDE","WIFE","WILD","WIND","WINE","WING","WIRE","WISE","WISH","WOOD","WOOL","WORK","WORN","YARD","YEAR","YOGA","ZERO","ZONE"],"5":["WOULD","THERE","COULD","OTHER","AFTER","FIRST","NEVER","THESE","THINK","WHERE","BEING","EVERY","GREAT","MIGHT","SHALL","STILL","THOSE","UNDER","WHILE","FLEET","OCEAN","WATER","STORM","TOWER","BOATS","SHIPS","WAVES","NAVAL","BOARD","PIECE","GAMES","RULES","CHESS","MATCH","SCORE","POINT","ROUND","FIELD","LEVEL","POWER","SWORD","MAGIC","QUEST","PARTY","BRAVE","FIGHT","PEACE","ABOUT","ABOVE","ABUSE","ACTOR","ACUTE","ADMIT","ADOPT","ADULT","AGENT","AGREE","AHEAD","ALARM","ALBUM","ALERT","ALIEN","ALIGN","ALIKE","ALIVE","ALLOW","ALONE","ALONG","ALTER","AMBER","AMONG","ANGER","ANGLE","ANGRY","APART","APPLE","APPLY","ARENA","ARGUE","ARISE","ARMED","ARMOR","ARRAY","ARROW","ASIDE","ASSET","ATLAS","AUDIO","AUDIT","AVOID","AWAKE","AWARD","AWARE","BADLY","BAKER","BALLS","BASIC","BATCH","BEACH","BEGAN","BEGIN","BENCH","BIKES","BILLS","BIRDS","BIRTH","BLACK","BLADE","BLAME","BLANK","BLAST","BLEED","BLEND","BLESS","BLIND","BLOCK","BLOOD","BLOOM","BLOWN","BLUES","BLUNT","BLUSH","BONDS","BONUS","BOOST","BOOTH","BOUND","BOXES","BRAIN","BRAND","BRASS","BREAD","BREAK","BREED","BRICK","BRIDE","BRIEF","BRING","BROAD","BROKE","BROOK","BROWN","BRUSH","BUILD","BUILT","BURST","BUSES","BUYER","CABLE","CACHE","CAMEL","CANDY","CANOE","CARDS","CARRY","CARVE","CATCH","CAUSE","CHAIN","CHAIR","CHAOS","CHARM","CHART","CHASE","CHEAP","CHECK","CHEST","CHIEF","CHILD","CHINA","CHIPS","CHOSE","CHUNK","CIVIC","CIVIL","CLAIM","CLAMP","CLASS","CLEAN","CLEAR","CLICK","CLIFF","CLIMB","CLOCK","CLOSE","CLOTH","CLOUD","CLOWN","CLUBS","CLUES","COACH","COAST","CODES","COINS","COLOR","COMES","COMET","COMIC","CORAL","CORPS","COSTS","COUCH","COUGH","COUNT","COURT","COVER","CRACK","CRAFT","CRANE","CRASH","CRAZY","CREAM","CREEK","CREEP","CREST","CRIME","CRISP","CROPS","CROSS","CROWD","CROWN","CRUDE","CRUSH","CURVE","CYCLE","DAILY","DAIRY","DANCE","DATED","DATES","DEALT","DEATH","DEBUT","DECOR","DELAY","DELTA","DENSE","DEPOT","DEPTH","DERBY","DIARY","DIGIT","DINER","DIRTY","DISCO","DITCH","DIVER","DIZZY","DODGE","DOING","DONOR","DOORS","DOUBT","DOUGH","DOZEN","DRAFT","DRAIN","DRAMA","DRANK","DRAWN","DREAM","DRESS","DRIED","DRILL","DRINK","DRIVE","DRONE","DROVE","DROWN","DRUMS","DRUNK","DUCKS","DUSTY","DWARF","EAGER","EAGLE","EARLY","EARTH","EATEN","EATER","EDGES","EIGHT","ELDER","ELECT","ELITE","EMPTY","ENEMY","ENJOY","ENTER","ENTRY","EQUAL","ERROR","EVENT","EXACT","EXAMS","EXCEL","EXIST","EXTRA","FABLE","FACED","FACES","FACTS","FADED","FAILS","FAIRY","FAITH","FALSE","FANCY","FATAL","FAULT","FAVOR","FEARS","FEAST","FEEDS","FEELS","FENCE","FIBER","FIERY","FIFTY","FILED","FILES","FILMS","FINAL","FINDS","FINED","FINES","FIRED","FIRES","FIRMS","FISHY","FISTS","FIXED","FIXES","FLAGS","FLAME","FLANK","FLAPS","FLASH","FLASK","FLATS","FLAWS","FLESH","FLIES","FLING","FLIPS","FLOAT","FLOCK","FLOOD","FLOOR","FLOUR","FLOWS","FLUID","FLUSH","FOCAL","FOCUS","FOLKS","FONTS","FOODS","FORCE","FORGE","FORMS","FORTH","FORTY","FORUM","FOUND","FRAME","FRAUD","FRESH","FRIED","FRONT","FROST","FRUIT","FUNDS","FUNNY","GANGS","GATES","GEARS","GENES","GHOST","GIANT","GIFTS","GIVEN","GIVES","GLASS","GLOBE","GLORY","GLOVE","GOALS","GOATS","GOING","GOODS","GRACE","GRADE","GRAIN","GRAND","GRANT","GRAPE","GRAPH","GRASP","GRASS","GRAVE","GRAYS","GREED","GREEN","GREET","GRIEF","GRILL","GRIME","GRIND","GRIPS","GROSS","GROUP","GROVE","GROWN","GROWS","GRUNT","GUARD","GUESS","GUEST","GUIDE","GUILD","GUILT","HABIT","HANDS","HANGS","HAPPY","HARSH","HASTE","HATED","HEADS","HEALS","HEARS","HEART","HEAVY","HEDGE","HEELS","HELPS","HENCE","HERBS","HERDS","HIDES","HILLS","HINTS","HIRED","HIRES","HOBBY","HOLDS","HOLES","HOMES","HONEY","HONOR","HOOKS","HOPES","HORNS","HORSE","HOSTS","HOTEL","HOURS","HOUSE","HUMAN","HUMOR","HURRY","HURTS","ICONS","IDEAL","IDEAS","IDIOM","IMAGE","IMPLY","INDEX","INNER","INPUT","ISSUE","ITEMS","IVORY","JEANS","JEWEL","JOKES","JOLLY","JOINS","JUDGE","JUICE","JUMBO","JUMPS","KARMA","KEEPS","KICKS","KILLS","KINDS","KINGS","KNIFE","KNOCK","KNOTS","KNOWN","KNOWS","LABEL","LABOR","LACKS","LAKES","LAMPS","LANDS","LANES","LARGE","LASER","LASTS","LATER","LAUGH","LAYER","LEADS","LEARN","LEASE","LEAST","LEAVE","LEDGE","LEGAL","LEMON","LEVER","LIGHT","LIKES","LIMIT","LINED","LINES","LINKS","LIONS","LISTS","LIVED","LIVER","LIVES","LOANS","LOBBY","LOCAL","LOCKS","LODGE","LOGIC","LOGOS","LOOKS","LOOPS","LOOSE","LORDS","LOSES","LOVED","LOVER","LOVES","LOWER","LOYAL","LUCKY","LUNCH","LUNGS","LYING","MACRO","MADAM","MAIDS","MAILS","MAJOR","MAKES","MALES","MANGO","MANOR","MAPLE","MARCH","MARKS","MARRY","MARSH","MASKS","MATES","MAYBE","MAYOR","MEALS","MEANS","MEANT","MEATS","MEDAL","MEDIA","MEETS","MELON","MENUS","MERCY","MERGE","MERIT","MERRY","METAL","METER","METRO","MILES","MINDS","MINES","MINOR","MINUS","MIXED","MIXES","MODEL","MODEM","MODES","MONEY","MONKS","MONTH","MOODS","MORAL","MOUSE","MOUTH","MOVED","MOVES","MOVIE","MOWED","MUDDY","MULTI","MUSIC","NAILS","NAKED","NAMED","NAMES","NASTY","NEEDS","NERVE","NEWLY","NIGHT","NINTH","NOBLE","NODES","NOISE","NOMAD","NORTH","NOSES","NOTED","NOTES","NOVEL","NURSE","NYLON","OASIS","OATHS","OCCUR","OFFER","OFTEN","OLDER","OLIVE","OMEGA","ONION","OPENS","OPERA","ORBIT","ORDER","ORGAN","OUGHT","OUNCE","OUTER","OVALS","OVENS","OWNED","OWNER","PAIRS","PANEL","PANIC","PAPER","PARKS","PARTS","PASTA","PASTE","PATCH","PATHS","PAUSE","PEACH","PEAKS","PEARL","PEDAL","PENNY","PHASE","PHONE","PHOTO","PIANO","PICKS","PILES","PILLS","PILOT","PIPES","PITCH","PIXEL","PIZZA","PLACE","PLAIN","PLANE","PLANK","PLANS","PLANT","PLATE","PLAYS","PLAZA","PLOTS","POEMS","POETS","POKER","POLAR","POLES","POLLS","POOLS","PORCH","PORTS","POSED","POSTS","POUND","POURS","PRESS","PRICE","PRIDE","PRIME","PRINT","PRIOR","PRIZE","PROBE","PROOF","PROPS","PROUD","PROVE","PROXY","PSALM","PULSE","PUMPS","PURSE","QUEEN","QUERY","QUEUE","QUICK","QUIET","QUITE","QUOTE","RADAR","RADIO","RAILS","RAISE","RANGE","RANKS","RAPID","RATES","RATIO","REACH","READS","READY","REALM","REBEL","RECAP","REFER","REGAL","RELAX","RELAY","REPAY","REPLY","RESET","RIDER","RIDES","RIDGE","RIFLE","RIGHT","RIGID","RINGS","RINSE","RISKS","RIVAL","RIVER","ROADS","ROAST","ROBES","ROBOT","ROCKS","ROCKY","ROLES","ROLLS","ROMAN","ROOMS","ROOTS","ROPES","ROSES","ROUGH","ROUTE","ROYAL","RULER","RUMOR","RURAL","RUSTY","SADLY","SAFER","SAINT","SALAD","SALES","SANDY","SAUCE","SAVED","SAVES","SCALE","SCARE","SCENE","SCOPE","SCRAP","SCREW","SEALS","SEATS","SEEDS","SEEMS","SELLS","SENSE","SERVE","SETUP","SEVEN","SHADE","SHAKE","SHAME","SHAPE","SHARE","SHARK","SHARP","SHAVE","SHEEP","SHEET","SHELF","SHELL","SHIFT","SHINE","SHINY","SHIRT","SHOCK","SHOES","SHOOK","SHOOT","SHOPS","SHORE","SHORT","SHOTS","SHOUT","SHOWN","SHOWS","SIDED","SIDES","SIGHT","SIGNS","SILLY","SINCE","SINGS","SIXTH","SIXTY","SIZES","SKILL","SKULL","SLAIN","SLANG","SLATE","SLAVE","SLEEP","SLICE","SLIDE","SLOPE","SLOTS","SMALL","SMART","SMILE","SMOKE","SNAKE","SNEAK","SNORE","SNOWY","SOBER","SOCKS","SOLAR","SOLID","SOLVE","SONGS","SONIC","SORTS","SOULS","SOUND","SOUTH","SPACE","SPARE","SPARK","SPEAK","SPEAR","SPEED","SPELL","SPEND","SPENT","SPINE","SPLIT","SPOKE","SPOON","SPORT","SPOTS","SPRAY","SQUAD","STAGE","STAIN","STAIR","STAKE","STAMP","STAND","STARE","STARS","START","STATE","STAYS","STEAL","STEAM","STEEL","STEEP","STEER","STEPS","STERN","STICK","STIFF","STING","STINK","STOCK","STOLE","STOMP","STONE","STOOD","STOOL","STOPS","STORE","STORY","STOVE","STRAP","STRIP","STUCK","STUDY","STUFF","STUMP","STYLE","SUGAR","SUITE","SUITS","SUNNY","SUPER","SURGE","SWAMP","SWEAR","SWEAT","SWEEP","SWEET","SWEPT","SWIFT","SWING","SWIPE","SWORN","TABLE","TABOO","TACIT","TAKES","TALES","TALKS","TANKS","TAPES","TARDY","TASKS","TASTE","TAXES","TEACH","TEAMS","TEARS","TEENS","TEETH","TELLS","TEMPO","TENDS","TENSE","TENTH","TENTS","TERMS","TESTS","TEXTS","THANK","THEIR","THEME","THICK","THIEF","THING","THIRD","THREE","THREW","THROW","THUMB","TIDAL","TIGER","TIGHT","TILES","TIMER","TIMES","TIRED","TITLE","TODAY","TOKEN","TOMBS","TONIC","TOOLS","TOOTH","TORCH","TOTAL","TOUCH","TOUGH","TOURS","TOWEL","TOWNS","TOXIC","TRACK","TRADE","TRAIL","TRAIN","TRAIT","TRASH","TREAT","TREES","TREND","TRIAL","TRIBE","TRICK","TRIED","TRIES","TRIPS","TRUCK","TRULY","TRUNK","TRUST","TRUTH","TUBES","TUMOR","TUNES","TURNS","TWIST","TYPED","TYPES","ULTRA","UNCLE","UNION","UNITS","UNITY","UNTIL","UPPER","UPSET","URBAN","URGED","URINE","USAGE","USERS","USING","USUAL","UTTER","VAGUE","VALID","VALUE","VAPOR","VAULT","VENUE","VERSE","VIDEO","VIEWS","VINYL","VIRAL","VIRUS","VISIT","VITAL","VIVID","VOCAL","VOICE","VOTES","WAGES","WAIST","WAITS","WAKES","WALKS","WALLS","WANTS","WARDS","WARMS","WARNS","WASTE","WATCH","WAXED","WEARY","WEEDS","WEEKS","WEIRD","WELLS","WHALE","WHEAT","WHEEL","WHICH","WHIPS","WHITE","WHOLE","WHOSE","WIDOW","WIDTH","WIELD","WINDS","WINES","WINGS","WIPES","WIRED","WIRES","WITCH","WOKEN","WOMAN","WOMEN","WOODS","WORDS","WORKS","WORLD","WORMS","WORRY","WORSE","WORST","WORTH","WOUND","WOVEN","WRAPS","WRIST","WRITE","WRONG","WROTE","YARDS","YEARS","YEAST","YIELD","YOUNG","YOURS","YOUTH","ZEBRA","ZONES"]};
+
+  var LENGTHS = [5, 4, 3, 3, 2];
+  var COLUMNS = 'ABCDEFGHIJ';
+  var MANIFEST_ROWS = ['ABCD', 'EFG', 'HIJK', 'LMNOP', 'QRS', 'TUV', 'WX', 'YZ'];
+  var MAX = 200; // 1,000 launch codes, five per sheet
+  var STORE = 'wf-battle-sheets';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  function randomInt(n) {
+    // Unbiased random whole number from 0 to n - 1.
+    var limit = Math.floor(0x100000000 / n) * n, x = new Uint32Array(1);
+    do { crypto.getRandomValues(x); } while (x[0] >= limit);
+    return x[0] % n;
+  }
+  var pick = function (list) { return list[randomInt(list.length)]; };
+  var fleetKey = function (words) { return words.slice().sort().join(' '); };
+
+  function createSheets(count) {
+    var five = WORDS[5], four = WORDS[4], three = WORDS[3], two = WORDS[2];
+    var fleets = new Set(), sheets = [];
+    var codes = Array.from({ length: 1000 }, function (_, n) { return String(n).padStart(3, '0'); });
+    while (sheets.length < count) {
+      var a = pick(three), b;
+      do { b = pick(three); } while (b === a);
+      var words = [pick(five), pick(four), a, b, pick(two)];
+      var key = fleetKey(words);
+      if (fleets.has(key)) continue;
+      fleets.add(key);
+      var sheetCodes = [];
+      for (var i = 0; i < 5; i++) sheetCodes.push(codes.splice(randomInt(codes.length), 1)[0]);
+      sheets.push({ words: words, codes: sheetCodes });
+    }
+    return sheets;
+  }
+
+  function validateSheets(sheets) {
+    if (!Array.isArray(sheets) || !sheets.length || sheets.length > MAX) throw new Error('An edition needs 1 to ' + MAX + ' battle sheets.');
+    var fleets = new Set(), codes = new Set();
+    sheets.forEach(function (sheet, index) {
+      var words = sheet && sheet.words, c = sheet && sheet.codes;
+      if (!Array.isArray(words) || words.length !== LENGTHS.length || new Set(words).size !== words.length ||
+          !words.every(function (w, i) { return typeof w === 'string' && /^[A-Z]+$/.test(w) && w.length === LENGTHS[i]; })) {
+        throw new Error('Sheet ' + (index + 1) + ' has invalid word-ships.');
+      }
+      if (!Array.isArray(c) || c.length !== 5 || !c.every(function (x) { return typeof x === 'string' && /^\d{3}$/.test(x); })) {
+        throw new Error('Sheet ' + (index + 1) + ' has invalid launch codes.');
+      }
+      fleets.add(fleetKey(words));
+      c.forEach(function (x) { codes.add(x); });
+    });
+    if (fleets.size !== sheets.length || codes.size !== sheets.length * 5) throw new Error('Fleets and launch codes must all be different.');
+  }
+
+  function grid(label) {
+    var head = COLUMNS.split('').map(function (l) { return '<th scope="col">' + l + '</th>'; }).join('');
+    var rows = '';
+    for (var r = 1; r <= 10; r++) rows += '<tr><th scope="row">' + r + '</th>' + '<td></td>'.repeat(COLUMNS.length) + '</tr>';
+    return '<table class="bs-grid" aria-label="' + label + '"><colgroup><col><col span="10"></colgroup><thead><tr><td></td>' + head + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function manifest(counts) {
+    return '<div class="bs-manifest">' + MANIFEST_ROWS.map(function (row) {
+      return '<div class="bs-mrow">' + row.split('').map(function (l) {
+        return '<span class="bs-cell' + ('AEIOU'.indexOf(l) >= 0 ? ' vowel' : '') + '"><strong>' + l + '</strong>' +
+          (counts ? '<span class="bs-count">' + (counts[l] || 0) + '</span>' : '') + '</span>';
+      }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderSheet(sheet, index) {
+    var counts = {};
+    sheet.words.join('').split('').forEach(function (l) { counts[l] = (counts[l] || 0) + 1; });
+    return '<section class="bs-page" aria-label="Battle sheet ' + (index + 1) + '"><div class="bs-sheet">' +
+      '<div><header class="bs-head"><strong>WORD FLEET BATTLE TRACKER</strong><span>The Word Fleet Game Notebook</span></header>' +
+      '<div class="bs-name"><span>Fleet Name</span><span class="bs-name-line"></span></div>' +
+      '<div class="bs-board"><div><h3>Attack Grid <span class="bs-lengths">' + LENGTHS.map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</span></h3>' + grid('Attack Grid') + '</div>' +
+      '<div><h3>Attack Manifest</h3>' + manifest() + '<div class="bs-codes"><strong>Launch Codes</strong><div>' + esc(sheet.codes.join(' ')) + '</div></div></div></div></div>' +
+      '<div class="bs-board bs-defense"><div><h3>Defense Grid <span class="bs-words">' + esc(sheet.words.join(' / ')) + '</span></h3>' + grid('Defense Grid') + '</div>' +
+      '<div><h3>Defense Manifest</h3>' + manifest(counts) + '</div></div>' +
+      '<footer class="bs-foot"><strong>The Game Bureau</strong><span>thegamebureau.com/wordfleet</span></footer>' +
+      '</div></section>';
+  }
+
+  var edition = null;
+
+  function status(text, kind) { var s = $('#gen-status'); s.textContent = text; s.className = 'ad-status' + (kind ? ' ' + kind : ''); }
+
+  function show(ed, note) {
+    edition = ed;
+    $('#gen-count').value = ed.sheets.length;
+    $('#gen-sheets').innerHTML = ed.sheets.map(renderSheet).join('');
+    fit();
+    try { localStorage.setItem(STORE, JSON.stringify(ed)); } catch (e) { /* storage is optional */ }
+    var made = ed.made ? ' Made ' + new Date(ed.made).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) + '.' : '';
+    status((note ? note + ' ' : '') + 'Edition ' + String(ed.edition || '').toUpperCase() + ': ' + ed.sheets.length + ' battle sheet' + (ed.sheets.length === 1 ? '' : 's') + '.' + made, 'ok');
+  }
+
+  function generate() {
+    var n = Math.round(Number($('#gen-count').value));
+    if (!(n >= 1 && n <= MAX)) { status('Choose 1 to ' + MAX + ' sheets.', 'bad'); return; }
+    var sheets = createSheets(n);
+    validateSheets(sheets);
+    var d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+    show({ schema: 1, game: 'word-fleet', edition: stamp, made: d.toISOString(), sheets: sheets }, 'New sheets made.');
+  }
+
+  function fit() {
+    // Letter pages are 8.5 in wide; shrink them to fit narrow screens.
+    var room = $('.gen-wrap').clientWidth - 32;
+    $('#gen-sheets').style.setProperty('--z', Math.min(1, room / 816).toFixed(3));
+  }
+
+  $('#gen-new').onclick = function () {
+    if (edition && !confirm('Make a new set of sheets? Save this edition first if you have printed it.')) return;
+    generate();
+  };
+  $('#gen-print').onclick = function () { window.print(); };
+  $('#gen-save').onclick = function () {
+    if (!edition) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(edition, null, 2) + '\n'], { type: 'application/json' }));
+    a.download = 'word-fleet-' + edition.edition + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  };
+  $('#gen-load').onclick = function () { $('#gen-file').click(); };
+  $('#gen-file').onchange = function () {
+    var f = this.files[0]; this.value = '';
+    if (!f) return;
+    f.text().then(function (t) {
+      var ed = JSON.parse(t);
+      if (!ed || !Array.isArray(ed.sheets)) throw new Error('This file has no battle sheets.');
+      validateSheets(ed.sheets);
+      ed.schema = 1; ed.game = 'word-fleet'; ed.edition = ed.edition || f.name.replace(/\.json$/i, '');
+      show(ed, 'Loaded ' + f.name + '.');
+    }).catch(function (e) { status('Could not load ' + f.name + ': ' + e.message, 'bad'); });
+  };
+  addEventListener('resize', fit);
+
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE)); validateSheets(saved.sheets); } catch (e) { saved = null; }
+  if (saved) show(saved, 'Showing your last edition.'); else generate();
+})();
+</script>
+</body>
+</html>

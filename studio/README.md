@@ -54,7 +54,7 @@ Build locally: `node studio/kit/build-pdfs.js chess` (needs `playwright` and `pd
 Open **[thegamebureau.com/studio/](https://thegamebureau.com/studio/)** (the Notebook Studio):
 
 The studio is one editor for new and existing notebooks, with the same tabs for both:
-Welcome, Connect, Notebooks, Colors, Media, Website, Cover, Pages (Rules, Scoring, Game), Sampler, Bundle, Checklist, History, Ideas. DISCARD, SAVE and PUBLISH are in the title bar.
+Welcome, Connect, Notebooks, Colors, Media, Website, Cover, Pages (Rules, Scoring, Game), Sampler, Bundle, Checklist, History, Ideas, Generators. DISCARD, SAVE and PUBLISH are in the title bar.
 Plain `/studio/` opens with only Connect and Notebooks available; the other tabs are greyed out
 until a notebook is chosen in Notebooks (New notebook, or EDIT on an existing one).
 
@@ -110,3 +110,14 @@ editing it on purpose).
 
 Without the studio: `node studio/kit/new-game.js my-game "My Game"` copies the blank
 starter, or copy a folder by hand and change `slug` in `game.json` to the folder name.
+
+## Generators
+
+`studio/generators/` holds tools that make printable pages for a game. The studio's
+**Generators** tab lists them (the list is `GENERATORS` in `kit/admin.js`), and
+`/studio/generators/` opens that tab.
+
+- `wordfleet-battle-sheets/index.html`: Word Fleet battle sheets, one self-contained file
+  (word list, layout and code). It came from the `publishing/` book tool in the
+  `the-game-bureau/wordfleet` repo and runs in the browser instead of Node. SAVE EDITION downloads
+  the words and launch codes as JSON, and LOAD EDITION brings the same sheets back for a reprint.
