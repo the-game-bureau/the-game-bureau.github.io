@@ -22,7 +22,7 @@
     sheet and its web address (game.json "url", else thegamebureau.com/<folder>) sits bottom right.
   - SAVE commits the edition (the same JSON format as publishing/editions/*.json) to
     <notebook folder>/pages/<edition>.json on main.
-  - LOAD lists the editions saved for the chosen notebook and opens any of them again.
+  - LOAD lists the editions saved for the chosen notebook, each with LOAD (open it again) and DELETE.
 -->
 <style>
 /* ---------- the page around the sheets ---------- */
@@ -316,16 +316,32 @@
         .sort(function (a, b) { return b.path.localeCompare(a.path); });
       box.innerHTML = '<h3>SAVED ' + esc(String(notebook.title).toUpperCase()) + ' EDITIONS</h3>' + (eds.length ? '<ul>' + eds.map(function (f) {
         var name = f.path.slice(dir.length).replace(/\.json$/, '');
-        return '<li><b>' + esc(name.toUpperCase()) + '</b><button type="button" class="nb-btn" data-open="' + esc(f.sha) + '" data-name="' + esc(name) + '">OPEN</button></li>';
+        return '<li><b>' + esc(name.toUpperCase()) + '</b><button type="button" class="nb-btn" data-open="' + esc(f.sha) + '" data-name="' + esc(name) + '">LOAD</button>' +
+          '<button type="button" class="nb-btn" data-del="' + esc(f.path) + '" data-name="' + esc(name) + '">DELETE</button></li>';
       }).join('') + '</ul>' : '<p class="ad-help">Nothing saved for this game yet. GENERATE sheets, then SAVE.</p>');
+      box.querySelectorAll('[data-del]').forEach(function (b) {
+        b.onclick = function () {
+          if (needKey()) return;
+          var name = b.dataset.name.toUpperCase();
+          if (!confirm('Delete edition ' + name + ' from the website? This cannot be undone here.')) return;
+          b.disabled = true;
+          GH.commit([{ path: b.dataset.del, delete: true }], 'Delete ' + titleCase(notebook.title) + ' battle sheets, edition ' + b.dataset.name, function (t) { status(t); })
+            .then(function () {
+              if (edition && edition.edition === b.dataset.name) edition.saved = false;
+              status('Deleted edition ' + name + ' from the website.', 'ok');
+              listSaved();
+            })
+            .catch(function (e) { b.disabled = false; status('Could not delete ' + name + ': ' + e.message, 'bad'); });
+        };
+      });
       box.querySelectorAll('[data-open]').forEach(function (b) {
         b.onclick = function () {
-          if (edition && !edition.saved && !confirm('Open the saved edition? The sheets on screen have not been saved to the website.')) return;
+          if (edition && !edition.saved && !confirm('Load the saved edition? The sheets on screen have not been saved to the website.')) return;
           GH.readBlobText(b.dataset.open).then(function (t) {
             var ed = JSON.parse(t);
             validateSheets(ed.sheets);
             ed.saved = true;
-            show(ed, 'Opened ' + b.dataset.name.toUpperCase() + ' from the website.');
+            show(ed, 'Loaded ' + b.dataset.name.toUpperCase() + ' from the website.');
           }).catch(function (e) { status('Could not open it: ' + e.message, 'bad'); });
         };
       });
