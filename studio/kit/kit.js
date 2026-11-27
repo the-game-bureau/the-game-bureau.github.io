@@ -123,6 +123,25 @@
     s.setProperty('--accent', g.brand.accent);
     s.setProperty('--paper', g.brand.paper);
     s.setProperty('--ink', g.brand.ink);
+    // --on-brand / --on-accent: white or the ink colour, whichever reads better on that colour.
+    // Cover styles use them so a light main colour or a dark accent still gets legible words.
+    s.setProperty('--on-brand', NB.textOn(g.brand.color, g.brand.ink));
+    s.setProperty('--on-accent', NB.textOn(g.brand.accent, g.brand.ink));
+    // --brand-ink: the main colour for words on the paper colour, or the ink colour when the main colour is too pale to read there.
+    const Lb = NB.luma(g.brand.color), Lp = NB.luma(g.brand.paper);
+    s.setProperty('--brand-ink', Lb == null || Lp == null || (Math.max(Lb, Lp) + 0.05) / (Math.min(Lb, Lp) + 0.05) >= 3 ? g.brand.color : g.brand.ink);
+  };
+  NB.luma = hex => {
+    const m = String(hex || '').trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i); if (!m) return null;
+    let h = m[1]; if (h.length === 3) h = h.replace(/./g, c => c + c);
+    const ch = i => { const v = parseInt(h.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * ch(0) + 0.7152 * ch(2) + 0.0722 * ch(4);
+  };
+  NB.textOn = (bg, ink) => {
+    const L = NB.luma(bg); if (L == null) return '#fff';
+    let dark = NB.luma(ink); if (dark == null || dark > 0.2) { ink = '#141414'; dark = NB.luma(ink); }
+    const cr = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    return cr(1, L) >= cr(dark, L) ? '#fff' : ink;
   };
 
   // What the rules are called (game.json "rulesName", e.g. "How to Play"). Default "Rules".

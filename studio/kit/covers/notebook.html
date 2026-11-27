@@ -9,49 +9,66 @@
 <script src="/studio/kit/kit.js"></script>
 <script src="/studio/kit/print.js"></script>
 <!--
-  COVER (Notebook style, from the studio's cover styles). print.js places .cover-front, .cover-back
-  and .cover-spine on the printer's spread, with bleed, and pads them to the safe area.
+  COVER (Notebook style, from the studio's cover styles). Design the front and the back here; print.js places them:
+    ?layout=spread  back | spine | front, with bleed (the printer's cover PDF)
+    ?layout=front   front alone at trim size (first page of the print-at-home and sampler PDFs; the sampler adds its stamp on top)
+    ?layout=back    back alone at trim size (last page of those PDFs)
+  .cover-front and .cover-back fill their panel to the bleed edge, with padding set for you so
+  words stay in the safe area. Pictures may run to the bleed; words never leave the padding.
   Leave the lower right of the back clear (about 2 x 1.2 in) for a barcode.
   Filled from game.json: {{title}} {{subtitle}} {{tagline}} {{kicker}} {{url}} {{price}},
-  and as HTML: {{steps}} {{specs}} {{description}} {{image}} {{qr}} {{stepsHeading}} (photo 1 from Photos & video).
-  Colours: var(--brand) var(--accent) var(--paper) var(--ink).
+  and as HTML: {{steps}} {{specs}} {{description}} {{image}} {{qr}} {{stepsHeading}}
+  ({{image}} is the photo marked FOR NOTEBOOK COVER in Media, or a pattern of squares when none is).
+  Colours: var(--brand) var(--accent) var(--paper) var(--ink), plus var(--on-brand) and var(--on-accent)
+  (white or ink, whichever reads on that colour) and var(--brand-ink) (the main colour, or ink when it is too pale on paper).
+  Type on every style: kicker 10pt Text caps, title in Display caps, subtitle 24pt Display caps, web address 9pt.
 -->
 <style>
-/* Front: ruled notebook paper with a margin line and a label for the title. */
-.cover-front{background-color:var(--paper);color:var(--ink);
-  background-image:linear-gradient(90deg,transparent 1.05in,color-mix(in srgb,var(--accent) 80%,#d33) 1.05in,color-mix(in srgb,var(--accent) 80%,#d33) calc(1.05in + 1.5pt),transparent calc(1.05in + 1.5pt)),
-    repeating-linear-gradient(to bottom,transparent 0,transparent calc(.34in - 1pt),color-mix(in srgb,var(--brand) 35%,transparent) calc(.34in - 1pt),color-mix(in srgb,var(--brand) 35%,transparent) .34in);
-  background-position:0 0,0 .9in}
-.cover-front{justify-content:center;align-items:center;gap:22pt}
-.cover-front .label{background:#fff;border:3pt solid var(--brand);border-radius:14pt;padding:22pt 28pt;text-align:center;width:5.6in;box-shadow:4pt 4pt 0 var(--brand)}
-.cover-front .kick{font:800 9pt "NB Text",sans-serif;letter-spacing:.28em;text-transform:uppercase;color:var(--brand)}
-.cover-front h1{font-size:58pt;line-height:.95;margin:8pt 0 6pt;color:var(--brand);text-transform:uppercase}
-.cover-front .sub{font:400 18pt "NB Display",Impact,sans-serif;letter-spacing:.1em;text-transform:uppercase}
-.cover-front .lines{margin-top:14pt;display:grid;gap:12pt;text-align:left;font:700 9pt "NB Text",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
-.cover-front .lines span{display:block;border-bottom:1pt solid var(--ink);padding-bottom:2pt}
-.cover-front .pk-image{width:4.6in;flex:none;height:3.2in;max-height:none;margin:0;border:3pt solid #fff;box-shadow:0 2pt 8pt rgba(0,0,0,.25);transform:rotate(-2deg);border-radius:2pt}
-.cover-front .pk-art{grid-template-columns:repeat(6,.45in)}
-.cover-front .pk-art i{height:.45in;border-color:var(--brand)}
+/* Front: ruled notebook paper with a margin line, a name label for the title and the photo taped below. */
+.cover-front .kick{font:800 10pt/1.2 "NB Text",sans-serif;letter-spacing:.3em;text-transform:uppercase}
+.cover-front h1{line-height:.9;text-transform:uppercase;text-wrap:balance;overflow-wrap:break-word}
+.cover-front .sub{font:400 24pt/1.05 "NB Display",Impact,sans-serif;letter-spacing:.1em;text-transform:uppercase;text-wrap:balance}
+.cover-front .kick:empty,.cover-front .sub:empty{display:none}
+.cover-front .pk-url{font:700 9pt/1.2 "NB Text",sans-serif;letter-spacing:.06em;margin-top:auto;padding-top:12pt;opacity:.85}
+.cover-front{background-color:var(--paper);color:var(--ink);align-items:center;
+  background-image:linear-gradient(90deg,transparent 1.1in,color-mix(in srgb,var(--accent) 70%,#d33) 1.1in,color-mix(in srgb,var(--accent) 70%,#d33) calc(1.1in + 1.5pt),transparent calc(1.1in + 1.5pt)),
+    repeating-linear-gradient(to bottom,transparent 0,transparent calc(.34in - 1pt),color-mix(in srgb,var(--brand) 30%,transparent) calc(.34in - 1pt),color-mix(in srgb,var(--brand) 30%,transparent) .34in);
+  background-position:0 0,0 1in}
+.cover-front .label{background:#fff;border:3pt solid var(--brand);border-radius:14pt;padding:20pt 28pt 18pt;text-align:center;width:6in;box-shadow:5pt 5pt 0 var(--brand)}
+.cover-front .kick{color:var(--brand-ink);font-size:9pt}
+.cover-front h1{font-size:64pt;margin:8pt 0 0;color:var(--brand-ink)}
+.cover-front .sub{font-size:20pt;margin-top:8pt}
+.cover-front .lines{margin-top:16pt;display:grid;gap:12pt;text-align:left;font:700 8pt "NB Text",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--brand-ink)}
+.cover-front .lines span{display:block;border-bottom:1pt solid var(--ink);padding-bottom:3pt}
+.cover-front .snap{position:relative;flex:1 1 0;min-height:2in;width:6.1in;margin-top:.4in;display:flex;transform:rotate(-1.5deg)}
+.cover-front .snap .pk-image{flex:1;width:100%;height:auto;max-height:none;margin:0;border:5pt solid #fff;border-radius:2pt;box-shadow:0 3pt 10pt rgba(0,0,0,.25)}
+.cover-front .snap .pk-art{margin:auto;}
+.cover-front .snap .pk-art i{border-color:var(--brand)}
+.cover-front .snap::before,.cover-front .snap::after{content:"";position:absolute;top:-10pt;width:1.1in;height:.32in;background:color-mix(in srgb,var(--accent) 45%,rgba(255,255,255,.6));box-shadow:0 1pt 2pt rgba(0,0,0,.12);z-index:1}
+.cover-front .snap::before{left:-.2in;transform:rotate(-14deg)}
+.cover-front .snap::after{right:-.2in;transform:rotate(12deg)}
+.cover-front .pk-url{flex:none;padding-top:.3in;color:var(--brand-ink)}
 
 /* BACK: "Poster". The main colour to the bleed, photo 1 echoed faintly behind so the wrap
    reads as one piece, then, sitting at the bottom just above the footer, the kicker, the title, the hook in the accent
    colour and the tagline, and a footer band with a QR code to the game page and room for a barcode. */
-.cover-back{background:var(--brand);color:#fff;overflow:hidden;gap:0}
+.cover-back{background:var(--brand);color:var(--on-brand);overflow:hidden;gap:0}
 .cover-back .bk-echo{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;z-index:0}
 .cover-back .bk-echo .pk-image{position:absolute;inset:0;width:100%;height:100%;max-height:none;margin:0;border-radius:0;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:luminosity;opacity:.28}
 .cover-back .bk-echo .pk-art{display:none}
 .cover-back .bk-echo::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,color-mix(in srgb,var(--brand) 20%,transparent) 30%,var(--brand) 92%)}
 .cover-back>*:not(.bk-echo){position:relative;z-index:1}
-.cover-back .bk-kick{margin-top:auto;font:800 9.5pt "NB Text",sans-serif;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,255,255,.8)}
+.cover-back .bk-kick{margin-top:auto;font:800 10pt/1.2 "NB Text",sans-serif;letter-spacing:.3em;text-transform:uppercase;color:color-mix(in srgb,var(--on-brand) 80%,transparent)}
+.cover-back .bk-kick:empty{display:none}
 .cover-back .bk-title{font:400 92pt/.9 "NB Display",Impact,sans-serif;letter-spacing:.01em;text-transform:uppercase;margin-top:10pt;max-width:7in;text-wrap:balance}
-.cover-back h2{font-size:40pt;line-height:.95;text-transform:uppercase;color:var(--accent);margin-top:14pt;max-width:6.6in}
+.cover-back h2{font-size:40pt;line-height:.95;text-transform:uppercase;color:var(--accent);margin-top:14pt;max-width:6.6in;text-wrap:balance}
 .cover-back h2:empty{display:none}
-.cover-back h2{text-wrap:balance}
 .cover-back .bk-tag{font:500 15pt/1.4 "NB Text",sans-serif;margin:16pt 0 0;max-width:6in}
+.cover-back .bk-tag:empty{display:none}
 .cover-back .bk-foot{margin:.4in calc(-1 * var(--pad)) calc(-1 * var(--pad));padding:.22in var(--pad) var(--pad);background:var(--paper);color:var(--ink);display:flex;align-items:flex-end;gap:14pt}
 .cover-back .pk-qr{width:1.05in;height:1.05in;color:var(--ink);flex:none}
 .cover-back .bk-scan{font:400 10pt/1.35 "NB Text",sans-serif;flex:1}
-.cover-back .bk-scan b{display:block;font:400 17pt/1 "NB Display",Impact,sans-serif;letter-spacing:.03em;color:var(--brand);margin-bottom:4pt;text-transform:uppercase}
+.cover-back .bk-scan b{display:block;font:400 17pt/1 "NB Display",Impact,sans-serif;letter-spacing:.03em;color:var(--brand-ink);margin-bottom:4pt;text-transform:uppercase}
 .cover-back .bk-url{font-weight:800;letter-spacing:.02em}
 .barcode-space{width:2in;height:1.2in;flex:none;background:#fff}
 </style>
@@ -65,7 +82,7 @@
     <div class="sub">{{subtitle}}</div>
     <div class="lines"><span>Name</span><span>Started</span></div>
   </div>
-  {{image}}
+  <div class="snap">{{image}}</div>
 </div>
 
 <div class="cover-spine">{{title}}</div>

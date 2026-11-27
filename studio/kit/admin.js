@@ -1349,7 +1349,8 @@
   const tabCover = p => { codeTab(p, 'cover', 'Covers', 'Choose the cover style from the choices below. Use the MEDIA tab to select the cover photo.', ''); coverStyles(p); };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
   // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
-  const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html']];
+  const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html'],
+    ['split', 'Split', '/studio/kit/covers/split.html'], ['framed', 'Framed', '/studio/kit/covers/framed.html'], ['badge', 'Badge', '/studio/kit/covers/badge.html'], ['duotone', 'Duotone', '/studio/kit/covers/duotone.html']];
   const coverSrc = {};
   let coverBefore = null;
   const getCover = u => coverSrc[u] || (coverSrc[u] = fetch(u + '?v=' + KITV, { cache: 'no-cache' }).then(r => r.ok ? r.text() : Promise.reject(new Error('could not load ' + u))));
