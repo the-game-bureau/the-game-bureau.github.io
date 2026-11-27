@@ -91,13 +91,39 @@
   const changed = () => !!saved && (gameText(draft.game) !== gameText(saved.game) || ['rules', 'cover', 'contents', 'sampler'].some(k => draft[k] !== saved[k]) || Object.keys(pendingB64).length > 0);
 
   function persist() {
-    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler, at: Date.now(), start: IS_NEW ? FOLDER : undefined, savedKey: serverKey || undefined, base: serverAt || undefined })); } catch (e) { /* quota or blocked */ }
+    try { localStorage.setItem(DKEY, JSON.stringify({ game: draft.game, rules: draft.rules, cover: draft.cover, contents: draft.contents, sampler: draft.sampler, at: Date.now(), start: IS_NEW ? FOLDER : undefined, savedKey: serverKey || undefined, base: serverAt || undefined, pub: pubSig() })); } catch (e) { /* quota or blocked */ }
     if (!$('#ad-bar')) return; // still loading
     updateBar();
     schedulePreview();
   }
   let samplerMissing = false; // no sampler.html on the site yet: PUBLISH writes one
   function clearDraft() { try { localStorage.removeItem(DKEY); } catch (e) { /* blocked */ } }
+  // A fingerprint of the published files. This browser's copy remembers it, so a copy made before
+  // someone else published (another browser, or a change made on GitHub) isn't laid over the new version.
+  function pubSig() {
+    if (!saved || IS_NEW) return undefined;
+    const t = gameText(saved.game) + '\u0000' + [saved.rules, saved.cover, saved.contents, saved.sampler].join('\u0000');
+    let h = 5381; for (let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) >>> 0;
+    return t.length + '-' + h.toString(36);
+  }
+  let staleNote = '';
+  // Drops this browser's copy when the notebook was published since it was made. Copies from before
+  // the fingerprint existed are checked against the time of the last commit to the notebook's files.
+  async function dropStaleDraft() {
+    if (IS_NEW) return;
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(DKEY) || 'null'); } catch (e) { return; }
+    if (!d || !d.game) return;
+    let stale = false;
+    if (d.pub) stale = d.pub !== pubSig();
+    else if (GH.token() && d.at) {
+      try {
+        const lists = await Promise.all(Object.values(FILES).map(f => GH.api('/commits?sha=' + GH.BRANCH + '&path=' + encodeURIComponent(FOLDER + '/' + f) + '&per_page=1').catch(() => [])));
+        stale = lists.some(l => l && l[0] && new Date(l[0].commit.committer.date).getTime() > d.at);
+      } catch (e) { /* keep it */ }
+    }
+    if (stale) { clearDraft(); staleNote = 'This notebook was published since you last had it open here, so the studio opened the published version.'; }
+  }
 
   // ---------- loading ----------
   async function loadSaved() {
@@ -2001,6 +2027,7 @@
     document.body.innerHTML = '<p style="padding:24px">Loading…</p>';
     try {
       await loadSaved();
+      await dropStaleDraft();
       loadDraft();
       await loadServerDraft();
       const g = saved.game;
@@ -2011,6 +2038,7 @@
       if (!CHOSEN && !tabFromHash()) history.replaceState(null, '', location.pathname + location.search + '#welcome');
       show(tabFromHash() || (!GH.token() || !CHOSEN ? 'welcome' : IS_NEW ? 'content' : 'checklist'));
       loadChecklistFacts();
+      if (staleNote) flash(esc(staleNote), 'ok', 9000);
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
       try { const w = JSON.parse(sessionStorage.getItem(PDFWATCH) || 'null'); if (w && !IS_NEW && w.folder === FOLDER && Date.now() - w.t0 < 30 * 60000) watchPdfs(w.sha, w.t0); } catch (e) { /* none */ }
       if (isTemplate) {
