@@ -157,6 +157,16 @@
     if (m && m[2] !== 'e') return 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/export' + (m[1] === 'presentation' ? '/pdf' : '?format=pdf');
     return u;
   };
+  // Where a notebook's game pages come from (game.json "pages", set on the studio's Game tab):
+  //   html       the game sheet in contents.html, printed print.sheets times (the default)
+  //   link       a PDF, Google Doc/Slides/Drive file or web page; its pages print print.sheets times
+  //   generator  a saved edition of a generator (studio/generators/<generator>/), each sheet once
+  NB.pagesSource = g => {
+    const p = (g && g.pages) || {};
+    if (p.source === 'link') return { source: 'link', link: String(p.link || '').trim() };
+    if (p.source === 'generator') return { source: 'generator', generator: String(p.generator || ''), edition: String(p.edition || '') };
+    return { source: 'html' };
+  };
   // The rules (rules.md) are HTML. Notebooks made before that wrote them in Markdown, which still
   // works: a file that doesn't start with a tag is read as Markdown.
   NB.isHTML = t => /^\s*</.test(String(t || ''));

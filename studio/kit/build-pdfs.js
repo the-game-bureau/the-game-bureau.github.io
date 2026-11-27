@@ -11,6 +11,8 @@
 //   <slug>.pdf           print-at-home copy at trim size: front, rules, contents, back.
 //   <slug>-sampler.pdf   free sampler at trim size, always exactly: the chosen front cover with the
 //                        SAMPLER stamp, the rules, the scoring pages, then sampler.html's pages. No back.
+// The game pages come from game.json "pages": contents.html's game sheet (the default), a link (a PDF,
+// Google file or web page, printed print.sheets times) or a generator's saved edition (each sheet once).
 // Everything renders to a temp folder first; pdf/ is only touched when every check passes.
 const path = require('path');
 const fs = require('fs');
@@ -53,6 +55,61 @@ function findGames(rel = '', depth = 0) {
   return out;
 }
 
+// Where the game pages come from: the same rules as NB.pagesSource in kit.js.
+function gameSource(g) {
+  const p = (g && g.pages) || {};
+  if (p.source === 'link') return { source: 'link', link: String(p.link || '').trim() };
+  if (p.source === 'generator') return { source: 'generator', generator: String(p.generator || ''), edition: String(p.edition || '') };
+  return { source: 'html' };
+}
+
+// A page's print output as a PDF, sized by its own @page rule. Waits for data-ready when the page sets it.
+async function renderUrl(browser, url, size, ready) {
+  const page = await browser.newPage();
+  page.on('pageerror', e => console.error('  page error in ' + url + ':', e.message));
+  await page.emulateMedia({ media: 'print' });
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+  if (ready) await page.waitForFunction(() => document.body.dataset.ready, null, { timeout: 30000 });
+  const err = await page.evaluate(() => document.body.dataset.ready === 'error' && (document.body.dataset.error || 'the page could not draw its sheets'));
+  if (err) throw new Error(url + ': ' + err);
+  const buf = await page.pdf(size ? { width: size[0] + 'in', height: size[1] + 'in', printBackground: true } : { preferCSSPageSize: true, printBackground: true });
+  await page.close();
+  return buf;
+}
+
+// The game pages behind a link: a PDF, a Google Doc/Sheet/Slides (its PDF export), a Google Drive
+// file, or any web page (printed at the notebook's trim size).
+async function linkPdf(browser, base, link, W, H) {
+  if (!/^(https:\/\/|\/)/.test(link)) throw new Error('Game pages: the link "' + link + '" is not a web address');
+  let u = link, m;
+  if ((m = u.match(/^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/)) && m[2] !== 'e') u = 'https://docs.google.com/' + m[1] + '/d/' + m[2] + '/export' + (m[1] === 'presentation' ? '/pdf' : '?format=pdf');
+  else if ((m = u.match(/^https:\/\/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) u = 'https://drive.google.com/uc?export=download&id=' + m[1];
+  if (u.startsWith('/')) {
+    const file = path.join(ROOT, decodeURIComponent(u.split(/[?#]/)[0]));
+    if (/\.pdf$/i.test(file) && file.startsWith(ROOT) && fs.existsSync(file)) return fs.readFileSync(file);
+    return renderUrl(browser, base + u, [W, H]);
+  }
+  const r = await fetch(u, { redirect: 'follow' }).catch(e => { throw new Error('Game pages: could not reach ' + link + ' (' + ((e.cause && e.cause.code) || e.message) + ')'); });
+  if (!r.ok) throw new Error('Game pages: ' + link + ' answered ' + r.status + '. For a Google file, set sharing to Anyone with the link.');
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.slice(0, 5).toString() === '%PDF-') return buf;
+  return renderUrl(browser, link, [W, H]);
+}
+
+// Adds every page of pdf (copies times over) to doc, each on a page of the notebook's size
+// (trim + bleed), scaled to fit the trim and centred on it.
+async function place(doc, pdf, W, H, bleed, copies) {
+  const src = await PDFDocument.load(pdf);
+  const pages = await doc.embedPdf(src, src.getPageIndices());
+  if (!pages.length) throw new Error('Game pages: the source has no pages');
+  const PW = (W + 2 * bleed) * 72, PH = (H + 2 * bleed) * 72;
+  for (let c = 0; c < copies; c++) for (const ep of pages) {
+    const k = Math.min(W * 72 / ep.width, H * 72 / ep.height);
+    const w = ep.width * k, h = ep.height * k;
+    doc.addPage([PW, PH]).drawPage(ep, { x: (PW - w) / 2, y: (PH - h) / 2, width: w, height: h });
+  }
+}
+
 async function build(browser, base, folder) {
   const dir = path.join(ROOT, folder);
   const slug = path.basename(folder);
@@ -78,8 +135,29 @@ async function build(browser, base, folder) {
 
   console.log('Building ' + slug + ' (' + W + ' x ' + H + ' in, bleed ' + P.bleed + ' in)');
 
+  // The game pages: contents.html's own game sheet (html), or pages from a link or a generator's
+  // saved edition (game.json "pages"). Those are placed on notebook-size pages after the scoring pages.
+  const src = gameSource(g);
+  let gamePdf = null; // the source's pages as a PDF, at whatever size it made them
+  if (src.source === 'link') gamePdf = await linkPdf(browser, base, src.link, W, H);
+  if (src.source === 'generator') {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(src.generator) || !fs.existsSync(path.join(ROOT, 'studio/generators', src.generator, 'index.html'))) throw new Error('Game pages: there is no generator "' + src.generator + '"');
+    const ed = String(src.edition).replace(/^\/+/, '');
+    if (!/^[a-z0-9][a-z0-9/-]*\/pages\/[\w.-]+\.json$/.test(ed) || !fs.existsSync(path.join(ROOT, ed))) throw new Error('Game pages: the saved edition ' + (ed || '(none chosen)') + ' is not on the site');
+    gamePdf = await renderUrl(browser, base + '/studio/generators/' + src.generator + '/?pdf=1&edition=' + encodeURIComponent(ed), null, true);
+  }
+  const copies = src.source === 'link' ? Math.max(1, +P.sheets || 1) : 1;
+  // contents.html as a PDF, with the game pages from the source when there is one.
+  async function inside(bleed) {
+    const own = await render('contents.html', 'bleed=' + bleed + (gamePdf ? '&only=rules,scoring' : ''));
+    if (!gamePdf) return own;
+    const doc = await load(own);
+    await place(doc, gamePdf, W, H, bleed ? P.bleed : 0, copies);
+    return doc.save();
+  }
+
   // Contents for the printer, padded with blanks.
-  const contentsDoc = await load(await render('contents.html', 'bleed=1'));
+  const contentsDoc = await load(await inside(1));
   const pad = Math.max(1, P.padTo | 0);
   const [cw, ch] = [(W + 2 * P.bleed) * 72, (H + 2 * P.bleed) * 72];
   let blanks = 0;
@@ -100,7 +178,7 @@ async function build(browser, base, folder) {
   // Print-at-home copy: front + inside (no bleed) + back.
   const front = await render('cover.html', 'layout=front');
   const back = await render('cover.html', 'layout=back');
-  const inner = await render('contents.html', 'bleed=0');
+  const inner = await inside(0);
   // The free sampler is always these four parts, in this order, and nothing else (Kevin, 2026-11-27):
   // 1. the chosen front cover with the SAMPLER stamp on top, 2. the rules, 3. the scoring pages,
   // 4. sampler.html's own pages. Rules and scoring are the notebook's own, from contents.html.

@@ -6,7 +6,8 @@
  *   Colors       the colour scheme, with presets
  *   Rules        rules.md (shown on the rules page and printed in the notebook)
  *   Cover        cover.html: front, back and spine
- *   Inside pages contents.html: the pages after the rules
+ *   Inside pages contents.html: the pages after the rules. The Game tab picks where the game pages
+ *                come from (game.json "pages"): this HTML, a link, or a generator's saved edition
  *   Media        gallery photos and videos
  *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
  *   Bundle       print settings (trim, bleed, spine); build the cover, contents, print-at-home and sampler PDFs
@@ -31,7 +32,7 @@
   // Plain /studio/ starts with only Connect and Notebooks open; the other tabs wait until a
   // notebook is chosen there (an existing one, or New notebook, which opens /studio/?new).
   const CHOSEN = !IS_NEW || new URLSearchParams(location.search).has('new');
-  const OPEN_TABS = ['welcome', 'connect', 'games', 'ideas', 'generators'];
+  const OPEN_TABS = ['welcome', 'connect', 'games', 'ideas'];
   const locked = t => !CHOSEN && !OPEN_TABS.includes(t);
   const NEWKEY = 'nb-draft:/studio/new/';
   const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && typeof d.start === 'string' && /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTER; };
@@ -55,8 +56,8 @@
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
   const PAGES = ['rules', 'scoring', 'game'];
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['generators', 'Generators'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
-  const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content', generators: 'game' }; // generators open from the Game tab now (Kevin, 2026-11-27)
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
@@ -250,7 +251,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, generators: tabGenerators, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, scoring: p => pagesTab(p, 'scoring'), game: p => pagesTab(p, 'game'), sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, scoring: p => pagesTab(p, 'scoring'), game: tabGame, sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -261,7 +262,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      welcome: null, connect: null, checklist: null, games: null, ideas: null, generators: null, pdfs: null, content: null, history: null,
+      welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['duo', 'Web and notebook']],
       rules: null, // the Rules tab has a button to the rules page instead of a preview
@@ -375,6 +376,8 @@
     else if (['front', 'back'].includes(mode)) f.srcdoc = doc(coverTagged(), 'layout=' + mode);
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
+    else if (mode === 'game' && gameSrcUrl()) { box.className = 'ad-pv-box web'; f.removeAttribute('srcdoc'); f.src = gameSrcUrl(); return; }
+    else if (mode === 'game' && NB.pagesSource(draft.game).source !== 'html') { f.removeAttribute('srcdoc'); f.src = 'about:blank'; return; }
     else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
     else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
     else if (mode === 'samplerfront') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
@@ -1967,17 +1970,98 @@
       '<video class="ad-welcome-video" src="/studio/assets/notebook-open.mp4" autoplay muted playsinline controls preload="auto"></video>';
   };
 
-  // ---------- tab: generators ----------
-  // Tools that make printable pages for a game. Each lives in its own folder under studio/generators/.
+  // ---------- generators ----------
+  // Tools that make a game's pages. Each lives in its own folder under studio/generators/ and saves
+  // editions to <game>/pages/<edition>.json. They open from the Game tab (Use a generator).
   // To add one, put its folder there and add a line here.
   const GENERATORS = [
-    { path: 'wordfleet-battle-sheets/', title: 'Word Fleet battle sheets', game: 'Word Fleet',
-      about: 'Makes Letter-size battle sheets, each with its own hidden fleet of five words (5, 4, 3, 3 and 2 letters) and five launch codes. Print them or save them as a PDF.' }
+    { path: 'wordfleet-battle-sheets', title: 'Word Fleet battle sheets',
+      about: 'Letter-size battle sheets, each with its own hidden fleet of five words and five launch codes.' }
   ];
-  function tabGenerators(p) {
-    p.innerHTML = '<h2>Generators</h2><p class="ad-lede">Tools that make printable pages for a game. Each one opens on its own page.</p>' +
-      '<ol class="ad-gens">' + GENERATORS.map(g => '<li class="ad-card ad-gen"><div><p class="ad-gen-game">' + esc(g.game) + '</p><h3>' + esc(g.title) + '</h3><p>' + esc(g.about) + '</p></div>' +
-        '<a class="nb-btn solid" href="/studio/generators/' + g.path + '">OPEN</a></li>').join('') + '</ol>';
+
+  // ---------- tab: Game (Pages) ----------
+  // Where the game pages come from (game.json "pages", NB.pagesSource): the HTML game sheet here, a
+  // link to pages made elsewhere, or a generator's saved edition. The PDF build uses the one chosen.
+  const genOf = k => GENERATORS.find(x => x.path === k) || GENERATORS[0];
+  // The Game tab preview for a link or an edition (null for the HTML sheet, or nothing chosen yet).
+  function gameSrcUrl() {
+    const s = NB.pagesSource(draft.game);
+    if (s.source === 'link' && /^(https:\/\/|\/)/.test(s.link)) return NB.rulesEmbed(s.link);
+    if (s.source === 'generator' && s.edition) return '/studio/generators/' + genOf(s.generator).path + '/?bare=1&edition=' + encodeURIComponent(s.edition);
+    return null;
+  }
+  let editions = null; // { folder, list: [{ name, path }] } saved editions in <folder>/pages/
+  function tabGame(p) {
+    const s = NB.pagesSource(draft.game), g = draft.game;
+    const sheets = (g.print && g.print.sheets) || 72;
+    if (s.source === 'html') pagesTab(p, 'game');
+    else p.innerHTML = '<h2>Game</h2><p class="ad-lede"></p>';
+    const lede = p.querySelector('.ad-lede');
+    if (s.source === 'link') lede.textContent = 'The game pages come from a link. The notebook prints them ' + sheets + ' times, after the scoring pages.';
+    if (s.source === 'generator') lede.textContent = 'The game pages come from a generator. The notebook prints every sheet of the chosen edition once, after the scoring pages.';
+    const box = document.createElement('div');
+    box.className = 'ad-rules-src';
+    const opt = (k, t, d) => '<button type="button" role="radio" data-src="' + k + '" aria-checked="' + (s.source === k) + '"><b>' + t + '</b><small>' + d + '</small></button>';
+    box.innerHTML = '<div class="ad-rules-pick three" role="radiogroup" aria-label="Where the game pages come from">' +
+      opt('html', 'Edit the HTML here', 'One game sheet, printed ' + esc(String(sheets)) + ' times.') +
+      opt('link', 'Link to game pages', 'A PDF, Google Doc or web page you already have.') +
+      opt('generator', 'Use a generator', 'Pages made by a generator, such as battle sheets.') + '</div>';
+    if (s.source === 'link') {
+      box.insertAdjacentHTML('beforeend', '<label class="ad-field" for="f-pages-link"><span>Game pages link</span><input id="f-pages-link" type="url" value="' + esc(s.link) + '" placeholder="https://docs.google.com/document/d/... or /' + esc(target()) + '/pages/sheet.pdf" autocomplete="off" spellcheck="false"><small id="f-pages-link-msg"></small></label>' +
+        '<p class="ad-help">Every page behind the link is one page of the notebook, scaled to fit the page. They print ' + esc(String(sheets)) + ' times: set how many in <a href="#pdfs">Bundle</a> (1 if the link already holds every page). For a Google file, set sharing to <i>Anyone with the link</i>.</p>');
+    }
+    if (s.source === 'generator') {
+      const gen = genOf(s.generator);
+      box.insertAdjacentHTML('beforeend', (GENERATORS.length > 1 ? '<label class="ad-field" for="f-pages-gen"><span>Generator</span><select id="f-pages-gen">' + GENERATORS.map(x => '<option value="' + esc(x.path) + '"' + (x === gen ? ' selected' : '') + '>' + esc(x.title) + '</option>').join('') + '</select></label>' : '') +
+        '<div class="ad-card ad-gen"><div><h3>' + esc(gen.title) + '</h3><p>' + esc(gen.about) + ' GENERATE makes a new edition and SAVE keeps it in this game\'s pages folder.</p></div>' +
+        (IS_NEW ? '' : '<a class="nb-btn solid" href="/studio/generators/' + esc(gen.path) + '/?game=' + encodeURIComponent(FOLDER) + '" target="_blank" rel="noopener">OPEN THE GENERATOR</a>') + '</div>' +
+        '<h3 class="ad-ed-head">Saved editions <button type="button" class="ad-link" id="ad-ed-refresh">Refresh</button></h3><div id="ad-eds"><p class="ad-help">' + (IS_NEW ? 'Publish the notebook first. Then open the generator, make an edition and SAVE it.' : 'Looking for saved editions…') + '</p></div>');
+    }
+    lede.after(box);
+    box.querySelectorAll('[data-src]').forEach(b => { b.onclick = () => {
+      const k = b.dataset.src;
+      if (k === s.source) return;
+      if (k === 'html') delete draft.game.pages;
+      else draft.game.pages = k === 'link' ? { source: 'link', link: (g.pages && g.pages.link) || '' } : { source: 'generator', generator: genOf((g.pages || {}).generator).path, edition: (g.pages && g.pages.edition) || '' };
+      persist(); show(tab);
+      const f = $('#f-pages-link'); if (f && !f.value) f.focus();
+    }; });
+    const inp = $('#f-pages-link');
+    if (inp) {
+      const msg = () => {
+        const t = inp.value.trim();
+        $('#f-pages-link-msg').innerHTML = !t ? 'Paste the link. Until then the notebook keeps its HTML game sheet.'
+          : /^(https:\/\/|\/)/.test(t) ? 'The next PDF build prints <a href="' + esc(t) + '" target="_blank" rel="noopener">these pages</a>.' : 'That isn\'t a web address. It should start with https:// (or / for a file on this site).';
+      };
+      inp.oninput = () => { draft.game.pages.link = inp.value.trim(); persist(); msg(); };
+      msg();
+    }
+    const gs = $('#f-pages-gen');
+    if (gs) gs.onchange = () => { draft.game.pages = { source: 'generator', generator: gs.value, edition: '' }; persist(); show(tab); };
+    if (s.source === 'generator' && !IS_NEW) {
+      $('#ad-ed-refresh').onclick = () => { editions = null; drawEditions(); };
+      drawEditions();
+    }
+  }
+  async function drawEditions() {
+    const el = () => $('#ad-eds');
+    try {
+      if (!editions || editions.folder !== FOLDER) {
+        let list = [];
+        try { list = await GH.api('/contents/' + FOLDER.split('/').map(encodeURIComponent).join('/') + '/pages?ref=' + GH.BRANCH); }
+        catch (e) { if (e.status !== 404) throw e; }
+        editions = { folder: FOLDER, list: (Array.isArray(list) ? list : []).filter(f => f.type === 'file' && /\.json$/.test(f.name)).map(f => ({ name: f.name.replace(/\.json$/, ''), path: FOLDER + '/pages/' + f.name })).sort((a, b) => b.name.localeCompare(a.name)) };
+      }
+      if (!el() || tab !== 'game') return;
+      const cur = NB.pagesSource(draft.game).edition;
+      const missing = cur && !editions.list.some(x => x.path === cur);
+      el().innerHTML = editions.list.length || missing ? '<ul class="ad-eds" role="radiogroup" aria-label="Saved editions">' +
+        (missing ? '<li><button type="button" role="radio" aria-checked="true" disabled><b>' + esc(cur.split('/').pop().replace(/\.json$/, '').toUpperCase()) + '</b><small>Chosen, but no longer saved. Pick another.</small></button></li>' : '') +
+        editions.list.map(x => '<li><button type="button" role="radio" data-ed="' + esc(x.path) + '" aria-checked="' + (x.path === cur) + '"><b>' + esc(x.name.toUpperCase()) + '</b><small>' + (x.path === cur ? 'In the notebook' : 'Use this edition') + '</small></button></li>').join('') + '</ul>' +
+        (cur ? '' : '<p class="ad-help">Pick the edition the notebook prints.</p>')
+        : '<p class="ad-help">No saved editions yet. OPEN THE GENERATOR, GENERATE, then SAVE. Then click Refresh.</p>';
+      el().querySelectorAll('[data-ed]').forEach(b => { b.onclick = () => { draft.game.pages.edition = b.dataset.ed; persist(); show(tab); }; });
+    } catch (e) { if (el()) el().innerHTML = '<p class="ad-help">Could not list the saved editions: ' + esc(e.message) + '</p>'; }
   }
 
   // ---------- tab: ideas ----------
