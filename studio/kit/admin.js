@@ -1346,7 +1346,12 @@
   const rulesTab = p => codeTab(p, 'rules', 'Rules', 'HTML for the rules. The same rules are the rules page and the first pages of the notebook.',
     '<ul><li><code>&lt;h1&gt;{{title}} rules&lt;/h1&gt;</code> first, then <code>&lt;h2&gt;</code> for sections and <code>&lt;h3&gt;</code> for sub-sections</li><li><code>&lt;p&gt;</code> paragraphs, <code>&lt;ol&gt;</code> numbered steps and <code>&lt;ul&gt;</code> bullet points, each item in <code>&lt;li&gt;</code></li><li><code>&lt;strong&gt;</code> bold, <code>&lt;em&gt;</code> italic, <code>&lt;a href="https://..."&gt;</code> link</li><li><code>&lt;aside class="callout"&gt;</code> makes a highlighted box</li><li><code>&lt;hr&gt;</code> draws a line</li></ul>');
   // The Cover tab has no "How this file works" box: that guidance is in the COPY FOR AI brief (aiBrief).
-  const tabCover = p => { codeTab(p, 'cover', 'Covers', 'Choose the cover style from the choices below. Use the MEDIA tab to select the cover photo.', ''); coverStyles(p); };
+  // Kevin (2026-11-27): the Covers tab is only the style picker. No AI box, HTML editor or undo link here.
+  const tabCover = p => {
+    codeTab(p, 'cover', 'Covers', 'Choose the cover style from the choices below. Use the MEDIA tab to select the cover photo.', '');
+    p.querySelectorAll('.ad-ai, #ad-code, .ad-code-foot').forEach(el => el.remove());
+    coverStyles(p);
+  };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
   // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
   const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html'],
