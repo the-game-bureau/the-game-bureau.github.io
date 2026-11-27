@@ -15,7 +15,9 @@
  *
  * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
  * {{url}} {{price}} {{sheets}} (print.sheets), and as HTML {{steps}} {{specs}} {{description}}
- * {{image}} (photo 1 from Photos & video, or a pattern of squares until there is one).
+ * {{image}} (photo 1 from Photos & video, or a pattern of squares until there is one),
+ * {{qr}} (a QR code, as vector SVG in the text colour, that opens the game's web page) and
+ * {{stepsHeading}} (game.json stepsHeading, or "How it works").
  *
  * When everything is laid out the page sets <body data-ready="1">.
  */
@@ -94,6 +96,15 @@
     else document.querySelectorAll('[data-sampler-only]').forEach(el => el.remove());
     toolbar(g, (q.get('sampler') === '1' ? 'Free sampler: ' : '') + (b ? 'Contents with ' + b + ' in bleed, ' : 'Contents, ') + r3(PW) + ' x ' + r3(PH) + ' in', '<a href="?">Full, with bleed</a><a href="?bleed=0">Full, no bleed</a><a href="?bleed=0&sampler=1">Sampler</a>');
     if (b) document.body.classList.add('pk-has-bleed');
+  }
+
+  // A QR code for a web address, as an inline SVG (qrcode.js, MIT, loaded only when a page uses {{qr}}).
+  async function qrSVG(text) {
+    if (!window.qrcode) await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/studio/kit/qrcode.js'; s.onload = ok; s.onerror = () => bad(new Error('Could not load the QR code maker')); document.head.appendChild(s); });
+    const qr = window.qrcode(0, 'M'); qr.addData(text); qr.make();
+    const n = qr.getModuleCount(); let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += 'M' + c + ' ' + r + 'h1v1h-1z';
+    return '<svg class="pk-qr" viewBox="-2 -2 ' + (n + 4) + ' ' + (n + 4) + '" role="img" aria-label="QR code for ' + NB.esc(text) + '" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + (n + 4) + '" height="' + (n + 4) + '" fill="#fff"/><path d="' + d + '" fill="currentColor"/></svg>';
   }
 
   async function layoutCover(g) {
@@ -192,11 +203,14 @@
         // With none picked, a pattern of squares stands in.
         image: (() => { const m = NB.coverPhoto(g); return m ? '<img class="pk-image" src="' + NB.esc(m.src) + '" alt="' + NB.esc(m.alt || g.title) + '"' + NB.focusStyle(m) + '>' : '<div class="pk-art" aria-hidden="true">' + '<i></i>'.repeat(16) + '</div>'; })(),
       };
+      // {{qr}}: the game's web page as a QR code, drawn as one SVG path so it prints sharp.
+      if (document.body.innerHTML.includes('{{qr}}')) html.qr = await qrSVG('https://' + String(vars.url).replace(/^https?:\/\//, ''));
+      vars.stepsHeading = g.stepsHeading || 'How it works';
       vars.sheets = String(g.print.sheets || 72);
       vars.kicker = g.kicker || '';
       document.body.innerHTML = document.body.innerHTML
-        .replace(/\{\{(steps|specs|description|image)\}\}/g, (x, k) => html[k])
-        .replace(/\{\{(title|subtitle|tagline|url|price|sheets|kicker)\}\}/g, (x, k) => NB.esc(vars[k]));
+        .replace(/\{\{(steps|specs|description|image|qr)\}\}/g, (x, k) => html[k])
+        .replace(/\{\{(title|subtitle|tagline|url|price|sheets|kicker|stepsHeading)\}\}/g, (x, k) => NB.esc(vars[k]));
       if (document.body.dataset.page === 'cover') await layoutCover(g);
       else await layoutContents(g);
       if (q.has('pdf')) document.body.classList.add('pk-pdf');
