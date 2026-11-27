@@ -55,7 +55,7 @@
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
   const PAGES = ['rules', 'scoring', 'game'];
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas'], ['generators', 'Generators']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['generators', 'Generators'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
   const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
