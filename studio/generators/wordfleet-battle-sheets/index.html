@@ -18,6 +18,8 @@
     in dictionaries/en-US.json. That filtered list is WORDS below.
   - Five three-digit launch codes per sheet. No two sheets share a fleet, and no launch code
     is used twice in one edition, so an edition holds at most 200 sheets.
+  - GAME picks one of the studio's notebooks (read from GitHub with gh.js). Its title heads every
+    sheet and its web address (game.json "url", else thegamebureau.com/<folder>) sits bottom right.
   - SAVE EDITION downloads the sheets as JSON (the same format as publishing/editions/*.json),
     and LOAD EDITION opens one again, so a printed batch can be reprinted exactly.
 -->
@@ -29,6 +31,7 @@
 .gen-controls h2{font-size:34px;color:var(--brand)}
 .gen-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
 .gen-row label{display:grid;gap:4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.gen-row select{min-width:240px;max-width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;font:600 16px "NB Text",system-ui,sans-serif}
 .gen-row input[type=number]{width:96px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font:600 16px "NB Text",system-ui,sans-serif}
 .gen-row .nb-btn{min-height:44px}
 .gen-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -90,6 +93,7 @@
     <h2>Word Fleet battle sheets</h2>
     <p class="ad-lede">Each sheet hides its own fleet of five words (5, 4, 3, 3 and 2 letters) and five launch codes. No two sheets share a fleet, and no launch code repeats. Print the sheets, or choose Save as PDF in the print window.</p>
     <div class="gen-row">
+      <label>Game <select id="gen-game"><option value="">Loading notebooks…</option></select></label>
       <label>Sheets <input id="gen-count" type="number" min="1" max="200" value="50"></label>
       <button class="nb-btn solid" id="gen-new" type="button">GENERATE NEW SHEETS</button>
       <button class="nb-btn" id="gen-print" type="button">PRINT OR SAVE PDF</button>
@@ -102,6 +106,7 @@
   <div class="gen-sheets" id="gen-sheets"></div>
 </div>
 
+<script src="/studio/kit/gh.js"></script>
 <script>
 (function () {
   'use strict';
@@ -113,6 +118,10 @@
   var MANIFEST_ROWS = ['ABCD', 'EFG', 'HIJK', 'LMNOP', 'QRS', 'TUV', 'WX', 'YZ'];
   var MAX = 200; // 1,000 launch codes, five per sheet
   var STORE = 'wf-battle-sheets';
+  var GAME_STORE = 'wf-battle-sheets-game';
+  // Used until the notebook list arrives, and if GitHub can't be reached.
+  var FALLBACK = { folder: 'wordfleet2', title: 'WORD FLEET', url: 'thegamebureau.com/wordfleet2' };
+  var notebook = FALLBACK, notebooks = [];
 
   var $ = function (s) { return document.querySelector(s); };
   var esc = function (v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -178,17 +187,21 @@
     }).join('') + '</div>';
   }
 
+  var titleCase = function (t) { return String(t).toLowerCase().replace(/(^|[\s-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); };
+  // A notebook's web address, the same way the printed notebook works it out (print.js).
+  var siteUrl = function (folder, g) { return String((g && g.url) || 'thegamebureau.com/' + folder).replace(/^https?:\/\//, '').replace(/\/$/, ''); };
+
   function renderSheet(sheet, index) {
     var counts = {};
     sheet.words.join('').split('').forEach(function (l) { counts[l] = (counts[l] || 0) + 1; });
     return '<section class="bs-page" aria-label="Battle sheet ' + (index + 1) + '"><div class="bs-sheet">' +
-      '<div><header class="bs-head"><strong>WORD FLEET BATTLE TRACKER</strong><span>The Word Fleet Game Notebook</span></header>' +
+      '<div><header class="bs-head"><strong>' + esc(String(notebook.title).toUpperCase()) + ' BATTLE TRACKER</strong><span>The ' + esc(titleCase(notebook.title)) + ' Game Notebook</span></header>' +
       '<div class="bs-name"><span>Fleet Name</span><span class="bs-name-line"></span></div>' +
       '<div class="bs-board"><div><h3>Attack Grid <span class="bs-lengths">' + LENGTHS.map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</span></h3>' + grid('Attack Grid') + '</div>' +
       '<div><h3>Attack Manifest</h3>' + manifest() + '<div class="bs-codes"><strong>Launch Codes</strong><div>' + esc(sheet.codes.join(' ')) + '</div></div></div></div></div>' +
       '<div class="bs-board bs-defense"><div><h3>Defense Grid <span class="bs-words">' + esc(sheet.words.join(' / ')) + '</span></h3>' + grid('Defense Grid') + '</div>' +
       '<div><h3>Defense Manifest</h3>' + manifest(counts) + '</div></div>' +
-      '<footer class="bs-foot"><strong>The Game Bureau</strong><span>thegamebureau.com/wordfleet</span></footer>' +
+      '<footer class="bs-foot"><strong>The Game Bureau</strong><span>' + esc(notebook.url) + '</span></footer>' +
       '</div></section>';
   }
 
@@ -198,6 +211,8 @@
 
   function show(ed, note) {
     edition = ed;
+    if (ed.notebook && ed.notebook.title) setNotebook(ed.notebook);
+    ed.notebook = notebook;
     $('#gen-count').value = ed.sheets.length;
     $('#gen-sheets').innerHTML = ed.sheets.map(renderSheet).join('');
     fit();
@@ -212,8 +227,43 @@
     var sheets = createSheets(n);
     validateSheets(sheets);
     var d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
-    show({ schema: 1, game: 'word-fleet', edition: stamp, made: d.toISOString(), sheets: sheets }, 'New sheets made.');
+    show({ schema: 1, game: 'word-fleet', notebook: notebook, edition: stamp, made: d.toISOString(), sheets: sheets }, 'New sheets made.');
   }
+
+  // ---------- which notebook the sheets belong to ----------
+  function setNotebook(nb) {
+    notebook = { folder: nb.folder || '', title: nb.title, url: nb.url || siteUrl(nb.folder, null) };
+    try { localStorage.setItem(GAME_STORE, JSON.stringify(notebook)); } catch (e) { /* optional */ }
+    fillPicker();
+  }
+  function fillPicker() {
+    var list = notebooks.slice();
+    if (!list.some(function (n) { return n.folder === notebook.folder; })) list.unshift(notebook);
+    $('#gen-game').innerHTML = list.map(function (n) {
+      return '<option value="' + esc(n.folder) + '"' + (n.folder === notebook.folder ? ' selected' : '') + '>' + esc(titleCase(n.title)) + ' (' + esc(n.url) + ')</option>';
+    }).join('');
+  }
+  $('#gen-game').onchange = function () {
+    var f = this.value, nb = notebooks.filter(function (n) { return n.folder === f; })[0];
+    if (!nb) return;
+    setNotebook(nb);
+    if (edition) { edition.notebook = notebook; show(edition, 'Sheets now say ' + titleCase(nb.title) + '.'); }
+  };
+  try { var g0 = JSON.parse(localStorage.getItem(GAME_STORE)); if (g0 && g0.title) notebook = g0; } catch (e) { /* none saved */ }
+  GH.listGames().then(function (r) {
+    notebooks = r.games.filter(function (x) { return !/^(studio|template)(\/|$)/.test(x.folder); }).map(function (x) {
+      return { folder: x.folder, title: x.game.title || x.folder, url: siteUrl(x.folder, x.game) };
+    }).sort(function (a, b) { return a.title.localeCompare(b.title); });
+    // Refresh the saved choice with the notebook's current title and address.
+    var now = notebooks.filter(function (n) { return n.folder === notebook.folder; })[0];
+    if (now && (now.title !== notebook.title || now.url !== notebook.url)) {
+      setNotebook(now);
+      if (edition) { edition.notebook = notebook; show(edition); }
+    } else fillPicker();
+  }).catch(function (e) {
+    fillPicker();
+    status('Could not list the studio notebooks (' + e.message + '), so only ' + titleCase(notebook.title) + ' is offered.', 'bad');
+  });
 
   function fit() {
     // Letter pages are 8.5 in wide; shrink them to fit narrow screens.
