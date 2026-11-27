@@ -182,12 +182,14 @@
         // Pages is a header that opens to Rules, Scoring and Game.
         (k === PAGES[0] ? '<button type="button" class="ad-pgs" id="ad-pgs" aria-expanded="false" aria-controls="ad-pgs-sub"' + (locked(k) ? ' disabled' : '') + '>Pages</button><div class="ad-sub" id="ad-pgs-sub" role="group" aria-label="Pages" hidden>' : '') +
         '<button type="button" data-tab="' + k + '"' + (locked(k) ? ' disabled title="Choose a notebook in Notebooks first"' : '') + '>' + l + '</button>' +
-        (k === PAGES[PAGES.length - 1] ? '</div></div>' : '')).join('') +
+        (k === PAGES[PAGES.length - 1] ? '<button type="button" class="nb-btn ad-autogen" id="ad-autogen" title="Coming soon"' + (locked(k) ? ' disabled' : '') + '>AUTO-GENERATE</button></div></div>' : '')).join('') +
       '</nav>' +
       '<main class="ad-panel" id="ad-panel"></main>' +
       '<aside class="ad-preview" id="ad-preview"></aside></div>';
     document.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => show(b.dataset.tab); });
     $('#ad-pgs').onclick = () => pagesOpen($('#ad-pgs').getAttribute('aria-expanded') !== 'true');
+    // Placeholder: Kevin will program Auto-generate later.
+    $('#ad-autogen').onclick = () => flash('Auto-generate is coming soon.', 'ok');
     $('#ad-publish').onclick = () => mode() === 'save' ? saveDraft() : save();
     $('#ad-discard').onclick = askDiscard;
     keyWarn();
