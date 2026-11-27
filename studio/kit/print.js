@@ -176,7 +176,7 @@
       g.print.margin = g.print.margin == null ? 0.5 : g.print.margin;
       document.title = g.title + ' · ' + document.body.dataset.page;
       // Fill {{title}}, {{subtitle}}, {{tagline}}, {{url}} anywhere in the page text.
-      const vars = { title: g.title, subtitle: g.subtitle || '', tagline: g.tagline || '', url: g.url || 'thegamebureau.com' + NB.folder(), price: g.price || '' };
+      const vars = { title: g.title, subtitle: g.subtitle || '', tagline: g.tagline || '', url: String(g.url || 'thegamebureau.com' + NB.folder()).replace(/^https?:\/\//, '').replace(/\/+$/, ''), price: g.price || '' };
       const html = {
         steps: '<ol class="pk-steps">' + (g.steps || []).map(st => '<li><b>' + NB.esc(st.title) + '</b>' + NB.esc(st.text) + '</li>').join('') + '</ol>',
         specs: '<div class="pk-specs">' + (g.specs || []).map(sp => '<div><b>' + NB.esc(sp[0]) + '</b>' + NB.esc(sp[1]) + '</div>').join('') + '</div>',
