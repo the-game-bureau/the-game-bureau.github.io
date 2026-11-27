@@ -1353,16 +1353,15 @@
     coverStyles(p);
   };
   // Ready-made cover designs. Each is a whole cover.html, filled in from this game's details
-  // and colours. USE THIS swaps it in; "Put my cover back" undoes the last swap.
+  // and colours. USE THIS swaps it in (DISCARD in the title bar undoes unsaved changes).
   const COVER_STYLES = [['classic', 'Classic', '/' + ST.STARTER + '/cover.html'], ['photo', 'Big photo', '/studio/kit/covers/photo.html'], ['bold', 'Bold title', '/studio/kit/covers/bold.html'], ['notebook', 'Notebook', '/studio/kit/covers/notebook.html'],
     ['split', 'Split', '/studio/kit/covers/split.html'], ['framed', 'Framed', '/studio/kit/covers/framed.html'], ['badge', 'Badge', '/studio/kit/covers/badge.html'], ['duotone', 'Duotone', '/studio/kit/covers/duotone.html']];
   const coverSrc = {};
-  let coverBefore = null;
   const getCover = u => coverSrc[u] || (coverSrc[u] = fetch(u + '?v=' + KITV, { cache: 'no-cache' }).then(r => r.ok ? r.text() : Promise.reject(new Error('could not load ' + u))));
   function coverStyles(p) {
     const box = document.createElement('div');
     box.className = 'ad-cstyles';
-    box.innerHTML = (coverBefore != null ? '<p class="ad-cstyles-h"><button type="button" class="ad-link" id="ad-cstyle-undo">Put my cover back</button></p>' : '') +
+    box.innerHTML =
       '<div class="ad-cstyle-row">' + COVER_STYLES.map(([k, l]) => '<figure class="ad-cstyle"><div class="ad-cstyle-pic" role="button" tabindex="0" data-pop="' + k + '" aria-label="Look at the ' + esc(l) + ' cover, back and front"><iframe data-cstyle="' + k + '" title="' + esc(l) + ' cover" tabindex="-1" loading="lazy"></iframe></div>' +
         '<figcaption>' + esc(l) + '<button type="button" class="nb-btn" data-use="' + k + '">USE THIS</button></figcaption></figure>').join('') + '</div>';
     p.querySelector('.ad-lede').after(box);
@@ -1389,16 +1388,13 @@
       b.onclick = () => coverPop(b.dataset.pop);
       b.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); coverPop(b.dataset.pop); } };
     });
-    const undo = box.querySelector('#ad-cstyle-undo');
-    if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
   }
   async function useCoverStyle(k) {
     const st = COVER_STYLES.find(x => x[0] === k);
     try {
       const html = await getCover(st[2]);
-      coverBefore = draft.cover;
       draft.cover = html; persist(); show('cover');
-      flash('Swapped in the ' + esc(st[1]) + ' cover. Click it to look closer, then SAVE. "Put my cover back" undoes it.', 'ok', 8000);
+      flash('Swapped in the ' + esc(st[1]) + ' cover. Click it to look closer, then SAVE.', 'ok', 8000);
     } catch (e) { updateBar('Could not load that cover style: ' + esc(e.message), 'bad'); }
   }
   // A style's back and front (with the spine) in a pop-up. Click the cover to make it very large,
