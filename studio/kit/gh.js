@@ -236,6 +236,12 @@
     return t == null ? null : JSON.parse(t);
   };
   GH.writeIdeas = (list, message) => toDrafts([{ path: 'ideas.json', text: JSON.stringify(list, null, 2) + '\n' }], message);
+  // Colour palettes added in the Colors tab (beyond NB.PRESETS) live in palettes.json there too.
+  GH.readPalettes = async function () {
+    const t = await GH.readTextAt('palettes.json', GH.DRAFTS);
+    return t == null ? [] : JSON.parse(t);
+  };
+  GH.writePalettes = (list, message) => toDrafts([{ path: 'palettes.json', text: JSON.stringify(list, null, 2) + '\n' }], message);
   // Commits [{path, text}] or [{path, delete: true}] to the studio-drafts branch, starting the branch if needed.
   async function toDrafts(tree, message, onStep) {
     try { await GH.api('/git/ref/heads/' + GH.DRAFTS); } catch (e) {

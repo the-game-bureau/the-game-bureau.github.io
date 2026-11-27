@@ -1000,24 +1000,137 @@
 
   // ---------- tab: colors ----------
   let colorsAtStart = null; // the scheme when the Colors tab was first opened in this visit, for NEVER MIND
+  // Palettes added with "Add a color palette" (palettes.json on studio-drafts, shared by every connected browser).
+  // null until read. Each is {name, color, accent, paper, ink, at, by}.
+  let myPalettes = null, palDesc = '';
+  const fetchPalettes = () => GH.token() ? GH.readPalettes().catch(() => []) : Promise.resolve([]);
+  // Every palette in the gallery, A to Z: [name, main, accent, paper, ink, added?].
+  const gallery = () => PRESETS.map(x => x.slice(0, 5)).concat((myPalettes || []).map(x => [x.name, x.color, x.accent, x.paper, x.ink, true]))
+    .sort((x, y) => x[0].localeCompare(y[0], undefined, { sensitivity: 'base', numeric: true }));
+  // The prompt to paste into any chat AI. It asks for one JSON object the paste box below can read.
+  function palettePrompt(desc) {
+    return 'Please design a 4-color palette for a printed paper notebook game and its web page.\n\n' +
+      'What I want: ' + (desc.trim() || '[describe the palette here]') + '\n\n' +
+      'The four colors:\n' +
+      '- main: top bar, headings, buttons and the cover. Dark enough that white or paper-colored text on it is easy to read.\n' +
+      '- accent: highlights, numbers and the order button. Bright, and stands out against main.\n' +
+      '- paper: the web page background and the cover. Very light, close to white.\n' +
+      '- ink: text and lines. Very dark, easy to read on paper.\n\n' +
+      'Also give the palette a short name of 1 to 3 words (for example "Autumn cabin").\n\n' +
+      'Reply with ONLY this JSON, in one ```json code block, with each color as a 6-digit hex code:\n' +
+      '```json\n{"name": "Palette name", "main": "#RRGGBB", "accent": "#RRGGBB", "paper": "#RRGGBB", "ink": "#RRGGBB"}\n```\n';
+  }
+  // Reads the AI's answer. Returns {palette} or {error} with a message for the person.
+  function parsePalette(raw) {
+    raw = (raw || '').trim();
+    if (!raw) return { error: 'Paste the AI\'s answer in the box first.' };
+    const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i), body = fence ? fence[1] : raw;
+    const i = body.indexOf('{'), j = body.lastIndexOf('}');
+    if (i < 0 || j < i) return { error: 'I couldn\'t find a palette in that. The answer should look like {"name": …, "main": "#…", …}. Ask the AI to reply with only the JSON.' };
+    let o;
+    try { o = JSON.parse(body.slice(i, j + 1).replace(/[“”]/g, '"').replace(/,\s*}/g, '}')); }
+    catch (e) { return { error: 'That palette isn\'t written quite right, so I can\'t read it. Ask the AI to reply with only the JSON in one code block, then paste again.' }; }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return { error: 'I couldn\'t find a palette in that. Ask the AI to reply with only the JSON.' };
+    const low = {}; Object.keys(o).forEach(k => { low[k.toLowerCase().trim()] = o[k]; });
+    const name = String(low.name || '').trim().replace(/\s+/g, ' ');
+    if (!name) return { error: 'The palette needs a name. Ask the AI to add one, or add "name": "Your name" to the pasted text.' };
+    if (name.length > 40) return { error: 'The name "' + name.slice(0, 40) + '…" is too long. Keep it to 40 letters or fewer.' };
+    const roles = [['color', ['main', 'color', 'brand', 'primary'], 'main'], ['accent', ['accent', 'highlight'], 'accent'], ['paper', ['paper', 'background'], 'paper'], ['ink', ['ink', 'text'], 'ink']];
+    const pal = { name };
+    for (const [k, keys, label] of roles) {
+      const key = keys.find(x => low[x] != null);
+      if (!key) return { error: 'The ' + label + ' color is missing. The answer needs all four: main, accent, paper and ink.' };
+      let v = String(low[key]).trim().replace(/^#?/, '#');
+      if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + v.slice(1).split('').map(c => c + c).join('');
+      if (!/^#[0-9a-f]{6}$/i.test(v)) return { error: 'The ' + label + ' color "' + String(low[key]) + '" isn\'t a color code. It should look like #1F3A5F.' };
+      pal[k] = v.toUpperCase();
+    }
+    const taken = gallery().find(x => x[0].toLowerCase() === name.toLowerCase());
+    if (taken) return { error: 'There is already a palette called "' + taken[0] + '". Change the name in the pasted text and click ADD PALETTE again.' };
+    return { palette: pal };
+  }
   function tabColors(p) {
     const b = draft.game.brand = Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, draft.game.brand || {});
     if (!colorsAtStart) colorsAtStart = Object.assign({}, b);
     const one = (k, l, h) => '<label class="ad-color"><input type="color" data-color="' + k + '" value="' + esc(b[k]) + '"><span><b>' + l + '</b><small>' + h + '</small><input type="text" data-hex="' + k + '" value="' + esc(b[k]) + '" maxlength="7" spellcheck="false"></span></label>';
     p.innerHTML = '<div class="ad-colors-head"><h2>Colors</h2><div class="nb-row ad-nevermind"><button type="button" class="nb-btn" id="ad-nevermind" title="Put back the colours from when you opened this tab" hidden>NEVER MIND</button></div></div><p class="ad-lede">The four colors used for the game notebook website and the game notebook itself.</p>' +
       '<div class="ad-colors">' + one('color', 'Main', 'Top bar, headings, buttons, cover') + one('accent', 'Accent', 'Highlights, numbers, order button') + one('paper', 'Paper', 'Web page background and the cover. Notebook pages always print on white regardless of this Paper color setting.') + one('ink', 'Ink', 'Text and lines') + '</div>' +
-      '<h3>Presets</h3><div class="ad-presets">' + PRESETS.map((x, i) => '<button type="button" data-preset="' + i + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + x[0] + '</b></button>').join('') + '</div>';
+      '<h3>Presets</h3><div class="ad-presets" id="ad-presets"></div>' +
+      '<h3>Add a color palette</h3><div class="ad-help-box ad-ai ad-addpal">' +
+      '<ol><li><label for="ad-pal-desc"><b>Describe the palette you want.</b></label><textarea id="ad-pal-desc" rows="2" placeholder="For example: a cozy autumn cabin, warm rust and mustard with a deep brown">' + esc(palDesc) + '</textarea></li>' +
+      '<li>Click <button type="button" class="nb-btn" id="ad-pal-copy">COPY PROMPT</button> and paste it into your AI of choice (Claude, ChatGPT and so on).<span class="ad-pal-note" id="ad-pal-copied"></span></li>' +
+      '<li><label for="ad-pal-paste"><b>Paste the AI\'s whole answer here</b></label> and click ADD PALETTE. It joins the presets above and this notebook switches to it.<textarea id="ad-pal-paste" rows="4" spellcheck="false" placeholder="{&quot;name&quot;: &quot;Autumn cabin&quot;, &quot;main&quot;: &quot;#…&quot;, &quot;accent&quot;: &quot;#…&quot;, &quot;paper&quot;: &quot;#…&quot;, &quot;ink&quot;: &quot;#…&quot;}"></textarea>' +
+      '<div class="ad-pal-btns"><button type="button" class="nb-btn solid" id="ad-pal-add">ADD PALETTE</button></div><p class="ad-pal-msg" id="ad-pal-msg" role="status"></p></li></ol></div>';
+    const same = (x, y) => ['color', 'accent', 'paper', 'ink'].every(k => (x[k] || '').toUpperCase() === (y[k] || '').toUpperCase());
+    const asBrand = x => ({ color: x[1], accent: x[2], paper: x[3], ink: x[4] });
+    const drawPresets = () => {
+      const box = $('#ad-presets'); if (!box) return;
+      box.innerHTML = gallery().map(x => '<div class="ad-preset"><button type="button" data-preset="' + esc(x[0]) + '" aria-pressed="' + same(b, asBrand(x)) + '"><span style="background:' + x[1] + '"></span><span style="background:' + x[2] + '"></span><span style="background:' + x[3] + '"></span><span style="background:' + x[4] + '"></span><b>' + esc(x[0]) + '</b></button>' +
+        (x[5] ? '<button type="button" class="ad-pal-del" data-pal-del="' + esc(x[0]) + '" title="Remove ' + esc(x[0]) + ' from the presets" aria-label="Remove ' + esc(x[0]) + '">&times;</button>' : '') + '</div>').join('');
+    };
+    const mark = () => p.querySelectorAll('[data-preset]').forEach(el => { const x = gallery().find(g => g[0] === el.dataset.preset); el.setAttribute('aria-pressed', !!x && same(b, asBrand(x))); });
     const setColor = (k, v) => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; b[k] = v.toUpperCase(); p.querySelector('[data-color="' + k + '"]').value = v; p.querySelector('[data-hex="' + k + '"]').value = b[k]; persist(); };
+    const setAll = x => ['color', 'accent', 'paper', 'ink'].forEach(k => setColor(k, x[k]));
     p.querySelectorAll('[data-color]').forEach(el => { el.oninput = () => setColor(el.dataset.color, el.value); });
     p.querySelectorAll('[data-hex]').forEach(el => { el.oninput = () => setColor(el.dataset.hex, el.value.trim()); });
-    p.querySelectorAll('[data-preset]').forEach(el => { el.onclick = () => { const x = PRESETS[+el.dataset.preset]; ['color', 'accent', 'paper', 'ink'].forEach((k, i) => setColor(k, x[i + 1])); }; });
     const nm = $('#ad-nevermind');
-    const same = () => ['color', 'accent', 'paper', 'ink'].every(k => (b[k] || '').toUpperCase() === (colorsAtStart[k] || '').toUpperCase());
     // Colour changes are kept with the rest of the notebook by SAVE in the title bar (Kevin removed SAVE COLORS).
-    const sync = () => { nm.hidden = same(); };
-    p.addEventListener('input', sync); p.addEventListener('click', e => { if (e.target.closest('[data-preset]')) sync(); });
-    nm.onclick = () => { ['color', 'accent', 'paper', 'ink'].forEach(k => setColor(k, colorsAtStart[k])); sync(); flash('Colours put back.', 'ok'); };
-    sync();
+    const sync = () => { nm.hidden = same(b, colorsAtStart); mark(); };
+    $('#ad-presets').addEventListener('click', e => {
+      const del = e.target.closest('[data-pal-del]');
+      if (del) { removePalette(del.dataset.palDel); return; }
+      const el = e.target.closest('[data-preset]'); if (!el) return;
+      const x = gallery().find(g => g[0] === el.dataset.preset); if (x) setAll(asBrand(x));
+      sync();
+    });
+    p.querySelector('.ad-colors').addEventListener('input', sync);
+    nm.onclick = () => { setAll(colorsAtStart); sync(); flash('Colours put back.', 'ok'); };
+    drawPresets(); sync();
+    if (!myPalettes) fetchPalettes().then(l => { myPalettes = l; if (tab === 'colors') { drawPresets(); sync(); } });
+
+    // Add a color palette: describe it, copy a prompt for any AI, paste its answer back.
+    const msg = $('#ad-pal-msg'), say = (t, kind) => { msg.textContent = t; msg.className = 'ad-pal-msg' + (kind ? ' ' + kind : ''); };
+    $('#ad-pal-desc').oninput = e => { palDesc = e.target.value; };
+    $('#ad-pal-copy').onclick = () => {
+      const note = $('#ad-pal-copied');
+      if (!palDesc.trim()) { note.textContent = ' Describe the palette first.'; $('#ad-pal-desc').focus(); return; }
+      const text = palettePrompt(palDesc);
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+        () => { note.textContent = ' Copied. Paste it into your AI chat.'; },
+        () => { note.textContent = ' Your browser blocked copying, so here it is to copy yourself:'; note.insertAdjacentHTML('beforeend', '<textarea class="ad-pal-prompt" rows="6" readonly>' + esc(text) + '</textarea>'); });
+    };
+    $('#ad-pal-paste').oninput = () => say('');
+    $('#ad-pal-add').onclick = async () => {
+      if (myPalettes == null) myPalettes = await fetchPalettes();
+      const r = parsePalette($('#ad-pal-paste').value);
+      if (r.error) { say(r.error, 'bad'); return; }
+      const x = r.palette;
+      setAll(x); sync();
+      if (!GH.token()) { say('This notebook now uses ' + x.name + ', but it could not join the presets: connect to GitHub in the Connect tab to keep palettes for every notebook.', 'bad'); return; }
+      const btn = $('#ad-pal-add'); btn.disabled = true; say('Adding ' + x.name + '…');
+      try {
+        const by = await GH.login().catch(() => '');
+        const pal = Object.assign({}, x, { at: new Date().toISOString(), by });
+        const fresh = await GH.readPalettes(); // re-read so two browsers don't lose each other's palettes
+        if (fresh.some(y => y.name.toLowerCase() === x.name.toLowerCase())) throw new Error('someone already added a palette called "' + x.name + '"');
+        const next = fresh.concat([pal]);
+        await GH.writePalettes(next, 'Add colour palette: ' + x.name);
+        myPalettes = next;
+        if (tab !== 'colors') return;
+        $('#ad-pal-paste').value = ''; drawPresets(); sync();
+        say('Added ' + x.name + ' to the presets, and this notebook now uses it. Click SAVE at the top to keep it for this notebook.', 'ok');
+      } catch (e) { say('This notebook now uses ' + x.name + ', but it could not join the presets: ' + e.message, 'bad'); }
+      finally { const bb = $('#ad-pal-add'); if (bb) bb.disabled = false; }
+    };
+    async function removePalette(name) {
+      if (!confirm('Remove the palette "' + name + '" from the presets? Notebooks already using its colours keep them.')) return;
+      try {
+        const next = (await GH.readPalettes()).filter(y => y.name !== name);
+        await GH.writePalettes(next, 'Remove colour palette: ' + name);
+        myPalettes = next; if (tab === 'colors') { drawPresets(); sync(); }
+        flash('Removed ' + name + '.', 'ok');
+      } catch (e) { updateBar('Could not remove the palette: ' + esc(e.message), 'bad'); }
+    }
   }
 
   // ---------- tabs: rules, cover, contents (code editors) ----------
