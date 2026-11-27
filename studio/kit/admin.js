@@ -31,7 +31,7 @@
   // Plain /studio/ starts with only Connect and Notebooks open; the other tabs wait until a
   // notebook is chosen there (an existing one, or New notebook, which opens /studio/?new).
   const CHOSEN = !IS_NEW || new URLSearchParams(location.search).has('new');
-  const OPEN_TABS = ['welcome', 'connect', 'games', 'ideas'];
+  const OPEN_TABS = ['welcome', 'connect', 'games', 'ideas', 'generators'];
   const locked = t => !CHOSEN && !OPEN_TABS.includes(t);
   const NEWKEY = 'nb-draft:/studio/new/';
   const newStart = () => { try { const d = JSON.parse(localStorage.getItem(NEWKEY) || 'null'); if (d && typeof d.start === 'string' && /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(d.start)) return d.start; } catch (e) { /* none */ } return ST.STARTER; };
@@ -55,7 +55,7 @@
   const PRESETS = NB.PRESETS; // in kit.js, shared with the studio
   // The tabs under the Pages header in the nav.
   const PAGES = ['rules', 'scoring', 'game'];
-  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas']];
+  const TABS = [['welcome', 'Welcome'], ['connect', 'Connect'], ['games', 'Notebooks'], ['colors', 'Colors'], ['media', 'Media'], ['content', 'Website'], ['cover', 'Cover'], ['rules', 'Rules'], ['scoring', 'Scoring'], ['game', 'Game'], ['sampler', 'Sampler'], ['pdfs', 'Bundle'], ['checklist', 'Checklist'], ['history', 'History'], ['ideas', 'Ideas'], ['generators', 'Generators']];
   const ALIAS = { contents: 'scoring', pages: 'scoring', setup: 'checklist', new: 'content', games: 'games', elements: 'content', website: 'content' };
   const tabFromHash = () => { const h = location.hash.slice(1); const t = ALIAS[h] || h; return TABS.some(x => x[0] === t) ? t : ''; };
 
@@ -252,7 +252,7 @@
     if (tabFromHash() !== t) history.replaceState(null, '', location.pathname + location.search + '#' + t);
     const panel = $('#ad-panel');
     panel.innerHTML = '';
-    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, scoring: p => pagesTab(p, 'scoring'), game: p => pagesTab(p, 'game'), sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
+    ({ welcome: tabWelcome, connect: p => ST.connect(p, () => { updateBar(); keyWarn(); }), games: p => ST.games(p, IS_NEW ? '' : FOLDER), ideas: tabIdeas, generators: tabGenerators, checklist: tabSetup, content: tabContent, colors: tabColors, rules: tabRules, cover: tabCover, scoring: p => pagesTab(p, 'scoring'), game: p => pagesTab(p, 'game'), sampler: tabSampler, media: tabMedia, pdfs: tabPdfs, history: tabHistory })[t](panel);
     previewFor(t);
     if (!keepBar) updateBar();
   }
@@ -263,7 +263,7 @@
   function previewFor(t) {
     const pv = $('#ad-preview');
     const opts = {
-      welcome: null, connect: null, checklist: null, games: null, ideas: null, pdfs: null, content: null, history: null,
+      welcome: null, connect: null, checklist: null, games: null, ideas: null, generators: null, pdfs: null, content: null, history: null,
       media: [['page', 'Game page']],
       colors: [['duo', 'Web and notebook']],
       rules: null, // the Rules tab has a button to the rules page instead of a preview
@@ -1855,6 +1855,19 @@
     p.innerHTML = '<h2>Welcome</h2><p class="ad-lede">One of the types of games The Game Bureau creates is Game Notebooks. Think playing Tic-Tac-Toe with pen and paper, except the game board is already drawn for you on every page of a notebook. Hopefully our notebook games are a little more fun than that, but that gives you an idea. Each notebook game has a subdomain website, a games notebook for sale and a sampler games notebook for download and print.</p>' +
       '<video class="ad-welcome-video" src="/studio/assets/notebook-open.mp4" autoplay muted playsinline controls preload="auto"></video>';
   };
+
+  // ---------- tab: generators ----------
+  // Tools that make printable pages for a game. Each lives in its own folder under studio/generators/.
+  // To add one, put its folder there and add a line here.
+  const GENERATORS = [
+    { path: 'wordfleet-battle-sheets/', title: 'Word Fleet battle sheets', game: 'Word Fleet',
+      about: 'Makes Letter-size battle sheets, each with its own hidden fleet of five words (5, 4, 3, 3 and 2 letters) and five launch codes. Print them or save them as a PDF.' }
+  ];
+  function tabGenerators(p) {
+    p.innerHTML = '<h2>Generators</h2><p class="ad-lede">Tools that make printable pages for a game. Each one opens on its own page.</p>' +
+      '<ol class="ad-gens">' + GENERATORS.map(g => '<li class="ad-card ad-gen"><div><p class="ad-gen-game">' + esc(g.game) + '</p><h3>' + esc(g.title) + '</h3><p>' + esc(g.about) + '</p></div>' +
+        '<a class="nb-btn solid" href="/studio/generators/' + g.path + '">OPEN</a></li>').join('') + '</ol>';
+  }
 
   // ---------- tab: ideas ----------
   // Ideas for future games, shared by every connected browser (ideas.json on studio-drafts).
