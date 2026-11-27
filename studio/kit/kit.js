@@ -56,6 +56,7 @@
     ['Slate', '#3D4F5C', '#7FD1AE', '#F7F9F9', '#151C21'],
     ['Grape', '#3F1D5A', '#FF9F1C', '#FCF8FF', '#170D21'],
     ['Olive', '#4B5320', '#E76F51', '#FBFAF2', '#191B0C'],
+    ['Word Fleet', '#2A6130', '#FF9F40', '#F1F3EE', '#1B231F'],
     // NHL team colours.
     ['Bruins', '#111111', '#FFB81C', '#FFFBF0', '#111111'],
     ['Canadiens', '#192168', '#E03A3E', '#FFFFFF', '#10142E'],
