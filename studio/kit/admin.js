@@ -266,7 +266,7 @@
       media: [['page', 'Game page']],
       colors: [['duo', 'Web and notebook']],
       rules: null, // the Rules tab has a button to the rules page instead of a preview
-      cover: [['spread', 'Spread'], ['front', 'Front'], ['back', 'Back']],
+      cover: null, // Kevin (2026-11-27): no preview pane; clicking a style opens it big (coverPop)
       // Each Pages tab previews only its own pages.
       scoring: [['scoring', 'Scoring pages']],
       game: [['game', 'Game sheets']],
@@ -1363,7 +1363,7 @@
     const box = document.createElement('div');
     box.className = 'ad-cstyles';
     box.innerHTML = (coverBefore != null ? '<p class="ad-cstyles-h"><button type="button" class="ad-link" id="ad-cstyle-undo">Put my cover back</button></p>' : '') +
-      '<div class="ad-cstyle-row">' + COVER_STYLES.map(([k, l]) => '<figure class="ad-cstyle"><div class="ad-cstyle-pic"><iframe data-cstyle="' + k + '" title="' + esc(l) + ' cover" tabindex="-1" loading="lazy"></iframe></div>' +
+      '<div class="ad-cstyle-row">' + COVER_STYLES.map(([k, l]) => '<figure class="ad-cstyle"><div class="ad-cstyle-pic" role="button" tabindex="0" data-pop="' + k + '" aria-label="Look at the ' + esc(l) + ' cover, back and front"><iframe data-cstyle="' + k + '" title="' + esc(l) + ' cover" tabindex="-1" loading="lazy"></iframe></div>' +
         '<figcaption>' + esc(l) + '<button type="button" class="nb-btn" data-use="' + k + '">USE THIS</button></figcaption></figure>').join('') + '</div>';
     p.querySelector('.ad-lede').after(box);
     COVER_STYLES.forEach(([k, , u]) => {
@@ -1384,17 +1384,92 @@
         f.srcdoc = pvDoc(html, 'layout=front');
       }).catch(() => { f.replaceWith(Object.assign(document.createElement('p'), { className: 'ad-help', textContent: 'Could not load this style.' })); });
     });
-    box.querySelectorAll('[data-use]').forEach(b => { b.onclick = async () => {
-      const st = COVER_STYLES.find(x => x[0] === b.dataset.use);
-      try {
-        const html = await getCover(st[2]);
-        coverBefore = draft.cover;
-        draft.cover = html; persist(); show('cover');
-        flash('Swapped in the ' + esc(st[1]) + ' cover. Check the preview, then SAVE. "Put my cover back" undoes it.', 'ok', 8000);
-      } catch (e) { updateBar('Could not load that cover style: ' + esc(e.message), 'bad'); }
-    }; });
+    box.querySelectorAll('[data-use]').forEach(b => { b.onclick = () => useCoverStyle(b.dataset.use); });
+    box.querySelectorAll('[data-pop]').forEach(b => {
+      b.onclick = () => coverPop(b.dataset.pop);
+      b.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); coverPop(b.dataset.pop); } };
+    });
     const undo = box.querySelector('#ad-cstyle-undo');
     if (undo) undo.onclick = () => { draft.cover = coverBefore; coverBefore = null; persist(); show('cover'); };
+  }
+  async function useCoverStyle(k) {
+    const st = COVER_STYLES.find(x => x[0] === k);
+    try {
+      const html = await getCover(st[2]);
+      coverBefore = draft.cover;
+      draft.cover = html; persist(); show('cover');
+      flash('Swapped in the ' + esc(st[1]) + ' cover. Click it to look closer, then SAVE. "Put my cover back" undoes it.', 'ok', 8000);
+    } catch (e) { updateBar('Could not load that cover style: ' + esc(e.message), 'bad'); }
+  }
+  // A style's back and front (with the spine) in a pop-up. Click the cover to make it very large,
+  // then drag to look around; click again to fit it back on screen. Esc, CLOSE or the dark edge closes it.
+  function coverPop(k) {
+    const st = COVER_STYLES.find(x => x[0] === k); if (!st) return;
+    const old = $('#ad-cpop'); if (old) old.remove();
+    const pop = document.createElement('div');
+    pop.className = 'ad-cpop'; pop.id = 'ad-cpop';
+    pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-modal', 'true'); pop.setAttribute('aria-label', st[1] + ' cover');
+    pop.innerHTML = '<div class="ad-cpop-bar"><b>' + esc(st[1]) + '</b><span class="ad-cpop-hint">Back and front. Click to zoom in, drag to look around.</span>' +
+      '<button type="button" class="nb-btn solid" id="ad-cpop-use">USE THIS</button><button type="button" class="nb-btn" id="ad-cpop-x">CLOSE</button></div>' +
+      '<div class="ad-cpop-stage"><div class="ad-cpop-sheet"><iframe title="' + esc(st[1]) + ' cover, back and front" tabindex="-1"></iframe><div class="ad-cpop-grab"></div></div><p class="ad-cpop-wait">Loading…</p></div>';
+    document.body.appendChild(pop);
+    document.documentElement.classList.add('ad-cpop-open');
+    const stage = pop.querySelector('.ad-cpop-stage'), sheet = pop.querySelector('.ad-cpop-sheet'), f = sheet.querySelector('iframe'), grab = sheet.querySelector('.ad-cpop-grab');
+    let W = 0, H = 0, s = 1, x = 0, y = 0, zoomed = false;
+    const place = () => { sheet.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')'; };
+    const fitS = () => Math.min((stage.clientWidth - 24) / W, (stage.clientHeight - 24) / H);
+    const clamp = () => {
+      const sw = W * s, sh = H * s, cw = stage.clientWidth, ch = stage.clientHeight;
+      x = sw <= cw ? (cw - sw) / 2 : Math.min(0, Math.max(cw - sw, x));
+      y = sh <= ch ? (ch - sh) / 2 : Math.min(0, Math.max(ch - sh, y));
+    };
+    const fit = () => { zoomed = false; s = fitS(); clamp(); place(); pop.classList.remove('zoomed'); };
+    const zoomAt = (px, py) => {
+      // About 1.6 times real size, and always well past the fitted size.
+      const ns = Math.max(1.6, fitS() * 3);
+      x = px - (px - x) * ns / s; y = py - (py - y) * ns / s; s = ns; zoomed = true; clamp(); place(); pop.classList.add('zoomed');
+    };
+    const close = () => { pop.remove(); document.documentElement.classList.remove('ad-cpop-open'); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    const onResize = () => { if (!W) return; if (zoomed) { clamp(); place(); } else fit(); };
+    document.addEventListener('keydown', onKey); window.addEventListener('resize', onResize);
+    pop.querySelector('#ad-cpop-x').onclick = close;
+    pop.querySelector('#ad-cpop-use').onclick = () => { close(); useCoverStyle(k); };
+    stage.addEventListener('click', e => { if (e.target === stage) close(); });
+    // Drag to pan; a press that barely moves counts as a click and toggles the zoom.
+    let down = null;
+    grab.addEventListener('pointerdown', e => { down = { px: e.clientX, py: e.clientY, x, y, moved: false }; grab.setPointerCapture(e.pointerId); e.preventDefault(); });
+    grab.addEventListener('pointermove', e => {
+      if (!down) return;
+      const dx = e.clientX - down.px, dy = e.clientY - down.py;
+      if (Math.abs(dx) + Math.abs(dy) > 5) down.moved = true;
+      if (zoomed && down.moved) { x = down.x + dx; y = down.y + dy; clamp(); place(); }
+    });
+    grab.addEventListener('pointerup', e => {
+      if (!down) return; const d = down; down = null;
+      if (d.moved) return;
+      const r = stage.getBoundingClientRect();
+      if (zoomed) fit(); else zoomAt(e.clientX - r.left, e.clientY - r.top);
+    });
+    grab.addEventListener('pointercancel', () => { down = null; });
+    getCover(st[2]).then(html => {
+      f.onload = () => {
+        let tries = 0;
+        const ready = () => {
+          const d = f.contentDocument; if (!d) return;
+          if (d.body.dataset.ready !== '1' && tries++ < 60) return setTimeout(ready, 150);
+          const tb = d.querySelector('.pk-toolbar'); if (tb) tb.remove();
+          const c = d.querySelector('.pk-cover'); if (!c) return;
+          c.style.margin = '0'; c.style.boxShadow = 'none'; d.body.style.background = 'transparent'; d.body.style.padding = '0';
+          W = c.offsetWidth; H = c.offsetHeight;
+          f.style.width = W + 'px'; f.style.height = H + 'px'; sheet.style.width = W + 'px'; sheet.style.height = H + 'px';
+          pop.classList.add('ready'); fit();
+        };
+        ready();
+      };
+      f.srcdoc = pvDoc(html, 'layout=spread&bleed=0');
+    }).catch(e => { pop.querySelector('.ad-cpop-wait').textContent = 'Could not load this style: ' + e.message; });
+    pop.querySelector('#ad-cpop-x').focus();
   }
   // ---------- tabs: Scoring and Game (Pages) ----------
   // contents.html stays one file. Scoring edits its fixed pages: everything in <body> except the
