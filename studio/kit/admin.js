@@ -1362,8 +1362,7 @@
   function coverStyles(p) {
     const box = document.createElement('div');
     box.className = 'ad-cstyles';
-    box.innerHTML = '<p class="ad-cstyles-h"><b>Start from a cover style</b> Filled in with this game\'s details and colours. ' +
-      (coverBefore != null ? '<button type="button" class="ad-link" id="ad-cstyle-undo">Put my cover back</button>' : '') + '</p>' +
+    box.innerHTML = (coverBefore != null ? '<p class="ad-cstyles-h"><button type="button" class="ad-link" id="ad-cstyle-undo">Put my cover back</button></p>' : '') +
       '<div class="ad-cstyle-row">' + COVER_STYLES.map(([k, l]) => '<figure class="ad-cstyle"><div class="ad-cstyle-pic"><iframe data-cstyle="' + k + '" title="' + esc(l) + ' cover" tabindex="-1" loading="lazy"></iframe></div>' +
         '<figcaption>' + esc(l) + '<button type="button" class="nb-btn" data-use="' + k + '">USE THIS</button></figcaption></figure>').join('') + '</div>';
     p.querySelector('.ad-lede').after(box);
