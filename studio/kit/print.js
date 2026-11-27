@@ -55,11 +55,13 @@
 
     // 0. ?only=rules|scoring|game keeps just that part, for the studio's Rules, Scoring and Game previews.
     //    rules is <section data-rules>, game is <template data-repeat>, scoring is everything else.
-    const only = q.get('only');
+    //    A comma list keeps several: only=rules,scoring is the notebook without its game sheets, used when
+    //    the game pages come from a link or a generator (game.json "pages").
+    const only = q.get('only') ? q.get('only').split(',') : null;
     if (only) [...document.body.children].forEach(el => {
       if (el.tagName === 'SCRIPT') return;
       const part = el.matches('[data-rules]') ? 'rules' : el.matches('template[data-repeat]') ? 'game' : 'scoring';
-      if (part !== only) el.remove();
+      if (!only.includes(part)) el.remove();
     });
 
     // 1. Repeat any <template data-repeat="N">, filling {{n}} with 1..N.
