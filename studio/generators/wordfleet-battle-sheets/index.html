@@ -20,8 +20,11 @@
     is used twice in one edition, so an edition holds at most 200 sheets.
   - GAME picks one of the studio's notebooks (read from GitHub with gh.js). Its title heads every
     sheet and its web address (game.json "url", else thegamebureau.com/<folder>) sits bottom right.
-  - SAVE EDITION downloads the sheets as JSON (the same format as publishing/editions/*.json),
-    and LOAD EDITION opens one again, so a printed batch can be reprinted exactly.
+  - SAVE TO WEBSITE commits the edition (the same JSON format as publishing/editions/*.json) to
+    <notebook folder>/battle-sheets/<edition>.json on main. The battle-sheet-pdfs workflow then renders
+    <edition>.pdf beside it (build-pdf.js opens this page with ?edition=<path>&pdf).
+  - SAVED EDITIONS lists what is saved for the chosen notebook, with its PDF, and opens any of them
+    again, so a printed batch can be reprinted exactly.
 -->
 <style>
 /* ---------- the page around the sheets ---------- */
@@ -34,7 +37,12 @@
 .gen-row select{min-width:240px;max-width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;font:600 16px "NB Text",system-ui,sans-serif}
 .gen-row input[type=number]{width:96px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font:600 16px "NB Text",system-ui,sans-serif}
 .gen-row .nb-btn{min-height:44px}
-.gen-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.gen-saved{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:4px}
+.gen-saved h3{margin:0 0 8px;font-size:15px;letter-spacing:.06em}
+.gen-saved ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.gen-saved li{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.gen-saved li b{min-width:150px}
+.gen-saved .nb-btn{min-height:36px;padding:6px 12px;font-size:13px}
 #gen-status{margin:14px 0 0}
 .gen-sheets{display:grid;justify-content:center;gap:20px}
 
@@ -96,12 +104,12 @@
       <label>Game <select id="gen-game"><option value="">Loading notebooks…</option></select></label>
       <label>Sheets <input id="gen-count" type="number" min="1" max="200" value="50"></label>
       <button class="nb-btn solid" id="gen-new" type="button">GENERATE NEW SHEETS</button>
-      <button class="nb-btn" id="gen-print" type="button">PRINT OR SAVE PDF</button>
-      <button class="nb-btn" id="gen-save" type="button">SAVE EDITION</button>
-      <button class="nb-btn" id="gen-load" type="button">LOAD EDITION</button>
-      <input class="gen-file" id="gen-file" type="file" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+      <button class="nb-btn" id="gen-save" type="button">SAVE TO WEBSITE</button>
+      <button class="nb-btn" id="gen-load" type="button" aria-expanded="false">SAVED EDITIONS</button>
+      <button class="nb-btn" id="gen-print" type="button">PRINT</button>
     </div>
     <p class="ad-status" id="gen-status" role="status"></p>
+    <div class="gen-saved" id="gen-saved" hidden></div>
   </section>
   <div class="gen-sheets" id="gen-sheets"></div>
 </div>
@@ -216,7 +224,7 @@
     $('#gen-count').value = ed.sheets.length;
     $('#gen-sheets').innerHTML = ed.sheets.map(renderSheet).join('');
     fit();
-    try { localStorage.setItem(STORE, JSON.stringify(ed)); } catch (e) { /* storage is optional */ }
+    if (!FORPDF) try { localStorage.setItem(STORE, JSON.stringify(ed)); } catch (e) { /* storage is optional */ }
     var made = ed.made ? ' Made ' + new Date(ed.made).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) + '.' : '';
     status((note ? note + ' ' : '') + 'Edition ' + String(ed.edition || '').toUpperCase() + ': ' + ed.sheets.length + ' battle sheet' + (ed.sheets.length === 1 ? '' : 's') + '.' + made, 'ok');
   }
@@ -247,10 +255,11 @@
     var f = this.value, nb = notebooks.filter(function (n) { return n.folder === f; })[0];
     if (!nb) return;
     setNotebook(nb);
-    if (edition) { edition.notebook = notebook; show(edition, 'Sheets now say ' + titleCase(nb.title) + '.'); }
+    if (edition) { edition.notebook = notebook; edition.saved = false; show(edition, 'Sheets now say ' + titleCase(nb.title) + '.'); }
+    if (!$('#gen-saved').hidden) listSaved();
   };
-  try { var g0 = JSON.parse(localStorage.getItem(GAME_STORE)); if (g0 && g0.title) notebook = g0; } catch (e) { /* none saved */ }
-  GH.listGames().then(function (r) {
+  if (!new URLSearchParams(location.search).has('pdf')) try { var g0 = JSON.parse(localStorage.getItem(GAME_STORE)); if (g0 && g0.title) notebook = g0; } catch (e) { /* none saved */ }
+  if (!new URLSearchParams(location.search).has('pdf')) GH.listGames().then(function (r) {
     notebooks = r.games.filter(function (x) { return !/^(studio|template)(\/|$)/.test(x.folder); }).map(function (x) {
       return { folder: x.folder, title: x.game.title || x.folder, url: siteUrl(x.folder, x.game) };
     }).sort(function (a, b) { return a.title.localeCompare(b.title); });
@@ -272,32 +281,80 @@
   }
 
   $('#gen-new').onclick = function () {
-    if (edition && !confirm('Make a new set of sheets? Save this edition first if you have printed it.')) return;
+    if (edition && !edition.saved && !confirm('Make a new set of sheets? These sheets have not been saved to the website.')) return;
     generate();
   };
   $('#gen-print').onclick = function () { window.print(); };
-  $('#gen-save').onclick = function () {
-    if (!edition) return;
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(edition, null, 2) + '\n'], { type: 'application/json' }));
-    a.download = 'word-fleet-' + edition.edition + '.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  // ---------- saving to and opening from the website ----------
+  var Q = new URLSearchParams(location.search);
+  var FORPDF = Q.has('pdf'); // build-pdf.js renders the page this way: no studio, no storage
+  var savedDir = function () { return notebook.folder + '/battle-sheets/'; };
+  var siteLink = function (path) { return 'https://' + GH.SITE + '/' + path; };
+  var needKey = function () {
+    if (GH.token()) return false;
+    $('#gen-status').innerHTML = 'Saving to the website needs the studio\'s one-time setup. Open <a href="/studio/#connect">Connect</a>, then come back.';
+    $('#gen-status').className = 'ad-status bad';
+    return true;
   };
-  $('#gen-load').onclick = function () { $('#gen-file').click(); };
-  $('#gen-file').onchange = function () {
-    var f = this.files[0]; this.value = '';
-    if (!f) return;
-    f.text().then(function (t) {
-      var ed = JSON.parse(t);
-      if (!ed || !Array.isArray(ed.sheets)) throw new Error('This file has no battle sheets.');
-      validateSheets(ed.sheets);
-      ed.schema = 1; ed.game = 'word-fleet'; ed.edition = ed.edition || f.name.replace(/\.json$/i, '');
-      show(ed, 'Loaded ' + f.name + '.');
-    }).catch(function (e) { status('Could not load ' + f.name + ': ' + e.message, 'bad'); });
+
+  $('#gen-save').onclick = function () {
+    if (!edition || needKey()) return;
+    if (!notebook.folder) { status('Pick a game first.', 'bad'); return; }
+    var btn = this, path = savedDir() + edition.edition + '.json';
+    edition.notebook = notebook;
+    btn.disabled = true;
+    GH.commit([{ path: path, text: JSON.stringify(edition, function (k, v) { return k === 'saved' ? undefined : v; }, 2) + '\n' }],
+      'Save ' + titleCase(notebook.title) + ' battle sheets, edition ' + edition.edition, function (t) { status(t); })
+      .then(function () {
+        edition.saved = true;
+        $('#gen-status').innerHTML = 'Saved to the website. The PDF is being made and will be at <a href="' + esc(siteLink(savedDir() + edition.edition + '.pdf')) + '" target="_blank" rel="noopener">' +
+          esc(GH.SITE + '/' + savedDir() + edition.edition + '.pdf') + '</a> in about 3 minutes.';
+        $('#gen-status').className = 'ad-status ok';
+        if (!$('#gen-saved').hidden) listSaved();
+      })
+      .catch(function (e) { status('Could not save: ' + e.message, 'bad'); })
+      .then(function () { btn.disabled = false; });
+  };
+
+  function listSaved() {
+    var box = $('#gen-saved'), dir = savedDir();
+    box.innerHTML = '<p class="ad-help">Looking on the website…</p>';
+    GH.listFiles().then(function (files) {
+      var pdfs = new Set(files.filter(function (f) { return f.path.indexOf(dir) === 0 && /\.pdf$/.test(f.path); }).map(function (f) { return f.path; }));
+      var eds = files.filter(function (f) { return f.path.indexOf(dir) === 0 && /^[^/]+\.json$/.test(f.path.slice(dir.length)); })
+        .sort(function (a, b) { return b.path.localeCompare(a.path); });
+      box.innerHTML = '<h3>SAVED ' + esc(String(notebook.title).toUpperCase()) + ' EDITIONS</h3>' + (eds.length ? '<ul>' + eds.map(function (f) {
+        var name = f.path.slice(dir.length).replace(/\.json$/, ''), pdf = dir + name + '.pdf';
+        return '<li><b>' + esc(name.toUpperCase()) + '</b><button type="button" class="nb-btn" data-open="' + esc(f.sha) + '" data-name="' + esc(name) + '">OPEN</button>' +
+          (pdfs.has(pdf) ? '<a class="nb-btn" href="' + esc(siteLink(pdf)) + '" target="_blank" rel="noopener">PDF</a>' : '<span class="ad-help">PDF still being made</span>') + '</li>';
+      }).join('') + '</ul>' : '<p class="ad-help">Nothing saved for this game yet. Make sheets, then SAVE TO WEBSITE.</p>');
+      box.querySelectorAll('[data-open]').forEach(function (b) {
+        b.onclick = function () {
+          if (edition && !edition.saved && !confirm('Open the saved edition? The sheets on screen have not been saved to the website.')) return;
+          GH.readBlobText(b.dataset.open).then(function (t) {
+            var ed = JSON.parse(t);
+            validateSheets(ed.sheets);
+            ed.saved = true;
+            show(ed, 'Opened ' + b.dataset.name.toUpperCase() + ' from the website.');
+          }).catch(function (e) { status('Could not open it: ' + e.message, 'bad'); });
+        };
+      });
+    }).catch(function (e) { box.innerHTML = '<p class="ad-help">Could not look on the website: ' + esc(e.message) + '</p>'; });
+  }
+  $('#gen-load').onclick = function () {
+    var box = $('#gen-saved'), open = box.hidden;
+    box.hidden = !open; this.setAttribute('aria-expanded', String(open));
+    if (open) listSaved();
   };
   addEventListener('resize', fit);
 
+  if (Q.get('edition')) {
+    // ?edition=<path from the site root>: show that saved edition (build-pdf.js uses this).
+    fetch('/' + Q.get('edition').replace(/^\/+/, ''), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (ed) { validateSheets(ed.sheets); ed.saved = true; show(ed); document.body.dataset.ready = '1'; })
+      .catch(function (e) { status('Could not open ' + Q.get('edition') + ': ' + e.message, 'bad'); document.body.dataset.ready = 'error'; });
+    return;
+  }
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE)); validateSheets(saved.sheets); } catch (e) { saved = null; }
   if (saved) show(saved, 'Showing your last edition.'); else generate();
