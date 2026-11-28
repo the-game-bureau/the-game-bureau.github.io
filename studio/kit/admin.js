@@ -2086,7 +2086,7 @@
     box.innerHTML = '<div class="ad-rules-pick three" role="radiogroup" aria-label="Where the game pages come from">' +
       opt('html', 'Edit the HTML here', 'One game sheet, printed ' + esc(String(sheets)) + ' times.') +
       opt('link', 'Link to game pages', 'A PDF, Google Doc or web page you already have.') +
-      opt('generator', 'Use a generator', 'Pages made by a generator, such as battle sheets.') + '</div>';
+      opt('generator', 'Use a generator', 'Pages made by a generator, such as battle sheets or Tic Tac Toe pages.') + '</div>';
     if (s.source === 'link') {
       box.insertAdjacentHTML('beforeend', '<label class="ad-field" for="f-pages-link"><span>Game pages link</span><input id="f-pages-link" type="url" value="' + esc(s.link) + '" placeholder="https://docs.google.com/document/d/... or /' + esc(target()) + '/pages/sheet.pdf" autocomplete="off" spellcheck="false"><small id="f-pages-link-msg"></small></label>' +
         '<p class="ad-help">Every page behind the link is one page of the notebook, scaled to fit the page. They print ' + esc(String(sheets)) + ' times: set how many in <a href="#pdfs">Bundle</a> (1 if the link already holds every page). For a Google file, set sharing to <i>Anyone with the link</i>.</p>');
@@ -2095,8 +2095,9 @@
       const gen = genOf(s.generator);
       box.insertAdjacentHTML('beforeend', (GENERATORS.length > 1 ? '<label class="ad-field" for="f-pages-gen"><span>Generator</span><select id="f-pages-gen">' + GENERATORS.map(x => '<option value="' + esc(x.path) + '"' + (x === gen ? ' selected' : '') + '>' + esc(x.title) + '</option>').join('') + '</select></label>' : '') +
         '<div class="ad-card ad-gen"><div><h3>' + esc(gen.title) + '</h3><p>' + esc(gen.about) + ' GENERATE makes a new edition and SAVE keeps it in this game\'s pages folder.</p></div>' +
-        (IS_NEW ? '' : '<a class="nb-btn solid" href="/studio/generators/' + esc(gen.path) + '/?game=' + encodeURIComponent(FOLDER) + '" target="_blank" rel="noopener">OPEN THE GENERATOR</a>') + '</div>' +
-        '<h3 class="ad-ed-head">Saved editions <button type="button" class="ad-link" id="ad-ed-refresh">Refresh</button></h3><div id="ad-eds"><p class="ad-help">' + (IS_NEW ? 'Publish the notebook first. Then open the generator, make an edition and SAVE it.' : 'Looking for saved editions…') + '</p></div>');
+        // A new notebook has no folder yet, so its generator opens without one: try it out now, and SAVE editions for this notebook once it is published.
+        '<a class="nb-btn solid" href="/studio/generators/' + esc(gen.path) + '/' + (IS_NEW ? '' : '?game=' + encodeURIComponent(FOLDER)) + '" target="_blank" rel="noopener">OPEN THE GENERATOR</a></div>' +
+        '<h3 class="ad-ed-head">Saved editions <button type="button" class="ad-link" id="ad-ed-refresh">Refresh</button></h3><div id="ad-eds"><p class="ad-help">' + (IS_NEW ? 'You can open the generator and try it now. To keep an edition in this notebook, publish the notebook first, then GENERATE and SAVE with it picked as the game.' : 'Looking for saved editions…') + '</p></div>');
     }
     lede.after(box);
     box.querySelectorAll('[data-src]').forEach(b => { b.onclick = () => {
