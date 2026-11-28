@@ -145,6 +145,8 @@ body.gen-bare .gen-wrap{padding:8px}
   var notebook = FALLBACK, notebooks = [];
   var Q = new URLSearchParams(location.search);
   var PDF = Q.has('pdf');
+  // ?new=1: opened from a new notebook that isn't published yet, so it has no folder to save into.
+  var NEW = Q.has('new');
   if (Q.has('bare') || PDF) document.body.classList.add('gen-bare');
 
   var $ = function (s) { return document.querySelector(s); };
@@ -265,7 +267,7 @@ body.gen-bare .gen-wrap{padding:8px}
     var list = notebooks.slice();
     if (!list.some(function (n) { return n.folder === notebook.folder; })) list.unshift(notebook);
     $('#gen-game').innerHTML = list.map(function (n) {
-      return '<option value="' + esc(n.folder) + '"' + (n.folder === notebook.folder ? ' selected' : '') + '>' + esc(titleCase(n.title)) + ' (' + esc(n.url) + ')</option>';
+      return '<option value="' + esc(n.folder) + '"' + (n.folder === notebook.folder ? ' selected' : '') + '>' + (n.folder ? esc(titleCase(n.title)) + ' (' + esc(n.url) + ')' : 'Pick a game') + '</option>';
     }).join('');
   }
   $('#gen-game').onchange = function () {
@@ -278,6 +280,7 @@ body.gen-bare .gen-wrap{padding:8px}
   try { var g0 = JSON.parse(localStorage.getItem(GAME_STORE)); if (g0 && g0.title) notebook = g0; } catch (e) { /* none saved */ }
   // ?game=<folder> (from the studio's Game tab) picks that notebook until the list arrives.
   if (/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(Q.get('game') || '')) notebook = { folder: Q.get('game'), title: Q.get('game').toUpperCase(), url: siteUrl(Q.get('game'), null) };
+  if (NEW) notebook = { folder: '', title: FALLBACK.title, url: 'thegamebureau.com' };
   var backTo = function () { $('#gen-back').href = notebook.folder ? '/studio/?game=' + encodeURIComponent(notebook.folder) + '#game' : '/studio/'; };
   backTo();
   if (!PDF) GH.listGames().then(function (r) {
@@ -316,7 +319,7 @@ body.gen-bare .gen-wrap{padding:8px}
 
   $('#gen-save').onclick = function () {
     if (!edition || needKey()) return;
-    if (!notebook.folder) { status('Pick a game first.', 'bad'); return; }
+    if (!notebook.folder) { status(NEW ? 'Publish the game first, then pick it under GAME and SAVE.' : 'Pick a game first. A new game shows under GAME once it is published.', 'bad'); return; }
     var btn = this, path = savedDir() + edition.edition + '.json';
     edition.notebook = notebook;
     btn.disabled = true;
@@ -397,6 +400,7 @@ body.gen-bare .gen-wrap{padding:8px}
   try { saved = JSON.parse(localStorage.getItem(STORE)); validateSheets(saved.sheets); } catch (e) { saved = null; }
   // Opened for one notebook (?game=), the last edition shows only if it was for that notebook.
   if (saved && Q.get('game') && (saved.notebook || {}).folder !== Q.get('game')) saved = null;
+  if (NEW) saved = null; // a new notebook starts with fresh pages, not another game's
   if (saved) show(saved, 'Showing your last edition.'); else generate();
 })();
 </script>
