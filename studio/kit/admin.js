@@ -2096,7 +2096,7 @@
       box.insertAdjacentHTML('beforeend', (GENERATORS.length > 1 ? '<label class="ad-field" for="f-pages-gen"><span>Generator</span><select id="f-pages-gen">' + GENERATORS.map(x => '<option value="' + esc(x.path) + '"' + (x === gen ? ' selected' : '') + '>' + esc(x.title) + '</option>').join('') + '</select></label>' : '') +
         '<div class="ad-card ad-gen"><div><h3>' + esc(gen.title) + '</h3><p>' + esc(gen.about) + ' GENERATE makes a new edition and SAVE keeps it in this game\'s pages folder.</p></div>' +
         // A new notebook has no folder yet, so its generator opens without one: try it out now, and SAVE editions for this notebook once it is published.
-        '<a class="nb-btn solid" href="/studio/generators/' + esc(gen.path) + '/' + (IS_NEW ? '' : '?game=' + encodeURIComponent(FOLDER)) + '" target="_blank" rel="noopener">OPEN THE GENERATOR</a></div>' +
+        '<a class="nb-btn solid" href="/studio/generators/' + esc(gen.path) + '/' + (IS_NEW ? '?new=1' : '?game=' + encodeURIComponent(FOLDER)) + '" target="_blank" rel="noopener">OPEN THE GENERATOR</a></div>' +
         '<h3 class="ad-ed-head">Saved editions <button type="button" class="ad-link" id="ad-ed-refresh">Refresh</button></h3><div id="ad-eds"><p class="ad-help">' + (IS_NEW ? 'You can open the generator and try it now. To keep an edition in this notebook, publish the notebook first, then GENERATE and SAVE with it picked as the game.' : 'Looking for saved editions…') + '</p></div>');
     }
     lede.after(box);
