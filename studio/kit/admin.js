@@ -1377,6 +1377,7 @@
             const c = d.querySelector('.pk-cover'); if (!c) return;
             c.style.margin = '0'; c.style.boxShadow = 'none'; d.body.style.background = 'transparent'; d.body.style.padding = '0';
             d.documentElement.style.zoom = f.clientWidth / c.offsetWidth;
+            f.classList.add('ready'); // shown only now, so the unfilled page never flashes by
           };
           fit();
         };
