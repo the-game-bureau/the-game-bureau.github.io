@@ -9,7 +9,7 @@
  *   Inside pages contents.html: the pages after the rules. The Game tab picks where the game pages
  *                come from (game.json "pages"): this HTML, a link, or a generator's saved edition
  *   Media        gallery photos and videos
- *   Sampler      sampler.html: the free sampler's own pages (its own PDF)
+ *   Sampler      pick which parts go in the free sampler and their order (game.json "sampler")
  *   Bundle       print settings (trim, bleed, spine); build the cover, contents, print-at-home and sampler PDFs
  * Edits are kept as a draft in this browser and shown live in the preview. The title bar's
  * SAVE keeps them on GitHub (studio-drafts branch, not live); then the same button reads SAVED. PUBLISH?
@@ -43,10 +43,21 @@
   // Where the notebook lives (or will live, for a new one).
   const target = () => IS_NEW ? (draft && draft.game.slug) || 'your-game' : FOLDER;
   const FILES = { game: 'game.json', rules: 'rules.md', cover: 'cover.html', contents: 'contents.html', sampler: 'sampler.html' };
-  // The free sampler is always: the chosen front cover with the SAMPLER stamp, the rules, the
-  // scoring pages, then sampler.html's own pages. Nothing else (Kevin, 2026-11-27). The rules and
-  // scoring come from the notebook, so sampler.html holds only the sampler's own pages. A notebook
-  // without one gets one game sheet from its inside pages.
+  // The free sampler is built from parts the Sampler tab picks and orders (game.json "sampler",
+  // Kevin, 2026-11-28). The same keys are in build-pdfs.js. With no list it is SAMPLER_DEFAULT.
+  // sampler.html is the "sample game sheet" part; a notebook without one gets one game sheet
+  // from its inside pages.
+  const SAMPLER_PARTS = {
+    front: ['Front cover', 'Your chosen cover, with the SAMPLER stamp'],
+    rules: [null, 'The notebook\'s rules'], // the name is the rules name
+    scoring: ['Scoring pages', 'The fixed pages after the rules'],
+    game: ['Game page', 'One game sheet from the notebook\'s game pages'],
+    sampler: ['Sample game sheet', 'The sheet made for the sampler'],
+    back: ['Back cover', 'The notebook\'s back cover'],
+  };
+  const SAMPLER_DEFAULT = ['front', 'rules', 'scoring', 'sampler'];
+  const samplerPicked = () => Array.isArray(draft.game.sampler) ? [...new Set(draft.game.sampler)].filter(k => SAMPLER_PARTS[k]) : SAMPLER_DEFAULT.slice();
+  const samplerName = k => SAMPLER_PARTS[k][0] || NB.rulesName(draft.game);
   const samplerFrom = contents => {
     const x = splitContents(contents);
     if (!x) return contents;
@@ -270,12 +281,12 @@
       // Each Pages tab previews only its own pages.
       scoring: [['scoring', 'Scoring pages']],
       game: [['game', 'Game sheets']],
-      // The free sampler's four parts, in the order they print.
-      sampler: [['samplerfront', '1. Cover'], ['samplerrules', '2. Rules'], ['samplerscoring', '3. Scoring'], ['sampler', '4. Sampler pages']],
+      // The parts picked for the free sampler, in the order they print.
+      sampler: samplerPicked().map((k, i) => ['sampler-' + k, (i + 1) + '. ' + samplerName(k)]),
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
     document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
-    if (!opts) { pv.innerHTML = ''; return; }
+    if (!opts || !opts.length) { pv.innerHTML = opts ? '<p class="ad-help">Nothing is picked for the sampler yet.</p>' : ''; return; }
     if (t === 'colors') {
       // A small sample of this game's own page (its name, photo, words and steps), drawn only to show
       // the four colours at work. Without a photo, a notebook in the game's colours stands in.
@@ -365,7 +376,9 @@
     const f = $('#ad-pv');
     if (!f) return;
     pvDrawn = pvSig();
-    const mode = pvMode[tab];
+    let mode = pvMode[tab];
+    // The sampler's game page from a link or a generator edition previews like the Game tab does.
+    if (mode === 'sampler-game' && NB.pagesSource(draft.game).source !== 'html') mode = 'game';
     const doc = pvDoc;
     const box = f.parentElement;
     box.className = 'ad-pv-box ' + (['page', 'rules'].includes(mode) ? 'web' : 'print');
@@ -386,10 +399,12 @@
       return;
     }
     else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
-    else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
-    else if (mode === 'samplerfront') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
-    else if (mode === 'samplerrules') f.srcdoc = doc(draft.contents, 'bleed=0&only=rules');
-    else if (mode === 'samplerscoring') f.srcdoc = doc(draft.contents, 'bleed=0&only=scoring');
+    else if (mode === 'sampler-sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
+    else if (mode === 'sampler-front') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
+    else if (mode === 'sampler-back') f.srcdoc = doc(coverTagged(), 'layout=back');
+    else if (mode === 'sampler-rules') f.srcdoc = doc(draft.contents, 'bleed=0&only=rules');
+    else if (mode === 'sampler-scoring') f.srcdoc = doc(draft.contents, 'bleed=0&only=scoring');
+    else if (mode === 'sampler-game') f.srcdoc = doc(draft.contents, 'bleed=0&only=game&repeat=1');
     // Shrink print pages to fit the preview column.
     if (box.classList.contains('print')) f.onload = () => {
       try {
@@ -567,7 +582,7 @@
       { k: 'rules', t: 'Write the rules', d: 'One page if you can. They appear on the rules page and at the front of the notebook.', tab: 'rules', done: !!NB.rulesLink(g) || !/First step\.|Say how the game ends/.test(draft.rules) },
       { k: 'contents', t: 'Design the inside pages', d: 'Scoring pages and the game sheet, in Pages. Set how many game sheets the notebook holds in Bundle.', tab: 'game', manual: true, auto: starter && squash(draft.contents) !== squash(starter.contents) },
       { k: 'cover', t: 'Design the cover', d: 'Front, back and spine. The starter cover fills itself in from your content.', tab: 'cover', manual: true, auto: starter && squash(draft.cover) !== squash(starter.cover) },
-      { k: 'sampler', t: 'Design the free sampler', d: 'Its own PDF and its own pages, made in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: squash(draft.sampler) !== squash(samplerFrom(draft.contents)) },
+      { k: 'sampler', t: 'Pick what goes in the free sampler', d: 'Tick the parts and put them in order in the Sampler tab. The free download on the game page.', tab: 'sampler', manual: true, auto: Array.isArray(g.sampler) },
       { k: 'save', t: 'Save and publish', d: 'Click SAVE at the top, then SAVED. PUBLISH? to put it live. The site republishes in about a minute.', done: !IS_NEW && !changed() && !!saved },
       { k: 'pdfs', t: 'Build and check the PDFs', d: 'They rebuild on their own after each publish. Open each one and check it.', tab: 'pdfs', manual: true, auto: !IS_NEW && !!(build && build.built && lastPublish && new Date(build.built) >= new Date(lastPublish)) },
       { k: 'media', t: 'Add photos and a video', d: (g.media || []).some(m => m && m.placeholder) ? 'The game page still shows placeholder pictures (another company\'s notebook). Replace them in Media before you publish.' : 'Until you add photos, the page shows pictures of the cover and pages from the PDF build.', tab: 'media', done: !(g.media || []).some(m => m && m.placeholder) && (g.media || []).some(m => (m.type === 'image' && m.src) || ((m.type === 'youtube' || m.type === 'vimeo') && m.id) || (m.type === 'video' && m.src)) },
@@ -1520,8 +1535,29 @@
     $('#ad-revert').onclick = () => { if (confirm('Put the scoring and game pages back the way they were last saved?')) { draft.contents = saved.contents; persist(); show(tab); } };
   }
 
-  const tabSampler = p => codeTab(p, 'sampler', 'Sampler', 'The free sampler is always the same four parts, in this order: your chosen front cover with the SAMPLER stamp on top, the rules, the scoring pages, then the sampler pages below. That is all it ever is. It is the free download on the game page.',
-    '<ul><li>This HTML is only part 4, the sampler pages. The cover, rules and scoring come from the Cover and Pages tabs.</li><li>Each <code>&lt;section class="page"&gt;</code> is one page, and <code>&lt;template data-repeat="2"&gt;</code> repeats pages.</li><li>These pages are separate from Pages, so changing one does not change the other.</li></ul>');
+  // Sampler tab: nothing but the notebook's parts, each ticked in or out, in the order they print
+  // (Kevin, 2026-11-28). The picked parts are game.json "sampler"; the PDF build follows it.
+  function tabSampler(p) {
+    const on = samplerPicked(), off = Object.keys(SAMPLER_PARTS).filter(k => !on.includes(k));
+    const row = (k, i) => {
+      const yes = i >= 0;
+      return '<li class="ad-smp' + (yes ? '' : ' off') + '" data-k="' + k + '"><label><input type="checkbox"' + (yes ? ' checked' : '') + '>' +
+        '<span class="ad-smp-n">' + (yes ? i + 1 : '') + '</span><span><b>' + esc(samplerName(k)) + '</b><small>' + esc(SAMPLER_PARTS[k][1]) + '</small></span></label>' +
+        (yes ? '<span class="ad-smp-mv"><button type="button" data-mv="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>&uarr;</button>' +
+          '<button type="button" data-mv="1" aria-label="Move down"' + (i === on.length - 1 ? ' disabled' : '') + '>&darr;</button></span>' : '') + '</li>';
+    };
+    p.innerHTML = '<h2>Sampler</h2><p class="ad-lede">Tick what goes in the free sampler, and use the arrows to put it in order. The sampler PDF is built from this list.</p>' +
+      '<ol class="ad-smp-list">' + on.map(row).join('') + off.map(k => row(k, -1)).join('') + '</ol>';
+    const set = list => { draft.game.sampler = list; persist(); show(tab); };
+    p.querySelectorAll('.ad-smp').forEach(li => {
+      const k = li.dataset.k;
+      li.querySelector('input').onchange = e => set(e.target.checked ? on.concat(k) : on.filter(x => x !== k));
+      li.querySelectorAll('[data-mv]').forEach(b => { b.onclick = () => {
+        const i = on.indexOf(k), j = i + +b.dataset.mv, list = on.slice();
+        [list[i], list[j]] = [list[j], list[i]]; set(list);
+      }; });
+    });
+  }
 
   // ---------- tab: photos and video ----------
   // Pictures of the cover and pages from the PDF build, shown while a game has no photos of its own.
@@ -1713,7 +1749,7 @@
       ['Cover', 'Front and back cover for the printer: one wraparound spread (back, spine, front) with bleed. The spine width follows the page count.', pdf('-cover'), b => (2 * b.trim[0] + b.spine + 2 * b.bleed).toFixed(3) + ' x ' + (b.trim[1] + 2 * b.bleed).toFixed(3) + ' in, spine ' + b.spine + ' in'],
       ['Contents', 'Every inside page for the printer, rules first, with bleed.', pdf('-contents'), b => b.pages.contents + ' pages at ' + (b.trim[0] + 2 * b.bleed) + ' x ' + (b.trim[1] + 2 * b.bleed) + ' in' + (b.pages.blanksAdded ? ' (' + b.pages.blanksAdded + ' blank added)' : '')],
       ['Print-at-home notebook', 'The whole notebook at trim size: front cover, rules, contents, back cover.', pdf(''), b => b.pages.printAtHome + ' pages'],
-      ['Free sampler', 'Front cover with the SAMPLER stamp, rules, scoring pages and the Sampler tab\'s pages. The free download on the game page.', pdf('-sampler'), b => b.pages.sampler + ' pages'],
+      ['Free sampler', 'The parts picked in the Sampler tab, in that order. The free download on the game page.', pdf('-sampler'), b => b.pages.sampler + ' pages'],
     ];
     p.innerHTML = '<h2>Bundle</h2><p class="ad-lede">Built on GitHub from the saved cover, inside pages and rules. They rebuild on their own about 3 minutes after each save.</p>' +
       '<div class="ad-card ad-build"><div class="nb-row"><button class="nb-btn solid big" id="ad-go" type="button">' + (GH.token() ? 'BUILD PDFS NOW' : 'BUILD PDFS ON GITHUB') + '</button><span class="ad-last">' + (build ? 'Last built ' + when(build.built) : 'Not built yet') + '</span></div>' +

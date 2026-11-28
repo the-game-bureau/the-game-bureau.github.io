@@ -9,8 +9,8 @@
 //   <slug>-contents.pdf  the inside pages for the printer, rules first, with bleed,
 //                        padded with blank pages to a multiple of print.padTo.
 //   <slug>.pdf           print-at-home copy at trim size: front, rules, contents, back.
-//   <slug>-sampler.pdf   free sampler at trim size, always exactly: the chosen front cover with the
-//                        SAMPLER stamp, the rules, the scoring pages, then sampler.html's pages. No back.
+//   <slug>-sampler.pdf   free sampler at trim size: the parts game.json "sampler" lists, in that order
+//                        (picked in the studio's Sampler tab). See SAMPLER_PARTS below.
 // The game pages come from game.json "pages": contents.html's game sheet (the default), a link (a PDF,
 // Google file or web page, printed print.sheets times) or a generator's saved edition (each sheet once).
 // Everything renders to a temp folder first; pdf/ is only touched when every check passes.
@@ -182,18 +182,30 @@ async function build(browser, base, folder) {
   const front = await render('cover.html', 'layout=front');
   const back = await render('cover.html', 'layout=back');
   const inner = await inside(0);
-  // The free sampler is always these four parts, in this order, and nothing else (Kevin, 2026-11-27):
-  // 1. the chosen front cover with the SAMPLER stamp on top, 2. the rules, 3. the scoring pages,
-  // 4. sampler.html's own pages. Rules and scoring are the notebook's own, from contents.html.
-  const SAMPLER = [
-    ['cover.html', 'layout=front&stamp=sampler', '.pk-cover'],
-    ['contents.html', 'bleed=0&only=rules', '.flow'],
-    ['contents.html', 'bleed=0&only=scoring', '.page'],
-    ['sampler.html', 'bleed=0&part=sampler', '.flow, .page'],
-  ];
-  if (!fs.existsSync(path.join(dir, 'sampler.html'))) throw new Error(folder + ' has no sampler.html (the free sampler\'s own pages). Open it in the studio and publish to make one.');
+  // The free sampler is the parts game.json "sampler" lists, in that order, picked and ordered in the
+  // studio's Sampler tab (Kevin, 2026-11-28). Without a list it is the old fixed sampler:
+  // front cover with the SAMPLER stamp, rules, scoring pages, then sampler.html's sample game sheet.
+  const SAMPLER_PARTS = {
+    front: ['cover.html', 'layout=front&stamp=sampler', '.pk-cover'],
+    rules: ['contents.html', 'bleed=0&only=rules', '.flow'],
+    scoring: ['contents.html', 'bleed=0&only=scoring', '.page'],
+    game: ['contents.html', 'bleed=0&only=game&repeat=1', '.page'], // one game sheet (or the first page of a link or edition)
+    sampler: ['sampler.html', 'bleed=0&part=sampler', '.flow, .page'],
+    back: ['cover.html', 'layout=back', '.pk-cover'],
+  };
+  const picked = Array.isArray(g.sampler) ? [...new Set(g.sampler)].filter(k => SAMPLER_PARTS[k]) : ['front', 'rules', 'scoring', 'sampler'];
+  if (!picked.length) throw new Error('The sampler has nothing in it. Pick at least one part in the studio\'s Sampler tab.');
+  if (picked.includes('sampler') && !fs.existsSync(path.join(dir, 'sampler.html'))) throw new Error(folder + ' has no sampler.html (the sample game sheet). Open it in the studio and publish to make one, or untick it in the Sampler tab.');
+  async function gameSheet() {
+    if (!gamePdf) return render(...SAMPLER_PARTS.game.slice(0, 2));
+    const s = await load(gamePdf), one = await PDFDocument.create();
+    one.addPage((await one.copyPages(s, [0]))[0]);
+    const doc = await PDFDocument.create();
+    await place(doc, await one.save(), W, H, 0, 1);
+    return doc.save();
+  }
   const samplerParts = [];
-  for (const [file, query] of SAMPLER) samplerParts.push(await render(file, query));
+  for (const k of picked) samplerParts.push(k === 'game' ? await gameSheet() : await render(...SAMPLER_PARTS[k].slice(0, 2)));
   async function combine(parts, title) {
     const doc = await PDFDocument.create();
     doc.setTitle(title); doc.setAuthor(P.author || 'The Game Bureau');
@@ -214,7 +226,7 @@ async function build(browser, base, folder) {
   await expect('Print-at-home', full, W, H);
   await expect('Sampler', sampler, W, H);
   if ((await load(cover)).getPageCount() !== 1) throw new Error('Cover should be 1 page. Check cover.html for content that spills over.');
-  if ((await load(front)).getPageCount() !== 1 || (await load(samplerParts[0])).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
+  if ((await load(front)).getPageCount() !== 1 || (await load(back)).getPageCount() !== 1) throw new Error('Front and back should be 1 page each. Check cover.html for content that spills over.');
   const fullCount = (await load(full)).getPageCount(), samplerCount = (await load(sampler)).getPageCount();
   if (samplerCount >= fullCount) throw new Error('Sampler (' + samplerCount + ' pages) is not shorter than the full notebook (' + fullCount + ').');
 
@@ -248,7 +260,8 @@ async function build(browser, base, folder) {
     cover: [['cover.html', 'layout=spread&spine=' + spine, '.pk-cover', 1, true]],
     contents: [['contents.html', 'bleed=1', '.flow, .page', 3]],
     print: [['cover.html', 'layout=front', '.pk-cover', 1], ['contents.html', 'bleed=0', '.flow, .page', 2]],
-    sampler: SAMPLER.map(([file, query, sel]) => [file, query, sel, 1]),
+    // The game sheet from a link or an edition is not an HTML page here, so it has no thumbnail.
+    sampler: picked.filter(k => !(k === 'game' && gamePdf)).map(k => SAMPLER_PARTS[k].concat(1)),
   })) {
     const list = [];
     for (const [file, query, sel, n, spread] of parts) await shoot(file, query, sel, n, { list, dir: tdir, prefix: key + '-', scale: 0.35, quality: 70, spread });
