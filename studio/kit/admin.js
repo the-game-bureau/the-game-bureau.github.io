@@ -377,7 +377,14 @@
     else if (mode === 'contents') f.srcdoc = doc(draft.contents, 'bleed=1');
     else if (mode === 'nobleed') f.srcdoc = doc(draft.contents, 'bleed=0');
     else if (mode === 'game' && gameSrcUrl()) { box.className = 'ad-pv-box web'; f.removeAttribute('srcdoc'); f.src = gameSrcUrl(); return; }
-    else if (mode === 'game' && NB.pagesSource(draft.game).source !== 'html') { f.removeAttribute('srcdoc'); f.src = 'about:blank'; return; }
+    else if (mode === 'game' && NB.pagesSource(draft.game).source !== 'html') {
+      const gs = NB.pagesSource(draft.game);
+      box.className = 'ad-pv-box web';
+      f.removeAttribute('src');
+      f.srcdoc = '<!doctype html><body style="margin:0;display:grid;place-items:center;min-height:90vh;font:16px system-ui,sans-serif;color:#555;text-align:center;padding:24px">' +
+        '<p>' + (gs.source === 'link' ? 'Paste the game pages link to see the pages here.' : IS_NEW ? 'Publish the notebook, then make and SAVE an edition in the generator. Its pages show here.' : 'No saved edition yet. OPEN THE GENERATOR, GENERATE, then SAVE. Its pages show here.') + '</p></body>';
+      return;
+    }
     else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
     else if (mode === 'sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
     else if (mode === 'samplerfront') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
@@ -2072,6 +2079,8 @@
     return null;
   }
   let editions = null; // { folder, list: [{ name, path }] } saved editions in <folder>/pages/
+  // Coming back from the generator's tab: look again, so a just-saved edition shows up.
+  window.addEventListener('focus', () => { if (tab === 'game' && NB.pagesSource(draft.game).source === 'generator' && !IS_NEW && $('#ad-eds')) { editions = null; drawEditions(); } });
   function tabGame(p) {
     const s = NB.pagesSource(draft.game), g = draft.game;
     const sheets = (g.print && g.print.sheets) || 72;
@@ -2122,7 +2131,8 @@
     if (gs) gs.onchange = () => { draft.game.pages = { source: 'generator', generator: gs.value, edition: '' }; persist(); show(tab); };
     if (s.source === 'generator' && !IS_NEW) {
       $('#ad-ed-refresh').onclick = () => { editions = null; drawEditions(); };
-      drawEditions();
+      // Read the list fresh each time: editions are usually saved in the generator's own browser tab.
+      editions = null; drawEditions();
     }
   }
   async function drawEditions() {
@@ -2138,6 +2148,8 @@
       const src = NB.pagesSource(draft.game), cur = src.edition, gen = genOf(src.generator);
       // Only this generator's editions (each generator names its files its own way).
       const list = editions.list.filter(x => gen.match.test(x.name));
+      // Nothing picked yet: use the newest saved edition, so a first SAVE in the generator is all it takes.
+      if (!cur && list.length) { draft.game.pages.edition = list[0].path; persist(); show(tab); return; }
       const missing = cur && !list.some(x => x.path === cur);
       el().innerHTML = list.length || missing ? '<ul class="ad-eds" role="radiogroup" aria-label="Saved editions">' +
         (missing ? '<li><button type="button" role="radio" aria-checked="true" disabled><b>' + esc(cur.split('/').pop().replace(/\.json$/, '').toUpperCase()) + '</b><small>Chosen, but no longer saved. Pick another.</small></button></li>' : '') +
