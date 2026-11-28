@@ -143,8 +143,11 @@ async function build(browser, base, folder) {
   if (src.source === 'generator') {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(src.generator) || !fs.existsSync(path.join(ROOT, 'studio/generators', src.generator, 'index.html'))) throw new Error('Game pages: there is no generator "' + src.generator + '"');
     const ed = String(src.edition).replace(/^\/+/, '');
-    if (!/^[a-z0-9][a-z0-9/-]*\/pages\/[\w.-]+\.json$/.test(ed) || !fs.existsSync(path.join(ROOT, ed))) throw new Error('Game pages: the saved edition ' + (ed || '(none chosen)') + ' is not on the site');
-    gamePdf = await renderUrl(browser, base + '/studio/generators/' + src.generator + '/?pdf=1&edition=' + encodeURIComponent(ed), null, true);
+    // A new notebook can only save an edition once it is published, so until one is picked
+    // the notebook prints its own HTML game sheet instead of failing the build.
+    if (!ed) console.log('  No saved edition picked yet for the ' + src.generator + ' generator, so the HTML game sheet is used for now.');
+    else if (!/^[a-z0-9][a-z0-9/-]*\/pages\/[\w.-]+\.json$/.test(ed) || !fs.existsSync(path.join(ROOT, ed))) throw new Error('Game pages: the saved edition ' + (ed || '(none chosen)') + ' is not on the site');
+    if (ed) gamePdf = await renderUrl(browser, base + '/studio/generators/' + src.generator + '/?pdf=1&edition=' + encodeURIComponent(ed), null, true);
   }
   const copies = src.source === 'link' ? Math.max(1, +P.sheets || 1) : 1;
   // contents.html as a PDF, with the game pages from the source when there is one.
