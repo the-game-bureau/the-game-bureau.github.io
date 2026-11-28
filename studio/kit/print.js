@@ -10,7 +10,8 @@
  *   contents.html?bleed=0                  trim size with no bleed (print-at-home copy)
  *   cover.html?layout=front&stamp=sampler  the free sampler's front cover: the chosen front cover, stamped SAMPLER
  *   contents.html?only=scoring          just one part: rules, scoring (fixed pages) or game (the repeated sheet)
- *   sampler.html?part=sampler              the sampler's own pages (any <section data-rules> in it is left out)
+ *   contents.html?only=game&repeat=1       one game sheet: repeat=N overrides every data-repeat count
+ *   sampler.html?part=sampler              the sample game sheet made for the sampler (any <section data-rules> in it is left out)
  *   ...&autoprint                          open the print dialog once laid out (Save as PDF)
  *
  * Text filled from game.json anywhere in the page: {{title}} {{subtitle}} {{tagline}} {{kicker}}
@@ -66,7 +67,8 @@
 
     // 1. Repeat any <template data-repeat="N">, filling {{n}} with 1..N.
     document.querySelectorAll('template[data-repeat]').forEach(t => {
-      const n = +t.dataset.repeat || 1, start = +(t.dataset.start || 1);
+      // ?repeat=N prints every repeated part N times instead (repeat=1: one game sheet, for the sampler).
+      const n = +q.get('repeat') || +t.dataset.repeat || 1, start = +(t.dataset.start || 1);
       const per = +(t.dataset.per || 1); // items per page: {{n}} counts items, {{a}} {{b}} ... are page items
       let html = '';
       for (let i = 0; i < n; i++) {
@@ -78,9 +80,8 @@
       t.remove();
     });
 
-    // 2. The free sampler is always: the chosen front cover stamped SAMPLER, the rules, the scoring
-    //    pages, then sampler.html's own pages (Kevin, 2026-11-27). The rules and scoring come from
-    //    contents.html, so sampler.html (?part=sampler) never brings in rules of its own.
+    // 2. sampler.html (?part=sampler) is one of the parts the Sampler tab can pick (game.json "sampler").
+    //    The rules come from contents.html, so it never brings in rules of its own.
     const isSampler = q.get('part') === 'sampler';
     if (isSampler) document.querySelectorAll('[data-rules]').forEach(el => el.remove());
 
