@@ -63,7 +63,7 @@
   let saved = null;   // { game, rules, cover, contents } as last saved (text, except game)
   let draft = null;   // same shape, being edited
   let build = null;   // pdf/build.json
-  let tab = 'checklist';
+  let tab = 'colors';
   const pending = (window.NB_PENDING = {}); // images/x.jpg -> data URL, picked but not saved
   // Previews read the editor's current state straight from here (kit.js NB.draft), not from storage.
   window.NB_LIVE_KEY = DKEY;
@@ -784,7 +784,7 @@
       clearDraft();
       if (serverKey) await GH.writeDrafts([{ key: serverKey, delete: true }], 'Published ' + game.title + ', so drop its saved draft').catch(() => {});
       updateBar('Published. Opening ' + esc(game.title) + '…', 'ok');
-      leaving = true; location.replace('/studio/?game=' + encodeURIComponent(slug) + '#checklist');
+      leaving = true; location.replace('/studio/?game=' + encodeURIComponent(slug) + '#colors');
     } catch (e) {
       updateBar('Not saved: ' + esc(e.message), 'bad');
       busy(false);
@@ -2321,8 +2321,8 @@
       NB.applyBrand(Object.assign({ brand: {} }, g, { brand: Object.assign({ color: '#1F3A5F', accent: '#E0A526', paper: '#FFFDF7', ink: '#16181A' }, g.brand || {}) }));
       frame();
       // Plain /studio/ always opens on Welcome (Kevin); a link that names a tab opens that tab.
-      if (!CHOSEN && !tabFromHash()) history.replaceState(null, '', location.pathname + location.search + '#welcome');
-      show(tabFromHash() || (!GH.token() || !CHOSEN ? 'welcome' : IS_NEW ? 'content' : 'checklist'));
+      // Plain /studio/ always opens on Welcome (Kevin); a link that names a tab opens that tab; a loaded notebook opens on Colors (Kevin, 2026-11-28).
+      show(tabFromHash() || (!GH.token() || !CHOSEN ? 'welcome' : IS_NEW ? 'content' : 'colors'));
       loadChecklistFacts();
       if (staleNote) flash(esc(staleNote), 'ok', 9000);
       addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== tab) show(t); });
