@@ -51,12 +51,14 @@
     front: ['Front cover', 'Your chosen cover, with the SAMPLER stamp'],
     rules: [null, 'The notebook\'s rules'], // the name is the rules name
     scoring: ['Scoring pages', 'The fixed pages after the rules'],
-    game: ['Game page', 'One game sheet from the notebook\'s game pages'],
+    game: ['Game pages', 'Game sheets from the notebook\'s game pages'],
     sampler: ['Sample game sheet', 'The sheet made for the sampler'],
     back: ['Back cover', 'The notebook\'s back cover'],
   };
   const SAMPLER_DEFAULT = ['front', 'rules', 'scoring', 'sampler'];
   const samplerPicked = () => Array.isArray(draft.game.sampler) ? [...new Set(draft.game.sampler)].filter(k => SAMPLER_PARTS[k]) : SAMPLER_DEFAULT.slice();
+  // How many of each non-cover part go in the sampler (game.json "samplerQty"; 1 when not set).
+  const samplerQty = k => /^(front|back)$/.test(k) ? 1 : Math.max(1, Math.min(99, Math.floor(+((draft.game.samplerQty || {})[k]) || 1)));
   const samplerName = k => SAMPLER_PARTS[k][0] || NB.rulesName(draft.game);
   const samplerFrom = contents => {
     const x = splitContents(contents);
@@ -282,7 +284,7 @@
       scoring: [['scoring', 'Scoring pages']],
       game: [['game', 'Game sheets']],
       // The parts picked for the free sampler, in the order they print.
-      sampler: samplerPicked().map((k, i) => ['sampler-' + k, (i + 1) + '. ' + samplerName(k)]),
+      sampler: samplerPicked().map((k, i) => ['sampler-' + k, (i + 1) + '. ' + samplerName(k) + (samplerQty(k) > 1 ? ' x' + samplerQty(k) : '')]),
     }[t];
     document.querySelector('.ad-shell').classList.toggle('no-preview', !opts);
     document.querySelector('.ad-shell').classList.toggle('wide', t === 'content');
@@ -399,12 +401,12 @@
       return;
     }
     else if (mode === 'scoring' || mode === 'game') f.srcdoc = doc(draft.contents, 'bleed=1&only=' + mode);
-    else if (mode === 'sampler-sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler');
+    else if (mode === 'sampler-sampler') f.srcdoc = doc(draft.sampler, 'bleed=0&part=sampler&repeat=' + samplerQty('sampler'));
     else if (mode === 'sampler-front') f.srcdoc = doc(coverTagged(), 'layout=front&stamp=sampler');
     else if (mode === 'sampler-back') f.srcdoc = doc(coverTagged(), 'layout=back');
     else if (mode === 'sampler-rules') f.srcdoc = doc(draft.contents, 'bleed=0&only=rules');
     else if (mode === 'sampler-scoring') f.srcdoc = doc(draft.contents, 'bleed=0&only=scoring');
-    else if (mode === 'sampler-game') f.srcdoc = doc(draft.contents, 'bleed=0&only=game&repeat=1');
+    else if (mode === 'sampler-game') f.srcdoc = doc(draft.contents, 'bleed=0&only=game&repeat=' + samplerQty('game'));
     // Shrink print pages to fit the preview column.
     if (box.classList.contains('print')) f.onload = () => {
       try {
@@ -1543,15 +1545,23 @@
       const yes = i >= 0;
       return '<li class="ad-smp' + (yes ? '' : ' off') + '" data-k="' + k + '"><label><input type="checkbox"' + (yes ? ' checked' : '') + '>' +
         '<span class="ad-smp-n">' + (yes ? i + 1 : '') + '</span><span><b>' + esc(samplerName(k)) + '</b><small>' + esc(SAMPLER_PARTS[k][1]) + '</small></span></label>' +
+        (yes && !/^(front|back)$/.test(k) ? '<label class="ad-smp-q" title="How many in the sampler">Qty <input type="number" min="1" max="99" step="1" inputmode="numeric" value="' + samplerQty(k) + '" data-q></label>' : '') +
         (yes ? '<span class="ad-smp-mv"><button type="button" data-mv="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>&uarr;</button>' +
           '<button type="button" data-mv="1" aria-label="Move down"' + (i === on.length - 1 ? ' disabled' : '') + '>&darr;</button></span>' : '') + '</li>';
     };
-    p.innerHTML = '<h2>Sampler</h2><p class="ad-lede">Tick what goes in the free sampler, and use the arrows to put it in order. The sampler PDF is built from this list.</p>' +
+    p.innerHTML = '<h2>Sampler</h2><p class="ad-lede">Tick what goes in the free sampler, set how many of each page, and use the arrows to put it in order. The sampler PDF is built from this list.</p>' +
       '<ol class="ad-smp-list">' + on.map(row).join('') + off.map(k => row(k, -1)).join('') + '</ol>';
     const set = list => { draft.game.sampler = list; persist(); show(tab); };
     p.querySelectorAll('.ad-smp').forEach(li => {
       const k = li.dataset.k;
-      li.querySelector('input').onchange = e => set(e.target.checked ? on.concat(k) : on.filter(x => x !== k));
+      const q = li.querySelector('[data-q]');
+      if (q) q.onchange = () => {
+        const n = Math.max(1, Math.min(99, Math.floor(+q.value) || 1)), m = Object.assign({}, draft.game.samplerQty);
+        if (n > 1) m[k] = n; else delete m[k];
+        if (Object.keys(m).length) draft.game.samplerQty = m; else delete draft.game.samplerQty;
+        persist(); show(tab);
+      };
+      li.querySelector('input[type=checkbox]').onchange = e => set(e.target.checked ? on.concat(k) : on.filter(x => x !== k));
       li.querySelectorAll('[data-mv]').forEach(b => { b.onclick = () => {
         const i = on.indexOf(k), j = i + +b.dataset.mv, list = on.slice();
         [list[i], list[j]] = [list[j], list[i]]; set(list);
