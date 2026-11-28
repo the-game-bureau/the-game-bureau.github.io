@@ -196,16 +196,25 @@ async function build(browser, base, folder) {
   const picked = Array.isArray(g.sampler) ? [...new Set(g.sampler)].filter(k => SAMPLER_PARTS[k]) : ['front', 'rules', 'scoring', 'sampler'];
   if (!picked.length) throw new Error('The sampler has nothing in it. Pick at least one part in the studio\'s Sampler tab.');
   if (picked.includes('sampler') && !fs.existsSync(path.join(dir, 'sampler.html'))) throw new Error(folder + ' has no sampler.html (the sample game sheet). Open it in the studio and publish to make one, or untick it in the Sampler tab.');
-  async function gameSheet() {
-    if (!gamePdf) return render(...SAMPLER_PARTS.game.slice(0, 2));
-    const s = await load(gamePdf), one = await PDFDocument.create();
-    one.addPage((await one.copyPages(s, [0]))[0]);
+  // How many of each non-cover part (game.json "samplerQty", the Sampler tab's quantity boxes).
+  // Game page and sample sheet print that many numbered sheets; rules and scoring repeat whole.
+  const qty = k => /^(front|back)$/.test(k) ? 1 : Math.max(1, Math.min(99, Math.floor(+((g.samplerQty || {})[k]) || 1)));
+  async function gameSheet(n) {
+    if (!gamePdf) return render(SAMPLER_PARTS.game[0], 'bleed=0&only=game&repeat=' + n);
+    const s = await load(gamePdf), some = await PDFDocument.create();
+    const idx = Array.from({ length: n }, (_, i) => i % s.getPageCount()); // the first n pages, from the start again if fewer
+    (await some.copyPages(s, idx)).forEach(pg => some.addPage(pg));
     const doc = await PDFDocument.create();
-    await place(doc, await one.save(), W, H, 0, 1);
+    await place(doc, await some.save(), W, H, 0, 1);
     return doc.save();
   }
   const samplerParts = [];
-  for (const k of picked) samplerParts.push(k === 'game' ? await gameSheet() : await render(...SAMPLER_PARTS[k].slice(0, 2)));
+  for (const k of picked) {
+    const n = qty(k);
+    if (k === 'game') samplerParts.push(await gameSheet(n));
+    else if (k === 'sampler') samplerParts.push(await render('sampler.html', 'bleed=0&part=sampler&repeat=' + n));
+    else { const buf = await render(...SAMPLER_PARTS[k].slice(0, 2)); for (let i = 0; i < n; i++) samplerParts.push(buf); }
+  }
   async function combine(parts, title) {
     const doc = await PDFDocument.create();
     doc.setTitle(title); doc.setAuthor(P.author || 'The Game Bureau');
