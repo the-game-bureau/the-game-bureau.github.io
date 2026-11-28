@@ -113,11 +113,15 @@ starter, or copy a folder by hand and change `slug` in `game.json` to the folder
 
 ## Generators
 
-`studio/generators/` holds tools that make printable pages for a game. The studio's
-**Generators** tab lists them (the list is `GENERATORS` in `kit/admin.js`), and
-`/studio/generators/` opens that tab.
+`studio/generators/` holds tools that make printable pages for a game. They open from
+Pages > Game > Use a generator (the list is `GENERATORS` in `kit/admin.js`), and
+`/studio/generators/` opens that tab. Each saves its editions to `<game>/pages/`, and each
+generator names its files its own way (`match` in `GENERATORS`) so the Game tab lists only its own.
 
 - `wordfleet-battle-sheets/index.html`: Word Fleet battle sheets, one self-contained file
   (word list, layout and code). It came from the `publishing/` book tool in the
-  `the-game-bureau/wordfleet` repo and runs in the browser instead of Node. SAVE EDITION downloads
-  the words and launch codes as JSON, and LOAD EDITION brings the same sheets back for a reprint.
+  `the-game-bureau/wordfleet` repo and runs in the browser instead of Node. Editions are named
+  `<date>-<time>.json`.
+- `tic-tac-toe/index.html`: traditional Tic Tac Toe pages. Each Letter page has nine numbered
+  boards of nine squares (games count on from page to page), a Winner X / O / Draw line under
+  each, and a win tally. Editions are named `tic-tac-toe-<date>-<time>.json`.

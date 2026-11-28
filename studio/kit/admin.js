@@ -2053,7 +2053,11 @@
   // To add one, put its folder there and add a line here.
   const GENERATORS = [
     { path: 'wordfleet-battle-sheets', title: 'Word Fleet battle sheets',
-      about: 'Letter-size battle sheets, each with its own hidden fleet of five words and five launch codes.' }
+      about: 'Letter-size battle sheets, each with its own hidden fleet of five words and five launch codes.',
+      match: /^\d/ },
+    { path: 'tic-tac-toe', title: 'Tic Tac Toe pages',
+      about: 'Letter-size pages of traditional Tic Tac Toe: nine numbered boards of nine squares on every page, with a win tally.',
+      match: /^tic-tac-toe-/ }
   ];
 
   // ---------- tab: Game (Pages) ----------
@@ -2130,11 +2134,13 @@
         editions = { folder: FOLDER, list: (Array.isArray(list) ? list : []).filter(f => f.type === 'file' && /\.json$/.test(f.name)).map(f => ({ name: f.name.replace(/\.json$/, ''), path: FOLDER + '/pages/' + f.name })).sort((a, b) => b.name.localeCompare(a.name)) };
       }
       if (!el() || tab !== 'game') return;
-      const cur = NB.pagesSource(draft.game).edition;
-      const missing = cur && !editions.list.some(x => x.path === cur);
-      el().innerHTML = editions.list.length || missing ? '<ul class="ad-eds" role="radiogroup" aria-label="Saved editions">' +
+      const src = NB.pagesSource(draft.game), cur = src.edition, gen = genOf(src.generator);
+      // Only this generator's editions (each generator names its files its own way).
+      const list = editions.list.filter(x => gen.match.test(x.name));
+      const missing = cur && !list.some(x => x.path === cur);
+      el().innerHTML = list.length || missing ? '<ul class="ad-eds" role="radiogroup" aria-label="Saved editions">' +
         (missing ? '<li><button type="button" role="radio" aria-checked="true" disabled><b>' + esc(cur.split('/').pop().replace(/\.json$/, '').toUpperCase()) + '</b><small>Chosen, but no longer saved. Pick another.</small></button></li>' : '') +
-        editions.list.map(x => '<li><button type="button" role="radio" data-ed="' + esc(x.path) + '" aria-checked="' + (x.path === cur) + '"><b>' + esc(x.name.toUpperCase()) + '</b><small>' + (x.path === cur ? 'In the notebook' : 'Use this edition') + '</small></button></li>').join('') + '</ul>' +
+        list.map(x => '<li><button type="button" role="radio" data-ed="' + esc(x.path) + '" aria-checked="' + (x.path === cur) + '"><b>' + esc(x.name.toUpperCase()) + '</b><small>' + (x.path === cur ? 'In the notebook' : 'Use this edition') + '</small></button></li>').join('') + '</ul>' +
         (cur ? '' : '<p class="ad-help">Pick the edition the notebook prints.</p>')
         : '<p class="ad-help">No saved editions yet. OPEN THE GENERATOR, GENERATE, then SAVE. Then click Refresh.</p>';
       el().querySelectorAll('[data-ed]').forEach(b => { b.onclick = () => { draft.game.pages.edition = b.dataset.ed; persist(); show(tab); }; });

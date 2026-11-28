@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Tic Tac Toe pages - Game Notebook Studio</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/studio/kit/kit.css">
+<link rel="stylesheet" href="/studio/kit/admin.css">
+<!--
+  TIC TAC TOE PAGE GENERATOR. Everything it needs is in this one file: the page layout, its
+  styles, and the code that fills it in. It follows the Word Fleet battle sheet generator.
+  - Each Letter page holds nine traditional Tic Tac Toe boards in three rows of three. A board
+    is the classic # of two lines each way, so it makes nine squares.
+  - Every board is numbered (Game 1, Game 2, ...), counting on from page to page, with a
+    "Winner: X O Draw" line under it. Each page ends with a tally for X wins, O wins and draws.
+  - GAME picks one of the studio's notebooks (read from GitHub with gh.js). Its title heads every
+    page and its web address (game.json "url", else thegamebureau.com/<folder>) sits bottom right.
+  - SAVE commits the edition to <notebook folder>/pages/tic-tac-toe-<date>-<time>.json on main.
+    The tic-tac-toe- prefix keeps these apart from other generators' editions in the same folder.
+  - LOAD lists the editions saved for the chosen notebook, each with LOAD (open it again) and DELETE.
+  - It opens from the studio's Game tab (Use a generator). ?game=<folder> picks that notebook.
+    ?edition=<path> shows a saved edition; with &bare=1 only the pages show (the Game tab preview),
+    and with &pdf=1 the PDF build prints it (body data-ready is set once the pages are drawn).
+-->
+<style>
+/* ---------- the page around the sheets ---------- */
+.gen-wrap{max-width:1100px;margin:0 auto;padding:16px}
+.gen-controls{margin-bottom:18px}
+.gen-back{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;text-decoration:none;margin-bottom:10px}
+.gen-controls h2{font-size:34px;color:var(--brand)}
+.gen-row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.gen-row label{display:grid;gap:4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.gen-row select{min-width:240px;max-width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;font:600 16px "NB Text",system-ui,sans-serif}
+.gen-row input[type=number]{width:96px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font:600 16px "NB Text",system-ui,sans-serif}
+.gen-row .nb-btn{min-height:44px}
+.gen-saved{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:4px}
+.gen-saved h3{margin:0 0 8px;font-size:15px;letter-spacing:.06em}
+.gen-saved ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.gen-saved li{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.gen-saved li b{min-width:150px}
+.gen-saved .nb-btn{min-height:36px;padding:6px 12px;font-size:13px}
+#gen-status{margin:14px 0 0}
+.gen-sheets{display:grid;justify-content:center;gap:20px}
+
+/* ---------- one page: Letter, 0.5 in margins, nine boards ---------- */
+@page{size:letter;margin:.5in}
+.bs-page{box-sizing:border-box;width:8.5in;height:11in;padding:.5in;background:#fff;box-shadow:0 2px 9px rgba(25,47,39,.14)}
+.bs-page *,.bs-page *::before,.bs-page *::after{box-sizing:border-box}
+.tt-sheet{display:grid;grid-template-rows:auto 1fr auto;height:10in;color:#181a18;font:11pt/1.15 Arial,sans-serif;letter-spacing:0}
+.tt-head,.tt-foot{display:flex;align-items:baseline;justify-content:space-between;gap:.15in}
+.tt-head{padding-bottom:.075in;border-bottom:1pt solid;font-size:9pt;font-weight:700}
+.tt-head strong{font-size:16pt}
+.tt-boards{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:.2in .25in;padding:.22in 0 .18in}
+.tt-game{display:grid;grid-template-rows:auto 1fr auto;padding:.1in .14in .09in;border:.8pt solid #9a9f9a;border-radius:.08in}
+.tt-game h3{display:flex;justify-content:space-between;margin:0;font:700 9pt/1.1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#181a18}
+.tt-game h3 span{font-weight:400;letter-spacing:0;text-transform:none;color:#555}
+/* The board: the classic # of two lines each way, making nine squares. */
+.tt-board{align-self:center;justify-self:center;display:grid;grid-template-columns:repeat(3,.62in);grid-template-rows:repeat(3,.62in);margin:.08in 0}
+.tt-board i{border-color:#181a18;border-style:solid;border-width:0}
+.tt-board i:nth-child(-n+6){border-bottom-width:2.2pt}
+.tt-board i:not(:nth-child(3n)){border-right-width:2.2pt}
+.tt-win{display:flex;align-items:center;justify-content:center;gap:.09in;font-size:8pt;font-weight:700;text-transform:uppercase}
+.tt-win span{display:inline-flex;align-items:center;gap:.035in}
+.tt-win span::before{content:"";width:.12in;height:.12in;border:.7pt solid;border-radius:50%}
+.tt-tally{display:flex;justify-content:center;gap:.3in;padding:.07in .1in;border:.8pt solid;font-size:9pt;font-weight:700;text-transform:uppercase}
+.tt-tally span{display:inline-flex;align-items:baseline;gap:.06in}
+.tt-tally span::after{content:"";width:.6in;border-bottom:.65pt solid}
+.tt-foot{margin-top:.11in;padding-top:.073in;border-top:.55pt solid #757975;color:#444;font-size:8pt}
+
+@media screen{.gen-sheets{zoom:var(--z,1)}}
+body.gen-bare .ad-top,body.gen-bare .gen-controls{display:none}
+body.gen-bare .gen-wrap{padding:8px}
+@media print{
+  body.ad-app{background:#fff}
+  .ad-top,.gen-controls{display:none}
+  .gen-wrap{max-width:none;margin:0;padding:0}
+  .gen-sheets{display:block}
+  .bs-page{width:auto;height:auto;padding:0;box-shadow:none;break-after:page;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bs-page:last-child{break-after:auto}
+  .tt-sheet{height:9.9in} /* a hair under the 10 in printable height, so no blank page follows */
+}
+</style>
+</head>
+<body class="ad-app">
+<header class="ad-top"><div class="ad-top-in"><div class="ad-id"><svg class="ad-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 7h4M3 12h4M3 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 9h6M10 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg><span class="ad-studio">THE GAME BUREAU - Game Notebook Studio</span></div></div></header>
+
+<div class="gen-wrap">
+  <section class="ad-panel gen-controls">
+    <a class="gen-back" id="gen-back" href="/studio/">&larr; BACK TO THE STUDIO</a>
+    <h2>Tic Tac Toe pages</h2>
+    <p class="ad-lede">Each page holds nine games of traditional Tic Tac Toe, each a board of nine squares. The games are numbered from Game 1 on, and each page ends with a tally for X wins, O wins and draws. SAVE keeps the edition on the website, and LOAD opens a saved one again.</p>
+    <div class="gen-row">
+      <label>Game <select id="gen-game"><option value="">Loading notebooks…</option></select></label>
+      <label>Pages <input id="gen-count" type="number" min="1" max="200" value="50"></label>
+      <button class="nb-btn solid" id="gen-new" type="button">GENERATE</button>
+      <button class="nb-btn" id="gen-save" type="button">SAVE</button>
+      <button class="nb-btn" id="gen-load" type="button" aria-expanded="false">LOAD</button>
+    </div>
+    <p class="ad-status" id="gen-status" role="status"></p>
+    <div class="gen-saved" id="gen-saved" hidden></div>
+  </section>
+  <div class="gen-sheets" id="gen-sheets"></div>
+</div>
+
+<script src="/studio/kit/gh.js"></script>
+<script>
+(function () {
+  'use strict';
+  var PER = 9; // boards per page
+  var MAX = 200; // pages per edition
+  var PREFIX = 'tic-tac-toe-'; // saved editions: <folder>/pages/tic-tac-toe-<date>-<time>.json
+  var STORE = 'ttt-pages';
+  var GAME_STORE = 'ttt-pages-game';
+  // Used until the notebook list arrives, and if GitHub can't be reached.
+  var FALLBACK = { folder: '', title: 'TIC TAC TOE', url: 'thegamebureau.com' };
+  var notebook = FALLBACK, notebooks = [];
+  var Q = new URLSearchParams(location.search);
+  var PDF = Q.has('pdf');
+  if (Q.has('bare') || PDF) document.body.classList.add('gen-bare');
+
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  // Page k (from 0) holds games 9k + 1 to 9k + 9.
+  function createSheets(count) {
+    return Array.from({ length: count }, function (_, k) { return { first: k * PER + 1 }; });
+  }
+  function validateSheets(sheets) {
+    if (!Array.isArray(sheets) || !sheets.length || sheets.length > MAX) throw new Error('An edition needs 1 to ' + MAX + ' pages.');
+    sheets.forEach(function (sheet, k) {
+      if (!sheet || sheet.first !== k * PER + 1) throw new Error('Page ' + (k + 1) + ' is out of order.');
+    });
+  }
+
+  var titleCase = function (t) { return String(t).toLowerCase().replace(/(^|[\s-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); };
+  // A notebook's web address, the same way the printed notebook works it out (print.js).
+  var siteUrl = function (folder, g) { return String((g && g.url) || 'thegamebureau.com/' + folder).replace(/^https?:\/\//, '').replace(/\/$/, ''); };
+
+  function board(n) {
+    return '<div class="tt-game"><h3>Game ' + n + '<span>X vs O</span></h3>' +
+      '<div class="tt-board" role="img" aria-label="Tic Tac Toe board for game ' + n + '">' + '<i></i>'.repeat(9) + '</div>' +
+      '<div class="tt-win">Winner <span>X</span><span>O</span><span>Draw</span></div></div>';
+  }
+  function renderSheet(sheet, index) {
+    var boards = '';
+    for (var i = 0; i < PER; i++) boards += board(sheet.first + i);
+    var title = String(notebook.title).toUpperCase();
+    return '<section class="bs-page" aria-label="Tic Tac Toe page ' + (index + 1) + '"><div class="tt-sheet">' +
+      '<header class="tt-head"><strong>' + esc(title) + (/TIC.?TAC.?TOE/.test(title) ? '' : ' TIC TAC TOE') + '</strong><span>The ' + esc(titleCase(notebook.title)) + ' Game Notebook</span></header>' +
+      '<div class="tt-boards">' + boards + '</div>' +
+      '<div><div class="tt-tally"><span>X wins</span><span>O wins</span><span>Draws</span></div>' +
+      '<footer class="tt-foot"><strong>The Game Bureau</strong><span>Games ' + sheet.first + '&ndash;' + (sheet.first + PER - 1) + '</span><span>' + esc(notebook.url) + '</span></footer></div>' +
+      '</div></section>';
+  }
+
+  var edition = null;
+
+  function status(text, kind) { var s = $('#gen-status'); s.textContent = text; s.className = 'ad-status' + (kind ? ' ' + kind : ''); }
+
+  function show(ed, note) {
+    edition = ed;
+    if (ed.notebook && ed.notebook.title) setNotebook(ed.notebook);
+    ed.notebook = notebook;
+    $('#gen-count').value = ed.sheets.length;
+    $('#gen-sheets').innerHTML = ed.sheets.map(renderSheet).join('');
+    fit();
+    try { localStorage.setItem(STORE, JSON.stringify(ed)); } catch (e) { /* storage is optional */ }
+    var made = ed.made ? ' Made ' + new Date(ed.made).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) + '.' : '';
+    status((note ? note + ' ' : '') + 'Edition ' + String(ed.edition || '').toUpperCase() + ': ' + ed.sheets.length + ' page' + (ed.sheets.length === 1 ? '' : 's') + ' (' + ed.sheets.length * PER + ' games).' + made, 'ok');
+  }
+
+  function generate() {
+    var n = Math.round(Number($('#gen-count').value));
+    if (!(n >= 1 && n <= MAX)) { status('Choose 1 to ' + MAX + ' pages.', 'bad'); return; }
+    var sheets = createSheets(n);
+    validateSheets(sheets);
+    var d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+    show({ schema: 1, game: 'tic-tac-toe', generator: 'tic-tac-toe', notebook: notebook, edition: PREFIX + stamp, made: d.toISOString(), sheets: sheets }, 'New pages made.');
+  }
+
+  // ---------- which notebook the sheets belong to ----------
+  function setNotebook(nb) {
+    notebook = { folder: nb.folder || '', title: nb.title, url: nb.url || siteUrl(nb.folder, null) };
+    if ($('#gen-back')) backTo();
+    try { localStorage.setItem(GAME_STORE, JSON.stringify(notebook)); } catch (e) { /* optional */ }
+    fillPicker();
+  }
+  function fillPicker() {
+    var list = notebooks.slice();
+    if (!list.some(function (n) { return n.folder === notebook.folder; })) list.unshift(notebook);
+    $('#gen-game').innerHTML = list.map(function (n) {
+      return '<option value="' + esc(n.folder) + '"' + (n.folder === notebook.folder ? ' selected' : '') + '>' + esc(titleCase(n.title)) + ' (' + esc(n.url) + ')</option>';
+    }).join('');
+  }
+  $('#gen-game').onchange = function () {
+    var f = this.value, nb = notebooks.filter(function (n) { return n.folder === f; })[0];
+    if (!nb) return;
+    setNotebook(nb);
+    if (edition) { edition.notebook = notebook; edition.saved = false; show(edition, 'Pages now say ' + titleCase(nb.title) + '.'); }
+    if (!$('#gen-saved').hidden) listSaved();
+  };
+  try { var g0 = JSON.parse(localStorage.getItem(GAME_STORE)); if (g0 && g0.title) notebook = g0; } catch (e) { /* none saved */ }
+  // ?game=<folder> (from the studio's Game tab) picks that notebook until the list arrives.
+  if (/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(Q.get('game') || '')) notebook = { folder: Q.get('game'), title: Q.get('game').toUpperCase(), url: siteUrl(Q.get('game'), null) };
+  var backTo = function () { $('#gen-back').href = notebook.folder ? '/studio/?game=' + encodeURIComponent(notebook.folder) + '#game' : '/studio/'; };
+  backTo();
+  if (!PDF) GH.listGames().then(function (r) {
+    notebooks = r.games.filter(function (x) { return !/^(studio|template)(\/|$)/.test(x.folder); }).map(function (x) {
+      return { folder: x.folder, title: x.game.title || x.folder, url: siteUrl(x.folder, x.game) };
+    }).sort(function (a, b) { return a.title.localeCompare(b.title); });
+    // Refresh the saved choice with the notebook's current title and address.
+    var now = notebooks.filter(function (n) { return n.folder === notebook.folder; })[0];
+    if (now && (now.title !== notebook.title || now.url !== notebook.url)) {
+      setNotebook(now);
+      if (edition) { edition.notebook = notebook; show(edition); }
+    } else fillPicker();
+  }).catch(function (e) {
+    fillPicker();
+    status('Could not list the studio notebooks (' + e.message + '), so only ' + titleCase(notebook.title) + ' is offered.', 'bad');
+  });
+
+  function fit() {
+    // Letter pages are 8.5 in wide; shrink them to fit narrow screens.
+    var room = $('.gen-wrap').clientWidth - 32;
+    $('#gen-sheets').style.setProperty('--z', Math.min(1, room / 816).toFixed(3));
+  }
+
+  $('#gen-new').onclick = function () {
+    if (edition && !edition.saved && !confirm('Make a new set of pages? These pages have not been saved to the website.')) return;
+    generate();
+  };
+  // ---------- saving to and opening from the website ----------
+  var savedDir = function () { return notebook.folder + '/pages/'; };
+  var needKey = function () {
+    if (GH.token()) return false;
+    $('#gen-status').innerHTML = 'Saving to the website needs the studio\'s one-time setup. Open <a href="/studio/#connect">Connect</a>, then come back.';
+    $('#gen-status').className = 'ad-status bad';
+    return true;
+  };
+
+  $('#gen-save').onclick = function () {
+    if (!edition || needKey()) return;
+    if (!notebook.folder) { status('Pick a game first.', 'bad'); return; }
+    var btn = this, path = savedDir() + edition.edition + '.json';
+    edition.notebook = notebook;
+    btn.disabled = true;
+    GH.commit([{ path: path, text: JSON.stringify(edition, function (k, v) { return k === 'saved' ? undefined : v; }, 2) + '\n' }],
+      'Save ' + titleCase(notebook.title) + ' Tic Tac Toe pages, edition ' + edition.edition, function (t) { status(t); })
+      .then(function () {
+        edition.saved = true;
+        status('Saved edition ' + String(edition.edition).toUpperCase() + ' to the website (' + GH.SITE + '/' + savedDir() + ').', 'ok');
+        if (!$('#gen-saved').hidden) listSaved();
+      })
+      .catch(function (e) { status('Could not save: ' + e.message, 'bad'); })
+      .then(function () { btn.disabled = false; });
+  };
+
+  function listSaved() {
+    var box = $('#gen-saved'), dir = savedDir();
+    box.innerHTML = '<p class="ad-help">Looking on the website…</p>';
+    GH.listFiles().then(function (files) {
+      var eds = files.filter(function (f) { return f.path.indexOf(dir + PREFIX) === 0 && /^[^/]+\.json$/.test(f.path.slice(dir.length)); })
+        .sort(function (a, b) { return b.path.localeCompare(a.path); });
+      box.innerHTML = '<h3>SAVED ' + esc(String(notebook.title).toUpperCase()) + ' EDITIONS</h3>' + (eds.length ? '<ul>' + eds.map(function (f) {
+        var name = f.path.slice(dir.length).replace(/\.json$/, '');
+        return '<li><b>' + esc(name.slice(PREFIX.length).toUpperCase()) + '</b><button type="button" class="nb-btn" data-open="' + esc(f.sha) + '" data-name="' + esc(name) + '">LOAD</button>' +
+          '<button type="button" class="nb-btn" data-del="' + esc(f.path) + '" data-name="' + esc(name) + '">DELETE</button></li>';
+      }).join('') + '</ul>' : '<p class="ad-help">Nothing saved for this game yet. GENERATE pages, then SAVE.</p>');
+      box.querySelectorAll('[data-del]').forEach(function (b) {
+        b.onclick = function () {
+          if (needKey()) return;
+          var name = b.dataset.name.toUpperCase();
+          if (!confirm('Delete edition ' + name + ' from the website? This cannot be undone here.')) return;
+          b.disabled = true;
+          GH.commit([{ path: b.dataset.del, delete: true }], 'Delete ' + titleCase(notebook.title) + ' Tic Tac Toe pages, edition ' + b.dataset.name, function (t) { status(t); })
+            .then(function () {
+              if (edition && edition.edition === b.dataset.name) edition.saved = false;
+              status('Deleted edition ' + name + ' from the website.', 'ok');
+              listSaved();
+            })
+            .catch(function (e) { b.disabled = false; status('Could not delete ' + name + ': ' + e.message, 'bad'); });
+        };
+      });
+      box.querySelectorAll('[data-open]').forEach(function (b) {
+        b.onclick = function () {
+          if (edition && !edition.saved && !confirm('Load the saved edition? The pages on screen have not been saved to the website.')) return;
+          GH.readBlobText(b.dataset.open).then(function (t) {
+            var ed = JSON.parse(t);
+            validateSheets(ed.sheets);
+            ed.saved = true;
+            show(ed, 'Loaded ' + b.dataset.name.toUpperCase() + ' from the website.');
+          }).catch(function (e) { status('Could not open it: ' + e.message, 'bad'); });
+        };
+      });
+    }).catch(function (e) { box.innerHTML = '<p class="ad-help">Could not look on the website: ' + esc(e.message) + '</p>'; });
+  }
+  $('#gen-load').onclick = function () {
+    var box = $('#gen-saved'), open = box.hidden;
+    box.hidden = !open; this.setAttribute('aria-expanded', String(open));
+    if (open) listSaved();
+  };
+  addEventListener('resize', fit);
+
+  if (Q.get('edition')) {
+    // ?edition=<path from the site root>: show that saved edition.
+    // For the PDF build, the notebook's current title and address come from its game.json.
+    var ready = function (err) { if (err) document.body.dataset.error = err; document.body.dataset.ready = err ? 'error' : '1'; };
+    fetch('/' + Q.get('edition').replace(/^\/+/, ''), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (ed) {
+        validateSheets(ed.sheets); ed.saved = true;
+        var f = ed.notebook && ed.notebook.folder;
+        if (!PDF || !f) return ed;
+        return fetch('/' + f + '/game.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (g) { if (g) ed.notebook = { folder: f, title: g.title || ed.notebook.title, url: siteUrl(f, g) }; return ed; }, function () { return ed; });
+      })
+      .then(function (ed) { show(ed); ready(); })
+      .catch(function (e) { status('Could not open ' + Q.get('edition') + ': ' + e.message, 'bad'); ready('Could not open ' + Q.get('edition') + ': ' + e.message); });
+    return;
+  }
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE)); validateSheets(saved.sheets); } catch (e) { saved = null; }
+  // Opened for one notebook (?game=), the last edition shows only if it was for that notebook.
+  if (saved && Q.get('game') && (saved.notebook || {}).folder !== Q.get('game')) saved = null;
+  if (saved) show(saved, 'Showing your last edition.'); else generate();
+})();
+</script>
+</body>
+</html>
